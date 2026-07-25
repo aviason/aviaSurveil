@@ -24,7 +24,7 @@ This is the canonical docs map for AviaSurveil360. Use it after the root
 | `demo-evidence/FIRST_PRODUCTION_ROUTE_FAMILIES_2026-07-21.md` | Task 5 organization, planning authority/calendar, versioned configuration, reminder, audit-trail, and dual-profile responsive parity evidence. |
 | `demo-evidence/LOCAL_RELEASE_CANDIDATE_2026-07-21.md` | Task 13 local `GO`, complete mock/HTTP/offline/security/restore matrix, dependency/SBOM review, and explicit production blockers. |
 | `demo-evidence/REACT_LEGACY_UI_PARITY_2026-07-22.md` | Task 16 exact 17/69 scope, full candidate matrix, 51-pair decoded-pixel and manual review, OIDC/offline/recovery evidence, and stakeholder handoff. |
-| `demo-evidence/REACT_86_SCREEN_DEMO_2026-07-22.md` | Full React Tasks 11–12 evidence: exact 86-route scope, 258 responsive and action checks, literal 71/259 one-shot visual result, baseline-integrity gap, and Plan 2 block. |
+| `demo-evidence/REACT_86_SCREEN_DEMO_2026-07-22.md` | Full React Tasks 11–12 evidence: exact 86-route scope, 258 responsive and action checks, literal 71/259 original one-shot visual result, 2026-07-25 baseline-integrity pass, latest 74/259 visual diagnostic, and Plan 2 block. |
 | `../api/openapi/aviasurveil360.yaml` | Minimal versioned transport source for the authorized local candidate slices. |
 | `../apps/web/` | Build-time-separated React/Vite mock and HTTP candidate entries with the canonical lifecycle, approved route families, PWA/readiness, atomic field storage, OPFS attachment recovery, and typed foreground sync. |
 | `../apps/api/` | One-module Go API/worker candidate with canonical and planning authority, local OIDC/session, PostgreSQL stores, bounded upload/scan, configuration/audit projections, and typed sync services. |

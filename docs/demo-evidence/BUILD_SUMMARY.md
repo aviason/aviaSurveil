@@ -40,8 +40,9 @@ The Full React migration now implements all 86 accepted routes in demo mode and
 records the Task 11 interaction/accessibility boundary plus the literal Task 12
 matrix in
 [Full React 86-Screen Demo Migration Evidence](REACT_86_SCREEN_DEMO_2026-07-22.md).
-The 86-route artifact remains `candidate-only`; the full visual and standalone
-baseline-integrity gates are `not verified`, so Plan 2 remains `blocked`.
+The 86-route artifact remains `candidate-only`; standalone baseline integrity is
+now `verified locally` as of 2026-07-25, but the full visual gate remains `not
+verified`, so Plan 2 remains `blocked`.
 The local recommendation is `GO`, the artifact remains `candidate-only`, and
 release is `release pending`. These adjacent candidates do not make the root
 demo or the overall product `production-ready`; production remains `blocked`.
@@ -68,10 +69,11 @@ and return to seed data.
 ## Latest UI evidence
 
 The 23 July 2026 Full React handoff records exactly 86 React routes, 258/258
-responsive route checks, 258/258 visible-action inventories, and a one-shot
-visual result of 71/259 passed and 188/259 failed. Standalone baseline integrity
-is `not verified` because the current canonical UI-audit document hash differs
-from the accepted manifest after removal of its deleted Turkish-companion link:
+responsive route checks, 258/258 visible-action inventories, and an original
+one-shot visual result of 71/259 passed and 188/259 failed. A 25 July 2026
+exact-runtime follow-up verified 258 baseline PNGs and confirmed the canonical
+UI-audit hash matches the accepted manifest; the fresh visual diagnostic remains
+`not verified` at 74/259 passed and 185/259 failed:
 [`REACT_86_SCREEN_DEMO_2026-07-22.md`](REACT_86_SCREEN_DEMO_2026-07-22.md).
 
 The 22 July 2026 React parity review covers all 17 routed surfaces at desktop,

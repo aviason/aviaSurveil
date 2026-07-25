@@ -259,8 +259,9 @@ separate `apps/web/package.json` owns the React candidate commands.
   51-pair decoded-pixel/manual parity review, and stakeholder handoff.
 - `docs/demo-evidence/REACT_86_SCREEN_DEMO_2026-07-22.md` —
   Full React Tasks 11–12 exact 86-route scope, 258 responsive and action
-  inventories, literal one-shot visual result, baseline-integrity gap, and
-  blocked Plan 2 handoff.
+  inventories, literal original one-shot visual result, 2026-07-25
+  baseline-integrity pass, latest 74/259 visual diagnostic, and blocked Plan 2
+  handoff.
 - `docs/demo-handoff/ACCEPTANCE_CRITERIA_AND_FEEDBACK.md`
 - `docs/demo-handoff/ACCEPTANCE_CRITERIA_AND_FEEDBACK.turkce.md`
 - `docs/demo-handoff/AGENT_HARNESS_RUNBOOK.md`
@@ -338,8 +339,9 @@ do not prove production identity/MFA, production storage/scanning or records
 operations, regulatory or enforcement approval, notification delivery,
 production sync, deployment, cutover, release, or production readiness.
 
-The first 22 July 2026 follow-up plan now implements 86/86 React demo routes,
-while its full visual and baseline-integrity gates remain `not verified`.
+The first 22 July 2026 follow-up plan now implements 86/86 React demo routes.
+Its standalone baseline-integrity gate is now `verified locally` as of
+2026-07-25, while its full visual gate remains `not verified`.
 The later plans still define complete mock/Go/PostgreSQL scenario parity,
 production-like local Docker services, local reliability/DR, and a separately
 authorized AWS trial using Terraform and Terragrunt. Plan 2 remains `blocked`.

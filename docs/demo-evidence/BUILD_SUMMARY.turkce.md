@@ -38,6 +38,9 @@ Task 16, 17 React yüzeyinin kabul edilen root-demo arayüzüne geri taşınmas�
 tam clean-install, HTTP, OIDC, offline, recovery, visual, dependency, reviewer
 ve cleanup matrix'ini tamamlar; bkz.
 [React Legacy UI Parity Kanıtı](REACT_LEGACY_UI_PARITY_2026-07-22.turkce.md).
+Full React migration artık 86 kabul edilen route'u demo mode'da uygular; 25
+Temmuz 2026 itibarıyla standalone baseline integrity `verified locally`, ancak
+full visual gate hâlâ `not verified` olduğu için Plan 2 `blocked` kalır.
 Local öneri `GO`, artifact `candidate-only` ve release `release pending` olarak
 kalır. Bu yan candidate'lar root demo'yu veya genel ürünü `production-ready`
 yapmaz; production `blocked` kalır.
@@ -61,6 +64,14 @@ başlangıç verisine döndürür.
 ---
 
 ## Güncel UI kanıtı
+
+23 Temmuz 2026 Full React handoff tam 86 React route, 258/258 responsive route
+check ve 258/258 visible-action inventory kaydeder. İlk one-shot visual sonuç
+71/259 passed ve 188/259 failed idi. 25 Temmuz 2026 exact-runtime follow-up 258
+baseline PNG'yi doğruladı ve canonical UI-audit hash'inin accepted manifest ile
+eşleştiğini teyit etti; fresh visual diagnostic hâlâ `not verified`: 74/259
+passed ve 185/259 failed:
+[`REACT_86_SCREEN_DEMO_2026-07-22.md`](REACT_86_SCREEN_DEMO_2026-07-22.md).
 
 22 Temmuz 2026 React parity incelemesi route edilmiş 17 yüzeyin masaüstü,
 tablet ve mobil görünümlerini kapsar. Decoded-pixel kapısı primitive gallery ve

@@ -77,8 +77,9 @@ cycles. No Critical or Important finding remains. Independent review is
 
 ## Task 12 Required Verification Matrix
 
-The commands were run in the required order. The complete visual matrix was run
-exactly once.
+The original Task 12 commands were run in the required order. The complete
+visual matrix was originally run exactly once for the Task 12 handoff; a
+2026-07-25 exact-runtime diagnostic rerun is recorded below.
 
 | Command | Literal result |
 |---|---|
@@ -91,10 +92,10 @@ exactly once.
 | `npm --prefix apps/web run check:app-shell` | passed for demo and HTTP: 144 files / 76 assets each |
 | `node apps/web/scripts/assert-http-artifact.mjs apps/web/dist/http` | passed: 144 artifact files and 152 input files checked |
 | `node apps/web/scripts/assert-parity-boundary.mjs` | passed: 86 routes and two build profiles |
-| `node apps/web/scripts/verify-visual-baselines.mjs` | failed: `source metadata mismatch for audit document hash.` |
+| `node apps/web/scripts/verify-visual-baselines.mjs` | original Task 12 run failed: `source metadata mismatch for audit document hash.`; 2026-07-25 exact-runtime rerun passed: 258 baseline PNGs verified |
 | `npm --prefix apps/web run test:e2e:mock` | initial RED 12/28; corrected GREEN 28/28 |
 | `npm --prefix apps/web run test:e2e:visible-actions` | passed: 3/3 with exactly 258 action inventories |
-| `npm --prefix apps/web run test:e2e:visual-parity` | 71/259 passed; 188/259 failed |
+| `npm --prefix apps/web run test:e2e:visual-parity` | original Task 12 run: 71/259 passed and 188/259 failed; 2026-07-25 exact-runtime diagnostic rerun: 74/259 passed and 185/259 failed |
 
 The mock Playwright RED was caused by stale E2E assumptions about the single
 accessible navigation landmark, canonical Preliminary Report progression,
@@ -120,10 +121,13 @@ These categories overlap and therefore must not be added together. The 157
 decoded-pixel reports retain the prior `accepted visual deviation`
 no-pixel-chasing disposition only where no semantic or functional defect is
 present; they are not converted into passes. The ten target-size defects were
-fixed through the separate RED → GREEN accessibility cycle, which subsequently
-passed 258/258 responsive route checks. The visual matrix was not rerun, so its
-literal 71/259 result remains unchanged. A complete manual comparison-by-
-comparison image review is `not run`.
+fixed through the separate RED -> GREEN accessibility cycle, which subsequently
+passed 258/258 responsive route checks. On 2026-07-25, a full visual diagnostic
+rerun with exact Node 24.16.0, Playwright 1.61.1, and Chromium 149.0.7827.55
+remained `not verified` at 74/259, with 185 failures. The latest failure pattern
+still contains decoded-pixel ratio and semantic substring mismatches against the
+accepted oracle. A complete manual comparison-by-comparison image review is
+`not run`.
 
 No baseline was regenerated, no mask was broadened, no threshold was relaxed,
 and no semantic identity, authority, record, role, or action was altered to
@@ -131,7 +135,7 @@ manufacture a visual pass.
 
 ## Baseline Integrity Diagnosis
 
-Standalone baseline integrity is `not verified`.
+Standalone baseline integrity is now `verified locally` as of 2026-07-25.
 
 The manifest records:
 
@@ -139,22 +143,21 @@ The manifest records:
 
 The current canonical English UI audit hashes to:
 
-`sha256:0ab4c60febb6d95f852f1aae2d540cb678b61c0f7111ba06f424c301325f4f9c`
+`sha256:92a8ab06da1f87fd9e84b45b35fa5c3dc58aa78a6eb7f6f9c9652731e8f74967`
 
-The exact source difference is the user-owned removal of the two-line link to
-the deleted Turkish companion document at the top of
-`UI_SCREEN_AUDIT_2026-07-19.md`. The audit content and 86-row inventory were not
-rewritten by this task. The accepted baseline manifest was not changed merely
-to make verification pass.
+The 2026-07-25 exact-runtime rerun used Node 24.16.0, Playwright 1.61.1, and
+Chromium 149.0.7827.55 and reported 258 verified baseline PNGs. The accepted
+baseline manifest was not changed merely to make verification pass.
 
 ## Handoff
 
 Task 12 execution and evidence preparation are complete, but the plan cannot be
-set to `ready-for-verification` because two required gates remain non-green:
+set to `ready-for-verification` because the visual gate remains non-green:
 
-1. baseline integrity is `not verified` because the audit-document source hash
-   differs from the accepted manifest;
-2. the one-shot visual matrix is `not verified` at 71/259.
+1. baseline integrity is now `verified locally` with the exact runtime and 258
+   baseline PNGs;
+2. the original one-shot visual matrix is `not verified` at 71/259, and the
+   2026-07-25 exact-runtime diagnostic rerun remains `not verified` at 74/259.
 
 The plan therefore remains `active`. Plan 2 is `blocked` until this plan becomes
 `ready-for-verification` and the frozen route/capability/action handoff is

@@ -68,13 +68,12 @@ React 517/517, typecheck, demo and HTTP builds, HTTP artifact scan, exact
 diff-check. The correction is `verified locally`; its clean independent
 re-review is `not run`, so Task 10 is not independently accepted yet. Its
 single bounded visual matrix remains literally 1/40, with the primitive
-gallery green and all 39 Admin route pairs non-green, and was not rerun.
-Standalone baseline integrity is `not verified` because the concurrently
-edited UI audit source no longer matches its recorded hash. Task 11 subsequently
-passed its full interaction/accessibility boundary without claiming an
-independent review. Task 12 executed the required full matrix once and recorded
-its non-green visual and baseline-integrity results literally. Plan 2 has not
-started.
+gallery green and all 39 Admin route pairs non-green, and was not rerun. Task 11
+subsequently passed its full interaction/accessibility boundary without claiming
+an independent review. Task 12 executed the required full matrix once and
+recorded its non-green visual result literally. A 2026-07-25 exact-runtime
+follow-up verifies standalone baseline integrity, while the fresh visual
+diagnostic remains non-green at 74/259. Plan 2 has not started.
 
 ## Objective
 
@@ -639,7 +638,9 @@ finding remains. Independent review is `not run`.
 **Files**
 
 - Create `docs/demo-evidence/REACT_86_SCREEN_DEMO_2026-07-22.md`
-- Create `docs/demo-evidence/REACT_86_SCREEN_DEMO_2026-07-22.turkce.md`
+- Summarize the React 86-screen status in
+  `docs/demo-evidence/BUILD_SUMMARY.turkce.md`; no matching standalone Turkish
+  companion file exists for the English React 86-screen evidence artifact.
 - Modify `docs/demo-evidence/BUILD_SUMMARY.md`
 - Modify `docs/demo-evidence/BUILD_SUMMARY.turkce.md`
 - Modify `docs/index.md`
@@ -668,21 +669,23 @@ finding remains. Independent review is `not run`.
 Task 12's non-visual required matrix passed: clean install, typecheck, 602/602
 Vitest, 107/107 root/parity, demo and HTTP builds, app-shell and HTTP-artifact
 scans, the exact 86-route/two-profile boundary, 28/28 mock Playwright, and 3/3
-visible-action tests. The one-shot visual matrix is `not verified` at 71/259:
-the primitive gallery passed 1/1 and route pairs passed 70/258, with 188
-failures. The run reported 157 decoded-pixel ratio, 69 semantic substring, and
-10 target-size failures with overlapping categories. The target-size defects
-were fixed through a separate RED → GREEN cycle and the accessibility matrix
-then passed 5/5 with exactly 258 responsive route checks; the visual matrix was
-not rerun. Standalone baseline integrity remains `not verified` because the
-accepted manifest audit-document hash
-`sha256:92a8ab06da1f87fd9e84b45b35fa5c3dc58aa78a6eb7f6f9c9652731e8f74967`
-does not match the current user-edited canonical audit hash
-`sha256:0ab4c60febb6d95f852f1aae2d540cb678b61c0f7111ba06f424c301325f4f9c`.
-A complete comparison-by-comparison manual image review is `not run`.
-No failed comparison is claimed as passed, and no baseline, threshold, mask,
-semantic truth, authority, or root oracle was weakened. The canonical evidence
-is `docs/demo-evidence/REACT_86_SCREEN_DEMO_2026-07-22.md`.
+visible-action tests. The original one-shot visual matrix is `not verified` at
+71/259: the primitive gallery passed 1/1 and route pairs passed 70/258, with 188
+failures. The original run reported 157 decoded-pixel ratio, 69 semantic
+substring, and 10 target-size failures with overlapping categories. The
+target-size defects were fixed through a separate RED -> GREEN cycle and the
+accessibility matrix then passed 5/5 with exactly 258 responsive route checks.
+On 2026-07-25, standalone baseline integrity was rerun with exact Node 24.16.0,
+Playwright 1.61.1, and Chromium 149.0.7827.55; it passed with 258 baseline PNGs
+verified, and the current canonical UI-audit hash matches the accepted manifest
+hash
+`sha256:92a8ab06da1f87fd9e84b45b35fa5c3dc58aa78a6eb7f6f9c9652731e8f74967`.
+A 2026-07-25 full visual diagnostic rerun on the same exact runtime remains
+`not verified` at 74/259, with 185 failures. A complete
+comparison-by-comparison manual image review is `not run`. No failed comparison
+is claimed as passed, and no baseline, threshold, mask, semantic truth,
+authority, or root oracle was weakened. The canonical evidence is
+`docs/demo-evidence/REACT_86_SCREEN_DEMO_2026-07-22.md`.
 
 ## Required Verification Matrix
 
