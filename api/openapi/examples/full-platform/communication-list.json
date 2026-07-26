@@ -1,0 +1,18 @@
+{
+  "schema": "ListCommunicationsOutput",
+  "value": {
+    "items": [
+      {
+        "id": "COM-2026-001",
+        "organizationId": "ORG-FLY-NAMIBIA",
+        "subject": "Evidence request",
+        "body": "Please provide the configured training record evidence.",
+        "audience": "AUDITEE",
+        "direction": "CAA_TO_AUDITEE",
+        "revision": 1,
+        "createdAt": "2026-07-26T08:30:00Z"
+      }
+    ],
+    "nextCursor": null
+  }
+}

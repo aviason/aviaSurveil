@@ -7486,6 +7486,26 @@
           }
         }
       },
+      "UploadRequiredHeaders": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "Content-Type",
+          "x-amz-meta-sha256",
+          "If-None-Match"
+        ],
+        "properties": {
+          "Content-Type": {
+            "type": "string"
+          },
+          "x-amz-meta-sha256": {
+            "type": "string"
+          },
+          "If-None-Match": {
+            "type": "string"
+          }
+        }
+      },
       "BeginInspectionAttachmentUploadOutput": {
         "type": "object",
         "additionalProperties": false,
@@ -7508,10 +7528,7 @@
             "type": "string"
           },
           "requiredHeaders": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            }
+            "$ref": "#/components/schemas/UploadRequiredHeaders"
           },
           "expiresAt": {
             "type": "string",
@@ -7630,10 +7647,7 @@
             "type": "string"
           },
           "requiredHeaders": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            }
+            "$ref": "#/components/schemas/UploadRequiredHeaders"
           },
           "expiresAt": {
             "type": "string",

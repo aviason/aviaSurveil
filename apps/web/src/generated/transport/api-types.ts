@@ -1726,13 +1726,16 @@ export interface components {
             fileName: string;
             declaredMediaType: string;
         };
+        UploadRequiredHeaders: {
+            "Content-Type": string;
+            "x-amz-meta-sha256": string;
+            "If-None-Match": string;
+        };
         BeginInspectionAttachmentUploadOutput: {
             uploadId: string;
             stagingObjectKey: string;
             uploadUrl: string;
-            requiredHeaders: {
-                [key: string]: string;
-            };
+            requiredHeaders: components["schemas"]["UploadRequiredHeaders"];
             /** Format: date-time */
             expiresAt: string;
             maximumByteSize: number;
@@ -1763,9 +1766,7 @@ export interface components {
             uploadId: string;
             stagingObjectKey: string;
             uploadUrl: string;
-            requiredHeaders: {
-                [key: string]: string;
-            };
+            requiredHeaders: components["schemas"]["UploadRequiredHeaders"];
             /** Format: date-time */
             expiresAt: string;
             maximumByteSize: number;

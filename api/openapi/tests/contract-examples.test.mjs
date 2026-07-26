@@ -188,26 +188,48 @@ function validateValue(document, schemaInput, value, pointer = "$") {
   if (schema.type === "boolean") assert.equal(typeof value, "boolean", `${pointer} must be a boolean`);
 }
 
-function assertClosedResponseSchema(document, schemaInput, pointer, seen = new Set()) {
+function assertClosedResponseSchema(
+  document,
+  schemaInput,
+  pointer,
+  seen = new Set(),
+  requireContainer = true,
+) {
   const schema = resolveSchema(document, schemaInput);
   if (schemaInput?.$ref) {
     if (seen.has(schemaInput.$ref)) return;
     seen.add(schemaInput.$ref);
   }
-  if (schema.oneOf) {
-    for (const [index, member] of schema.oneOf.entries()) {
-      assertClosedResponseSchema(document, member, `${pointer}.oneOf[${index}]`, seen);
+  for (const composition of ["oneOf", "anyOf", "allOf"]) {
+    if (!schema[composition]) continue;
+    for (const [index, member] of schema[composition].entries()) {
+      assertClosedResponseSchema(
+        document,
+        member,
+        `${pointer}.${composition}[${index}]`,
+        seen,
+        requireContainer,
+      );
     }
     return;
   }
   const declaredTypes = Array.isArray(schema.type) ? schema.type : [schema.type];
-  if (declaredTypes.includes("null") && declaredTypes.length > 1) return;
-  if (schema.type === "array") {
-    assertClosedResponseSchema(document, schema.items, `${pointer}.items`, seen);
+  if (declaredTypes.includes("array")) {
+    assertClosedResponseSchema(document, schema.items, `${pointer}.items`, seen, false);
     return;
   }
-  assert.equal(schema.type, "object", `${pointer} must resolve to an object, array, or closed union`);
-  assert.equal(schema.additionalProperties, false, `${pointer} must reject unknown fields`);
+  if (declaredTypes.includes("object")) {
+    assert.equal(schema.additionalProperties, false, `${pointer} must reject unknown fields`);
+    for (const [name, property] of Object.entries(schema.properties ?? {})) {
+      assertClosedResponseSchema(document, property, `${pointer}.${name}`, seen, false);
+    }
+    return;
+  }
+  assert.equal(
+    requireContainer,
+    false,
+    `${pointer} must resolve to an object, array, or closed union`,
+  );
 }
 
 test("the minimal OpenAPI contract and canonical vocabulary exist", () => {

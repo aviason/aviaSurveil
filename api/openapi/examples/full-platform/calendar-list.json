@@ -1,0 +1,18 @@
+{
+  "schema": "ListCalendarItemsOutput",
+  "value": {
+    "items": [
+      {
+        "id": "CAL-AUD-2026-001",
+        "auditId": "AUD-2026-001",
+        "organizationId": "ORG-FLY-NAMIBIA",
+        "organizationName": "Fly Namibia",
+        "title": "Cabin safety inspection",
+        "nextAction": "Open assigned Audit",
+        "scheduledDate": "2026-08-04",
+        "dueState": "NOT_DUE"
+      }
+    ],
+    "nextCursor": null
+  }
+}

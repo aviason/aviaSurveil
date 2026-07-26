@@ -24,6 +24,7 @@ assert.match(generated, /type StrictServerInterface interface/);
 
 for (const pathItem of Object.values(specification.paths)) {
   for (const operation of Object.values(pathItem)) {
+    if (!operation?.operationId) continue;
     assert.match(generated, new RegExp(`operationId: ${operation.operationId}\\b`));
   }
 }

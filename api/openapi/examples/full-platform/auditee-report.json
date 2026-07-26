@@ -1,0 +1,20 @@
+{
+  "schema": "AuditeeReleasedReportView",
+  "value": {
+    "reportVersionId": "RPT-CAB-2026-001-V1",
+    "reportId": "RPT-CAB-2026-001",
+    "kind": "PRELIMINARY",
+    "organizationId": "ORG-FLY-NAMIBIA",
+    "auditId": "AUD-2026-001",
+    "findingIds": [
+      "FND-CAB-2026-001"
+    ],
+    "version": 1,
+    "status": "LOCKED",
+    "revision": 1,
+    "issuedAt": "2026-07-26T09:15:00Z",
+    "responseDueDate": "2026-08-10",
+    "caaVisibleCommentState": "RECORDED",
+    "caaVisibleComment": "Please respond through the CAP workflow."
+  }
+}

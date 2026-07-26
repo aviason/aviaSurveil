@@ -1,0 +1,26 @@
+{
+  "schema": "RiskManagementProjectionView",
+  "value": {
+    "generatedAt": "2026-07-26T08:45:00Z",
+    "revision": 4,
+    "findings": [
+      {
+        "findingId": "FND-CAB-2026-001",
+        "findingNumber": "OPS-2026-001",
+        "organizationId": "ORG-FLY-NAMIBIA",
+        "organizationName": "Fly Namibia",
+        "inspectionId": "AUD-2026-001",
+        "inspectionTitle": "Cabin safety inspection",
+        "department": "Flight Operations",
+        "title": "Crew training records incomplete",
+        "severity": "LEVEL_2_MAJOR",
+        "riskLevel": "HIGH",
+        "status": "EVIDENCE_REQUIRED",
+        "issuedAt": "2026-07-20T08:30:00Z",
+        "dueState": "DUE_SOON",
+        "capRequired": true
+      }
+    ],
+    "capEffectiveness": []
+  }
+}

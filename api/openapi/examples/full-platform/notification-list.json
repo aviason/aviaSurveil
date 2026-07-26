@@ -1,0 +1,20 @@
+{
+  "schema": "ListNotificationsOutput",
+  "value": {
+    "items": [
+      {
+        "id": "NOT-2026-001",
+        "subjectId": "USR-INSPECTOR-AMINA",
+        "title": "Evidence submitted",
+        "body": "Evidence version EV-2026-001 is ready for review.",
+        "readAt": null,
+        "emailDeliveryStatus": "NOT_CONFIGURED",
+        "emailDeliveryAttempts": 0,
+        "emailAcceptedAt": null,
+        "emailNextAttemptAt": null,
+        "revision": 1
+      }
+    ],
+    "nextCursor": null
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "schema": "ProfileView",
+  "value": {
+    "subjectId": "USR-INSPECTOR-AMINA",
+    "role": "inspector",
+    "organizationId": null,
+    "displayName": "Amina Ndeitunga",
+    "revision": 2
+  }
+}

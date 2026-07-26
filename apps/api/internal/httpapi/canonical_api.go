@@ -649,10 +649,10 @@ func (api *CanonicalAPI) beginInspectionAttachmentUpload(writer http.ResponseWri
 	})
 	api.respondCreated(writer, generated.BeginInspectionAttachmentUploadOutput{
 		UploadId: result.UploadID, StagingObjectKey: result.StagingObjectKey, UploadUrl: result.UploadURL,
-		RequiredHeaders: map[string]any{
-			"Content-Type":      result.RequiredHeaders.ContentType,
-			"x-amz-meta-sha256": result.RequiredHeaders.SHA256,
-			"If-None-Match":     result.RequiredHeaders.IfNoneMatch,
+		RequiredHeaders: generated.UploadRequiredHeaders{
+			ContentType:    result.RequiredHeaders.ContentType,
+			XAmzMetaSha256: result.RequiredHeaders.SHA256,
+			IfNoneMatch:    result.RequiredHeaders.IfNoneMatch,
 		},
 		ExpiresAt: result.ExpiresAt.UTC().Format(time.RFC3339Nano), MaximumByteSize: result.MaximumByteSize,
 	}, err)
@@ -692,10 +692,10 @@ func (api *CanonicalAPI) beginEvidenceUpload(writer http.ResponseWriter, request
 	})
 	api.respondCreated(writer, generated.BeginEvidenceUploadOutput{
 		UploadId: result.UploadID, StagingObjectKey: result.StagingObjectKey, UploadUrl: result.UploadURL,
-		RequiredHeaders: map[string]any{
-			"Content-Type":      result.RequiredHeaders.ContentType,
-			"x-amz-meta-sha256": result.RequiredHeaders.SHA256,
-			"If-None-Match":     result.RequiredHeaders.IfNoneMatch,
+		RequiredHeaders: generated.UploadRequiredHeaders{
+			ContentType:    result.RequiredHeaders.ContentType,
+			XAmzMetaSha256: result.RequiredHeaders.SHA256,
+			IfNoneMatch:    result.RequiredHeaders.IfNoneMatch,
 		},
 		ExpiresAt: result.ExpiresAt.UTC().Format(time.RFC3339Nano), MaximumByteSize: result.MaximumByteSize,
 	}, err)

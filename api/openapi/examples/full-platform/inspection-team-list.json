@@ -1,0 +1,44 @@
+{
+  "schema": "ListInspectionTeamAuditsOutput",
+  "value": {
+    "items": [
+      {
+        "auditId": "AUD-2026-001",
+        "organizationId": "ORG-FLY-NAMIBIA",
+        "organizationName": "Fly Namibia",
+        "title": "Cabin safety inspection",
+        "status": "IN_PROGRESS",
+        "scheduledStartDate": "2026-07-28",
+        "scheduledEndDate": "2026-07-29",
+        "leadInspector": {
+          "subjectId": "USR-LEAD-CANER",
+          "displayName": "Caner Demir",
+          "role": "leadInspector",
+          "organizationId": null,
+          "revision": 1
+        },
+        "members": [
+          {
+            "subjectId": "USR-INSPECTOR-AMINA",
+            "displayName": "Amina Ndeitunga",
+            "role": "inspector",
+            "organizationId": null,
+            "revision": 1
+          }
+        ],
+        "assignments": [
+          {
+            "questionId": "CAB-EMEQ-PBE-001",
+            "assignedMemberSubjectIds": [
+              "USR-INSPECTOR-AMINA"
+            ]
+          }
+        ],
+        "documents": [],
+        "history": [],
+        "revision": 3
+      }
+    ],
+    "nextCursor": null
+  }
+}
