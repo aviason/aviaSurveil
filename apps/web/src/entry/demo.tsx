@@ -5,7 +5,10 @@ import { seedVisualRuntimeForPath } from "../mock/seed-visual-runtime";
 const mockRuntime = createMockBackendPersistentRuntime(window.localStorage);
 
 async function startDemo(): Promise<void> {
-  if (import.meta.env.VITE_AVIA_VISUAL_FIXTURES === "1") {
+  if (
+    import.meta.env.VITE_AVIA_VISUAL_FIXTURES === "1" ||
+    window.sessionStorage.getItem("avia-route-matrix-fixtures") === "1"
+  ) {
     await seedVisualRuntimeForPath(mockRuntime, window.location.pathname);
   }
 

@@ -111,6 +111,7 @@ describe("General Manager and Executive Director workspaces", () => {
       renderGovernanceRoute(path, role);
       const page = await screen.findByTestId(testId);
       expect(within(page).getByRole("heading", { level: 1, name: heading })).toBeVisible();
+      expect(page.querySelector(".workbench-page-header"), `${path} must use the shared workbench page header`).not.toBeNull();
       expect(screen.getByTestId("application-shell")).toHaveAttribute("data-active-role", role);
       expect(screen.queryByTestId("route-pending-implementation")).toBeNull();
       const navigation = screen.getByRole("navigation", { name: "Primary role navigation" });
@@ -129,9 +130,15 @@ describe("General Manager and Executive Director workspaces", () => {
     renderGovernanceRoute("/general-manager/planning", "gm", runtime);
 
     const page = await screen.findByTestId("gm-planning-page");
+    await within(page).findByTestId("planning-status");
     expect(page).toHaveAttribute("data-planning-item-id", "PLAN-2026-CAB-001");
     expect(page).toHaveAttribute("data-planning-revision", "2");
     expect(within(page).getByTestId("planning-status")).toHaveTextContent("GM_REVIEW");
+    expect(within(page).getByRole("button", { name: "PLAN-2026-CAB-001 is already selected" })).toBeDisabled();
+    expect(within(page).getByRole("button", { name: "PLAN-2026-CAB-001 is already selected" })).toHaveAttribute(
+      "title",
+      "PLAN-2026-CAB-001 is already open in the Planning dossier.",
+    );
     await user.click(within(page).getByRole("button", { name: "Forward PLAN-2026-CAB-001 to Executive Director" }));
     expect(within(page).getByRole("alert")).toHaveTextContent("General Manager decision reason is required");
     await user.type(within(page).getByLabelText("General Manager decision reason"), "Operational scope and Finance review confirmed.");
@@ -214,9 +221,15 @@ describe("General Manager and Executive Director workspaces", () => {
     renderGovernanceRoute("/general-manager/report-approvals", "gm", runtime);
 
     const page = await screen.findByTestId("gm-report-approvals-page");
-    const selected = within(page).getByRole("region", { name: "Selected report PR-2026-018-V1" });
+    const selected = await within(page).findByRole("region", { name: "Selected report PR-2026-018-V1" });
     expect(selected).toHaveAttribute("data-report-version-id", "PR-2026-018-V1");
     expect(selected).toHaveAttribute("data-report-revision", "2");
+    const selectedQueueAction = within(page).getByRole("button", { name: "PR-2026-018-V1 is already selected" });
+    expect(selectedQueueAction).toBeDisabled();
+    expect(selectedQueueAction).toHaveAttribute(
+      "title",
+      "PR-2026-018-V1 is already open in the General Manager report dossier.",
+    );
     expect(page).not.toHaveTextContent(/Finance Review.*Report/i);
     await expect(runtime.backendForRole("finance").reports.decide({
       operationId: "TASK8-FINANCE-REPORT-DENIED",
@@ -416,6 +429,7 @@ describe("General Manager and Executive Director workspaces", () => {
     await user.clear(within(gm).getByLabelText("Display name"));
     await user.type(within(gm).getByLabelText("Display name"), "Omar GM Updated");
     await user.click(within(gm).getByRole("button", { name: "Save profile" }));
+    expect(await within(gm).findByText("Omar GM Updated")).toBeVisible();
     cleanup();
     renderGovernanceRoute("/general-manager/settings", "gm", runtime);
     expect(await screen.findByTestId("gm-settings-page")).toHaveTextContent("Omar GM Updated");
@@ -427,6 +441,7 @@ describe("General Manager and Executive Director workspaces", () => {
     await user.clear(within(executiveSettings).getByLabelText("Display name"));
     await user.type(within(executiveSettings).getByLabelText("Display name"), "Zara ED Updated");
     await user.click(within(executiveSettings).getByRole("button", { name: "Save profile" }));
+    expect(await within(executiveSettings).findByText("Zara ED Updated")).toBeVisible();
 
     cleanup();
     renderGovernanceRoute("/executive-director/settings", "executiveDirector", runtime);

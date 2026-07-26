@@ -61,7 +61,11 @@ export function ApplicationShell({
           </button>
         </div>
       ) : null}
-      <aside aria-hidden={compactNavigation || undefined} className="workspace-sidebar">
+      <aside
+        aria-hidden={compactNavigation || undefined}
+        className="workspace-sidebar"
+        inert={compactNavigation || undefined}
+      >
         <div className="sidebar-brand">
           <span className="sidebar-brand-mark" aria-hidden="true">
             <span className="sidebar-brand-mark__wing sidebar-brand-mark__wing--primary" />

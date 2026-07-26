@@ -19,6 +19,8 @@ export function ReportPreviewPage() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"all" | "inspection">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "in-review">("all");
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -52,7 +54,15 @@ export function ReportPreviewPage() {
     return () => { cancelled = true; };
   }, [backend, reportVersionId]);
 
-  const queueVisible = useMemo(() => !search.trim() || [report?.reportVersionId, report?.reportId, "Fly Namibia", report?.auditId].some((value) => value?.toLowerCase().includes(search.toLowerCase())), [report, search]);
+  const queueVisible = useMemo(() => {
+    const matchesSearch = !search.trim() || [report?.reportVersionId, report?.reportId, "Fly Namibia", report?.auditId]
+      .some((value) => value?.toLowerCase().includes(search.toLowerCase()));
+    const matchesType = typeFilter === "all" || typeFilter === "inspection";
+    const matchesStatus = statusFilter === "all" || report?.status.includes("REVIEW");
+    return matchesSearch && matchesType && matchesStatus;
+  }, [report, search, statusFilter, typeFilter]);
+  const searchIsApplied = searchDraft.trim() === search.trim();
+  const filtersAreDefault = searchDraft === "" && search === "" && typeFilter === "all" && statusFilter === "all";
 
   async function decide(decision: "RETURN" | "FORWARD"): Promise<void> {
     if (!report) return;
@@ -91,10 +101,26 @@ export function ReportPreviewPage() {
             <p className="report-queue__scope">Demo report artifacts · <Link to="/department-manager/preliminary-reports/PR-2026-018">Review Preliminary Report PR-2026-018</Link></p>
             <div className="report-queue__filters">
               <label><span>Search</span><input aria-label="Search reports" onChange={(event) => setSearchDraft(event.target.value)} placeholder="Report, audit, organization" value={searchDraft} /></label>
-              <button onClick={() => setSearch(searchDraft)} type="button">Search</button>
-              <label><span>Type</span><select aria-label="Report type" defaultValue="all"><option value="all">All types</option><option>Inspection</option></select></label>
-              <label><span>Status</span><select aria-label="Report status" defaultValue="all"><option value="all">All statuses</option><option>In review</option></select></label>
-              <button onClick={() => { setSearch(""); setSearchDraft(""); }} type="button">Reset</button>
+              <button
+                aria-label={searchIsApplied ? "Search reports unavailable" : undefined}
+                disabled={searchIsApplied}
+                onClick={() => setSearch(searchDraft)}
+                title={searchIsApplied ? "The current report search is already applied." : undefined}
+                type="button"
+              >
+                Search
+              </button>
+              <label><span>Type</span><select aria-label="Report type" onChange={(event) => setTypeFilter(event.target.value as typeof typeFilter)} value={typeFilter}><option value="all">All types</option><option value="inspection">Inspection</option></select></label>
+              <label><span>Status</span><select aria-label="Report status" onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} value={statusFilter}><option value="all">All statuses</option><option value="in-review">In review</option></select></label>
+              <button
+                aria-label={filtersAreDefault ? "Reset report filters unavailable" : undefined}
+                disabled={filtersAreDefault}
+                onClick={() => { setSearch(""); setSearchDraft(""); setTypeFilter("all"); setStatusFilter("all"); }}
+                title={filtersAreDefault ? "Report filters are already at their defaults." : undefined}
+                type="button"
+              >
+                Reset
+              </button>
             </div>
             <div className="report-queue__counts" aria-label="Report counts">
               {[["All", 1], ["Department", report?.status === "DEPARTMENT_REVIEW" ? 1 : 0], ["GM", report?.status === "GM_REVIEW" ? 1 : 0], ["Executive", report?.status === "EXECUTIVE_DIRECTOR_REVIEW" ? 1 : 0], ["Returned", report?.status === "RETURNED" ? 1 : 0], ["Issued", ["ISSUED", "LOCKED"].includes(report?.status ?? "") ? 1 : 0]].map(([label, value]) => <span key={label}><b>{value}</b><small>{label}</small></span>)}

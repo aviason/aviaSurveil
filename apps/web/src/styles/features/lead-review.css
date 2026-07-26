@@ -686,8 +686,8 @@
 .cap-root-search input {
   width: 100%;
   min-width: 0;
+  min-height: 24px;
   border: 0;
-  outline: 0;
   font: inherit;
   font-size: 12px;
 }
@@ -1648,7 +1648,7 @@
   }
 
   .finding-root-next:is(.finding-root-next) {
-    align-items: center;
+    display: none;
   }
 
   .finding-root-next:is(.finding-root-next) > .lead-root-button {
@@ -1725,8 +1725,20 @@
 }
 
 @media (max-width: 760px) {
+  .lead-review-dossier:is(.lead-review-dossier),
   .lead-review-dossier__head:is(.lead-review-dossier__head) {
     display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lead-review-dossier > * {
+    min-width: 0;
+  }
+
+  .lead-review-dossier p,
+  .lead-review-version-list {
+    overflow-wrap: anywhere;
   }
 
   .lead-review-decision-grid:is(.lead-review-decision-grid) {

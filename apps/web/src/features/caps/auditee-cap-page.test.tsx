@@ -167,6 +167,14 @@ describe("AuditeeCapPage", () => {
 
     const findings = await screen.findByRole("table", { name: "My Findings" });
     expect(within(findings).getByText("CAB-2026-001")).toBeVisible();
+    const selectedRow = within(findings).getByText("CAB-2026-001").closest("tr");
+    if (!selectedRow) throw new Error("Expected selected Auditee Finding row.");
+    expect(within(selectedRow).getByRole("button", { name: "CAB-2026-001" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(selectedRow).getByRole("button", { name: "CAB-2026-001 is already selected" })).toBeDisabled();
+    expect(within(selectedRow).getByRole("button", { name: "CAB-2026-001 is already selected" })).toHaveAttribute(
+      "title",
+      "CAB-2026-001 is already open in the Auditee Finding dossier.",
+    );
     expect(screen.getByTestId("auditee-scope")).toHaveTextContent("Fly Namibia");
     const history = await screen.findByRole("table", { name: "CAP revision history" });
     expect(within(history).getAllByTestId("auditee-cap-revision-row")).toHaveLength(2);

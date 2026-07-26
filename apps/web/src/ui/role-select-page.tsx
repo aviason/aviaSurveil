@@ -137,7 +137,6 @@ export function RoleSelectPage({
     <div className="role-select-page login" data-role-selection-mode={mode}>
       <button
         className="login-skip"
-        onFocus={() => document.querySelector<HTMLElement>(".role-card")?.focus()}
         onClick={() => document.querySelector<HTMLElement>("#login-workspaces")?.focus()}
         type="button"
       >
@@ -162,7 +161,11 @@ export function RoleSelectPage({
           <span className="login-hero__rule" aria-hidden="true" />
           <button
             className="login-hero__explore"
-            onClick={() => document.querySelector<HTMLElement>("#login-workspaces")?.scrollIntoView()}
+            onClick={() => {
+              const workspaces = document.querySelector<HTMLElement>("#login-workspaces");
+              workspaces?.focus();
+              workspaces?.scrollIntoView?.();
+            }}
             type="button"
           >
             Explore the clickable demo

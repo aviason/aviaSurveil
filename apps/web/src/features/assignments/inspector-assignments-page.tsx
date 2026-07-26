@@ -81,6 +81,11 @@ export function InspectorAssignmentsPage() {
     setOrganizationFilter("all");
     setDateFilter("all");
   }
+  const filtersActive = statusFilter !== "all" ||
+    query !== "" ||
+    typeFilter !== "all" ||
+    organizationFilter !== "all" ||
+    dateFilter !== "all";
   const rows = useMemo<AssignmentRegisterRow[]>(
     () =>
       visibleAssignments.map((assignment) => ({
@@ -145,7 +150,14 @@ export function InspectorAssignmentsPage() {
         <label className="inspector-assignment-filter"><span>Type</span><select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}><option value="all">All Types</option><option value="cabin">Cabin Safety</option></select></label>
         <label className="inspector-assignment-filter"><span>Organization</span><select value={organizationFilter} onChange={(event) => setOrganizationFilter(event.target.value)}><option value="all">All Organizations</option>{[...new Set(projection.assignments.map((assignment) => assignment.organizationName))].map((organization) => <option key={organization} value={organization}>{organization}</option>)}</select></label>
         <label className="inspector-assignment-filter"><span>Date</span><select value={dateFilter} onChange={(event) => setDateFilter(event.target.value)}><option value="all">Date Range</option><option value="due-soon">Due Soon</option></select></label>
-        <button aria-label="Reset assignment filters" className="inspector-filter-action" type="button" onClick={resetFilters}>↺ Reset</button>
+        <button
+          aria-label="Reset assignment filters"
+          className="inspector-filter-action"
+          disabled={!filtersActive}
+          onClick={resetFilters}
+          title={!filtersActive ? "Assignment filters are already at their defaults." : undefined}
+          type="button"
+        >↺ Reset</button>
       </section>
       <section className="inspector-register" aria-label="Assigned Audits">
         <DataRegister

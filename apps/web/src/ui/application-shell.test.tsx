@@ -71,6 +71,27 @@ describe("ApplicationShell", () => {
     expect(opener).toHaveFocus();
   });
 
+  it("removes the collapsed desktop sidebar from mobile keyboard navigation", () => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
+    const { container } = render(
+      <MemoryRouter>
+        <ApplicationShell
+          identity={identity}
+          activeRouteId="inspector-home"
+          onRoleRequest={() => undefined}
+          onLogout={() => undefined}
+          notificationState={{ kind: "local", unreadCount: 0, onOpen: () => undefined }}
+        >
+          <p>Assignments</p>
+        </ApplicationShell>
+      </MemoryRouter>,
+    );
+
+    const collapsedSidebar = container.querySelector("aside.workspace-sidebar");
+    expect(collapsedSidebar).toHaveAttribute("aria-hidden", "true");
+    expect(collapsedSidebar).toHaveAttribute("inert");
+  });
+
   it("exposes all Inspector workspace destinations from the mobile navigation drawer", async () => {
     const user = userEvent.setup();
     render(

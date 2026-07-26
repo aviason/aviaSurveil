@@ -95,6 +95,57 @@ test("the parity ledger freezes the 86/0 route scope and visible action ownershi
     assert.ok(group.surfaceIds.length > 0);
     assert.ok(fs.existsSync(path.join(repositoryRoot, group.evidence)));
   }
+  assert.ok(Array.isArray(ledger.actionEvidence), "Per-action evidence ledger is required");
+  assert.ok(ledger.actionEvidence.length > 600, "Per-action evidence must enumerate every route and shared-shell control");
+  const actionEvidenceKeys = new Set();
+  const perActionSurfaceIds = new Set();
+  for (const action of ledger.actionEvidence) {
+    assert.ok(action.surfaceId === "*" || ledger.reactScope.reactParitySurfaceIds.includes(action.surfaceId));
+    assert.ok(["route", "shell", "mobile-navigation"].includes(action.scope));
+    assert.ok(Array.isArray(action.viewports) && action.viewports.length > 0);
+    assert.ok(action.viewports.every((viewport) => ledger.interactionMatrix.viewports.includes(viewport)));
+    if (action.surfaceId === "*") assert.notEqual(action.scope, "route");
+    assert.ok(action.controlKey);
+    assert.ok(action.durableEffect.length > 20);
+    assert.ok(fs.existsSync(path.join(repositoryRoot, action.evidence)));
+    assert.ok(action.assertion);
+    if (action.scope === "route") {
+      const expectedExecutableAssertion = {
+        "verified-form-behavior": "assertNativeFormControlOutcome",
+        "verified-visible-state": "assertAccessibleStateOutcome",
+        "verified-tab-state": "assertAccessibleStateOutcome",
+        "verified-controlled-state": "assertControlledSurfaceOutcome",
+      }[action.boundary];
+      if (expectedExecutableAssertion) {
+        assert.equal(
+          action.assertion,
+          expectedExecutableAssertion,
+          `${action.surfaceId}/${action.controlKey} must name its exact executable postcondition`,
+        );
+      }
+    }
+    const evidenceSource = fs.readFileSync(path.join(repositoryRoot, action.evidence), "utf8");
+    assert.match(evidenceSource, new RegExp(action.assertion));
+    const key = `${action.surfaceId}:${action.scope}:${action.controlKey}`;
+    assert.ok(!actionEvidenceKeys.has(key), `Duplicate per-action evidence: ${key}`);
+    actionEvidenceKeys.add(key);
+    if (action.surfaceId !== "*") perActionSurfaceIds.add(action.surfaceId);
+  }
+  assert.deepEqual(
+    new Set(ledger.reactScope.routeControlFreeSurfaceIds),
+    new Set(["executive-preliminary-reports", "admin-configurations"]),
+  );
+  assert.deepEqual(
+    new Set([...perActionSurfaceIds, ...ledger.reactScope.routeControlFreeSurfaceIds]),
+    new Set(ledger.reactScope.reactParitySurfaceIds),
+  );
+  assert.equal(
+    [...ledger.reactScope.routeControlFreeSurfaceIds].filter((surfaceId) =>
+      perActionSurfaceIds.has(surfaceId)
+    ).length,
+    0,
+    "Route-control-free surfaces must not claim route-action evidence",
+  );
   const evidenceCategories = [
     ...ledger.reactScope.interactionVerifiedSurfaceIds,
     ...ledger.reactScope.presentationCorrectionPendingSurfaceIds,

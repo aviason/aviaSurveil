@@ -134,7 +134,7 @@ export function LeadPreliminaryReportWorkflowPage() {
         <section aria-label="Internal CAA Note"><h2>Internal CAA Note</h2><textarea aria-label="Internal CAA Note text" value={internalNote} onChange={(event) => setInternalNote(event.target.value)} /><p>CAA-only. Never included in an Auditee projection.</p></section>
       </div>
       <div className="lead-action-row"><button className="lead-button" onClick={() => void saveDraft()} type="button">Save Draft</button><button className="lead-button lead-button--primary" onClick={() => setPreview((value) => !value)} type="button">Preview working document</button></div>
-      {saved ? <p className="lead-action-result" role="status">{saved}</p> : null}
+      {saved ? <p className="lead-action-result" data-durable-outcome="preliminary-report-saved" role="status">{saved}</p> : null}
       {preview ? <section aria-label="PR-2026-018 working document preview" className="lead-document-preview"><small>WORKING DRAFT · VERSION 1</small><h2>PRELIMINARY INSPECTION REPORT</h2><p>Report PR-2026-018 · Audit {FINAL_AUDIT_ID} · Fly Namibia</p><p>Finding {finding?.id ?? "loading"}</p><p>{executiveSummary}</p><p>{auditeeComment}</p></section> : null}
     </div>
   </LeadReportShell>;
@@ -164,7 +164,16 @@ export function LeadFinalReportDocumentPage() {
   const [status, setStatus] = useState("");
   async function prepareDownload() {
     await backend.administration?.invokeVisibleAction({ screenId: "lead-final-report-document", actionId: "download-report" });
-    setStatus(`${FINAL_REPORT_VERSION_ID}.pdf prepared in the demo workspace.`);
+    setStatus(`${FINAL_REPORT_VERSION_ID} preview prepared in the demo workspace.`);
   }
-  return <LeadReportShell routeLabel="Lead Final Reports"><div className="lead-secondary-page lead-final-document" data-report-version-id={report?.reportVersionId} data-testid="lead-final-report-document-page"><header className="lead-secondary-header workbench-page-header"><div><p className="lead-breadcrumb">Final Reports › {FINAL_REPORT_ID}</p><h1>Final Report</h1><p>{FINAL_REPORT_ID} · Fly Namibia</p></div><button className="lead-button" onClick={() => void prepareDownload()} type="button">Export PDF (mock)</button></header><CommandError message={error} />{status ? <p className="lead-action-result" role="status">{status}</p> : null}{report ? <article className="lead-document-preview"><header><strong>AviaSurveil360</strong><span>FINAL REPORT · DEMO-ONLY</span></header><h2>Cabin Inspection Final Report</h2><p>{report.reportId} · Version {report.version}</p><dl className="lead-detail-grid"><div><dt>Report ID</dt><dd>{report.reportId}</dd></div><div><dt>Report Version ID</dt><dd>{report.reportVersionId}</dd></div><div><dt>Audit ID</dt><dd>{report.auditId}</dd></div><div><dt>Organization</dt><dd>Fly Namibia</dd></div><div><dt>Current Status</dt><dd>{reportStatusLabel(report.status)}</dd></div></dl><h3>1. Executive Summary</h3><p>This immutable demo report remains in its current approval stage. Rendering it does not close Findings.</p></article> : <p>Loading exact report version…</p>}</div></LeadReportShell>;
+  const reportPreview = [
+    "AviaSurveil360 demo Final Report preview",
+    `Report ID: ${report?.reportId ?? FINAL_REPORT_ID}`,
+    `Report Version ID: ${report?.reportVersionId ?? FINAL_REPORT_VERSION_ID}`,
+    `Audit ID: ${report?.auditId ?? FINAL_AUDIT_ID}`,
+    `Status: ${report ? reportStatusLabel(report.status) : "Loading"}`,
+    "This is a mock preview, not an issued or signed report.",
+  ].join("\n");
+  const reportPreviewHref = `data:text/plain;charset=utf-8,${encodeURIComponent(reportPreview)}`;
+  return <LeadReportShell routeLabel="Lead Final Reports"><div className="lead-secondary-page lead-final-document" data-report-version-id={report?.reportVersionId} data-testid="lead-final-report-document-page"><header className="lead-secondary-header workbench-page-header"><div><p className="lead-breadcrumb">Final Reports › {FINAL_REPORT_ID}</p><h1>Final Report</h1><p>{FINAL_REPORT_ID} · Fly Namibia</p></div><a className="lead-button workbench-page-header__action" download={`AviaSurveil360_${FINAL_REPORT_VERSION_ID}_Report_Preview.txt`} href={reportPreviewHref} onClick={() => void prepareDownload()}>Download report preview</a></header><CommandError message={error} />{status ? <p className="lead-action-result" role="status">{status}</p> : null}{report ? <article className="lead-document-preview"><header><strong>AviaSurveil360</strong><span>FINAL REPORT · DEMO-ONLY</span></header><h2>Cabin Inspection Final Report</h2><p>{report.reportId} · Version {report.version}</p><dl className="lead-detail-grid"><div><dt>Report ID</dt><dd>{report.reportId}</dd></div><div><dt>Report Version ID</dt><dd>{report.reportVersionId}</dd></div><div><dt>Audit ID</dt><dd>{report.auditId}</dd></div><div><dt>Organization</dt><dd>Fly Namibia</dd></div><div><dt>Current Status</dt><dd>{reportStatusLabel(report.status)}</dd></div></dl><h3>1. Executive Summary</h3><p>This immutable demo report remains in its current approval stage. Rendering it does not close Findings.</p></article> : <p>Loading exact report version…</p>}</div></LeadReportShell>;
 }

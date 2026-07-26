@@ -28,9 +28,18 @@ export function ClosureReportPage() {
   }
   const isClosed = finding?.status === "CLOSED";
   const lifecycleLabel = finding ? finding.status.replaceAll("_", " ") : "DRAFT PREVIEW";
+  const reportPreview = [
+    "AviaSurveil360 demo report preview",
+    "Report reference: CAB-2026-011",
+    `Finding: ${finding?.findingNumber ?? "Pending Finding data"}`,
+    `Organization: ${finding?.organizationName ?? "Pending Finding data"}`,
+    `Status: ${lifecycleLabel}`,
+    "This is a mock preview, not a legally issued document.",
+  ].join("\n");
+  const reportPreviewHref = `data:text/plain;charset=utf-8,${encodeURIComponent(reportPreview)}`;
   return <WorkspaceShell roleLabel="CAA Inspector" routeLabel="Report Preview">
     <div className="inspector-secondary-page closure-report-page" data-testid="closure-report-page">
-      <header className="inspector-secondary-head workbench-page-header"><div><h1>Finding Report — CAB-2026-011</h1><p>Report preview (mock — not a legally issued document).</p></div><div className="inspector-secondary-actions"><button onClick={() => navigate("/inspector/reports")} type="button"><span>Back</span></button><button className="is-active" onClick={() => void exportReport()} type="button"><span>Export PDF (mock)</span></button></div></header>
+      <header className="inspector-secondary-head workbench-page-header"><div><h1>Finding Report — CAB-2026-011</h1><p>Report preview (mock — not a legally issued document).</p></div><div className="inspector-secondary-actions"><button onClick={() => navigate("/inspector/reports")} type="button"><span>Back</span></button><a className="is-active" download="AviaSurveil360_CAB-2026-011_Report_Preview.txt" href={reportPreviewHref} onClick={() => void exportReport()}><span>Download report preview</span></a></div></header>
       <CommandError message={error} />
       {status ? <p className="inspector-action-result" role="status">{status}</p> : null}
       <article className="closure-report-sheet">

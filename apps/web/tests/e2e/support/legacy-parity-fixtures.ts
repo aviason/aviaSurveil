@@ -691,6 +691,147 @@ export const VISUAL_SURFACE_BY_ID = new Map<ReactSurfaceId, VisualSurfaceFixture
   VISUAL_SURFACES.map((surface) => [surface.id, surface]),
 );
 
+type ReactSurfaceSemanticFields = Pick<
+  VisualSurfaceFixture,
+  | "expectedHeading"
+  | "expectedSemanticMarker"
+  | "expectedOwnerText"
+  | "expectedNextActionText"
+  | "expectedStatusText"
+  | "expectedDueDateText"
+  | "expectedPrimaryActionText"
+>;
+
+/**
+ * Legacy fixtures stay immutable because they own the accepted root-demo
+ * captures. React assertions resolve separately against canonical candidate
+ * records and the current workbench copy.
+ */
+const REACT_SURFACE_SEMANTIC_OVERRIDES = {
+  "inspector-home": {
+    expectedSemanticMarker: "AUD-2026-001",
+    expectedOwnerText: "CAA Inspector",
+    expectedNextActionText: "Continue Cabin Inspection checklist",
+    expectedStatusText: "IN PROGRESS",
+    expectedDueDateText: "18 Jun 2026",
+  },
+  "audit-detail": {
+    expectedSemanticMarker: "AUD-2026-001",
+    expectedOwnerText: "CAA Inspector",
+    expectedStatusText: "IN_PROGRESS",
+    expectedDueDateText: "18 Jun 2026",
+  },
+  "checklist-runner": {
+    expectedOwnerText: "CAA Inspector",
+    expectedNextActionText: "Choose an answer",
+    expectedStatusText: "IN_PROGRESS",
+    expectedDueDateText: "18 Jun 2026",
+    expectedPrimaryActionText: "Save response",
+  },
+  "finding-detail": {
+    expectedDueDateText: "19 Jun 2026",
+    expectedNextActionText: "Lead Inspector to review CAP",
+    expectedPrimaryActionText: "Open CAP review handoff",
+  },
+  "inspector-findings": {
+    expectedHeading: "Findings",
+    expectedSemanticMarker: "CAB-2026-001",
+  },
+  "inspector-calendar": {
+    expectedHeading: "Audit Work Queue",
+    expectedSemanticMarker: "AUD-2026-001",
+  },
+  "inspector-reports": {
+    expectedHeading: "Reports",
+    expectedSemanticMarker: "Past Reports",
+  },
+  "lead-final-reports": {
+    expectedHeading: "Final Reports",
+    expectedSemanticMarker: "RPT-CAB-2026-001",
+  },
+  "lead-final-report-readiness": {
+    expectedHeading: "Final Report Preparation",
+    expectedSemanticMarker: "RPT-CAB-2026-001",
+  },
+  "lead-checklist-question-assignment": {
+    expectedHeading: "Assign Checklist Questions",
+    expectedSemanticMarker: "CAB-EMEQ-PBE-001",
+  },
+  "lead-calendar": {
+    expectedHeading: "Audit Work Queue",
+    expectedSemanticMarker: "AUD-2026-001",
+  },
+  "manager-findings-review": {
+    expectedHeading: "Findings Review",
+    expectedSemanticMarker: "FND-CAB-2026-001",
+  },
+  "manager-cap-closure-review": {
+    expectedHeading: "Department Manager Review",
+    expectedSemanticMarker: "FND-CAB-2026-001",
+  },
+  "audit-plan": {
+    expectedHeading: "Department Planning",
+    expectedSemanticMarker: "PLAN-2026-CAB-001",
+  },
+  "cap-review": {
+    expectedHeading: "CAP Review (Lead Inspector)",
+    expectedSemanticMarker: "CAB-2026-001",
+  },
+  "evidence-review": {
+    expectedHeading: "Findings",
+    expectedSemanticMarker: "FND-CAB-2026-001",
+  },
+  "finance-home": {
+    expectedHeading: "Finance Review",
+    expectedSemanticMarker: "PLAN-2026-CAB-001",
+  },
+  "executive-home": {
+    expectedHeading: "Executive Director Dashboard",
+    expectedSemanticMarker: "RPT-CAB-2026-001-V1",
+  },
+  "executive-report-preview": {
+    expectedHeading: "Final Report Preview",
+    expectedSemanticMarker: "RPT-CAB-2026-001-V1",
+  },
+  "auditee-home": {
+    expectedHeading: "Corrective Actions (CAP)",
+    expectedSemanticMarker: "CAB-2026-001",
+  },
+  "auditee-report-preview": {
+    expectedHeading: "Final Report",
+    expectedSemanticMarker: "RPT-CAB-2026-001-V1",
+  },
+  "auditee-settings": {
+    expectedHeading: "Service Provider Settings",
+    expectedSemanticMarker: "ORG-FLY-NAMIBIA",
+  },
+  "admin-home": {
+    expectedHeading: "Template Preview — Cabin Inspection",
+    expectedSemanticMarker: "CTV-CABIN-1",
+  },
+  "admin-version-history": {
+    expectedHeading: "Version History",
+    expectedSemanticMarker: "CTV-CABIN-1",
+  },
+  "admin-inspection-package-builder": {
+    expectedHeading: "Inspection Package Builder",
+    expectedSemanticMarker: "PKG-CAB-2026-001",
+  },
+  "admin-configurations": {
+    expectedHeading: "Configurations",
+    expectedSemanticMarker: "Configured demo rules",
+  },
+  "admin-organization-master-data": {
+    expectedHeading: "Organisation Master Data",
+    expectedSemanticMarker: "ORG-FLY-NAMIBIA",
+  },
+} satisfies Partial<Record<ReactSurfaceId, Partial<ReactSurfaceSemanticFields>>>;
+
+export function resolveReactSurfaceSemantics(surface: VisualSurfaceFixture): VisualSurfaceFixture {
+  const override = REACT_SURFACE_SEMANTIC_OVERRIDES[surface.id as keyof typeof REACT_SURFACE_SEMANTIC_OVERRIDES];
+  return override ? { ...surface, ...override } : surface;
+}
+
 export function hashBytes(bytes: Uint8Array | Buffer | string): string {
   return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
 }
@@ -1061,6 +1202,28 @@ export function assertViewportScreenshotContract(input: {
   }
 }
 
+export function assertVisualPairAttachments(
+  attachments: readonly { name: string }[],
+): void {
+  const candidateCount = attachments.filter(
+    (attachment) => attachment.name === "react-candidate-viewport",
+  ).length;
+  if (candidateCount !== 1) {
+    throw new Error(
+      `Visual pair must include exactly one React candidate attachment; got ${candidateCount}.`,
+    );
+  }
+
+  const resultCount = attachments.filter(
+    (attachment) => attachment.name === "decoded-pixel-region-results",
+  ).length;
+  if (resultCount !== 1) {
+    throw new Error(
+      `Visual pair must include exactly one decoded-pixel result attachment; got ${resultCount}.`,
+    );
+  }
+}
+
 export function assertBaselineUpdateMode(input: {
   command: string;
   env: Pick<NodeJS.ProcessEnv, "AVIA_UPDATE_LEGACY_BASELINES">;
@@ -1242,6 +1405,7 @@ export async function installDeterministicPageState(page: Page): Promise<void> {
   await page.addInitScript(() => {
     window.localStorage.clear();
     window.sessionStorage.clear();
+    window.sessionStorage.setItem("avia-route-matrix-fixtures", "1");
   });
 }
 
@@ -1396,7 +1560,11 @@ export async function driveReactSurface(page: Page, surface: VisualSurfaceFixtur
   await page.goto(`${VISUAL_REACT_BASE_URL}${surface.reactPath}`);
   await clearOriginStorage(page).catch(() => undefined);
   await disableVisualNoise(page);
-  await waitForStableVisualState(page, "#root");
+  await waitForStableVisualState(page, surface.id === "role-select" ? ".login-selector" : "main");
+  await assertSurfaceSemantics(page, resolveReactSurfaceSemantics(surface));
+  await expect(page.locator("body")).not.toContainText(
+    /Finding unavailable|Loading exact|route could not load|route-pending-implementation/i,
+  );
 }
 
 export async function assertSurfaceSemantics(page: Page, surface: VisualSurfaceFixture): Promise<void> {

@@ -2,7 +2,6 @@
 import "@testing-library/jest-dom/vitest";
 
 import { cleanup, render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -37,7 +36,7 @@ describe("AuditPlanCalendarPage", () => {
     renderPage();
 
     expect(await screen.findByRole("heading", { name: "Department Planning" })).toBeVisible();
-    const commandCenter = screen.getByTestId("planning-command-center");
+    const commandCenter = await screen.findByTestId("planning-command-center");
     expect(within(commandCenter).getAllByText("Finance Review").length).toBeGreaterThan(0);
     expect(within(commandCenter).getByText("Finance to review budget")).toBeVisible();
     expect(within(commandCenter).getByText("15 Jul 2026")).toBeVisible();
@@ -45,12 +44,12 @@ describe("AuditPlanCalendarPage", () => {
     expect(screen.getByRole("table", { name: "Planning Queue" })).toBeVisible();
   });
 
-  it("links the supported intake workspaces and makes queue selection functional", async () => {
+  it("links the supported intake workspaces and marks the already selected queue record unavailable", async () => {
     renderPage();
-    const user = userEvent.setup();
 
-    const open = await screen.findByRole("button", { name: "Open PLAN-2026-CAB-001" });
-    await user.click(open);
+    const open = await screen.findByRole("button", { name: "PLAN-2026-CAB-001 is already selected" });
+    expect(open).toBeDisabled();
+    expect(open).toHaveAttribute("title", "PLAN-2026-CAB-001 is already open in the Planning command center.");
     expect(screen.getByTestId("planning-selected-record")).toHaveTextContent("PLAN-2026-CAB-001");
     expect(screen.getByRole("link", { name: "New Inspection planning intake" })).toHaveAttribute("href", "/department-manager/new-audit/step-1");
     expect(screen.getByRole("link", { name: "Open Inspection Package Builder" })).toHaveAttribute("href", "/department-manager/inspection-package-builder");

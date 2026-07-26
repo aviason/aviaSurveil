@@ -346,6 +346,7 @@
 .report-queue__filters select { height: 44px; min-height: 44px; }
 .report-queue__filters button { align-self: end; cursor: pointer; }
 .report-queue__filters > button:first-of-type { border-color: #2f6fd6; color: #fff; background: #2f6fd6; font-weight: 700; }
+.report-queue__filters button:disabled { cursor: not-allowed; opacity: .55; }
 .report-queue__counts { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); border-bottom: 1px solid #eef1f6; }
 .report-queue__counts span { min-height: 64px; padding: 9px 5px; border-right: 1px solid #eef1f6; text-align: center; }
 .report-queue__counts b,

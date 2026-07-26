@@ -391,6 +391,14 @@
 }
 
 @media (max-width: 900px) {
+  .cap-root-search {
+    height: 46px;
+  }
+
+  .cap-root-search > input {
+    min-height: 44px;
+  }
+
   .role-select-page {
     grid-template-columns: minmax(0, 1fr);
   }

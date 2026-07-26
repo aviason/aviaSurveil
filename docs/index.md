@@ -26,7 +26,8 @@ This is the canonical docs map for AviaSurveil360. Use it after the root
 | `demo-evidence/FIRST_PRODUCTION_ROUTE_FAMILIES_2026-07-21.md` | Task 5 organization, planning authority/calendar, versioned configuration, reminder, audit-trail, and dual-profile responsive parity evidence. |
 | `demo-evidence/LOCAL_RELEASE_CANDIDATE_2026-07-21.md` | Task 13 local `GO`, complete mock/HTTP/offline/security/restore matrix, dependency/SBOM review, and explicit production blockers. |
 | `demo-evidence/REACT_LEGACY_UI_PARITY_2026-07-22.md` | Task 16 exact 17/69 scope, full candidate matrix, 51-pair decoded-pixel and manual review, OIDC/offline/recovery evidence, and stakeholder handoff. |
-| `demo-evidence/REACT_86_SCREEN_DEMO_2026-07-22.md` | Full React Tasks 11–12 evidence: exact 86-route scope, 258 responsive and action checks, literal 71/259 one-shot visual result, baseline-integrity gap, and Plan 2 block. |
+| `demo-evidence/REACT_86_SCREEN_DEMO_2026-07-22.md` | Full React Tasks 11–12 evidence: exact 86-route scope, 258 responsive/action inventories, 613 per-action records, 306/306 executed route controls, baseline integrity, final 89/259 visual result, and clean independent acceptance. |
+| `demo-evidence/REACT_86_SCREEN_VISUAL_REVIEW_2026-07-25.md` | Final 258-pair React visual-review ledger with literal decoded-region ratios, zero-mask status, semantic/geometry/action result, reviewer, and disposition. |
 | `demo-evidence/FULL_BACKEND_SCENARIO_PARITY_2026-07-22.md` | Full Backend Tasks 1–12 evidence: 86 dual-profile routes, 28 Backend slices, 10 scenario families, 45 proofs, final matrix, reviews, and preserved Plan 1 gaps. |
 | `demo-evidence/LOCAL_PRODUCTION_LIKE_SERVICES_2026-07-22.md` | Local production-like services evidence: scanned runtime digests, clean 86-route demo/full profiles, 10 scenario families, real MFA/MinIO/ClamAV/Mailpit/Gotenberg proofs, failure/restart, and cleanup. |
 | `../api/openapi/aviasurveil360.yaml` | Minimal versioned transport source for the authorized local candidate slices. |
@@ -45,8 +46,12 @@ recovery, Task 12 foreground sync, and the Task 13 complete local matrix are
 `verified locally`. The Full React candidate now owns all 86 routes in demo and
 HTTP profiles, Full Backend Tasks 1–12 pass exact parity for 10 scenario
 families and 45 proofs, and Local Production-Like Services Tasks 1–9 are
-`verified locally`. The result is `candidate-only` and `release pending`.
-These are not deployed production services. The docs do not claim production OIDC/MFA,
+`verified locally`. Plan 1's 258-pair main-agent visual review is complete, its
+Task 10 correction plus Tasks 11–12 evidence have clean independent acceptance,
+and its retained pixel failures remain literal. Plans 1–3 are
+`ready-for-verification`. The result is local `GO`, `candidate-only`, and
+`release pending`. These are not deployed production services. The docs do not
+claim production identity federation,
 production authorization operations, production storage/scanning or Evidence
 records management, notification delivery, deployment, remote CI, cutover,
 legacy removal, or production readiness. Those production actions remain

@@ -24,6 +24,25 @@ const acceptedQueueFillers = [
 
 type SelectedDossierSection = "details" | "cap" | "conversation" | "files" | "history";
 
+function csvCell(value: string | null | undefined): string {
+  return `"${(value ?? "").replaceAll("\"", "\"\"")}"`;
+}
+
+function findingsCsv(findings: FindingView[]): string {
+  const header = ["Finding", "Title", "Organization", "Severity", "Status", "Due Date", "Current Owner", "Next Action"];
+  const rows = findings.map((finding) => [
+    finding.findingNumber,
+    finding.title,
+    finding.organizationName,
+    formatSeverity(finding.severity),
+    finding.status.replaceAll("_", " "),
+    finding.dueDate,
+    ownerLabel(finding),
+    finding.nextAction,
+  ]);
+  return [header, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
+}
+
 export function InspectorFindingsPage() {
   const runtime = useApplicationRuntime();
   const backend = useMemo(() => runtime.backendForRole?.("inspector") ?? runtime.backend, [runtime]);
@@ -60,6 +79,13 @@ export function InspectorFindingsPage() {
     return `${finding.findingNumber} ${finding.title} ${finding.organizationName}`.toLowerCase().includes(query.trim().toLowerCase());
   });
   const cabFinding = findings.find((finding) => finding.id === "FND-CAB-2026-001") ?? null;
+  const filtersAreDefault =
+    summaryFilter === "all" &&
+    severityFilter === "all" &&
+    statusFilter === "all" &&
+    dueFilter === "all" &&
+    query === "";
+  const exportHref = `data:text/csv;charset=utf-8,${encodeURIComponent(findingsCsv(visible))}`;
 
   return (
     <WorkspaceShell roleLabel="CAA Inspector" routeLabel="Findings">
@@ -68,7 +94,7 @@ export function InspectorFindingsPage() {
         <header className="inspector-secondary-head workbench-page-header">
           <div><span className="inspector-secondary-scope">CAA Inspector workspace</span><h1>Findings</h1><p>All findings and CAPs from this inspection</p></div>
           <div className="inspector-secondary-actions">
-            <button type="button" onClick={() => setExportStatus("Findings export prepared in the demo workspace.")}><span>⇩ Export</span></button>
+            <a download="AviaSurveil360_Inspector_Findings.csv" href={exportHref} onClick={() => setExportStatus(`Findings CSV prepared for ${visible.length} records.`)}><span>⇩ Export</span></a>
             <button type="button" onClick={() => setStatusFilter((current) => current === "all" ? "open" : "all")}><span>▽ Filter</span></button>
             <button aria-label="New Finding unavailable: Create Finding begins from an inspected checklist response." disabled title="Create Finding begins from an inspected checklist response." type="button"><span><span aria-hidden="true">🔒</span> New Finding</span></button>
           </div>
@@ -87,7 +113,15 @@ export function InspectorFindingsPage() {
           <label><span>CAP Level</span><select value={severityFilter} onChange={(event) => setSeverityFilter(event.target.value)}><option value="all">All Levels</option><option value="LEVEL_1_CRITICAL">Level 1 Critical</option><option value="LEVEL_2_MAJOR">Level 2 Major</option><option value="LEVEL_3_MINOR">Level 3 Minor</option></select></label>
           <label><span>CAP Status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">All Statuses</option><option value="open">Open</option><option value="WAITING_FOR_CAP">Waiting for CAP</option><option value="CAP_SUBMITTED">CAP Submitted</option><option value="CLOSED">Closed</option></select></label>
           <label><span>Due Date</span><select value={dueFilter} onChange={(event) => setDueFilter(event.target.value)}><option value="all">All Due Dates</option><option value="due-soon">Due Soon</option><option value="overdue">Overdue</option></select></label>
-          <button onClick={() => { setSummaryFilter("all"); setSeverityFilter("all"); setStatusFilter("all"); setDueFilter("all"); setQuery(""); }} type="button">Reset</button>
+          <button
+            aria-label={filtersAreDefault ? "Reset Finding filters unavailable" : undefined}
+            disabled={filtersAreDefault}
+            onClick={() => { setSummaryFilter("all"); setSeverityFilter("all"); setStatusFilter("all"); setDueFilter("all"); setQuery(""); }}
+            title={filtersAreDefault ? "Finding filters are already at their defaults." : undefined}
+            type="button"
+          >
+            Reset
+          </button>
         </section>
         <section className="inspector-secondary-register" aria-label="Finding Queue">
           <header><h2>Finding Queue</h2><span>{visible.length} findings</span></header>

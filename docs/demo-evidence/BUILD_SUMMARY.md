@@ -40,14 +40,13 @@ The Full React migration now implements all 86 accepted routes in demo mode and
 records the Task 11 interaction/accessibility boundary plus the literal Task 12
 matrix in
 [Full React 86-Screen Demo Migration Evidence](REACT_86_SCREEN_DEMO_2026-07-22.md).
-The 86-route artifact remains `candidate-only`. The one-shot visual matrix
-remains `not verified` at 71/259 and complete comparison review is `not run`;
-the user explicitly accepted those gaps as non-blocking. Standalone baseline
-integrity is `not verified`: the accepted manifest records
-`sha256:92a8ab06da1f87fd9e84b45b35fa5c3dc58aa78a6eb7f6f9c9652731e8f74967`,
-while the user-edited canonical audit hashes to
-`sha256:0ab4c60febb6d95f852f1aae2d540cb678b61c0f7111ba06f424c301325f4f9c`.
-The accepted baseline was not replaced. Plan 1 is `ready-for-verification`.
+The 86-route artifact remains `candidate-only`; standalone baseline integrity
+is now `verified locally` as of 2026-07-25. The final exact-runtime visual
+command is still literally non-green at 89/259, but all 258 pairs now have
+complete candidate/region attachments, zero semantic or other non-pixel
+errors, and a main-agent review disposition. The Task 10 correction and Tasks
+11–12 evidence received clean independent acceptance. Plan 1 is
+`ready-for-verification`.
 
 Plan 2 Backend Tasks 1–12 are `verified locally`; see
 [Full Backend Scenario Parity Evidence](FULL_BACKEND_SCENARIO_PARITY_2026-07-22.md).
@@ -123,14 +122,24 @@ and return to seed data.
 
 ## Latest UI evidence
 
-The 23 July 2026 Full React handoff records exactly 86 React routes, 258/258
-responsive route checks, 258/258 visible-action inventories, and a one-shot
-visual result of 71/259 passed and 188/259 failed. Standalone baseline integrity
-is `not verified` because the accepted manifest hash and current user-edited
-canonical audit hash differ; this gap and the visual failures remain literal
-and were user-accepted as non-blocking for Plan 2 without replacing the
-baseline:
-[`REACT_86_SCREEN_DEMO_2026-07-22.md`](REACT_86_SCREEN_DEMO_2026-07-22.md).
+The 23 July 2026 Full React handoff, updated after acceptance review, records
+exactly 86 React routes, 258/258 responsive route checks, 258/258
+visible-action inventories, 613 exact per-action evidence records, and
+306/306 executed route controls across desktop and mobile. Its original
+one-shot visual result was 71/259
+passed and 188/259 failed. A 25 July 2026
+exact-runtime follow-up verified 258 baseline PNGs and confirmed the canonical
+UI-audit hash matches the accepted manifest. After fail-closed attachment,
+React-semantic, responsive-layout, truthful-disabled-control, and
+report-preview corrections, the final exact-runtime command is 89/259:
+primitive 1/1, route pairs 88/258, and 170/258 literal pixel failures. All 258
+candidates and decoded-region results are present, semantic and other non-pixel
+errors are zero, and all 11 candidate contact sheets plus selected full-size
+candidates received main-agent review. The detailed ledger preserves every
+ratio and does not convert failed pixel pairs into passes. Independent Task 12
+review accepted the literal artifact and retained-failure disposition:
+[`REACT_86_SCREEN_DEMO_2026-07-22.md`](REACT_86_SCREEN_DEMO_2026-07-22.md),
+[`REACT_86_SCREEN_VISUAL_REVIEW_2026-07-25.md`](REACT_86_SCREEN_VISUAL_REVIEW_2026-07-25.md).
 
 The 22 July 2026 React parity review covers all 17 routed surfaces at desktop,
 tablet, and mobile. The decoded-pixel gate passed the primitive gallery plus all
@@ -161,6 +170,7 @@ results; the completed remediation now records 86 Pass and 0 Issue with fresh
 | `js/app.js` | Role-based navigation, centralized persistence, manager/GM interaction dispatch, PDF/CSV downloads, Cabin Inspection lifecycle transitions, simulated offline transitions, and stable ID generation. |
 | `docs/demo-evidence/BUILD_SUMMARY.md` | This English canonical build summary. |
 | `docs/demo-evidence/UI_SCREEN_AUDIT_2026-07-19.md` | Canonical 86-screen desktop/tablet/mobile visual audit. |
+| `docs/demo-evidence/REACT_86_SCREEN_VISUAL_REVIEW_2026-07-25.md` | Final 258-pair React visual-review ledger with literal ratios, zero-mask status, semantic/geometry/action result, reviewer, and disposition. |
 | `docs/exec-plans/index.md` | Updated only if the active plan status / next todo changes. |
 | `tests/*.test.js` | Focused smoke coverage for the Cabin Inspection path, Department/General Manager workspaces, lifecycle and authorization boundaries, valid PDF construction, responsive contracts, and demo boundaries. |
 

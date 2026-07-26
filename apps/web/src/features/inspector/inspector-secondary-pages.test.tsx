@@ -76,6 +76,18 @@ describe("Inspector secondary routes", () => {
     expect(within(selected).getByText(expected.nextAction)).toBeVisible();
   });
 
+  it("exports the currently visible Finding queue as a downloadable CSV artifact", async () => {
+    const runtime = createMockBackendRuntime();
+    await seedVisualRuntimeForPath(runtime, "/inspector/findings");
+    renderRoute("/inspector/findings", runtime);
+
+    const page = await screen.findByTestId("inspector-findings-page");
+    const exportLink = within(page).getByRole("link", { name: /Export/ });
+    expect(exportLink).toHaveAttribute("download", "AviaSurveil360_Inspector_Findings.csv");
+    expect(exportLink.getAttribute("href")).toMatch(/^data:text\/csv;charset=utf-8,/);
+    expect(decodeURIComponent(exportLink.getAttribute("href") ?? "")).toContain("CAB-2026-001");
+  });
+
   it("preserves the exact backend Finding identity when the CAB dossier record is absent", async () => {
     renderRoute("/inspector/findings");
 
@@ -138,8 +150,14 @@ describe("Inspector secondary routes", () => {
     const queue = within(page).getByRole("region", { name: "Finding Queue" });
     const recordGrid = queue.querySelector<HTMLElement>(".inspector-record-grid");
     if (!recordGrid) throw new Error("Expected Finding record grid.");
+    expect(within(page).getByRole("button", { name: "Reset Finding filters unavailable" })).toBeDisabled();
+    expect(within(page).getByRole("button", { name: "Reset Finding filters unavailable" })).toHaveAttribute(
+      "title",
+      "Finding filters are already at their defaults.",
+    );
 
     await user.click(within(page).getByRole("button", { name: /CAP Submitted/ }));
+    expect(within(page).getByRole("button", { name: "Reset" })).toBeEnabled();
     expect(within(page).getByRole("button", { name: /CAP Submitted/ })).toHaveAttribute("aria-pressed", "true");
     expect(within(page).getByRole("button", { name: /All Findings/ })).toHaveAttribute("aria-pressed", "false");
     expect(within(queue).getByText("1 findings")).toBeVisible();
@@ -171,6 +189,7 @@ describe("Inspector secondary routes", () => {
     expect(within(page).getByLabelText("CAP Level")).toHaveValue("all");
     expect(within(page).getByLabelText("CAP Status")).toHaveValue("all");
     expect(within(page).getByLabelText("Due Date")).toHaveValue("all");
+    expect(within(page).getByRole("button", { name: "Reset Finding filters unavailable" })).toBeDisabled();
   });
 
   it("direct-loads the role-safe Message Center and records a composed in-app message", async () => {
@@ -220,7 +239,11 @@ describe("Inspector secondary routes", () => {
     expect(title.compareDocumentPosition(owner) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(owner.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(action.compareDocumentPosition(dueDate) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(page).getByRole("button", { name: /Active audits/ })).toHaveAttribute("aria-pressed", "true");
+    expect(within(page).getByRole("button", { name: /Completed/ })).toHaveAttribute("aria-pressed", "false");
     await user.click(within(page).getByRole("button", { name: /Completed/ }));
+    expect(within(page).getByRole("button", { name: /Active audits/ })).toHaveAttribute("aria-pressed", "false");
+    expect(within(page).getByRole("button", { name: /Completed/ })).toHaveAttribute("aria-pressed", "true");
     expect(within(page).getByText("No completed audits in this deterministic projection.")).toBeVisible();
   });
 
@@ -290,7 +313,10 @@ describe("Inspector secondary routes", () => {
     expect(within(page).getByText("Finding Report Draft")).toBeVisible();
     expect(within(page).queryByText("Finding Closure Report")).toBeNull();
     expect(within(page).getByText(/mock — not a legally issued document/i)).toBeVisible();
-    await user.click(within(page).getByRole("button", { name: "Export PDF (mock)" }));
+    const download = within(page).getByRole("link", { name: "Download report preview" });
+    expect(download).toHaveAttribute("download", "AviaSurveil360_CAB-2026-011_Report_Preview.txt");
+    expect(decodeURIComponent(download.getAttribute("href") ?? "")).toContain("CAB-2026-001");
+    await user.click(download);
     expect(within(page).getByRole("status")).toHaveTextContent("Mock report preview prepared for download");
   });
 
@@ -312,6 +338,7 @@ describe("Inspector secondary routes", () => {
     await user.type(within(page).getByLabelText("Draft request"), "Summarize the configured finding basis.");
     await user.click(within(page).getByRole("button", { name: "Create Draft" }));
     const output = await within(page).findByRole("status", { name: "Assistant Draft" });
+    expect(output).toHaveAttribute("data-durable-outcome", "assistant-draft");
     expect(createDraft).toHaveBeenCalledWith(expect.objectContaining({ findingId: "FND-SKYCARGO-2026-099" }));
     expect(output).toHaveTextContent("Draft");
     expect(output).toHaveTextContent("CAR-2026-099");
@@ -372,7 +399,16 @@ describe("Inspector secondary routes", () => {
 
     const page = await screen.findByTestId("inspector-assistant-page");
     const suggestion = await within(page).findByRole("article", { name: "Draft finding language for PBE serviceability" });
-    await user.click(within(suggestion).getByRole("button", { name: "Accept draft" }));
+    const accept = within(suggestion).getByRole("button", { name: /Accept draft:/ });
+    const edit = within(suggestion).getByRole("button", { name: /Record edit:/ });
+    const reject = within(suggestion).getByRole("button", { name: /Reject:/ });
+    expect(accept).toHaveAttribute("aria-pressed", "false");
+    expect(edit).toHaveAttribute("aria-pressed", "false");
+    expect(reject).toHaveAttribute("aria-pressed", "false");
+    await user.click(accept);
+    expect(accept).toHaveAttribute("aria-pressed", "true");
+    expect(edit).toHaveAttribute("aria-pressed", "false");
+    expect(reject).toHaveAttribute("aria-pressed", "false");
     expect(within(suggestion).getByRole("status")).toHaveTextContent("Accepted by authorized Inspector");
   });
 

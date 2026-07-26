@@ -172,6 +172,7 @@
 
 .auditee-report-sections a { display: flex; align-items: center; padding: 8px 10px; border-radius: 7px; background: #edf4fd; }
 .auditee-report-preview-layout article section { padding: 12px 0; border-bottom: 1px solid #e5eaf1; }
+.auditee-preview-head > div { display: grid; gap: 4px; min-width: 0; }
 .auditee-preview-head > button { flex: 0 0 auto; }
 .auditee-settings-notifications label { display: flex; min-height: 44px; align-items: center; gap: 10px; }
 .auditee-settings-notifications input { width: 20px; height: 20px; }

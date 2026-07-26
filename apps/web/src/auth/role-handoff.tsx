@@ -19,7 +19,12 @@ export function RoleHandoff({
   const label = typeof children === "string" ? children : roleLabel(targetRole);
   if (identityMode !== "oidc-session") {
     return (
-      <button className="secondary-button" onClick={() => onRoleRequest(targetRole)} type="button">
+      <button
+        className="secondary-button"
+        data-action-boundary="navigation"
+        onClick={() => onRoleRequest(targetRole)}
+        type="button"
+      >
         {children}
       </button>
     );
@@ -29,6 +34,7 @@ export function RoleHandoff({
     <span>
       <button
         className="secondary-button"
+        data-action-boundary="navigation"
         disabled={!allowed}
         onClick={() => allowed && onRoleRequest(targetRole)}
         type="button"

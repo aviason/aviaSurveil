@@ -388,7 +388,13 @@ export function AuditeeCapPage() {
                           {progress.label}
                         </td>
                         <td>
-                          <button onClick={() => void run(() => actions.selectAuditeeFinding(finding.id))} type="button">
+                          <button
+                            aria-label={selected ? `${finding.findingNumber} is already selected` : undefined}
+                            disabled={selected}
+                            onClick={() => void run(() => actions.selectAuditeeFinding(finding.id))}
+                            title={selected ? `${finding.findingNumber} is already open in the Auditee Finding dossier.` : undefined}
+                            type="button"
+                          >
                             {finding.status === "CLOSED" ? "View" : "Select"}
                           </button>
                         </td>
@@ -448,7 +454,12 @@ export function AuditeeCapPage() {
                   ))}
                 </div>
               ) : <p>No Evidence versions submitted.</p>}
-              <button aria-controls="auditee-response-work-package" className="primary-button auditee-dossier__action" onClick={focusResponsePackage} type="button">
+              <button
+                aria-controls="auditee-response-work-package"
+                className="primary-button auditee-dossier__action"
+                onClick={focusResponsePackage}
+                type="button"
+              >
                 {canSubmitCap || canSubmitEvidence ? "Respond" : "View Status"}
               </button>
               <p>CAP acceptance does not close this Finding. Required Evidence must be accepted or an authorized closure must be recorded.</p>

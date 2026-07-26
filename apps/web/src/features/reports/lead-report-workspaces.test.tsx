@@ -86,7 +86,9 @@ describe("Lead Inspector report workspaces", () => {
     await user.clear(within(page).getByLabelText("Internal CAA Note text"));
     await user.type(within(page).getByLabelText("Internal CAA Note text"), "Internal canonical Finding note.");
     await user.click(within(page).getByRole("button", { name: "Save Draft" }));
-    expect(within(page).getByRole("status")).toHaveTextContent("PR-2026-018 version 1 working draft saved");
+    const saved = within(page).getByRole("status");
+    expect(saved).toHaveAttribute("data-durable-outcome", "preliminary-report-saved");
+    expect(saved).toHaveTextContent("PR-2026-018 version 1 working draft saved");
     cleanup();
     renderLeadRoute("/lead-inspector/preliminary-reports/PR-2026-018", runtime);
     const remounted = await screen.findByTestId("lead-preliminary-report-workflow-page");
@@ -171,8 +173,14 @@ describe("Lead Inspector report workspaces", () => {
     expect(within(page).getByRole("heading", { name: "Final Report" })).toBeVisible();
     expect(within(page).getByText("RPT-CAB-2026-001")).toBeVisible();
     expect(within(page).getByText("AUD-2026-001")).toBeVisible();
-    await user.click(within(page).getByRole("button", { name: "Export PDF (mock)" }));
-    expect(within(page).getByRole("status")).toHaveTextContent("RPT-CAB-2026-001-V1.pdf prepared in the demo workspace");
+    const download = within(page).getByRole("link", { name: "Download report preview" });
+    expect(download).toHaveClass(
+      "workbench-page-header__action",
+    );
+    expect(download).toHaveAttribute("download", "AviaSurveil360_RPT-CAB-2026-001-V1_Report_Preview.txt");
+    expect(decodeURIComponent(download.getAttribute("href") ?? "")).toContain("RPT-CAB-2026-001-V1");
+    await user.click(download);
+    expect(within(page).getByRole("status")).toHaveTextContent("RPT-CAB-2026-001-V1 preview prepared in the demo workspace");
   });
 
   it("navigates list to readiness, immutable snapshot, and document without Lead decision authority", async () => {
