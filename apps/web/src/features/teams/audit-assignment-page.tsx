@@ -38,7 +38,7 @@ export function AuditAssignmentPage() {
   }, [inspectionPackage]);
   return <WorkspaceShell roleLabel="Lead Inspector" routeLabel="Lead Review">
     <div className="lead-secondary-page lead-audit-assignment" data-audit-id={AUDIT_ID} data-testid="lead-audit-assignment-page">
-      <header className="lead-secondary-header workbench-page-header"><div><Link className="lead-back-link" to="/lead-inspector/lead-review">← Back to Assigned Audits</Link><h1>Cabin Inspection</h1><p>{AUDIT_ID}</p></div><Link className="lead-button" to="/lead-inspector/preliminary-reports/PR-2026-018">View Preliminary Report</Link></header>
+      <header className="lead-secondary-header workbench-page-header"><div><Link className="lead-back-link" to="/lead-inspector/lead-review">← Back to Assigned Audits</Link><h1>Cabin Inspection</h1><p>{AUDIT_ID}</p></div><Link className="lead-button workbench-page-header__action" to="/lead-inspector/preliminary-reports/PR-2026-018">View Preliminary Report</Link></header>
       <CommandError message={error} />
       {assignment && inspectionPackage ? <>
         <section aria-label="Audit assignment summary" className="lead-fact-strip"><div><small>Organization</small><strong>{assignment.organizationName}</strong><span>{assignment.organizationId}</span></div><div><small>Inspection Type</small><strong>Cabin Inspection</strong><span>{assignment.title}</span></div><div><small>Current Owner</small><strong>Lead Inspector</strong></div><div><small>Next Action</small><strong>Assign exact checklist questions</strong></div><div><small>Due Date</small><strong>{assignment.dueDate}</strong></div></section>

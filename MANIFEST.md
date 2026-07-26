@@ -9,13 +9,17 @@ private MinIO upload, deterministic scan adapter, real canonical HTTP scenario,
 PWA/readiness, atomic offline field/outbox persistence, and manifest-first OPFS
 Inspection Attachment recovery, typed foreground sync, approved
 first-production routes, the complete local release-candidate matrix, and the
-17-surface React migration to the accepted root-demo interface are `verified
-locally`. The exact parity boundary remains 17 routed React surfaces and 69
-legacy-only audit rows. The artifact is `candidate-only`, the local decision is
-`GO`, and release is `release pending`. It is not a deployed production
-application. Production OIDC/MFA, production storage/scanning/records policy,
-deployment, cutover, legacy removal, and a `production-ready` claim remain
-excluded or `blocked`.
+initial 17-surface React migration to the accepted root-demo interface are
+`verified locally`. The Full React migration now implements all 86 audited
+routes in deterministic demo mode: 17 are dual-profile and 69 are explicitly
+demo-only until Plan 2. Its 258-pair main-agent visual review is complete, but
+the Task 10 correction and Tasks 11–12 evidence now have clean independent
+acceptance. Plan 1 is `ready-for-verification`; Plan 2 is sequencing-unblocked
+but remains unstarted and unauthorized. The artifact is `candidate-only`, the
+local decision is `GO`, and release is `release pending`. It is not a deployed
+production application. Production OIDC/MFA, production
+storage/scanning/records policy, deployment, cutover, legacy removal, and a
+`production-ready` claim remain excluded or `blocked`.
 The root Vanilla demo remains intact.
 
 ## Root Files
@@ -57,8 +61,8 @@ The root Vanilla demo remains intact.
   projection checks.
 - `scripts/generate-contracts.sh` and `scripts/check-contracts.sh` — checked
   TypeScript generation, lint, example validation, and drift detection.
-- `tests/parity/behavior-ledger.json` — version 4 exact 17-route / 69
-  legacy-only behavior and visible-action ownership ledger.
+- `tests/parity/behavior-ledger.json` — version 4 exact 86-route behavior,
+  visible-action ownership, and 613-record per-action evidence ledger.
 - `tests/parity/react-legacy-parity.test.mjs` — executable ledger and intact
   legacy-oracle checks.
 - `apps/web/` — React + TypeScript + Vite candidate with build-time-separated
@@ -98,10 +102,11 @@ The root Vanilla demo remains intact.
 - `apps/web/tests/e2e/release-candidate-gates.spec.ts` — dual-profile role,
   stable-reset, literal-boundary, keyboard, focus, and target-size gate.
 - `apps/web/tests/e2e/legacy-visual-parity.spec.ts` — decoded-pixel primitive
-  gallery plus 51 route/viewport comparisons with candidate PNG and region
+  gallery plus 258 route/viewport comparisons with candidate PNG and region
   result attachments.
 - `apps/web/tests/e2e/visible-action-contract.spec.ts` — accessible visible
-  action inventory across all 17 surfaces at desktop, tablet, and mobile.
+  action inventory across all 86 surfaces at desktop, tablet, and mobile plus
+  durable-outcome execution for every active route command.
 - `apps/web/tests/e2e/oidc-session.spec.ts` — normal same-origin Keycloak
   login/session/CSRF/expiry/logout browser path.
 - `apps/web/tests/e2e/brand-app-shell-restart.spec.ts` — stopped-origin accepted
@@ -114,7 +119,7 @@ The root Vanilla demo remains intact.
   exclusion gate for mock, seed, and test-profile code plus app-shell policy.
 - `apps/web/scripts/assert-parity-boundary.mjs` — exact route/source/build,
   comparator, viewport, attachment, and inert-control fail-closed boundary.
-- `apps/web/scripts/verify-visual-baselines.mjs` — 51-image baseline manifest,
+- `apps/web/scripts/verify-visual-baselines.mjs` — 258-image baseline manifest,
   environment, and SHA-256 verifier.
 - `apps/api/go.mod` — the single Go module and pinned runtime dependencies.
 - `apps/api/cmd/api/` and `apps/api/cmd/worker/` — production-shaped HTTP and
@@ -259,9 +264,12 @@ separate `apps/web/package.json` owns the React candidate commands.
   51-pair decoded-pixel/manual parity review, and stakeholder handoff.
 - `docs/demo-evidence/REACT_86_SCREEN_DEMO_2026-07-22.md` —
   Full React Tasks 11–12 exact 86-route scope, 258 responsive and action
-  inventories, literal original one-shot visual result, 2026-07-25
-  baseline-integrity pass, latest 74/259 visual diagnostic, and blocked Plan 2
-  handoff.
+  inventories, 613 exact evidence records, 306/306 executed route controls,
+  literal original and final visual results, 2026-07-25 baseline-integrity
+  pass, main-agent pair review, and clean independent acceptance.
+- `docs/demo-evidence/REACT_86_SCREEN_VISUAL_REVIEW_2026-07-25.md` —
+  final 258-pair decoded-region ratio, zero-mask, semantic/geometry/action,
+  reviewer, and disposition ledger.
 - `docs/demo-handoff/ACCEPTANCE_CRITERIA_AND_FEEDBACK.md`
 - `docs/demo-handoff/ACCEPTANCE_CRITERIA_AND_FEEDBACK.turkce.md`
 - `docs/demo-handoff/AGENT_HARNESS_RUNBOOK.md`
@@ -341,7 +349,9 @@ production sync, deployment, cutover, release, or production readiness.
 
 The first 22 July 2026 follow-up plan now implements 86/86 React demo routes.
 Its standalone baseline-integrity gate is now `verified locally` as of
-2026-07-25, while its full visual gate remains `not verified`.
+2026-07-25, while its full visual gate remains literally `not verified`.
+Plan 1 is `ready-for-verification` after clean independent acceptance.
 The later plans still define complete mock/Go/PostgreSQL scenario parity,
 production-like local Docker services, local reliability/DR, and a separately
-authorized AWS trial using Terraform and Terragrunt. Plan 2 remains `blocked`.
+authorized AWS trial using Terraform and Terragrunt. Plan 2 is
+sequencing-unblocked but remains unstarted and unauthorized.

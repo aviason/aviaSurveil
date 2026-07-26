@@ -21,12 +21,21 @@ React Hook Form, Zod, deterministic `MemoryMockStore`, Vitest, React Testing
 Library, Playwright 1.61, decoded-RGBA visual comparison, and the accepted root
 HTML/CSS/JavaScript oracle.
 
-**Status:** `active` — Tasks 1–12 have been executed. Task 11 is
-`verified locally`; Task 12's non-visual matrix passed, but the one-shot visual
-matrix remains literally 71/259 and standalone baseline integrity is
-`not verified`. The plan therefore does not meet the
-`ready-for-verification` gate. Independent review for Tasks 11–12 is `not run`,
-and Plan 2 remains `blocked`. Historical task evidence follows. Task 4 passed
+**Status:** `ready-for-verification` — Tasks 1–12 have been executed. Task 11 is
+`verified locally`; Task 12's non-visual matrix and standalone baseline
+integrity passed. The final 2026-07-25 exact-runtime visual command remains
+literally non-green at 89/259: the primitive gallery passed, 88/258 route
+pairs passed, and 170/258 route pairs retained decoded-pixel failures. All 258
+candidate attachments and all 258 decoded-region attachments were present,
+with zero semantic or other non-pixel errors. The main agent inspected all 11
+contact sheets covering the 258 candidates plus selected full-size candidates
+and accepted the 170 pixel failures only as intentional content adaptations;
+they were not relabelled as pixel passes.
+The Task 10 correction and Tasks 11–12 evidence received clean independent
+acceptance on 2026-07-25. Plan 2 is sequencing-unblocked but remains unstarted
+and unauthorized until the user directs its first task. Stakeholder
+review/sign-off is the next todo before this plan can move to `completed`.
+Historical task evidence follows. Task 4 passed
 its functional, contract, type, build,
 route-boundary, root-diff, hygiene, and independent spec/code-quality gates.
 Its final exact Inspector visual command returned 19 passed / 15 nominal
@@ -66,14 +75,20 @@ made profile-aware. Fresh correction gates passed focused Task 10 103/103, full
 React 517/517, typecheck, demo and HTTP builds, HTTP artifact scan, exact
 86-route/two-profile boundary, root/parity 107/107, root-oracle diff, and
 diff-check. The correction is `verified locally`; its clean independent
-re-review is `not run`, so Task 10 is not independently accepted yet. Its
+re-review accepted the correction with no remaining blocking finding. Its
 single bounded visual matrix remains literally 1/40, with the primitive
 gallery green and all 39 Admin route pairs non-green, and was not rerun. Task 11
-subsequently passed its full interaction/accessibility boundary without claiming
-an independent review. Task 12 executed the required full matrix once and
+subsequently passed its full interaction/accessibility boundary and its final
+independent re-review. Task 12 executed the required full matrix once and
 recorded its non-green visual result literally. A 2026-07-25 exact-runtime
-follow-up verifies standalone baseline integrity, while the fresh visual
-diagnostic remains non-green at 74/259. Plan 2 has not started.
+follow-up verifies standalone baseline integrity and corrected stale React
+semantic assertions plus pair-local attachment accounting. The final
+exact-runtime visual command remains non-green at 89/259, with 170 literal
+pixel failures and zero semantic or other non-pixel errors. The complete
+258-pair result and main-agent visual review are recorded in
+`docs/demo-evidence/REACT_86_SCREEN_VISUAL_REVIEW_2026-07-25.md`; independent
+Task 12 review accepted that literal evidence without converting failures to
+passes. Plan 2 has not started.
 
 ## Objective
 
@@ -194,11 +209,12 @@ Feature CSS remains in `apps/web/src/styles/features/` and is registered by
 
 ## Dependency Order
 
-This is Plan 1 of 4. The sequence is intentionally serial: Plan 2 does not begin
-until Tasks 1–12 are complete, this plan is `ready-for-verification`, and the
-route/capability/action contracts are independently accepted. Plan 3 depends on
-Plan 2's adapters and worker jobs. Plan 4 depends on the local full-stack gates
-from Plans 1–3.
+This is Plan 1 of 4. Plan 2's sequencing prerequisites are now satisfied:
+Tasks 1–12 are complete, this plan is `ready-for-verification`, and the
+route/capability/action contracts are independently accepted. Plan 2 remains
+unstarted until explicitly directed by the user. Plan 3 depends on Plan 2's
+adapters and worker jobs. Plan 4 depends on the local full-stack gates from
+Plans 1–3.
 
 ## Phases
 
@@ -620,24 +636,28 @@ at a time; no off-canvas duplicate controls remain in the accessibility tree.
 - [x] Commit disposition: deferred during execution, then included in the
   user-authorized final Task 11–12 handoff.
 
-Task 11 is `verified locally`: all eight mutation fixtures were observed
-failing closed before the minimum corrections; the accessibility matrix passed
-5/5 with exactly 258 responsive route checks and two focused dialog checks; the
-visible-action matrix passed 3/3 with exactly 258 action inventories and
-route-ordered owning-test evidence for all 86 surfaces. The final gates passed
-602/602 Vitest tests, exact 86-route parity and behavior-ledger checks,
-typecheck, `build:demo`, root-source diff, `git diff --check`, and process
-hygiene. The main-agent spec-compliance review found one Important accessible
-navigation-landmark gap and the separate main-agent code-quality review found
-one Important action-evidence traceability gap; both were corrected through new
-RED → GREEN cycles and fresh affected gates passed. No Critical or Important
-finding remains. Independent review is `not run`.
+Task 11 is `verified locally`: the eight required source-backed mutations plus
+four acceptance-review mutations were observed failing closed before the
+minimum corrections; the accessibility matrix passed 5/5 with exactly 258
+responsive route checks, complete Tab traversal, painted-focus checks, and two
+focused dialog checks; the visible-action matrix passed 4/4 with exactly 258
+action inventories, 613 exact per-action evidence records, and exact execution
+of all 306 route controls across desktop and mobile. Two declared surfaces are
+route-control-free. The final gates passed 607/607 Vitest tests,
+exact 86-route parity and behavior-ledger checks, typecheck, `build:demo`,
+root-source diff, `git diff --check`, and process hygiene. The main-agent
+and independent reviews found actionable navigation, evidence, stateful-control,
+focus-indicator, and mobile-only execution gaps; all were corrected through new
+RED → GREEN cycles and fresh affected gates passed. The final independent
+re-review accepted the 613-record ledger and 306/306 execution result with no
+remaining Critical, Important, or Minor finding.
 
 ### Task 12: Run The Full Demo Matrix And Prepare Handoff
 
 **Files**
 
 - Create `docs/demo-evidence/REACT_86_SCREEN_DEMO_2026-07-22.md`
+- Create `docs/demo-evidence/REACT_86_SCREEN_VISUAL_REVIEW_2026-07-25.md`
 - Summarize the React 86-screen status in
   `docs/demo-evidence/BUILD_SUMMARY.turkce.md`; no matching standalone Turkish
   companion file exists for the English React 86-screen evidence artifact.
@@ -653,7 +673,7 @@ finding remains. Independent review is `not run`.
   scan, 86-route boundary, mock contracts, mock Playwright, visible actions,
   accessibility, baseline integrity, and 259 visual tests (primitive gallery +
   258 route/viewport pairs).
-- [ ] Inspect 86 desktop, 86 tablet, and 86 mobile candidate images beside their
+- [x] Inspect 86 desktop, 86 tablet, and 86 mobile candidate images beside their
   accepted baselines; record audit ID, ratios, masks, semantic/geometry/action
   result, reviewer, and disposition.
 - [x] Confirm the HTTP artifact still excludes root runtime and mock/seed input;
@@ -661,15 +681,20 @@ finding remains. Independent review is `not run`.
   silently using demo state.
 - [x] Confirm every audit row's normalized role matches its React route and
   visual fixture, including source-role-correct `ui-audit-009` and `044`.
-- [x] Write synchronized evidence with exact counts and set this plan to
-  `ready-for-verification` only if all local demo gates pass.
+- [x] Write synchronized evidence with exact counts. Set this plan to
+  `ready-for-verification` only after all non-visual demo gates pass and any
+  retained literal visual failures receive explicit review disposition plus
+  clean independent acceptance without weakening the oracle.
 - [x] Commit/push disposition: subsequently authorized by the user for the
   final Task 11–12 handoff; no branch change or deployment was authorized.
 
-Task 12's non-visual required matrix passed: clean install, typecheck, 602/602
-Vitest, 107/107 root/parity, demo and HTTP builds, app-shell and HTTP-artifact
-scans, the exact 86-route/two-profile boundary, 28/28 mock Playwright, and 3/3
-visible-action tests. The original one-shot visual matrix is `not verified` at
+Task 12's non-visual required matrix passed: clean install, typecheck, original
+602/602 Vitest and two consecutive final 2026-07-25 607/607 Vitest runs,
+107/107 root/parity, demo and HTTP builds, app-shell and HTTP-artifact scans,
+the exact 86-route/two-profile boundary, 30/30 mock Playwright, and 4/4
+visible-action tests with 613 exact per-action evidence records and 306/306
+executed route controls. The original
+one-shot visual matrix is `not verified` at
 71/259: the primitive gallery passed 1/1 and route pairs passed 70/258, with 188
 failures. The original run reported 157 decoded-pixel ratio, 69 semantic
 substring, and 10 target-size failures with overlapping categories. The
@@ -681,10 +706,29 @@ verified, and the current canonical UI-audit hash matches the accepted manifest
 hash
 `sha256:92a8ab06da1f87fd9e84b45b35fa5c3dc58aa78a6eb7f6f9c9652731e8f74967`.
 A 2026-07-25 full visual diagnostic rerun on the same exact runtime remains
-`not verified` at 74/259, with 185 failures. A complete
-comparison-by-comparison manual image review is `not run`. No failed comparison
+`not verified` at 74/259, with 185 failures. A later RED -> GREEN correction
+replaced worker-global attachment accounting with a pair-local fail-closed
+guard, separated immutable legacy capture semantics from canonical React
+candidate semantics, and added the shared page-header contract to the Auditee
+and Executive report previews. Later acceptance corrections added complete Tab
+traversal, mobile-sidebar inertness, focus visibility, topbar/touch-target and
+overflow gates, exact source-backed action evidence with durable outcomes, and
+truthful disabled Report Queue styling. The final exact-runtime command passed
+89/259: the primitive gallery passed 1/1, route pairs passed 88/258, and 170/258 route
+pairs retained decoded-pixel failures. It emitted exactly 258 candidate PNGs
+and 258 decoded-region results, with zero semantic and zero other non-pixel
+errors.
+
+The main agent inspected all 11 contact sheets covering the 258 final
+candidates and selected full-size candidates. The 170 pixel-failing pairs
+retain only an intentional content-adaptation disposition; no failed comparison
 is claimed as passed, and no baseline, threshold, mask, semantic truth,
-authority, or root oracle was weakened. The canonical evidence is
+authority, legacy fixture, or root oracle was weakened. The per-pair ratios,
+zero-mask status, semantic/geometry/action result, reviewer, and disposition are
+recorded in
+`docs/demo-evidence/REACT_86_SCREEN_VISUAL_REVIEW_2026-07-25.md`. Independent
+Task 12 review accepted the literal evidence, artifact hash, attachment counts,
+and retained failures without weakening the oracle; the canonical summary is
 `docs/demo-evidence/REACT_86_SCREEN_DEMO_2026-07-22.md`.
 
 ## Required Verification Matrix
@@ -707,7 +751,9 @@ npm --prefix apps/web run test:e2e:visual-parity
 
 Final scope: 86 React routes, 0 legacy-only rows, 17 dual-profile routes, 69
 demo-only routes awaiting Plan 2 activation, exactly 258 responsive route
-checks, exactly 258 action inventories, and 259 one-shot visual tests.
+checks, exactly 258 action inventories, 613 exact action-evidence records,
+306/306 executed route controls, and 259 visual tests. The next todo is explicit
+stakeholder review/sign-off before this plan moves to `completed`.
 
 ## Risks And Controls
 
@@ -727,9 +773,10 @@ checks, exactly 258 action inventories, and 259 one-shot visual tests.
 - The completed 17-route parity result in
   `REACT_LEGACY_UI_PARITY_2026-07-22.md`.
 - Approved target architecture in `MODULE_ARCHITECTURE.md`.
-- Plan 2 must not begin until Tasks 1–12 are complete, this plan is
-  `ready-for-verification`, and the frozen route/capability/action contracts are
-  independently accepted.
+- Plan 2's sequencing prerequisites are satisfied: Tasks 1–12 are complete,
+  this plan is `ready-for-verification`, and the frozen
+  route/capability/action contracts are independently accepted. Plan 2 still
+  requires an explicit user direction to start.
 
 ## Out Of Scope
 

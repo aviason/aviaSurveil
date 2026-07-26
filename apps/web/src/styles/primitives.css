@@ -23,9 +23,11 @@
 }
 
 @media (width > 900px) {
+  .workbench-page-header:has(a),
+  .workbench-page-header:has(button),
   .workbench-page-header:has(.workbench-page-header__action),
   .page-header:has(.page-header__action) {
-    padding-right: 230px;
+    margin-top: 56px;
   }
 }
 

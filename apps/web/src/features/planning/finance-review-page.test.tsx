@@ -74,6 +74,11 @@ describe("FinanceReviewPage", () => {
     expect(screen.getByTestId("planning-status")).toHaveTextContent("FINANCE_REVIEW");
     expect(screen.getByTestId("planning-owner")).toHaveTextContent("Finance Review");
     expect(screen.getByText("Revision 1")).toBeVisible();
+    expect(within(queue).getByRole("button", { name: "PLAN-2026-CAB-001 is already selected" })).toBeDisabled();
+    expect(within(queue).getByRole("button", { name: "PLAN-2026-CAB-001 is already selected" })).toHaveAttribute(
+      "title",
+      "PLAN-2026-CAB-001 is already open in the Finance dossier.",
+    );
     expect(screen.getByRole("button", { name: "Approve Budget" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Return for Revision" })).toBeEnabled();
     expect(document.body).not.toHaveTextContent(/sign plan|release plan|close Finding/i);

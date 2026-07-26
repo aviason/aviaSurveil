@@ -192,6 +192,7 @@ describe("Auditee secondary workspaces", () => {
       renderAuditeeRoute(path);
       const page = await screen.findByTestId(testId);
       expect(within(page).getByRole("heading", { level: 1, name: heading })).toBeVisible();
+      expect(page.querySelector(".workbench-page-header"), `${path} must use the shared workbench page header`).not.toBeNull();
       expect(screen.queryByTestId("route-pending-implementation")).toBeNull();
       const navigation = screen.getByRole("navigation", { name: "Primary role navigation" });
       expect(within(navigation).getByRole("link", { name: activeLabel })).toHaveAttribute("aria-current", "page");

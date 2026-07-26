@@ -440,6 +440,12 @@
   font-size: 21px;
 }
 
+.executive-report-preview-head > div:first-child {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
 .executive-preview-actions,
 .executive-zoom-control {
   display: flex;

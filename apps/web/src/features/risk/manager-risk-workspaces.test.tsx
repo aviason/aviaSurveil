@@ -88,7 +88,11 @@ describe("Department Manager intelligence workspaces", () => {
     for (const label of ["Date Range", "Department", "Inspection", "Risk Level"]) {
       expect(within(filters).getByLabelText(label)).toBeEnabled();
     }
-    expect(within(filters).getByRole("button", { name: "Reset filters" })).toBeEnabled();
+    expect(within(filters).getByRole("button", { name: "Reset risk filters unavailable" })).toBeDisabled();
+    expect(within(filters).getByRole("button", { name: "Reset risk filters unavailable" })).toHaveAttribute(
+      "title",
+      "Risk filters are already at their defaults.",
+    );
     expect(within(filters).getByRole("link", { name: "Export CSV" })).toHaveAttribute(
       "download",
       "AviaSurveil360_Department_Risk_Summary.csv",
@@ -128,6 +132,7 @@ describe("Department Manager intelligence workspaces", () => {
     const filters = within(page).getByRole("region", { name: "Risk filters" });
 
     await user.selectOptions(within(filters).getByLabelText("Date Range"), "last-30");
+    expect(within(filters).getByRole("button", { name: "Reset filters" })).toBeEnabled();
     await user.selectOptions(within(filters).getByLabelText("Department"), "unavailable");
     await user.selectOptions(within(filters).getByLabelText("Inspection"), "AUD-2026-099");
     await user.selectOptions(within(filters).getByLabelText("Risk Level"), "HIGH");
@@ -143,6 +148,7 @@ describe("Department Manager intelligence workspaces", () => {
     await user.click(within(filters).getByRole("button", { name: "Reset filters" }));
     expect(within(filters).getByTestId("active-risk-filters")).toHaveTextContent("all · all · all · all");
     expect(within(page).getByText("FND-SKYCARGO-2026-099")).toBeVisible();
+    expect(within(filters).getByRole("button", { name: "Reset risk filters unavailable" })).toBeDisabled();
   });
 
   it("keeps Organization risk identity and Finding actions exact", async () => {

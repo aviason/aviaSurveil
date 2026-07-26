@@ -179,8 +179,8 @@ export function EvidenceReviewPage() {
               <button disabled title="The all-findings register remains in the accepted legacy demo." type="button"><span>All Findings</span></button>
               <button disabled title="The open-findings register remains in the accepted legacy demo." type="button"><span>Open Findings</span></button>
               <button disabled title="The overdue-findings register remains in the accepted legacy demo." type="button"><span>Overdue Findings</span></button>
-              <button onClick={() => navigate("/department-manager/findings-review")} type="button"><span>CAP / Provider Review</span></button>
-              <button aria-current="page" disabled type="button"><span>Evidence Waiting Review</span></button>
+              <button aria-label="Open CAP / Provider Review" onClick={() => navigate("/department-manager/findings-review")} type="button"><span>CAP / Provider Review</span></button>
+              <button aria-current="page" disabled title="Evidence Waiting Review is the current filter." type="button"><span>Evidence Waiting Review</span></button>
               <button disabled title="The Due Soon findings register remains in the accepted legacy demo." type="button"><span>Findings Due Soon</span></button>
               <button disabled title="The critical-findings register remains in the accepted legacy demo." type="button"><span>Critical Findings</span></button>
               <button disabled title="The closed-findings register remains in the accepted legacy demo." type="button"><span>Closed Findings</span></button>
@@ -216,7 +216,7 @@ export function EvidenceReviewPage() {
                     <td data-col="next" data-label="Next:"><b>CAP accepted; evidence still required before closure</b></td>
                     <td data-col="due">Target {formatLocalDate(latestCap.targetCompletionDate)}</td>
                     <td data-col="status"><span className="evidence-root-status">● {latestCap.status}</span></td>
-                    <td data-col="actions"><button onClick={() => navigate(`/department-manager/findings-review?findingId=${finding.id}`)} type="button">Open Findings Review</button></td>
+                    <td data-col="actions"><span>See Finding row</span></td>
                   </tr>
                 ) : null}
                 {evidenceVersions.map((version) => (

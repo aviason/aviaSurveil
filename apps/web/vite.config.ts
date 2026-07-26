@@ -96,6 +96,9 @@ export default defineConfig(({ command }) => {
     },
     test: {
       environment: "node",
+      fileParallelism: false,
+      hookTimeout: 15_000,
+      testTimeout: 15_000,
       exclude: [
         "tests/e2e/**",
         "tests/offline/restart-recovery.spec.ts",

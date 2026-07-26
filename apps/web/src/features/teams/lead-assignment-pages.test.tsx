@@ -58,6 +58,9 @@ describe("Lead Inspector assignment and secondary routes", () => {
       "href",
       "/lead-inspector/preliminary-reports/PR-2026-018",
     );
+    expect(within(page).getByRole("link", { name: "View Preliminary Report" })).toHaveClass(
+      "workbench-page-header__action",
+    );
   });
 
   it("loads all six exact question IDs and applies a real section filter", async () => {
@@ -164,7 +167,11 @@ describe("Lead Inspector assignment and secondary routes", () => {
     await user.click(within(analytics).getByRole("button", { name: "Repeat" }));
     expect(within(analytics).getByRole("button", { name: "Repeat" })).toHaveAttribute("aria-pressed", "true");
     expect(within(analytics).getByRole("button", { name: "All signals" })).toHaveAttribute("aria-pressed", "false");
-    await user.click(within(analytics).getByRole("button", { name: "Prepare analytics CSV (mock)" }));
+    const download = within(analytics).getByRole("link", { name: "Download analytics CSV" });
+    expect(download).toHaveAttribute("download", "AviaSurveil360_Lead_Analytics.csv");
+    expect(decodeURIComponent(download.getAttribute("href") ?? "")).toContain("ORG-FLY-NAMIBIA");
+    expect(decodeURIComponent(download.getAttribute("href") ?? "")).not.toContain("ORG-SKYCARGO");
+    await user.click(download);
     expect(within(analytics).getByRole("status")).toHaveTextContent("lead-analytics.csv prepared");
 
     cleanup();
@@ -203,6 +210,9 @@ describe("Lead Inspector assignment and secondary routes", () => {
         `Organization ${organizationId} has no declared Lead Inspector risk-profile route.`,
       );
     }
-    expect(within(analytics).getByRole("button", { name: "Prepare analytics CSV (mock)" })).toBeEnabled();
+    expect(within(analytics).getByRole("link", { name: "Download analytics CSV" })).toHaveAttribute(
+      "download",
+      "AviaSurveil360_Lead_Analytics.csv",
+    );
   });
 });

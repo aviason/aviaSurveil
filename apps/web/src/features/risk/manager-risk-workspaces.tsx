@@ -162,6 +162,7 @@ export function ManagerRiskDashboardPage() {
   const distribution = Object.fromEntries(riskLevels.map((level) => [level, filtered.filter((record) => record.riskLevel === level).length])) as Record<ManagementRiskLevel, number>;
   const trend = [...new Set(filtered.map((record) => record.issuedAt?.slice(0, 7) ?? "Date unavailable"))]
     .map((period) => ({ period, count: filtered.filter((record) => (record.issuedAt?.slice(0, 7) ?? "Date unavailable") === period).length }));
+  const filtersAreDefault = dateRange === "all" && department === "all" && inspection === "all" && riskLevel === "all";
   const resetFilters = () => {
     setDateRange("all");
     setDepartment("all");
@@ -183,7 +184,15 @@ export function ManagerRiskDashboardPage() {
           <label>Inspection<select aria-label="Inspection" value={inspection} onChange={(event) => setInspection(event.target.value)}><option value="all">All inspections</option>{inspections.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
           <label>Risk Level<select aria-label="Risk Level" value={riskLevel} onChange={(event) => setRiskLevel(event.target.value)}><option value="all">All risk levels</option>{riskLevels.map((value) => <option key={value} value={value}>{riskLabel(value)}</option>)}</select></label>
           <div className="manager-intelligence-filter-actions">
-            <button onClick={resetFilters} type="button">Reset filters</button>
+            <button
+              aria-label={filtersAreDefault ? "Reset risk filters unavailable" : undefined}
+              disabled={filtersAreDefault}
+              onClick={resetFilters}
+              title={filtersAreDefault ? "Risk filters are already at their defaults." : undefined}
+              type="button"
+            >
+              Reset filters
+            </button>
             <a download="AviaSurveil360_Department_Risk_Summary.csv" href={csvHref} onClick={() => setExportStatus(`CSV prepared for ${filtered.length} Finding records`)}>Export CSV</a>
           </div>
           <span data-testid="active-risk-filters">{dateRange} · {department} · {inspection} · {riskLevel}</span>

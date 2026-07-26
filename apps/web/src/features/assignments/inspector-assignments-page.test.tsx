@@ -3,6 +3,7 @@ import "@testing-library/jest-dom/vitest";
 
 import { MemoryRouter } from "react-router-dom";
 import { cleanup, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { AppProviders } from "../../app/providers";
@@ -36,6 +37,7 @@ function renderPage() {
 
 describe("InspectorAssignmentsPage", () => {
   it("renders the decision-first assignment register and equivalent mobile card fields", async () => {
+    const user = userEvent.setup();
     renderPage();
 
     const register = await screen.findByRole("table", { name: "Assigned Audits" });
@@ -50,5 +52,13 @@ describe("InspectorAssignmentsPage", () => {
     const mobileCard = screen.getByRole("article", { name: "AUD-2026-001" });
     expect(within(mobileCard).getByText("Due state")).toBeVisible();
     expect(within(mobileCard).getByText("Continue Cabin Inspection checklist")).toBeVisible();
+
+    const reset = screen.getByRole("button", { name: "Reset assignment filters" });
+    expect(reset).toBeDisabled();
+    await user.type(screen.getByPlaceholderText("Search audits..."), "Fly");
+    expect(reset).toBeEnabled();
+    await user.click(reset);
+    expect(screen.getByPlaceholderText("Search audits...")).toHaveValue("");
+    expect(reset).toBeDisabled();
   });
 });

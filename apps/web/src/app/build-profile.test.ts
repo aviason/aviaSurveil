@@ -28,8 +28,12 @@ describe("build-time backend profile", () => {
     const mutations = [
       ["undeclared-route", /undeclared React path/],
       ["inert-button", /inert button/],
+      ["remove-action-harness-contract", /visible action harness.*durable outcome/i],
+      ["skip-stateful-control-execution", /stateful and form controls/i],
+      ["skip-mobile-command-execution", /mobile-only route controls/i],
       ["toast-only-action", /toast-only action/],
       ["unlabelled-control", /accessible name/],
+      ["remove-focus-indicator-contract", /visible keyboard focus indicator/i],
       ["fake-dropdown", /native select semantics/],
       ["duplicate-accessible-navigation", /one accessible primary navigation/],
       ["missing-disabled-reason", /record-specific disabled reason/],

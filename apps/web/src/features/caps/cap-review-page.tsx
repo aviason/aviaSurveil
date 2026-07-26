@@ -195,7 +195,13 @@ export function CapReviewPage() {
                 <label className="cap-root-search"><span className="finding-semantic-context">Search CAP revisions</span><input onChange={(event) => setRevisionQuery(event.target.value)} placeholder="Search..." type="search" value={revisionQuery} /><i>⌕</i></label>
                 <div className="cap-root-list-items">
                 {visibleCapRevisions.map((revision) => (
-                  <button className={`cap-root-list-card${revision.id === targetRevision?.id ? " is-active" : ""}`} key={revision.id} onClick={() => setTargetRevision(revision)} type="button">
+                  <button
+                    aria-pressed={revision.id === targetRevision?.id}
+                    className={`cap-root-list-card${revision.id === targetRevision?.id ? " is-active" : ""}`}
+                    key={revision.id}
+                    onClick={() => setTargetRevision(revision)}
+                    type="button"
+                  >
                     <span><b>CAP Revision {revision.revision}</b><em className={revision.status === "SUBMITTED" ? "is-medium" : "is-low"}>● {revision.status === "SUBMITTED" ? "Medium" : "Low"}</em></span>
                     <small>Finding: {finding.findingNumber}</small>
                     <small>Dept: Cabin Safety</small>

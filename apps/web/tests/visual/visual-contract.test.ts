@@ -87,6 +87,66 @@ function singleItemManifest(fileSha256: string): BaselineManifest {
 }
 
 describe("visual parity contract", () => {
+  it("fails a visual pair when either required attachment is missing or duplicated", async () => {
+    const fixtures = await import("../e2e/support/legacy-parity-fixtures");
+    const assertVisualPairAttachments = Reflect.get(fixtures, "assertVisualPairAttachments");
+
+    expect(assertVisualPairAttachments).toBeTypeOf("function");
+    expect(() =>
+      assertVisualPairAttachments([
+        { name: "react-candidate-viewport" },
+        { name: "decoded-pixel-region-results" },
+      ]),
+    ).not.toThrow();
+    expect(() =>
+      assertVisualPairAttachments([{ name: "decoded-pixel-region-results" }]),
+    ).toThrow(/exactly one react candidate/i);
+    expect(() =>
+      assertVisualPairAttachments([
+        { name: "react-candidate-viewport" },
+        { name: "decoded-pixel-region-results" },
+        { name: "decoded-pixel-region-results" },
+      ]),
+    ).toThrow(/exactly one decoded-pixel result/i);
+  });
+
+  it("keeps legacy capture semantics immutable while resolving React candidate semantics", async () => {
+    const fixtures = await import("../e2e/support/legacy-parity-fixtures");
+    const resolveReactSurfaceSemantics = Reflect.get(fixtures, "resolveReactSurfaceSemantics");
+    const surfaceById = (id: string) => {
+      const surface = VISUAL_SURFACES.find((item) => item.id === id);
+      if (!surface) throw new Error(`Missing visual fixture for ${id}.`);
+      return surface;
+    };
+    const inspectorFindings = surfaceById("inspector-findings");
+    const adminConfigurations = surfaceById("admin-configurations");
+    const auditPlan = surfaceById("audit-plan");
+    const auditeeReport = surfaceById("auditee-report-preview");
+    const inspectorHome = surfaceById("inspector-home");
+
+    expect(resolveReactSurfaceSemantics).toBeTypeOf("function");
+    expect(inspectorFindings).toMatchObject({ expectedSemanticMarker: "CAB-2026-011" });
+    expect(resolveReactSurfaceSemantics(inspectorFindings)).toMatchObject({
+      expectedHeading: "Findings",
+      expectedSemanticMarker: "CAB-2026-001",
+    });
+    expect(resolveReactSurfaceSemantics(adminConfigurations)).toMatchObject({
+      expectedHeading: "Configurations",
+      expectedSemanticMarker: "Configured demo rules",
+    });
+    expect(resolveReactSurfaceSemantics(auditPlan)).toMatchObject({
+      expectedSemanticMarker: "PLAN-2026-CAB-001",
+    });
+    expect(resolveReactSurfaceSemantics(auditeeReport)).toMatchObject({
+      expectedSemanticMarker: "RPT-CAB-2026-001-V1",
+    });
+    expect(resolveReactSurfaceSemantics(inspectorHome)).toMatchObject({
+      expectedSemanticMarker: "AUD-2026-001",
+      expectedOwnerText: "CAA Inspector",
+      expectedNextActionText: "Continue Cabin Inspection checklist",
+    });
+  });
+
   it("freezes the full 86-surface by three-viewport matrix with role-correct root fixtures", () => {
     expect(VISUAL_SURFACES).toHaveLength(86);
     expect(VISUAL_VIEWPORTS).toHaveLength(3);
@@ -169,8 +229,8 @@ describe("visual parity contract", () => {
       ["remove-shell-assertion", /workspace-sidebar/],
       ["remove-content-assertion", /workbench-page-header/],
       ["compressed-byte-comparator", /decoded pixels, not compressed PNG bytes/],
-      ["remove-candidate-attachment", /reactCandidateAttachmentCount/],
-      ["remove-result-attachment", /decodedRegionResultAttachmentCount/],
+      ["remove-candidate-attachment", /react-candidate-viewport/],
+      ["remove-result-attachment", /decoded-pixel-region-results/],
     ] as const;
 
     for (const [mutation, reason] of mutations) {
@@ -234,9 +294,9 @@ describe("visual parity contract", () => {
     expect(spec).toContain("const surfaces = resolveFocusedSurfaces()");
     expect(spec).toContain("const expectedVisualPairCount = VISUAL_SURFACES.length * VISUAL_VIEWPORTS.length");
     expect(spec).toContain("expect(expectedVisualPairCount).toBe(258)");
-    expect(spec).toContain("const expectedExecutedPairCount = surfaces.length * VISUAL_VIEWPORTS.length");
-    expect(spec).toContain("expect(reactCandidateAttachmentCount).toBe(expectedExecutedPairCount)");
-    expect(spec).toContain("expect(decodedRegionResultAttachmentCount).toBe(expectedExecutedPairCount)");
+    expect(spec).toContain("assertVisualPairAttachments(testInfo.attachments)");
+    expect(spec).not.toContain("reactCandidateAttachmentCount");
+    expect(spec).not.toContain("decodedRegionResultAttachmentCount");
   });
 
   it("fails an unmasked deterministic patch outside the strict region ratio", () => {

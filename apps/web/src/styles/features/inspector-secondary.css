@@ -64,13 +64,15 @@
   row-gap: 0;
 }
 
-.inspector-findings-page .inspector-secondary-actions button {
+.inspector-findings-page .inspector-secondary-actions button,
+.inspector-findings-page .inspector-secondary-actions a {
   padding: 0;
   border: 0;
   background: transparent;
 }
 
-.inspector-findings-page .inspector-secondary-actions button > span {
+.inspector-findings-page .inspector-secondary-actions button > span,
+.inspector-findings-page .inspector-secondary-actions a > span {
   display: inline-flex;
   min-height: 36px;
   align-items: center;
@@ -116,6 +118,7 @@
 }
 
 .inspector-secondary-actions button,
+.inspector-secondary-actions a,
 .inspector-secondary-button {
   display: inline-flex;
   min-width: 44px;

@@ -50,4 +50,19 @@ describe("RoleSelectPage", () => {
     await user.click(screen.getByRole("link", { name: /CAA Inspector/i }));
     expect(onRoleRequest).toHaveBeenCalledWith("inspector");
   });
+
+  it("moves keyboard focus to workspace selection from both discovery controls", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <RoleSelectPage mode="demo-role-switch" onRoleRequest={() => undefined} />
+      </MemoryRouter>,
+    );
+
+    const workspaces = screen.getByRole("main");
+    await user.click(screen.getByRole("button", { name: "Explore the clickable demo" }));
+    expect(workspaces).toHaveFocus();
+    await user.click(screen.getByRole("button", { name: "Skip to workspace selection" }));
+    expect(workspaces).toHaveFocus();
+  });
 });

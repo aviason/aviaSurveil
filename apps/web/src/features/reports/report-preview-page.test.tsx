@@ -61,6 +61,24 @@ describe("ReportPreviewPage", () => {
 
     const queue = await screen.findByRole("table", { name: "Report Queue" });
     expect(within(queue).getByText("RPT-CAB-2026-001-V1")).toBeVisible();
+    const search = screen.getByRole("button", { name: "Search reports unavailable" });
+    const reset = screen.getByRole("button", { name: "Reset report filters unavailable" });
+    expect(search).toBeDisabled();
+    expect(search).toHaveAttribute("title", "The current report search is already applied.");
+    expect(reset).toBeDisabled();
+    expect(reset).toHaveAttribute("title", "Report filters are already at their defaults.");
+    await user.type(screen.getByLabelText("Search reports"), "no matching report");
+    expect(screen.getByRole("button", { name: "Search" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Search" }));
+    expect(within(queue).getByText("No matching report versions.")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Reset" })).toBeEnabled();
+    await user.selectOptions(screen.getByLabelText("Report type"), "inspection");
+    await user.selectOptions(screen.getByLabelText("Report status"), "in-review");
+    await user.click(screen.getByRole("button", { name: "Reset" }));
+    expect(within(queue).getByText("RPT-CAB-2026-001-V1")).toBeVisible();
+    expect(screen.getByLabelText("Report type")).toHaveValue("all");
+    expect(screen.getByLabelText("Report status")).toHaveValue("all");
+    expect(screen.getByRole("button", { name: "Reset report filters unavailable" })).toBeDisabled();
     expect(screen.getByRole("link", { name: "Review Preliminary Report PR-2026-018" })).toHaveAttribute(
       "href",
       "/department-manager/preliminary-reports/PR-2026-018",

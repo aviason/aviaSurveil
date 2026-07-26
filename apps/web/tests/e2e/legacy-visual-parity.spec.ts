@@ -5,6 +5,7 @@ import { expect, test } from "@playwright/test";
 
 import {
   assertBaselineUpdateMode,
+  assertVisualPairAttachments,
   assertViewportScreenshotContract,
   assertSurfaceSemantics,
   compareVisualFrames,
@@ -12,6 +13,7 @@ import {
   driveReactSurface,
   installDeterministicPageState,
   resolveFocusedSurfaces,
+  resolveReactSurfaceSemantics,
   validateBaselineManifest,
   visualComparisonRegions,
   VISUAL_BASELINE_ROOT,
@@ -27,34 +29,6 @@ const repoRoot = resolve(appRoot, "../..");
 const baselineRoot = resolve(repoRoot, VISUAL_BASELINE_ROOT);
 const manifestPath = resolve(baselineRoot, "baseline-manifest.json");
 const surfaces = resolveFocusedSurfaces();
-
-const task9SemanticOverrides = {
-  "inspector-home": {
-    expectedSemanticMarker: "AUD-2026-001",
-    expectedOwnerText: "CAA Inspector",
-    expectedNextActionText: "Continue Cabin Inspection checklist",
-    expectedStatusText: "IN PROGRESS",
-    expectedDueDateText: "18 Jun 2026",
-  },
-  "audit-detail": {
-    expectedSemanticMarker: "AUD-2026-001",
-    expectedOwnerText: "CAA Inspector",
-    expectedStatusText: "IN_PROGRESS",
-    expectedDueDateText: "18 Jun 2026",
-  },
-  "checklist-runner": {
-    expectedOwnerText: "CAA Inspector",
-    expectedNextActionText: "Choose an answer",
-    expectedStatusText: "IN_PROGRESS",
-    expectedDueDateText: "18 Jun 2026",
-    expectedPrimaryActionText: "Save response",
-  },
-  "finding-detail": {
-    expectedDueDateText: "19 Jun 2026",
-    expectedNextActionText: "Lead Inspector to review CAP",
-    expectedPrimaryActionText: "Open CAP review handoff",
-  },
-} as const;
 
 assertBaselineUpdateMode({
   command: "test:e2e:visual-parity",
@@ -73,15 +47,10 @@ function readManifest(): BaselineManifest {
 
 const manifest = readManifest();
 const expectedVisualPairCount = VISUAL_SURFACES.length * VISUAL_VIEWPORTS.length;
-const expectedExecutedPairCount = surfaces.length * VISUAL_VIEWPORTS.length;
-let reactCandidateAttachmentCount = 0;
-let decodedRegionResultAttachmentCount = 0;
 
 test.afterAll(() => {
   expect(VISUAL_SURFACES).toHaveLength(86);
   expect(expectedVisualPairCount).toBe(258);
-  expect(reactCandidateAttachmentCount).toBe(expectedExecutedPairCount);
-  expect(decodedRegionResultAttachmentCount).toBe(expectedExecutedPairCount);
 });
 
 const workbenchPrimitiveGallery = `
@@ -185,7 +154,6 @@ for (const viewport of VISUAL_VIEWPORTS) {
         body: screenshot,
         contentType: "image/png",
       });
-      reactCandidateAttachmentCount += 1;
       const baselineFrame = decodePngFrame(baseline);
       const candidateFrame = decodePngFrame(screenshot);
       const comparisons = visualComparisonRegions(viewport, surface.parityMode).map((contract) => {
@@ -216,7 +184,7 @@ for (const viewport of VISUAL_VIEWPORTS) {
         ),
         contentType: "application/json",
       });
-      decodedRegionResultAttachmentCount += 1;
+      assertVisualPairAttachments(testInfo.attachments);
       for (const comparison of comparisons) {
         expect.soft(
           comparison.passed,
@@ -224,7 +192,7 @@ for (const viewport of VISUAL_VIEWPORTS) {
         ).toBe(true);
       }
       if (surface.parityMode === "content-adapted") {
-        await assertSurfaceSemantics(page, { ...surface, ...task9SemanticOverrides[surface.id as keyof typeof task9SemanticOverrides] });
+        await assertSurfaceSemantics(page, resolveReactSurfaceSemantics(surface));
         await expect(page.locator("[data-testid='application-shell']")).toBeVisible();
         await expect(page.locator(".workspace-sidebar")).toBeVisible();
         await expect(page.locator(".application-topbar")).toBeVisible();

@@ -39,8 +39,13 @@ tam clean-install, HTTP, OIDC, offline, recovery, visual, dependency, reviewer
 ve cleanup matrix'ini tamamlar; bkz.
 [React Legacy UI Parity Kanıtı](REACT_LEGACY_UI_PARITY_2026-07-22.turkce.md).
 Full React migration artık 86 kabul edilen route'u demo mode'da uygular; 25
-Temmuz 2026 itibarıyla standalone baseline integrity `verified locally`, ancak
-full visual gate hâlâ `not verified` olduğu için Plan 2 `blocked` kalır.
+Temmuz 2026 itibarıyla standalone baseline integrity `verified locally`.
+Final exact-runtime visual komut literal olarak 89/259 ile non-green kalır;
+ancak 258 çiftin tamamında candidate/region attachment eksiksiz, semantic ve
+diğer non-pixel hata sıfır, main-agent review disposition kaydı vardır.
+Task 10 düzeltmesi ile Task 11–12 kanıtları temiz independent acceptance aldı.
+Plan 1 `ready-for-verification` durumundadır; Plan 2 sıralama açısından
+unblocked olsa da başlatılmamış ve yetkilendirilmemiştir.
 Local öneri `GO`, artifact `candidate-only` ve release `release pending` olarak
 kalır. Bu yan candidate'lar root demo'yu veya genel ürünü `production-ready`
 yapmaz; production `blocked` kalır.
@@ -65,13 +70,23 @@ başlangıç verisine döndürür.
 
 ## Güncel UI kanıtı
 
-23 Temmuz 2026 Full React handoff tam 86 React route, 258/258 responsive route
-check ve 258/258 visible-action inventory kaydeder. İlk one-shot visual sonuç
-71/259 passed ve 188/259 failed idi. 25 Temmuz 2026 exact-runtime follow-up 258
-baseline PNG'yi doğruladı ve canonical UI-audit hash'inin accepted manifest ile
-eşleştiğini teyit etti; fresh visual diagnostic hâlâ `not verified`: 74/259
-passed ve 185/259 failed:
-[`REACT_86_SCREEN_DEMO_2026-07-22.md`](REACT_86_SCREEN_DEMO_2026-07-22.md).
+23 Temmuz 2026 Full React handoff'un acceptance sonrası güncel kaydı tam 86
+React route, 258/258 responsive route check, 258/258 visible-action inventory,
+613 exact per-action evidence kaydı ve masaüstü/mobil kapsamda 306/306
+yürütülmüş route control tutar. İlk one-shot visual sonuç 71/259 passed ve
+188/259 failed idi. 25 Temmuz
+2026 exact-runtime follow-up 258 baseline PNG'yi doğruladı ve canonical UI-audit
+hash'inin accepted manifest ile eşleştiğini teyit etti. Fail-closed attachment,
+React-semantic, responsive-layout, truthful-disabled-control ve report-preview
+düzeltmelerinden sonraki final exact-runtime sonuç 89/259'dur: primitive 1/1,
+route çiftleri 88/258 ve 170/258 literal pixel failure. 258 candidate ve
+decoded-region kaydının tamamı mevcuttur; semantic ve diğer non-pixel hata
+sıfırdır. 11 candidate contact sheet'in tamamı ve seçilmiş full-size candidate
+görselleri main-agent tarafından incelenmiştir; ayrıntılı ledger her oranı
+korur ve failed pixel çiftlerini pass'e çevirmez. Independent Task 12 review,
+literal artifact'i ve retained-failure disposition'ı kabul etmiştir:
+[`REACT_86_SCREEN_DEMO_2026-07-22.md`](REACT_86_SCREEN_DEMO_2026-07-22.md),
+[`REACT_86_SCREEN_VISUAL_REVIEW_2026-07-25.md`](REACT_86_SCREEN_VISUAL_REVIEW_2026-07-25.md).
 
 22 Temmuz 2026 React parity incelemesi route edilmiş 17 yüzeyin masaüstü,
 tablet ve mobil görünümlerini kapsar. Decoded-pixel kapısı primitive gallery ve

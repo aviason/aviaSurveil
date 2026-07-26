@@ -1,8 +1,10 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import {
+  assertSurfaceSemantics,
   driveReactSurface,
   installDeterministicPageState,
+  resolveReactSurfaceSemantics,
   VISUAL_SURFACES,
   VISUAL_VIEWPORTS,
 } from "./support/legacy-parity-fixtures";
@@ -15,14 +17,6 @@ interface TargetSizeFailure {
 }
 
 const formControlSelector = "input:not([type='hidden']):visible, select:visible, textarea:visible";
-const keyboardTargetSelector = [
-  "a[href]:visible",
-  "button:visible:not(:disabled)",
-  "input:visible:not(:disabled)",
-  "select:visible:not(:disabled)",
-  "textarea:visible:not(:disabled)",
-  "[tabindex]:visible:not([tabindex='-1'])",
-].join(", ");
 const targetSelector = [
   "a[href]:visible",
   "button:visible:not(:disabled)",
@@ -78,17 +72,165 @@ async function targetSizeFailures(page: Page, minimum: number): Promise<TargetSi
   }), minimum);
 }
 
-async function assertKeyboardReachability(page: Page): Promise<void> {
-  const firstTarget = page.locator(keyboardTargetSelector).first();
-  await expect(firstTarget).toBeVisible();
-  await page.evaluate(() => {
-    const active = document.activeElement as HTMLElement | null;
-    active?.blur();
+async function assertKeyboardReachability(page: Page, label: string): Promise<void> {
+  const negativeTabIndexControls = await page.locator([
+    "a[href][tabindex='-1']:visible",
+    "button[tabindex='-1']:visible:not(:disabled)",
+    "input[tabindex='-1']:visible:not(:disabled)",
+    "select[tabindex='-1']:visible:not(:disabled)",
+    "textarea[tabindex='-1']:visible:not(:disabled)",
+  ].join(", ")).evaluateAll((elements) => elements.map((element) => (
+    element.getAttribute("aria-label") || element.textContent || element.tagName
+  )?.replace(/\s+/g, " ").trim()));
+  expect(negativeTabIndexControls).toEqual([]);
+
+  const targetCount = await page.locator("body *").evaluateAll((elements) => {
+    const targets = elements.filter((element) => {
+      if (!(element instanceof HTMLElement)) return false;
+      if (element.closest("[aria-hidden='true'], [inert]")) return false;
+      if (
+        (element instanceof HTMLButtonElement ||
+          element instanceof HTMLInputElement ||
+          element instanceof HTMLSelectElement ||
+          element instanceof HTMLTextAreaElement) &&
+        element.disabled
+      ) return false;
+      if (element.getAttribute("aria-disabled") === "true") return false;
+      if (element instanceof HTMLInputElement && element.type === "radio" && element.name) {
+        const group = [...document.querySelectorAll<HTMLInputElement>("input[type='radio']")]
+          .filter((radio) => radio.name === element.name && radio.form === element.form && !radio.disabled);
+        const sequentialTarget = group.find((radio) => radio.checked) ?? group[0];
+        if (element !== sequentialTarget) return false;
+      }
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return element.tabIndex >= 0 &&
+        style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        rect.width > 0 &&
+        rect.height > 0;
+    });
+    targets.forEach((element, index) => element.setAttribute("data-keyboard-contract-index", String(index)));
+    return targets.length;
   });
-  await page.keyboard.press("Tab");
-  const active = page.locator(":focus");
-  await expect(active).toHaveCount(1);
-  await expect(active).not.toHaveJSProperty("disabled", true);
+  expect(targetCount).toBeGreaterThan(0);
+  const keyboardTargets = page.locator("[data-keyboard-contract-index]");
+  const reached = new Set<string>();
+  const firstTarget = keyboardTargets.first();
+  await firstTarget.focus();
+  expect(
+    await firstTarget.evaluate((element) => {
+      const style = getComputedStyle(element);
+      const hasPaintedIndicator =
+        (style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) > 0) ||
+        style.boxShadow !== "none";
+      return hasPaintedIndicator;
+    }),
+    `${label} first target must expose a visible keyboard focus indicator`,
+  ).toBe(true);
+  const firstIndex = await firstTarget.getAttribute("data-keyboard-contract-index");
+  expect(firstIndex).not.toBeNull();
+  if (firstIndex) reached.add(firstIndex);
+  const traversalFailures: string[] = [];
+  for (let index = 1; reached.size < targetCount && index < targetCount + 64; index += 1) {
+    await page.keyboard.press("Tab");
+    const activeState = await page.evaluate(() => {
+      const element = document.activeElement;
+      if (!(element instanceof HTMLElement) || element === document.body || element === document.documentElement) {
+        return null;
+      }
+      const style = getComputedStyle(element);
+      return {
+        contractIndex: element.getAttribute("data-keyboard-contract-index"),
+        disabled: (
+          element instanceof HTMLButtonElement ||
+          element instanceof HTMLInputElement ||
+          element instanceof HTMLSelectElement ||
+          element instanceof HTMLTextAreaElement
+        ) && element.disabled,
+        description: JSON.stringify({
+          tag: element.tagName,
+          className: element.className,
+          tabIndex: element.tabIndex,
+          focusVisible: element.matches(":focus-visible"),
+          outline: `${style.outlineWidth} ${style.outlineStyle} ${style.outlineColor}`,
+          boxShadow: style.boxShadow,
+          name: (element.getAttribute("aria-label") || element.textContent || "")
+            .replace(/\s+/g, " ")
+            .trim()
+            .slice(0, 160),
+        }),
+        isBrowserFocusableScroller: (
+          ["auto", "scroll"].includes(style.overflowX) && element.scrollWidth > element.clientWidth
+        ) || (
+          ["auto", "scroll"].includes(style.overflowY) && element.scrollHeight > element.clientHeight
+        ),
+        focusIndicatorVisible: (
+          (style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) > 0) ||
+          style.boxShadow !== "none"
+        ),
+      };
+    });
+    if (!activeState) {
+      traversalFailures.push(`${label} lost document focus before reaching every target`);
+      break;
+    }
+    expect(activeState.disabled, `${label} must not Tab to a disabled control`).toBe(false);
+    expect(
+      activeState.focusIndicatorVisible,
+      `${label} must expose a visible keyboard focus indicator on every Tab target: ${activeState.description}`,
+    ).toBe(true);
+    if (activeState.contractIndex) {
+      reached.add(activeState.contractIndex);
+      continue;
+    }
+    if (!activeState.isBrowserFocusableScroller) {
+      traversalFailures.push(
+        `${label} reached an unexpected Tab stop ${index + 1}: ${activeState.description}`,
+      );
+      break;
+    }
+  }
+  const missingTargets = await keyboardTargets.evaluateAll((elements, reachedIndexes) => elements.flatMap((element) => {
+    const index = element.getAttribute("data-keyboard-contract-index");
+    if (index && reachedIndexes.includes(index)) return [];
+    const html = element as HTMLElement;
+    return [{
+      index,
+      tag: element.tagName,
+      className: html.className,
+      tabIndex: html.tabIndex,
+      name: (element.getAttribute("aria-label") || element.textContent || "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 160),
+    }];
+  }), [...reached]);
+  expect({ traversalFailures, missingTargets }, `${label} must reach every sequential focus target`).toEqual({
+    traversalFailures: [],
+    missingTargets: [],
+  });
+  await page.locator("[data-keyboard-contract-index]").evaluateAll((elements) => {
+    elements.forEach((element) => element.removeAttribute("data-keyboard-contract-index"));
+  });
+}
+
+async function pageHeaderTopbarOverlaps(page: Page): Promise<string[]> {
+  const topbar = page.locator(".application-topbar");
+  if (await topbar.count() === 0 || !await topbar.isVisible()) return [];
+  const topbarBox = await topbar.boundingBox();
+  if (!topbarBox) return [];
+  return page.locator(".workbench-page-header a:visible, .workbench-page-header button:visible")
+    .evaluateAll((elements, bar) => elements.flatMap((element) => {
+      const rect = element.getBoundingClientRect();
+      const overlaps = rect.left < bar.x + bar.width &&
+        rect.right > bar.x &&
+        rect.top < bar.y + bar.height &&
+        rect.bottom > bar.y;
+      if (!overlaps) return [];
+      const name = element.getAttribute("aria-label") || element.textContent || element.tagName;
+      return [name.replace(/\s+/g, " ").trim()];
+    }), topbarBox);
 }
 
 async function primaryNavigation(page: Page): Promise<Locator> {
@@ -119,6 +261,7 @@ for (const viewport of VISUAL_VIEWPORTS) {
       await driveReactSurface(page, surface);
       responsiveRouteChecks += 1;
 
+      await assertSurfaceSemantics(page, resolveReactSurfaceSemantics(surface));
       expect.soft(pathname(page), `${surface.id}/${viewport.id} preserves its exact deep link`).toBe(surface.reactPath);
       await expect.soft(page.locator("main"), `${surface.id}/${viewport.id} exposes one main landmark`).toHaveCount(1);
       expect.soft(
@@ -133,7 +276,11 @@ for (const viewport of VISUAL_VIEWPORTS) {
         await visibleFormControlsWithoutNames(page),
         `${surface.id}/${viewport.id} gives every native form control an accessible name`,
       ).toEqual([]);
-      await assertKeyboardReachability(page);
+      await assertKeyboardReachability(page, `${surface.id}/${viewport.id}`);
+      expect.soft(
+        await pageHeaderTopbarOverlaps(page),
+        `${surface.id}/${viewport.id} keeps page-header actions clear of the application topbar`,
+      ).toEqual([]);
 
       const minimumTargetDimension = viewport.id === "mobile" ? 44 : 24;
       expect.soft(

@@ -29,44 +29,6 @@ const HTTP_FORBIDDEN_INPUTS = [
   /[/\\]test-profile[/\\]/i,
 ];
 
-function assertInteractionMutationFixture(mutation) {
-  const fixture = {
-    accessibleName: "Review FND-CAB-2026-001",
-    actionOutcome: "typed-mutation",
-    controlKind: "select",
-    disabled: true,
-    disabledReason: "FND-CAB-2026-001 is locked after Evidence verification.",
-    requestedPath: "/inspector/findings/FND-CAB-2026-001",
-    resolvedPath: "/inspector/findings/FND-CAB-2026-001",
-    accessiblePrimaryNavigationCount: 1,
-    viewports: ["desktop", "tablet", "mobile"],
-  };
-  if (mutation === "toast-only-action") fixture.actionOutcome = "toast-only";
-  if (mutation === "unlabelled-control") fixture.accessibleName = "";
-  if (mutation === "fake-dropdown") fixture.controlKind = "div-role-combobox";
-  if (mutation === "duplicate-accessible-navigation") fixture.accessiblePrimaryNavigationCount = 2;
-  if (mutation === "missing-disabled-reason") fixture.disabledReason = "";
-  if (mutation === "broken-deep-link") fixture.resolvedPath = "/";
-  if (mutation === "missing-mobile-viewport") fixture.viewports = fixture.viewports.filter((viewport) => viewport !== "mobile");
-
-  assert.notEqual(fixture.actionOutcome, "toast-only", "Visible action contract rejects a toast-only action.");
-  assert.ok(fixture.accessibleName.trim(), "Every visible control must have an accessible name.");
-  assert.equal(fixture.controlKind, "select", "Dropdown controls must use native select semantics.");
-  assert.equal(
-    fixture.accessiblePrimaryNavigationCount,
-    1,
-    "Each routed workspace must expose exactly one accessible primary navigation.",
-  );
-  if (fixture.disabled) {
-    assert.ok(
-      fixture.disabledReason.trim(),
-      "Every disabled control must expose a record-specific disabled reason.",
-    );
-  }
-  assert.equal(fixture.resolvedPath, fixture.requestedPath, "Every declared deep link must resolve to its exact path.");
-  assert.ok(fixture.viewports.includes("mobile"), "The interaction matrix must include the mobile viewport.");
-}
-
 function filesBelow(directory, predicate) {
   if (!fs.existsSync(directory)) return [];
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -78,6 +40,190 @@ function filesBelow(directory, predicate) {
 
 function normalized(relativePath) {
   return relativePath.split(path.sep).join("/");
+}
+
+function mutateInteractionSource(relativePath, source, mutation) {
+  if (
+    mutation === "remove-action-harness-contract" &&
+    relativePath.endsWith("tests/e2e/visible-action-contract.spec.ts")
+  ) {
+    return source.replace("        await assertDurableControlOutcome(page, surface, control);", "");
+  }
+  if (
+    mutation === "skip-stateful-control-execution" &&
+    relativePath.endsWith("tests/e2e/visible-action-contract.spec.ts")
+  ) {
+    return source.replace(
+      "    const routeCommands = controls.filter(isExecutableRouteControl);",
+      "    const routeCommands = controls.filter((control) => control.tag === \"BUTTON\" && !hasAccessibleState(control) && !control.ariaControls);",
+    );
+  }
+  if (
+    mutation === "skip-mobile-command-execution" &&
+    relativePath.endsWith("tests/e2e/visible-action-contract.spec.ts")
+  ) {
+    return source.replace(
+      "  const executionViewports = [VISUAL_VIEWPORTS[0], VISUAL_VIEWPORTS[2]];",
+      "  const executionViewports = [VISUAL_VIEWPORTS[0]];",
+    );
+  }
+  if (
+    mutation === "toast-only-action" &&
+    relativePath.endsWith("tests/e2e/visible-action-contract.spec.ts")
+  ) {
+    return source.replace(
+      "\"[role='status']:not([data-durable-outcome])\",",
+      "\"[data-transient-status-never-matches]\",",
+    );
+  }
+  if (
+    mutation === "unlabelled-control" &&
+    relativePath.endsWith("tests/e2e/visible-action-contract.spec.ts")
+  ) {
+    return source.replace("expect.soft(unnamed,", "expect.soft([],");
+  }
+  if (
+    mutation === "missing-disabled-reason" &&
+    relativePath.endsWith("tests/e2e/visible-action-contract.spec.ts")
+  ) {
+    return source.replace(
+      'expect(normalize(current!.disabledReason)).not.toBe("");',
+      "expect(true).toBe(true);",
+    );
+  }
+  if (
+    mutation === "duplicate-accessible-navigation" &&
+    relativePath.endsWith("tests/e2e/full-route-accessibility.spec.ts")
+  ) {
+    return source.replace("  await expect(navigation).toHaveCount(1);", "");
+  }
+  if (
+    mutation === "broken-deep-link" &&
+    relativePath.endsWith("tests/e2e/full-route-accessibility.spec.ts")
+  ) {
+    return source.replace(
+      "expect.soft(pathname(page), `${surface.id}/${viewport.id} preserves its exact deep link`).toBe(surface.reactPath);",
+      "expect.soft(pathname(page), `${surface.id}/${viewport.id} preserves its exact deep link`).toBe(pathname(page));",
+    );
+  }
+  if (
+    mutation === "missing-mobile-viewport" &&
+    relativePath.endsWith("tests/e2e/support/legacy-parity-fixtures.ts")
+  ) {
+    return source.replace('  { id: "mobile", width: 390, height: 844 },\n', "");
+  }
+  if (
+    mutation === "remove-focus-indicator-contract" &&
+    relativePath.endsWith("src/styles/reset.css")
+  ) {
+    return source.replace(
+      /button:focus-visible,[\s\S]*?outline-offset: 2px;\n}\n/,
+      "",
+    );
+  }
+  if (
+    mutation === "fake-dropdown" &&
+    relativePath.endsWith("src/features/reports/report-preview-page.tsx")
+  ) {
+    return source.replace(
+      '<select aria-label="Report type"',
+      '<div role="combobox" aria-label="Report type"',
+    );
+  }
+  return source;
+}
+
+function assertInteractionSourceBoundary(repositoryRoot, mutation) {
+  const requiredPaths = [
+    "apps/web/tests/e2e/visible-action-contract.spec.ts",
+    "apps/web/tests/e2e/full-route-accessibility.spec.ts",
+    "apps/web/tests/e2e/support/legacy-parity-fixtures.ts",
+    "apps/web/src/styles/reset.css",
+  ];
+  const productionFiles = filesBelow(path.join(repositoryRoot, "apps/web/src"), (file) =>
+    /\.[cm]?[jt]sx?$/.test(file) && !/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(file),
+  );
+  const sources = new Map(
+    [...requiredPaths.map((relativePath) => path.join(repositoryRoot, relativePath)), ...productionFiles]
+      .map((absolute) => {
+        const relativePath = normalized(path.relative(repositoryRoot, absolute));
+        assert.ok(fs.existsSync(absolute), `Interaction boundary source is missing: ${relativePath}`);
+        const source = fs.readFileSync(absolute, "utf8");
+        return [relativePath, mutateInteractionSource(relativePath, source, mutation)];
+      }),
+  );
+
+  const visibleActionSource = sources.get("apps/web/tests/e2e/visible-action-contract.spec.ts");
+  const accessibilitySource = sources.get("apps/web/tests/e2e/full-route-accessibility.spec.ts");
+  const fixtureSource = sources.get("apps/web/tests/e2e/support/legacy-parity-fixtures.ts");
+  const resetSource = sources.get("apps/web/src/styles/reset.css");
+  assert.ok(visibleActionSource, "Visible action harness source is missing.");
+  assert.ok(accessibilitySource, "Full-route accessibility harness source is missing.");
+  assert.ok(fixtureSource, "Responsive route fixture source is missing.");
+  assert.ok(resetSource, "Shared focus-style source is missing.");
+
+  assert.ok(
+    visibleActionSource.includes("await assertDurableControlOutcome(page, surface, control);"),
+    "Visible action harness must execute every active route command's durable outcome.",
+  );
+  assert.ok(
+    visibleActionSource.includes("const routeCommands = controls.filter(isExecutableRouteControl);") &&
+      visibleActionSource.includes("assertNativeFormControlOutcome") &&
+      visibleActionSource.includes("assertAccessibleStateOutcome") &&
+      visibleActionSource.includes("assertControlledSurfaceOutcome"),
+    "Visible action harness must execute stateful and form controls with exact postconditions.",
+  );
+  assert.ok(
+    visibleActionSource.includes(
+      "const executionViewports = [VISUAL_VIEWPORTS[0], VISUAL_VIEWPORTS[2]];",
+    ),
+    "Visible action harness must execute mobile-only route controls.",
+  );
+  assert.ok(
+    visibleActionSource.includes("\"[role='status']:not([data-durable-outcome])\","),
+    "Visible action contract rejects a toast-only action.",
+  );
+  assert.ok(
+    visibleActionSource.includes("expect.soft(unnamed,"),
+    "Every visible control must have an accessible name.",
+  );
+  assert.ok(
+    visibleActionSource.includes('expect(normalize(current!.disabledReason)).not.toBe("");'),
+    "Every disabled control must expose a record-specific disabled reason.",
+  );
+  assert.ok(
+    accessibilitySource.includes("  await expect(navigation).toHaveCount(1);"),
+    "Each routed workspace must expose exactly one accessible primary navigation.",
+  );
+  assert.ok(
+    accessibilitySource.includes(
+      "expect.soft(pathname(page), `${surface.id}/${viewport.id} preserves its exact deep link`).toBe(surface.reactPath);",
+    ),
+    "Every declared deep link must resolve to its exact path.",
+  );
+  assert.ok(
+    accessibilitySource.includes("focusIndicatorVisible") &&
+      /:focus-visible[\s\S]*?outline:\s*[1-9]/.test(resetSource),
+    "Every sequential target must expose a visible keyboard focus indicator.",
+  );
+
+  const viewportBlock = fixtureSource.match(/export const VISUAL_VIEWPORTS = \[([\s\S]*?)\] as const;/);
+  assert.ok(viewportBlock, "The interaction viewport registry is missing.");
+  const viewportIds = [...viewportBlock[1].matchAll(/\bid:\s*"([^"]+)"/g)].map((match) => match[1]);
+  assert.deepEqual(
+    viewportIds,
+    ["desktop", "tablet", "mobile"],
+    "The interaction matrix must include the mobile viewport.",
+  );
+
+  for (const [relativePath, source] of sources) {
+    if (!relativePath.startsWith("apps/web/src/")) continue;
+    assert.doesNotMatch(
+      source,
+      /<(?:button|div|input|span)\b[^>]*\brole\s*=\s*["'](?:combobox|listbox)["']/i,
+      `Dropdown controls must use native select semantics: ${relativePath}`,
+    );
+  }
 }
 
 function mutateSource(relativePath, source, mutation) {
@@ -119,10 +265,16 @@ function mutateVisualSource(source, mutation) {
     );
   }
   if (mutation === "remove-candidate-attachment") {
-    return source.replace("reactCandidateAttachmentCount += 1;", "");
+    return source.replace(
+      'testInfo.attach("react-candidate-viewport"',
+      'testInfo.attach("removed-react-candidate-viewport"',
+    );
   }
   if (mutation === "remove-result-attachment") {
-    return source.replace("decodedRegionResultAttachmentCount += 1;", "");
+    return source.replace(
+      'testInfo.attach("decoded-pixel-region-results"',
+      'testInfo.attach("removed-decoded-pixel-region-results"',
+    );
   }
   return source;
 }
@@ -248,12 +400,8 @@ export function assertVisualHarnessSource(source) {
     'await expect(page.locator(".workspace-content")).toBeVisible();',
     'await expect(page.locator(".workbench-page-header")).toBeVisible();',
     "const expectedVisualPairCount = VISUAL_SURFACES.length * VISUAL_VIEWPORTS.length;",
-    "const expectedExecutedPairCount = surfaces.length * VISUAL_VIEWPORTS.length;",
     "expect(expectedVisualPairCount).toBe(258);",
-    "reactCandidateAttachmentCount += 1;",
-    "decodedRegionResultAttachmentCount += 1;",
-    "expect(reactCandidateAttachmentCount).toBe(expectedExecutedPairCount);",
-    "expect(decodedRegionResultAttachmentCount).toBe(expectedExecutedPairCount);",
+    "assertVisualPairAttachments(testInfo.attachments);",
   ]) {
     assert.ok(source.includes(required), `Visual parity harness is missing fail-closed contract: ${required}`);
   }
@@ -266,7 +414,7 @@ export function assertVisualHarnessSource(source) {
 export function assertParityBoundary(options = {}) {
   const repositoryRoot = path.resolve(options.repositoryRoot ?? defaultRepositoryRoot);
   const mutation = options.mutation ?? null;
-  assertInteractionMutationFixture(mutation);
+  assertInteractionSourceBoundary(repositoryRoot, mutation);
   assertSourceBoundary(repositoryRoot, mutation);
 
   const visualSpecPath = path.join(repositoryRoot, "apps/web/tests/e2e/legacy-visual-parity.spec.ts");

@@ -27,6 +27,11 @@ test("local candidate has keyboard-reachable role entries, literal boundaries, a
   await expect(page.getByRole("heading", { name: "AviaSurveil360" })).toBeVisible();
   await expect(page.locator(".role-card")).toHaveCount(8);
   await page.keyboard.press("Tab");
+  const skipToWorkspaces = page.getByRole("button", { name: "Skip to workspace selection" });
+  await expect(skipToWorkspaces).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#login-workspaces")).toBeFocused();
+  await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: /CAA Inspector/i })).toBeFocused();
   const inspectorTarget = await page.getByRole("link", { name: /CAA Inspector/i }).evaluate((node) => {
     const bounds = node.getBoundingClientRect();
@@ -62,4 +67,18 @@ test("local candidate has keyboard-reachable role entries, literal boundaries, a
   const body = await page.locator("body").innerText();
   expect(body).not.toMatch(/production-ready|real production|automatic enforcement/i);
   expect(consoleIssues).toEqual([]);
+});
+
+test("disabled report filters are visibly unavailable", async ({ page }) => {
+  await page.goto("/department-manager/reports/RPT-CAB-2026-001-V1");
+  for (const name of ["Search reports unavailable", "Reset report filters unavailable"]) {
+    const control = page.getByRole("button", { name });
+    await expect(control).toBeDisabled();
+    const style = await control.evaluate((element) => {
+      const computed = getComputedStyle(element);
+      return { cursor: computed.cursor, opacity: Number.parseFloat(computed.opacity) };
+    });
+    expect(style.cursor).toBe("not-allowed");
+    expect(style.opacity).toBeLessThanOrEqual(0.6);
+  }
 });
