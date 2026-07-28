@@ -644,9 +644,9 @@ Task 7 is now complete and `verified locally`; Tasks 8–9 remain `not run`.
 
 ## Task 7 Connected Lifecycle Scenarios
 
-Task 7 is complete and `verified locally`. Task 6 is published and its exact
-remote revision is confirmed; Task 7 publication metadata is pending. The
-strict pre-implementation RED was recorded with `env
+Task 7 is complete, `verified locally`, and published as
+`a2d474431d8bcc33ebc0557630cd7038cbcd8ec0`; the exact `origin/main` ref is
+confirmed. The strict pre-implementation RED was recorded with `env
 GOCACHE=/private/tmp/aviasurveil360-task7-red-go-cache go -C apps/api test
 -count=1 ./internal/preproddata/scenarios`: exit 1, `no non-test Go files in
 .../internal/preproddata/scenarios`. A second strict RED, `env
@@ -849,3 +849,7 @@ PII, or normal HTTP seed surface was used.
 Task 7 is therefore `verified locally` and remains `candidate-only`. Task 8
 all-profile qualification, release, deployment, AWS, and production readiness
 remain `not run`.
+
+Task 7 was committed as `a2d474431d8bcc33ebc0557630cd7038cbcd8ec0`
+(`feat(data): add connected preprod scenarios`), pushed to `origin/main`, and
+confirmed by both the local upstream ref and `git ls-remote`.

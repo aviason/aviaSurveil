@@ -19,12 +19,13 @@ contract, and owner-decision packaging. Plan 1 and the combined Plans 2–4
 stakeholder disposition were completed on 2026-07-28. The current user
 authorization permits Tasks 2–9 in sequence, with one freshly verified,
 published task commit before the next task starts. Tasks 1–6 are complete and
-published; Tasks 2–6 are `26da3c0`, `8cf2b57`, `bedff45`, `ac5f786`, and
-`26c7022`.
+published; Tasks 2–7 are `26da3c0`, `8cf2b57`, `bedff45`, `ac5f786`,
+`26c7022`, and `a2d4744`.
 This plan is the predecessor of the AviaCore/ML readiness and local preprod
 release-candidate plans. Task 6 is complete, `verified locally`, published,
-and remotely confirmed. Task 7 is complete and `verified locally`; its task
-commit publication metadata is pending. Tasks 8–9 remain `not run`.
+and remotely confirmed. Task 7 is complete, `verified locally`, published as
+`a2d474431d8bcc33ebc0557630cd7038cbcd8ec0`, and remotely confirmed. Tasks
+8–9 remain `not run`.
 
 ## Scope
 
@@ -373,8 +374,9 @@ feasibility decision.
   below. The final fresh aggregate exited 0 with 40/40 reconciled families,
   86 routes, 306 visible actions, all eight roles, 45/45 retained
   cross-organization privacy canaries, a separately authorized networkless
-  cleanup attestation, and zero task-owned residue. Task 7 publication
-  metadata is pending; Tasks 8–9 remain `not run`.
+  cleanup attestation, and zero task-owned residue. Task 7 was published as
+  `a2d474431d8bcc33ebc0557630cd7038cbcd8ec0` and the exact remote ref was
+  confirmed; Tasks 8–9 remain `not run`.
 
 ## Tasks
 
@@ -1081,10 +1083,12 @@ Fresh result:
 
 ### Task 7: Generate Complete Connected Lifecycle Scenarios
 
-**Task status:** `complete — verified locally`; Task 6 is published and
-remotely confirmed. The strict pre-implementation RED and later focused RED
-results are recorded below. The final real-service aggregate and focused
-regressions passed with exact cleanup.
+**Task status:** `complete — verified locally and published`; Task 6 is
+published and remotely confirmed. The strict pre-implementation RED and later
+focused RED results are recorded below. The final real-service aggregate and
+focused regressions passed with exact cleanup. Task 7 is published as
+`a2d474431d8bcc33ebc0557630cd7038cbcd8ec0`; the exact `origin/main` ref is
+confirmed.
 
 **Strict RED**
 
@@ -1570,7 +1574,7 @@ the artifact remains `candidate-only` and release remains `release pending`.
 ## Execution Prompt
 
 ```text
-Tasks 1-7 in docs/exec-plans/active/2026-07-27-identity-and-realistic-data-foundation-plan.md are complete and verified locally; Task 6 is published as 26c7022ebed02c99c7183850f7138ea63580bf0c and its exact remote revision is confirmed. Publish and remotely confirm the completed Task 7 commit and its metadata before starting Task 8. Read AGENTS.md, docs/PLANS.md, the plan index, the complete plan, and the current identity/full-profile evidence first. Preserve the root demo, normal HTTP no-seed boundary, Keycloak authority, organization isolation, append-only histories, and unrelated worktree changes.
+Tasks 1-7 in docs/exec-plans/active/2026-07-27-identity-and-realistic-data-foundation-plan.md are complete, verified locally, published, and remotely confirmed; Task 7 is a2d474431d8bcc33ebc0557630cd7038cbcd8ec0. Task 8 is next and remains not run. Read AGENTS.md, docs/PLANS.md, the plan index, the complete plan, and the current identity/full-profile evidence first. Preserve the root demo, normal HTTP no-seed boundary, Keycloak authority, organization isolation, append-only histories, and unrelated worktree changes.
 
 Use strict RED -> GREEN -> focused review for each task. Establish the desired-membership revision and least-privilege Keycloak service identity before directory/lifecycle acceptance. The normal API/worker/scheduler/migration images must not link testprofile or loader/reset code. Repeatable loader reset uses only an exactly authorized disposable target and never selectively deletes append-only rows. Qualify smoke, acceptance, realistic, and stress with the same scenario/role/route catalog. Do not add public registration, a normal API reset/seed route, real PII, plaintext credentials, client-authored roles, direct fixture writes that bypass authoritative domain behavior, AWS actions, commits, or pushes without separate authorization. Keep the plan, index, tracker, and evidence synchronized with literal results. Stop after each task's acceptance gate and fix all Critical or Important review findings before continuing.
 ```
