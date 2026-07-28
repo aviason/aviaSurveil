@@ -94,8 +94,8 @@ profile, deployment, or production readiness. Those remain `not run`.
 
 Task 3 is `verified locally` and published on `origin/main` as
 `8cf2b57fd487e4ba1b2439717425344bb06ea7e3`. Task 4 is complete and `verified
-locally`; its publication revision is recorded after the focused task commit
-is pushed.
+locally`; its complete focused scope is published on `origin/main` as
+`bedff4575704511d107f148c289424b46485d0b2`.
 
 ### Strict RED evidence
 

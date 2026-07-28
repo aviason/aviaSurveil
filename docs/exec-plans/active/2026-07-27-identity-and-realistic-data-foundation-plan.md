@@ -18,12 +18,10 @@ repeatable connected data covering every important workflow state.
 contract, and owner-decision packaging. Plan 1 and the combined Plans 2–4
 stakeholder disposition were completed on 2026-07-28. The current user
 authorization permits Tasks 2–9 in sequence, with one freshly verified,
-published task commit before the next task starts. Tasks 1–3 are complete;
-Task 2 is published as `26da3c0`; Task 3 is published as `8cf2b57`. Task 4 is
-in progress. This plan is the
-predecessor of the AviaCore/ML readiness and local preprod release-candidate
-plans. Task 4 is complete and `verified locally`; its publication revision is
-recorded after the task commit is pushed. Task 5 remains `not run`.
+published task commit before the next task starts. Tasks 1–4 are complete;
+Tasks 2–4 are published as `26da3c0`, `8cf2b57`, and `bedff45`. This plan is
+the predecessor of the AviaCore/ML readiness and local preprod
+release-candidate plans. Task 5 remains `not run`.
 
 ## Scope
 
@@ -266,6 +264,10 @@ feasibility decision.
   no standing break-glass account is imported, provider login/admin events are
   audited, and actual break-glass use remains blocked without the separately
   authorized external alarm/incident gate.
+- [x] (2026-07-28) Published the complete Task 4 scope to `origin/main` as
+  `bedff4575704511d107f148c289424b46485d0b2`
+  (`feat(identity): enforce live session authority`) and confirmed the exact
+  remote ref before starting Task 5.
 
 ## Tasks
 
@@ -641,10 +643,10 @@ as completion evidence, and the final complete rerun above passed.
 
 ### Task 4: Enforce Role, Organization, MFA, And Session Lifecycle
 
-**Task status:** `complete`; Task 3 is published and remotely confirmed, all
-strict RED results are recorded, and the complete Task 4 gate is `verified
-locally`. The task publication revision is recorded after the focused commit
-is pushed.
+**Task status:** `complete`; Task 3 was published and remotely confirmed before
+start, all strict RED results are recorded, the complete Task 4 gate is
+`verified locally`, and the focused task is published as
+`bedff4575704511d107f148c289424b46485d0b2`.
 
 **Recorded RED:** `go -C apps/api test -tags canonicaltest -count=1
 ./internal/identity ./tests/integration -run 'Task4'` failed with exit 1
@@ -1204,7 +1206,7 @@ remains `release pending`.
 ## Execution Prompt
 
 ```text
-Tasks 1-4 in docs/exec-plans/active/2026-07-27-identity-and-realistic-data-foundation-plan.md are complete and verified locally. Task 5 is next and remains not run until the Task 4 commit and remote revision are confirmed. Read AGENTS.md, docs/PLANS.md, the plan index, the complete plan, and the current identity/full-profile evidence first. Preserve the root demo, normal HTTP no-seed boundary, Keycloak authority, organization isolation, append-only histories, and unrelated worktree changes.
+Tasks 1-4 in docs/exec-plans/active/2026-07-27-identity-and-realistic-data-foundation-plan.md are complete and verified locally; Task 4 is published as bedff4575704511d107f148c289424b46485d0b2 and its remote revision is confirmed. Task 5 is next and remains not run. Read AGENTS.md, docs/PLANS.md, the plan index, the complete plan, and the current identity/full-profile evidence first. Preserve the root demo, normal HTTP no-seed boundary, Keycloak authority, organization isolation, append-only histories, and unrelated worktree changes.
 
 Use strict RED -> GREEN -> focused review for each task. Establish the desired-membership revision and least-privilege Keycloak service identity before directory/lifecycle acceptance. The normal API/worker/scheduler/migration images must not link testprofile or loader/reset code. Repeatable loader reset uses only an exactly authorized disposable target and never selectively deletes append-only rows. Qualify smoke, acceptance, realistic, and stress with the same scenario/role/route catalog. Do not add public registration, a normal API reset/seed route, real PII, plaintext credentials, client-authored roles, direct fixture writes that bypass authoritative domain behavior, AWS actions, commits, or pushes without separate authorization. Keep the plan, index, tracker, and evidence synchronized with literal results. Stop after each task's acceptance gate and fix all Critical or Important review findings before continuing.
 ```
