@@ -169,6 +169,12 @@ export interface RiskOverviewView {
   overdueFindingCount: number;
   openFindingCount: number;
   repeatFindingCount: number;
+  advisoryHealth?: {
+    score: number;
+    band: string;
+    basis: "CONFIGURED_DEMO_SCENARIO";
+    recommendedAction: string;
+  } | null;
   revision: number;
 }
 

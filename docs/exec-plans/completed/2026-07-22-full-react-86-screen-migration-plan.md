@@ -21,9 +21,9 @@ React Hook Form, Zod, deterministic `MemoryMockStore`, Vitest, React Testing
 Library, Playwright 1.61, decoded-RGBA visual comparison, and the accepted root
 HTML/CSS/JavaScript oracle.
 
-**Status:** `ready-for-verification` — Tasks 1–12 have been executed. Task 11 is
-`verified locally`; Task 12's non-visual matrix and standalone baseline
-integrity passed. The final 2026-07-25 exact-runtime visual command remains
+**Status:** `completed` on 2026-07-28 — Tasks 1–12 have been executed. Task 11 is
+`verified locally`; Task 12's non-visual matrix and 2026-07-25 standalone
+baseline integrity passed. The final 2026-07-25 exact-runtime visual command remains
 literally non-green at 89/259: the primitive gallery passed, 88/258 route
 pairs passed, and 170/258 route pairs retained decoded-pixel failures. All 258
 candidate attachments and all 258 decoded-region attachments were present,
@@ -33,8 +33,26 @@ and accepted the 170 pixel failures only as intentional content adaptations;
 they were not relabelled as pixel passes.
 The Task 10 correction and Tasks 11–12 evidence received clean independent
 acceptance on 2026-07-25. Subsequent Plans 2 and 3 are also
-`ready-for-verification`. Stakeholder review/sign-off is the next todo before
-this plan can move to `completed`.
+`ready-for-verification`. On 2026-07-28, the user authorized the aggregate
+Codex Accept disposition for all 160 high-confidence records that do not
+require manual stakeholder review. The prior Inspector Findings Fix is
+implemented and `verified locally`: the focused desktop content ratio
+improved from `0.10423` to `0.07531` and passes the unchanged `0.08000`
+threshold. The user then directed the remaining nine risk-surface records to
+be fixed: make the Manager Risk Dashboard heatmap more visible, show the
+Organization Risk Profile score, and preserve the GM Risk Dashboard risk
+matrix. Those implementations are `fixed-verified-locally` across desktop,
+tablet, and mobile, so visual stakeholder disposition is 170/170 complete
+with zero manual decisions remaining. The focused visual command preserved
+the unchanged oracle and passed its primitive gallery, while all nine
+route/viewport pixel comparisons remain literally non-green and are not
+relabelled as passes. This stakeholder completion does not authorize release,
+deployment, or a `production-ready` claim.
+The fresh closeout baseline command is separately `not verified` because a
+later entropy cleanup removed only the retired Turkish-companion link from the
+canonical UI audit, changing its metadata hash from `92a8ab…` to `0ab4c6…`.
+A read-only check still verified all 258/258 baseline PNG hashes. The accepted
+manifest and verifier remain unchanged.
 Historical task evidence follows. Task 4 passed
 its functional, contract, type, build,
 route-boundary, root-diff, hygiene, and independent spec/code-quality gates.
@@ -210,11 +228,11 @@ Feature CSS remains in `apps/web/src/styles/features/` and is registered by
 ## Dependency Order
 
 This is Plan 1 of 4. Plan 2's sequencing prerequisites are now satisfied:
-Tasks 1–12 are complete, this plan is `ready-for-verification`, and the
-route/capability/action contracts are independently accepted. Plan 2 remains
-unstarted until explicitly directed by the user. Plan 3 depends on Plan 2's
-adapters and worker jobs. Plan 4 depends on the local full-stack gates from
-Plans 1–3.
+Tasks 1–12 are complete, this plan is `completed`, and the
+route/capability/action contracts are independently accepted. Subsequent
+Plans 2 and 3 have since executed their local scopes and are
+`ready-for-verification`; Plan 4's local scope is also
+`ready-for-verification`.
 
 ## Phases
 
@@ -700,9 +718,15 @@ target-size defects were fixed through a separate RED -> GREEN cycle and the
 accessibility matrix then passed 5/5 with exactly 258 responsive route checks.
 On 2026-07-25, standalone baseline integrity was rerun with exact Node 24.16.0,
 Playwright 1.61.1, and Chromium 149.0.7827.55; it passed with 258 baseline PNGs
-verified, and the current canonical UI-audit hash matches the accepted manifest
-hash
+verified, and the canonical UI-audit hash at that point matched the accepted
+manifest hash
 `sha256:92a8ab06da1f87fd9e84b45b35fa5c3dc58aa78a6eb7f6f9c9652731e8f74967`.
+On 2026-07-28, the fresh closeout verifier is literally `not verified` at the
+audit-document hash check because the retired Turkish-companion link was later
+removed from that document; the current hash is
+`sha256:0ab4c60febb6d95f852f1aae2d540cb678b61c0f7111ba06f424c301325f4f9c`.
+The 86 audit rows are unchanged, and a separate read-only check verified all
+258/258 baseline PNG hashes without altering the manifest or verifier.
 A 2026-07-25 full visual diagnostic rerun on the same exact runtime remains
 `not verified` at 74/259, with 185 failures. A later RED -> GREEN correction
 replaced worker-global attachment accounting with a pair-local fail-closed
@@ -729,6 +753,41 @@ Task 12 review accepted the literal evidence, artifact hash, attachment counts,
 and retained failures without weakening the oracle; the canonical summary is
 `docs/demo-evidence/REACT_86_SCREEN_DEMO_2026-07-22.md`.
 
+The 2026-07-28 stakeholder closeout is recorded in
+`docs/demo-evidence/stakeholder/PLAN1_VISUAL_STAKEHOLDER_DECISIONS_2026-07-27.md`.
+The user authorized the aggregate Codex Accept disposition for 160 records
+with `codexRecommendation=accept` and `userReviewRequired=false`. The prior
+Inspector Findings desktop Fix decision was corrected through RED -> GREEN
+TDD; its focused visual rerun passed desktop at `0.07531/0.08000` and mobile
+at `0.07318/0.08000`. Tablet remains literally non-green at
+`0.08499/0.08000` under its earlier explicit Accept disposition. This focused
+rerun does not rewrite the historical full-matrix result of 89/259.
+
+The user then selected Fix for the remaining nine records. The Manager Risk
+Dashboard now places an accessible 25-cell Risk Exposure Matrix after its
+filters and before its indicators; the Organization Risk Profile now shows
+the configured Fly Namibia advisory health score `74`, band
+`Needs Attention`, basis, and recommendation; and the GM Risk Dashboard now
+preserves an accessible 25-cell Risk Exposure Matrix immediately after its
+KPIs. Focused functional tests verify all three outcomes. The focused visual
+command passed the primitive gallery and retained all nine route/viewport
+pixel comparisons as literal non-green results: Manager content
+`0.24713`, `0.09308`, and `0.13328`; Organization desktop
+sidebar/content `0.04850/0.08217`, tablet `0.05928/0.12353`, and mobile
+content `0.18835`; GM content `0.08286`, `0.20882`, and `0.20374`. The
+unchanged content threshold is `0.08000` and the unchanged sidebar threshold
+is `0.03000`. No baseline, threshold, mask, source identity, authority,
+semantic truth, or root-oracle contract was weakened. All 170 retained
+full-matrix failures now have a resolved stakeholder disposition; manual
+review remaining is zero.
+
+Fresh closeout verification on 2026-07-28 passed typecheck, 64 Vitest files
+with 646/646 tests, 108/108 root/parity tests, demo and HTTP builds, both
+app-shell scans, the HTTP artifact scan, the exact 86-route/two-profile
+boundary, harness docs smoke, decision-ledger assertions, and
+`git diff --check`. The focused visual result and strict baseline metadata
+result remain literal as recorded above.
+
 ## Required Verification Matrix
 
 ```bash
@@ -750,8 +809,12 @@ npm --prefix apps/web run test:e2e:visual-parity
 Final scope: 86 React routes, 0 legacy-only rows, 17 dual-profile routes, 69
 demo-only routes awaiting Plan 2 activation, exactly 258 responsive route
 checks, exactly 258 action inventories, 613 exact action-evidence records,
-306/306 executed route controls, and 259 visual tests. The next todo is explicit
-stakeholder review/sign-off before this plan moves to `completed`.
+306/306 executed route controls, and 259 visual tests. Visual stakeholder
+disposition is 170/170 complete, with 160 aggregate Codex Accept records, ten
+implemented Fix records, and zero manual decisions remaining. The historical
+full visual matrix remains literally non-green at 89/259; completion records
+stakeholder disposition and verified requested behavior, not pixel-gate
+passage or production readiness.
 
 ## Risks And Controls
 
@@ -772,9 +835,9 @@ stakeholder review/sign-off before this plan moves to `completed`.
   `REACT_LEGACY_UI_PARITY_2026-07-22.md`.
 - Approved target architecture in `MODULE_ARCHITECTURE.md`.
 - Plan 2's sequencing prerequisites are satisfied: Tasks 1–12 are complete,
-  this plan is `ready-for-verification`, and the frozen
-  route/capability/action contracts are independently accepted. Plan 2 still
-  requires an explicit user direction to start.
+  this plan is `completed`, and the frozen
+  route/capability/action contracts are independently accepted. Plan 2 has
+  since executed its local scope and is `ready-for-verification`.
 
 ## Out Of Scope
 
@@ -785,14 +848,14 @@ stakeholder review/sign-off before this plan moves to `completed`.
   production cutover.
 - External AI provider, enforcement automation, or legal/regulatory approval.
 
-## Execution Prompt
+## Historical Execution Prompt
 
 ```text
-Execute docs/exec-plans/active/2026-07-22-full-react-86-screen-migration-plan.md task by task with superpowers:executing-plans. Do not dispatch subagents unless I explicitly authorize them. Work on the current branch and preserve unrelated .superpowers/, docs/demo-evidence/stakeholder/, and outputs/ content.
+Execute docs/exec-plans/completed/2026-07-22-full-react-86-screen-migration-plan.md task by task with superpowers:executing-plans. Do not dispatch subagents unless I explicitly authorize them. Work on the current branch and preserve unrelated .superpowers/, docs/demo-evidence/stakeholder/, and outputs/ content.
 
 Treat the intact root Vanilla demo and the 86-row UI audit as the visual and behavioral oracle. Expand React from 17 to 86 routes and make every route fully functional in deterministic demo/mock mode. Correct the inherited role-crossed mappings so ui-audit-009 is CAA Inspector and ui-audit-044 is Department Manager; require source-role/route-role equality for every counted row. New routes must be explicitly demo-only until the next backend plan activates their HTTP capabilities; never fall back to mock state in the HTTP build. Preserve the 17-surface count and rerun every protected surface after shared shell changes.
 
 Use TDD and the exact task order. Every visible action must have a tested mock/navigation/local result or a specific disabled reason. Preserve lifecycle authority, immutable versions, Auditee organization isolation, Internal CAA Note separation, and advisory-only risk/assistant behavior. Expand the tracked decoded-pixel oracle to 86 routes × 3 viewports without broad masks or relaxed thresholds.
 
-Before each commit inspect upstream, the task allowlist, cached names, the full cached diff, and diff check. Use the exact task commit message only when Git actions are separately authorized. Do not deploy, start Plan 2, claim HTTP completeness, remove the root demo, or claim production readiness. Finish with synchronized evidence and leave stakeholder acceptance as the next todo.
+Before each commit inspect upstream, the task allowlist, cached names, the full cached diff, and diff check. Use the exact task commit message only when Git actions are separately authorized. Do not deploy, start Plan 2, claim HTTP completeness, remove the root demo, or claim production readiness. Finish with synchronized evidence and explicit stakeholder disposition.
 ```

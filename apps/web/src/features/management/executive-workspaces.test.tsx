@@ -301,6 +301,9 @@ describe("General Manager and Executive Director workspaces", () => {
     renderGovernanceRoute("/general-manager/risk-dashboard", "gm");
     const page = await screen.findByTestId("gm-risk-dashboard-page");
     expect(within(page).getByRole("region", { name: "Oversight Health indicators" })).toBeVisible();
+    const matrix = within(page).getByRole("region", { name: "Risk Exposure Matrix" });
+    expect(matrix.querySelectorAll("[data-matrix-cell]")).toHaveLength(25);
+    expect(matrix.querySelectorAll(".is-low, .is-medium, .is-high, .is-critical")).toHaveLength(25);
     expect(page).toHaveTextContent("Management indicator only");
     expect(page).toHaveTextContent(/does not (make|trigger) an automatic legal, enforcement, certificate, suspension, compliance, or closure decision/i);
     expect(page).not.toHaveTextContent(/automatically (close|suspend|revoke|certify)/i);

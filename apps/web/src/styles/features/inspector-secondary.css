@@ -1154,6 +1154,10 @@
 }
 
 @media (min-width: 1101px) {
+  .inspector-findings-page .inspector-secondary-head.workbench-page-header {
+    margin-top: 17px;
+  }
+
   .inspector-findings-page .inspector-secondary-actions button:disabled {
     opacity: 1;
   }
@@ -1227,13 +1231,13 @@
   }
 
   .inspector-findings-page .inspector-record-card {
+    display: none;
     gap: 6px;
     min-height: 130px;
     padding: 11px;
     border-left-width: 1px;
   }
 
-  .inspector-findings-page .inspector-record-card:first-child { display: none; }
   .inspector-findings-page .inspector-record-card .inspector-decision-grid,
   .inspector-findings-page .inspector-record-card .inspector-secondary-button { display: none; }
   .inspector-findings-page .inspector-record-card__title { gap: 5px; }

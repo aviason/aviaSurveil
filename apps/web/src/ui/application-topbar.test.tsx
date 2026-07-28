@@ -69,8 +69,15 @@ describe("ApplicationTopbar", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: /Notifications unavailable/i })).toBeDisabled();
-    expect(screen.getByText("Notification delivery is not connected in this candidate.")).toBeVisible();
+    const notifications = screen.getByRole("button", { name: /Notifications unavailable/i });
+    expect(notifications).toBeDisabled();
+    expect(notifications).toHaveAttribute(
+      "title",
+      "Notification delivery is not connected in this candidate.",
+    );
+    expect(notifications).toHaveAccessibleDescription(
+      "Notification delivery is not connected in this candidate.",
+    );
   });
 
   it("keeps the Auditee experience selector and profile presentation interactive", async () => {

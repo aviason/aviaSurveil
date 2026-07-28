@@ -10,6 +10,7 @@ import type {
   RiskOverviewView,
 } from "../../backend/backend";
 import { CommandError, errorMessage, PageHeader, WorkspaceShell } from "../shared/workspace-shell";
+import { RiskHeatmap } from "./risk-heatmap";
 
 interface IntelligenceProjection {
   organizations: OrganizationSummary[];
@@ -198,11 +199,14 @@ export function ManagerRiskDashboardPage() {
           <span data-testid="active-risk-filters">{dateRange} · {department} · {inspection} · {riskLevel}</span>
           {exportStatus ? <p role="status">{exportStatus}</p> : null}
         </section>
+        <RiskHeatmap
+          className="manager-intelligence-panel manager-intelligence-panel--featured-risk"
+          records={filtered}
+        />
         <IndicatorCards records={filtered} />
         <section aria-label="Management attention" className="manager-intelligence-grid">
           <article className="manager-intelligence-panel"><p className="eyebrow">Exact severity mapping</p><h2>Findings by Risk</h2><ul>{riskLevels.map((level) => <li key={level}><span>{riskLabel(level)}</span><b>{distribution[level]}</b></li>)}</ul><small>Level 1 → High, Level 2 → Medium, Level 3 → Low, Observation → Very Low.</small></article>
           <article className="manager-intelligence-panel"><p className="eyebrow">Issued Finding records</p><h2>Risk Trend</h2>{trend.length ? <ul>{trend.map((item) => <li key={item.period}><span>{item.period}</span><b>{item.count}</b></li>)}</ul> : <p>No issued Finding dates match.</p>}</article>
-          <article className="manager-intelligence-panel manager-intelligence-panel--wide"><p className="eyebrow">Likelihood × impact</p><h2>Risk Exposure Matrix</h2><div aria-label="Advisory risk matrix" data-testid="risk-exposure-matrix"><p>Likelihood and impact values are unavailable in the Backend contract; cells are intentionally unscored.</p><div className="manager-risk-matrix">{Array.from({ length: 25 }, (_, index) => <span data-matrix-cell key={index}><b>—</b><small>L{Math.floor(index / 5) + 1} × I{index % 5 + 1}</small></span>)}</div></div></article>
           <article className="manager-intelligence-panel"><p className="eyebrow">Record concentration</p><h2>Top Risky Areas</h2><p>Department unavailable in Backend contract · {filtered.length} Finding records</p></article>
           <article className="manager-intelligence-panel"><p className="eyebrow">Department scope</p><h2>Department Risk Distribution</h2><p>Unavailable in Backend contract · {filtered.length} Finding records</p></article>
           <article className="manager-intelligence-panel"><p className="eyebrow">Due Date attention</p><h2>Overdue CAPs by Risk</h2><ul>{riskLevels.map((level) => <li key={level}><span>{riskLabel(level)}</span><b>{filtered.filter((record) => record.riskLevel === level && record.capRequired && record.dueState === "OVERDUE" && record.status !== "CLOSED").length}</b></li>)}</ul></article>
@@ -244,12 +248,13 @@ export function OrganizationRiskProfilePage() {
   const { projection, error } = useIntelligenceProjection();
   const organization = projection.organizations.find((item) => item.id === "ORG-FLY-NAMIBIA") ?? null;
   const overview = organization ? projection.overviews[organization.id] ?? null : null;
+  const advisoryHealth = overview?.advisoryHealth ?? null;
   return (
     <WorkspaceShell roleLabel="Department Manager" routeLabel="Organization Risk Profile">
       <div className="manager-intelligence-page" data-testid="organization-risk-profile-page">
         <PageHeader eyebrow="Exact Organization profile" title={`Organization Risk Profile — ${organization?.legalName ?? "Fly Namibia"}`} description="Understand why this Organization needs oversight attention before planning or opening an inspection." />
         <CommandError message={error} /><AdvisoryBoundary />
-        <section className="organization-risk-summary"><div><span>Oversight Health</span><strong>Unavailable</strong><small>Oversight Health value is unavailable in the Backend contract.</small></div><dl><div><dt>Organization ID</dt><dd>ORG-FLY-NAMIBIA</dd></div><div><dt>Open Findings</dt><dd>{overview?.openFindingCount ?? 0}</dd></div><div><dt>Overdue</dt><dd>{overview?.overdueFindingCount ?? 0}</dd></div><div><dt>Repeat signals</dt><dd>{overview?.repeatFindingCount ?? 0}</dd></div></dl></section>
+        <section className="organization-risk-summary"><div><span>Oversight Health</span><strong>{advisoryHealth?.score ?? "—"}</strong><b>{advisoryHealth?.band ?? "Loading indicator"}</b><small>{advisoryHealth ? `Configured demo scenario · ${advisoryHealth.recommendedAction}` : "Loading configured demo indicator."}</small></div><dl><div><dt>Organization ID</dt><dd>ORG-FLY-NAMIBIA</dd></div><div><dt>Open Findings</dt><dd>{overview?.openFindingCount ?? 0}</dd></div><div><dt>Overdue</dt><dd>{overview?.overdueFindingCount ?? 0}</dd></div><div><dt>Repeat signals</dt><dd>{overview?.repeatFindingCount ?? 0}</dd></div></dl></section>
         <section aria-label="Organization risk actions" className="manager-intelligence-actions"><Link aria-label="Open Fly Namibia organization record" to="/department-manager/organizations/ORG-FLY-NAMIBIA">Open organization record</Link><Link aria-label="Open Findings Review for ORG-FLY-NAMIBIA" to="/department-manager/findings-review?organizationId=ORG-FLY-NAMIBIA">Open Findings Review</Link><Link to="/department-manager/safety-intelligence">Back to Safety Intelligence</Link></section>
       </div>
     </WorkspaceShell>

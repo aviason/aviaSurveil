@@ -2,7 +2,7 @@
 
 **Review date:** 25 July 2026
 
-**Plan:** [Full React 86-Screen Migration](../exec-plans/active/2026-07-22-full-react-86-screen-migration-plan.md)
+**Plan:** [Full React 86-Screen Migration](../exec-plans/completed/2026-07-22-full-react-86-screen-migration-plan.md)
 
 **Reviewer:** Codex main agent
 

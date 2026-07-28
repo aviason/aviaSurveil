@@ -80,11 +80,17 @@ describe("Department Manager intelligence workspaces", () => {
     expect(within(page).getByTestId("active-signal-filter")).toHaveTextContent("overdue");
   });
 
-  it("restores the complete typed Finding-risk command hierarchy without invented scores", async () => {
+  it("restores the complete typed Finding-risk command hierarchy with the configured heatmap immediately after filters", async () => {
     renderManagerRoute("/department-manager/risk-dashboard");
     const page = await screen.findByTestId("manager-risk-dashboard-page");
 
     const filters = within(page).getByRole("region", { name: "Risk filters" });
+    const matrix = within(page).getByRole("region", { name: "Risk Exposure Matrix" });
+    const indicatorRegion = within(page).getByRole("region", { name: "Risk indicators" });
+    expect(matrix.querySelectorAll("[data-matrix-cell]")).toHaveLength(25);
+    expect(matrix.querySelectorAll(".is-low, .is-medium, .is-high, .is-critical")).toHaveLength(25);
+    expect(filters.compareDocumentPosition(matrix) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(matrix.compareDocumentPosition(indicatorRegion) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     for (const label of ["Date Range", "Department", "Inspection", "Risk Level"]) {
       expect(within(filters).getByLabelText(label)).toBeEnabled();
     }
@@ -116,9 +122,8 @@ describe("Department Manager intelligence workspaces", () => {
     ]) {
       expect(within(page).getByRole("heading", { name: heading })).toBeVisible();
     }
-    expect(within(page).getByTestId("risk-exposure-matrix").querySelectorAll("[data-matrix-cell]")).toHaveLength(25);
     expect(within(page).getByTestId("risk-exposure-matrix")).toHaveTextContent(
-      "Likelihood and impact values are unavailable in the Backend contract",
+      "Finding placement follows the accepted demo severity and Due State mapping",
     );
     expect(page).toHaveTextContent("FND-SKYCARGO-2026-099");
     expect(page).not.toHaveTextContent("Oversight Health indicator");
@@ -164,8 +169,10 @@ describe("Department Manager intelligence workspaces", () => {
       "href",
       "/department-manager/findings-review?organizationId=ORG-FLY-NAMIBIA",
     );
-    expect(page).toHaveTextContent("Oversight Health value is unavailable in the Backend contract");
-    expect(page).not.toHaveTextContent(/\b62\b/);
+    expect(await within(page).findByText("74")).toBeVisible();
+    expect(page).toHaveTextContent("Needs Attention");
+    expect(page).toHaveTextContent("Configured demo scenario");
+    expect(page).not.toHaveTextContent("Unavailable");
   });
 
   it("projects CAP revision and closure eligibility without inventing monitoring evidence", async () => {

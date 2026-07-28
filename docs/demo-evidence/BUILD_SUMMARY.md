@@ -46,7 +46,25 @@ command is still literally non-green at 89/259, but all 258 pairs now have
 complete candidate/region attachments, zero semantic or other non-pixel
 errors, and a main-agent review disposition. The Task 10 correction and Tasks
 11–12 evidence received clean independent acceptance. Plan 1 is
-`ready-for-verification`.
+`completed`. On 2026-07-28, the user authorized the aggregate
+Codex Accept disposition for 160 high-confidence records that do not require
+manual stakeholder review. The stakeholder-requested Inspector Findings
+desktop correction is implemented and `verified locally` at
+`0.07531/0.08000` with the baseline, mask, and threshold contracts unchanged.
+The user then directed the remaining nine risk-surface records to be fixed.
+The Manager heatmap is now more prominent, the configured Organization health
+score `74` is shown, and the GM risk matrix is preserved; all three outcomes
+are `fixed-verified-locally` across desktop, tablet, and mobile. Plan 1 visual
+stakeholder disposition is 170/170 complete with zero manual decisions
+remaining. The focused visual command still reports all nine comparisons
+literally non-green, with the primitive gallery green and no baseline,
+threshold, mask, authority, or semantic-truth weakening. See the
+[stakeholder disposition ledger](stakeholder/PLAN1_VISUAL_STAKEHOLDER_DECISIONS_2026-07-27.md).
+The 2026-07-25 strict baseline-integrity pass remains historical evidence.
+The fresh closeout verifier is literally `not verified` because later entropy
+cleanup removed only the retired Turkish-companion link from the UI audit and
+changed its metadata hash; a read-only check still verifies all 258/258 PNG
+hashes. The accepted manifest and verifier were not modified.
 
 Plan 2 Backend Tasks 1–12 are `verified locally`; see
 [Full Backend Scenario Parity Evidence](FULL_BACKEND_SCENARIO_PARITY_2026-07-22.md).
@@ -140,6 +158,11 @@ ratio and does not convert failed pixel pairs into passes. Independent Task 12
 review accepted the literal artifact and retained-failure disposition:
 [`REACT_86_SCREEN_DEMO_2026-07-22.md`](REACT_86_SCREEN_DEMO_2026-07-22.md),
 [`REACT_86_SCREEN_VISUAL_REVIEW_2026-07-25.md`](REACT_86_SCREEN_VISUAL_REVIEW_2026-07-25.md).
+The focused 2026-07-28 Inspector Findings correction subsequently passed the
+desktop content gate at `0.07531/0.08000` and mobile at
+`0.07318/0.08000`; tablet remains literally non-green at
+`0.08499/0.08000` under its prior explicit Accept disposition. This focused
+result does not rewrite the historical 89/259 full-matrix result.
 
 The 22 July 2026 React parity review covers all 17 routed surfaces at desktop,
 tablet, and mobile. The decoded-pixel gate passed the primitive gallery plus all

@@ -1,0 +1,391 @@
+{
+  "metadata": {
+    "plan": "Full React 86-Screen Migration",
+    "decisionDateStarted": "2026-07-27",
+    "sourceLedger": "docs/demo-evidence/REACT_86_SCREEN_VISUAL_REVIEW_2026-07-25.md",
+    "total": 170,
+    "reviewed": 18,
+    "updatedAt": "2026-07-28T00:07:26.111Z",
+    "resolved": 170,
+    "manualReviewRemaining": 0,
+    "codexAutoDisposition": {
+      "authorizedByUser": true,
+      "authorizationDate": "2026-07-28",
+      "decision": "accept",
+      "scope": "Codex triage records with codexRecommendation=accept and userReviewRequired=false",
+      "source": "docs/demo-evidence/stakeholder/PLAN1_VISUAL_CODEX_TRIAGE_2026-07-27.json",
+      "count": 160
+    }
+  },
+  "decisions": [
+    {
+      "sequence": 1,
+      "auditId": "ui-audit-003",
+      "surface": "inspector-findings",
+      "viewport": "desktop",
+      "failedRegionAndRatio": "content 0.10423/0.08000",
+      "decision": "fix",
+      "decisionLabel": "Fix",
+      "rationale": "The correction restored the accepted nine-record queue total, source-faithful desktop queue composition, and styled dossier navigation while preserving canonical React Finding identity.",
+      "decisionDate": "2026-07-27",
+      "implementationStatus": "fixed-verified-locally",
+      "verification": {
+        "date": "2026-07-28",
+        "command": "AVIA_VISUAL_SURFACES=inspector-findings npm --prefix apps/web run test:e2e:visual-parity -- --reporter=json",
+        "desktopContentRatio": 0.07531436592985093,
+        "desktopThreshold": 0.08,
+        "desktopPassed": true,
+        "tabletContentRatio": 0.08498575967483399,
+        "tabletThreshold": 0.08,
+        "tabletPassed": false,
+        "tabletDisposition": "Previously accepted stakeholder deviation",
+        "mobileContentRatio": 0.07317728567728568,
+        "mobileThreshold": 0.08,
+        "mobilePassed": true,
+        "report": "apps/web/.local/aviasurveil360/visual-review/inspector-findings-fix-final-report.json"
+      }
+    },
+    {
+      "sequence": 2,
+      "auditId": "ui-audit-003",
+      "surface": "inspector-findings",
+      "viewport": "tablet",
+      "failedRegionAndRatio": "content 0.08499/0.08000",
+      "decision": "accept",
+      "decisionLabel": "Accept",
+      "rationale": "Stakeholder accepted the tablet pixel deviation despite shifted candidate content and action presentation.",
+      "decisionDate": "2026-07-27",
+      "implementationStatus": "accepted"
+    },
+    {
+      "sequence": 3,
+      "auditId": "ui-audit-005",
+      "surface": "inspector-calendar",
+      "viewport": "tablet",
+      "failedRegionAndRatio": "content-header 0.10239/0.08000",
+      "decision": "accept",
+      "decisionLabel": "Accept",
+      "rationale": "Stakeholder accepted this visual deviation for Plan 1 sign-off.",
+      "decisionDate": "2026-07-27",
+      "implementationStatus": "accepted"
+    },
+    {
+      "sequence": 4,
+      "auditId": "ui-audit-005",
+      "surface": "inspector-calendar",
+      "viewport": "mobile",
+      "failedRegionAndRatio": "content 0.10156/0.08000",
+      "decision": "accept",
+      "decisionLabel": "Accept",
+      "rationale": "Stakeholder accepted this visual deviation for Plan 1 sign-off.",
+      "decisionDate": "2026-07-27",
+      "implementationStatus": "accepted"
+    },
+    {
+      "sequence": 5,
+      "auditId": "ui-audit-006",
+      "surface": "inspector-reports",
+      "viewport": "mobile",
+      "failedRegionAndRatio": "content 0.08903/0.08000",
+      "decision": "accept",
+      "decisionLabel": "Accept",
+      "rationale": "Stakeholder accepted this visual deviation for Plan 1 sign-off.",
+      "decisionDate": "2026-07-27",
+      "implementationStatus": "accepted"
+    },
+    {
+      "sequence": 6,
+      "auditId": "ui-audit-007",
+      "surface": "audit-detail",
+      "viewport": "desktop",
+      "failedRegionAndRatio": "content 0.08752/0.08000",
+      "decision": "accept",
+      "decisionLabel": "Accept",
+      "rationale": "Stakeholder accepted this visual deviation for Plan 1 sign-off.",
+      "decisionDate": "2026-07-27",
+      "implementationStatus": "accepted"
+    },
+    {
+      "sequence": 7,
+      "auditId": "ui-audit-007",
+      "surface": "audit-detail",
+      "viewport": "tablet",
+      "failedRegionAndRatio": "content 0.09592/0.08000",
+      "decision": "accept",
+      "decisionLabel": "Accept",
+      "rationale": "Stakeholder accepted this visual deviation for Plan 1 sign-off.",
+      "decisionDate": "2026-07-27",
+      "implementationStatus": "accepted"
+    },
+    {
+      "sequence": 8,
+      "auditId": "ui-audit-008",
+      "surface": "checklist-runner",
+      "viewport": "desktop",
+      "failedRegionAndRatio": "content 0.11557/0.08000",
+      "decision": "accept",
+      "decisionLabel": "Accept",
+      "rationale": "Stakeholder accepted this visual deviation for Plan 1 sign-off.",
+      "decisionDate": "2026-07-27",
+      "implementationStatus": "accepted"
+    },
+    {
+      "sequence": 9,
+      "auditId": "ui-audit-008",
+      "surface": "checklist-runner",
+      "viewport": "tablet",
+      "failedRegionAndRatio": "content 0.13639/0.08000",
+      "decision": "accept",
+      "decisionLabel": "Accept",
+      "rationale": "Stakeholder accepted this visual deviation for Plan 1 sign-off.",
+      "decisionDate": "2026-07-27",
+      "implementationStatus": "accepted"
+    },
+    {
+      "sequence": 51,
+      "auditId": "ui-audit-031",
+      "surface": "manager-risk-dashboard",
+      "viewport": "desktop",
+      "failedRegionAndRatio": "content 0.12538/0.08000",
+      "decision": "fix",
+      "decisionLabel": "Fix",
+      "rationale": "Stakeholder required the risk heatmap to be more visible. The candidate now places an accessible 25-cell Risk Exposure Matrix directly after the filters and before the indicator cards.",
+      "decisionDate": "2026-07-28",
+      "implementationStatus": "fixed-verified-locally",
+      "verification": {
+        "date": "2026-07-28",
+        "command": "AVIA_VISUAL_SURFACES=manager-risk-dashboard,organization-risk-profile,gm-risk-dashboard npm --prefix apps/web run test:e2e:visual-parity -- --reporter=json",
+        "outcome": "The requested heatmap prominence is verified locally; the retained pixel comparison remains non-green.",
+        "regions": [
+          {
+            "region": "content",
+            "ratio": 0.24713,
+            "threshold": 0.08,
+            "passed": false
+          }
+        ],
+        "report": "apps/web/.local/aviasurveil360/visual-review/risk-closeout-final4-report.json"
+      }
+    },
+    {
+      "sequence": 52,
+      "auditId": "ui-audit-031",
+      "surface": "manager-risk-dashboard",
+      "viewport": "tablet",
+      "failedRegionAndRatio": "content 0.08693/0.08000",
+      "decision": "fix",
+      "decisionLabel": "Fix",
+      "rationale": "Stakeholder required the risk heatmap to be more visible. The candidate now places an accessible 25-cell Risk Exposure Matrix directly after the filters and before the indicator cards.",
+      "decisionDate": "2026-07-28",
+      "implementationStatus": "fixed-verified-locally",
+      "verification": {
+        "date": "2026-07-28",
+        "command": "AVIA_VISUAL_SURFACES=manager-risk-dashboard,organization-risk-profile,gm-risk-dashboard npm --prefix apps/web run test:e2e:visual-parity -- --reporter=json",
+        "outcome": "The requested heatmap prominence is verified locally; the retained pixel comparison remains non-green.",
+        "regions": [
+          {
+            "region": "content",
+            "ratio": 0.09308,
+            "threshold": 0.08,
+            "passed": false
+          }
+        ],
+        "report": "apps/web/.local/aviasurveil360/visual-review/risk-closeout-final4-report.json"
+      }
+    },
+    {
+      "sequence": 53,
+      "auditId": "ui-audit-031",
+      "surface": "manager-risk-dashboard",
+      "viewport": "mobile",
+      "failedRegionAndRatio": "content 0.13349/0.08000",
+      "decision": "fix",
+      "decisionLabel": "Fix",
+      "rationale": "Stakeholder required the risk heatmap to be more visible. The candidate now places an accessible 25-cell Risk Exposure Matrix directly after the filters and before the indicator cards.",
+      "decisionDate": "2026-07-28",
+      "implementationStatus": "fixed-verified-locally",
+      "verification": {
+        "date": "2026-07-28",
+        "command": "AVIA_VISUAL_SURFACES=manager-risk-dashboard,organization-risk-profile,gm-risk-dashboard npm --prefix apps/web run test:e2e:visual-parity -- --reporter=json",
+        "outcome": "The requested heatmap prominence is verified locally; the retained pixel comparison remains non-green.",
+        "regions": [
+          {
+            "region": "content",
+            "ratio": 0.13328,
+            "threshold": 0.08,
+            "passed": false
+          }
+        ],
+        "report": "apps/web/.local/aviasurveil360/visual-review/risk-closeout-final4-report.json"
+      }
+    },
+    {
+      "sequence": 63,
+      "auditId": "ui-audit-037",
+      "surface": "organization-risk-profile",
+      "viewport": "desktop",
+      "failedRegionAndRatio": "sidebar 0.04850/0.03000; content 0.08219/0.08000",
+      "decision": "fix",
+      "decisionLabel": "Fix",
+      "rationale": "Stakeholder required the organization risk score to be shown. The configured Fly Namibia demo scenario now displays Oversight Health 74, Needs Attention, its configured-demo basis, and the recommended action.",
+      "decisionDate": "2026-07-28",
+      "implementationStatus": "fixed-verified-locally",
+      "verification": {
+        "date": "2026-07-28",
+        "command": "AVIA_VISUAL_SURFACES=manager-risk-dashboard,organization-risk-profile,gm-risk-dashboard npm --prefix apps/web run test:e2e:visual-parity -- --reporter=json",
+        "outcome": "The requested configured-demo score is verified locally; the retained pixel comparison remains non-green.",
+        "regions": [
+          {
+            "region": "sidebar",
+            "ratio": 0.0485,
+            "threshold": 0.03,
+            "passed": false
+          },
+          {
+            "region": "content",
+            "ratio": 0.08217,
+            "threshold": 0.08,
+            "passed": false
+          }
+        ],
+        "report": "apps/web/.local/aviasurveil360/visual-review/risk-closeout-final4-report.json"
+      }
+    },
+    {
+      "sequence": 64,
+      "auditId": "ui-audit-037",
+      "surface": "organization-risk-profile",
+      "viewport": "tablet",
+      "failedRegionAndRatio": "sidebar 0.05928/0.03000; content 0.12610/0.08000",
+      "decision": "fix",
+      "decisionLabel": "Fix",
+      "rationale": "Stakeholder required the organization risk score to be shown. The configured Fly Namibia demo scenario now displays Oversight Health 74, Needs Attention, its configured-demo basis, and the recommended action.",
+      "decisionDate": "2026-07-28",
+      "implementationStatus": "fixed-verified-locally",
+      "verification": {
+        "date": "2026-07-28",
+        "command": "AVIA_VISUAL_SURFACES=manager-risk-dashboard,organization-risk-profile,gm-risk-dashboard npm --prefix apps/web run test:e2e:visual-parity -- --reporter=json",
+        "outcome": "The requested configured-demo score is verified locally; the retained pixel comparison remains non-green.",
+        "regions": [
+          {
+            "region": "sidebar",
+            "ratio": 0.05928,
+            "threshold": 0.03,
+            "passed": false
+          },
+          {
+            "region": "content",
+            "ratio": 0.12353,
+            "threshold": 0.08,
+            "passed": false
+          }
+        ],
+        "report": "apps/web/.local/aviasurveil360/visual-review/risk-closeout-final4-report.json"
+      }
+    },
+    {
+      "sequence": 65,
+      "auditId": "ui-audit-037",
+      "surface": "organization-risk-profile",
+      "viewport": "mobile",
+      "failedRegionAndRatio": "content 0.19173/0.08000",
+      "decision": "fix",
+      "decisionLabel": "Fix",
+      "rationale": "Stakeholder required the organization risk score to be shown. The configured Fly Namibia demo scenario now displays Oversight Health 74, Needs Attention, its configured-demo basis, and the recommended action.",
+      "decisionDate": "2026-07-28",
+      "implementationStatus": "fixed-verified-locally",
+      "verification": {
+        "date": "2026-07-28",
+        "command": "AVIA_VISUAL_SURFACES=manager-risk-dashboard,organization-risk-profile,gm-risk-dashboard npm --prefix apps/web run test:e2e:visual-parity -- --reporter=json",
+        "outcome": "The requested configured-demo score is verified locally; the retained pixel comparison remains non-green.",
+        "regions": [
+          {
+            "region": "content",
+            "ratio": 0.18835,
+            "threshold": 0.08,
+            "passed": false
+          }
+        ],
+        "report": "apps/web/.local/aviasurveil360/visual-review/risk-closeout-final4-report.json"
+      }
+    },
+    {
+      "sequence": 113,
+      "auditId": "ui-audit-056",
+      "surface": "gm-risk-dashboard",
+      "viewport": "desktop",
+      "failedRegionAndRatio": "content 0.15107/0.08000",
+      "decision": "fix",
+      "decisionLabel": "Fix",
+      "rationale": "Stakeholder required the GM risk matrix heatmap to be preserved. The candidate now renders an accessible 25-cell Risk Exposure Matrix immediately after the GM risk KPIs.",
+      "decisionDate": "2026-07-28",
+      "implementationStatus": "fixed-verified-locally",
+      "verification": {
+        "date": "2026-07-28",
+        "command": "AVIA_VISUAL_SURFACES=manager-risk-dashboard,organization-risk-profile,gm-risk-dashboard npm --prefix apps/web run test:e2e:visual-parity -- --reporter=json",
+        "outcome": "The requested GM risk matrix is verified locally; the retained pixel comparison remains non-green.",
+        "regions": [
+          {
+            "region": "content",
+            "ratio": 0.08286,
+            "threshold": 0.08,
+            "passed": false
+          }
+        ],
+        "report": "apps/web/.local/aviasurveil360/visual-review/risk-closeout-final4-report.json"
+      }
+    },
+    {
+      "sequence": 114,
+      "auditId": "ui-audit-056",
+      "surface": "gm-risk-dashboard",
+      "viewport": "tablet",
+      "failedRegionAndRatio": "content 0.22749/0.08000",
+      "decision": "fix",
+      "decisionLabel": "Fix",
+      "rationale": "Stakeholder required the GM risk matrix heatmap to be preserved. The candidate now renders an accessible 25-cell Risk Exposure Matrix immediately after the GM risk KPIs.",
+      "decisionDate": "2026-07-28",
+      "implementationStatus": "fixed-verified-locally",
+      "verification": {
+        "date": "2026-07-28",
+        "command": "AVIA_VISUAL_SURFACES=manager-risk-dashboard,organization-risk-profile,gm-risk-dashboard npm --prefix apps/web run test:e2e:visual-parity -- --reporter=json",
+        "outcome": "The requested GM risk matrix is verified locally; the retained pixel comparison remains non-green.",
+        "regions": [
+          {
+            "region": "content",
+            "ratio": 0.20882,
+            "threshold": 0.08,
+            "passed": false
+          }
+        ],
+        "report": "apps/web/.local/aviasurveil360/visual-review/risk-closeout-final4-report.json"
+      }
+    },
+    {
+      "sequence": 115,
+      "auditId": "ui-audit-056",
+      "surface": "gm-risk-dashboard",
+      "viewport": "mobile",
+      "failedRegionAndRatio": "content 0.14965/0.08000",
+      "decision": "fix",
+      "decisionLabel": "Fix",
+      "rationale": "Stakeholder required the GM risk matrix heatmap to be preserved. The candidate now renders an accessible 25-cell Risk Exposure Matrix immediately after the GM risk KPIs.",
+      "decisionDate": "2026-07-28",
+      "implementationStatus": "fixed-verified-locally",
+      "verification": {
+        "date": "2026-07-28",
+        "command": "AVIA_VISUAL_SURFACES=manager-risk-dashboard,organization-risk-profile,gm-risk-dashboard npm --prefix apps/web run test:e2e:visual-parity -- --reporter=json",
+        "outcome": "The requested GM risk matrix is verified locally; the retained pixel comparison remains non-green.",
+        "regions": [
+          {
+            "region": "content",
+            "ratio": 0.20374,
+            "threshold": 0.08,
+            "passed": false
+          }
+        ],
+        "report": "apps/web/.local/aviasurveil360/visual-review/risk-closeout-final4-report.json"
+      }
+    }
+  ]
+}

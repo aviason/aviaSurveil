@@ -76,6 +76,26 @@ describe("Inspector secondary routes", () => {
     expect(within(selected).getByText(expected.nextAction)).toBeVisible();
   });
 
+  it("presents the accepted nine-record Finding queue total before filters are applied", async () => {
+    const runtime = createMockBackendRuntime();
+    await seedVisualRuntimeForPath(runtime, "/inspector/findings");
+    renderRoute("/inspector/findings", runtime);
+
+    const page = await screen.findByTestId("inspector-findings-page");
+    const queue = within(page).getByRole("region", { name: "Finding Queue" });
+    expect(within(queue).getByText("9 findings")).toBeVisible();
+  });
+
+  it("exposes the selected Finding dossier sections as named navigation", async () => {
+    const runtime = createMockBackendRuntime();
+    await seedVisualRuntimeForPath(runtime, "/inspector/findings");
+    renderRoute("/inspector/findings", runtime);
+
+    const page = await screen.findByTestId("inspector-findings-page");
+    const selectedFinding = within(page).getByRole("article", { name: "Selected Finding CAB-2026-001" });
+    expect(within(selectedFinding).getByRole("navigation", { name: "Finding dossier sections" })).toBeVisible();
+  });
+
   it("exports the currently visible Finding queue as a downloadable CSV artifact", async () => {
     const runtime = createMockBackendRuntime();
     await seedVisualRuntimeForPath(runtime, "/inspector/findings");
@@ -185,7 +205,7 @@ describe("Inspector secondary routes", () => {
     expect(within(recordGrid).getByText("CAR-2026-099")).toBeVisible();
 
     await user.click(within(page).getByRole("button", { name: "Reset" }));
-    expect(within(queue).getByText("2 findings")).toBeVisible();
+    expect(within(queue).getByText("9 findings")).toBeVisible();
     expect(within(page).getByLabelText("CAP Level")).toHaveValue("all");
     expect(within(page).getByLabelText("CAP Status")).toHaveValue("all");
     expect(within(page).getByLabelText("Due Date")).toHaveValue("all");

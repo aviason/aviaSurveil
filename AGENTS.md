@@ -39,9 +39,9 @@ Local evidence does not establish production readiness or deployment.
 - [Build evidence](docs/demo-evidence/BUILD_SUMMARY.md) — historical local
   evidence and known limitations; read when evidence or status is in scope.
 
-For migration work, read the matching active plan completely. The current
+For migration work, read the matching active plan completely. The completed
 React migration authority is the
-[Full React 86-Screen Migration Plan](docs/exec-plans/active/2026-07-22-full-react-86-screen-migration-plan.md).
+[Full React 86-Screen Migration Plan](docs/exec-plans/completed/2026-07-22-full-react-86-screen-migration-plan.md).
 
 ## Durable Product Boundaries
 

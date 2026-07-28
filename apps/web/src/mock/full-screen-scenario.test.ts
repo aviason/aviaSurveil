@@ -144,6 +144,13 @@ describe("full-screen deterministic demo scenario", () => {
     await expect(inspector.calendar.openItem({ calendarItemId: "CAL-AUD-2026-099" })).rejects.toBeInstanceOf(BackendAuthorizationInvariantError);
     expect((await inspector.communications.list({})).items).toEqual([]);
     expect((await manager.risk.getOverview({})).overdueFindingCount).toBe(1);
+    expect(await manager.risk.getOverview({ organizationId: "ORG-FLY-NAMIBIA" })).toMatchObject({
+      advisoryHealth: {
+        band: "Needs Attention",
+        basis: "CONFIGURED_DEMO_SCENARIO",
+        score: 74,
+      },
+    });
     expect((await manager.teams.list({ role: "inspector" })).items.map((member) => member.subjectId)).toContain(
       "USR-INSPECTOR-AMINA",
     );

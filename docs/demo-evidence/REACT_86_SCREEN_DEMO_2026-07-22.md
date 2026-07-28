@@ -1,8 +1,9 @@
 # Full React 86-Screen Demo Migration Evidence
 
-**Evidence date:** 23 July 2026; visual-gap resolution updated 25 July 2026
+**Evidence date:** 23 July 2026; visual-gap resolution updated 25 July 2026;
+stakeholder disposition updated 28 July 2026
 
-**Plan:** [Full React 86-Screen Migration](../exec-plans/active/2026-07-22-full-react-86-screen-migration-plan.md)
+**Plan:** [Full React 86-Screen Migration](../exec-plans/completed/2026-07-22-full-react-86-screen-migration-plan.md)
 
 **Artifact boundary:** local `candidate-only` React/Vite demo and HTTP build
 
@@ -202,7 +203,7 @@ errors, and retained 170 pixel failures without weakening the oracle.
 
 ## Baseline Integrity Diagnosis
 
-Standalone baseline integrity is now `verified locally` as of 2026-07-25.
+Standalone baseline integrity was `verified locally` on 2026-07-25.
 
 The verifier's intended RED was:
 
@@ -212,31 +213,85 @@ The accepted manifest records:
 
 `sha256:92a8ab06da1f87fd9e84b45b35fa5c3dc58aa78a6eb7f6f9c9652731e8f74967`
 
-The current user-edited canonical English UI audit records:
+At that verification point, the canonical English UI audit hash was the same.
+The current 2026-07-28 audit hash is:
 
-`sha256:92a8ab06da1f87fd9e84b45b35fa5c3dc58aa78a6eb7f6f9c9652731e8f74967`
+`sha256:0ab4c60febb6d95f852f1aae2d540cb678b61c0f7111ba06f424c301325f4f9c`
 
 The 2026-07-25 exact-runtime rerun used Node 24.16.0, Playwright 1.61.1, and
 Chromium 149.0.7827.55 and reported 258 verified baseline PNGs. The accepted
 baseline manifest was not changed merely to make verification pass.
 
+The current hash differs because a later entropy cleanup removed only the two
+lines that linked the retired Turkish companion document; the 86-screen audit
+rows did not change. The fresh closeout verifier is therefore literally
+`not verified` at the fail-closed audit-document metadata check. A separate
+read-only content check verified all 258/258 PNG bytes against their manifest
+hashes. The manifest and verifier were left unchanged rather than weakening
+the accepted source contract.
+
+## Stakeholder Disposition Follow-Up
+
+On 2026-07-28, the user directed the visual closeout to apply Codex's
+high-confidence recommendations and leave only the records explicitly marked
+for manual stakeholder review, then directed the remaining nine risk-surface
+records to be fixed. The durable decision ledger is
+[Plan 1 Visual Stakeholder Decisions](stakeholder/PLAN1_VISUAL_STAKEHOLDER_DECISIONS_2026-07-27.md).
+
+- Aggregate Codex Accept disposition: 160 records with
+  `codexRecommendation=accept` and `userReviewRequired=false`.
+- Prior Inspector Findings desktop Fix: implemented and `verified locally`.
+  The focused content ratio improved from `0.10423` to
+  `0.07531/0.08000`; mobile passed at `0.07318/0.08000`.
+- Inspector Findings tablet: remains literally non-green at
+  `0.08499/0.08000` under its prior explicit Accept disposition.
+- Manager Risk Dashboard Fix: an accessible 25-cell Risk Exposure Matrix is
+  now positioned after the filters and before the indicators.
+- Organization Risk Profile Fix: the configured Fly Namibia demo scenario now
+  shows advisory health score `74`, band `Needs Attention`, basis, and
+  recommendation.
+- GM Risk Dashboard Fix: an accessible 25-cell Risk Exposure Matrix is
+  preserved immediately after the GM risk KPIs.
+- Total disposition: 170/170 resolved.
+- Manual review remaining: zero records.
+
+The final focused risk-surface visual command passed the primitive gallery and
+kept all nine route/viewport comparisons literally non-green. Manager content
+ratios were `0.24713`, `0.09308`, and `0.13328`; Organization desktop
+sidebar/content was `0.04850/0.08217`, tablet was `0.05928/0.12353`, and
+mobile content was `0.18835`; GM content was `0.08286`, `0.20882`, and
+`0.20374`. The focused runs do not rewrite the historical full-matrix result
+of 89/259 or convert any retained failure into a pass. Baselines, masks,
+thresholds, source identity, authority, semantic truth, and the root oracle
+remain unchanged.
+
+Fresh closeout verification passed typecheck, 64 Vitest files with 646/646
+tests, 108/108 root/parity tests, demo and HTTP builds, both app-shell scans,
+the HTTP artifact scan, the exact 86-route/two-profile boundary, harness docs
+smoke, decision-ledger assertions, and `git diff --check`.
+
 ## Handoff
 
-Task 12 execution, visual-gap resolution, main-agent evidence preparation, and
-independent acceptance are complete. The plan is `ready-for-verification`
-while the pixel gate remains literally non-green:
+Task 12 execution, visual-gap resolution, main-agent evidence preparation,
+independent acceptance, and stakeholder disposition are complete. The plan is
+`completed` while the pixel gate remains literally non-green:
 
-1. baseline integrity is now `verified locally` with the exact runtime and 258
-   baseline PNGs;
+1. the 2026-07-25 strict baseline-integrity run is `verified locally` with the
+   exact runtime and 258 baseline PNGs; the fresh closeout strict run is
+   separately `not verified` on the later audit-document metadata drift, while
+   a read-only content check verifies 258/258 PNG hashes;
 2. the final exact-runtime matrix is `not verified` at 89/259, with 170
    decoded-pixel failures retained;
 3. all 11 candidate contact sheets and selected full-size candidates were
    manually reviewed, and the independent Task 12 reviewer accepted the
    evidence while preserving all 170 failures as failures.
 
-The plan is therefore `ready-for-verification`. The Task 10 correction and
-Tasks 11–12 evidence received clean independent acceptance on 2026-07-25.
+The plan is therefore `completed` on the strength of its verified functional
+scope, preserved literal visual evidence, and 170/170 stakeholder disposition.
+The Task 10 correction and Tasks 11–12 evidence received clean independent
+acceptance on 2026-07-25.
 Subsequent Plans 2 and 3 are also `ready-for-verification`; their local
 evidence does not convert any retained Plan 1 pixel failure into a pass.
-Stakeholder review/sign-off remains the next todo before this plan can move to
-`completed`.
+Visual stakeholder disposition is 170/170 complete, and manual review
+remaining is zero. Release remains `release pending`; deployment and
+production readiness remain outside this evidence.

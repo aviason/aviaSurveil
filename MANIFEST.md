@@ -281,6 +281,14 @@ separate `apps/web/package.json` owns the React candidate commands.
 - `docs/demo-evidence/REACT_86_SCREEN_VISUAL_REVIEW_2026-07-25.md` —
   final 258-pair decoded-region ratio, zero-mask, semantic/geometry/action,
   reviewer, and disposition ledger.
+- `docs/demo-evidence/stakeholder/PLAN1_VISUAL_CODEX_TRIAGE_2026-07-27.{md,json}` —
+  all 170 retained pixel failures triaged into 160 high-confidence Accept
+  recommendations and 10 Fix recommendations, including nine records that
+  required explicit manual review.
+- `docs/demo-evidence/stakeholder/PLAN1_VISUAL_STAKEHOLDER_DECISIONS_2026-07-27.{md,json}` —
+  aggregate authorization, individual decisions, all 10 Fix implementations
+  verified locally, 170/170 resolved dispositions, and zero manual decisions
+  remaining.
 - `docs/demo-evidence/FULL_BACKEND_SCENARIO_PARITY_2026-07-22.md` —
   Full Backend Tasks 1–12 exact contract/persistence/capability coverage,
   86 dual-profile routes, 10 scenario families, 45 proofs, final matrix,
@@ -351,8 +359,12 @@ cutover, release, or production readiness.
 The first 22 July 2026 follow-up plan now implements 86/86 React demo routes.
 Its standalone baseline-integrity gate is now `verified locally` as of
 2026-07-25, while its full visual gate remains literally `not verified` at
-89/259 with 170/258 retained pixel failures. Plan 1 is
-`ready-for-verification` after clean independent acceptance. Plan 2 implements
+89/259 with 170/258 retained pixel failures. Plan 1 is `completed` after clean
+independent acceptance and explicit stakeholder closeout. Its visual
+stakeholder disposition is 170/170 complete: 160 high-confidence Codex Accept
+records have aggregate user authorization and all 10 Fix records are
+`fixed-verified-locally`, including the Manager heatmap, Organization score,
+and GM risk-matrix outcomes. Manual review remaining is zero. Plan 2 implements
 all 86 HTTP routes and complete mock/Go/PostgreSQL scenario parity and is
 `ready-for-verification`. Plan 3 Tasks 1–9 are `verified locally`; the required
 matrix, two final clean demo/full repetitions, and separate final main-agent

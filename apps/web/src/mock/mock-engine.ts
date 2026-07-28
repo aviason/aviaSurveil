@@ -707,6 +707,14 @@ export class MockBackendEngine implements DemoBackend {
           overdueFindingCount,
           openFindingCount: findings.filter((finding) => finding.status !== "CLOSED").length,
           repeatFindingCount: findings.filter((finding) => finding.repeatFinding).length,
+          advisoryHealth: organizationId === "ORG-FLY-NAMIBIA"
+            ? {
+                score: 74,
+                band: "Needs Attention",
+                basis: "CONFIGURED_DEMO_SCENARIO",
+                recommendedAction: "Prioritize Cabin Inspection focus on emergency-equipment serviceability and CAP effectiveness.",
+              }
+            : null,
           revision: 1,
         };
         return output;

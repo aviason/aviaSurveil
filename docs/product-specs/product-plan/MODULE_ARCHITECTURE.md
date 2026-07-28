@@ -139,7 +139,7 @@ staffing remain separate approval gates.
 
 ### Binding execution plans
 
-1. `docs/exec-plans/active/2026-07-22-full-react-86-screen-migration-plan.md`
+1. `docs/exec-plans/completed/2026-07-22-full-react-86-screen-migration-plan.md`
 2. `docs/exec-plans/active/2026-07-22-full-backend-scenario-parity-plan.md`
 3. `docs/exec-plans/active/2026-07-22-local-production-like-services-plan.md`
 4. `docs/exec-plans/active/2026-07-22-reliability-dr-and-aws-terraform-terragrunt-plan.md`
