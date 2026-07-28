@@ -381,6 +381,10 @@ The artifact is still `candidate-only` and `release pending`.
 
 ## Task 5 Users And Roles Admin Experience
 
+Task 5 is `verified locally` and published on `origin/main` as
+`ac5f78619d033ab7d9ed5c63e3de10fdc337ea38`. The exact remote ref was
+confirmed before Task 6.
+
 ### Strict RED evidence
 
 Before Task 5 production changes, `npm --prefix apps/web test -- --run
