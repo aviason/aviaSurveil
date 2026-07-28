@@ -18,11 +18,12 @@ repeatable connected data covering every important workflow state.
 contract, and owner-decision packaging. Plan 1 and the combined Plans 2–4
 stakeholder disposition were completed on 2026-07-28. The current user
 authorization permits Tasks 2–9 in sequence, with one freshly verified,
-published task commit before the next task starts. Tasks 1–5 are complete and
-published; Tasks 2–5 are `26da3c0`, `8cf2b57`, `bedff45`, and `ac5f786`.
+published task commit before the next task starts. Tasks 1–6 are complete and
+published; Tasks 2–6 are `26da3c0`, `8cf2b57`, `bedff45`, `ac5f786`, and
+`26c7022`.
 This plan is the predecessor of the AviaCore/ML readiness and local preprod
-release-candidate plans. Task 6 is complete and `verified locally`; its
-publication record is pending. Tasks 7–9 remain `not run`.
+release-candidate plans. Task 6 is complete, `verified locally`, published,
+and remotely confirmed. Tasks 7–9 remain `not run`.
 
 ## Scope
 
@@ -362,6 +363,10 @@ feasibility decision.
   services for `local-preprod-loader`; the three new shell entrypoints are
   executable and syntax-clean; Go vet passed; and the related identity,
   Keycloak, and Compose policy regression passed 50/50.
+- [x] (2026-07-28) Published the complete Task 6 scope to `origin/main` as
+  `26c7022ebed02c99c7183850f7138ea63580bf0c`
+  (`feat(data): add isolated preprod loader`) and confirmed the exact remote
+  ref before starting Task 7.
 
 ## Tasks
 
@@ -969,7 +974,8 @@ disabled with a specific reason.
 
 **Task status:** `complete`; Task 5 is published and remotely confirmed. The
 strict RED sequence and the corrected fresh completion gate are recorded.
-Task 6 is `verified locally`; publication metadata is pending.
+Task 6 is `verified locally`, published as
+`26c7022ebed02c99c7183850f7138ea63580bf0c`, and remotely confirmed.
 
 **Files**
 
@@ -1349,7 +1355,7 @@ pending`.
 ## Execution Prompt
 
 ```text
-Tasks 1-6 in docs/exec-plans/active/2026-07-27-identity-and-realistic-data-foundation-plan.md are complete and verified locally; Task 5 is published as ac5f78619d033ab7d9ed5c63e3de10fdc337ea38 and its exact remote revision is confirmed. Task 6 publication metadata is pending. Task 7 is next and remains not run. Read AGENTS.md, docs/PLANS.md, the plan index, the complete plan, and the current identity/full-profile evidence first. Preserve the root demo, normal HTTP no-seed boundary, Keycloak authority, organization isolation, append-only histories, and unrelated worktree changes.
+Tasks 1-6 in docs/exec-plans/active/2026-07-27-identity-and-realistic-data-foundation-plan.md are complete and verified locally; Task 6 is published as 26c7022ebed02c99c7183850f7138ea63580bf0c and its exact remote revision is confirmed. Task 7 is next and remains not run. Read AGENTS.md, docs/PLANS.md, the plan index, the complete plan, and the current identity/full-profile evidence first. Preserve the root demo, normal HTTP no-seed boundary, Keycloak authority, organization isolation, append-only histories, and unrelated worktree changes.
 
 Use strict RED -> GREEN -> focused review for each task. Establish the desired-membership revision and least-privilege Keycloak service identity before directory/lifecycle acceptance. The normal API/worker/scheduler/migration images must not link testprofile or loader/reset code. Repeatable loader reset uses only an exactly authorized disposable target and never selectively deletes append-only rows. Qualify smoke, acceptance, realistic, and stress with the same scenario/role/route catalog. Do not add public registration, a normal API reset/seed route, real PII, plaintext credentials, client-authored roles, direct fixture writes that bypass authoritative domain behavior, AWS actions, commits, or pushes without separate authorization. Keep the plan, index, tracker, and evidence synchronized with literal results. Stop after each task's acceptance gate and fix all Critical or Important review findings before continuing.
 ```

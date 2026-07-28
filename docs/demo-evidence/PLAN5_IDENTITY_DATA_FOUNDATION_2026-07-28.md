@@ -480,7 +480,10 @@ production readiness remain `not run` in Tasks 6–9. The artifact remains
 ## Task 6 Out-Of-Process Preprod Data Loader
 
 Task 6 is complete and `verified locally`. Task 5 and its exact publication
-record are remotely confirmed. Task 6 publication metadata is pending.
+record are remotely confirmed. The complete Task 6 scope is published on
+`origin/main` as `26c7022ebed02c99c7183850f7138ea63580bf0c`
+(`feat(data): add isolated preprod loader`), and `git ls-remote` returned that
+exact revision for `refs/heads/main`.
 
 ### Strict RED evidence
 
