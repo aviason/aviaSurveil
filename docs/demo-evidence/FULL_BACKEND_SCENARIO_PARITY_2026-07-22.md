@@ -2,8 +2,24 @@
 
 Date context: 22–24 July 2026
 
-Status: `verified locally`, `candidate-only`, `release pending`, and
+Plan: [Full Backend Scenario Parity](../exec-plans/completed/2026-07-22-full-backend-scenario-parity-plan.md)
+
+Historical checkpoint status: `verified locally`, `candidate-only`, `release pending`, and
 `ready-for-verification`. This is not a `production-ready` claim.
+
+## Stakeholder Closeout — 28 July 2026
+
+The user accepted Plan 2 as a completed local `candidate-only` milestone
+through the
+[combined Plans 2–4 stakeholder disposition](stakeholder/PLANS2_4_STAKEHOLDER_DISPOSITION_2026-07-28.md).
+Tasks 1–12 and the historical verification matrix below remain the canonical
+technical basis. The historical independent Plan 2 review remains `not run`;
+stakeholder acceptance does not rewrite that checkpoint.
+
+Release remains `release pending`. Deployment and production readiness remain
+`not run`. Production retention, legal hold, deletion, records operations,
+identity federation, external provider, release, and operating decisions
+remain deferred. No `production-ready` claim is made.
 
 ## Scope And Boundary
 
@@ -163,7 +179,10 @@ The accepted Plan 1 handoff is not rewritten:
 No failed comparison was converted into a pass, no accepted baseline was
 replaced, and the root HTML/CSS/JavaScript oracle was not modified for parity.
 
-## Publication And Release Status
+## Historical Publication And Release Status
+
+The following values describe the Plan 2 checkpoint before the 28 July 2026
+stakeholder disposition:
 
 - Independent Plan 2 review: `not run`.
 - Stakeholder verification: `not run`.

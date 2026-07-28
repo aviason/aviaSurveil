@@ -20,8 +20,8 @@ are `fixed-verified-locally` and zero manual decisions remain.
 The fresh strict baseline verifier is separately `not verified` on later
 UI-audit metadata drift, while a read-only content check verifies all 258/258
 baseline PNG hashes; the accepted manifest was not changed.
-Plan 1 is `completed`; Plans 2–4 are `ready-for-verification`; AWS Task 10 is
-literally `not run`.
+Plans 1–4 are completed local `candidate-only` milestones. AWS Task 10 is
+optional, unauthorized, and literally `not run`.
 The artifact is `candidate-only`, the local decision is `GO`, and release is
 `release pending`. It is not a deployed production application. Production
 identity federation, external storage, scanning, email, records operations,
@@ -323,6 +323,10 @@ separate `apps/web/package.json` owns the React candidate commands.
   aggregate authorization, individual decisions, all 10 Fix implementations
   verified locally, 170/170 resolved dispositions, and zero manual decisions
   remaining.
+- `docs/demo-evidence/stakeholder/PLANS2_4_STAKEHOLDER_DISPOSITION_2026-07-28.md` —
+  combined local milestone acceptance for Plans 2–4, preserved historical
+  verification boundaries, owner-deferred risks, explicit AWS/release/
+  deployment/production exclusions, and the separate Plan 5 Task 2 gate.
 - `docs/demo-evidence/FULL_BACKEND_SCENARIO_PARITY_2026-07-22.md` —
   Full Backend Tasks 1–12 exact contract/persistence/capability coverage,
   86 dual-profile routes, 10 scenario families, 45 proofs, final matrix,
@@ -373,6 +377,10 @@ in user-facing handoffs rather than duplicate companion files.
 - `docs/exec-plans/completed/index.md` — completed and archived execution-plan
   records.
 - `docs/exec-plans/completed/2026-06-29-governance-browser-qa-mobile-blocker.md`
+- `docs/exec-plans/completed/2026-07-22-full-react-86-screen-migration-plan.md`
+- `docs/exec-plans/completed/2026-07-22-full-backend-scenario-parity-plan.md`
+- `docs/exec-plans/completed/2026-07-22-local-production-like-services-plan.md`
+- `docs/exec-plans/completed/2026-07-22-reliability-dr-and-aws-terraform-terragrunt-plan.md`
 - `docs/exec-plans/tech-debt-tracker.md` — durable blocker, handoff,
   accepted-risk, missing-evidence, and technical-debt tracker.
 
@@ -403,14 +411,15 @@ stakeholder disposition is 170/170 complete: 160 high-confidence Codex Accept
 records have aggregate user authorization and all 10 Fix records are
 `fixed-verified-locally`, including the Manager heatmap, Organization score,
 and GM risk-matrix outcomes. Manual review remaining is zero. Plan 2 implements
-all 86 HTTP routes and complete mock/Go/PostgreSQL scenario parity and is
-`ready-for-verification`. Plan 3 Tasks 1–9 are `verified locally`; the required
+all 86 HTTP routes and complete mock/Go/PostgreSQL scenario parity. Plan 3
+Tasks 1–9 are `verified locally`; the required
 matrix, two final clean demo/full repetitions, and separate final main-agent
 reviews pass. Plan 4 Tasks 1–9 and Task 11 are also `verified locally`: the
 clean 86-route/10-scenario profile, all eight alert fixtures, exact
 dual-database/object recovery, two isolated RPO/RTO drills, ten runbooks, nine
 image/SBOM/scan bindings, Terraform/Terragrunt fixtures, IaC policy gates, and
-zero-residue checks pass. Plan 1 is `completed`; Plans 2–4 are
-`ready-for-verification`. The platform remains `candidate-only` and
-`release pending`. AWS Task 10 remains optional,
+zero-residue checks pass. Plans 1–4 are completed local `candidate-only`
+milestones under the combined 28 July 2026 stakeholder disposition. The
+platform remains `candidate-only` and `release pending`. Deployment and
+production readiness are `not run`. AWS Task 10 remains optional,
 unauthorized, and literally `not run`.

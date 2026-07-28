@@ -1,10 +1,14 @@
 # Full Backend Scenario Parity Progress
 
 Plan:
-`docs/exec-plans/active/2026-07-22-full-backend-scenario-parity-plan.md`
+`docs/exec-plans/completed/2026-07-22-full-backend-scenario-parity-plan.md`
 
 ## Current State
 
+- Stakeholder closeout: on 2026-07-28 the user accepted Plan 2 as a completed
+  local `candidate-only` milestone through the combined Plans 2–4 disposition.
+  The historical independent Plan 2 review remains `not run`; release remains
+  `release pending`; deployment and production readiness remain `not run`.
 - Prerequisite review: completed after an evidence-based Plan 1 preflight and
   the user's explicit acceptance decision. Plan 1 is
   `ready-for-verification`; its one-shot visual result remains literally

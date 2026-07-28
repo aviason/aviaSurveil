@@ -1,12 +1,27 @@
 # Local Production-Like Services Evidence
 
 **Evidence date:** 25 July 2026
-**Plan:** [Local Production-Like Services](../exec-plans/active/2026-07-22-local-production-like-services-plan.md)
+**Plan:** [Local Production-Like Services](../exec-plans/completed/2026-07-22-local-production-like-services-plan.md)
 **Scope:** local Docker Compose candidate only
-**Status:** Tasks 1–9 are `verified locally` and the plan is
+**Historical checkpoint status:** Tasks 1–9 are `verified locally` and the plan is
 `ready-for-verification`; the artifact is `candidate-only` and
 `release pending`. Nothing was deployed and this evidence does not establish
 `production-ready`.
+
+## Stakeholder Closeout — 28 July 2026
+
+The user accepted Plan 3 as a completed local `candidate-only` milestone
+through the
+[combined Plans 2–4 stakeholder disposition](stakeholder/PLANS2_4_STAKEHOLDER_DISPOSITION_2026-07-28.md).
+Tasks 1–9 and the historical command, image, service, failure/restart, and
+cleanup results below remain the canonical technical basis.
+
+The tracked Keycloak `CVE-2026-22020` advisory mismatch remains open through
+its existing owner and expiry boundary. Production trust, identity federation,
+external email/storage/scanning/document providers, records policy, release,
+deployment, and operating decisions remain deferred. Release remains `release
+pending`; deployment and production readiness remain `not run`; no
+`production-ready` claim is made.
 
 ## Accepted Prerequisite Boundary
 

@@ -23,11 +23,27 @@ realm with TOTP MFA, MinIO, ClamAV `clamd`/`freshclam`, Mailpit SMTP, Gotenberg,
 Docker secrets, SOPS + age, Playwright, and the existing contract/integration
 test harness.
 
-**Status:** `ready-for-verification` — prerequisite acceptance and Tasks 1–9
-completed on 24–25 July 2026. Required local gates and final main-agent reviews
-pass. Independent plan review is complete.
-Execution remains on the current branch and does not overlap unfinished React
-or backend work.
+**Status:** `completed` — prerequisite acceptance and Tasks 1–9 remain
+`verified locally`. On 28 July 2026 the user accepted Plan 3 as a completed
+local `candidate-only` milestone. Release is `release pending`, and deployment
+and production readiness are `not run`.
+
+## Stakeholder Closeout — 28 July 2026
+
+The user explicitly authorized the combined Plans 2–4 stakeholder closure and
+accepted this plan only as a completed local `candidate-only` milestone. The
+canonical implementation and verification basis remains
+[Local Production-Like Services Evidence](../../demo-evidence/LOCAL_PRODUCTION_LIKE_SERVICES_2026-07-22.md);
+the combined decision and shared exclusions are recorded in the
+[Plans 2–4 Stakeholder Disposition](../../demo-evidence/stakeholder/PLANS2_4_STAKEHOLDER_DISPOSITION_2026-07-28.md).
+
+The existing Keycloak `CVE-2026-22020` advisory mismatch remains open through
+its recorded owner and expiry boundary. Local CA trust, production identity
+federation, external email/storage/scanning/document providers, production
+records and operating policy, deployment, and release remain owner decisions.
+The artifact remains `candidate-only`; release remains `release pending`;
+deployment and production readiness remain `not run`; no `production-ready`
+claim is made.
 
 ## Progress
 
@@ -889,7 +905,7 @@ task-owned residue.
 ## Execution Prompt
 
 ```text
-Execute docs/exec-plans/active/2026-07-22-local-production-like-services-plan.md task by task with superpowers:executing-plans only after the 86-screen React and full backend parity plans are complete, ready-for-verification, and independently accepted. Do not overlap unfinished Plan 1 or Plan 2 work. Do not dispatch subagents unless explicitly authorized. Work on the current branch and preserve unrelated .superpowers/, docs/demo-evidence/stakeholder/, and outputs/ content.
+Execute docs/exec-plans/completed/2026-07-22-local-production-like-services-plan.md task by task with superpowers:executing-plans only after the 86-screen React and full backend parity plans are complete, ready-for-verification, and independently accepted. Do not overlap unfinished Plan 1 or Plan 2 work. Do not dispatch subagents unless explicitly authorized. Work on the current branch and preserve unrelated .superpowers/, docs/demo-evidence/stakeholder/, and outputs/ content.
 
 Build a production-like local Docker Compose system with one Caddy HTTPS origin, separate React demo/HTTP artifacts, Go API/worker/scheduler, separate app and Keycloak PostgreSQL databases, Keycloak production-mode TOTP MFA and application provisioning, private MinIO, real ClamAV, Mailpit SMTP, and Gotenberg PDF rendering. Use Docker secrets and SOPS+age; never commit or log plaintext credentials. Pin all external images by reviewed immutable digest.
 

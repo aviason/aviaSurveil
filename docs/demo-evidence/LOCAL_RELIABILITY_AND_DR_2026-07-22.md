@@ -1,15 +1,36 @@
 # Local Reliability, DR, And Infrastructure Evidence
 
 **Evidence date:** 27 July 2026
-**Plan:** [Reliability, DR, And AWS Terraform/Terragrunt](../exec-plans/active/2026-07-22-reliability-dr-and-aws-terraform-terragrunt-plan.md)
+**Plan:** [Reliability, DR, And AWS Terraform/Terragrunt](../exec-plans/completed/2026-07-22-reliability-dr-and-aws-terraform-terragrunt-plan.md)
 **Scope:** Plan 4 Tasks 1-9 and Task 11, local candidate only
-**Status:** `verified locally`, `candidate-only`, `release pending`, and
+**Historical checkpoint status:** `verified locally`, `candidate-only`, `release pending`, and
 `ready-for-verification`
 
 No AWS account was queried or changed. AWS discovery, real planning, apply,
 artifact publication, smoke, rollback, retain/destroy, and every other Task 10
 action are literally `not run`. This evidence does not establish
 `production-ready`.
+
+## Stakeholder Closeout — 28 July 2026
+
+The user accepted Plan 4 as completed for the local `candidate-only` milestone
+through the
+[combined Plans 2–4 stakeholder disposition](stakeholder/PLANS2_4_STAKEHOLDER_DISPOSITION_2026-07-28.md).
+Tasks 1–9 and Task 11 plus the historical command, alert, backup, restore,
+runbook, image, Terraform, Terragrunt, and cleanup results below remain the
+canonical technical basis.
+
+The backup store remains same-host/logically isolated and does not prove
+host-loss DR. Local measurements do not establish production SLO, RPO/RTO,
+alert recipients, or staffed on-call. Production retention, legal hold,
+deletion, encryption/KMS ownership, restoration authority, provider selection,
+identity federation, external email, data residency, release, rollback, and
+operating decisions remain deferred.
+
+Task 10 is optional, unauthorized, and `not run`. AWS discovery, planning,
+apply, artifact publication, smoke, rollback, retain/destroy, and every other
+Task 10 action remain `not run`. Release remains `release pending`; deployment
+and production readiness remain `not run`; no `production-ready` claim is made.
 
 ## Accepted Sequencing Boundary
 
@@ -206,17 +227,18 @@ also uses the local provider.
 | Production backup retention, legal hold, deletion, encryption/KMS ownership, and restoration authority | Records/Legal, Security, Platform/Operations | `not run` |
 | AWS account, region/data residency, domain/certificate, budget, capacity, change window, and retain/destroy choice | Named business, security, finance, and platform owners | `not run` |
 | Production identity federation, email provider, secrets, trusted artifacts, staging, release, rollback, and legacy cutover | Identity, Platform/Operations, QA, Product | `not run` |
-| Plans 1-4 stakeholder acceptance | Stakeholders named in the plan handoffs | Deferred until the combined final review |
+| Plans 1-4 local stakeholder acceptance | Stakeholders named in the plan handoffs | Accepted 2026-07-28 for local `candidate-only` milestones only |
 
 The same-host backup store is only logically isolated, local Mailpit is not
 external delivery, fixture plans are not cloud plans, and local runbooks do not
 establish staffed production operations.
 
-## Final Disposition
+## Historical Checkpoint Disposition
 
-Plan 4 Tasks 1-9 and Task 11 are `verified locally`. The local reliability,
-recovery, runbook, Terraform, Terragrunt, image, and policy milestone is
-`ready-for-verification`, `candidate-only`, and `release pending`.
+At the 27 July 2026 checkpoint, Plan 4 Tasks 1-9 and Task 11 were `verified
+locally`. The local reliability, recovery, runbook, Terraform, Terragrunt,
+image, and policy milestone was `ready-for-verification`, `candidate-only`,
+and `release pending`.
 
 AWS Task 10 is literally `not run` and remains optional. Any future AWS phase
 still requires a new exact authorization bound to account, region, owner

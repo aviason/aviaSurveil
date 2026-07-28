@@ -128,18 +128,21 @@ workers are observable, application and Keycloak database plus object
 backup/restore and RPO/RTO drills pass, normal full mode exposes no test reset
 route, and no task-owned process or container is left behind.
 
-Local acceptance is not production deployment. AWS planning may begin only
-after Plans 1–3 are accepted and Plan 4 Tasks 1–9 plus Task 11 reach the local
-`ready-for-verification` milestone. AWS Task 10 is an optional branch outside
-that local completion gate and still requires a new explicit authorization for
-each reviewed bootstrap, foundation/ECR, artifact-publication, and data/runtime
-phase. Traffic cutover, production legal/records policy, external penetration
-testing, production identity federation, provider contracts, and on-call
-staffing remain separate approval gates.
+Local acceptance is not production deployment. Plans 1–4 were accepted on 28
+July 2026 only as completed local `candidate-only` milestones. Release remains
+`release pending`; deployment and production readiness remain `not run`. AWS
+Task 10 is an optional branch outside the local completion gate and remains
+unauthorized and `not run`; any future discovery, planning, bootstrap,
+foundation/ECR, artifact-publication, data/runtime, smoke, rollback, or
+retain/destroy action requires its own explicit authorization and reviewed
+inputs. Traffic cutover, production legal/records policy, external penetration
+testing, production identity federation, external email and other provider
+contracts, data residency, production SLO/RPO/RTO, and on-call staffing remain
+separate owner approval gates.
 
 ### Binding execution plans
 
 1. `docs/exec-plans/completed/2026-07-22-full-react-86-screen-migration-plan.md`
-2. `docs/exec-plans/active/2026-07-22-full-backend-scenario-parity-plan.md`
-3. `docs/exec-plans/active/2026-07-22-local-production-like-services-plan.md`
-4. `docs/exec-plans/active/2026-07-22-reliability-dr-and-aws-terraform-terragrunt-plan.md`
+2. `docs/exec-plans/completed/2026-07-22-full-backend-scenario-parity-plan.md`
+3. `docs/exec-plans/completed/2026-07-22-local-production-like-services-plan.md`
+4. `docs/exec-plans/completed/2026-07-22-reliability-dr-and-aws-terraform-terragrunt-plan.md`

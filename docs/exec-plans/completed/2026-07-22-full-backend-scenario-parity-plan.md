@@ -21,14 +21,29 @@ generated Go/TypeScript transport, React `HttpBackend`, Keycloak OIDC boundary,
 MinIO-compatible private storage, Vitest contracts, Go race/integration tests,
 and Playwright mock/HTTP transcript parity.
 
-**Status:** `ready-for-verification` — the Full React 86-Screen Migration prerequisite was
-accepted on 23 July 2026 after the user-approved visual/baseline-integrity
-disposition and frozen route/capability/action preflight. Standalone baseline
-integrity remains `not verified`; the accepted manifest was not replaced.
-Tasks 1–12 are `verified locally`; the final required matrix is green. The
-artifact remains `candidate-only`, release is `release pending`, and independent
-Plan 2 review is `not run`. A final local commit was explicitly authorized
-after verification; no push, branch change, or deployment occurred.
+**Status:** `completed` — Tasks 1–12 remain `verified locally`, and on 28 July
+2026 the user accepted Plan 2 as a completed local `candidate-only` milestone.
+The historical independent Plan 2 review remains `not run`; that truthful
+checkpoint boundary was not rewritten by stakeholder acceptance. Release is
+`release pending`, and deployment and production readiness are `not run`.
+
+## Stakeholder Closeout — 28 July 2026
+
+The user explicitly authorized the combined Plans 2–4 stakeholder closure and
+accepted this plan only as a completed local `candidate-only` milestone. The
+canonical implementation and verification basis remains
+[Full Backend Scenario Parity Evidence](../../demo-evidence/FULL_BACKEND_SCENARIO_PARITY_2026-07-22.md);
+the combined decision and shared exclusions are recorded in the
+[Plans 2–4 Stakeholder Disposition](../../demo-evidence/stakeholder/PLANS2_4_STAKEHOLDER_DISPOSITION_2026-07-28.md).
+
+This closeout does not turn the historical independent-review result into a
+pass and does not authorize a release, deployment, provider integration, or
+production change. Production retention, legal hold, deletion, records
+operations, identity federation, external email/storage/scanning/model
+providers, and operating decisions remain deferred to their owners. The
+artifact remains `candidate-only`; release remains `release pending`;
+deployment and production readiness remain `not run`; no `production-ready`
+claim is made.
 
 ## Objective
 
@@ -1047,7 +1062,7 @@ zero skipped projects, and no task-owned residue.
 ## Execution Prompt
 
 ```text
-Execute docs/exec-plans/active/2026-07-22-full-backend-scenario-parity-plan.md task by task with superpowers:executing-plans only after the Full React 86-Screen Migration completes Tasks 1-12, reaches ready-for-verification, and its route/capability/action handoff is independently accepted. Do not overlap this plan with unfinished React-plan work. Do not dispatch subagents unless explicitly authorized. Work on the current branch and preserve unrelated .superpowers/, docs/demo-evidence/stakeholder/, and outputs/ content.
+Execute docs/exec-plans/completed/2026-07-22-full-backend-scenario-parity-plan.md task by task with superpowers:executing-plans only after the Full React 86-Screen Migration completes Tasks 1-12, reaches ready-for-verification, and its route/capability/action handoff is independently accepted. Do not overlap this plan with unfinished React-plan work. Do not dispatch subagents unless explicitly authorized. Work on the current branch and preserve unrelated .superpowers/, docs/demo-evidence/stakeholder/, and outputs/ content.
 
 Keep one Go modular monolith with separate API/worker processes, one generated OpenAPI contract, PostgreSQL module-owned stores, transactional idempotency/audit/change/outbox writes, and strict server authorization. Tasks 4-9 must each implement their own generated transport mapping and HttpBackend slice before running mock/HTTP transcript parity; Task 10 is the aggregate registry and route-activation gate. Implement every capability used by all 86 routes and activate a route in HTTP only after its focused live contract passes. Never fall back to mock in the HTTP artifact, and never expose test reset/seed routes in normal OIDC/full mode.
 

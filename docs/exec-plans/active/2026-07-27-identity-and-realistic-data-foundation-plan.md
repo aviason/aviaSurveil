@@ -1,6 +1,6 @@
 # Identity And Realistic Data Foundation Plan
 
-**Status:** `active — Task 1 authorized`
+**Status:** `active — Task 1 complete; Task 2 not started`
 
 **Reviewed task count:** 9
 
@@ -16,11 +16,11 @@ repeatable connected data covering every important workflow state.
 
 **Execution dependency:** On 2026-07-27 the user authorized only Task 1
 discovery, contract, and owner-decision packaging without waiting for the Plan
-1 visual stakeholder closure. Plans 1 and 5 Task 1 may proceed in parallel.
-Tasks 2-9 remain unauthorized and retain the combined Plans 1-4 stakeholder
-disposition, completed Task 1 acceptance, and separate current task
-authorization gates. This plan is the predecessor of the AviaCore/ML readiness
-and local preprod release-candidate plans.
+1 visual stakeholder closure. Task 1 is complete. Plan 1 was completed and the
+combined Plans 2–4 stakeholder disposition was recorded on 2026-07-28. Tasks
+2–9 remain unauthorized; Task 2 was not started and still requires separate
+current authorization. This plan is the predecessor of the AviaCore/ML
+readiness and local preprod release-candidate plans.
 
 ## Scope
 
@@ -171,6 +171,10 @@ feasibility decision.
 - [x] (2026-07-28) Committed the complete Task 1 contract, profile, product
   index, and 26/26 mutation gate as `d0f5b29` (`docs(plan5): freeze identity
   and data foundation contract`). Tasks 2-9 remain unauthorized and `not run`.
+- [x] (2026-07-28) Recorded the combined Plans 2–4 stakeholder disposition and
+  moved those three local `candidate-only` milestones to `completed/`. This
+  satisfied the predecessor-disposition gate only; Task 2 remains
+  unauthorized, not started, and awaits separate explicit authorization.
 
 ## Tasks
 
@@ -291,10 +295,9 @@ are `not run`.
   `harness-docs-smoke: ok`.
 - `git diff --check` — passed with exit 0 and no output.
 
-**Task 2 gate:** blocked. Task 2 requires the deferred combined Plans 1-4
-stakeholder disposition and separate explicit Task 2 authorization. Plan 1
-stakeholder sign-off remains open; the Task 1-only sequencing waiver does not
-waive that gate.
+**Task 2 gate:** Task 2 awaits separate explicit authorization. The combined
+Plans 2–4 stakeholder disposition is complete, but it did not authorize or
+start Task 2.
 
 ### Task 2: Replace Session-Derived Directory Placeholders With Keycloak State
 
@@ -866,6 +869,8 @@ cleaned, and literal non-claims remain.
 - Record the 11 approved Task 1 owner values only through their distinct
   2026-07-28 approval references and effective contract `1.0.0`; any later
   change requires a new version and cannot become a silent runtime default.
+- Record the combined Plans 2–4 stakeholder disposition as completed on
+  2026-07-28 without treating it as authorization for Task 2.
 
 ## Discoveries
 
@@ -898,7 +903,7 @@ deployment are `not run`.
 ## Execution Prompt
 
 ```text
-Task 1 in docs/exec-plans/active/2026-07-27-identity-and-realistic-data-foundation-plan.md is complete at contract/profile version 1.0.0. Do not start Task 2 until the deferred combined Plans 1-4 stakeholder disposition is recorded and Task 2 receives separate current authorization. Plan 1 visual stakeholder sign-off remains open. Read AGENTS.md, docs/PLANS.md, the plan index, the complete plan, and the current identity/full-profile evidence first. Preserve the root demo, normal HTTP no-seed boundary, Keycloak authority, organization isolation, append-only histories, and unrelated worktree changes.
+Task 1 in docs/exec-plans/active/2026-07-27-identity-and-realistic-data-foundation-plan.md is complete at contract/profile version 1.0.0. Plan 1 and the combined Plans 2-4 local stakeholder disposition were completed on 2026-07-28. Task 2 was not started and awaits separate explicit authorization. Read AGENTS.md, docs/PLANS.md, the plan index, the complete plan, and the current identity/full-profile evidence first. Preserve the root demo, normal HTTP no-seed boundary, Keycloak authority, organization isolation, append-only histories, and unrelated worktree changes.
 
 Use strict RED -> GREEN -> focused review for each task. Establish the desired-membership revision and least-privilege Keycloak service identity before directory/lifecycle acceptance. The normal API/worker/scheduler/migration images must not link testprofile or loader/reset code. Repeatable loader reset uses only an exactly authorized disposable target and never selectively deletes append-only rows. Qualify smoke, acceptance, realistic, and stress with the same scenario/role/route catalog. Do not add public registration, a normal API reset/seed route, real PII, plaintext credentials, client-authored roles, direct fixture writes that bypass authoritative domain behavior, AWS actions, commits, or pushes without separate authorization. Keep the plan, index, tracker, and evidence synchronized with literal results. Stop after each task's acceptance gate and fix all Critical or Important review findings before continuing.
 ```

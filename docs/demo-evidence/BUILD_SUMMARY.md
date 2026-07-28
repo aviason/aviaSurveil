@@ -140,6 +140,30 @@ and every other Task 10 action are literally `not run`. The local backup store
 is only same-host/logically isolated, so this is not host-loss or production
 recovery evidence.
 
+## Combined Plans 2–4 stakeholder closeout — 28 July 2026
+
+The user accepted Plans 2, 3, and 4 as completed local `candidate-only`
+milestones. Together with the already completed Plan 1, Plans 1–4 are now
+completed for their local milestone scope. The combined authorization,
+canonical evidence links, historical review boundaries, residual owner
+decisions, and explicit exclusions are recorded in the
+[Plans 2–4 Stakeholder Disposition](stakeholder/PLANS2_4_STAKEHOLDER_DISPOSITION_2026-07-28.md).
+
+The earlier checkpoint counts, command results, transient failures, retained
+visual failures, and independent/self-review labels above and below remain
+historical evidence; this closeout does not rewrite them. The artifact remains
+`candidate-only`, release remains `release pending`, and deployment and
+production readiness remain `not run`. Plan 4 Task 10 and all AWS actions are
+unauthorized and `not run`. Same-host/logically isolated recovery is not
+host-loss DR, and local objectives are not production SLO/RPO/RTO or staffed
+on-call evidence.
+
+Production retention, legal hold, deletion, records, provider, identity
+federation, external email, data-residency, release, and operating decisions
+remain deferred to their owners. Plan 5 Task 2 was not started and awaits
+separate explicit authorization. No commit, push, deploy, branch operation, or
+external-system change was authorized by this closeout.
+
 The local recommendation is `GO`, the artifact remains `candidate-only`, and
 release is `release pending`. These adjacent candidates do not make the root
 demo or the overall product `production-ready`; production remains `blocked`.

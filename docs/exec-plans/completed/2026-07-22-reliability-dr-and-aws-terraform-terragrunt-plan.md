@@ -27,14 +27,33 @@ AWS provider 6.x-compatible modules, native Terraform tests, TFLint, Trivy
 configuration and image scanning, CycloneDX SBOMs, Playwright, Go
 race/integration tests, and shell-based recovery drills.
 
-**Status:** `ready-for-verification` — Tasks 1–9 and Task 11 are `verified
-locally`. On 2026-07-26 the user explicitly deferred Plan 1–3 stakeholder
-review until the end and accepted the local rework risk so Plan 4 Tasks 1–9 and
-Task 11 could proceed. The final local matrix and canonical
-[evidence](../../demo-evidence/LOCAL_RELIABILITY_AND_DR_2026-07-22.md) are
-complete. AWS Task 10 remains an optional future branch, is excluded from the
-local milestone, and is literally `not run`; it was not authorized by this
-sequencing decision or plan document.
+**Status:** `completed for the local milestone` — Tasks 1–9 and Task 11 remain
+`verified locally`. On 28 July 2026 the user accepted Plan 4 only as a
+completed local `candidate-only` milestone. AWS Task 10 remains optional,
+unauthorized, and literally `not run`. Release is `release pending`, and
+deployment and production readiness are `not run`.
+
+## Stakeholder Closeout — 28 July 2026
+
+The user explicitly authorized the combined Plans 2–4 stakeholder closure. The
+canonical implementation and verification basis remains
+[Local Reliability, DR, And Infrastructure Evidence](../../demo-evidence/LOCAL_RELIABILITY_AND_DR_2026-07-22.md);
+the combined decision and shared exclusions are recorded in the
+[Plans 2–4 Stakeholder Disposition](../../demo-evidence/stakeholder/PLANS2_4_STAKEHOLDER_DISPOSITION_2026-07-28.md).
+
+This acceptance is limited to the same-host local milestone. The logically
+isolated backup store does not prove host-loss DR. Local measurements do not
+establish production SLO, RPO/RTO, alert recipients, or staffed on-call.
+Production retention, legal hold, deletion, encryption/KMS ownership,
+restoration authority, provider selection, identity federation, external
+email, data residency, release, rollback, and operating decisions remain
+deferred to their owners.
+
+Task 10 AWS discovery, planning, apply, artifact publication, smoke, rollback,
+retain/destroy, and every other AWS action are `not run` and remain
+unauthorized. The artifact remains `candidate-only`; release remains `release
+pending`; deployment and production readiness remain `not run`; no
+`production-ready` claim is made.
 
 On 2026-07-28 the user explicitly replaced the draft per-task Git sequence
 below with one Plan 4-scoped commit. The verified local implementation and
@@ -821,7 +840,7 @@ deployment evidence.
 ## Execution Prompt
 
 ```text
-Execute docs/exec-plans/active/2026-07-22-reliability-dr-and-aws-terraform-terragrunt-plan.md with superpowers:executing-plans only after the full React, backend parity, and local production-like service plans are complete and accepted. Execute Tasks 1-9, then Task 11; Task 10 is an optional separately authorized future branch and is not required for the local milestone. Do not dispatch subagents unless explicitly authorized. Work on the current branch and preserve unrelated .superpowers/, docs/demo-evidence/stakeholder/, and outputs/ content.
+Execute docs/exec-plans/completed/2026-07-22-reliability-dr-and-aws-terraform-terragrunt-plan.md with superpowers:executing-plans only after the full React, backend parity, and local production-like service plans are complete and accepted. Execute Tasks 1-9, then Task 11; Task 10 is an optional separately authorized future branch and is not required for the local milestone. Do not dispatch subagents unless explicitly authorized. Work on the current branch and preserve unrelated .superpowers/, docs/demo-evidence/stakeholder/, and outputs/ content.
 
 Complete local observability, alerting, separate application/Keycloak PostgreSQL backups, isolated identity/application/object restore, candidate RPO/RTO, DR drills, and runbooks before cloud work. Use OpenTelemetry Collector, Prometheus, Grafana, Loki, Tempo, Alertmanager, pgBackRest, and a logically isolated same-host backup object store; do not claim host-loss recovery. Never expose secrets, Evidence bytes, message bodies, Internal CAA Note text, provider tokens, or high-cardinality entity IDs in telemetry. Rerun the clean 86-route/10-scenario full profile before Task 11 evidence.
 

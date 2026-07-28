@@ -12,9 +12,10 @@ profile boundaries without claiming that the API, Keycloak, session runtime,
 Administration directory, loader, or any generated dataset already implements
 them.
 
-The 2026-07-27 authorization allows this Task 1 package to proceed without the
-Plan 1 visual stakeholder closure. It does not complete Plan 1 and does not
-authorize Plan 5 Tasks 2–9.
+The 2026-07-27 authorization allowed this Task 1 package to proceed without the
+then-open Plan 1 visual stakeholder closure. Plan 1 and the combined Plans 2–4
+local stakeholder disposition were completed on 2026-07-28. Neither closure
+authorizes Plan 5 Tasks 2–9.
 
 ## Binding Invariants
 
@@ -241,9 +242,8 @@ Task 2 cannot start until all of the following are true:
    value, and versioned contract update;
 2. Task 1 acceptance is recorded only after the contract test passes and the
    role/account/profile matrix has no ambiguous implementation value;
-3. the combined Plans 1–4 stakeholder disposition required by the parent plan
-   is recorded; the Task 1-only sequencing waiver does not waive this gate for
-   Task 2;
+3. the combined local predecessor stakeholder disposition is recorded; this
+   gate was satisfied on 2026-07-28 without authorizing Task 2;
 4. the user separately and explicitly authorizes Task 2; and
 5. the known normal-artifact testprofile link, bootstrap-admin credential use,
    directory placeholders, missing lifecycle actions, and absence of a loader

@@ -31,6 +31,7 @@ This is the canonical docs map for AviaSurveil360. Use it after the root
 | `demo-evidence/REACT_86_SCREEN_VISUAL_REVIEW_2026-07-25.md` | Final 258-pair React visual-review ledger with literal decoded-region ratios, zero-mask status, semantic/geometry/action result, reviewer, and disposition. |
 | `demo-evidence/stakeholder/PLAN1_VISUAL_CODEX_TRIAGE_2026-07-27.md` | Historical Codex triage for all 170 retained pixel failures: 160 high-confidence Accept recommendations and 10 Fix recommendations, including nine records that required explicit manual review. |
 | `demo-evidence/stakeholder/PLAN1_VISUAL_STAKEHOLDER_DECISIONS_2026-07-27.md` | Completed Plan 1 stakeholder closeout ledger: 170/170 dispositions resolved, all 10 Fix records `fixed-verified-locally`, and zero manual decisions remaining. |
+| `demo-evidence/stakeholder/PLANS2_4_STAKEHOLDER_DISPOSITION_2026-07-28.md` | Combined Plans 2–4 local stakeholder acceptance, canonical evidence basis, preserved historical verification boundaries, residual owner decisions, explicit AWS/release/deployment/production exclusions, and the separate Plan 5 Task 2 authorization gate. |
 | `demo-evidence/FULL_BACKEND_SCENARIO_PARITY_2026-07-22.md` | Full Backend Tasks 1–12 evidence: 86 dual-profile routes, 28 Backend slices, 10 scenario families, 45 proofs, final matrix, reviews, and preserved Plan 1 gaps. |
 | `demo-evidence/LOCAL_PRODUCTION_LIKE_SERVICES_2026-07-22.md` | Local production-like services evidence: scanned runtime digests, clean 86-route demo/full profiles, 10 scenario families, real MFA/MinIO/ClamAV/Mailpit/Gotenberg proofs, failure/restart, and cleanup. |
 | `demo-evidence/LOCAL_RELIABILITY_AND_DR_2026-07-22.md` | Local reliability, observability, alert, dual-database backup, exact isolated restore, RPO/RTO, runbook, image/SBOM/scan, Terraform, Terragrunt, and explicit AWS `not run` evidence. |
@@ -62,8 +63,10 @@ Tasks 1–9 and Task 11
 add locally verified telemetry, all eight alerts, separate application/identity
 backup chains, two exact isolated restores, candidate RPO/RTO, owner-scoped
 runbooks, nine image/SBOM/scan bindings, and offline Terraform/Terragrunt policy
-gates. Plan 1 is `completed`; Plans 2–4 are `ready-for-verification`. AWS Task 10 is literally
-`not run`. The result is local `GO`, `candidate-only`, and `release pending`.
+gates. Plans 1–4 are completed local `candidate-only` milestones under the
+28 July 2026 combined stakeholder disposition. AWS Task 10 is optional,
+unauthorized, and literally `not run`. The result is local `GO`,
+`candidate-only`, and `release pending`.
 These are not deployed production services. The docs do not
 claim production identity federation,
 production authorization operations, production storage/scanning or Evidence
