@@ -1030,13 +1030,22 @@ export type UserLifecycleAction =
   | "PROVISION"
   | "UPDATE_ROLES"
   | "SUSPEND"
-  | "REACTIVATE";
+  | "REACTIVATE"
+  | "DEACTIVATE"
+  | "TRANSFER_ORGANIZATION"
+  | "RESEND_INVITATION"
+  | "RESET_PASSWORD"
+  | "RESET_MFA"
+  | "FORCE_LOGOUT";
 
 export type UserLifecycleStatus =
   | "PENDING"
   | "RUNNING"
   | "SUCCEEDED"
-  | "FAILED";
+  | "FAILED"
+  | "FAILED_RETRYABLE"
+  | "FAILED_PERMANENT"
+  | "MANUAL_REVIEW";
 
 export interface RequestUserLifecycleInput {
   idempotencyKey: string;
@@ -1046,6 +1055,9 @@ export interface RequestUserLifecycleInput {
   organizationId: string;
   email?: string | null;
   displayName?: string | null;
+  reason: string;
+  expectedMembershipRevision: number;
+  effectiveAt?: Instant | null;
 }
 
 export interface UserLifecycleRequestView {
@@ -1058,6 +1070,14 @@ export interface UserLifecycleRequestView {
   displayName: string | null;
   status: UserLifecycleStatus;
   idempotencyKey: string;
+  expectedMembershipRevision: number;
+  resultingMembershipRevision: number;
+  membershipId: string | null;
+  reason: string;
+  effectiveAt: Instant | null;
+  providerFailureClass: "RETRYABLE" | "PERMANENT" | "MANUAL_REVIEW" | null;
+  providerAcknowledgedAt: Instant | null;
+  attemptCount: number;
   requestedBySubjectId: string;
   outboxMessageId: string;
   failureReason: string | null;

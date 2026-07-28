@@ -475,7 +475,7 @@ test("the secret initializer is private, non-destructive, and explicitly rotatab
   );
 });
 
-test("Mailpit SMTP is private, authenticated, and wired only to the worker", (t) => {
+test("Mailpit SMTP is private, authenticated, and reachable by the worker and Keycloak", (t) => {
   const localState = mkdtempSync(
     path.join(os.tmpdir(), "aviasurveil360-mailpit-compose-"),
   );
@@ -505,6 +505,7 @@ test("Mailpit SMTP is private, authenticated, and wired only to the worker", (t)
   );
   const compose = JSON.parse(rendered);
   const worker = compose.services.worker;
+  const keycloak = compose.services.keycloak;
   const mailpit = compose.services.mailpit;
   assert.equal(worker.environment.AVIA_SMTP_ADDRESS, "mailpit:1025");
   assert.equal(
@@ -529,6 +530,16 @@ test("Mailpit SMTP is private, authenticated, and wired only to the worker", (t)
     ),
     false,
   );
+  assert.deepEqual(
+    Object.entries(compose.services)
+      .filter(([, service]) =>
+        (service.secrets ?? []).some(
+          ({ source }) => source === "smtp_password",
+        ),
+      )
+      .map(([serviceName]) => serviceName),
+    ["worker"],
+  );
   assert.equal(
     mailpit.environment.MP_SMTP_AUTH_FILE,
     "/run/secrets/smtp_auth_file",
@@ -540,6 +551,10 @@ test("Mailpit SMTP is private, authenticated, and wired only to the worker", (t)
     true,
   );
   assert.equal("ports" in mailpit, false);
+  assert.equal("identity" in mailpit.networks, true);
+  assert.equal("identity" in keycloak.networks, true);
+  assert.equal("platform" in mailpit.networks, true);
+  assert.equal("platform" in worker.networks, true);
   const toolsRendered = execFileSync(
     "docker",
     [

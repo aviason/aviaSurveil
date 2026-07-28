@@ -1,6 +1,6 @@
 # Identity And Realistic Data Foundation Plan
 
-**Status:** `active — Tasks 1–2 complete; Task 3 not in progress`
+**Status:** `active — Tasks 1–3 complete; Task 4 not started`
 
 **Reviewed task count:** 9
 
@@ -18,8 +18,9 @@ repeatable connected data covering every important workflow state.
 contract, and owner-decision packaging. Plan 1 and the combined Plans 2–4
 stakeholder disposition were completed on 2026-07-28. The current user
 authorization permits Tasks 2–9 in sequence, with one freshly verified,
-published task commit before the next task starts. Tasks 1–2 are complete;
-Task 3 is the next task and is not yet in progress. This plan is the
+published task commit before the next task starts. Tasks 1–3 are complete;
+Task 2 is published as `26da3c0`; Task 3 is freshly verified and awaiting its
+task-scoped publication before Task 4 starts. This plan is the
 predecessor of the AviaCore/ML readiness and local preprod release-candidate
 plans.
 
@@ -214,6 +215,40 @@ feasibility decision.
   pagination, live consistency token, exact filters, drift, required-action,
   MFA, lifecycle, profile, and last-session projections. Provider failure is
   explicit HTTP 503 and pre-login accounts require no session row.
+- [x] (2026-07-28) Published the complete Task 2 scope to `origin/main` as
+  `26da3c0fb9a3b81bc3a7d6704913cf9fb53ab7b1`
+  (`feat(identity): add provider-backed access directory`) and confirmed the
+  exact remote ref before starting Task 3.
+- [x] (2026-07-28) Task 3 began only after Task 2 was published and its exact
+  remote revision was confirmed. No Task 3 production implementation preceded
+  its focused RED result.
+- [x] (2026-07-28) Task 3 focused RED was recorded before production
+  implementation. The Administration/identity test command failed with exit 1
+  because the six approved action constants, mandatory `reason` and
+  `expectedMembershipRevision`, and Keycloak execute-actions/MFA-reset/logout
+  methods did not exist.
+- [x] (2026-07-28) Task 3 activation RED was recorded before the activation
+  reconciliation implementation. The focused canonical integration build
+  failed with exit 1 because `ReconcileActivatedMembership` was undefined.
+- [x] (2026-07-28) Final acceptance review recorded an additional strict RED:
+  `go -C apps/api test -tags canonicaltest -count=1 ./tests/integration -run
+  '^TestTask3DuplicateProviderSubjectRequiresManualReviewBeforeDelivery$'`
+  failed with exit 1 because `identity.ErrKeycloakDuplicateSubject` was
+  undefined. The final implementation now stops before invitation delivery,
+  records `DUPLICATE_SUBJECT` as manual review, and raises one lifecycle alert.
+- [x] (2026-07-28) Admin UI completion review added a focused lifecycle-action
+  test before the UI expansion. The Web test failed 1/2 with exit 1 because no
+  `Lifecycle action` control existed. The HTTP Admin surface now submits every
+  approved non-provision lifecycle action with exact revision, reason, role,
+  organization, and future-effective transfer fields; the focused rerun passed
+  24/24.
+- [x] (2026-07-28) Task 3 is complete and `verified locally`. The final
+  race-enabled canonical harness passed the complete Administration, identity,
+  notification, and 101-test integration packages; the real Keycloak/Mailpit
+  all-eight-role proof passed; SQLC, OpenAPI, realm/Compose, Web typecheck,
+  focused Web tests, documentation smoke, and cleanup gates passed. Task 4 is
+  not started and may begin only after this task-scoped commit is pushed and
+  the exact remote revision is confirmed.
 
 ## Tasks
 
@@ -341,7 +376,8 @@ after the combined Plans 2–4 stakeholder disposition and published baseline.
 ### Task 2: Replace Session-Derived Directory Placeholders With Keycloak State
 
 **Task status:** `complete`; implementation and fresh verification passed on
-2026-07-28. Task 3 is not in progress.
+2026-07-28 and the exact published revision is
+`26da3c0fb9a3b81bc3a7d6704913cf9fb53ab7b1`.
 
 **Recorded RED — normal-artifact split:** On 2026-07-28,
 `./scripts/test-normal-artifact-boundary.sh` failed with exit 1 because
@@ -459,6 +495,25 @@ The durable Task 1–2 record is
 
 ### Task 3: Complete Provisioning, Invitation, And Recovery
 
+**Task status:** `complete`; strict RED evidence, implementation, full focused
+verification, and cleanup evidence are recorded. Publication is the remaining
+boundary before Task 4 may start.
+
+**Recorded RED:** `go -C apps/api test -count=1
+./internal/administration ./internal/identity -run
+'Task3|Passwordless|ExecuteActions'` failed with exit 1 before Task 3
+production implementation. The compiler reported the missing six lifecycle
+actions, `reason`, `expectedMembershipRevision`,
+`IssueExecuteActionsEmail`, `ResetUserMFA`, and `ForceUserLogout`.
+
+**Additional recorded REDs:** The activation-focused canonical integration
+build failed with exit 1 because `ReconcileActivatedMembership` was undefined.
+Final acceptance review then added the duplicate-provider-subject test; it
+failed with exit 1 because `identity.ErrKeycloakDuplicateSubject` was
+undefined. Admin UI review added the missing lifecycle-action control test,
+which failed 1/2 because no `Lifecycle action` label existed. All three
+failures preceded their respective production implementations.
+
 **Files**
 
 - Modify `apps/api/internal/administration/users.go`.
@@ -475,41 +530,44 @@ The durable Task 1–2 record is
 
 **Work**
 
-- [ ] Preserve `PROVISION`, `UPDATE_ROLES`, `SUSPEND`, and `REACTIVATE`; add
+- [x] Preserve `PROVISION`, `UPDATE_ROLES`, `SUSPEND`, and `REACTIVATE`; add
   the Task 1-approved `DEACTIVATE`, `TRANSFER_ORGANIZATION`, invitation resend,
   required-password reset, MFA reset, and forced-logout actions with
   reason-required audit records and exact OpenAPI enums.
-- [ ] Require `expectedMembershipRevision` on every account/membership
+- [x] Require `expectedMembershipRevision` on every account/membership
   authority mutation; provisioning requires no existing revision. A stale
   revision returns a typed conflict and performs no provider, delivery,
   session, audit-success, or outbox-success mutation.
-- [ ] Make provisioning produce only the approved one-time, expiring Keycloak
+- [x] Make provisioning produce only the approved one-time, expiring Keycloak
   execute-actions invitation path without generating, returning, or storing an
   application temporary password.
-- [ ] Implement only the exact Task 1-approved local invitation contract:
+- [x] Implement only the exact Task 1-approved local invitation contract:
   bounded Keycloak execute-actions delivery through authenticated local mail;
   require `UPDATE_PASSWORD` and add the role-policy-selected `VERIFY_EMAIL`
   and/or `CONFIGURE_TOTP`; freeze TTL, resend, already-used, expiry, lockout,
   recovery, MFA reset/re-enrollment, and all-eight-role behavior.
-- [ ] Record invitation issue, delivery, expiry, resend, activation,
+- [x] Record invitation issue, delivery, expiry, resend, activation,
   cancellation, and recovery as separate application facts. Never store a
   credential or action token; provider and delivery acknowledgements remain
   reconcilable after timeout.
-- [ ] Require `CONFIGURE_TOTP` for internal roles and for Auditee accounts when
-  the approved policy says so; store only provider-derived enrollment status.
-- [ ] Make duplicate email, duplicate subject, role drift, unknown
+- [x] Apply the approved optional-all-roles TOTP policy: never require
+  `CONFIGURE_TOTP`, and store only provider-derived enrollment status.
+- [x] Make duplicate email, duplicate subject, role drift, unknown
   organization, expired invitation, and stale lifecycle request deterministic
   typed outcomes.
-- [ ] Preserve idempotency through provider timeout and lost acknowledgement.
+- [x] Preserve idempotency through provider timeout and lost acknowledgement.
   Reconcile a provider-created user before retrying creation.
-- [ ] Classify retryable, permanent, and manual-review provider outcomes; use
+- [x] Classify retryable, permanent, and manual-review provider outcomes; use
   approved exponential backoff and attempt/time caps, terminal
   `FAILED_PERMANENT`/`MANUAL_REVIEW` states, operator reconciliation, metrics,
   and alerts. Never retry every provider failure indefinitely.
-- [ ] Audit request, provider result, subject binding, role/organization
+- [x] Audit request, provider result, subject binding, role/organization
   binding, session invalidation, invitation delivery, and failure without
   recording secret material.
-- [ ] Make deactivation distinct from suspension and deletion: revoke
+- [x] Expose all approved non-provision actions through the HTTP Admin UI with
+  reason and exact membership revision, plus role selection for updates and
+  destination/effective-time inputs for organization transfer.
+- [x] Make deactivation distinct from suspension and deletion: revoke
   sessions, disable future authority, retain the minimum identity/membership
   tombstone under the approved retention policy, and require a new audited
   reactivation decision.
@@ -521,11 +579,40 @@ service harness, then:
 
     ./scripts/check-sqlc.sh
     ./scripts/check-contracts.sh
-    go -C apps/api test -race -p 1 -count=1 ./internal/administration ./internal/identity ./tests/integration
+    go -C apps/api test -tags canonicaltest -race -p 1 -count=1 ./internal/administration ./internal/identity ./internal/notifications ./tests/integration
     ./scripts/test-preprod-identity-lifecycle.sh invitation
 
 Expected: every action is idempotent, reason-audited, provider-reconciled, and
 secret-free.
+
+**Fresh literal verification — 2026-07-28**
+
+- `./scripts/check-sqlc.sh` — exit 0; `sqlc-check: ok`.
+- `./scripts/check-contracts.sh` — exit 0; `contracts-check: ok`; OpenAPI
+  contract tests 16/16.
+- `./scripts/test-preprod-identity-lifecycle.sh invitation` — exit 0; the
+  race-enabled Administration, identity, notification, and full canonical
+  integration packages passed, with integration completing in 35.130 seconds;
+  the harness printed `Plan 5 Task 3 invitation and lifecycle harness:
+  verified locally` and removed all task-owned containers, volumes, and
+  network.
+- `./scripts/test-preprod-identity-lifecycle.sh all-eight-roles` — exit 0; the
+  real Keycloak/Mailpit all-eight-role integration test passed and the harness
+  printed `Plan 5 Task 3 all-eight-role identity lifecycle: verified locally`
+  before complete cleanup.
+- `node --test deploy/local/keycloak/realm-contract.test.mjs
+  tests/local-compose-policy.test.mjs` — exit 0; 24/24 passed.
+- `npm --prefix apps/web run typecheck` — exit 0.
+- `npm --prefix apps/web test -- --run src/backend/http-backend.test.ts
+  src/features/admin/users-roles-page.test.tsx` — exit 0; 24/24 passed.
+- `node --test tests/harness-docs-smoke.test.js` — exit 0;
+  `harness-docs-smoke: ok`.
+
+The first expanded full-suite harness run exposed an existing projection
+fixture that passed an interval where migration 19 requires an absolute
+timestamp. The next run exposed missing task-harness MinIO credentials. The
+fixture and isolated harness were corrected; neither failing run is presented
+as completion evidence, and the final complete rerun above passed.
 
 **Acceptance**
 
@@ -987,7 +1074,7 @@ remain `not run`; the artifact remains `candidate-only` and release remains
 ## Execution Prompt
 
 ```text
-Tasks 1-2 in docs/exec-plans/active/2026-07-27-identity-and-realistic-data-foundation-plan.md are complete and verified locally. Task 3 is next and not in progress. Read AGENTS.md, docs/PLANS.md, the plan index, the complete plan, and the current identity/full-profile evidence first. Preserve the root demo, normal HTTP no-seed boundary, Keycloak authority, organization isolation, append-only histories, and unrelated worktree changes.
+Tasks 1-2 in docs/exec-plans/active/2026-07-27-identity-and-realistic-data-foundation-plan.md are complete and verified locally; Task 2 is published as 26da3c0. Task 3 is in progress and its focused RED is next. Read AGENTS.md, docs/PLANS.md, the plan index, the complete plan, and the current identity/full-profile evidence first. Preserve the root demo, normal HTTP no-seed boundary, Keycloak authority, organization isolation, append-only histories, and unrelated worktree changes.
 
 Use strict RED -> GREEN -> focused review for each task. Establish the desired-membership revision and least-privilege Keycloak service identity before directory/lifecycle acceptance. The normal API/worker/scheduler/migration images must not link testprofile or loader/reset code. Repeatable loader reset uses only an exactly authorized disposable target and never selectively deletes append-only rows. Qualify smoke, acceptance, realistic, and stress with the same scenario/role/route catalog. Do not add public registration, a normal API reset/seed route, real PII, plaintext credentials, client-authored roles, direct fixture writes that bypass authoritative domain behavior, AWS actions, commits, or pushes without separate authorization. Keep the plan, index, tracker, and evidence synchronized with literal results. Stop after each task's acceptance gate and fix all Critical or Important review findings before continuing.
 ```

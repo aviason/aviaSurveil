@@ -17,7 +17,72 @@ import (
 )
 
 var ErrKeycloakDuplicateEmail = errors.New("Keycloak user email already exists")
+var ErrKeycloakDuplicateSubject = errors.New(
+	"Keycloak subject is already bound to a retained identity",
+)
 var ErrKeycloakUnavailable = errors.New("Keycloak provider unavailable")
+var ErrKeycloakPermanent = errors.New("Keycloak provider rejected the operation permanently")
+var ErrKeycloakManualReview = errors.New("Keycloak provider operation requires manual review")
+
+type KeycloakFailureClass string
+
+const (
+	KeycloakFailureRetryable    KeycloakFailureClass = "RETRYABLE"
+	KeycloakFailurePermanent    KeycloakFailureClass = "PERMANENT"
+	KeycloakFailureManualReview KeycloakFailureClass = "MANUAL_REVIEW"
+)
+
+type keycloakHTTPStatusError struct {
+	StatusCode int
+	class      KeycloakFailureClass
+}
+
+func (failure *keycloakHTTPStatusError) Error() string {
+	return fmt.Sprintf(
+		"Keycloak request returned unexpected HTTP status %d",
+		failure.StatusCode,
+	)
+}
+
+func (failure *keycloakHTTPStatusError) Unwrap() error {
+	switch failure.class {
+	case KeycloakFailureRetryable:
+		return ErrKeycloakUnavailable
+	case KeycloakFailurePermanent:
+		return ErrKeycloakPermanent
+	default:
+		return ErrKeycloakManualReview
+	}
+}
+
+func ClassifyKeycloakError(err error) KeycloakFailureClass {
+	switch {
+	case errors.Is(err, ErrKeycloakUnavailable):
+		return KeycloakFailureRetryable
+	case errors.Is(err, ErrKeycloakDuplicateEmail),
+		errors.Is(err, ErrKeycloakPermanent):
+		return KeycloakFailurePermanent
+	case errors.Is(err, ErrKeycloakDuplicateSubject):
+		return KeycloakFailureManualReview
+	default:
+		return KeycloakFailureManualReview
+	}
+}
+
+func KeycloakFailureReasonCode(err error) string {
+	switch {
+	case errors.Is(err, ErrKeycloakDuplicateEmail):
+		return "DUPLICATE_EMAIL"
+	case errors.Is(err, ErrKeycloakDuplicateSubject):
+		return "DUPLICATE_SUBJECT"
+	case errors.Is(err, ErrKeycloakUnavailable):
+		return "PROVIDER_UNAVAILABLE"
+	case errors.Is(err, ErrKeycloakPermanent):
+		return "PROVIDER_REJECTED"
+	default:
+		return "PROVIDER_MANUAL_REVIEW"
+	}
+}
 
 type KeycloakAdminConfig struct {
 	BaseURL      string
@@ -231,11 +296,11 @@ func (client *KeycloakAdminClient) ProvisionUser(
 	}{
 		Username: user.Email, Email: user.Email,
 		FirstName: user.FirstName, LastName: user.LastName,
-		Enabled: true, EmailVerified: true,
+		Enabled: true, EmailVerified: false,
 		Attributes: map[string][]string{
 			"organization_id": {user.OrganizationID},
 		},
-		RequiredActions: []string{"CONFIGURE_TOTP"},
+		RequiredActions: []string{"UPDATE_PASSWORD", "VERIFY_EMAIL"},
 	}
 	response, err := client.doJSON(
 		ctx,
@@ -246,6 +311,11 @@ func (client *KeycloakAdminClient) ProvisionUser(
 		http.StatusCreated,
 	)
 	if err != nil {
+		var statusError *keycloakHTTPStatusError
+		if errors.As(err, &statusError) &&
+			statusError.StatusCode == http.StatusConflict {
+			return "", ErrKeycloakDuplicateEmail
+		}
 		return "", fmt.Errorf("create Keycloak user: %w", err)
 	}
 	response.Body.Close()
@@ -522,6 +592,147 @@ func (client *KeycloakAdminClient) EnableUser(
 	return nil
 }
 
+func (client *KeycloakAdminClient) IssueExecuteActionsEmail(
+	ctx context.Context,
+	subjectID string,
+	actions []string,
+	lifespanSeconds int,
+) error {
+	subjectID = strings.TrimSpace(subjectID)
+	if subjectID == "" ||
+		lifespanSeconds < 1 ||
+		lifespanSeconds > 24*60*60 {
+		return fmt.Errorf(
+			"Keycloak subject and bounded execute-actions lifespan are required",
+		)
+	}
+	if len(actions) == 0 || len(actions) > 2 {
+		return fmt.Errorf("one or two approved Keycloak execute actions are required")
+	}
+	seen := map[string]bool{}
+	for _, action := range actions {
+		if action != "UPDATE_PASSWORD" && action != "VERIFY_EMAIL" {
+			return fmt.Errorf("Keycloak execute action %q is not approved", action)
+		}
+		if seen[action] {
+			return fmt.Errorf("Keycloak execute actions must be unique")
+		}
+		seen[action] = true
+	}
+	accessToken, err := client.adminAccessToken(ctx)
+	if err != nil {
+		return err
+	}
+	endpoint, err := url.Parse(client.adminEndpoint(
+		"users",
+		subjectID,
+		"execute-actions-email",
+	))
+	if err != nil {
+		return fmt.Errorf("construct Keycloak execute-actions endpoint: %w", err)
+	}
+	query := endpoint.Query()
+	query.Set("lifespan", fmt.Sprintf("%d", lifespanSeconds))
+	endpoint.RawQuery = query.Encode()
+	response, err := client.doJSON(
+		ctx,
+		http.MethodPut,
+		endpoint.String(),
+		accessToken,
+		actions,
+		http.StatusNoContent,
+	)
+	if err != nil {
+		return fmt.Errorf("issue Keycloak execute-actions email: %w", err)
+	}
+	response.Body.Close()
+	return nil
+}
+
+func (client *KeycloakAdminClient) ResetUserMFA(
+	ctx context.Context,
+	subjectID string,
+) error {
+	subjectID = strings.TrimSpace(subjectID)
+	if subjectID == "" {
+		return fmt.Errorf("Keycloak subject ID is required")
+	}
+	accessToken, err := client.adminAccessToken(ctx)
+	if err != nil {
+		return err
+	}
+	response, err := client.doJSON(
+		ctx,
+		http.MethodGet,
+		client.adminEndpoint("users", subjectID, "credentials"),
+		accessToken,
+		nil,
+		http.StatusOK,
+	)
+	if err != nil {
+		return fmt.Errorf("list Keycloak user credentials: %w", err)
+	}
+	var credentials []struct {
+		ID   string `json:"id"`
+		Type string `json:"type"`
+	}
+	if err := decodeLimitedJSON(response.Body, &credentials); err != nil {
+		response.Body.Close()
+		return fmt.Errorf("decode Keycloak user credentials: %w", err)
+	}
+	response.Body.Close()
+	for _, credential := range credentials {
+		if credential.Type != "otp" {
+			continue
+		}
+		response, err = client.doJSON(
+			ctx,
+			http.MethodDelete,
+			client.adminEndpoint(
+				"users",
+				subjectID,
+				"credentials",
+				credential.ID,
+			),
+			accessToken,
+			nil,
+			http.StatusNoContent,
+		)
+		if err != nil {
+			return fmt.Errorf("remove Keycloak OTP credential: %w", err)
+		}
+		response.Body.Close()
+	}
+	return nil
+}
+
+func (client *KeycloakAdminClient) ForceUserLogout(
+	ctx context.Context,
+	subjectID string,
+) error {
+	subjectID = strings.TrimSpace(subjectID)
+	if subjectID == "" {
+		return fmt.Errorf("Keycloak subject ID is required")
+	}
+	accessToken, err := client.adminAccessToken(ctx)
+	if err != nil {
+		return err
+	}
+	response, err := client.doJSON(
+		ctx,
+		http.MethodPost,
+		client.adminEndpoint("users", subjectID, "logout"),
+		accessToken,
+		nil,
+		http.StatusNoContent,
+	)
+	if err != nil {
+		return fmt.Errorf("revoke Keycloak user sessions: %w", err)
+	}
+	response.Body.Close()
+	return nil
+}
+
 type keycloakRoleRepresentation struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
@@ -564,16 +775,9 @@ func (client *KeycloakAdminClient) adminAccessToken(
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		if response.StatusCode >= http.StatusInternalServerError {
-			return "", fmt.Errorf(
-				"request Keycloak admin token: unexpected HTTP status %d: %w",
-				response.StatusCode,
-				ErrKeycloakUnavailable,
-			)
-		}
 		return "", fmt.Errorf(
-			"request Keycloak admin token: unexpected HTTP status %d",
-			response.StatusCode,
+			"request Keycloak admin token: %w",
+			newKeycloakHTTPStatusError(response.StatusCode),
 		)
 	}
 	var token struct {
@@ -695,19 +899,22 @@ func (client *KeycloakAdminClient) doJSON(
 	}
 	if response.StatusCode != expectedStatus {
 		response.Body.Close()
-		if response.StatusCode >= http.StatusInternalServerError {
-			return nil, fmt.Errorf(
-				"Keycloak request returned unexpected HTTP status %d: %w",
-				response.StatusCode,
-				ErrKeycloakUnavailable,
-			)
-		}
-		return nil, fmt.Errorf(
-			"Keycloak request returned unexpected HTTP status %d",
-			response.StatusCode,
-		)
+		return nil, newKeycloakHTTPStatusError(response.StatusCode)
 	}
 	return response, nil
+}
+
+func newKeycloakHTTPStatusError(statusCode int) error {
+	class := KeycloakFailurePermanent
+	switch {
+	case statusCode == http.StatusTooManyRequests ||
+		statusCode >= http.StatusInternalServerError:
+		class = KeycloakFailureRetryable
+	case statusCode == http.StatusUnauthorized ||
+		statusCode == http.StatusForbidden:
+		class = KeycloakFailureManualReview
+	}
+	return &keycloakHTTPStatusError{StatusCode: statusCode, class: class}
 }
 
 func (client *KeycloakAdminClient) endpoint(segments ...string) string {
@@ -763,6 +970,11 @@ func normalizeKeycloakRoles(roles []Role) ([]Role, error) {
 	if len(normalized) == 0 || len(normalized) != len(roles) {
 		return nil, fmt.Errorf(
 			"Keycloak roles must be unique approved AviaSurveil360 roles",
+		)
+	}
+	if len(normalized) != 1 {
+		return nil, fmt.Errorf(
+			"Keycloak authority requires exactly one approved application role",
 		)
 	}
 	return normalized, nil

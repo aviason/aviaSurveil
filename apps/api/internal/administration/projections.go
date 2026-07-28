@@ -525,7 +525,8 @@ func calculateMembershipDrift(
 	if local.MembershipRevision == 0 {
 		return "untracked"
 	}
-	expectedEnabled := local.MembershipState == "ACTIVE"
+	expectedEnabled := local.MembershipState != "SUSPENDED" &&
+		local.MembershipState != "DEACTIVATED"
 	if expectedEnabled != provider.Enabled ||
 		local.OrganizationID != provider.OrganizationID ||
 		len(local.Roles) != len(provider.Roles) {
@@ -556,14 +557,20 @@ func deriveInvitationState(
 	requiredActions []string,
 ) string {
 	switch local.InvitationDelivery {
-	case "PENDING":
+	case "PENDING", "ISSUED":
 		return "issued"
-	case "DELIVERED":
+	case "DELIVERED", "DELIVERY_ACCEPTED":
 		return "delivered"
-	case "FAILED":
+	case "FAILED", "RETRYABLE_FAILURE":
 		return "retryable-failure"
-	case "DEAD_LETTER":
+	case "DEAD_LETTER", "TERMINAL_FAILURE":
 		return "terminal-failure"
+	case "EXPIRED":
+		return "expired"
+	case "CONSUMED":
+		return "consumed"
+	case "CANCELLED":
+		return "cancelled"
 	}
 	if local.LifecycleAction == "PROVISION" &&
 		(local.LifecycleStatus == "PENDING" || local.LifecycleStatus == "RUNNING") {

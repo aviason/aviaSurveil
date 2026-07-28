@@ -16,6 +16,17 @@
   ],
   "adminEventsEnabled": true,
   "adminEventsDetailsEnabled": true,
+  "smtpServer": {
+    "host": "mailpit",
+    "port": "1025",
+    "from": "no-reply@aviasurveil360.test",
+    "fromDisplayName": "AviaSurveil360",
+    "auth": "true",
+    "user": "aviasurveil360",
+    "password": "__AVIA_KEYCLOAK_SMTP_PASSWORD__",
+    "starttls": "false",
+    "ssl": "false"
+  },
   "otpPolicyType": "totp",
   "otpPolicyAlgorithm": "HmacSHA1",
   "otpPolicyDigits": 6,
@@ -27,7 +38,7 @@
       "name": "Configure OTP",
       "providerId": "CONFIGURE_TOTP",
       "enabled": true,
-      "defaultAction": true,
+      "defaultAction": false,
       "priority": 10,
       "config": {}
     }

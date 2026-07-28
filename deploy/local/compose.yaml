@@ -602,6 +602,7 @@ services:
       - /tmp:mode=1777
     networks:
       - platform
+      - identity
     healthcheck:
       <<: *health-defaults
       test: [CMD, /mailpit, readyz]

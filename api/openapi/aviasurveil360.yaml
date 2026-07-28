@@ -5231,7 +5231,7 @@
         },
         "responses": {
           "202": {
-            "description": "Durable user lifecycle request accepted for Keycloak reconciliation",
+            "description": "Durable reasoned user lifecycle request accepted for Keycloak reconciliation",
             "content": {
               "application/json": {
                 "schema": {
@@ -11641,7 +11641,9 @@
           "idempotencyKey",
           "action",
           "roles",
-          "organizationId"
+          "organizationId",
+          "reason",
+          "expectedMembershipRevision"
         ],
         "properties": {
           "operationId": {
@@ -11662,12 +11664,19 @@
               "PROVISION",
               "UPDATE_ROLES",
               "SUSPEND",
-              "REACTIVATE"
+              "REACTIVATE",
+              "DEACTIVATE",
+              "TRANSFER_ORGANIZATION",
+              "RESEND_INVITATION",
+              "RESET_PASSWORD",
+              "RESET_MFA",
+              "FORCE_LOGOUT"
             ]
           },
           "roles": {
             "type": "array",
             "minItems": 1,
+            "maxItems": 1,
             "items": {
               "$ref": "#/components/schemas/Role"
             }
@@ -11687,6 +11696,21 @@
               "string",
               "null"
             ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expectedMembershipRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "effectiveAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -11703,6 +11727,14 @@
           "displayName",
           "status",
           "idempotencyKey",
+          "expectedMembershipRevision",
+          "resultingMembershipRevision",
+          "membershipId",
+          "reason",
+          "effectiveAt",
+          "providerFailureClass",
+          "providerAcknowledgedAt",
+          "attemptCount",
           "requestedBySubjectId",
           "outboxMessageId",
           "failureReason",
@@ -11725,11 +11757,18 @@
               "PROVISION",
               "UPDATE_ROLES",
               "SUSPEND",
-              "REACTIVATE"
+              "REACTIVATE",
+              "DEACTIVATE",
+              "TRANSFER_ORGANIZATION",
+              "RESEND_INVITATION",
+              "RESET_PASSWORD",
+              "RESET_MFA",
+              "FORCE_LOGOUT"
             ]
           },
           "roles": {
             "type": "array",
+            "maxItems": 1,
             "items": {
               "$ref": "#/components/schemas/Role"
             }
@@ -11756,11 +11795,61 @@
               "PENDING",
               "RUNNING",
               "SUCCEEDED",
-              "FAILED"
+              "FAILED",
+              "FAILED_RETRYABLE",
+              "FAILED_PERMANENT",
+              "MANUAL_REVIEW"
             ]
           },
           "idempotencyKey": {
             "type": "string"
+          },
+          "expectedMembershipRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "resultingMembershipRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "membershipId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "effectiveAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "providerFailureClass": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "RETRYABLE",
+              "PERMANENT",
+              "MANUAL_REVIEW",
+              null
+            ]
+          },
+          "providerAcknowledgedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "attemptCount": {
+            "type": "integer",
+            "minimum": 0
           },
           "requestedBySubjectId": {
             "type": "string"

@@ -48,7 +48,7 @@ function userProfile(realm) {
   return JSON.parse(serializedConfig);
 }
 
-test("reviewed realm source enforces production OIDC and first-login TOTP", () => {
+test("reviewed realm source enforces production OIDC and optional TOTP", () => {
   const realm = loadJSON(sourcePath);
   assert.equal(realm.realm, "aviasurveil360");
   assert.equal(realm.enabled, true);
@@ -116,9 +116,20 @@ test("reviewed realm source enforces production OIDC and first-login TOTP", () =
       enabled: configureTOTP?.enabled,
       defaultAction: configureTOTP?.defaultAction,
     },
-    { enabled: true, defaultAction: true },
+    { enabled: true, defaultAction: false },
   );
   assert.equal(realm.otpPolicyType, "totp");
+  assert.deepEqual(realm.smtpServer, {
+    host: "mailpit",
+    port: "1025",
+    from: "no-reply@aviasurveil360.test",
+    fromDisplayName: "AviaSurveil360",
+    auth: "true",
+    user: "aviasurveil360",
+    password: "__AVIA_KEYCLOAK_SMTP_PASSWORD__",
+    starttls: "false",
+    ssl: "false",
+  });
 
   const mapperNames = client.protocolMappers.map(({ name }) => name).sort();
   assert.deepEqual(mapperNames, [
@@ -161,13 +172,21 @@ test("realm builder injects the mounted client secret only into a 0600 runtime f
       temporaryDirectory,
       "keycloak-service-client-secret",
     );
+    const smtpPasswordPath = path.join(
+      temporaryDirectory,
+      "keycloak-smtp-password",
+    );
     const outputPath = path.join(temporaryDirectory, "realm.json");
     writeFileSync(secretPath, "runtime-client-secret\n", { mode: 0o600 });
     writeFileSync(serviceSecretPath, "runtime-service-secret\n", {
       mode: 0o600,
     });
+    writeFileSync(smtpPasswordPath, "runtime-smtp-password\n", {
+      mode: 0o600,
+    });
     chmodSync(secretPath, 0o600);
     chmodSync(serviceSecretPath, 0o600);
+    chmodSync(smtpPasswordPath, 0o600);
 
     execFileSync(process.execPath, [
       builderPath,
@@ -179,6 +198,8 @@ test("realm builder injects the mounted client secret only into a 0600 runtime f
       secretPath,
       "--service-client-secret-file",
       serviceSecretPath,
+      "--smtp-password-file",
+      smtpPasswordPath,
     ]);
 
     const builtRealm = loadJSON(outputPath);
@@ -187,6 +208,7 @@ test("realm builder injects the mounted client secret only into a 0600 runtime f
       lifecycleClient(builtRealm).secret,
       "runtime-service-secret",
     );
+    assert.equal(builtRealm.smtpServer.password, "runtime-smtp-password");
     assert.equal(statSync(outputPath).mode & 0o777, 0o600);
     assert.equal(readFileSync(sourcePath, "utf8").includes("runtime-client-secret"), false);
   } finally {
@@ -204,9 +226,16 @@ test("realm builder can bind a task-owned loopback origin without changing the r
       temporaryDirectory,
       "keycloak-service-client-secret",
     );
+    const smtpPasswordPath = path.join(
+      temporaryDirectory,
+      "keycloak-smtp-password",
+    );
     const outputPath = path.join(temporaryDirectory, "realm.json");
     writeFileSync(secretPath, "loopback-client-secret\n", { mode: 0o600 });
     writeFileSync(serviceSecretPath, "loopback-service-secret\n", {
+      mode: 0o600,
+    });
+    writeFileSync(smtpPasswordPath, "loopback-smtp-password\n", {
       mode: 0o600,
     });
 
@@ -220,6 +249,8 @@ test("realm builder can bind a task-owned loopback origin without changing the r
       secretPath,
       "--service-client-secret-file",
       serviceSecretPath,
+      "--smtp-password-file",
+      smtpPasswordPath,
       "--public-origin",
       "http://127.0.0.1:4174",
     ]);

@@ -2722,26 +2722,41 @@ export interface components {
             idempotencyKey: string;
             subjectId?: string | null;
             /** @enum {string} */
-            action: "PROVISION" | "UPDATE_ROLES" | "SUSPEND" | "REACTIVATE";
+            action: "PROVISION" | "UPDATE_ROLES" | "SUSPEND" | "REACTIVATE" | "DEACTIVATE" | "TRANSFER_ORGANIZATION" | "RESEND_INVITATION" | "RESET_PASSWORD" | "RESET_MFA" | "FORCE_LOGOUT";
             roles: components["schemas"]["Role"][];
             organizationId: string;
             /** Format: email */
             email?: string | null;
             displayName?: string | null;
+            reason: string;
+            expectedMembershipRevision: number;
+            /** Format: date-time */
+            effectiveAt?: string | null;
         };
         UserLifecycleRequestView: {
             id: string;
             subjectId: string | null;
             /** @enum {string} */
-            action: "PROVISION" | "UPDATE_ROLES" | "SUSPEND" | "REACTIVATE";
+            action: "PROVISION" | "UPDATE_ROLES" | "SUSPEND" | "REACTIVATE" | "DEACTIVATE" | "TRANSFER_ORGANIZATION" | "RESEND_INVITATION" | "RESET_PASSWORD" | "RESET_MFA" | "FORCE_LOGOUT";
             roles: components["schemas"]["Role"][];
             organizationId: string;
             /** Format: email */
             email: string | null;
             displayName: string | null;
             /** @enum {string} */
-            status: "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED";
+            status: "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED" | "FAILED_RETRYABLE" | "FAILED_PERMANENT" | "MANUAL_REVIEW";
             idempotencyKey: string;
+            expectedMembershipRevision: number;
+            resultingMembershipRevision: number;
+            membershipId: string | null;
+            reason: string;
+            /** Format: date-time */
+            effectiveAt: string | null;
+            /** @enum {string|null} */
+            providerFailureClass: "RETRYABLE" | "PERMANENT" | "MANUAL_REVIEW" | null;
+            /** Format: date-time */
+            providerAcknowledgedAt: string | null;
+            attemptCount: number;
             requestedBySubjectId: string;
             outboxMessageId: string;
             failureReason: string | null;
@@ -5450,7 +5465,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Durable user lifecycle request accepted for Keycloak reconciliation */
+            /** @description Durable reasoned user lifecycle request accepted for Keycloak reconciliation */
             202: {
                 headers: {
                     ETag: components["headers"]["ETag"];

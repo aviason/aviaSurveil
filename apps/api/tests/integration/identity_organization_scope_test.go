@@ -179,7 +179,7 @@ func TestIdentitySettingsMigrationBackfillsRetainedSubjects(t *testing.T) {
 	}
 }
 
-func TestUserLifecycleRequestPersistsJobEnvelopeAndInvalidatesTargetSessions(t *testing.T) {
+func TestUserLifecycleRequestPersistsJobEnvelopeWithoutEarlySessionInvalidation(t *testing.T) {
 	pool := canonicalDatabase(t, "user_lifecycle")
 	if _, err := pool.Exec(context.Background(), `
 		INSERT INTO identity_references (subject_id, issuer, display_name)
@@ -197,6 +197,38 @@ func TestUserLifecycleRequestPersistsJobEnvelopeAndInvalidatesTargetSessions(t *
 	`, canonicalNow.Add(24*time.Hour), canonicalNow); err != nil {
 		t.Fatalf("seed administrator session: %v", err)
 	}
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO user_lifecycle_requests (
+			id, subject_id, requested_action, requested_roles,
+			requested_organization_id, requested_email,
+			requested_display_name, status, idempotency_key,
+			expected_membership_revision, reason, requested_by_subject_id
+		) VALUES (
+			'seed-membership-auditee-xyz', 'auditee-xyz', 'PROVISION',
+			ARRAY['auditee'], 'airline-xyz', 'auditee.xyz@example.test',
+			'Airline XYZ Auditee', 'SUCCEEDED',
+			'seed-membership-auditee-xyz', 0,
+			'Existing approved membership.', 'admin-001'
+		)
+	`); err != nil {
+		t.Fatalf("seed desired membership source request: %v", err)
+	}
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO desired_membership_versions (
+			membership_id, subject_id, revision, membership_state,
+			organization_id, roles, requested_by_subject_id, reason,
+			source_request_id, requested_at, effective_at,
+			observed_provider_enabled, observed_organization_id,
+			observed_roles, observed_at, drift_state
+		) VALUES (
+			'membership-auditee-xyz', 'auditee-xyz', 1, 'ACTIVE',
+			'airline-xyz', ARRAY['auditee'], 'admin-001',
+			'Existing approved membership.', 'seed-membership-auditee-xyz',
+			$1, $1, true, 'airline-xyz', ARRAY['auditee'], $1, 'IN_SYNC'
+		)
+	`, canonicalNow); err != nil {
+		t.Fatalf("seed desired membership: %v", err)
+	}
 	service := administration.NewUserService(pool, administration.UserServiceDependencies{
 		Clock: func() time.Time { return canonicalNow },
 		IDGenerator: func(prefix string) string {
@@ -207,6 +239,7 @@ func TestUserLifecycleRequestPersistsJobEnvelopeAndInvalidatesTargetSessions(t *
 		OperationID: "op-user-suspend-001", IdempotencyKey: "idem-user-suspend-001",
 		SubjectID: "auditee-xyz", Action: administration.UserLifecycleSuspend,
 		OrganizationID: "airline-xyz", Roles: []identity.Role{identity.RoleAuditee},
+		Reason: "Approved temporary suspension.", ExpectedMembershipRevision: 1,
 	}
 	if _, err := service.RequestLifecycle(context.Background(),
 		principal("inspector-cabin-001", "caa", "session-inspector", identity.RoleInspector),
@@ -218,7 +251,7 @@ func TestUserLifecycleRequestPersistsJobEnvelopeAndInvalidatesTargetSessions(t *
 	if err := pool.QueryRow(context.Background(), "SELECT COUNT(*) FROM user_lifecycle_requests").Scan(&beforeCount); err != nil {
 		t.Fatalf("count unauthorized lifecycle requests: %v", err)
 	}
-	if beforeCount != 0 {
+	if beforeCount != 1 {
 		t.Fatalf("unauthorized request wrote %d lifecycle records", beforeCount)
 	}
 
@@ -240,7 +273,7 @@ func TestUserLifecycleRequestPersistsJobEnvelopeAndInvalidatesTargetSessions(t *
 	).Scan(&beforeCount); err != nil {
 		t.Fatalf("count wrong-organization lifecycle requests: %v", err)
 	}
-	if beforeCount != 0 {
+	if beforeCount != 1 {
 		t.Fatalf("wrong-organization request wrote %d lifecycle records", beforeCount)
 	}
 
@@ -283,7 +316,7 @@ func TestUserLifecycleRequestPersistsJobEnvelopeAndInvalidatesTargetSessions(t *
 	).Scan(&beforeCount); err != nil {
 		t.Fatalf("count invalid role/organization lifecycle requests: %v", err)
 	}
-	if beforeCount != 0 {
+	if beforeCount != 1 {
 		t.Fatalf(
 			"invalid role/organization mapping wrote %d lifecycle records",
 			beforeCount,
@@ -331,8 +364,8 @@ func TestUserLifecycleRequestPersistsJobEnvelopeAndInvalidatesTargetSessions(t *
 	`).Scan(&revokedAt); err != nil {
 		t.Fatalf("read invalidated target session: %v", err)
 	}
-	if revokedAt == nil || !revokedAt.Equal(canonicalNow) {
-		t.Fatalf("target session revoked_at = %v", revokedAt)
+	if revokedAt != nil {
+		t.Fatalf("target session was revoked before provider acknowledgement: %v", revokedAt)
 	}
 	for _, assertion := range []struct {
 		name string
@@ -407,6 +440,7 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 			DisplayName:    "New Auditee",
 			OrganizationID: "airline-xyz",
 			Roles:          []identity.Role{identity.RoleAuditee},
+			Reason:         "Approved new Auditee membership.",
 		},
 	)
 	if err != nil {
@@ -506,7 +540,7 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 		t.Fatalf("read desired membership: %v", err)
 	}
 	if membershipRevision != 1 ||
-		membershipState != "ACTIVE" ||
+		membershipState != "INVITED" ||
 		membershipOrganization != "airline-xyz" ||
 		fmt.Sprint(membershipRoles) != "[auditee]" ||
 		membershipDrift != "IN_SYNC" {
@@ -557,6 +591,54 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 	if successAuditCount != 1 {
 		t.Fatalf("provisioning success audit count = %d", successAuditCount)
 	}
+	if len(provider.executeActions) != 1 ||
+		provider.executeActions[0].subjectID != "keycloak-subject-001" ||
+		!slices.Equal(
+			provider.executeActions[0].actions,
+			[]string{"UPDATE_PASSWORD", "VERIFY_EMAIL"},
+		) ||
+		provider.executeActions[0].lifespanSeconds != 24*60*60 {
+		t.Fatalf("provisioning execute-actions = %#v", provider.executeActions)
+	}
+	var invitationState string
+	if err := pool.QueryRow(context.Background(), `
+		SELECT state
+		FROM identity_action_facts
+		WHERE membership_id = $1
+		  AND action_kind = 'INVITATION'
+		ORDER BY fact_sequence DESC
+		LIMIT 1
+	`, "membership-"+provisioned.ID).Scan(&invitationState); err != nil {
+		t.Fatalf("read provisioning invitation fact: %v", err)
+	}
+	if invitationState != "DELIVERY_ACCEPTED" {
+		t.Fatalf("provisioning invitation state = %q", invitationState)
+	}
+	if err := userService.ReconcileActivatedMembership(
+		context.Background(),
+		"keycloak-subject-001",
+		1,
+		nil,
+		false,
+	); err != nil {
+		t.Fatalf("reconcile first-login activation: %v", err)
+	}
+	if err := pool.QueryRow(context.Background(), `
+		SELECT revision, membership_state
+		FROM desired_membership_versions
+		WHERE subject_id = 'keycloak-subject-001'
+		ORDER BY revision DESC
+		LIMIT 1
+	`).Scan(&membershipRevision, &membershipState); err != nil {
+		t.Fatalf("read activated desired membership: %v", err)
+	}
+	if membershipRevision != 2 || membershipState != "ACTIVE" {
+		t.Fatalf(
+			"activated desired membership = revision %d state %q",
+			membershipRevision,
+			membershipState,
+		)
+	}
 
 	if _, err := userService.RequestLifecycle(
 		context.Background(),
@@ -569,6 +651,7 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 			DisplayName:    "Duplicate Auditee",
 			OrganizationID: "airline-xyz",
 			Roles:          []identity.Role{identity.RoleAuditee},
+			Reason:         "Approved duplicate-email rejection proof.",
 		},
 	); !errors.Is(err, administration.ErrConflict) {
 		t.Fatalf("duplicate provisioning email error = %v", err)
@@ -589,12 +672,14 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 		context.Background(),
 		admin,
 		administration.RequestUserLifecycleCommand{
-			OperationID:    "op-user-suspend-worker-001",
-			IdempotencyKey: "idem-user-suspend-worker-001",
-			SubjectID:      "keycloak-subject-001",
-			Action:         administration.UserLifecycleSuspend,
-			OrganizationID: "airline-xyz",
-			Roles:          []identity.Role{identity.RoleAuditee},
+			OperationID:                "op-user-suspend-worker-001",
+			IdempotencyKey:             "idem-user-suspend-worker-001",
+			SubjectID:                  "keycloak-subject-001",
+			Action:                     administration.UserLifecycleSuspend,
+			OrganizationID:             "airline-xyz",
+			Roles:                      []identity.Role{identity.RoleAuditee},
+			Reason:                     "Approved temporary suspension.",
+			ExpectedMembershipRevision: 2,
 		},
 	)
 	if err != nil {
@@ -654,8 +739,8 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 		t.Fatalf("read suspended desired membership: %v", err)
 	}
 	if suspendedMembershipID != "membership-"+provisioned.ID ||
-		suspendedMembershipRevision != 2 ||
-		synchronizedRevision != 2 ||
+		suspendedMembershipRevision != 3 ||
+		synchronizedRevision != 3 ||
 		suspendedMembershipState != "SUSPENDED" ||
 		observedProviderEnabled ||
 		suspendedDrift != "IN_SYNC" {
@@ -667,6 +752,319 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 			synchronizedRevision,
 			observedProviderEnabled,
 			suspendedDrift,
+		)
+	}
+	processAction := func(
+		processor *administration.UserLifecycleWorker,
+		command administration.RequestUserLifecycleCommand,
+	) administration.UserLifecycleRequest {
+		t.Helper()
+		record, err := userService.RequestLifecycle(
+			context.Background(),
+			admin,
+			command,
+		)
+		if err != nil {
+			t.Fatalf("request %s: %v", command.Action, err)
+		}
+		if processed, err := processor.ProcessNext(context.Background()); err != nil ||
+			!processed {
+			t.Fatalf(
+				"process %s = %t, err = %v",
+				command.Action,
+				processed,
+				err,
+			)
+		}
+		return record
+	}
+	reactivated := processAction(
+		worker,
+		administration.RequestUserLifecycleCommand{
+			OperationID:                "op-user-reactivate-worker-001",
+			IdempotencyKey:             "idem-user-reactivate-worker-001",
+			SubjectID:                  "keycloak-subject-001",
+			Action:                     administration.UserLifecycleReactivate,
+			OrganizationID:             "airline-xyz",
+			Roles:                      []identity.Role{identity.RoleAuditee},
+			Reason:                     "Approved explicit reactivation.",
+			ExpectedMembershipRevision: 3,
+		},
+	)
+	processAction(
+		worker,
+		administration.RequestUserLifecycleCommand{
+			OperationID:                "op-user-resend-worker-001",
+			IdempotencyKey:             "idem-user-resend-worker-001",
+			SubjectID:                  "keycloak-subject-001",
+			Action:                     administration.UserLifecycleResendInvitation,
+			OrganizationID:             "airline-xyz",
+			Roles:                      []identity.Role{identity.RoleAuditee},
+			Reason:                     "Approved invitation resend.",
+			ExpectedMembershipRevision: 4,
+		},
+	)
+	for resendNumber := 2; resendNumber <= 3; resendNumber++ {
+		processAction(
+			worker,
+			administration.RequestUserLifecycleCommand{
+				OperationID: fmt.Sprintf(
+					"op-user-resend-worker-%03d",
+					resendNumber,
+				),
+				IdempotencyKey: fmt.Sprintf(
+					"idem-user-resend-worker-%03d",
+					resendNumber,
+				),
+				SubjectID:      "keycloak-subject-001",
+				Action:         administration.UserLifecycleResendInvitation,
+				OrganizationID: "airline-xyz",
+				Roles:          []identity.Role{identity.RoleAuditee},
+				Reason: fmt.Sprintf(
+					"Approved invitation resend %d.",
+					resendNumber,
+				),
+				ExpectedMembershipRevision: 4,
+			},
+		)
+	}
+	resendLimitRequest, err := userService.RequestLifecycle(
+		context.Background(),
+		admin,
+		administration.RequestUserLifecycleCommand{
+			OperationID:                "op-user-resend-worker-004",
+			IdempotencyKey:             "idem-user-resend-worker-004",
+			SubjectID:                  "keycloak-subject-001",
+			Action:                     administration.UserLifecycleResendInvitation,
+			OrganizationID:             "airline-xyz",
+			Roles:                      []identity.Role{identity.RoleAuditee},
+			Reason:                     "Rejected fourth invitation resend.",
+			ExpectedMembershipRevision: 4,
+		},
+	)
+	if err != nil {
+		t.Fatalf("request fourth invitation resend: %v", err)
+	}
+	executeActionCountBeforeLimit := len(provider.executeActions)
+	if processed, err := worker.ProcessNext(context.Background()); !processed ||
+		!errors.Is(err, administration.ErrInvitationResendLimit) {
+		t.Fatalf(
+			"process fourth invitation resend = %t, err = %v",
+			processed,
+			err,
+		)
+	}
+	var resendLimitStatus, resendLimitReason string
+	var resendLimitAlerts int
+	if err := pool.QueryRow(context.Background(), `
+		SELECT request.status, request.failure_reason,
+		       (
+		           SELECT count(*)
+		           FROM identity_lifecycle_alerts alert
+		           WHERE alert.request_id = request.id
+		       )
+		FROM user_lifecycle_requests request
+		WHERE request.id = $1
+	`, resendLimitRequest.ID).Scan(
+		&resendLimitStatus,
+		&resendLimitReason,
+		&resendLimitAlerts,
+	); err != nil {
+		t.Fatalf("read invitation resend limit outcome: %v", err)
+	}
+	if resendLimitStatus != "FAILED_PERMANENT" ||
+		resendLimitReason != "INVITATION_RESEND_LIMIT" ||
+		resendLimitAlerts != 1 ||
+		len(provider.executeActions) != executeActionCountBeforeLimit {
+		t.Fatalf(
+			"invitation resend limit = status %q reason %q alerts %d provider actions before=%d after=%d",
+			resendLimitStatus,
+			resendLimitReason,
+			resendLimitAlerts,
+			executeActionCountBeforeLimit,
+			len(provider.executeActions),
+		)
+	}
+	processAction(
+		worker,
+		administration.RequestUserLifecycleCommand{
+			OperationID:                "op-user-recovery-worker-001",
+			IdempotencyKey:             "idem-user-recovery-worker-001",
+			SubjectID:                  "keycloak-subject-001",
+			Action:                     administration.UserLifecycleResetPassword,
+			OrganizationID:             "airline-xyz",
+			Roles:                      []identity.Role{identity.RoleAuditee},
+			Reason:                     "Approved password recovery.",
+			ExpectedMembershipRevision: 4,
+		},
+	)
+	processAction(
+		worker,
+		administration.RequestUserLifecycleCommand{
+			OperationID:                "op-user-reset-mfa-worker-001",
+			IdempotencyKey:             "idem-user-reset-mfa-worker-001",
+			SubjectID:                  "keycloak-subject-001",
+			Action:                     administration.UserLifecycleResetMFA,
+			OrganizationID:             "airline-xyz",
+			Roles:                      []identity.Role{identity.RoleAuditee},
+			Reason:                     "Approved MFA reset.",
+			ExpectedMembershipRevision: 4,
+		},
+	)
+	processAction(
+		worker,
+		administration.RequestUserLifecycleCommand{
+			OperationID:                "op-user-force-logout-worker-001",
+			IdempotencyKey:             "idem-user-force-logout-worker-001",
+			SubjectID:                  "keycloak-subject-001",
+			Action:                     administration.UserLifecycleForceLogout,
+			OrganizationID:             "airline-xyz",
+			Roles:                      []identity.Role{identity.RoleAuditee},
+			Reason:                     "Approved forced logout.",
+			ExpectedMembershipRevision: 4,
+		},
+	)
+	processAction(
+		worker,
+		administration.RequestUserLifecycleCommand{
+			OperationID:                "op-user-update-role-worker-001",
+			IdempotencyKey:             "idem-user-update-role-worker-001",
+			SubjectID:                  "keycloak-subject-001",
+			Action:                     administration.UserLifecycleUpdateRoles,
+			OrganizationID:             "airline-xyz",
+			Roles:                      []identity.Role{identity.RoleAuditee},
+			Reason:                     "Approved exact role synchronization.",
+			ExpectedMembershipRevision: 4,
+		},
+	)
+	transferEffectiveAt := canonicalNow.Add(5 * time.Minute)
+	transfer, err := userService.RequestLifecycle(
+		context.Background(),
+		admin,
+		administration.RequestUserLifecycleCommand{
+			OperationID:                "op-user-transfer-worker-001",
+			IdempotencyKey:             "idem-user-transfer-worker-001",
+			SubjectID:                  "keycloak-subject-001",
+			Action:                     administration.UserLifecycleTransferOrganization,
+			OrganizationID:             "airline-other",
+			Roles:                      []identity.Role{identity.RoleAuditee},
+			Reason:                     "Approved future-effective organization transfer.",
+			ExpectedMembershipRevision: 5,
+			EffectiveAt:                &transferEffectiveAt,
+		},
+	)
+	if err != nil {
+		t.Fatalf("request organization transfer: %v", err)
+	}
+	futureWorker := administration.NewUserLifecycleWorker(
+		pool,
+		provider,
+		administration.UserLifecycleWorkerDependencies{
+			Clock: func() time.Time {
+				return transferEffectiveAt.Add(time.Second)
+			},
+			IDGenerator: func(prefix string) string {
+				counters[prefix]++
+				return fmt.Sprintf(
+					"%s-worker-%03d",
+					prefix,
+					counters[prefix],
+				)
+			},
+			WorkerID: "identity-worker-future-test",
+			Issuer:   "https://localhost:8443/identity/realms/aviasurveil360",
+		},
+	)
+	if processed, err := futureWorker.ProcessNext(context.Background()); err != nil ||
+		!processed {
+		t.Fatalf("process organization transfer = %t, err = %v", processed, err)
+	}
+	futureUserService := administration.NewUserService(
+		pool,
+		administration.UserServiceDependencies{
+			Clock: func() time.Time {
+				return transferEffectiveAt.Add(time.Second)
+			},
+			IDGenerator: func(prefix string) string {
+				counters[prefix]++
+				return fmt.Sprintf(
+					"%s-worker-%03d",
+					prefix,
+					counters[prefix],
+				)
+			},
+		},
+	)
+	deactivated, err := futureUserService.RequestLifecycle(
+		context.Background(),
+		admin,
+		administration.RequestUserLifecycleCommand{
+			OperationID:                "op-user-deactivate-worker-001",
+			IdempotencyKey:             "idem-user-deactivate-worker-001",
+			SubjectID:                  "keycloak-subject-001",
+			Action:                     administration.UserLifecycleDeactivate,
+			OrganizationID:             "airline-other",
+			Roles:                      []identity.Role{identity.RoleAuditee},
+			Reason:                     "Approved retained deactivation.",
+			ExpectedMembershipRevision: 6,
+		},
+	)
+	if err != nil {
+		t.Fatalf("request retained deactivation: %v", err)
+	}
+	if processed, err := futureWorker.ProcessNext(context.Background()); err != nil ||
+		!processed {
+		t.Fatalf("process retained deactivation = %t, err = %v", processed, err)
+	}
+	var finalMembershipState, finalOrganization, profileOrganization string
+	var finalMembershipRevision int64
+	var deactivatedAt *time.Time
+	if err := pool.QueryRow(context.Background(), `
+		SELECT membership.revision, membership.membership_state,
+		       membership.organization_id, profile.organization_id,
+		       identity.deactivated_at
+		FROM desired_membership_versions membership
+		JOIN user_profiles profile ON profile.subject_id = membership.subject_id
+		JOIN identity_references identity
+		  ON identity.subject_id = membership.subject_id
+		WHERE membership.subject_id = 'keycloak-subject-001'
+		ORDER BY membership.revision DESC
+		LIMIT 1
+	`).Scan(
+		&finalMembershipRevision,
+		&finalMembershipState,
+		&finalOrganization,
+		&profileOrganization,
+		&deactivatedAt,
+	); err != nil {
+		t.Fatalf("read final lifecycle state: %v", err)
+	}
+	if finalMembershipRevision != 7 ||
+		finalMembershipState != "DEACTIVATED" ||
+		finalOrganization != "airline-other" ||
+		profileOrganization != "airline-other" ||
+		deactivatedAt == nil {
+		t.Fatalf(
+			"final lifecycle state = rev %d state %q membership org %q profile org %q deactivated %v",
+			finalMembershipRevision,
+			finalMembershipState,
+			finalOrganization,
+			profileOrganization,
+			deactivatedAt,
+		)
+	}
+	if reactivated.ID == "" || transfer.ID == "" || deactivated.ID == "" ||
+		len(provider.executeActions) != 6 ||
+		len(provider.resetMFASubjects) != 1 ||
+		len(provider.loggedOutSubjects) < 4 {
+		t.Fatalf(
+			"expanded lifecycle provider transcript = reactivated %q transfer %q deactivated %q actions %#v resetMFA %#v logout %#v",
+			reactivated.ID,
+			transfer.ID,
+			deactivated.ID,
+			provider.executeActions,
+			provider.resetMFASubjects,
+			provider.loggedOutSubjects,
 		)
 	}
 
@@ -681,6 +1079,7 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 			DisplayName:    "Recovered Auditee",
 			OrganizationID: "airline-xyz",
 			Roles:          []identity.Role{identity.RoleAuditee},
+			Reason:         "Approved provider reconciliation proof.",
 		},
 	)
 	if err != nil {
@@ -712,6 +1111,50 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 			recoveredSubject,
 		)
 	}
+	expirationWorker := administration.NewUserLifecycleWorker(
+		pool,
+		provider,
+		administration.UserLifecycleWorkerDependencies{
+			Clock: func() time.Time {
+				return canonicalNow.Add(24*time.Hour + time.Second)
+			},
+			IDGenerator: func(prefix string) string {
+				counters[prefix]++
+				return fmt.Sprintf(
+					"%s-worker-%03d",
+					prefix,
+					counters[prefix],
+				)
+			},
+			WorkerID: "identity-worker-expiration-test",
+			Issuer:   "https://localhost:8443/identity/realms/aviasurveil360",
+		},
+	)
+	executeActionCount := len(provider.executeActions)
+	if processed, err := expirationWorker.ProcessNext(context.Background()); err != nil ||
+		!processed {
+		t.Fatalf("process invitation expiry = %t, err = %v", processed, err)
+	}
+	var expiredInvitationState string
+	if err := pool.QueryRow(context.Background(), `
+		SELECT state
+		FROM identity_action_facts
+		WHERE subject_id = 'keycloak-subject-recovered-001'
+		  AND action_kind = 'INVITATION'
+		ORDER BY created_at DESC, fact_sequence DESC
+		LIMIT 1
+	`).Scan(&expiredInvitationState); err != nil {
+		t.Fatalf("read expired invitation fact: %v", err)
+	}
+	if expiredInvitationState != "EXPIRED" ||
+		len(provider.executeActions) != executeActionCount {
+		t.Fatalf(
+			"expired invitation state = %q, provider actions before=%d after=%d",
+			expiredInvitationState,
+			executeActionCount,
+			len(provider.executeActions),
+		)
+	}
 }
 
 type lifecycleIdentityProvider struct {
@@ -722,6 +1165,17 @@ type lifecycleIdentityProvider struct {
 	reconcileMatched     bool
 	reconciled           identity.KeycloakUser
 	disabledSubjects     []string
+	executeActions       []lifecycleExecuteActions
+	resetMFASubjects     []string
+	loggedOutSubjects    []string
+	updatedAuthorities   []string
+	enabledSubjects      []string
+}
+
+type lifecycleExecuteActions struct {
+	subjectID       string
+	actions         []string
+	lifespanSeconds int
 }
 
 func (provider *lifecycleIdentityProvider) ProvisionUser(
@@ -745,10 +1199,14 @@ func (provider *lifecycleIdentityProvider) ReconcileProvisionedUser(
 
 func (provider *lifecycleIdentityProvider) UpdateUserAuthority(
 	_ context.Context,
-	_ string,
-	_ string,
-	_ []identity.Role,
+	subjectID string,
+	organizationID string,
+	roles []identity.Role,
 ) error {
+	provider.updatedAuthorities = append(
+		provider.updatedAuthorities,
+		fmt.Sprintf("%s:%s:%v", subjectID, organizationID, roles),
+	)
 	return nil
 }
 
@@ -762,8 +1220,38 @@ func (provider *lifecycleIdentityProvider) DisableUser(
 
 func (provider *lifecycleIdentityProvider) EnableUser(
 	_ context.Context,
-	_ string,
+	subjectID string,
 ) error {
+	provider.enabledSubjects = append(provider.enabledSubjects, subjectID)
+	return nil
+}
+
+func (provider *lifecycleIdentityProvider) IssueExecuteActionsEmail(
+	_ context.Context,
+	subjectID string,
+	actions []string,
+	lifespanSeconds int,
+) error {
+	provider.executeActions = append(provider.executeActions, lifecycleExecuteActions{
+		subjectID: subjectID, actions: append([]string(nil), actions...),
+		lifespanSeconds: lifespanSeconds,
+	})
+	return nil
+}
+
+func (provider *lifecycleIdentityProvider) ResetUserMFA(
+	_ context.Context,
+	subjectID string,
+) error {
+	provider.resetMFASubjects = append(provider.resetMFASubjects, subjectID)
+	return nil
+}
+
+func (provider *lifecycleIdentityProvider) ForceUserLogout(
+	_ context.Context,
+	subjectID string,
+) error {
+	provider.loggedOutSubjects = append(provider.loggedOutSubjects, subjectID)
 	return nil
 }
 
@@ -1044,7 +1532,9 @@ func TestAdminHTTPCanRequestUserProvisioningWithoutWrongRoleWrites(t *testing.T)
 		"email":"new.http.auditee@example.test",
 		"displayName":"HTTP Auditee",
 		"organizationId":"ORG-FLY-NAMIBIA",
-		"roles":["auditee"]
+		"roles":["auditee"],
+		"reason":"Approved HTTP provisioning proof.",
+		"expectedMembershipRevision":0
 	}`
 	request := httptest.NewRequest(
 		http.MethodPost,

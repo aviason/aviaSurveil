@@ -74,6 +74,11 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: local-bootstrap-admin
       KC_BOOTSTRAP_ADMIN_PASSWORD_FILE: /run/secrets/keycloak_bootstrap_admin_password
       KC_HTTP_RELATIVE_PATH: /identity
+    depends_on:
+      keycloak-postgres:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
     configs:
       - source: keycloak_entrypoint
         target: /opt/aviasurveil360/keycloak-entrypoint.sh
@@ -107,6 +112,29 @@ services:
       timeout: 3s
       retries: 60
       start_period: 30s
+    restart: "no"
+
+  mailpit:
+    image: axllent/mailpit:v1.27.8@sha256:6abc8e633df15eaf785cfcf38bae48e66f64beecdc03121e249d0f9ec15f0707
+    read_only: true
+    environment:
+      MP_DATABASE: /tmp/mailpit.db
+      MP_SMTP_AUTH_FILE: /run/secrets/smtp_auth_file
+      MP_SMTP_AUTH_ALLOW_INSECURE: "true"
+      MP_SMTP_REQUIRE_STARTTLS: "false"
+      MP_SMTP_DISABLE_RDNS: "true"
+    secrets:
+      - smtp_auth_file
+    ports:
+      - "127.0.0.1:${AVIA_TEST_MAILPIT_HTTP_PORT:-58095}:8025"
+    tmpfs:
+      - /tmp:mode=1777
+    healthcheck:
+      test: [CMD, /mailpit, readyz]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
     restart: "no"
 
   object-store-init:
@@ -165,6 +193,8 @@ secrets:
     file: ${AVIA_TEST_RUNTIME_DIR:?AVIA_TEST_RUNTIME_DIR is required}/secrets/minio_root_password
   minio_root_user:
     file: ${AVIA_TEST_RUNTIME_DIR:?AVIA_TEST_RUNTIME_DIR is required}/secrets/minio_root_user
+  smtp_auth_file:
+    file: ${AVIA_TEST_RUNTIME_DIR:?AVIA_TEST_RUNTIME_DIR is required}/secrets/smtp_auth_file
 
 volumes:
   postgres-test-data:

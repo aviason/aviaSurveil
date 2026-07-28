@@ -14,7 +14,7 @@ import (
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
 )
 
-func TestKeycloakAdminClientProvisionsOrganizationRolesAndFirstLoginTOTP(t *testing.T) {
+func TestKeycloakAdminClientProvisionsPasswordlessUserWithoutRequiredTOTP(t *testing.T) {
 	t.Parallel()
 	var created map[string]any
 	var mappedRoles []map[string]any
@@ -76,7 +76,6 @@ func TestKeycloakAdminClientProvisionsOrganizationRolesAndFirstLoginTOTP(t *test
 			OrganizationID: "CAA",
 			Roles: []identity.Role{
 				identity.RoleInspector,
-				identity.RoleLeadInspector,
 			},
 		},
 	)
@@ -90,8 +89,12 @@ func TestKeycloakAdminClientProvisionsOrganizationRolesAndFirstLoginTOTP(t *test
 		created["email"] != "new.user@example.test" ||
 		created["firstName"] != "New" ||
 		created["lastName"] != "User" ||
-		created["enabled"] != true {
+		created["enabled"] != true ||
+		created["emailVerified"] != false {
 		t.Fatalf("created representation = %#v", created)
+	}
+	if _, exists := created["credentials"]; exists {
+		t.Fatalf("created representation contains credentials: %#v", created)
 	}
 	attributes, ok := created["attributes"].(map[string]any)
 	if !ok {
@@ -103,13 +106,146 @@ func TestKeycloakAdminClientProvisionsOrganizationRolesAndFirstLoginTOTP(t *test
 		t.Fatalf("organization attributes = %#v", attributes)
 	}
 	requiredActions, ok := created["requiredActions"].([]any)
-	if !ok || !slices.Contains(requiredActions, any("CONFIGURE_TOTP")) {
+	if !ok ||
+		!slices.Equal(requiredActions, []any{"UPDATE_PASSWORD", "VERIFY_EMAIL"}) ||
+		slices.Contains(requiredActions, any("CONFIGURE_TOTP")) {
 		t.Fatalf("required actions = %#v", created["requiredActions"])
 	}
-	if len(mappedRoles) != 2 ||
-		mappedRoles[0]["name"] != string(identity.RoleInspector) ||
-		mappedRoles[1]["name"] != string(identity.RoleLeadInspector) {
+	if len(mappedRoles) != 1 ||
+		mappedRoles[0]["name"] != string(identity.RoleInspector) {
 		t.Fatalf("mapped roles = %#v", mappedRoles)
+	}
+}
+
+func TestKeycloakAdminClientIssuesExecuteActionsResetsMFAAndForcesLogout(t *testing.T) {
+	t.Parallel()
+	var transcript []string
+	server := httptest.NewServer(http.HandlerFunc(func(
+		writer http.ResponseWriter,
+		request *http.Request,
+	) {
+		assertKeycloakBearer(t, request)
+		switch {
+		case request.URL.Path == "/identity/realms/aviasurveil360/protocol/openid-connect/token":
+			assertKeycloakAdminTokenRequest(t, request)
+			writeKeycloakJSON(writer, http.StatusOK, map[string]any{
+				"access_token": "admin-access-token",
+				"expires_in":   60,
+			})
+		case request.Method == http.MethodPut &&
+			request.URL.Path == "/identity/admin/realms/aviasurveil360/users/provider-subject-001/execute-actions-email":
+			if request.URL.Query().Get("lifespan") != "86400" {
+				t.Errorf("execute-actions lifespan = %q", request.URL.RawQuery)
+			}
+			var actions []string
+			if err := json.NewDecoder(request.Body).Decode(&actions); err != nil {
+				t.Errorf("decode execute actions: %v", err)
+			}
+			if !slices.Equal(actions, []string{"UPDATE_PASSWORD", "VERIFY_EMAIL"}) {
+				t.Errorf("execute actions = %#v", actions)
+			}
+			transcript = append(transcript, "execute-actions")
+			writer.WriteHeader(http.StatusNoContent)
+		case request.Method == http.MethodGet &&
+			request.URL.Path == "/identity/admin/realms/aviasurveil360/users/provider-subject-001/credentials":
+			writeKeycloakJSON(writer, http.StatusOK, []map[string]string{
+				{"id": "otp-credential-001", "type": "otp"},
+				{"id": "password-credential-001", "type": "password"},
+			})
+		case request.Method == http.MethodDelete &&
+			request.URL.Path == "/identity/admin/realms/aviasurveil360/users/provider-subject-001/credentials/otp-credential-001":
+			transcript = append(transcript, "delete-otp")
+			writer.WriteHeader(http.StatusNoContent)
+		case request.Method == http.MethodPost &&
+			request.URL.Path == "/identity/admin/realms/aviasurveil360/users/provider-subject-001/logout":
+			transcript = append(transcript, "logout")
+			writer.WriteHeader(http.StatusNoContent)
+		default:
+			http.Error(writer, "unexpected request", http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	client := newKeycloakAdminTestClient(t, server.URL)
+	if err := client.IssueExecuteActionsEmail(
+		context.Background(),
+		"provider-subject-001",
+		[]string{"UPDATE_PASSWORD", "VERIFY_EMAIL"},
+		24*60*60,
+	); err != nil {
+		t.Fatalf("issue execute actions: %v", err)
+	}
+	if err := client.ResetUserMFA(
+		context.Background(),
+		"provider-subject-001",
+	); err != nil {
+		t.Fatalf("reset user MFA: %v", err)
+	}
+	if err := client.ForceUserLogout(
+		context.Background(),
+		"provider-subject-001",
+	); err != nil {
+		t.Fatalf("force user logout: %v", err)
+	}
+	if !slices.Equal(
+		transcript,
+		[]string{"execute-actions", "delete-otp", "logout"},
+	) {
+		t.Fatalf("identity lifecycle transcript = %#v", transcript)
+	}
+}
+
+func TestKeycloakAdminClientClassifiesProviderHTTPFailures(t *testing.T) {
+	t.Parallel()
+	for _, testCase := range []struct {
+		name          string
+		status        int
+		expectedClass identity.KeycloakFailureClass
+	}{
+		{"rate-limit", http.StatusTooManyRequests, identity.KeycloakFailureRetryable},
+		{"server-error", http.StatusServiceUnavailable, identity.KeycloakFailureRetryable},
+		{"unauthorized", http.StatusUnauthorized, identity.KeycloakFailureManualReview},
+		{"forbidden", http.StatusForbidden, identity.KeycloakFailureManualReview},
+		{"bad-request", http.StatusBadRequest, identity.KeycloakFailurePermanent},
+	} {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			server := httptest.NewServer(http.HandlerFunc(func(
+				writer http.ResponseWriter,
+				request *http.Request,
+			) {
+				assertKeycloakBearer(t, request)
+				if request.URL.Path ==
+					"/identity/realms/aviasurveil360/protocol/openid-connect/token" {
+					assertKeycloakAdminTokenRequest(t, request)
+					writeKeycloakJSON(writer, http.StatusOK, map[string]any{
+						"access_token": "admin-access-token",
+						"expires_in":   60,
+					})
+					return
+				}
+				http.Error(writer, "classified provider failure", testCase.status)
+			}))
+			t.Cleanup(server.Close)
+			err := newKeycloakAdminTestClient(t, server.URL).ForceUserLogout(
+				context.Background(),
+				"provider-subject-001",
+			)
+			if err == nil {
+				t.Fatal("provider HTTP failure was accepted")
+			}
+			if actual := identity.ClassifyKeycloakError(err); actual !=
+				testCase.expectedClass {
+				t.Fatalf(
+					"provider HTTP %d class = %q, want %q: %v",
+					testCase.status,
+					actual,
+					testCase.expectedClass,
+					err,
+				)
+			}
+		})
 	}
 }
 

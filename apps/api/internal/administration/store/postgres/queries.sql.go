@@ -212,43 +212,61 @@ const createUserLifecycleRequest = `-- name: CreateUserLifecycleRequest :one
 INSERT INTO user_lifecycle_requests (
     id, subject_id, requested_action, requested_roles,
     requested_organization_id, requested_email, requested_display_name,
-    status, idempotency_key, requested_by_subject_id, outbox_message_id
-) VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDING', $8, $9, $10)
+    status, idempotency_key, expected_membership_revision, reason,
+    requested_effective_at, requested_by_subject_id, outbox_message_id,
+    membership_id
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, 'PENDING', $8, $9, $10, $11, $12, $13, $14
+)
 RETURNING id, subject_id, requested_action, requested_roles,
           requested_organization_id, requested_email, requested_display_name,
-          status, idempotency_key,
+          status, idempotency_key, expected_membership_revision, reason,
+          requested_effective_at,
+          membership_id, resulting_membership_revision, provider_failure_class,
+          provider_acknowledged_at,
           requested_by_subject_id, outbox_message_id, failure_reason,
           created_at, updated_at
 `
 
 type CreateUserLifecycleRequestParams struct {
-	ID                      string   `json:"id"`
-	SubjectID               *string  `json:"subject_id"`
-	RequestedAction         string   `json:"requested_action"`
-	RequestedRoles          []string `json:"requested_roles"`
-	RequestedOrganizationID *string  `json:"requested_organization_id"`
-	RequestedEmail          *string  `json:"requested_email"`
-	RequestedDisplayName    *string  `json:"requested_display_name"`
-	IdempotencyKey          string   `json:"idempotency_key"`
-	RequestedBySubjectID    string   `json:"requested_by_subject_id"`
-	OutboxMessageID         *string  `json:"outbox_message_id"`
+	ID                         string             `json:"id"`
+	SubjectID                  *string            `json:"subject_id"`
+	RequestedAction            string             `json:"requested_action"`
+	RequestedRoles             []string           `json:"requested_roles"`
+	RequestedOrganizationID    *string            `json:"requested_organization_id"`
+	RequestedEmail             *string            `json:"requested_email"`
+	RequestedDisplayName       *string            `json:"requested_display_name"`
+	IdempotencyKey             string             `json:"idempotency_key"`
+	ExpectedMembershipRevision int64              `json:"expected_membership_revision"`
+	Reason                     string             `json:"reason"`
+	RequestedEffectiveAt       pgtype.Timestamptz `json:"requested_effective_at"`
+	RequestedBySubjectID       string             `json:"requested_by_subject_id"`
+	OutboxMessageID            *string            `json:"outbox_message_id"`
+	MembershipID               *string            `json:"membership_id"`
 }
 
 type CreateUserLifecycleRequestRow struct {
-	ID                      string             `json:"id"`
-	SubjectID               *string            `json:"subject_id"`
-	RequestedAction         string             `json:"requested_action"`
-	RequestedRoles          []string           `json:"requested_roles"`
-	RequestedOrganizationID *string            `json:"requested_organization_id"`
-	RequestedEmail          *string            `json:"requested_email"`
-	RequestedDisplayName    *string            `json:"requested_display_name"`
-	Status                  string             `json:"status"`
-	IdempotencyKey          string             `json:"idempotency_key"`
-	RequestedBySubjectID    string             `json:"requested_by_subject_id"`
-	OutboxMessageID         *string            `json:"outbox_message_id"`
-	FailureReason           *string            `json:"failure_reason"`
-	CreatedAt               pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
+	ID                          string             `json:"id"`
+	SubjectID                   *string            `json:"subject_id"`
+	RequestedAction             string             `json:"requested_action"`
+	RequestedRoles              []string           `json:"requested_roles"`
+	RequestedOrganizationID     *string            `json:"requested_organization_id"`
+	RequestedEmail              *string            `json:"requested_email"`
+	RequestedDisplayName        *string            `json:"requested_display_name"`
+	Status                      string             `json:"status"`
+	IdempotencyKey              string             `json:"idempotency_key"`
+	ExpectedMembershipRevision  int64              `json:"expected_membership_revision"`
+	Reason                      string             `json:"reason"`
+	RequestedEffectiveAt        pgtype.Timestamptz `json:"requested_effective_at"`
+	MembershipID                *string            `json:"membership_id"`
+	ResultingMembershipRevision *int64             `json:"resulting_membership_revision"`
+	ProviderFailureClass        *string            `json:"provider_failure_class"`
+	ProviderAcknowledgedAt      pgtype.Timestamptz `json:"provider_acknowledged_at"`
+	RequestedBySubjectID        string             `json:"requested_by_subject_id"`
+	OutboxMessageID             *string            `json:"outbox_message_id"`
+	FailureReason               *string            `json:"failure_reason"`
+	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                   pgtype.Timestamptz `json:"updated_at"`
 }
 
 func (q *Queries) CreateUserLifecycleRequest(ctx context.Context, arg CreateUserLifecycleRequestParams) (CreateUserLifecycleRequestRow, error) {
@@ -261,8 +279,12 @@ func (q *Queries) CreateUserLifecycleRequest(ctx context.Context, arg CreateUser
 		arg.RequestedEmail,
 		arg.RequestedDisplayName,
 		arg.IdempotencyKey,
+		arg.ExpectedMembershipRevision,
+		arg.Reason,
+		arg.RequestedEffectiveAt,
 		arg.RequestedBySubjectID,
 		arg.OutboxMessageID,
+		arg.MembershipID,
 	)
 	var i CreateUserLifecycleRequestRow
 	err := row.Scan(
@@ -275,6 +297,13 @@ func (q *Queries) CreateUserLifecycleRequest(ctx context.Context, arg CreateUser
 		&i.RequestedDisplayName,
 		&i.Status,
 		&i.IdempotencyKey,
+		&i.ExpectedMembershipRevision,
+		&i.Reason,
+		&i.RequestedEffectiveAt,
+		&i.MembershipID,
+		&i.ResultingMembershipRevision,
+		&i.ProviderFailureClass,
+		&i.ProviderAcknowledgedAt,
 		&i.RequestedBySubjectID,
 		&i.OutboxMessageID,
 		&i.FailureReason,
@@ -319,7 +348,10 @@ func (q *Queries) GetTemplateMaster(ctx context.Context, id string) (GetTemplate
 const getUserLifecycleRequestByIdempotencyKey = `-- name: GetUserLifecycleRequestByIdempotencyKey :one
 SELECT id, subject_id, requested_action, requested_roles,
        requested_organization_id, requested_email, requested_display_name,
-       status, idempotency_key,
+       status, idempotency_key, expected_membership_revision, reason,
+       requested_effective_at,
+       membership_id, resulting_membership_revision, provider_failure_class,
+       provider_acknowledged_at,
        requested_by_subject_id, outbox_message_id, failure_reason,
        created_at, updated_at
 FROM user_lifecycle_requests
@@ -327,20 +359,27 @@ WHERE idempotency_key = $1
 `
 
 type GetUserLifecycleRequestByIdempotencyKeyRow struct {
-	ID                      string             `json:"id"`
-	SubjectID               *string            `json:"subject_id"`
-	RequestedAction         string             `json:"requested_action"`
-	RequestedRoles          []string           `json:"requested_roles"`
-	RequestedOrganizationID *string            `json:"requested_organization_id"`
-	RequestedEmail          *string            `json:"requested_email"`
-	RequestedDisplayName    *string            `json:"requested_display_name"`
-	Status                  string             `json:"status"`
-	IdempotencyKey          string             `json:"idempotency_key"`
-	RequestedBySubjectID    string             `json:"requested_by_subject_id"`
-	OutboxMessageID         *string            `json:"outbox_message_id"`
-	FailureReason           *string            `json:"failure_reason"`
-	CreatedAt               pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
+	ID                          string             `json:"id"`
+	SubjectID                   *string            `json:"subject_id"`
+	RequestedAction             string             `json:"requested_action"`
+	RequestedRoles              []string           `json:"requested_roles"`
+	RequestedOrganizationID     *string            `json:"requested_organization_id"`
+	RequestedEmail              *string            `json:"requested_email"`
+	RequestedDisplayName        *string            `json:"requested_display_name"`
+	Status                      string             `json:"status"`
+	IdempotencyKey              string             `json:"idempotency_key"`
+	ExpectedMembershipRevision  int64              `json:"expected_membership_revision"`
+	Reason                      string             `json:"reason"`
+	RequestedEffectiveAt        pgtype.Timestamptz `json:"requested_effective_at"`
+	MembershipID                *string            `json:"membership_id"`
+	ResultingMembershipRevision *int64             `json:"resulting_membership_revision"`
+	ProviderFailureClass        *string            `json:"provider_failure_class"`
+	ProviderAcknowledgedAt      pgtype.Timestamptz `json:"provider_acknowledged_at"`
+	RequestedBySubjectID        string             `json:"requested_by_subject_id"`
+	OutboxMessageID             *string            `json:"outbox_message_id"`
+	FailureReason               *string            `json:"failure_reason"`
+	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                   pgtype.Timestamptz `json:"updated_at"`
 }
 
 func (q *Queries) GetUserLifecycleRequestByIdempotencyKey(ctx context.Context, idempotencyKey string) (GetUserLifecycleRequestByIdempotencyKeyRow, error) {
@@ -356,6 +395,13 @@ func (q *Queries) GetUserLifecycleRequestByIdempotencyKey(ctx context.Context, i
 		&i.RequestedDisplayName,
 		&i.Status,
 		&i.IdempotencyKey,
+		&i.ExpectedMembershipRevision,
+		&i.Reason,
+		&i.RequestedEffectiveAt,
+		&i.MembershipID,
+		&i.ResultingMembershipRevision,
+		&i.ProviderFailureClass,
+		&i.ProviderAcknowledgedAt,
 		&i.RequestedBySubjectID,
 		&i.OutboxMessageID,
 		&i.FailureReason,
@@ -395,7 +441,7 @@ SELECT identity.subject_id,
        COALESCE(membership.drift_state, 'UNTRACKED') AS stored_drift,
        COALESCE(lifecycle.requested_action, '') AS lifecycle_action,
        COALESCE(lifecycle.status, '') AS lifecycle_status,
-       COALESCE(invitation_delivery.status, '') AS invitation_delivery_status,
+       COALESCE(invitation_delivery.state, '') AS invitation_delivery_status,
        last_session.last_seen_at::timestamptz AS last_successful_session
 FROM identity_references identity
 LEFT JOIN user_profiles profile
@@ -405,17 +451,11 @@ LEFT JOIN latest_membership membership
 LEFT JOIN latest_lifecycle lifecycle
   ON lifecycle.subject_id = identity.subject_id
 LEFT JOIN LATERAL (
-    SELECT job.status
-    FROM notification_records record
-    JOIN notification_delivery_jobs job
-      ON job.notification_id = record.id
-     AND job.recipient_subject_id = identity.subject_id
-     AND job.channel = 'EMAIL'
-    WHERE record.recipient_subject_id = identity.subject_id
-      AND record.related_entity_type = 'USER_LIFECYCLE_INVITATION'
-      AND record.related_entity_id = lifecycle.id
-      AND record.tombstoned_at IS NULL
-    ORDER BY job.created_at DESC, job.id DESC
+    SELECT fact.state
+    FROM identity_action_facts fact
+    WHERE fact.subject_id = identity.subject_id
+      AND fact.action_kind = 'INVITATION'
+    ORDER BY fact.created_at DESC, fact.fact_sequence DESC, fact.id DESC
     LIMIT 1
 ) invitation_delivery ON TRUE
 LEFT JOIN last_session
@@ -639,7 +679,10 @@ func (q *Queries) ListTemplateMasters(ctx context.Context, limit int32) ([]ListT
 const listUserLifecycleRequests = `-- name: ListUserLifecycleRequests :many
 SELECT id, subject_id, requested_action, requested_roles,
        requested_organization_id, requested_email, requested_display_name,
-       status, idempotency_key,
+       status, idempotency_key, expected_membership_revision, reason,
+       requested_effective_at,
+       membership_id, resulting_membership_revision, provider_failure_class,
+       provider_acknowledged_at,
        requested_by_subject_id, outbox_message_id, failure_reason,
        created_at, updated_at
 FROM user_lifecycle_requests
@@ -654,20 +697,27 @@ type ListUserLifecycleRequestsParams struct {
 }
 
 type ListUserLifecycleRequestsRow struct {
-	ID                      string             `json:"id"`
-	SubjectID               *string            `json:"subject_id"`
-	RequestedAction         string             `json:"requested_action"`
-	RequestedRoles          []string           `json:"requested_roles"`
-	RequestedOrganizationID *string            `json:"requested_organization_id"`
-	RequestedEmail          *string            `json:"requested_email"`
-	RequestedDisplayName    *string            `json:"requested_display_name"`
-	Status                  string             `json:"status"`
-	IdempotencyKey          string             `json:"idempotency_key"`
-	RequestedBySubjectID    string             `json:"requested_by_subject_id"`
-	OutboxMessageID         *string            `json:"outbox_message_id"`
-	FailureReason           *string            `json:"failure_reason"`
-	CreatedAt               pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
+	ID                          string             `json:"id"`
+	SubjectID                   *string            `json:"subject_id"`
+	RequestedAction             string             `json:"requested_action"`
+	RequestedRoles              []string           `json:"requested_roles"`
+	RequestedOrganizationID     *string            `json:"requested_organization_id"`
+	RequestedEmail              *string            `json:"requested_email"`
+	RequestedDisplayName        *string            `json:"requested_display_name"`
+	Status                      string             `json:"status"`
+	IdempotencyKey              string             `json:"idempotency_key"`
+	ExpectedMembershipRevision  int64              `json:"expected_membership_revision"`
+	Reason                      string             `json:"reason"`
+	RequestedEffectiveAt        pgtype.Timestamptz `json:"requested_effective_at"`
+	MembershipID                *string            `json:"membership_id"`
+	ResultingMembershipRevision *int64             `json:"resulting_membership_revision"`
+	ProviderFailureClass        *string            `json:"provider_failure_class"`
+	ProviderAcknowledgedAt      pgtype.Timestamptz `json:"provider_acknowledged_at"`
+	RequestedBySubjectID        string             `json:"requested_by_subject_id"`
+	OutboxMessageID             *string            `json:"outbox_message_id"`
+	FailureReason               *string            `json:"failure_reason"`
+	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                   pgtype.Timestamptz `json:"updated_at"`
 }
 
 func (q *Queries) ListUserLifecycleRequests(ctx context.Context, arg ListUserLifecycleRequestsParams) ([]ListUserLifecycleRequestsRow, error) {
@@ -689,6 +739,13 @@ func (q *Queries) ListUserLifecycleRequests(ctx context.Context, arg ListUserLif
 			&i.RequestedDisplayName,
 			&i.Status,
 			&i.IdempotencyKey,
+			&i.ExpectedMembershipRevision,
+			&i.Reason,
+			&i.RequestedEffectiveAt,
+			&i.MembershipID,
+			&i.ResultingMembershipRevision,
+			&i.ProviderFailureClass,
+			&i.ProviderAcknowledgedAt,
 			&i.RequestedBySubjectID,
 			&i.OutboxMessageID,
 			&i.FailureReason,
@@ -713,7 +770,10 @@ SET status = $2,
 WHERE id = $1
 RETURNING id, subject_id, requested_action, requested_roles,
           requested_organization_id, requested_email, requested_display_name,
-          status, idempotency_key,
+          status, idempotency_key, expected_membership_revision, reason,
+          requested_effective_at,
+          membership_id, resulting_membership_revision, provider_failure_class,
+          provider_acknowledged_at,
           requested_by_subject_id, outbox_message_id, failure_reason,
           created_at, updated_at
 `
@@ -726,20 +786,27 @@ type UpdateUserLifecycleRequestParams struct {
 }
 
 type UpdateUserLifecycleRequestRow struct {
-	ID                      string             `json:"id"`
-	SubjectID               *string            `json:"subject_id"`
-	RequestedAction         string             `json:"requested_action"`
-	RequestedRoles          []string           `json:"requested_roles"`
-	RequestedOrganizationID *string            `json:"requested_organization_id"`
-	RequestedEmail          *string            `json:"requested_email"`
-	RequestedDisplayName    *string            `json:"requested_display_name"`
-	Status                  string             `json:"status"`
-	IdempotencyKey          string             `json:"idempotency_key"`
-	RequestedBySubjectID    string             `json:"requested_by_subject_id"`
-	OutboxMessageID         *string            `json:"outbox_message_id"`
-	FailureReason           *string            `json:"failure_reason"`
-	CreatedAt               pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
+	ID                          string             `json:"id"`
+	SubjectID                   *string            `json:"subject_id"`
+	RequestedAction             string             `json:"requested_action"`
+	RequestedRoles              []string           `json:"requested_roles"`
+	RequestedOrganizationID     *string            `json:"requested_organization_id"`
+	RequestedEmail              *string            `json:"requested_email"`
+	RequestedDisplayName        *string            `json:"requested_display_name"`
+	Status                      string             `json:"status"`
+	IdempotencyKey              string             `json:"idempotency_key"`
+	ExpectedMembershipRevision  int64              `json:"expected_membership_revision"`
+	Reason                      string             `json:"reason"`
+	RequestedEffectiveAt        pgtype.Timestamptz `json:"requested_effective_at"`
+	MembershipID                *string            `json:"membership_id"`
+	ResultingMembershipRevision *int64             `json:"resulting_membership_revision"`
+	ProviderFailureClass        *string            `json:"provider_failure_class"`
+	ProviderAcknowledgedAt      pgtype.Timestamptz `json:"provider_acknowledged_at"`
+	RequestedBySubjectID        string             `json:"requested_by_subject_id"`
+	OutboxMessageID             *string            `json:"outbox_message_id"`
+	FailureReason               *string            `json:"failure_reason"`
+	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                   pgtype.Timestamptz `json:"updated_at"`
 }
 
 func (q *Queries) UpdateUserLifecycleRequest(ctx context.Context, arg UpdateUserLifecycleRequestParams) (UpdateUserLifecycleRequestRow, error) {
@@ -760,6 +827,13 @@ func (q *Queries) UpdateUserLifecycleRequest(ctx context.Context, arg UpdateUser
 		&i.RequestedDisplayName,
 		&i.Status,
 		&i.IdempotencyKey,
+		&i.ExpectedMembershipRevision,
+		&i.Reason,
+		&i.RequestedEffectiveAt,
+		&i.MembershipID,
+		&i.ResultingMembershipRevision,
+		&i.ProviderFailureClass,
+		&i.ProviderAcknowledgedAt,
 		&i.RequestedBySubjectID,
 		&i.OutboxMessageID,
 		&i.FailureReason,

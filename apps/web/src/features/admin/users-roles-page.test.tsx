@@ -31,6 +31,14 @@ function lifecycle(
     displayName: input.displayName ?? null,
     status,
     idempotencyKey: input.idempotencyKey,
+    expectedMembershipRevision: input.expectedMembershipRevision,
+    resultingMembershipRevision: 0,
+    membershipId: null,
+    reason: input.reason,
+    effectiveAt: input.effectiveAt ?? null,
+    providerFailureClass: null,
+    providerAcknowledgedAt: null,
+    attemptCount: 0,
     requestedBySubjectId: "USR-ADMIN-ADA",
     outboxMessageId: "outbox-user-lifecycle-001",
     failureReason: null,
@@ -54,6 +62,8 @@ describe("UsersRolesPage production-like identity controls", () => {
         organizationId: "CAA",
         email: "new.inspector@example.test",
         displayName: "New Inspector",
+        reason: "Approved existing lifecycle request.",
+        expectedMembershipRevision: 0,
       }, "SUCCEEDED"),
       subjectId: "kc-subject-001",
     }));
@@ -108,6 +118,10 @@ describe("UsersRolesPage production-like identity controls", () => {
     await user.click(screen.getByRole("button", { name: "Create user" }));
     await user.type(screen.getByLabelText("Provisioning email"), "new.inspector@example.test");
     await user.type(screen.getByLabelText("Provisioning display name"), "New Inspector");
+    await user.type(
+      screen.getByLabelText("Provisioning reason"),
+      "Approved new Inspector membership.",
+    );
     await user.type(screen.getByLabelText("Provisioning organization"), "CAA");
     await user.selectOptions(screen.getByLabelText("Provisioning role"), "inspector");
     await user.click(screen.getByRole("button", { name: "Submit provisioning" }));
@@ -119,10 +133,12 @@ describe("UsersRolesPage production-like identity controls", () => {
         organizationId: "CAA",
         email: "new.inspector@example.test",
         displayName: "New Inspector",
+        reason: "Approved new Inspector membership.",
+        expectedMembershipRevision: 0,
       }),
     );
     expect(await screen.findByText(/Provisioning status: PENDING/)).toBeVisible();
-    expect(screen.getByText(/first login requires TOTP MFA enrollment/i)).toBeVisible();
+    expect(screen.getByText(/TOTP MFA is optional and self-enrolled/i)).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Refresh provisioning status" }));
     expect(getUserLifecycleRequest).toHaveBeenCalledWith({
@@ -137,13 +153,39 @@ describe("UsersRolesPage production-like identity controls", () => {
       "aria-controls",
       "user-lifecycle-status",
     );
+    await user.type(
+      screen.getByLabelText("Lifecycle action reason"),
+      "Approved retained deactivation.",
+    );
     await user.click(deactivate);
     expect(requestUserLifecycle).toHaveBeenLastCalledWith(
       expect.objectContaining({
         subjectId: "kc-existing-001",
-        action: "SUSPEND",
+        action: "DEACTIVATE",
         roles: ["inspector"],
         organizationId: "CAA",
+        reason: "Approved retained deactivation.",
+        expectedMembershipRevision: 1,
+      }),
+    );
+
+    await user.selectOptions(
+      screen.getByLabelText("Lifecycle action"),
+      "FORCE_LOGOUT",
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Force logout kc-existing-001",
+      }),
+    );
+    expect(requestUserLifecycle).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        subjectId: "kc-existing-001",
+        action: "FORCE_LOGOUT",
+        roles: ["inspector"],
+        organizationId: "CAA",
+        reason: "Approved retained deactivation.",
+        expectedMembershipRevision: 1,
       }),
     );
   });
@@ -183,6 +225,10 @@ describe("UsersRolesPage production-like identity controls", () => {
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Create user" }));
+    await user.type(
+      screen.getByLabelText("Provisioning reason"),
+      "Approved scope validation proof.",
+    );
     await user.type(
       screen.getByLabelText("Provisioning email"),
       "wrong-scope@example.test",

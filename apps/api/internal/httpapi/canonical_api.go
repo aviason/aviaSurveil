@@ -952,6 +952,8 @@ func (api *CanonicalAPI) respond(writer http.ResponseWriter, output any, err err
 		errors.Is(err, configuration.ErrWorkspaceNotFound),
 		errors.Is(err, inspections.ErrPackageDraftNotFound):
 		status, code = http.StatusNotFound, "NOT_FOUND"
+	case errors.Is(err, administration.ErrMembershipRevisionConflict):
+		status, code = http.StatusConflict, "MEMBERSHIP_REVISION_CONFLICT"
 	case errors.Is(err, application.ErrConflict), errors.Is(err, identity.ErrConflict),
 		errors.Is(err, assignments.ErrConflict), errors.Is(err, inspections.ErrPackageDraftConflict),
 		errors.Is(err, administration.ErrConflict),

@@ -40,6 +40,7 @@ initialize_local_test_runtime() {
     --output "$keycloak_directory/realm.json" \
     --client-secret-file "$secret_directory/oidc_client_secret" \
     --service-client-secret-file "$secret_directory/keycloak_service_client_secret" \
+    --smtp-password-file "$secret_directory/smtp_password" \
     --public-origin "$public_origin"
   chmod 0600 "$keycloak_directory/realm.json"
 }

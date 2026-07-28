@@ -1276,6 +1276,14 @@ describe("HttpBackend", () => {
       displayName: "New Inspector",
       status: "PENDING" as const,
       idempotencyKey: "provision:new.inspector@example.test",
+      expectedMembershipRevision: 0,
+      resultingMembershipRevision: 0,
+      membershipId: null,
+      reason: "Approved HTTP provisioning proof.",
+      effectiveAt: null,
+      providerFailureClass: null,
+      providerAcknowledgedAt: null,
+      attemptCount: 0,
       requestedBySubjectId: "USR-ADMIN-ADA",
       outboxMessageId: "outbox-user-lifecycle-001",
       failureReason: null,
@@ -1304,6 +1312,9 @@ describe("HttpBackend", () => {
       organizationId: pending.organizationId,
       email: pending.email,
       displayName: pending.displayName,
+      reason: pending.reason,
+      expectedMembershipRevision: 0,
+      effectiveAt: null,
     })).toEqual(pending);
     expect(await backend.adminWorkspace.getUserLifecycleRequest({
       requestId: pending.id,
@@ -1323,6 +1334,9 @@ describe("HttpBackend", () => {
       organizationId: pending.organizationId,
       email: pending.email,
       displayName: pending.displayName,
+      reason: pending.reason,
+      expectedMembershipRevision: 0,
+      effectiveAt: null,
     });
     expect(fetchImplementation.mock.calls[1]?.[0]).toBe(
       "/v1/admin/user-lifecycle-requests/user-lifecycle-001",

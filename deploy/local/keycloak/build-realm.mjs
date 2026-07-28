@@ -13,6 +13,7 @@ import path from "node:path";
 
 const secretPlaceholder = "__AVIA_OIDC_CLIENT_SECRET__";
 const serviceSecretPlaceholder = "__AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET__";
+const smtpPasswordPlaceholder = "__AVIA_KEYCLOAK_SMTP_PASSWORD__";
 
 function parseArguments(arguments_) {
   const values = new Map();
@@ -21,7 +22,7 @@ function parseArguments(arguments_) {
     const value = arguments_[index + 1];
     if (!flag?.startsWith("--") || value === undefined) {
       throw new Error(
-        "expected --source, --output, --client-secret-file, and --service-client-secret-file",
+        "expected --source, --output, --client-secret-file, --service-client-secret-file, and --smtp-password-file",
       );
     }
     values.set(flag, value);
@@ -31,16 +32,18 @@ function parseArguments(arguments_) {
   const output = values.get("--output");
   const clientSecretFile = values.get("--client-secret-file");
   const serviceClientSecretFile = values.get("--service-client-secret-file");
+  const smtpPasswordFile = values.get("--smtp-password-file");
   const publicOriginValue = values.get("--public-origin");
   if (
     !source ||
     !output ||
     !clientSecretFile ||
     !serviceClientSecretFile ||
-    (values.size !== 4 && values.size !== 5)
+    !smtpPasswordFile ||
+    (values.size !== 5 && values.size !== 6)
   ) {
     throw new Error(
-      "expected --source, --output, --client-secret-file, --service-client-secret-file, and optional --public-origin",
+      "expected --source, --output, --client-secret-file, --service-client-secret-file, --smtp-password-file, and optional --public-origin",
     );
   }
   let publicOrigin;
@@ -63,6 +66,7 @@ function parseArguments(arguments_) {
     output,
     clientSecretFile,
     serviceClientSecretFile,
+    smtpPasswordFile,
     publicOrigin,
   };
 }
@@ -72,6 +76,7 @@ function buildRealm({
   output,
   clientSecretFile,
   serviceClientSecretFile,
+  smtpPasswordFile,
   publicOrigin,
 }) {
   const sourceText = readFileSync(source, "utf8");
@@ -87,6 +92,14 @@ function buildRealm({
   if (servicePlaceholderMatches?.length !== 1) {
     throw new Error(
       "realm source must contain exactly one service-client-secret placeholder",
+    );
+  }
+  const smtpPlaceholderMatches = sourceText.match(
+    new RegExp(smtpPasswordPlaceholder, "g"),
+  );
+  if (smtpPlaceholderMatches?.length !== 1) {
+    throw new Error(
+      "realm source must contain exactly one SMTP-password placeholder",
     );
   }
 
@@ -106,6 +119,12 @@ function buildRealm({
       "Keycloak service client secret file must contain a non-placeholder value",
     );
   }
+  const smtpPassword = readFileSync(smtpPasswordFile, "utf8").trim();
+  if (!smtpPassword || smtpPassword === smtpPasswordPlaceholder) {
+    throw new Error(
+      "Keycloak SMTP password file must contain a non-placeholder value",
+    );
+  }
 
   const realm = JSON.parse(sourceText);
   const webClient = realm.clients?.find(
@@ -122,6 +141,10 @@ function buildRealm({
     throw new Error("realm source is missing the reviewed lifecycle client");
   }
   serviceClient.secret = serviceClientSecret;
+  if (realm.smtpServer?.password !== smtpPasswordPlaceholder) {
+    throw new Error("realm source is missing the reviewed SMTP configuration");
+  }
+  realm.smtpServer.password = smtpPassword;
   if (publicOrigin) {
     webClient.redirectUris = [`${publicOrigin}/auth/callback`];
     webClient.webOrigins = [publicOrigin];

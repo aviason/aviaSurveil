@@ -128,6 +128,7 @@ node "$realm_builder" \
   --output "$temporary_directory/realm.json" \
   --client-secret-file "$temporary_directory/oidc_client_secret" \
   --service-client-secret-file "$temporary_directory/keycloak_service_client_secret" \
+  --smtp-password-file "$temporary_directory/smtp_password" \
   --public-origin "$public_origin"
 
 for filename in $secret_files; do

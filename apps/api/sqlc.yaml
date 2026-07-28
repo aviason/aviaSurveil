@@ -278,6 +278,7 @@ sql:
       - "migrations/000011_preliminary_report_versions.up.sql"
       - "migrations/000012_keycloak_user_lifecycle.up.sql"
       - "migrations/000018_desired_membership_versions.up.sql"
+      - "migrations/000019_identity_lifecycle_delivery.up.sql"
     queries: "internal/administration/store/postgres/queries.sql"
     gen:
       go:

@@ -255,23 +255,25 @@ Task 2 cannot start until all of the following are true:
 
 ## Current Repository Observations
 
-Task 1 read-only inspection found the following. Task 2 resolved the
-artifact, service-client, membership-foundation, and directory rows; the
-remaining lifecycle rows belong to Task 3:
+Task 1 read-only inspection found the following. Tasks 2–3 subsequently
+resolved the artifact, service-client, membership-foundation, directory, and
+account-lifecycle rows:
 
 - OpenAPI and Go define the same eight roles.
-- Current authority validation rejects Auditee/CAA organization mixing but does
-  not contain the owner-approved multi-role allowlist required by this contract.
-- Current lifecycle actions are only `PROVISION`, `UPDATE_ROLES`, `SUSPEND`,
-  and `REACTIVATE`; desired-membership revision, deactivation, transfer, MFA
-  reset, recovery, and forced logout contracts are not implemented.
+- Authority validation rejects Auditee/CAA organization mixing and enforces the
+  approved exactly-one-role policy.
+- Lifecycle actions now include `PROVISION`, `UPDATE_ROLES`, `SUSPEND`,
+  `REACTIVATE`, `DEACTIVATE`, `TRANSFER_ORGANIZATION`,
+  `RESEND_INVITATION`, `RESET_PASSWORD`, `RESET_MFA`, and `FORCE_LOGOUT`,
+  guarded by exact expected-membership revisions and reason-required audits.
 - Task 2 replaced the session-derived Administration directory with bounded
   provider-account reads and explicit desired membership, lifecycle, profile,
   MFA, required-action, drift, and last-session fields.
 - Task 2 replaced API/worker bootstrap-admin password grant credentials with
-  the exact least-privilege service client. Provisioning still sets
-  `CONFIGURE_TOTP` directly; the approved execute-actions invitation is Task 3
-  and remains `not run`.
+  the exact least-privilege service client. Task 3 replaced direct credential
+  bootstrap with the approved expiring `UPDATE_PASSWORD`/`VERIFY_EMAIL`
+  execute-actions invitation, authenticated local delivery, and optional
+  provider-derived TOTP enrollment.
 - Task 2 split normal and canonical-test API composition and proved that normal
   API/worker/scheduler/migration artifacts do not link testprofile/reset code.
 - The canonical test profile has nine principals across eight roles and is

@@ -4,6 +4,7 @@ import { useApplicationRuntime } from "../../app/providers";
 import type {
   RequestUserLifecycleInput,
   Role,
+  UserLifecycleAction,
   UserLifecycleRequestView,
 } from "../../backend/backend";
 import {
@@ -27,6 +28,29 @@ const roles = [
 const caaRoles = new Set<Role>(
   roles.filter((role) => role !== "auditee"),
 );
+const lifecycleActions = [
+  "UPDATE_ROLES",
+  "SUSPEND",
+  "REACTIVATE",
+  "DEACTIVATE",
+  "TRANSFER_ORGANIZATION",
+  "RESEND_INVITATION",
+  "RESET_PASSWORD",
+  "RESET_MFA",
+  "FORCE_LOGOUT",
+] satisfies UserLifecycleAction[];
+const lifecycleActionLabels: Record<UserLifecycleAction, string> = {
+  PROVISION: "Provision",
+  UPDATE_ROLES: "Update role",
+  SUSPEND: "Suspend",
+  REACTIVATE: "Reactivate",
+  DEACTIVATE: "Deactivate",
+  TRANSFER_ORGANIZATION: "Transfer organization",
+  RESEND_INVITATION: "Resend invitation",
+  RESET_PASSWORD: "Reset password",
+  RESET_MFA: "Reset MFA",
+  FORCE_LOGOUT: "Force logout",
+};
 
 function lifecycleKey(action: string, target: string): string {
   return `user-lifecycle:${action.toLowerCase()}:${target.toLowerCase()}:${Date.now().toString(36)}`;
@@ -41,6 +65,13 @@ export function UsersRolesPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [reason, setReason] = useState("");
+  const [actionReason, setActionReason] = useState("");
+  const [lifecycleAction, setLifecycleAction] =
+    useState<UserLifecycleAction>("DEACTIVATE");
+  const [lifecycleRole, setLifecycleRole] = useState<Role>("inspector");
+  const [transferOrganizationId, setTransferOrganizationId] = useState("");
+  const [transferEffectiveAt, setTransferEffectiveAt] = useState("");
   const [organizationId, setOrganizationId] = useState("");
   const [provisionRole, setProvisionRole] = useState<Role>("inspector");
   const [lifecycle, setLifecycle] = useState<UserLifecycleRequestView | null>(null);
@@ -86,6 +117,8 @@ export function UsersRolesPage() {
       organizationId: normalizedOrganizationId,
       email: normalizedEmail,
       displayName: displayName.trim(),
+      reason: reason.trim(),
+      expectedMembershipRevision: 0,
     });
   }
 
@@ -106,6 +139,41 @@ export function UsersRolesPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function applyLifecycleAction(
+    entry: NonNullable<typeof directory.data>["items"][number],
+  ) {
+    const primaryRole = entry.roles[0];
+    if (!primaryRole) {
+      setCommandError("The provider account has no approved application role.");
+      return;
+    }
+    const input: RequestUserLifecycleInput = {
+      idempotencyKey: lifecycleKey(lifecycleAction, entry.subjectId),
+      subjectId: entry.subjectId,
+      action: lifecycleAction,
+      roles: [
+        lifecycleAction === "UPDATE_ROLES" ? lifecycleRole : primaryRole,
+      ],
+      organizationId:
+        lifecycleAction === "TRANSFER_ORGANIZATION"
+          ? transferOrganizationId.trim()
+          : (entry.organizationId ?? "CAA"),
+      reason: actionReason.trim(),
+      expectedMembershipRevision: entry.membershipRevision,
+    };
+    if (lifecycleAction === "TRANSFER_ORGANIZATION") {
+      const effectiveAt = new Date(transferEffectiveAt);
+      if (!transferOrganizationId.trim() || Number.isNaN(effectiveAt.getTime())) {
+        setCommandError(
+          "Organization transfer requires a destination and effective time.",
+        );
+        return;
+      }
+      input.effectiveAt = effectiveAt.toISOString();
+    }
+    await requestLifecycle(input);
   }
 
   return (
@@ -157,6 +225,15 @@ export function UsersRolesPage() {
 
       {isHttp && showCreate ? (
         <form className="admin-filter-bar" onSubmit={(event) => void provision(event)}>
+          <label>
+            Reason
+            <input
+              aria-label="Provisioning reason"
+              onChange={(event) => setReason(event.target.value)}
+              required
+              value={reason}
+            />
+          </label>
           <label>
             Email
             <input
@@ -211,7 +288,7 @@ export function UsersRolesPage() {
           <b>Provisioning status: {lifecycle.status}</b>
           <small>{lifecycle.id}</small>
           {lifecycle.failureReason ? <p>{lifecycle.failureReason}</p> : null}
-          <p>First login requires TOTP MFA enrollment in Keycloak.</p>
+          <p>TOTP MFA is optional and self-enrolled in Keycloak.</p>
           <button
             disabled={busy}
             onClick={() => void refreshLifecycle()}
@@ -219,6 +296,76 @@ export function UsersRolesPage() {
           >
             Refresh provisioning status
           </button>
+        </section>
+      ) : null}
+
+      {isHttp ? (
+        <section
+          className="admin-filter-bar"
+          aria-label="Account lifecycle action"
+        >
+          <label>
+            Lifecycle action
+            <select
+              aria-label="Lifecycle action"
+              onChange={(event) => setLifecycleAction(
+                event.target.value as UserLifecycleAction,
+              )}
+              value={lifecycleAction}
+            >
+              {lifecycleActions.map((action) => (
+                <option key={action} value={action}>
+                  {lifecycleActionLabels[action]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Lifecycle action reason
+            <input
+              aria-label="Lifecycle action reason"
+              onChange={(event) => setActionReason(event.target.value)}
+              required
+              value={actionReason}
+            />
+          </label>
+          {lifecycleAction === "UPDATE_ROLES" ? (
+            <label>
+              New role
+              <select
+                aria-label="Lifecycle target role"
+                onChange={(event) => setLifecycleRole(event.target.value as Role)}
+                value={lifecycleRole}
+              >
+                {roles.map((value) => (
+                  <option key={value} value={value}>{value}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {lifecycleAction === "TRANSFER_ORGANIZATION" ? (
+            <>
+              <label>
+                Destination organization
+                <input
+                  aria-label="Transfer destination organization"
+                  onChange={(event) => setTransferOrganizationId(event.target.value)}
+                  required
+                  value={transferOrganizationId}
+                />
+              </label>
+              <label>
+                Effective time
+                <input
+                  aria-label="Transfer effective time"
+                  onChange={(event) => setTransferEffectiveAt(event.target.value)}
+                  required
+                  type="datetime-local"
+                  value={transferEffectiveAt}
+                />
+              </label>
+            </>
+          ) : null}
         </section>
       ) : null}
 
@@ -231,8 +378,6 @@ export function UsersRolesPage() {
           const primaryRole = entry.roles[0];
           const demoReason =
             `${entry.subjectId} account provisioning and role changes are production-only and require Plan 3 Keycloak administration.`;
-          const mfaReason =
-            "MFA enrollment is user-controlled through the required first-login Keycloak action.";
           return (
             <article className="admin-record-card" key={entry.subjectId} role="listitem">
               <header>
@@ -251,23 +396,14 @@ export function UsersRolesPage() {
               </dl>
               <div className="admin-inline-actions">
                 {isHttp ? (
-                  <>
-                    <DisabledAdminAction label={`Manage MFA ${entry.subjectId}`} reason={mfaReason} />
-                    <button
-                      aria-controls="user-lifecycle-status"
-                      disabled={busy}
-                      onClick={() => void requestLifecycle({
-                        idempotencyKey: lifecycleKey("SUSPEND", entry.subjectId),
-                        subjectId: entry.subjectId,
-                        action: "SUSPEND",
-                        roles: primaryRole ? [primaryRole] : [],
-                        organizationId: entry.organizationId ?? "CAA",
-                      })}
-                      type="button"
-                    >
-                      Deactivate {entry.subjectId}
-                    </button>
-                  </>
+                  <button
+                    aria-controls="user-lifecycle-status"
+                    disabled={busy || !actionReason.trim() || !primaryRole}
+                    onClick={() => void applyLifecycleAction(entry)}
+                    type="button"
+                  >
+                    {lifecycleActionLabels[lifecycleAction]} {entry.subjectId}
+                  </button>
                 ) : (
                   <>
                     <DisabledAdminAction label={`Invite ${entry.subjectId}`} reason={demoReason} />

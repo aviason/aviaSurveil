@@ -71,7 +71,10 @@ RETURNING id, definition_id, version, title, description, definition,
 -- name: ListUserLifecycleRequests :many
 SELECT id, subject_id, requested_action, requested_roles,
        requested_organization_id, requested_email, requested_display_name,
-       status, idempotency_key,
+       status, idempotency_key, expected_membership_revision, reason,
+       requested_effective_at,
+       membership_id, resulting_membership_revision, provider_failure_class,
+       provider_acknowledged_at,
        requested_by_subject_id, outbox_message_id, failure_reason,
        created_at, updated_at
 FROM user_lifecycle_requests
@@ -82,7 +85,10 @@ LIMIT sqlc.arg(result_limit);
 -- name: GetUserLifecycleRequestByIdempotencyKey :one
 SELECT id, subject_id, requested_action, requested_roles,
        requested_organization_id, requested_email, requested_display_name,
-       status, idempotency_key,
+       status, idempotency_key, expected_membership_revision, reason,
+       requested_effective_at,
+       membership_id, resulting_membership_revision, provider_failure_class,
+       provider_acknowledged_at,
        requested_by_subject_id, outbox_message_id, failure_reason,
        created_at, updated_at
 FROM user_lifecycle_requests
@@ -92,11 +98,18 @@ WHERE idempotency_key = $1;
 INSERT INTO user_lifecycle_requests (
     id, subject_id, requested_action, requested_roles,
     requested_organization_id, requested_email, requested_display_name,
-    status, idempotency_key, requested_by_subject_id, outbox_message_id
-) VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDING', $8, $9, $10)
+    status, idempotency_key, expected_membership_revision, reason,
+    requested_effective_at, requested_by_subject_id, outbox_message_id,
+    membership_id
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, 'PENDING', $8, $9, $10, $11, $12, $13, $14
+)
 RETURNING id, subject_id, requested_action, requested_roles,
           requested_organization_id, requested_email, requested_display_name,
-          status, idempotency_key,
+          status, idempotency_key, expected_membership_revision, reason,
+          requested_effective_at,
+          membership_id, resulting_membership_revision, provider_failure_class,
+          provider_acknowledged_at,
           requested_by_subject_id, outbox_message_id, failure_reason,
           created_at, updated_at;
 
@@ -108,7 +121,10 @@ SET status = $2,
 WHERE id = $1
 RETURNING id, subject_id, requested_action, requested_roles,
           requested_organization_id, requested_email, requested_display_name,
-          status, idempotency_key,
+          status, idempotency_key, expected_membership_revision, reason,
+          requested_effective_at,
+          membership_id, resulting_membership_revision, provider_failure_class,
+          provider_acknowledged_at,
           requested_by_subject_id, outbox_message_id, failure_reason,
           created_at, updated_at;
 
@@ -142,7 +158,7 @@ SELECT identity.subject_id,
        COALESCE(membership.drift_state, 'UNTRACKED') AS stored_drift,
        COALESCE(lifecycle.requested_action, '') AS lifecycle_action,
        COALESCE(lifecycle.status, '') AS lifecycle_status,
-       COALESCE(invitation_delivery.status, '') AS invitation_delivery_status,
+       COALESCE(invitation_delivery.state, '') AS invitation_delivery_status,
        last_session.last_seen_at::timestamptz AS last_successful_session
 FROM identity_references identity
 LEFT JOIN user_profiles profile
@@ -152,17 +168,11 @@ LEFT JOIN latest_membership membership
 LEFT JOIN latest_lifecycle lifecycle
   ON lifecycle.subject_id = identity.subject_id
 LEFT JOIN LATERAL (
-    SELECT job.status
-    FROM notification_records record
-    JOIN notification_delivery_jobs job
-      ON job.notification_id = record.id
-     AND job.recipient_subject_id = identity.subject_id
-     AND job.channel = 'EMAIL'
-    WHERE record.recipient_subject_id = identity.subject_id
-      AND record.related_entity_type = 'USER_LIFECYCLE_INVITATION'
-      AND record.related_entity_id = lifecycle.id
-      AND record.tombstoned_at IS NULL
-    ORDER BY job.created_at DESC, job.id DESC
+    SELECT fact.state
+    FROM identity_action_facts fact
+    WHERE fact.subject_id = identity.subject_id
+      AND fact.action_kind = 'INVITATION'
+    ORDER BY fact.created_at DESC, fact.fact_sequence DESC, fact.id DESC
     LIMIT 1
 ) invitation_delivery ON TRUE
 LEFT JOIN last_session

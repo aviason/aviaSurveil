@@ -290,6 +290,8 @@ func (api *CanonicalAPI) requestUserLifecycle(
 		OperationID: input.OperationId, IdempotencyKey: input.IdempotencyKey,
 		Action: administration.UserLifecycleAction(input.Action),
 		Roles:  roles, OrganizationID: input.OrganizationId,
+		Reason:                     input.Reason,
+		ExpectedMembershipRevision: input.ExpectedMembershipRevision,
 	}
 	if input.SubjectId != nil {
 		command.SubjectID = *input.SubjectId
@@ -299,6 +301,14 @@ func (api *CanonicalAPI) requestUserLifecycle(
 	}
 	if input.DisplayName != nil {
 		command.DisplayName = *input.DisplayName
+	}
+	if input.EffectiveAt != nil {
+		effectiveAt, err := time.Parse(time.RFC3339Nano, *input.EffectiveAt)
+		if err != nil {
+			api.respond(writer, nil, administration.ErrInvalid)
+			return
+		}
+		command.EffectiveAt = &effectiveAt
 	}
 	record, err := api.users.RequestLifecycle(
 		request.Context(),
@@ -340,6 +350,7 @@ func userLifecycleRequestView(
 	record administration.UserLifecycleRequest,
 ) generated.UserLifecycleRequestView {
 	var subjectID, email, displayName, failureReason *string
+	var membershipID, effectiveAt, providerFailureClass, providerAcknowledgedAt *string
 	if record.SubjectID != "" {
 		subjectID = &record.SubjectID
 	}
@@ -352,6 +363,20 @@ func userLifecycleRequestView(
 	if record.FailureReason != "" {
 		failureReason = &record.FailureReason
 	}
+	if record.MembershipID != "" {
+		membershipID = &record.MembershipID
+	}
+	if record.EffectiveAt != nil {
+		value := record.EffectiveAt.UTC().Format(time.RFC3339Nano)
+		effectiveAt = &value
+	}
+	if record.ProviderFailureClass != "" {
+		providerFailureClass = &record.ProviderFailureClass
+	}
+	if record.ProviderAcknowledgedAt != nil {
+		value := record.ProviderAcknowledgedAt.UTC().Format(time.RFC3339Nano)
+		providerAcknowledgedAt = &value
+	}
 	roles := make([]generated.Role, len(record.Roles))
 	for index, role := range record.Roles {
 		roles[index] = generated.Role(role)
@@ -360,12 +385,20 @@ func userLifecycleRequestView(
 		Id: record.ID, SubjectId: subjectID, Action: string(record.Action),
 		Roles: roles, OrganizationId: record.OrganizationID,
 		Email: email, DisplayName: displayName, Status: string(record.Status),
-		IdempotencyKey:       record.IdempotencyKey,
-		RequestedBySubjectId: record.RequestedBy,
-		OutboxMessageId:      record.OutboxMessageID,
-		FailureReason:        failureReason,
-		CreatedAt:            record.CreatedAt.UTC().Format(time.RFC3339Nano),
-		UpdatedAt:            record.UpdatedAt.UTC().Format(time.RFC3339Nano),
+		IdempotencyKey:              record.IdempotencyKey,
+		ExpectedMembershipRevision:  record.ExpectedMembershipRevision,
+		ResultingMembershipRevision: record.ResultingMembershipRevision,
+		MembershipId:                membershipID,
+		Reason:                      record.Reason,
+		EffectiveAt:                 effectiveAt,
+		ProviderFailureClass:        providerFailureClass,
+		ProviderAcknowledgedAt:      providerAcknowledgedAt,
+		AttemptCount:                int64(record.AttemptCount),
+		RequestedBySubjectId:        record.RequestedBy,
+		OutboxMessageId:             record.OutboxMessageID,
+		FailureReason:               failureReason,
+		CreatedAt:                   record.CreatedAt.UTC().Format(time.RFC3339Nano),
+		UpdatedAt:                   record.UpdatedAt.UTC().Format(time.RFC3339Nano),
 	}
 }
 
