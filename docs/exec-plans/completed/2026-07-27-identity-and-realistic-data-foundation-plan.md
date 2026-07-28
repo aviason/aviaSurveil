@@ -1,6 +1,6 @@
 # Identity And Realistic Data Foundation Plan
 
-**Status:** `completed — Tasks 1–9 verified locally; Task 9 publication pending`
+**Status:** `completed — Tasks 1–9 verified locally, published, and remotely confirmed`
 
 **Reviewed task count:** 9
 
@@ -18,9 +18,9 @@ repeatable connected data covering every important workflow state.
 contract, and owner-decision packaging. Plan 1 and the combined Plans 2–4
 stakeholder disposition were completed on 2026-07-28. The current user
 authorization permits Tasks 2–9 in sequence, with one freshly verified,
-published task commit before the next task starts. Tasks 1–6 are complete and
-published; Tasks 2–7 are `26da3c0`, `8cf2b57`, `bedff45`, `ac5f786`,
-`26c7022`, and `a2d4744`.
+published task commit before the next task starts. Tasks 1–9 are complete,
+published, and remotely confirmed; Tasks 2–9 are `26da3c0`, `8cf2b57`,
+`bedff45`, `ac5f786`, `26c7022`, `a2d4744`, `9a1b5ca`, and `9d30576`.
 This plan is the predecessor of the AviaCore/ML readiness and local preprod
 release-candidate plans. Task 6 is complete, `verified locally`, published,
 and remotely confirmed. Task 7 is complete, `verified locally`, published as
@@ -28,7 +28,8 @@ and remotely confirmed. Task 7 is complete, `verified locally`, published as
 is complete and `verified locally` under owner-approved qualification profile
 revision `1.1.0`, published as
 `9a1b5cadff82a047bc0400acdb39f3fab2fbecab`, and remotely confirmed. Task 9
-is complete and `verified locally`; its focused publication remains pending.
+is complete, `verified locally`, published as
+`9d30576876406609577af4381718e8ac66e94e06`, and remotely confirmed.
 Owner directive `OWNER-DIRECTIVE-2026-07-28-P5T9-01` accepts only the exact
 fresh stress run's 19-second duration overrun without changing profile
 `stress@1.1.0`, its fail-closed envelope, its volume, or any functional gate.
@@ -1534,9 +1535,11 @@ and passed:
 
 ### Task 9: Run The Full Identity And Data Foundation Gate
 
-**Task status:** `complete — verified locally; publication pending`; strict
+**Task status:** `complete — verified locally and published`; strict
 final-evidence RED and every literal matrix result are recorded. Tasks 1–8 are
-complete, published, and remotely confirmed.
+complete, published, and remotely confirmed. Task 9 is published as
+`9d30576876406609577af4381718e8ac66e94e06`, and the exact `origin/main`
+revision was confirmed.
 
 **Strict RED**
 
@@ -1890,7 +1893,9 @@ matrix completed with zero task-owned residue. The fresh realistic run passed
 at 872/900 seconds. The fresh stress run passed exact data, relationship,
 privacy, resume, resource, and cleanup gates but recorded 1,819/1,800 seconds;
 the owner accepted only that exact 19-second Task 9 overrun through
-`OWNER-DIRECTIVE-2026-07-28-P5T9-01`. Task 9 publication is pending.
+`OWNER-DIRECTIVE-2026-07-28-P5T9-01`. Task 9 was published as
+`9d30576876406609577af4381718e8ac66e94e06`, and the exact `origin/main`
+revision was confirmed.
 Deployment and production readiness remain `not run`; the artifact remains
 `candidate-only`, and release remains `release pending`. Task 8 was published
 as `9a1b5cadff82a047bc0400acdb39f3fab2fbecab`, and the exact `origin/main`
@@ -1899,7 +1904,7 @@ revision was confirmed.
 ## Execution Prompt
 
 ```text
-Plan 5 Tasks 1-9 are complete and verified locally. Tasks 1-8 are published and remotely confirmed; Task 9 publication metadata remains pending. Preserve every retained create-only run, the literal 1,819/1,800-second stress result, exact-run owner directive OWNER-DIRECTIVE-2026-07-28-P5T9-01, and the unchanged stress@1.1.0 fail-closed contract. Full-volume realistic@1.0.0 and stress@1.0.0 endurance remains not run. Do not restart Plan 5 work or claim deployment, release, or production readiness.
+Plan 5 Tasks 1-9 are complete, verified locally, published, and remotely confirmed. Task 9 is 9d30576876406609577af4381718e8ac66e94e06. Preserve every retained create-only run, the literal 1,819/1,800-second stress result, exact-run owner directive OWNER-DIRECTIVE-2026-07-28-P5T9-01, and the unchanged stress@1.1.0 fail-closed contract. Full-volume realistic@1.0.0 and stress@1.0.0 endurance remains not run. Do not restart Plan 5 work or claim deployment, release, or production readiness.
 
-Before Plan 6 executable work, publish and remotely confirm the focused Plan 5 Task 9 commit, record its exact hash in this completed plan, the final evidence, completed index, active index, tracker, manifest, and build summary, and push that metadata commit. Then read the complete Plan 6 authority gates and begin only its first authorized task. Preserve the root demo, normal HTTP no-seed boundary, Keycloak authority, organization isolation, append-only histories, training_allowed: false, production_ml_readiness: NOT_READY, and unrelated worktree changes.
+Read the complete Plan 6 authority gates and begin only its first authorized task. Preserve the root demo, normal HTTP no-seed boundary, Keycloak authority, organization isolation, append-only histories, training_allowed: false, production_ml_readiness: NOT_READY, and unrelated worktree changes. Keep every later separate repository and phase authorization gate intact.
 ```

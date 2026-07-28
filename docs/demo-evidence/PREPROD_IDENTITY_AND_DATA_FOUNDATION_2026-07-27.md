@@ -4,7 +4,7 @@
 
 **Plan:** Plan 5 — Identity And Realistic Data Foundation
 
-**Task status:** `complete — verified locally; publication pending`
+**Task status:** `complete — verified locally and published`
 
 **Artifact status:** `candidate-only`
 
@@ -18,6 +18,10 @@ confirmed. Task 8 implementation/evidence was published as
 published as `552d5afde52774d1069e003de1c902dfe3aac540`. The active local
 qualification set is `smoke@1.0.0`, `acceptance@1.0.0`,
 `realistic@1.1.0`, and `stress@1.1.0`.
+
+Task 9 implementation and final evidence were published as
+`9d30576876406609577af4381718e8ac66e94e06`; the exact `origin/main`
+revision was confirmed after the non-force push.
 
 Owner directive `OWNER-DIRECTIVE-2026-07-28-P5T8-01` retains the unchanged
 full-volume `realistic@1.0.0` and `stress@1.0.0` profiles as deferred
@@ -220,4 +224,5 @@ AWS, deployment, production changes, real PII, full-volume
 `realistic@1.0.0`/`stress@1.0.0` endurance, release approval, and production
 readiness remain `not run`. Task 9 is `verified locally` under the exact
 owner-approved stress exception; the artifact remains `candidate-only` and
-release remains `release pending`.
+release remains `release pending`. Task 9 is published as
+`9d30576876406609577af4381718e8ac66e94e06` and remotely confirmed.

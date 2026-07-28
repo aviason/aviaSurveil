@@ -31,7 +31,8 @@ duration, and zero-residue cleanup. Full-volume `realistic@1.0.0` and
 `stress@1.0.0` are preserved as deferred release-readiness endurance evidence
 with status `not run`. Task 9's fresh full matrix passed with the exact
 owner-approved 19-second stress-duration exception recorded literally;
-publication is pending.
+Task 9 was published as `9d30576876406609577af4381718e8ac66e94e06`, and
+the exact `origin/main` revision was confirmed.
 The artifact is `candidate-only`, the local decision is `GO`, and release is
 `release pending`. It is not a deployed production application. Production
 identity federation, external storage, scanning, email, records operations,

@@ -171,7 +171,9 @@ The active profile set is `smoke@1.0.0`, `acceptance@1.0.0`,
 with status `not run`. Task 9's retained fresh stress run passed every exact
 functional gate and zero-residue cleanup, recorded 1,819/1,800 seconds
 literally, and is accepted only under owner directive
-`OWNER-DIRECTIVE-2026-07-28-P5T9-01`; Task 9 publication is pending.
+`OWNER-DIRECTIVE-2026-07-28-P5T9-01`. Task 9 was published as
+`9d30576876406609577af4381718e8ac66e94e06`, and the exact `origin/main`
+revision was confirmed.
 
 The local recommendation is `GO`, the artifact remains `candidate-only`, and
 release is `release pending`. These adjacent candidates do not make the root
