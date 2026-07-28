@@ -56,6 +56,14 @@ go -C "$api_root" build -trimpath -tags canonicaltest \
   -o "$temporary_root/canonical-test-api" \
   ./cmd/api
 
+loader_dependencies="$(go -C "$api_root" list -deps ./cmd/preprod-data-loader)"
+if ! grep -Fxq "$module_path/internal/preproddata" <<<"$loader_dependencies"; then
+  fail "preprod-data-loader does not positively link internal/preproddata"
+fi
+go -C "$api_root" build -trimpath \
+  -o "$temporary_root/preprod-data-loader" \
+  ./cmd/preprod-data-loader
+
 go -C "$api_root" test -count=1 ./internal/httpapi \
   -run '^TestNormalApplicationDoesNotRegisterTestProfileRoutes$'
 go -C "$api_root" test -count=1 -tags canonicaltest ./internal/httpapi \

@@ -322,6 +322,337 @@ services:
       - database
     restart: "no"
 
+  preprod-postgres:
+    <<: *runtime-security
+    image: postgres:17.6-alpine3.22@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94
+    profiles: [local-preprod-loader]
+    user: "70:70"
+    environment:
+      POSTGRES_DB: aviasurveil360_local_preprod
+      POSTGRES_USER: aviasurveil360_preprod_loader
+      POSTGRES_PASSWORD_FILE: /run/secrets/preprod_app_database_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    secrets:
+      - preprod_app_database_password
+    volumes:
+      - preprod-app-database:/var/lib/postgresql/data
+    tmpfs:
+      - /run/postgresql:uid=70,gid=70,mode=0770
+      - /tmp:mode=1777
+    networks:
+      - preprod-app-database
+    healthcheck:
+      <<: *health-defaults
+      timeout: 8s
+      test:
+        - CMD-SHELL
+        - >-
+          sleep 5;
+          pg_isready -U aviasurveil360_preprod_loader
+          -d aviasurveil360_local_preprod &&
+          psql -U aviasurveil360_preprod_loader
+          -d aviasurveil360_local_preprod -tAc 'SELECT 1' |
+          grep -qx 1
+    restart: "no"
+
+  preprod-migration:
+    <<: *runtime-security
+    image: aviasurveil360/preprod-migration:local
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      target: migration
+    profiles: [local-preprod-loader]
+    user: "10001:10001"
+    depends_on:
+      preprod-postgres:
+        condition: service_healthy
+    environment:
+      AVIA_ENVIRONMENT: local-preprod
+      AVIA_DATABASE_HOST: preprod-postgres
+      AVIA_DATABASE_PORT: "5432"
+      AVIA_DATABASE_NAME: aviasurveil360_local_preprod
+      AVIA_DATABASE_USER: aviasurveil360_preprod_loader
+      AVIA_DATABASE_PASSWORD_FILE: /run/secrets/preprod_app_database_password
+    secrets:
+      - preprod_app_database_password
+    tmpfs:
+      - /tmp:mode=1777
+    networks:
+      - preprod-app-database
+    restart: "no"
+
+  preprod-keycloak-postgres:
+    <<: *runtime-security
+    image: postgres:17.6-alpine3.22@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94
+    profiles: [local-preprod-loader]
+    user: "70:70"
+    environment:
+      POSTGRES_DB: keycloak_local_preprod
+      POSTGRES_USER: keycloak_preprod
+      POSTGRES_PASSWORD_FILE: /run/secrets/preprod_keycloak_database_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    secrets:
+      - preprod_keycloak_database_password
+    volumes:
+      - preprod-keycloak-database:/var/lib/postgresql/data
+    tmpfs:
+      - /run/postgresql:uid=70,gid=70,mode=0770
+      - /tmp:mode=1777
+    networks:
+      - preprod-identity-database
+    healthcheck:
+      <<: *health-defaults
+      timeout: 8s
+      test:
+        - CMD-SHELL
+        - >-
+          sleep 5;
+          pg_isready -U keycloak_preprod -d keycloak_local_preprod &&
+          psql -U keycloak_preprod -d keycloak_local_preprod
+          -tAc 'SELECT 1' |
+          grep -qx 1
+    restart: "no"
+
+  preprod-keycloak:
+    <<: *runtime-security
+    image: aviasurveil360/preprod-keycloak:local
+    build:
+      context: ../..
+      dockerfile: deploy/local/keycloak/Dockerfile
+      target: keycloak
+    profiles: [local-preprod-loader]
+    user: "1000:0"
+    depends_on:
+      preprod-keycloak-postgres:
+        condition: service_healthy
+      preprod-mailpit:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - /opt/aviasurveil360/keycloak-entrypoint.sh
+    command:
+      - start
+      - --optimized
+      - --import-realm
+      - --http-enabled=true
+      - --hostname=http://preprod-keycloak:8080/identity
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://preprod-keycloak-postgres:5432/keycloak_local_preprod
+      KC_DB_USERNAME: keycloak_preprod
+      KC_DB_PASSWORD_FILE: /run/secrets/preprod_keycloak_database_password
+      KC_BOOTSTRAP_ADMIN_USERNAME: local-preprod-bootstrap-admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD_FILE: /run/secrets/preprod_keycloak_bootstrap_admin_password
+      KC_HTTP_RELATIVE_PATH: /identity
+    configs:
+      - source: keycloak_entrypoint
+        target: /opt/aviasurveil360/keycloak-entrypoint.sh
+        uid: "1000"
+        gid: "0"
+        mode: 0550
+    secrets:
+      - preprod_keycloak_bootstrap_admin_password
+      - preprod_keycloak_database_password
+      - source: preprod_keycloak_realm
+        target: /opt/keycloak/data/import/realm.json
+        uid: "1000"
+        gid: "0"
+        mode: 0400
+    tmpfs:
+      - /tmp:mode=1777
+      - /opt/keycloak/data/tmp:uid=1000,gid=0,mode=0770
+    networks:
+      - preprod-identity
+      - preprod-identity-database
+    healthcheck:
+      <<: *health-defaults
+      start_period: 30s
+      test:
+        - CMD
+        - bash
+        - -c
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/9000;
+          printf 'GET /identity/health/ready HTTP/1.1\r\nHost: 127.0.0.1:9000\r\nConnection: close\r\n\r\n' >&3;
+          grep -q 'HTTP/1.1 200 OK' <&3
+    restart: "no"
+
+  preprod-mailpit-volume-init:
+    <<: *runtime-security
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    profiles: [local-preprod-loader]
+    user: "0:0"
+    entrypoint: [/usr/bin/chown]
+    command: [-R, 1000:1000, /data]
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+    network_mode: none
+    volumes:
+      - preprod-mailpit-data:/data
+    restart: "no"
+
+  preprod-mailpit:
+    <<: *runtime-security
+    image: axllent/mailpit:v1.27.8@sha256:6abc8e633df15eaf785cfcf38bae48e66f64beecdc03121e249d0f9ec15f0707
+    profiles: [local-preprod-loader]
+    user: "1000:1000"
+    depends_on:
+      preprod-mailpit-volume-init:
+        condition: service_completed_successfully
+    environment:
+      MP_DATABASE: /data/aviasurveil360-local-preprod-mailpit.db
+      MP_SMTP_AUTH_FILE: /run/secrets/preprod_smtp_auth_file
+      MP_SMTP_AUTH_ALLOW_INSECURE: "true"
+      MP_SMTP_REQUIRE_STARTTLS: "false"
+      MP_SMTP_DISABLE_RDNS: "true"
+    secrets:
+      - preprod_smtp_auth_file
+    volumes:
+      - preprod-mailpit-data:/data
+    tmpfs:
+      - /tmp:mode=1777
+    networks:
+      - preprod-identity
+      - preprod-platform
+    healthcheck:
+      <<: *health-defaults
+      test: [CMD, /mailpit, readyz]
+    restart: "no"
+
+  preprod-minio-volume-init:
+    <<: *runtime-security
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    profiles: [local-preprod-loader]
+    user: "0:0"
+    entrypoint: [/usr/bin/chown]
+    command: [-R, 1000:1000, /data]
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+    network_mode: none
+    volumes:
+      - preprod-object-store:/data
+    restart: "no"
+
+  preprod-minio:
+    <<: *runtime-security
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    profiles: [local-preprod-loader]
+    user: "1000:1000"
+    depends_on:
+      preprod-minio-volume-init:
+        condition: service_completed_successfully
+    entrypoint: [/bin/sh, /opt/aviasurveil360/preprod-minio-init.sh]
+    environment:
+      AVIA_PREPROD_OBJECT_BUCKET: aviasurveil360-local-preprod
+      MINIO_ROOT_USER_FILE: /run/secrets/preprod_minio_root_user
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/preprod_minio_root_password
+      MINIO_LOADER_ACCESS_KEY_FILE: /run/secrets/preprod_minio_api_access_key
+      MINIO_LOADER_SECRET_KEY_FILE: /run/secrets/preprod_minio_api_secret_key
+    configs:
+      - source: preprod_minio_init
+        target: /opt/aviasurveil360/preprod-minio-init.sh
+        uid: "1000"
+        gid: "1000"
+        mode: 0550
+    secrets:
+      - preprod_minio_api_access_key
+      - preprod_minio_api_secret_key
+      - preprod_minio_root_password
+      - preprod_minio_root_user
+    volumes:
+      - preprod-object-store:/data
+    tmpfs:
+      - /tmp:mode=1777
+    networks:
+      - preprod-platform
+    healthcheck:
+      <<: *health-defaults
+      test:
+        - CMD-SHELL
+        - >-
+          test -f /tmp/preprod-minio-initialized &&
+          curl --fail http://127.0.0.1:9000/minio/health/live
+    restart: "no"
+
+  preprod-data-loader:
+    <<: *runtime-security
+    image: aviasurveil360/preprod-data-loader:local
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      target: preprod-data-loader
+    profiles: [local-preprod-loader]
+    user: "10001:10001"
+    depends_on:
+      preprod-migration:
+        condition: service_completed_successfully
+      preprod-keycloak:
+        condition: service_healthy
+      preprod-mailpit:
+        condition: service_healthy
+      preprod-minio:
+        condition: service_healthy
+    environment:
+      AVIA_ENVIRONMENT: local-preprod
+      AVIA_PREPROD_DATABASE_NAME: aviasurveil360_local_preprod
+      AVIA_PREPROD_DATABASE_OWNER: aviasurveil360_preprod_loader
+      AVIA_PREPROD_DATABASE_HOST: preprod-postgres
+      AVIA_PREPROD_DATABASE_PORT: "5432"
+      AVIA_PREPROD_COMPOSE_PROJECT: aviasurveil360-local-preprod
+      AVIA_PREPROD_KEYCLOAK_REALM: aviasurveil360-local-preprod
+      AVIA_PREPROD_KEYCLOAK_DATABASE: keycloak_local_preprod
+      AVIA_PREPROD_KEYCLOAK_SERVICE_CLIENT_ID: aviasurveil360-local-preprod-lifecycle
+      AVIA_PREPROD_MAILPIT_NAMESPACE: aviasurveil360-local-preprod
+      AVIA_PREPROD_OBJECT_BUCKET: aviasurveil360-local-preprod
+      AVIA_PREPROD_LOADER_QUEUE_NAMESPACE: aviasurveil360-local-preprod
+      AVIA_DATABASE_PASSWORD_FILE: /run/secrets/preprod_app_database_password
+      AVIA_KEYCLOAK_ADMIN_URL: http://preprod-keycloak:8080/identity
+      AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET_FILE: /run/secrets/preprod_keycloak_service_client_secret
+      AVIA_OBJECT_STORE_ENDPOINT: preprod-minio:9000
+      AVIA_OBJECT_STORE_ACCESS_KEY_FILE: /run/secrets/preprod_minio_api_access_key
+      AVIA_OBJECT_STORE_SECRET_KEY_FILE: /run/secrets/preprod_minio_api_secret_key
+      AVIA_SMTP_ADDRESS: preprod-mailpit:1025
+      AVIA_SMTP_USERNAME: aviasurveil360-preprod
+      AVIA_SMTP_PASSWORD_FILE: /run/secrets/preprod_smtp_password
+    configs:
+      - source: preprod_loader_config
+        target: /run/config/preprod-loader.json
+        uid: "10001"
+        gid: "10001"
+        mode: 0400
+    secrets:
+      - source: preprod_loader_authorization
+        target: preprod_loader_authorization
+        uid: "10001"
+        gid: "10001"
+        mode: 0600
+      - source: preprod_loader_seed
+        target: preprod_seed
+        uid: "10001"
+        gid: "10001"
+        mode: 0600
+      - preprod_app_database_password
+      - preprod_keycloak_service_client_secret
+      - preprod_minio_api_access_key
+      - preprod_minio_api_secret_key
+      - preprod_smtp_password
+    volumes:
+      - type: bind
+        source: ${AVIA_PREPROD_CONTROL_STORE_DIR:-../../.local/aviasurveil360-preprod/control-store}
+        target: /var/lib/aviasurveil360-preprod-control
+    tmpfs:
+      - /tmp:mode=1777
+    networks:
+      - preprod-app-database
+      - preprod-identity
+      - preprod-platform
+    restart: "no"
+
   fixture-init:
     <<: *runtime-security
     image: aviasurveil360/migration:local
@@ -671,6 +1002,10 @@ services:
 configs:
   application_config:
     file: ./config/application.example.yaml
+  preprod_loader_config:
+    file: ${AVIA_PREPROD_LOADER_CONFIG_FILE:-/dev/null}
+  preprod_minio_init:
+    file: ./minio/preprod-init.sh
   clamav_entrypoint:
     file: ./clamav/entrypoint.sh
   keycloak_entrypoint:
@@ -709,6 +1044,32 @@ secrets:
     file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/smtp_password
   smtp_auth_file:
     file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/smtp_auth_file
+  preprod_loader_authorization:
+    file: ${AVIA_PREPROD_AUTHORIZATION_FILE:-/dev/null}
+  preprod_loader_seed:
+    file: ${AVIA_PREPROD_SEED_FILE:-/dev/null}
+  preprod_keycloak_realm:
+    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/keycloak/realm.json
+  preprod_app_database_password:
+    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_app_database_password
+  preprod_keycloak_bootstrap_admin_password:
+    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_keycloak_bootstrap_admin_password
+  preprod_keycloak_database_password:
+    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_keycloak_database_password
+  preprod_keycloak_service_client_secret:
+    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_keycloak_service_client_secret
+  preprod_minio_api_access_key:
+    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_minio_api_access_key
+  preprod_minio_api_secret_key:
+    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_minio_api_secret_key
+  preprod_minio_root_password:
+    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_minio_root_password
+  preprod_minio_root_user:
+    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_minio_root_user
+  preprod_smtp_password:
+    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_smtp_password
+  preprod_smtp_auth_file:
+    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_smtp_auth_file
 
 networks:
   edge:
@@ -722,6 +1083,14 @@ networks:
     internal: true
   platform:
     internal: true
+  preprod-app-database:
+    internal: true
+  preprod-identity:
+    internal: true
+  preprod-identity-database:
+    internal: true
+  preprod-platform:
+    internal: true
   tools:
   signature-updates:
 
@@ -731,5 +1100,9 @@ volumes:
   object-store:
   clamav-signatures:
   mailpit-data:
+  preprod-app-database:
+  preprod-keycloak-database:
+  preprod-object-store:
+  preprod-mailpit-data:
   caddy-data:
   caddy-config:

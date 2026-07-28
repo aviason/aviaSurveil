@@ -1,6 +1,6 @@
 # Identity And Realistic Data Foundation Plan
 
-**Status:** `active — Tasks 1–5 complete; Task 6 next`
+**Status:** `active — Tasks 1–6 complete; Task 7 next`
 
 **Reviewed task count:** 9
 
@@ -21,7 +21,8 @@ authorization permits Tasks 2–9 in sequence, with one freshly verified,
 published task commit before the next task starts. Tasks 1–5 are complete and
 published; Tasks 2–5 are `26da3c0`, `8cf2b57`, `bedff45`, and `ac5f786`.
 This plan is the predecessor of the AviaCore/ML readiness and local preprod
-release-candidate plans. Tasks 6–9 remain `not run`.
+release-candidate plans. Task 6 is complete and `verified locally`; its
+publication record is pending. Tasks 7–9 remain `not run`.
 
 ## Scope
 
@@ -288,6 +289,79 @@ feasibility decision.
   `ac5f78619d033ab7d9ed5c63e3de10fdc337ea38`
   (`feat(identity): complete admin lifecycle experience`) and confirmed the
   exact remote ref before starting Task 6.
+- [x] (2026-07-28) Task 6 is complete and `verified locally`. Task 5 and its
+  publication record are remotely confirmed. The strict Node boundary RED
+  failed 3/3 because the loader script and source did not exist and the
+  normal-artifact guard did not positively identify the loader command. The
+  strict Go RED then failed to
+  build because both new packages had no implementation files and
+  `loadRunConfiguration` was undefined. The initial sandboxed Go attempt was
+  discarded because the Go cache was outside the writable sandbox; the
+  task-owned-cache rerun is the behavioral RED. Acceptance review then added
+  the complete disposable-namespace contract; its focused Node rerun failed
+  1/4 because the isolated object-store initializer and the required
+  PostgreSQL, migration, Keycloak, Mailpit, and object-store services did not
+  exist. This RED preceded that infrastructure implementation. The
+  exact-completed-run replay test then failed because the runner attempted to
+  consume the already-used authorization instead of returning the immutable
+  successful result without touching the target. That RED preceded the result
+  binding/replay implementation. The reconciliation RED then failed because a
+  run reporting one organization against the intent's expected three was
+  incorrectly accepted as `SUCCEEDED`; that RED preceded exact count
+  reconciliation. The frozen-profile mutation RED then failed because the
+  generator accepted a changed `smoke@1.0.0` count/distribution without a new
+  profile version; that RED preceded catalog equality enforcement. The cleanup
+  linkage RED then failed because a consumed `LOAD_EMPTY_TARGET` authorization
+  could incorrectly attest namespace cleanup; that RED preceded exact
+  successful-result, target, and `DROP_RECREATE_TARGET` authorization
+  validation. The direct result-store RED then failed because an incomplete
+  successful result could bypass the runner and bind to the run; that RED
+  preceded store-level intent reconciliation. The bounded-streaming RED then
+  failed because `RunInput` retained every authoritative command in a slice
+  and exposed no `CommandStream.Next` boundary; that RED preceded the
+  constant-memory iterator contract required by the larger frozen profiles.
+  The checkpoint-bound RED then failed with 2,050 retained checkpoint names
+  for 2,049 streamed commands; that RED preceded the intent-sized, maximum
+  1,024 command-checkpoint schedule. The namespace overwrite RED then failed
+  because the initializer exposed `--rotate` and force-move paths outside the
+  operation-authorization boundary; that RED preceded create-only
+  initialization. The boundary-redaction RED then failed because a sentinel
+  returned by a server-owned command boundary leaked into both the persisted
+  failure result and returned error; that RED preceded public error
+  classification. The command-payload RED then failed all four unsafe cases:
+  malformed JSON, nested `client_secret`, a hyphenated access-token key, and a
+  payload above 1 MiB; that RED preceded bounded structural payload
+  validation. The resume RED then failed with an append-only checkpoint
+  conflict because `RESUME_RUN` restarted checkpoint sequence 1 and replayed
+  from the beginning; that RED preceded durable checkpoint discovery and
+  resumable-stream positioning. The isolated SMTP RED then failed because the
+  generated realm retained normal username `aviasurveil360` while the
+  dedicated Mailpit auth file required `aviasurveil360-preprod`; that RED
+  preceded exact SMTP-user parameterization. The control-store-root RED then
+  failed because a group/world-readable directory was accepted for retained
+  manifests and authorization hashes; that RED preceded explicit broad-root
+  rejection and private-directory validation. Final diff review added an
+  intent-reader RED that failed because a second JSON object after a valid
+  canonical intent was accepted; that RED preceded strict trailing-content
+  rejection. No implementation of a corrected behavior preceded its
+  corresponding failure. The final loader keeps
+  every normal runtime free of loader/reset imports, uses the exact
+  server-owned command boundary, retains immutable digest-linked control
+  records outside the disposable target, and permits cleanup attestation only
+  after a separate consumed `DROP_RECREATE_TARGET` authorization. Tasks 7–9
+  remain `not run`.
+- [x] (2026-07-28) The first complete Task 6 verification attempt passed the
+  4/4 Node boundary suite, HTTP artifact scan, and normal-artifact boundary.
+  The required race run failed six loader tests because their task-owned
+  temporary control-store roots did not explicitly apply the new private
+  directory mode. This was a test-fixture failure, not passing evidence. After
+  correcting those fixtures, the fresh required rerun passed the Node boundary
+  4/4, both race-enabled Go packages, the HTTP artifact scan across 146 files
+  and 177 inputs, and the normal-artifact boundary. Compose rendered exactly
+  the 15 reviewed normal services for `full` and the nine isolated preprod
+  services for `local-preprod-loader`; the three new shell entrypoints are
+  executable and syntax-clean; Go vet passed; and the related identity,
+  Keycloak, and Compose policy regression passed 50/50.
 
 ## Tasks
 
@@ -893,6 +967,10 @@ disabled with a specific reason.
 
 ### Task 6: Build The Out-Of-Process Preprod Data Loader
 
+**Task status:** `complete`; Task 5 is published and remotely confirmed. The
+strict RED sequence and the corrected fresh completion gate are recorded.
+Task 6 is `verified locally`; publication metadata is pending.
+
 **Files**
 
 - Create `apps/api/internal/preproddata/`.
@@ -907,51 +985,51 @@ disabled with a specific reason.
 
 **Work**
 
-- [ ] Implement deterministic ID, clock, text, relationship, object-metadata,
+- [x] Implement deterministic ID, clock, text, relationship, object-metadata,
   and lifecycle-state generation from a required seed and profile version.
-- [ ] Generate and persist a canonical content-addressed intent manifest before
+- [x] Generate and persist a canonical content-addressed intent manifest before
   data writes. Include profile, seed hash, expected counts, distribution,
   code/contract digests, exact disposable target identity, and run ID. Call it
   signed only if a separately approved signing key, custody, verifier, and
   detached-signature contract exist.
-- [ ] Publish a separate append-only run-result manifest with actual counts,
+- [x] Publish a separate append-only run-result manifest with actual counts,
   relationship digests, checkpoints, and failures; publish a third cleanup
   attestation only after a later cleanup. All three live outside the disposable
   target, link by digest, and never rewrite intent into a passing result.
-- [ ] Require exact `local-preprod` environment identity, an allowlisted
+- [x] Require exact `local-preprod` environment identity, an allowlisted
   dedicated disposable database name, and one short-lived, single-use
   operation authorization whose stored value is hashed and whose scope binds
   target,
   run ID, intent digest, exactly one of `LOAD_EMPTY_TARGET`, `RESUME_RUN`, or
   `DROP_RECREATE_TARGET`, issuer, expiry, and nonce. One token cannot authorize
   multiple actions.
-- [ ] Bind the target fingerprint to environment marker, database name,
+- [x] Bind the target fingerprint to environment marker, database name,
   owner, PostgreSQL system identifier, host/port, Compose project, isolated
   Keycloak realm/database identifier and lifecycle service client, Mailpit
   namespace, object bucket/prefix, profile/version, run ID, and intent digest.
   Transport authorization only through an ephemeral `0600` file/secret mount;
   never expose it in CLI arguments, environment dumps, logs, or evidence.
-- [ ] Keep the loader binary, image target, and Compose service absent from
+- [x] Keep the loader binary, image target, and Compose service absent from
   normal API/worker/runtime artifacts and normal startup.
-- [ ] Re-run Task 2's normal-artifact boundary and prove the new loader did not
+- [x] Re-run Task 2's normal-artifact boundary and prove the new loader did not
   reintroduce `internal/testprofile`, `internal/preproddata`, `__test/reset`, or
   loader commands into normal artifacts.
-- [ ] Use application services or their exact server-owned command boundary so
+- [x] Use application services or their exact server-owned command boundary so
   revisions, audit events, outbox records, privacy, and authorization invariants
   are preserved.
-- [ ] Make rerun with the same run ID an exact replay and reject a different
+- [x] Make rerun with the same run ID an exact replay and reject a different
   manifest under the same run ID.
-- [ ] Produce no credential, secret, real PII, or Evidence bytes. Fixed,
+- [x] Produce no credential, secret, real PII, or Evidence bytes. Fixed,
   unmistakably synthetic Internal CAA Note, private-risk, and enforcement
   canaries may exist only in private fields to prove non-leakage; they must
   never enter manifests, Auditee output, generated documents, mail, logs, or
   evidence.
-- [ ] Never delete append-only rows or individual users by run ID.
+- [x] Never delete append-only rows or individual users by run ID.
   Repeatability uses a clean, loader-exclusive application DB, isolated
   Keycloak realm/database/accounts/client, Mailpit mailbox, object namespace,
   and queues/jobs; whole-namespace drop/recreate requires exact current
   authorization, ownership preflight, and backup/retention decision.
-- [ ] Retain intent/result/checkpoints, token hashes/consumption, and cleanup
+- [x] Retain intent/result/checkpoints, token hashes/consumption, and cleanup
   attestations in the external append-only control store after disposal.
 
 **Verification**
@@ -965,6 +1043,18 @@ Run:
 
 Expected: loader surfaces exist only in the explicit one-shot profile and are
 absent from the normal HTTP artifact and API route table.
+
+Fresh result:
+
+- `node --test tests/preprod-data-boundary.test.mjs` — exit 0; 4/4 passed.
+- `env GOCACHE=/private/tmp/aviasurveil360-task6-final2-go-cache go -C
+  apps/api test -race -p 1 -count=1 ./internal/preproddata
+  ./cmd/preprod-data-loader` — exit 0; both packages passed
+  (`internal/preproddata` 1.576s; command 1.341s).
+- `node apps/web/scripts/assert-http-artifact.mjs apps/web/dist/http` — exit
+  0; `http-artifact-scan: ok (146 files, 177 inputs)`.
+- `./scripts/test-normal-artifact-boundary.sh` — exit 0; both focused
+  `internal/httpapi` runs passed and `normal-artifact-boundary: ok`.
 
 **Acceptance**
 
@@ -1248,15 +1338,18 @@ are `verified locally`: they establish normal/canonical-test artifact
 separation, append-only desired membership, least-privilege Keycloak client
 credentials, a provider-backed Admin directory, exact-revision lifecycle
 actions, live invitation/MFA behavior, fail-closed session authority, and the
-complete reason-confirmed Users and Roles Admin experience. Tasks 6–9,
-loader/profile feasibility, deployment, release, and production readiness
-remain `not run`; the artifact remains `candidate-only` and release remains
-`release pending`.
+complete reason-confirmed Users and Roles Admin experience. Task 6 is also
+`verified locally`: its isolated out-of-process loader boundary produces
+deterministic intent data and append-only digest-linked lifecycle records
+without entering normal artifacts. Tasks 7–9, connected scenario generation,
+profile feasibility, deployment, release, and production readiness remain
+`not run`; the artifact remains `candidate-only` and release remains `release
+pending`.
 
 ## Execution Prompt
 
 ```text
-Tasks 1-5 in docs/exec-plans/active/2026-07-27-identity-and-realistic-data-foundation-plan.md are complete and verified locally; Task 5 is published as ac5f78619d033ab7d9ed5c63e3de10fdc337ea38 and its exact remote revision is confirmed. Task 6 is next and remains not run. Read AGENTS.md, docs/PLANS.md, the plan index, the complete plan, and the current identity/full-profile evidence first. Preserve the root demo, normal HTTP no-seed boundary, Keycloak authority, organization isolation, append-only histories, and unrelated worktree changes.
+Tasks 1-6 in docs/exec-plans/active/2026-07-27-identity-and-realistic-data-foundation-plan.md are complete and verified locally; Task 5 is published as ac5f78619d033ab7d9ed5c63e3de10fdc337ea38 and its exact remote revision is confirmed. Task 6 publication metadata is pending. Task 7 is next and remains not run. Read AGENTS.md, docs/PLANS.md, the plan index, the complete plan, and the current identity/full-profile evidence first. Preserve the root demo, normal HTTP no-seed boundary, Keycloak authority, organization isolation, append-only histories, and unrelated worktree changes.
 
 Use strict RED -> GREEN -> focused review for each task. Establish the desired-membership revision and least-privilege Keycloak service identity before directory/lifecycle acceptance. The normal API/worker/scheduler/migration images must not link testprofile or loader/reset code. Repeatable loader reset uses only an exactly authorized disposable target and never selectively deletes append-only rows. Qualify smoke, acceptance, realistic, and stress with the same scenario/role/route catalog. Do not add public registration, a normal API reset/seed route, real PII, plaintext credentials, client-authored roles, direct fixture writes that bypass authoritative domain behavior, AWS actions, commits, or pushes without separate authorization. Keep the plan, index, tracker, and evidence synchronized with literal results. Stop after each task's acceptance gate and fix all Critical or Important review findings before continuing.
 ```

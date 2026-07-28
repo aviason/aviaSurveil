@@ -2,7 +2,7 @@
 
 **Evidence date:** 2026-07-28
 
-**Scope status:** Tasks 1–5 complete; Tasks 6–9 `not run`
+**Scope status:** Tasks 1–6 complete; Tasks 7–9 `not run`
 
 **Artifact status:** `candidate-only`
 
@@ -476,3 +476,165 @@ The loader, profile generation, generated datasets, workload qualification,
 deployment, external email, production identity federation, release, and
 production readiness remain `not run` in Tasks 6–9. The artifact remains
 `candidate-only` and `release pending`.
+
+## Task 6 Out-Of-Process Preprod Data Loader
+
+Task 6 is complete and `verified locally`. Task 5 and its exact publication
+record are remotely confirmed. Task 6 publication metadata is pending.
+
+### Strict RED evidence
+
+Before Task 6 production implementation, `node --test
+tests/preprod-data-boundary.test.mjs` failed 3/3 with exit 1. The first two
+tests could not find `scripts/load-preprod-data.sh` or
+`apps/api/internal/preproddata/loader.go`; the third proved the
+normal-artifact guard did not yet positively identify the separate
+`preprod-data-loader` command.
+
+The task-owned-cache Go RED, `env
+GOCACHE=/private/tmp/aviasurveil360-task6-red-go-cache go -C apps/api test
+-count=1 ./internal/preproddata ./cmd/preprod-data-loader`, failed with exit 1.
+Both packages had no non-test implementation files and the command test could
+not resolve `loadRunConfiguration`. A preceding sandboxed attempt failed only
+because the default Go cache was outside the writable sandbox and is not
+behavioral evidence. No Task 6 production implementation preceded the
+behavioral failures.
+
+Acceptance review added the missing complete disposable-namespace contract.
+The next `node --test tests/preprod-data-boundary.test.mjs` run failed 1/4
+with exit 1 because `deploy/local/minio/preprod-init.sh` and the isolated
+PostgreSQL, migration, Keycloak, Mailpit, and object-store service topology
+did not exist. This RED preceded implementation of those surfaces.
+
+The focused exact-replay RED, `env
+GOCACHE=/private/tmp/aviasurveil360-task6-replay-red-go-cache go -C apps/api
+test -count=1 ./internal/preproddata -run
+'^TestRunnerPersistsIntentBeforeAuthoritativeCommands$'`, failed with exit 1
+because a completed-run replay attempted to consume the already-used
+authorization. This RED preceded the immutable successful-result binding and
+no-target-touch replay implementation.
+
+The focused reconciliation RED, `env
+GOCACHE=/private/tmp/aviasurveil360-task6-reconcile-red-go-cache go -C
+apps/api test -count=1 ./internal/preproddata -run
+'^TestRunnerRejectsReconciliationCountsOutsideIntent$'`, failed with exit 1
+because the runner accepted one actual organization against the immutable
+intent's expected three and published `SUCCEEDED`. This RED preceded exact
+count reconciliation.
+
+The focused profile-mutation RED, `env
+GOCACHE=/private/tmp/aviasurveil360-task6-profile-red-go-cache go -C apps/api
+test -count=1 ./internal/preproddata -run
+'^TestGeneratorRejectsUnversionedMutationOfFrozenProfile$'`, failed with exit
+1 because the generator accepted a changed `smoke@1.0.0`
+count/distribution without a new version. This RED preceded exact frozen
+catalog equality enforcement.
+
+The focused cleanup-linkage RED, `env
+GOCACHE=/private/tmp/aviasurveil360-task6-cleanup-red-go-cache go -C apps/api
+test -count=1 ./internal/preproddata -run
+'^TestIntentAuthorizationAndControlRecordsAreImmutableAndBound$'`, failed with
+exit 1 because a consumed `LOAD_EMPTY_TARGET` authorization was incorrectly
+accepted as cleanup authority. This RED preceded exact successful-result,
+target-fingerprint, and `DROP_RECREATE_TARGET` authorization validation.
+
+The focused result-store RED used the same test and failed with exit 1 because
+an incomplete `SUCCEEDED` result could be appended directly and bound to the
+run without matching every intent count and relationship-digest family. This
+RED preceded store-level reconciliation.
+
+The bounded-streaming boundary RED, `node --test
+tests/preprod-data-boundary.test.mjs`, then failed 1/4 with exit 1 because
+`RunInput` retained every authoritative command in a slice and no
+`CommandStream.Next` iterator existed. This RED preceded the constant-memory
+streaming command contract required by the larger frozen profiles.
+
+The focused checkpoint-bound RED, `env
+GOCACHE=/private/tmp/aviasurveil360-task6-checkpoint-red-go-cache go -C
+apps/api test -count=1 ./internal/preproddata -run
+'^TestRunnerBoundsCheckpointMemoryForStreamingProfiles$'`, failed with exit 1
+because 2,049 streamed commands retained 2,050 checkpoint names. This RED
+preceded the intent-sized schedule capped at 1,024 command checkpoints.
+
+The namespace overwrite RED, `node --test
+tests/preprod-data-boundary.test.mjs`, then failed 1/4 with exit 1 because the
+initializer exposed `--rotate` and force-move paths outside the
+operation-authorization boundary. This RED preceded create-only namespace
+initialization; later whole-namespace disposal/recreation remains subject to
+the exact authorized cleanup path.
+
+The focused boundary-redaction RED, `env
+GOCACHE=/private/tmp/aviasurveil360-task6-redaction-red-go-cache go -C
+apps/api test -count=1 ./internal/preproddata -run
+'^TestRunnerRedactsBoundaryFailureFromResultAndError$'`, failed with exit 1
+because a sentinel returned by the server-owned command boundary leaked into
+the persisted failure result and returned error. This RED preceded safe public
+failure classification.
+
+The focused command-payload RED, `env
+GOCACHE=/private/tmp/aviasurveil360-task6-command-red-go-cache go -C apps/api
+test -count=1 ./internal/preproddata -run
+'^TestAuthoritativeCommandValidationRejectsUnsafePayloads$'`, failed all four
+unsafe cases: malformed JSON, nested `client_secret`, a hyphenated
+access-token key, and a payload above 1 MiB. This RED preceded bounded
+structural payload validation.
+
+The focused resume RED, `env
+GOCACHE=/private/tmp/aviasurveil360-task6-resume-red-go-cache go -C apps/api
+test -count=1 ./internal/preproddata -run
+'^TestRunnerResumesAfterLastDurableCheckpoint$'`, failed with exit 1 and
+`append-only control record conflicts` because `RESUME_RUN` restarted
+checkpoint sequence 1 and replayed from the beginning. This RED preceded
+durable checkpoint discovery and resumable-stream positioning.
+
+The isolated SMTP RED, `node --test
+tests/preprod-data-boundary.test.mjs`, then failed 1/4 with exit 1 because the
+generated realm retained normal username `aviasurveil360` while the dedicated
+Mailpit auth file required `aviasurveil360-preprod`. This RED preceded exact
+SMTP-user parameterization in the realm builder.
+
+The focused control-store-root RED, `env
+GOCACHE=/private/tmp/aviasurveil360-task6-store-root-red-go-cache go -C
+apps/api test -count=1 ./internal/preproddata -run
+'^TestControlStoreRejectsBroadOrNonPrivateRoots$'`, failed with exit 1 because
+a group/world-readable directory was accepted for retained manifests and
+authorization hashes. This RED preceded broad-root rejection and private-mode
+validation.
+
+Final diff review added a strict intent-reader RED. `env
+GOCACHE=/private/tmp/aviasurveil360-task6-trailing-red-go-cache go -C apps/api
+test -count=1 ./cmd/preprod-data-loader -run
+'^TestReadIntentRejectsTrailingContent$'` failed with exit 1 because a second
+JSON object after a valid canonical intent was accepted. This RED preceded
+strict trailing-content rejection. The focused GREEN passed with exit 0.
+
+### Verification
+
+The first complete Task 6 verification attempt passed the 4/4 Node boundary
+suite, HTTP artifact scan, and normal-artifact boundary. The required race run
+failed six loader tests because their task-owned temporary control-store roots
+did not explicitly apply the new private directory mode. This test-fixture
+failure is retained as incomplete evidence and is not represented as passing.
+
+After the fixture correction, the complete required gate was rerun from the
+final Task 6 source:
+
+| Command | Literal result |
+| --- | --- |
+| `node --test tests/preprod-data-boundary.test.mjs` | exit 0; 4/4 passed; 0 failed, skipped, or cancelled |
+| `env GOCACHE=/private/tmp/aviasurveil360-task6-final2-go-cache go -C apps/api test -race -p 1 -count=1 ./internal/preproddata ./cmd/preprod-data-loader` | exit 0; `internal/preproddata` passed in 1.576s; `cmd/preprod-data-loader` passed in 1.341s |
+| `node apps/web/scripts/assert-http-artifact.mjs apps/web/dist/http` | exit 0; `http-artifact-scan: ok (146 files, 177 inputs)` |
+| `./scripts/test-normal-artifact-boundary.sh` | exit 0; focused normal and canonical-test `internal/httpapi` runs passed in 0.553s and 0.479s; `normal-artifact-boundary: ok` |
+| `env GOCACHE=/private/tmp/aviasurveil360-task6-final2-vet-go-cache go -C apps/api vet ./internal/preproddata ./cmd/preprod-data-loader` | exit 0 |
+| `node --test tests/preprod-identity-data-contract.test.mjs deploy/local/keycloak/realm-contract.test.mjs tests/local-compose-policy.test.mjs` | exit 0; 50/50 passed |
+| `docker compose -f deploy/local/compose.yaml --profile full config --services` | exit 0; exactly the 15 reviewed normal services; no preprod service |
+| `docker compose -f deploy/local/compose.yaml --profile local-preprod-loader config --services` | exit 0; exactly nine isolated preprod services from PostgreSQL/migration through the one-shot loader |
+| `sh -n deploy/local/minio/preprod-init.sh scripts/init-local-preprod-namespace.sh scripts/load-preprod-data.sh scripts/test-normal-artifact-boundary.sh` | exit 0 |
+
+The three new shell entrypoints have mode `0755`. The protected Plan 1 visual
+review process remained PID 13055 with its original command. Docker inspection
+reported no running containers and no active Compose projects. No deployment,
+AWS operation, production change, real PII, or task-owned runtime service was
+used.
+
+Tasks 7–9 remain `not run`.

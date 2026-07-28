@@ -14,7 +14,8 @@ RUN mkdir -p /out \
     && go build -trimpath -tags canonicaltest -buildvcs=false -ldflags="-s -w -buildid=" -o /out/canonical-test-api ./cmd/api \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/worker ./cmd/worker \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/scheduler ./cmd/reminder-scheduler \
-    && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/migrate ./cmd/migrate
+    && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/migrate ./cmd/migrate \
+    && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-data-loader ./cmd/preprod-data-loader
 
 FROM ${GO_RUNTIME_IMAGE} AS runtime-base
 COPY --from=go-build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
@@ -50,3 +51,7 @@ FROM runtime-base AS migration
 COPY --from=go-build --chown=10001:10001 /out/migrate /app/migrate
 COPY --chown=10001:10001 deploy/local/api/migration-entrypoint.sh /app/entrypoint.sh
 ENTRYPOINT ["/app/entrypoint.sh"]
+
+FROM runtime-base AS preprod-data-loader
+COPY --from=go-build --chown=10001:10001 /out/preprod-data-loader /app/preprod-data-loader
+ENTRYPOINT ["/app/preprod-data-loader"]

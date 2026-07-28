@@ -22,8 +22,11 @@ function parseArguments(arguments_) {
     const value = arguments_[index + 1];
     if (!flag?.startsWith("--") || value === undefined) {
       throw new Error(
-        "expected --source, --output, --client-secret-file, --service-client-secret-file, and --smtp-password-file",
+        "expected paired Keycloak realm-builder flags",
       );
+    }
+    if (values.has(flag)) {
+      throw new Error(`duplicate realm-builder flag: ${flag}`);
     }
     values.set(flag, value);
   }
@@ -34,17 +37,48 @@ function parseArguments(arguments_) {
   const serviceClientSecretFile = values.get("--service-client-secret-file");
   const smtpPasswordFile = values.get("--smtp-password-file");
   const publicOriginValue = values.get("--public-origin");
+  const realmName = values.get("--realm-name") ?? "aviasurveil360";
+  const webClientId =
+    values.get("--web-client-id") ?? "aviasurveil360-web";
+  const serviceClientId =
+    values.get("--service-client-id") ?? "aviasurveil360-lifecycle";
+  const smtpHost = values.get("--smtp-host") ?? "mailpit";
+  const smtpUser = values.get("--smtp-user") ?? "aviasurveil360";
+  const allowedFlags = new Set([
+    "--source",
+    "--output",
+    "--client-secret-file",
+    "--service-client-secret-file",
+    "--smtp-password-file",
+    "--public-origin",
+    "--realm-name",
+    "--web-client-id",
+    "--service-client-id",
+    "--smtp-host",
+    "--smtp-user",
+  ]);
   if (
     !source ||
     !output ||
     !clientSecretFile ||
     !serviceClientSecretFile ||
     !smtpPasswordFile ||
-    (values.size !== 5 && values.size !== 6)
+    [...values.keys()].some((flag) => !allowedFlags.has(flag))
   ) {
     throw new Error(
-      "expected --source, --output, --client-secret-file, --service-client-secret-file, --smtp-password-file, and optional --public-origin",
+      "expected source/output/secret files and only reviewed optional realm identity flags",
     );
+  }
+  for (const [field, value] of Object.entries({
+    realmName,
+    webClientId,
+    serviceClientId,
+    smtpHost,
+    smtpUser,
+  })) {
+    if (!/^[a-z0-9][a-z0-9.-]{2,127}$/u.test(value)) {
+      throw new Error(`${field} is not a valid reviewed identifier`);
+    }
   }
   let publicOrigin;
   if (publicOriginValue !== undefined) {
@@ -68,6 +102,11 @@ function parseArguments(arguments_) {
     serviceClientSecretFile,
     smtpPasswordFile,
     publicOrigin,
+    realmName,
+    webClientId,
+    serviceClientId,
+    smtpHost,
+    smtpUser,
   };
 }
 
@@ -78,6 +117,11 @@ function buildRealm({
   serviceClientSecretFile,
   smtpPasswordFile,
   publicOrigin,
+  realmName,
+  webClientId,
+  serviceClientId,
+  smtpHost,
+  smtpUser,
 }) {
   const sourceText = readFileSync(source, "utf8");
   const placeholderMatches = sourceText.match(
@@ -127,6 +171,14 @@ function buildRealm({
   }
 
   const realm = JSON.parse(sourceText);
+  if (realm.realm !== "aviasurveil360") {
+    throw new Error("realm source is missing the reviewed realm identity");
+  }
+  realm.realm = realmName;
+  realm.displayName =
+    realmName === "aviasurveil360"
+      ? "AviaSurveil360 Local"
+      : "AviaSurveil360 Local Preprod";
   const webClient = realm.clients?.find(
     (candidate) => candidate.clientId === "aviasurveil360-web",
   );
@@ -134,6 +186,7 @@ function buildRealm({
     throw new Error("realm source is missing the reviewed web client");
   }
   webClient.secret = clientSecret;
+  webClient.clientId = webClientId;
   const serviceClient = realm.clients?.find(
     (candidate) => candidate.clientId === "aviasurveil360-lifecycle",
   );
@@ -141,10 +194,22 @@ function buildRealm({
     throw new Error("realm source is missing the reviewed lifecycle client");
   }
   serviceClient.secret = serviceClientSecret;
+  serviceClient.clientId = serviceClientId;
+  const serviceAccount = realm.users?.find(
+    (candidate) =>
+      candidate.serviceAccountClientId === "aviasurveil360-lifecycle",
+  );
+  if (!serviceAccount) {
+    throw new Error("realm source is missing the reviewed service account");
+  }
+  serviceAccount.username = `service-account-${serviceClientId}`;
+  serviceAccount.serviceAccountClientId = serviceClientId;
   if (realm.smtpServer?.password !== smtpPasswordPlaceholder) {
     throw new Error("realm source is missing the reviewed SMTP configuration");
   }
   realm.smtpServer.password = smtpPassword;
+  realm.smtpServer.host = smtpHost;
+  realm.smtpServer.user = smtpUser;
   if (publicOrigin) {
     webClient.redirectUris = [`${publicOrigin}/auth/callback`];
     webClient.webOrigins = [publicOrigin];
