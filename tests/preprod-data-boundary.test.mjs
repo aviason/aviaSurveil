@@ -1,5 +1,15 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { test } from "node:test";
 
 const read = (path) => readFileSync(path, "utf8");
@@ -117,6 +127,49 @@ test("one-shot profile owns a complete isolated disposable namespace", () => {
   assert.doesNotMatch(objectInitializer, /evidence-quarantine|evidence-clean/u);
 });
 
+test("preprod object policy scopes only ListBucket with the run prefix", () => {
+  const initializer = read("deploy/local/minio/preprod-init.sh");
+  const policySource = initializer.match(
+    /cat >\/tmp\/preprod-loader-policy\.json <<'EOF'\n(?<policy>[\s\S]*?)\nEOF/u,
+  )?.groups?.policy;
+  assert.ok(policySource, "preprod loader policy is missing");
+  const policy = JSON.parse(policySource);
+  const statements = policy.Statement;
+  const actionList = (statement) =>
+    Array.isArray(statement.Action) ? statement.Action : [statement.Action];
+  const location = statements.find((statement) =>
+    actionList(statement).includes("s3:GetBucketLocation"));
+  const list = statements.find((statement) =>
+    actionList(statement).includes("s3:ListBucket"));
+
+  assert.deepEqual(actionList(location), ["s3:GetBucketLocation"]);
+  assert.equal(location.Condition, undefined);
+  assert.deepEqual(actionList(list), ["s3:ListBucket"]);
+  assert.deepEqual(list.Condition, {
+    StringLike: {
+      "s3:prefix": ["runs/*"],
+    },
+  });
+});
+
+test("preprod migration uses the supported database-only config mode", () => {
+  const compose = read("deploy/local/compose.yaml");
+  const migration = serviceBlock(compose, "preprod-migration");
+  assert.match(migration, /AVIA_ENVIRONMENT:\s*development/u);
+  assert.match(
+    migration,
+    /AVIA_DATABASE_NAME:\s*aviasurveil360_local_preprod/u,
+  );
+  assert.match(
+    migration,
+    /AVIA_DATABASE_USER:\s*aviasurveil360_preprod_loader/u,
+  );
+  assert.doesNotMatch(
+    migration,
+    /AVIA_(?:ENABLE_CANONICAL|TEST_PRINCIPAL|TEST_SESSION)/u,
+  );
+});
+
 test("loader source declares exact target, authorization, and append-only boundaries", () => {
   const loader = [
     read("apps/api/internal/preproddata/loader.go"),
@@ -174,4 +227,65 @@ test("normal artifact guard positively excludes the new loader package", () => {
     boundary,
     /normal_packages=\([^]*?"\.\/cmd\/api"[^]*?"\.\/cmd\/worker"[^]*?"\.\/cmd\/reminder-scheduler"[^]*?"\.\/cmd\/migrate"/u,
   );
+});
+
+test("cleanup recorder runs offline without restarting disposable dependencies", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "avia-task7-cleanup-wrapper-"));
+  try {
+    const dockerArgs = path.join(root, "docker-args.txt");
+    const configuration = path.join(root, "loader-config.json");
+    const authorization = path.join(root, "cleanup-authorization.json");
+    const seed = path.join(root, "seed");
+    const controlStore = path.join(root, "control-store");
+    mkdirSync(controlStore, { mode: 0o700 });
+    writeFileSync(configuration, "{}\n", { mode: 0o600 });
+    writeFileSync(authorization, "{}\n", { mode: 0o600 });
+    writeFileSync(seed, "synthetic-test-seed\n", { mode: 0o600 });
+    writeFileSync(
+      path.join(root, "docker"),
+      "#!/bin/sh\nprintf '%s\\n' \"$@\" >\"$AVIA_FAKE_DOCKER_ARGS_FILE\"\n",
+      { mode: 0o700 },
+    );
+    chmodSync(root, 0o700);
+    // The script resolves docker through PATH, so expose only the fake executable.
+    const result = spawnSync(
+      "bash",
+      ["scripts/load-preprod-data.sh", "record-cleanup"],
+      {
+        cwd: process.cwd(),
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          AVIA_FAKE_DOCKER_ARGS_FILE: dockerArgs,
+          AVIA_PREPROD_LOADER_CONFIG_FILE: configuration,
+          AVIA_PREPROD_AUTHORIZATION_FILE: authorization,
+          AVIA_PREPROD_SEED_FILE: seed,
+          AVIA_PREPROD_CONTROL_STORE_DIR: controlStore,
+          PATH: `${root}:${process.env.PATH}`,
+        },
+      },
+    );
+    assert.equal(
+      result.status,
+      0,
+      `stdout=${result.stdout}\nstderr=${result.stderr}`,
+    );
+    const argumentsSeen = readFileSync(dockerArgs, "utf8").trim().split("\n");
+    assert.equal(argumentsSeen[0], "run", argumentsSeen.join(" "));
+    assert.equal(argumentsSeen.includes("compose"), false, argumentsSeen.join(" "));
+    assert.ok(argumentsSeen.includes("--network"), argumentsSeen.join(" "));
+    assert.ok(argumentsSeen.includes("none"), argumentsSeen.join(" "));
+    assert.ok(
+      argumentsSeen.includes(
+        `${controlStore}:/var/lib/aviasurveil360-preprod-control:rw`,
+      ),
+      argumentsSeen.join(" "),
+    );
+    assert.deepEqual(
+      argumentsSeen.slice(-2),
+      ["record-cleanup", "/run/config/preprod-loader.json"],
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

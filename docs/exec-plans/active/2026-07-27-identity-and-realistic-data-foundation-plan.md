@@ -1,6 +1,6 @@
 # Identity And Realistic Data Foundation Plan
 
-**Status:** `active — Tasks 1–6 complete; Task 7 next`
+**Status:** `active — Tasks 1–7 complete; Task 8 next`
 
 **Reviewed task count:** 9
 
@@ -23,7 +23,8 @@ published; Tasks 2–6 are `26da3c0`, `8cf2b57`, `bedff45`, `ac5f786`, and
 `26c7022`.
 This plan is the predecessor of the AviaCore/ML readiness and local preprod
 release-candidate plans. Task 6 is complete, `verified locally`, published,
-and remotely confirmed. Tasks 7–9 remain `not run`.
+and remotely confirmed. Task 7 is complete and `verified locally`; its task
+commit publication metadata is pending. Tasks 8–9 remain `not run`.
 
 ## Scope
 
@@ -349,8 +350,8 @@ feasibility decision.
   every normal runtime free of loader/reset imports, uses the exact
   server-owned command boundary, retains immutable digest-linked control
   records outside the disposable target, and permits cleanup attestation only
-  after a separate consumed `DROP_RECREATE_TARGET` authorization. Tasks 7–9
-  remain `not run`.
+  after a separate consumed `DROP_RECREATE_TARGET` authorization. At Task 6
+  closure, Tasks 7–9 were still `not run`.
 - [x] (2026-07-28) The first complete Task 6 verification attempt passed the
   4/4 Node boundary suite, HTTP artifact scan, and normal-artifact boundary.
   The required race run failed six loader tests because their task-owned
@@ -367,6 +368,13 @@ feasibility decision.
   `26c7022ebed02c99c7183850f7138ea63580bf0c`
   (`feat(data): add isolated preprod loader`) and confirmed the exact remote
   ref before starting Task 7.
+- [x] (2026-07-28) Task 7 is complete and `verified locally`. The strict
+  connected-scenario RED and every later acceptance-review RED are recorded
+  below. The final fresh aggregate exited 0 with 40/40 reconciled families,
+  86 routes, 306 visible actions, all eight roles, 45/45 retained
+  cross-organization privacy canaries, a separately authorized networkless
+  cleanup attestation, and zero task-owned residue. Task 7 publication
+  metadata is pending; Tasks 8–9 remain `not run`.
 
 ## Tasks
 
@@ -1073,6 +1081,194 @@ Fresh result:
 
 ### Task 7: Generate Complete Connected Lifecycle Scenarios
 
+**Task status:** `complete — verified locally`; Task 6 is published and
+remotely confirmed. The strict pre-implementation RED and later focused RED
+results are recorded below. The final real-service aggregate and focused
+regressions passed with exact cleanup.
+
+**Strict RED**
+
+- `env GOCACHE=/private/tmp/aviasurveil360-task7-red-go-cache go -C apps/api
+  test -count=1 ./internal/preproddata/scenarios` — exit 1; expected failure:
+  `no non-test Go files in .../internal/preproddata/scenarios`, so the
+  connected-scenario implementation was absent.
+- `env GOCACHE=/private/tmp/aviasurveil360-task7-store-red-go-cache go -C
+  apps/api test -tags integration -count=1
+  ./internal/preproddata/scenarios -run
+  '^TestPostgresStoreMaterializesTheCompleteSmokeDomainAndReconciles$'` — exit
+  1; expected compile failure: `undefined: scenarios.NewPostgresStore`, so no
+  server-owned PostgreSQL materialization/reconciliation boundary existed.
+- `env GOCACHE=/private/tmp/aviasurveil360-task7-connected-boundary-red-go-cache
+  go -C apps/api test -count=1 ./internal/preproddata/scenarios -run
+  '^TestConnectedBoundaryMaterializesIdentityAndInvitationStateOutsidePostgres$'`
+  — exit 1; expected compile failure included
+  `undefined: scenarios.ProviderAccount`,
+  `undefined: scenarios.InvitationDelivery`, and
+  `undefined: scenarios.ObjectVersion`, proving that no connected external
+  identity, invitation-delivery, or object boundary existed.
+- `env GOCACHE=/private/tmp/aviasurveil360-task7-object-boundary-red-go-cache
+  go -C apps/api test -count=1 ./internal/preproddata/scenarios -run
+  '^TestConnectedBoundaryWritesSafeDeterministicObjectVersions$'` — exit 1;
+  expected assertion failure showed an empty external `ObjectVersion` instead
+  of the exact synthetic JSON object, bucket, run prefix, digest, and byte
+  count, proving that object-version commands were not connected to an object
+  boundary.
+- `env GOCACHE=/private/tmp/aviasurveil360-task7-object-stream-red-go-cache go
+  -C apps/api test -count=1 ./internal/preproddata/scenarios -run
+  '^TestStreamObjectVersionMetadataMatchesTheSafeSyntheticJSON$'` — exit 1;
+  expected assertion failure showed generated digest
+  `sha256:983ed0ba247f4c296c70e1f3cc6e0acea85e1f3f5727952b13d1d592c54a5d37`
+  instead of the safe JSON digest
+  `sha256:e987b65b88ba32599eaa230a005e31d952ebd54bac24361ffd22995fb5d6dd2b`,
+  proving stream object metadata did not yet represent the actual safe
+  synthetic object bytes.
+- `env GOCACHE=/private/tmp/aviasurveil360-task7-reconcile-drift-red-go-cache
+  go -C apps/api test -count=1 ./internal/preproddata/scenarios -run
+  '^TestConnectedBoundaryRejectsExternalIdentityReconciliationDrift$'` — exit
+  1; expected assertion failure `external identity drift was accepted`,
+  proving reconciliation still returned PostgreSQL evidence without rejecting
+  a mismatched external provider account.
+- `env
+  'AVIA_TEST_DATABASE_URL=postgres://aviasurveil:aviasurveil@127.0.0.1:55432/aviasurveil?sslmode=disable'
+  GOCACHE=/private/tmp/aviasurveil360-task7-store-records-red-go-cache go -C
+  apps/api test -tags integration -count=1
+  ./internal/preproddata/scenarios -run
+  '^TestPostgresStoreMaterializesTheCompleteSmokeDomainAndReconciles$'` — exit
+  1; expected compile failure `store.Records undefined`, proving the durable
+  PostgreSQL scenario store could not yet supply run-scoped records to the
+  connected reconciliation boundary.
+- `env GOCACHE=/private/tmp/aviasurveil360-task7-keycloak-endpoint-red-go-cache
+  go -C apps/api test -count=1 ./internal/preproddata/scenarios -run
+  '^TestKeycloakEndpointCreatesExactProviderAccountAndRejectsDrift$'` — exit 1;
+  expected compile failures `undefined: scenarios.NewKeycloakEndpoint` and
+  `undefined: scenarios.KeycloakEndpointConfig`, proving there was no
+  deterministic-subject Keycloak adapter for connected scenario accounts or
+  provider-drift reconciliation.
+- `env GOCACHE=/private/tmp/aviasurveil360-task7-mailpit-endpoint-red-go-cache
+  go -C apps/api test -count=1 ./internal/preproddata/scenarios -run
+  '^TestMailpitInvitationEndpointDeliversOnceAndReconcilesRecipient$'` — exit
+  1; expected compile failures
+  `undefined: scenarios.NewMailpitInvitationEndpoint` and
+  `undefined: scenarios.MailpitInvitationEndpointConfig`, proving there was no
+  idempotent Keycloak execute-actions/Mailpit recipient-delivery adapter.
+- `env GOCACHE=/private/tmp/aviasurveil360-task7-object-endpoint-red-go-cache go
+  -C apps/api test -count=1 ./internal/preproddata/scenarios -run
+  '^TestObjectEndpointWritesExactlyOnceAndRejectsContentDrift$'` — exit 1;
+  expected compile failures for `NewConnectedObjectEndpoint`,
+  `ConnectedObjectEndpointConfig`, `ObjectBlob`, and `ObjectBackend`, proving
+  there was no create-only, replay-safe, drift-reconciling object endpoint.
+- `env GOCACHE=/private/tmp/aviasurveil360-task7-minio-backend-red-go-cache go
+  -C apps/api test -tags integration -count=1
+  ./internal/preproddata/scenarios -run
+  '^TestMinIOObjectBackendPersistsAndReconcilesExactScenarioJSON$'` — exit 1;
+  expected compile failures `undefined: scenarios.NewMinIOObjectBackend` and
+  `undefined: scenarios.MinIOObjectBackendConfig`, proving the connected object
+  contract had no real MinIO/S3 implementation.
+- `env GOCACHE=/private/tmp/aviasurveil360-task7-cli-red-go-cache go -C
+  apps/api test -count=1 ./cmd/preprod-data-loader -run
+  '^TestRunConnectedInvokesTheAuthorizedConnectedRunnerAndPrintsResult$'` —
+  exit 1; expected compile failures for `commandDependencies`,
+  `runWithDependencies`, `RouteCatalogFile`, and `BehaviorLedgerFile`, proving
+  the one-shot loader had no connected-run command or canonical catalog
+  binding.
+- `env
+  GOCACHE=/private/tmp/aviasurveil360-task7-connected-inputs-red-go-cache go -C
+  apps/api test -count=1 ./cmd/preprod-data-loader -run
+  '^TestLoadConnectedInputsBindsIntentSeedAuthorizationAndCanonicalCatalogs$'`
+  — exit 1; expected compile failure `undefined: loadConnectedInputs`, proving
+  no pre-I/O binding jointly validated immutable intent, 0600 seed, one-time
+  authorization, frozen profile, and canonical route/action catalogs.
+- `./scripts/test-preprod-connected-scenarios.sh smoke` — exit 127; expected
+  shell failure `no such file or directory:
+  ./scripts/test-preprod-connected-scenarios.sh`, proving the required
+  whole-namespace load, reconciliation, privacy, and cleanup aggregate did not
+  exist before implementation.
+- `env GOCACHE=/private/tmp/aviasurveil360-task7-privacy-canary-red-go-cache go
+  -C apps/api test -count=1 ./internal/preproddata/scenarios -run
+  '^TestPrivacyCanariesReferenceExistingCrossOrganizationRecords$'` — exit 1;
+  expected assertion failure reported that the first
+  `list/auditee-a-from-b` canary
+  `synthetic-privacy-list-0950e5c315fb3356de171255` did not exist, proving the
+  privacy matrix initially named decorative canaries rather than retained
+  cross-organization records.
+- `env GOCACHE=/private/tmp/aviasurveil360-task7-cleanup-command-red-go-cache
+  go -C apps/api test -count=1 ./cmd/preprod-data-loader -run
+  '^(TestRunRecordCleanupInvokesRecorderAndPrintsExactEvidence|TestRecordCleanupRejectsLoadAuthorizationWithoutConsumingIt|TestRecordCleanupConsumesDropAuthorizationAndAppendsAttestation)$'`
+  — exit 1; expected compile failures reported unknown dependency field
+  `recordCleanup` and undefined `recordCleanupData`, proving the loader had no
+  offline cleanup-attestation command and could not yet enforce a separately
+  consumed `DROP_RECREATE_TARGET` authorization after namespace cleanup.
+- `node --test --test-name-pattern='cleanup recorder runs offline'
+  tests/preprod-data-boundary.test.mjs` — exit 1; expected assertion failure
+  captured wrapper exit 1 and usage limited to
+  `prepare|verify-authorization|run-connected`, proving post-cleanup evidence
+  could not be recorded and that no `--no-deps` path protected the already
+  cleaned disposable namespace from accidental dependency restart.
+- The first implemented `./scripts/test-preprod-connected-scenarios.sh smoke`
+  run exited 1 during the real namespace health gate. Two isolated
+  reproductions captured MinIO's exact failure:
+  `unsupported condition keys '[s3:prefix]' used for action
+  's3:GetBucketLocation'`. Cleanup removed every task-owned container, volume,
+  and network after each run; this failed aggregate is not completion
+  evidence.
+- `node --test --test-name-pattern='preprod object policy scopes only
+  ListBucket' tests/preprod-data-boundary.test.mjs` — exit 1; expected
+  assertion failure showed one statement combining
+  `s3:GetBucketLocation` and `s3:ListBucket`, proving the invalid prefix
+  condition was still applied to both actions before the policy fix.
+- The next full aggregate rerun passed MinIO, PostgreSQL, Mailpit, and Keycloak
+  health, then exited 1 because `preprod-migration` logged
+  `AVIA_ENVIRONMENT must be development, test, or production`. Cleanup again
+  removed the exact task-owned namespace; this is not completion evidence.
+- `node --test --test-name-pattern='preprod migration uses the supported
+  database-only config mode' tests/preprod-data-boundary.test.mjs` — exit 1;
+  expected assertion failure showed
+  `AVIA_ENVIRONMENT: local-preprod` instead of the generic migration
+  binary's supported `development` config mode, while its exact disposable
+  database target remained separately configured.
+- The third full aggregate passed service health, migration, immutable-intent
+  preparation, and load-authorization verification, then exited 1 with
+  `AUTHORITATIVE_COMMAND_FAILED family=providerAccounts`; exact cleanup
+  removed all task-owned resources afterward.
+- `env GOCACHE=/private/tmp/aviasurveil360-task7-provider-authority-red-go-cache
+  go -C apps/api test -count=1 ./internal/preproddata/scenarios -run
+  '^TestEveryProviderAccountHasExactRoleOrganizationAuthority$'` — exit 1;
+  expected assertion failure identified smoke account
+  `synthetic-provideraccounts-12d03e474037858c42b1d40e` with role `auditee`
+  and organization `CAA`, proving the role distribution and organization
+  authority used different source indices.
+- The fourth full aggregate rerun retained the provider-organization fix but
+  still exited 1 with
+  `AUTHORITATIVE_COMMAND_FAILED family=providerAccounts`; exact cleanup again
+  left zero task-owned resources. An isolated real-Keycloak diagnostic then
+  proved the remaining root cause without exposing credentials: user creation
+  returned `201 Created`, while a read by the client-supplied synthetic `id`
+  returned `404 Not Found`. Keycloak assigns its own provider subject and does
+  not accept the scenario record ID as that subject.
+- `env GOCACHE=/private/tmp/aviasurveil360-task7-provider-subject-red2-go-cache
+  go -C apps/api test -count=1 ./internal/preproddata/scenarios -run
+  '^(TestConnectedBoundaryMaterializesIdentityAndInvitationStateOutsidePostgres|TestKeycloakEndpointCreatesExactProviderAccountAndRejectsDrift|TestMailpitInvitationEndpointDeliversOnceAndReconcilesRecipient)$'`
+  — exit 1; expected compile failures reported the missing `ScenarioID`,
+  the old error-only `EnsureProviderAccount` result, and the incompatible
+  identity endpoint interface. This proves the connected boundary could not
+  capture a provider-assigned subject, bind it to the deterministic scenario
+  account and membership before PostgreSQL materialization, or reuse that
+  retained subject for invitation delivery and reconciliation.
+- The first focused implementation rerun then compiled and reached invitation
+  delivery but failed with `invalid synthetic invitation delivery`. This
+  exposed a second provider-subject assumption: Mailpit delivery validation
+  still required the provider subject itself to use the deterministic
+  `synthetic-*` record-ID shape rather than accepting the bounded subject
+  assigned and returned by Keycloak.
+- Final acceptance review added a stricter offline-cleanup RED. `node --test
+  --test-name-pattern='cleanup recorder runs offline'
+  tests/preprod-data-boundary.test.mjs` exited 1 because the captured first
+  Docker argument was `compose` instead of `run`. Although `--no-deps`
+  prevented service restart, Compose still created empty declared networks and
+  volumes around the attestation command. This proves cleanup evidence was not
+  yet recorded in a networkless standalone container that leaves the already
+  cleaned namespace untouched.
+
 **Files**
 
 - Create scenario builders under `apps/api/internal/preproddata/scenarios/`.
@@ -1085,26 +1281,26 @@ Fresh result:
 
 **Work**
 
-- [ ] Generate every planning, Finance, GM, Executive, assignment, checklist,
+- [x] Generate every planning, Finance, GM, Executive, assignment, checklist,
   Potential Finding, Finding, CAP, Evidence, report, communication,
   notification, calendar, closure, reopen, correction, and supersession state.
-- [ ] Generate cross-organization negative fixtures whose records exist but are
+- [x] Generate cross-organization negative fixtures whose records exist but are
   never visible to the wrong Auditee.
-- [ ] Generate append-only version histories and preserve exact predecessor,
+- [x] Generate append-only version histories and preserve exact predecessor,
   effective-time, known-time, actor, organization, and decision-reason links.
-- [ ] Generate clean, rejected, expired, delayed, retrying, and unavailable
+- [x] Generate clean, rejected, expired, delayed, retrying, and unavailable
   object-processing metadata without committing unsafe binary fixtures.
-- [ ] Include offline checkout, causal sync, stale revision, duplicate replay,
+- [x] Include offline checkout, causal sync, stale revision, duplicate replay,
   and recovery re-entry scenarios.
-- [ ] Guarantee that every one of the 86 HTTP routes has meaningful authorized
+- [x] Guarantee that every one of the 86 HTTP routes has meaningful authorized
   data or an intentionally asserted empty/denied state.
-- [ ] Include requested, invited, activated, suspended, deactivated,
+- [x] Include requested, invited, activated, suspended, deactivated,
   reactivated, transferred, role-changed, MFA-reset, forced-logout,
   expired-invitation, provider-unavailable, and provider-drift identity cases
   in every profile.
-- [ ] Require every profile—not only `acceptance`—to satisfy the same scenario,
+- [x] Require every profile—not only `acceptance`—to satisfy the same scenario,
   eight-role, visible-action, and 86-route coverage manifest.
-- [ ] Prove the privacy matrix across list, direct ID, search, filter, count,
+- [x] Prove the privacy matrix across list, direct ID, search, filter, count,
   pagination, cache, report/PDF, download, notification, calendar, offline
   sync, raw wire, logs, and evidence for at least two Auditee organizations
   plus CAA-private canaries.
@@ -1123,6 +1319,22 @@ and private/Auditee canaries before scoped whole-namespace cleanup. Expected:
 every required state appears, exact manifest counts/digests match, all
 foreign-key/lifecycle invariants hold, and no privacy canary crosses its
 allowed surface.
+
+Fresh literal result: `./scripts/test-preprod-connected-scenarios.sh smoke`
+exited 0 and printed:
+
+    Plan 5 Task 7 connected smoke scenarios: verified locally
+    profile=smoke; families=40; routes=86; actions=306; roles=8
+    privacy=45/45; target cleanup=verified locally; residue=0
+
+The aggregate also passed the complete scenario and loader command packages,
+the 7/7 loader-boundary suite, real PostgreSQL materialization, real Keycloak
+provider-assigned subject binding, exact Keycloak roles/organization/required
+actions, Mailpit recipient reconciliation, create-only MinIO objects, exact
+domain row counts, immutable intent/result/checkpoint evidence, and a separate
+consumed `DROP_RECREATE_TARGET` cleanup authorization. The cleanup recorder
+ran in a read-only, capability-free, `--network none` standalone container and
+did not recreate the cleaned Compose namespace.
 
 **Acceptance**
 
@@ -1347,15 +1559,18 @@ actions, live invitation/MFA behavior, fail-closed session authority, and the
 complete reason-confirmed Users and Roles Admin experience. Task 6 is also
 `verified locally`: its isolated out-of-process loader boundary produces
 deterministic intent data and append-only digest-linked lifecycle records
-without entering normal artifacts. Tasks 7–9, connected scenario generation,
-profile feasibility, deployment, release, and production readiness remain
-`not run`; the artifact remains `candidate-only` and release remains `release
-pending`.
+without entering normal artifacts. Task 7 is `verified locally`: its
+server-owned connected command boundary materializes all 40 smoke families
+through PostgreSQL, provider-assigned Keycloak subjects, Mailpit, and MinIO;
+reconciles all 86 routes, 306 actions, eight roles, and 45 privacy canaries;
+and proves separately authorized zero-residue cleanup. Tasks 8–9, all-profile
+feasibility, deployment, release, and production readiness remain `not run`;
+the artifact remains `candidate-only` and release remains `release pending`.
 
 ## Execution Prompt
 
 ```text
-Tasks 1-6 in docs/exec-plans/active/2026-07-27-identity-and-realistic-data-foundation-plan.md are complete and verified locally; Task 6 is published as 26c7022ebed02c99c7183850f7138ea63580bf0c and its exact remote revision is confirmed. Task 7 is next and remains not run. Read AGENTS.md, docs/PLANS.md, the plan index, the complete plan, and the current identity/full-profile evidence first. Preserve the root demo, normal HTTP no-seed boundary, Keycloak authority, organization isolation, append-only histories, and unrelated worktree changes.
+Tasks 1-7 in docs/exec-plans/active/2026-07-27-identity-and-realistic-data-foundation-plan.md are complete and verified locally; Task 6 is published as 26c7022ebed02c99c7183850f7138ea63580bf0c and its exact remote revision is confirmed. Publish and remotely confirm the completed Task 7 commit and its metadata before starting Task 8. Read AGENTS.md, docs/PLANS.md, the plan index, the complete plan, and the current identity/full-profile evidence first. Preserve the root demo, normal HTTP no-seed boundary, Keycloak authority, organization isolation, append-only histories, and unrelated worktree changes.
 
 Use strict RED -> GREEN -> focused review for each task. Establish the desired-membership revision and least-privilege Keycloak service identity before directory/lifecycle acceptance. The normal API/worker/scheduler/migration images must not link testprofile or loader/reset code. Repeatable loader reset uses only an exactly authorized disposable target and never selectively deletes append-only rows. Qualify smoke, acceptance, realistic, and stress with the same scenario/role/route catalog. Do not add public registration, a normal API reset/seed route, real PII, plaintext credentials, client-authored roles, direct fixture writes that bypass authoritative domain behavior, AWS actions, commits, or pushes without separate authorization. Keep the plan, index, tracker, and evidence synchronized with literal results. Stop after each task's acceptance gate and fix all Critical or Important review findings before continuing.
 ```

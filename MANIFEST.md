@@ -22,6 +22,10 @@ UI-audit metadata drift, while a read-only content check verifies all 258/258
 baseline PNG hashes; the accepted manifest was not changed.
 Plans 1–4 are completed local `candidate-only` milestones. AWS Task 10 is
 optional, unauthorized, and literally `not run`.
+Plan 5 Tasks 1–7 are `verified locally`; Task 7 adds only an isolated
+one-shot connected data candidate spanning disposable PostgreSQL, Keycloak,
+Mailpit, and MinIO with exact privacy reconciliation and zero-residue cleanup.
+Tasks 8–9 remain `not run`.
 The artifact is `candidate-only`, the local decision is `GO`, and release is
 `release pending`. It is not a deployed production application. Production
 identity federation, external storage, scanning, email, records operations,
@@ -148,6 +152,12 @@ The root Vanilla demo remains intact.
   adapter, Evidence and Inspection Attachment upload services, real local
   ClamAV/Gotenberg/Mailpit adapters, deterministic test scanner, and
   fail-closed local test profile.
+- `apps/api/cmd/preprod-data-loader/` and
+  `apps/api/internal/preproddata/scenarios/` — isolated one-shot
+  local-preprod intent/authorization runner plus deterministic 40-family,
+  86-route, 306-action, eight-role scenario catalog and connected
+  PostgreSQL/Keycloak/Mailpit/MinIO reconciliation boundary. These packages
+  are excluded from normal runtime artifacts.
 - `apps/api/internal/httpapi/generated/` — checked generated Go OpenAPI types.
 - `apps/api/migrations/` — forward-only PostgreSQL foundation, authority, and
   Evidence upload migrations with retained N-1 verification.
@@ -172,6 +182,11 @@ The root Vanilla demo remains intact.
 - `scripts/test-http-profile.sh` — fresh Go race/generation, live API/worker,
   React contract/build, mock/HTTP Playwright, worker/outbox drain assertion,
   and task-owned cleanup profile.
+- `scripts/test-preprod-connected-scenarios.sh` and
+  `tests/preprod-data-boundary.test.mjs` — Task 7 real-service smoke load,
+  provider-assigned subject binding, exact domain/privacy reconciliation,
+  separately authorized networkless cleanup attestation, normal-artifact
+  exclusion, and zero-residue gate.
 - `scripts/test-local-recovery.sh` — isolated local PostgreSQL dump/restore and
   exact private object backup/restore drill with dedicated cleanup.
 - `scripts/plan1-visual-stakeholder-review.mjs` — local-only Plan 1 visual
@@ -339,9 +354,11 @@ separate `apps/web/package.json` owns the React candidate commands.
   RPO/RTO, runbook, image/SBOM/scan, Terraform/Terragrunt, cleanup, and
   explicit AWS `not run` evidence.
 - `docs/demo-evidence/PLAN5_IDENTITY_DATA_FOUNDATION_2026-07-28.md` —
-  Plan 5 Tasks 1–5 identity/data contract, verified local directory,
-  revision-guarded invitation/recovery lifecycle, live OIDC/MFA, and exact
-  session-authority plus complete reason-confirmed Admin-experience evidence.
+  Plan 5 Tasks 1–7 identity/data contract, verified local directory,
+  revision-guarded invitation/recovery lifecycle, live OIDC/MFA, exact
+  session-authority, complete reason-confirmed Admin experience, isolated
+  loader, and real connected PostgreSQL/Keycloak/Mailpit/MinIO scenario
+  evidence.
 - `docs/demo-handoff/ACCEPTANCE_CRITERIA_AND_FEEDBACK.md`
 - `docs/demo-handoff/AGENT_HARNESS_RUNBOOK.md`
 - `docs/demo-handoff/CODEX_DEMO_ONLY_PROMPT.md`

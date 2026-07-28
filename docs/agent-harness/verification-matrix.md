@@ -152,6 +152,22 @@ accessibility, and task-owned process/container cleanup gates before those
 capabilities can be reported as `verified locally`. Remote CI remains separately
 authorized.
 
+For Plan 5 connected preprod scenario changes, run:
+
+```bash
+go -C apps/api test -count=1 ./internal/preproddata/... ./cmd/preprod-data-loader
+node --test tests/preprod-data-boundary.test.mjs
+./scripts/test-preprod-connected-scenarios.sh smoke
+git diff --check
+```
+
+Expected: the one-shot artifact remains absent from normal runtime images; the
+real disposable PostgreSQL, Keycloak, Mailpit, and MinIO namespace reconciles
+the frozen 40-family/86-route/306-action/eight-role smoke manifest and retained
+privacy canaries; cleanup consumes separate authority through a networkless
+standalone recorder; and task-owned residue is zero. This is local
+`candidate-only` evidence, not deployment or production readiness.
+
 ## Current Harness Completion Gate
 
 For agent harness readiness work, run:

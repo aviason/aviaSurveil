@@ -368,7 +368,7 @@ services:
       preprod-postgres:
         condition: service_healthy
     environment:
-      AVIA_ENVIRONMENT: local-preprod
+      AVIA_ENVIRONMENT: development
       AVIA_DATABASE_HOST: preprod-postgres
       AVIA_DATABASE_PORT: "5432"
       AVIA_DATABASE_NAME: aviasurveil360_local_preprod
@@ -613,6 +613,7 @@ services:
       AVIA_DATABASE_PASSWORD_FILE: /run/secrets/preprod_app_database_password
       AVIA_KEYCLOAK_ADMIN_URL: http://preprod-keycloak:8080/identity
       AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET_FILE: /run/secrets/preprod_keycloak_service_client_secret
+      AVIA_PREPROD_MAILPIT_HTTP_URL: http://preprod-mailpit:8025
       AVIA_OBJECT_STORE_ENDPOINT: preprod-minio:9000
       AVIA_OBJECT_STORE_ACCESS_KEY_FILE: /run/secrets/preprod_minio_api_access_key
       AVIA_OBJECT_STORE_SECRET_KEY_FILE: /run/secrets/preprod_minio_api_secret_key

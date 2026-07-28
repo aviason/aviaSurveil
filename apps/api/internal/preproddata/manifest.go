@@ -391,6 +391,45 @@ type CleanupAttestation struct {
 	AttestationDigest string    `json:"attestationDigest"`
 }
 
+type CleanupAttestationInput struct {
+	RunID             string
+	IntentDigest      string
+	ResultDigest      string
+	TargetDigest      string
+	AuthorizationHash string
+	CleanedAt         time.Time
+}
+
+func BuildCleanupAttestation(
+	input CleanupAttestationInput,
+) (CleanupAttestation, error) {
+	attestation := CleanupAttestation{
+		SchemaVersion:     "preprod-cleanup-attestation/v1",
+		RunID:             input.RunID,
+		IntentDigest:      input.IntentDigest,
+		ResultDigest:      input.ResultDigest,
+		TargetDigest:      input.TargetDigest,
+		AuthorizationHash: input.AuthorizationHash,
+		CleanedAt:         input.CleanedAt.UTC(),
+	}
+	if !runIDPattern.MatchString(attestation.RunID) ||
+		!digestPattern.MatchString(attestation.IntentDigest) ||
+		!digestPattern.MatchString(attestation.ResultDigest) ||
+		!digestPattern.MatchString(attestation.TargetDigest) ||
+		!digestPattern.MatchString(attestation.AuthorizationHash) ||
+		attestation.CleanedAt.IsZero() {
+		return CleanupAttestation{}, fmt.Errorf(
+			"invalid cleanup attestation input",
+		)
+	}
+	payload, err := canonicalJSON(attestation)
+	if err != nil {
+		return CleanupAttestation{}, err
+	}
+	attestation.AttestationDigest = sha256Digest(payload)
+	return attestation, nil
+}
+
 func sha256Digest(value []byte) string {
 	digest := sha256.Sum256(value)
 	return "sha256:" + hex.EncodeToString(digest[:])

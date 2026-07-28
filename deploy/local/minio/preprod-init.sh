@@ -64,7 +64,12 @@ cat >/tmp/preprod-loader-policy.json <<'EOF'
   "Statement": [
     {
       "Effect": "Allow",
-      "Action": ["s3:GetBucketLocation", "s3:ListBucket"],
+      "Action": ["s3:GetBucketLocation"],
+      "Resource": ["arn:aws:s3:::aviasurveil360-local-preprod"]
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket"],
       "Resource": ["arn:aws:s3:::aviasurveil360-local-preprod"],
       "Condition": {
         "StringLike": {

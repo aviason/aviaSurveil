@@ -54,4 +54,6 @@ ENTRYPOINT ["/app/entrypoint.sh"]
 
 FROM runtime-base AS preprod-data-loader
 COPY --from=go-build --chown=10001:10001 /out/preprod-data-loader /app/preprod-data-loader
+COPY --chown=10001:10001 apps/web/src/parity/legacy-screen-source.json /app/catalog/legacy-screen-source.json
+COPY --chown=10001:10001 tests/parity/behavior-ledger.json /app/catalog/behavior-ledger.json
 ENTRYPOINT ["/app/preprod-data-loader"]

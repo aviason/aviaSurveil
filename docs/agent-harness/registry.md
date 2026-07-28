@@ -78,6 +78,7 @@ The React candidate uses `apps/web/package.json`.
 | `../../tests/planning-release-smoke.test.js` | Planning release behavior. |
 | `../../tests/report-approval-smoke.test.js` | Report approval workflow. |
 | `../../tests/audit-work-queue-smoke.test.js` | Inspector work queue behavior. |
+| `../../tests/preprod-data-boundary.test.mjs` | Isolated one-shot loader topology, immutable authorization/control-store boundaries, MinIO policy, migration config, normal-artifact exclusion, and networkless cleanup recorder. |
 
 ## Task-To-Source Routing
 
@@ -91,6 +92,7 @@ The React candidate uses `apps/web/package.json`.
 | Finding/CAP/Evidence | Workflow docs and module docs for findings, CAP, evidence | Targeted tests and plan/evidence summary. |
 | UI/visual QA | UX docs, screen specs, active plan | Screenshot/browser evidence and demo summary when accepted. |
 | Plan lifecycle | `../../AGENTS.md`, `../exec-plans/index.md`, target plan | Plan file, index row, and tech-debt tracker entry if a durable gap exists. |
+| Connected preprod data | Plan 5, `../product-specs/data-and-rules/PREPROD_IDENTITY_AND_DATA_PROFILE.md`, loader/scenario packages | `./scripts/test-preprod-connected-scenarios.sh smoke`, Plan 5 evidence, plan index, and tracker. |
 
 ## Authorization Boundary
 
