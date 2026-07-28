@@ -11,18 +11,20 @@ import (
 	"net/mail"
 	"net/url"
 	"path"
+	"slices"
 	"strings"
 	"time"
 )
 
 var ErrKeycloakDuplicateEmail = errors.New("Keycloak user email already exists")
+var ErrKeycloakUnavailable = errors.New("Keycloak provider unavailable")
 
 type KeycloakAdminConfig struct {
-	BaseURL       string
-	Realm         string
-	AdminUsername string
-	AdminPassword string
-	HTTPClient    *http.Client
+	BaseURL      string
+	Realm        string
+	ClientID     string
+	ClientSecret string
+	HTTPClient   *http.Client
 }
 
 type KeycloakUser struct {
@@ -34,11 +36,11 @@ type KeycloakUser struct {
 }
 
 type KeycloakAdminClient struct {
-	baseURL       *url.URL
-	realm         string
-	adminUsername string
-	adminPassword string
-	httpClient    *http.Client
+	baseURL      *url.URL
+	realm        string
+	clientID     string
+	clientSecret string
+	httpClient   *http.Client
 }
 
 func NewKeycloakAdminClient(config KeycloakAdminConfig) (*KeycloakAdminClient, error) {
@@ -50,21 +52,151 @@ func NewKeycloakAdminClient(config KeycloakAdminConfig) (*KeycloakAdminClient, e
 		return nil, fmt.Errorf("Keycloak base URL must use HTTP or HTTPS")
 	}
 	realm := strings.TrimSpace(config.Realm)
-	adminUsername := strings.TrimSpace(config.AdminUsername)
-	if realm == "" || adminUsername == "" || config.AdminPassword == "" {
-		return nil, fmt.Errorf("Keycloak realm and admin credentials are required")
+	clientID := strings.TrimSpace(config.ClientID)
+	if realm == "" || clientID == "" || config.ClientSecret == "" {
+		return nil, fmt.Errorf("Keycloak realm and service-client credentials are required")
 	}
 	httpClient := config.HTTPClient
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 10 * time.Second}
 	}
 	return &KeycloakAdminClient{
-		baseURL:       baseURL,
-		realm:         realm,
-		adminUsername: adminUsername,
-		adminPassword: config.AdminPassword,
-		httpClient:    httpClient,
+		baseURL:      baseURL,
+		realm:        realm,
+		clientID:     clientID,
+		clientSecret: config.ClientSecret,
+		httpClient:   httpClient,
 	}, nil
+}
+
+type KeycloakDirectoryQuery struct {
+	First  int
+	Limit  int
+	Search string
+}
+
+type KeycloakDirectoryUser struct {
+	SubjectID       string
+	Email           string
+	DisplayName     string
+	OrganizationID  string
+	Enabled         bool
+	TOTPConfigured  bool
+	RequiredActions []string
+	Roles           []Role
+}
+
+type KeycloakDirectoryPage struct {
+	Users         []KeycloakDirectoryUser
+	NextFirst     int
+	ProviderCalls int
+}
+
+func (client *KeycloakAdminClient) ListDirectory(
+	ctx context.Context,
+	query KeycloakDirectoryQuery,
+) (KeycloakDirectoryPage, error) {
+	if query.First < 0 || query.Limit < 1 || query.Limit > 25 {
+		return KeycloakDirectoryPage{}, fmt.Errorf(
+			"Keycloak directory first must be non-negative and limit must be between 1 and 25",
+		)
+	}
+	accessToken, err := client.adminAccessToken(ctx)
+	if err != nil {
+		return KeycloakDirectoryPage{}, err
+	}
+	endpoint, err := url.Parse(client.adminEndpoint("users"))
+	if err != nil {
+		return KeycloakDirectoryPage{}, fmt.Errorf("construct Keycloak directory query: %w", err)
+	}
+	values := endpoint.Query()
+	values.Set("first", fmt.Sprintf("%d", query.First))
+	values.Set("max", fmt.Sprintf("%d", query.Limit))
+	values.Set("briefRepresentation", "false")
+	if search := strings.TrimSpace(query.Search); search != "" {
+		values.Set("search", search)
+	}
+	endpoint.RawQuery = values.Encode()
+	response, err := client.doJSON(
+		ctx,
+		http.MethodGet,
+		endpoint.String(),
+		accessToken,
+		nil,
+		http.StatusOK,
+	)
+	if err != nil {
+		return KeycloakDirectoryPage{}, fmt.Errorf("list Keycloak directory users: %w", err)
+	}
+	var representations []keycloakUserRepresentation
+	if err := decodeLimitedJSON(response.Body, &representations); err != nil {
+		response.Body.Close()
+		return KeycloakDirectoryPage{}, fmt.Errorf("decode Keycloak directory users: %w", err)
+	}
+	response.Body.Close()
+
+	page := KeycloakDirectoryPage{
+		Users:         make([]KeycloakDirectoryUser, 0, len(representations)),
+		ProviderCalls: 1,
+	}
+	for _, representation := range representations {
+		roleResponse, err := client.doJSON(
+			ctx,
+			http.MethodGet,
+			client.adminEndpoint(
+				"users",
+				representation.ID,
+				"role-mappings",
+				"realm",
+			),
+			accessToken,
+			nil,
+			http.StatusOK,
+		)
+		if err != nil {
+			return KeycloakDirectoryPage{}, fmt.Errorf(
+				"list Keycloak directory roles for %q: %w",
+				representation.ID,
+				err,
+			)
+		}
+		var mappedRoles []keycloakRoleRepresentation
+		if err := decodeLimitedJSON(roleResponse.Body, &mappedRoles); err != nil {
+			roleResponse.Body.Close()
+			return KeycloakDirectoryPage{}, fmt.Errorf(
+				"decode Keycloak directory roles for %q: %w",
+				representation.ID,
+				err,
+			)
+		}
+		roleResponse.Body.Close()
+		page.ProviderCalls++
+		rawRoles := make([]string, 0, len(mappedRoles))
+		for _, mappedRole := range mappedRoles {
+			rawRoles = append(rawRoles, mappedRole.Name)
+		}
+		roles := canonicalRoles(rawRoles)
+		slices.Sort(roles)
+		organizations := representation.Attributes["organization_id"]
+		organizationID := ""
+		if len(organizations) == 1 {
+			organizationID = organizations[0]
+		}
+		page.Users = append(page.Users, KeycloakDirectoryUser{
+			SubjectID:       representation.ID,
+			Email:           representation.Email,
+			DisplayName:     strings.TrimSpace(representation.FirstName + " " + representation.LastName),
+			OrganizationID:  organizationID,
+			Enabled:         representation.Enabled,
+			TOTPConfigured:  representation.TOTP,
+			RequiredActions: append([]string(nil), representation.RequiredActions...),
+			Roles:           roles,
+		})
+	}
+	if len(representations) == query.Limit {
+		page.NextFirst = query.First + len(representations)
+	}
+	return page, nil
 }
 
 func (client *KeycloakAdminClient) ProvisionUser(
@@ -396,28 +528,29 @@ type keycloakRoleRepresentation struct {
 }
 
 type keycloakUserRepresentation struct {
-	ID         string              `json:"id"`
-	Username   string              `json:"username"`
-	Email      string              `json:"email"`
-	FirstName  string              `json:"firstName"`
-	LastName   string              `json:"lastName"`
-	Enabled    bool                `json:"enabled"`
-	Attributes map[string][]string `json:"attributes"`
+	ID              string              `json:"id"`
+	Username        string              `json:"username"`
+	Email           string              `json:"email"`
+	FirstName       string              `json:"firstName"`
+	LastName        string              `json:"lastName"`
+	Enabled         bool                `json:"enabled"`
+	TOTP            bool                `json:"totp"`
+	RequiredActions []string            `json:"requiredActions"`
+	Attributes      map[string][]string `json:"attributes"`
 }
 
 func (client *KeycloakAdminClient) adminAccessToken(
 	ctx context.Context,
 ) (string, error) {
 	form := url.Values{
-		"client_id":  {"admin-cli"},
-		"grant_type": {"password"},
-		"password":   {client.adminPassword},
-		"username":   {client.adminUsername},
+		"client_id":     {client.clientID},
+		"client_secret": {client.clientSecret},
+		"grant_type":    {"client_credentials"},
 	}
 	request, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodPost,
-		client.endpoint("realms", "master", "protocol", "openid-connect", "token"),
+		client.endpoint("realms", client.realm, "protocol", "openid-connect", "token"),
 		strings.NewReader(form.Encode()),
 	)
 	if err != nil {
@@ -427,10 +560,17 @@ func (client *KeycloakAdminClient) adminAccessToken(
 	request.Header.Set("Accept", "application/json")
 	response, err := client.httpClient.Do(request)
 	if err != nil {
-		return "", fmt.Errorf("request Keycloak admin token: %w", err)
+		return "", fmt.Errorf("request Keycloak admin token: %w: %w", err, ErrKeycloakUnavailable)
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
+		if response.StatusCode >= http.StatusInternalServerError {
+			return "", fmt.Errorf(
+				"request Keycloak admin token: unexpected HTTP status %d: %w",
+				response.StatusCode,
+				ErrKeycloakUnavailable,
+			)
+		}
 		return "", fmt.Errorf(
 			"request Keycloak admin token: unexpected HTTP status %d",
 			response.StatusCode,
@@ -551,10 +691,17 @@ func (client *KeycloakAdminClient) doJSON(
 	}
 	response, err := client.httpClient.Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("perform Keycloak request: %w", err)
+		return nil, fmt.Errorf("perform Keycloak request: %w: %w", err, ErrKeycloakUnavailable)
 	}
 	if response.StatusCode != expectedStatus {
 		response.Body.Close()
+		if response.StatusCode >= http.StatusInternalServerError {
+			return nil, fmt.Errorf(
+				"Keycloak request returned unexpected HTTP status %d: %w",
+				response.StatusCode,
+				ErrKeycloakUnavailable,
+			)
+		}
 		return nil, fmt.Errorf(
 			"Keycloak request returned unexpected HTTP status %d",
 			response.StatusCode,

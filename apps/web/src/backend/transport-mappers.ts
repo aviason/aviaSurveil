@@ -577,7 +577,11 @@ export function mapAdminReportDefinition(
 export function mapAdminAccessDirectoryEntry(
   value: Schemas["AdminAccessDirectoryEntryView"],
 ): AdminAccessDirectoryEntryView {
-  return { ...value };
+  return {
+    ...value,
+    roles: [...value.roles],
+    requiredActions: [...value.requiredActions],
+  };
 }
 
 export function mapUserLifecycleRequest(

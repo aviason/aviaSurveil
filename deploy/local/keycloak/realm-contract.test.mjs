@@ -27,6 +27,12 @@ function webClient(realm) {
   );
 }
 
+function lifecycleClient(realm) {
+  return realm.clients.find(
+    (candidate) => candidate.clientId === "aviasurveil360-lifecycle",
+  );
+}
+
 function userProfile(realm) {
   const providers =
     realm.components?.["org.keycloak.userprofile.UserProfileProvider"] ?? [];
@@ -49,7 +55,21 @@ test("reviewed realm source enforces production OIDC and first-login TOTP", () =
   assert.equal(realm.registrationAllowed, false);
   assert.equal(realm.resetPasswordAllowed, false);
   assert.equal(realm.sslRequired, "external");
-  assert.deepEqual(realm.users ?? [], []);
+  const serviceAccount = realm.users.find(
+    (candidate) =>
+      candidate.serviceAccountClientId === "aviasurveil360-lifecycle",
+  );
+  assert.ok(serviceAccount, "lifecycle service account must exist");
+  assert.deepEqual(
+    [...serviceAccount.clientRoles["realm-management"]].sort(),
+    ["manage-users", "query-users", "view-realm", "view-users"],
+  );
+  assert.equal(
+    serviceAccount.clientRoles["realm-management"].includes(
+      "impersonation",
+    ),
+    false,
+  );
   assert.equal(JSON.stringify(realm).includes("LocalInspectorPass"), false);
 
   const roles = realm.roles.realm.map(({ name }) => name).sort();
@@ -80,6 +100,13 @@ test("reviewed realm source enforces production OIDC and first-login TOTP", () =
     "https://localhost:8443/*",
   );
   assert.equal(client.secret, "__AVIA_OIDC_CLIENT_SECRET__");
+  const serviceClient = lifecycleClient(realm);
+  assert.ok(serviceClient, "lifecycle service client must exist");
+  assert.equal(serviceClient.publicClient, false);
+  assert.equal(serviceClient.standardFlowEnabled, false);
+  assert.equal(serviceClient.directAccessGrantsEnabled, false);
+  assert.equal(serviceClient.serviceAccountsEnabled, true);
+  assert.equal(serviceClient.secret, "__AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET__");
 
   const configureTOTP = realm.requiredActions.find(
     (action) => action.alias === "CONFIGURE_TOTP",
@@ -130,9 +157,17 @@ test("realm builder injects the mounted client secret only into a 0600 runtime f
   );
   try {
     const secretPath = path.join(temporaryDirectory, "oidc-client-secret");
+    const serviceSecretPath = path.join(
+      temporaryDirectory,
+      "keycloak-service-client-secret",
+    );
     const outputPath = path.join(temporaryDirectory, "realm.json");
     writeFileSync(secretPath, "runtime-client-secret\n", { mode: 0o600 });
+    writeFileSync(serviceSecretPath, "runtime-service-secret\n", {
+      mode: 0o600,
+    });
     chmodSync(secretPath, 0o600);
+    chmodSync(serviceSecretPath, 0o600);
 
     execFileSync(process.execPath, [
       builderPath,
@@ -142,10 +177,16 @@ test("realm builder injects the mounted client secret only into a 0600 runtime f
       outputPath,
       "--client-secret-file",
       secretPath,
+      "--service-client-secret-file",
+      serviceSecretPath,
     ]);
 
     const builtRealm = loadJSON(outputPath);
     assert.equal(webClient(builtRealm).secret, "runtime-client-secret");
+    assert.equal(
+      lifecycleClient(builtRealm).secret,
+      "runtime-service-secret",
+    );
     assert.equal(statSync(outputPath).mode & 0o777, 0o600);
     assert.equal(readFileSync(sourcePath, "utf8").includes("runtime-client-secret"), false);
   } finally {
@@ -159,8 +200,15 @@ test("realm builder can bind a task-owned loopback origin without changing the r
   );
   try {
     const secretPath = path.join(temporaryDirectory, "oidc-client-secret");
+    const serviceSecretPath = path.join(
+      temporaryDirectory,
+      "keycloak-service-client-secret",
+    );
     const outputPath = path.join(temporaryDirectory, "realm.json");
     writeFileSync(secretPath, "loopback-client-secret\n", { mode: 0o600 });
+    writeFileSync(serviceSecretPath, "loopback-service-secret\n", {
+      mode: 0o600,
+    });
 
     execFileSync(process.execPath, [
       builderPath,
@@ -170,6 +218,8 @@ test("realm builder can bind a task-owned loopback origin without changing the r
       outputPath,
       "--client-secret-file",
       secretPath,
+      "--service-client-secret-file",
+      serviceSecretPath,
       "--public-origin",
       "http://127.0.0.1:4174",
     ]);

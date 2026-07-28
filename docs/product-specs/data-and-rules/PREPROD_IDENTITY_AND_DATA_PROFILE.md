@@ -1,10 +1,11 @@
 # Preprod Identity And Data Profile Contract
 
-**Contract status:** `active — Task 1 authorized`
+**Contract status:** `active — version 1.0.0 approved`
 
 **Profile and policy status:** `approved — owner decision recorded`
 
-**Runtime status:** `not run`; Task 2–9 implementation is not authorized.
+**Runtime status:** Task 2 identity-directory foundation is `verified locally`;
+Tasks 3–9 remain `not run`.
 
 This document is the Plan 5 Task 1 contract and owner-decision package. It
 defines machine-checkable identity, authority, privacy, and deterministic data
@@ -14,8 +15,9 @@ them.
 
 The 2026-07-27 authorization allowed this Task 1 package to proceed without the
 then-open Plan 1 visual stakeholder closure. Plan 1 and the combined Plans 2–4
-local stakeholder disposition were completed on 2026-07-28. Neither closure
-authorizes Plan 5 Tasks 2–9.
+local stakeholder disposition were completed on 2026-07-28. A later explicit
+authorization started the sequential Plan 5 implementation; Task 2 is now
+complete and `verified locally`.
 
 ## Binding Invariants
 
@@ -234,7 +236,7 @@ contract `1.0.0`.
 | `OWNER-DIRECTIVE-2026-07-28-P5T1-10` | Provider observation freshness/deadline | 30-second heartbeat, 60-second maximum age, 120-second denial deadline; not an inactivity timeout; drift or disablement fails closed immediately |
 | `OWNER-DIRECTIVE-2026-07-28-P5T1-11` | Profile volumes and resource limits | Exact `1.0.0` manifests; disk 2/20/50/64 GiB; stress 12 GiB memory, 8-hour duration, and 8 GiB object payload; runtime feasibility remains `not run`; silent reduction forbidden |
 
-## Exact Gate Before Task 2
+## Exact Gate Before Task 2 — Satisfied
 
 Task 2 cannot start until all of the following are true:
 
@@ -243,8 +245,9 @@ Task 2 cannot start until all of the following are true:
 2. Task 1 acceptance is recorded only after the contract test passes and the
    role/account/profile matrix has no ambiguous implementation value;
 3. the combined local predecessor stakeholder disposition is recorded; this
-   gate was satisfied on 2026-07-28 without authorizing Task 2;
-4. the user separately and explicitly authorizes Task 2; and
+   gate was satisfied on 2026-07-28;
+4. the user separately and explicitly authorizes Task 2; this was subsequently
+   satisfied; and
 5. the known normal-artifact testprofile link, bootstrap-admin credential use,
    directory placeholders, missing lifecycle actions, and absence of a loader
    remain blockers to be fixed and verified in their owning tasks, not claims
@@ -252,7 +255,9 @@ Task 2 cannot start until all of the following are true:
 
 ## Current Repository Observations
 
-Task 1 read-only inspection found:
+Task 1 read-only inspection found the following. Task 2 resolved the
+artifact, service-client, membership-foundation, and directory rows; the
+remaining lifecycle rows belong to Task 3:
 
 - OpenAPI and Go define the same eight roles.
 - Current authority validation rejects Auditee/CAA organization mixing but does
@@ -260,14 +265,15 @@ Task 1 read-only inspection found:
 - Current lifecycle actions are only `PROVISION`, `UPDATE_ROLES`, `SUSPEND`,
   and `REACTIVATE`; desired-membership revision, deactivation, transfer, MFA
   reset, recovery, and forced logout contracts are not implemented.
-- The current Administration directory projects active session roles and uses
-  placeholder identity details rather than a provider-backed account directory.
-- Current provisioning sets `CONFIGURE_TOTP` directly and uses bootstrap-admin
-  password grant credentials; the execute-actions invitation and
-  least-privilege service account are not implemented.
-- `apps/api/cmd/api/main.go` currently imports the canonical testprofile and
-  can register/reset canonical test state behind profile gates. Source gating
-  is not normal-artifact import-graph separation.
+- Task 2 replaced the session-derived Administration directory with bounded
+  provider-account reads and explicit desired membership, lifecycle, profile,
+  MFA, required-action, drift, and last-session fields.
+- Task 2 replaced API/worker bootstrap-admin password grant credentials with
+  the exact least-privilege service client. Provisioning still sets
+  `CONFIGURE_TOTP` directly; the approved execute-actions invitation is Task 3
+  and remains `not run`.
+- Task 2 split normal and canonical-test API composition and proved that normal
+  API/worker/scheduler/migration artifacts do not link testprofile/reset code.
 - The canonical test profile has nine principals across eight roles and is
   test-only. It is not the preprod loader.
 - The React route source contains 86 unique routes. This contract requires the

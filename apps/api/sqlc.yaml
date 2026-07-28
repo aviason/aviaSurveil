@@ -264,7 +264,20 @@ sql:
         emit_pointers_for_null_types: true
         omit_unused_structs: true
   - engine: "postgresql"
-    schema: *full_migrations
+    schema:
+      - "migrations/000001_foundation.up.sql"
+      - "migrations/000002_workflow_foundation.up.sql"
+      - "migrations/000003_authority_foundation.up.sql"
+      - "migrations/000004_evidence_upload_foundation.up.sql"
+      - "migrations/000005_sync_foundation.up.sql"
+      - "migrations/000006_first_production_routes.up.sql"
+      - "migrations/000007_full_workflow_projection.up.sql"
+      - "migrations/000008_communications_documents.up.sql"
+      - "migrations/000009_notifications_risk_admin.up.sql"
+      - "migrations/000010_identity_settings.up.sql"
+      - "migrations/000011_preliminary_report_versions.up.sql"
+      - "migrations/000012_keycloak_user_lifecycle.up.sql"
+      - "migrations/000018_desired_membership_versions.up.sql"
     queries: "internal/administration/store/postgres/queries.sql"
     gen:
       go:

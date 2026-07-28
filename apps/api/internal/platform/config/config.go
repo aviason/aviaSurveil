@@ -53,8 +53,8 @@ type Settings struct {
 	OIDCRedirectURL             string
 	KeycloakAdminURL            string
 	KeycloakRealm               string
-	KeycloakAdminUsername       string
-	KeycloakAdminPassword       string
+	KeycloakServiceClientID     string
+	KeycloakServiceClientSecret string
 	SessionEncryptionKey        []byte
 	SessionIdleDuration         time.Duration
 	SessionAbsoluteDuration     time.Duration
@@ -110,21 +110,24 @@ func LoadScheduler(lookup LookupEnv) (Settings, error) {
 func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) {
 	environment := valueOrDefault(lookup, "AVIA_ENVIRONMENT", "development")
 	settings := Settings{
-		Environment:               environment,
-		DatabaseURL:               value(lookup, "AVIA_DATABASE_URL"),
-		HTTPAddress:               valueOrDefault(lookup, "AVIA_HTTP_ADDRESS", ":8080"),
-		TestPrincipal:             value(lookup, "AVIA_TEST_PRINCIPAL"),
-		TestSession:               value(lookup, "AVIA_TEST_SESSION"),
-		DevSessionSecret:          value(lookup, "AVIA_DEV_SESSION_SECRET"),
-		OIDCIssuerURL:             value(lookup, "AVIA_OIDC_ISSUER_URL"),
-		OIDCDiscoveryURL:          value(lookup, "AVIA_OIDC_DISCOVERY_URL"),
-		OIDCClientID:              value(lookup, "AVIA_OIDC_CLIENT_ID"),
-		OIDCClientSecret:          value(lookup, "AVIA_OIDC_CLIENT_SECRET"),
-		OIDCRedirectURL:           value(lookup, "AVIA_OIDC_REDIRECT_URL"),
-		KeycloakAdminURL:          value(lookup, "AVIA_KEYCLOAK_ADMIN_URL"),
-		KeycloakRealm:             value(lookup, "AVIA_KEYCLOAK_REALM"),
-		KeycloakAdminUsername:     value(lookup, "AVIA_KEYCLOAK_ADMIN_USERNAME"),
-		KeycloakAdminPassword:     value(lookup, "AVIA_KEYCLOAK_ADMIN_PASSWORD"),
+		Environment:             environment,
+		DatabaseURL:             value(lookup, "AVIA_DATABASE_URL"),
+		HTTPAddress:             valueOrDefault(lookup, "AVIA_HTTP_ADDRESS", ":8080"),
+		TestPrincipal:           value(lookup, "AVIA_TEST_PRINCIPAL"),
+		TestSession:             value(lookup, "AVIA_TEST_SESSION"),
+		DevSessionSecret:        value(lookup, "AVIA_DEV_SESSION_SECRET"),
+		OIDCIssuerURL:           value(lookup, "AVIA_OIDC_ISSUER_URL"),
+		OIDCDiscoveryURL:        value(lookup, "AVIA_OIDC_DISCOVERY_URL"),
+		OIDCClientID:            value(lookup, "AVIA_OIDC_CLIENT_ID"),
+		OIDCClientSecret:        value(lookup, "AVIA_OIDC_CLIENT_SECRET"),
+		OIDCRedirectURL:         value(lookup, "AVIA_OIDC_REDIRECT_URL"),
+		KeycloakAdminURL:        value(lookup, "AVIA_KEYCLOAK_ADMIN_URL"),
+		KeycloakRealm:           value(lookup, "AVIA_KEYCLOAK_REALM"),
+		KeycloakServiceClientID: value(lookup, "AVIA_KEYCLOAK_SERVICE_CLIENT_ID"),
+		KeycloakServiceClientSecret: value(
+			lookup,
+			"AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET",
+		),
 		SessionIdleDuration:       30 * time.Minute,
 		SessionAbsoluteDuration:   8 * time.Hour,
 		CookieSecure:              true,
@@ -496,8 +499,8 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 	}{
 		{name: "AVIA_KEYCLOAK_ADMIN_URL", value: settings.KeycloakAdminURL},
 		{name: "AVIA_KEYCLOAK_REALM", value: settings.KeycloakRealm},
-		{name: "AVIA_KEYCLOAK_ADMIN_USERNAME", value: settings.KeycloakAdminUsername},
-		{name: "AVIA_KEYCLOAK_ADMIN_PASSWORD", value: settings.KeycloakAdminPassword},
+		{name: "AVIA_KEYCLOAK_SERVICE_CLIENT_ID", value: settings.KeycloakServiceClientID},
+		{name: "AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET", value: settings.KeycloakServiceClientSecret},
 	}
 	keycloakAdminConfigured := false
 	for _, entry := range keycloakAdminKeys {

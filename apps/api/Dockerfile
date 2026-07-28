@@ -11,6 +11,7 @@ RUN go mod download
 COPY apps/api/ ./
 RUN mkdir -p /out \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/api ./cmd/api \
+    && go build -trimpath -tags canonicaltest -buildvcs=false -ldflags="-s -w -buildid=" -o /out/canonical-test-api ./cmd/api \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/worker ./cmd/worker \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/scheduler ./cmd/reminder-scheduler \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/migrate ./cmd/migrate
@@ -27,6 +28,11 @@ USER 10001:10001
 
 FROM runtime-base AS api
 COPY --from=go-build --chown=10001:10001 /out/api /app/api
+COPY --chown=10001:10001 deploy/local/api/entrypoint.sh /app/entrypoint.sh
+ENTRYPOINT ["/app/entrypoint.sh"]
+
+FROM runtime-base AS canonical-test-api
+COPY --from=go-build --chown=10001:10001 /out/canonical-test-api /app/api
 COPY --chown=10001:10001 deploy/local/api/entrypoint.sh /app/entrypoint.sh
 ENTRYPOINT ["/app/entrypoint.sh"]
 

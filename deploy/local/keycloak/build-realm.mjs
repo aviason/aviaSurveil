@@ -12,6 +12,7 @@ import {
 import path from "node:path";
 
 const secretPlaceholder = "__AVIA_OIDC_CLIENT_SECRET__";
+const serviceSecretPlaceholder = "__AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET__";
 
 function parseArguments(arguments_) {
   const values = new Map();
@@ -19,7 +20,9 @@ function parseArguments(arguments_) {
     const flag = arguments_[index];
     const value = arguments_[index + 1];
     if (!flag?.startsWith("--") || value === undefined) {
-      throw new Error("expected --source, --output, and --client-secret-file");
+      throw new Error(
+        "expected --source, --output, --client-secret-file, and --service-client-secret-file",
+      );
     }
     values.set(flag, value);
   }
@@ -27,15 +30,17 @@ function parseArguments(arguments_) {
   const source = values.get("--source");
   const output = values.get("--output");
   const clientSecretFile = values.get("--client-secret-file");
+  const serviceClientSecretFile = values.get("--service-client-secret-file");
   const publicOriginValue = values.get("--public-origin");
   if (
     !source ||
     !output ||
     !clientSecretFile ||
-    (values.size !== 3 && values.size !== 4)
+    !serviceClientSecretFile ||
+    (values.size !== 4 && values.size !== 5)
   ) {
     throw new Error(
-      "expected --source, --output, --client-secret-file, and optional --public-origin",
+      "expected --source, --output, --client-secret-file, --service-client-secret-file, and optional --public-origin",
     );
   }
   let publicOrigin;
@@ -53,10 +58,22 @@ function parseArguments(arguments_) {
     }
     publicOrigin = parsed.origin;
   }
-  return { source, output, clientSecretFile, publicOrigin };
+  return {
+    source,
+    output,
+    clientSecretFile,
+    serviceClientSecretFile,
+    publicOrigin,
+  };
 }
 
-function buildRealm({ source, output, clientSecretFile, publicOrigin }) {
+function buildRealm({
+  source,
+  output,
+  clientSecretFile,
+  serviceClientSecretFile,
+  publicOrigin,
+}) {
   const sourceText = readFileSync(source, "utf8");
   const placeholderMatches = sourceText.match(
     new RegExp(secretPlaceholder, "g"),
@@ -64,10 +81,30 @@ function buildRealm({ source, output, clientSecretFile, publicOrigin }) {
   if (placeholderMatches?.length !== 1) {
     throw new Error("realm source must contain exactly one client-secret placeholder");
   }
+  const servicePlaceholderMatches = sourceText.match(
+    new RegExp(serviceSecretPlaceholder, "g"),
+  );
+  if (servicePlaceholderMatches?.length !== 1) {
+    throw new Error(
+      "realm source must contain exactly one service-client-secret placeholder",
+    );
+  }
 
   const clientSecret = readFileSync(clientSecretFile, "utf8").trim();
   if (!clientSecret || clientSecret === secretPlaceholder) {
     throw new Error("OIDC client secret file must contain a non-placeholder value");
+  }
+  const serviceClientSecret = readFileSync(
+    serviceClientSecretFile,
+    "utf8",
+  ).trim();
+  if (
+    !serviceClientSecret ||
+    serviceClientSecret === serviceSecretPlaceholder
+  ) {
+    throw new Error(
+      "Keycloak service client secret file must contain a non-placeholder value",
+    );
   }
 
   const realm = JSON.parse(sourceText);
@@ -78,6 +115,13 @@ function buildRealm({ source, output, clientSecretFile, publicOrigin }) {
     throw new Error("realm source is missing the reviewed web client");
   }
   webClient.secret = clientSecret;
+  const serviceClient = realm.clients?.find(
+    (candidate) => candidate.clientId === "aviasurveil360-lifecycle",
+  );
+  if (!serviceClient || serviceClient.secret !== serviceSecretPlaceholder) {
+    throw new Error("realm source is missing the reviewed lifecycle client");
+  }
+  serviceClient.secret = serviceClientSecret;
   if (publicOrigin) {
     webClient.redirectUris = [`${publicOrigin}/auth/callback`];
     webClient.webOrigins = [publicOrigin];

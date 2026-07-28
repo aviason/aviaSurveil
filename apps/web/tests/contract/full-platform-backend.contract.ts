@@ -851,9 +851,9 @@ async function organizationAndPlatformProjections(state: ScenarioState): Promise
   prove(
     state,
     "users-and-roles-projected",
-    directory.items.some(({ role }) => role === "inspector") &&
-      directory.items.some(({ role }) => role === "manager") &&
-      directory.items.some(({ role }) => role === "auditee"),
+    directory.items.some(({ roles }) => roles.includes("inspector")) &&
+      directory.items.some(({ roles }) => roles.includes("manager")) &&
+      directory.items.some(({ roles }) => roles.includes("auditee")),
   );
 
   const auditLog = await admin.adminWorkspace.listAuditEvents({});

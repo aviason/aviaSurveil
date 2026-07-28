@@ -220,7 +220,54 @@ func TestAdministrationProjectionsAndFiltersAreRoleScoped(t *testing.T) {
 	`, canonicalNow); err != nil {
 		t.Fatalf("seed admin audit event: %v", err)
 	}
-	service := administration.NewProjectionService(pool)
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO user_lifecycle_requests (
+			id, subject_id, requested_action, requested_roles,
+			requested_organization_id, requested_email, requested_display_name,
+			status, idempotency_key, requested_by_subject_id, created_at, updated_at
+		) VALUES (
+			'lifecycle-directory-invitation-001', 'inspector-cabin-001',
+			'PROVISION', ARRAY['inspector'], NULL,
+			'inspector.cabin@example.test', 'Cabin Inspector',
+			'SUCCEEDED', 'idem-directory-invitation-001', 'admin-001', $1, $1
+		)
+	`, canonicalNow); err != nil {
+		t.Fatalf("seed invitation lifecycle fact: %v", err)
+	}
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO notification_records (
+			id, recipient_subject_id, title, body, related_entity_type,
+			related_entity_id, deduplication_key, created_at
+		) VALUES (
+			'notification-directory-invitation-001', 'inspector-cabin-001',
+			'Access invitation', 'Identity delivery fact.',
+			'USER_LIFECYCLE_INVITATION', 'lifecycle-directory-invitation-001',
+			'directory-invitation-001', $1
+		)
+	`, canonicalNow); err != nil {
+		t.Fatalf("seed invitation notification fact: %v", err)
+	}
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO notification_delivery_jobs (
+			id, notification_id, recipient_subject_id, channel, status,
+			idempotency_key, attempt_count, provider_message_id, accepted_at,
+			created_at, updated_at
+		) VALUES (
+			'delivery-directory-invitation-001',
+			'notification-directory-invitation-001', 'inspector-cabin-001',
+			'EMAIL', 'DELIVERED', 'delivery-directory-invitation-001', 1,
+			'<directory-invitation-001@aviasurveil360.local>', $1, $1, $1
+		)
+	`, canonicalNow); err != nil {
+		t.Fatalf("seed invitation email delivery fact: %v", err)
+	}
+	service := administration.NewProjectionService(
+		pool,
+		administration.ProjectionDependencies{
+			Clock:             func() time.Time { return canonicalNow },
+			DirectoryProvider: canonicalDirectoryProvider{},
+		},
+	)
 	admin := principal("admin-001", "caa", "session-admin", identity.RoleAdmin)
 
 	screen, err := service.GetScreenProjection(
@@ -293,12 +340,34 @@ func TestAdministrationProjectionsAndFiltersAreRoleScoped(t *testing.T) {
 		t.Fatalf("admin report definitions = %+v, err = %v", reports, err)
 	}
 	directory, err := service.ListAccessDirectory(
-		context.Background(), admin, "Cabin", identity.RoleInspector,
+		context.Background(),
+		admin,
+		administration.AccessDirectoryFilters{
+			Search: "Cabin", Role: identity.RoleInspector,
+		},
 	)
-	if err != nil || len(directory) != 1 ||
-		directory[0].SubjectID != "inspector-cabin-001" ||
-		directory[0].Email != administration.NotConfiguredInDemo {
+	if err != nil || len(directory.Items) != 1 ||
+		directory.Items[0].SubjectID != "inspector-cabin-001" ||
+		directory.Items[0].Email != "inspector.cabin@example.test" ||
+		!directory.Items[0].MFAEnrolled ||
+		directory.Items[0].InvitationState != "delivered" ||
+		directory.ProviderCalls != 2 {
 		t.Fatalf("admin access directory = %+v, err = %v", directory, err)
+	}
+	preloginDirectory, err := service.ListAccessDirectory(
+		context.Background(),
+		admin,
+		administration.AccessDirectoryFilters{
+			Search: "Prelogin", Role: identity.RoleAuditee,
+		},
+	)
+	if err != nil ||
+		len(preloginDirectory.Items) != 1 ||
+		preloginDirectory.Items[0].SubjectID != "provider-prelogin-001" ||
+		preloginDirectory.Items[0].ApplicationProfile != "absent" ||
+		preloginDirectory.Items[0].MembershipRevision != 0 ||
+		preloginDirectory.Items[0].LastSuccessfulSession != nil {
+		t.Fatalf("pre-login provider directory = %+v, err = %v", preloginDirectory, err)
 	}
 	organizations, err := service.ListOrganizations(
 		context.Background(), admin,
@@ -500,7 +569,13 @@ func TestManagementAdminAssistantExactHTTPAndRawWirePrivacy(t *testing.T) {
 		Risk: risk.NewService(pool, risk.Dependencies{
 			Clock: func() time.Time { return canonicalNow }, IDGenerator: generator.Next,
 		}),
-		Administration: administration.NewProjectionService(pool),
+		Administration: administration.NewProjectionService(
+			pool,
+			administration.ProjectionDependencies{
+				Clock:             func() time.Time { return canonicalNow },
+				DirectoryProvider: canonicalDirectoryProvider{},
+			},
+		),
 		Assistant: assistant.NewService(pool, assistant.Dependencies{
 			Clock: func() time.Time { return canonicalNow }, IDGenerator: generator.Next,
 			Provider: assistant.NewDeterministicProvider(),
@@ -735,11 +810,106 @@ func TestManagementAdminAssistantExactHTTPAndRawWirePrivacy(t *testing.T) {
 	)
 	if accessDirectory.Code != http.StatusOK ||
 		!strings.Contains(accessDirectory.Body.String(), "USR-INSPECTOR-DAVID") ||
-		!strings.Contains(accessDirectory.Body.String(), "Not configured in demo") {
+		!strings.Contains(accessDirectory.Body.String(), "david.inspector@example.test") ||
+		!strings.Contains(accessDirectory.Body.String(), `"mfaEnrolled":true`) ||
+		strings.Contains(accessDirectory.Body.String(), "Not configured in demo") {
 		t.Fatalf(
 			"admin access directory status=%d body=%s",
 			accessDirectory.Code,
 			accessDirectory.Body.String(),
+		)
+	}
+	var firstDirectoryPage struct {
+		Items            []map[string]any `json:"items"`
+		NextCursor       *string          `json:"nextCursor"`
+		ConsistencyToken string           `json:"consistencyToken"`
+		ProviderCalls    int              `json:"providerCalls"`
+	}
+	firstPageResponse := request(
+		http.MethodGet,
+		"/v1/admin/access-directory?limit=1",
+		"",
+		"USR-ADMIN-ADA",
+	)
+	if firstPageResponse.Code != http.StatusOK ||
+		json.Unmarshal(firstPageResponse.Body.Bytes(), &firstDirectoryPage) != nil ||
+		len(firstDirectoryPage.Items) != 1 ||
+		firstDirectoryPage.NextCursor == nil ||
+		firstDirectoryPage.ConsistencyToken == "" ||
+		firstDirectoryPage.ProviderCalls != 2 {
+		t.Fatalf(
+			"first directory page status=%d body=%s",
+			firstPageResponse.Code,
+			firstPageResponse.Body.String(),
+		)
+	}
+	secondPageResponse := request(
+		http.MethodGet,
+		"/v1/admin/access-directory?limit=1&cursor="+*firstDirectoryPage.NextCursor,
+		"",
+		"USR-ADMIN-ADA",
+	)
+	if secondPageResponse.Code != http.StatusOK ||
+		!strings.Contains(secondPageResponse.Body.String(), "USR-INSPECTOR-DAVID") ||
+		!strings.Contains(
+			secondPageResponse.Body.String(),
+			firstDirectoryPage.ConsistencyToken,
+		) {
+		t.Fatalf(
+			"second directory page status=%d body=%s",
+			secondPageResponse.Code,
+			secondPageResponse.Body.String(),
+		)
+	}
+	for _, forbidden := range []string{
+		"password",
+		"totpSecret",
+		"providerTokens",
+		"Internal CAA Note",
+	} {
+		if strings.Contains(accessDirectory.Body.String(), forbidden) {
+			t.Fatalf("access directory disclosed %q: %s", forbidden, accessDirectory.Body.String())
+		}
+	}
+	auditeeDirectory := request(
+		http.MethodGet,
+		"/v1/admin/access-directory",
+		"",
+		"USR-AUDITEE-ELENA",
+	)
+	if auditeeDirectory.Code != http.StatusForbidden ||
+		strings.Contains(auditeeDirectory.Body.String(), "david.inspector@example.test") {
+		t.Fatalf(
+			"auditee access directory status=%d body=%s",
+			auditeeDirectory.Code,
+			auditeeDirectory.Body.String(),
+		)
+	}
+	unavailableAPI := httpapi.NewCanonicalAPI(httpapi.CanonicalAPIDependencies{
+		Pool:              pool,
+		Application:       testService(pool),
+		DirectoryProvider: unavailableDirectoryProvider{},
+		Clock:             func() time.Time { return canonicalNow },
+	})
+	unavailableHandler := httpapi.NewCanonicalTestBoundary(
+		"task-9-token",
+	).Protect(unavailableAPI.Handler())
+	unavailableRequest := httptest.NewRequest(
+		http.MethodGet,
+		"/v1/admin/access-directory",
+		nil,
+	)
+	unavailableRequest.Header.Set(httpapi.CanonicalTestTokenHeader, "task-9-token")
+	unavailableRequest.Header.Set(httpapi.CanonicalTestSubjectHeader, "USR-ADMIN-ADA")
+	unavailableResponse := httptest.NewRecorder()
+	unavailableHandler.ServeHTTP(unavailableResponse, unavailableRequest)
+	if unavailableResponse.Code != http.StatusServiceUnavailable ||
+		!strings.Contains(unavailableResponse.Body.String(), "PROVIDER_UNAVAILABLE") ||
+		strings.Contains(unavailableResponse.Body.String(), "items") {
+		t.Fatalf(
+			"unavailable provider status=%d body=%s",
+			unavailableResponse.Code,
+			unavailableResponse.Body.String(),
 		)
 	}
 	organizations := request(
@@ -897,4 +1067,69 @@ func jsonBytesEqual(left, right []byte) bool {
 		return false
 	}
 	return reflect.DeepEqual(leftValue, rightValue)
+}
+
+type canonicalDirectoryProvider struct{}
+
+func (canonicalDirectoryProvider) ListDirectory(
+	_ context.Context,
+	query identity.KeycloakDirectoryQuery,
+) (identity.KeycloakDirectoryPage, error) {
+	users := []identity.KeycloakDirectoryUser{
+		{
+			SubjectID: "inspector-cabin-001",
+			Email:     "inspector.cabin@example.test", DisplayName: "Cabin Inspector",
+			OrganizationID: "CAA", Enabled: true, TOTPConfigured: true,
+			Roles: []identity.Role{identity.RoleInspector},
+		},
+		{
+			SubjectID: "USR-INSPECTOR-DAVID",
+			Email:     "david.inspector@example.test", DisplayName: "David Inspector",
+			OrganizationID: "CAA", Enabled: true, TOTPConfigured: true,
+			Roles: []identity.Role{identity.RoleInspector},
+		},
+		{
+			SubjectID: "provider-prelogin-001",
+			Email:     "prelogin.auditee@example.test", DisplayName: "Prelogin Auditee",
+			OrganizationID: "airline-xyz", Enabled: true,
+			RequiredActions: []string{"UPDATE_PASSWORD", "VERIFY_EMAIL"},
+			Roles:           []identity.Role{identity.RoleAuditee},
+		},
+	}
+	needle := strings.ToLower(strings.TrimSpace(query.Search))
+	filtered := make([]identity.KeycloakDirectoryUser, 0, len(users))
+	for _, user := range users {
+		if needle == "" ||
+			strings.Contains(strings.ToLower(
+				user.SubjectID+" "+user.Email+" "+user.DisplayName,
+			), needle) {
+			filtered = append(filtered, user)
+		}
+	}
+	first := query.First
+	if first > len(filtered) {
+		first = len(filtered)
+	}
+	end := first + query.Limit
+	if end > len(filtered) {
+		end = len(filtered)
+	}
+	nextFirst := 0
+	if end < len(filtered) {
+		nextFirst = end
+	}
+	return identity.KeycloakDirectoryPage{
+		Users:         append([]identity.KeycloakDirectoryUser(nil), filtered[first:end]...),
+		NextFirst:     nextFirst,
+		ProviderCalls: 1 + end - first,
+	}, nil
+}
+
+type unavailableDirectoryProvider struct{}
+
+func (unavailableDirectoryProvider) ListDirectory(
+	context.Context,
+	identity.KeycloakDirectoryQuery,
+) (identity.KeycloakDirectoryPage, error) {
+	return identity.KeycloakDirectoryPage{}, identity.ErrKeycloakUnavailable
 }

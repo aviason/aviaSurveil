@@ -487,6 +487,53 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 			organizationID,
 		)
 	}
+	var membershipRevision int64
+	var membershipState, membershipOrganization, membershipDrift string
+	var membershipRoles []string
+	if err := pool.QueryRow(context.Background(), `
+		SELECT revision, membership_state, organization_id, roles, drift_state
+		FROM desired_membership_versions
+		WHERE subject_id = 'keycloak-subject-001'
+		ORDER BY revision DESC
+		LIMIT 1
+	`).Scan(
+		&membershipRevision,
+		&membershipState,
+		&membershipOrganization,
+		&membershipRoles,
+		&membershipDrift,
+	); err != nil {
+		t.Fatalf("read desired membership: %v", err)
+	}
+	if membershipRevision != 1 ||
+		membershipState != "ACTIVE" ||
+		membershipOrganization != "airline-xyz" ||
+		fmt.Sprint(membershipRoles) != "[auditee]" ||
+		membershipDrift != "IN_SYNC" {
+		t.Fatalf(
+			"desired membership = revision %d state %q organization %q roles %v drift %q",
+			membershipRevision,
+			membershipState,
+			membershipOrganization,
+			membershipRoles,
+			membershipDrift,
+		)
+	}
+	if _, err := pool.Exec(context.Background(), `
+		UPDATE desired_membership_versions
+		SET membership_state = 'SUSPENDED'
+		WHERE subject_id = 'keycloak-subject-001'
+		  AND revision = 1
+	`); err == nil {
+		t.Fatal("desired membership history accepted an in-place rewrite")
+	}
+	if _, err := pool.Exec(context.Background(), `
+		DELETE FROM desired_membership_versions
+		WHERE subject_id = 'keycloak-subject-001'
+		  AND revision = 1
+	`); err == nil {
+		t.Fatal("desired membership history accepted deletion")
+	}
 	var delivered bool
 	if err := pool.QueryRow(context.Background(), `
 		SELECT delivered_at IS NOT NULL
@@ -581,6 +628,46 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 	}
 	if suspendedStatus != "SUCCEEDED" {
 		t.Fatalf("suspension status = %q", suspendedStatus)
+	}
+	var suspendedMembershipID, suspendedMembershipState, suspendedDrift string
+	var suspendedMembershipRevision, synchronizedRevision int64
+	var observedProviderEnabled bool
+	if err := pool.QueryRow(context.Background(), `
+		SELECT version.membership_id, version.revision,
+		       version.membership_state, sync.desired_revision,
+		       sync.observed_provider_enabled, sync.drift_state
+		FROM desired_membership_versions version
+		JOIN desired_membership_sync sync
+		  ON sync.membership_id = version.membership_id
+		 AND sync.desired_revision = version.revision
+		WHERE version.subject_id = 'keycloak-subject-001'
+		ORDER BY version.revision DESC
+		LIMIT 1
+	`).Scan(
+		&suspendedMembershipID,
+		&suspendedMembershipRevision,
+		&suspendedMembershipState,
+		&synchronizedRevision,
+		&observedProviderEnabled,
+		&suspendedDrift,
+	); err != nil {
+		t.Fatalf("read suspended desired membership: %v", err)
+	}
+	if suspendedMembershipID != "membership-"+provisioned.ID ||
+		suspendedMembershipRevision != 2 ||
+		synchronizedRevision != 2 ||
+		suspendedMembershipState != "SUSPENDED" ||
+		observedProviderEnabled ||
+		suspendedDrift != "IN_SYNC" {
+		t.Fatalf(
+			"suspended membership = id %q revision %d state %q sync %d enabled %t drift %q",
+			suspendedMembershipID,
+			suspendedMembershipRevision,
+			suspendedMembershipState,
+			synchronizedRevision,
+			observedProviderEnabled,
+			suspendedDrift,
+		)
 	}
 
 	recovered, err := userService.RequestLifecycle(

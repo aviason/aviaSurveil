@@ -53,7 +53,7 @@ interface AdminWorkspaceCapability {
   moveDraftQuestion(input: { templateId: string; draftVersionId: string; questionId: string; direction: "UP" | "DOWN"; expectedRevision: number; idempotencyKey: string }): Promise<AdminTemplateVersion>;
   getInspectionPackage(input: { packageId: string }): Promise<{ id: string; auditId: string; organizationId: string; questionIds: string[]; configuredReferences: string[]; expectedEvidence: string[]; riskFocus: string[] }>;
   listReportDefinitions(input: { search?: string }): Promise<{ items: Array<{ id: string; packageFields: string[]; actionReason: string }> }>;
-  listAccessDirectory(input: { search?: string; role?: string }): Promise<{ items: Array<{ subjectId: string; role: string; organizationId: string | null; email: "Not configured in demo"; mfa: "Not configured in demo"; invitation: "Not configured in demo"; accountStatus: "Not configured in demo" }> }>;
+  listAccessDirectory(input: { search?: string; role?: string }): Promise<{ items: Array<{ subjectId: string; roles: string[]; organizationId: string | null; email: "Not configured in demo"; mfaEnrolled: boolean; mfaState: string; requiredActions: string[]; invitationState: string; accountStatus: "Not configured in demo"; applicationProfileState: string; membershipId: string | null; membershipState: string; membershipRevision: number; membershipDrift: string; lastSuccessfulSessionAt: string | null; providerObservedAt: string }> }>;
   listOrganizations(input: { search?: string; organizationType?: string; status?: string; scope?: string }): Promise<{ items: Array<{ id: string; legalName: string; organizationType: string; status: string; scope: string; detailAvailable: boolean; disabledReason: string | null }> }>;
   getOrganization(input: { organizationId: string }): Promise<{ id: string; legalName: string; organizationType: string; status: string; scope: string }>;
   listAuditEvents(input: { actor?: string; action?: string; entity?: string; system?: string; dateText?: string }): Promise<{ items: AuditEventView[] }>;
@@ -372,7 +372,7 @@ describe("Admin secondary workspaces", () => {
     const capability = requireAdminWorkspace(runtime);
     expect((await capability.listReportDefinitions({ search: "package" })).items).toEqual([expect.objectContaining({ id: "ADMIN-RPT-PACKAGE-001", packageFields: expect.arrayContaining(["packageId", "auditId", "organizationId"]) })]);
     const directory = await capability.listAccessDirectory({ search: "USR-AUDITEE-FLY", role: "auditee" });
-    expect(directory.items).toEqual([expect.objectContaining({ subjectId: "USR-AUDITEE-FLY", role: "auditee", organizationId: "ORG-FLY-NAMIBIA", email: "Not configured in demo", mfa: "Not configured in demo", invitation: "Not configured in demo", accountStatus: "Not configured in demo" })]);
+    expect(directory.items).toEqual([expect.objectContaining({ subjectId: "USR-AUDITEE-FLY", roles: ["auditee"], organizationId: "ORG-FLY-NAMIBIA", email: "Not configured in demo", mfaState: "Not configured in demo", invitationState: "Not configured in demo", accountStatus: "Not configured in demo" })]);
     renderAdminRoute("/admin/users-roles", runtime);
     const page = await screen.findByTestId("admin-users-roles-page");
     const disabled = within(page).getAllByRole("button", { name: /unavailable/ });

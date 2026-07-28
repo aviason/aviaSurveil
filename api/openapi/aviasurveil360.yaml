@@ -5151,7 +5151,25 @@
             "name": "role",
             "in": "query",
             "schema": {
+              "$ref": "#/components/schemas/Role"
+            }
+          },
+          {
+            "name": "organizationId",
+            "in": "query",
+            "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "accountStatus",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "enabled",
+                "disabled"
+              ]
             }
           },
           {
@@ -5163,7 +5181,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Read-only configured access directory",
+            "description": "Provider-backed access directory with explicit consistency semantics",
             "content": {
               "application/json": {
                 "schema": {
@@ -5181,6 +5199,9 @@
             "$ref": "#/components/responses/Problem"
           },
           "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "503": {
             "$ref": "#/components/responses/Problem"
           }
         },
@@ -11505,12 +11526,21 @@
         "required": [
           "subjectId",
           "displayName",
-          "role",
+          "roles",
           "organizationId",
           "email",
-          "mfa",
-          "invitation",
-          "accountStatus"
+          "mfaEnrolled",
+          "mfaState",
+          "requiredActions",
+          "invitationState",
+          "accountStatus",
+          "applicationProfileState",
+          "membershipId",
+          "membershipState",
+          "membershipRevision",
+          "membershipDrift",
+          "lastSuccessfulSessionAt",
+          "providerObservedAt"
         ],
         "properties": {
           "subjectId": {
@@ -11519,8 +11549,11 @@
           "displayName": {
             "type": "string"
           },
-          "role": {
-            "$ref": "#/components/schemas/Role"
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Role"
+            }
           },
           "organizationId": {
             "type": [
@@ -11529,16 +11562,74 @@
             ]
           },
           "email": {
-            "type": "string"
+            "type": "string",
+            "format": "email"
           },
-          "mfa": {
-            "type": "string"
+          "mfaEnrolled": {
+            "type": "boolean"
           },
-          "invitation": {
+          "mfaState": {
+            "type": "string",
+            "enum": [
+              "enrolled",
+              "enrollment-required",
+              "unenrolled"
+            ]
+          },
+          "requiredActions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "invitationState": {
             "type": "string"
           },
           "accountStatus": {
+            "type": "string",
+            "enum": [
+              "enabled",
+              "disabled"
+            ]
+          },
+          "applicationProfileState": {
+            "type": "string",
+            "enum": [
+              "absent",
+              "linked"
+            ]
+          },
+          "membershipId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "membershipState": {
             "type": "string"
+          },
+          "membershipRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "membershipDrift": {
+            "type": "string",
+            "enum": [
+              "in-sync",
+              "drifted",
+              "untracked"
+            ]
+          },
+          "lastSuccessfulSessionAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "providerObservedAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -11992,7 +12083,9 @@
         "additionalProperties": false,
         "required": [
           "items",
-          "nextCursor"
+          "nextCursor",
+          "consistencyToken",
+          "providerCalls"
         ],
         "properties": {
           "items": {
@@ -12006,6 +12099,14 @@
               "string",
               "null"
             ]
+          },
+          "consistencyToken": {
+            "type": "string"
+          },
+          "providerCalls": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 26
           }
         }
       },

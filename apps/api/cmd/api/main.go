@@ -29,7 +29,6 @@ import (
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/telemetry"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/risk"
 	fieldsync "github.com/MarlonJD/aviaSurveil360/apps/api/internal/sync"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/testprofile"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/migrations"
 )
 
@@ -74,6 +73,25 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("load configuration: %w", err)
 	}
+	profile, err := activeRuntimeProfile(settings)
+	if err != nil {
+		return fmt.Errorf("select API artifact profile: %w", err)
+	}
+	var directoryProvider administration.AccessDirectoryProvider
+	if settings.KeycloakAdminURL != "" {
+		keycloakClient, keycloakErr := identity.NewKeycloakAdminClient(
+			identity.KeycloakAdminConfig{
+				BaseURL:      settings.KeycloakAdminURL,
+				Realm:        settings.KeycloakRealm,
+				ClientID:     settings.KeycloakServiceClientID,
+				ClientSecret: settings.KeycloakServiceClientSecret,
+			},
+		)
+		if keycloakErr != nil {
+			return fmt.Errorf("configure Keycloak directory provider: %w", keycloakErr)
+		}
+		directoryProvider = keycloakClient
+	}
 	telemetryRuntime, err := telemetry.NewRuntime(ctx, telemetry.Config{
 		ServiceName:      "api",
 		ServiceVersion:   "candidate",
@@ -106,11 +124,17 @@ func run(ctx context.Context) error {
 	)
 	if databaseErr == nil {
 		if migrationErr := migrations.Apply(ctx, pool); migrationErr == nil {
-			if bootstrapErr := session.BootstrapTestProfile(ctx, pool, settings, time.Now()); bootstrapErr == nil {
-				canonicalClock := time.Now
-				if settings.CanonicalSeed {
-					canonicalClock = testprofile.CanonicalScenarioTime
-				}
+			var bootstrapErr error
+			if profile.bootstrap != nil {
+				bootstrapErr = profile.bootstrap(
+					ctx,
+					pool,
+					settings,
+					profile.clock(),
+				)
+			}
+			if bootstrapErr == nil {
+				runtimeClock := profile.clock
 				databaseProbe := database.Readiness{Pool: pool, RequiredMigrationVersion: migrations.LatestVersion}
 				databaseHealth = databaseProbe
 				probe = databaseProbe
@@ -141,7 +165,7 @@ func run(ctx context.Context) error {
 						AccessKey: settings.ObjectStoreAccessKey, SecretKey: settings.ObjectStoreSecretKey,
 						UseTLS: settings.ObjectStoreTLS, PublicUseTLS: settings.ObjectStorePublicTLS,
 						Region: settings.ObjectStoreRegion, AllowServerManagedCORS: settings.AllowServerManagedCORS,
-						Clock: canonicalClock,
+						Clock: runtimeClock,
 					})
 					if objectErr == nil && settings.Environment != "production" {
 						objectErr = objects.EnsurePrivateBuckets(ctx, []string{
@@ -169,51 +193,60 @@ func run(ctx context.Context) error {
 							readinessProbes = append(readinessProbes, scannerProbe)
 						}
 						probe = readinessProbes
-						generator := testprofile.NewGenerator()
-						appDependencies := application.Dependencies{}
-						if settings.CanonicalSeed {
-							appDependencies.Clock = canonicalClock
-							appDependencies.IDGenerator = generator.Next
-							appDependencies.FindingReferenceGenerator = generator.FindingReference
-							if resetErr := testprofile.Reset(ctx, pool, canonicalClock()); resetErr != nil {
+						appDependencies := application.Dependencies{
+							Clock:                     runtimeClock,
+							IDGenerator:               profile.idGenerator,
+							FindingReferenceGenerator: profile.findingReferenceGenerator,
+						}
+						if profile.seed != nil {
+							if resetErr := profile.seed(ctx, pool, runtimeClock()); resetErr != nil {
 								probe = unavailableReadiness{err: resetErr}
 								slog.Error("canonical test seed failed; readiness will fail closed", "error", resetErr)
 							}
 						}
 						applicationService := application.NewService(pool, appDependencies)
 						grantService := fieldsync.NewGrantService(pool, fieldsync.GrantDependencies{
-							Clock: canonicalClock, IDGenerator: generator.Next,
+							Clock: runtimeClock, IDGenerator: profile.idGenerator,
 						})
 						syncOperations := fieldsync.NewOperationService(pool, fieldsync.OperationDependencies{
-							Clock: canonicalClock, IDGenerator: generator.Next,
+							Clock: runtimeClock, IDGenerator: profile.idGenerator,
 						})
-						evidenceUploadConfig, attachmentUploadConfig := uploadServiceConfigs(settings, canonicalClock, generator.Next)
+						evidenceUploadConfig, attachmentUploadConfig := uploadServiceConfigs(
+							settings,
+							runtimeClock,
+							profile.idGenerator,
+						)
 						evidenceUploads := evidence.NewUploadService(pool, objects, evidenceUploadConfig)
 						attachmentUploads := attachments.NewUploadService(pool, objects, attachmentUploadConfig)
 						planningService := planning.NewService(
 							pool,
-							planningServiceDependencies(canonicalClock, generator.Next),
+							planningServiceDependencies(runtimeClock, profile.idGenerator),
 						)
 						riskService := risk.NewService(pool, risk.Dependencies{
-							Clock: canonicalClock, IDGenerator: generator.Next,
+							Clock: runtimeClock, IDGenerator: profile.idGenerator,
 						})
 						administrationService := administration.NewProjectionService(
 							pool,
-							administration.ProjectionDependencies{Clock: canonicalClock},
+							administration.ProjectionDependencies{
+								Clock: runtimeClock, DirectoryProvider: directoryProvider,
+							},
 						)
 						assistantService := assistant.NewService(pool, assistant.Dependencies{
-							Clock: canonicalClock, IDGenerator: generator.Next,
+							Clock: runtimeClock, IDGenerator: profile.idGenerator,
 							Provider: assistant.NewDeterministicProvider(),
 						})
 						communicationsWorkflow := application.NewCommunicationsWorkflow(
 							pool,
-							communicationsWorkflowDependencies(canonicalClock, generator.Next),
+							communicationsWorkflowDependencies(
+								runtimeClock,
+								profile.idGenerator,
+							),
 						)
 						documentAccess := documents.NewService(
 							pool,
 							objects,
 							documents.Dependencies{
-								Bucket: settings.DocumentBucket, Clock: canonicalClock,
+								Bucket: settings.DocumentBucket, Clock: runtimeClock,
 							},
 						)
 						apiHandler := httpapi.NewCanonicalAPI(httpapi.CanonicalAPIDependencies{
@@ -225,19 +258,32 @@ func run(ctx context.Context) error {
 							Assistant:      assistantService,
 							Communications: communicationsWorkflow,
 							Documents:      documentAccess,
-							Clock:          canonicalClock,
+							Clock:          runtimeClock,
 						}).Handler()
-						if settings.CanonicalTestProfile {
-							boundary := httpapi.NewCanonicalTestBoundary(settings.CanonicalTestToken)
-							authenticatedAPI = boundary.Protect(apiHandler)
-							admin := httpapi.NewCanonicalTestAdmin(pool, objects,
+						if profile.protect != nil {
+							protectedAPI, testAdmin, profileErr := profile.protect(
+								settings,
+								apiHandler,
+								pool,
+								objects,
 								[]string{
 									settings.QuarantineBucket,
 									settings.CanonicalBucket,
 									settings.AttachmentBucket,
 									settings.DocumentBucket,
-								}, generator, canonicalClock)
-							testAdministration = boundary.Admin(admin)
+								},
+							)
+							if profileErr != nil {
+								probe = unavailableReadiness{err: profileErr}
+								slog.Error(
+									"canonical test authority unavailable; readiness will fail closed",
+									"error",
+									profileErr,
+								)
+							} else {
+								authenticatedAPI = protectedAPI
+								testAdministration = testAdmin
+							}
 						} else if authBoundary != nil {
 							authenticatedAPI = authBoundary.Protect(apiHandler)
 						}

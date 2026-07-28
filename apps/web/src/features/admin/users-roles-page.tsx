@@ -228,6 +228,7 @@ export function UsersRolesPage() {
         aria-label={isHttp ? "Identity access directory" : "Demo access directory"}
       >
         {directory.data?.items.map((entry) => {
+          const primaryRole = entry.roles[0];
           const demoReason =
             `${entry.subjectId} account provisioning and role changes are production-only and require Plan 3 Keycloak administration.`;
           const mfaReason =
@@ -239,13 +240,13 @@ export function UsersRolesPage() {
                   <b>{entry.displayName}</b>
                   <small>{entry.subjectId}</small>
                 </div>
-                <span>{entry.role}</span>
+                <span>{entry.roles.join(", ")}</span>
               </header>
               <dl>
                 <div><dt>Organization scope</dt><dd>{entry.organizationId ?? "CAA internal"}</dd></div>
                 <div><dt>Email</dt><dd>{entry.email}</dd></div>
-                <div><dt>MFA</dt><dd>{entry.mfa}</dd></div>
-                <div><dt>Invitation</dt><dd>{entry.invitation}</dd></div>
+                <div><dt>MFA</dt><dd>{entry.mfaState}</dd></div>
+                <div><dt>Invitation</dt><dd>{entry.invitationState}</dd></div>
                 <div><dt>Account status</dt><dd>{entry.accountStatus}</dd></div>
               </dl>
               <div className="admin-inline-actions">
@@ -259,7 +260,7 @@ export function UsersRolesPage() {
                         idempotencyKey: lifecycleKey("SUSPEND", entry.subjectId),
                         subjectId: entry.subjectId,
                         action: "SUSPEND",
-                        roles: [entry.role],
+                        roles: primaryRole ? [primaryRole] : [],
                         organizationId: entry.organizationId ?? "CAA",
                       })}
                       type="button"

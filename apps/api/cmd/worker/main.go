@@ -18,7 +18,6 @@ import (
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/objectstore"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/scanner"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/session"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/telemetry"
 	evidenceworker "github.com/MarlonJD/aviaSurveil360/apps/api/internal/worker/evidence"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/migrations"
@@ -69,9 +68,6 @@ func run(ctx context.Context) error {
 	}
 	defer pool.Close()
 	if err := migrations.Apply(ctx, pool); err != nil {
-		return err
-	}
-	if err := session.BootstrapTestProfile(ctx, pool, settings, time.Now()); err != nil {
 		return err
 	}
 	keycloakAdmin, err := newKeycloakAdminClient(settings)
@@ -330,8 +326,8 @@ func newKeycloakAdminClient(
 	}
 	client, err := identity.NewKeycloakAdminClient(identity.KeycloakAdminConfig{
 		BaseURL: settings.KeycloakAdminURL, Realm: settings.KeycloakRealm,
-		AdminUsername: settings.KeycloakAdminUsername,
-		AdminPassword: settings.KeycloakAdminPassword,
+		ClientID:     settings.KeycloakServiceClientID,
+		ClientSecret: settings.KeycloakServiceClientSecret,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("configure Keycloak administration: %w", err)

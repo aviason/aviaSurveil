@@ -141,11 +141,11 @@ func TestNewKeycloakAdminClientRequiresProductionWorkerConfiguration(t *testing.
 		t.Fatalf("missing production Keycloak config error = %v", err)
 	}
 	client, err := newKeycloakAdminClient(config.Settings{
-		Environment:           "production",
-		KeycloakAdminURL:      "http://keycloak:8080/identity",
-		KeycloakRealm:         "aviasurveil360",
-		KeycloakAdminUsername: "local-bootstrap-admin",
-		KeycloakAdminPassword: "bootstrap-admin-secret",
+		Environment:                 "production",
+		KeycloakAdminURL:            "http://keycloak:8080/identity",
+		KeycloakRealm:               "aviasurveil360",
+		KeycloakServiceClientID:     "aviasurveil360-lifecycle",
+		KeycloakServiceClientSecret: "lifecycle-client-secret",
 	})
 	if err != nil || client == nil {
 		t.Fatalf("production Keycloak client = %v, err = %v", client, err)

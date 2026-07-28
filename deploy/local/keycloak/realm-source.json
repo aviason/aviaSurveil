@@ -141,7 +141,34 @@
           }
         }
       ]
+    },
+    {
+      "clientId": "aviasurveil360-lifecycle",
+      "name": "AviaSurveil360 Identity Lifecycle",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "__AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET__",
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true
     }
   ],
-  "users": []
+  "users": [
+    {
+      "username": "service-account-aviasurveil360-lifecycle",
+      "enabled": true,
+      "serviceAccountClientId": "aviasurveil360-lifecycle",
+      "clientRoles": {
+        "realm-management": [
+          "query-users",
+          "view-users",
+          "manage-users",
+          "view-realm"
+        ]
+      }
+    }
+  ]
 }

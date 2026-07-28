@@ -360,6 +360,7 @@ test("the secret initializer is private, non-destructive, and explicitly rotatab
     ["app_database_password", /^[a-f0-9]{64}$/],
     ["keycloak_bootstrap_admin_password", /^[a-f0-9]{64}$/],
     ["keycloak_database_password", /^[a-f0-9]{64}$/],
+    ["keycloak_service_client_secret", /^[a-f0-9]{64}$/],
     ["minio_root_password", /^[a-f0-9]{64}$/],
     ["minio_root_user", /^[a-f0-9]{20}$/],
     ["oidc_client_secret", /^[a-f0-9]{64}$/],
@@ -405,7 +406,13 @@ test("the secret initializer is private, non-destructive, and explicitly rotatab
     initialWebClient.secret,
     initialValues.get("oidc_client_secret"),
   );
-  assert.deepEqual(initialRuntimeRealm.users, []);
+  const initialServiceClient = initialRuntimeRealm.clients.find(
+    ({ clientId }) => clientId === "aviasurveil360-lifecycle",
+  );
+  assert.equal(
+    initialServiceClient.secret,
+    initialValues.get("keycloak_service_client_secret"),
+  );
   assert.equal(
     JSON.stringify(initialRuntimeRealm).includes(
       "__AVIA_OIDC_CLIENT_SECRET__",
@@ -445,6 +452,16 @@ test("the secret initializer is private, non-destructive, and explicitly rotatab
     rotatedWebClient.secret,
     readFileSync(
       path.join(secretDirectory, "oidc_client_secret"),
+      "utf8",
+    ).trim(),
+  );
+  const rotatedServiceClient = rotatedRuntimeRealm.clients.find(
+    ({ clientId }) => clientId === "aviasurveil360-lifecycle",
+  );
+  assert.equal(
+    rotatedServiceClient.secret,
+    readFileSync(
+      path.join(secretDirectory, "keycloak_service_client_secret"),
       "utf8",
     ).trim(),
   );
@@ -636,22 +653,27 @@ test("the full profile imports only the generated realm and reads Keycloak crede
   );
   assert.equal(worker.environment.AVIA_KEYCLOAK_REALM, "aviasurveil360");
   assert.equal(
-    worker.environment.AVIA_KEYCLOAK_ADMIN_USERNAME,
-    "local-bootstrap-admin",
+    worker.environment.AVIA_KEYCLOAK_SERVICE_CLIENT_ID,
+    "aviasurveil360-lifecycle",
   );
   assert.equal(
-    worker.environment.AVIA_KEYCLOAK_ADMIN_PASSWORD_FILE,
-    "/run/secrets/keycloak_bootstrap_admin_password",
+    worker.environment.AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET_FILE,
+    "/run/secrets/keycloak_service_client_secret",
   );
-  assert.equal("AVIA_KEYCLOAK_ADMIN_PASSWORD" in worker.environment, false);
+  assert.equal(
+    "AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET" in worker.environment,
+    false,
+  );
+  assert.equal("AVIA_KEYCLOAK_ADMIN_USERNAME" in worker.environment, false);
+  assert.equal("AVIA_KEYCLOAK_ADMIN_PASSWORD_FILE" in worker.environment, false);
   const workerEntrypoint = readFileSync(workerEntrypointPath, "utf8");
   assert.match(
     workerEntrypoint,
-    /AVIA_KEYCLOAK_ADMIN_PASSWORD_FILE/u,
+    /AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET_FILE/u,
   );
   assert.match(
     workerEntrypoint,
-    /export AVIA_KEYCLOAK_ADMIN_PASSWORD/u,
+    /export AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET/u,
   );
 });
 

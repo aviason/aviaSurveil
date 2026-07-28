@@ -1,3 +1,5 @@
+//go:build canonicaltest
+
 package httpapi
 
 import (

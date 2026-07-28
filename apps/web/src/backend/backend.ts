@@ -1009,12 +1009,21 @@ export interface AdminReportDefinitionView {
 export interface AdminAccessDirectoryEntryView {
   subjectId: string;
   displayName: string;
-  role: Role;
+  roles: Role[];
   organizationId: string | null;
   email: string;
-  mfa: string;
-  invitation: string;
+  mfaEnrolled: boolean;
+  mfaState: string;
+  requiredActions: string[];
+  invitationState: string;
   accountStatus: string;
+  applicationProfileState: string;
+  membershipId: string | null;
+  membershipState: string;
+  membershipRevision: number;
+  membershipDrift: string;
+  lastSuccessfulSessionAt: string | null;
+  providerObservedAt: string;
 }
 
 export type UserLifecycleAction =
@@ -1446,7 +1455,7 @@ export interface AdminWorkspaceBackend {
   moveDraftQuestion(input: RevisionedCommandMeta & { templateId: string; draftVersionId: string; questionId: string; direction: "UP" | "DOWN" }, options?: BackendRequestOptions): Promise<AdminTemplateVersionView>;
   getInspectionPackage(input: { packageId: string }, options?: BackendRequestOptions): Promise<AdminInspectionPackageView>;
   listReportDefinitions(input: { search?: string }, options?: BackendRequestOptions): Promise<PageOutput<AdminReportDefinitionView>>;
-  listAccessDirectory(input: { search?: string; role?: Role | string }, options?: BackendRequestOptions): Promise<PageOutput<AdminAccessDirectoryEntryView>>;
+  listAccessDirectory(input: { search?: string; role?: Role | string; organizationId?: string; accountStatus?: "enabled" | "disabled"; cursor?: string; limit?: number }, options?: BackendRequestOptions): Promise<PageOutput<AdminAccessDirectoryEntryView>>;
   requestUserLifecycle(input: RequestUserLifecycleInput, options?: BackendRequestOptions): Promise<UserLifecycleRequestView>;
   getUserLifecycleRequest(input: { requestId: string }, options?: BackendRequestOptions): Promise<UserLifecycleRequestView>;
   listOrganizations(input: { search?: string; organizationType?: string; status?: string; scope?: string }, options?: BackendRequestOptions): Promise<PageOutput<AdminOrganizationView>>;

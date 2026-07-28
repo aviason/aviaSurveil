@@ -128,6 +128,10 @@ services:
       AVIA_OIDC_CLIENT_ID: aviasurveil360-web
       AVIA_OIDC_CLIENT_SECRET_FILE: /run/secrets/oidc_client_secret
       AVIA_OIDC_REDIRECT_URL: "https://localhost:${AVIA_LOCAL_HTTPS_PORT:-8443}/auth/callback"
+      AVIA_KEYCLOAK_ADMIN_URL: http://keycloak:8080/identity
+      AVIA_KEYCLOAK_REALM: aviasurveil360
+      AVIA_KEYCLOAK_SERVICE_CLIENT_ID: aviasurveil360-lifecycle
+      AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET_FILE: /run/secrets/keycloak_service_client_secret
       AVIA_SESSION_ENCRYPTION_KEY_FILE: /run/secrets/session_encryption_key
       AVIA_OBJECT_STORE_ENDPOINT: minio:9000
       AVIA_OBJECT_STORE_PUBLIC_ENDPOINT: "localhost:${AVIA_LOCAL_HTTPS_PORT:-8443}"
@@ -155,6 +159,7 @@ services:
         mode: 0444
     secrets:
       - app_database_password
+      - keycloak_service_client_secret
       - minio_api_access_key
       - minio_api_secret_key
       - oidc_client_secret
@@ -202,8 +207,8 @@ services:
       AVIA_DATABASE_PASSWORD_FILE: /run/secrets/app_database_password
       AVIA_KEYCLOAK_ADMIN_URL: http://keycloak:8080/identity
       AVIA_KEYCLOAK_REALM: aviasurveil360
-      AVIA_KEYCLOAK_ADMIN_USERNAME: local-bootstrap-admin
-      AVIA_KEYCLOAK_ADMIN_PASSWORD_FILE: /run/secrets/keycloak_bootstrap_admin_password
+      AVIA_KEYCLOAK_SERVICE_CLIENT_ID: aviasurveil360-lifecycle
+      AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET_FILE: /run/secrets/keycloak_service_client_secret
       AVIA_OIDC_ISSUER_URL: "https://localhost:${AVIA_LOCAL_HTTPS_PORT:-8443}/identity/realms/aviasurveil360"
       AVIA_OIDC_CLIENT_ID: aviasurveil360-web
       AVIA_OIDC_CLIENT_SECRET_FILE: /run/secrets/oidc_client_secret
@@ -240,7 +245,7 @@ services:
         mode: 0444
     secrets:
       - app_database_password
-      - keycloak_bootstrap_admin_password
+      - keycloak_service_client_secret
       - minio_worker_access_key
       - minio_worker_secret_key
       - oidc_client_secret
@@ -679,6 +684,8 @@ secrets:
     file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/keycloak_bootstrap_admin_password
   keycloak_database_password:
     file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/keycloak_database_password
+  keycloak_service_client_secret:
+    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/keycloak_service_client_secret
   keycloak_realm:
     file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/keycloak/realm.json
   minio_api_access_key:

@@ -17,6 +17,7 @@ type Querier interface {
 	CreateUserLifecycleRequest(ctx context.Context, arg CreateUserLifecycleRequestParams) (CreateUserLifecycleRequestRow, error)
 	GetTemplateMaster(ctx context.Context, id string) (GetTemplateMasterRow, error)
 	GetUserLifecycleRequestByIdempotencyKey(ctx context.Context, idempotencyKey string) (GetUserLifecycleRequestByIdempotencyKeyRow, error)
+	ListAccessDirectoryLocalStates(ctx context.Context, subjectIds []string) ([]ListAccessDirectoryLocalStatesRow, error)
 	ListQuestionVersions(ctx context.Context, limit int32) ([]QuestionVersion, error)
 	ListRegulatoryReferenceVersions(ctx context.Context, arg ListRegulatoryReferenceVersionsParams) ([]RegulatoryReferenceVersion, error)
 	ListReportDefinitionVersions(ctx context.Context, limit int32) ([]ReportDefinitionVersion, error)

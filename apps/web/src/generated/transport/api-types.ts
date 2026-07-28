@@ -2694,12 +2694,28 @@ export interface components {
         AdminAccessDirectoryEntryView: {
             subjectId: string;
             displayName: string;
-            role: components["schemas"]["Role"];
+            roles: components["schemas"]["Role"][];
             organizationId: string | null;
+            /** Format: email */
             email: string;
-            mfa: string;
-            invitation: string;
-            accountStatus: string;
+            mfaEnrolled: boolean;
+            /** @enum {string} */
+            mfaState: "enrolled" | "enrollment-required" | "unenrolled";
+            requiredActions: string[];
+            invitationState: string;
+            /** @enum {string} */
+            accountStatus: "enabled" | "disabled";
+            /** @enum {string} */
+            applicationProfileState: "absent" | "linked";
+            membershipId: string | null;
+            membershipState: string;
+            membershipRevision: number;
+            /** @enum {string} */
+            membershipDrift: "in-sync" | "drifted" | "untracked";
+            /** Format: date-time */
+            lastSuccessfulSessionAt: string | null;
+            /** Format: date-time */
+            providerObservedAt: string;
         };
         RequestUserLifecycleInput: {
             operationId: string;
@@ -2801,6 +2817,8 @@ export interface components {
         AdminAccessDirectoryPage: {
             items: components["schemas"]["AdminAccessDirectoryEntryView"][];
             nextCursor: string | null;
+            consistencyToken: string;
+            providerCalls: number;
         };
         AdminOrganizationPage: {
             items: components["schemas"]["AdminOrganizationView"][];
@@ -5387,7 +5405,9 @@ export interface operations {
         parameters: {
             query?: {
                 search?: string;
-                role?: string;
+                role?: components["schemas"]["Role"];
+                organizationId?: string;
+                accountStatus?: "enabled" | "disabled";
                 cursor?: components["parameters"]["Cursor"];
                 limit?: components["parameters"]["Limit"];
             };
@@ -5397,7 +5417,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Read-only configured access directory */
+            /** @description Provider-backed access directory with explicit consistency semantics */
             200: {
                 headers: {
                     ETag: components["headers"]["ETag"];
@@ -5409,6 +5429,7 @@ export interface operations {
             };
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
         };
     };
     requestUserLifecycle: {

@@ -338,6 +338,9 @@ separate `apps/web/package.json` owns the React candidate commands.
   Plan 4 local observability, alert, dual-database backup, exact restore,
   RPO/RTO, runbook, image/SBOM/scan, Terraform/Terragrunt, cleanup, and
   explicit AWS `not run` evidence.
+- `docs/demo-evidence/PLAN5_IDENTITY_DATA_FOUNDATION_2026-07-28.md` —
+  Plan 5 Tasks 1–2 identity/data contract and verified local directory
+  foundation evidence.
 - `docs/demo-handoff/ACCEPTANCE_CRITERIA_AND_FEEDBACK.md`
 - `docs/demo-handoff/AGENT_HARNESS_RUNBOOK.md`
 - `docs/demo-handoff/CODEX_DEMO_ONLY_PROMPT.md`

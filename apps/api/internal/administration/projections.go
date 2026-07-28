@@ -2,7 +2,9 @@ package administration
 
 import (
 	"context"
+	"crypto/sha256"
 	_ "embed"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	administrationstore "github.com/MarlonJD/aviaSurveil360/apps/api/internal/administration/store/postgres"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
 	"github.com/jackc/pgx/v5"
@@ -85,14 +88,46 @@ type ReportDefinition struct {
 }
 
 type AccessDirectoryEntry struct {
-	SubjectID      string        `json:"subjectId"`
-	DisplayName    string        `json:"displayName"`
-	Role           identity.Role `json:"role"`
-	OrganizationID string        `json:"organizationId,omitempty"`
-	Email          string        `json:"email"`
-	MFA            string        `json:"mfa"`
-	Invitation     string        `json:"invitation"`
-	AccountStatus  string        `json:"accountStatus"`
+	SubjectID             string          `json:"subjectId"`
+	DisplayName           string          `json:"displayName"`
+	Roles                 []identity.Role `json:"roles"`
+	OrganizationID        string          `json:"organizationId,omitempty"`
+	Email                 string          `json:"email"`
+	MFAEnrolled           bool            `json:"mfaEnrolled"`
+	MFAState              string          `json:"mfaState"`
+	RequiredActions       []string        `json:"requiredActions"`
+	InvitationState       string          `json:"invitationState"`
+	AccountStatus         string          `json:"accountStatus"`
+	ApplicationProfile    string          `json:"applicationProfileState"`
+	MembershipID          string          `json:"membershipId,omitempty"`
+	MembershipState       string          `json:"membershipState"`
+	MembershipRevision    int64           `json:"membershipRevision"`
+	MembershipDrift       string          `json:"membershipDrift"`
+	LastSuccessfulSession *time.Time      `json:"lastSuccessfulSessionAt,omitempty"`
+	ProviderObservedAt    time.Time       `json:"providerObservedAt"`
+}
+
+type AccessDirectoryFilters struct {
+	Search        string
+	Role          identity.Role
+	Organization  string
+	AccountStatus string
+	Cursor        string
+	Limit         int
+}
+
+type AccessDirectoryPage struct {
+	Items            []AccessDirectoryEntry
+	NextCursor       string
+	ConsistencyToken string
+	ProviderCalls    int
+}
+
+type AccessDirectoryProvider interface {
+	ListDirectory(
+		context.Context,
+		identity.KeycloakDirectoryQuery,
+	) (identity.KeycloakDirectoryPage, error)
 }
 
 type OrganizationProjection struct {
@@ -135,12 +170,14 @@ type AuditEventProjection struct {
 }
 
 type ProjectionService struct {
-	pool  *database.Pool
-	clock func() time.Time
+	pool              *database.Pool
+	clock             func() time.Time
+	directoryProvider AccessDirectoryProvider
 }
 
 type ProjectionDependencies struct {
-	Clock func() time.Time
+	Clock             func() time.Time
+	DirectoryProvider AccessDirectoryProvider
 }
 
 func NewProjectionService(
@@ -151,7 +188,15 @@ func NewProjectionService(
 	if len(dependencies) > 0 && dependencies[0].Clock != nil {
 		clock = dependencies[0].Clock
 	}
-	return &ProjectionService{pool: pool, clock: clock}
+	var directoryProvider AccessDirectoryProvider
+	if len(dependencies) > 0 {
+		directoryProvider = dependencies[0].DirectoryProvider
+	}
+	return &ProjectionService{
+		pool:              pool,
+		clock:             clock,
+		directoryProvider: directoryProvider,
+	}
 }
 
 type screenDefinition struct {
@@ -280,59 +325,257 @@ func (service *ProjectionService) ListReportDefinitions(
 func (service *ProjectionService) ListAccessDirectory(
 	ctx context.Context,
 	actor identity.Principal,
-	search string,
-	role identity.Role,
-) ([]AccessDirectoryEntry, error) {
+	filters AccessDirectoryFilters,
+) (AccessDirectoryPage, error) {
 	if !actor.HasRole(identity.RoleAdmin) {
-		return nil, ErrForbidden
+		return AccessDirectoryPage{}, ErrForbidden
 	}
-	rows, err := service.pool.Query(ctx, `
-		SELECT DISTINCT
-			identity.subject_id,
-			identity.display_name,
-			session_role.role,
-			COALESCE(session.organization_id, '')
-		FROM identity_references identity
-		JOIN session_references session
-		  ON session.subject_id = identity.subject_id
-		 AND session.revoked_at IS NULL
-		CROSS JOIN LATERAL unnest(session.roles) AS session_role(role)
-		WHERE identity.tombstoned_at IS NULL
-		ORDER BY identity.display_name, identity.subject_id, session_role.role
-	`)
+	if service.directoryProvider == nil {
+		return AccessDirectoryPage{}, identity.ErrKeycloakUnavailable
+	}
+	limit := filters.Limit
+	if limit == 0 {
+		limit = 25
+	}
+	if limit < 1 || limit > 25 {
+		return AccessDirectoryPage{}, ErrInvalid
+	}
+	first, consistencyToken, err := decodeDirectoryCursor(
+		filters.Cursor,
+		directoryFilterDigest(filters),
+	)
 	if err != nil {
-		return nil, err
+		return AccessDirectoryPage{}, ErrInvalid
 	}
-	defer rows.Close()
-	needle := strings.ToLower(strings.TrimSpace(search))
-	items := []AccessDirectoryEntry{}
-	for rows.Next() {
-		var item AccessDirectoryEntry
-		var roleText string
-		if err := rows.Scan(
-			&item.SubjectID, &item.DisplayName, &roleText, &item.OrganizationID,
-		); err != nil {
-			return nil, err
+	if consistencyToken == "" {
+		consistencyToken = service.clock().UTC().Format(time.RFC3339Nano)
+	}
+	providerPage, err := service.directoryProvider.ListDirectory(
+		ctx,
+		identity.KeycloakDirectoryQuery{
+			First:  first,
+			Limit:  limit,
+			Search: strings.TrimSpace(filters.Search),
+		},
+	)
+	if err != nil {
+		return AccessDirectoryPage{}, err
+	}
+	subjectIDs := make([]string, 0, len(providerPage.Users))
+	for _, user := range providerPage.Users {
+		subjectIDs = append(subjectIDs, user.SubjectID)
+	}
+	localBySubject := map[string]accessDirectoryLocalState{}
+	if len(subjectIDs) > 0 {
+		rows, queryErr := administrationstore.New(
+			service.pool,
+		).ListAccessDirectoryLocalStates(ctx, subjectIDs)
+		if queryErr != nil {
+			return AccessDirectoryPage{}, queryErr
 		}
-		item.Role = identity.Role(roleText)
-		if item.OrganizationID == "CAA" {
-			item.OrganizationID = ""
+		for _, row := range rows {
+			state := accessDirectoryLocalState{
+				SubjectID:          row.SubjectID,
+				ProfileLinked:      row.ProfileLinked,
+				MembershipID:       row.MembershipID,
+				MembershipRevision: row.MembershipRevision,
+				MembershipState:    row.MembershipState,
+				OrganizationID:     row.OrganizationID,
+				Roles:              append([]string(nil), row.Roles...),
+				StoredDrift:        row.StoredDrift,
+				LifecycleAction:    row.LifecycleAction,
+				LifecycleStatus:    row.LifecycleStatus,
+				InvitationDelivery: row.InvitationDeliveryStatus,
+			}
+			if row.LastSuccessfulSession.Valid {
+				lastSession := row.LastSuccessfulSession.Time
+				state.LastSuccessfulSession = &lastSession
+			}
+			localBySubject[state.SubjectID] = state
 		}
-		item.Email = NotConfiguredInDemo
-		item.MFA = NotConfiguredInDemo
-		item.Invitation = NotConfiguredInDemo
-		item.AccountStatus = NotConfiguredInDemo
-		if role != "" && item.Role != role {
+	}
+	observedAt := service.clock().UTC()
+	items := make([]AccessDirectoryEntry, 0, len(providerPage.Users))
+	for _, providerUser := range providerPage.Users {
+		local := localBySubject[providerUser.SubjectID]
+		accountStatus := "disabled"
+		if providerUser.Enabled {
+			accountStatus = "enabled"
+		}
+		if status := strings.ToLower(strings.TrimSpace(filters.AccountStatus)); status != "" &&
+			status != accountStatus {
 			continue
 		}
-		if needle != "" && !strings.Contains(strings.ToLower(
-			item.SubjectID+" "+item.DisplayName+" "+roleText+" "+item.OrganizationID,
-		), needle) {
+		if organization := strings.TrimSpace(filters.Organization); organization != "" &&
+			organization != providerUser.OrganizationID {
 			continue
 		}
-		items = append(items, item)
+		if filters.Role != "" && !containsRole(providerUser.Roles, filters.Role) {
+			continue
+		}
+		profileState := "absent"
+		if local.ProfileLinked {
+			profileState = "linked"
+		}
+		membershipDrift := calculateMembershipDrift(local, providerUser)
+		items = append(items, AccessDirectoryEntry{
+			SubjectID:             providerUser.SubjectID,
+			DisplayName:           providerUser.DisplayName,
+			Roles:                 append([]identity.Role(nil), providerUser.Roles...),
+			OrganizationID:        providerUser.OrganizationID,
+			Email:                 providerUser.Email,
+			MFAEnrolled:           providerUser.TOTPConfigured,
+			MFAState:              providerMFAState(providerUser),
+			RequiredActions:       append([]string(nil), providerUser.RequiredActions...),
+			InvitationState:       deriveInvitationState(local, providerUser.RequiredActions),
+			AccountStatus:         accountStatus,
+			ApplicationProfile:    profileState,
+			MembershipID:          local.MembershipID,
+			MembershipState:       strings.ToLower(local.MembershipState),
+			MembershipRevision:    local.MembershipRevision,
+			MembershipDrift:       membershipDrift,
+			LastSuccessfulSession: local.LastSuccessfulSession,
+			ProviderObservedAt:    observedAt,
+		})
 	}
-	return items, rows.Err()
+	page := AccessDirectoryPage{
+		Items:            items,
+		ConsistencyToken: consistencyToken,
+		ProviderCalls:    providerPage.ProviderCalls,
+	}
+	if providerPage.NextFirst > 0 {
+		page.NextCursor = encodeDirectoryCursor(directoryCursor{
+			First:            providerPage.NextFirst,
+			ConsistencyToken: consistencyToken,
+			FilterDigest:     directoryFilterDigest(filters),
+		})
+	}
+	return page, nil
+}
+
+type accessDirectoryLocalState struct {
+	SubjectID             string
+	ProfileLinked         bool
+	MembershipID          string
+	MembershipRevision    int64
+	MembershipState       string
+	OrganizationID        string
+	Roles                 []string
+	StoredDrift           string
+	LifecycleAction       string
+	LifecycleStatus       string
+	InvitationDelivery    string
+	LastSuccessfulSession *time.Time
+}
+
+type directoryCursor struct {
+	First            int    `json:"first"`
+	ConsistencyToken string `json:"consistencyToken"`
+	FilterDigest     string `json:"filterDigest"`
+}
+
+func encodeDirectoryCursor(cursor directoryCursor) string {
+	encoded, _ := json.Marshal(cursor)
+	return base64.RawURLEncoding.EncodeToString(encoded)
+}
+
+func decodeDirectoryCursor(cursor, expectedDigest string) (int, string, error) {
+	cursor = strings.TrimSpace(cursor)
+	if cursor == "" {
+		return 0, "", nil
+	}
+	raw, err := base64.RawURLEncoding.DecodeString(cursor)
+	if err != nil {
+		return 0, "", err
+	}
+	var decoded directoryCursor
+	if err := json.Unmarshal(raw, &decoded); err != nil ||
+		decoded.First < 0 ||
+		decoded.FilterDigest != expectedDigest ||
+		strings.TrimSpace(decoded.ConsistencyToken) == "" {
+		return 0, "", ErrInvalid
+	}
+	return decoded.First, decoded.ConsistencyToken, nil
+}
+
+func directoryFilterDigest(filters AccessDirectoryFilters) string {
+	canonical := strings.Join([]string{
+		strings.TrimSpace(filters.Search),
+		string(filters.Role),
+		strings.TrimSpace(filters.Organization),
+		strings.ToLower(strings.TrimSpace(filters.AccountStatus)),
+	}, "\x00")
+	sum := sha256.Sum256([]byte(canonical))
+	return fmt.Sprintf("%x", sum[:])
+}
+
+func containsRole(roles []identity.Role, expected identity.Role) bool {
+	for _, role := range roles {
+		if role == expected {
+			return true
+		}
+	}
+	return false
+}
+
+func calculateMembershipDrift(
+	local accessDirectoryLocalState,
+	provider identity.KeycloakDirectoryUser,
+) string {
+	if local.MembershipRevision == 0 {
+		return "untracked"
+	}
+	expectedEnabled := local.MembershipState == "ACTIVE"
+	if expectedEnabled != provider.Enabled ||
+		local.OrganizationID != provider.OrganizationID ||
+		len(local.Roles) != len(provider.Roles) {
+		return "drifted"
+	}
+	for index, role := range provider.Roles {
+		if index >= len(local.Roles) || local.Roles[index] != string(role) {
+			return "drifted"
+		}
+	}
+	return "in-sync"
+}
+
+func providerMFAState(user identity.KeycloakDirectoryUser) string {
+	if user.TOTPConfigured {
+		return "enrolled"
+	}
+	for _, action := range user.RequiredActions {
+		if action == "CONFIGURE_TOTP" {
+			return "enrollment-required"
+		}
+	}
+	return "unenrolled"
+}
+
+func deriveInvitationState(
+	local accessDirectoryLocalState,
+	requiredActions []string,
+) string {
+	switch local.InvitationDelivery {
+	case "PENDING":
+		return "issued"
+	case "DELIVERED":
+		return "delivered"
+	case "FAILED":
+		return "retryable-failure"
+	case "DEAD_LETTER":
+		return "terminal-failure"
+	}
+	if local.LifecycleAction == "PROVISION" &&
+		(local.LifecycleStatus == "PENDING" || local.LifecycleStatus == "RUNNING") {
+		return "issued"
+	}
+	if local.LifecycleAction == "PROVISION" && len(requiredActions) > 0 {
+		return "issued"
+	}
+	if local.LifecycleAction == "PROVISION" && local.LifecycleStatus == "SUCCEEDED" {
+		return "consumed"
+	}
+	return "none"
 }
 
 func (service *ProjectionService) ListOrganizations(

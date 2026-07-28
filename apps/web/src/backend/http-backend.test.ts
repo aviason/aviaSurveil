@@ -1114,12 +1114,21 @@ describe("HttpBackend", () => {
     const accessEntry = {
       subjectId: "USR-INSPECTOR-DAVID",
       displayName: "David Inspector",
-      role: "inspector",
+      roles: ["inspector"],
       organizationId: "CAA",
-      email: "Not configured in demo",
-      mfa: "Not configured in demo",
-      invitation: "Not configured in demo",
-      accountStatus: "Not configured in demo",
+      email: "david.inspector@example.test",
+      mfaEnrolled: true,
+      mfaState: "enrolled",
+      requiredActions: [],
+      invitationState: "required-actions-complete",
+      accountStatus: "enabled",
+      applicationProfileState: "linked",
+      membershipId: "membership-david",
+      membershipState: "active",
+      membershipRevision: 3,
+      membershipDrift: "in-sync",
+      lastSuccessfulSessionAt: "2026-07-21T12:00:00Z",
+      providerObservedAt: "2026-07-21T12:00:00Z",
     };
     const organization = {
       id: "ORG-FLY-NAMIBIA",
@@ -1156,7 +1165,12 @@ describe("HttpBackend", () => {
         effect: adminScreen.visibleActions[0]!.effect,
       }))
       .mockResolvedValueOnce(jsonResponse({ items: [reportDefinition], nextCursor: null }))
-      .mockResolvedValueOnce(jsonResponse({ items: [accessEntry], nextCursor: null }))
+      .mockResolvedValueOnce(jsonResponse({
+        items: [accessEntry],
+        nextCursor: null,
+        consistencyToken: "2026-07-21T12:00:00Z",
+        providerCalls: 2,
+      }))
       .mockResolvedValueOnce(jsonResponse({ items: [organization], nextCursor: null }))
       .mockResolvedValueOnce(jsonResponse(organization))
       .mockResolvedValueOnce(jsonResponse({ items: [], nextCursor: null }))

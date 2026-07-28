@@ -438,15 +438,15 @@ func TestProductionObjectStorageUsesPrivateTransportPublicHTTPSSigningAndRealCla
 	}
 }
 
-func TestKeycloakAdminConfigurationRequiresACompleteInternalEndpointAndCredentials(t *testing.T) {
+func TestKeycloakAdminConfigurationRequiresACompleteInternalEndpointAndServiceCredentials(t *testing.T) {
 	t.Parallel()
 	base := map[string]string{
-		"AVIA_ENVIRONMENT":             "development",
-		"AVIA_DATABASE_URL":            "postgres://127.0.0.1/avia",
-		"AVIA_KEYCLOAK_ADMIN_URL":      "http://keycloak:8080/identity",
-		"AVIA_KEYCLOAK_REALM":          "aviasurveil360",
-		"AVIA_KEYCLOAK_ADMIN_USERNAME": "local-bootstrap-admin",
-		"AVIA_KEYCLOAK_ADMIN_PASSWORD": "bootstrap-admin-secret",
+		"AVIA_ENVIRONMENT":                    "development",
+		"AVIA_DATABASE_URL":                   "postgres://127.0.0.1/avia",
+		"AVIA_KEYCLOAK_ADMIN_URL":             "http://keycloak:8080/identity",
+		"AVIA_KEYCLOAK_REALM":                 "aviasurveil360",
+		"AVIA_KEYCLOAK_SERVICE_CLIENT_ID":     "aviasurveil360-lifecycle",
+		"AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET": "lifecycle-client-secret",
 	}
 	settings, err := config.Load(mapLookup(base))
 	if err != nil {
@@ -454,16 +454,16 @@ func TestKeycloakAdminConfigurationRequiresACompleteInternalEndpointAndCredentia
 	}
 	if settings.KeycloakAdminURL != base["AVIA_KEYCLOAK_ADMIN_URL"] ||
 		settings.KeycloakRealm != "aviasurveil360" ||
-		settings.KeycloakAdminUsername != "local-bootstrap-admin" ||
-		settings.KeycloakAdminPassword != "bootstrap-admin-secret" {
+		settings.KeycloakServiceClientID != "aviasurveil360-lifecycle" ||
+		settings.KeycloakServiceClientSecret != "lifecycle-client-secret" {
 		t.Fatalf("Keycloak admin settings = %+v", settings)
 	}
 
 	for _, missing := range []string{
 		"AVIA_KEYCLOAK_ADMIN_URL",
 		"AVIA_KEYCLOAK_REALM",
-		"AVIA_KEYCLOAK_ADMIN_USERNAME",
-		"AVIA_KEYCLOAK_ADMIN_PASSWORD",
+		"AVIA_KEYCLOAK_SERVICE_CLIENT_ID",
+		"AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET",
 	} {
 		t.Run("missing "+missing, func(t *testing.T) {
 			values := cloneValues(base)

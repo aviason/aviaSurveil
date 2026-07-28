@@ -16,6 +16,7 @@ initialize_local_test_runtime() {
     app_database_password \
     keycloak_bootstrap_admin_password \
     keycloak_database_password \
+    keycloak_service_client_secret \
     minio_root_password \
     oidc_client_secret \
     smtp_password
@@ -38,6 +39,7 @@ initialize_local_test_runtime() {
     --source "$repository_root/deploy/local/keycloak/realm-source.json" \
     --output "$keycloak_directory/realm.json" \
     --client-secret-file "$secret_directory/oidc_client_secret" \
+    --service-client-secret-file "$secret_directory/keycloak_service_client_secret" \
     --public-origin "$public_origin"
   chmod 0600 "$keycloak_directory/realm.json"
 }

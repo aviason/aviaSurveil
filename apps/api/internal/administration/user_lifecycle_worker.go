@@ -404,6 +404,79 @@ func (worker *UserLifecycleWorker) finalizeSuccess(
 					return fmt.Errorf("persist provider user settings: %w", err)
 				}
 			}
+			if _, err := transaction.Exec(
+				ctx,
+				"SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+				"desired-membership:"+subjectID,
+			); err != nil {
+				return fmt.Errorf("lock desired membership: %w", err)
+			}
+			var membershipID string
+			var membershipRevision int64
+			if err := transaction.QueryRow(ctx, `
+				SELECT COALESCE(
+					(
+						SELECT membership_id
+						FROM desired_membership_versions
+						WHERE subject_id = $1
+						ORDER BY revision DESC
+						LIMIT 1
+					),
+					$2
+				),
+				COALESCE(MAX(revision), 0) + 1
+				FROM desired_membership_versions
+				WHERE subject_id = $1
+			`, subjectID, "membership-"+claimed.RequestID).Scan(
+				&membershipID,
+				&membershipRevision,
+			); err != nil {
+				return fmt.Errorf("allocate desired membership revision: %w", err)
+			}
+			membershipState := "ACTIVE"
+			providerEnabled := true
+			if claimed.Action == UserLifecycleSuspend {
+				membershipState = "SUSPENDED"
+				providerEnabled = false
+			}
+			rawRoles := make([]string, len(claimed.Roles))
+			for index, role := range claimed.Roles {
+				rawRoles[index] = string(role)
+			}
+			if _, err := transaction.Exec(ctx, `
+				INSERT INTO desired_membership_versions (
+					membership_id, subject_id, revision, membership_state, organization_id,
+					roles, requested_by_subject_id, reason, source_request_id,
+					requested_at, effective_at, observed_provider_enabled,
+					observed_organization_id, observed_roles, observed_at,
+					drift_state
+				) VALUES (
+					$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+					$12, $5, $6, $11, 'IN_SYNC'
+				)
+			`, membershipID, subjectID, membershipRevision, membershipState,
+				claimed.OrganizationID, rawRoles, claimed.RequestedBy,
+				string(claimed.Action), claimed.RequestID,
+				claimed.AvailableAt, now, providerEnabled); err != nil {
+				return fmt.Errorf("append desired membership version: %w", err)
+			}
+			if _, err := transaction.Exec(ctx, `
+				INSERT INTO desired_membership_sync (
+					membership_id, subject_id, desired_revision,
+					observed_provider_enabled, observed_organization_id,
+					observed_roles, observed_at, drift_state
+				) VALUES ($1, $2, $3, $4, $5, $6, $7, 'IN_SYNC')
+				ON CONFLICT (membership_id) DO UPDATE
+				SET desired_revision = EXCLUDED.desired_revision,
+				    observed_provider_enabled = EXCLUDED.observed_provider_enabled,
+				    observed_organization_id = EXCLUDED.observed_organization_id,
+				    observed_roles = EXCLUDED.observed_roles,
+				    observed_at = EXCLUDED.observed_at,
+				    drift_state = EXCLUDED.drift_state
+			`, membershipID, subjectID, membershipRevision, providerEnabled,
+				claimed.OrganizationID, rawRoles, now); err != nil {
+				return fmt.Errorf("synchronize desired membership observation: %w", err)
+			}
 
 			statusPayload, err := json.Marshal(UserLifecycleRequest{
 				ID: claimed.RequestID, SubjectID: subjectID,

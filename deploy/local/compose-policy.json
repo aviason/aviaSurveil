@@ -112,6 +112,7 @@
   "secretMounts": {
     "api": [
       "app_database_password",
+      "keycloak_service_client_secret",
       "minio_api_access_key",
       "minio_api_secret_key",
       "oidc_client_secret",
@@ -119,7 +120,7 @@
     ],
     "worker": [
       "app_database_password",
-      "keycloak_bootstrap_admin_password",
+      "keycloak_service_client_secret",
       "minio_worker_access_key",
       "minio_worker_secret_key",
       "oidc_client_secret",

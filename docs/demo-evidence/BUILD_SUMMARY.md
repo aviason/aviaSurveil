@@ -160,9 +160,12 @@ on-call evidence.
 
 Production retention, legal hold, deletion, records, provider, identity
 federation, external email, data-residency, release, and operating decisions
-remain deferred to their owners. Plan 5 Task 2 was not started and awaits
-separate explicit authorization. No commit, push, deploy, branch operation, or
-external-system change was authorized by this closeout.
+remain deferred to their owners. A later explicit authorization started Plan 5
+Task 2; its normal/canonical-test artifact split, desired-membership
+foundation, least-privilege Keycloak service client, and provider-backed Admin
+directory are now `verified locally` in
+[Plan 5 Identity And Data Foundation Evidence](PLAN5_IDENTITY_DATA_FOUNDATION_2026-07-28.md).
+Plan 5 Tasks 3–9 remain `not run`.
 
 The local recommendation is `GO`, the artifact remains `candidate-only`, and
 release is `release pending`. These adjacent candidates do not make the root

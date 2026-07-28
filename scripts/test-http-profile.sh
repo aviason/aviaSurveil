@@ -48,6 +48,7 @@ read_runtime_secret() {
 
 APP_DATABASE_PASSWORD="$(read_runtime_secret app_database_password)"
 KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD="$(read_runtime_secret keycloak_bootstrap_admin_password)"
+KEYCLOAK_SERVICE_CLIENT_SECRET="$(read_runtime_secret keycloak_service_client_secret)"
 MINIO_ROOT_PASSWORD="$(read_runtime_secret minio_root_password)"
 MINIO_ROOT_USER="$(read_runtime_secret minio_root_user)"
 OIDC_CLIENT_SECRET="$(read_runtime_secret oidc_client_secret)"
@@ -120,8 +121,8 @@ export AVIA_SCANNER_MODE="deterministic-test"
 export AVIA_WORKER_INTERVAL_MS="50"
 export AVIA_KEYCLOAK_ADMIN_URL="http://127.0.0.1:${TASK_KEYCLOAK_PORT}/identity"
 export AVIA_KEYCLOAK_REALM="aviasurveil360"
-export AVIA_KEYCLOAK_ADMIN_USERNAME="local-bootstrap-admin"
-export AVIA_KEYCLOAK_ADMIN_PASSWORD="${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD}"
+export AVIA_KEYCLOAK_SERVICE_CLIENT_ID="aviasurveil360-lifecycle"
+export AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET="${KEYCLOAK_SERVICE_CLIENT_SECRET}"
 export AVIA_HTTP_API_URL="http://127.0.0.1:${TASK_API_PORT}"
 export AVIA_HTTP_API_TARGET="${AVIA_HTTP_API_URL}"
 export AVIA_HTTP_TEST_PROFILE="canonical"
@@ -130,7 +131,7 @@ seed_task_go_cache
 
 "${SCRIPT_DIR}/reset-test-profile.sh"
 
-go -C "${REPOSITORY_ROOT}/apps/api" build -o "${RUNTIME_DIRECTORY}/api" ./cmd/api
+go -C "${REPOSITORY_ROOT}/apps/api" build -tags canonicaltest -o "${RUNTIME_DIRECTORY}/api" ./cmd/api
 go -C "${REPOSITORY_ROOT}/apps/api" build -o "${RUNTIME_DIRECTORY}/worker" ./cmd/worker
 if [[ -z "${FOCUSED_E2E}" ]]; then
   go -C "${REPOSITORY_ROOT}/apps/api" test -race -p 1 -count=1 ./...

@@ -365,6 +365,114 @@ func (q *Queries) GetUserLifecycleRequestByIdempotencyKey(ctx context.Context, i
 	return i, err
 }
 
+const listAccessDirectoryLocalStates = `-- name: ListAccessDirectoryLocalStates :many
+WITH latest_membership AS (
+    SELECT DISTINCT ON (subject_id)
+        membership_id, subject_id, revision, membership_state,
+        organization_id, roles, drift_state
+    FROM desired_membership_versions
+    ORDER BY subject_id, revision DESC
+),
+latest_lifecycle AS (
+    SELECT DISTINCT ON (subject_id)
+        id, subject_id, requested_action, status
+    FROM user_lifecycle_requests
+    WHERE subject_id IS NOT NULL
+    ORDER BY subject_id, updated_at DESC, id DESC
+),
+last_session AS (
+    SELECT subject_id, MAX(last_seen_at) AS last_seen_at
+    FROM session_references
+    GROUP BY subject_id
+)
+SELECT identity.subject_id,
+       (profile.subject_id IS NOT NULL)::boolean AS profile_linked,
+       COALESCE(membership.membership_id, '') AS membership_id,
+       COALESCE(membership.revision, 0)::bigint AS membership_revision,
+       COALESCE(membership.membership_state, 'ABSENT') AS membership_state,
+       COALESCE(membership.organization_id, '') AS organization_id,
+       COALESCE(membership.roles, ARRAY[]::text[])::text[] AS roles,
+       COALESCE(membership.drift_state, 'UNTRACKED') AS stored_drift,
+       COALESCE(lifecycle.requested_action, '') AS lifecycle_action,
+       COALESCE(lifecycle.status, '') AS lifecycle_status,
+       COALESCE(invitation_delivery.status, '') AS invitation_delivery_status,
+       last_session.last_seen_at::timestamptz AS last_successful_session
+FROM identity_references identity
+LEFT JOIN user_profiles profile
+  ON profile.subject_id = identity.subject_id
+LEFT JOIN latest_membership membership
+  ON membership.subject_id = identity.subject_id
+LEFT JOIN latest_lifecycle lifecycle
+  ON lifecycle.subject_id = identity.subject_id
+LEFT JOIN LATERAL (
+    SELECT job.status
+    FROM notification_records record
+    JOIN notification_delivery_jobs job
+      ON job.notification_id = record.id
+     AND job.recipient_subject_id = identity.subject_id
+     AND job.channel = 'EMAIL'
+    WHERE record.recipient_subject_id = identity.subject_id
+      AND record.related_entity_type = 'USER_LIFECYCLE_INVITATION'
+      AND record.related_entity_id = lifecycle.id
+      AND record.tombstoned_at IS NULL
+    ORDER BY job.created_at DESC, job.id DESC
+    LIMIT 1
+) invitation_delivery ON TRUE
+LEFT JOIN last_session
+  ON last_session.subject_id = identity.subject_id
+WHERE identity.subject_id = ANY($1::text[])
+  AND identity.tombstoned_at IS NULL
+ORDER BY identity.subject_id
+`
+
+type ListAccessDirectoryLocalStatesRow struct {
+	SubjectID                string             `json:"subject_id"`
+	ProfileLinked            bool               `json:"profile_linked"`
+	MembershipID             string             `json:"membership_id"`
+	MembershipRevision       int64              `json:"membership_revision"`
+	MembershipState          string             `json:"membership_state"`
+	OrganizationID           string             `json:"organization_id"`
+	Roles                    []string           `json:"roles"`
+	StoredDrift              string             `json:"stored_drift"`
+	LifecycleAction          string             `json:"lifecycle_action"`
+	LifecycleStatus          string             `json:"lifecycle_status"`
+	InvitationDeliveryStatus string             `json:"invitation_delivery_status"`
+	LastSuccessfulSession    pgtype.Timestamptz `json:"last_successful_session"`
+}
+
+func (q *Queries) ListAccessDirectoryLocalStates(ctx context.Context, subjectIds []string) ([]ListAccessDirectoryLocalStatesRow, error) {
+	rows, err := q.db.Query(ctx, listAccessDirectoryLocalStates, subjectIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAccessDirectoryLocalStatesRow
+	for rows.Next() {
+		var i ListAccessDirectoryLocalStatesRow
+		if err := rows.Scan(
+			&i.SubjectID,
+			&i.ProfileLinked,
+			&i.MembershipID,
+			&i.MembershipRevision,
+			&i.MembershipState,
+			&i.OrganizationID,
+			&i.Roles,
+			&i.StoredDrift,
+			&i.LifecycleAction,
+			&i.LifecycleStatus,
+			&i.InvitationDeliveryStatus,
+			&i.LastSuccessfulSession,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listQuestionVersions = `-- name: ListQuestionVersions :many
 SELECT id, question_id, version, prompt, configured_reference,
        expected_evidence, created_by_subject_id, created_at

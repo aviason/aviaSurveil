@@ -40,6 +40,7 @@ backup_repository_cipher_passphrase
 grafana_admin_password
 keycloak_bootstrap_admin_password
 keycloak_database_password
+keycloak_service_client_secret
 minio_api_access_key
 minio_api_secret_key
 minio_root_password
@@ -126,6 +127,7 @@ node "$realm_builder" \
   --source "$realm_source" \
   --output "$temporary_directory/realm.json" \
   --client-secret-file "$temporary_directory/oidc_client_secret" \
+  --service-client-secret-file "$temporary_directory/keycloak_service_client_secret" \
   --public-origin "$public_origin"
 
 for filename in $secret_files; do

@@ -192,29 +192,75 @@ func (api *CanonicalAPI) listAdminAccessDirectory(
 		return
 	}
 	role := identity.Role(strings.TrimSpace(request.URL.Query().Get("role")))
-	records, err := api.administration.ListAccessDirectory(
-		request.Context(), actor, request.URL.Query().Get("search"), role,
+	limit := 0
+	if rawLimit := strings.TrimSpace(request.URL.Query().Get("limit")); rawLimit != "" {
+		parsed := optionalIntQuery(request, "limit")
+		if parsed == nil || *parsed < 1 || *parsed > 25 {
+			api.respond(writer, nil, administration.ErrInvalid)
+			return
+		}
+		limit = int(*parsed)
+	}
+	page, err := api.administration.ListAccessDirectory(
+		request.Context(),
+		actor,
+		administration.AccessDirectoryFilters{
+			Search:        request.URL.Query().Get("search"),
+			Role:          role,
+			Organization:  request.URL.Query().Get("organizationId"),
+			AccountStatus: request.URL.Query().Get("accountStatus"),
+			Cursor:        request.URL.Query().Get("cursor"),
+			Limit:         limit,
+		},
 	)
 	if err != nil {
 		api.respond(writer, nil, err)
 		return
 	}
-	items := make([]generated.AdminAccessDirectoryEntryView, 0, len(records))
-	for _, record := range records {
+	items := make([]generated.AdminAccessDirectoryEntryView, 0, len(page.Items))
+	for _, record := range page.Items {
 		var organizationID *string
 		if record.OrganizationID != "" {
 			value := record.OrganizationID
 			organizationID = &value
 		}
+		var membershipID *string
+		if record.MembershipID != "" {
+			value := record.MembershipID
+			membershipID = &value
+		}
+		var lastSuccessfulSessionAt *string
+		if record.LastSuccessfulSession != nil {
+			value := record.LastSuccessfulSession.UTC().Format(time.RFC3339Nano)
+			lastSuccessfulSessionAt = &value
+		}
+		roles := make([]generated.Role, len(record.Roles))
+		for index, recordRole := range record.Roles {
+			roles[index] = generated.Role(recordRole)
+		}
 		items = append(items, generated.AdminAccessDirectoryEntryView{
 			SubjectId: record.SubjectID, DisplayName: record.DisplayName,
-			Role: generated.Role(record.Role), OrganizationId: organizationID,
-			Email: record.Email, Mfa: record.MFA, Invitation: record.Invitation,
-			AccountStatus: record.AccountStatus,
+			Roles: roles, OrganizationId: organizationID, Email: record.Email,
+			MfaEnrolled: record.MFAEnrolled, MfaState: record.MFAState,
+			RequiredActions:         append([]string(nil), record.RequiredActions...),
+			InvitationState:         record.InvitationState,
+			AccountStatus:           record.AccountStatus,
+			ApplicationProfileState: record.ApplicationProfile,
+			MembershipId:            membershipID, MembershipState: record.MembershipState,
+			MembershipRevision:      record.MembershipRevision,
+			MembershipDrift:         record.MembershipDrift,
+			LastSuccessfulSessionAt: lastSuccessfulSessionAt,
+			ProviderObservedAt:      record.ProviderObservedAt.UTC().Format(time.RFC3339Nano),
 		})
 	}
+	var nextCursor *string
+	if page.NextCursor != "" {
+		nextCursor = &page.NextCursor
+	}
 	api.respond(writer, generated.AdminAccessDirectoryPage{
-		Items: items, NextCursor: nil,
+		Items: items, NextCursor: nextCursor,
+		ConsistencyToken: page.ConsistencyToken,
+		ProviderCalls:    int64(page.ProviderCalls),
 	}, nil)
 }
 
