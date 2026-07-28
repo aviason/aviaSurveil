@@ -937,6 +937,80 @@ export interface AuditEventView {
   entityRevision: number | null;
 }
 
+export interface AdminRegulatorySourceView {
+  id: string;
+  title: string;
+  sourceType: "ICAO_PQ" | "ANNEX_CROSSWALK" | "AUDIT_AREA_TAXONOMY" | "NATIONAL_LIBRARY" | "CAA_PROCEDURE";
+  version: string;
+  status: "SUPPLIED_WORKING_COPY" | "PUBLIC_REFERENCE" | "SOURCE_GAP";
+  locator: string;
+  url: string | null;
+}
+
+export interface AdminProposedInspectionQuestionView {
+  id: string;
+  prompt: string;
+  verificationMethod: string;
+  evidenceExamples: string[];
+  whyIncluded: string;
+}
+
+export interface AdminRegulatoryRefreshPolicyView {
+  sourceCollectionId: string;
+  lastCheckedAt: Instant;
+  nextReconciliationDate: LocalDate;
+  nextExpertValidationDate: LocalDate;
+  eventDrivenReview: true;
+  reconciliationIntervalMonths: 6;
+  expertValidationIntervalMonths: 12;
+  sourceChangeState: "BASELINE_CAPTURED" | "NO_CHANGE" | "CHANGE_DETECTED" | "REVIEW_REQUIRED";
+  updateMode: "PROPOSE_DRAFT_ONLY";
+  documentCount: number;
+  manifestPath: string;
+  guardrails: string[];
+}
+
+export interface AdminChecklistQuestionScopeRecommendationView {
+  questionId: string;
+  classification: "MANDATORY_CORE" | "FOCUSED_FULL" | "ROTATIONAL_SAMPLE" | "DEFER_ELIGIBLE";
+  rationale: string;
+  historyBasis: string;
+  requiresManagerApproval: true;
+}
+
+export interface AdminChecklistScopeRecommendationView {
+  id: string;
+  status: "ADVISORY_ONLY";
+  historyState: "INSUFFICIENT_FOR_DEFERRAL" | "VALIDATED_HISTORY_AVAILABLE";
+  generatedAt: Instant;
+  signals: string[];
+  guardrails: string[];
+  questionRecommendations: AdminChecklistQuestionScopeRecommendationView[];
+}
+
+export interface AdminRegulatoryMappingView {
+  id: string;
+  auditArea: string;
+  serviceProviderTypes: string[];
+  applicableRegulations: string[];
+  criticalElement: string;
+  protocolQuestionId: string;
+  protocolQuestion: string;
+  annexReferences: string[];
+  nationalReferences: string[];
+  caaImplementationReference: string;
+  requirement: string;
+  verificationObjective: string;
+  expectedEvidence: string[];
+  whyIncluded: string;
+  reviewStatus: "EXPERT_REVIEW_REQUIRED" | "VALIDATED" | "REJECTED";
+  sourceGap: string | null;
+  refreshPolicy: AdminRegulatoryRefreshPolicyView;
+  scopeRecommendation: AdminChecklistScopeRecommendationView;
+  sources: AdminRegulatorySourceView[];
+  proposedQuestions: AdminProposedInspectionQuestionView[];
+}
+
 export interface AdminRegulatoryReferenceView {
   id: string;
   title: string;
@@ -945,6 +1019,7 @@ export interface AdminRegulatoryReferenceView {
   effectiveDate: LocalDate;
   configuredRules: string[];
   changeHistory: string[];
+  mappings: AdminRegulatoryMappingView[];
 }
 
 export interface AdminTemplateMasterView {

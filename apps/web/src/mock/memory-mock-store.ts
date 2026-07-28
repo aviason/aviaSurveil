@@ -7,7 +7,7 @@ interface StoredOperation {
 }
 
 interface PersistedMockStore {
-  schemaVersion: 3;
+  schemaVersion: 5;
   state: MockState;
   operations: [string, StoredOperation][];
 }
@@ -18,14 +18,48 @@ interface PersistedMockStoreCandidate {
   operations?: [string, StoredOperation][];
 }
 
-const CURRENT_MOCK_STORE_SCHEMA_VERSION = 3;
+const CURRENT_MOCK_STORE_SCHEMA_VERSION = 5;
 
 function hydratePersistedState(state: Partial<MockState>, clock: () => string): MockState {
   const canonical = createCanonicalSeedState(clock());
+  const adminWorkspace = state.adminWorkspace
+    ? {
+        ...state.adminWorkspace,
+        regulatoryReferences: state.adminWorkspace.regulatoryReferences.map((reference) => {
+          const canonicalReference = canonical.adminWorkspace.regulatoryReferences.find(
+            (candidate) => candidate.id === reference.id,
+          );
+          const persistedReference = reference as typeof reference & {
+            mappings?: typeof reference.mappings;
+          };
+          return {
+            ...reference,
+            mappings: persistedReference.mappings?.map((mapping) => {
+              const canonicalMapping = canonicalReference?.mappings.find(
+                (candidate) => candidate.id === mapping.id,
+              );
+              const persistedMapping = mapping as typeof mapping & {
+                refreshPolicy?: typeof mapping.refreshPolicy;
+                scopeRecommendation?: typeof mapping.scopeRecommendation;
+              };
+              return {
+                ...mapping,
+                refreshPolicy: persistedMapping.refreshPolicy
+                  ?? canonicalMapping?.refreshPolicy
+                  ?? canonical.adminWorkspace.regulatoryReferences[0]!.mappings[0]!.refreshPolicy,
+                scopeRecommendation: persistedMapping.scopeRecommendation
+                  ?? canonicalMapping?.scopeRecommendation
+                  ?? canonical.adminWorkspace.regulatoryReferences[0]!.mappings[0]!.scopeRecommendation,
+              };
+            }) ?? canonicalReference?.mappings ?? [],
+          };
+        }),
+      }
+    : canonical.adminWorkspace;
   return {
     ...canonical,
     ...state,
-    adminWorkspace: state.adminWorkspace ?? canonical.adminWorkspace,
+    adminWorkspace,
     reportPublicMetadata: {
       ...canonical.reportPublicMetadata,
       ...(state.reportPublicMetadata ?? {}),
@@ -73,7 +107,7 @@ export class MemoryMockStore {
       const value = raw ? JSON.parse(raw) as PersistedMockStoreCandidate : null;
       if (
         value !== null &&
-        ([1, 2, CURRENT_MOCK_STORE_SCHEMA_VERSION].includes(value.schemaVersion ?? -1)) &&
+        ([1, 2, 3, 4, CURRENT_MOCK_STORE_SCHEMA_VERSION].includes(value.schemaVersion ?? -1)) &&
         value.state &&
         typeof value.state === "object" &&
         Array.isArray(value.operations)

@@ -246,7 +246,7 @@ func TestChecklistConfigurationHTTPContract(t *testing.T) {
 		path     string
 		required string
 	}{
-		{"/v1/admin/regulatory-references", `"id":"NAMCARS-CAB-001"`},
+		{"/v1/admin/regulatory-references", `"id":"RMAP-OPS-AOC-CABIN-RAMP-001"`},
 		{"/v1/admin/templates", `"id":"TPL-CABIN-2026"`},
 		{"/v1/admin/questions", `"id":"CAB-EMEQ-PBE-001"`},
 		{"/v1/admin/templates/TPL-CABIN-2026", `"publishedVersionId":"CTV-CABIN-1"`},

@@ -382,6 +382,7 @@ func (api *CanonicalAPI) listAdminRegulatoryReferences(
 			Status: record.Status, EffectiveDate: record.EffectiveDate,
 			ConfiguredRules: append([]string(nil), record.ConfiguredRules...),
 			ChangeHistory:   append([]string(nil), record.ChangeHistory...),
+			Mappings:        adminRegulatoryMappingViews(record.Mappings),
 		})
 	}
 	etag, err := strongProjectionETag(items)
@@ -665,6 +666,95 @@ func adminQuestionView(record configuration.AdminQuestion) generated.AdminQuesti
 		ConfiguredReference: record.ConfiguredReference,
 		ExpectedEvidence:    record.ExpectedEvidence, Revision: record.Revision,
 	}
+}
+
+func adminRegulatoryMappingViews(
+	records []configuration.AdminRegulatoryMapping,
+) []generated.AdminRegulatoryMappingView {
+	items := make([]generated.AdminRegulatoryMappingView, 0, len(records))
+	for _, record := range records {
+		sources := make([]generated.AdminRegulatorySourceView, 0, len(record.Sources))
+		for _, source := range record.Sources {
+			sources = append(sources, generated.AdminRegulatorySourceView{
+				Id: source.ID, Title: source.Title, SourceType: source.SourceType,
+				Version: source.Version, Status: source.Status,
+				Locator: source.Locator, Url: source.URL,
+			})
+		}
+		questions := make(
+			[]generated.AdminProposedInspectionQuestionView,
+			0,
+			len(record.ProposedQuestions),
+		)
+		for _, question := range record.ProposedQuestions {
+			questions = append(questions, generated.AdminProposedInspectionQuestionView{
+				Id: question.ID, Prompt: question.Prompt,
+				VerificationMethod: question.VerificationMethod,
+				EvidenceExamples:   append([]string(nil), question.EvidenceExamples...),
+				WhyIncluded:        question.WhyIncluded,
+			})
+		}
+		scopeQuestions := make(
+			[]generated.AdminChecklistQuestionScopeRecommendationView,
+			0,
+			len(record.ScopeRecommendation.QuestionRecommendations),
+		)
+		for _, recommendation := range record.ScopeRecommendation.QuestionRecommendations {
+			scopeQuestions = append(
+				scopeQuestions,
+				generated.AdminChecklistQuestionScopeRecommendationView{
+					QuestionId:              recommendation.QuestionID,
+					Classification:          recommendation.Classification,
+					Rationale:               recommendation.Rationale,
+					HistoryBasis:            recommendation.HistoryBasis,
+					RequiresManagerApproval: recommendation.RequiresManagerApproval,
+				},
+			)
+		}
+		items = append(items, generated.AdminRegulatoryMappingView{
+			Id: record.ID, AuditArea: record.AuditArea,
+			ServiceProviderTypes:       append([]string(nil), record.ServiceProviderTypes...),
+			ApplicableRegulations:      append([]string(nil), record.ApplicableRegulations...),
+			CriticalElement:            record.CriticalElement,
+			ProtocolQuestionId:         record.ProtocolQuestionID,
+			ProtocolQuestion:           record.ProtocolQuestion,
+			AnnexReferences:            append([]string(nil), record.AnnexReferences...),
+			NationalReferences:         append([]string(nil), record.NationalReferences...),
+			CaaImplementationReference: record.CAAImplementationReference,
+			Requirement:                record.Requirement,
+			VerificationObjective:      record.VerificationObjective,
+			ExpectedEvidence:           append([]string(nil), record.ExpectedEvidence...),
+			WhyIncluded:                record.WhyIncluded,
+			ReviewStatus:               record.ReviewStatus,
+			SourceGap:                  record.SourceGap,
+			RefreshPolicy: generated.AdminRegulatoryRefreshPolicyView{
+				SourceCollectionId:             record.RefreshPolicy.SourceCollectionID,
+				LastCheckedAt:                  record.RefreshPolicy.LastCheckedAt,
+				NextReconciliationDate:         record.RefreshPolicy.NextReconciliationDate,
+				NextExpertValidationDate:       record.RefreshPolicy.NextExpertValidationDate,
+				EventDrivenReview:              record.RefreshPolicy.EventDrivenReview,
+				ReconciliationIntervalMonths:   record.RefreshPolicy.ReconciliationIntervalMonths,
+				ExpertValidationIntervalMonths: record.RefreshPolicy.ExpertValidationIntervalMonths,
+				SourceChangeState:              record.RefreshPolicy.SourceChangeState,
+				UpdateMode:                     record.RefreshPolicy.UpdateMode,
+				DocumentCount:                  record.RefreshPolicy.DocumentCount,
+				ManifestPath:                   record.RefreshPolicy.ManifestPath,
+				Guardrails:                     append([]string(nil), record.RefreshPolicy.Guardrails...),
+			},
+			ScopeRecommendation: generated.AdminChecklistScopeRecommendationView{
+				Id:                      record.ScopeRecommendation.ID,
+				Status:                  record.ScopeRecommendation.Status,
+				HistoryState:            record.ScopeRecommendation.HistoryState,
+				GeneratedAt:             record.ScopeRecommendation.GeneratedAt,
+				Signals:                 append([]string(nil), record.ScopeRecommendation.Signals...),
+				Guardrails:              append([]string(nil), record.ScopeRecommendation.Guardrails...),
+				QuestionRecommendations: scopeQuestions,
+			},
+			Sources:           sources,
+			ProposedQuestions: questions,
+		})
+	}
+	return items
 }
 
 func adminTemplateVersionView(

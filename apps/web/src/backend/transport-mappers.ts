@@ -513,6 +513,31 @@ export function mapAdminRegulatoryReference(
     ...value,
     configuredRules: [...value.configuredRules],
     changeHistory: [...value.changeHistory],
+    mappings: value.mappings.map((mapping) => ({
+      ...mapping,
+      serviceProviderTypes: [...mapping.serviceProviderTypes],
+      applicableRegulations: [...mapping.applicableRegulations],
+      annexReferences: [...mapping.annexReferences],
+      nationalReferences: [...mapping.nationalReferences],
+      expectedEvidence: [...mapping.expectedEvidence],
+      refreshPolicy: {
+        ...mapping.refreshPolicy,
+        guardrails: [...mapping.refreshPolicy.guardrails],
+      },
+      scopeRecommendation: {
+        ...mapping.scopeRecommendation,
+        signals: [...mapping.scopeRecommendation.signals],
+        guardrails: [...mapping.scopeRecommendation.guardrails],
+        questionRecommendations: mapping.scopeRecommendation.questionRecommendations.map(
+          (recommendation) => ({ ...recommendation }),
+        ),
+      },
+      sources: mapping.sources.map((source) => ({ ...source })),
+      proposedQuestions: mapping.proposedQuestions.map((question) => ({
+        ...question,
+        evidenceExamples: [...question.evidenceExamples],
+      })),
+    })),
   };
 }
 

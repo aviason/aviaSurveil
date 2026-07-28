@@ -64,7 +64,7 @@ export function DisabledAdminAction({ label, reason }: { label: string; reason: 
 export function AdminGuardrails() {
   return (
     <div className="admin-guardrails" role="note" aria-label="Regulatory library guardrails">
-      <span>Mock regulatory library</span><span>Demo data</span><span>Not a legal decision</span><span>No real regulatory ingestion</span>
+      <span>Candidate-only regulatory library</span><span>Public source baseline captured locally</span><span>Not a legal decision</span><span>No autonomous publication</span>
     </div>
   );
 }

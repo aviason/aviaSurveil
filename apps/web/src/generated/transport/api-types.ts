@@ -2622,6 +2622,91 @@ export interface components {
             actionId: string;
             effect: components["schemas"]["VisibleActionEffect"];
         };
+        AdminRegulatorySourceView: {
+            id: string;
+            title: string;
+            /** @enum {string} */
+            sourceType: "ICAO_PQ" | "ANNEX_CROSSWALK" | "AUDIT_AREA_TAXONOMY" | "NATIONAL_LIBRARY" | "CAA_PROCEDURE";
+            version: string;
+            /** @enum {string} */
+            status: "SUPPLIED_WORKING_COPY" | "PUBLIC_REFERENCE" | "SOURCE_GAP";
+            locator: string;
+            /** Format: uri */
+            url: string | null;
+        };
+        AdminProposedInspectionQuestionView: {
+            id: string;
+            prompt: string;
+            verificationMethod: string;
+            evidenceExamples: string[];
+            whyIncluded: string;
+        };
+        AdminRegulatoryRefreshPolicyView: {
+            sourceCollectionId: string;
+            /** Format: date-time */
+            lastCheckedAt: string;
+            /** Format: date */
+            nextReconciliationDate: string;
+            /** Format: date */
+            nextExpertValidationDate: string;
+            /** @enum {boolean} */
+            eventDrivenReview: true;
+            /** @enum {integer} */
+            reconciliationIntervalMonths: 6;
+            /** @enum {integer} */
+            expertValidationIntervalMonths: 12;
+            /** @enum {string} */
+            sourceChangeState: "BASELINE_CAPTURED" | "NO_CHANGE" | "CHANGE_DETECTED" | "REVIEW_REQUIRED";
+            /** @enum {string} */
+            updateMode: "PROPOSE_DRAFT_ONLY";
+            documentCount: number;
+            manifestPath: string;
+            guardrails: string[];
+        };
+        AdminChecklistQuestionScopeRecommendationView: {
+            questionId: string;
+            /** @enum {string} */
+            classification: "MANDATORY_CORE" | "FOCUSED_FULL" | "ROTATIONAL_SAMPLE" | "DEFER_ELIGIBLE";
+            rationale: string;
+            historyBasis: string;
+            /** @enum {boolean} */
+            requiresManagerApproval: true;
+        };
+        AdminChecklistScopeRecommendationView: {
+            id: string;
+            /** @enum {string} */
+            status: "ADVISORY_ONLY";
+            /** @enum {string} */
+            historyState: "INSUFFICIENT_FOR_DEFERRAL" | "VALIDATED_HISTORY_AVAILABLE";
+            /** Format: date-time */
+            generatedAt: string;
+            signals: string[];
+            guardrails: string[];
+            questionRecommendations: components["schemas"]["AdminChecklistQuestionScopeRecommendationView"][];
+        };
+        AdminRegulatoryMappingView: {
+            id: string;
+            auditArea: string;
+            serviceProviderTypes: string[];
+            applicableRegulations: string[];
+            criticalElement: string;
+            protocolQuestionId: string;
+            protocolQuestion: string;
+            annexReferences: string[];
+            nationalReferences: string[];
+            caaImplementationReference: string;
+            requirement: string;
+            verificationObjective: string;
+            expectedEvidence: string[];
+            whyIncluded: string;
+            /** @enum {string} */
+            reviewStatus: "EXPERT_REVIEW_REQUIRED" | "VALIDATED" | "REJECTED";
+            sourceGap: string | null;
+            refreshPolicy: components["schemas"]["AdminRegulatoryRefreshPolicyView"];
+            scopeRecommendation: components["schemas"]["AdminChecklistScopeRecommendationView"];
+            sources: components["schemas"]["AdminRegulatorySourceView"][];
+            proposedQuestions: components["schemas"]["AdminProposedInspectionQuestionView"][];
+        };
         AdminRegulatoryReferenceView: {
             id: string;
             title: string;
@@ -2632,6 +2717,7 @@ export interface components {
             effectiveDate: string;
             configuredRules: string[];
             changeHistory: string[];
+            mappings: components["schemas"]["AdminRegulatoryMappingView"][];
         };
         AdminTemplateMasterView: {
             id: string;

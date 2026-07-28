@@ -1,0 +1,359 @@
+{
+  "schemaVersion": 1,
+  "assessmentId": "NCAA-NAMCATS-OPS-AOC-PART-127-140-2026-07-28",
+  "title": "Candidate Part 127 and Part 140 applicability assessment for the OPS/AOC cabin-ramp checklist pilot",
+  "createdOn": "2026-07-28",
+  "scope": {
+    "auditArea": "OPS",
+    "serviceProviderType": "Air Operator (AOC)",
+    "regulatoryMappingId": "RMAP-OPS-AOC-CABIN-RAMP-001",
+    "protocolQuestionId": "4.450",
+    "questionSet": "Six-question candidate cabin/ramp decomposition",
+    "sourceCollectionId": "NCAA-NAMCATS-ALL-PAGES",
+    "sourceManifest": "docs/regulatory-sources/ncaa-namcats-manifest.json"
+  },
+  "status": {
+    "assessmentStatus": "CANDIDATE_DERIVED_CONTEXT",
+    "evidenceStatus": "SOURCE_BOUND",
+    "reviewStatus": "EXPERT_REVIEW_REQUIRED",
+    "publicationStatus": "NOT_PUBLISHED_BY_THIS_ASSESSMENT",
+    "productionReadiness": "NOT_CLAIMED"
+  },
+  "storageBoundary": {
+    "trackedContent": "Source identities, hashes, page and section locators, paraphrased evidence, candidate applicability decisions, and review gates.",
+    "untrackedContent": "Downloaded source bytes and full extracted text.",
+    "fullTextRoot": ".local/aviasurveil360/regulatory-sources/ncaa/namcats/all-pages/text/",
+    "reason": "Full regulatory text remains in the ignored local source vault; this compact record stays reviewable and can be invalidated by a source-hash change."
+  },
+  "sourceVersions": [
+    {
+      "sourceVersionId": "NCAA-NAMCATS-P2-PDF-16",
+      "title": "NAMCATS-OPS Part 127 October 2024.pdf",
+      "documentCode": "NAMCATS-OPS-127/2024",
+      "documentRole": "PRIMARY_CANDIDATE_OPERATION_TYPE_SOURCE",
+      "authorityStatus": "PUBLIC_REFERENCE_EXPERT_CONFIRMATION_REQUIRED",
+      "sourcePage": 2,
+      "sourceUrl": "https://www.ncaa.com.na/publications/legislations/NAMCATS/NAMCATS-OPS%20Part%20127%20October%202024.pdf",
+      "observedUpdatedAt": "2026-07-14 18:03:19",
+      "byteSize": 1719645,
+      "sha256": "sha256:17f21fcf470d977d4446bb3672575dcdd29e3798e9b4aca3715a6138aa549c1d",
+      "extractionStatus": "EXTRACTED",
+      "extractionEngine": "poppler-pdftotext",
+      "pageCount": 157,
+      "pagesWithContextText": 157,
+      "characterCount": 500508,
+      "extractedTextLocator": ".local/aviasurveil360/regulatory-sources/ncaa/namcats/all-pages/text/NAMCATS-OPS Part 127 October 2024.pdf.txt",
+      "versionCaveat": "The public file identifies itself as issue version 2024. Public listing and successful extraction do not establish that Part 127 applies to every AOC or every aircraft operation."
+    },
+    {
+      "sourceVersionId": "NCAA-NAMCATS-P3-PDF-07",
+      "title": "NAMCATS Part 140 20250809 Signed.pdf",
+      "documentCode": "NAMCATS-SMS-140/2025 Revision 2",
+      "documentRole": "PRIMARY_CANDIDATE_SMS_SOURCE",
+      "authorityStatus": "CANDIDATE_CURRENT_PUBLIC_REFERENCE",
+      "sourcePage": 3,
+      "sourceUrl": "https://www.ncaa.com.na/publications/legislations/NAMCATS/NAMCATS%20Part%20140%2020250809%20%20Signed.pdf",
+      "observedUpdatedAt": "2026-07-14 17:59:36",
+      "byteSize": 855580,
+      "sha256": "sha256:ee5f1d39fd767cd4e504de8a93f161c9249c7be9d9359ec7af4f642e95861f82",
+      "extractionStatus": "EXTRACTED",
+      "extractionEngine": "poppler-pdftotext",
+      "pageCount": 60,
+      "pagesWithContextText": 60,
+      "characterCount": 146334,
+      "extractedTextLocator": ".local/aviasurveil360/regulatory-sources/ncaa/namcats/all-pages/text/NAMCATS Part 140 20250809  Signed.pdf.txt",
+      "versionCaveat": "The document is newer on its face than the public 2021 file and identifies itself as Revision 2. The simultaneous public listing of both files does not prove formal supersession or current promulgated authority."
+    },
+    {
+      "sourceVersionId": "NCAA-NAMCATS-P3-PDF-16",
+      "title": "NAMCATS Part 140 signed version 2021.pdf",
+      "documentCode": "NAMCATS Part 140 signed version 2021",
+      "documentRole": "COMPARATOR_SOURCE",
+      "authorityStatus": "PUBLIC_COMPARATOR_NOT_SELECTED_AS_CURRENT",
+      "sourcePage": 3,
+      "sourceUrl": "https://www.ncaa.com.na/publications/legislations/NAMCATS/NAMCATS%20Part%20140%20signed%20version%202021.pdf",
+      "observedUpdatedAt": "2026-07-14 17:59:36",
+      "byteSize": 418402,
+      "sha256": "sha256:a03e2203aa529ef997b01123083e89bd4f40f7a409eb3d797a78cfb3512efa92",
+      "extractionStatus": "EXTRACTED",
+      "extractionEngine": "poppler-pdftotext",
+      "pageCount": 30,
+      "pagesWithContextText": 30,
+      "characterCount": 86318,
+      "extractedTextLocator": ".local/aviasurveil360/regulatory-sources/ncaa/namcats/all-pages/text/NAMCATS Part 140 signed version 2021.pdf.txt",
+      "versionCaveat": "Retained for comparison because the NCAA public library lists it alongside the 2025 file. A technical source owner must confirm whether and how it was superseded."
+    }
+  ],
+  "evidenceRecords": [
+    {
+      "evidenceId": "P127-DOCUMENT-IDENTITY",
+      "sourceVersionId": "NCAA-NAMCATS-P2-PDF-16",
+      "pdfPages": [1, 2, 3],
+      "section": "Cover; 1.3, 1.4, 1.6, 1.7; incorporation of ICAO Standards",
+      "paraphrasedEvidence": "The document identifies itself as the 2024 Part 127 technical standards for commercial helicopter operations. It states that the regulations prevail over inconsistent technical standards and that the technical standards incorporate ICAO Annex 6 material subject to stated differences.",
+      "candidateUse": "Establish document identity and the conditional commercial-helicopter scope.",
+      "limitation": "This does not establish that a particular AOC, aircraft, route, or inspection activity falls under Part 127."
+    },
+    {
+      "evidenceId": "P127-OPS-MANUAL-CABIN-EQUIPMENT",
+      "sourceVersionId": "NCAA-NAMCATS-P2-PDF-16",
+      "pdfPages": [76],
+      "section": "127.04.2 Operations Manual",
+      "paraphrasedEvidence": "Operations-manual content includes assigned flight-crew seats, passenger and crew belts or harnesses, cabin and galley securing, passenger seating and evacuation, passenger briefing, and pre-departure inspection or functioning checks for required survival and emergency equipment.",
+      "candidateUse": "Conditional direct or partial basis for galley/stowage, passenger-restraint, crew-seat, evacuation, and generic emergency-equipment verification.",
+      "limitation": "The provision does not name lavatory equipment, protective breathing equipment, or cabin information displays."
+    },
+    {
+      "evidenceId": "P127-OVERSIGHT-FINDINGS",
+      "sourceVersionId": "NCAA-NAMCATS-P2-PDF-16",
+      "pdfPages": [115, 116, 117],
+      "section": "127.06.5 Safety and Security Inspections and Audits",
+      "paraphrasedEvidence": "The oversight section requires safety-significance analysis, classifies findings and observations, describes written communication and corrective-action handling, and calls for records of findings, enforcement measures, corrective actions, and closure dates.",
+      "candidateUse": "Source-bound candidate evidence for helicopter-operator oversight and follow-up workflow.",
+      "limitation": "The language must be reconciled with AviaSurveil360's canonical Finding, CAP, Evidence, review, and closure authority before any product rule changes."
+    },
+    {
+      "evidenceId": "P127-PASSENGER-REFUELLING-EGRESS",
+      "sourceVersionId": "NCAA-NAMCATS-P2-PDF-16",
+      "pdfPages": [120],
+      "section": "127.08.9 passenger-on-board refuelling provisions",
+      "paraphrasedEvidence": "The conditional refuelling provisions address emergency exits, cabin safety, clear egress, and passenger restraint state.",
+      "candidateUse": "Conditional context for emergency-exit accessibility and cabin safety.",
+      "limitation": "This is activity-specific and cannot support a general cabin-condition question on its own."
+    },
+    {
+      "evidenceId": "P127-NIGHT-PASSENGER-SEATS",
+      "sourceVersionId": "NCAA-NAMCATS-P2-PDF-16",
+      "pdfPages": [133],
+      "section": "127.08.20 additional requirements for single-engine night operations",
+      "paraphrasedEvidence": "For the stated single-engine night passenger operation, passenger seats and mounts must meet specified performance criteria and each passenger seat must have the stated shoulder-harness or diagonal-restraint configuration.",
+      "candidateUse": "Narrow direct basis for passenger-seat and restraint verification when the operating condition applies.",
+      "limitation": "The requirement is not a universal seat rule for every Part 127 operation or every AOC."
+    },
+    {
+      "evidenceId": "P127-MEL-AND-STOWAGE",
+      "sourceVersionId": "NCAA-NAMCATS-P2-PDF-16",
+      "pdfPages": [138, 139],
+      "section": "127.08.29 Minimum Equipment Lists; 127.08.34 Carry-on Baggage",
+      "paraphrasedEvidence": "The text addresses controlled operation with inoperative equipment through the MEL and technical-log process and requires baggage or stowage to be secured without blocking emergency equipment or evacuation.",
+      "candidateUse": "Conditional support for serviceability reconciliation, secure stowage, emergency-equipment access, and evacuation checks.",
+      "limitation": "MEL applicability and the approved operator configuration must be checked for the inspected aircraft."
+    },
+    {
+      "evidenceId": "P127-PASSENGER-BRIEFING-AND-SAFETY-CARD",
+      "sourceVersionId": "NCAA-NAMCATS-P2-PDF-16",
+      "pdfPages": [139, 140, 141, 142, 143],
+      "section": "127.08.37 Briefing of Passengers; 127.08.38 Safety Features Card",
+      "paraphrasedEvidence": "Passenger briefing and safety-card content covers restraints, baggage, emergency exits, and emergency equipment.",
+      "candidateUse": "Conditional support for passenger-restraint, exit, marking, and emergency-equipment verification.",
+      "limitation": "The clauses do not establish a PBE-specific requirement or a general cabin-display requirement."
+    },
+    {
+      "evidenceId": "P140-AIR-OPERATOR-APPLICABILITY",
+      "sourceVersionId": "NCAA-NAMCATS-P3-PDF-07",
+      "pdfPages": [7],
+      "section": "140.01.1 Applicability; 140.02.2 Requirements of SMS",
+      "paraphrasedEvidence": "The 2025 Part 140 text expressly includes an air operator and requires its SMS to be accepted and surveilled by NCAA through document review and auditing.",
+      "candidateUse": "System-level applicability to the AOC organization's SMS and NCAA SMS surveillance.",
+      "limitation": "System-level SMS applicability is not a direct equipment-serviceability rule for each cabin checklist question."
+    },
+    {
+      "evidenceId": "P140-SMS-DOCUMENTATION-AND-RISK",
+      "sourceVersionId": "NCAA-NAMCATS-P3-PDF-07",
+      "pdfPages": [9, 10],
+      "section": "SMS documentation; safety risk management; safety assurance",
+      "paraphrasedEvidence": "SMS documentation includes regulatory scope, reporting, hazard identification and risk assessment, performance monitoring, investigations, audit and review, records, and management of change. Risk management and safety assurance require hazard identification, risk mitigation, performance verification, and validation of risk-control effectiveness.",
+      "candidateUse": "Context for checklist-level verification of the operator's risk, reporting, assurance, and record controls.",
+      "limitation": "It cannot replace the direct operational or equipment clause needed for an item-specific compliance question."
+    },
+    {
+      "evidenceId": "P140-ANNUAL-REVIEW-AND-CHANGE",
+      "sourceVersionId": "NCAA-NAMCATS-P3-PDF-07",
+      "pdfPages": [11],
+      "section": "4.1.2 performance review; 4.2 management of change; 4.3 continuous improvement",
+      "paraphrasedEvidence": "Safety performance indicators are reviewed at least annually, while formal management-of-change and continuous-improvement processes address safety effects, risk controls, and substandard SMS performance.",
+      "candidateUse": "System-level basis for periodic review, source or process change impact, and continuous-improvement questions.",
+      "limitation": "The annual SMS review language is not itself the authority for AviaSurveil360's six-month source-reconciliation cadence."
+    },
+    {
+      "evidenceId": "P140-HIRM-AUDIT-AND-SURVEY",
+      "sourceVersionId": "NCAA-NAMCATS-P3-PDF-07",
+      "pdfPages": [14, 15, 16],
+      "section": "HIRM implementation; safety-performance monitoring; management of change; continuous improvement",
+      "paraphrasedEvidence": "The implementation provisions call for systematic hazard and risk review of applicable processes or equipment, occurrence investigation, safety-data analysis, high-risk noncompliance indicators, management of change, internal and external audits, and scheduled evaluation of facilities, equipment, documentation, and procedures.",
+      "candidateUse": "System-level basis for risk-informed inspection planning and assurance evidence.",
+      "limitation": "Risk information may focus or expand inspection scope only within approved guardrails; it cannot silently omit mandatory controls."
+    },
+    {
+      "evidenceId": "P140-SAFETY-MANAGER-CORRECTIVE-ACTION",
+      "sourceVersionId": "NCAA-NAMCATS-P3-PDF-07",
+      "pdfPages": [17],
+      "section": "140.03.2 Key safety personnel",
+      "paraphrasedEvidence": "The safety manager's functions include hazard identification and risk analysis, monitoring corrective actions and results, reporting safety performance, and maintaining records and safety documentation.",
+      "candidateUse": "System-level evidence expectations for ownership, corrective-action monitoring, and records.",
+      "limitation": "Safety-manager monitoring does not accept Evidence, close a Finding, or replace the CAA's authorized review decision."
+    },
+    {
+      "evidenceId": "P140-ROUTINE-SAFETY-QUALITY-OCCURRENCES",
+      "sourceVersionId": "NCAA-NAMCATS-P3-PDF-07",
+      "pdfPages": [19],
+      "section": "routine safety and quality occurrence handling",
+      "paraphrasedEvidence": "Routine safety and quality deviations may be handled within the SMS or quality system, with reports or recommendations made available to the authority in the stated circumstances.",
+      "candidateUse": "Context for occurrence records and follow-up evidence.",
+      "limitation": "This does not authorize automatic severity, enforcement, certification, or closure decisions."
+    }
+  ],
+  "textSearchObservations": [
+    {
+      "sourceVersionId": "NCAA-NAMCATS-P2-PDF-16",
+      "terms": ["galley", "passenger seats", "safety belts", "harnesses", "emergency exits", "emergency equipment"],
+      "result": "DIRECT_OR_CONTEXTUAL_MATCHES_FOUND",
+      "evidenceIds": [
+        "P127-OPS-MANUAL-CABIN-EQUIPMENT",
+        "P127-PASSENGER-REFUELLING-EGRESS",
+        "P127-NIGHT-PASSENGER-SEATS",
+        "P127-MEL-AND-STOWAGE",
+        "P127-PASSENGER-BRIEFING-AND-SAFETY-CARD"
+      ]
+    },
+    {
+      "sourceVersionId": "NCAA-NAMCATS-P2-PDF-16",
+      "terms": ["lavatory", "protective breathing equipment", "PBE"],
+      "result": "NO_DIRECT_TERM_MATCH_IN_EXTRACTED_TEXT",
+      "evidenceIds": [],
+      "limitation": "No term match is a source-gap signal, not proof that no applicable requirement exists elsewhere in NAMCAR, another NAMCATS part, an approved manual, or a controlled NCAA procedure."
+    },
+    {
+      "sourceVersionId": "NCAA-NAMCATS-P3-PDF-07",
+      "terms": ["galley", "lavatory", "passenger seat", "protective breathing equipment", "PBE", "emergency exit"],
+      "result": "NO_ITEM_SPECIFIC_MATCH_IN_EXTRACTED_TEXT",
+      "evidenceIds": [],
+      "limitation": "Part 140 remains applicable at the SMS, risk, audit, and assurance level."
+    }
+  ],
+  "applicabilityDecisions": [
+    {
+      "part": "127",
+      "classification": "OPERATION_TYPE_CONDITIONAL",
+      "decision": "Use Part 127 only when the inspected operator, aircraft, and activity are within commercial helicopter operations governed by Part 127.",
+      "includeWhen": [
+        "The exact AOC or operations specifications include the relevant Part 127 helicopter operation.",
+        "The aircraft configuration and activity satisfy any narrower condition stated by the cited clause."
+      ],
+      "excludeOrEscalateWhen": [
+        "The inspected activity is fixed-wing Part 121 or Part 135 without an independently validated Part 127 linkage.",
+        "The aircraft configuration or operating condition does not match the cited Part 127 provision.",
+        "Current promulgated applicability or the controlled NCAA inspection procedure is unresolved."
+      ]
+    },
+    {
+      "part": "140",
+      "classification": "SYSTEM_LEVEL_APPLICABLE",
+      "decision": "Use Part 140 for the air operator's SMS, risk management, assurance, auditing, management of change, corrective-action monitoring, and records.",
+      "includeWhen": [
+        "The checklist verifies organization-level SMS implementation or NCAA SMS surveillance evidence.",
+        "Risk and history signals inform an advisory inspection-scope recommendation within approved guardrails."
+      ],
+      "excludeOrEscalateWhen": [
+        "Part 140 is proposed as the sole direct basis for an equipment-specific serviceability question.",
+        "The 2025-versus-2021 authority question has not been confirmed by the source owner."
+      ]
+    }
+  ],
+  "checklistImplications": [
+    {
+      "questionId": "CAB-GALLEY-001",
+      "part127Disposition": "CONDITIONAL_DIRECT_BASIS",
+      "part127EvidenceIds": ["P127-OPS-MANUAL-CABIN-EQUIPMENT", "P127-MEL-AND-STOWAGE"],
+      "part140Disposition": "CONTEXTUAL_RISK_AND_ASSURANCE_ONLY",
+      "candidateConclusion": "Use Part 127 only for an applicable helicopter configuration with relevant galley or stowage features. Part 140 may inform risk and assurance evidence but is not the direct equipment rule.",
+      "requiredExpertAction": "Confirm aircraft configuration, operation type, approved manual/MEL linkage, and the applicable national clause before validation."
+    },
+    {
+      "questionId": "CAB-LAV-001",
+      "part127Disposition": "NO_DIRECT_SOURCE_MATCH",
+      "part127EvidenceIds": [],
+      "part140Disposition": "CONTEXTUAL_RISK_AND_ASSURANCE_ONLY",
+      "candidateConclusion": "Neither reviewed source provides a direct lavatory-equipment basis. Keep the question mapped to other validated sources or leave the gap visible.",
+      "requiredExpertAction": "Identify and validate the applicable NAMCAR/NAMCATS, approved configuration, maintenance, or controlled procedure source."
+    },
+    {
+      "questionId": "CAB-PAX-SEAT-001",
+      "part127Disposition": "CONDITIONAL_DIRECT_BASIS",
+      "part127EvidenceIds": [
+        "P127-OPS-MANUAL-CABIN-EQUIPMENT",
+        "P127-NIGHT-PASSENGER-SEATS",
+        "P127-PASSENGER-BRIEFING-AND-SAFETY-CARD"
+      ],
+      "part140Disposition": "CONTEXTUAL_RISK_AND_ASSURANCE_ONLY",
+      "candidateConclusion": "Part 127 directly supports restraint and seat checks for applicable helicopter operations, with the page 133 equipment rule limited to the stated single-engine night passenger condition.",
+      "requiredExpertAction": "Confirm the general and condition-specific clauses applicable to the inspected operation and aircraft."
+    },
+    {
+      "questionId": "CAB-EMEQ-PBE-001",
+      "part127Disposition": "GENERIC_EMERGENCY_EQUIPMENT_ONLY_NO_PBE_SPECIFIC_MATCH",
+      "part127EvidenceIds": [
+        "P127-OPS-MANUAL-CABIN-EQUIPMENT",
+        "P127-PASSENGER-BRIEFING-AND-SAFETY-CARD"
+      ],
+      "part140Disposition": "CONTEXTUAL_RISK_AND_ASSURANCE_ONLY",
+      "candidateConclusion": "Part 127 provides generic emergency-equipment inspection and briefing context, but the reviewed text does not provide a PBE-specific basis. Part 140 cannot fill that direct-source gap.",
+      "requiredExpertAction": "Identify and validate the PBE-specific national, aircraft-configuration, approved-manual, maintenance, and controlled-inspection sources."
+    },
+    {
+      "questionId": "CAB-VID-CREW-SEAT-001",
+      "part127Disposition": "CONDITIONAL_PARTIAL_BASIS",
+      "part127EvidenceIds": ["P127-OPS-MANUAL-CABIN-EQUIPMENT"],
+      "part140Disposition": "CONTEXTUAL_RISK_AND_ASSURANCE_ONLY",
+      "candidateConclusion": "Part 127 conditionally supports crew-seat and restraint verification but does not directly support the combined cabin-information-display element.",
+      "requiredExpertAction": "Split or separately source the display and crew-seat requirements, then validate operation and configuration applicability."
+    },
+    {
+      "questionId": "CAB-COCKPIT-GEN-001",
+      "part127Disposition": "CONDITIONAL_PARTIAL_BASIS",
+      "part127EvidenceIds": [
+        "P127-PASSENGER-REFUELLING-EGRESS",
+        "P127-MEL-AND-STOWAGE",
+        "P127-PASSENGER-BRIEFING-AND-SAFETY-CARD"
+      ],
+      "part140Disposition": "CONTEXTUAL_RISK_AND_ASSURANCE_ONLY",
+      "candidateConclusion": "Part 127 conditionally supports exit accessibility, markings, restraint, stowage, and evacuation elements. It does not independently define the full general-condition question.",
+      "requiredExpertAction": "Decompose the broad prompt or add validated direct sources for each retained verification objective."
+    }
+  ],
+  "governanceGates": [
+    {
+      "gate": "CURRENT_SOURCE_AUTHORITY",
+      "owner": "NCAA regulatory source owner or designated technical expert",
+      "requiredDecision": "Confirm the currently authoritative Part 127 and Part 140 versions and whether the 2021 Part 140 file is superseded."
+    },
+    {
+      "gate": "APPLICABILITY_AND_INTERPRETATION",
+      "owner": "NCAA Operations technical expert",
+      "requiredDecision": "Confirm operator, aircraft, operation-type, configuration, and clause applicability plus each candidate interpretation."
+    },
+    {
+      "gate": "CONTROLLED_PROCEDURE",
+      "owner": "NCAA Operations process owner",
+      "requiredDecision": "Supply or identify the controlled surveillance/ramp-inspection procedure and validate its relation to the checklist."
+    },
+    {
+      "gate": "QUESTION_DECOMPOSITION_AND_EVIDENCE",
+      "owner": "NCAA technical expert",
+      "requiredDecision": "Validate each practical question, verification method, evidence expectation, and any need to split combined prompts."
+    },
+    {
+      "gate": "CHECKLIST_PUBLICATION",
+      "owner": "Department Manager or configured publication owner",
+      "requiredDecision": "Publish only a separately approved checklist version; this assessment cannot mutate a published checklist or an in-progress Audit."
+    }
+  ],
+  "guardrails": [
+    "Regulatory material is a configured reference or Finding basis, not legal advice.",
+    "This assessment cannot automatically decide compliance, severity, enforcement, certification, CAP acceptance, Evidence acceptance, or Finding closure.",
+    "A source hash change invalidates the affected source-bound conclusions and creates an impact-review proposal.",
+    "A missing direct term or clause remains a visible source gap; it is not evidence that a requirement does not exist.",
+    "Part 140 risk and history information may advise scope but cannot silently omit mandatory, safety-critical, changed, overdue, open-Finding, repeat-Finding, or source-gap controls.",
+    "Existing Audits remain pinned to their exact published checklist version."
+  ]
+}

@@ -11,7 +11,7 @@ import { DEMO_MOCK_STORAGE_KEY } from "../../app/demo-persistence";
 import { AppProviders } from "../../app/providers";
 import { AppRouter } from "../../app/router";
 import { ScenarioProvider } from "../../app/scenario-context";
-import type { AuditEventView, DemoBackend } from "../../backend/backend";
+import type { AdminRegulatoryReferenceView, AuditEventView, DemoBackend } from "../../backend/backend";
 import {
   createMockBackendPersistentRuntime,
   createMockBackendRuntime,
@@ -43,7 +43,7 @@ interface AdminTemplateVersion {
 }
 
 interface AdminWorkspaceCapability {
-  listRegulatoryReferences(input: { search?: string; status?: string }): Promise<{ items: Array<{ id: string; version: string; status: string; effectiveDate: string; configuredRules: string[]; changeHistory: string[] }> }>;
+  listRegulatoryReferences(input: { search?: string; status?: string }): Promise<{ items: AdminRegulatoryReferenceView[] }>;
   listTemplateMasters(input: Record<string, never>): Promise<{ items: Array<{ id: string; publishedVersionId: string; owner: string; itemCount: number }> }>;
   listQuestions(input: { search?: string }): Promise<{ items: AdminQuestion[] }>;
   createQuestion(input: { prompt: string; configuredReference: string; expectedEvidence: string; expectedRevision: number | null; idempotencyKey: string }): Promise<AdminQuestion>;
@@ -162,12 +162,58 @@ describe("Admin secondary workspaces", () => {
     expect(filtered.items).toEqual([expect.objectContaining({ id: "NAMCARS-CAB-001", version: "2026.1", status: "ACTIVE", effectiveDate: "2026-01-01" })]);
     expect(filtered.items[0]!.configuredRules.length).toBeGreaterThan(0);
     expect(filtered.items[0]!.changeHistory.length).toBeGreaterThan(0);
+    expect(filtered.items[0]!.mappings).toEqual([
+      expect.objectContaining({
+        id: "RMAP-OPS-AOC-CABIN-RAMP-001",
+        auditArea: "OPS",
+        serviceProviderTypes: ["Air Operator (AOC)"],
+        criticalElement: "CE-7",
+        protocolQuestionId: "4.450",
+        reviewStatus: "EXPERT_REVIEW_REQUIRED",
+        sourceGap: expect.stringMatching(
+          /controlled NCAA Operations surveillance\/ramp-inspection procedure/i,
+        ),
+        refreshPolicy: expect.objectContaining({
+          sourceCollectionId: "NCAA-NAMCATS-ALL-PAGES",
+          reconciliationIntervalMonths: 6,
+          expertValidationIntervalMonths: 12,
+          documentCount: 58,
+          updateMode: "PROPOSE_DRAFT_ONLY",
+        }),
+        scopeRecommendation: expect.objectContaining({
+          status: "ADVISORY_ONLY",
+          historyState: "INSUFFICIENT_FOR_DEFERRAL",
+          questionRecommendations: expect.arrayContaining([
+            expect.objectContaining({
+              questionId: "CAB-EMEQ-PBE-001",
+              classification: "FOCUSED_FULL",
+            }),
+          ]),
+        }),
+        proposedQuestions: expect.arrayContaining([
+          expect.objectContaining({ id: "CAB-EMEQ-PBE-001" }),
+        ]),
+      }),
+    ]);
+    expect(filtered.items[0]!.mappings[0]!.proposedQuestions).toHaveLength(6);
     renderAdminRoute("/admin/regulatory-library", runtime);
     const page = await screen.findByTestId("admin-regulatory-library-page");
-    expect(page).toHaveTextContent("Mock regulatory library");
-    expect(page).toHaveTextContent("Demo data");
+    expect(page).toHaveTextContent("Candidate-only regulatory library");
+    expect(page).toHaveTextContent("Public source baseline captured locally");
     expect(page).toHaveTextContent("Not a legal decision");
-    expect(page).toHaveTextContent("No real regulatory ingestion");
+    expect(page).toHaveTextContent("No autonomous publication");
+    expect(await within(page).findByText("RMAP-OPS-AOC-CABIN-RAMP-001")).toBeVisible();
+    expect(page).toHaveTextContent(/PQ 4\.450 · CE-7/);
+    expect(page).toHaveTextContent(/EXPERT REVIEW REQUIRED/);
+    expect(page).toHaveTextContent(/Controlled-source gap/);
+    expect(page).toHaveTextContent(/Event-driven review with scheduled reconciliation/);
+    expect(page).toHaveTextContent(/58 public files/);
+    expect(page).toHaveTextContent(/2027-01-28 · every 6 months/);
+    expect(page).toHaveTextContent(/PROPOSE DRAFT ONLY/);
+    expect(within(page).getAllByRole("listitem").filter((item) => item.textContent?.includes("CAB-")).length).toBeGreaterThanOrEqual(6);
+    const user = userEvent.setup();
+    await user.selectOptions(within(page).getByRole("combobox", { name: "Regulatory service provider" }), "Air Operator (AOC)");
+    expect(await within(page).findByText("RMAP-OPS-AOC-CABIN-RAMP-001")).toBeVisible();
   });
 
   it("preserves the exact TPL-CABIN-2026 master to immutable CTV-CABIN-1 relationship and exact unsupported-row reasons", async () => {
@@ -240,6 +286,15 @@ describe("Admin secondary workspaces", () => {
     await capability.createDraft({ templateId: master.id, expectedRevision: master.revision, idempotencyKey: "TASK10-SELECTION-DRAFT", changeReason: "Selection reset regression." });
     renderAdminComponent(<ChecklistBuilderPage />, runtime);
     const select = await screen.findByRole("combobox", { name: "Question to add" });
+    expect(await screen.findByRole("heading", { name: "OPS · Air Operator (AOC) cabin/ramp pilot" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Recommended scope for the current scenario" })).toBeVisible();
+    expect(screen.getByText(/INSUFFICIENT FOR DEFERRAL/)).toBeVisible();
+    expect(screen.getAllByText(/FOCUSED FULL/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/ROTATIONAL SAMPLE/).length).toBeGreaterThanOrEqual(3);
+    expect(screen.getAllByText(/MANDATORY CORE/).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText(/No recorded problem is not evidence of compliance/)).toBeVisible();
+    expect(screen.getByText(/6 of 6 published questions traced/i)).toBeVisible();
+    expect(screen.getAllByText(/Regulatory trace · PQ 4\.450 · CE-7/).length).toBeGreaterThanOrEqual(6);
     await user.selectOptions(select, "Q-ADMIN-2026-007");
     await user.click(screen.getByRole("button", { name: /Add Q-ADMIN-2026-007/ }));
     expect(await screen.findByText("Q-ADMIN-2026-007", { selector: ".admin-builder-list small" })).toBeVisible();

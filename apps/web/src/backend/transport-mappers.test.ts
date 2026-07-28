@@ -5,12 +5,103 @@ import {
   mapCapRevisions,
   mapChecklistTemplateVersionDetail,
   mapFinding,
+  mapAdminRegulatoryReference,
   mapInspectionPackage,
   mapManagerDashboard,
   mapRiskManagementProjection,
 } from "./transport-mappers";
 
 describe("transport mappers", () => {
+  it("deep-maps regulatory trace arrays and proposed Evidence examples", () => {
+    const transport = {
+      id: "NAMCARS-CAB-001",
+      title: "Cabin regulatory references",
+      version: "2026.1",
+      status: "ACTIVE" as const,
+      effectiveDate: "2026-01-01",
+      configuredRules: ["Rule"],
+      changeHistory: ["Change"],
+      mappings: [{
+        id: "RMAP-OPS-AOC-CABIN-RAMP-001",
+        auditArea: "OPS",
+        serviceProviderTypes: ["Air Operator (AOC)"],
+        applicableRegulations: ["Part 121"],
+        criticalElement: "CE-7",
+        protocolQuestionId: "4.450",
+        protocolQuestion: "Does the surveillance programme include ramp inspections?",
+        annexReferences: ["Annex 6 Part I 4.2.2.2"],
+        nationalReferences: ["NAMCAR 121.07.6"],
+        caaImplementationReference: "Controlled procedure not supplied",
+        requirement: "Execute risk-based ramp surveillance.",
+        verificationObjective: "Verify selected cabin safety controls.",
+        expectedEvidence: ["Inspector observation"],
+        whyIncluded: "Candidate decomposition.",
+        reviewStatus: "EXPERT_REVIEW_REQUIRED" as const,
+        sourceGap: "Controlled procedure not supplied.",
+        refreshPolicy: {
+          sourceCollectionId: "NCAA-NAMCATS-ALL-PAGES",
+          lastCheckedAt: "2026-07-28T00:00:00Z",
+          nextReconciliationDate: "2027-01-28",
+          nextExpertValidationDate: "2027-07-28",
+          eventDrivenReview: true as const,
+          reconciliationIntervalMonths: 6 as const,
+          expertValidationIntervalMonths: 12 as const,
+          sourceChangeState: "BASELINE_CAPTURED" as const,
+          updateMode: "PROPOSE_DRAFT_ONLY" as const,
+          documentCount: 58,
+          manifestPath: "docs/regulatory-sources/ncaa-namcats-manifest.json",
+          guardrails: ["Draft only"],
+        },
+        scopeRecommendation: {
+          id: "SCOPE-REC-001",
+          status: "ADVISORY_ONLY" as const,
+          historyState: "INSUFFICIENT_FOR_DEFERRAL" as const,
+          generatedAt: "2026-07-28T00:00:00Z",
+          signals: ["Open Finding"],
+          guardrails: ["No automatic omission"],
+          questionRecommendations: [{
+            questionId: "CAB-EMEQ-PBE-001",
+            classification: "FOCUSED_FULL" as const,
+            rationale: "Open PBE Finding.",
+            historyBasis: "FND-CAB-2026-001",
+            requiresManagerApproval: true as const,
+          }],
+        },
+        sources: [{
+          id: "ICAO-PQ-OPS-2024-R1.1",
+          title: "2024 OPS PQs",
+          sourceType: "ICAO_PQ" as const,
+          version: "September 2024 Revision 1.1",
+          status: "SUPPLIED_WORKING_COPY" as const,
+          locator: "PQ 4.450",
+          url: null,
+        }],
+        proposedQuestions: [{
+          id: "CAB-EMEQ-PBE-001",
+          prompt: "Is the PBE serviceable?",
+          verificationMethod: "Observe and reconcile records.",
+          evidenceExamples: ["Observation", "Serviceability record"],
+          whyIncluded: "Cabin safety coverage.",
+        }],
+      }],
+    };
+
+    const mapped = mapAdminRegulatoryReference(transport);
+
+    expect(mapped).toEqual(transport);
+    expect(mapped.mappings).not.toBe(transport.mappings);
+    expect(mapped.mappings[0]?.sources).not.toBe(transport.mappings[0]?.sources);
+    expect(mapped.mappings[0]?.refreshPolicy.guardrails).not.toBe(
+      transport.mappings[0]?.refreshPolicy.guardrails,
+    );
+    expect(mapped.mappings[0]?.scopeRecommendation.questionRecommendations).not.toBe(
+      transport.mappings[0]?.scopeRecommendation.questionRecommendations,
+    );
+    expect(mapped.mappings[0]?.proposedQuestions[0]?.evidenceExamples).not.toBe(
+      transport.mappings[0]?.proposedQuestions[0]?.evidenceExamples,
+    );
+  });
+
   it("maps generated transport Finding values into independent domain values", () => {
     const transport = {
       id: "FND-CAB-2026-001",

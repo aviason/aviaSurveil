@@ -27,14 +27,89 @@ type AdminQuestion struct {
 	Revision            int64  `json:"revision"`
 }
 
+type AdminRegulatorySource struct {
+	ID         string  `json:"id"`
+	Title      string  `json:"title"`
+	SourceType string  `json:"sourceType"`
+	Version    string  `json:"version"`
+	Status     string  `json:"status"`
+	Locator    string  `json:"locator"`
+	URL        *string `json:"url"`
+}
+
+type AdminProposedInspectionQuestion struct {
+	ID                 string   `json:"id"`
+	Prompt             string   `json:"prompt"`
+	VerificationMethod string   `json:"verificationMethod"`
+	EvidenceExamples   []string `json:"evidenceExamples"`
+	WhyIncluded        string   `json:"whyIncluded"`
+}
+
+type AdminRegulatoryRefreshPolicy struct {
+	SourceCollectionID             string   `json:"sourceCollectionId"`
+	LastCheckedAt                  string   `json:"lastCheckedAt"`
+	NextReconciliationDate         string   `json:"nextReconciliationDate"`
+	NextExpertValidationDate       string   `json:"nextExpertValidationDate"`
+	EventDrivenReview              bool     `json:"eventDrivenReview"`
+	ReconciliationIntervalMonths   int64    `json:"reconciliationIntervalMonths"`
+	ExpertValidationIntervalMonths int64    `json:"expertValidationIntervalMonths"`
+	SourceChangeState              string   `json:"sourceChangeState"`
+	UpdateMode                     string   `json:"updateMode"`
+	DocumentCount                  int64    `json:"documentCount"`
+	ManifestPath                   string   `json:"manifestPath"`
+	Guardrails                     []string `json:"guardrails"`
+}
+
+type AdminChecklistQuestionScopeRecommendation struct {
+	QuestionID              string `json:"questionId"`
+	Classification          string `json:"classification"`
+	Rationale               string `json:"rationale"`
+	HistoryBasis            string `json:"historyBasis"`
+	RequiresManagerApproval bool   `json:"requiresManagerApproval"`
+}
+
+type AdminChecklistScopeRecommendation struct {
+	ID                      string                                      `json:"id"`
+	Status                  string                                      `json:"status"`
+	HistoryState            string                                      `json:"historyState"`
+	GeneratedAt             string                                      `json:"generatedAt"`
+	Signals                 []string                                    `json:"signals"`
+	Guardrails              []string                                    `json:"guardrails"`
+	QuestionRecommendations []AdminChecklistQuestionScopeRecommendation `json:"questionRecommendations"`
+}
+
+type AdminRegulatoryMapping struct {
+	ID                         string                            `json:"id"`
+	AuditArea                  string                            `json:"auditArea"`
+	ServiceProviderTypes       []string                          `json:"serviceProviderTypes"`
+	ApplicableRegulations      []string                          `json:"applicableRegulations"`
+	CriticalElement            string                            `json:"criticalElement"`
+	ProtocolQuestionID         string                            `json:"protocolQuestionId"`
+	ProtocolQuestion           string                            `json:"protocolQuestion"`
+	AnnexReferences            []string                          `json:"annexReferences"`
+	NationalReferences         []string                          `json:"nationalReferences"`
+	CAAImplementationReference string                            `json:"caaImplementationReference"`
+	Requirement                string                            `json:"requirement"`
+	VerificationObjective      string                            `json:"verificationObjective"`
+	ExpectedEvidence           []string                          `json:"expectedEvidence"`
+	WhyIncluded                string                            `json:"whyIncluded"`
+	ReviewStatus               string                            `json:"reviewStatus"`
+	SourceGap                  *string                           `json:"sourceGap"`
+	RefreshPolicy              AdminRegulatoryRefreshPolicy      `json:"refreshPolicy"`
+	ScopeRecommendation        AdminChecklistScopeRecommendation `json:"scopeRecommendation"`
+	Sources                    []AdminRegulatorySource           `json:"sources"`
+	ProposedQuestions          []AdminProposedInspectionQuestion `json:"proposedQuestions"`
+}
+
 type AdminRegulatoryReference struct {
-	ID              string   `json:"id"`
-	Title           string   `json:"title"`
-	Version         string   `json:"version"`
-	Status          string   `json:"status"`
-	EffectiveDate   string   `json:"effectiveDate"`
-	ConfiguredRules []string `json:"configuredRules"`
-	ChangeHistory   []string `json:"changeHistory"`
+	ID              string                   `json:"id"`
+	Title           string                   `json:"title"`
+	Version         string                   `json:"version"`
+	Status          string                   `json:"status"`
+	EffectiveDate   string                   `json:"effectiveDate"`
+	ConfiguredRules []string                 `json:"configuredRules"`
+	ChangeHistory   []string                 `json:"changeHistory"`
+	Mappings        []AdminRegulatoryMapping `json:"mappings"`
 }
 
 type AdminTemplateMaster struct {
@@ -134,14 +209,25 @@ func (service *WorkspaceService) ListRegulatoryReferences(
 			return nil, err
 		}
 		var detail struct {
-			ConfiguredRules []string `json:"configuredRules"`
-			ChangeHistory   []string `json:"changeHistory"`
+			ConfiguredRules []string                 `json:"configuredRules"`
+			ChangeHistory   []string                 `json:"changeHistory"`
+			Mappings        []AdminRegulatoryMapping `json:"mappings"`
 		}
 		if err := json.Unmarshal(snapshot, &detail); err != nil {
 			return nil, fmt.Errorf("decode regulatory reference snapshot: %w", err)
 		}
 		item.ConfiguredRules = detail.ConfiguredRules
 		item.ChangeHistory = detail.ChangeHistory
+		item.Mappings = detail.Mappings
+		if item.ConfiguredRules == nil {
+			item.ConfiguredRules = []string{}
+		}
+		if item.ChangeHistory == nil {
+			item.ChangeHistory = []string{}
+		}
+		if item.Mappings == nil {
+			item.Mappings = []AdminRegulatoryMapping{}
+		}
 		items = append(items, item)
 	}
 	return items, rows.Err()

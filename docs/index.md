@@ -14,6 +14,7 @@ This is the canonical docs map for AviaSurveil360. Use it after the root
 | `exec-plans/index.md` | Active execution-plan status and one next concrete todo per plan. |
 | `exec-plans/tech-debt-tracker.md` | Durable blockers, accepted risks, missing evidence, and technical debt. |
 | `product-specs/index.md` | Product source documents for domain, workflow, UX, data, analytics, scenarios, and references. |
+| `regulatory-sources/README.md` | Candidate-only public-source intake, local source-vault, hash-manifest, extraction-state, and refresh-governance contract. |
 | `demo-handoff/` | Demo prompts, stakeholder acceptance criteria, and full-MVP handoff prompt. |
 | `demo-evidence/BUILD_SUMMARY.md` | Current local demo evidence, known limitations, and production gaps. |
 | `demo-evidence/REACT_MOCK_SLICE_2026-07-20.md` | Tasks 2-4 React mock candidate scope, canonical transcript, local gates, and explicit exclusions. |

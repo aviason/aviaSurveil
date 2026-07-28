@@ -48,7 +48,7 @@ export function ApplicationShell({
         <div className="auditee-demo-ribbon" role="status">
           <span className="auditee-demo-ribbon__dot" aria-hidden="true" />
           <strong>DEMO</strong>
-          <span className="auditee-demo-ribbon__text">Frontend clickable prototype — mock data only. Frontend-only demo saved in this browser; no backend, database, AI service, regulatory ingestion, or real integrations.</span>
+          <span className="auditee-demo-ribbon__text">Frontend clickable prototype — mock data only. Frontend-only demo saved in this browser; no backend, database, AI runtime, production regulatory ingestion, or real integrations.</span>
           <button
             className="auditee-demo-ribbon__reset"
             onClick={() => {

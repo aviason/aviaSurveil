@@ -28,6 +28,7 @@
 .admin-guardrails { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
 .admin-guardrails span { padding: 5px 9px; border-radius: 999px; color: #405271; background: #e7edf6; font-size: 11px; font-weight: 700; }
 .admin-card-register { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); gap: 14px; }
+.admin-mapping-register { display: grid; gap: 14px; }
 .admin-record-card { min-width: 0; padding: 16px; border: 1px solid #d8e0ec; border-radius: 10px; background: #fff; box-shadow: 0 1px 2px rgb(16 32 56 / 8%); overflow-wrap: anywhere; }
 .admin-record-card > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .admin-record-card header b,
@@ -87,6 +88,73 @@
 .admin-template-identity { display: grid; }
 .admin-template-identity span,
 .admin-template-identity b { display: block; }
+.admin-regulatory-mapping { margin-top: 18px; padding-top: 18px; border-top: 1px solid #d8e0ec; }
+.admin-regulatory-mapping > header,
+.admin-regulatory-pilot > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.admin-regulatory-mapping h2,
+.admin-regulatory-pilot h2 { margin: 2px 0; color: #16202e; font-size: 19px; }
+.admin-regulatory-mapping h3 { margin: 18px 0 8px; color: #16202e; font-size: 14px; }
+.admin-regulatory-mapping .eyebrow,
+.admin-regulatory-pilot .eyebrow { margin: 0; color: #3777d9; font-size: 11px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+.admin-regulatory-mapping header small,
+.admin-regulatory-pilot header small { display: block; color: #70809e; }
+.admin-review-badge { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; font-size: 11px; font-weight: 750; }
+.admin-review-badge--expert_review_required { color: #674b13; background: #fff2cb; }
+.admin-review-badge--validated { color: #27623d; background: #e4f5ed; }
+.admin-review-badge--rejected { color: #8b2525; background: #fff0f0; }
+.admin-regulatory-scope { margin: 14px 0; }
+.admin-trace-chain { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.admin-trace-chain > section { min-width: 0; padding: 12px; border: 1px solid #dce5f2; border-radius: 9px; background: #f8fafd; }
+.admin-trace-chain > section > span { display: block; margin-bottom: 5px; color: #3777d9; font-size: 10px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
+.admin-trace-chain p,
+.admin-trace-chain ul { margin: 7px 0 0; padding-left: 18px; color: #405271; line-height: 1.45; }
+.admin-trace-chain p { padding-left: 0; }
+.admin-source-gap { margin: 14px 0; padding: 12px 14px; border: 1px solid #e4c27a; border-left: 4px solid #cf8a16; border-radius: 8px; color: #674b13; background: #fff9e9; }
+.admin-source-gap p { margin: 4px 0 0; color: inherit; }
+.admin-refresh-policy { margin: 14px 0; padding: 14px; border: 1px solid #bad1ee; border-radius: 9px; background: #f6f9fe; }
+.admin-refresh-policy > header,
+.admin-scope-recommendation > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.admin-refresh-policy > header h3,
+.admin-scope-recommendation > header h2 { margin: 2px 0; color: #16202e; }
+.admin-refresh-policy > header > span { flex: 0 0 auto; padding: 4px 8px; border-radius: 999px; color: #164f9f; background: #e3eefc; font-size: 11px; font-weight: 750; }
+.admin-refresh-policy dl { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 14px 0; }
+.admin-refresh-policy > ul { margin-bottom: 0; }
+.admin-regulatory-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.admin-regulatory-detail-grid section { min-width: 0; }
+.admin-proposed-questions,
+.admin-published-trace-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; counter-reset: regulatory-question; }
+.admin-proposed-questions > li,
+.admin-published-trace-list > li { min-width: 0; padding: 12px; border: 1px solid #e1e7f0; border-radius: 9px; counter-increment: regulatory-question; }
+.admin-proposed-questions > li > div:first-child { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.admin-proposed-questions small,
+.admin-published-trace-list small { display: block; color: #70809e; }
+.admin-proposed-questions p { margin: 6px 0 0; }
+.admin-regulatory-sources { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.admin-regulatory-sources li { display: grid; gap: 3px; padding: 10px 12px; border-radius: 8px; background: #f6f8fb; }
+.admin-regulatory-sources li div { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.admin-regulatory-sources span,
+.admin-regulatory-sources small { color: #70809e; }
+.admin-regulatory-disclaimer { margin: 16px 0 0; padding: 10px 12px; border-radius: 8px; color: #405271; background: #eef4fd; }
+.admin-regulatory-pilot { margin-bottom: 16px; padding: 16px; border: 1px solid #a9c8f4; border-radius: 10px; background: #f6f9fe; }
+.admin-regulatory-pilot dl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 16px 0; }
+.admin-regulatory-pilot dt { color: #70809e; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+.admin-regulatory-pilot dd { margin: 3px 0 0; overflow-wrap: anywhere; }
+.admin-regulatory-pilot > p { margin-bottom: 0; color: #405271; line-height: 1.5; }
+.admin-scope-recommendation { margin-bottom: 16px; padding: 16px; border: 1px solid #c3d7cf; border-radius: 10px; background: #f5faf7; }
+.admin-scope-recommendation .eyebrow { margin: 0; color: #27704a; font-size: 11px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+.admin-scope-recommendation header small { color: #70809e; }
+.admin-scope-recommendation > p { color: #405271; line-height: 1.5; }
+.admin-published-trace-list { margin: 12px 0; }
+.admin-published-trace-list > li > b,
+.admin-published-trace-list > li > small { display: block; }
+.admin-question-trace { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: #f6f8fb; }
+.admin-question-trace summary { color: #164f9f; cursor: pointer; font-weight: 700; }
+.admin-question-trace p { margin: 7px 0 0; color: #405271; line-height: 1.45; }
+.admin-question-scope { margin-top: 8px; padding: 9px 10px; border-left: 3px solid #27704a; border-radius: 0 7px 7px 0; background: #f2f8f4; }
+.admin-question-scope > span { display: inline-block; padding: 3px 7px; border-radius: 999px; color: #27623d; background: #dff1e7; font-size: 10px; font-weight: 800; letter-spacing: .04em; }
+.admin-question-scope p { margin: 6px 0 0; color: #405271; line-height: 1.45; }
+.admin-question-scope small { margin-top: 5px; }
+.admin-builder-question-copy { min-width: 0; }
 .admin-builder-draft > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .admin-builder-draft h2 { margin: 0; }
 .admin-builder-add { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 12px; margin: 16px 0; }
@@ -115,7 +183,11 @@
   .admin-question-composer form,
   .admin-builder-add,
   .admin-package-grid,
-  .admin-configuration-grid { grid-template-columns: 1fr; }
+  .admin-configuration-grid,
+  .admin-trace-chain,
+  .admin-regulatory-detail-grid,
+  .admin-regulatory-pilot dl,
+  .admin-refresh-policy dl { grid-template-columns: 1fr; }
   .admin-question-composer form label,
   .admin-question-composer form > p,
   .admin-question-composer form > button { grid-column: 1; }
@@ -125,6 +197,12 @@
   .admin-disabled-action button,
   .admin-action-link { width: 100%; }
   .admin-secondary-page .admin-record-card > header { align-items: flex-start; flex-direction: column; }
+  .admin-regulatory-mapping > header,
+  .admin-regulatory-pilot > header,
+  .admin-refresh-policy > header,
+  .admin-scope-recommendation > header,
+  .admin-regulatory-sources li div,
+  .admin-proposed-questions > li > div:first-child { align-items: flex-start; flex-direction: column; }
   .admin-secondary-page .admin-lifecycle-dialog { align-items: end; padding: 12px; }
   .admin-secondary-page .admin-lifecycle-dialog__panel { max-height: calc(100vh - 24px); padding: 16px; }
   .admin-secondary-page .admin-lifecycle-dialog__panel > header { align-items: stretch; flex-direction: column; }

@@ -305,13 +305,13 @@ func Reset(ctx context.Context, pool *database.Pool, now time.Time) error {
 			) VALUES
 				('NAMCARS-CAB-001-V1', 'NAMCARS-CAB-001', 1,
 					'Configured Cabin Safety reference', 'ACTIVE', '2026-01-01',
-					'{"versionLabel":"2026.1","configuredRules":["Configured reference for Cabin Inspection sampling"],"changeHistory":["2026-01-01 — Added to the mock regulatory library"]}',
+					$2,
 					$1),
 				('NAMCARS-FOPS-004-V1', 'NAMCARS-FOPS-004', 1,
 					'Configured Flight Operations reference', 'SUPERSEDED', '2025-10-01',
-					'{"versionLabel":"2025.4","configuredRules":["Reference-only Flight Operations sampling metadata"],"changeHistory":["2026-01-01 — Superseded in demo data"]}',
+					'{"versionLabel":"2025.4","configuredRules":["Reference-only Flight Operations sampling metadata"],"changeHistory":["2026-01-01 — Superseded in demo data"],"mappings":[]}',
 					$1)
-		`, now); err != nil {
+		`, now, []byte(opsAOCCabinRampRegulatorySnapshot)); err != nil {
 				return fmt.Errorf("seed canonical regulatory references: %w", err)
 			}
 			if _, err := transaction.Exec(ctx, `
