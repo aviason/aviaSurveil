@@ -78,5 +78,15 @@ compose_arguments=(
   --rm
 )
 
-docker "${compose_arguments[@]}" preprod-data-loader \
-  "$operation" /run/config/preprod-loader.json
+if [[ "$operation" == "run-connected" &&
+  "${AVIA_PREPROD_PROFILE_QUALIFICATION:-false}" == "true" ]]; then
+  docker "${compose_arguments[@]}" \
+    --entrypoint /bin/sh \
+    preprod-data-loader \
+    -c 'sleep 2; /app/preprod-data-loader "$@"; status=$?; sleep 2; exit "$status"' \
+    preprod-data-loader \
+    "$operation" /run/config/preprod-loader.json
+else
+  docker "${compose_arguments[@]}" preprod-data-loader \
+    "$operation" /run/config/preprod-loader.json
+fi

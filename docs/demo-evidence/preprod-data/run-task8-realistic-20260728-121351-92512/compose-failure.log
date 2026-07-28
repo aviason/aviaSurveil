@@ -1,0 +1,7 @@
+preprod-api-1  | {"time":"2026-07-28T12:14:34.446442554Z","level":"INFO","msg":"API listening","service":"api","address":"0.0.0.0:8080","environment":"development"}
+preprod-migration-1  | 2026/07/28 12:14:34 INFO database migration completed version=20
+preprod-migration-1  | 2026/07/28 12:15:26 INFO database migration completed version=20
+preprod-migration-1  | 2026/07/28 12:15:28 INFO database migration completed version=20
+preprod-migration-1  | 2026/07/28 12:15:31 INFO database migration completed version=20
+preprod-migration-1  | 2026/07/28 12:16:22 INFO database migration completed version=20
+preprod-migration-1  | 2026/07/28 12:16:24 INFO database migration completed version=20

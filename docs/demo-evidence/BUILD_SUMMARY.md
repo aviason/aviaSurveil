@@ -160,12 +160,14 @@ on-call evidence.
 
 Production retention, legal hold, deletion, records, provider, identity
 federation, external email, data-residency, release, and operating decisions
-remain deferred to their owners. A later explicit authorization started Plan 5
-Task 2; its normal/canonical-test artifact split, desired-membership
-foundation, least-privilege Keycloak service client, and provider-backed Admin
-directory are now `verified locally` in
-[Plan 5 Identity And Data Foundation Evidence](PLAN5_IDENTITY_DATA_FOUNDATION_2026-07-28.md).
-Plan 5 Tasks 3–9 remain `not run`.
+remain deferred to their owners. A later explicit authorization advanced Plan
+5 Tasks 2–8. Identity, lifecycle, session, Admin, isolated loader, connected
+scenario, and all-profile local qualification work is now `verified locally`
+in [Plan 5 Identity And Data Foundation Evidence](PLAN5_IDENTITY_DATA_FOUNDATION_2026-07-28.md).
+The active profile set is `smoke@1.0.0`, `acceptance@1.0.0`,
+`realistic@1.1.0`, and `stress@1.1.0`; full-volume `realistic@1.0.0` and
+`stress@1.0.0` are retained as deferred release-readiness endurance evidence
+with status `not run`. Plan 5 Task 9 remains `not run`.
 
 The local recommendation is `GO`, the artifact remains `candidate-only`, and
 release is `release pending`. These adjacent candidates do not make the root

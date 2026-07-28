@@ -52,3 +52,36 @@ func TestFrozenProfilesAreExactAndVersioned(t *testing.T) {
 		t.Fatalf("unknown profile version was accepted")
 	}
 }
+
+func TestOwnerApprovedLocalQualificationProfilesAreVersionedAndBounded(t *testing.T) {
+	expected := []struct {
+		name                 string
+		organizations        int64
+		version              string
+		qualificationSeconds int64
+		objectBytes          int64
+	}{
+		{"realistic", 50, "1.1.0", 900, 2 * 1024 * 1024 * 1024},
+		{"stress", 100, "1.1.0", 1800, 512 * 1024 * 1024},
+	}
+	for _, item := range expected {
+		profile, err := profiles.Lookup(item.name, item.version)
+		if err != nil {
+			t.Fatalf("lookup %s@%s: %v", item.name, item.version, err)
+		}
+		if got := profile.ExpectedCounts["organizations"]; got != item.organizations {
+			t.Fatalf("%s organizations = %d", item.name, got)
+		}
+		if got := profile.ResourceEnvelope.QualificationSeconds; got !=
+			item.qualificationSeconds {
+			t.Fatalf("%s qualification seconds = %d", item.name, got)
+		}
+		if got := profile.ResourceEnvelope.ObjectBytes; got != item.objectBytes {
+			t.Fatalf("%s object bytes = %d", item.name, got)
+		}
+		if profile.ExpectedCounts["routeDispositions"] != 86 ||
+			profile.ExpectedCounts["visibleActionDispositions"] != 306 {
+			t.Fatalf("%s did not retain complete catalogs", item.name)
+		}
+	}
+}

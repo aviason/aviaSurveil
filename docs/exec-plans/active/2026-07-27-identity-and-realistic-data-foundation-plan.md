@@ -1,6 +1,6 @@
 # Identity And Realistic Data Foundation Plan
 
-**Status:** `active — Tasks 1–7 complete; Task 8 next`
+**Status:** `active — Tasks 1–8 complete; Task 8 publication pending`
 
 **Reviewed task count:** 9
 
@@ -24,8 +24,9 @@ published; Tasks 2–7 are `26da3c0`, `8cf2b57`, `bedff45`, `ac5f786`,
 This plan is the predecessor of the AviaCore/ML readiness and local preprod
 release-candidate plans. Task 6 is complete, `verified locally`, published,
 and remotely confirmed. Task 7 is complete, `verified locally`, published as
-`a2d474431d8bcc33ebc0557630cd7038cbcd8ec0`, and remotely confirmed. Tasks
-8–9 remain `not run`.
+`a2d474431d8bcc33ebc0557630cd7038cbcd8ec0`, and remotely confirmed. Task 8
+is complete and `verified locally` under owner-approved qualification profile
+revision `1.1.0`; publication is pending. Task 9 remains `not run`.
 
 ## Scope
 
@@ -130,7 +131,7 @@ services live under `deploy/local/` and `scripts/`.
 ## Workload Profiles
 
 The generator must publish an exact manifest before writing data. The initial
-engineering profiles are approved as contract `1.0.0` targets:
+engineering profiles remain frozen as contract `1.0.0` targets:
 
 | Profile | Organizations | Users | Audits | Checklist responses | Findings | CAP revisions | Evidence refs/versions | Report versions | Communications and notifications | Audit events |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -139,11 +140,17 @@ engineering profiles are approved as contract `1.0.0` targets:
 | `realistic` | 100 | 2,000 | 20,000 | 250,000 | 60,000 | 100,000 | 200,000 | 75,000 | 1,000,000 | 5,000,000 |
 | `stress` | 200 | 4,000 | 40,000 | 500,000 | 120,000 | 200,000 | 400,000 | 150,000 | 2,000,000 | 10,000,000 |
 
-These are synthetic engineering targets, not forecasts, runtime feasibility
-claims, or regulatory targets. The approved disk ceilings are 2 GiB, 20 GiB,
-50 GiB, and 64 GiB respectively. Stress is bounded to 12 GiB memory, an
-8-hour duration, and an 8 GiB object payload. Any later owner-approved workload
-revision must version the entire profile and retain earlier manifests.
+These are synthetic engineering targets, not forecasts or regulatory targets.
+On 2026-07-28 the owner approved `OWNER-DIRECTIVE-2026-07-28-P5T8-01`:
+full-volume `realistic@1.0.0` and `stress@1.0.0` are retained unchanged as
+deferred release-readiness endurance evidence with status `not run`. The
+required local qualification profiles are versioned as `realistic@1.1.0`
+(2× `acceptance@1.0.0`, maximum 900 seconds total) and `stress@1.1.0`
+(4× `acceptance@1.0.0`, maximum 1,800 seconds total and exact 512 MiB object
+payload). Both retain all 40 data families, eight roles, 86 routes, 306 visible
+actions, relationship reconciliation, privacy, resume, resource, and
+whole-namespace cleanup gates. Earlier manifests and create-only evidence must
+remain retained.
 
 All four profiles carry the same named identity and end-to-end workflow
 scenario families, all eight roles, and an explicit 86-route
@@ -377,6 +384,43 @@ feasibility decision.
   cleanup attestation, and zero task-owned residue. Task 7 was published as
   `a2d474431d8bcc33ebc0557630cd7038cbcd8ec0` and the exact remote ref was
   confirmed; Tasks 8–9 remain `not run`.
+- [x] (2026-07-28) Task 8 recorded the strict scale-contract RED
+  `node --test tests/preprod-data-scale-contract.test.mjs` exited 1 with
+  `Could not find 'tests/preprod-data-scale-contract.test.mjs'`. The strict
+  profile-runner RED `./scripts/test-preprod-data-profile.sh smoke` exited 127
+  with `no such file or directory`. Neither required Task 8 artifact existed
+  before these failures.
+- [x] (2026-07-28) Task 8 `smoke@1.0.0` and `acceptance@1.0.0`
+  qualification passed on the current implementation with exact seven-file
+  evidence, complete catalogs, interruption/resume, positive resource
+  samples, zero privacy findings, bounded cleanup, and zero residue.
+- [x] (2026-07-28) At the owner's request, the running full-volume
+  `realistic@1.0.0` attempt
+  `run-task8-realistic-20260728-121351-92512` was interrupted safely with exit
+  130. Its cleanup trap removed all task-owned containers, volumes, and
+  networks; protected PID 13055 remained alive. The create-only failed run is
+  retained.
+- [x] (2026-07-28) Owner-approved qualification revision
+  `OWNER-DIRECTIVE-2026-07-28-P5T8-01` is complete. The new strict RED
+  package passed 27/30 Node tests but rejected absent `1.1.0` qualification
+  manifests, total-duration enforcement, and owner metadata. The focused Go
+  RED failed to compile because `QualificationSeconds` was undefined and also
+  rejected unknown `stress@1.1.0`.
+- [x] (2026-07-28) Final `realistic@1.1.0` completed in 326/900 seconds
+  total with 111 positive resource samples, 228 seconds generation, 25.64 MiB
+  peak loader memory, 0.528 peak CPU cores, zero privacy findings, complete
+  reconciliation, cleanup in four seconds, and zero residue.
+- [x] (2026-07-28) The first `stress@1.1.0` live attempt exposed
+  `TARGET_RECONCILIATION_FAILED`. The focused RED then failed with `first
+  local stress object size = 0, expected 14914`, proving the exact payload
+  helper was limited to version `1.0.0`. The versioned fix retained the 8 GiB
+  endurance payload and produced the required local exact 512 MiB payload.
+- [x] (2026-07-28) Final `stress@1.1.0` completed in 649/1,800 seconds
+  total with exactly 536,870,912 object bytes across 36,000 versions, 258
+  positive resource samples, 528 seconds generation, 24.12 MiB peak loader
+  memory, 0.912 peak CPU cores, zero privacy findings, cleanup in five
+  seconds, and zero residue. Final focused Node, race-enabled Go, vet, shell,
+  normal-artifact, and diff gates passed.
 
 ## Tasks
 
@@ -1347,6 +1391,39 @@ did not recreate the cleaned Compose namespace.
 
 ### Task 8: Qualify Smoke, Acceptance, Realistic, And Stress Profiles
 
+**Task status:** `complete — verified locally; publication pending`; Tasks 1–7
+are complete, published, and remotely confirmed. Task 9 remains `not run`.
+
+**Strict RED**
+
+- `node --test tests/preprod-data-scale-contract.test.mjs` exited 1:
+  `Could not find 'tests/preprod-data-scale-contract.test.mjs'`.
+- `./scripts/test-preprod-data-profile.sh smoke` exited 127:
+  `no such file or directory`.
+- Later strict REDs proved, in order: the interruption hook was undefined;
+  non-empty resume was rejected; streaming relationship and object
+  reconciliation were absent; the stress payload helper was absent or wrong;
+  the normal API probe Compose service was missing; its entrypoint lacked
+  secrets and then failed with `AVIA_OBJECT_STORE_ENDPOINT is required when
+  object storage is enabled`; an uppercase run ID was invalid; explicit
+  qualification environment propagation was missing; and the first
+  functionally successful smoke run reported non-evidentiary zero memory and
+  CPU peaks.
+- Real connected acceptance then failed with
+  `AUTHORITATIVE_COMMAND_FAILED family=assignments` and later
+  `AUTHORITATIVE_COMMAND_FAILED family=checklistResponses`. Focused scale
+  tests identified duplicate relationship keys at indices 1,000, 20,000, and
+  40,000 for both families before the relationship cycles were corrected.
+- The owner revision RED package passed 27/30 Node tests but rejected absent
+  `1.1.0` metadata and duration enforcement. Focused Go RED failed because
+  `QualificationSeconds` was undefined and `stress@1.1.0` was unknown.
+- The first local stress revision attempt failed live with
+  `TARGET_RECONCILIATION_FAILED`; its focused RED reported `first local stress
+  object size = 0, expected 14914`.
+
+No matching implementation preceded its RED. Every failed run directory is
+retained as create-only evidence.
+
 **Files**
 
 - Create `scripts/test-preprod-data-profile.sh`.
@@ -1356,28 +1433,32 @@ did not recreate the cleaned Compose namespace.
 
 **Work**
 
-- [ ] Load each profile into a clean isolated database and compare actual
+- [x] Load each profile into a clean isolated database and compare actual
   counts, relationship hashes, lifecycle distribution, and audit/event totals
   to its manifest.
-- [ ] Reconcile the complete namespace: Keycloak accounts, enabled/required-
+- [x] Reconcile the complete namespace: Keycloak accounts, enabled/required-
   action/role/organization state, desired memberships/revisions, invitation
   delivery and Mailpit records, sessions, application rows, objects, audit/
   outbox, scanner/render/notification jobs, and queued/delivered outcomes.
-- [ ] Measure generation time, database size, object metadata size, query
+- [x] Measure generation time, database size, object metadata size, query
   plans, top queries, API latency, worker lag, and cleanup time.
-- [ ] Prove bounded memory and streaming behavior for `realistic` and `stress`.
-- [ ] Interrupt generation at defined boundaries, resume safely, and prove no
+- [x] Prove bounded memory and streaming behavior for local qualification
+  profiles `realistic@1.1.0` and `stress@1.1.0`.
+- [x] Interrupt generation at defined boundaries, resume safely, and prove no
   duplicate authoritative records or conflicting revisions.
-- [ ] Reset only the exact loader-owned local-preprod dataset and prove no
+- [x] Reset only the exact loader-owned local-preprod dataset and prove no
   cross-database, shared realm, or non-preprod target can be selected. Reset
   means an explicitly authorized drop/recreate of the complete disposable
   application/Keycloak/Mailpit/object/job namespace, not selective deletion
   from append-only tables or a shared identity realm.
-- [ ] Scan generated text and evidence for forbidden data patterns and secret
+- [x] Scan generated text and evidence for forbidden data patterns and secret
   material.
-- [ ] Fail closed when any profile exceeds its frozen duration, memory, CPU,
-  disk, object-byte, or cleanup envelope. An owner-approved versioned profile
-  revision is required; resource pressure is not permission to skip `stress`.
+- [x] Fail closed when any profile exceeds its frozen total qualification,
+  generation, memory, CPU, disk, object-byte, or cleanup envelope. The
+  owner-approved versioned `stress@1.1.0` local qualification remains mandatory;
+  resource pressure is not permission to skip it. Full-volume
+  `realistic@1.0.0` and `stress@1.0.0` endurance are separate deferred
+  release-readiness evidence and remain literally `not run`.
 
 **Verification**
 
@@ -1391,14 +1472,49 @@ Run:
 
 Expected: exact manifest reconciliation, zero privacy findings, bounded
 resource use, deterministic replay, retained control records, and safe
-complete-namespace cleanup for all four profiles.
+complete-namespace cleanup for `smoke@1.0.0`, `acceptance@1.0.0`,
+`realistic@1.1.0`, and `stress@1.1.0`. The latter two complete within 900 and
+1,800 seconds total respectively.
+
+Fresh literal results:
+
+| Profile run | Generation / total seconds | Resource peaks | Exact payload and result |
+|---|---:|---|---|
+| `run-task8-smoke-20260728-123820-3753` (`smoke@1.0.0`) | 17 / 125 | 1.637 MiB; 0.132 cores; 5 samples | 6,576 object bytes; privacy 0; envelope clean; cleanup 3 s; residue 0 |
+| `run-task8-acceptance-20260728-124053-5944` (`acceptance@1.0.0`) | 124 / 219 | 25.59 MiB; 0.542 cores; 58 samples | 2,466,000 object bytes; privacy 0; envelope clean; cleanup 3 s; residue 0 |
+| `run-task8-realistic-20260728-124500-8671` (`realistic@1.1.0`) | 228 / 326 of 900 | 25.64 MiB; 0.528 cores; 111 samples | 4,932,000 object bytes; privacy 0; envelope clean; cleanup 4 s; residue 0 |
+| `run-task8-stress-20260728-130443-17486` (`stress@1.1.0`) | 528 / 649 of 1,800 | 24.12 MiB; 0.912 cores; 258 samples | exact 536,870,912 object bytes; privacy 0; envelope clean; cleanup 5 s; residue 0 |
+
+Every success directory contains exactly seven bounded files. Each control
+record retains the expected failed `COMMAND_STREAM_FAILED` result followed by
+one `SUCCEEDED` result and separately consumed load, resume, and cleanup
+authorizations.
+
+Final focused verification:
+
+The first final race rerun inside the restricted sandbox exited 1 because
+`httptest` could not bind `[::1]:0` (`operation not permitted`), not because an
+assertion failed. The exact command was rerun with local loopback permission
+and passed:
+
+| Command | Literal result |
+|---|---|
+| `node --test tests/preprod-identity-data-contract.test.mjs tests/preprod-data-scale-contract.test.mjs tests/preprod-data-boundary.test.mjs` | exit 0; 37/37 passed |
+| `go -C apps/api test -race -p 1 -count=1 ./internal/preproddata/... ./cmd/preprod-data-loader` | exit 0; core 1.541 s, profiles 1.234 s, scenarios 183.776 s, loader 1.514 s |
+| `go -C apps/api vet ./internal/preproddata/... ./cmd/preprod-data-loader` | exit 0 |
+| `bash -n scripts/load-preprod-data.sh scripts/test-preprod-connected-scenarios.sh scripts/test-preprod-data-profile.sh` | exit 0 |
+| `./scripts/test-normal-artifact-boundary.sh` | exit 0; `normal-artifact-boundary: ok` |
+| `git diff --check` | exit 0 |
 
 **Acceptance**
 
-- Every profile is reproducible from source and carries literal performance
-  evidence.
+- Every active local qualification profile is reproducible from source and
+  carries literal performance evidence.
 - A failed profile is not called ready and cannot become the successor plan's
   accepted input.
+- Full-volume `realistic@1.0.0` and `stress@1.0.0` are not required to close
+  this local Task 8 gate; they remain retained, deferred, release-readiness
+  endurance evidence with status `not run`.
 
 ### Task 9: Run The Full Identity And Data Foundation Gate
 
@@ -1460,7 +1576,8 @@ The final matrix includes:
     git diff --check
 
 Expected: every applicable gate passes, task-owned services and output are
-cleaned, and literal non-claims remain.
+cleaned, and literal non-claims remain. The profile commands select the active
+local qualification versions; full-volume endurance remains `not run`.
 
 **Acceptance**
 
@@ -1567,14 +1684,20 @@ without entering normal artifacts. Task 7 is `verified locally`: its
 server-owned connected command boundary materializes all 40 smoke families
 through PostgreSQL, provider-assigned Keycloak subjects, Mailpit, and MinIO;
 reconciles all 86 routes, 306 actions, eight roles, and 45 privacy canaries;
-and proves separately authorized zero-residue cleanup. Tasks 8–9, all-profile
-feasibility, deployment, release, and production readiness remain `not run`;
-the artifact remains `candidate-only` and release remains `release pending`.
+and proves separately authorized zero-residue cleanup. Task 8 is `verified
+locally`: all four active profiles passed complete relationship, privacy,
+interruption/resume, resource, duration, and cleanup gates. Owner-approved
+`realistic@1.1.0` completed in 326/900 seconds and `stress@1.1.0` in
+649/1,800 seconds. Their full-volume `1.0.0` endurance counterparts remain
+retained deferred release-readiness evidence with status `not run`. Task 9,
+deployment, release, and production readiness remain `not run`; the artifact
+remains `candidate-only`, release remains `release pending`, and Task 8
+publication is pending.
 
 ## Execution Prompt
 
 ```text
-Tasks 1-7 in docs/exec-plans/active/2026-07-27-identity-and-realistic-data-foundation-plan.md are complete, verified locally, published, and remotely confirmed; Task 7 is a2d474431d8bcc33ebc0557630cd7038cbcd8ec0. Task 8 is next and remains not run. Read AGENTS.md, docs/PLANS.md, the plan index, the complete plan, and the current identity/full-profile evidence first. Preserve the root demo, normal HTTP no-seed boundary, Keycloak authority, organization isolation, append-only histories, and unrelated worktree changes.
+Tasks 1-7 in docs/exec-plans/active/2026-07-27-identity-and-realistic-data-foundation-plan.md are complete, verified locally, published, and remotely confirmed; Task 7 is a2d474431d8bcc33ebc0557630cd7038cbcd8ec0. Task 8 is complete and verified locally under owner-approved local qualification revision 1.1.0, with publication pending. Full-volume realistic@1.0.0 and stress@1.0.0 endurance evidence remains retained and not run. Publish and remotely confirm Task 8 before beginning Task 9. Read AGENTS.md, docs/PLANS.md, the plan index, the complete plan, and the current identity/full-profile evidence first. Preserve the root demo, normal HTTP no-seed boundary, Keycloak authority, organization isolation, append-only histories, and unrelated worktree changes.
 
 Use strict RED -> GREEN -> focused review for each task. Establish the desired-membership revision and least-privilege Keycloak service identity before directory/lifecycle acceptance. The normal API/worker/scheduler/migration images must not link testprofile or loader/reset code. Repeatable loader reset uses only an exactly authorized disposable target and never selectively deletes append-only rows. Qualify smoke, acceptance, realistic, and stress with the same scenario/role/route catalog. Do not add public registration, a normal API reset/seed route, real PII, plaintext credentials, client-authored roles, direct fixture writes that bypass authoritative domain behavior, AWS actions, commits, or pushes without separate authorization. Keep the plan, index, tracker, and evidence synchronized with literal results. Stop after each task's acceptance gate and fix all Critical or Important review findings before continuing.
 ```

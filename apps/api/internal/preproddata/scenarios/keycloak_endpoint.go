@@ -106,6 +106,36 @@ func (endpoint *KeycloakEndpoint) Preflight(ctx context.Context) error {
 	return nil
 }
 
+func (endpoint *KeycloakEndpoint) ResumePreflight(
+	ctx context.Context,
+) error {
+	token, err := endpoint.accessToken(ctx)
+	if err != nil {
+		return err
+	}
+	users, err := endpoint.listSyntheticUsers(ctx, token)
+	if err != nil {
+		return err
+	}
+	if len(users) == 0 {
+		return fmt.Errorf(
+			"connected-scenario Keycloak target has no resumable synthetic users",
+		)
+	}
+	for _, user := range users {
+		if !validProviderSubjectID(user.ID) ||
+			!strings.HasSuffix(
+				strings.ToLower(strings.TrimSpace(user.Email)),
+				"@synthetic.invalid",
+			) {
+			return fmt.Errorf(
+				"connected-scenario Keycloak target has an invalid resumable user",
+			)
+		}
+	}
+	return nil
+}
+
 func (endpoint *KeycloakEndpoint) EnsureProviderAccount(
 	ctx context.Context,
 	account ProviderAccount,

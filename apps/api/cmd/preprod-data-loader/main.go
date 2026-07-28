@@ -58,6 +58,81 @@ type connectedInputs struct {
 	ControlStore  *preproddata.FileControlStore
 }
 
+var errQualificationInterruption = errors.New(
+	"preprod qualification interruption boundary reached",
+)
+
+type qualificationInterruptingStream struct {
+	source      preproddata.CommandStream
+	limit       int64
+	emitted     int64
+	interrupted bool
+}
+
+func qualificationCommandStream(
+	source preproddata.CommandStream,
+	lookup func(string) string,
+) (preproddata.CommandStream, error) {
+	if source == nil {
+		return nil, fmt.Errorf("qualification command stream is required")
+	}
+	qualification := strings.TrimSpace(
+		lookup("AVIA_PREPROD_PROFILE_QUALIFICATION"),
+	)
+	rawLimit := strings.TrimSpace(
+		lookup("AVIA_PREPROD_QUALIFICATION_INTERRUPT_AFTER_COMMANDS"),
+	)
+	if rawLimit == "" {
+		return source, nil
+	}
+	if qualification != "true" {
+		return nil, fmt.Errorf(
+			"qualification interruption requires explicit profile qualification mode",
+		)
+	}
+	limit, err := strconv.ParseInt(rawLimit, 10, 64)
+	if err != nil || limit < 1 || limit > 1_000_000 {
+		return nil, fmt.Errorf(
+			"qualification interruption command bound must be 1..1000000",
+		)
+	}
+	return &qualificationInterruptingStream{
+		source: source,
+		limit:  limit,
+	}, nil
+}
+
+func (stream *qualificationInterruptingStream) Next(
+	ctx context.Context,
+) (preproddata.AuthoritativeCommand, error) {
+	if stream.interrupted || stream.emitted >= stream.limit {
+		stream.interrupted = true
+		return preproddata.AuthoritativeCommand{},
+			errQualificationInterruption
+	}
+	command, err := stream.source.Next(ctx)
+	if err == nil {
+		stream.emitted++
+	}
+	return command, err
+}
+
+func (stream *qualificationInterruptingStream) ResumeAfter(
+	ctx context.Context,
+	appliedCommands int64,
+	lastOperationID string,
+) error {
+	resumable, ok := stream.source.(preproddata.ResumableCommandStream)
+	if !ok {
+		return fmt.Errorf(
+			"qualification source does not support deterministic resume",
+		)
+	}
+	stream.emitted = 0
+	stream.interrupted = false
+	return resumable.ResumeAfter(ctx, appliedCommands, lastOperationID)
+}
+
 func main() {
 	if err := run(context.Background(), os.Args[1:], os.Stdout); err != nil {
 		slog.Error("preprod data loader failed", "error", err)
@@ -396,6 +471,10 @@ func runConnectedData(
 	if err != nil {
 		return preproddata.ResultManifest{}, err
 	}
+	commandStream, err := qualificationCommandStream(stream, os.Getenv)
+	if err != nil {
+		return preproddata.ResultManifest{}, err
+	}
 	return preproddata.Run(
 		ctx,
 		preproddata.RunInput{
@@ -403,7 +482,7 @@ func runConnectedData(
 			Authorization: inputs.Authorization,
 			ControlStore:  inputs.ControlStore,
 			Boundary:      boundary,
-			Commands:      stream,
+			Commands:      commandStream,
 			Clock:         time.Now,
 		},
 	)

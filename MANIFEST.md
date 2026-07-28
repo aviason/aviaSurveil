@@ -22,10 +22,14 @@ UI-audit metadata drift, while a read-only content check verifies all 258/258
 baseline PNG hashes; the accepted manifest was not changed.
 Plans 1–4 are completed local `candidate-only` milestones. AWS Task 10 is
 optional, unauthorized, and literally `not run`.
-Plan 5 Tasks 1–7 are `verified locally`; Task 7 adds only an isolated
-one-shot connected data candidate spanning disposable PostgreSQL, Keycloak,
-Mailpit, and MinIO with exact privacy reconciliation and zero-residue cleanup.
-Tasks 8–9 remain `not run`.
+Plan 5 Tasks 1–8 are `verified locally`; Task 8 qualifies the isolated
+one-shot connected data candidate across disposable PostgreSQL, Keycloak,
+Mailpit, and MinIO using `smoke@1.0.0`, `acceptance@1.0.0`,
+`realistic@1.1.0`, and `stress@1.1.0`, with exact relationship/privacy
+reconciliation, interruption/resume, positive resource evidence, bounded
+duration, and zero-residue cleanup. Full-volume `realistic@1.0.0` and
+`stress@1.0.0` are preserved as deferred release-readiness endurance evidence
+with status `not run`; Task 9 remains `not run`.
 The artifact is `candidate-only`, the local decision is `GO`, and release is
 `release pending`. It is not a deployed production application. Production
 identity federation, external storage, scanning, email, records operations,
@@ -156,8 +160,11 @@ The root Vanilla demo remains intact.
   `apps/api/internal/preproddata/scenarios/` — isolated one-shot
   local-preprod intent/authorization runner plus deterministic 40-family,
   86-route, 306-action, eight-role scenario catalog and connected
-  PostgreSQL/Keycloak/Mailpit/MinIO reconciliation boundary. These packages
-  are excluded from normal runtime artifacts.
+  PostgreSQL/Keycloak/Mailpit/MinIO reconciliation boundary. The active local
+  qualification set is `smoke@1.0.0`, `acceptance@1.0.0`,
+  `realistic@1.1.0`, and `stress@1.1.0`; the full-volume `1.0.0`
+  realistic/stress endurance profiles remain retained and `not run`. These
+  packages are excluded from normal runtime artifacts.
 - `apps/api/internal/httpapi/generated/` — checked generated Go OpenAPI types.
 - `apps/api/migrations/` — forward-only PostgreSQL foundation, authority, and
   Evidence upload migrations with retained N-1 verification.

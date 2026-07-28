@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/preproddata"
+	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/preproddata/profiles"
 )
 
 type ProviderAccount struct {
@@ -49,6 +50,14 @@ type ScenarioStore interface {
 	Records(context.Context, string) ([]Record, error)
 }
 
+type resumableScenarioStore interface {
+	Resume(context.Context) error
+}
+
+type scenarioRecordScanner interface {
+	ScanRecords(context.Context, string, func(Record) error) error
+}
+
 type IdentityEndpoint interface {
 	Preflight(context.Context) error
 	EnsureProviderAccount(
@@ -58,16 +67,35 @@ type IdentityEndpoint interface {
 	ReconcileProviderAccounts(context.Context, []ProviderAccount) error
 }
 
+type resumableIdentityEndpoint interface {
+	ResumePreflight(context.Context) error
+}
+
 type InvitationEndpoint interface {
 	Preflight(context.Context) error
 	EnsureInvitationDelivery(context.Context, InvitationDelivery) error
 	ReconcileInvitationDeliveries(context.Context, []InvitationDelivery) error
 }
 
+type resumableInvitationEndpoint interface {
+	ResumePreflight(context.Context) error
+}
+
 type ObjectEndpoint interface {
 	Preflight(context.Context) error
 	EnsureObjectVersion(context.Context, ObjectVersion) error
 	ReconcileObjectVersions(context.Context, []ObjectVersion) error
+}
+
+type resumableObjectEndpoint interface {
+	ResumePreflight(context.Context) error
+}
+
+type streamingObjectEndpoint interface {
+	ReconcileObjectVersionStream(
+		context.Context,
+		func(func(ObjectVersion) error) error,
+	) error
 }
 
 type ConnectedBoundaryConfig struct {
@@ -116,13 +144,60 @@ func NewConnectedBoundary(
 func (boundary *ConnectedBoundary) Preflight(
 	ctx context.Context,
 	target preproddata.TargetFingerprint,
-	_ preproddata.Operation,
+	operation preproddata.Operation,
 ) error {
 	if target != boundary.target {
 		return fmt.Errorf("connected-scenario target differs from configuration")
 	}
-	if err := boundary.store.Initialize(ctx); err != nil {
-		return err
+	switch operation {
+	case preproddata.LoadEmptyTarget:
+		if err := boundary.store.Initialize(ctx); err != nil {
+			return err
+		}
+	case preproddata.ResumeRun:
+		resumableStore, ok := boundary.store.(resumableScenarioStore)
+		if !ok {
+			return fmt.Errorf(
+				"connected-scenario store does not support safe resume",
+			)
+		}
+		if err := resumableStore.Resume(ctx); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf(
+			"connected-scenario boundary supports only load or resume",
+		)
+	}
+	if operation == preproddata.ResumeRun {
+		resumableIdentity, ok := boundary.identity.(resumableIdentityEndpoint)
+		if !ok {
+			return fmt.Errorf(
+				"connected-scenario identity endpoint does not support safe resume",
+			)
+		}
+		if err := resumableIdentity.ResumePreflight(ctx); err != nil {
+			return err
+		}
+		resumableInvitations, ok := boundary.invitations.(resumableInvitationEndpoint)
+		if !ok {
+			return fmt.Errorf(
+				"connected-scenario invitation endpoint does not support safe resume",
+			)
+		}
+		if err := resumableInvitations.ResumePreflight(ctx); err != nil {
+			return err
+		}
+		resumableObjects, ok := boundary.objects.(resumableObjectEndpoint)
+		if !ok {
+			return fmt.Errorf(
+				"connected-scenario object endpoint does not support safe resume",
+			)
+		}
+		if err := resumableObjects.ResumePreflight(ctx); err != nil {
+			return err
+		}
+		return boundary.restoreProviderSubjects(ctx)
 	}
 	if err := boundary.identity.Preflight(ctx); err != nil {
 		return err
@@ -131,6 +206,30 @@ func (boundary *ConnectedBoundary) Preflight(
 		return err
 	}
 	return boundary.objects.Preflight(ctx)
+}
+
+func (boundary *ConnectedBoundary) restoreProviderSubjects(
+	ctx context.Context,
+) error {
+	records, err := boundary.store.Records(ctx, "providerAccounts")
+	if err != nil {
+		return err
+	}
+	if len(records) == 0 {
+		return fmt.Errorf(
+			"connected-scenario resume has no durable provider accounts",
+		)
+	}
+	for _, record := range records {
+		account, err := providerAccountFromRecord(record)
+		if err != nil {
+			return err
+		}
+		if err := boundary.bindProviderSubject(account); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (boundary *ConnectedBoundary) Apply(
@@ -355,26 +454,52 @@ func (boundary *ConnectedBoundary) Reconcile(
 		return preproddata.Reconciliation{}, err
 	}
 
-	objectRecords, err := boundary.store.Records(ctx, "objectVersions")
-	if err != nil {
-		return preproddata.Reconciliation{}, err
-	}
-	versions := make([]ObjectVersion, 0, len(objectRecords))
-	for _, record := range objectRecords {
-		version, err := objectVersionFromRecord(record, boundary.target)
+	recordScanner, recordsStream := boundary.store.(scenarioRecordScanner)
+	objectStream, objectsStream := boundary.objects.(streamingObjectEndpoint)
+	if recordsStream && objectsStream {
+		if err := objectStream.ReconcileObjectVersionStream(
+			ctx,
+			func(yield func(ObjectVersion) error) error {
+				return recordScanner.ScanRecords(
+					ctx,
+					"objectVersions",
+					func(record Record) error {
+						version, err := objectVersionFromRecord(
+							record,
+							boundary.target,
+						)
+						if err != nil {
+							return err
+						}
+						return yield(version)
+					},
+				)
+			},
+		); err != nil {
+			return preproddata.Reconciliation{}, err
+		}
+	} else {
+		objectRecords, err := boundary.store.Records(ctx, "objectVersions")
 		if err != nil {
 			return preproddata.Reconciliation{}, err
 		}
-		versions = append(versions, version)
-	}
-	sort.Slice(versions, func(left, right int) bool {
-		return versions[left].VersionID < versions[right].VersionID
-	})
-	if err := boundary.objects.ReconcileObjectVersions(
-		ctx,
-		versions,
-	); err != nil {
-		return preproddata.Reconciliation{}, err
+		versions := make([]ObjectVersion, 0, len(objectRecords))
+		for _, record := range objectRecords {
+			version, err := objectVersionFromRecord(record, boundary.target)
+			if err != nil {
+				return preproddata.Reconciliation{}, err
+			}
+			versions = append(versions, version)
+		}
+		sort.Slice(versions, func(left, right int) bool {
+			return versions[left].VersionID < versions[right].VersionID
+		})
+		if err := boundary.objects.ReconcileObjectVersions(
+			ctx,
+			versions,
+		); err != nil {
+			return preproddata.Reconciliation{}, err
+		}
 	}
 	return boundary.store.Reconcile(ctx)
 }
@@ -499,7 +624,30 @@ func objectVersionFromRecord(
 			"scenario object version must exclude binary fixtures",
 		)
 	}
-	payload, actualDigest := safeSyntheticObjectContent(record, objectID)
+	var targetSize int64
+	profileName, hasProfile := record.Attributes["profile"].(string)
+	profileVersion, hasVersion := record.Attributes["profileVersion"].(string)
+	if hasProfile || hasVersion {
+		if !hasProfile || !hasVersion {
+			return ObjectVersion{}, fmt.Errorf(
+				"scenario object version has incomplete profile identity",
+			)
+		}
+		profile, err := profiles.Lookup(profileName, profileVersion)
+		if err != nil {
+			return ObjectVersion{}, err
+		}
+		ordinal, err := connectedInt64(record, "payloadOrdinal")
+		if err != nil {
+			return ObjectVersion{}, err
+		}
+		targetSize = objectPayloadSize(profile, ordinal-1)
+	}
+	payload, actualDigest := safeSyntheticObjectContent(
+		record,
+		objectID,
+		targetSize,
+	)
 	contentDigest, err := connectedString(record, "contentDigest")
 	if err != nil {
 		return ObjectVersion{}, err
@@ -528,6 +676,7 @@ func objectVersionFromRecord(
 func safeSyntheticObjectContent(
 	record Record,
 	objectID string,
+	targetSize int64,
 ) ([]byte, string) {
 	payload, _ := json.Marshal(struct {
 		SchemaVersion  string `json:"schemaVersion"`
@@ -544,6 +693,21 @@ func safeSyntheticObjectContent(
 		OrganizationID: record.OrganizationID,
 		BinaryIncluded: false,
 	})
+	if targetSize > int64(len(payload)) {
+		prefix := append(
+			append([]byte(nil), payload[:len(payload)-1]...),
+			[]byte(`,"padding":"`)...,
+		)
+		suffix := []byte(`"}`)
+		paddingSize := targetSize - int64(len(prefix)) - int64(len(suffix))
+		if paddingSize > 0 {
+			payload = append(
+				prefix,
+				[]byte(strings.Repeat("S", int(paddingSize)))...,
+			)
+			payload = append(payload, suffix...)
+		}
+	}
 	digest := sha256.Sum256(payload)
 	actualDigest := "sha256:" + hex.EncodeToString(digest[:])
 	return payload, actualDigest

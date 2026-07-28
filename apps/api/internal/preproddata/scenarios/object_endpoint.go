@@ -37,6 +37,15 @@ type ObjectBackend interface {
 	Create(context.Context, ObjectBlob) error
 }
 
+type streamingObjectBackend interface {
+	Scan(
+		context.Context,
+		string,
+		string,
+		func(ObjectBlob) error,
+	) error
+}
+
 type ConnectedObjectEndpointConfig struct {
 	Bucket  string
 	Prefix  string
@@ -91,6 +100,20 @@ func (endpoint *ConnectedObjectEndpoint) Preflight(
 		)
 	}
 	return nil
+}
+
+func (endpoint *ConnectedObjectEndpoint) ResumePreflight(
+	ctx context.Context,
+) error {
+	if err := endpoint.backend.Check(ctx); err != nil {
+		return err
+	}
+	_, err := endpoint.backend.List(
+		ctx,
+		endpoint.bucket,
+		endpoint.prefix,
+	)
+	return err
 }
 
 func (endpoint *ConnectedObjectEndpoint) EnsureObjectVersion(
@@ -189,6 +212,88 @@ func (endpoint *ConnectedObjectEndpoint) ReconcileObjectVersions(
 	return nil
 }
 
+func (endpoint *ConnectedObjectEndpoint) ReconcileObjectVersionStream(
+	ctx context.Context,
+	scanExpected func(func(ObjectVersion) error) error,
+) error {
+	backend, ok := endpoint.backend.(streamingObjectBackend)
+	if !ok || scanExpected == nil {
+		return fmt.Errorf(
+			"streaming object reconciliation is required for scale profiles",
+		)
+	}
+	expectedDigest := newRelationshipDigestAccumulator()
+	var expectedCount int64
+	var previousExpectedKey string
+	if err := scanExpected(func(version ObjectVersion) error {
+		blob, err := endpoint.blob(version)
+		if err != nil {
+			return err
+		}
+		if previousExpectedKey != "" && blob.Key <= previousExpectedKey {
+			return fmt.Errorf(
+				"expected object stream is not strictly ordered",
+			)
+		}
+		actual, err := endpoint.backend.Read(
+			ctx,
+			blob.Bucket,
+			blob.Key,
+		)
+		if err != nil {
+			return err
+		}
+		if !sameObjectBlob(actual, blob) {
+			return fmt.Errorf(
+				"connected-scenario object %s differs",
+				blob.Key,
+			)
+		}
+		expectedDigest.Add([]string{blob.Key})
+		previousExpectedKey = blob.Key
+		expectedCount++
+		return nil
+	}); err != nil {
+		return err
+	}
+	if expectedCount == 0 {
+		return fmt.Errorf("expected object stream is empty")
+	}
+
+	actualDigest := newRelationshipDigestAccumulator()
+	var actualCount int64
+	var previousActualKey string
+	if err := backend.Scan(
+		ctx,
+		endpoint.bucket,
+		endpoint.prefix,
+		func(blob ObjectBlob) error {
+			if blob.Bucket != endpoint.bucket ||
+				!strings.HasPrefix(blob.Key, endpoint.prefix) ||
+				len(blob.Key) > 1024 ||
+				(previousActualKey != "" &&
+					blob.Key <= previousActualKey) {
+				return fmt.Errorf(
+					"actual object stream is not exact and ordered",
+				)
+			}
+			actualDigest.Add([]string{blob.Key})
+			previousActualKey = blob.Key
+			actualCount++
+			return nil
+		},
+	); err != nil {
+		return err
+	}
+	if actualCount != expectedCount ||
+		actualDigest.Digest() != expectedDigest.Digest() {
+		return fmt.Errorf(
+			"object stream count or key digest differs",
+		)
+	}
+	return nil
+}
+
 func (endpoint *ConnectedObjectEndpoint) blob(
 	version ObjectVersion,
 ) (ObjectBlob, error) {
@@ -211,6 +316,7 @@ func (endpoint *ConnectedObjectEndpoint) blob(
 		ObjectID       string `json:"objectId"`
 		OrganizationID string `json:"organizationId"`
 		BinaryIncluded bool   `json:"binaryIncluded"`
+		Padding        string `json:"padding,omitempty"`
 	}
 	if err := json.Unmarshal(version.Content, &payload); err != nil ||
 		payload.SchemaVersion != "preprod-synthetic-object/v1" ||
@@ -218,7 +324,8 @@ func (endpoint *ConnectedObjectEndpoint) blob(
 		payload.RecordID != version.VersionID ||
 		payload.ObjectID != version.ObjectID ||
 		payload.OrganizationID != version.OrganizationID ||
-		payload.BinaryIncluded {
+		payload.BinaryIncluded ||
+		strings.Trim(payload.Padding, "S") != "" {
 		return ObjectBlob{}, fmt.Errorf(
 			"connected-scenario object content is not exact safe JSON",
 		)

@@ -14,15 +14,16 @@ var (
 )
 
 type ResourceEnvelope struct {
-	SeedRequired      bool      `json:"seedRequired"`
-	ClockOrigin       time.Time `json:"clockOrigin"`
-	IdentityNamespace string    `json:"identityNamespace"`
-	CPUCores          int       `json:"cpuCores"`
-	MemoryMiB         int64     `json:"memoryMiB"`
-	DiskMiB           int64     `json:"diskMiB"`
-	ObjectBytes       int64     `json:"objectBytes"`
-	DurationSeconds   int64     `json:"durationSeconds"`
-	CleanupSeconds    int64     `json:"cleanupSeconds"`
+	SeedRequired         bool      `json:"seedRequired"`
+	ClockOrigin          time.Time `json:"clockOrigin"`
+	IdentityNamespace    string    `json:"identityNamespace"`
+	CPUCores             int       `json:"cpuCores"`
+	MemoryMiB            int64     `json:"memoryMiB"`
+	DiskMiB              int64     `json:"diskMiB"`
+	ObjectBytes          int64     `json:"objectBytes"`
+	DurationSeconds      int64     `json:"durationSeconds"`
+	QualificationSeconds int64     `json:"qualificationSeconds,omitempty"`
+	CleanupSeconds       int64     `json:"cleanupSeconds"`
 }
 
 type Catalogs struct {
@@ -57,219 +58,250 @@ var lifecycleScenarios = []string{
 	"authorized-closed", "verified-closed",
 }
 
-var catalog = map[string]Profile{
-	"smoke@1.0.0": profile(
-		"smoke", "synthetic-smoke-v1", 2, 1024, 2048, 134217728, 120, 60,
-		map[string]int64{
-			"organizations": 3, "providerAccounts": 9,
-			"desiredMembershipVersions": 18, "applicationProfiles": 9,
-			"invitations": 6, "recoveryRequests": 2, "mfaEnrollments": 9,
-			"sessions": 18, "offlineGrants": 4, "surveillancePlans": 4,
-			"planningApprovals": 12, "audits": 2, "assignments": 3,
-			"checklistTemplates": 4, "checklistTemplateVersions": 6,
-			"checklistQuestions": 24, "inspectionPackages": 2,
-			"checklistResponses": 24, "potentialFindings": 12, "findings": 8,
-			"capRevisions": 12, "evidenceReferences": 8, "evidenceVersions": 16,
-			"reviewDecisions": 16, "reportVersions": 6, "communications": 16,
-			"notifications": 24, "auditEvents": 250, "outboxMessages": 80,
-			"deliveryJobs": 48, "scannerJobs": 16, "renderJobs": 6,
-			"objects": 22, "objectVersions": 24, "calendarRecords": 20,
-			"syncChanges": 120, "routeDispositions": 86,
-			"visibleActionDispositions": 306, "identityLifecycleCases": 18,
-			"lifecycleScenarioCases": 12,
-		},
-		map[string]map[string]int64{
-			"organizations": {"caa": 1, "auditee": 2},
-			"providerAccounts": {
-				"inspector": 1, "leadInspector": 1, "manager": 1, "finance": 1,
-				"gm": 1, "executiveDirector": 1, "auditee": 2, "admin": 1,
+var catalog = frozenCatalog()
+
+func frozenCatalog() map[string]Profile {
+	catalog := map[string]Profile{
+		"smoke@1.0.0": profile(
+			"smoke", "synthetic-smoke-v1", 2, 1024, 2048, 134217728, 120, 60,
+			map[string]int64{
+				"organizations": 3, "providerAccounts": 9,
+				"desiredMembershipVersions": 18, "applicationProfiles": 9,
+				"invitations": 6, "recoveryRequests": 2, "mfaEnrollments": 9,
+				"sessions": 18, "offlineGrants": 4, "surveillancePlans": 4,
+				"planningApprovals": 12, "audits": 2, "assignments": 3,
+				"checklistTemplates": 4, "checklistTemplateVersions": 6,
+				"checklistQuestions": 24, "inspectionPackages": 2,
+				"checklistResponses": 24, "potentialFindings": 12, "findings": 8,
+				"capRevisions": 12, "evidenceReferences": 8, "evidenceVersions": 16,
+				"reviewDecisions": 16, "reportVersions": 6, "communications": 16,
+				"notifications": 24, "auditEvents": 250, "outboxMessages": 80,
+				"deliveryJobs": 48, "scannerJobs": 16, "renderJobs": 6,
+				"objects": 22, "objectVersions": 24, "calendarRecords": 20,
+				"syncChanges": 120, "routeDispositions": 86,
+				"visibleActionDispositions": 306, "identityLifecycleCases": 18,
+				"lifecycleScenarioCases": 12,
 			},
-			"desiredMembershipVersions": {
-				"requested": 2, "invited": 2, "active": 8, "suspended": 2,
-				"deactivated": 2, "reactivation-pending": 2,
+			map[string]map[string]int64{
+				"organizations": {"caa": 1, "auditee": 2},
+				"providerAccounts": {
+					"inspector": 1, "leadInspector": 1, "manager": 1, "finance": 1,
+					"gm": 1, "executiveDirector": 1, "auditee": 2, "admin": 1,
+				},
+				"desiredMembershipVersions": {
+					"requested": 2, "invited": 2, "active": 8, "suspended": 2,
+					"deactivated": 2, "reactivation-pending": 2,
+				},
+				"invitations": {
+					"issued": 1, "delivered": 1, "retryable-failure": 1,
+					"expired": 1, "consumed": 1, "cancelled": 1,
+				},
+				"mfaEnrollments": {
+					"enrolled": 5, "enrollment-required": 0, "reset-pending": 1,
+					"unenrolled": 3,
+				},
+				"audits": {
+					"planned": 1, "active": 1, "overdue": 0, "verified-closed": 0,
+				},
+				"potentialFindings": {
+					"pending": 4, "returned": 2, "rejected": 2, "corrected": 2,
+					"converted": 2,
+				},
+				"findings": {
+					"open": 1, "overdue": 1, "reopened": 1, "partially-closed": 1,
+					"not-closed": 1, "authorized-closed": 1, "verified-closed": 2,
+				},
+				"capRevisions": {
+					"draft": 2, "submitted": 2, "returned": 2, "rejected": 2,
+					"corrected": 2, "superseded": 1, "accepted": 1,
+				},
+				"evidenceVersions": {
+					"uploaded": 4, "returned": 2, "rejected": 2, "corrected": 2,
+					"superseded": 2, "accepted": 4,
+				},
+				"reportVersions": {
+					"draft": 1, "returned": 1, "rejected": 1, "corrected": 1,
+					"issued": 2,
+				},
+				"routeDispositions": {
+					"authorized-data": 60, "intentional-empty": 10, "denied": 16,
+				},
+				"visibleActionDispositions": {
+					"executable": 200, "disabled-by-role": 50, "disabled-by-state": 56,
+				},
+				"identityLifecycleCases": {
+					"requested": 1, "invited": 1, "active": 5, "suspended": 1,
+					"deactivated": 1, "reactivation-pending": 1, "role-changed": 1,
+					"transferred": 1, "mfa-reset": 1, "forced-logout": 1,
+					"invitation-expired": 1, "provider-unavailable": 1,
+					"provider-drift": 1, "recovered": 1,
+				},
+				"lifecycleScenarioCases": equalDistribution(1),
 			},
-			"invitations": {
-				"issued": 1, "delivered": 1, "retryable-failure": 1,
-				"expired": 1, "consumed": 1, "cancelled": 1,
+		),
+		"acceptance@1.0.0": profile(
+			"acceptance", "synthetic-acceptance-v1", 4, 4096, 20480,
+			2147483648, 1200, 600,
+			map[string]int64{
+				"organizations": 25, "providerAccounts": 250,
+				"desiredMembershipVersions": 350, "applicationProfiles": 250,
+				"invitations": 100, "recoveryRequests": 25, "mfaEnrollments": 250,
+				"sessions": 500, "offlineGrants": 125, "surveillancePlans": 1250,
+				"planningApprovals": 4000, "audits": 1000, "assignments": 1500,
+				"checklistTemplates": 50, "checklistTemplateVersions": 100,
+				"checklistQuestions": 500, "inspectionPackages": 1000,
+				"checklistResponses": 10000, "potentialFindings": 4500,
+				"findings": 3000, "capRevisions": 4500,
+				"evidenceReferences": 3000, "evidenceVersions": 6000,
+				"reviewDecisions": 6000, "reportVersions": 2000,
+				"communications": 8000, "notifications": 12000,
+				"auditEvents": 100000, "outboxMessages": 30000,
+				"deliveryJobs": 20000, "scannerJobs": 6000, "renderJobs": 2000,
+				"objects": 8000, "objectVersions": 9000, "calendarRecords": 5000,
+				"syncChanges": 50000, "routeDispositions": 86,
+				"visibleActionDispositions": 306, "identityLifecycleCases": 250,
+				"lifecycleScenarioCases": 1200,
 			},
-			"mfaEnrollments": {
-				"enrolled": 5, "enrollment-required": 0, "reset-pending": 1,
-				"unenrolled": 3,
+			map[string]map[string]int64{
+				"organizations": {"caa": 1, "auditee": 24},
+				"providerAccounts": {
+					"inspector": 70, "leadInspector": 25, "manager": 25,
+					"finance": 20, "gm": 20, "executiveDirector": 10,
+					"auditee": 70, "admin": 10,
+				},
+				"desiredMembershipVersions": {
+					"requested": 35, "invited": 35, "active": 200, "suspended": 30,
+					"deactivated": 30, "reactivation-pending": 20,
+				},
+				"invitations": {
+					"issued": 15, "delivered": 15, "retryable-failure": 10,
+					"expired": 15, "consumed": 35, "cancelled": 10,
+				},
+				"mfaEnrollments": {
+					"enrolled": 160, "enrollment-required": 0, "reset-pending": 20,
+					"unenrolled": 70,
+				},
+				"audits": {
+					"planned": 200, "active": 400, "overdue": 100,
+					"verified-closed": 300,
+				},
+				"potentialFindings": {
+					"pending": 900, "returned": 600, "rejected": 600,
+					"corrected": 600, "converted": 1800,
+				},
+				"findings": {
+					"open": 900, "overdue": 450, "reopened": 300,
+					"partially-closed": 450, "not-closed": 300,
+					"authorized-closed": 150, "verified-closed": 450,
+				},
+				"capRevisions": {
+					"draft": 450, "submitted": 900, "returned": 675, "rejected": 450,
+					"corrected": 675, "superseded": 450, "accepted": 900,
+				},
+				"evidenceVersions": {
+					"uploaded": 1200, "returned": 900, "rejected": 600,
+					"corrected": 900, "superseded": 600, "accepted": 1800,
+				},
+				"reportVersions": {
+					"draft": 400, "returned": 300, "rejected": 200,
+					"corrected": 300, "issued": 800,
+				},
+				"routeDispositions": {
+					"authorized-data": 70, "intentional-empty": 8, "denied": 8,
+				},
+				"visibleActionDispositions": {
+					"executable": 240, "disabled-by-role": 30, "disabled-by-state": 36,
+				},
+				"identityLifecycleCases": {
+					"requested": 25, "invited": 25, "active": 100, "suspended": 20,
+					"deactivated": 20, "reactivation-pending": 10, "role-changed": 10,
+					"transferred": 10, "mfa-reset": 10, "forced-logout": 5,
+					"invitation-expired": 5, "provider-unavailable": 3,
+					"provider-drift": 3, "recovered": 4,
+				},
+				"lifecycleScenarioCases": equalDistribution(100),
 			},
-			"audits": {
-				"planned": 1, "active": 1, "overdue": 0, "verified-closed": 0,
+		),
+		"realistic@1.0.0": profile(
+			"realistic", "synthetic-realistic-v1", 8, 12288, 51200,
+			21474836480, 7200, 2700,
+			map[string]int64{
+				"organizations": 100, "providerAccounts": 2000,
+				"desiredMembershipVersions": 3000, "applicationProfiles": 2000,
+				"invitations": 800, "recoveryRequests": 200, "mfaEnrollments": 2000,
+				"sessions": 4000, "offlineGrants": 1000,
+				"surveillancePlans": 25000, "planningApprovals": 80000,
+				"audits": 20000, "assignments": 30000, "checklistTemplates": 200,
+				"checklistTemplateVersions": 400, "checklistQuestions": 5000,
+				"inspectionPackages": 20000, "checklistResponses": 250000,
+				"potentialFindings": 90000, "findings": 60000,
+				"capRevisions": 100000, "evidenceReferences": 100000,
+				"evidenceVersions": 200000, "reviewDecisions": 200000,
+				"reportVersions": 75000, "communications": 400000,
+				"notifications": 600000, "auditEvents": 5000000,
+				"outboxMessages": 1500000, "deliveryJobs": 1000000,
+				"scannerJobs": 200000, "renderJobs": 75000, "objects": 275000,
+				"objectVersions": 350000, "calendarRecords": 100000,
+				"syncChanges": 2500000, "routeDispositions": 86,
+				"visibleActionDispositions": 306, "identityLifecycleCases": 2000,
+				"lifecycleScenarioCases": 24000,
 			},
-			"potentialFindings": {
-				"pending": 4, "returned": 2, "rejected": 2, "corrected": 2,
-				"converted": 2,
+			scaleDistributions(99, 2000),
+		),
+		"stress@1.0.0": profile(
+			"stress", "synthetic-stress-v1", 12, 12288, 65536,
+			8589934592, 28800, 5400,
+			map[string]int64{
+				"organizations": 200, "providerAccounts": 4000,
+				"desiredMembershipVersions": 6000, "applicationProfiles": 4000,
+				"invitations": 1600, "recoveryRequests": 400,
+				"mfaEnrollments": 4000, "sessions": 8000, "offlineGrants": 2000,
+				"surveillancePlans": 50000, "planningApprovals": 160000,
+				"audits": 40000, "assignments": 60000, "checklistTemplates": 400,
+				"checklistTemplateVersions": 800, "checklistQuestions": 10000,
+				"inspectionPackages": 40000, "checklistResponses": 500000,
+				"potentialFindings": 180000, "findings": 120000,
+				"capRevisions": 200000, "evidenceReferences": 200000,
+				"evidenceVersions": 400000, "reviewDecisions": 400000,
+				"reportVersions": 150000, "communications": 800000,
+				"notifications": 1200000, "auditEvents": 10000000,
+				"outboxMessages": 3000000, "deliveryJobs": 2000000,
+				"scannerJobs": 400000, "renderJobs": 150000, "objects": 550000,
+				"objectVersions": 700000, "calendarRecords": 200000,
+				"syncChanges": 5000000, "routeDispositions": 86,
+				"visibleActionDispositions": 306, "identityLifecycleCases": 4000,
+				"lifecycleScenarioCases": 48000,
 			},
-			"findings": {
-				"open": 1, "overdue": 1, "reopened": 1, "partially-closed": 1,
-				"not-closed": 1, "authorized-closed": 1, "verified-closed": 2,
-			},
-			"capRevisions": {
-				"draft": 2, "submitted": 2, "returned": 2, "rejected": 2,
-				"corrected": 2, "superseded": 1, "accepted": 1,
-			},
-			"evidenceVersions": {
-				"uploaded": 4, "returned": 2, "rejected": 2, "corrected": 2,
-				"superseded": 2, "accepted": 4,
-			},
-			"reportVersions": {
-				"draft": 1, "returned": 1, "rejected": 1, "corrected": 1,
-				"issued": 2,
-			},
-			"routeDispositions": {
-				"authorized-data": 60, "intentional-empty": 10, "denied": 16,
-			},
-			"visibleActionDispositions": {
-				"executable": 200, "disabled-by-role": 50, "disabled-by-state": 56,
-			},
-			"identityLifecycleCases": {
-				"requested": 1, "invited": 1, "active": 5, "suspended": 1,
-				"deactivated": 1, "reactivation-pending": 1, "role-changed": 1,
-				"transferred": 1, "mfa-reset": 1, "forced-logout": 1,
-				"invitation-expired": 1, "provider-unavailable": 1,
-				"provider-drift": 1, "recovered": 1,
-			},
-			"lifecycleScenarioCases": equalDistribution(1),
-		},
-	),
-	"acceptance@1.0.0": profile(
-		"acceptance", "synthetic-acceptance-v1", 4, 4096, 20480,
-		2147483648, 1200, 600,
-		map[string]int64{
-			"organizations": 25, "providerAccounts": 250,
-			"desiredMembershipVersions": 350, "applicationProfiles": 250,
-			"invitations": 100, "recoveryRequests": 25, "mfaEnrollments": 250,
-			"sessions": 500, "offlineGrants": 125, "surveillancePlans": 1250,
-			"planningApprovals": 4000, "audits": 1000, "assignments": 1500,
-			"checklistTemplates": 50, "checklistTemplateVersions": 100,
-			"checklistQuestions": 500, "inspectionPackages": 1000,
-			"checklistResponses": 10000, "potentialFindings": 4500,
-			"findings": 3000, "capRevisions": 4500,
-			"evidenceReferences": 3000, "evidenceVersions": 6000,
-			"reviewDecisions": 6000, "reportVersions": 2000,
-			"communications": 8000, "notifications": 12000,
-			"auditEvents": 100000, "outboxMessages": 30000,
-			"deliveryJobs": 20000, "scannerJobs": 6000, "renderJobs": 2000,
-			"objects": 8000, "objectVersions": 9000, "calendarRecords": 5000,
-			"syncChanges": 50000, "routeDispositions": 86,
-			"visibleActionDispositions": 306, "identityLifecycleCases": 250,
-			"lifecycleScenarioCases": 1200,
-		},
-		map[string]map[string]int64{
-			"organizations": {"caa": 1, "auditee": 24},
-			"providerAccounts": {
-				"inspector": 70, "leadInspector": 25, "manager": 25,
-				"finance": 20, "gm": 20, "executiveDirector": 10,
-				"auditee": 70, "admin": 10,
-			},
-			"desiredMembershipVersions": {
-				"requested": 35, "invited": 35, "active": 200, "suspended": 30,
-				"deactivated": 30, "reactivation-pending": 20,
-			},
-			"invitations": {
-				"issued": 15, "delivered": 15, "retryable-failure": 10,
-				"expired": 15, "consumed": 35, "cancelled": 10,
-			},
-			"mfaEnrollments": {
-				"enrolled": 160, "enrollment-required": 0, "reset-pending": 20,
-				"unenrolled": 70,
-			},
-			"audits": {
-				"planned": 200, "active": 400, "overdue": 100,
-				"verified-closed": 300,
-			},
-			"potentialFindings": {
-				"pending": 900, "returned": 600, "rejected": 600,
-				"corrected": 600, "converted": 1800,
-			},
-			"findings": {
-				"open": 900, "overdue": 450, "reopened": 300,
-				"partially-closed": 450, "not-closed": 300,
-				"authorized-closed": 150, "verified-closed": 450,
-			},
-			"capRevisions": {
-				"draft": 450, "submitted": 900, "returned": 675, "rejected": 450,
-				"corrected": 675, "superseded": 450, "accepted": 900,
-			},
-			"evidenceVersions": {
-				"uploaded": 1200, "returned": 900, "rejected": 600,
-				"corrected": 900, "superseded": 600, "accepted": 1800,
-			},
-			"reportVersions": {
-				"draft": 400, "returned": 300, "rejected": 200,
-				"corrected": 300, "issued": 800,
-			},
-			"routeDispositions": {
-				"authorized-data": 70, "intentional-empty": 8, "denied": 8,
-			},
-			"visibleActionDispositions": {
-				"executable": 240, "disabled-by-role": 30, "disabled-by-state": 36,
-			},
-			"identityLifecycleCases": {
-				"requested": 25, "invited": 25, "active": 100, "suspended": 20,
-				"deactivated": 20, "reactivation-pending": 10, "role-changed": 10,
-				"transferred": 10, "mfa-reset": 10, "forced-logout": 5,
-				"invitation-expired": 5, "provider-unavailable": 3,
-				"provider-drift": 3, "recovered": 4,
-			},
-			"lifecycleScenarioCases": equalDistribution(100),
-		},
-	),
-	"realistic@1.0.0": profile(
-		"realistic", "synthetic-realistic-v1", 8, 12288, 51200,
-		21474836480, 7200, 2700,
-		map[string]int64{
-			"organizations": 100, "providerAccounts": 2000,
-			"desiredMembershipVersions": 3000, "applicationProfiles": 2000,
-			"invitations": 800, "recoveryRequests": 200, "mfaEnrollments": 2000,
-			"sessions": 4000, "offlineGrants": 1000,
-			"surveillancePlans": 25000, "planningApprovals": 80000,
-			"audits": 20000, "assignments": 30000, "checklistTemplates": 200,
-			"checklistTemplateVersions": 400, "checklistQuestions": 5000,
-			"inspectionPackages": 20000, "checklistResponses": 250000,
-			"potentialFindings": 90000, "findings": 60000,
-			"capRevisions": 100000, "evidenceReferences": 100000,
-			"evidenceVersions": 200000, "reviewDecisions": 200000,
-			"reportVersions": 75000, "communications": 400000,
-			"notifications": 600000, "auditEvents": 5000000,
-			"outboxMessages": 1500000, "deliveryJobs": 1000000,
-			"scannerJobs": 200000, "renderJobs": 75000, "objects": 275000,
-			"objectVersions": 350000, "calendarRecords": 100000,
-			"syncChanges": 2500000, "routeDispositions": 86,
-			"visibleActionDispositions": 306, "identityLifecycleCases": 2000,
-			"lifecycleScenarioCases": 24000,
-		},
-		scaleDistributions(99, 2000),
-	),
-	"stress@1.0.0": profile(
-		"stress", "synthetic-stress-v1", 12, 12288, 65536,
-		8589934592, 28800, 5400,
-		map[string]int64{
-			"organizations": 200, "providerAccounts": 4000,
-			"desiredMembershipVersions": 6000, "applicationProfiles": 4000,
-			"invitations": 1600, "recoveryRequests": 400,
-			"mfaEnrollments": 4000, "sessions": 8000, "offlineGrants": 2000,
-			"surveillancePlans": 50000, "planningApprovals": 160000,
-			"audits": 40000, "assignments": 60000, "checklistTemplates": 400,
-			"checklistTemplateVersions": 800, "checklistQuestions": 10000,
-			"inspectionPackages": 40000, "checklistResponses": 500000,
-			"potentialFindings": 180000, "findings": 120000,
-			"capRevisions": 200000, "evidenceReferences": 200000,
-			"evidenceVersions": 400000, "reviewDecisions": 400000,
-			"reportVersions": 150000, "communications": 800000,
-			"notifications": 1200000, "auditEvents": 10000000,
-			"outboxMessages": 3000000, "deliveryJobs": 2000000,
-			"scannerJobs": 400000, "renderJobs": 150000, "objects": 550000,
-			"objectVersions": 700000, "calendarRecords": 200000,
-			"syncChanges": 5000000, "routeDispositions": 86,
-			"visibleActionDispositions": 306, "identityLifecycleCases": 4000,
-			"lifecycleScenarioCases": 48000,
-		},
-		scaleDistributions(199, 4000),
-	),
+			scaleDistributions(199, 4000),
+		),
+	}
+	catalog["realistic@1.1.0"] = localQualificationProfile(
+		catalog["acceptance@1.0.0"],
+		"realistic",
+		"synthetic-realistic-local-v1-1",
+		2,
+		8,
+		8192,
+		20480,
+		2147483648,
+		900,
+		900,
+		300,
+	)
+	catalog["stress@1.1.0"] = localQualificationProfile(
+		catalog["acceptance@1.0.0"],
+		"stress",
+		"synthetic-stress-local-v1-1",
+		4,
+		12,
+		12288,
+		32768,
+		536870912,
+		1800,
+		1800,
+		300,
+	)
+	return catalog
 }
 
 func profile(
@@ -293,6 +325,66 @@ func profile(
 			IdentityNamespace: identityNamespace, CPUCores: cpu,
 			MemoryMiB: memoryMiB, DiskMiB: diskMiB, ObjectBytes: objectBytes,
 			DurationSeconds: durationSeconds, CleanupSeconds: cleanupSeconds,
+		},
+		ExpectedCounts: counts, ExactDistributions: distributions,
+	}
+}
+
+func localQualificationProfile(
+	source Profile,
+	name, identityNamespace string,
+	multiplier int64,
+	cpu int,
+	memoryMiB, diskMiB, objectBytes, durationSeconds,
+	qualificationSeconds, cleanupSeconds int64,
+) Profile {
+	counts := make(map[string]int64, len(source.ExpectedCounts))
+	distributions := make(
+		map[string]map[string]int64,
+		len(source.ExactDistributions),
+	)
+	preserved := map[string]bool{
+		"routeDispositions":         true,
+		"visibleActionDispositions": true,
+	}
+	for family, count := range source.ExpectedCounts {
+		if preserved[family] {
+			counts[family] = count
+			continue
+		}
+		counts[family] = count * multiplier
+	}
+	for family, distribution := range source.ExactDistributions {
+		scaled := make(map[string]int64, len(distribution))
+		for state, count := range distribution {
+			if preserved[family] {
+				scaled[state] = count
+				continue
+			}
+			scaled[state] = count * multiplier
+		}
+		distributions[family] = scaled
+	}
+	distributions["organizations"] = map[string]int64{
+		"caa":     1,
+		"auditee": counts["organizations"] - 1,
+	}
+	return Profile{
+		Name: name, Version: "1.1.0",
+		Status:                "approved — owner decision recorded",
+		ImplementationAllowed: false,
+		ChangePolicy:          "new-version-required",
+		Catalogs: Catalogs{
+			RouteCount: 86, VisibleActionCoverage: "complete",
+			Roles: slicesClone(roles), LifecycleScenarios: slicesClone(lifecycleScenarios),
+		},
+		ResourceEnvelope: ResourceEnvelope{
+			SeedRequired: true, ClockOrigin: clockOrigin,
+			IdentityNamespace: identityNamespace, CPUCores: cpu,
+			MemoryMiB: memoryMiB, DiskMiB: diskMiB, ObjectBytes: objectBytes,
+			DurationSeconds:      durationSeconds,
+			QualificationSeconds: qualificationSeconds,
+			CleanupSeconds:       cleanupSeconds,
 		},
 		ExpectedCounts: counts, ExactDistributions: distributions,
 	}

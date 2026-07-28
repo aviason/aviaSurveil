@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash"
 	"sort"
 	"strings"
 	"time"
@@ -134,6 +135,82 @@ func (store *PostgresStore) Initialize(ctx context.Context) error {
 	return nil
 }
 
+func (store *PostgresStore) Resume(ctx context.Context) error {
+	var recordCount, otherRunCount, unknownFamilyCount, excessFamilyCount int64
+	if err := store.pool.QueryRow(ctx, `
+		WITH family_counts AS (
+			SELECT family, COUNT(*) AS actual_count
+			FROM preprod_loader.scenario_records
+			WHERE run_id = $1
+			GROUP BY family
+		),
+		expected(family, expected_count) AS (
+			SELECT key, value::bigint
+			FROM jsonb_each_text($2::jsonb)
+		)
+		SELECT
+			(SELECT COUNT(*)
+			 FROM preprod_loader.scenario_records
+			 WHERE run_id = $1),
+			(SELECT COUNT(*)
+			 FROM preprod_loader.scenario_records
+			 WHERE run_id <> $1),
+			(SELECT COUNT(*)
+			 FROM family_counts
+			 LEFT JOIN expected USING (family)
+			 WHERE expected.family IS NULL),
+			(SELECT COUNT(*)
+			 FROM family_counts
+			 JOIN expected USING (family)
+			 WHERE family_counts.actual_count > expected.expected_count)
+	`, store.runID, expectedCountsJSON(store.profile.ExpectedCounts)).Scan(
+		&recordCount,
+		&otherRunCount,
+		&unknownFamilyCount,
+		&excessFamilyCount,
+	); err != nil {
+		return fmt.Errorf("inspect resumable scenario rows: %w", err)
+	}
+	if recordCount == 0 ||
+		otherRunCount != 0 ||
+		unknownFamilyCount != 0 ||
+		excessFamilyCount != 0 {
+		return fmt.Errorf(
+			"connected-scenario target is not an exact resumable run",
+		)
+	}
+	var orphanRecords, otherRunOperations int64
+	if err := store.pool.QueryRow(ctx, `
+		SELECT
+			(SELECT COUNT(*)
+			 FROM preprod_loader.scenario_records records
+			 LEFT JOIN preprod_loader.applied_operations operations
+			   ON operations.run_id = records.run_id
+			  AND operations.operation_id = records.operation_id
+			 WHERE records.run_id = $1
+			   AND operations.operation_id IS NULL),
+			(SELECT COUNT(*)
+			 FROM preprod_loader.applied_operations
+			 WHERE run_id <> $1)
+	`, store.runID).Scan(
+		&orphanRecords,
+		&otherRunOperations,
+	); err != nil {
+		return fmt.Errorf("inspect resumable scenario operations: %w", err)
+	}
+	if orphanRecords != 0 || otherRunOperations != 0 {
+		return fmt.Errorf(
+			"connected-scenario operations are not bound to the resumable run",
+		)
+	}
+	return nil
+}
+
+func expectedCountsJSON(counts map[string]int64) string {
+	encoded, _ := json.Marshal(counts)
+	return string(encoded)
+}
+
 func (store *PostgresStore) Apply(
 	ctx context.Context,
 	command preproddata.AuthoritativeCommand,
@@ -235,18 +312,30 @@ func (store *PostgresStore) Reconcile(
 	}
 	for family := range store.profile.ExpectedCounts {
 		output.ActualCounts[family] = 0
+		output.RelationshipDigests[family] =
+			newRelationshipDigestAccumulator().Digest()
 	}
 	rows, err := store.pool.Query(ctx, `
 		SELECT family, relationship_tuple
 		FROM preprod_loader.scenario_records
 		WHERE run_id = $1
-		ORDER BY family, record_id
+		ORDER BY
+			family COLLATE "C",
+			array_to_string(relationship_tuple, chr(31)) COLLATE "C",
+			record_id COLLATE "C"
 	`, store.runID)
 	if err != nil {
 		return preproddata.Reconciliation{}, err
 	}
 	defer rows.Close()
-	tuples := make(map[string][][]string, len(store.profile.ExpectedCounts))
+	var currentFamily string
+	var accumulator *relationshipDigestAccumulator
+	flush := func() {
+		if currentFamily != "" {
+			output.RelationshipDigests[currentFamily] =
+				accumulator.Digest()
+		}
+	}
 	for rows.Next() {
 		var family string
 		var tuple []string
@@ -259,15 +348,37 @@ func (store *PostgresStore) Reconcile(
 				family,
 			)
 		}
+		if family != currentFamily {
+			flush()
+			currentFamily = family
+			accumulator = newRelationshipDigestAccumulator()
+		}
 		output.ActualCounts[family]++
-		tuples[family] = append(tuples[family], tuple)
+		accumulator.Add(tuple)
 	}
 	if err := rows.Err(); err != nil {
 		return preproddata.Reconciliation{}, err
 	}
-	for family := range store.profile.ExpectedCounts {
-		output.RelationshipDigests[family] = relationshipDigest(
-			tuples[family],
+	flush()
+	var objectCount, objectBytes int64
+	if err := store.pool.QueryRow(ctx, `
+		SELECT COUNT(*), COALESCE(SUM(size_bytes), 0)
+		FROM object_metadata
+		WHERE bucket_name = 'aviasurveil360-local-preprod'
+		  AND object_key LIKE $1
+	`, "runs/"+store.runID+"/objects/%").Scan(
+		&objectCount,
+		&objectBytes,
+	); err != nil {
+		return preproddata.Reconciliation{}, err
+	}
+	if objectCount != store.profile.ExpectedCounts["objectVersions"] ||
+		objectBytes < 1 ||
+		objectBytes > store.profile.ResourceEnvelope.ObjectBytes ||
+		(store.profile.Name == "stress" &&
+			objectBytes != store.profile.ResourceEnvelope.ObjectBytes) {
+		return preproddata.Reconciliation{}, fmt.Errorf(
+			"object payload count or byte envelope differs from frozen profile",
 		)
 	}
 	return output, nil
@@ -281,6 +392,26 @@ func (store *PostgresStore) Records(
 	if !ok {
 		return nil, fmt.Errorf("unknown scenario family %s", family)
 	}
+	records := make([]Record, 0, expected)
+	err := store.ScanRecords(ctx, family, func(record Record) error {
+		records = append(records, record)
+		return nil
+	})
+	return records, err
+}
+
+func (store *PostgresStore) ScanRecords(
+	ctx context.Context,
+	family string,
+	yield func(Record) error,
+) error {
+	expected, ok := store.profile.ExpectedCounts[family]
+	if !ok {
+		return fmt.Errorf("unknown scenario family %s", family)
+	}
+	if yield == nil {
+		return fmt.Errorf("scenario record scanner callback is required")
+	}
 	rows, err := store.pool.Query(ctx, `
 		SELECT family, record_id, business_key, revision,
 		       predecessor_id, distribution, effective_at, known_at,
@@ -291,10 +422,10 @@ func (store *PostgresStore) Records(
 		ORDER BY record_id
 	`, store.runID, family)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer rows.Close()
-	records := make([]Record, 0, expected)
+	var count int64
 	for rows.Next() {
 		var record Record
 		var predecessorID *string
@@ -314,31 +445,34 @@ func (store *PostgresStore) Records(
 			&record.RelationshipTuple,
 			&attributes,
 		); err != nil {
-			return nil, err
+			return err
 		}
 		if predecessorID != nil {
 			record.PredecessorID = *predecessorID
 		}
 		if err := json.Unmarshal(attributes, &record.Attributes); err != nil {
-			return nil, fmt.Errorf(
+			return fmt.Errorf(
 				"decode durable scenario attributes for %s/%s: %w",
 				record.Family,
 				record.RecordID,
 				err,
 			)
 		}
-		records = append(records, record)
-		if int64(len(records)) > expected {
-			return nil, fmt.Errorf(
+		count++
+		if count > expected {
+			return fmt.Errorf(
 				"durable scenario family %s exceeds profile bound",
 				family,
 			)
 		}
+		if err := yield(record); err != nil {
+			return err
+		}
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return err
 	}
-	return records, nil
+	return nil
 }
 
 func relationshipDigest(tuples [][]string) string {
@@ -349,6 +483,31 @@ func relationshipDigest(tuples [][]string) string {
 	sort.Strings(canonical)
 	digest := sha256.Sum256([]byte(strings.Join(canonical, "\n")))
 	return "sha256:" + hex.EncodeToString(digest[:])
+}
+
+type relationshipDigestAccumulator struct {
+	digest   hash.Hash
+	hasValue bool
+}
+
+func newRelationshipDigestAccumulator() *relationshipDigestAccumulator {
+	return &relationshipDigestAccumulator{digest: sha256.New()}
+}
+
+func (accumulator *relationshipDigestAccumulator) Add(tuple []string) {
+	if accumulator.hasValue {
+		_, _ = accumulator.digest.Write([]byte{'\n'})
+	}
+	_, _ = accumulator.digest.Write(
+		[]byte(strings.Join(tuple, "\x1f")),
+	)
+	accumulator.hasValue = true
+}
+
+func (accumulator *relationshipDigestAccumulator) Digest() string {
+	return "sha256:" + hex.EncodeToString(
+		accumulator.digest.Sum(nil),
+	)
 }
 
 func (store *PostgresStore) materialize(

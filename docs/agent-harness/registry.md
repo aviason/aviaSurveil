@@ -92,7 +92,7 @@ The React candidate uses `apps/web/package.json`.
 | Finding/CAP/Evidence | Workflow docs and module docs for findings, CAP, evidence | Targeted tests and plan/evidence summary. |
 | UI/visual QA | UX docs, screen specs, active plan | Screenshot/browser evidence and demo summary when accepted. |
 | Plan lifecycle | `../../AGENTS.md`, `../exec-plans/index.md`, target plan | Plan file, index row, and tech-debt tracker entry if a durable gap exists. |
-| Connected preprod data | Plan 5, `../product-specs/data-and-rules/PREPROD_IDENTITY_AND_DATA_PROFILE.md`, loader/scenario packages | `./scripts/test-preprod-connected-scenarios.sh smoke`, Plan 5 evidence, plan index, and tracker. |
+| Connected preprod data | Plan 5, `../product-specs/data-and-rules/PREPROD_IDENTITY_AND_DATA_PROFILE.md`, loader/scenario packages | `./scripts/test-preprod-data-profile.sh smoke`, then `acceptance`, `realistic`, and `stress`; active versions are `smoke@1.0.0`, `acceptance@1.0.0`, `realistic@1.1.0`, and `stress@1.1.0`. Full-volume realistic/stress `1.0.0` endurance remains retained and `not run`. Synchronize Plan 5 evidence, plan index, and tracker. |
 
 ## Authorization Boundary
 

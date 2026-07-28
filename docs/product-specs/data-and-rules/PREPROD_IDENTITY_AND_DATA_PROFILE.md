@@ -1,27 +1,30 @@
 # Preprod Identity And Data Profile Contract
 
-**Contract status:** `active — version 1.0.0 approved`
+**Contract status:** `active — contract 1.0.0; local qualification profile
+revision 1.1.0 approved`
 
 **Profile and policy status:** `approved — owner decision recorded`
 
-**Runtime status:** Tasks 2–6 identity-directory, lifecycle, invitation,
-recovery, MFA, session-authority, Admin-experience, and isolated loader
-foundations are `verified locally`; Tasks 7–9 remain `not run`.
+**Runtime status:** Tasks 2–8 are `verified locally`; Task 8 publication is
+pending and Task 9 remains `not run`. Owner-approved local qualification uses
+revision `1.1.0` for realistic/stress. Full-volume `realistic@1.0.0` and
+`stress@1.0.0` endurance qualification is deferred release-readiness evidence
+and remains `not run`.
 
 This document began as the Plan 5 Task 1 contract and owner-decision package.
 It defines machine-checkable identity, authority, privacy, and deterministic
-data-profile boundaries. Tasks 2–6 now implement and locally verify the
-directory, lifecycle, invitation/recovery/MFA, session, and complete Users and
-Roles Admin-experience portions plus the deterministic out-of-process loader
-and immutable control-record boundary. Connected scenario generation, runtime
-profile qualification, and generated datasets remain `not run`.
+data-profile boundaries. Tasks 2–8 now locally verify the directory, lifecycle,
+invitation/recovery/MFA, session, complete Users and Roles Admin experience,
+deterministic out-of-process loader, immutable control-record boundary,
+connected scenario generation, and the four active local qualification
+profiles. Full-volume realistic/stress endurance remains separately `not run`.
 
 The 2026-07-27 authorization allowed this Task 1 package to proceed without the
 then-open Plan 1 visual stakeholder closure. Plan 1 and the combined Plans 2–4
 local stakeholder disposition were completed on 2026-07-28. A later explicit
-authorization started the sequential Plan 5 implementation. Tasks 2–6 are
-complete, `verified locally`, and published through Task 6 revision
-`26c7022`.
+authorization started the sequential Plan 5 implementation. Tasks 2–7 are
+complete, `verified locally`, and published through Task 7 revision
+`a2d4744`; Task 8 is `verified locally` with publication pending.
 
 ## Binding Invariants
 
@@ -147,18 +150,35 @@ runtime feasibility claims. Every profile uses the same lifecycle scenario catal
 eight roles, the complete visible-action catalog, and all 86 routes with an
 explicit authorized-data, intentional-empty, or denied disposition.
 
-| Profile version | Organizations | Users | Audits | Checklist responses | Findings | CAP revisions | Evidence versions | Report versions | Communications + notifications | Audit events | Approved maximum duration / memory / disk |
+| Active local qualification profile | Organizations | Users | Audits | Checklist responses | Findings | CAP revisions | Evidence versions | Report versions | Communications + notifications | Audit events | Maximum total qualification / memory / disk |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
 | `smoke@1.0.0` | 3 | 9 | 2 | 24 | 8 | 12 | 16 | 6 | 40 | 250 | 120 s / 1,024 MiB / 2,048 MiB |
 | `acceptance@1.0.0` | 25 | 250 | 1,000 | 10,000 | 3,000 | 4,500 | 6,000 | 2,000 | 20,000 | 100,000 | 1,200 s / 4,096 MiB / 20,480 MiB |
+| `realistic@1.1.0` | 50 | 500 | 2,000 | 20,000 | 6,000 | 9,000 | 12,000 | 4,000 | 40,000 | 200,000 | 900 s / 8,192 MiB / 20,480 MiB |
+| `stress@1.1.0` | 100 | 1,000 | 4,000 | 40,000 | 12,000 | 18,000 | 24,000 | 8,000 | 80,000 | 400,000 | 1,800 s / 12,288 MiB / 32,768 MiB |
+
+The owner-approved `1.1.0` local qualification profiles derive every generated
+family and distribution deterministically from `acceptance@1.0.0` at 2× and
+4× scale. The 86 route dispositions and 306 visible-action dispositions remain
+complete rather than being multiplied. Both profiles retain all 40 data
+families, all eight roles, relationship reconciliation, privacy canaries,
+controlled interruption/resume, positive resource evidence, and
+whole-disposable-namespace cleanup. `stress@1.1.0` carries an exact 512 MiB
+synthetic object payload.
+
+The earlier full-volume targets are retained without modification as separate
+release-readiness endurance profiles:
+
+| Deferred endurance profile | Organizations | Users | Audits | Checklist responses | Findings | CAP revisions | Evidence versions | Report versions | Communications + notifications | Audit events | Prior envelope |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
 | `realistic@1.0.0` | 100 | 2,000 | 20,000 | 250,000 | 60,000 | 100,000 | 200,000 | 75,000 | 1,000,000 | 5,000,000 | 7,200 s / 12,288 MiB / 51,200 MiB |
 | `stress@1.0.0` | 200 | 4,000 | 40,000 | 500,000 | 120,000 | 200,000 | 400,000 | 150,000 | 2,000,000 | 10,000,000 | 28,800 s / 12,288 MiB / 65,536 MiB |
 
-The stress profile has an exact 8 GiB synthetic object payload. A profile that
-cannot preserve its exact counts and complete catalogs inside its approved
-envelope fails; silent row, route, action, scenario, or payload reduction is
-forbidden. Feasibility remains `not run` until the owning loader/runtime tasks
-are separately authorized and executed.
+These full-volume endurance runs are `not run` and deferred to release-readiness
+evidence. The exact 8 GiB `stress@1.0.0` object payload remains frozen. Earlier
+manifests and create-only evidence are retained. A qualification that cannot
+preserve its exact versioned counts and complete catalogs inside its approved
+envelope fails; unversioned or undocumented reduction remains forbidden.
 
 The machine-readable contract below closes the generated-family catalog,
 defines every exact count and distribution, and requires a SHA-256 relationship
@@ -239,6 +259,14 @@ contract `1.0.0`.
 | `OWNER-DIRECTIVE-2026-07-28-P5T1-09` | Least-privilege Keycloak service account | Confidential client credentials with only `query-users`, `view-users`, `manage-users`, and `view-realm`; realm/client administration, impersonation, and cross-realm access denied |
 | `OWNER-DIRECTIVE-2026-07-28-P5T1-10` | Provider observation freshness/deadline | 30-second heartbeat, 60-second maximum age, 120-second denial deadline; not an inactivity timeout; drift or disablement fails closed immediately |
 | `OWNER-DIRECTIVE-2026-07-28-P5T1-11` | Profile volumes and resource limits | Exact `1.0.0` manifests; disk 2/20/50/64 GiB; stress 12 GiB memory, 8-hour duration, and 8 GiB object payload; runtime feasibility remains `not run`; silent reduction forbidden |
+
+Task 8 owner revision `OWNER-DIRECTIVE-2026-07-28-P5T8-01` supersedes only
+the local qualification selection: `realistic@1.1.0` must complete within
+900 seconds and `stress@1.1.0` within 1,800 seconds while retaining all data
+families, relationship, privacy, resume, resource, and cleanup gates. It does
+not replace or weaken the full-volume `1.0.0` manifests; those are preserved
+as deferred release-readiness endurance evidence with literal status
+`not run`.
 
 ## Exact Gate Before Task 2 — Satisfied
 
@@ -1068,6 +1096,31 @@ contract/profile version and a corresponding test update.
         "status": "approved — owner decision recorded",
         "implementationAllowed": false,
         "changePolicy": "new-version-required",
+        "localQualification": {
+          "version": "1.1.0",
+          "status": "approved — owner decision recorded",
+          "approvalReference": "OWNER-DIRECTIVE-2026-07-28-P5T8-01",
+          "approvedAt": "2026-07-28",
+          "purpose": "local-qualification",
+          "sourceProfile": "acceptance@1.0.0",
+          "scaleMultiplier": 2,
+          "preservedCatalogCountFamilies": ["routeDispositions", "visibleActionDispositions"],
+          "organizationDistribution": { "caa": 1, "auditee": 49 },
+          "resourceEnvelope": {
+            "seedRequired": true,
+            "clockOrigin": "2026-01-01T00:00:00Z",
+            "identityNamespace": "synthetic-realistic-local-v1-1",
+            "cpuCores": 8,
+            "memoryMiB": 8192,
+            "diskMiB": 20480,
+            "objectBytes": 2147483648,
+            "durationSeconds": 900,
+            "qualificationSeconds": 900,
+            "cleanupSeconds": 300
+          }
+        },
+        "evidencePurpose": "release-readiness-endurance",
+        "runtimeStatus": "not run",
         "catalogs": {
           "routeCount": 86,
           "visibleActionCoverage": "complete",
@@ -1151,6 +1204,31 @@ contract/profile version and a corresponding test update.
         "status": "approved — owner decision recorded",
         "implementationAllowed": false,
         "changePolicy": "new-version-required",
+        "localQualification": {
+          "version": "1.1.0",
+          "status": "approved — owner decision recorded",
+          "approvalReference": "OWNER-DIRECTIVE-2026-07-28-P5T8-01",
+          "approvedAt": "2026-07-28",
+          "purpose": "local-qualification",
+          "sourceProfile": "acceptance@1.0.0",
+          "scaleMultiplier": 4,
+          "preservedCatalogCountFamilies": ["routeDispositions", "visibleActionDispositions"],
+          "organizationDistribution": { "caa": 1, "auditee": 99 },
+          "resourceEnvelope": {
+            "seedRequired": true,
+            "clockOrigin": "2026-01-01T00:00:00Z",
+            "identityNamespace": "synthetic-stress-local-v1-1",
+            "cpuCores": 12,
+            "memoryMiB": 12288,
+            "diskMiB": 32768,
+            "objectBytes": 536870912,
+            "durationSeconds": 1800,
+            "qualificationSeconds": 1800,
+            "cleanupSeconds": 300
+          }
+        },
+        "evidencePurpose": "release-readiness-endurance",
+        "runtimeStatus": "not run",
         "catalogs": {
           "routeCount": 86,
           "visibleActionCoverage": "complete",
@@ -1556,7 +1634,29 @@ contract/profile version and a corresponding test update.
           }
         },
         "runtimeFeasibility": "not run",
-        "silentReduction": "forbidden"
+        "silentReduction": "forbidden",
+        "localQualificationRevision": {
+          "approvalReference": "OWNER-DIRECTIVE-2026-07-28-P5T8-01",
+          "approvedAt": "2026-07-28",
+          "profileVersions": {
+            "realistic": "1.1.0",
+            "stress": "1.1.0"
+          },
+          "maximumQualificationSeconds": {
+            "realistic": 900,
+            "stress": 1800
+          },
+          "retainedGates": [
+            "all-data-families",
+            "relationship-reconciliation",
+            "privacy",
+            "resume",
+            "resource-envelope",
+            "whole-namespace-cleanup"
+          ],
+          "fullVolumeEndurancePurpose": "release-readiness-evidence",
+          "fullVolumeEnduranceStatus": "not run"
+        }
       }
     }
   ]

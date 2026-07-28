@@ -67,6 +67,28 @@ func (backend *MinIOObjectBackend) List(
 	bucket,
 	prefix string,
 ) ([]ObjectBlob, error) {
+	var output []ObjectBlob
+	err := backend.Scan(
+		ctx,
+		bucket,
+		prefix,
+		func(blob ObjectBlob) error {
+			output = append(output, blob)
+			return nil
+		},
+	)
+	return output, err
+}
+
+func (backend *MinIOObjectBackend) Scan(
+	ctx context.Context,
+	bucket,
+	prefix string,
+	yield func(ObjectBlob) error,
+) error {
+	if yield == nil {
+		return fmt.Errorf("MinIO object scanner callback is required")
+	}
 	objects := backend.client.ListObjects(
 		ctx,
 		bucket,
@@ -75,17 +97,18 @@ func (backend *MinIOObjectBackend) List(
 			Recursive: true,
 		},
 	)
-	var output []ObjectBlob
 	for object := range objects {
 		if object.Err != nil {
-			return nil, mapScenarioObjectError(object.Err)
+			return mapScenarioObjectError(object.Err)
 		}
-		output = append(output, ObjectBlob{
+		if err := yield(ObjectBlob{
 			Bucket: bucket,
 			Key:    object.Key,
-		})
+		}); err != nil {
+			return err
+		}
 	}
-	return output, nil
+	return nil
 }
 
 func (backend *MinIOObjectBackend) Read(

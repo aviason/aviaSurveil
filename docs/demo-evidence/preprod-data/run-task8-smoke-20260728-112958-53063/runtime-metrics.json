@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "preprod-profile-runtime-metrics/v1",
+  "profile": "smoke",
+  "profileVersion": "1.0.0",
+  "generationSeconds": 10,
+  "peakLoaderMemoryMiB": 0,
+  "peakLoaderCpuCores": 0,
+  "databaseBytes": 14683283,
+  "scenarioRelationBytes": 1875968,
+  "objectMetadataRelationBytes": 90112,
+  "objectBytes": 6576,
+  "namespaceDiskMiB": 105,
+  "workerLagSeconds": 60,
+  "privacyFindings": 0,
+  "resourceEnvelope": {
+    "seedRequired": true,
+    "clockOrigin": "2026-01-01T00:00:00Z",
+    "identityNamespace": "synthetic-smoke-v1",
+    "cpuCores": 2,
+    "memoryMiB": 1024,
+    "diskMiB": 2048,
+    "objectBytes": 134217728,
+    "durationSeconds": 120,
+    "cleanupSeconds": 60
+  }
+}

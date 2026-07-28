@@ -139,6 +139,60 @@ const expectedProfileResources = {
     cleanupSeconds: 5400,
   },
 };
+const expectedLocalQualificationRevisions = {
+  realistic: {
+    version: "1.1.0",
+    status: approvedDecisionStatus,
+    approvalReference: "OWNER-DIRECTIVE-2026-07-28-P5T8-01",
+    approvedAt: "2026-07-28",
+    purpose: "local-qualification",
+    sourceProfile: "acceptance@1.0.0",
+    scaleMultiplier: 2,
+    preservedCatalogCountFamilies: [
+      "routeDispositions",
+      "visibleActionDispositions",
+    ],
+    organizationDistribution: { caa: 1, auditee: 49 },
+    resourceEnvelope: {
+      seedRequired: true,
+      clockOrigin: "2026-01-01T00:00:00Z",
+      identityNamespace: "synthetic-realistic-local-v1-1",
+      cpuCores: 8,
+      memoryMiB: 8192,
+      diskMiB: 20480,
+      objectBytes: 2147483648,
+      durationSeconds: 900,
+      qualificationSeconds: 900,
+      cleanupSeconds: 300,
+    },
+  },
+  stress: {
+    version: "1.1.0",
+    status: approvedDecisionStatus,
+    approvalReference: "OWNER-DIRECTIVE-2026-07-28-P5T8-01",
+    approvedAt: "2026-07-28",
+    purpose: "local-qualification",
+    sourceProfile: "acceptance@1.0.0",
+    scaleMultiplier: 4,
+    preservedCatalogCountFamilies: [
+      "routeDispositions",
+      "visibleActionDispositions",
+    ],
+    organizationDistribution: { caa: 1, auditee: 99 },
+    resourceEnvelope: {
+      seedRequired: true,
+      clockOrigin: "2026-01-01T00:00:00Z",
+      identityNamespace: "synthetic-stress-local-v1-1",
+      cpuCores: 12,
+      memoryMiB: 12288,
+      diskMiB: 32768,
+      objectBytes: 536870912,
+      durationSeconds: 1800,
+      qualificationSeconds: 1800,
+      cleanupSeconds: 300,
+    },
+  },
+};
 const expectedOwnerImplementationValues = {
   INVITATION_CHANNEL_EXPIRY_RESEND: {
     channel: "authenticated-local-smtp-mailpit",
@@ -251,6 +305,28 @@ const expectedOwnerImplementationValues = {
     resourceEnvelopes: expectedProfileResources,
     runtimeFeasibility: "not run",
     silentReduction: "forbidden",
+    localQualificationRevision: {
+      approvalReference: "OWNER-DIRECTIVE-2026-07-28-P5T8-01",
+      approvedAt: "2026-07-28",
+      profileVersions: {
+        realistic: "1.1.0",
+        stress: "1.1.0",
+      },
+      maximumQualificationSeconds: {
+        realistic: 900,
+        stress: 1800,
+      },
+      retainedGates: [
+        "all-data-families",
+        "relationship-reconciliation",
+        "privacy",
+        "resume",
+        "resource-envelope",
+        "whole-namespace-cleanup",
+      ],
+      fullVolumeEndurancePurpose: "release-readiness-evidence",
+      fullVolumeEnduranceStatus: "not run",
+    },
   },
 };
 
@@ -573,6 +649,20 @@ function validateContract(contract) {
         0,
       `optional TOTP distribution ${profile.name}`,
     );
+    if (profile.name === "realistic" || profile.name === "stress") {
+      add(
+        isDeepStrictEqual(
+          profile.localQualification,
+          expectedLocalQualificationRevisions[profile.name],
+        ),
+        `owner-approved local qualification revision ${profile.name}`,
+      );
+      add(
+        profile.evidencePurpose === "release-readiness-endurance" &&
+          profile.runtimeStatus === "not run",
+        `deferred full-volume endurance evidence ${profile.name}`,
+      );
+    }
   }
 
   const dictionary = contract.syntheticData ?? {};

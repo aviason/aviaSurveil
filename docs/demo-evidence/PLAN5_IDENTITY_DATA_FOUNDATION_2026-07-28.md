@@ -2,7 +2,8 @@
 
 **Evidence date:** 2026-07-28
 
-**Scope status:** Tasks 1–7 complete; Tasks 8–9 `not run`
+**Scope status:** Tasks 1–8 complete and `verified locally`; Task 8 publication
+pending; Task 9 `not run`
 
 **Artifact status:** `candidate-only`
 
@@ -853,3 +854,103 @@ remain `not run`.
 Task 7 was committed as `a2d474431d8bcc33ebc0557630cd7038cbcd8ec0`
 (`feat(data): add connected preprod scenarios`), pushed to `origin/main`, and
 confirmed by both the local upstream ref and `git ls-remote`.
+
+## Task 8 All-Profile Qualification
+
+Task 8 began with a strict pre-implementation scale-contract command,
+`node --test tests/preprod-data-scale-contract.test.mjs`, exited 1 with
+`Could not find 'tests/preprod-data-scale-contract.test.mjs'`. Its strict
+profile-runner command, `./scripts/test-preprod-data-profile.sh smoke`, exited
+127 with `no such file or directory`. Neither required Task 8 artifact existed
+before these failures.
+
+`smoke@1.0.0` and `acceptance@1.0.0` subsequently passed on the current Task 8
+implementation. Their create-only evidence records exact 40-family,
+86-route, 306-action, eight-role, relationship, privacy, controlled
+interruption/resume, positive resource, API, cleanup, and zero-residue results.
+The earlier success and failure directories remain preserved. The final
+accepted current-code runs are recorded below.
+
+### Owner-approved qualification revision
+
+During full-volume `realistic@1.0.0` run
+`preprod-data/run-task8-realistic-20260728-121351-92512/`, the owner directed
+a safe stop and approved `OWNER-DIRECTIVE-2026-07-28-P5T8-01`. The command
+exited 130. Its cleanup trap removed every task-owned container, volume, and
+network; subsequent Docker residue checks returned no entries, and protected
+Plan 1 PID 13055 remained alive. The failed create-only directory and every
+earlier run remain retained.
+
+The revision makes `realistic@1.1.0` the required 2×-acceptance local
+qualification with a maximum total duration of 900 seconds. It makes
+`stress@1.1.0` the required 4×-acceptance local qualification with a maximum
+total duration of 1,800 seconds and an exact 512 MiB synthetic object payload.
+Both retain all 40 data families, all eight roles, all 86 route dispositions,
+all 306 action dispositions, exact relationship and distribution
+reconciliation, 45/45 privacy canaries, controlled interruption/resume,
+positive resource measurement, API/query evidence, and whole-namespace
+cleanup.
+
+The unchanged full-volume `realistic@1.0.0` and `stress@1.0.0` manifests,
+including the latter's exact 8 GiB object payload, are separate deferred
+release-readiness endurance evidence. Their status is literally `not run`;
+they are not local Task 8 completion claims.
+
+The strict revision RED command
+`node --test tests/preprod-identity-data-contract.test.mjs
+tests/preprod-data-scale-contract.test.mjs` exited 1 with 27/30 passing and
+reported missing `1.1.0` qualification metadata, total-duration enforcement,
+and owner-decision synchronization. The focused Go RED command failed to
+compile because `profiles.ResourceEnvelope.QualificationSeconds` did not
+exist and separately rejected `stress@1.1.0` as unknown. No revision
+implementation preceded these results. Revised local realistic/stress GREEN
+qualification was then executed.
+
+The first `stress@1.1.0` attempt
+`preprod-data/run-task8-stress-20260728-125100-11538/` failed with
+`TARGET_RECONCILIATION_FAILED`. Cleanup removed the complete disposable
+namespace and retained the create-only failed evidence. The focused RED
+`TestLocalStressQualificationRetainsAnExactBoundedObjectPayload` then failed
+with `first local stress object size = 0, expected 14914`: the exact payload
+helper selected only `stress@1.0.0`. The versioned fix retained the exact
+8 GiB endurance calculation and enabled the exact 512 MiB local calculation.
+
+### Final accepted profile evidence
+
+| Run | Counts sampled | Generation / total | Resource and API evidence | Payload, privacy, cleanup |
+|---|---|---:|---|---|
+| `preprod-data/run-task8-smoke-20260728-123820-3753/` (`smoke@1.0.0`) | 3 organizations; 9 accounts; 2 audits; 250 audit events; 24 object versions | 17 / 125 s | 5 samples; 1.637 MiB; 0.132 cores; API p95 107.909 ms | 6,576 bytes; privacy 0; envelope clean; cleanup 3 s; residue 0 |
+| `preprod-data/run-task8-acceptance-20260728-124053-5944/` (`acceptance@1.0.0`) | 25 organizations; 250 accounts; 1,000 audits; 100,000 audit events; 9,000 object versions | 124 / 219 s | 58 samples; 25.59 MiB; 0.542 cores; API p95 106.57 ms | 2,466,000 bytes; privacy 0; envelope clean; cleanup 3 s; residue 0 |
+| `preprod-data/run-task8-realistic-20260728-124500-8671/` (`realistic@1.1.0`) | 50 organizations; 500 accounts; 2,000 audits; 200,000 audit events; 18,000 object versions | 228 / 326 of 900 s | 111 samples; 25.64 MiB; 0.528 cores; API p95 97.372 ms | 4,932,000 bytes; privacy 0; envelope clean; cleanup 4 s; residue 0 |
+| `preprod-data/run-task8-stress-20260728-130443-17486/` (`stress@1.1.0`) | 100 organizations; 1,000 accounts; 4,000 audits; 400,000 audit events; 36,000 object versions | 528 / 649 of 1,800 s | 258 samples; 24.12 MiB; 0.912 cores; API p95 118.797 ms | exact 536,870,912 bytes; privacy 0; envelope clean; cleanup 5 s; residue 0 |
+
+Every final run contains exactly seven evidence files and reconciles all 40
+data families, all eight roles, 86 route dispositions, 306 visible-action
+dispositions, exact lifecycle distributions, and relationship digests. Each
+retains one expected `COMMAND_STREAM_FAILED` interruption result followed by
+one `SUCCEEDED` result, exact load/resume/drop authorizations, positive
+resource samples, query/API evidence, 45/45 privacy canaries, and
+whole-namespace cleanup with zero container, volume, or network residue.
+
+The full-volume `realistic@1.0.0` and `stress@1.0.0` endurance runs remain
+literal `not run` release-readiness evidence. No AWS, deployment, production,
+real PII, or normal HTTP seed action occurred.
+
+### Final focused verification
+
+The first final race rerun inside the restricted sandbox exited 1 because
+`httptest` could not bind `[::1]:0` (`operation not permitted`), not because an
+assertion failed. The exact command was rerun with local loopback permission
+and passed:
+
+| Command | Literal result |
+|---|---|
+| `node --test tests/preprod-identity-data-contract.test.mjs tests/preprod-data-scale-contract.test.mjs tests/preprod-data-boundary.test.mjs` | exit 0; 37/37 passed |
+| `go -C apps/api test -race -p 1 -count=1 ./internal/preproddata/... ./cmd/preprod-data-loader` | exit 0; core 1.541 s, profiles 1.234 s, scenarios 183.776 s, loader 1.514 s |
+| `go -C apps/api vet ./internal/preproddata/... ./cmd/preprod-data-loader` | exit 0 |
+| `bash -n scripts/load-preprod-data.sh scripts/test-preprod-connected-scenarios.sh scripts/test-preprod-data-profile.sh` | exit 0 |
+| `./scripts/test-normal-artifact-boundary.sh` | exit 0; `normal-artifact-boundary: ok` |
+| `git diff --check` | exit 0 |
+
+Task 8 is therefore `verified locally`, remains `candidate-only`, and is
+`release pending`. Publication is pending. Task 9 remains `not run`.

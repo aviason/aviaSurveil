@@ -55,6 +55,14 @@ func TestObjectEndpointWritesExactlyOnceAndRejectsContentDrift(
 	); err != nil {
 		t.Fatalf("reconcile exact object version: %v", err)
 	}
+	if err := endpoint.ReconcileObjectVersionStream(
+		ctx,
+		func(yield func(scenarios.ObjectVersion) error) error {
+			return yield(version)
+		},
+	); err != nil {
+		t.Fatalf("stream-reconcile exact object version: %v", err)
+	}
 	blob := backend.blobs[version.Key]
 	blob.Content = []byte(`{"synthetic":false}`)
 	backend.blobs[version.Key] = blob
@@ -115,6 +123,24 @@ func (backend *memoryObjectBackend) Read(
 		return scenarios.ObjectBlob{}, scenarios.ErrScenarioObjectNotFound
 	}
 	return cloneObjectBlob(blob), nil
+}
+
+func (backend *memoryObjectBackend) Scan(
+	ctx context.Context,
+	bucket,
+	prefix string,
+	yield func(scenarios.ObjectBlob) error,
+) error {
+	blobs, err := backend.List(ctx, bucket, prefix)
+	if err != nil {
+		return err
+	}
+	for _, blob := range blobs {
+		if err := yield(blob); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (backend *memoryObjectBackend) Create(

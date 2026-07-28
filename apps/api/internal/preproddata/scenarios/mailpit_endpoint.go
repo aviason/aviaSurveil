@@ -78,6 +78,33 @@ func (endpoint *MailpitInvitationEndpoint) Preflight(
 	return nil
 }
 
+func (endpoint *MailpitInvitationEndpoint) ResumePreflight(
+	ctx context.Context,
+) error {
+	messages, err := endpoint.messages(ctx)
+	if err != nil {
+		return err
+	}
+	for _, message := range messages {
+		if strings.TrimSpace(message.ID) == "" || len(message.To) == 0 {
+			return fmt.Errorf(
+				"connected-scenario Mailpit target has an invalid resumable message",
+			)
+		}
+		for _, recipient := range message.To {
+			if !strings.HasSuffix(
+				strings.ToLower(strings.TrimSpace(recipient.Address)),
+				"@synthetic.invalid",
+			) {
+				return fmt.Errorf(
+					"connected-scenario Mailpit target has a non-synthetic recipient",
+				)
+			}
+		}
+	}
+	return nil
+}
+
 func (endpoint *MailpitInvitationEndpoint) EnsureInvitationDelivery(
 	ctx context.Context,
 	delivery InvitationDelivery,

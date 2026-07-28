@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -558,5 +559,70 @@ func TestReadIntentRejectsTrailingContent(t *testing.T) {
 
 	if _, err := readIntent(intentPath); err == nil {
 		t.Fatalf("intent reader accepted trailing JSON content")
+	}
+}
+
+func TestQualificationInterruptionIsExplicitBoundedAndLoaderOnly(
+	t *testing.T,
+) {
+	command := func(id string) preproddata.AuthoritativeCommand {
+		return preproddata.AuthoritativeCommand{
+			Family:      "organizations",
+			OperationID: id,
+			Payload:     []byte(`{"schemaVersion":"test/v1"}`),
+		}
+	}
+	base := preproddata.NewSliceCommandStream(
+		command("operation-1"),
+		command("operation-2"),
+	)
+	lookup := func(name string) string {
+		return map[string]string{
+			"AVIA_PREPROD_PROFILE_QUALIFICATION":                  "true",
+			"AVIA_PREPROD_QUALIFICATION_INTERRUPT_AFTER_COMMANDS": "1",
+		}[name]
+	}
+	stream, err := qualificationCommandStream(base, lookup)
+	if err != nil {
+		t.Fatalf("qualification stream: %v", err)
+	}
+	if _, err := stream.Next(context.Background()); err != nil {
+		t.Fatalf("first command: %v", err)
+	}
+	if _, err := stream.Next(context.Background()); !errors.Is(
+		err,
+		errQualificationInterruption,
+	) {
+		t.Fatalf("interruption error = %v", err)
+	}
+	if _, err := stream.Next(context.Background()); !errors.Is(
+		err,
+		errQualificationInterruption,
+	) {
+		t.Fatalf("post-interruption stream error = %v", err)
+	}
+
+	for name, environment := range map[string]map[string]string{
+		"hook without qualification mode": {
+			"AVIA_PREPROD_QUALIFICATION_INTERRUPT_AFTER_COMMANDS": "1",
+		},
+		"zero limit": {
+			"AVIA_PREPROD_PROFILE_QUALIFICATION":                  "true",
+			"AVIA_PREPROD_QUALIFICATION_INTERRUPT_AFTER_COMMANDS": "0",
+		},
+		"malformed limit": {
+			"AVIA_PREPROD_PROFILE_QUALIFICATION":                  "true",
+			"AVIA_PREPROD_QUALIFICATION_INTERRUPT_AFTER_COMMANDS": "one",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := qualificationCommandStream(
+				preproddata.NewSliceCommandStream(command("operation")),
+				func(key string) string { return environment[key] },
+			)
+			if err == nil {
+				t.Fatalf("unsafe qualification interruption was accepted")
+			}
+		})
 	}
 }

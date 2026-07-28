@@ -382,6 +382,51 @@ services:
       - preprod-app-database
     restart: "no"
 
+  preprod-api:
+    <<: *runtime-security
+    image: aviasurveil360/preprod-api:local
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      target: api
+    profiles: [local-preprod-loader]
+    user: "10001:10001"
+    depends_on:
+      preprod-migration:
+        condition: service_completed_successfully
+    environment:
+      AVIA_ENVIRONMENT: development
+      AVIA_HTTP_ADDRESS: 0.0.0.0:8080
+      AVIA_DATABASE_HOST: preprod-postgres
+      AVIA_DATABASE_PORT: "5432"
+      AVIA_DATABASE_NAME: aviasurveil360_local_preprod
+      AVIA_DATABASE_USER: aviasurveil360_preprod_loader
+      AVIA_DATABASE_PASSWORD_FILE: /run/secrets/preprod_app_database_password
+    entrypoint: [/bin/sh, -c]
+    command:
+      - >-
+        database_password="$$(tr -d '\r\n'
+        </run/secrets/preprod_app_database_password)";
+        export
+        AVIA_DATABASE_URL="postgres://aviasurveil360_preprod_loader:$${database_password}@preprod-postgres:5432/aviasurveil360_local_preprod?sslmode=disable";
+        unset database_password;
+        exec /app/api
+    secrets:
+      - preprod_app_database_password
+    tmpfs:
+      - /tmp:mode=1777
+    networks:
+      - preprod-app-database
+    healthcheck:
+      <<: *health-defaults
+      test:
+        - CMD
+        - wget
+        - --quiet
+        - --output-document=/dev/null
+        - http://127.0.0.1:8080/health/ready
+    restart: "no"
+
   preprod-keycloak-postgres:
     <<: *runtime-security
     image: postgres:17.6-alpine3.22@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94
@@ -610,6 +655,8 @@ services:
       AVIA_PREPROD_MAILPIT_NAMESPACE: aviasurveil360-local-preprod
       AVIA_PREPROD_OBJECT_BUCKET: aviasurveil360-local-preprod
       AVIA_PREPROD_LOADER_QUEUE_NAMESPACE: aviasurveil360-local-preprod
+      AVIA_PREPROD_PROFILE_QUALIFICATION: ${AVIA_PREPROD_PROFILE_QUALIFICATION:-false}
+      AVIA_PREPROD_QUALIFICATION_INTERRUPT_AFTER_COMMANDS: ${AVIA_PREPROD_QUALIFICATION_INTERRUPT_AFTER_COMMANDS:-}
       AVIA_DATABASE_PASSWORD_FILE: /run/secrets/preprod_app_database_password
       AVIA_KEYCLOAK_ADMIN_URL: http://preprod-keycloak:8080/identity
       AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET_FILE: /run/secrets/preprod_keycloak_service_client_secret

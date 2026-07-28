@@ -10,7 +10,7 @@ an orientation surface, not a production-readiness claim.
 | Root `index.html`, `css/`, `js/` | Accepted static demo and legacy behavior/UI oracle | Browser-local mock behavior; preserve unless an explicit task changes the oracle. |
 | `apps/web/` | React + TypeScript + Vite candidate | Separate demo and HTTP build profiles; HTTP artifacts must exclude mock/seed inputs. |
 | `apps/api/` | Go API/worker candidate | Local PostgreSQL, session/OIDC, upload/scan, audit, and domain slices authorized by active plans only. |
-| `apps/api/cmd/preprod-data-loader/` and `apps/api/internal/preproddata/scenarios/` | Isolated one-shot local-preprod data candidate | Immutable intent and one-time authorization feed a server-owned command boundary across disposable PostgreSQL, Keycloak, Mailpit, and MinIO; never linked into normal API/worker/scheduler/migration artifacts. |
+| `apps/api/cmd/preprod-data-loader/` and `apps/api/internal/preproddata/scenarios/` | Isolated one-shot local-preprod data candidate | Immutable intent and one-time authorization feed a server-owned command boundary across disposable PostgreSQL, Keycloak, Mailpit, and MinIO; versioned local qualification retains complete catalogs, privacy, resume, resources, and cleanup while full-volume endurance stays separate; never linked into normal API/worker/scheduler/migration artifacts. |
 | `api/openapi/` | Transport contract | Source for checked request/response shapes and generated adapters. |
 | `deploy/local/` | Local verification services | Test/local profiles only; no production deployment authority. |
 | `tests/` and `apps/web/tests/` | Contract, parity, browser, and regression evidence | Results are local evidence unless an external gate is explicitly exercised. |

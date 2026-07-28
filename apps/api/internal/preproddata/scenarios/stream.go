@@ -363,7 +363,6 @@ func (stream *Stream) decorate(
 	subjectID := stream.subjectID(index)
 	role := roles[index%int64(len(roles))]
 	auditID := stream.linkedID("audits", index)
-	questionID := stream.linkedID("checklistQuestions", index)
 	responseID := stream.linkedID("checklistResponses", index)
 	findingID := stream.linkedID("findings", index)
 	capRevisionID := stream.linkedID("capRevisions", index)
@@ -500,14 +499,18 @@ func (stream *Stream) decorate(
 			strconv.FormatInt(record.Revision, 10),
 		}
 	case "assignments":
+		assignmentQuestionID := stream.linkedID(
+			"checklistQuestions",
+			index/stream.profile.ExpectedCounts["audits"],
+		)
 		record.Attributes["auditId"] = auditID
 		record.Attributes["membershipId"] = membershipID
-		record.Attributes["questionId"] = questionID
+		record.Attributes["questionId"] = assignmentQuestionID
 		return []string{
 			record.RecordID,
 			auditID,
 			membershipID,
-			questionID,
+			assignmentQuestionID,
 		}
 	case "checklistTemplates":
 		record.OrganizationID = stream.organizationID(0)
@@ -539,13 +542,17 @@ func (stream *Stream) decorate(
 		record.Attributes["templateVersionId"] = templateVersionID
 		return []string{record.RecordID, auditID, templateVersionID}
 	case "checklistResponses":
+		responseQuestionID := stream.linkedID(
+			"checklistQuestions",
+			index/stream.profile.ExpectedCounts["audits"],
+		)
 		record.Attributes["auditId"] = auditID
-		record.Attributes["questionId"] = questionID
+		record.Attributes["questionId"] = responseQuestionID
 		record.Attributes["membershipId"] = membershipID
 		return []string{
 			record.RecordID,
 			auditID,
-			questionID,
+			responseQuestionID,
 			membershipID,
 			strconv.FormatInt(record.Revision, 10),
 		}
@@ -709,9 +716,11 @@ func (stream *Stream) decorate(
 	case "objectVersions":
 		record.Attributes["objectId"] = objectID
 		record.Attributes["binaryIncluded"] = false
+		record.Attributes["payloadOrdinal"] = index + 1
 		content, contentDigest := safeSyntheticObjectContent(
 			*record,
 			objectID,
+			objectPayloadSize(stream.profile, index),
 		)
 		record.Attributes["contentDigest"] = contentDigest
 		record.Attributes["sizeBytes"] = int64(len(content))
@@ -918,6 +927,25 @@ func (stream *Stream) versionBase(family string) int64 {
 	default:
 		return 0
 	}
+}
+
+func objectPayloadSize(
+	profile profiles.Profile,
+	index int64,
+) int64 {
+	if profile.Name != "stress" {
+		return 0
+	}
+	count := profile.ExpectedCounts["objectVersions"]
+	if index < 0 || index >= count || count < 1 {
+		return 0
+	}
+	base := profile.ResourceEnvelope.ObjectBytes / count
+	remainder := profile.ResourceEnvelope.ObjectBytes % count
+	if index < remainder {
+		return base + 1
+	}
+	return base
 }
 
 func (stream *Stream) recordID(family string, index int64) string {

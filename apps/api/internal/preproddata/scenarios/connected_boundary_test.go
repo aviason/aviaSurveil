@@ -190,6 +190,88 @@ func TestConnectedBoundaryWritesSafeDeterministicObjectVersions(
 	}
 }
 
+func TestConnectedBoundaryResumeRestoresProviderAssignedSubjectBindings(
+	t *testing.T,
+) {
+	ctx := context.Background()
+	target := connectedTarget()
+	store := newMemoryScenarioStore()
+	identity := newMemoryIdentityEndpoint()
+	invitations := newMemoryInvitationEndpoint()
+	objects := newMemoryObjectEndpoint()
+	first, err := scenarios.NewConnectedBoundary(
+		scenarios.ConnectedBoundaryConfig{
+			Target:      target,
+			Store:       store,
+			Identity:    identity,
+			Invitations: invitations,
+			Objects:     objects,
+		},
+	)
+	if err != nil {
+		t.Fatalf("new first connected boundary: %v", err)
+	}
+	if err := first.Preflight(
+		ctx,
+		target,
+		preproddata.LoadEmptyTarget,
+	); err != nil {
+		t.Fatalf("first preflight: %v", err)
+	}
+	account := scenarioRecord("providerAccounts", "subject-001")
+	account.OrganizationID = "AUDITEE-A"
+	account.Attributes = map[string]any{
+		"providerSubjectId": "subject-001",
+		"membershipId":      "membership-001",
+		"observedState":     "enabled",
+		"role":              "auditee",
+		"email":             "user-0001@synthetic.invalid",
+	}
+	if err := first.Apply(ctx, scenarioCommand(t, account)); err != nil {
+		t.Fatalf("apply provider account: %v", err)
+	}
+
+	resumed, err := scenarios.NewConnectedBoundary(
+		scenarios.ConnectedBoundaryConfig{
+			Target:      target,
+			Store:       store,
+			Identity:    identity,
+			Invitations: invitations,
+			Objects:     objects,
+		},
+	)
+	if err != nil {
+		t.Fatalf("new resumed connected boundary: %v", err)
+	}
+	if err := resumed.Preflight(
+		ctx,
+		target,
+		preproddata.ResumeRun,
+	); err != nil {
+		t.Fatalf("resume preflight: %v", err)
+	}
+	membership := scenarioRecord(
+		"desiredMembershipVersions",
+		"membership-version-001",
+	)
+	membership.OrganizationID = "AUDITEE-A"
+	membership.Attributes = map[string]any{
+		"membershipId": "membership-001",
+		"subjectId":    "subject-001",
+		"roles":        []string{"auditee"},
+	}
+	if err := resumed.Apply(
+		ctx,
+		scenarioCommand(t, membership),
+	); err != nil {
+		t.Fatalf("apply resumed membership: %v", err)
+	}
+	stored := store.records["desiredMembershipVersions"]["membership-version-001"]
+	if got := stored.Attributes["subjectId"]; got != "provider-subject-001" {
+		t.Fatalf("resumed provider subject = %#v", got)
+	}
+}
+
 func TestConnectedBoundaryRejectsExternalIdentityReconciliationDrift(
 	t *testing.T,
 ) {
@@ -318,6 +400,13 @@ func (store *memoryScenarioStore) Initialize(context.Context) error {
 	return nil
 }
 
+func (store *memoryScenarioStore) Resume(context.Context) error {
+	if len(store.records) == 0 {
+		return fmt.Errorf("scenario store has no resumable records")
+	}
+	return nil
+}
+
 func (store *memoryScenarioStore) Apply(
 	_ context.Context,
 	command preproddata.AuthoritativeCommand,
@@ -386,6 +475,13 @@ func (endpoint *memoryIdentityEndpoint) Preflight(context.Context) error {
 	return nil
 }
 
+func (endpoint *memoryIdentityEndpoint) ResumePreflight(context.Context) error {
+	if len(endpoint.accounts) == 0 {
+		return fmt.Errorf("identity endpoint has no resumable accounts")
+	}
+	return nil
+}
+
 func (endpoint *memoryIdentityEndpoint) EnsureProviderAccount(
 	_ context.Context,
 	account scenarios.ProviderAccount,
@@ -424,6 +520,10 @@ func (endpoint *memoryInvitationEndpoint) Preflight(context.Context) error {
 	if len(endpoint.deliveries) != 0 {
 		return fmt.Errorf("invitation endpoint is not empty")
 	}
+	return nil
+}
+
+func (endpoint *memoryInvitationEndpoint) ResumePreflight(context.Context) error {
 	return nil
 }
 
@@ -470,6 +570,10 @@ func (endpoint *memoryObjectEndpoint) Preflight(context.Context) error {
 	if len(endpoint.versions) != 0 {
 		return fmt.Errorf("object endpoint is not empty")
 	}
+	return nil
+}
+
+func (endpoint *memoryObjectEndpoint) ResumePreflight(context.Context) error {
 	return nil
 }
 
