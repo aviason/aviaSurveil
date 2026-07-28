@@ -1,6 +1,6 @@
 # Identity And Realistic Data Foundation Plan
 
-**Status:** `active — Tasks 1–8 complete and published; Task 9 next`
+**Status:** `completed — Tasks 1–9 verified locally; Task 9 publication pending`
 
 **Reviewed task count:** 9
 
@@ -28,7 +28,10 @@ and remotely confirmed. Task 7 is complete, `verified locally`, published as
 is complete and `verified locally` under owner-approved qualification profile
 revision `1.1.0`, published as
 `9a1b5cadff82a047bc0400acdb39f3fab2fbecab`, and remotely confirmed. Task 9
-remains `not run`.
+is complete and `verified locally`; its focused publication remains pending.
+Owner directive `OWNER-DIRECTIVE-2026-07-28-P5T9-01` accepts only the exact
+fresh stress run's 19-second duration overrun without changing profile
+`stress@1.1.0`, its fail-closed envelope, its volume, or any functional gate.
 
 ## Scope
 
@@ -423,6 +426,15 @@ feasibility decision.
   memory, 0.912 peak CPU cores, zero privacy findings, cleanup in five
   seconds, and zero residue. Final focused Node, race-enabled Go, vet, shell,
   normal-artifact, and diff gates passed.
+- [x] (2026-07-28) Task 9 completed its fresh full matrix. The final exact Go
+  race rerun passed every package after all Task 9 changes, with scenarios at
+  147.408 seconds and integration at 42.686 seconds. The fresh realistic run
+  passed at 872/900 seconds. The fresh stress authoritative run passed every
+  exact data, relationship, privacy, resume, resource, and cleanup gate and
+  cleaned to residue 0; it recorded 1,819/1,800 seconds, and owner directive
+  `OWNER-DIRECTIVE-2026-07-28-P5T9-01` accepted only that exact 19-second Task
+  9 overrun. A separate final main-agent code/specification review found no
+  Critical or Important finding. Task 9 publication remains pending.
 
 ## Tasks
 
@@ -1522,6 +1534,178 @@ and passed:
 
 ### Task 9: Run The Full Identity And Data Foundation Gate
 
+**Task status:** `complete — verified locally; publication pending`; strict
+final-evidence RED and every literal matrix result are recorded. Tasks 1–8 are
+complete, published, and remotely confirmed.
+
+**Strict RED**
+
+- `test -f
+  docs/demo-evidence/PREPROD_IDENTITY_AND_DATA_FOUNDATION_2026-07-27.md`
+  exited 1 before Task 9 execution. The required final evidence artifact did
+  not exist, so no full-gate completion claim was possible.
+- The first exact `go -C apps/api test -race -p 1 -count=1 ./...` attempt
+  compiled and passed all packages through `preproddata/scenarios` but failed
+  to build `tests/integration`: eight integration files referenced the
+  correctly `canonicaltest`-tagged HTTP boundary from the untagged graph.
+  Focused Node RED was 7/8 with the same undefined symbols.
+- Adding the matching test-file build tags exposed three shared pure test
+  helpers that tags-off tests also consume. The helpers were moved without
+  behavior change to an untagged integration helper file. The first tagged
+  compile then rejected one newly unused `fmt` import. After removing it,
+  `go -C apps/api test -tags canonicaltest -run '^$'
+  ./tests/integration` passed in 0.666 seconds and the focused boundary suite
+  passed 8/8.
+- The second exact full-race attempt compiled the integration package and
+  passed `preproddata/scenarios` in 203.363 seconds, then correctly failed its
+  live integration tests because the required task-owned PostgreSQL and MinIO
+  endpoints were not running (`127.0.0.1:55432` and `127.0.0.1:59001`
+  connection refused). An environment-backed exact rerun remains required.
+- The environment-backed exact rerun passed every package. The two longest
+  packages were `internal/preproddata/scenarios` at 199.981 seconds and
+  `tests/integration` at 55.441 seconds. The ad hoc outer shell then returned
+  exit 1 after the successful Go process because its cleanup function assigned
+  to zsh's read-only `status` parameter. This was not a test failure; the exact
+  task-owned Docker project and generated runtime directory were explicitly
+  removed immediately afterward, independent Docker queries returned zero
+  container/volume/network residue, and protected PID 13055 remained alive.
+- The first `./scripts/test-local-full-profile.sh` attempt accepted the
+  previously recorded digest/SBOM/scan manifest, created the exact disposable
+  project
+  `aviasurveil360-task-plan3-full-20260728141438-53080`, and then failed closed
+  because its worker was unhealthy. The cleanup trap removed the task-owned
+  containers, volumes, networks, and state. A separate task-owned diagnostic
+  reproduction preserved the missing logs long enough to prove that the
+  accepted `api` and `worker` images were stale: they identified source
+  revision `3acedc80c7c4545e715fa694ea1e2fbc6163447d`, while the current
+  Compose/entrypoint/config contract uses the Plan 5 least-privilege Keycloak
+  service client. The stale API rejected missing
+  `AVIA_KEYCLOAK_ADMIN_USERNAME`; the stale worker expected the removed
+  bootstrap-admin password mount. The diagnostic project was then fully
+  removed. Current-source image build, digest-bound SBOM, HIGH/CRITICAL scan,
+  and a clean full-profile rerun are required; the failed runs are not accepted
+  evidence.
+- The current-source rebuild completed 9/9 images, 9/9 CycloneDX SBOMs, and
+  9/9 fail-closed HIGH/CRITICAL scans. The next local-full run proved the
+  rebuilt API and worker healthy, then failed before browser evidence because
+  the runtime checker still expected Mailpit on `platform` only. The maintained
+  Compose policy intentionally requires Mailpit on both `identity` for
+  Keycloak delivery and `platform` for worker delivery. A focused 6/7 runtime
+  contract RED captured the mismatch; the exact expectation was synchronized
+  to `identity platform`, after which the runtime plus Compose-policy suites
+  passed 28/28. The failed full-profile project and all scoped state were
+  removed.
+- The following clean rerun reached Playwright and failed because the bootstrap
+  Admin had no authoritative desired membership while the historical browser
+  fixture attempted to give one provider account seven CAA roles. The strict
+  local-profile contract recorded 11/13 passed before implementation. The
+  harness was changed to create the Admin membership through the
+  authoritative one-shot identity setup and to exercise eight distinct
+  exact-role sessions. The first live implementation attempt then failed
+  because `docker compose cp` could not write the setup binary into the
+  read-only API root filesystem. The next attempt used an auto-removed
+  `compose run --rm --no-deps` container with a read-only bind-mounted binary,
+  but failed when both the bootstrap script and the lifecycle attempted to
+  create the same Keycloak email. Each failed project completed exact cleanup.
+  The final ordering lets the lifecycle create the Admin, then verifies the
+  exact CAA/Admin provider authority and configures only the test credential
+  and `CONFIGURE_TOTP`.
+- The clean final `./scripts/test-local-full-profile.sh` run exited 0. It
+  completed one Playwright test in 1.1 minutes, opened eight distinct
+  single-role sessions across all 86 routes and ten scenario families,
+  reconciled nine required Mailpit messages, survived the worker restart, and
+  passed the complete runtime check. Its JSON summary reported
+  `expectedDirectLoads=86`, `expectedScenarioFamilies=10`, `tests=1`,
+  `skipped=0`, and `status=verified locally`. Cleanup removed project
+  `aviasurveil360-task-plan3-full-20260728150244-74596`, all task-owned
+  containers, volumes, networks, and scoped state. A post-run Docker query
+  returned zero task-owned residue, and protected PID 13055 remained alive.
+- The first Task 9 OIDC-profile run passed one-shot identity setup and proved
+  the Admin's active exact CAA/Admin provider and application authority, then
+  timed out after 360 seconds because its historical E2E selector still
+  expected the removed `Submit provisioning` button. The reviewed lifecycle UI
+  now requires `Review provisioning` followed by the explicit
+  `Confirm Provision` dialog. The RED run's generated-secret scan found zero
+  matches and exact Docker cleanup left zero residue. The E2E was synchronized
+  to the maintained confirmation boundary; Web typecheck, the focused
+  Users/Roles suite (6/6), stale-selector scan, and `git diff --check` passed
+  before the clean OIDC rerun. The clean rerun exited 0: one real-browser
+  OIDC/MFA/provisioning/session-revocation test passed in 50.4 seconds, the
+  generated-secret/log scan found zero matches, and exact task-owned cleanup
+  completed.
+- The first Task 9 `realistic@1.1.0` rerun materialized and reconciled every
+  exact count, relationship, privacy canary, and resume state, but failed
+  closed on the owner duration gate: generation took 858 seconds and total
+  qualification took 1,085/900 seconds. Cleanup completed in 11 seconds with
+  zero residue. Run
+  `run-task8-realistic-20260728-154050-89149` remains retained failed evidence.
+  Comparison with the accepted Task 8 generation time of 228 seconds exposed
+  redundant Keycloak round trips: every synthetic account fetched a new
+  service token and the same realm-role representation. The focused cache RED
+  reported `Keycloak service-token requests = 3, expected 1`. The endpoint now
+  reuses only an unexpired `expires_in`-bounded service token and validated
+  realm-role metadata while retaining per-account user and role
+  reconciliation. The focused test passed, Node boundary/scale tests passed
+  12/12, Go vet passed, `git diff --check` passed, and the complete changed
+  scenario package passed under race in 217.252 seconds before the clean
+  realistic rerun. That rerun reduced generation to 716 seconds but still
+  failed closed at 966/900 qualification seconds; cleanup completed in 17
+  seconds with zero residue. Create-only run
+  `run-task8-realistic-20260728-160743-98228` is retained. The next focused RED
+  reported `Keycloak user reads = 4, expected 2`: newly created users were read
+  both before and after role mapping even though only the post-mapping read can
+  prove the final state. The implementation now performs one post-mapping exact
+  user/role check for a new account and preserves the complete final global
+  provider reconciliation. The focused test passed, boundary/scale tests
+  passed 12/12, Go vet and `git diff --check` passed, and the scenario package
+  passed under race in 198.129 seconds before the next clean rerun. That rerun
+  again reconciled every exact count, relationship, privacy canary, and resume
+  state, but generation took 740 seconds and total qualification took 999/900
+  seconds. Cleanup completed in 16 seconds with zero residue. Create-only run
+  `run-task8-realistic-20260728-163103-6332` is retained as failed evidence.
+  The final focused RED reported
+  `Keycloak user reads after listed reconciliation = 4, expected 2`: the
+  complete `briefRepresentation=false` namespace listing was discarded and
+  every account was fetched again. Reconciliation now validates the already
+  listed complete representation directly while retaining the exact
+  per-account realm-role read. The focused test passed, boundary/scale tests
+  passed 12/12, Go vet and `git diff --check` passed, and the complete scenario
+  package passed under race in 199.467 seconds. The single bounded rerun then
+  passed as `run-task8-realistic-20260728-165658-16700`: generation completed
+  in 672 seconds and total qualification in 872/900 seconds; seven bounded
+  evidence files, 326 resource samples, 26.17 MiB peak loader memory, 1.064
+  peak CPU cores, privacy findings 0, every resource envelope, exact
+  reconciliation, controlled interruption/resume, and 10-second
+  whole-namespace cleanup all passed. Independent Docker inspection found zero
+  task-owned residue and PID 13055 remained alive.
+- The fresh Task 9 `stress@1.1.0` run
+  `run-task8-stress-20260728-171259-25353` completed its authoritative data run
+  with outcome `SUCCEEDED`: exact reconciliation, every data family and
+  relationship digest, privacy findings 0, controlled interruption/resume,
+  resource measurement, and whole-namespace cleanup all passed. It
+  nevertheless failed closed on the owner duration gate because generation
+  took 1,624 seconds and total qualification took 1,819/1,800 seconds. Cleanup
+  completed in 12 seconds with residue 0. The create-only run retains nine
+  bounded files, including its failure record; 785 resource samples measured
+  28.62 MiB peak loader memory and 0.648 peak CPU cores. Independent Docker
+  inspection found zero task-owned residue and PID 13055 remained alive. No
+  automatic rerun was started. On 2026-07-28 the owner explicitly approved
+  `OWNER-DIRECTIVE-2026-07-28-P5T9-01`, accepting only this exact retained
+  run's 19-second qualification overrun for the Task 9 matrix. The exception
+  does not change `stress@1.1.0`, its 1,800-second fail-closed envelope, its
+  exact volume, or any data, relationship, privacy, resume, resource, or
+  cleanup gate. The run continues to record exit 1 and
+  `qualification-duration-exceeded` literally; the owner decision makes a
+  repeat stress run unnecessary for Task 9.
+- After the final Keycloak reconciliation changes, the exact
+  `go -C apps/api test -race -p 1 -count=1 ./...` command was rerun in a clean,
+  task-owned PostgreSQL/MinIO environment and exited 0. Every package passed;
+  `internal/preproddata/scenarios` completed in 147.408 seconds and
+  `tests/integration` in 42.686 seconds. The Bash cleanup wrapper exited 0,
+  removed its containers, volumes, network, and temporary runtime directory,
+  and independent Docker queries found zero task-owned residue. PID 13055
+  remained alive.
+
 **Files**
 
 - Create `docs/demo-evidence/PREPROD_IDENTITY_AND_DATA_FOUNDATION_2026-07-27.md`
@@ -1532,26 +1716,26 @@ and passed:
 
 **Work**
 
-- [ ] Run contract generation, SQLC, Go race, React, root/oracle, demo/HTTP
+- [x] Run contract generation, SQLC, Go race, React, root/oracle, demo/HTTP
   builds, OIDC, user lifecycle, profile generation, privacy, and residue gates.
-- [ ] Exercise all eight roles from provider creation through invitation
+- [x] Exercise all eight roles from provider creation through invitation
   delivery, mandatory/role-policy required actions, MFA, first login,
   authorized workspace, suspension, deactivation, reactivation, role/
   organization change, forced logout, and stale-session denial.
-- [ ] Prove account changes revoke old authority and remain correct after
+- [x] Prove account changes revoke old authority and remain correct after
   Keycloak, API, and worker restart.
-- [ ] Prove normal/full mode has no test-profile or data-loader route and starts
+- [x] Prove normal/full mode has no test-profile or data-loader route and starts
   clean unless the separate loader is explicitly invoked. Inspect normal
   command dependency graphs and binary symbols, image contents/SBOMs/commands,
   route tables, Compose services/environment, startup logs, and exact
   post-migration per-table baseline counts; separately prove the canonical test
   artifact still works.
-- [ ] Prove the application uses the least-privilege Keycloak service account,
+- [x] Prove the application uses the least-privilege Keycloak service account,
   rotates it without authority loss, and has no bootstrap-admin credential in
   normal API, worker, scheduler, or loader containers.
-- [ ] Obtain an independent code and specification review; fix every Critical
+- [x] Obtain an independent code and specification review; fix every Critical
   and Important finding before handoff.
-- [ ] Record exact commands, versions, counts, hashes, timings, skips, blockers,
+- [x] Record exact commands, versions, counts, hashes, timings, skips, blockers,
   and cleanup.
 
 **Verification**
@@ -1579,9 +1763,10 @@ The final matrix includes:
     ./scripts/test-preprod-data-profile.sh stress
     git diff --check
 
-Expected: every applicable gate passes, task-owned services and output are
-cleaned, and literal non-claims remain. The profile commands select the active
-local qualification versions; full-volume endurance remains `not run`.
+Expected: every applicable gate passes or carries an exact owner-approved
+exception, task-owned services and output are cleaned, and literal non-claims
+remain. The profile commands select the active local qualification versions;
+full-volume endurance remains `not run`.
 
 **Acceptance**
 
@@ -1641,6 +1826,11 @@ local qualification versions; full-volume endurance remains `not run`.
 - Record the combined Plans 2–4 stakeholder disposition as completed on
   2026-07-28. A later explicit authorization started Task 2 and the remaining
   Plan 5 sequence.
+- Accept `OWNER-DIRECTIVE-2026-07-28-P5T9-01` only for the retained Task 9
+  stress run `run-task8-stress-20260728-171259-25353`. It accepts that run's
+  exact 19-second qualification overrun and does not revise
+  `stress@1.1.0`, its 1,800-second fail-closed envelope, any expected count,
+  or any relationship, privacy, resume, resource, or cleanup gate.
 
 ## Discoveries
 
@@ -1693,16 +1883,23 @@ locally`: all four active profiles passed complete relationship, privacy,
 interruption/resume, resource, duration, and cleanup gates. Owner-approved
 `realistic@1.1.0` completed in 326/900 seconds and `stress@1.1.0` in
 649/1,800 seconds. Their full-volume `1.0.0` endurance counterparts remain
-retained deferred release-readiness evidence with status `not run`. Task 9,
-deployment, release, and production readiness remain `not run`; the artifact
-remains `candidate-only`, and release remains `release pending`. Task 8 was
-published as `9a1b5cadff82a047bc0400acdb39f3fab2fbecab`, and the exact
-`origin/main` revision was confirmed.
+retained deferred release-readiness evidence with status `not run`. Task 9 is
+`verified locally`: the full contract, SQLC, Go race, React/root, demo/HTTP,
+normal-artifact, all-eight-role lifecycle, local-full, OIDC, and four-profile
+matrix completed with zero task-owned residue. The fresh realistic run passed
+at 872/900 seconds. The fresh stress run passed exact data, relationship,
+privacy, resume, resource, and cleanup gates but recorded 1,819/1,800 seconds;
+the owner accepted only that exact 19-second Task 9 overrun through
+`OWNER-DIRECTIVE-2026-07-28-P5T9-01`. Task 9 publication is pending.
+Deployment and production readiness remain `not run`; the artifact remains
+`candidate-only`, and release remains `release pending`. Task 8 was published
+as `9a1b5cadff82a047bc0400acdb39f3fab2fbecab`, and the exact `origin/main`
+revision was confirmed.
 
 ## Execution Prompt
 
 ```text
-Tasks 1-8 in docs/exec-plans/active/2026-07-27-identity-and-realistic-data-foundation-plan.md are complete, verified locally, published, and remotely confirmed; Task 8 is 9a1b5cadff82a047bc0400acdb39f3fab2fbecab. Full-volume realistic@1.0.0 and stress@1.0.0 endurance evidence remains retained and not run. Task 9 is next. Read AGENTS.md, docs/PLANS.md, the plan index, the complete plan, and the current identity/full-profile evidence first. Preserve the root demo, normal HTTP no-seed boundary, Keycloak authority, organization isolation, append-only histories, and unrelated worktree changes.
+Plan 5 Tasks 1-9 are complete and verified locally. Tasks 1-8 are published and remotely confirmed; Task 9 publication metadata remains pending. Preserve every retained create-only run, the literal 1,819/1,800-second stress result, exact-run owner directive OWNER-DIRECTIVE-2026-07-28-P5T9-01, and the unchanged stress@1.1.0 fail-closed contract. Full-volume realistic@1.0.0 and stress@1.0.0 endurance remains not run. Do not restart Plan 5 work or claim deployment, release, or production readiness.
 
-Use strict RED -> GREEN -> focused review for each task. Establish the desired-membership revision and least-privilege Keycloak service identity before directory/lifecycle acceptance. The normal API/worker/scheduler/migration images must not link testprofile or loader/reset code. Repeatable loader reset uses only an exactly authorized disposable target and never selectively deletes append-only rows. Qualify smoke, acceptance, realistic, and stress with the same scenario/role/route catalog. Do not add public registration, a normal API reset/seed route, real PII, plaintext credentials, client-authored roles, direct fixture writes that bypass authoritative domain behavior, AWS actions, commits, or pushes without separate authorization. Keep the plan, index, tracker, and evidence synchronized with literal results. Stop after each task's acceptance gate and fix all Critical or Important review findings before continuing.
+Before Plan 6 executable work, publish and remotely confirm the focused Plan 5 Task 9 commit, record its exact hash in this completed plan, the final evidence, completed index, active index, tracker, manifest, and build summary, and push that metadata commit. Then read the complete Plan 6 authority gates and begin only its first authorized task. Preserve the root demo, normal HTTP no-seed boundary, Keycloak authority, organization isolation, append-only histories, training_allowed: false, production_ml_readiness: NOT_READY, and unrelated worktree changes.
 ```

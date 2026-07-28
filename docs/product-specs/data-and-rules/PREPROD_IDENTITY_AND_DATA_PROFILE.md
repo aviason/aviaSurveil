@@ -5,8 +5,8 @@ revision 1.1.0 approved`
 
 **Profile and policy status:** `approved — owner decision recorded`
 
-**Runtime status:** Tasks 2–8 are `verified locally`; Task 8 is published and
-remotely confirmed, and Task 9 remains `not run`. Owner-approved local
+**Runtime status:** Tasks 2–9 are `verified locally`; Task 8 is published and
+remotely confirmed, and Task 9 publication is pending. Owner-approved local
 qualification uses revision `1.1.0` for realistic/stress. Full-volume
 `realistic@1.0.0` and `stress@1.0.0` endurance qualification is deferred
 release-readiness evidence and remains `not run`.
@@ -268,6 +268,15 @@ families, relationship, privacy, resume, resource, and cleanup gates. It does
 not replace or weaken the full-volume `1.0.0` manifests; those are preserved
 as deferred release-readiness endurance evidence with literal status
 `not run`.
+
+Task 9 owner directive `OWNER-DIRECTIVE-2026-07-28-P5T9-01` is an
+evidence-specific exception, not a profile revision. It accepts only retained
+run `run-task8-stress-20260728-171259-25353` at 1,819/1,800 seconds for the
+Task 9 matrix because every exact data, relationship, privacy, resume,
+resource, and cleanup gate passed and residue was zero. The run retains exit
+1 and `qualification-duration-exceeded` literally. `stress@1.1.0`, its
+1,800-second fail-closed envelope, its exact volume, and full-volume
+`stress@1.0.0` remain unchanged.
 
 ## Exact Gate Before Task 2 — Satisfied
 

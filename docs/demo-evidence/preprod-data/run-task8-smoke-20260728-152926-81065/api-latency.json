@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "preprod-api-latency/v1",
+  "endpoint": "/health/ready",
+  "sampleCount": 20,
+  "unit": "milliseconds",
+  "p50": 128.927,
+  "p95": 156.342,
+  "maximum": 179.195
+}

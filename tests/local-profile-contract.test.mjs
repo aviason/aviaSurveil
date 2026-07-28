@@ -7,6 +7,7 @@ const fullScriptPath = "scripts/test-local-full-profile.sh";
 const imageEvidenceCheckPath = "scripts/check-local-image-evidence.sh";
 const playwrightConfigPath = "apps/web/playwright.config.ts";
 const fullSpecPath = "apps/web/tests/e2e/local-full-platform.spec.ts";
+const identitySetupPath = "apps/api/tests/identitysetup/prepare_test.go";
 const behaviorLedgerPath = "tests/parity/behavior-ledger.json";
 
 function readRequired(path) {
@@ -118,6 +119,70 @@ test("full profile script cannot enable test authority or publish internal servi
   }
   assert.doesNotMatch(source, /(?:5432|9000|9001|1025|3000):(?:5432|9000|9001|1025|3000)/);
   assert.match(source, /local-stack\.sh"\s+up\s+full/);
+});
+
+test("full profile binds one exact Admin membership before normal OIDC login", () => {
+  const script = readRequired(fullScriptPath);
+  const setup = readRequired(identitySetupPath);
+  const setupBuild = script.indexOf(
+    "TestTask4PrepareOIDCHarnessApplicationAdministrator",
+  );
+  const browserProof = script.indexOf("npx playwright test");
+
+  assert.match(script, /go[\s\S]*test[\s\S]*-c[\s\S]*-tags canonicaltest/);
+  assert.match(
+    script,
+    /TestTask4PrepareOIDCHarnessApplicationAdministrator/u,
+  );
+  assert.match(
+    script,
+    /compose run[\s\S]*--rm[\s\S]*--no-deps[\s\S]*--volume[\s\S]*identitysetup\.test:ro/u,
+  );
+  assert.doesNotMatch(script, /compose cp/u);
+  assert.ok(
+    setupBuild >= 0 && browserProof > setupBuild,
+    "authoritative Admin membership setup must precede browser login",
+  );
+  assert.match(setup, /RequestLifecycle/u);
+  assert.match(setup, /ProcessNext/u);
+  assert.doesNotMatch(
+    script,
+    /for role in inspector leadInspector manager gm finance executiveDirector admin/u,
+  );
+  assert.doesNotMatch(
+    script,
+    /--request POST[\s\S]{0,320}\/admin\/realms\/aviasurveil360\/users(?:["\s\\]|$)/u,
+  );
+  assert.doesNotMatch(
+    script,
+    /--request POST[\s\S]{0,320}role-mappings\/realm/u,
+  );
+});
+
+test("full profile uses eight distinct exact-role sessions", () => {
+  const source = readRequired(fullSpecPath);
+  for (const role of [
+    "inspector",
+    "leadInspector",
+    "manager",
+    "finance",
+    "gm",
+    "executiveDirector",
+    "auditee",
+    "admin",
+  ]) {
+    assert.match(
+      source,
+      new RegExp(`["']${role}["']`),
+      `full profile must retain a distinct ${role} authority`,
+    );
+  }
+  assert.match(source, /rolePages/u);
+  assert.match(source, /route\.requiredRole/u);
+  assert.doesNotMatch(
+    source,
+    /route\.requiredRole === "auditee" \? auditeePage : adminPage/u,
+  );
 });
 
 test("Playwright registers isolated local demo and full projects without a Vite server", () => {

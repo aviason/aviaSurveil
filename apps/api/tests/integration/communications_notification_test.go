@@ -1,3 +1,5 @@
+//go:build canonicaltest
+
 package integration_test
 
 import (
@@ -435,18 +437,6 @@ func TestReminderSchedulerCoversConfiguredStagesAndSuppressesDuplicates(t *testi
 			notificationsCount, emailJobs, emailOutbox, reminderAudits, closed,
 		)
 	}
-}
-
-type notificationDeliveryAdapterFunc func(
-	context.Context,
-	notifications.EmailDelivery,
-) error
-
-func (adapter notificationDeliveryAdapterFunc) Deliver(
-	ctx context.Context,
-	delivery notifications.EmailDelivery,
-) error {
-	return adapter(ctx, delivery)
 }
 
 func TestNotificationEmailDeliveryFailureIsRetriedAndAudited(t *testing.T) {

@@ -229,6 +229,43 @@ test("normal artifact guard positively excludes the new loader package", () => {
   );
 });
 
+test("normal untagged Go test graph excludes canonical-test-only integration files", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "avia-normal-go-graph-"));
+  try {
+    const goCache = path.join(root, "go-cache");
+    const goTmp = path.join(root, "go-tmp");
+    mkdirSync(goCache);
+    mkdirSync(goTmp);
+    const result = spawnSync(
+      "go",
+      [
+        "-C",
+        "apps/api",
+        "test",
+        "-run",
+        "^$",
+        "./tests/integration",
+      ],
+      {
+        cwd: process.cwd(),
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          GOCACHE: goCache,
+          GOTMPDIR: goTmp,
+        },
+      },
+    );
+    assert.equal(
+      result.status,
+      0,
+      `stdout=${result.stdout}\nstderr=${result.stderr}`,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("cleanup recorder runs offline without restarting disposable dependencies", () => {
   const root = mkdtempSync(path.join(tmpdir(), "avia-task7-cleanup-wrapper-"));
   try {

@@ -95,6 +95,109 @@ func TestKeycloakEndpointCreatesExactProviderAccountAndRejectsDrift(
 	}
 }
 
+func TestKeycloakEndpointReusesUnexpiredServiceTokenAndRealmRole(
+	t *testing.T,
+) {
+	fixture := newScenarioKeycloakFixture(t)
+	endpoint, err := scenarios.NewKeycloakEndpoint(
+		scenarios.KeycloakEndpointConfig{
+			BaseURL:      fixture.server.URL + "/identity",
+			Realm:        "task7-realm",
+			ClientID:     "task7-loader",
+			ClientSecret: "task7-secret",
+			HTTPClient:   &http.Client{Timeout: 2 * time.Second},
+		},
+	)
+	if err != nil {
+		t.Fatalf("new Keycloak endpoint: %v", err)
+	}
+	ctx := context.Background()
+	if err := endpoint.Preflight(ctx); err != nil {
+		t.Fatalf("preflight Keycloak endpoint: %v", err)
+	}
+	accounts := make([]scenarios.ProviderAccount, 0, 2)
+	for index := 1; index <= 2; index++ {
+		account, err := endpoint.EnsureProviderAccount(
+			ctx,
+			scenarios.ProviderAccount{
+				ScenarioID: fmt.Sprintf(
+					"synthetic-provideraccounts-%04d",
+					index,
+				),
+				MembershipID: fmt.Sprintf(
+					"synthetic-membership-%04d",
+					index,
+				),
+				Email: fmt.Sprintf(
+					"user-%04d@synthetic.invalid",
+					index,
+				),
+				OrganizationID: "AUDITEE-A",
+				Role:           "auditee",
+				Enabled:        true,
+				RequiredActions: []string{
+					"UPDATE_PASSWORD",
+					"VERIFY_EMAIL",
+				},
+			},
+		)
+		if err != nil {
+			t.Fatalf("ensure provider account %d: %v", index, err)
+		}
+		accounts = append(accounts, account)
+	}
+	tokenRequests, roleRequests, userReads, userRoleReads :=
+		fixture.requestCounts()
+	if tokenRequests != 1 {
+		t.Fatalf(
+			"Keycloak service-token requests = %d, expected 1",
+			tokenRequests,
+		)
+	}
+	if roleRequests["auditee"] != 1 {
+		t.Fatalf(
+			"Keycloak auditee-role requests = %d, expected 1",
+			roleRequests["auditee"],
+		)
+	}
+	if userReads != 2 {
+		t.Fatalf(
+			"Keycloak user reads = %d, expected 2",
+			userReads,
+		)
+	}
+	if userRoleReads != 2 {
+		t.Fatalf(
+			"Keycloak user-role reads = %d, expected 2",
+			userRoleReads,
+		)
+	}
+	if err := endpoint.ReconcileProviderAccounts(ctx, accounts); err != nil {
+		t.Fatalf("reconcile provider accounts: %v", err)
+	}
+	tokenRequests, roleRequests, userReads, userRoleReads =
+		fixture.requestCounts()
+	if tokenRequests != 1 || roleRequests["auditee"] != 1 {
+		t.Fatalf(
+			"cached reconciliation requests = token %d role %d, expected 1 and 1",
+			tokenRequests,
+			roleRequests["auditee"],
+		)
+	}
+	if userReads != 2 {
+		t.Fatalf(
+			"Keycloak user reads after listed reconciliation = %d, expected 2",
+			userReads,
+		)
+	}
+	if userRoleReads != 4 {
+		t.Fatalf(
+			"Keycloak user-role reads after listed reconciliation = %d, expected 4",
+			userRoleReads,
+		)
+	}
+}
+
 func TestMailpitInvitationEndpointDeliversOnceAndReconcilesRecipient(
 	t *testing.T,
 ) {
@@ -179,13 +282,17 @@ func TestMailpitInvitationEndpointDeliversOnceAndReconcilesRecipient(
 }
 
 type scenarioKeycloakFixture struct {
-	t        *testing.T
-	server   *httptest.Server
-	mu       sync.Mutex
-	users    map[string]scenarioKeycloakUser
-	roles    map[string][]string
-	messages []scenarioMailpitMessage
-	nextUser int
+	t             *testing.T
+	server        *httptest.Server
+	mu            sync.Mutex
+	users         map[string]scenarioKeycloakUser
+	roles         map[string][]string
+	messages      []scenarioMailpitMessage
+	nextUser      int
+	tokenRequests int
+	roleRequests  map[string]int
+	userReads     int
+	userRoleReads int
 }
 
 type scenarioKeycloakUser struct {
@@ -217,9 +324,10 @@ type scenarioMailpitAddress struct {
 func newScenarioKeycloakFixture(t *testing.T) *scenarioKeycloakFixture {
 	t.Helper()
 	fixture := &scenarioKeycloakFixture{
-		t:     t,
-		users: make(map[string]scenarioKeycloakUser),
-		roles: make(map[string][]string),
+		t:            t,
+		users:        make(map[string]scenarioKeycloakUser),
+		roles:        make(map[string][]string),
+		roleRequests: make(map[string]int),
 	}
 	fixture.server = httptest.NewServer(http.HandlerFunc(fixture.handle))
 	t.Cleanup(fixture.server.Close)
@@ -244,8 +352,13 @@ func (fixture *scenarioKeycloakFixture) handle(
 			http.Error(writer, "method", http.StatusMethodNotAllowed)
 			return
 		}
+		fixture.mu.Lock()
+		fixture.tokenRequests++
+		fixture.mu.Unlock()
 		writer.Header().Set("Content-Type", "application/json")
-		_, _ = writer.Write([]byte(`{"access_token":"task7-token"}`))
+		_, _ = writer.Write([]byte(
+			`{"access_token":"task7-token","expires_in":300}`,
+		))
 		return
 	}
 	if request.Header.Get("Authorization") != "Bearer task7-token" {
@@ -387,6 +500,7 @@ func (fixture *scenarioKeycloakFixture) writeUser(
 ) {
 	fixture.mu.Lock()
 	defer fixture.mu.Unlock()
+	fixture.userReads++
 	user, ok := fixture.users[subjectID]
 	if !ok {
 		http.Error(writer, "not found", http.StatusNotFound)
@@ -401,6 +515,7 @@ func (fixture *scenarioKeycloakFixture) writeUserRoles(
 ) {
 	fixture.mu.Lock()
 	defer fixture.mu.Unlock()
+	fixture.userRoleReads++
 	roles := make([]scenarioKeycloakRole, 0, len(fixture.roles[subjectID]))
 	for _, role := range fixture.roles[subjectID] {
 		roles = append(roles, scenarioKeycloakRole{
@@ -436,12 +551,26 @@ func (fixture *scenarioKeycloakFixture) writeRole(
 	writer http.ResponseWriter,
 	role string,
 ) {
+	fixture.mu.Lock()
+	fixture.roleRequests[role]++
+	fixture.mu.Unlock()
 	writeScenarioJSON(
 		fixture.t,
 		writer,
 		scenarioKeycloakRole{ID: "role-" + role, Name: role},
 		http.StatusOK,
 	)
+}
+
+func (fixture *scenarioKeycloakFixture) requestCounts() (int, map[string]int, int, int) {
+	fixture.mu.Lock()
+	defer fixture.mu.Unlock()
+	roleRequests := make(map[string]int, len(fixture.roleRequests))
+	for role, count := range fixture.roleRequests {
+		roleRequests[role] = count
+	}
+	return fixture.tokenRequests, roleRequests,
+		fixture.userReads, fixture.userRoleReads
 }
 
 func (fixture *scenarioKeycloakFixture) account(

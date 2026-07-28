@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "preprod-profile-cleanup-metrics/v1",
+  "profile": "realistic",
+  "profileVersion": "1.1.0",
+  "cleanupSeconds": 16,
+  "cleanupEnvelopeSeconds": 300,
+  "qualificationSeconds": 999,
+  "qualificationEnvelopeSeconds": 900,
+  "withinEnvelope": false,
+  "envelopeViolations": [
+    "qualification-duration-exceeded"
+  ],
+  "residue": {
+    "containers": 0,
+    "volumes": 0,
+    "networks": 0
+  },
+  "mode": "whole-disposable-namespace",
+  "selectiveDeletionAllowed": false
+}

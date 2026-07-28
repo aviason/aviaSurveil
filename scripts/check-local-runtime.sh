@@ -185,7 +185,7 @@ assert_exact_network_membership() {
   assert_service_networks keycloak "identity identity-database"
   assert_service_networks minio "platform"
   assert_service_networks clamav "platform signature-updates"
-  assert_service_networks mailpit "platform"
+  assert_service_networks mailpit "identity platform"
   assert_service_networks gotenberg "platform"
   echo "Network membership: exact"
 }

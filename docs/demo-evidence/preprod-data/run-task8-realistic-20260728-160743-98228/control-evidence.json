@@ -1,0 +1,559 @@
+{
+  "schemaVersion": "preprod-profile-control-evidence/v1",
+  "intent": {
+    "schemaVersion": "preprod-intent-manifest/v1",
+    "runId": "run-task8-realistic-20260728-160743-98228",
+    "profile": "realistic",
+    "profileVersion": "1.1.0",
+    "seedHash": "sha256:1e8f789eb4a70048bf0ba8da1e4aa2bfd8d6514c65f30f92f80178db6260cb68",
+    "clockOrigin": "2026-01-01T00:00:00Z",
+    "expectedCounts": {
+      "applicationProfiles": 500,
+      "assignments": 3000,
+      "auditEvents": 200000,
+      "audits": 2000,
+      "calendarRecords": 10000,
+      "capRevisions": 9000,
+      "checklistQuestions": 1000,
+      "checklistResponses": 20000,
+      "checklistTemplateVersions": 200,
+      "checklistTemplates": 100,
+      "communications": 16000,
+      "deliveryJobs": 40000,
+      "desiredMembershipVersions": 700,
+      "evidenceReferences": 6000,
+      "evidenceVersions": 12000,
+      "findings": 6000,
+      "identityLifecycleCases": 500,
+      "inspectionPackages": 2000,
+      "invitations": 200,
+      "lifecycleScenarioCases": 2400,
+      "mfaEnrollments": 500,
+      "notifications": 24000,
+      "objectVersions": 18000,
+      "objects": 16000,
+      "offlineGrants": 250,
+      "organizations": 50,
+      "outboxMessages": 60000,
+      "planningApprovals": 8000,
+      "potentialFindings": 9000,
+      "providerAccounts": 500,
+      "recoveryRequests": 50,
+      "renderJobs": 4000,
+      "reportVersions": 4000,
+      "reviewDecisions": 12000,
+      "routeDispositions": 86,
+      "scannerJobs": 12000,
+      "sessions": 1000,
+      "surveillancePlans": 2500,
+      "syncChanges": 100000,
+      "visibleActionDispositions": 306
+    },
+    "exactDistributions": {
+      "applicationProfiles": {
+        "generated": 500
+      },
+      "assignments": {
+        "generated": 3000
+      },
+      "auditEvents": {
+        "generated": 200000
+      },
+      "audits": {
+        "active": 800,
+        "overdue": 200,
+        "planned": 400,
+        "verified-closed": 600
+      },
+      "calendarRecords": {
+        "generated": 10000
+      },
+      "capRevisions": {
+        "accepted": 1800,
+        "corrected": 1350,
+        "draft": 900,
+        "rejected": 900,
+        "returned": 1350,
+        "submitted": 1800,
+        "superseded": 900
+      },
+      "checklistQuestions": {
+        "generated": 1000
+      },
+      "checklistResponses": {
+        "generated": 20000
+      },
+      "checklistTemplateVersions": {
+        "generated": 200
+      },
+      "checklistTemplates": {
+        "generated": 100
+      },
+      "communications": {
+        "generated": 16000
+      },
+      "deliveryJobs": {
+        "generated": 40000
+      },
+      "desiredMembershipVersions": {
+        "active": 400,
+        "deactivated": 60,
+        "invited": 70,
+        "reactivation-pending": 40,
+        "requested": 70,
+        "suspended": 60
+      },
+      "evidenceReferences": {
+        "generated": 6000
+      },
+      "evidenceVersions": {
+        "accepted": 3600,
+        "corrected": 1800,
+        "rejected": 1200,
+        "returned": 1800,
+        "superseded": 1200,
+        "uploaded": 2400
+      },
+      "findings": {
+        "authorized-closed": 300,
+        "not-closed": 600,
+        "open": 1800,
+        "overdue": 900,
+        "partially-closed": 900,
+        "reopened": 600,
+        "verified-closed": 900
+      },
+      "identityLifecycleCases": {
+        "active": 200,
+        "deactivated": 40,
+        "forced-logout": 10,
+        "invitation-expired": 10,
+        "invited": 50,
+        "mfa-reset": 20,
+        "provider-drift": 6,
+        "provider-unavailable": 6,
+        "reactivation-pending": 20,
+        "recovered": 8,
+        "requested": 50,
+        "role-changed": 20,
+        "suspended": 40,
+        "transferred": 20
+      },
+      "inspectionPackages": {
+        "generated": 2000
+      },
+      "invitations": {
+        "cancelled": 20,
+        "consumed": 70,
+        "delivered": 30,
+        "expired": 30,
+        "issued": 30,
+        "retryable-failure": 20
+      },
+      "lifecycleScenarioCases": {
+        "active": 200,
+        "authorized-closed": 200,
+        "corrected": 200,
+        "not-closed": 200,
+        "overdue": 200,
+        "partially-closed": 200,
+        "planned": 200,
+        "rejected": 200,
+        "reopened": 200,
+        "returned": 200,
+        "superseded": 200,
+        "verified-closed": 200
+      },
+      "mfaEnrollments": {
+        "enrolled": 320,
+        "enrollment-required": 0,
+        "reset-pending": 40,
+        "unenrolled": 140
+      },
+      "notifications": {
+        "generated": 24000
+      },
+      "objectVersions": {
+        "generated": 18000
+      },
+      "objects": {
+        "generated": 16000
+      },
+      "offlineGrants": {
+        "generated": 250
+      },
+      "organizations": {
+        "auditee": 49,
+        "caa": 1
+      },
+      "outboxMessages": {
+        "generated": 60000
+      },
+      "planningApprovals": {
+        "generated": 8000
+      },
+      "potentialFindings": {
+        "converted": 3600,
+        "corrected": 1200,
+        "pending": 1800,
+        "rejected": 1200,
+        "returned": 1200
+      },
+      "providerAccounts": {
+        "admin": 20,
+        "auditee": 140,
+        "executiveDirector": 20,
+        "finance": 40,
+        "gm": 40,
+        "inspector": 140,
+        "leadInspector": 50,
+        "manager": 50
+      },
+      "recoveryRequests": {
+        "generated": 50
+      },
+      "renderJobs": {
+        "generated": 4000
+      },
+      "reportVersions": {
+        "corrected": 600,
+        "draft": 800,
+        "issued": 1600,
+        "rejected": 400,
+        "returned": 600
+      },
+      "reviewDecisions": {
+        "generated": 12000
+      },
+      "routeDispositions": {
+        "authorized-data": 70,
+        "denied": 8,
+        "intentional-empty": 8
+      },
+      "scannerJobs": {
+        "generated": 12000
+      },
+      "sessions": {
+        "generated": 1000
+      },
+      "surveillancePlans": {
+        "generated": 2500
+      },
+      "syncChanges": {
+        "generated": 100000
+      },
+      "visibleActionDispositions": {
+        "disabled-by-role": 30,
+        "disabled-by-state": 36,
+        "executable": 240
+      }
+    },
+    "codeDigest": "sha256:a26d906e06c9bc0e992fe9028492229549cd2694765e82aade853fe2ea70323c",
+    "contractDigest": "sha256:a722cb68bfb34037d9eb71398d99119712ca9f253a69afedf66b1f70d1a5b5a4",
+    "canonicalization": "AVIA_CANONICAL_JSON_V1",
+    "target": {
+      "environment": "local-preprod",
+      "databaseName": "aviasurveil360_local_preprod",
+      "databaseOwner": "aviasurveil360_preprod_loader",
+      "postgresSystemIdentifier": "7667611733374111766",
+      "postgresHost": "preprod-postgres",
+      "postgresPort": 5432,
+      "composeProject": "aviasurveil360-local-preprod",
+      "keycloakRealm": "aviasurveil360-local-preprod",
+      "keycloakDatabase": "keycloak_local_preprod",
+      "keycloakServiceClientId": "aviasurveil360-local-preprod-lifecycle",
+      "mailpitNamespace": "aviasurveil360-local-preprod",
+      "objectBucket": "aviasurveil360-local-preprod",
+      "objectPrefix": "runs/run-task8-realistic-20260728-160743-98228/",
+      "loaderQueueNamespace": "aviasurveil360-local-preprod",
+      "profileName": "realistic",
+      "profileVersion": "1.1.0",
+      "runId": "run-task8-realistic-20260728-160743-98228",
+      "intentDigest": "sha256:dfb6a203c9fa59ec8fc5573d55c6f0fdf66fd2a46afd34fa0e4d0b8c42b71755"
+    },
+    "intentDigest": "sha256:dfb6a203c9fa59ec8fc5573d55c6f0fdf66fd2a46afd34fa0e4d0b8c42b71755",
+    "targetFingerprintDigest": "sha256:41e95544a58fa7dc652dc794a82f21895ca625792518bfd99b135dff7a3574bd"
+  },
+  "results": [
+    {
+      "actualCounts": {},
+      "checkpoints": [
+        "load_empty_target-authorization-consumed-000000000001"
+      ],
+      "completedAt": "2026-07-28T16:11:58.827226949Z",
+      "failures": [
+        "COMMAND_STREAM_FAILED"
+      ],
+      "intentDigest": "sha256:dfb6a203c9fa59ec8fc5573d55c6f0fdf66fd2a46afd34fa0e4d0b8c42b71755",
+      "outcome": "FAILED",
+      "relationshipDigests": {},
+      "resultDigest": "sha256:4267fa9fcac4d9ba70e91601883863a62f6485d8d7e9557dd6f0d33f3cdb1d5d",
+      "runId": "run-task8-realistic-20260728-160743-98228",
+      "schemaVersion": "preprod-run-result/v1"
+    },
+    {
+      "actualCounts": {
+        "applicationProfiles": 500,
+        "assignments": 3000,
+        "auditEvents": 200000,
+        "audits": 2000,
+        "calendarRecords": 10000,
+        "capRevisions": 9000,
+        "checklistQuestions": 1000,
+        "checklistResponses": 20000,
+        "checklistTemplateVersions": 200,
+        "checklistTemplates": 100,
+        "communications": 16000,
+        "deliveryJobs": 40000,
+        "desiredMembershipVersions": 700,
+        "evidenceReferences": 6000,
+        "evidenceVersions": 12000,
+        "findings": 6000,
+        "identityLifecycleCases": 500,
+        "inspectionPackages": 2000,
+        "invitations": 200,
+        "lifecycleScenarioCases": 2400,
+        "mfaEnrollments": 500,
+        "notifications": 24000,
+        "objectVersions": 18000,
+        "objects": 16000,
+        "offlineGrants": 250,
+        "organizations": 50,
+        "outboxMessages": 60000,
+        "planningApprovals": 8000,
+        "potentialFindings": 9000,
+        "providerAccounts": 500,
+        "recoveryRequests": 50,
+        "renderJobs": 4000,
+        "reportVersions": 4000,
+        "reviewDecisions": 12000,
+        "routeDispositions": 86,
+        "scannerJobs": 12000,
+        "sessions": 1000,
+        "surveillancePlans": 2500,
+        "syncChanges": 100000,
+        "visibleActionDispositions": 306
+      },
+      "checkpoints": [
+        "load_empty_target-authorization-consumed-000000000001",
+        "resume_run-authorization-consumed-000000000002",
+        "authoritative-commands-applied-000000000591-through-synthetic-operation-objects-1c7fd00a797a5097d1e350bd",
+        "authoritative-commands-applied-000000001182-through-synthetic-operation-communications-1ba3b7232cc4d6896a8131d1",
+        "authoritative-commands-applied-000000001773-through-synthetic-operation-outboxmessages-9d4d50730da534adbc12cf26",
+        "authoritative-commands-applied-000000002364-through-synthetic-operation-auditevents-6fcb5e0f96dab62eaaed974a",
+        "authoritative-commands-applied-000000002955-through-synthetic-operation-auditevents-314767c1230ba3e562cc1bed",
+        "authoritative-commands-applied-000000003546-through-synthetic-operation-auditevents-6cd546dd21d09b0d9452c4f3",
+        "authoritative-commands-applied-000000004137-through-synthetic-operation-syncchanges-e3d638e44a075be6900be765",
+        "authoritative-commands-applied-000000004728-through-synthetic-operation-lifecyclescenariocases-2ede6a026ef6e488680a366d",
+        "authoritative-commands-applied-000000004733-through-synthetic-operation-lifecyclescenariocases-545baa185bb2db034a1d697a"
+      ],
+      "completedAt": "2026-07-28T16:23:06.022856325Z",
+      "failures": null,
+      "intentDigest": "sha256:dfb6a203c9fa59ec8fc5573d55c6f0fdf66fd2a46afd34fa0e4d0b8c42b71755",
+      "outcome": "SUCCEEDED",
+      "relationshipDigests": {
+        "applicationProfiles": "sha256:3ccd9cb9778f6e482544de1fcbd230a391c103cb23b906f58a926d9940bcbbe7",
+        "assignments": "sha256:e0f4ceff6b23f674ac988f51756932fe50509c942537a2cb17ab19d9c92f90d9",
+        "auditEvents": "sha256:27c759ead0a92d9e25ab788188d909fbbcea66748bb2af4ae144db7df2053729",
+        "audits": "sha256:d8391bf26b324ad32583609824fe3b7de39daaeaa7bbfaeaa469da14fd5a64f9",
+        "calendarRecords": "sha256:cec776db07a0b4ec285a68b93f6ea14f606d9b2185305ffb89d12478cae1d7e7",
+        "capRevisions": "sha256:062cc9429f4da52cbb5612c74683720581c646bbdffc9a25786a5497ad88e36a",
+        "checklistQuestions": "sha256:17a2d685bc2e68e5c9be01c23cf8b3863b9448f062789338e7abbd8cbaf9feb9",
+        "checklistResponses": "sha256:e5986e074a2a61883efa65cdc9c1789e620af98484adaa09423d8364d2131946",
+        "checklistTemplateVersions": "sha256:18ac634011807d1c6f5e95c6d878aa561f36549496243f6663f91e50323587b7",
+        "checklistTemplates": "sha256:3b4276d79fb94c6f28c0a5e7492fa19220b8033f1bd1e4da384cb26480f128bf",
+        "communications": "sha256:2af1fb11d2a4f3fe1da841f76d2a328bf7c3e4865b06b31d6ba9aebba1469060",
+        "deliveryJobs": "sha256:924d05ebcfdbfa31701dbc4ce141456ab3f873641b63f5cfd3bbdb677b11aa88",
+        "desiredMembershipVersions": "sha256:d4cb464473833cd93ce9df690c8891e36a594c8b4226a3921d90ca4b2c3cdd9a",
+        "evidenceReferences": "sha256:b44fabb3d374936ccd98a3875e1692ebccb2b2625c371be5b30337c2d0f5f66a",
+        "evidenceVersions": "sha256:3533462ffe1b52950aa0c4437c5ad4db093f29df537ac57f81cc4bba7ce379f6",
+        "findings": "sha256:972b167e8bb07f59b1cca5616b255e0c5a2345c4337b02d23deeea04dab5eec1",
+        "identityLifecycleCases": "sha256:9667eb2dffd0f0d61312aa588905130f9262951ec082dfe4057ac77a3abd4658",
+        "inspectionPackages": "sha256:6ee54e19780be2107bf59104df708336cb77cd61a064ab92080dddcd38d7e06e",
+        "invitations": "sha256:910863084c7653cbc05df3aed126fcd8aed157ef2160b8f87b56dbf2ccdc7d7a",
+        "lifecycleScenarioCases": "sha256:dfa9c1904dbb09a1cddd409091b73b48adc2e68c587b51102d90d0f600fd24ee",
+        "mfaEnrollments": "sha256:4820a3cea0f11fc042fabb2519db61dd75e3c2279c743d5cc05fff817bef0352",
+        "notifications": "sha256:1d16b620e4a9903ff5f2e66f9c7efc9183bb3cdcf71b63009b18f66cc26eedd2",
+        "objectVersions": "sha256:67f22e03674b4abbf4db6218769fe4c9bef0c1cff86e4d8b6df50be685752ead",
+        "objects": "sha256:de59016f38ad7a933397ed5b63c62e95f23b6c88e52fb715f667176fdf407329",
+        "offlineGrants": "sha256:f657fc43067ecef7233bed0e8d00251ec3944b709278c1873d46b89e2b071e94",
+        "organizations": "sha256:9ab29933dad4e6858eaa17c3a53efef396480dd62cbb53436f31c917cbd875ff",
+        "outboxMessages": "sha256:2cfa29c935e86c6b56bfe6efa54f2c35a1b91b2bc274a447b0f2d1bd55f540d7",
+        "planningApprovals": "sha256:d71995b42f30eb6f8dae4528600dd2084301aaf834eff34c1778ba5c597a4b3b",
+        "potentialFindings": "sha256:bc9f6f8a07575a0bf081fc09c090610213f52578084d9c30278ce5c9c11cbb3f",
+        "providerAccounts": "sha256:63e1f58dad771cd370fb2357b6add5d670de0f88c0edcf26807a7acf510c3782",
+        "recoveryRequests": "sha256:37a8d1d6cc2ed2e71b0852fa42f75e1024c65fe0e1e1c478c665ce69a09cae8e",
+        "renderJobs": "sha256:3958acba2cce3a3ffcfc38840944cbc43bd8ac3a59a38bf4afc06b0f0c8126ca",
+        "reportVersions": "sha256:bee045876efdb23fceb9168ee2ccc593f8cec545cc0890cc22bd7d64d546f6c2",
+        "reviewDecisions": "sha256:d2e13924d84c0bcd21cced5341efec2fa788e72834e34630dc96846a17d56c50",
+        "routeDispositions": "sha256:c2834888cba49cbdb50b5e4055e7b073c7a81b907297c6044d375b7cd1c8ecc5",
+        "scannerJobs": "sha256:0acb5f8ea3114762429ef968ef3069370807cc32e0540ce79462365d87f03f2b",
+        "sessions": "sha256:6a1ea163a0808fe989aa594659fe6971c944eac149f06a92f1588a97aa3f6848",
+        "surveillancePlans": "sha256:62e634d5e6f39706f4f0e54245baac2f9f4d94ee0a4639177146e114a247f931",
+        "syncChanges": "sha256:bc3dc28ed111b2250f6c481b3483f27ee755b2dc7154b0039ef914638e6c8bf2",
+        "visibleActionDispositions": "sha256:31d56a818b3e6b90c7aacb803b4160280e2637eae71139c01004cad9b3bfac12"
+      },
+      "resultDigest": "sha256:66a4f6eecfb3faf7020fbef989568cf2417146abe8f84f6dced7aee5bda5f65d",
+      "runId": "run-task8-realistic-20260728-160743-98228",
+      "schemaVersion": "preprod-run-result/v1"
+    }
+  ],
+  "checkpoints": [
+    {
+      "appliedCommands": 0,
+      "intentDigest": "sha256:dfb6a203c9fa59ec8fc5573d55c6f0fdf66fd2a46afd34fa0e4d0b8c42b71755",
+      "name": "load_empty_target-authorization-consumed-000000000001",
+      "recordedAt": "2026-07-28T16:11:21.352646516Z",
+      "runId": "run-task8-realistic-20260728-160743-98228",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 1
+    },
+    {
+      "appliedCommands": 0,
+      "intentDigest": "sha256:dfb6a203c9fa59ec8fc5573d55c6f0fdf66fd2a46afd34fa0e4d0b8c42b71755",
+      "name": "resume_run-authorization-consumed-000000000002",
+      "recordedAt": "2026-07-28T16:12:13.98423331Z",
+      "runId": "run-task8-realistic-20260728-160743-98228",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 2
+    },
+    {
+      "appliedCommands": 591,
+      "intentDigest": "sha256:dfb6a203c9fa59ec8fc5573d55c6f0fdf66fd2a46afd34fa0e4d0b8c42b71755",
+      "lastOperationId": "synthetic-operation-objects-1c7fd00a797a5097d1e350bd",
+      "name": "authoritative-commands-applied-000000000591-through-synthetic-operation-objects-1c7fd00a797a5097d1e350bd",
+      "recordedAt": "2026-07-28T16:13:24.605851876Z",
+      "runId": "run-task8-realistic-20260728-160743-98228",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 3
+    },
+    {
+      "appliedCommands": 1182,
+      "intentDigest": "sha256:dfb6a203c9fa59ec8fc5573d55c6f0fdf66fd2a46afd34fa0e4d0b8c42b71755",
+      "lastOperationId": "synthetic-operation-communications-1ba3b7232cc4d6896a8131d1",
+      "name": "authoritative-commands-applied-000000001182-through-synthetic-operation-communications-1ba3b7232cc4d6896a8131d1",
+      "recordedAt": "2026-07-28T16:17:29.938967981Z",
+      "runId": "run-task8-realistic-20260728-160743-98228",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 4
+    },
+    {
+      "appliedCommands": 1773,
+      "intentDigest": "sha256:dfb6a203c9fa59ec8fc5573d55c6f0fdf66fd2a46afd34fa0e4d0b8c42b71755",
+      "lastOperationId": "synthetic-operation-outboxmessages-9d4d50730da534adbc12cf26",
+      "name": "authoritative-commands-applied-000000001773-through-synthetic-operation-outboxmessages-9d4d50730da534adbc12cf26",
+      "recordedAt": "2026-07-28T16:18:08.148475656Z",
+      "runId": "run-task8-realistic-20260728-160743-98228",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 5
+    },
+    {
+      "appliedCommands": 2364,
+      "intentDigest": "sha256:dfb6a203c9fa59ec8fc5573d55c6f0fdf66fd2a46afd34fa0e4d0b8c42b71755",
+      "lastOperationId": "synthetic-operation-auditevents-6fcb5e0f96dab62eaaed974a",
+      "name": "authoritative-commands-applied-000000002364-through-synthetic-operation-auditevents-6fcb5e0f96dab62eaaed974a",
+      "recordedAt": "2026-07-28T16:19:12.894215663Z",
+      "runId": "run-task8-realistic-20260728-160743-98228",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 6
+    },
+    {
+      "appliedCommands": 2955,
+      "intentDigest": "sha256:dfb6a203c9fa59ec8fc5573d55c6f0fdf66fd2a46afd34fa0e4d0b8c42b71755",
+      "lastOperationId": "synthetic-operation-auditevents-314767c1230ba3e562cc1bed",
+      "name": "authoritative-commands-applied-000000002955-through-synthetic-operation-auditevents-314767c1230ba3e562cc1bed",
+      "recordedAt": "2026-07-28T16:20:01.298804348Z",
+      "runId": "run-task8-realistic-20260728-160743-98228",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 7
+    },
+    {
+      "appliedCommands": 3546,
+      "intentDigest": "sha256:dfb6a203c9fa59ec8fc5573d55c6f0fdf66fd2a46afd34fa0e4d0b8c42b71755",
+      "lastOperationId": "synthetic-operation-auditevents-6cd546dd21d09b0d9452c4f3",
+      "name": "authoritative-commands-applied-000000003546-through-synthetic-operation-auditevents-6cd546dd21d09b0d9452c4f3",
+      "recordedAt": "2026-07-28T16:20:43.507126729Z",
+      "runId": "run-task8-realistic-20260728-160743-98228",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 8
+    },
+    {
+      "appliedCommands": 4137,
+      "intentDigest": "sha256:dfb6a203c9fa59ec8fc5573d55c6f0fdf66fd2a46afd34fa0e4d0b8c42b71755",
+      "lastOperationId": "synthetic-operation-syncchanges-e3d638e44a075be6900be765",
+      "name": "authoritative-commands-applied-000000004137-through-synthetic-operation-syncchanges-e3d638e44a075be6900be765",
+      "recordedAt": "2026-07-28T16:21:14.480894589Z",
+      "runId": "run-task8-realistic-20260728-160743-98228",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 9
+    },
+    {
+      "appliedCommands": 4728,
+      "intentDigest": "sha256:dfb6a203c9fa59ec8fc5573d55c6f0fdf66fd2a46afd34fa0e4d0b8c42b71755",
+      "lastOperationId": "synthetic-operation-lifecyclescenariocases-2ede6a026ef6e488680a366d",
+      "name": "authoritative-commands-applied-000000004728-through-synthetic-operation-lifecyclescenariocases-2ede6a026ef6e488680a366d",
+      "recordedAt": "2026-07-28T16:21:57.392394125Z",
+      "runId": "run-task8-realistic-20260728-160743-98228",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 10
+    },
+    {
+      "appliedCommands": 4733,
+      "intentDigest": "sha256:dfb6a203c9fa59ec8fc5573d55c6f0fdf66fd2a46afd34fa0e4d0b8c42b71755",
+      "lastOperationId": "synthetic-operation-lifecyclescenariocases-545baa185bb2db034a1d697a",
+      "name": "authoritative-commands-applied-000000004733-through-synthetic-operation-lifecyclescenariocases-545baa185bb2db034a1d697a",
+      "recordedAt": "2026-07-28T16:21:57.576295359Z",
+      "runId": "run-task8-realistic-20260728-160743-98228",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 11
+    }
+  ],
+  "authorizations": [
+    {
+      "authorizationHash": "sha256:01738f36707d9214bb4d3588ab40f4c738f3c9268ae44fe0105b175ddff65d24",
+      "consumedAt": "2026-07-28T16:12:13.98423331Z",
+      "expiresAt": "2026-07-28T16:22:01.853Z",
+      "intentDigest": "sha256:dfb6a203c9fa59ec8fc5573d55c6f0fdf66fd2a46afd34fa0e4d0b8c42b71755",
+      "issuer": "plan-5-task-8-realistic-resume",
+      "nonce": "9babf1164f2c11858f7188223b3bb86f",
+      "operation": "RESUME_RUN",
+      "runId": "run-task8-realistic-20260728-160743-98228",
+      "schemaVersion": "preprod-authorization-consumption/v1",
+      "targetFingerprintDigest": "sha256:41e95544a58fa7dc652dc794a82f21895ca625792518bfd99b135dff7a3574bd"
+    },
+    {
+      "authorizationHash": "sha256:447d4de7f36c2e95d8af4ee2e589a71b8daea98332528a4605ac2bd792b4bb71",
+      "consumedAt": "2026-07-28T16:11:21.352646516Z",
+      "expiresAt": "2026-07-28T16:21:07.748Z",
+      "intentDigest": "sha256:dfb6a203c9fa59ec8fc5573d55c6f0fdf66fd2a46afd34fa0e4d0b8c42b71755",
+      "issuer": "plan-5-task-8-realistic",
+      "nonce": "e214ed0534905f0f83155fa56a9066de",
+      "operation": "LOAD_EMPTY_TARGET",
+      "runId": "run-task8-realistic-20260728-160743-98228",
+      "schemaVersion": "preprod-authorization-consumption/v1",
+      "targetFingerprintDigest": "sha256:41e95544a58fa7dc652dc794a82f21895ca625792518bfd99b135dff7a3574bd"
+    },
+    {
+      "authorizationHash": "sha256:a6a01faacf942a6b5f8da1dfc37aa8d2ad6873b9e1348ca9e6358e0dd417a7c2",
+      "consumedAt": "2026-07-28T16:23:49.375693832Z",
+      "expiresAt": "2026-07-28T16:33:47.091Z",
+      "intentDigest": "sha256:dfb6a203c9fa59ec8fc5573d55c6f0fdf66fd2a46afd34fa0e4d0b8c42b71755",
+      "issuer": "plan-5-task-8-realistic-cleanup",
+      "nonce": "a5d8a13dbf3651e5ba44311c31a9d1da",
+      "operation": "DROP_RECREATE_TARGET",
+      "runId": "run-task8-realistic-20260728-160743-98228",
+      "schemaVersion": "preprod-authorization-consumption/v1",
+      "targetFingerprintDigest": "sha256:41e95544a58fa7dc652dc794a82f21895ca625792518bfd99b135dff7a3574bd"
+    }
+  ],
+  "cleanupAttestation": {
+    "attestationDigest": "sha256:16d96d7b93c6351c7ea022892180793ee11bb9dae37305f4a70309b6ce9f65d0",
+    "authorizationHash": "sha256:a6a01faacf942a6b5f8da1dfc37aa8d2ad6873b9e1348ca9e6358e0dd417a7c2",
+    "cleanedAt": "2026-07-28T16:23:49.375693832Z",
+    "intentDigest": "sha256:dfb6a203c9fa59ec8fc5573d55c6f0fdf66fd2a46afd34fa0e4d0b8c42b71755",
+    "resultDigest": "sha256:66a4f6eecfb3faf7020fbef989568cf2417146abe8f84f6dced7aee5bda5f65d",
+    "runId": "run-task8-realistic-20260728-160743-98228",
+    "schemaVersion": "preprod-cleanup-attestation/v1",
+    "targetFingerprintDigest": "sha256:41e95544a58fa7dc652dc794a82f21895ca625792518bfd99b135dff7a3574bd"
+  }
+}

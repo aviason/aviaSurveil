@@ -11,6 +11,7 @@ AVIA_LOCAL_HTTPS_PORT="${AVIA_LOCAL_FULL_HTTPS_PORT:-$((28443 + RANDOM % 10000))
 PLAYWRIGHT_REPORT="${RUNTIME_DIRECTORY}/playwright-report.json"
 SUMMARY_PATH="${RUNTIME_DIRECTORY}/summary.json"
 MAILPIT_REPORT="${RUNTIME_DIRECTORY}/mailpit-messages.json"
+IDENTITY_SETUP_BINARY="${RUNTIME_DIRECTORY}/identitysetup.test"
 SUMMARY_CONTENT_TYPE="application/json"
 APPLICATION_ADMIN_USERNAME="local.admin.$(openssl rand -hex 6)@example.test"
 APPLICATION_ADMIN_PASSWORD="$(openssl rand -hex 20)Aa1!"
@@ -146,10 +147,50 @@ trap cleanup EXIT
 STACK_STARTED="true"
 "${REPOSITORY_ROOT}/scripts/local-stack.sh" up full
 "${REPOSITORY_ROOT}/scripts/check-local-runtime.sh"
+compose stop worker
 
 KEYCLOAK_BASE_URL="https://localhost:${AVIA_LOCAL_HTTPS_PORT}/identity"
 KEYCLOAK_ADMIN_USERNAME="local-bootstrap-admin"
 KEYCLOAK_ADMIN_PASSWORD="$(read_runtime_secret keycloak_bootstrap_admin_password)"
+
+RUNTIME_ARCHITECTURE="$(
+  docker image inspect aviasurveil360/api:local --format '{{.Architecture}}'
+)"
+case "${RUNTIME_ARCHITECTURE}" in
+  amd64 | arm64) ;;
+  *)
+    echo "unsupported local API image architecture: ${RUNTIME_ARCHITECTURE}" >&2
+    exit 1
+    ;;
+esac
+CGO_ENABLED=0 GOOS=linux GOARCH="${RUNTIME_ARCHITECTURE}" \
+  go -C "${REPOSITORY_ROOT}/apps/api" test \
+  -c -tags canonicaltest \
+  -o "${IDENTITY_SETUP_BINARY}" \
+  ./tests/identitysetup
+compose run \
+  --rm \
+  --no-deps \
+  --volume "${IDENTITY_SETUP_BINARY}:/tmp/identitysetup.test:ro" \
+  --entrypoint /bin/sh \
+  api -ec '
+  database_password="$(tr -d "\r\n" </run/secrets/app_database_password)"
+  service_client_secret="$(
+    tr -d "\r\n" </run/secrets/keycloak_service_client_secret
+  )"
+  export AVIA_TEST_DATABASE_URL="postgres://aviasurveil360:${database_password}@postgres:5432/aviasurveil360?sslmode=disable"
+  export AVIA_OIDC_TEST_ADMIN_USERNAME="$1"
+  export AVIA_TEST_OIDC_ISSUER_URL="$2"
+  export AVIA_OIDC_TEST_KEYCLOAK_BASE_URL="http://keycloak:8080/identity"
+  export AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET="${service_client_secret}"
+  unset database_password service_client_secret
+  exec /tmp/identitysetup.test \
+    -test.run "^TestTask4PrepareOIDCHarnessApplicationAdministrator$" \
+    -test.count=1
+' identity-setup \
+  "${APPLICATION_ADMIN_USERNAME}" \
+  "${AVIA_LOCAL_PUBLIC_ORIGIN}/identity/realms/aviasurveil360"
+
 KEYCLOAK_ADMIN_TOKEN="$(
   curl --fail --silent --show-error --insecure \
     --request POST \
@@ -161,27 +202,6 @@ KEYCLOAK_ADMIN_TOKEN="$(
     --data-urlencode "password=${KEYCLOAK_ADMIN_PASSWORD}" |
     node -e 'let body="";process.stdin.on("data",chunk=>body+=chunk);process.stdin.on("end",()=>{const value=JSON.parse(body);if(!value.access_token)process.exit(1);process.stdout.write(value.access_token);});'
 )"
-
-node -e '
-  process.stdout.write(JSON.stringify({
-    username: process.argv[1],
-    email: process.argv[1],
-    firstName: "Local",
-    lastName: "Platform Administrator",
-    enabled: true,
-    emailVerified: true,
-    attributes: { organization_id: ["CAA"] },
-    requiredActions: ["CONFIGURE_TOTP"],
-  }));
-' "${APPLICATION_ADMIN_USERNAME}" |
-  curl --fail --silent --show-error --insecure \
-    --request POST \
-    "${KEYCLOAK_BASE_URL}/admin/realms/aviasurveil360/users" \
-    --header "Authorization: Bearer ${KEYCLOAK_ADMIN_TOKEN}" \
-    --header "Content-Type: application/json" \
-    --data-binary @- \
-    --output /dev/null
-
 APPLICATION_ADMIN_SUBJECT_ID="$(
   curl --fail --silent --show-error --insecure \
     --get \
@@ -191,25 +211,52 @@ APPLICATION_ADMIN_SUBJECT_ID="$(
     --data-urlencode "exact=true" |
     node -e 'let body="";process.stdin.on("data",chunk=>body+=chunk);process.stdin.on("end",()=>{const users=JSON.parse(body);if(users.length!==1||!users[0].id)process.exit(1);process.stdout.write(users[0].id);});'
 )"
-
-for role in inspector leadInspector manager gm finance executiveDirector admin; do
-  ROLE_JSON="$(
-    curl --fail --silent --show-error --insecure \
-      "${KEYCLOAK_BASE_URL}/admin/realms/aviasurveil360/roles/${role}" \
-      --header "Authorization: Bearer ${KEYCLOAK_ADMIN_TOKEN}"
-  )"
-  node -e 'process.stdout.write(JSON.stringify([JSON.parse(process.argv[1])]))' \
-    "${ROLE_JSON}" |
-    curl --fail --silent --show-error --insecure \
-      --request POST \
-      "${KEYCLOAK_BASE_URL}/admin/realms/aviasurveil360/users/${APPLICATION_ADMIN_SUBJECT_ID}/role-mappings/realm" \
-      --header "Authorization: Bearer ${KEYCLOAK_ADMIN_TOKEN}" \
-      --header "Content-Type: application/json" \
-      --data-binary @- \
-      --output /dev/null
-done
-unset ROLE_JSON
-
+curl --fail --silent --show-error --insecure \
+  "${KEYCLOAK_BASE_URL}/admin/realms/aviasurveil360/users/${APPLICATION_ADMIN_SUBJECT_ID}" \
+  --header "Authorization: Bearer ${KEYCLOAK_ADMIN_TOKEN}" \
+  --output "${RUNTIME_DIRECTORY}/application-admin.json"
+curl --fail --silent --show-error --insecure \
+  "${KEYCLOAK_BASE_URL}/admin/realms/aviasurveil360/users/${APPLICATION_ADMIN_SUBJECT_ID}/role-mappings/realm" \
+  --header "Authorization: Bearer ${KEYCLOAK_ADMIN_TOKEN}" \
+  --output "${RUNTIME_DIRECTORY}/application-admin-roles.json"
+node -e '
+  const fs = require("node:fs");
+  const user = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+  const roles = JSON.parse(fs.readFileSync(process.argv[2], "utf8"))
+    .map(({ name }) => name)
+    .filter((name) => [
+      "inspector", "leadInspector", "manager", "finance", "gm",
+      "executiveDirector", "auditee", "admin",
+    ].includes(name))
+    .sort();
+  if (
+    user.enabled !== true ||
+    user.email !== process.argv[3] ||
+    user.attributes?.organization_id?.length !== 1 ||
+    user.attributes.organization_id[0] !== "CAA" ||
+    roles.length !== 1 ||
+    roles[0] !== "admin"
+  ) {
+    process.stderr.write("lifecycle-created Admin authority is not exact\n");
+    process.exit(1);
+  }
+' \
+  "${RUNTIME_DIRECTORY}/application-admin.json" \
+  "${RUNTIME_DIRECTORY}/application-admin-roles.json" \
+  "${APPLICATION_ADMIN_USERNAME}"
+node -e '
+  process.stdout.write(JSON.stringify({
+    emailVerified: true,
+    requiredActions: ["CONFIGURE_TOTP"],
+  }));
+' |
+  curl --fail --silent --show-error --insecure \
+    --request PUT \
+    "${KEYCLOAK_BASE_URL}/admin/realms/aviasurveil360/users/${APPLICATION_ADMIN_SUBJECT_ID}" \
+    --header "Authorization: Bearer ${KEYCLOAK_ADMIN_TOKEN}" \
+    --header "Content-Type: application/json" \
+    --data-binary @- \
+    --output /dev/null
 node -e '
   process.stdout.write(JSON.stringify({
     type: "password",
@@ -225,6 +272,9 @@ node -e '
     --data-binary @- \
     --output /dev/null
 unset KEYCLOAK_ADMIN_TOKEN
+
+compose start worker
+compose up --detach --wait worker
 
 export AVIA_E2E_PROFILE=local-full
 export AVIA_E2E_BASE_URL="https://localhost:${AVIA_LOCAL_HTTPS_PORT}"

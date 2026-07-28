@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -37,6 +38,10 @@ type KeycloakEndpoint struct {
 	clientID     string
 	clientSecret string
 	httpClient   *http.Client
+	cacheMu      sync.Mutex
+	cachedToken  string
+	tokenExpiry  time.Time
+	realmRoles   map[string]scenarioKeycloakRoleRepresentation
 }
 
 type scenarioKeycloakUserRepresentation struct {
@@ -85,6 +90,7 @@ func NewKeycloakEndpoint(
 		clientID:     clientID,
 		clientSecret: config.ClientSecret,
 		httpClient:   httpClient,
+		realmRoles:   make(map[string]scenarioKeycloakRoleRepresentation),
 	}, nil
 }
 
@@ -151,6 +157,7 @@ func (endpoint *KeycloakEndpoint) EnsureProviderAccount(
 	if err != nil {
 		return ProviderAccount{}, err
 	}
+	created := false
 	if found {
 		account.SubjectID = user.ID
 	} else {
@@ -176,15 +183,16 @@ func (endpoint *KeycloakEndpoint) EnsureProviderAccount(
 		if err != nil {
 			return ProviderAccount{}, err
 		}
-		user, found, err = endpoint.readUser(ctx, token, account.SubjectID)
-		if err != nil {
+		created = true
+	}
+	if created {
+		if err := endpoint.mapProviderRole(ctx, token, account); err != nil {
 			return ProviderAccount{}, err
 		}
-		if !found {
-			return ProviderAccount{}, fmt.Errorf(
-				"created synthetic Keycloak user is not readable",
-			)
+		if err := endpoint.reconcileAccount(ctx, token, account); err != nil {
+			return ProviderAccount{}, err
 		}
+		return account, nil
 	}
 	if !sameKeycloakUser(user, keycloakUserForAccount(account)) {
 		return ProviderAccount{}, fmt.Errorf(
@@ -200,38 +208,17 @@ func (endpoint *KeycloakEndpoint) EnsureProviderAccount(
 	approved := approvedScenarioRoles(mapped)
 	switch {
 	case len(approved) == 0:
-		role, err := endpoint.realmRole(ctx, token, account.Role)
-		if err != nil {
+		if err := endpoint.mapProviderRole(ctx, token, account); err != nil {
 			return ProviderAccount{}, err
 		}
-		response, err := endpoint.doJSON(
-			ctx,
-			http.MethodPost,
-			endpoint.adminURL(
-				"users",
-				account.SubjectID,
-				"role-mappings",
-				"realm",
-			),
-			token,
-			[]scenarioKeycloakRoleRepresentation{role},
-			http.StatusNoContent,
-		)
-		if err != nil {
-			return ProviderAccount{}, fmt.Errorf(
-				"map synthetic Keycloak role: %w",
-				err,
-			)
+		if err := endpoint.reconcileAccount(ctx, token, account); err != nil {
+			return ProviderAccount{}, err
 		}
-		response.Body.Close()
 	case len(approved) != 1 || approved[0] != account.Role:
 		return ProviderAccount{}, fmt.Errorf(
 			"existing synthetic Keycloak roles differ for %s",
 			account.SubjectID,
 		)
-	}
-	if err := endpoint.reconcileAccount(ctx, token, account); err != nil {
-		return ProviderAccount{}, err
 	}
 	return account, nil
 }
@@ -273,7 +260,12 @@ func (endpoint *KeycloakEndpoint) ReconcileProviderAccounts(
 		if !ok {
 			return fmt.Errorf("unexpected synthetic Keycloak subject %s", user.ID)
 		}
-		if err := endpoint.reconcileAccount(ctx, token, account); err != nil {
+		if err := endpoint.reconcileListedAccount(
+			ctx,
+			token,
+			user,
+			account,
+		); err != nil {
 			return err
 		}
 	}
@@ -331,7 +323,22 @@ func (endpoint *KeycloakEndpoint) reconcileAccount(
 	if err != nil {
 		return err
 	}
-	if !found || !sameKeycloakUser(user, keycloakUserForAccount(account)) {
+	if !found {
+		return fmt.Errorf(
+			"Keycloak provider account %s differs from scenario",
+			account.SubjectID,
+		)
+	}
+	return endpoint.reconcileListedAccount(ctx, token, user, account)
+}
+
+func (endpoint *KeycloakEndpoint) reconcileListedAccount(
+	ctx context.Context,
+	token string,
+	user scenarioKeycloakUserRepresentation,
+	account ProviderAccount,
+) error {
+	if !sameKeycloakUser(user, keycloakUserForAccount(account)) {
 		return fmt.Errorf(
 			"Keycloak provider account %s differs from scenario",
 			account.SubjectID,
@@ -348,6 +355,35 @@ func (endpoint *KeycloakEndpoint) reconcileAccount(
 			account.SubjectID,
 		)
 	}
+	return nil
+}
+
+func (endpoint *KeycloakEndpoint) mapProviderRole(
+	ctx context.Context,
+	token string,
+	account ProviderAccount,
+) error {
+	role, err := endpoint.realmRole(ctx, token, account.Role)
+	if err != nil {
+		return err
+	}
+	response, err := endpoint.doJSON(
+		ctx,
+		http.MethodPost,
+		endpoint.adminURL(
+			"users",
+			account.SubjectID,
+			"role-mappings",
+			"realm",
+		),
+		token,
+		[]scenarioKeycloakRoleRepresentation{role},
+		http.StatusNoContent,
+	)
+	if err != nil {
+		return fmt.Errorf("map synthetic Keycloak role: %w", err)
+	}
+	response.Body.Close()
 	return nil
 }
 
@@ -627,6 +663,12 @@ func (endpoint *KeycloakEndpoint) realmRole(
 	token,
 	role string,
 ) (scenarioKeycloakRoleRepresentation, error) {
+	endpoint.cacheMu.Lock()
+	cached, found := endpoint.realmRoles[role]
+	endpoint.cacheMu.Unlock()
+	if found {
+		return cached, nil
+	}
 	response, err := endpoint.doJSON(
 		ctx,
 		http.MethodGet,
@@ -649,6 +691,13 @@ func (endpoint *KeycloakEndpoint) realmRole(
 			role,
 		)
 	}
+	endpoint.cacheMu.Lock()
+	if cached, found = endpoint.realmRoles[role]; found {
+		endpoint.cacheMu.Unlock()
+		return cached, nil
+	}
+	endpoint.realmRoles[role] = representation
+	endpoint.cacheMu.Unlock()
 	return representation, nil
 }
 
@@ -671,6 +720,14 @@ func createdProviderSubjectID(location string) (string, error) {
 func (endpoint *KeycloakEndpoint) accessToken(
 	ctx context.Context,
 ) (string, error) {
+	now := time.Now()
+	endpoint.cacheMu.Lock()
+	cachedToken := endpoint.cachedToken
+	tokenExpiry := endpoint.tokenExpiry
+	endpoint.cacheMu.Unlock()
+	if cachedToken != "" && now.Before(tokenExpiry) {
+		return cachedToken, nil
+	}
 	form := url.Values{
 		"client_id":     {endpoint.clientID},
 		"client_secret": {endpoint.clientSecret},
@@ -706,12 +763,24 @@ func (endpoint *KeycloakEndpoint) accessToken(
 	}
 	var payload struct {
 		AccessToken string `json:"access_token"`
+		ExpiresIn   int64  `json:"expires_in"`
 	}
 	if err := decodeScenarioJSON(response.Body, &payload); err != nil {
 		return "", err
 	}
 	if strings.TrimSpace(payload.AccessToken) == "" {
 		return "", fmt.Errorf("Keycloak token response omitted access_token")
+	}
+	if payload.ExpiresIn > 0 {
+		lifetime := time.Duration(payload.ExpiresIn) * time.Second
+		margin := 30 * time.Second
+		if lifetime <= margin {
+			margin = lifetime / 10
+		}
+		endpoint.cacheMu.Lock()
+		endpoint.cachedToken = payload.AccessToken
+		endpoint.tokenExpiry = time.Now().Add(lifetime - margin)
+		endpoint.cacheMu.Unlock()
 	}
 	return payload.AccessToken, nil
 }

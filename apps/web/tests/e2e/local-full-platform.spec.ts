@@ -37,6 +37,29 @@ interface FindingView {
   status: string;
 }
 
+type FullRole =
+  | "inspector"
+  | "leadInspector"
+  | "manager"
+  | "finance"
+  | "gm"
+  | "executiveDirector"
+  | "auditee"
+  | "admin";
+
+interface ProvisionedPersona {
+  context: BrowserContext;
+  page: Page;
+  role: Exclude<FullRole, "admin">;
+  subjectID: string;
+}
+
+type RolePages = Record<FullRole, Page>;
+type WorkflowSubjects = Pick<
+  Record<FullRole, string>,
+  "inspector" | "leadInspector"
+>;
+
 const applicationOrigin = requiredEnvironment("AVIA_E2E_BASE_URL");
 const mailpitProofSubject = "Plan 3 full-profile SMTP delivery";
 
@@ -201,29 +224,42 @@ async function keycloakAdminToken(request: APIRequestContext): Promise<string> {
   return body.access_token!;
 }
 
-async function setProvisionedPassword(
+async function configureProvisionedLogin(
   request: APIRequestContext,
   token: string,
   subjectID: string,
   password: string,
 ): Promise<void> {
-  const response = await request.put(
+  const passwordResponse = await request.put(
     `${requiredEnvironment("AVIA_LOCAL_FULL_KEYCLOAK_BASE_URL")}/admin/realms/aviasurveil360/users/${subjectID}/reset-password`,
     {
       headers: { Authorization: `Bearer ${token}` },
       data: { type: "password", temporary: false, value: password },
     },
   );
-  expect(response.status()).toBe(204);
+  expect(passwordResponse.status()).toBe(204);
+  const requiredActionResponse = await request.put(
+    `${requiredEnvironment("AVIA_LOCAL_FULL_KEYCLOAK_BASE_URL")}/admin/realms/aviasurveil360/users/${subjectID}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      data: {
+        emailVerified: true,
+        requiredActions: ["CONFIGURE_TOTP"],
+      },
+    },
+  );
+  expect(requiredActionResponse.status()).toBe(204);
 }
 
-async function provisionAuditee(
+async function provisionRole(
   adminPage: Page,
   keycloakRequest: APIRequestContext,
-): Promise<{ context: BrowserContext; page: Page; subjectID: string }> {
-  const email = `full.auditee.${randomBytes(6).toString("hex")}@example.test`;
+  role: Exclude<FullRole, "admin">,
+  organizationID: string,
+): Promise<ProvisionedPersona> {
+  const email = `full.${role.toLowerCase()}.${randomBytes(6).toString("hex")}@example.test`;
   const password = `${randomBytes(18).toString("hex")}Aa1!`;
-  const key = `full-auditee-${randomBytes(8).toString("hex")}`;
+  const key = `full-${role.toLowerCase()}-${randomBytes(8).toString("hex")}`;
   const accepted = expectStatus(
     await appRequest<LifecycleView>(
       adminPage,
@@ -234,15 +270,16 @@ async function provisionAuditee(
         idempotencyKey: key,
         subjectId: null,
         action: "PROVISION",
-        roles: ["auditee"],
-        organizationId: "ORG-FLY-NAMIBIA",
+        roles: [role],
+        organizationId: organizationID,
         email,
-        displayName: "Clean Full Profile Auditee",
+        displayName: `Clean Full Profile ${role}`,
+        reason: `Create the isolated ${role} authority for the clean full profile.`,
       },
       commandHeaders(key),
     ),
     202,
-    "provision Auditee",
+    `provision ${role}`,
   );
   let lifecycle = accepted;
   await expect.poll(async () => {
@@ -259,15 +296,20 @@ async function provisionAuditee(
   expect(lifecycle.subjectId).toBeTruthy();
 
   const token = await keycloakAdminToken(keycloakRequest);
-  await setProvisionedPassword(keycloakRequest, token, lifecycle.subjectId!, password);
+  await configureProvisionedLogin(
+    keycloakRequest,
+    token,
+    lifecycle.subjectId!,
+    password,
+  );
 
   const context = await adminPage.context().browser()!.newContext({
     baseURL: applicationOrigin,
     ignoreHTTPSErrors: true,
   });
   const page = await context.newPage();
-  await enrollTotp(page, email, password, "auditee");
-  return { context, page, subjectID: lifecycle.subjectId! };
+  await enrollTotp(page, email, password, role);
+  return { context, page, role, subjectID: lifecycle.subjectId! };
 }
 
 async function proveSMTPNotification(
@@ -320,10 +362,7 @@ async function proveSMTPNotification(
   expect(notification?.emailAcceptedAt).toBeTruthy();
 }
 
-async function createCleanApplicationState(
-  adminPage: Page,
-  adminSubjectID: string,
-): Promise<void> {
+async function createAdminPrerequisites(adminPage: Page): Promise<string[]> {
   expectStatus(
     await appRequest(
       adminPage,
@@ -399,7 +438,14 @@ async function createCleanApplicationState(
     201,
     "create reminder rule",
   );
+  return questionIDs;
+}
 
+async function createCleanApplicationState(
+  rolePages: RolePages,
+  subjects: WorkflowSubjects,
+  questionIDs: string[],
+): Promise<void> {
   const values = {
     organizationId: "ORG-FLY-NAMIBIA",
     organizationName: "Fly Namibia",
@@ -420,7 +466,7 @@ async function createCleanApplicationState(
   };
   expectStatus(
     await appRequest(
-      adminPage,
+      rolePages.manager,
       "POST",
       "/api/v1/planning/intake-drafts",
       {
@@ -437,7 +483,7 @@ async function createCleanApplicationState(
   );
   const submitted = expectStatus<{ planningItem: PlanningItem }>(
     await appRequest(
-      adminPage,
+      rolePages.manager,
       "POST",
       "/api/v1/planning/intake-drafts/PLAN-DRAFT-2026-001/submissions",
       {
@@ -453,15 +499,23 @@ async function createCleanApplicationState(
     "submit planning intake",
   );
   let planning = submitted.planningItem;
-  for (const [decision, reason] of [
-    ["APPROVE_BUDGET", "No external budget is required."],
-    ["FORWARD_FOR_FINAL_APPROVAL", "Forward the exact plan revision."],
-    ["APPROVE_PLAN", "Approve the authorized plan revision."],
-    ["RELEASE_PLAN", "Release the authorized plan."],
+  for (const [page, decision, reason] of [
+    [rolePages.finance, "APPROVE_BUDGET", "No external budget is required."],
+    [
+      rolePages.gm,
+      "FORWARD_FOR_FINAL_APPROVAL",
+      "Forward the exact plan revision.",
+    ],
+    [
+      rolePages.executiveDirector,
+      "APPROVE_PLAN",
+      "Approve the authorized plan revision.",
+    ],
+    [rolePages.gm, "RELEASE_PLAN", "Release the authorized plan."],
   ] as const) {
     planning = expectStatus<PlanningItem>(
       await appRequest(
-        adminPage,
+        page,
         "POST",
         `/api/v1/planning/items/${planning.id}/decisions`,
         {
@@ -480,7 +534,7 @@ async function createCleanApplicationState(
 
   expectStatus(
     await appRequest(
-      adminPage,
+      rolePages.manager,
       "POST",
       "/api/v1/audit-workspaces",
       {
@@ -494,8 +548,8 @@ async function createCleanApplicationState(
         packageDraftId: "PKG-AUD-2026-001-CABIN",
         templateId: "TPL-CABIN-2026",
         templateVersionId: "CTV-CABIN-1",
-        leadInspectorSubjectId: adminSubjectID,
-        memberSubjectIds: [adminSubjectID],
+        leadInspectorSubjectId: subjects.leadInspector,
+        memberSubjectIds: [subjects.inspector],
         scheduledStartDate: "2026-07-25",
         scheduledEndDate: "2026-07-27",
         expiresAt: "2026-08-25T00:00:00Z",
@@ -504,7 +558,7 @@ async function createCleanApplicationState(
           prompt: questionId,
           configuredReference: questionId,
           expectedEvidence: [questionId],
-          assignedInspectorSubjectIds: [adminSubjectID],
+          assignedInspectorSubjectIds: [subjects.inspector],
         })),
       },
       commandHeaders("full-create-audit-workspace"),
@@ -515,12 +569,13 @@ async function createCleanApplicationState(
 }
 
 async function createAndCloseFinding(
-  adminPage: Page,
+  inspectorPage: Page,
+  leadInspectorPage: Page,
   auditeePage: Page,
 ): Promise<{ finding: FindingView; evidenceVersionID: string }> {
   const response = expectStatus<{ id: string; revision: number; comment: string }>(
     await appRequest(
-      adminPage,
+      inspectorPage,
       "PUT",
       "/api/v1/checklist-responses/RESP-CAB-EMEQ-PBE-001",
       {
@@ -538,7 +593,7 @@ async function createAndCloseFinding(
   );
   const potential = expectStatus<{ id: string; revision: number }>(
     await appRequest(
-      adminPage,
+      inspectorPage,
       "POST",
       "/api/v1/potential-findings",
       {
@@ -558,7 +613,7 @@ async function createAndCloseFinding(
   );
   const converted = expectStatus<{ finding: FindingView }>(
     await appRequest(
-      adminPage,
+      leadInspectorPage,
       "POST",
       `/api/v1/potential-findings/${potential.id}/decisions`,
       {
@@ -603,7 +658,7 @@ async function createAndCloseFinding(
   );
   const accepted = expectStatus<{ findingRevision: number; findingStatus: string }>(
     await appRequest(
-      adminPage,
+      inspectorPage,
       "POST",
       `/api/v1/caps/${cap.capRevisionId}/reviews`,
       {
@@ -690,7 +745,7 @@ async function createAndCloseFinding(
 
   const reviewableFinding = expectStatus<FindingView>(
     await appRequest(
-      adminPage,
+      inspectorPage,
       "GET",
       `/api/v1/findings/${finding.id}`,
     ),
@@ -700,7 +755,7 @@ async function createAndCloseFinding(
   expect(reviewableFinding.status).toBe("PENDING_CAA_REVIEW");
   const closed = expectStatus<{ findingRevision: number; findingStatus: string }>(
     await appRequest(
-      adminPage,
+      inspectorPage,
       "POST",
       `/api/v1/evidence/${evidence!.id}/reviews`,
       {
@@ -725,7 +780,10 @@ async function createAndCloseFinding(
 }
 
 async function proveReportAndPDF(
-  adminPage: Page,
+  leadInspectorPage: Page,
+  managerPage: Page,
+  generalManagerPage: Page,
+  executiveDirectorPage: Page,
   findingID: string,
 ): Promise<void> {
   const report = expectStatus<{
@@ -734,7 +792,7 @@ async function proveReportAndPDF(
     status: string;
   }>(
     await appRequest(
-      adminPage,
+      leadInspectorPage,
       "POST",
       "/api/v1/report-versions",
       {
@@ -759,14 +817,18 @@ async function proveReportAndPDF(
     "create immutable Final Report version",
   );
   let current = report;
-  for (const [decision, reason] of [
-    ["FORWARD", "Forward Department review."],
-    ["FORWARD", "Forward General Manager review."],
-    ["ISSUE_AND_LOCK", "Issue the exact immutable Final Report."],
+  for (const [page, decision, reason] of [
+    [managerPage, "FORWARD", "Forward Department review."],
+    [generalManagerPage, "FORWARD", "Forward General Manager review."],
+    [
+      executiveDirectorPage,
+      "ISSUE_AND_LOCK",
+      "Issue the exact immutable Final Report.",
+    ],
   ] as const) {
     current = expectStatus(
       await appRequest<typeof current>(
-        adminPage,
+        page,
         "POST",
         `/api/v1/report-versions/${current.reportVersionId}/decisions`,
         {
@@ -788,7 +850,7 @@ async function proveReportAndPDF(
       id: string;
       renderStatus?: string;
     }> }>(
-      await appRequest(adminPage, "GET", "/api/v1/documents"),
+      await appRequest(executiveDirectorPage, "GET", "/api/v1/documents"),
       200,
       "poll Gotenberg PDF document",
     );
@@ -805,7 +867,7 @@ async function proveReportAndPDF(
     sourceHash: string;
   }>(
     await appRequest(
-      adminPage,
+      executiveDirectorPage,
       "GET",
       `/api/v1/documents/${current.reportVersionId}`,
     ),
@@ -820,20 +882,17 @@ async function proveReportAndPDF(
   );
   expect(document.templateHash).toMatch(/^sha256:[0-9a-f]{64}$/);
   expect(document.sourceHash).toMatch(/^sha256:[0-9a-f]{64}$/);
-  const pdf = await adminPage.request.get(document.downloadUrl);
+  const pdf = await executiveDirectorPage.request.get(document.downloadUrl);
   expect(pdf.status()).toBe(200);
   expect(pdf.headers()["content-type"]).toContain("application/pdf");
   expect((await pdf.body()).subarray(0, 5).toString("utf8")).toBe("%PDF-");
 }
 
-async function proveDirectLoads(
-  adminPage: Page,
-  auditeePage: Page,
-): Promise<string[]> {
+async function proveDirectLoads(rolePages: RolePages): Promise<string[]> {
   expect(REACT_ROUTE_CONTRACTS).toHaveLength(86);
   const loaded: string[] = [];
   for (const route of REACT_ROUTE_CONTRACTS) {
-    const page = route.requiredRole === "auditee" ? auditeePage : adminPage;
+    const page = rolePages[route.requiredRole ?? "admin"];
     const response = await page.goto(route.path, { waitUntil: "domcontentloaded" });
     expect(response?.status(), `direct load ${route.path}`).toBe(200);
     await expect(page.locator("main")).toHaveCount(1);
@@ -854,7 +913,7 @@ test("clean full profile proves 86 HTTP routes and ten real-service scenario fam
   const keycloakRequest = await playwrightRequest.newContext({
     ignoreHTTPSErrors: true,
   });
-  let auditeeContext: BrowserContext | null = null;
+  const roleContexts: BrowserContext[] = [];
   try {
     await enrollTotp(
       adminPage,
@@ -870,26 +929,75 @@ test("clean full profile proves 86 HTTP routes and ten real-service scenario fam
     );
     expect(missingTestBoundary.status, "/__test/* must return 404 in full mode").toBe(404);
 
+    const questionIDs = await createAdminPrerequisites(adminPage);
+    const personas = new Map<
+      Exclude<FullRole, "admin">,
+      ProvisionedPersona
+    >();
+    for (const role of [
+      "inspector",
+      "leadInspector",
+      "manager",
+      "finance",
+      "gm",
+      "executiveDirector",
+      "auditee",
+    ] as const) {
+      const persona = await provisionRole(
+        adminPage,
+        keycloakRequest,
+        role,
+        role === "auditee" ? "ORG-FLY-NAMIBIA" : "CAA",
+      );
+      personas.set(role, persona);
+      roleContexts.push(persona.context);
+    }
+    const persona = (
+      role: Exclude<FullRole, "admin">,
+    ): ProvisionedPersona => {
+      const value = personas.get(role);
+      if (!value) throw new Error(`missing ${role} full-profile persona`);
+      return value;
+    };
+    const rolePages: RolePages = {
+      admin: adminPage,
+      inspector: persona("inspector").page,
+      leadInspector: persona("leadInspector").page,
+      manager: persona("manager").page,
+      finance: persona("finance").page,
+      gm: persona("gm").page,
+      executiveDirector: persona("executiveDirector").page,
+      auditee: persona("auditee").page,
+    };
     await createCleanApplicationState(
-      adminPage,
-      requiredEnvironment("AVIA_LOCAL_FULL_ADMIN_SUBJECT_ID"),
+      rolePages,
+      {
+        inspector: persona("inspector").subjectID,
+        leadInspector: persona("leadInspector").subjectID,
+      },
+      questionIDs,
     );
     scenarioProofs.add("ad-hoc-planning-to-assignment");
     scenarioProofs.add("configuration-and-immutable-package-snapshot");
 
-    const auditee = await provisionAuditee(adminPage, keycloakRequest);
-    auditeeContext = auditee.context;
-    await proveSMTPNotification(adminPage, auditee.page);
+    await proveSMTPNotification(rolePages.inspector, rolePages.auditee);
     const { finding, evidenceVersionID } = await createAndCloseFinding(
-      adminPage,
-      auditee.page,
+      rolePages.inspector,
+      rolePages.leadInspector,
+      rolePages.auditee,
     );
     expect(evidenceVersionID).toBeTruthy();
     scenarioProofs.add("routine-inspection-to-closure");
     scenarioProofs.add("checklist-and-potential-finding-authority");
     scenarioProofs.add("cap-evidence-and-closure-authority");
 
-    await proveReportAndPDF(adminPage, finding.id);
+    await proveReportAndPDF(
+      rolePages.leadInspector,
+      rolePages.manager,
+      rolePages.gm,
+      rolePages.executiveDirector,
+      finding.id,
+    );
     scenarioProofs.add("preliminary-and-final-report-authority");
 
     const organizations = expectStatus<{ items: unknown[] }>(
@@ -901,7 +1009,7 @@ test("clean full profile proves 86 HTTP routes and ten real-service scenario fam
     scenarioProofs.add("organization-and-platform-projections");
 
     const risk = expectStatus<{ advisoryOnly?: boolean }>(
-      await appRequest(adminPage, "GET", "/api/v1/risk/overview"),
+      await appRequest(rolePages.manager, "GET", "/api/v1/risk/overview"),
       200,
       "advisory risk projection",
     );
@@ -910,7 +1018,7 @@ test("clean full profile proves 86 HTTP routes and ten real-service scenario fam
 
     const checkout = expectStatus<{ offlineGrant: { grantId: string } }>(
       await appRequest(
-        adminPage,
+        rolePages.inspector,
         "POST",
         "/api/v1/inspection-packages/PKG-CAB-2026-001/checkout",
         {
@@ -930,7 +1038,11 @@ test("clean full profile proves 86 HTTP routes and ten real-service scenario fam
       advisoryOnly: boolean;
       prohibitedActions: string[];
     }>(
-      await appRequest(adminPage, "GET", "/api/v1/assistant/guidance"),
+      await appRequest(
+        rolePages.inspector,
+        "GET",
+        "/api/v1/assistant/guidance",
+      ),
       200,
       "assistant advisory boundary",
     );
@@ -943,7 +1055,7 @@ test("clean full profile proves 86 HTTP routes and ten real-service scenario fam
       canCloseFinding: boolean;
     }>(
       await appRequest(
-        adminPage,
+        rolePages.inspector,
         "POST",
         "/api/v1/assistant/drafts",
         {
@@ -966,7 +1078,7 @@ test("clean full profile proves 86 HTTP routes and ten real-service scenario fam
     });
     scenarioProofs.add("advisory-draft-without-canonical-mutation");
 
-    await proveDirectLoads(adminPage, auditee.page);
+    await proveDirectLoads(rolePages);
     expect([...scenarioProofs].sort()).toEqual(
       [...FULL_PLATFORM_SCENARIO_FAMILIES].sort(),
     );
@@ -976,7 +1088,7 @@ test("clean full profile proves 86 HTTP routes and ten real-service scenario fam
       body: JSON.stringify({
         directLoads: 86,
         scenarioFamilies: [...scenarioProofs],
-        identity: "production-mode Keycloak CONFIGURE_TOTP",
+        identity: "eight exact-role production-mode Keycloak CONFIGURE_TOTP sessions",
         evidence: "private MinIO object and real ClamAV scan-clean gating",
         notifications: "private Mailpit SMTP is inspected by the profile script",
         documents: "real Gotenberg PDF rendered into private versioned object storage",
@@ -984,7 +1096,7 @@ test("clean full profile proves 86 HTTP routes and ten real-service scenario fam
       contentType: "application/json",
     });
   } finally {
-    await auditeeContext?.close();
+    await Promise.all(roleContexts.map((context) => context.close()));
     await keycloakRequest.dispose();
   }
 });

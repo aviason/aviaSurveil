@@ -461,11 +461,18 @@ test("production-mode Keycloak enforces configured MFA and application provision
   await page.getByLabel("Provisioning display name").fill("Provisioned Inspector");
   await page.getByLabel("Provisioning organization").fill("CAA");
   await page.getByLabel("Provisioning role").selectOption("inspector");
+  await page.getByRole("button", { name: "Review provisioning" }).click();
+  const provisioningDialog = page.getByRole("dialog", {
+    name: `Confirm Provision for ${inspectorEmail}`,
+  });
+  await expect(provisioningDialog).toBeVisible();
   const provisioningResponsePromise = page.waitForResponse((response) =>
     response.request().method() === "POST" &&
     response.url().endsWith("/v1/admin/user-lifecycle-requests")
   );
-  await page.getByRole("button", { name: "Submit provisioning" }).click();
+  await provisioningDialog.getByRole("button", {
+    name: "Confirm Provision",
+  }).click();
   const provisioningResponse = await provisioningResponsePromise;
   expect(provisioningResponse.status()).toBe(202);
   const provisioningBody = await provisioningResponse.json();

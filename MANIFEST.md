@@ -22,14 +22,16 @@ UI-audit metadata drift, while a read-only content check verifies all 258/258
 baseline PNG hashes; the accepted manifest was not changed.
 Plans 1–4 are completed local `candidate-only` milestones. AWS Task 10 is
 optional, unauthorized, and literally `not run`.
-Plan 5 Tasks 1–8 are `verified locally`; Task 8 qualifies the isolated
+Plan 5 Tasks 1–9 are `verified locally`; Task 8 qualifies the isolated
 one-shot connected data candidate across disposable PostgreSQL, Keycloak,
 Mailpit, and MinIO using `smoke@1.0.0`, `acceptance@1.0.0`,
 `realistic@1.1.0`, and `stress@1.1.0`, with exact relationship/privacy
 reconciliation, interruption/resume, positive resource evidence, bounded
 duration, and zero-residue cleanup. Full-volume `realistic@1.0.0` and
 `stress@1.0.0` are preserved as deferred release-readiness endurance evidence
-with status `not run`; Task 9 remains `not run`.
+with status `not run`. Task 9's fresh full matrix passed with the exact
+owner-approved 19-second stress-duration exception recorded literally;
+publication is pending.
 The artifact is `candidate-only`, the local decision is `GO`, and release is
 `release pending`. It is not a deployed production application. Production
 identity federation, external storage, scanning, email, records operations,
@@ -361,11 +363,15 @@ separate `apps/web/package.json` owns the React candidate commands.
   RPO/RTO, runbook, image/SBOM/scan, Terraform/Terragrunt, cleanup, and
   explicit AWS `not run` evidence.
 - `docs/demo-evidence/PLAN5_IDENTITY_DATA_FOUNDATION_2026-07-28.md` —
-  Plan 5 Tasks 1–7 identity/data contract, verified local directory,
+  Plan 5 Tasks 1–8 identity/data contract, verified local directory,
   revision-guarded invitation/recovery lifecycle, live OIDC/MFA, exact
   session-authority, complete reason-confirmed Admin experience, isolated
   loader, and real connected PostgreSQL/Keycloak/Mailpit/MinIO scenario
   evidence.
+- `docs/demo-evidence/PREPROD_IDENTITY_AND_DATA_FOUNDATION_2026-07-27.md` —
+  Plan 5 Task 9 final contract, identity, lifecycle, normal-artifact,
+  all-eight-role, local-full/OIDC, four-profile, resource/privacy/resume,
+  owner-exception, review, and zero-residue evidence.
 - `docs/demo-handoff/ACCEPTANCE_CRITERIA_AND_FEEDBACK.md`
 - `docs/demo-handoff/AGENT_HARNESS_RUNBOOK.md`
 - `docs/demo-handoff/CODEX_DEMO_ONLY_PROMPT.md`
@@ -409,6 +415,7 @@ in user-facing handoffs rather than duplicate companion files.
 - `docs/exec-plans/completed/2026-07-22-full-backend-scenario-parity-plan.md`
 - `docs/exec-plans/completed/2026-07-22-local-production-like-services-plan.md`
 - `docs/exec-plans/completed/2026-07-22-reliability-dr-and-aws-terraform-terragrunt-plan.md`
+- `docs/exec-plans/completed/2026-07-27-identity-and-realistic-data-foundation-plan.md`
 - `docs/exec-plans/tech-debt-tracker.md` — durable blocker, handoff,
   accepted-risk, missing-evidence, and technical-debt tracker.
 

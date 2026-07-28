@@ -162,6 +162,11 @@ test("runtime checker covers failure, leakage, isolation, and residue contracts"
     /\/proc\/1\/task\/1\/children/u,
     "worker crash injection must target the init process's direct application child without a pidof race",
   );
+  assert.match(
+    script,
+    /assert_service_networks mailpit "identity platform"/u,
+    "runtime checker must preserve Mailpit's exact Keycloak identity and worker platform reachability",
+  );
 });
 
 test("runtime checker fails closed before evidence collection when rg is unavailable", () => {

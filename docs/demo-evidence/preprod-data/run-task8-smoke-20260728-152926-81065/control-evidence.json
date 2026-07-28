@@ -1,0 +1,704 @@
+{
+  "schemaVersion": "preprod-profile-control-evidence/v1",
+  "intent": {
+    "schemaVersion": "preprod-intent-manifest/v1",
+    "runId": "run-task8-smoke-20260728-152926-81065",
+    "profile": "smoke",
+    "profileVersion": "1.0.0",
+    "seedHash": "sha256:d4941d6c6fb1b625386679c288d856c36ad9e8cbf474af4006f8519c01675451",
+    "clockOrigin": "2026-01-01T00:00:00Z",
+    "expectedCounts": {
+      "applicationProfiles": 9,
+      "assignments": 3,
+      "auditEvents": 250,
+      "audits": 2,
+      "calendarRecords": 20,
+      "capRevisions": 12,
+      "checklistQuestions": 24,
+      "checklistResponses": 24,
+      "checklistTemplateVersions": 6,
+      "checklistTemplates": 4,
+      "communications": 16,
+      "deliveryJobs": 48,
+      "desiredMembershipVersions": 18,
+      "evidenceReferences": 8,
+      "evidenceVersions": 16,
+      "findings": 8,
+      "identityLifecycleCases": 18,
+      "inspectionPackages": 2,
+      "invitations": 6,
+      "lifecycleScenarioCases": 12,
+      "mfaEnrollments": 9,
+      "notifications": 24,
+      "objectVersions": 24,
+      "objects": 22,
+      "offlineGrants": 4,
+      "organizations": 3,
+      "outboxMessages": 80,
+      "planningApprovals": 12,
+      "potentialFindings": 12,
+      "providerAccounts": 9,
+      "recoveryRequests": 2,
+      "renderJobs": 6,
+      "reportVersions": 6,
+      "reviewDecisions": 16,
+      "routeDispositions": 86,
+      "scannerJobs": 16,
+      "sessions": 18,
+      "surveillancePlans": 4,
+      "syncChanges": 120,
+      "visibleActionDispositions": 306
+    },
+    "exactDistributions": {
+      "applicationProfiles": {
+        "generated": 9
+      },
+      "assignments": {
+        "generated": 3
+      },
+      "auditEvents": {
+        "generated": 250
+      },
+      "audits": {
+        "active": 1,
+        "overdue": 0,
+        "planned": 1,
+        "verified-closed": 0
+      },
+      "calendarRecords": {
+        "generated": 20
+      },
+      "capRevisions": {
+        "accepted": 1,
+        "corrected": 2,
+        "draft": 2,
+        "rejected": 2,
+        "returned": 2,
+        "submitted": 2,
+        "superseded": 1
+      },
+      "checklistQuestions": {
+        "generated": 24
+      },
+      "checklistResponses": {
+        "generated": 24
+      },
+      "checklistTemplateVersions": {
+        "generated": 6
+      },
+      "checklistTemplates": {
+        "generated": 4
+      },
+      "communications": {
+        "generated": 16
+      },
+      "deliveryJobs": {
+        "generated": 48
+      },
+      "desiredMembershipVersions": {
+        "active": 8,
+        "deactivated": 2,
+        "invited": 2,
+        "reactivation-pending": 2,
+        "requested": 2,
+        "suspended": 2
+      },
+      "evidenceReferences": {
+        "generated": 8
+      },
+      "evidenceVersions": {
+        "accepted": 4,
+        "corrected": 2,
+        "rejected": 2,
+        "returned": 2,
+        "superseded": 2,
+        "uploaded": 4
+      },
+      "findings": {
+        "authorized-closed": 1,
+        "not-closed": 1,
+        "open": 1,
+        "overdue": 1,
+        "partially-closed": 1,
+        "reopened": 1,
+        "verified-closed": 2
+      },
+      "identityLifecycleCases": {
+        "active": 5,
+        "deactivated": 1,
+        "forced-logout": 1,
+        "invitation-expired": 1,
+        "invited": 1,
+        "mfa-reset": 1,
+        "provider-drift": 1,
+        "provider-unavailable": 1,
+        "reactivation-pending": 1,
+        "recovered": 1,
+        "requested": 1,
+        "role-changed": 1,
+        "suspended": 1,
+        "transferred": 1
+      },
+      "inspectionPackages": {
+        "generated": 2
+      },
+      "invitations": {
+        "cancelled": 1,
+        "consumed": 1,
+        "delivered": 1,
+        "expired": 1,
+        "issued": 1,
+        "retryable-failure": 1
+      },
+      "lifecycleScenarioCases": {
+        "active": 1,
+        "authorized-closed": 1,
+        "corrected": 1,
+        "not-closed": 1,
+        "overdue": 1,
+        "partially-closed": 1,
+        "planned": 1,
+        "rejected": 1,
+        "reopened": 1,
+        "returned": 1,
+        "superseded": 1,
+        "verified-closed": 1
+      },
+      "mfaEnrollments": {
+        "enrolled": 5,
+        "enrollment-required": 0,
+        "reset-pending": 1,
+        "unenrolled": 3
+      },
+      "notifications": {
+        "generated": 24
+      },
+      "objectVersions": {
+        "generated": 24
+      },
+      "objects": {
+        "generated": 22
+      },
+      "offlineGrants": {
+        "generated": 4
+      },
+      "organizations": {
+        "auditee": 2,
+        "caa": 1
+      },
+      "outboxMessages": {
+        "generated": 80
+      },
+      "planningApprovals": {
+        "generated": 12
+      },
+      "potentialFindings": {
+        "converted": 2,
+        "corrected": 2,
+        "pending": 4,
+        "rejected": 2,
+        "returned": 2
+      },
+      "providerAccounts": {
+        "admin": 1,
+        "auditee": 2,
+        "executiveDirector": 1,
+        "finance": 1,
+        "gm": 1,
+        "inspector": 1,
+        "leadInspector": 1,
+        "manager": 1
+      },
+      "recoveryRequests": {
+        "generated": 2
+      },
+      "renderJobs": {
+        "generated": 6
+      },
+      "reportVersions": {
+        "corrected": 1,
+        "draft": 1,
+        "issued": 2,
+        "rejected": 1,
+        "returned": 1
+      },
+      "reviewDecisions": {
+        "generated": 16
+      },
+      "routeDispositions": {
+        "authorized-data": 60,
+        "denied": 16,
+        "intentional-empty": 10
+      },
+      "scannerJobs": {
+        "generated": 16
+      },
+      "sessions": {
+        "generated": 18
+      },
+      "surveillancePlans": {
+        "generated": 4
+      },
+      "syncChanges": {
+        "generated": 120
+      },
+      "visibleActionDispositions": {
+        "disabled-by-role": 50,
+        "disabled-by-state": 56,
+        "executable": 200
+      }
+    },
+    "codeDigest": "sha256:1139d3218d69da7499c07e52bc234206039ae79f88a3fc7d6293963d85bc2116",
+    "contractDigest": "sha256:a722cb68bfb34037d9eb71398d99119712ca9f253a69afedf66b1f70d1a5b5a4",
+    "canonicalization": "AVIA_CANONICAL_JSON_V1",
+    "target": {
+      "environment": "local-preprod",
+      "databaseName": "aviasurveil360_local_preprod",
+      "databaseOwner": "aviasurveil360_preprod_loader",
+      "postgresSystemIdentifier": "7667601885433753622",
+      "postgresHost": "preprod-postgres",
+      "postgresPort": 5432,
+      "composeProject": "aviasurveil360-local-preprod",
+      "keycloakRealm": "aviasurveil360-local-preprod",
+      "keycloakDatabase": "keycloak_local_preprod",
+      "keycloakServiceClientId": "aviasurveil360-local-preprod-lifecycle",
+      "mailpitNamespace": "aviasurveil360-local-preprod",
+      "objectBucket": "aviasurveil360-local-preprod",
+      "objectPrefix": "runs/run-task8-smoke-20260728-152926-81065/",
+      "loaderQueueNamespace": "aviasurveil360-local-preprod",
+      "profileName": "smoke",
+      "profileVersion": "1.0.0",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece"
+    },
+    "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+    "targetFingerprintDigest": "sha256:858b49a5b50c45c27146a3e618b4e5a1b35039b1f4bc2bb7b628a8996b7e15f2"
+  },
+  "results": [
+    {
+      "actualCounts": {
+        "applicationProfiles": 9,
+        "assignments": 3,
+        "auditEvents": 250,
+        "audits": 2,
+        "calendarRecords": 20,
+        "capRevisions": 12,
+        "checklistQuestions": 24,
+        "checklistResponses": 24,
+        "checklistTemplateVersions": 6,
+        "checklistTemplates": 4,
+        "communications": 16,
+        "deliveryJobs": 48,
+        "desiredMembershipVersions": 18,
+        "evidenceReferences": 8,
+        "evidenceVersions": 16,
+        "findings": 8,
+        "identityLifecycleCases": 18,
+        "inspectionPackages": 2,
+        "invitations": 6,
+        "lifecycleScenarioCases": 12,
+        "mfaEnrollments": 9,
+        "notifications": 24,
+        "objectVersions": 24,
+        "objects": 22,
+        "offlineGrants": 4,
+        "organizations": 3,
+        "outboxMessages": 80,
+        "planningApprovals": 12,
+        "potentialFindings": 12,
+        "providerAccounts": 9,
+        "recoveryRequests": 2,
+        "renderJobs": 6,
+        "reportVersions": 6,
+        "reviewDecisions": 16,
+        "routeDispositions": 86,
+        "scannerJobs": 16,
+        "sessions": 18,
+        "surveillancePlans": 4,
+        "syncChanges": 120,
+        "visibleActionDispositions": 306
+      },
+      "checkpoints": [
+        "load_empty_target-authorization-consumed-000000000001",
+        "authoritative-commands-applied-000000000002-through-synthetic-operation-provideraccounts-91f3b6f230bd816079ecabda",
+        "resume_run-authorization-consumed-000000000003",
+        "authoritative-commands-applied-000000000004-through-synthetic-operation-applicationprofiles-2e70cab49be1a6aa292461b7",
+        "authoritative-commands-applied-000000000006-through-synthetic-operation-recoveryrequests-d7562f77c56f7160f8af7ecd",
+        "authoritative-commands-applied-000000000008-through-synthetic-operation-sessions-8357ea4b58a43604743e5382",
+        "authoritative-commands-applied-000000000010-through-synthetic-operation-planningapprovals-ae20bce97e191d2efa64ef43",
+        "authoritative-commands-applied-000000000012-through-synthetic-operation-assignments-85a8008b11c21bd80502d853",
+        "authoritative-commands-applied-000000000014-through-synthetic-operation-checklisttemplateversions-f5e511c9874cc97d8a4a0ac3",
+        "authoritative-commands-applied-000000000016-through-synthetic-operation-inspectionpackages-a2e76f8b1b79ce118b00b752",
+        "authoritative-commands-applied-000000000018-through-synthetic-operation-potentialfindings-6860bea144c6b43b5ccaccf3",
+        "authoritative-commands-applied-000000000020-through-synthetic-operation-caprevisions-e3006b6e07f57b25680f3a04",
+        "authoritative-commands-applied-000000000022-through-synthetic-operation-objects-d2c98fbd4a9012e5976dd542",
+        "authoritative-commands-applied-000000000024-through-synthetic-operation-evidenceversions-59ae217736fb9cad15b87fcc",
+        "authoritative-commands-applied-000000000026-through-synthetic-operation-reportversions-f25cf5a431309a56663dc271",
+        "authoritative-commands-applied-000000000028-through-synthetic-operation-notifications-e6e23c0f441431a91368e4e6",
+        "authoritative-commands-applied-000000000030-through-synthetic-operation-deliveryjobs-c4d7c11a201dc43f5f8923be",
+        "authoritative-commands-applied-000000000032-through-synthetic-operation-renderjobs-75bb7c54ac78304c0af22f97",
+        "authoritative-commands-applied-000000000034-through-synthetic-operation-offlinegrants-08037f4fafdbf46cad172b08",
+        "authoritative-commands-applied-000000000036-through-synthetic-operation-auditevents-298514d583520cc0d2bd356f",
+        "authoritative-commands-applied-000000000038-through-synthetic-operation-routedispositions-a4e3d3cd41cc8d48c8368664",
+        "authoritative-commands-applied-000000000040-through-synthetic-operation-visibleactiondispositions-5a3c8b73c040fc8eb8154c10",
+        "authoritative-commands-applied-000000000042-through-synthetic-operation-identitylifecyclecases-3b097c19531d7617ef6dac5a",
+        "authoritative-commands-applied-000000000043-through-synthetic-operation-lifecyclescenariocases-c50bf06ba62d6f31b793010d"
+      ],
+      "completedAt": "2026-07-28T15:33:10.86908967Z",
+      "failures": null,
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "outcome": "SUCCEEDED",
+      "relationshipDigests": {
+        "applicationProfiles": "sha256:5bf54172eaf9d56ec53a27aa5bfb99994d806f29cdde33f8ac004a1b33972df0",
+        "assignments": "sha256:f6b29301a3314c055c1cde58dbe89a230ee1ce58604278e5fd2b5e9f60ab044e",
+        "auditEvents": "sha256:f2c97398525d3d146e05651a14b21208d41c5c4a6c1a7118f6c519f57409b54d",
+        "audits": "sha256:6626d307d31bf7f82c70c5c294700d0348f162e59a8c118dfa0d61cd5713c567",
+        "calendarRecords": "sha256:5293a4d70305f3db6602a160a2af9a0a694ef20b91fc0e9dd3d67c7729f5c95f",
+        "capRevisions": "sha256:46ee2a2b2825cdfcd44dc27b31843c0476cc4ece601d1bf5fd00520823aae6ff",
+        "checklistQuestions": "sha256:d4ccd2de0908dd514f92c5724db337687d126421dc60c79b67daef207ca84389",
+        "checklistResponses": "sha256:676fbb3cd3b50f76dc46b41122b30f608addfb9aa17a2489079bcc3e5388da49",
+        "checklistTemplateVersions": "sha256:78acfeb238b61d4b0464a6b940eb0a06cbdaf9824881ffa21b67df99a11a0f32",
+        "checklistTemplates": "sha256:f1ba57b33db150220f159e1a9db88725c285dd1df7f9e23da7333da52fef0a40",
+        "communications": "sha256:a0d893b4bc3706097af9cd037912daaad1b78fc352d1cfd106b0152277797bf1",
+        "deliveryJobs": "sha256:c91cc2e3b2f6e248e77445db51c6897471a0f630a51d8798e36c6715a8b20625",
+        "desiredMembershipVersions": "sha256:5808aaa59890f23c596be23db53f5d14cf03a77f8490ebf1c9c02d8e4f656451",
+        "evidenceReferences": "sha256:bf305564c5a7c4589ef6830adeec21d8eacae5ac71b7023bb1be3abf4cd2eeff",
+        "evidenceVersions": "sha256:fc9e722abc312c3d5f1af55d829e4d650d3dee82c21124ecdba7a9b0bdba156c",
+        "findings": "sha256:47336d00ee73a3386411997a986602480d21847583f19f8b2fe8e5f9ac6eda4a",
+        "identityLifecycleCases": "sha256:83d854a4d7fbd8e4a2425d810f21037b3dc0b823e1ecbb6bb4253725f03319bd",
+        "inspectionPackages": "sha256:f82a5db292c4b936c472f6dd59c18e37b89836894aa515b014c11e2a2bf8b746",
+        "invitations": "sha256:f4f375750d8aa7c3e448647e0daaf7aeba90b439e7f5abdf8442b50149771bf6",
+        "lifecycleScenarioCases": "sha256:bd3883220bd35f37024f8a1b9d10491e3cc88a79695368ba7b3e74cf870b7dc2",
+        "mfaEnrollments": "sha256:5d3d1670faf764cca904e7497a6f8d8840b43866447c28c4202a33e23425f770",
+        "notifications": "sha256:5f096729a63f04501211c46ce9d2bdfd459a68ad2d80ee9bf925681854fc7536",
+        "objectVersions": "sha256:69b48dbcc1e06ca565ed012de200783cd1848726a7f0bf83815664783b055a81",
+        "objects": "sha256:729fdefba89f5f7054c32db2a8851d6b491b4598df1f0c610bbaac99394c7e46",
+        "offlineGrants": "sha256:2bdec1f85f5f8f7312000d0e14296f21de167edd847584700c8f2fd8e8218446",
+        "organizations": "sha256:f5f470039fe66ea7921577d479ac5dc9b98525dab9a60d2038d174c81bae2c8a",
+        "outboxMessages": "sha256:37c1e4ec3d0d5d0cae988bedf367974745f65d1dfa952d63e7bb0eb6634f67e6",
+        "planningApprovals": "sha256:3e998112bc445b742b445d2ea94fe9447c0861810716ed587a92a4483b4a4284",
+        "potentialFindings": "sha256:135bec0c7a761721effa9853dae086a60f57a0aa6d8556970f3b533ae0e7d345",
+        "providerAccounts": "sha256:3fe199cfa8bdc247d9aa21522cbed01d7514accc358fe484d03356e2b59015ee",
+        "recoveryRequests": "sha256:a65d0e2dbc9424eda8df390bd79cf04d72c56d6ae51e5305a9169a5c4b85b3c9",
+        "renderJobs": "sha256:a7bf207486ed3f8cf99137d18845c08d37505a1d85c3681b92270d2fca32edd8",
+        "reportVersions": "sha256:dabe7e8a5f9d8eb3ce5c3a8a2ff031364b50353302450b3cf0d1afd8b302f5a7",
+        "reviewDecisions": "sha256:5dc4b653c25f703f26b7c111c66982274929b0be55a635cf7da369ce580797f1",
+        "routeDispositions": "sha256:a837e89300a3b59d2a519edbdad8cc962ed9e347f0f2915eb63f37428c3e7afd",
+        "scannerJobs": "sha256:6d7fac8d67c0280893344279b69f129e2861dd6e215f6a09fa7175169fb539d8",
+        "sessions": "sha256:77331695085c65d92fc1ed42dfe79f4ea6a2144bb1bbc5fd032414bd8a3e24b1",
+        "surveillancePlans": "sha256:44e979a57f686e094a64087dff9dfd31a28efeb39b3ca2d36c9d46ef720c94f5",
+        "syncChanges": "sha256:c147561531d73a8ae3439a6fad13e17b1b0b0af0df06f3a427f246d0e1ad6c2e",
+        "visibleActionDispositions": "sha256:f658df6c3413548c26fe0089eef84ae489e421d2da2daba5879888a8487711c9"
+      },
+      "resultDigest": "sha256:0e4e32aceeedb871811c44543bf7ec5fcb5fc77a6d64c37e7e0a90c6d75ed2b6",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-run-result/v1"
+    },
+    {
+      "actualCounts": {},
+      "checkpoints": [
+        "load_empty_target-authorization-consumed-000000000001",
+        "authoritative-commands-applied-000000000002-through-synthetic-operation-provideraccounts-91f3b6f230bd816079ecabda"
+      ],
+      "completedAt": "2026-07-28T15:32:56.791839889Z",
+      "failures": [
+        "COMMAND_STREAM_FAILED"
+      ],
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "outcome": "FAILED",
+      "relationshipDigests": {},
+      "resultDigest": "sha256:8a571f83ab2df9aceaa698c97d0bc9e66b94b8cb53c1648fd24790cc8589f5d9",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-run-result/v1"
+    }
+  ],
+  "checkpoints": [
+    {
+      "appliedCommands": 0,
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "name": "load_empty_target-authorization-consumed-000000000001",
+      "recordedAt": "2026-07-28T15:32:52.487953089Z",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 1
+    },
+    {
+      "appliedCommands": 2,
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "lastOperationId": "synthetic-operation-provideraccounts-91f3b6f230bd816079ecabda",
+      "name": "authoritative-commands-applied-000000000002-through-synthetic-operation-provideraccounts-91f3b6f230bd816079ecabda",
+      "recordedAt": "2026-07-28T15:32:56.788846247Z",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 2
+    },
+    {
+      "appliedCommands": 2,
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "lastOperationId": "synthetic-operation-provideraccounts-91f3b6f230bd816079ecabda",
+      "name": "resume_run-authorization-consumed-000000000003",
+      "recordedAt": "2026-07-28T15:33:08.527625142Z",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 3
+    },
+    {
+      "appliedCommands": 4,
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "lastOperationId": "synthetic-operation-applicationprofiles-2e70cab49be1a6aa292461b7",
+      "name": "authoritative-commands-applied-000000000004-through-synthetic-operation-applicationprofiles-2e70cab49be1a6aa292461b7",
+      "recordedAt": "2026-07-28T15:33:08.843722843Z",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 4
+    },
+    {
+      "appliedCommands": 6,
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "lastOperationId": "synthetic-operation-recoveryrequests-d7562f77c56f7160f8af7ecd",
+      "name": "authoritative-commands-applied-000000000006-through-synthetic-operation-recoveryrequests-d7562f77c56f7160f8af7ecd",
+      "recordedAt": "2026-07-28T15:33:09.919306436Z",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 5
+    },
+    {
+      "appliedCommands": 8,
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "lastOperationId": "synthetic-operation-sessions-8357ea4b58a43604743e5382",
+      "name": "authoritative-commands-applied-000000000008-through-synthetic-operation-sessions-8357ea4b58a43604743e5382",
+      "recordedAt": "2026-07-28T15:33:09.934126685Z",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 6
+    },
+    {
+      "appliedCommands": 10,
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "lastOperationId": "synthetic-operation-planningapprovals-ae20bce97e191d2efa64ef43",
+      "name": "authoritative-commands-applied-000000000010-through-synthetic-operation-planningapprovals-ae20bce97e191d2efa64ef43",
+      "recordedAt": "2026-07-28T15:33:09.941616893Z",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 7
+    },
+    {
+      "appliedCommands": 12,
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "lastOperationId": "synthetic-operation-assignments-85a8008b11c21bd80502d853",
+      "name": "authoritative-commands-applied-000000000012-through-synthetic-operation-assignments-85a8008b11c21bd80502d853",
+      "recordedAt": "2026-07-28T15:33:09.954204379Z",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 8
+    },
+    {
+      "appliedCommands": 14,
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "lastOperationId": "synthetic-operation-checklisttemplateversions-f5e511c9874cc97d8a4a0ac3",
+      "name": "authoritative-commands-applied-000000000014-through-synthetic-operation-checklisttemplateversions-f5e511c9874cc97d8a4a0ac3",
+      "recordedAt": "2026-07-28T15:33:09.965981902Z",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 9
+    },
+    {
+      "appliedCommands": 16,
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "lastOperationId": "synthetic-operation-inspectionpackages-a2e76f8b1b79ce118b00b752",
+      "name": "authoritative-commands-applied-000000000016-through-synthetic-operation-inspectionpackages-a2e76f8b1b79ce118b00b752",
+      "recordedAt": "2026-07-28T15:33:09.979634477Z",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 10
+    },
+    {
+      "appliedCommands": 18,
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "lastOperationId": "synthetic-operation-potentialfindings-6860bea144c6b43b5ccaccf3",
+      "name": "authoritative-commands-applied-000000000018-through-synthetic-operation-potentialfindings-6860bea144c6b43b5ccaccf3",
+      "recordedAt": "2026-07-28T15:33:09.995941192Z",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 11
+    },
+    {
+      "appliedCommands": 20,
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "lastOperationId": "synthetic-operation-caprevisions-e3006b6e07f57b25680f3a04",
+      "name": "authoritative-commands-applied-000000000020-through-synthetic-operation-caprevisions-e3006b6e07f57b25680f3a04",
+      "recordedAt": "2026-07-28T15:33:10.011658695Z",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 12
+    },
+    {
+      "appliedCommands": 22,
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "lastOperationId": "synthetic-operation-objects-d2c98fbd4a9012e5976dd542",
+      "name": "authoritative-commands-applied-000000000022-through-synthetic-operation-objects-d2c98fbd4a9012e5976dd542",
+      "recordedAt": "2026-07-28T15:33:10.017094017Z",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 13
+    },
+    {
+      "appliedCommands": 24,
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "lastOperationId": "synthetic-operation-evidenceversions-59ae217736fb9cad15b87fcc",
+      "name": "authoritative-commands-applied-000000000024-through-synthetic-operation-evidenceversions-59ae217736fb9cad15b87fcc",
+      "recordedAt": "2026-07-28T15:33:10.259634562Z",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 14
+    },
+    {
+      "appliedCommands": 26,
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "lastOperationId": "synthetic-operation-reportversions-f25cf5a431309a56663dc271",
+      "name": "authoritative-commands-applied-000000000026-through-synthetic-operation-reportversions-f25cf5a431309a56663dc271",
+      "recordedAt": "2026-07-28T15:33:10.277357451Z",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 15
+    },
+    {
+      "appliedCommands": 28,
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "lastOperationId": "synthetic-operation-notifications-e6e23c0f441431a91368e4e6",
+      "name": "authoritative-commands-applied-000000000028-through-synthetic-operation-notifications-e6e23c0f441431a91368e4e6",
+      "recordedAt": "2026-07-28T15:33:10.298282941Z",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 16
+    },
+    {
+      "appliedCommands": 30,
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "lastOperationId": "synthetic-operation-deliveryjobs-c4d7c11a201dc43f5f8923be",
+      "name": "authoritative-commands-applied-000000000030-through-synthetic-operation-deliveryjobs-c4d7c11a201dc43f5f8923be",
+      "recordedAt": "2026-07-28T15:33:10.335707731Z",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 17
+    },
+    {
+      "appliedCommands": 32,
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "lastOperationId": "synthetic-operation-renderjobs-75bb7c54ac78304c0af22f97",
+      "name": "authoritative-commands-applied-000000000032-through-synthetic-operation-renderjobs-75bb7c54ac78304c0af22f97",
+      "recordedAt": "2026-07-28T15:33:10.348153341Z",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 18
+    },
+    {
+      "appliedCommands": 34,
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "lastOperationId": "synthetic-operation-offlinegrants-08037f4fafdbf46cad172b08",
+      "name": "authoritative-commands-applied-000000000034-through-synthetic-operation-offlinegrants-08037f4fafdbf46cad172b08",
+      "recordedAt": "2026-07-28T15:33:10.366640901Z",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 19
+    },
+    {
+      "appliedCommands": 36,
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "lastOperationId": "synthetic-operation-auditevents-298514d583520cc0d2bd356f",
+      "name": "authoritative-commands-applied-000000000036-through-synthetic-operation-auditevents-298514d583520cc0d2bd356f",
+      "recordedAt": "2026-07-28T15:33:10.428548784Z",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 20
+    },
+    {
+      "appliedCommands": 38,
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "lastOperationId": "synthetic-operation-routedispositions-a4e3d3cd41cc8d48c8368664",
+      "name": "authoritative-commands-applied-000000000038-through-synthetic-operation-routedispositions-a4e3d3cd41cc8d48c8368664",
+      "recordedAt": "2026-07-28T15:33:10.480428153Z",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 21
+    },
+    {
+      "appliedCommands": 40,
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "lastOperationId": "synthetic-operation-visibleactiondispositions-5a3c8b73c040fc8eb8154c10",
+      "name": "authoritative-commands-applied-000000000040-through-synthetic-operation-visibleactiondispositions-5a3c8b73c040fc8eb8154c10",
+      "recordedAt": "2026-07-28T15:33:10.519889287Z",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 22
+    },
+    {
+      "appliedCommands": 42,
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "lastOperationId": "synthetic-operation-identitylifecyclecases-3b097c19531d7617ef6dac5a",
+      "name": "authoritative-commands-applied-000000000042-through-synthetic-operation-identitylifecyclecases-3b097c19531d7617ef6dac5a",
+      "recordedAt": "2026-07-28T15:33:10.530055427Z",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 23
+    },
+    {
+      "appliedCommands": 43,
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "lastOperationId": "synthetic-operation-lifecyclescenariocases-c50bf06ba62d6f31b793010d",
+      "name": "authoritative-commands-applied-000000000043-through-synthetic-operation-lifecyclescenariocases-c50bf06ba62d6f31b793010d",
+      "recordedAt": "2026-07-28T15:33:10.534980746Z",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-run-checkpoint/v1",
+      "sequence": 24
+    }
+  ],
+  "authorizations": [
+    {
+      "authorizationHash": "sha256:75913075fcb6bba358ad35b7e45d05a83c63c7ab53cce4e9418e632c6b1432d2",
+      "consumedAt": "2026-07-28T15:33:08.527625142Z",
+      "expiresAt": "2026-07-28T15:42:59.688Z",
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "issuer": "plan-5-task-8-smoke-resume",
+      "nonce": "69db0b185f3a79a4a31e51c017522b51",
+      "operation": "RESUME_RUN",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-authorization-consumption/v1",
+      "targetFingerprintDigest": "sha256:858b49a5b50c45c27146a3e618b4e5a1b35039b1f4bc2bb7b628a8996b7e15f2"
+    },
+    {
+      "authorizationHash": "sha256:8f286d55dc946859a42785b6cb7288be3e0f62302a701ba54e3627c89ddab9d1",
+      "consumedAt": "2026-07-28T15:32:52.487953089Z",
+      "expiresAt": "2026-07-28T15:42:44.827Z",
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "issuer": "plan-5-task-8-smoke",
+      "nonce": "d0631cb4b53e712342e916787b0d94f7",
+      "operation": "LOAD_EMPTY_TARGET",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-authorization-consumption/v1",
+      "targetFingerprintDigest": "sha256:858b49a5b50c45c27146a3e618b4e5a1b35039b1f4bc2bb7b628a8996b7e15f2"
+    },
+    {
+      "authorizationHash": "sha256:ad6fc7660014065f4be991b6e7830cd21d595ce9c9a12424531dbae13e66a62e",
+      "consumedAt": "2026-07-28T15:33:21.916875845Z",
+      "expiresAt": "2026-07-28T15:43:21.484Z",
+      "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+      "issuer": "plan-5-task-8-smoke-cleanup",
+      "nonce": "85ceeb4a87d7ca6847d5096dd11e884b",
+      "operation": "DROP_RECREATE_TARGET",
+      "runId": "run-task8-smoke-20260728-152926-81065",
+      "schemaVersion": "preprod-authorization-consumption/v1",
+      "targetFingerprintDigest": "sha256:858b49a5b50c45c27146a3e618b4e5a1b35039b1f4bc2bb7b628a8996b7e15f2"
+    }
+  ],
+  "cleanupAttestation": {
+    "attestationDigest": "sha256:b036ccb116b7f5743dc3980d2094c8ab503a9bb3f1bb7d995db3c39cd9c31ce2",
+    "authorizationHash": "sha256:ad6fc7660014065f4be991b6e7830cd21d595ce9c9a12424531dbae13e66a62e",
+    "cleanedAt": "2026-07-28T15:33:21.916875845Z",
+    "intentDigest": "sha256:ebc16c337578841cfa632702db5dec3159f1f9e92fa8071dfed56a9144a27ece",
+    "resultDigest": "sha256:0e4e32aceeedb871811c44543bf7ec5fcb5fc77a6d64c37e7e0a90c6d75ed2b6",
+    "runId": "run-task8-smoke-20260728-152926-81065",
+    "schemaVersion": "preprod-cleanup-attestation/v1",
+    "targetFingerprintDigest": "sha256:858b49a5b50c45c27146a3e618b4e5a1b35039b1f4bc2bb7b628a8996b7e15f2"
+  }
+}

@@ -1,3 +1,5 @@
+//go:build canonicaltest
+
 package integration_test
 
 import (

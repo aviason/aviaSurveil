@@ -1,3 +1,5 @@
+//go:build canonicaltest
+
 package integration_test
 
 import (
@@ -5,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -568,14 +569,6 @@ func seedPlanningActors(t *testing.T, pool *database.Pool) {
 		)
 	`, mustJSON(t, templateSnapshot), canonicalNow); err != nil {
 		t.Fatalf("seed assignment template: %v", err)
-	}
-}
-
-func scenarioIDGenerator() func(string) string {
-	counts := map[string]int{}
-	return func(prefix string) string {
-		counts[prefix]++
-		return fmt.Sprintf("%s-scenario-%03d", prefix, counts[prefix])
 	}
 }
 
