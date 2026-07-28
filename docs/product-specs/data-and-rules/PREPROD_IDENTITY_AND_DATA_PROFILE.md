@@ -5,11 +5,11 @@ revision 1.1.0 approved`
 
 **Profile and policy status:** `approved — owner decision recorded`
 
-**Runtime status:** Tasks 2–8 are `verified locally`; Task 8 publication is
-pending and Task 9 remains `not run`. Owner-approved local qualification uses
-revision `1.1.0` for realistic/stress. Full-volume `realistic@1.0.0` and
-`stress@1.0.0` endurance qualification is deferred release-readiness evidence
-and remains `not run`.
+**Runtime status:** Tasks 2–8 are `verified locally`; Task 8 is published and
+remotely confirmed, and Task 9 remains `not run`. Owner-approved local
+qualification uses revision `1.1.0` for realistic/stress. Full-volume
+`realistic@1.0.0` and `stress@1.0.0` endurance qualification is deferred
+release-readiness evidence and remains `not run`.
 
 This document began as the Plan 5 Task 1 contract and owner-decision package.
 It defines machine-checkable identity, authority, privacy, and deterministic
@@ -24,7 +24,8 @@ then-open Plan 1 visual stakeholder closure. Plan 1 and the combined Plans 2–4
 local stakeholder disposition were completed on 2026-07-28. A later explicit
 authorization started the sequential Plan 5 implementation. Tasks 2–7 are
 complete, `verified locally`, and published through Task 7 revision
-`a2d4744`; Task 8 is `verified locally` with publication pending.
+`a2d4744`; Task 8 is `verified locally`, published as `9a1b5ca`, and remotely
+confirmed.
 
 ## Binding Invariants
 

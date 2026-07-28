@@ -1,6 +1,6 @@
 # Identity And Realistic Data Foundation Plan
 
-**Status:** `active — Tasks 1–8 complete; Task 8 publication pending`
+**Status:** `active — Tasks 1–8 complete and published; Task 9 next`
 
 **Reviewed task count:** 9
 
@@ -26,7 +26,9 @@ release-candidate plans. Task 6 is complete, `verified locally`, published,
 and remotely confirmed. Task 7 is complete, `verified locally`, published as
 `a2d474431d8bcc33ebc0557630cd7038cbcd8ec0`, and remotely confirmed. Task 8
 is complete and `verified locally` under owner-approved qualification profile
-revision `1.1.0`; publication is pending. Task 9 remains `not run`.
+revision `1.1.0`, published as
+`9a1b5cadff82a047bc0400acdb39f3fab2fbecab`, and remotely confirmed. Task 9
+remains `not run`.
 
 ## Scope
 
@@ -1391,8 +1393,10 @@ did not recreate the cleaned Compose namespace.
 
 ### Task 8: Qualify Smoke, Acceptance, Realistic, And Stress Profiles
 
-**Task status:** `complete — verified locally; publication pending`; Tasks 1–7
-are complete, published, and remotely confirmed. Task 9 remains `not run`.
+**Task status:** `complete — verified locally and published`; Tasks 1–7 are
+complete, published, and remotely confirmed. Task 8 is published as
+`9a1b5cadff82a047bc0400acdb39f3fab2fbecab`, and the exact `origin/main`
+revision was confirmed. Task 9 remains `not run`.
 
 **Strict RED**
 
@@ -1691,13 +1695,14 @@ interruption/resume, resource, duration, and cleanup gates. Owner-approved
 649/1,800 seconds. Their full-volume `1.0.0` endurance counterparts remain
 retained deferred release-readiness evidence with status `not run`. Task 9,
 deployment, release, and production readiness remain `not run`; the artifact
-remains `candidate-only`, release remains `release pending`, and Task 8
-publication is pending.
+remains `candidate-only`, and release remains `release pending`. Task 8 was
+published as `9a1b5cadff82a047bc0400acdb39f3fab2fbecab`, and the exact
+`origin/main` revision was confirmed.
 
 ## Execution Prompt
 
 ```text
-Tasks 1-7 in docs/exec-plans/active/2026-07-27-identity-and-realistic-data-foundation-plan.md are complete, verified locally, published, and remotely confirmed; Task 7 is a2d474431d8bcc33ebc0557630cd7038cbcd8ec0. Task 8 is complete and verified locally under owner-approved local qualification revision 1.1.0, with publication pending. Full-volume realistic@1.0.0 and stress@1.0.0 endurance evidence remains retained and not run. Publish and remotely confirm Task 8 before beginning Task 9. Read AGENTS.md, docs/PLANS.md, the plan index, the complete plan, and the current identity/full-profile evidence first. Preserve the root demo, normal HTTP no-seed boundary, Keycloak authority, organization isolation, append-only histories, and unrelated worktree changes.
+Tasks 1-8 in docs/exec-plans/active/2026-07-27-identity-and-realistic-data-foundation-plan.md are complete, verified locally, published, and remotely confirmed; Task 8 is 9a1b5cadff82a047bc0400acdb39f3fab2fbecab. Full-volume realistic@1.0.0 and stress@1.0.0 endurance evidence remains retained and not run. Task 9 is next. Read AGENTS.md, docs/PLANS.md, the plan index, the complete plan, and the current identity/full-profile evidence first. Preserve the root demo, normal HTTP no-seed boundary, Keycloak authority, organization isolation, append-only histories, and unrelated worktree changes.
 
 Use strict RED -> GREEN -> focused review for each task. Establish the desired-membership revision and least-privilege Keycloak service identity before directory/lifecycle acceptance. The normal API/worker/scheduler/migration images must not link testprofile or loader/reset code. Repeatable loader reset uses only an exactly authorized disposable target and never selectively deletes append-only rows. Qualify smoke, acceptance, realistic, and stress with the same scenario/role/route catalog. Do not add public registration, a normal API reset/seed route, real PII, plaintext credentials, client-authored roles, direct fixture writes that bypass authoritative domain behavior, AWS actions, commits, or pushes without separate authorization. Keep the plan, index, tracker, and evidence synchronized with literal results. Stop after each task's acceptance gate and fix all Critical or Important review findings before continuing.
 ```

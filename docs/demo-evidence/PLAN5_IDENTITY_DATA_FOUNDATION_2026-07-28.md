@@ -2,8 +2,8 @@
 
 **Evidence date:** 2026-07-28
 
-**Scope status:** Tasks 1–8 complete and `verified locally`; Task 8 publication
-pending; Task 9 `not run`
+**Scope status:** Tasks 1–8 complete, `verified locally`, published, and
+remotely confirmed; Task 9 `not run`
 
 **Artifact status:** `candidate-only`
 
@@ -953,4 +953,6 @@ and passed:
 | `git diff --check` | exit 0 |
 
 Task 8 is therefore `verified locally`, remains `candidate-only`, and is
-`release pending`. Publication is pending. Task 9 remains `not run`.
+`release pending`. It was published as
+`9a1b5cadff82a047bc0400acdb39f3fab2fbecab`, and the exact `origin/main`
+revision was confirmed. Task 9 remains `not run`.
