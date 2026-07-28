@@ -4,22 +4,24 @@
 
 **Profile and policy status:** `approved — owner decision recorded`
 
-**Runtime status:** Tasks 2–5 identity-directory, lifecycle, invitation,
-recovery, MFA, session-authority, and Admin-experience foundations are
-`verified locally`; Tasks 6–9 remain `not run`.
+**Runtime status:** Tasks 2–6 identity-directory, lifecycle, invitation,
+recovery, MFA, session-authority, Admin-experience, and isolated loader
+foundations are `verified locally`; Tasks 7–9 remain `not run`.
 
 This document began as the Plan 5 Task 1 contract and owner-decision package.
 It defines machine-checkable identity, authority, privacy, and deterministic
-data-profile boundaries. Tasks 2–5 now implement and locally verify the
+data-profile boundaries. Tasks 2–6 now implement and locally verify the
 directory, lifecycle, invitation/recovery/MFA, session, and complete Users and
-Roles Admin-experience portions; the loader, profile generation, and generated
-datasets remain `not run`.
+Roles Admin-experience portions plus the deterministic out-of-process loader
+and immutable control-record boundary. Connected scenario generation, runtime
+profile qualification, and generated datasets remain `not run`.
 
 The 2026-07-27 authorization allowed this Task 1 package to proceed without the
 then-open Plan 1 visual stakeholder closure. Plan 1 and the combined Plans 2–4
 local stakeholder disposition were completed on 2026-07-28. A later explicit
-authorization started the sequential Plan 5 implementation; Tasks 2–4 are
-published, and Tasks 2–5 are complete and `verified locally`.
+authorization started the sequential Plan 5 implementation. Tasks 2–6 are
+complete, `verified locally`, and published through Task 6 revision
+`26c7022`.
 
 ## Binding Invariants
 
