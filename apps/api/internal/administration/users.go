@@ -806,24 +806,10 @@ func validateLifecycleCommand(command RequestUserLifecycleCommand) error {
 	if len(command.Roles) != 1 {
 		return ErrInvalid
 	}
-	hasAuditeeRole := false
-	hasCAARole := false
-	for _, role := range command.Roles {
-		switch role {
-		case identity.RoleAuditee:
-			hasAuditeeRole = true
-		case identity.RoleInspector, identity.RoleLeadInspector, identity.RoleDepartmentManager,
-			identity.RoleGeneralManager, identity.RoleFinance, identity.RoleExecutiveDirector,
-			identity.RoleAdmin:
-			hasCAARole = true
-		default:
-			return ErrInvalid
-		}
-	}
-	if hasAuditeeRole && (hasCAARole || command.OrganizationID == "CAA") {
-		return ErrInvalid
-	}
-	if hasCAARole && command.OrganizationID != "CAA" {
+	if err := identity.ValidateApplicationAuthority(
+		command.OrganizationID,
+		command.Roles,
+	); err != nil {
 		return ErrInvalid
 	}
 	return nil

@@ -264,6 +264,132 @@ func (client *KeycloakAdminClient) ListDirectory(
 	return page, nil
 }
 
+func (client *KeycloakAdminClient) ObserveUserAuthority(
+	ctx context.Context,
+	subjectID string,
+) (AuthorityObservation, error) {
+	subjectID = strings.TrimSpace(subjectID)
+	if subjectID == "" {
+		return AuthorityObservation{}, fmt.Errorf(
+			"Keycloak subject ID is required",
+		)
+	}
+	accessToken, err := client.adminAccessToken(ctx)
+	if err != nil {
+		return AuthorityObservation{}, err
+	}
+	userResponse, err := client.doJSON(
+		ctx,
+		http.MethodGet,
+		client.adminEndpoint("users", subjectID),
+		accessToken,
+		nil,
+		http.StatusOK,
+	)
+	if err != nil {
+		return AuthorityObservation{}, fmt.Errorf(
+			"observe Keycloak user: %w",
+			err,
+		)
+	}
+	var user keycloakUserRepresentation
+	if err := decodeLimitedJSON(userResponse.Body, &user); err != nil {
+		userResponse.Body.Close()
+		return AuthorityObservation{}, fmt.Errorf(
+			"decode observed Keycloak user: %w",
+			err,
+		)
+	}
+	userResponse.Body.Close()
+	if user.ID != subjectID {
+		return AuthorityObservation{}, fmt.Errorf(
+			"observed Keycloak subject mismatch: %w",
+			ErrKeycloakManualReview,
+		)
+	}
+
+	roleResponse, err := client.doJSON(
+		ctx,
+		http.MethodGet,
+		client.adminEndpoint(
+			"users",
+			subjectID,
+			"role-mappings",
+			"realm",
+		),
+		accessToken,
+		nil,
+		http.StatusOK,
+	)
+	if err != nil {
+		return AuthorityObservation{}, fmt.Errorf(
+			"observe Keycloak user roles: %w",
+			err,
+		)
+	}
+	var mappedRoles []keycloakRoleRepresentation
+	if err := decodeLimitedJSON(roleResponse.Body, &mappedRoles); err != nil {
+		roleResponse.Body.Close()
+		return AuthorityObservation{}, fmt.Errorf(
+			"decode observed Keycloak user roles: %w",
+			err,
+		)
+	}
+	roleResponse.Body.Close()
+	rawRoles := make([]string, 0, len(mappedRoles))
+	for _, mappedRole := range mappedRoles {
+		rawRoles = append(rawRoles, mappedRole.Name)
+	}
+	roles := canonicalRoles(rawRoles)
+	slices.Sort(roles)
+
+	lockoutResponse, err := client.doJSON(
+		ctx,
+		http.MethodGet,
+		client.adminEndpoint(
+			"attack-detection",
+			"brute-force",
+			"users",
+			subjectID,
+		),
+		accessToken,
+		nil,
+		http.StatusOK,
+	)
+	if err != nil {
+		return AuthorityObservation{}, fmt.Errorf(
+			"observe Keycloak user lockout: %w",
+			err,
+		)
+	}
+	var lockout struct {
+		Disabled bool `json:"disabled"`
+	}
+	if err := decodeLimitedJSON(lockoutResponse.Body, &lockout); err != nil {
+		lockoutResponse.Body.Close()
+		return AuthorityObservation{}, fmt.Errorf(
+			"decode observed Keycloak user lockout: %w",
+			err,
+		)
+	}
+	lockoutResponse.Body.Close()
+
+	organizationID := ""
+	organizations := user.Attributes["organization_id"]
+	if len(organizations) == 1 {
+		organizationID = strings.TrimSpace(organizations[0])
+	}
+	return AuthorityObservation{
+		SubjectID:       user.ID,
+		Enabled:         user.Enabled,
+		Locked:          lockout.Disabled,
+		OrganizationID:  organizationID,
+		Roles:           roles,
+		RequiredActions: append([]string(nil), user.RequiredActions...),
+		MFAEnrolled:     user.TOTP,
+	}, nil
+}
+
 func (client *KeycloakAdminClient) ProvisionUser(
 	ctx context.Context,
 	user KeycloakUser,
@@ -984,26 +1110,8 @@ func validateKeycloakAuthority(
 	organizationID string,
 	roles []Role,
 ) error {
-	hasAuditeeRole := false
-	hasCAARole := false
-	for _, role := range roles {
-		switch role {
-		case RoleAuditee:
-			hasAuditeeRole = true
-		case RoleInspector, RoleLeadInspector, RoleDepartmentManager,
-			RoleGeneralManager, RoleFinance, RoleExecutiveDirector, RoleAdmin:
-			hasCAARole = true
-		}
-	}
-	if hasAuditeeRole && (hasCAARole || organizationID == "CAA") {
-		return fmt.Errorf(
-			"Keycloak Auditee authority must remain outside the CAA organization",
-		)
-	}
-	if hasCAARole && organizationID != "CAA" {
-		return fmt.Errorf(
-			"Keycloak CAA authority requires the exact CAA organization",
-		)
+	if err := ValidateApplicationAuthority(organizationID, roles); err != nil {
+		return fmt.Errorf("Keycloak authority rejected: %w", err)
 	}
 	return nil
 }

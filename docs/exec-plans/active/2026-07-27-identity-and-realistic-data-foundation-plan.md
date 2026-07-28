@@ -1,6 +1,6 @@
 # Identity And Realistic Data Foundation Plan
 
-**Status:** `active — Tasks 1–3 complete; Task 4 not started`
+**Status:** `active — Tasks 1–4 complete; Task 5 next`
 
 **Reviewed task count:** 9
 
@@ -19,10 +19,11 @@ contract, and owner-decision packaging. Plan 1 and the combined Plans 2–4
 stakeholder disposition were completed on 2026-07-28. The current user
 authorization permits Tasks 2–9 in sequence, with one freshly verified,
 published task commit before the next task starts. Tasks 1–3 are complete;
-Task 2 is published as `26da3c0`; Task 3 is freshly verified and awaiting its
-task-scoped publication before Task 4 starts. This plan is the
+Task 2 is published as `26da3c0`; Task 3 is published as `8cf2b57`. Task 4 is
+in progress. This plan is the
 predecessor of the AviaCore/ML readiness and local preprod release-candidate
-plans.
+plans. Task 4 is complete and `verified locally`; its publication revision is
+recorded after the task commit is pushed. Task 5 remains `not run`.
 
 ## Scope
 
@@ -246,9 +247,25 @@ feasibility decision.
   race-enabled canonical harness passed the complete Administration, identity,
   notification, and 101-test integration packages; the real Keycloak/Mailpit
   all-eight-role proof passed; SQLC, OpenAPI, realm/Compose, Web typecheck,
-  focused Web tests, documentation smoke, and cleanup gates passed. Task 4 is
-  not started and may begin only after this task-scoped commit is pushed and
-  the exact remote revision is confirmed.
+  focused Web tests, documentation smoke, and cleanup gates passed.
+- [x] (2026-07-28) Published the complete Task 3 scope to `origin/main` as
+  `8cf2b57fd487e4ba1b2439717425344bb06ea7e3`
+  (`feat(identity): complete lifecycle recovery flows`) and confirmed the
+  exact remote ref before starting Task 4.
+- [x] (2026-07-28) Task 4 is complete and `verified locally`. Exact desired
+  membership, provider observation, OIDC claims, session revision, role, and
+  organization must agree; lifecycle mutations revoke old authority and force
+  a fresh provider observation/login. The frozen 30-second heartbeat,
+  60-second maximum observation age, and 120-second provider-loss denial
+  deadline pass under the race harness. Live Keycloak/Mailpit/Playwright
+  verifies invitation consumption, first login, optional TOTP enrollment,
+  wrong-TOTP denial, non-TOTP login, provider restart, deactivation, and exact
+  session invalidation. Expiry, lockout, disabled/required-action accounts,
+  revoked sessions, JWKS rotation, and clock skew have focused coverage.
+  Bootstrap, application Admin, and break-glass remain separate authorities;
+  no standing break-glass account is imported, provider login/admin events are
+  audited, and actual break-glass use remains blocked without the separately
+  authorized external alarm/incident gate.
 
 ## Tasks
 
@@ -496,8 +513,8 @@ The durable Task 1–2 record is
 ### Task 3: Complete Provisioning, Invitation, And Recovery
 
 **Task status:** `complete`; strict RED evidence, implementation, full focused
-verification, and cleanup evidence are recorded. Publication is the remaining
-boundary before Task 4 may start.
+verification, cleanup evidence, and publication are recorded. The exact
+published revision is `8cf2b57fd487e4ba1b2439717425344bb06ea7e3`.
 
 **Recorded RED:** `go -C apps/api test -count=1
 ./internal/administration ./internal/identity -run
@@ -624,6 +641,108 @@ as completion evidence, and the final complete rerun above passed.
 
 ### Task 4: Enforce Role, Organization, MFA, And Session Lifecycle
 
+**Task status:** `complete`; Task 3 is published and remotely confirmed, all
+strict RED results are recorded, and the complete Task 4 gate is `verified
+locally`. The task publication revision is recorded after the focused commit
+is pushed.
+
+**Recorded RED:** `go -C apps/api test -tags canonicaltest -count=1
+./internal/identity ./tests/integration -run 'Task4'` failed with exit 1
+because `identity.ValidateApplicationAuthority`,
+`identity.AuthorityObservation`, `identity.AuthorityObserver`, and the
+session-manager `AuthorityObserver` dependency were undefined. The subsequent
+provider-observation RED, `go -C apps/api test -count=1 ./internal/identity
+-run 'Task4'`, failed with exit 1 because
+`KeycloakAdminClient.ObserveUserAuthority` did not exist. The frozen-deadline
+RED then ran under the isolated canonical harness and failed because the
+31-second authentication performed only the initial provider observation
+instead of the required heartbeat. The first-login activation RED then failed
+to compile because `session.ActivationReconciler` and the matching manager
+dependency did not exist. The callback fail-closed RED,
+`go -C apps/api test -count=1 ./internal/httpapi -run
+'^TestTask4OIDCCallbackRejectsStaleAuthorityAndExpiresCookies$'`, failed with
+exit 1 because stale authority returned HTTP 500 `SESSION_CREATE_FAILED`
+without expiring browser cookies instead of HTTP 401 `STALE_AUTHORITY`. The
+mutation-freshness RED, `go -C apps/api test -tags canonicaltest -run
+'^TestTask4AuthorityMutationForcesFreshProviderObservation$'
+./tests/integration`, then failed to compile because
+`session.RequireFreshAuthorityObservation` did not exist.
+The first updated `./scripts/test-http-oidc-profile.sh` acceptance run then
+failed before API/browser startup because the isolated one-shot lifecycle
+actor lacked the retained identity reference required by the
+`user_lifecycle_requests` foreign key. The harness removed its containers,
+volumes, network, runtime directory, and generated secrets after the failure.
+The second OIDC acceptance run passed the authoritative Admin setup but failed
+readiness before Playwright because the stale harness started API and worker
+bucket initialization concurrently and selected unavailable ClamAV for this
+isolated auth lane. Cleanup again removed all task-owned runtime state.
+The third run reached Playwright with healthy API and worker processes, then
+failed before opening a browser because the repository-pinned Chromium 1228
+binary was absent. The exact pinned Chromium and headless-shell artifacts were
+subsequently installed; no product implementation was changed to bypass the
+required browser gate.
+The fourth run reached real Keycloak TOTP enrollment and returned to the app,
+then failed because the first navigation-time session poll raised a transient
+browser `Failed to fetch` exception instead of retrying. The helper remained
+strict for persistent HTTP status failures; task-owned browser and container
+processes were cleaned up.
+The fifth run confirmed that in-page `fetch` remained unavailable after the
+callback even though the page stayed on the app origin. The assertion was
+therefore moved to Playwright's browser-context request client, which shares
+the same cookies and reports the same `/auth/session` HTTP status without
+depending on page JavaScript execution.
+The sixth run then reported the exact HTTP outcome: the callback returned to
+the app but `/auth/session` remained HTTP 401 for the full polling window. A
+secret-free in-harness diagnostic was added to compare desired membership,
+sync, retained identity/profile, and live provider authority before cleanup.
+That diagnostic reported ACTIVE membership revision 2, exact/current sync,
+matching retained issuer and profile, and live enabled/unlocked Admin/CAA
+authority with TOTP enrolled and no required actions, but zero application
+sessions. The remaining failure is therefore after activation in callback
+session creation; the browser test now captures the callback status/problem
+directly.
+The eighth run captured HTTP 401 `STALE_AUTHORITY` directly. Combined with the
+exact diagnostic, this isolated the defect to the pre-activation session clock:
+the activation revision became effective milliseconds after `Manager.Create`
+captured `now`, so its post-activation transaction falsely treated the new
+revision as future-effective. GREEN refreshes the clock after successful
+activation without relaxing any authority comparison.
+The next live run proved that the exact session was persisted and authoritative
+but that a plain `127.0.0.1` origin rejected the production `Secure`
+`__Host-` cookies. The isolated browser origin was corrected to
+`http://localhost:4174`; cookie security attributes were not weakened. The
+following run reached the lifecycle API and exposed stale test payloads that
+omitted the mandatory reason. The final provider RED found that the reviewed
+realm had not registered `UPDATE_PASSWORD` and `VERIFY_EMAIL` execute-action
+providers; the focused realm contract failed 1/3 before those required actions
+were added.
+Final diff review added a concurrent-revision regression. The isolated race
+harness failed with exit 1 because session creation returned a real session ID
+with no error after the desired-membership synchronization row changed away
+from the revision that creation had validated. GREEN now requires exactly one
+current-revision synchronization row to be refreshed before inserting the
+session; a concurrent revision change returns `ErrUnauthenticated` and creates
+no stale session.
+The same review added an exact-organization variant. The focused identity test
+failed because padded `" CAA "` was normalized and accepted. GREEN now rejects
+non-canonical leading/trailing whitespace rather than silently rewriting an
+organization identity.
+
+**Fresh GREEN:** `./scripts/check-sqlc.sh` exited 0 with `sqlc-check: ok`.
+`./scripts/test-preprod-identity-lifecycle.sh session-authority` exited 0
+after running the exact tagged race command across session, identity,
+Administration, HTTP, and the full integration package; integration completed
+in 37.017 seconds and the harness printed `Plan 5 Task 4 session authority:
+verified locally`. `./scripts/test-http-oidc-profile.sh` exited 0 with
+Playwright 1/1 in 46.7 seconds and `OIDC runtime secret/log scan: zero
+generated-secret matches`. Both harnesses removed their task-owned containers,
+volumes, networks, runtime state, and browser processes. The focused remote
+OIDC rotation/clock test and the combined realm/Task 1 contract suite also
+passed; the latter reported 29/29. A direct tagged race invocation without its
+fixtures failed only with connection refusals at the documented PostgreSQL and
+MinIO ports; the final isolated harness provisioned those dependencies and ran
+that same command successfully.
+
 **Files**
 
 - Modify `apps/api/internal/administration/authorization.go`.
@@ -637,28 +756,28 @@ as completion evidence, and the final complete rerun above passed.
 
 **Work**
 
-- [ ] Enforce allowed role sets and prohibit CAA/Auditee organization drift at
+- [x] Enforce allowed role sets and prohibit CAA/Auditee organization drift at
   request, provider, callback, session, and projection boundaries.
-- [ ] Revoke all active sessions after role change, organization transfer,
+- [x] Revoke all active sessions after role change, organization transfer,
   suspend, deactivate, MFA reset, or forced logout.
-- [ ] Require a fresh OIDC login after authority changes and reject stale role
+- [x] Require a fresh OIDC login after authority changes and reject stale role
   or organization claims.
-- [ ] Persist the desired-membership revision in every application session and
+- [x] Persist the desired-membership revision in every application session and
   fail closed unless current desired membership, observed provider authority,
   token claims, and the session revision agree.
-- [ ] Fail both new and existing sessions on provider/desired-membership drift,
+- [x] Fail both new and existing sessions on provider/desired-membership drift,
   partial multi-call role replacement, old membership revision, or provider
   unavailability. Enforce the Task 1 maximum observation age and deny an
   already-active session within the frozen deadline after provider disablement,
   authority drift, stale observation, or provider loss. Reconciliation may
   restore authority only after fresh exact desired and observed state agree.
-- [ ] Add controlled organization transfer only as a separately reasoned
+- [x] Add controlled organization transfer only as a separately reasoned
   `TRANSFER_ORGANIZATION` lifecycle action with expected membership revision;
   never mutate historical record ownership.
-- [ ] Define and test bootstrap Admin, application Admin, and break-glass
+- [x] Define and test bootstrap Admin, application Admin, and break-glass
   identities as separate authorities. Break-glass use must be alarmed and
   audited.
-- [ ] Exercise expiry, lockout, TOTP failure, disabled user, revoked session,
+- [x] Exercise expiry, lockout, TOTP failure, disabled user, revoked session,
   provider restart, signing-key rotation, and clock-skew boundaries.
 
 **Verification**
@@ -666,7 +785,7 @@ as completion evidence, and the final complete rerun above passed.
 Run:
 
     ./scripts/check-sqlc.sh
-    go -C apps/api test -race -p 1 -count=1 ./internal/platform/session ./internal/identity ./internal/administration ./internal/httpapi ./tests/integration
+    go -C apps/api test -tags canonicaltest -race -p 1 -count=1 ./internal/platform/session ./internal/identity ./internal/administration ./internal/httpapi ./tests/integration
     ./scripts/test-http-oidc-profile.sh
     ./scripts/test-preprod-identity-lifecycle.sh session-authority
 
@@ -1053,9 +1172,19 @@ cleaned, and literal non-claims remain.
 - Task 2 proved artifact-level separation: normal API, worker, scheduler, and
   migration dependency and string scans exclude canonical test/reset code,
   while a tagged canonical-test API remains available.
-- Lifecycle enums still omit deactivation and organization transfer; those are
-  Task 3 scope. Task 2 replaced bootstrap-admin password use in API/worker with
-  the exact least-privilege confidential service client.
+- Task 3 added deactivation, organization transfer, recovery, invitation, and
+  exact-revision lifecycle behavior. Task 2 replaced bootstrap-admin password
+  use in API/worker with the exact least-privilege confidential service client.
+- Task 4 binds every application session to the current desired-membership
+  revision and fresh exact provider authority. A post-activation clock refresh
+  is required because the activation revision can become effective after
+  session creation begins.
+- Production `Secure` `__Host-` cookies work in the isolated HTTP browser gate
+  only when the loopback origin is `localhost`; Chromium correctly rejects
+  those cookies on a plain `127.0.0.1` origin.
+- The core OIDC verifier refreshes cached JWKS on a new key ID, rejects expired
+  tokens, accepts `nbf` inside its five-minute skew tolerance, and rejects
+  tokens beyond that boundary.
 - Early command attempts observed transient `node` unavailability. The final
   fresh literal commands ran successfully: 26/26 contract tests and the
   harness-docs smoke check passed.
@@ -1063,18 +1192,19 @@ cleaned, and literal non-claims remain.
 ## Outcome Notes
 
 Task 1 produced product contract `1.0.0`, exact four-profile manifests, 11
-approved owner decisions, and the machine-readable mutation test. Task 2 is
-`verified locally`: it established normal/canonical-test artifact separation,
-append-only desired membership, least-privilege Keycloak client credentials,
-and a provider-backed Admin directory. Task 3 lifecycle expansion, Tasks 4–9,
-loader/profile feasibility, deployment, release, and production readiness
-remain `not run`; the artifact remains `candidate-only` and release remains
-`release pending`.
+approved owner decisions, and the machine-readable mutation test. Tasks 2–4
+are `verified locally`: they establish normal/canonical-test artifact
+separation, append-only desired membership, least-privilege Keycloak client
+credentials, a provider-backed Admin directory, exact-revision lifecycle
+actions, live invitation/MFA behavior, and fail-closed session authority.
+Tasks 5–9, loader/profile feasibility, deployment, release, and production
+readiness remain `not run`; the artifact remains `candidate-only` and release
+remains `release pending`.
 
 ## Execution Prompt
 
 ```text
-Tasks 1-2 in docs/exec-plans/active/2026-07-27-identity-and-realistic-data-foundation-plan.md are complete and verified locally; Task 2 is published as 26da3c0. Task 3 is in progress and its focused RED is next. Read AGENTS.md, docs/PLANS.md, the plan index, the complete plan, and the current identity/full-profile evidence first. Preserve the root demo, normal HTTP no-seed boundary, Keycloak authority, organization isolation, append-only histories, and unrelated worktree changes.
+Tasks 1-4 in docs/exec-plans/active/2026-07-27-identity-and-realistic-data-foundation-plan.md are complete and verified locally. Task 5 is next and remains not run until the Task 4 commit and remote revision are confirmed. Read AGENTS.md, docs/PLANS.md, the plan index, the complete plan, and the current identity/full-profile evidence first. Preserve the root demo, normal HTTP no-seed boundary, Keycloak authority, organization isolation, append-only histories, and unrelated worktree changes.
 
 Use strict RED -> GREEN -> focused review for each task. Establish the desired-membership revision and least-privilege Keycloak service identity before directory/lifecycle acceptance. The normal API/worker/scheduler/migration images must not link testprofile or loader/reset code. Repeatable loader reset uses only an exactly authorized disposable target and never selectively deletes append-only rows. Qualify smoke, acceptance, realistic, and stress with the same scenario/role/route catalog. Do not add public registration, a normal API reset/seed route, real PII, plaintext credentials, client-authored roles, direct fixture writes that bypass authoritative domain behavior, AWS actions, commits, or pushes without separate authorization. Keep the plan, index, tracker, and evidence synchronized with literal results. Stop after each task's acceptance gate and fix all Critical or Important review findings before continuing.
 ```

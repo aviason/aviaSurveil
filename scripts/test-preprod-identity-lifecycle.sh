@@ -16,11 +16,7 @@ TEST_RUNTIME_HELPER="${REPOSITORY_ROOT}/scripts/lib/init-local-test-runtime.sh"
 MODE="${1:-}"
 
 case "${MODE}" in
-  invitation | all-eight-roles) ;;
-  session-authority)
-    echo "session-authority is reserved for Plan 5 Task 4 and is not implemented by Task 3" >&2
-    exit 64
-    ;;
+  invitation | all-eight-roles | session-authority) ;;
   *)
     echo "usage: $0 invitation|all-eight-roles|session-authority" >&2
     exit 64
@@ -91,6 +87,15 @@ if [[ "${MODE}" == "all-eight-roles" ]]; then
     ./tests/integration \
     -run '^TestTask3KeycloakInvitationAllEightRoles$'
   echo "Plan 5 Task 3 all-eight-role identity lifecycle: verified locally"
+  exit 0
+fi
+
+if [[ "${MODE}" == "session-authority" ]]; then
+  go -C "${REPOSITORY_ROOT}/apps/api" test \
+    -tags canonicaltest -race -p 1 -count=1 \
+    ./internal/platform/session ./internal/identity \
+    ./internal/administration ./internal/httpapi ./tests/integration
+  echo "Plan 5 Task 4 session authority: verified locally"
   exit 0
 fi
 

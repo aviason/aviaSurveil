@@ -2,6 +2,7 @@ package integration_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/application"
@@ -10,7 +11,7 @@ import (
 	"github.com/MarlonJD/aviaSurveil360/apps/api/migrations"
 )
 
-func TestFirstCAAAdministratorEstablishesAuthorityOrganizationOnly(t *testing.T) {
+func TestBootstrapAdministratorCannotCreateApplicationAuthorityByLogin(t *testing.T) {
 	pool := createTestDatabase(t, "first_caa_administrator")
 	if err := migrations.Apply(context.Background(), pool); err != nil {
 		t.Fatalf("apply migrations: %v", err)
@@ -31,8 +32,8 @@ func TestFirstCAAAdministratorEstablishesAuthorityOrganizationOnly(t *testing.T)
 		OrganizationID: "CAA",
 		Roles:          []identity.Role{identity.RoleAdmin},
 	})
-	if err != nil {
-		t.Fatalf("create first administrator session: %v", err)
+	if !errors.Is(err, session.ErrUnauthenticated) {
+		t.Fatalf("bootstrap administrator session error = %v", err)
 	}
 	var organizationType string
 	if err := pool.QueryRow(
@@ -43,6 +44,26 @@ func TestFirstCAAAdministratorEstablishesAuthorityOrganizationOnly(t *testing.T)
 	}
 	if organizationType != "AUTHORITY" {
 		t.Fatalf("organization type = %q", organizationType)
+	}
+	var identityCount, sessionCount int
+	if err := pool.QueryRow(
+		context.Background(),
+		"SELECT COUNT(*) FROM identity_references WHERE subject_id = 'first-admin'",
+	).Scan(&identityCount); err != nil {
+		t.Fatalf("count bootstrap identity references: %v", err)
+	}
+	if err := pool.QueryRow(
+		context.Background(),
+		"SELECT COUNT(*) FROM session_references WHERE subject_id = 'first-admin'",
+	).Scan(&sessionCount); err != nil {
+		t.Fatalf("count bootstrap sessions: %v", err)
+	}
+	if identityCount != 0 || sessionCount != 0 {
+		t.Fatalf(
+			"bootstrap login wrote identity/session rows = %d/%d",
+			identityCount,
+			sessionCount,
+		)
 	}
 }
 

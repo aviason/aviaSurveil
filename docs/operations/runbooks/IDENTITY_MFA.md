@@ -31,6 +31,41 @@ exchange and application role enforcement.
 - Never disable MFA or broaden a role to make a check pass.
 - Never replace one subject identity with another or reuse a TOTP seed.
 - Do not expose bootstrap credentials, client secrets, cookies, or TOTP values.
+- The one-shot bootstrap administrator is recovery material, not an
+  application Admin or normal runtime identity. API, worker, scheduler, and
+  loader runtime must not receive that credential.
+- Break-glass is a separate, temporary provider authority with no AviaSurveil
+  application membership. It must never be imported as a standing realm or
+  application administrator.
+
+## Break-Glass Gate
+
+Break-glass use is blocked unless Security and Operations record all of the
+following before creating or enabling temporary provider authority:
+
+1. one incident identifier and two named, independent approvals;
+2. a confirmed alarm notification to the approved incident/identity alert
+   receiver;
+3. a UTC start time and an expiry no more than 15 minutes later; and
+4. the exact provider action and affected realm.
+
+The local repository does not provide or authorize an external incident or
+alert receiver. Therefore a local operator cannot satisfy the alarm gate by
+writing only a repository file or log line. If the external alarm and incident
+records are unavailable, do not use break-glass.
+
+During an authorized window, Keycloak login events, detailed administration
+events, and the `jboss-logging` event listener must remain enabled. Capture
+event identifiers and UTC timestamps without credentials or tokens. The
+temporary authority has no application membership, so an AviaSurveil session
+must be denied even if the provider observes an Admin role.
+
+Before closing the incident, disable or remove the temporary authority, close
+all provider and application sessions created during the window, rotate the
+recovery credential, confirm the 15-minute window was not exceeded, and attach
+the provider audit references to the incident. Any missing alarm, audit event,
+approval, rotation, or session-closure evidence is a failed break-glass
+procedure and must be escalated.
 
 ## Diagnosis
 
@@ -69,10 +104,15 @@ Run the isolated OIDC/TOTP contract:
 
 ```bash
 ./scripts/test-http-oidc-profile.sh
+node --test deploy/local/keycloak/realm-contract.test.mjs
+./scripts/test-preprod-identity-lifecycle.sh session-authority
 ```
 
 Require normal TOTP login, exact role scope, negative authorization checks, no
-secret leak, and zero task-owned residue before recording `verified locally`.
+secret leak, denial of bootstrap and break-glass identities without application
+membership, provider event/audit settings, and zero task-owned residue before
+recording `verified locally`. Break-glass procedure evidence remains `not run`
+unless a separately authorized incident actually invokes it.
 
 ## Evidence Capture
 

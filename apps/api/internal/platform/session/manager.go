@@ -23,9 +23,12 @@ import (
 )
 
 const (
-	idleDuration     = 30 * time.Minute
-	absoluteDuration = 8 * time.Hour
-	loginStateTTL    = 10 * time.Minute
+	idleDuration                  = 30 * time.Minute
+	absoluteDuration              = 8 * time.Hour
+	loginStateTTL                 = 10 * time.Minute
+	authorityObservationHeartbeat = 30 * time.Second
+	authorityObservationMaxAge    = 60 * time.Second
+	authorityDenialDeadline       = 120 * time.Second
 )
 
 var (
@@ -33,18 +36,49 @@ var (
 	ErrCSRF            = errors.New("csrf validation failed")
 )
 
+type freshAuthorityObservationContextKey struct{}
+
+func RequireFreshAuthorityObservation(ctx context.Context) context.Context {
+	return context.WithValue(
+		ctx,
+		freshAuthorityObservationContextKey{},
+		true,
+	)
+}
+
+func requiresFreshAuthorityObservation(ctx context.Context) bool {
+	required, _ := ctx.Value(
+		freshAuthorityObservationContextKey{},
+	).(bool)
+	return required
+}
+
+type ActivationReconciler interface {
+	ReconcileActivatedMembership(
+		context.Context,
+		string,
+		int64,
+		[]string,
+		bool,
+	) error
+}
+
 type ManagerDependencies struct {
-	Clock       func() time.Time
-	IDGenerator func(string) string
-	RandomBytes func(int) ([]byte, error)
+	Clock                func() time.Time
+	IDGenerator          func(string) string
+	RandomBytes          func(int) ([]byte, error)
+	AuthorityObserver    identity.AuthorityObserver
+	ActivationReconciler ActivationReconciler
 }
 
 type Manager struct {
-	pool        *database.Pool
-	aead        cipher.AEAD
-	clock       func() time.Time
-	idGenerator func(string) string
-	randomBytes func(int) ([]byte, error)
+	pool                 *database.Pool
+	aead                 cipher.AEAD
+	clock                func() time.Time
+	idGenerator          func(string) string
+	randomBytes          func(int) ([]byte, error)
+	authorityObserver    identity.AuthorityObserver
+	activationReconciler ActivationReconciler
 }
 
 func NewManager(pool *database.Pool, encryptionKey []byte, dependencies ManagerDependencies) (*Manager, error) {
@@ -75,7 +109,10 @@ func NewManager(pool *database.Pool, encryptionKey []byte, dependencies ManagerD
 		randomBytes = secureRandomBytes
 	}
 	return &Manager{
-		pool: pool, aead: aead, clock: clock, idGenerator: idGenerator, randomBytes: randomBytes,
+		pool: pool, aead: aead, clock: clock, idGenerator: idGenerator,
+		randomBytes:          randomBytes,
+		authorityObserver:    dependencies.AuthorityObserver,
+		activationReconciler: dependencies.ActivationReconciler,
 	}, nil
 }
 
@@ -99,14 +136,102 @@ type BrowserSession struct {
 	Principal         identity.Principal
 }
 
+type desiredSessionAuthority struct {
+	MembershipID            string
+	Revision                int64
+	State                   string
+	OrganizationID          string
+	Roles                   []identity.Role
+	EffectiveAt             time.Time
+	SyncRevision            int64
+	ObservedProviderEnabled bool
+	ObservedOrganizationID  string
+	ObservedRoles           []identity.Role
+	ObservedAt              time.Time
+	DriftState              string
+}
+
 func (manager *Manager) Create(ctx context.Context, input CreateInput) (BrowserSession, error) {
 	if strings.TrimSpace(input.SubjectID) == "" || strings.TrimSpace(input.Issuer) == "" || strings.TrimSpace(input.DisplayName) == "" || strings.TrimSpace(input.OrganizationID) == "" || len(input.Roles) == 0 {
 		return BrowserSession{}, fmt.Errorf("subject, issuer, display name, organization, and roles are required")
 	}
-	for _, role := range input.Roles {
-		if !validRole(role) {
-			return BrowserSession{}, fmt.Errorf("unsupported role %q", role)
+	if err := identity.ValidateApplicationAuthority(
+		input.OrganizationID,
+		input.Roles,
+	); err != nil {
+		return BrowserSession{}, ErrUnauthenticated
+	}
+	if manager.authorityObserver == nil {
+		return BrowserSession{}, ErrUnauthenticated
+	}
+	observation, err := manager.authorityObserver.ObserveUserAuthority(
+		ctx,
+		input.SubjectID,
+	)
+	if err != nil ||
+		observation.SubjectID != input.SubjectID ||
+		!observation.Enabled ||
+		observation.Locked ||
+		len(observation.RequiredActions) != 0 ||
+		!identity.EqualApplicationAuthority(
+			input.OrganizationID,
+			input.Roles,
+			observation.OrganizationID,
+			observation.Roles,
+		) {
+		return BrowserSession{}, ErrUnauthenticated
+	}
+	now := manager.clock().UTC()
+	authority, err := loadDesiredSessionAuthority(
+		ctx,
+		manager.pool,
+		input.SubjectID,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return BrowserSession{}, ErrUnauthenticated
+	}
+	if err != nil {
+		return BrowserSession{}, fmt.Errorf(
+			"read desired session authority before login: %w",
+			err,
+		)
+	}
+	if authority.State == "INVITED" {
+		if manager.activationReconciler == nil ||
+			authority.EffectiveAt.After(now) ||
+			authority.SyncRevision != authority.Revision ||
+			!authority.ObservedProviderEnabled ||
+			authority.DriftState != "IN_SYNC" ||
+			!identity.EqualApplicationAuthority(
+				authority.OrganizationID,
+				authority.Roles,
+				authority.ObservedOrganizationID,
+				authority.ObservedRoles,
+			) ||
+			!identity.EqualApplicationAuthority(
+				authority.OrganizationID,
+				authority.Roles,
+				input.OrganizationID,
+				input.Roles,
+			) ||
+			!identity.EqualApplicationAuthority(
+				authority.OrganizationID,
+				authority.Roles,
+				observation.OrganizationID,
+				observation.Roles,
+			) {
+			return BrowserSession{}, ErrUnauthenticated
 		}
+		if err := manager.activationReconciler.ReconcileActivatedMembership(
+			ctx,
+			input.SubjectID,
+			authority.Revision,
+			observation.RequiredActions,
+			observation.MFAEnrolled,
+		); err != nil {
+			return BrowserSession{}, ErrUnauthenticated
+		}
+		now = manager.clock().UTC()
 	}
 	rawToken, err := manager.opaqueToken(32)
 	if err != nil {
@@ -120,108 +245,116 @@ func (manager *Manager) Create(ctx context.Context, input CreateInput) (BrowserS
 	if err != nil {
 		return BrowserSession{}, err
 	}
-	now := manager.clock().UTC()
 	sessionID := manager.idGenerator("session")
 	idleExpiresAt := now.Add(idleDuration)
 	absoluteExpiresAt := now.Add(absoluteDuration)
-	roles := make([]string, len(input.Roles))
-	for index, role := range input.Roles {
-		roles[index] = string(role)
-	}
-
 	err = database.WithinTransaction(ctx, manager.pool, func(ctx context.Context, transaction pgx.Tx) error {
-		if input.OrganizationID == "CAA" && containsRole(input.Roles, identity.RoleAdmin) {
-			tag, err := transaction.Exec(ctx, `
-				INSERT INTO organizations (
-					id, legal_name, organization_type, status, revision, created_at, updated_at
-				) VALUES (
-					'CAA', 'Civil Aviation Authority', 'AUTHORITY', 'ACTIVE', 1, $1, $1
-				)
-				ON CONFLICT (id) DO NOTHING
-			`, now)
-			if err != nil {
-				return fmt.Errorf("establish authority organization: %w", err)
-			}
-			var legalName, organizationType, status string
-			if err := transaction.QueryRow(ctx, `
-				SELECT legal_name, organization_type, status
-				FROM organizations
-				WHERE id = 'CAA' AND tombstoned_at IS NULL
-			`).Scan(&legalName, &organizationType, &status); err != nil {
-				return fmt.Errorf("verify authority organization: %w", err)
-			}
-			if legalName != "Civil Aviation Authority" ||
-				organizationType != "AUTHORITY" ||
-				status != "ACTIVE" {
-				return ErrUnauthenticated
-			}
-			if tag.RowsAffected() == 1 {
-				if _, err := transaction.Exec(ctx, `
-					INSERT INTO audit_events (
-						event_id, occurred_at, actor_subject_id, actor_role,
-						organization_id, action, entity_type, entity_id,
-						entity_version, after_status, operation_id, correlation_id,
-						request_id, details
-					) VALUES (
-						$1, $2, $3, 'admin', 'CAA',
-						'identity.authority_organization_established',
-						'organization', 'CAA', 1, 'ACTIVE', $4, $4, $4,
-						'{"source":"first_admin_oidc_session"}'::jsonb
-					)
-				`, manager.idGenerator("audit"), now, input.SubjectID,
-					"identity-bootstrap:"+input.SubjectID); err != nil {
-					return fmt.Errorf("audit authority organization establishment: %w", err)
-				}
-			}
+		authority, err := loadDesiredSessionAuthority(
+			ctx,
+			transaction,
+			input.SubjectID,
+		)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrUnauthenticated
 		}
-		var persistedSubjectID string
+		if err != nil {
+			return fmt.Errorf("read desired session authority: %w", err)
+		}
+		if authority.State != "ACTIVE" ||
+			authority.EffectiveAt.After(now) ||
+			authority.SyncRevision != authority.Revision ||
+			!authority.ObservedProviderEnabled ||
+			authority.DriftState != "IN_SYNC" ||
+			!identity.EqualApplicationAuthority(
+				authority.OrganizationID,
+				authority.Roles,
+				authority.ObservedOrganizationID,
+				authority.ObservedRoles,
+			) ||
+			!identity.EqualApplicationAuthority(
+				authority.OrganizationID,
+				authority.Roles,
+				input.OrganizationID,
+				input.Roles,
+			) ||
+			!identity.EqualApplicationAuthority(
+				authority.OrganizationID,
+				authority.Roles,
+				observation.OrganizationID,
+				observation.Roles,
+			) {
+			return ErrUnauthenticated
+		}
+		var persistedSubjectID, persistedIssuer string
 		if err := transaction.QueryRow(ctx, `
-			INSERT INTO identity_references (
-				subject_id, issuer, display_name, email, created_at
-			)
-			VALUES ($1, $2, $3, NULLIF(lower(trim($4)), ''), $5)
-			ON CONFLICT (subject_id) DO UPDATE
-			SET issuer = EXCLUDED.issuer,
-			    display_name = EXCLUDED.display_name,
-			    email = COALESCE(EXCLUDED.email, identity_references.email)
-			WHERE identity_references.tombstoned_at IS NULL
-			RETURNING subject_id
+			UPDATE identity_references
+			SET display_name = $3,
+			    email = COALESCE(NULLIF(lower(trim($4)), ''), email)
+			WHERE subject_id = $1
+			  AND issuer = $2
+			  AND tombstoned_at IS NULL
+			  AND deactivated_at IS NULL
+			RETURNING subject_id, issuer
 		`, input.SubjectID, input.Issuer, input.DisplayName,
-			input.Email, now).Scan(&persistedSubjectID); errors.Is(err, pgx.ErrNoRows) {
+			input.Email).Scan(
+			&persistedSubjectID,
+			&persistedIssuer,
+		); errors.Is(err, pgx.ErrNoRows) {
 			return ErrUnauthenticated
 		} else if err != nil {
-			return fmt.Errorf("persist authenticated identity reference: %w", err)
+			return fmt.Errorf("refresh authenticated identity reference: %w", err)
 		}
+		var profileOrganizationID *string
 		if err := transaction.QueryRow(ctx, `
-			INSERT INTO user_profiles (
-				subject_id, display_name, organization_id, revision, created_at, updated_at
-			) VALUES ($1, $2, $3, 1, $4, $4)
-			ON CONFLICT (subject_id) DO UPDATE
-			SET organization_id = EXCLUDED.organization_id,
-			    updated_at = EXCLUDED.updated_at
-			WHERE user_profiles.tombstoned_at IS NULL
-			RETURNING subject_id
-		`, input.SubjectID, input.DisplayName, input.OrganizationID, now).Scan(&persistedSubjectID); errors.Is(err, pgx.ErrNoRows) {
+			SELECT organization_id
+			FROM user_profiles
+			WHERE subject_id = $1
+			  AND tombstoned_at IS NULL
+		`, input.SubjectID).Scan(&profileOrganizationID); errors.Is(
+			err,
+			pgx.ErrNoRows,
+		) {
 			return ErrUnauthenticated
 		} else if err != nil {
-			return fmt.Errorf("persist authenticated user profile: %w", err)
+			return fmt.Errorf("read authenticated user profile: %w", err)
 		}
-		if _, err := transaction.Exec(ctx, `
-			INSERT INTO user_settings (
-				subject_id, notification_preferences, locale, timezone, revision, updated_at
-			) VALUES ($1, '{}'::jsonb, 'en', 'UTC', 1, $2)
-			ON CONFLICT (subject_id) DO NOTHING
-		`, input.SubjectID, now); err != nil {
-			return fmt.Errorf("persist authenticated user settings: %w", err)
+		if profileOrganizationID == nil ||
+			*profileOrganizationID != authority.OrganizationID {
+			return ErrUnauthenticated
+		}
+		observationResult, err := transaction.Exec(ctx, `
+			UPDATE desired_membership_sync
+			SET observed_provider_enabled = true,
+			    observed_organization_id = $2,
+			    observed_roles = $3,
+			    observed_at = $4,
+			    drift_state = 'IN_SYNC'
+			WHERE membership_id = $1
+			  AND desired_revision = $5
+		`, authority.MembershipID, observation.OrganizationID,
+			rolesToStrings(observation.Roles), now,
+			authority.Revision)
+		if err != nil {
+			return fmt.Errorf("refresh provider authority observation: %w", err)
+		}
+		if observationResult.RowsAffected() != 1 {
+			return ErrUnauthenticated
 		}
 		if _, err := transaction.Exec(ctx, `
 			INSERT INTO session_references (
 				id, subject_id, organization_id, provider_session_id, expires_at, created_at,
 				session_token_hash, csrf_token_hash, last_seen_at, absolute_expires_at, roles,
-				provider_tokens_ciphertext
-			) VALUES ($1, $2, $3, NULLIF($4, ''), $5, $6, $7, $8, $6, $9, $10, $11)
-		`, sessionID, input.SubjectID, input.OrganizationID, input.ProviderSessionID, idleExpiresAt, now,
-			hashToken(rawToken), hashToken(rawCSRF), absoluteExpiresAt, roles, providerCiphertext); err != nil {
+				provider_tokens_ciphertext, membership_id, membership_revision,
+				authority_observed_at, authority_state
+			) VALUES (
+				$1, $2, $3, NULLIF($4, ''), $5, $6, $7, $8, $6, $9, $10,
+				$11, $12, $13, $6, 'ACTIVE'
+			)
+		`, sessionID, input.SubjectID, authority.OrganizationID,
+			input.ProviderSessionID, idleExpiresAt, now,
+			hashToken(rawToken), hashToken(rawCSRF), absoluteExpiresAt,
+			rolesToStrings(authority.Roles), providerCiphertext,
+			authority.MembershipID, authority.Revision); err != nil {
 			return fmt.Errorf("persist browser session: %w", err)
 		}
 		return nil
@@ -230,21 +363,15 @@ func (manager *Manager) Create(ctx context.Context, input CreateInput) (BrowserS
 		return BrowserSession{}, err
 	}
 	principal := identity.Principal{
-		SubjectID: input.SubjectID, DisplayName: input.DisplayName, OrganizationID: input.OrganizationID, Roles: append([]identity.Role(nil), input.Roles...), SessionID: sessionID,
+		SubjectID: input.SubjectID, DisplayName: input.DisplayName,
+		OrganizationID: observation.OrganizationID,
+		Roles:          append([]identity.Role(nil), observation.Roles...),
+		SessionID:      sessionID,
 	}
 	return BrowserSession{
 		ID: sessionID, Token: rawToken, CSRFToken: rawCSRF, ExpiresAt: idleExpiresAt,
 		AbsoluteExpiresAt: absoluteExpiresAt, Principal: principal,
 	}, nil
-}
-
-func containsRole(roles []identity.Role, expected identity.Role) bool {
-	for _, role := range roles {
-		if role == expected {
-			return true
-		}
-	}
-	return false
 }
 
 func (manager *Manager) Authenticate(ctx context.Context, rawToken string) (identity.Principal, error) {
@@ -253,6 +380,7 @@ func (manager *Manager) Authenticate(ctx context.Context, rawToken string) (iden
 	}
 	now := manager.clock().UTC()
 	var principal identity.Principal
+	var outcome error
 	err := database.WithinTransaction(ctx, manager.pool, func(ctx context.Context, transaction pgx.Tx) error {
 		tokenHash := hashToken(rawToken)
 		record, err := identitystore.New(transaction).GetSessionForAuthentication(ctx, &tokenHash)
@@ -265,6 +393,225 @@ func (manager *Manager) Authenticate(ctx context.Context, rawToken string) (iden
 		if !record.ExpiresAt.Valid || !record.AbsoluteExpiresAt.Valid || record.RevokedAt.Valid ||
 			!now.Before(record.ExpiresAt.Time) || !now.Before(record.AbsoluteExpiresAt.Time) {
 			return ErrUnauthenticated
+		}
+		if record.MembershipID == nil ||
+			record.MembershipRevision == nil ||
+			record.OrganizationID == nil ||
+			record.AuthorityState == nil ||
+			(*record.AuthorityState != "ACTIVE" &&
+				*record.AuthorityState != "REVOCATION_PENDING") {
+			if err := manager.denySessionAuthority(
+				ctx,
+				transaction,
+				record.ID,
+				record.SubjectID,
+				record.OrganizationID,
+				record.Roles,
+				record.MembershipRevision,
+				"UNBOUND_SESSION_AUTHORITY",
+				now,
+			); err != nil {
+				return err
+			}
+			outcome = ErrUnauthenticated
+			return nil
+		}
+		if *record.AuthorityState == "REVOCATION_PENDING" {
+			if !record.AuthorityObservedAt.Valid ||
+				!now.Before(
+					record.AuthorityObservedAt.Time.Add(
+						authorityDenialDeadline,
+					),
+				) {
+				if err := manager.denySessionAuthority(
+					ctx,
+					transaction,
+					record.ID,
+					record.SubjectID,
+					record.OrganizationID,
+					record.Roles,
+					record.MembershipRevision,
+					"PROVIDER_OBSERVATION_DEADLINE",
+					now,
+				); err != nil {
+					return err
+				}
+			}
+			outcome = ErrUnauthenticated
+			return nil
+		}
+		authority, err := loadDesiredSessionAuthority(
+			ctx,
+			transaction,
+			record.SubjectID,
+		)
+		if errors.Is(err, pgx.ErrNoRows) {
+			if err := manager.denySessionAuthority(
+				ctx,
+				transaction,
+				record.ID,
+				record.SubjectID,
+				record.OrganizationID,
+				record.Roles,
+				record.MembershipRevision,
+				"MISSING_DESIRED_MEMBERSHIP",
+				now,
+			); err != nil {
+				return err
+			}
+			outcome = ErrUnauthenticated
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("read current session authority: %w", err)
+		}
+		sessionRoles := rolesFromStrings(record.Roles)
+		if authority.MembershipID != *record.MembershipID ||
+			authority.Revision != *record.MembershipRevision ||
+			authority.State != "ACTIVE" ||
+			authority.EffectiveAt.After(now) ||
+			authority.SyncRevision != authority.Revision ||
+			!authority.ObservedProviderEnabled ||
+			authority.DriftState != "IN_SYNC" ||
+			!identity.EqualApplicationAuthority(
+				authority.OrganizationID,
+				authority.Roles,
+				*record.OrganizationID,
+				sessionRoles,
+			) ||
+			!identity.EqualApplicationAuthority(
+				authority.OrganizationID,
+				authority.Roles,
+				authority.ObservedOrganizationID,
+				authority.ObservedRoles,
+			) {
+			if err := manager.denySessionAuthority(
+				ctx,
+				transaction,
+				record.ID,
+				record.SubjectID,
+				record.OrganizationID,
+				record.Roles,
+				record.MembershipRevision,
+				"SESSION_AUTHORITY_MISMATCH",
+				now,
+			); err != nil {
+				return err
+			}
+			outcome = ErrUnauthenticated
+			return nil
+		}
+		if !record.AuthorityObservedAt.Valid ||
+			now.Before(record.AuthorityObservedAt.Time) {
+			if err := manager.denySessionAuthority(
+				ctx,
+				transaction,
+				record.ID,
+				record.SubjectID,
+				record.OrganizationID,
+				record.Roles,
+				record.MembershipRevision,
+				"INVALID_PROVIDER_OBSERVATION_TIME",
+				now,
+			); err != nil {
+				return err
+			}
+			outcome = ErrUnauthenticated
+			return nil
+		}
+		observationAge := now.Sub(record.AuthorityObservedAt.Time)
+		if observationAge >= authorityObservationHeartbeat ||
+			requiresFreshAuthorityObservation(ctx) {
+			observation, observationErr :=
+				manager.observeSessionAuthority(
+					ctx,
+					record.SubjectID,
+					now,
+				)
+			if observationErr != nil {
+				if observationAge >= authorityDenialDeadline {
+					if err := manager.denySessionAuthority(
+						ctx,
+						transaction,
+						record.ID,
+						record.SubjectID,
+						record.OrganizationID,
+						record.Roles,
+						record.MembershipRevision,
+						"PROVIDER_OBSERVATION_DEADLINE",
+						now,
+					); err != nil {
+						return err
+					}
+					outcome = ErrUnauthenticated
+					return nil
+				}
+				reason := "PROVIDER_UNAVAILABLE"
+				if observationAge > authorityObservationMaxAge {
+					reason = "STALE_PROVIDER_OBSERVATION"
+				}
+				if err := manager.markSessionAuthorityPending(
+					ctx,
+					transaction,
+					record.ID,
+					record.SubjectID,
+					record.OrganizationID,
+					record.Roles,
+					record.MembershipRevision,
+					authority.MembershipID,
+					reason,
+					now,
+				); err != nil {
+					return err
+				}
+				outcome = ErrUnauthenticated
+				return nil
+			}
+			if !observation.Enabled ||
+				observation.Locked ||
+				len(observation.RequiredActions) != 0 ||
+				!identity.EqualApplicationAuthority(
+					authority.OrganizationID,
+					authority.Roles,
+					observation.OrganizationID,
+					observation.Roles,
+				) {
+				if err := manager.recordProviderAuthorityDrift(
+					ctx,
+					transaction,
+					authority.MembershipID,
+					observation,
+					now,
+				); err != nil {
+					return err
+				}
+				if err := manager.denySessionAuthority(
+					ctx,
+					transaction,
+					record.ID,
+					record.SubjectID,
+					record.OrganizationID,
+					record.Roles,
+					record.MembershipRevision,
+					"PROVIDER_AUTHORITY_DRIFT",
+					now,
+				); err != nil {
+					return err
+				}
+				outcome = ErrUnauthenticated
+				return nil
+			}
+			if err := manager.refreshSessionAuthorityObservation(
+				ctx,
+				transaction,
+				record.ID,
+				authority.MembershipID,
+				authority.Revision,
+				observation,
+				now,
+			); err != nil {
+				return err
+			}
 		}
 		principal.SessionID = record.ID
 		principal.SubjectID = record.SubjectID
@@ -303,7 +650,270 @@ func (manager *Manager) Authenticate(ctx context.Context, rawToken string) (iden
 	if err != nil {
 		return identity.Principal{}, err
 	}
+	if outcome != nil {
+		return identity.Principal{}, outcome
+	}
 	return principal, nil
+}
+
+func (manager *Manager) observeSessionAuthority(
+	ctx context.Context,
+	subjectID string,
+	now time.Time,
+) (identity.AuthorityObservation, error) {
+	if manager.authorityObserver == nil {
+		return identity.AuthorityObservation{}, ErrUnauthenticated
+	}
+	observation, err := manager.authorityObserver.ObserveUserAuthority(
+		ctx,
+		subjectID,
+	)
+	if err != nil {
+		return identity.AuthorityObservation{}, err
+	}
+	if observation.SubjectID != subjectID {
+		return identity.AuthorityObservation{}, ErrUnauthenticated
+	}
+	observation.ObservedAt = now
+	return observation, nil
+}
+
+func (manager *Manager) refreshSessionAuthorityObservation(
+	ctx context.Context,
+	transaction pgx.Tx,
+	sessionID,
+	membershipID string,
+	membershipRevision int64,
+	observation identity.AuthorityObservation,
+	now time.Time,
+) error {
+	result, err := transaction.Exec(ctx, `
+		UPDATE desired_membership_sync
+		SET observed_provider_enabled = $3,
+		    observed_organization_id = $4,
+		    observed_roles = $5,
+		    observed_at = $6,
+		    drift_state = 'IN_SYNC'
+		WHERE membership_id = $1
+		  AND desired_revision = $2
+	`, membershipID, membershipRevision, observation.Enabled,
+		observation.OrganizationID, rolesToStrings(observation.Roles), now)
+	if err != nil {
+		return fmt.Errorf("refresh desired membership observation: %w", err)
+	}
+	if result.RowsAffected() != 1 {
+		return ErrUnauthenticated
+	}
+	if _, err := transaction.Exec(ctx, `
+		UPDATE session_references
+		SET authority_observed_at = $2,
+		    authority_state = 'ACTIVE'
+		WHERE id = $1
+		  AND revoked_at IS NULL
+	`, sessionID, now); err != nil {
+		return fmt.Errorf("refresh session authority observation: %w", err)
+	}
+	return nil
+}
+
+func (manager *Manager) recordProviderAuthorityDrift(
+	ctx context.Context,
+	transaction pgx.Tx,
+	membershipID string,
+	observation identity.AuthorityObservation,
+	now time.Time,
+) error {
+	if _, err := transaction.Exec(ctx, `
+		UPDATE desired_membership_sync
+		SET observed_provider_enabled = $2,
+		    observed_organization_id = $3,
+		    observed_roles = $4,
+		    observed_at = $5,
+		    drift_state = 'DRIFTED'
+		WHERE membership_id = $1
+	`, membershipID, observation.Enabled, observation.OrganizationID,
+		rolesToStrings(observation.Roles), now); err != nil {
+		return fmt.Errorf("record provider authority drift: %w", err)
+	}
+	return nil
+}
+
+func (manager *Manager) markSessionAuthorityPending(
+	ctx context.Context,
+	transaction pgx.Tx,
+	sessionID,
+	subjectID string,
+	organizationID *string,
+	roles []string,
+	membershipRevision *int64,
+	membershipID,
+	reason string,
+	now time.Time,
+) error {
+	if reason == "PROVIDER_UNAVAILABLE" {
+		if _, err := transaction.Exec(ctx, `
+			UPDATE desired_membership_sync
+			SET drift_state = 'PROVIDER_UNAVAILABLE'
+			WHERE membership_id = $1
+		`, membershipID); err != nil {
+			return fmt.Errorf(
+				"record unavailable provider observation: %w",
+				err,
+			)
+		}
+	} else {
+		if _, err := transaction.Exec(ctx, `
+			UPDATE desired_membership_sync
+			SET drift_state = 'STALE'
+			WHERE membership_id = $1
+		`, membershipID); err != nil {
+			return fmt.Errorf("record stale provider observation: %w", err)
+		}
+	}
+	if _, err := transaction.Exec(ctx, `
+		UPDATE session_references
+		SET authority_state = 'REVOCATION_PENDING',
+		    provider_tokens_ciphertext = NULL
+		WHERE id = $1
+		  AND revoked_at IS NULL
+	`, sessionID); err != nil {
+		return fmt.Errorf("mark session authority revocation pending: %w", err)
+	}
+	actorRole := ""
+	if len(roles) > 0 {
+		actorRole = roles[0]
+	}
+	entityVersion := int64(1)
+	if membershipRevision != nil && *membershipRevision > 0 {
+		entityVersion = *membershipRevision
+	}
+	if _, err := transaction.Exec(ctx, `
+		INSERT INTO audit_events (
+			event_id, occurred_at, actor_subject_id, actor_role,
+			organization_id, action, entity_type, entity_id,
+			entity_version, after_status, details
+		) VALUES (
+			$1, $2, $3, NULLIF($4, ''), $5,
+			'SESSION_AUTHORITY_REVOCATION_PENDING', 'SESSION', $6,
+			$7, 'REVOCATION_PENDING',
+			jsonb_build_object('reasonCode', $8::text)
+		)
+	`, manager.idGenerator("audit-session-authority"), now, subjectID,
+		actorRole, organizationID, sessionID, entityVersion, reason); err != nil {
+		return fmt.Errorf(
+			"audit session authority revocation pending: %w",
+			err,
+		)
+	}
+	return nil
+}
+
+type sessionAuthorityQuerier interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+func loadDesiredSessionAuthority(
+	ctx context.Context,
+	querier sessionAuthorityQuerier,
+	subjectID string,
+) (desiredSessionAuthority, error) {
+	var output desiredSessionAuthority
+	var roles, observedRoles []string
+	err := querier.QueryRow(ctx, `
+		SELECT version.membership_id, version.revision,
+		       version.membership_state, version.organization_id,
+		       version.roles, version.effective_at,
+		       sync.desired_revision, sync.observed_provider_enabled,
+		       sync.observed_organization_id, sync.observed_roles,
+		       sync.observed_at, sync.drift_state
+		FROM desired_membership_versions version
+		JOIN desired_membership_sync sync
+		  ON sync.membership_id = version.membership_id
+		WHERE version.subject_id = $1
+		ORDER BY version.revision DESC
+		LIMIT 1
+	`, subjectID).Scan(
+		&output.MembershipID,
+		&output.Revision,
+		&output.State,
+		&output.OrganizationID,
+		&roles,
+		&output.EffectiveAt,
+		&output.SyncRevision,
+		&output.ObservedProviderEnabled,
+		&output.ObservedOrganizationID,
+		&observedRoles,
+		&output.ObservedAt,
+		&output.DriftState,
+	)
+	if err != nil {
+		return desiredSessionAuthority{}, err
+	}
+	output.Roles = rolesFromStrings(roles)
+	output.ObservedRoles = rolesFromStrings(observedRoles)
+	return output, nil
+}
+
+func (manager *Manager) denySessionAuthority(
+	ctx context.Context,
+	transaction pgx.Tx,
+	sessionID,
+	subjectID string,
+	organizationID *string,
+	roles []string,
+	membershipRevision *int64,
+	reason string,
+	now time.Time,
+) error {
+	if _, err := transaction.Exec(ctx, `
+		UPDATE session_references
+		SET revoked_at = COALESCE(revoked_at, $2),
+		    provider_tokens_ciphertext = NULL,
+		    authority_state = 'DENIED_STALE_AUTHORITY'
+		WHERE id = $1
+	`, sessionID, now); err != nil {
+		return fmt.Errorf("deny stale session authority: %w", err)
+	}
+	actorRole := ""
+	if len(roles) > 0 {
+		actorRole = roles[0]
+	}
+	entityVersion := int64(1)
+	if membershipRevision != nil && *membershipRevision > 0 {
+		entityVersion = *membershipRevision
+	}
+	if _, err := transaction.Exec(ctx, `
+		INSERT INTO audit_events (
+			event_id, occurred_at, actor_subject_id, actor_role,
+			organization_id, action, entity_type, entity_id,
+			entity_version, after_status, details
+		) VALUES (
+			$1, $2, $3, NULLIF($4, ''), $5,
+			'SESSION_AUTHORITY_DENIED', 'SESSION', $6,
+			$7, 'DENIED_STALE_AUTHORITY',
+			jsonb_build_object('reasonCode', $8::text)
+		)
+	`, manager.idGenerator("audit-session-authority"), now, subjectID,
+		actorRole, organizationID, sessionID, entityVersion, reason); err != nil {
+		return fmt.Errorf("audit stale session authority denial: %w", err)
+	}
+	return nil
+}
+
+func rolesFromStrings(values []string) []identity.Role {
+	roles := make([]identity.Role, len(values))
+	for index, value := range values {
+		roles[index] = identity.Role(value)
+	}
+	return roles
+}
+
+func rolesToStrings(values []identity.Role) []string {
+	roles := make([]string, len(values))
+	for index, value := range values {
+		roles[index] = string(value)
+	}
+	return roles
 }
 
 func (manager *Manager) ValidateCSRF(ctx context.Context, sessionID, rawCSRF string) error {

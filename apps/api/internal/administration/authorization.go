@@ -20,5 +20,8 @@ var (
 )
 
 func CanManageUsers(actor identity.Principal) bool {
-	return actor.OrganizationID == "CAA" && actor.HasRole(identity.RoleAdmin)
+	return identity.ValidateApplicationAuthority(
+		actor.OrganizationID,
+		actor.Roles,
+	) == nil && actor.Roles[0] == identity.RoleAdmin
 }

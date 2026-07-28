@@ -51,6 +51,12 @@ sql:
       - "migrations/000008_communications_documents.up.sql"
       - "migrations/000009_notifications_risk_admin.up.sql"
       - "migrations/000010_identity_settings.up.sql"
+      - "migrations/000011_preliminary_report_versions.up.sql"
+      - "migrations/000012_keycloak_user_lifecycle.up.sql"
+      - "migrations/000013_authority_organization.up.sql"
+      - "migrations/000018_desired_membership_versions.up.sql"
+      - "migrations/000019_identity_lifecycle_delivery.up.sql"
+      - "migrations/000020_session_membership_authority.up.sql"
     queries: "internal/identity/store/postgres/queries.sql"
     gen:
       go:

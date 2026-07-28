@@ -8,9 +8,11 @@ COMPOSE_PROJECT="aviasurveil360-task11-oidc"
 TASK_POSTGRES_PORT="${AVIA_TASK11_OIDC_POSTGRES_PORT:-55443}"
 TASK_KEYCLOAK_PORT="${AVIA_TASK11_OIDC_KEYCLOAK_PORT:-58092}"
 TASK_KEYCLOAK_MANAGEMENT_PORT="${AVIA_TASK11_OIDC_KEYCLOAK_MANAGEMENT_PORT:-59013}"
+TASK_MAILPIT_HTTP_PORT="${AVIA_TASK11_OIDC_MAILPIT_HTTP_PORT:-58096}"
 TASK_OBJECT_STORE_PORT="${AVIA_TASK11_OIDC_OBJECT_STORE_PORT:-59014}"
 TASK_OBJECT_STORE_CONSOLE_PORT="${AVIA_TASK11_OIDC_OBJECT_STORE_CONSOLE_PORT:-59015}"
 TASK_API_PORT="${AVIA_TASK11_OIDC_API_PORT:-58093}"
+APPLICATION_ORIGIN="http://localhost:4174"
 RUNTIME_DIRECTORY="$(mktemp -d /private/tmp/aviasurveil360-task11-oidc.XXXXXX)"
 TEST_RUNTIME_HELPER="${REPOSITORY_ROOT}/scripts/lib/init-local-test-runtime.sh"
 SHARED_GO_CACHE="$(go env GOCACHE)"
@@ -23,6 +25,7 @@ export COMPOSE_PROGRESS="plain"
 export AVIA_TEST_POSTGRES_PORT="${TASK_POSTGRES_PORT}"
 export AVIA_TEST_KEYCLOAK_PORT="${TASK_KEYCLOAK_PORT}"
 export AVIA_TEST_KEYCLOAK_MANAGEMENT_PORT="${TASK_KEYCLOAK_MANAGEMENT_PORT}"
+export AVIA_TEST_MAILPIT_HTTP_PORT="${TASK_MAILPIT_HTTP_PORT}"
 export AVIA_TEST_OBJECT_STORE_PORT="${TASK_OBJECT_STORE_PORT}"
 export AVIA_TEST_OBJECT_STORE_CONSOLE_PORT="${TASK_OBJECT_STORE_CONSOLE_PORT}"
 export AVIA_TEST_RUNTIME_DIR="${RUNTIME_DIRECTORY}"
@@ -32,7 +35,7 @@ export GOTMPDIR="${TASK_GO_TMP}"
 . "${TEST_RUNTIME_HELPER}"
 initialize_local_test_runtime \
   "${RUNTIME_DIRECTORY}" \
-  "http://127.0.0.1:4174" \
+  "${APPLICATION_ORIGIN}" \
   "${REPOSITORY_ROOT}"
 
 read_runtime_secret() {
@@ -129,7 +132,7 @@ cleanup() {
 trap cleanup EXIT
 
 docker compose --project-name "${COMPOSE_PROJECT}" --file "${COMPOSE_FILE}" down --volumes --remove-orphans
-docker compose --project-name "${COMPOSE_PROJECT}" --file "${COMPOSE_FILE}" up --detach --wait postgres keycloak-postgres keycloak object-store
+docker compose --project-name "${COMPOSE_PROJECT}" --file "${COMPOSE_FILE}" up --detach --wait postgres keycloak-postgres mailpit keycloak object-store
 
 KEYCLOAK_PUBLIC_URL="http://127.0.0.1:${TASK_KEYCLOAK_PORT}/identity"
 KEYCLOAK_ADMIN_TOKEN="$(
@@ -235,7 +238,7 @@ export AVIA_TEST_DATABASE_URL="postgres://aviasurveil:${APP_DATABASE_PASSWORD}@1
 export AVIA_TEST_OIDC_ISSUER_URL="${KEYCLOAK_PUBLIC_URL}/realms/aviasurveil360"
 export AVIA_TEST_OIDC_CLIENT_ID="aviasurveil360-web"
 export AVIA_TEST_OIDC_CLIENT_SECRET="${OIDC_CLIENT_SECRET}"
-export AVIA_TEST_OIDC_REDIRECT_URL="http://127.0.0.1:4174/auth/callback"
+export AVIA_TEST_OIDC_REDIRECT_URL="${APPLICATION_ORIGIN}/auth/callback"
 export AVIA_TEST_OBJECT_STORE_ENDPOINT="127.0.0.1:${TASK_OBJECT_STORE_PORT}"
 export AVIA_TEST_OBJECT_STORE_ACCESS_KEY="${MINIO_ROOT_USER}"
 export AVIA_TEST_OBJECT_STORE_SECRET_KEY="${MINIO_ROOT_PASSWORD}"
@@ -253,11 +256,11 @@ export AVIA_OBJECT_STORE_ENDPOINT="${AVIA_TEST_OBJECT_STORE_ENDPOINT}"
 export AVIA_OBJECT_STORE_ACCESS_KEY="${MINIO_ROOT_USER}"
 export AVIA_OBJECT_STORE_SECRET_KEY="${MINIO_ROOT_PASSWORD}"
 export AVIA_OBJECT_STORE_TLS="false"
-export AVIA_OBJECT_STORE_CORS_ORIGINS="http://127.0.0.1:4174"
+export AVIA_OBJECT_STORE_CORS_ORIGINS="${APPLICATION_ORIGIN}"
 export AVIA_OBJECT_STORE_SERVER_MANAGED_CORS="true"
 export AVIA_OBJECT_STORE_QUARANTINE_BUCKET="avia-quarantine"
 export AVIA_OBJECT_STORE_CANONICAL_BUCKET="avia-canonical"
-export AVIA_SCANNER_MODE="clamav"
+export AVIA_SCANNER_MODE="deterministic-test"
 export AVIA_WORKER_INTERVAL_MS="50"
 export AVIA_KEYCLOAK_ADMIN_URL="${KEYCLOAK_PUBLIC_URL}"
 export AVIA_KEYCLOAK_REALM="aviasurveil360"
@@ -266,16 +269,24 @@ export AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET="${KEYCLOAK_SERVICE_CLIENT_SECRET}"
 export AVIA_HTTP_API_URL="http://127.0.0.1:${TASK_API_PORT}"
 export AVIA_HTTP_API_TARGET="${AVIA_HTTP_API_URL}"
 export AVIA_HTTP_TEST_PROFILE=""
+export AVIA_E2E_BASE_URL="${APPLICATION_ORIGIN}"
 export AVIA_OIDC_TEST_ADMIN_USERNAME="${APPLICATION_ADMIN_USERNAME}"
 export AVIA_OIDC_TEST_ADMIN_PASSWORD="${APPLICATION_ADMIN_PASSWORD}"
+export AVIA_OIDC_TEST_ADMIN_SUBJECT_ID="${APPLICATION_ADMIN_SUBJECT_ID}"
 export AVIA_OIDC_TEST_KEYCLOAK_BASE_URL="${KEYCLOAK_PUBLIC_URL}"
 export AVIA_OIDC_TEST_KEYCLOAK_ADMIN_USERNAME="local-bootstrap-admin"
 export AVIA_OIDC_TEST_KEYCLOAK_ADMIN_PASSWORD="${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD}"
+export AVIA_OIDC_TEST_MAILPIT_BASE_URL="http://127.0.0.1:${TASK_MAILPIT_HTTP_PORT}"
 export AVIA_OIDC_TEST_COMPOSE_FILE="${COMPOSE_FILE}"
 export AVIA_OIDC_TEST_COMPOSE_PROJECT="${COMPOSE_PROJECT}"
 export AVIA_PLAYWRIGHT_OUTPUT_DIR="${RUNTIME_DIRECTORY}/playwright-results"
 export GOCACHE="${TASK_GO_CACHE}"
 seed_task_go_cache
+
+go -C "${REPOSITORY_ROOT}/apps/api" test \
+  -tags canonicaltest -count=1 \
+  ./tests/identitysetup \
+  -run '^TestTask4PrepareOIDCHarnessApplicationAdministrator$'
 
 go -C "${REPOSITORY_ROOT}/apps/api" build -o "${RUNTIME_DIRECTORY}/api" ./cmd/api
 go -C "${REPOSITORY_ROOT}/apps/api" build -o "${RUNTIME_DIRECTORY}/worker" ./cmd/worker
@@ -285,12 +296,6 @@ go -C "${REPOSITORY_ROOT}/apps/api" build -o "${RUNTIME_DIRECTORY}/worker" ./cmd
   exec "${RUNTIME_DIRECTORY}/api"
 ) >"${RUNTIME_DIRECTORY}/api.log" 2>&1 &
 API_PID=$!
-
-(
-  cd "${REPOSITORY_ROOT}/apps/api"
-  exec "${RUNTIME_DIRECTORY}/worker"
-) >"${RUNTIME_DIRECTORY}/worker.log" 2>&1 &
-WORKER_PID=$!
 
 for _ in {1..120}; do
   if curl --fail --silent "${AVIA_HTTP_API_URL}/health/ready" >/dev/null; then
@@ -303,8 +308,21 @@ for _ in {1..120}; do
   sleep 0.25
 done
 curl --fail --silent "${AVIA_HTTP_API_URL}/health/ready" >/dev/null
+
+(
+  cd "${REPOSITORY_ROOT}/apps/api"
+  exec "${RUNTIME_DIRECTORY}/worker"
+) >"${RUNTIME_DIRECTORY}/worker.log" 2>&1 &
+WORKER_PID=$!
+sleep 1
 kill -0 "${WORKER_PID}"
 
 npm --prefix "${REPOSITORY_ROOT}/apps/web" run typecheck
-npm --prefix "${REPOSITORY_ROOT}/apps/web" run test:e2e:oidc
+if ! npm --prefix "${REPOSITORY_ROOT}/apps/web" run test:e2e:oidc; then
+  go -C "${REPOSITORY_ROOT}/apps/api" test \
+    -tags canonicaltest -count=1 -v \
+    ./tests/identitysetup \
+    -run '^TestTask4DiagnoseOIDCHarnessApplicationAdministrator$'
+  exit 1
+fi
 scan_runtime_artifacts_for_secret_leaks

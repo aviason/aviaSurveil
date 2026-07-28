@@ -17,6 +17,26 @@ func TestBrowserSessionHashesOpaqueCredentialsEncryptsProviderTokensAndEnforcesP
 	now := canonicalNow
 	randomCall := byte(0)
 	idCounts := map[string]int{}
+	seedTask4Membership(
+		t,
+		pool,
+		"oidc-inspector",
+		"membership-oidc-inspector",
+		1,
+		"ACTIVE",
+		"CAA",
+		[]string{"inspector"},
+		now,
+	)
+	observer := &task4AuthorityObserver{
+		observation: identity.AuthorityObservation{
+			SubjectID:      "oidc-inspector",
+			Enabled:        true,
+			OrganizationID: "CAA",
+			Roles:          []identity.Role{identity.RoleInspector},
+			ObservedAt:     now,
+		},
+	}
 	manager, err := session.NewManager(pool, []byte("0123456789abcdef0123456789abcdef"), session.ManagerDependencies{
 		Clock: func() time.Time { return now },
 		IDGenerator: func(prefix string) string {
@@ -27,6 +47,7 @@ func TestBrowserSessionHashesOpaqueCredentialsEncryptsProviderTokensAndEnforcesP
 			randomCall++
 			return bytes.Repeat([]byte{randomCall}, size), nil
 		},
+		AuthorityObserver: observer,
 	})
 	if err != nil {
 		t.Fatalf("new session manager: %v", err)
@@ -34,7 +55,7 @@ func TestBrowserSessionHashesOpaqueCredentialsEncryptsProviderTokensAndEnforcesP
 
 	created, err := manager.Create(context.Background(), session.CreateInput{
 		SubjectID: "oidc-inspector", Issuer: "https://identity.example/realms/avia", DisplayName: "OIDC Inspector",
-		OrganizationID: "caa", Roles: []identity.Role{identity.RoleInspector}, ProviderSessionID: "provider-session-001",
+		OrganizationID: "CAA", Roles: []identity.Role{identity.RoleInspector}, ProviderSessionID: "provider-session-001",
 		ProviderTokens: identity.ProviderTokens{AccessToken: "plain-access-secret", RefreshToken: "plain-refresh-secret", IDToken: "plain-id-secret", Expiry: now.Add(time.Hour)},
 	})
 	if err != nil {
@@ -75,7 +96,7 @@ func TestBrowserSessionHashesOpaqueCredentialsEncryptsProviderTokensAndEnforcesP
 	if err != nil {
 		t.Fatalf("authenticate session: %v", err)
 	}
-	if principal.SubjectID != "oidc-inspector" || principal.OrganizationID != "caa" || principal.SessionID != created.ID || !principal.HasRole(identity.RoleInspector) {
+	if principal.SubjectID != "oidc-inspector" || principal.OrganizationID != "CAA" || principal.SessionID != created.ID || !principal.HasRole(identity.RoleInspector) {
 		t.Fatalf("authenticated principal = %+v", principal)
 	}
 	if err := manager.ValidateCSRF(context.Background(), principal.SessionID, created.CSRFToken); err != nil {
@@ -101,7 +122,7 @@ func TestBrowserSessionHashesOpaqueCredentialsEncryptsProviderTokensAndEnforcesP
 	now = canonicalNow
 	second, err := manager.Create(context.Background(), session.CreateInput{
 		SubjectID: "oidc-inspector", Issuer: "https://identity.example/realms/avia", DisplayName: "OIDC Inspector",
-		OrganizationID: "caa", Roles: []identity.Role{identity.RoleInspector},
+		OrganizationID: "CAA", Roles: []identity.Role{identity.RoleInspector},
 	})
 	if err != nil {
 		t.Fatalf("create revocable session: %v", err)
@@ -136,7 +157,7 @@ func TestBrowserSessionHashesOpaqueCredentialsEncryptsProviderTokensAndEnforcesP
 	}
 	if _, err := manager.Create(context.Background(), session.CreateInput{
 		SubjectID: "oidc-inspector", Issuer: "https://identity.example/realms/avia", DisplayName: "OIDC Inspector",
-		OrganizationID: "caa", Roles: []identity.Role{identity.RoleInspector},
+		OrganizationID: "CAA", Roles: []identity.Role{identity.RoleInspector},
 	}); !errors.Is(err, session.ErrUnauthenticated) {
 		t.Fatalf("tombstoned profile session-create error = %v", err)
 	}

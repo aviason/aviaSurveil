@@ -55,11 +55,25 @@ test("reviewed realm source enforces production OIDC and optional TOTP", () => {
   assert.equal(realm.registrationAllowed, false);
   assert.equal(realm.resetPasswordAllowed, false);
   assert.equal(realm.sslRequired, "external");
+  assert.equal(realm.eventsEnabled, true);
+  assert.deepEqual(realm.eventsListeners, ["jboss-logging"]);
+  assert.equal(realm.adminEventsEnabled, true);
+  assert.equal(realm.adminEventsDetailsEnabled, true);
   const serviceAccount = realm.users.find(
     (candidate) =>
       candidate.serviceAccountClientId === "aviasurveil360-lifecycle",
   );
   assert.ok(serviceAccount, "lifecycle service account must exist");
+  assert.deepEqual(
+    realm.users.filter(
+      (candidate) =>
+        !candidate.serviceAccountClientId &&
+        (/bootstrap|break.?glass/iu.test(candidate.username ?? "") ||
+          (candidate.realmRoles ?? []).includes("realm-admin")),
+    ),
+    [],
+    "realm import must not contain a standing bootstrap or break-glass administrator",
+  );
   assert.deepEqual(
     [...serviceAccount.clientRoles["realm-management"]].sort(),
     ["manage-users", "query-users", "view-realm", "view-users"],
@@ -111,6 +125,28 @@ test("reviewed realm source enforces production OIDC and optional TOTP", () => {
   const configureTOTP = realm.requiredActions.find(
     (action) => action.alias === "CONFIGURE_TOTP",
   );
+  const invitationActions = realm.requiredActions
+    .filter((action) =>
+      ["UPDATE_PASSWORD", "VERIFY_EMAIL"].includes(action.alias)
+    )
+    .map(({ alias, enabled, defaultAction }) => ({
+      alias,
+      enabled,
+      defaultAction,
+    }))
+    .sort((left, right) => left.alias.localeCompare(right.alias));
+  assert.deepEqual(invitationActions, [
+    {
+      alias: "UPDATE_PASSWORD",
+      enabled: true,
+      defaultAction: false,
+    },
+    {
+      alias: "VERIFY_EMAIL",
+      enabled: true,
+      defaultAction: false,
+    },
+  ]);
   assert.deepEqual(
     {
       enabled: configureTOTP?.enabled,

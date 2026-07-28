@@ -113,6 +113,17 @@ func (boundary *AuthBoundary) callback(writer http.ResponseWriter, request *http
 		ProviderSessionID: authenticated.ProviderSessionID, ProviderTokens: authenticated.Tokens,
 	})
 	if err != nil {
+		if errors.Is(err, session.ErrUnauthenticated) {
+			expireBrowserSessionCookies(writer)
+			writeProblem(
+				writer,
+				http.StatusUnauthorized,
+				"Authentication failed",
+				"provider and application authority are stale or invalid",
+				"STALE_AUTHORITY",
+			)
+			return
+		}
 		writeProblem(writer, http.StatusInternalServerError, "Authentication failed", "browser session could not be created", "SESSION_CREATE_FAILED")
 		return
 	}
@@ -159,7 +170,16 @@ func (boundary *AuthBoundary) authenticate(writer http.ResponseWriter, request *
 		writeProblem(writer, http.StatusUnauthorized, "Authentication required", "no active browser session", "UNAUTHENTICATED")
 		return identity.Principal{}, false
 	}
-	principal, err := boundary.sessions.Authenticate(request.Context(), cookie.Value)
+	authenticationContext := request.Context()
+	if isMutation(request.Method) {
+		authenticationContext = session.RequireFreshAuthorityObservation(
+			authenticationContext,
+		)
+	}
+	principal, err := boundary.sessions.Authenticate(
+		authenticationContext,
+		cookie.Value,
+	)
 	if err != nil {
 		if errors.Is(err, session.ErrUnauthenticated) {
 			expireBrowserSessionCookies(writer)

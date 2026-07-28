@@ -4,20 +4,22 @@
 
 **Profile and policy status:** `approved — owner decision recorded`
 
-**Runtime status:** Task 2 identity-directory foundation is `verified locally`;
-Tasks 3–9 remain `not run`.
+**Runtime status:** Tasks 2–4 identity-directory, lifecycle, invitation,
+recovery, MFA, and session-authority foundations are `verified locally`; Tasks
+5–9 remain `not run`.
 
-This document is the Plan 5 Task 1 contract and owner-decision package. It
-defines machine-checkable identity, authority, privacy, and deterministic data
-profile boundaries without claiming that the API, Keycloak, session runtime,
-Administration directory, loader, or any generated dataset already implements
-them.
+This document began as the Plan 5 Task 1 contract and owner-decision package.
+It defines machine-checkable identity, authority, privacy, and deterministic
+data-profile boundaries. Tasks 2–4 now implement and locally verify the
+directory, lifecycle, invitation/recovery/MFA, and session portions; the Admin
+experience, loader, profile generation, and generated datasets remain `not
+run`.
 
 The 2026-07-27 authorization allowed this Task 1 package to proceed without the
 then-open Plan 1 visual stakeholder closure. Plan 1 and the combined Plans 2–4
 local stakeholder disposition were completed on 2026-07-28. A later explicit
 authorization started the sequential Plan 5 implementation; Task 2 is now
-complete and `verified locally`.
+published, and Tasks 2–4 are complete and `verified locally`.
 
 ## Binding Invariants
 
@@ -255,7 +257,7 @@ Task 2 cannot start until all of the following are true:
 
 ## Current Repository Observations
 
-Task 1 read-only inspection found the following. Tasks 2–3 subsequently
+Task 1 read-only inspection found the following. Tasks 2–4 subsequently
 resolved the artifact, service-client, membership-foundation, directory, and
 account-lifecycle rows:
 
@@ -274,6 +276,14 @@ account-lifecycle rows:
   bootstrap with the approved expiring `UPDATE_PASSWORD`/`VERIFY_EMAIL`
   execute-actions invitation, authenticated local delivery, and optional
   provider-derived TOTP enrollment.
+- Task 4 binds application sessions to the exact desired-membership revision,
+  fresh observed provider authority, and matching OIDC role/organization
+  claims. It enforces the approved 30/60/120-second observation boundary,
+  revokes old authority after lifecycle changes, and proves live provider MFA,
+  required-action, disabled-account, restart, and session-revocation behavior.
+  Bootstrap and break-glass identities remain outside application membership;
+  actual break-glass use remains blocked without the separately approved alarm
+  and incident gate.
 - Task 2 split normal and canonical-test API composition and proved that normal
   API/worker/scheduler/migration artifacts do not link testprofile/reset code.
 - The canonical test profile has nine principals across eight roles and is

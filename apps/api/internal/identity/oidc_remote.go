@@ -111,8 +111,14 @@ func (provider *RemoteOIDCProvider) Exchange(ctx context.Context, code, pkceVeri
 		)
 	}
 	roles := canonicalRoles(append(append([]string(nil), claims.Roles...), claims.RealmAccess.Roles...))
-	if len(roles) == 0 {
-		return OIDCIdentity{}, fmt.Errorf("verified OIDC token contains no supported AviaSurveil360 role")
+	if err := ValidateApplicationAuthority(
+		strings.TrimSpace(claims.OrganizationID),
+		roles,
+	); err != nil {
+		return OIDCIdentity{}, fmt.Errorf(
+			"verified OIDC token contains invalid AviaSurveil360 authority: %w",
+			err,
+		)
 	}
 	displayName := strings.TrimSpace(claims.Name)
 	if displayName == "" {

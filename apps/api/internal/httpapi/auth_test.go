@@ -52,6 +52,7 @@ type fakeAuthSessions struct {
 	csrfSessionID      string
 	csrfToken          string
 	revokedSessionID   string
+	createErr          error
 	authenticateErr    error
 	csrfErr            error
 }
@@ -68,7 +69,7 @@ func (sessions *fakeAuthSessions) ConsumeLoginState(_ context.Context, rawState 
 
 func (sessions *fakeAuthSessions) Create(_ context.Context, input session.CreateInput) (session.BrowserSession, error) {
 	sessions.createInput = input
-	return sessions.created, nil
+	return sessions.created, sessions.createErr
 }
 
 func (sessions *fakeAuthSessions) Authenticate(_ context.Context, token string) (identity.Principal, error) {
@@ -217,5 +218,52 @@ func TestAuthenticationFailuresUseClosedProblemResponses(t *testing.T) {
 	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/auth/session", nil))
 	if response.Code != http.StatusUnauthorized || response.Header().Get("Content-Type") != "application/problem+json" {
 		t.Fatalf("unauthenticated response = %d %q", response.Code, response.Header().Get("Content-Type"))
+	}
+}
+
+func TestTask4OIDCCallbackRejectsStaleAuthorityAndExpiresCookies(t *testing.T) {
+	t.Parallel()
+	provider := &fakeOIDCProvider{
+		identity: identity.OIDCIdentity{
+			SubjectID:      "stale-inspector",
+			Issuer:         "https://identity.example/realms/avia",
+			DisplayName:    "Stale Inspector",
+			OrganizationID: "CAA",
+			Roles:          []identity.Role{identity.RoleInspector},
+		},
+	}
+	sessions := &fakeAuthSessions{
+		loginState: session.LoginState{
+			Nonce:        "nonce",
+			PKCEVerifier: "verifier",
+			ReturnTo:     "/",
+		},
+		createErr: session.ErrUnauthenticated,
+	}
+	response := httptest.NewRecorder()
+	httpapi.NewAuthHandler(provider, sessions).ServeHTTP(
+		response,
+		httptest.NewRequest(
+			http.MethodGet,
+			"/auth/callback?state=state&code=code",
+			nil,
+		),
+	)
+	if response.Code != http.StatusUnauthorized ||
+		!strings.Contains(response.Body.String(), `"code":"STALE_AUTHORITY"`) {
+		t.Fatalf(
+			"stale-authority callback = %d, %s",
+			response.Code,
+			response.Body.String(),
+		)
+	}
+	cookies := response.Result().Cookies()
+	if len(cookies) != 2 {
+		t.Fatalf("expired callback cookies = %+v", cookies)
+	}
+	for _, cookie := range cookies {
+		if cookie.MaxAge != -1 || !cookie.Expires.Before(time.Now()) {
+			t.Fatalf("callback cookie was not expired: %+v", cookie)
+		}
 	}
 }

@@ -2,7 +2,7 @@
 
 **Evidence date:** 2026-07-28
 
-**Scope status:** Tasks 1–3 complete; Tasks 4–9 `not run`
+**Scope status:** Tasks 1–4 complete; Tasks 5–9 `not run`
 
 **Artifact status:** `candidate-only`
 
@@ -92,8 +92,10 @@ profile, deployment, or production readiness. Those remain `not run`.
 
 ## Task 3 Provisioning, Invitation, And Recovery
 
-Task 3 is `verified locally`. It is awaiting its focused task commit and push;
-Task 4 is `not run`.
+Task 3 is `verified locally` and published on `origin/main` as
+`8cf2b57fd487e4ba1b2439717425344bb06ea7e3`. Task 4 is complete and `verified
+locally`; its publication revision is recorded after the focused task commit
+is pushed.
 
 ### Strict RED evidence
 
@@ -201,3 +203,178 @@ Task 3 does not establish membership/session freshness enforcement, the
 preprod loader, any workload-profile feasibility, deployment, external email,
 production identity federation, release readiness, or production readiness.
 Those remain `not run`.
+
+## Task 4 Role, Organization, MFA, And Session Lifecycle
+
+Task 4 is complete and `verified locally`. The Task 3 publication gate was
+closed at `8cf2b57fd487e4ba1b2439717425344bb06ea7e3` before Task 4 started.
+
+### Strict RED evidence
+
+Before Task 4 production implementation, `go -C apps/api test -tags
+canonicaltest -count=1 ./internal/identity ./tests/integration -run 'Task4'`
+failed with exit 1. The compiler reported that
+`identity.ValidateApplicationAuthority`, `identity.AuthorityObservation`,
+`identity.AuthorityObserver`, and the session-manager `AuthorityObserver`
+dependency were undefined.
+
+The focused provider-observation RED, `go -C apps/api test -count=1
+./internal/identity -run 'Task4'`, then failed with exit 1 because
+`KeycloakAdminClient.ObserveUserAuthority` did not exist.
+
+The frozen 30/60/120-second boundary test then ran through the isolated
+canonical harness. It failed because authentication at 31 seconds had made
+only the new-login provider call rather than the required heartbeat. The
+harness removed every task-owned container, volume, and network after the
+failure.
+
+The first-login activation test then failed to compile because
+`session.ActivationReconciler` and the matching session-manager dependency did
+not exist. No callback/session activation wiring preceded this result.
+
+The callback fail-closed RED, `go -C apps/api test -count=1
+./internal/httpapi -run
+'^TestTask4OIDCCallbackRejectsStaleAuthorityAndExpiresCookies$'`, failed with
+exit 1. The stale-authority session rejection surfaced as HTTP 500
+`SESSION_CREATE_FAILED` and did not expire browser cookies; the required
+boundary is HTTP 401 `STALE_AUTHORITY` with both cookies expired.
+
+The mutation-freshness RED, `go -C apps/api test -tags canonicaltest -run
+'^TestTask4AuthorityMutationForcesFreshProviderObservation$'
+./tests/integration`, failed to compile because
+`session.RequireFreshAuthorityObservation` did not exist. This proved the
+normal read heartbeat had no separate mechanism for the frozen
+fresh-observation-before-authority-mutation boundary.
+
+The first updated `./scripts/test-http-oidc-profile.sh` acceptance run failed
+before API/browser startup. The authoritative lifecycle request rejected the
+isolated one-shot actor because its retained identity reference did not yet
+exist, proving the harness could not silently invent a requester that violated
+the lifecycle foreign key. Cleanup removed the task-owned containers,
+volumes, network, runtime directory, and generated secrets.
+
+The second OIDC acceptance run passed the authoritative Admin setup and then
+failed readiness before Playwright. The stale lane raced API and worker bucket
+initialization and selected unavailable ClamAV for the isolated auth test.
+Cleanup again removed all task-owned runtime state.
+
+The third OIDC run reached Playwright with healthy API and worker processes,
+then failed before browser launch because the repository-pinned Chromium 1228
+binary was not installed. The exact pinned Chromium and headless-shell
+artifacts were subsequently installed; the browser gate was not skipped or
+weakened.
+
+The fourth OIDC run reached real Keycloak TOTP enrollment and returned to the
+app, then failed because the first navigation-time session poll raised a
+transient browser `Failed to fetch` exception instead of retrying. Persistent
+HTTP failures remain fail-closed; cleanup removed the browser and isolated
+stack.
+
+The fifth OIDC run confirmed that in-page `fetch` remained unavailable after
+the callback even though the page stayed on the app origin. The assertion was
+moved to Playwright's browser-context request client, which shares the same
+cookies and reports the exact `/auth/session` status without depending on page
+JavaScript execution.
+
+The sixth OIDC run then reported the exact HTTP outcome: the callback returned
+to the app but `/auth/session` remained HTTP 401 for the full polling window.
+A secret-free in-harness diagnostic was added to compare desired membership,
+sync, retained identity/profile, and live provider authority before cleanup.
+
+That diagnostic reported ACTIVE membership revision 2, exact/current sync,
+matching retained issuer and profile, and live enabled/unlocked Admin/CAA
+authority with TOTP enrolled and no required actions, but zero application
+sessions. The remaining failure is after activation in callback session
+creation; the browser test now captures the callback status/problem directly.
+
+The eighth OIDC run captured HTTP 401 `STALE_AUTHORITY` directly. Combined
+with the exact diagnostic, this isolated the defect to the pre-activation
+session clock: activation became effective milliseconds after
+`Manager.Create` captured `now`, so its post-activation transaction falsely
+treated the new revision as future-effective. GREEN refreshes the clock after
+successful activation without relaxing any authority comparison.
+
+The next live run proved that the session was persisted with exact active
+authority but that Chromium rejected production `Secure` `__Host-` cookies on
+plain `127.0.0.1`. The isolated application origin was corrected to
+`http://localhost:4174`; production cookie attributes were not weakened.
+
+Later live runs exposed two stale harness inputs: lifecycle probes omitted the
+mandatory reason, and the reviewed realm did not register the approved
+`UPDATE_PASSWORD` and `VERIFY_EMAIL` execute-action providers. The focused
+realm contract failed 1/3 before the two providers were added. The final
+browser path consumes the real Mailpit invitation link, completes required
+actions, verifies provider email/required-action state, enrolls TOTP for the
+Admin, rejects a wrong OTP, accepts the correct OTP, proves a new Inspector can
+log in without TOTP, restarts Keycloak, deactivates the exact Admin through the
+revisioned lifecycle API, and observes both provider and application session
+invalidation.
+
+Final diff review added a concurrent-revision regression. The isolated race
+harness failed with exit 1 because creation returned a real session ID with no
+error after the synchronization row changed away from the membership revision
+already validated by the request. The final implementation requires exactly
+one matching current-revision synchronization row to be refreshed before
+session insertion; otherwise it returns `ErrUnauthenticated` and writes no
+stale session.
+
+The same review recorded a focused exact-organization RED: padded `" CAA "`
+was normalized and accepted. The authority validator now rejects leading or
+trailing whitespace instead of silently rewriting organization identity; the
+focused rerun passed.
+
+### Implemented authority boundary
+
+- Every session stores the exact desired-membership revision, current provider
+  observation reference/state, token role/organization claims, and provider
+  session identity.
+- New and existing sessions fail closed unless desired membership, live
+  provider authority, token claims, role, organization, and stored revision
+  agree exactly.
+- Provider observation follows the approved 30-second heartbeat, 60-second
+  maximum age, and 120-second provider-loss denial deadline. Drift,
+  disablement, lockout, required actions, or exact authority mismatch deny
+  immediately; reconciliation restores authority only after fresh exact
+  agreement.
+- Role change, organization transfer, suspend, deactivate, MFA reset, and
+  forced logout revoke application sessions. Authority mutations require a
+  fresh provider observation, and old sessions never revive.
+- First login reconciles an invited membership to active before creating the
+  current-revision session. A callback stale-authority failure is HTTP 401
+  `STALE_AUTHORITY` and expires both browser cookies.
+- Bootstrap and break-glass provider identities have no application
+  membership and cannot create an application session. The realm imports no
+  standing bootstrap/break-glass administrator and keeps login events,
+  detailed Admin events, and the `jboss-logging` listener enabled. Actual
+  break-glass use remains `not run` and blocked unless its external two-person,
+  15-minute, alarm, incident, audit, rotation, and session-closure gate is
+  separately satisfied.
+- Remote OIDC coverage proves expired-token rejection, cached JWKS refresh on
+  signing-key rotation, acceptance inside the verifier's five-minute `nbf`
+  tolerance, and rejection beyond it.
+
+### Fresh GREEN verification
+
+| Command | Literal result |
+|---|---|
+| `./scripts/check-sqlc.sh` | exit 0; `sqlc-check: ok` |
+| `go -C apps/api test -tags canonicaltest -race -p 1 -count=1 ./internal/platform/session ./internal/identity ./internal/administration ./internal/httpapi ./tests/integration` | exit 0 inside the isolated session-authority harness; all five packages passed; integration completed in 37.017 seconds |
+| `./scripts/test-http-oidc-profile.sh` | exit 0; Playwright 1/1 in 46.7 seconds; `OIDC runtime secret/log scan: zero generated-secret matches`; cleanup complete |
+| `./scripts/test-preprod-identity-lifecycle.sh session-authority` | exit 0; `Plan 5 Task 4 session authority: verified locally`; cleanup complete |
+| `go -C apps/api test -count=1 ./internal/identity -run 'TestTask4RemoteOIDCProviderRefreshesRotatedSigningKeysAndEnforcesClockBoundaries'` | exit 0 |
+| `node --test deploy/local/keycloak/realm-contract.test.mjs tests/preprod-identity-data-contract.test.mjs` | exit 0; 29/29 passed |
+
+A standalone tagged race invocation after the verification-command correction
+compiled every package but failed because no PostgreSQL or MinIO fixtures were
+listening at the documented ports. The authoritative final
+`session-authority` harness provisioned those exact dependencies and ran the
+same race command successfully. Both final isolated stacks removed containers,
+volumes, networks, runtime directories, generated secrets, API/worker/Vite
+processes, and browser processes.
+
+### Non-claims and next boundary
+
+Task 4 does not finish the Users and Roles Admin experience, build the preprod
+loader, qualify any workload profile, deploy, exercise production identity, or
+establish production readiness. Tasks 5–9 remain `not run`; the artifact is
+still `candidate-only` and `release pending`.

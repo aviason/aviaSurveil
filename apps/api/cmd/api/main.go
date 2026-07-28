@@ -78,6 +78,7 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("select API artifact profile: %w", err)
 	}
 	var directoryProvider administration.AccessDirectoryProvider
+	var authorityObserver identity.AuthorityObserver
 	if settings.KeycloakAdminURL != "" {
 		keycloakClient, keycloakErr := identity.NewKeycloakAdminClient(
 			identity.KeycloakAdminConfig{
@@ -91,6 +92,7 @@ func run(ctx context.Context) error {
 			return fmt.Errorf("configure Keycloak directory provider: %w", keycloakErr)
 		}
 		directoryProvider = keycloakClient
+		authorityObserver = keycloakClient
 	}
 	telemetryRuntime, err := telemetry.NewRuntime(ctx, telemetry.Config{
 		ServiceName:      "api",
@@ -135,12 +137,34 @@ func run(ctx context.Context) error {
 			}
 			if bootstrapErr == nil {
 				runtimeClock := profile.clock
+				userLifecycleService := administration.NewUserService(
+					pool,
+					administration.UserServiceDependencies{
+						Clock:       runtimeClock,
+						IDGenerator: profile.idGenerator,
+					},
+				)
 				databaseProbe := database.Readiness{Pool: pool, RequiredMigrationVersion: migrations.LatestVersion}
 				databaseHealth = databaseProbe
 				probe = databaseProbe
 				var authBoundary *httpapi.AuthBoundary
 				if settings.OIDCIssuerURL != "" {
-					sessionManager, managerErr := session.NewManager(pool, settings.SessionEncryptionKey, session.ManagerDependencies{})
+					var sessionManager *session.Manager
+					var managerErr error
+					if authorityObserver == nil {
+						managerErr = errors.New(
+							"Keycloak authority observer is required for OIDC sessions",
+						)
+					} else {
+						sessionManager, managerErr = session.NewManager(
+							pool,
+							settings.SessionEncryptionKey,
+							session.ManagerDependencies{
+								AuthorityObserver:    authorityObserver,
+								ActivationReconciler: userLifecycleService,
+							},
+						)
+					}
 					if managerErr != nil {
 						probe = unavailableReadiness{err: managerErr}
 						slog.Error("session manager unavailable; readiness will fail closed", "error", managerErr)
@@ -255,10 +279,12 @@ func run(ctx context.Context) error {
 							EvidenceUploads: evidenceUploads, AttachmentUploads: attachmentUploads,
 							Planning: planningService,
 							Risk:     riskService, Administration: administrationService,
-							Assistant:      assistantService,
-							Communications: communicationsWorkflow,
-							Documents:      documentAccess,
-							Clock:          runtimeClock,
+							Assistant:         assistantService,
+							Communications:    communicationsWorkflow,
+							Documents:         documentAccess,
+							DirectoryProvider: directoryProvider,
+							Users:             userLifecycleService,
+							Clock:             runtimeClock,
 						}).Handler()
 						if profile.protect != nil {
 							protectedAPI, testAdmin, profileErr := profile.protect(

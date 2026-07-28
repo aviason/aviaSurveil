@@ -249,6 +249,88 @@ func TestKeycloakAdminClientClassifiesProviderHTTPFailures(t *testing.T) {
 	}
 }
 
+func TestTask4KeycloakAdminClientObservesExactUserAuthorityAndLockout(
+	t *testing.T,
+) {
+	t.Parallel()
+	providerCalls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(
+		writer http.ResponseWriter,
+		request *http.Request,
+	) {
+		assertKeycloakBearer(t, request)
+		switch {
+		case request.URL.Path ==
+			"/identity/realms/aviasurveil360/protocol/openid-connect/token":
+			assertKeycloakAdminTokenRequest(t, request)
+			writeKeycloakJSON(writer, http.StatusOK, map[string]any{
+				"access_token": "admin-access-token",
+				"expires_in":   60,
+			})
+		case request.Method == http.MethodGet &&
+			request.URL.Path ==
+				"/identity/admin/realms/aviasurveil360/users/provider-subject-001":
+			providerCalls++
+			writeKeycloakJSON(writer, http.StatusOK, map[string]any{
+				"id":              "provider-subject-001",
+				"enabled":         true,
+				"totp":            true,
+				"requiredActions": []string{},
+				"attributes": map[string][]string{
+					"organization_id": {"CAA"},
+				},
+			})
+		case request.Method == http.MethodGet &&
+			request.URL.Path ==
+				"/identity/admin/realms/aviasurveil360/users/provider-subject-001/role-mappings/realm":
+			providerCalls++
+			writeKeycloakJSON(writer, http.StatusOK, []map[string]any{
+				{"id": "role-default", "name": "offline_access"},
+				{"id": "role-inspector", "name": "inspector"},
+			})
+		case request.Method == http.MethodGet &&
+			request.URL.Path ==
+				"/identity/admin/realms/aviasurveil360/attack-detection/brute-force/users/provider-subject-001":
+			providerCalls++
+			writeKeycloakJSON(writer, http.StatusOK, map[string]any{
+				"disabled":    true,
+				"numFailures": 5,
+			})
+		default:
+			http.Error(writer, "unexpected request", http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	observation, err := newKeycloakAdminTestClient(
+		t,
+		server.URL,
+	).ObserveUserAuthority(
+		context.Background(),
+		"provider-subject-001",
+	)
+	if err != nil {
+		t.Fatalf("observe Keycloak user authority: %v", err)
+	}
+	if providerCalls != 3 ||
+		observation.SubjectID != "provider-subject-001" ||
+		!observation.Enabled ||
+		!observation.Locked ||
+		!observation.MFAEnrolled ||
+		observation.OrganizationID != "CAA" ||
+		!slices.Equal(
+			observation.Roles,
+			[]identity.Role{identity.RoleInspector},
+		) ||
+		len(observation.RequiredActions) != 0 {
+		t.Fatalf(
+			"provider calls = %d, observation = %#v",
+			providerCalls,
+			observation,
+		)
+	}
+}
+
 func TestKeycloakAdminClientRejectsCrossAuthorityRoleOrganizationMappings(t *testing.T) {
 	t.Parallel()
 	requestCount := 0

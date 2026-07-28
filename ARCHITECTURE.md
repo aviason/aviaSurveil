@@ -40,6 +40,9 @@ an orientation surface, not a production-readiness claim.
 ## High-Risk Invariants
 
 - Exact route, role, organization, record, version, revision, and audit identity.
+- Application sessions require the current desired-membership revision, fresh
+  exact provider authority, and matching OIDC role/organization claims; a
+  lifecycle mutation revokes old authority and requires a fresh login.
 - Append-only Evidence, configuration versions, and audit history.
 - Auditee organization isolation and Internal CAA Note exclusion.
 - Explicit review and closure authority.

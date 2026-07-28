@@ -1,6 +1,7 @@
 -- name: GetSessionForAuthentication :one
 SELECT id, subject_id, organization_id, roles, expires_at, absolute_expires_at, revoked_at,
-       csrf_token_hash, provider_session_id
+       csrf_token_hash, provider_session_id, membership_id, membership_revision,
+       authority_observed_at, authority_state
 FROM session_references
 WHERE session_token_hash = $1
 FOR UPDATE;

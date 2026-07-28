@@ -18,6 +18,9 @@ const approvedRoles = new Set([
   "auditee",
   "admin",
 ]);
+const applicationOrigin = (
+  process.env.AVIA_E2E_BASE_URL ?? "http://127.0.0.1:4174"
+).replace(/\/+$/, "");
 
 function requiredEnvironment(name: string): string {
   const value = process.env[name]?.trim();
@@ -85,20 +88,65 @@ async function expectApplicationSession(
   page: Page,
   expectedRole: string,
 ): Promise<void> {
-  await expect.poll(async () => {
-    if (!page.url().startsWith("http://127.0.0.1:4174/")) return null;
-    return page.evaluate(async () => {
-      const response = await fetch("/auth/session", {
-        credentials: "same-origin",
-      });
-      if (!response.ok) return { status: response.status, roles: [] };
-      const body = await response.json() as { roles?: string[] };
-      return { status: response.status, roles: body.roles ?? [] };
+  let lastObservation: Record<string, unknown> | null = null;
+  try {
+    await expect.poll(async () => {
+      if (!page.url().startsWith(`${applicationOrigin}/`)) return null;
+      try {
+        const response = await page.request.get(
+          `${applicationOrigin}/auth/session`,
+        );
+        const cookieNames = (
+          await page.context().cookies(`${applicationOrigin}/`)
+        ).map((cookie) => cookie.name).sort();
+        if (!response.ok()) {
+          const problem = await response.json() as {
+            code?: string;
+            detail?: string;
+          };
+          lastObservation = {
+            status: response.status(),
+            roles: [],
+            code: problem.code ?? "",
+            detail: problem.detail ?? "",
+            cookieNames,
+          };
+          return lastObservation;
+        }
+        const body = await response.json() as { roles?: string[] };
+        lastObservation = {
+          status: response.status(),
+          roles: body.roles ?? [],
+          code: "",
+          detail: "",
+          cookieNames,
+        };
+        return lastObservation;
+      } catch {
+        lastObservation = {
+          status: 0,
+          roles: [],
+          code: "",
+          detail: "request failed",
+          cookieNames: [],
+        };
+        return lastObservation;
+      }
+    }, { timeout: 60_000 }).toMatchObject({
+      status: 200,
+      roles: expect.arrayContaining([expectedRole]),
+      code: "",
+      detail: "",
+      cookieNames: expect.arrayContaining([
+        "__Host-avia_csrf",
+        "__Host-avia_session",
+      ]),
     });
-  }, { timeout: 60_000 }).toMatchObject({
-    status: 200,
-    roles: expect.arrayContaining([expectedRole]),
-  });
+  } catch {
+    throw new Error(
+      `application session diagnostic: ${JSON.stringify(lastObservation)}`,
+    );
+  }
 }
 
 async function enrollTotp(
@@ -118,10 +166,32 @@ async function enrollTotp(
   await page.locator('input[name="totp"]').fill(totp(secret));
   const label = page.locator('input[name="userLabel"]');
   if (await label.isVisible()) await label.fill("Plan 3 isolated browser");
+  const callbackResponsePromise = page.waitForResponse((response) =>
+    new URL(response.url()).pathname === "/auth/callback"
+  );
   await page.locator('button[type="submit"], input[type="submit"]').click();
-  await expect(page).toHaveURL(/127\.0\.0\.1:4174\//);
+  const callbackResponse = await callbackResponsePromise;
+  if (callbackResponse.status() !== 302) {
+    throw new Error(
+      `OIDC callback failed with ${callbackResponse.status()}: ${await callbackResponse.text()}`,
+    );
+  }
+  await expect.poll(() => page.url().startsWith(`${applicationOrigin}/`))
+    .toBe(true);
   await expectApplicationSession(page, expectedRole);
   return secret;
+}
+
+async function loginWithoutTotp(
+  page: Page,
+  username: string,
+  password: string,
+  expectedRole: string,
+): Promise<void> {
+  await beginLogin(page, username, password);
+  await expect.poll(() => page.url().startsWith(`${applicationOrigin}/`))
+    .toBe(true);
+  await expectApplicationSession(page, expectedRole);
 }
 
 async function loginAfterLocalLogout(
@@ -141,7 +211,7 @@ async function loginAfterLocalLogout(
   const usernameField = page.getByLabel(/username or email/i);
   await expect.poll(async () => {
     if (await usernameField.isVisible()) return "credentials";
-    if (page.url().startsWith("http://127.0.0.1:4174/")) {
+    if (page.url().startsWith(`${applicationOrigin}/`)) {
       const status = await page.evaluate(async () =>
         (await fetch("/auth/session", { credentials: "same-origin" })).status
       );
@@ -156,7 +226,14 @@ async function loginAfterLocalLogout(
     const otpField = page.locator('input[name="otp"], input[name="totp"]');
     await expect(otpField).toBeVisible();
     await avoidTotpBoundary(page);
-    await otpField.fill(totp(secret));
+    const validCode = totp(secret);
+    const invalidCode = (
+      (Number.parseInt(validCode, 10) + 1) % 1_000_000
+    ).toString().padStart(6, "0");
+    await otpField.fill(invalidCode);
+    await page.getByRole("button", { name: /sign in/i }).click();
+    await expect(otpField).toBeVisible();
+    await otpField.fill(validCode);
     await page.getByRole("button", { name: /sign in/i }).click();
   }
   await expectApplicationSession(page, expectedRole);
@@ -198,7 +275,99 @@ async function keycloakUser(
   return users[0]!;
 }
 
-test("production-mode Keycloak requires MFA and application provisioning revokes exact sessions", async ({
+async function invitationActionLink(
+  request: APIRequestContext,
+  recipient: string,
+): Promise<string> {
+  const mailpitBaseURL = requiredEnvironment("AVIA_OIDC_TEST_MAILPIT_BASE_URL");
+  let messageID = "";
+  await expect.poll(async () => {
+    const response = await request.get(`${mailpitBaseURL}/api/v1/messages`, {
+      params: { limit: "50" },
+    });
+    if (!response.ok()) return false;
+    const payload = await response.json() as {
+      messages?: Array<{ ID?: string; To?: unknown }>;
+    };
+    const match = payload.messages?.find((message) =>
+      JSON.stringify(message.To ?? "").toLowerCase()
+        .includes(recipient.toLowerCase())
+    );
+    messageID = match?.ID ?? "";
+    return messageID !== "";
+  }, { timeout: 30_000 }).toBe(true);
+
+  const detailResponse = await request.get(
+    `${mailpitBaseURL}/api/v1/message/${encodeURIComponent(messageID)}`,
+  );
+  expect(detailResponse.status()).toBe(200);
+  const detail = await detailResponse.json() as Record<string, unknown>;
+  const content = [detail.HTML, detail.Text]
+    .filter((value): value is string => typeof value === "string")
+    .join("\n");
+  const candidates = [
+    ...[...content.matchAll(/href=["']([^"']+)["']/gi)]
+      .map((match) => match[1] ?? ""),
+    ...(content.match(/https?:\/\/[^\s"'<>]+/gi) ?? []),
+  ];
+  const encodedLink = candidates.find((candidate) =>
+    candidate.includes("/login-actions/action-token")
+  );
+  if (!encodedLink) {
+    throw new Error("invitation email omitted the Keycloak action link");
+  }
+  const actionLink = encodedLink
+    .replaceAll("&amp;", "&")
+    .replaceAll("&#38;", "&")
+    .replaceAll("&#x26;", "&");
+  const parsed = new URL(actionLink);
+  const keycloakBaseURL = new URL(
+    requiredEnvironment("AVIA_OIDC_TEST_KEYCLOAK_BASE_URL"),
+  );
+  if (
+    parsed.origin !== keycloakBaseURL.origin ||
+    !parsed.pathname.startsWith(
+      "/identity/realms/aviasurveil360/login-actions/action-token",
+    ) ||
+    parsed.username ||
+    parsed.password
+  ) {
+    throw new Error("invitation email action link violated the provider boundary");
+  }
+  return parsed.toString();
+}
+
+async function completeInvitation(
+  page: Page,
+  request: APIRequestContext,
+  recipient: string,
+  password: string,
+): Promise<void> {
+  await page.goto(await invitationActionLink(request, recipient));
+  const passwordInput = page.locator('input[name="password-new"]');
+  if (!(await passwordInput.isVisible())) {
+    const proceed = page.getByRole("link", {
+      name: /click here to proceed|proceed|continue/i,
+    }).or(page.getByRole("button", {
+      name: /click here to proceed|proceed|continue/i,
+    })).first();
+    if (await proceed.isVisible()) await proceed.click();
+  }
+  try {
+    await expect(passwordInput).toBeVisible({ timeout: 10_000 });
+  } catch {
+    const heading = await page.locator("h1").first().innerText()
+      .catch(() => "");
+    throw new Error(
+      `invitation action did not reach password update: heading=${JSON.stringify(heading)} path=${new URL(page.url()).pathname}`,
+    );
+  }
+  await passwordInput.fill(password);
+  await page.locator('input[name="password-confirm"]').fill(password);
+  await page.locator('button[type="submit"], input[type="submit"]').click();
+}
+
+test("production-mode Keycloak enforces configured MFA and application provisioning revokes exact sessions", async ({
   browser,
   page,
   request,
@@ -242,6 +411,7 @@ test("production-mode Keycloak requires MFA and application provisioning revokes
         organizationId: "CAA",
         email: "must-not-exist@example.test",
         displayName: "Must Not Exist",
+        reason: "Verify CSRF rejects a valid lifecycle command.",
       }),
     });
     return { status: response.status, body: await response.json() };
@@ -273,6 +443,7 @@ test("production-mode Keycloak requires MFA and application provisioning revokes
         organizationId: "ORG-FLY-NAMIBIA",
         email: "wrong-organization-must-not-exist@example.test",
         displayName: "Wrong Organization",
+        reason: "Verify CAA role authority cannot target an auditee organization.",
       }),
     });
     return { status: response.status, body: await response.json() };
@@ -283,6 +454,9 @@ test("production-mode Keycloak requires MFA and application provisioning revokes
   });
 
   await page.getByRole("button", { name: "Create user" }).click();
+  await page.getByLabel("Provisioning reason").fill(
+    "Plan 5 Task 4 verifies exact identity authority and session lifecycle.",
+  );
   await page.getByLabel("Provisioning email").fill(inspectorEmail);
   await page.getByLabel("Provisioning display name").fill("Provisioned Inspector");
   await page.getByLabel("Provisioning organization").fill("CAA");
@@ -329,7 +503,7 @@ test("production-mode Keycloak requires MFA and application provisioning revokes
     enabled: true,
     attributes: { organization_id: ["CAA"] },
   });
-  expect(created.requiredActions).toContain("CONFIGURE_TOTP");
+  expect(created.requiredActions).not.toContain("CONFIGURE_TOTP");
 
   const rolesResponse = await request.get(
     `${requiredEnvironment("AVIA_OIDC_TEST_KEYCLOAK_BASE_URL")}/admin/realms/aviasurveil360/users/${encodeURIComponent(subjectID)}/role-mappings/realm`,
@@ -340,6 +514,28 @@ test("production-mode Keycloak requires MFA and application provisioning revokes
     .map(({ name }) => name)
     .filter((name) => approvedRoles.has(name));
   expect(mappedRoles).toEqual(["inspector"]);
+  const inspectorContext = await browser.newContext();
+  const inspectorPage = await inspectorContext.newPage();
+  await completeInvitation(
+    inspectorPage,
+    request,
+    inspectorEmail,
+    inspectorPassword,
+  );
+  await expect.poll(async () => {
+    const providerUser = await keycloakUser(
+      request,
+      adminToken,
+      inspectorEmail,
+    );
+    return {
+      emailVerified: providerUser.emailVerified,
+      requiredActions: providerUser.requiredActions,
+    };
+  }, { timeout: 30_000 }).toEqual({
+    emailVerified: true,
+    requiredActions: [],
+  });
 
   const duplicateEmail = await page.evaluate(async (email) => {
     const csrf = document.cookie
@@ -363,6 +559,7 @@ test("production-mode Keycloak requires MFA and application provisioning revokes
         organizationId: "CAA",
         email,
         displayName: "Duplicate Inspector",
+        reason: "Verify duplicate provider email identity is rejected.",
       }),
     });
     return { status: response.status, body: await response.json() };
@@ -371,19 +568,6 @@ test("production-mode Keycloak requires MFA and application provisioning revokes
     status: 409,
     body: { code: "CONFLICT" },
   });
-
-  const passwordResponse = await request.put(
-    `${requiredEnvironment("AVIA_OIDC_TEST_KEYCLOAK_BASE_URL")}/admin/realms/aviasurveil360/users/${encodeURIComponent(subjectID)}/reset-password`,
-    {
-      headers: { Authorization: `Bearer ${adminToken}` },
-      data: {
-        type: "password",
-        temporary: false,
-        value: inspectorPassword,
-      },
-    },
-  );
-  expect(passwordResponse.status()).toBe(204);
 
   execFileSync(
     "docker",
@@ -427,6 +611,11 @@ test("production-mode Keycloak requires MFA and application provisioning revokes
     return response.status;
   });
   expect(logoutStatus).toBe(204);
+  const providerLogout = await request.post(
+    `${requiredEnvironment("AVIA_OIDC_TEST_KEYCLOAK_BASE_URL")}/admin/realms/aviasurveil360/users/${encodeURIComponent(requiredEnvironment("AVIA_OIDC_TEST_ADMIN_SUBJECT_ID"))}/logout`,
+    { headers: { Authorization: `Bearer ${adminToken}` } },
+  );
+  expect(providerLogout.status()).toBe(204);
   await page.goto("/");
   await expect(
     page.getByRole("heading", { name: /Sign in to AviaSurveil360/i }),
@@ -439,15 +628,12 @@ test("production-mode Keycloak requires MFA and application provisioning revokes
     "admin",
   );
 
-  const inspectorContext = await browser.newContext();
-  const inspectorPage = await inspectorContext.newPage();
-  const inspectorTotpSecret = await enrollTotp(
+  await loginWithoutTotp(
     inspectorPage,
     inspectorEmail,
     inspectorPassword,
     "inspector",
   );
-  expect(inspectorTotpSecret).not.toBe("");
   await expect(inspectorPage).toHaveURL(/\/inspector\/inspector-assignments$/);
 
   const wrongRole = await inspectorPage.evaluate(async () => {
@@ -472,26 +658,86 @@ test("production-mode Keycloak requires MFA and application provisioning revokes
         organizationId: "CAA",
         email: "wrong-role-must-not-exist@example.test",
         displayName: "Wrong Role",
+        reason: "Verify Inspector cannot provision application authority.",
       }),
     });
     return response.status;
   });
   expect(wrongRole).toBe(403);
 
-  await page.goto("/admin/users-roles");
-  await page.getByLabel("Search users").fill("Provisioned Inspector");
-  await expect(page.getByText("Provisioned Inspector")).toBeVisible();
-  await page.getByRole(
-    "button",
-    { name: `Deactivate ${subjectID}` },
-  ).click();
-  await expect.poll(async () => {
-    await page.getByRole(
-      "button",
-      { name: "Refresh provisioning status" },
-    ).click();
-    return page.getByText(/Provisioning status:/).innerText();
-  }, { timeout: 30_000 }).toContain("SUCCEEDED");
+  const deactivation = await page.evaluate(async (targetSubjectID) => {
+    const directoryResponse = await fetch(
+      "/api/v1/admin/access-directory?limit=25",
+      { credentials: "same-origin" },
+    );
+    const directory = await directoryResponse.json() as {
+      items?: Array<{
+        subjectId: string;
+        roles: string[];
+        organizationId: string | null;
+        membershipRevision: number;
+      }>;
+    };
+    const target = directory.items?.find(
+      (entry) => entry.subjectId === targetSubjectID,
+    );
+    if (!directoryResponse.ok || !target) {
+      return {
+        status: directoryResponse.status,
+        body: {
+          code: "DIRECTORY_TARGET_MISSING",
+          itemCount: directory.items?.length ?? 0,
+        },
+      };
+    }
+    const csrf = document.cookie
+      .split("; ")
+      .find((entry) => entry.startsWith("__Host-avia_csrf="))
+      ?.split("=")[1];
+    const operationId = `task4-deactivate-${targetSubjectID}`;
+    const response = await fetch("/api/v1/admin/user-lifecycle-requests", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "content-type": "application/json",
+        "idempotency-key": operationId,
+        "x-csrf-token": decodeURIComponent(csrf ?? ""),
+      },
+      body: JSON.stringify({
+        operationId,
+        idempotencyKey: operationId,
+        subjectId: targetSubjectID,
+        action: "DEACTIVATE",
+        roles: target.roles,
+        organizationId: target.organizationId,
+        reason:
+          "Plan 5 Task 4 verifies provider disablement and exact session revocation.",
+        expectedMembershipRevision: target.membershipRevision,
+      }),
+    });
+    return { status: response.status, body: await response.json() };
+  }, subjectID);
+  expect(deactivation).toMatchObject({
+    status: 202,
+    body: {
+      subjectId: subjectID,
+      action: "DEACTIVATE",
+      status: expect.stringMatching(/^(?:PENDING|SUCCEEDED)$/),
+    },
+  });
+  const deactivationRequestID = String(
+    (deactivation.body as { id?: unknown }).id ?? "",
+  );
+  expect(deactivationRequestID).not.toBe("");
+  await expect.poll(async () => page.evaluate(async (requestID) => {
+    const response = await fetch(
+      `/api/v1/admin/user-lifecycle-requests/${encodeURIComponent(requestID)}`,
+      { credentials: "same-origin" },
+    );
+    if (!response.ok) return `HTTP_${response.status}`;
+    const body = await response.json() as { status?: string };
+    return body.status ?? "MISSING_STATUS";
+  }, deactivationRequestID), { timeout: 30_000 }).toBe("SUCCEEDED");
 
   await expect.poll(async () => inspectorPage.evaluate(async () => {
     const response = await fetch("/auth/session", {
