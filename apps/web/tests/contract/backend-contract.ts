@@ -123,12 +123,12 @@ export async function createCanonicalFinding(
   return converted.finding!;
 }
 
-export async function submitAndAcceptCanonicalCap(
+export async function submitCanonicalCap(
   harness: BackendContractHarness,
   finding: FindingView,
 ) {
   const auditee = harness.backendFor(PRINCIPALS.auditee);
-  const submitted = await auditee.caps.submit({
+  return auditee.caps.submit({
     operationId: "OP-CAP-SUBMIT-CANONICAL",
     findingId: finding.id,
     expectedFindingRevision: finding.revision,
@@ -142,6 +142,13 @@ export async function submitAndAcceptCanonicalCap(
     targetCompletionDate: "2026-07-15",
     commentToCaa: "CAP submitted for CAA review.",
   });
+}
+
+export async function submitAndAcceptCanonicalCap(
+  harness: BackendContractHarness,
+  finding: FindingView,
+) {
+  const submitted = await submitCanonicalCap(harness, finding);
 
   const lead = harness.backendFor(PRINCIPALS.leadInspector);
   const accepted = await lead.caps.review({

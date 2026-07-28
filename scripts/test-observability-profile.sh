@@ -228,6 +228,7 @@ GRAFANA_PASSWORD="$(
   tr -d '\r\n' \
     <"${AVIASURVEIL_LOCAL_STATE_DIR}/secrets/grafana_admin_password"
 )"
+echo "Checking authenticated Grafana dashboard provisioning"
 wait_for \
   "authenticated Grafana dashboard provisioning" \
   "curl --fail --silent --show-error --insecure --user local-observability-admin:'${GRAFANA_PASSWORD}' https://localhost:${AVIA_LOCAL_HTTPS_PORT}/operations/api/dashboards/uid/aviasurveil360-overview >${RUNTIME_DIRECTORY}/grafana-dashboard.json"
@@ -250,8 +251,8 @@ node -e '
   const directory = process.argv[1];
   const traceHex = process.env.TRACE_ID_HEX;
   const spanHex = process.env.SPAN_ID_HEX;
-  const traceId = Buffer.from(traceHex, "hex").toString("base64");
-  const spanId = Buffer.from(spanHex, "hex").toString("base64");
+  const traceId = traceHex;
+  const spanId = spanHex;
   const now = BigInt(Date.now()) * 1000000n;
   const resource = {
     attributes: [
@@ -355,6 +356,7 @@ node -e '
 ' "${RUNTIME_DIRECTORY}"
 
 for signal in traces metrics logs; do
+  echo "Submitting OTLP ${signal} fixture"
   curl \
     --fail \
     --silent \

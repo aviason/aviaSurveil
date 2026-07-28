@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "artifactStatus": "candidate-only",
+  "productionCertification": false,
+  "scenarios": [
+    {
+      "id": "database-loss",
+      "activeStackMutationAllowed": false,
+      "recoveryAction": "Restore both PostgreSQL clusters into new project-scoped volumes from the selected pgBackRest labels.",
+      "expectedResult": "Application and identity fingerprints exactly match the complete recovery-point catalog."
+    },
+    {
+      "id": "primary-object-loss",
+      "activeStackMutationAllowed": false,
+      "recoveryAction": "Restore every checksum-bound object version into a new project-scoped MinIO volume.",
+      "expectedResult": "The restored object fingerprint matches the immutable manifest and every restored byte count and SHA-256."
+    },
+    {
+      "id": "latest-backup-corruption-fallback",
+      "activeStackMutationAllowed": false,
+      "recoveryAction": "Reject a locally corrupted catalog before target mutation and select the preceding complete recovery point.",
+      "expectedResult": "The corrupt candidate cannot report success and the preceding complete point passes the full restore gate."
+    },
+    {
+      "id": "worker-backlog",
+      "activeStackMutationAllowed": false,
+      "recoveryAction": "Restore an undelivered application outbox message and start the isolated worker.",
+      "expectedResult": "The isolated worker delivers the restored message through private Mailpit without changing the source stack."
+    },
+    {
+      "id": "lost-application-node",
+      "activeStackMutationAllowed": false,
+      "recoveryAction": "Restart the isolated API node after restore and wait for dependency-aware readiness.",
+      "expectedResult": "Readiness returns HTTP 200 and the restored OIDC/TOTP browser smoke remains successful."
+    }
+  ]
+}

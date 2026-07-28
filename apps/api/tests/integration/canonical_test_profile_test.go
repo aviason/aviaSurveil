@@ -20,6 +20,8 @@ func TestCanonicalTestProfileResetSeedsExactServerOwnedScope(t *testing.T) {
 		var audits, questions, reports, preliminaryReports, otherFindings, offlineGrants int
 		var invalidReportContentHashes int
 		var preliminaryV1Ready bool
+		var auditDueDate string
+		var nextPlannedAuditDate string
 		if err := pool.QueryRow(context.Background(), `
 			SELECT
 				(SELECT count(*) FROM inspections WHERE id = 'AUD-2026-001'),
@@ -33,7 +35,10 @@ func TestCanonicalTestProfileResetSeedsExactServerOwnedScope(t *testing.T) {
 				(SELECT count(*) FROM report_versions
 				 WHERE snapshot->>'contentHash' !~ '^sha256:[0-9a-f]{64}$'),
 				(SELECT (snapshot->>'ready')::boolean
-				 FROM report_versions WHERE id = 'PR-2026-018-V1')
+				 FROM report_versions WHERE id = 'PR-2026-018-V1'),
+				(SELECT due_date::text FROM inspections WHERE id = 'AUD-2026-001'),
+				(SELECT scheduled_date::text FROM surveillance_plan_items
+				 WHERE id = 'PLAN-2026-CAB-001')
 		`).Scan(
 			&audits,
 			&questions,
@@ -43,6 +48,8 @@ func TestCanonicalTestProfileResetSeedsExactServerOwnedScope(t *testing.T) {
 			&offlineGrants,
 			&invalidReportContentHashes,
 			&preliminaryV1Ready,
+			&auditDueDate,
+			&nextPlannedAuditDate,
 		); err != nil {
 			t.Fatalf("read canonical profile counts: %v", err)
 		}
@@ -62,6 +69,16 @@ func TestCanonicalTestProfileResetSeedsExactServerOwnedScope(t *testing.T) {
 			t.Fatalf(
 				"canonical reset seeded %d report versions without exact sha256 content hashes",
 				invalidReportContentHashes,
+			)
+		}
+		if auditDueDate != "2026-06-18" {
+			t.Fatalf("canonical Audit due date = %q, want %q", auditDueDate, "2026-06-18")
+		}
+		if nextPlannedAuditDate != "2026-07-15" {
+			t.Fatalf(
+				"canonical next planned Audit date = %q, want %q",
+				nextPlannedAuditDate,
+				"2026-07-15",
 			)
 		}
 	}

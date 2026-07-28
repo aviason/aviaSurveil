@@ -169,5 +169,6 @@ issue; changed Go files are formatted, complete `go vet` passes, shell syntax
 passes, profile/image security contracts pass 24/24, and docs/diff checks pass.
 
 No Git staging, commit, push, deployment, production infrastructure change, or
-operating-system trust-store change was performed. Plan 4 remains unstarted
-and unauthorized.
+operating-system trust-store change was performed at this Plan 3 checkpoint.
+Plan 4 was unstarted at that checkpoint; its later local status is recorded in
+[Local Reliability, DR, And Infrastructure Evidence](LOCAL_RELIABILITY_AND_DR_2026-07-22.md).

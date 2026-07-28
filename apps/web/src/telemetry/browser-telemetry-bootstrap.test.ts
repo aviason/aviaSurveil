@@ -6,6 +6,7 @@ import type { BrowserTelemetry } from "./browser-telemetry";
 import {
   classifyWebVitalEntry,
   currentBrowserRouteID,
+  installBrowserTelemetry,
   observeBrowserNavigation,
 } from "./browser-telemetry-bootstrap";
 
@@ -36,7 +37,23 @@ function performanceEntry(
 
 describe("browser navigation telemetry", () => {
   afterEach(() => {
+    vi.unstubAllGlobals();
     window.history.replaceState({}, "", "/");
+  });
+
+  it("keeps demo telemetry local when no collector is present", async () => {
+    const send = vi.fn(async () => ({ ok: true }) as Response);
+    vi.stubGlobal("fetch", send);
+
+    const telemetry = installBrowserTelemetry("demo", "test");
+    telemetry.recordAPIOutcome("read", "succeeded", "dashboard");
+    await expect(telemetry.flush()).resolves.toEqual({
+      delivered: true,
+      count: 2,
+    });
+
+    expect(send).not.toHaveBeenCalled();
+    window.dispatchEvent(new Event("pagehide"));
   });
 
   it("classifies LCP, CLS, and interaction latency without labeling first input as INP", () => {

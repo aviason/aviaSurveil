@@ -1618,11 +1618,43 @@
         "tablet",
         "mobile"
       ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "shell|BUTTON|button|Notifications unavailable: Notification delivery is not connected in this candidate.||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable HTTP-profile Notifications control exposes the exact reason that notification delivery is not connected in this candidate.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason"
+    },
+    {
+      "surfaceId": "*",
+      "scope": "shell",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
       "controlKey": "shell|BUTTON|button|Notifications||1",
       "boundary": "verified-visible-state",
       "durableEffect": "The \"Notifications\" control exposes its durable selection or disclosure state through an exact accessible state attribute.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "verified-visible-state"
+      "assertion": "verified-visible-state",
+      "profiles": [
+        "mock"
+      ]
+    },
+    {
+      "surfaceId": "*",
+      "scope": "shell",
+      "viewports": [
+        "mobile"
+      ],
+      "controlKey": "shell|BUTTON|button|Open navigation||1",
+      "boundary": "verified-visible-state",
+      "durableEffect": "Activating the shared Open navigation control sets aria-expanded to true, exposes exactly one modal navigation, and returns focus after Escape.",
+      "evidence": "apps/web/tests/e2e/full-route-accessibility.spec.ts",
+      "assertion": "await opener\\.click\\(\\);"
     },
     {
       "surfaceId": "*",
@@ -1636,7 +1668,10 @@
       "boundary": "typed-mutation:shell-reset",
       "durableEffect": "Activating \"Reset demo\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
+      "assertion": "assertDurableControlOutcome",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "*",
@@ -1925,11 +1960,48 @@
         "tablet",
         "mobile"
       ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Open CAA unavailable: No declared contextual Admin detail route.||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable CAA organization detail control exposes its exact missing-route reason.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason"
+    },
+    {
+      "surfaceId": "admin-organization-master-data",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Open ORG-SKYCARGO unavailable: No declared contextual Admin detail route.||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable ORG-SKYCARGO detail control exposes its exact missing-route reason.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason"
+    },
+    {
+      "surfaceId": "admin-organization-master-data",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
       "controlKey": "route|BUTTON|button|Open ORG-SKYCARGO unavailable: ORG-SKYCARGO has no declared contextual detail route in Task 10.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Open ORG-SKYCARGO unavailable: ORG-SKYCARGO has no declared contextual detail route in ...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "admin-organization-master-data",
@@ -2195,7 +2267,10 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Change role USR-ADMIN-ADA unavailable: USR-ADMIN-ADA account provisioning and role chan...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2209,7 +2284,10 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Change role USR-AUDITEE-FLY unavailable: USR-AUDITEE-FLY account provisioning and role ...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2223,7 +2301,10 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Change role USR-ED-ZARA unavailable: USR-ED-ZARA account provisioning and role changes ...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2237,7 +2318,10 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Change role USR-FINANCE-LINA unavailable: USR-FINANCE-LINA account provisioning and rol...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2251,7 +2335,10 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Change role USR-GM-OMAR unavailable: USR-GM-OMAR account provisioning and role changes ...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2265,7 +2352,10 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Change role USR-INSPECTOR-AMINA unavailable: USR-INSPECTOR-AMINA account provisioning a...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2279,7 +2369,10 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Change role USR-INSPECTOR-DAVID unavailable: USR-INSPECTOR-DAVID account provisioning a...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2293,7 +2386,10 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Change role USR-LEAD-CANER unavailable: USR-LEAD-CANER account provisioning and role ch...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2307,7 +2403,10 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Change role USR-MANAGER-NORA unavailable: USR-MANAGER-NORA account provisioning and rol...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2321,7 +2420,44 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Create user unavailable: User creation is production-only and requires Plan 3 Keycloak ...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Create user||1",
+      "boundary": "typed-mutation:typed-workflow-mutations",
+      "durableEffect": "Activating Create user must change durable user lifecycle state beyond transient status text.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertDurableControlOutcome"
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Deactivate 154ec5ac-6f97-4f55-916f-d2f142fc6211|user-lifecycle-status|1",
+      "boundary": "verified-controlled-state",
+      "durableEffect": "Activating Deactivate 154ec5ac-6f97-4f55-916f-d2f142fc6211 updates the declared user lifecycle status surface.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertControlledSurfaceOutcome"
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2335,7 +2471,27 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Deactivate USR-ADMIN-ADA unavailable: USR-ADMIN-ADA account provisioning and role chang...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Deactivate USR-ADMIN-ADA|user-lifecycle-status|1",
+      "boundary": "verified-controlled-state",
+      "durableEffect": "Activating Deactivate USR-ADMIN-ADA updates the declared user lifecycle status surface.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertControlledSurfaceOutcome"
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2349,7 +2505,27 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Deactivate USR-AUDITEE-FLY unavailable: USR-AUDITEE-FLY account provisioning and role c...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Deactivate USR-AUDITEE-FLY|user-lifecycle-status|1",
+      "boundary": "verified-controlled-state",
+      "durableEffect": "Activating Deactivate USR-AUDITEE-FLY updates the declared user lifecycle status surface.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertControlledSurfaceOutcome"
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2363,7 +2539,27 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Deactivate USR-ED-ZARA unavailable: USR-ED-ZARA account provisioning and role changes a...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Deactivate USR-ED-ZARA|user-lifecycle-status|1",
+      "boundary": "verified-controlled-state",
+      "durableEffect": "Activating Deactivate USR-ED-ZARA updates the declared user lifecycle status surface.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertControlledSurfaceOutcome"
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2377,7 +2573,27 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Deactivate USR-FINANCE-LINA unavailable: USR-FINANCE-LINA account provisioning and role...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Deactivate USR-FINANCE-LINA|user-lifecycle-status|1",
+      "boundary": "verified-controlled-state",
+      "durableEffect": "Activating Deactivate USR-FINANCE-LINA updates the declared user lifecycle status surface.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertControlledSurfaceOutcome"
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2391,7 +2607,27 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Deactivate USR-GM-OMAR unavailable: USR-GM-OMAR account provisioning and role changes a...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Deactivate USR-GM-OMAR|user-lifecycle-status|1",
+      "boundary": "verified-controlled-state",
+      "durableEffect": "Activating Deactivate USR-GM-OMAR updates the declared user lifecycle status surface.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertControlledSurfaceOutcome"
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2405,7 +2641,10 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Deactivate USR-INSPECTOR-AMINA unavailable: USR-INSPECTOR-AMINA account provisioning an...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2419,7 +2658,27 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Deactivate USR-INSPECTOR-DAVID unavailable: USR-INSPECTOR-DAVID account provisioning an...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Deactivate USR-INSPECTOR-DAVID|user-lifecycle-status|1",
+      "boundary": "verified-controlled-state",
+      "durableEffect": "Activating Deactivate USR-INSPECTOR-DAVID updates the declared user lifecycle status surface.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertControlledSurfaceOutcome"
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2433,7 +2692,27 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Deactivate USR-LEAD-CANER unavailable: USR-LEAD-CANER account provisioning and role cha...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Deactivate USR-LEAD-CANER|user-lifecycle-status|1",
+      "boundary": "verified-controlled-state",
+      "durableEffect": "Activating Deactivate USR-LEAD-CANER updates the declared user lifecycle status surface.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertControlledSurfaceOutcome"
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2447,7 +2726,27 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Deactivate USR-MANAGER-NORA unavailable: USR-MANAGER-NORA account provisioning and role...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Deactivate USR-MANAGER-NORA|user-lifecycle-status|1",
+      "boundary": "verified-controlled-state",
+      "durableEffect": "Activating Deactivate USR-MANAGER-NORA updates the declared user lifecycle status surface.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertControlledSurfaceOutcome"
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2461,7 +2760,10 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Invite USR-ADMIN-ADA unavailable: USR-ADMIN-ADA account provisioning and role changes a...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2475,7 +2777,10 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Invite USR-AUDITEE-FLY unavailable: USR-AUDITEE-FLY account provisioning and role chang...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2489,7 +2794,10 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Invite USR-ED-ZARA unavailable: USR-ED-ZARA account provisioning and role changes are p...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2503,7 +2811,10 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Invite USR-FINANCE-LINA unavailable: USR-FINANCE-LINA account provisioning and role cha...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2517,7 +2828,10 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Invite USR-GM-OMAR unavailable: USR-GM-OMAR account provisioning and role changes are p...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2531,7 +2845,10 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Invite USR-INSPECTOR-AMINA unavailable: USR-INSPECTOR-AMINA account provisioning and ro...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2545,7 +2862,10 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Invite USR-INSPECTOR-DAVID unavailable: USR-INSPECTOR-DAVID account provisioning and ro...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2559,7 +2879,10 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Invite USR-LEAD-CANER unavailable: USR-LEAD-CANER account provisioning and role changes...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2572,6 +2895,43 @@
       "controlKey": "route|BUTTON|button|Invite USR-MANAGER-NORA unavailable: USR-MANAGER-NORA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Invite USR-MANAGER-NORA unavailable: USR-MANAGER-NORA account provisioning and role cha...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Manage MFA 154ec5ac-6f97-4f55-916f-d2f142fc6211 unavailable: MFA enrollment is user-controlled through the required first-login Keycloak action.||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable Manage MFA control for 154ec5ac-6f97-4f55-916f-d2f142fc6211 exposes the Keycloak first-login ownership reason.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason"
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Manage MFA USR-ADMIN-ADA unavailable: MFA enrollment is user-controlled through the required first-login Keycloak action.||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable Manage MFA control for USR-ADMIN-ADA exposes the Keycloak first-login ownership reason.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "disabledReason"
     },
@@ -2587,6 +2947,26 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Manage MFA USR-ADMIN-ADA unavailable: USR-ADMIN-ADA account provisioning and role chang...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Manage MFA USR-AUDITEE-FLY unavailable: MFA enrollment is user-controlled through the required first-login Keycloak action.||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable Manage MFA control for USR-AUDITEE-FLY exposes the Keycloak first-login ownership reason.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "disabledReason"
     },
     {
@@ -2600,6 +2980,26 @@
       "controlKey": "route|BUTTON|button|Manage MFA USR-AUDITEE-FLY unavailable: USR-AUDITEE-FLY account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Manage MFA USR-AUDITEE-FLY unavailable: USR-AUDITEE-FLY account provisioning and role c...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Manage MFA USR-ED-ZARA unavailable: MFA enrollment is user-controlled through the required first-login Keycloak action.||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable Manage MFA control for USR-ED-ZARA exposes the Keycloak first-login ownership reason.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "disabledReason"
     },
@@ -2615,6 +3015,26 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Manage MFA USR-ED-ZARA unavailable: USR-ED-ZARA account provisioning and role changes a...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Manage MFA USR-FINANCE-LINA unavailable: MFA enrollment is user-controlled through the required first-login Keycloak action.||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable Manage MFA control for USR-FINANCE-LINA exposes the Keycloak first-login ownership reason.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "disabledReason"
     },
     {
@@ -2628,6 +3048,26 @@
       "controlKey": "route|BUTTON|button|Manage MFA USR-FINANCE-LINA unavailable: USR-FINANCE-LINA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Manage MFA USR-FINANCE-LINA unavailable: USR-FINANCE-LINA account provisioning and role...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Manage MFA USR-GM-OMAR unavailable: MFA enrollment is user-controlled through the required first-login Keycloak action.||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable Manage MFA control for USR-GM-OMAR exposes the Keycloak first-login ownership reason.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "disabledReason"
     },
@@ -2643,7 +3083,10 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Manage MFA USR-GM-OMAR unavailable: USR-GM-OMAR account provisioning and role changes a...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2656,6 +3099,26 @@
       "controlKey": "route|BUTTON|button|Manage MFA USR-INSPECTOR-AMINA unavailable: USR-INSPECTOR-AMINA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Manage MFA USR-INSPECTOR-AMINA unavailable: USR-INSPECTOR-AMINA account provisioning an...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Manage MFA USR-INSPECTOR-DAVID unavailable: MFA enrollment is user-controlled through the required first-login Keycloak action.||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable Manage MFA control for USR-INSPECTOR-DAVID exposes the Keycloak first-login ownership reason.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "disabledReason"
     },
@@ -2671,6 +3134,26 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Manage MFA USR-INSPECTOR-DAVID unavailable: USR-INSPECTOR-DAVID account provisioning an...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Manage MFA USR-LEAD-CANER unavailable: MFA enrollment is user-controlled through the required first-login Keycloak action.||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable Manage MFA control for USR-LEAD-CANER exposes the Keycloak first-login ownership reason.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "disabledReason"
     },
     {
@@ -2684,6 +3167,26 @@
       "controlKey": "route|BUTTON|button|Manage MFA USR-LEAD-CANER unavailable: USR-LEAD-CANER account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Manage MFA USR-LEAD-CANER unavailable: USR-LEAD-CANER account provisioning and role cha...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Manage MFA USR-MANAGER-NORA unavailable: MFA enrollment is user-controlled through the required first-login Keycloak action.||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable Manage MFA control for USR-MANAGER-NORA exposes the Keycloak first-login ownership reason.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "disabledReason"
     },
@@ -2699,7 +3202,10 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Manage MFA USR-MANAGER-NORA unavailable: USR-MANAGER-NORA account provisioning and role...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "admin-users-roles",
@@ -3056,6 +3562,26 @@
         "tablet",
         "mobile"
       ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Download EV-CAB-2026-001-V1 unavailable||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable \"Download EV-CAB-2026-001-V1\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason"
+    },
+    {
+      "surfaceId": "auditee-documents",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "mock"
+      ],
       "controlKey": "route|BUTTON|button|Download EV-CAB-2026-001-V1||1",
       "boundary": "browser-local-artifact:browser-local-artifacts",
       "durableEffect": "Activating \"Download EV-CAB-2026-001-V1\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
@@ -3069,6 +3595,26 @@
         "desktop",
         "tablet",
         "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Download EV-CAB-2026-001-V2 unavailable||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable \"Download EV-CAB-2026-001-V2\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason"
+    },
+    {
+      "surfaceId": "auditee-documents",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "mock"
       ],
       "controlKey": "route|BUTTON|button|Download EV-CAB-2026-001-V2||1",
       "boundary": "browser-local-artifact:browser-local-artifacts",
@@ -3138,6 +3684,9 @@
       "viewports": [
         "mobile"
       ],
+      "profiles": [
+        "mock"
+      ],
       "controlKey": "route|A|control|Open mobile RPT-CAB-2026-001-V1|/auditee/reports/RPT-CAB-2026-001|1",
       "boundary": "verified-navigation",
       "durableEffect": "Activating \"Open mobile RPT-CAB-2026-001-V1\" uses the declared destination /auditee/reports/RPT-CAB-2026-001 and preserves exact routed navigation semantics.",
@@ -3149,7 +3698,27 @@
       "scope": "route",
       "viewports": [
         "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|A|control|Open RPT-CAB-2026-001-V1|/auditee/reports/RPT-CAB-2026-001|1",
+      "boundary": "verified-navigation",
+      "durableEffect": "Activating \"Open RPT-CAB-2026-001-V1\" uses the declared destination /auditee/reports/RPT-CAB-2026-001 and preserves exact routed navigation semantics.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "declares an exact destination"
+    },
+    {
+      "surfaceId": "auditee-final-reports",
+      "scope": "route",
+      "viewports": [
+        "desktop",
         "tablet"
+      ],
+      "profiles": [
+        "mock"
       ],
       "controlKey": "route|A|control|Open RPT-CAB-2026-001-V1|/auditee/reports/RPT-CAB-2026-001|1",
       "boundary": "verified-navigation",
@@ -3597,6 +4166,9 @@
       "viewports": [
         "mobile"
       ],
+      "profiles": [
+        "mock"
+      ],
       "controlKey": "route|BUTTON|button|Preview mobile PR-2026-018-V1||1",
       "boundary": "selection-or-filter:declared-route-and-workflow-actions",
       "durableEffect": "Activating \"Preview mobile PR-2026-018-V1\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
@@ -3608,7 +4180,27 @@
       "scope": "route",
       "viewports": [
         "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Preview PR-2026-018-V1||1",
+      "boundary": "selection-or-filter:declared-route-and-workflow-actions",
+      "durableEffect": "Activating \"Preview PR-2026-018-V1\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertDurableControlOutcome"
+    },
+    {
+      "surfaceId": "auditee-preliminary-reports",
+      "scope": "route",
+      "viewports": [
+        "desktop",
         "tablet"
+      ],
+      "profiles": [
+        "mock"
       ],
       "controlKey": "route|BUTTON|button|Preview PR-2026-018-V1||1",
       "boundary": "selection-or-filter:declared-route-and-workflow-actions",
@@ -4426,7 +5018,10 @@
       "boundary": "verified-navigation",
       "durableEffect": "Activating \"Preview RPT-CAB-2026-001-V1\" uses the declared destination /executive-director/reports/RPT-CAB-2026-001 and preserves exact routed navigation semantics.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
+      "assertion": "declares an exact destination",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "executive-final-reports",
@@ -4440,7 +5035,10 @@
       "boundary": "typed-mutation:typed-workflow-mutations",
       "durableEffect": "Activating \"Issue and lock RPT-CAB-2026-001-V1\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
+      "assertion": "assertDurableControlOutcome",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "executive-final-reports",
@@ -4454,7 +5052,10 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Return RPT-CAB-2026-001-V1 unavailable\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "executive-final-reports",
@@ -4468,7 +5069,10 @@
       "boundary": "verified-form-behavior",
       "durableEffect": "Activating \"Executive Director report decision reason\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
+      "assertion": "assertNativeFormControlOutcome",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "executive-home",
@@ -4524,7 +5128,10 @@
       "boundary": "typed-mutation:typed-workflow-mutations",
       "durableEffect": "Activating \"Mark NOT-EXEC-001 read\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
+      "assertion": "assertDurableControlOutcome",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "executive-notifications",
@@ -4538,7 +5145,10 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Open related item for NOT-EXEC-001 unavailable\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "executive-planning",
@@ -6212,6 +6822,26 @@
         "tablet",
         "mobile"
       ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Active audits (1)||1",
+      "boundary": "verified-visible-state",
+      "durableEffect": "Activating \"Active audits (1)\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertAccessibleStateOutcome"
+    },
+    {
+      "surfaceId": "lead-calendar",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "mock"
+      ],
       "controlKey": "route|BUTTON|button|Active audits (2)||1",
       "boundary": "verified-visible-state",
       "durableEffect": "Activating \"Active audits (2)\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
@@ -6229,7 +6859,10 @@
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Assignment unavailable for AUD-2026-099\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "disabledReason",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "lead-calendar",
@@ -6687,9 +7320,9 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|INPUT|date|Due DateObservation defaults clear CAP, Evidence, and Due Date; the Lead Inspector may explicitly enable them.||1",
+      "controlKey": "route|INPUT|date|Finding Due Date||1",
       "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Due DateObservation defaults clear CAP, Evidence, and Due Date; the Lead Inspector may explicitly enable them.\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
+      "durableEffect": "Activating \"Finding Due Date\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertNativeFormControlOutcome"
     },
@@ -7163,6 +7796,26 @@
         "tablet",
         "mobile"
       ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|CAR-2026-099CAR-2026-099||1",
+      "boundary": "verified-visible-state",
+      "durableEffect": "Activating \"CAR-2026-099\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertAccessibleStateOutcome"
+    },
+    {
+      "surfaceId": "manager-findings-review",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "mock"
+      ],
       "controlKey": "route|BUTTON|button|CAR-2026-099Cargo restraint record needs follow-up||1",
       "boundary": "verified-visible-state",
       "durableEffect": "Activating \"CAR-2026-099Cargo restraint record needs follow-up\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
@@ -7391,7 +8044,10 @@
       "boundary": "selection-or-filter:declared-route-and-workflow-actions",
       "durableEffect": "Activating \"Open Inspection Team for AUD-2026-099\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
+      "assertion": "assertDurableControlOutcome",
+      "profiles": [
+        "mock"
+      ]
     },
     {
       "surfaceId": "manager-inspection-team",
@@ -8263,6 +8919,23 @@
         "tablet",
         "mobile"
       ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Forward to General Manager||1",
+      "boundary": "typed-mutation:typed-workflow-mutations",
+      "durableEffect": "Activating \"Forward to General Manager\" must change durable report workflow state beyond transient status text.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertDurableControlOutcome"
+    },
+    {
+      "surfaceId": "report-preview",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
       "controlKey": "route|BUTTON|button|Open|report-version-dossier|1",
       "boundary": "verified-controlled-state",
       "durableEffect": "Activating \"Open\" visibly updates the exact surface named by aria-controls and rejects a no-op disclosure.",
@@ -8282,6 +8955,23 @@
       "durableEffect": "The unavailable \"Reset report filters unavailable\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "disabledReason"
+    },
+    {
+      "surfaceId": "report-preview",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Return for Revision||1",
+      "boundary": "typed-mutation:typed-workflow-mutations",
+      "durableEffect": "Activating \"Return for Revision\" must change durable report workflow state beyond transient status text.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertDurableControlOutcome"
     },
     {
       "surfaceId": "report-preview",
@@ -8420,6 +9110,23 @@
       "controlKey": "route|SELECT|select-one|Report type||1",
       "boundary": "verified-form-behavior",
       "durableEffect": "Activating \"Report type\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertNativeFormControlOutcome"
+    },
+    {
+      "surfaceId": "report-preview",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|TEXTAREA|textarea|Department Manager decision reason||1",
+      "boundary": "verified-form-behavior",
+      "durableEffect": "Activating \"Department Manager decision reason\" verifies its exact native value postcondition and rejects a no-op form control.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertNativeFormControlOutcome"
     },
@@ -8576,18 +9283,6 @@
       "durableEffect": "Activating \"Skip to workspace selection\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "*",
-      "scope": "shell",
-      "viewports": [
-        "mobile"
-      ],
-      "controlKey": "shell|BUTTON|button|Open navigation||1",
-      "boundary": "verified-visible-state",
-      "durableEffect": "Activating the shared Open navigation control sets aria-expanded to true, exposes exactly one modal navigation, and returns focus after Escape.",
-      "evidence": "apps/web/tests/e2e/full-route-accessibility.spec.ts",
-      "assertion": "await opener\\.click\\(\\);"
     }
   ],
   "actionEvidenceGroups": [
@@ -9067,39 +9762,39 @@
       "durableEffect": "Invokes a typed demo/backend command whose record, revision, authority, and visible result are covered by the owning feature tests.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts"
     },
-  {
-    "id": "browser-local-artifacts",
-    "surfaceIds": [
-      "*"
+    {
+      "id": "browser-local-artifacts",
+      "surfaceIds": [
+        "*"
       ],
       "namePattern": "^[^A-Za-z0-9]*(Export|Download|Print|Prepare)(\\b| ).*",
       "boundary": "browser-local-artifact",
-    "durableEffect": "Creates or prepares the explicitly labelled browser-local mock artifact and exposes a visible route-specific result.",
-    "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts"
-  },
-  {
-    "id": "role-handoff-navigation",
-    "surfaceIds": [
-      "finding-detail",
-      "cap-review"
-    ],
-    "namePattern": "^Switch to .+$",
-    "boundary": "navigation",
-    "durableEffect": "Requests the exact target role and navigates to the corresponding Finding or CAP workspace through the active identity boundary.",
-    "evidence": "apps/web/tests/e2e/canonical-scenario.spec.ts"
-  },
-  {
-    "id": "evidence-workspace-navigation",
-    "surfaceIds": [
-      "evidence-review"
-    ],
-    "namePattern": "^CAP / Provider Review$",
-    "boundary": "navigation",
-    "durableEffect": "Navigates from the Evidence waiting-review workspace to the CAP and provider-review register.",
-    "evidence": "apps/web/src/features/evidence/evidence-review-page.test.tsx"
-  },
-  {
-    "id": "declared-route-and-workflow-actions",
+      "durableEffect": "Creates or prepares the explicitly labelled browser-local mock artifact and exposes a visible route-specific result.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts"
+    },
+    {
+      "id": "role-handoff-navigation",
+      "surfaceIds": [
+        "finding-detail",
+        "cap-review"
+      ],
+      "namePattern": "^Switch to .+$",
+      "boundary": "navigation",
+      "durableEffect": "Requests the exact target role and navigates to the corresponding Finding or CAP workspace through the active identity boundary.",
+      "evidence": "apps/web/tests/e2e/canonical-scenario.spec.ts"
+    },
+    {
+      "id": "evidence-workspace-navigation",
+      "surfaceIds": [
+        "evidence-review"
+      ],
+      "namePattern": "^CAP / Provider Review$",
+      "boundary": "navigation",
+      "durableEffect": "Navigates from the Evidence waiting-review workspace to the CAP and provider-review register.",
+      "evidence": "apps/web/src/features/evidence/evidence-review-page.test.tsx"
+    },
+    {
+      "id": "declared-route-and-workflow-actions",
       "surfaceIds": [
         "role-select",
         "inspector-home",

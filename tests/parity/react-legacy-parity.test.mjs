@@ -97,13 +97,17 @@ test("the parity ledger freezes the 86/0 route scope and visible action ownershi
   }
   assert.ok(Array.isArray(ledger.actionEvidence), "Per-action evidence ledger is required");
   assert.ok(ledger.actionEvidence.length > 600, "Per-action evidence must enumerate every route and shared-shell control");
-  const actionEvidenceKeys = new Set();
+  const actionEvidenceRegions = new Map();
   const perActionSurfaceIds = new Set();
   for (const action of ledger.actionEvidence) {
     assert.ok(action.surfaceId === "*" || ledger.reactScope.reactParitySurfaceIds.includes(action.surfaceId));
     assert.ok(["route", "shell", "mobile-navigation"].includes(action.scope));
     assert.ok(Array.isArray(action.viewports) && action.viewports.length > 0);
     assert.ok(action.viewports.every((viewport) => ledger.interactionMatrix.viewports.includes(viewport)));
+    if (action.profiles) {
+      assert.ok(Array.isArray(action.profiles) && action.profiles.length > 0);
+      assert.ok(action.profiles.every((profile) => ["mock", "http"].includes(profile)));
+    }
     if (action.surfaceId === "*") assert.notEqual(action.scope, "route");
     assert.ok(action.controlKey);
     assert.ok(action.durableEffect.length > 20);
@@ -127,8 +131,18 @@ test("the parity ledger freezes the 86/0 route scope and visible action ownershi
     const evidenceSource = fs.readFileSync(path.join(repositoryRoot, action.evidence), "utf8");
     assert.match(evidenceSource, new RegExp(action.assertion));
     const key = `${action.surfaceId}:${action.scope}:${action.controlKey}`;
-    assert.ok(!actionEvidenceKeys.has(key), `Duplicate per-action evidence: ${key}`);
-    actionEvidenceKeys.add(key);
+    const regions = actionEvidenceRegions.get(key) ?? new Set();
+    for (const profile of action.profiles ?? ["mock", "http"]) {
+      for (const viewport of action.viewports) {
+        const region = `${profile}:${viewport}`;
+        assert.ok(
+          !regions.has(region),
+          `Overlapping per-action evidence: ${key}:${region}`,
+        );
+        regions.add(region);
+      }
+    }
+    actionEvidenceRegions.set(key, regions);
     if (action.surfaceId !== "*") perActionSurfaceIds.add(action.surfaceId);
   }
   assert.deepEqual(

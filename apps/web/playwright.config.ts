@@ -6,6 +6,10 @@ const profile =
     ? "local-demo"
     : e2eProfile === "local-full"
       ? "local-full"
+      : e2eProfile === "restored-platform"
+      ? "restored-platform"
+      : e2eProfile === "aws-trial"
+        ? "aws-trial"
       : e2eProfile === "http"
     ? "http"
     : e2eProfile === "oidc"
@@ -27,6 +31,8 @@ const shouldStartWebServer =
   profile !== "offline" &&
   profile !== "local-demo" &&
   profile !== "local-full" &&
+  profile !== "restored-platform" &&
+  profile !== "aws-trial" &&
   process.env.AVIA_UPDATE_LEGACY_BASELINES !== "1";
 const visualUse = {
   browserName: "chromium" as const,
@@ -79,6 +85,14 @@ export default defineConfig({
     {
       name: "local-full",
       testMatch: ["e2e/local-full-platform.spec.ts"],
+    },
+    {
+      name: "restored-platform",
+      testMatch: ["e2e/restored-platform-smoke.spec.ts"],
+    },
+    {
+      name: "aws-trial",
+      testMatch: ["e2e/aws-trial-smoke.spec.ts"],
     },
     {
       name: "mock",

@@ -199,6 +199,27 @@ test("Compose maps each local runtime service to its reviewed build target", () 
   }
 });
 
+test("ClamAV uses its reviewed amd64-only image on Apple Silicon hosts", () => {
+  const rendered = JSON.parse(
+    execFileSync(
+      "docker",
+      [
+        "compose",
+        "--file",
+        path.join(repositoryRoot, "deploy/local/compose.yaml"),
+        "--profile",
+        "full",
+        "config",
+        "--format",
+        "json",
+      ],
+      { cwd: repositoryRoot, encoding: "utf8" },
+    ),
+  );
+
+  assert.equal(rendered.services.clamav.platform, "linux/amd64");
+});
+
 test("every full-profile Go process uses production configuration without test bypasses", () => {
   const rendered = JSON.parse(
     execFileSync(

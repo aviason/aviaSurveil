@@ -1,0 +1,251 @@
+x-recovery-security: &recovery-security
+  init: true
+  read_only: true
+  stop_grace_period: 15s
+  pids_limit: 256
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  deploy:
+    resources:
+      limits:
+        cpus: "2"
+        memory: 2G
+        pids: 256
+
+x-recovery-health: &recovery-health
+  interval: 5s
+  timeout: 3s
+  retries: 30
+  start_period: 10s
+
+x-pgbackrest-secrets: &pgbackrest-secrets
+  - backup_pgbackrest_access_key
+  - backup_pgbackrest_secret_key
+  - backup_repository_cipher_passphrase
+
+services:
+  postgres:
+    image: aviasurveil360/postgres-recovery:local
+    build:
+      context: ../..
+      dockerfile: deploy/recovery/Dockerfile
+      target: postgres-recovery
+    command:
+      - postgres
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_command=/usr/local/bin/pgbackrest-secret --config=/etc/pgbackrest/pgbackrest.conf --stanza=application archive-push %p
+      - -c
+      - archive_timeout=60s
+    configs:
+      - source: pgbackrest_application_config
+        target: /etc/pgbackrest/pgbackrest.conf
+        mode: 0444
+    secrets:
+      - app_database_password
+      - backup_pgbackrest_access_key
+      - backup_pgbackrest_secret_key
+      - backup_repository_cipher_passphrase
+    tmpfs:
+      - /var/spool/pgbackrest:uid=70,gid=70,mode=0770
+      - /tmp/pgbackrest-lock:uid=70,gid=70,mode=0770
+      - /tmp/pgbackrest-log:uid=70,gid=70,mode=0770
+    networks:
+      - recovery-backup
+
+  keycloak-postgres:
+    image: aviasurveil360/postgres-recovery:local
+    build:
+      context: ../..
+      dockerfile: deploy/recovery/Dockerfile
+      target: postgres-recovery
+    command:
+      - postgres
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_command=/usr/local/bin/pgbackrest-secret --config=/etc/pgbackrest/pgbackrest.conf --stanza=identity archive-push %p
+      - -c
+      - archive_timeout=60s
+    configs:
+      - source: pgbackrest_identity_config
+        target: /etc/pgbackrest/pgbackrest.conf
+        mode: 0444
+    secrets:
+      - keycloak_database_password
+      - backup_pgbackrest_access_key
+      - backup_pgbackrest_secret_key
+      - backup_repository_cipher_passphrase
+    tmpfs:
+      - /var/spool/pgbackrest:uid=70,gid=70,mode=0770
+      - /tmp/pgbackrest-lock:uid=70,gid=70,mode=0770
+      - /tmp/pgbackrest-log:uid=70,gid=70,mode=0770
+    networks:
+      - recovery-backup
+
+  backup-minio-volume-init:
+    <<: *recovery-security
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    profiles: [recovery]
+    user: "0:0"
+    entrypoint: [/usr/bin/chown]
+    command: [-R, 1000:1000, /data]
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+    network_mode: none
+    volumes:
+      - backup-object-store:/data
+    restart: "no"
+
+  backup-minio:
+    <<: *recovery-security
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    profiles: [recovery]
+    user: "1000:1000"
+    depends_on:
+      backup-minio-volume-init:
+        condition: service_completed_successfully
+    entrypoint: [/bin/sh, /opt/aviasurveil360/backup-minio-init.sh]
+    environment:
+      MINIO_ROOT_USER_FILE: /run/secrets/backup_minio_root_user
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/backup_minio_root_password
+    configs:
+      - source: backup_minio_init
+        target: /opt/aviasurveil360/backup-minio-init.sh
+        uid: "1000"
+        gid: "1000"
+        mode: 0550
+      - source: backup_minio_public_cert
+        target: /certs/public.crt
+        uid: "1000"
+        gid: "1000"
+        mode: 0444
+    secrets:
+      - backup_minio_root_user
+      - backup_minio_root_password
+      - backup_pgbackrest_access_key
+      - backup_pgbackrest_secret_key
+      - backup_object_access_key
+      - backup_object_secret_key
+      - source: backup_minio_private_key
+        target: /certs/private.key
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
+    volumes:
+      - backup-object-store:/data
+    tmpfs:
+      - /tmp:uid=1000,gid=1000,mode=1777
+    networks:
+      - recovery-backup
+    healthcheck:
+      <<: *recovery-health
+      test:
+        - CMD-SHELL
+        - >-
+          test -f /tmp/backup-minio-initialized &&
+          curl --insecure --fail https://127.0.0.1:9000/minio/health/live
+    restart: unless-stopped
+
+  recovery-toolbox:
+    <<: *recovery-security
+    image: aviasurveil360/postgres-recovery:local
+    build:
+      context: ../..
+      dockerfile: deploy/recovery/Dockerfile
+      target: postgres-recovery
+    profiles: [recovery]
+    user: "70:70"
+    entrypoint: [/bin/sh, -c]
+    command: ["exec sleep infinity"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak-postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      backup-minio:
+        condition: service_healthy
+    configs:
+      - source: pgbackrest_application_config
+        target: /etc/pgbackrest/application.conf
+        mode: 0444
+      - source: pgbackrest_identity_config
+        target: /etc/pgbackrest/identity.conf
+        mode: 0444
+      - source: backup_policy
+        target: /etc/aviasurveil360/minio-backup-policy.json
+        mode: 0444
+      - source: backup_minio_public_cert
+        target: /certs/backup-minio.crt
+        mode: 0444
+      - source: identity_recovery_fingerprint
+        target: /opt/aviasurveil360/identity-recovery-fingerprint.sh
+        mode: 0555
+    secrets:
+      - app_database_password
+      - keycloak_database_password
+      - minio_root_user
+      - minio_root_password
+      - backup_minio_root_user
+      - backup_minio_root_password
+      - backup_pgbackrest_access_key
+      - backup_pgbackrest_secret_key
+      - backup_object_access_key
+      - backup_object_secret_key
+      - backup_repository_cipher_passphrase
+    tmpfs:
+      - /tmp:uid=70,gid=70,mode=1777
+    networks:
+      - database
+      - identity-database
+      - platform
+      - recovery-backup
+    healthcheck:
+      <<: *recovery-health
+      test: [CMD, pgbackrest, version]
+
+configs:
+  backup_minio_init:
+    file: ../recovery/backup-minio-init.sh
+  backup_minio_public_cert:
+    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/recovery/tls/public.crt
+  backup_policy:
+    file: ../recovery/minio-backup-policy.json
+  identity_recovery_fingerprint:
+    file: ../../scripts/identity-recovery-fingerprint.sh
+  pgbackrest_application_config:
+    file: ../recovery/pgbackrest-application.conf
+  pgbackrest_identity_config:
+    file: ../recovery/pgbackrest-identity.conf
+
+secrets:
+  backup_minio_private_key:
+    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/recovery/tls/private.key
+  backup_minio_root_password:
+    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/backup_minio_root_password
+  backup_minio_root_user:
+    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/backup_minio_root_user
+  backup_object_access_key:
+    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/backup_object_access_key
+  backup_object_secret_key:
+    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/backup_object_secret_key
+  backup_pgbackrest_access_key:
+    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/backup_pgbackrest_access_key
+  backup_pgbackrest_secret_key:
+    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/backup_pgbackrest_secret_key
+  backup_repository_cipher_passphrase:
+    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/backup_repository_cipher_passphrase
+
+networks:
+  recovery-backup:
+    internal: true
+
+volumes:
+  backup-object-store:

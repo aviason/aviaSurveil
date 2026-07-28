@@ -96,7 +96,7 @@ test("SBOM and vulnerability tools run from reviewed digest-pinned containers", 
     assert.match(script, /--tmpfs \/tmp:.*mode=1777/u);
   }
   assert.match(sbomScript, /--tmpfs \/tmp:.*size=1g/u);
-  assert.match(sbomScript, /Generated 8 digest-bound CycloneDX SBOMs/u);
+  assert.match(sbomScript, /Generated 9 digest-bound CycloneDX SBOMs/u);
   assert.match(scanScript, /--tmpfs \/tmp:.*size=2g/u);
   assert.match(
     scanScript,
@@ -107,7 +107,7 @@ test("SBOM and vulnerability tools run from reviewed digest-pinned containers", 
   assert.match(scanScript, /rm -rf -- "\$trivy_temp"/u);
   assert.match(
     scanScript,
-    /All 8 local image digests passed the HIGH\/CRITICAL vulnerability gate/u,
+    /All 9 local image digests passed the HIGH\/CRITICAL vulnerability gate/u,
   );
   assert.doesNotMatch(sbomScript, /^\s*syft\s/mu);
   assert.doesNotMatch(scanScript, /^\s*trivy\s/mu);
@@ -294,6 +294,7 @@ test("Dockerfile base defaults resolve only through the reviewed image lock", ()
     "apps/api/Dockerfile",
     "deploy/local/gateway/Dockerfile",
     "deploy/local/keycloak/Dockerfile",
+    "deploy/recovery/Dockerfile",
   ]) {
     const dockerfile = read(relativePath);
     const defaults = [

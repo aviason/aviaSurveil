@@ -9,6 +9,9 @@ import { createCanonicalTestFetch } from "../../src/test-profile/http-test-bound
 import {
   createCanonicalFinding,
   PRINCIPALS,
+  submitAndAcceptCanonicalCap,
+  submitCanonicalCap,
+  submitEvidence,
 } from "../contract/backend-contract";
 import {
   assertSurfaceSemantics,
@@ -38,6 +41,7 @@ interface ActionEvidence {
   surfaceId: string;
   scope: VisibleControl["scope"];
   viewports: string[];
+  profiles?: string[];
   controlKey: string;
   boundary: string;
   durableEffect: string;
@@ -204,12 +208,14 @@ function evidenceFor(
   viewport: string,
   control: VisibleControl,
   ownership: string | null,
+  profile: string,
 ): ActionEvidence | null {
   if (!ownership) return null;
   return (ledger.actionEvidence ?? []).find((entry) =>
     (entry.surfaceId === surface.id || (entry.surfaceId === "*" && control.scope !== "route")) &&
     entry.scope === control.scope &&
     entry.viewports.includes(viewport) &&
+    (!entry.profiles || entry.profiles.includes(profile)) &&
     entry.controlKey === control.controlKey
   ) ?? null;
 }
@@ -444,12 +450,18 @@ async function assertControlledSurfaceOutcome(
   control: ReturnType<Page["locator"]>,
 ): Promise<void> {
   const target = page.locator(`[id="${current.ariaControls}"]`);
-  const beforeTarget = await target.evaluateAll((elements) =>
-    elements.map((element) => element.outerHTML.replace(/\s+/g, " ").trim()).join("\n")
-  );
-  const beforeTop = await target.first().evaluate((element) => element.getBoundingClientRect().top);
+  const targetExisted = await target.count() > 0;
+  const beforeTarget = targetExisted
+    ? await target.evaluateAll((elements) =>
+        elements.map((element) => element.outerHTML.replace(/\s+/g, " ").trim()).join("\n")
+      )
+    : "";
+  const beforeTop = targetExisted
+    ? await target.first().evaluate((element) => element.getBoundingClientRect().top)
+    : null;
   await control.click();
   await expect(target, `${surface.id}/${current.controlKey} exposes its declared controlled surface`).toBeVisible();
+  if (!targetExisted) return;
   if (await target.evaluate((element) =>
     document.activeElement === element || element.contains(document.activeElement)
   )) return;
@@ -459,7 +471,7 @@ async function assertControlledSurfaceOutcome(
         elements.map((element) => element.outerHTML.replace(/\s+/g, " ").trim()).join("\n")
       );
       const afterTop = await target.first().evaluate((element) => element.getBoundingClientRect().top);
-      return afterTarget !== beforeTarget || Math.abs(afterTop - beforeTop) > 1;
+      return afterTarget !== beforeTarget || Math.abs(afterTop - beforeTop!) > 1;
     },
     {
       message: `${surface.id}/${current.controlKey} must update its exact controlled surface`,
@@ -555,7 +567,182 @@ function liveHttpBackendFor(principal: BackendPrincipal): Backend {
 }
 
 async function prepareHttpFindingFixture(): Promise<void> {
+  const harness = { backendFor: liveHttpBackendFor };
+  const finding = await createCanonicalFinding(harness);
+  await submitCanonicalCap(harness, finding);
+}
+
+async function prepareHttpLeadReviewFixture(): Promise<void> {
+  const inspector = liveHttpBackendFor(PRINCIPALS.inspector);
+  const packageView = await inspector.inspections.getPackage({
+    packageId: "PKG-CAB-2026-001",
+  });
+  const response = await inspector.inspections.upsertChecklistResponse({
+    operationId: "OP-HTTP-LEAD-QUEUE-RESPONSE",
+    responseId: "RESP-CAB-EMEQ-PBE-001",
+    auditId: "AUD-2026-001",
+    questionId: "CAB-EMEQ-PBE-001",
+    expectedResponseRevision: null,
+    answer: "NON_COMPLIANT",
+    comment: "PBE serviceability and accessibility could not be confirmed.",
+  });
+  await inspector.potentialFindings.create({
+    operationId: "OP-HTTP-LEAD-QUEUE-POTENTIAL",
+    auditId: "AUD-2026-001",
+    questionId: "CAB-EMEQ-PBE-001",
+    checklistResponseId: response.id,
+    expectedChecklistResponseRevision: response.revision,
+    title: "PBE serviceability and accessibility not confirmed",
+    description: "The configured cabin check could not confirm PBE serviceability.",
+    requiredComment: response.comment,
+    inspectionAttachmentIds: [],
+  });
+  await inspector.inspections.submitChecklist({
+    operationId: "OP-HTTP-LEAD-QUEUE-CHECKLIST",
+    auditId: packageView.auditId,
+    expectedChecklistRevision: packageView.checklistRevision,
+  });
+}
+
+async function prepareHttpFindingOnlyFixture(): Promise<void> {
   await createCanonicalFinding({ backendFor: liveHttpBackendFor });
+}
+
+async function prepareHttpCapReviewFixture(): Promise<void> {
+  const harness = { backendFor: liveHttpBackendFor };
+  const finding = await createCanonicalFinding(harness);
+  const auditee = liveHttpBackendFor(PRINCIPALS.auditee);
+  const lead = liveHttpBackendFor(PRINCIPALS.leadInspector);
+  const first = await auditee.caps.submit({
+    operationId: "OP-HTTP-CAP-R1",
+    findingId: finding.id,
+    expectedFindingRevision: finding.revision,
+    rootCause: "Initial root cause retained for immutable history.",
+    correctiveAction: "Initial corrective action.",
+    preventiveAction: "Initial preventive action.",
+    responsiblePerson: "Fly Namibia Cabin Safety Manager",
+    targetCompletionDate: "2026-07-15",
+    commentToCaa: "Initial CAP submitted for CAA review.",
+  });
+  const moreInformation = await lead.caps.review({
+    operationId: "OP-HTTP-CAP-R1-REVIEW",
+    capRevisionId: first.capRevisionId,
+    expectedCapRevision: first.capRevision,
+    findingId: finding.id,
+    expectedFindingRevision: first.findingRevision,
+    decision: "REQUEST_MORE_INFORMATION",
+    commentToAuditee: "Clarify how PBE position records will be sampled.",
+    internalCaaNote: "Internal CAA note for revision 1.",
+  });
+  await auditee.caps.submit({
+    operationId: "OP-HTTP-CAP-R2",
+    findingId: finding.id,
+    expectedFindingRevision: moreInformation.findingRevision,
+    rootCause: "Revised root cause with record reconciliation.",
+    correctiveAction: "Replace affected PBE and update the cabin defect record.",
+    preventiveAction: "Add supervisor review and monthly sampling.",
+    responsiblePerson: "Fly Namibia Cabin Safety Manager",
+    targetCompletionDate: "2026-07-20",
+    commentToCaa: "Revised CAP submitted for CAA review.",
+  });
+}
+
+async function prepareHttpEvidenceReviewFixture(): Promise<void> {
+  const harness = { backendFor: liveHttpBackendFor };
+  const finding = await createCanonicalFinding(harness);
+  await submitAndAcceptCanonicalCap(harness, finding);
+  const firstVersion = await submitEvidence(
+    harness,
+    "HTTP-V1",
+    "Fly_Namibia_PBE_Serviceability_Record_CAB-2026-001.pdf",
+  );
+  const lead = liveHttpBackendFor(PRINCIPALS.leadInspector);
+  const current = await lead.findings.get({ findingId: finding.id });
+  await lead.evidence.review({
+    operationId: "OP-HTTP-EVIDENCE-V1-REVIEW",
+    evidenceVersionId: firstVersion.id,
+    expectedEvidenceVersionRevision: firstVersion.revision,
+    findingId: finding.id,
+    expectedFindingRevision: current.revision,
+    decision: "PARTIALLY_CLOSE",
+    commentToAuditee: "Serviceability accepted; provide cabin position confirmation.",
+    internalCaaNote: "Version 1 does not verify accessibility.",
+  });
+  await submitEvidence(
+    harness,
+    "HTTP-V2",
+    "Fly_Namibia_PBE_Position_Confirmation_CAB-2026-001.pdf",
+  );
+}
+
+async function prepareHttpMessageFixture(): Promise<void> {
+  await liveHttpBackendFor(PRINCIPALS.inspector).communications.send({
+    expectedRevision: null,
+    idempotencyKey: "MSG-HTTP-AUDITEE-1",
+    organizationId: "ORG-FLY-NAMIBIA",
+    subject: "Inspection coordination update",
+    body: "The proposed inspection date is ready for your confirmation.",
+    audience: "AUDITEE",
+  });
+}
+
+async function advanceHttpPlanningToGeneralManager(): Promise<void> {
+  const finance = liveHttpBackendFor(PRINCIPALS.finance);
+  const plans = await finance.planning.list({ limit: 20 });
+  const plan = plans.items.find((item) => item.id === "PLAN-2026-CAB-001") ?? plans.items[0];
+  if (!plan) throw new Error("HTTP fixture requires the canonical Planning item.");
+  if (plan.status === "FINANCE_REVIEW") {
+    await finance.planning.decide({
+      operationId: `OP-HTTP-FINANCE-${plan.id}-${plan.revision}`,
+      planningItemId: plan.id,
+      expectedPlanningRevision: plan.revision,
+      decision: "APPROVE_BUDGET",
+      reason: "Finance approved the exact HTTP Planning revision.",
+    });
+  }
+}
+
+async function advanceHttpPlanningToExecutiveDirector(): Promise<void> {
+  await advanceHttpPlanningToGeneralManager();
+  const gm = liveHttpBackendFor(PRINCIPALS.gm);
+  const plans = await gm.planning.list({ limit: 20 });
+  const plan = plans.items.find((item) => item.id === "PLAN-2026-CAB-001") ?? plans.items[0];
+  if (!plan) throw new Error("HTTP fixture requires the canonical Planning item.");
+  if (plan.status === "GM_REVIEW") {
+    await gm.planning.decide({
+      operationId: `OP-HTTP-GM-${plan.id}-${plan.revision}`,
+      planningItemId: plan.id,
+      expectedPlanningRevision: plan.revision,
+      decision: "FORWARD_FOR_FINAL_APPROVAL",
+      reason: "General Manager forwarded the exact HTTP Planning revision.",
+    });
+  }
+}
+
+async function advanceHttpPreliminaryReportToGeneralManager(): Promise<void> {
+  const manager = liveHttpBackendFor(PRINCIPALS.manager);
+  const report = await manager.reports.getVersion({
+    reportVersionId: "PR-2026-018-V1",
+  });
+  if (report.status === "DEPARTMENT_REVIEW") {
+    await manager.reports.decide({
+      operationId: `OP-HTTP-MANAGER-${report.reportVersionId}-${report.revision}`,
+      reportVersionId: report.reportVersionId,
+      expectedReportVersionRevision: report.revision,
+      decision: "FORWARD",
+      reason: "Department Manager forwarded the exact HTTP Preliminary Report version.",
+    });
+  }
+}
+
+async function prepareHttpProfileFixture(): Promise<void> {
+  const profiles = liveHttpBackendFor(PRINCIPALS.inspector).profiles;
+  const profile = await profiles.getMine({});
+  await profiles.updateMine({
+    expectedRevision: profile.revision,
+    idempotencyKey: "PROFILE-HTTP-AYLIN",
+    displayName: "Aylin Sezer",
+  });
 }
 
 async function lockHttpAuditeeReportFixtures(): Promise<void> {
@@ -628,37 +815,107 @@ async function lockHttpAuditeeReportFixtures(): Promise<void> {
   }
 }
 
+async function prepareHttpSurfaceFixture(
+  page: Page,
+  surface: VisualSurfaceFixture,
+): Promise<void> {
+  await resetHttpProfile(page);
+  const pathname = surface.reactPath;
+  if ([
+    "/auditee/preliminary-reports",
+    "/auditee/final-reports",
+    "/auditee/reports/RPT-CAB-2026-001",
+    "/auditee/documents",
+  ].includes(pathname)) {
+    if (pathname === "/auditee/documents") await prepareHttpEvidenceReviewFixture();
+    await lockHttpAuditeeReportFixtures();
+    return;
+  }
+  if (pathname === "/auditee/messages") {
+    await prepareHttpMessageFixture();
+    return;
+  }
+  if (pathname === "/general-manager/planning") {
+    await advanceHttpPlanningToGeneralManager();
+    return;
+  }
+  if (pathname === "/general-manager/report-approvals") {
+    await advanceHttpPreliminaryReportToGeneralManager();
+    return;
+  }
+  if (pathname === "/executive-director/planning") {
+    await advanceHttpPlanningToExecutiveDirector();
+    return;
+  }
+  if (pathname === "/inspector/profile") {
+    await prepareHttpProfileFixture();
+    return;
+  }
+  if (pathname === "/lead-inspector/lead-review") {
+    await prepareHttpLeadReviewFixture();
+    return;
+  }
+  if (pathname === "/lead-inspector/preliminary-reports/PR-2026-018") {
+    await prepareHttpFindingOnlyFixture();
+    return;
+  }
+  if ([
+    "/inspector/findings",
+    "/inspector/findings/FND-CAB-2026-001",
+    "/inspector/closure-reports/CR-CAB-2026-001",
+    "/inspector/assistant",
+  ].includes(pathname)) {
+    await prepareHttpFindingFixture();
+    return;
+  }
+  if (pathname === "/lead-inspector/cap-review/FND-CAB-2026-001") {
+    await prepareHttpCapReviewFixture();
+    return;
+  }
+  if ([
+    "/department-manager/findings-review",
+    "/department-manager/cap-monitoring",
+    "/department-manager/evidence/FND-CAB-2026-001",
+    "/department-manager/findings/FND-CAB-2026-001/closure-review",
+    "/department-manager/organizations/ORG-FLY-NAMIBIA",
+  ].includes(pathname)) {
+    await prepareHttpEvidenceReviewFixture();
+    return;
+  }
+  if (pathname === "/auditee/service-provider-cap") {
+    await prepareHttpFindingOnlyFixture();
+  }
+}
+
 expect(VISUAL_SURFACES).toHaveLength(86);
 expect(VISUAL_VIEWPORTS).toHaveLength(3);
 expect(VISUAL_SURFACES.length * VISUAL_VIEWPORTS.length).toBe(258);
 
-for (const viewport of VISUAL_VIEWPORTS) {
+const focusedViewport = process.env.AVIA_VISIBLE_ACTION_VIEWPORT;
+const inventoryViewports = focusedViewport
+  ? VISUAL_VIEWPORTS.filter((viewport) => viewport.id === focusedViewport)
+  : VISUAL_VIEWPORTS;
+if (focusedViewport && inventoryViewports.length === 0) {
+  throw new Error(`Unknown AVIA_VISIBLE_ACTION_VIEWPORT: ${focusedViewport}`);
+}
+
+for (const viewport of inventoryViewports) {
   test(`inventories all 86 visible-action surfaces at ${viewport.id}`, async ({ page }, testInfo) => {
+    test.skip(
+      process.env.AVIA_VISIBLE_ACTION_EXECUTION_ONLY === "1",
+      "Focused command diagnosis excludes surface inventories.",
+    );
     test.setTimeout(300_000);
     await page.setViewportSize(viewport);
-    if (testInfo.project.name === "http") await resetHttpProfile(page);
     const consoleIssues: string[] = [];
     page.on("console", (message) => {
       if (message.type() === "error") consoleIssues.push(`console: ${message.text()}`);
     });
     page.on("pageerror", (error) => consoleIssues.push(`pageerror: ${error.message}`));
     let actionInventories = 0;
-    let findingPrepared = false;
-    let auditeeReportsPrepared = false;
     const seenEvidenceKeys = new Set<string>();
     for (const surface of VISUAL_SURFACES) {
-      if (testInfo.project.name === "http" && !findingPrepared && surface.id === "finding-detail") {
-        await prepareHttpFindingFixture();
-        findingPrepared = true;
-      }
-      if (
-        testInfo.project.name === "http" &&
-        !auditeeReportsPrepared &&
-        surface.id === "auditee-preliminary-reports"
-      ) {
-        await lockHttpAuditeeReportFixtures();
-        auditeeReportsPrepared = true;
-      }
+      if (testInfo.project.name === "http") await prepareHttpSurfaceFixture(page, surface);
       consoleIssues.length = 0;
       await installDeterministicPageState(page);
       await driveReactSurface(page, surface);
@@ -692,7 +949,13 @@ for (const viewport of VISUAL_VIEWPORTS) {
       })).filter(({ ownership }) => ownership === null);
       const missingEvidence = controls.map((control) => {
         const ownership = ownershipFor(surface, control);
-        const evidence = evidenceFor(surface, viewport.id, control, ownership);
+        const evidence = evidenceFor(
+          surface,
+          viewport.id,
+          control,
+          ownership,
+          testInfo.project.name,
+        );
         if (evidence) seenEvidenceKeys.add(actionEvidenceKey(evidence));
         return {
           ...control,
@@ -718,7 +981,13 @@ for (const viewport of VISUAL_VIEWPORTS) {
             return {
               ...control,
               ownership,
-              evidence: evidenceFor(surface, viewport.id, control, ownership),
+              evidence: evidenceFor(
+                surface,
+                viewport.id,
+                control,
+                ownership,
+                testInfo.project.name,
+              ),
             };
           }),
           duplicateActions,
@@ -729,13 +998,19 @@ for (const viewport of VISUAL_VIEWPORTS) {
 
       expect.soft(unnamed, `${surface.id}/${viewport.id} has unnamed controls`).toEqual([]);
       expect.soft(unowned, `${surface.id}/${viewport.id} has unowned or unexplained controls`).toEqual([]);
-      expect.soft(missingEvidence, `${surface.id}/${viewport.id} has actions without outcome-test evidence`).toEqual([]);
+      expect.soft(
+        missingEvidence.map(({ controlKey }) => controlKey),
+        `${surface.id}/${viewport.id} has actions without outcome-test evidence`,
+      ).toEqual([]);
       expect.soft(duplicateActions, `${surface.id}/${viewport.id} exposes duplicate route actions`).toEqual([]);
       expect.soft(consoleIssues, `${surface.id}/${viewport.id} has zero console errors`).toEqual([]);
     }
     expect(actionInventories).toBe(86);
     const expectedEvidenceKeys = (ledger.actionEvidence ?? [])
-      .filter((entry) => entry.viewports.includes(viewport.id))
+      .filter((entry) =>
+        entry.viewports.includes(viewport.id) &&
+        (!entry.profiles || entry.profiles.includes(testInfo.project.name))
+      )
       .map(actionEvidenceKey)
       .sort();
     expect([...seenEvidenceKeys].sort(), `${viewport.id} action evidence rejects stale or missing entries`).toEqual(
@@ -744,8 +1019,12 @@ for (const viewport of VISUAL_VIEWPORTS) {
   });
 }
 
-test("executes every active route command with a durable outcome", async ({ page }) => {
-  test.setTimeout(900_000);
+test("executes every active route command with a durable outcome", async ({ page }, testInfo) => {
+  test.skip(
+    process.env.AVIA_VISIBLE_ACTION_INVENTORY_ONLY === "1",
+    "Focused inventory diagnosis excludes command execution.",
+  );
+  test.setTimeout(1_800_000);
   let verifiedCommands = 0;
   const executionViewports = [VISUAL_VIEWPORTS[0], VISUAL_VIEWPORTS[2]];
   const executableAssertions = new Set([
@@ -758,6 +1037,7 @@ test("executes every active route command with a durable outcome", async ({ page
   const expectedEvidenceKeys = (ledger.actionEvidence ?? [])
     .filter((entry) =>
       entry.scope === "route" &&
+      (!entry.profiles || entry.profiles.includes(testInfo.project.name)) &&
       executableAssertions.has(entry.assertion)
     )
     .map(actionEvidenceKey)
@@ -767,19 +1047,41 @@ test("executes every active route command with a durable outcome", async ({ page
   for (const viewport of executionViewports) {
     await page.setViewportSize(viewport);
     for (const surface of VISUAL_SURFACES) {
+      if (testInfo.project.name === "http") await prepareHttpSurfaceFixture(page, surface);
       await installDeterministicPageState(page);
       await driveReactSurface(page, surface);
       const controls = assignControlKeys(await collectVisibleControls(page));
       const routeCommands = controls.filter(isExecutableRouteControl);
+      let httpBackendStateDirty = false;
       for (const control of routeCommands) {
         const ownership = ownershipFor(surface, control);
-        const evidence = evidenceFor(surface, viewport.id, control, ownership);
+        const evidence = evidenceFor(
+          surface,
+          viewport.id,
+          control,
+          ownership,
+          testInfo.project.name,
+        );
         expect(evidence, `${surface.id}/${viewport.id}/${control.controlKey} has exact executable evidence`).not.toBeNull();
         const evidenceKey = actionEvidenceKey(evidence!);
         if (verifiedEvidenceKeys.has(evidenceKey)) continue;
         await test.step(`${surface.id}/${viewport.id}: ${control.name}`, async () => {
+          if (testInfo.project.name === "http" && httpBackendStateDirty) {
+            await prepareHttpSurfaceFixture(page, surface);
+            await installDeterministicPageState(page);
+            httpBackendStateDirty = false;
+          }
           expect(evidence!.assertion).toBe(expectedExecutableAssertion(control));
           await assertDurableControlOutcome(page, surface, control);
+          if (
+            testInfo.project.name === "http" &&
+            (
+              /mutation|workflow/i.test(evidence!.boundary) ||
+              /^Deactivate /.test(control.name)
+            )
+          ) {
+            httpBackendStateDirty = true;
+          }
           verifiedEvidenceKeys.add(evidenceKey);
         });
         verifiedCommands += 1;

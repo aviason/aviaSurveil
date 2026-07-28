@@ -48,10 +48,15 @@ SELECT organization.id, organization.legal_name, organization.organization_type,
        organization.status, organization.revision,
        COUNT(DISTINCT finding.id) FILTER (WHERE finding.status <> 'CLOSED')::bigint AS open_finding_count,
        COALESCE(to_char(MAX(inspection.due_date) FILTER (WHERE inspection.status IN ('COMPLETED', 'CLOSED')), 'YYYY-MM-DD'), '')::text AS last_audit_date,
-       COALESCE(to_char(MIN(inspection.due_date) FILTER (WHERE inspection.status NOT IN ('COMPLETED', 'CANCELLED')), 'YYYY-MM-DD'), '')::text AS next_audit_date
+       COALESCE(
+           to_char(MIN(plan_item.scheduled_date), 'YYYY-MM-DD'),
+           to_char(MIN(inspection.due_date) FILTER (WHERE inspection.status NOT IN ('COMPLETED', 'CANCELLED')), 'YYYY-MM-DD'),
+           ''
+       )::text AS next_audit_date
 FROM organizations organization
 LEFT JOIN findings finding ON finding.organization_id = organization.id
 LEFT JOIN inspections inspection ON inspection.organization_id = organization.id
+LEFT JOIN surveillance_plan_items plan_item ON plan_item.organization_id = organization.id
 WHERE organization.organization_type <> 'AUTHORITY'
   AND organization.tombstoned_at IS NULL
   AND ($1::text = '' OR organization.id = $1)

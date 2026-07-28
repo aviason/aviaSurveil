@@ -272,3 +272,13 @@ test("profile harness proves fixtures, correlation, recovery, persistence, and c
   assert.doesNotMatch(source, /docker\s+(?:system\s+)?prune/);
   assert.doesNotMatch(source, /docker\s+(?:container|volume|network)?\s*rm\s+(?:-f\s+)?\$\{/);
 });
+
+test("profile harness sends OTLP trace and span identifiers as hex", () => {
+  const source = readRequired(profileScriptPath);
+  assert.match(source, /const traceId = traceHex;/);
+  assert.match(source, /const spanId = spanHex;/);
+  assert.doesNotMatch(
+    source,
+    /Buffer\.from\((?:traceHex|spanHex),\s*"hex"\)\.toString\("base64"\)/,
+  );
+});

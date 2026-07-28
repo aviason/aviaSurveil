@@ -1,5 +1,14 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -153,6 +162,30 @@ test("runtime checker covers failure, leakage, isolation, and residue contracts"
     /\/proc\/1\/task\/1\/children/u,
     "worker crash injection must target the init process's direct application child without a pidof race",
   );
+});
+
+test("runtime checker fails closed before evidence collection when rg is unavailable", () => {
+  const commandDirectory = mkdtempSync(
+    path.join(tmpdir(), "aviasurveil360-runtime-contract-"),
+  );
+  try {
+    for (const command of ["docker", "node"]) {
+      const commandPath = path.join(commandDirectory, command);
+      writeFileSync(commandPath, "#!/bin/sh\nexit 0\n");
+      chmodSync(commandPath, 0o755);
+    }
+    const result = spawnSync("/bin/bash", [runtimeCheckPath], {
+      encoding: "utf8",
+      env: {
+        PATH: `${commandDirectory}:/usr/bin:/bin`,
+      },
+    });
+    assert.equal(result.status, 69);
+    assert.match(result.stderr, /required command is unavailable: rg/);
+    assert.doesNotMatch(result.stdout, /verified|passed|zero generated-secret/i);
+  } finally {
+    rmSync(commandDirectory, { force: true, recursive: true });
+  }
 });
 
 test("HTTP failure browser scenario is registered and contains no test-route fallback", () => {

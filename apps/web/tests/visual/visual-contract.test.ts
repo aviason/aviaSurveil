@@ -119,6 +119,7 @@ describe("visual parity contract", () => {
       return surface;
     };
     const inspectorFindings = surfaceById("inspector-findings");
+    const leadHome = surfaceById("lead-home");
     const adminConfigurations = surfaceById("admin-configurations");
     const auditPlan = surfaceById("audit-plan");
     const auditeeReport = surfaceById("auditee-report-preview");
@@ -128,7 +129,10 @@ describe("visual parity contract", () => {
     expect(inspectorFindings).toMatchObject({ expectedSemanticMarker: "CAB-2026-011" });
     expect(resolveReactSurfaceSemantics(inspectorFindings)).toMatchObject({
       expectedHeading: "Findings",
-      expectedSemanticMarker: "CAB-2026-001",
+      expectedSemanticMarker: "CAR-2026-099",
+    });
+    expect(resolveReactSurfaceSemantics(leadHome)).toMatchObject({
+      expectedSemanticMarker: "Lead decision required",
     });
     expect(resolveReactSurfaceSemantics(adminConfigurations)).toMatchObject({
       expectedHeading: "Configurations",

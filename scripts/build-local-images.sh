@@ -13,6 +13,7 @@ node_build_image=$(jq -er '.images["node-build"].reference' "$image_lock")
 go_build_image=$(jq -er '.images["go-build"].reference' "$image_lock")
 go_runtime_image=$(jq -er '.images["go-runtime"].reference' "$image_lock")
 keycloak_image=$(jq -er '.images.keycloak.reference' "$image_lock")
+postgres_image=$(jq -er '.images.postgres.reference' "$image_lock")
 caddy_version=$(jq -er '.components.caddy.version' "$image_lock")
 grpc_version=$(jq -er '.components.grpc.version' "$image_lock")
 source_revision=$(git -C "$repository_root" rev-parse HEAD)
@@ -82,6 +83,9 @@ build_image web-http aviasurveil360/web-http:local apps/web/Dockerfile http \
 build_image keycloak aviasurveil360/keycloak:local deploy/local/keycloak/Dockerfile keycloak \
   --build-arg "KEYCLOAK_IMAGE=$keycloak_image" \
   --build-arg "NODE_BUILD_IMAGE=$node_build_image" >>"$records_file"
+build_image postgres-recovery aviasurveil360/postgres-recovery:local deploy/recovery/Dockerfile postgres-recovery \
+  --build-arg "GO_BUILD_IMAGE=$go_build_image" \
+  --build-arg "POSTGRES_IMAGE=$postgres_image" >>"$records_file"
 
 for specification in \
   "api|aviasurveil360/api:local|api" \
@@ -127,4 +131,4 @@ done <"$records_file"
 
 mv -f -- "$manifest_next" "$manifest_path"
 chmod 0600 "$manifest_path"
-echo "Built 8 local runtime images and recorded digest-bound evidence metadata."
+echo "Built 9 local runtime images and recorded digest-bound evidence metadata."

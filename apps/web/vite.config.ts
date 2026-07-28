@@ -45,6 +45,26 @@ function buildProfilePlugin(profile: BuildProfile, entryName: string, localDevel
   };
 }
 
+function canonicalOtlpSinkPlugin(enabled: boolean): Plugin {
+  return {
+    name: "aviasurveil360-canonical-otlp-sink",
+    configureServer(server) {
+      if (!enabled) return;
+      server.middlewares.use((request, response, next) => {
+        if (
+          request.method === "POST" &&
+          /^\/otel\/v1\/(?:traces|metrics|logs)(?:[?#]|$)/.test(request.url ?? "")
+        ) {
+          response.statusCode = 204;
+          response.end();
+          return;
+        }
+        next();
+      });
+    },
+  };
+}
+
 export default defineConfig(({ command }) => {
   const profile = resolveBuildProfile(process.env.AVIA_BUILD_PROFILE, Boolean(process.env.VITEST));
   const httpTestProfile = profile === "http" && process.env.AVIA_HTTP_TEST_PROFILE === "canonical";
@@ -56,6 +76,7 @@ export default defineConfig(({ command }) => {
     plugins: [
       react(),
       buildProfilePlugin(profile, httpTestProfile ? "http-test" : profile, command === "serve"),
+      canonicalOtlpSinkPlugin(httpTestProfile),
     ],
     publicDir: `public/${profile}`,
     resolve: {

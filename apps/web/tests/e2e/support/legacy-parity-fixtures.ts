@@ -630,7 +630,10 @@ const REVIEWED_SOURCE_ASSERTIONS: Partial<Record<ReactSurfaceId, ReviewedLegacyA
   "auditee-final-reports": { expectedHeading: "Final Reports", expectedSemanticMarker: "Fly Namibia" },
   "auditee-report-preview": { expectedHeading: "Final Report", expectedSemanticMarker: "FR-2025-009" },
   "auditee-messages": { expectedHeading: "Messages from the CAA", expectedSemanticMarker: "Fly Namibia" },
-  "auditee-documents": { expectedHeading: "Documents", expectedSemanticMarker: "Filename-only" },
+  "auditee-documents": {
+    expectedHeading: "Documents",
+    expectedSemanticMarker: "Released Reports and submitted Evidence",
+  },
   "auditee-settings": { expectedHeading: "Service Provider Settings", expectedSemanticMarker: "Privacy boundary" },
   "admin-regulatory-library": { expectedHeading: "Regulatory Library", expectedSemanticMarker: "Mock regulatory library" },
   "admin-template-list": { expectedHeading: "Checklist Templates", expectedSemanticMarker: "Template" },
@@ -735,7 +738,10 @@ const REACT_SURFACE_SEMANTIC_OVERRIDES = {
   },
   "inspector-findings": {
     expectedHeading: "Findings",
-    expectedSemanticMarker: "CAB-2026-001",
+    expectedSemanticMarker: "CAR-2026-099",
+  },
+  "lead-home": {
+    expectedSemanticMarker: "Lead decision required",
   },
   "inspector-calendar": {
     expectedHeading: "Audit Work Queue",

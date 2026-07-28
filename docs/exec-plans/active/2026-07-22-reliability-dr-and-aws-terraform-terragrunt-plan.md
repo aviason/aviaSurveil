@@ -27,15 +27,14 @@ AWS provider 6.x-compatible modules, native Terraform tests, TFLint, Trivy
 configuration and image scanning, CycloneDX SBOMs, Playwright, Go
 race/integration tests, and shell-based recovery drills.
 
-**Status:** `active` — Tasks 1–2 are `verified locally`. Task 3 config,
-Collector, Prometheus-rule, and Alertmanager contracts are `verified locally`;
-its required live profile proof is `blocked` by exhausted host/Docker storage
-after the daemon reported `no space left on device`, an unhealthy fresh
-PostgreSQL volume, and containerd garbage-collection failure. Tasks 4 onward
-have not started. Independent plan review is complete. Tasks 1–9 plus Task 11
-define the authorized local/IaC readiness path. AWS Task 10 is an optional
-future branch, is excluded from the local milestone, and is not authorized by
-this plan document.
+**Status:** `ready-for-verification` — Tasks 1–9 and Task 11 are `verified
+locally`. On 2026-07-26 the user explicitly deferred Plan 1–3 stakeholder
+review until the end and accepted the local rework risk so Plan 4 Tasks 1–9 and
+Task 11 could proceed. The final local matrix and canonical
+[evidence](../../demo-evidence/LOCAL_RELIABILITY_AND_DR_2026-07-22.md) are
+complete. AWS Task 10 remains an optional future branch, is excluded from the
+local milestone, and is literally `not run`; it was not authorized by this
+sequencing decision or plan document.
 
 ## Objective
 
@@ -75,7 +74,10 @@ separately authorized AWS trial use the same artifacts and contracts.
 
 ## Assumptions
 
-- Plans 1–3 are locally accepted before this plan's AWS trial milestone.
+- Plans 1–3 are `ready-for-verification`; their stakeholder review is explicitly
+  deferred until the end. The user accepted the resulting rework risk for local
+  Tasks 1–9 and Task 11 only. Any AWS trial milestone still requires the plan's
+  separate owner decisions and exact phase authorization.
 - Local reliability targets are engineering acceptance targets, not contractual
   production SLOs:
   - candidate RPO: no more than 15 minutes for application PostgreSQL,
@@ -287,17 +289,23 @@ declared full-stack outage.
 - [x] Implement immutable-digest Compose services, data volumes, OTel routing,
   scrape/rules, dashboards, datasources, retention, authentication secrets,
   Mailpit receiver, grouping, and inhibition.
-- [ ] Run the profile, generate every alert fixture, verify dashboard queries,
+- [x] Run the profile, generate every alert fixture, verify dashboard queries,
   trace/log/metric correlation, deduplicated Mailpit receipt, recovery message,
   persistence across restart, and task-owned cleanup.
   - Initial RED: 0/8 config contracts passed because the profile was absent.
-  - Current config contract: 8/8 passed.
+  - Current config contract: 9/9 passed, including the OTLP/JSON hex-identifier
+    regression contract added after the live harness exposed a base64-encoded
+    trace fixture.
   - Pinned Collector `validate`, Prometheus config plus 8/8 alert rules, and
     Alertmanager config checks passed.
-  - The stack reached all services healthy in prior focused attempts, but the
-    complete proof remains `blocked`: the host had only 2.2 GiB free and Docker
-    subsequently reported `no space left on device`, an unhealthy fresh
-    PostgreSQL volume, and containerd `gc failed`.
+  - The 2026-07-26 live profile verified an authenticated provisioned Grafana
+    dashboard, trace/log/metric correlation and redaction, one Mailpit delivery
+    for a duplicate alert, a resolved recovery delivery, all 8 catalog alert
+    fixtures, and Prometheus/Loki/Tempo persistence across restart.
+  - OTel and gRPC dependencies were updated to remediated releases; all 8
+    digest-bound local images passed the fresh HIGH/CRITICAL vulnerability gate.
+  - The accepted amd64-only ClamAV image is explicitly selected on Apple
+    Silicon. The focused local policy suite passed 56/56.
   - Every attempt ended with zero task-owned containers, volumes, or networks;
     no unrelated Docker resources were deleted.
 - [ ] Commit exactly `feat(ops): add local observability stack`. (`not run`;
@@ -330,20 +338,36 @@ exact key/version, ETag, SHA-256, size, metadata, retention marker, and source
 bucket before marking a recovery point complete. Local host/disk loss remains
 outside this candidate drill and must not be described as covered.
 
-- [ ] Write failing tests for same primary/backup store, plaintext credential,
+- [x] Write failing tests for same primary/backup store, plaintext credential,
   mutable backup, missing encryption/version/manifest, partial-success marker,
   absent retention, unverified checksum, missing application or identity stanza,
   missing Keycloak user/TOTP/provisioning fingerprint, or a recovery point
   without both database and application-object fingerprints.
-- [ ] Run backup policy contracts; confirm current single-store drill is red for
+- [x] Run backup policy contracts; confirm current single-store drill is red for
   full policy.
-- [ ] Implement separate application/identity pgBackRest
+- [x] Implement separate application/identity pgBackRest
   full/differential/incremental schedules, repository stanza/checks, object
   mirror/manifests, retention, application and identity fingerprints, metrics,
   audit records, and lock/idempotency behavior.
-- [ ] Create two recovery points around controlled database/object changes and
+- [x] Create two recovery points around controlled database/object changes and
   verify catalog, exact hashes, point selection, age metrics, and alerts.
-- [ ] Commit exactly `feat(ops): add verified backup pipelines`.
+  - Initial RED: 0/8 backup-policy contracts passed because the isolated store,
+    pgBackRest stanzas, immutable manifests, and complete catalog did not exist.
+  - Final contract suites passed 14/14 Node and 5/5 focused Go tests.
+  - Separate application and Keycloak full backups plus their incremental
+    successors completed through encrypted pgBackRest S3 repositories.
+  - Two recovery points around controlled database and versioned-object changes
+    produced distinct application fingerprints and exact-version manifest
+    hashes. Both complete catalogs bind identity/TOTP/provisioning state,
+    configuration references, object retention metadata, and checksums.
+  - The recovery image joined the digest-bound build/SBOM/scan chain. All 9
+    local images passed the fresh HIGH/CRITICAL gate after fixed Alpine package
+    versions were pinned and the unused vulnerable `gosu` binary was removed.
+  - The final live run consumed the accepted full and recovery image digests,
+    performed no ad hoc image rebuild, and ended with zero task-owned
+    containers, volumes, or networks.
+- [ ] Commit exactly `feat(ops): add verified backup pipelines`. (`not run`;
+  Git authorization was not granted.)
 
 ### Task 5: Automate Isolated Restore, RPO/RTO, And DR Drills
 
@@ -367,20 +391,45 @@ data loss, separate database/object RPO, RTO, fingerprints, scenario results,
 and cleanup status. Active sessions may be invalidated, but restored identities
 and MFA enrollment must remain verifiable.
 
-- [ ] Write failing contracts for active-volume reuse, broad deletion target,
+- [x] Write failing contracts for active-volume reuse, broad deletion target,
   missing recovery point, checksum mismatch, partial restore marked success,
   absent application/identity backup, identity fingerprint mismatch, missing
   restored TOTP/provisioned-role login, absent RPO/RTO timestamps, skipped
   browser smoke, or missing cleanup.
-- [ ] Run drill contracts and confirm missing workflow.
-- [ ] Implement isolated restore orchestration and scenarios for database loss,
+- [x] Run drill contracts and confirm missing workflow.
+- [x] Implement isolated restore orchestration and scenarios for database loss,
   primary object loss, latest-backup corruption fallback, worker backlog, and
   lost application node; never overwrite primary data.
-- [ ] Run two complete drills and require candidate RPO <= 15 minutes, candidate
+- [x] Run two complete drills and require candidate RPO <= 15 minutes, candidate
   RTO <= 60 minutes, exact application/identity/object fingerprints, normal
   OIDC/TOTP login with restored organization/role scope, 86-route restored
   smoke, and zero isolated residue after evidence capture.
-- [ ] Commit exactly `test(ops): prove local recovery objectives`.
+  - Initial RED: all 8 restore/DR contracts failed because the restore workflow,
+    scenario catalog, restored browser profile, and runbooks did not exist.
+  - Final focused verification passed 25/25 backup/recovery Node contracts,
+    focused Go object-backup and recovery-fingerprint tests, TypeScript,
+    runbook documentation smoke, shell syntax, and `git diff --check`.
+  - Two complete drills restored exact application PostgreSQL, Keycloak
+    PostgreSQL, identity/TOTP/provisioned-role state, and retained object
+    versions without mounting active application, identity, or object volumes.
+  - The final evidence run's latest recovery point measured database/object RPO
+    at 3/1 seconds and RTO at 81 seconds. The earlier full recovery point
+    measured database/object RPO at 107/102 seconds and RTO at 81 seconds. Both
+    are local engineering
+    targets, not contractual production commitments.
+  - Both drills matched exact application, identity, and object fingerprints;
+    delivered one restored `notification.email_requested` backlog item through
+    the real worker/Mailpit path; restarted the API node; authenticated with the
+    restored TOTP and exact CAA role scope; and direct-loaded all 86 React
+    routes without skips.
+  - The corrupt-latest-catalog fixture failed closed before target mutation and
+    the prior complete point restored successfully. All task-owned containers,
+    volumes, networks, state directories, and browser outputs were removed.
+  - Full and recovery image digests still match the accepted 9-image SBOM and
+    HIGH/CRITICAL vulnerability evidence. The backup store remains
+    same-host/logically isolated and does not prove host-loss recovery.
+- [ ] Commit exactly `test(ops): prove local recovery objectives`. (`not run`;
+  Git authorization was not granted.)
 
 ### Task 6: Write Operational, Incident, Release, And Rollback Runbooks
 
@@ -404,15 +453,42 @@ diagnosis commands, expected output, reversible mitigation, escalation owner,
 recovery verification, evidence capture, and explicit actions that require new
 authorization.
 
-- [ ] Write failing tests for broken alert/runbook links, destructive broad
+- [x] Write failing tests for broken alert/runbook links, destructive broad
   commands, missing owner/precondition/rollback/verification, production claim,
   or unlabeled local-only evidence.
-- [ ] Run docs contracts and confirm missing runbooks fail.
-- [ ] Write and dry-run all procedures against the local stack, replacing broad
+- [x] Run docs contracts and confirm missing runbooks fail.
+- [x] Write and dry-run all procedures against the local stack, replacing broad
   commands with scoped identifiers and adding literal evidence labels.
-- [ ] Exercise one tabletop and one live local incident per severity class;
+- [x] Exercise one tabletop and one live local incident per severity class;
   record gaps and rerun until all recovery checks pass.
-- [ ] Commit exactly `docs(ops): add operational runbooks`.
+  - Initial RED passed 0/5 because the operations index, eight new runbooks,
+    complete shared contract, and warning/critical drill matrix were absent.
+  - The final operations collection links all ten runbooks. Every alert and
+    Prometheus rule resolves to an existing owner-scoped runbook with symptoms,
+    preconditions, safety boundary, diagnosis, expected output, reversible
+    mitigation, recovery verification, evidence capture, escalation, and
+    explicit authorization boundaries.
+  - A fresh exact full-stack dry-run exercised start/status/check, readiness,
+    OIDC discovery, read-only Evidence scan/outbox/email/document diagnosis,
+    scoped API/worker/Keycloak restart, image evidence, secret-log scanning,
+    stop, and zero-residue checks.
+  - The dry-run found and corrected three gaps: missing Node.js preconditions,
+    an unavailable `rg` command being misreported as zero secret matches, and
+    missing HTTPS port/origin values causing `docker compose up` configuration
+    drift. The runtime checker now fails closed with exit 69, both regressions
+    have contracts, and the corrected procedures passed on rerun.
+  - Warning `api-read-latency` and critical `required-dependency-down`
+    tabletops are `verified locally`. The live isolated observability rerun
+    proved all eight warning/critical fixtures, duplicate grouping to one
+    Mailpit delivery, a resolved message, telemetry persistence across restart,
+    secret redaction, and zero task-owned residue.
+  - Final focused verification passed 25/25 runbook, operations,
+    observability, and runtime contracts; docs smoke, relevant shell syntax,
+    accepted full-profile image evidence, and `git diff --check` also passed.
+    These are local candidate operations only and do not establish production
+    readiness or staffed on-call coverage.
+- [ ] Commit exactly `docs(ops): add operational runbooks`. (`not run`; Git
+  authorization was not granted.)
 
 ### Task 7: Build Reusable AWS Terraform Modules
 
@@ -429,6 +505,7 @@ authorization.
 - Create `infra/terraform/modules/identity-secrets/`
 - Create `infra/terraform/modules/observability/`
 - Create `infra/terraform/modules/backup/`
+- Create `infra/terraform/modules/service-endpoints/`
 - Create `infra/terraform/bootstrap/remote-state/`
 - Create `infra/terraform/tests/`
 - Create `infra/policies/aws-trial.rego`
@@ -443,20 +520,37 @@ Terraform bootstrap root owns the remote-state S3/KMS/native-lock resources and
 may temporarily use local state only for its separately reviewed bootstrap
 phase; Terragrunt never creates those resources itself.
 
-- [ ] Write native Terraform and policy tests for two-AZ network, private
+- [x] Write native Terraform and policy tests for two-AZ network, private
   compute/database, HTTPS-only ALB, encrypted RDS/S3/EBS/state, public-access
   block, ECR immutability, IMDSv2, no SSH ingress, no wildcard IAM, Secrets
   Manager refs, backup retention, mandatory ownership/cost tags, and deletion
   protection policy.
-- [ ] Run `terraform fmt -check`, `terraform validate`, native tests, TFLint, and
+- [x] Run `terraform fmt -check`, `terraform validate`, native tests, TFLint, and
   `trivy config`; confirm expected missing-module failures.
-- [ ] Implement focused modules, examples, outputs, provider/version constraints,
+- [x] Implement focused modules, examples, outputs, provider/version constraints,
   lifecycle safeguards, user-data that fetches only secret references and ECR
   digests, and CloudWatch/OTel integration.
-- [ ] Run all module tests and two fixture plans; expect no public database/
+- [x] Run all module tests and two fixture plans; expect no public database/
   object access, no plaintext secret, no high/critical IaC finding, and stable
   plan JSON policy results.
-- [ ] Commit exactly `feat(infra): add aws terraform modules`.
+- Initial native tests failed because the required module directories were
+  absent. The final native Terraform suite passed 12/12, including the
+  remote-state bootstrap and private AWS service endpoint egress.
+- OPA 1.17.0 policy mutation tests passed 6/6. Two bootstrap and two
+  secure-trial fixture plans each produced the same empty policy result hash
+  `37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570`.
+  The plans contained 8 and 81 creates respectively, with zero changes or
+  destroys, zero public databases, zero incomplete object public-access
+  blocks, and zero plaintext secret-version resources.
+- Terraform format/validate, TFLint 0.64.0, and Trivy 0.70.0 passed. Trivy
+  reported zero HIGH/CRITICAL findings. The intentionally internet-facing,
+  deletion-protected HTTPS ALB is a line-scoped documented exception; runtime
+  AWS API and S3 egress is restricted to private VPC endpoints.
+- Terraform 1.15.8 and AWS provider 6.56.0 are checksum/provider-lock bound.
+  The three Terraform dependency locks have the identical SHA-256
+  `c6b44bc69255646a525a3fe7f7f177e32910ced268127d4201ec664519c0b3aa`.
+- [ ] Commit exactly `feat(infra): add aws terraform modules`. (`not run`; Git
+  authorization was not granted.)
 
 ### Task 8: Compose AWS Environments With Terragrunt
 
@@ -485,19 +579,28 @@ supplied. Phase order is bootstrap → foundation/ECR → artifact publication �
 data/runtime. A fixture may mock dependencies only for validate/plan and must
 fail if the same mock is present during apply.
 
-- [ ] Write failing tests for duplicated Terraform code, local state outside
+- [x] Write failing tests for duplicated Terraform code, local state outside
   bootstrap, missing encryption/version/lock, account/region literal, dependency
   mock during apply, broad `run --all destroy`, unpinned module source, or absent
   before/after policy hooks.
-- [ ] Run Terragrunt HCL formatting/validation and contract tests; confirm absent
+- [x] Run Terragrunt HCL formatting/validation and contract tests; confirm absent
   layout failures.
-- [ ] Implement root includes, catalog components, dependency graph, generated
+- [x] Implement root includes, catalog components, dependency graph, generated
   provider/backend, remote-state bootstrap/migration procedure, mandatory input
   validation, policy hooks, and plan artifact naming.
-- [ ] Run `terragrunt hcl fmt --check`, DAG graph, `run --all validate`, and
+- [x] Run `terragrunt hcl fmt --check`, DAG graph, `run --all validate`, and
   fixture `run --all plan` using a non-deployable test overlay; expect stable
   dependency order and zero apply/destroy.
-- [ ] Commit exactly `feat(infra): compose aws with terragrunt`.
+- [ ] Commit exactly `feat(infra): compose aws with terragrunt`. (`not run`; Git
+  authorization was not provided.)
+
+Task 8 is `verified locally`: the source contracts pass 7/7, Terragrunt HCL
+formatting and validation pass, the deterministic 12-unit DAG validates and
+plans sequentially, and all 12 protected binary plan artifacts decode to JSON
+with empty OPA denial sets. The checker exits 64 with the exact
+`missing-owner-input` reason when the untracked owner overlay is absent. The
+fixture uses only local state under `/private/tmp`, permits dependency mocks
+only for validate/plan, and performs zero apply/destroy operations.
 
 ### Task 9: Enforce AWS Plan, Security, Cost, And Ownership Gates
 
@@ -533,22 +636,37 @@ immutable image digests, CycloneDX SBOM hashes, Trivy image/config results, cost
 estimate when credentials permit, policy result, caller identity, and expiry.
 An approved plan or wrapper cannot be replaced silently before apply.
 
-- [ ] Write failing tests for missing decision, stale plan, wrong caller/account,
+- [x] Write failing tests for missing decision, stale plan, wrong caller/account,
   region mismatch, unbounded cost/capacity, public exposure, destroyable data,
   wildcard IAM, unencrypted resource, mutable image tag, unscanned image digest,
   missing SBOM, unprotected/unredacted plan artifact, changed wrapper hash,
   missing phase boundary, broad destroy, or absent rollback.
-- [ ] Run offline fixture plan contracts and confirm every mutation fails.
-- [ ] Implement decision schema, phase plan wrapper, JSON policy/security/cost
+- [x] Run offline fixture plan contracts and confirm every mutation fails.
+- [x] Implement decision schema, phase plan wrapper, JSON policy/security/cost
   gates, protected plan-artifact lifecycle, evidence manifest, script/hash
   checks, image/SBOM gates, and scoped no-op command previews. Apply, smoke,
   rollback, and destroy wrappers must be fully implemented and contract-tested
   here without contacting a mutable AWS environment.
-- [ ] Run offline fixtures and—only with read-only AWS credentials—caller/quota/
+- [x] Run offline fixtures and—only with read-only AWS credentials—caller/quota/
   availability discovery; do not create resources. A real phase plan also
   requires separate current authorization. After producing its protected hash,
-  stop for review; do not apply it in Task 9.
-- [ ] Commit exactly `test(infra): enforce aws trial plan gates`.
+  stop for review; do not apply it in Task 9. (Offline fixtures and previews
+  passed. Read-only AWS discovery and a real phase plan are `not run`: no
+  credentials or separate phase authorization were supplied.)
+- [ ] Commit exactly `test(infra): enforce aws trial plan gates`. (`not run`;
+  Git authorization was not provided.)
+
+Task 9 is `verified locally` without AWS access: 46/46 Terragrunt, plan, and command
+contracts pass, including 10/10 unsafe Terraform plan mutations and fail-closed
+decision, caller, account/region, certificate, data-residency, cost/capacity,
+change-window, artifact-permission, stale/hash, redaction, phase, image
+scope/digest/SBOM/scan, and wrapper-hash mutations. All 12 Task 8 fixture plan
+JSON artifacts have empty AWS plan OPA denial sets. Seven scoped previews
+contacted no AWS service, the AWS Playwright project lists exactly two frozen
+smoke tests, React typecheck passes, and Trivy reports zero HIGH/CRITICAL IaC
+findings. ShellCheck is unavailable locally; all shell sources pass `bash -n`.
+AWS planning, apply, publication, smoke, rollback, destroy, and read-only
+discovery remain literally `not run`.
 
 ### Task 10: Execute The Gated AWS Trial, Smoke, Rollback, And Destroy
 
@@ -595,21 +713,34 @@ phase, stop, produce/review the next plan, and request a new authorization.
 - Modify `docs/exec-plans/tech-debt-tracker.md`
 - Modify this plan
 
-- [ ] After Tasks 1–9, run the clean full local 86-route/10-scenario profile
+- [x] After Tasks 1–9, run the clean full local 86-route/10-scenario profile
   together with fresh telemetry, alert, dual-database backup, restore, RPO/RTO,
   runbook, Terraform, Terragrunt, image/IaC policy, and cleanup gates. Record AWS
   Task 10 literally as `not run` unless separately authorized and completed.
-- [ ] Record exact objective results, alert receipts/recovery, trace examples,
+- [x] Record exact objective results, alert receipts/recovery, trace examples,
   dashboard/rule hashes, backup catalog/recovery-point hashes, RPO/RTO, restore
   fingerprints, tool/module locks, Terraform/Terragrunt fixture plan results,
   security findings, and residue checks.
-- [ ] Reconcile owners, open production decisions, active index, and tracker.
-- [ ] Set this plan and the local reliability/IaC milestone to
+- [x] Reconcile owners, open production decisions, active index, and tracker.
+- [x] Set this plan and the local reliability/IaC milestone to
   `ready-for-verification` when Tasks 1–9, Task 11, and all local gates pass.
   Task 10 may remain intentionally gated/`not run`; it is not a completion
   prerequisite and requires a separate current authorization if later pursued.
 - [ ] Commit exactly `docs(evidence): record reliability and infrastructure` and
-  push only when explicitly authorized.
+  push only when explicitly authorized. (`not run` in Task 11.)
+
+Task 11 is `verified locally` on 2026-07-27. The clean full profile passed
+86/86 HTTP direct loads and all 10 real-service scenarios; React passed
+644/644, operations/runbook contracts passed 43/43, and the canonical Go race
+suite passed in its service harness. All eight alert fixtures, grouped and
+resolved Mailpit delivery, cross-signal correlation/redaction, dual-database
+catalogs, two complete isolated restores, exact fingerprints, corrupt-latest
+fallback, 9/9 image/SBOM/scan bindings, 12/12 Terraform tests, 12/12
+Terragrunt fixture plans, 46/46 infrastructure contracts, and zero task-owned
+residue passed. The final drill measured 3/1-second database/object RPO and
+81-second RTO for the latest point, and 107/102-second RPO and 81-second RTO
+for the fallback point. Trivy reported zero HIGH/CRITICAL image or IaC
+findings. AWS discovery and every Task 10 action are literally `not run`.
 
 ## Required Local Verification Matrix
 
@@ -629,7 +760,11 @@ terraform -chdir=infra/terraform test
 tflint --recursive --chdir infra/terraform
 trivy config --severity HIGH,CRITICAL --exit-code 1 infra
 terragrunt hcl fmt --check
-./scripts/check-terragrunt.sh
+AVIA_TG_PLAN_DIR="$(mktemp -d /private/tmp/aviasurveil360-tg-plans.XXXXXX)"
+AVIA_TG_INPUTS_FILE="$PWD/infra/terragrunt/fixtures/non-deployable.hcl" \
+  AVIA_TG_PLAN_DIR="$AVIA_TG_PLAN_DIR" \
+  ./scripts/check-terragrunt.sh
+rm -rf -- "$AVIA_TG_PLAN_DIR"
 node --test tests/terragrunt-contract.test.mjs tests/aws-trial-plan-contract.test.mjs tests/aws-trial-command-contract.test.mjs
 ```
 
@@ -658,7 +793,8 @@ deployment evidence.
 
 ## Dependencies
 
-- Plan 3 complete local production-like Compose profile; Task 11 reruns its clean
+- Plan 3 complete local production-like Compose profile; stakeholder review is
+  deferred with user-accepted rework risk. Task 11 reruns its clean
   86-route/10-scenario full-profile gate after observability/recovery changes.
 - Plans 1–2 remain green during restore and any later AWS smoke tests.
 - Explicit owner decisions for AWS account, region/data residency, domain,

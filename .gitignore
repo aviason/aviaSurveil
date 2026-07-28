@@ -17,5 +17,12 @@ apps/web/*.tsbuildinfo
 apps/web/playwright-report/
 apps/web/test-results/
 
-# Generated local production-like credentials and runtime state
+# Generated local credentials, runtime state, and AWS plan/evidence bundles
 .local/aviasurveil360/
+
+# Terraform working directories and local state
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+**/.terragrunt-cache/

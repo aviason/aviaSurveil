@@ -271,7 +271,7 @@ func Reset(ctx context.Context, pool *database.Pool, now time.Time) error {
 				due_date, revision, created_at, updated_at
 			) VALUES
 				('AUD-2026-001', 'ORG-FLY-NAMIBIA', $2,
-				 '2026 Cabin Inspection - Fly Namibia', 'CABIN', 'IN_PROGRESS', '2026-07-15', 1, $1, $1),
+				 '2026 Cabin Inspection - Fly Namibia', 'CABIN', 'IN_PROGRESS', '2026-06-18', 1, $1, $1),
 				('AUD-2026-099', 'ORG-SKYCARGO', 'USR-INSPECTOR-DAVID',
 				 '2026 Cargo Inspection - SkyCargo Air', 'CARGO', 'IN_PROGRESS', '2026-07-30', 1, $1, $1)
 		`, now, CanonicalInspectorSubjectID); err != nil {

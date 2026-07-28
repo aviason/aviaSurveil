@@ -55,6 +55,10 @@
     "grpc": {
       "version": "v1.82.1",
       "purpose": "Patched Caddy transitive dependency override"
+    },
+    "pgbackrest": {
+      "version": "2.55.1-r0",
+      "purpose": "Pinned Alpine package in the local PostgreSQL recovery runtime"
     }
   }
 }

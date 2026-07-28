@@ -10,6 +10,7 @@ This is the canonical docs map for AviaSurveil360. Use it after the root
 | `../ARCHITECTURE.md` | Runtime surfaces, dependency direction, and high-risk invariants. |
 | `PLANS.md` | Repository-native ExecPlan contract and lifecycle. |
 | `agent-harness/index.md` | Agent routing, output contracts, verification, registry, and cleanup rules. |
+| `operations/index.md` | Candidate-only objectives, telemetry, alerts, ownership, operational runbooks, and drill evidence. |
 | `exec-plans/index.md` | Active execution-plan status and one next concrete todo per plan. |
 | `exec-plans/tech-debt-tracker.md` | Durable blockers, accepted risks, missing evidence, and technical debt. |
 | `product-specs/index.md` | Product source documents for domain, workflow, UX, data, analytics, scenarios, and references. |
@@ -32,6 +33,7 @@ This is the canonical docs map for AviaSurveil360. Use it after the root
 | `demo-evidence/stakeholder/PLAN1_VISUAL_STAKEHOLDER_DECISIONS_2026-07-27.md` | Completed Plan 1 stakeholder closeout ledger: 170/170 dispositions resolved, all 10 Fix records `fixed-verified-locally`, and zero manual decisions remaining. |
 | `demo-evidence/FULL_BACKEND_SCENARIO_PARITY_2026-07-22.md` | Full Backend Tasks 1–12 evidence: 86 dual-profile routes, 28 Backend slices, 10 scenario families, 45 proofs, final matrix, reviews, and preserved Plan 1 gaps. |
 | `demo-evidence/LOCAL_PRODUCTION_LIKE_SERVICES_2026-07-22.md` | Local production-like services evidence: scanned runtime digests, clean 86-route demo/full profiles, 10 scenario families, real MFA/MinIO/ClamAV/Mailpit/Gotenberg proofs, failure/restart, and cleanup. |
+| `demo-evidence/LOCAL_RELIABILITY_AND_DR_2026-07-22.md` | Local reliability, observability, alert, dual-database backup, exact isolated restore, RPO/RTO, runbook, image/SBOM/scan, Terraform, Terragrunt, and explicit AWS `not run` evidence. |
 | `../api/openapi/aviasurveil360.yaml` | Minimal versioned transport source for the authorized local candidate slices. |
 | `../apps/web/` | Build-time-separated React/Vite mock and HTTP candidate entries with the canonical lifecycle, approved route families, PWA/readiness, atomic field storage, OPFS attachment recovery, and typed foreground sync. |
 | `../apps/api/` | One-module Go API/worker candidate with canonical and planning authority, local OIDC/session, PostgreSQL stores, bounded upload/scan, configuration/audit projections, and typed sync services. |
@@ -50,9 +52,19 @@ HTTP profiles, Full Backend Tasks 1–12 pass exact parity for 10 scenario
 families and 45 proofs, and Local Production-Like Services Tasks 1–9 are
 `verified locally`. Plan 1's 258-pair main-agent visual review is complete, its
 Task 10 correction plus Tasks 11–12 evidence have clean independent acceptance,
-and its retained pixel failures remain literal. Plans 1–3 are
-`ready-for-verification`. The result is local `GO`, `candidate-only`, and
-`release pending`. These are not deployed production services. The docs do not
+and its retained pixel failures remain literal. Its visual stakeholder
+disposition is 170/170 complete: 160 high-confidence Codex Accept records have
+aggregate user authorization and all 10 Fix records are
+`fixed-verified-locally`, including the Manager heatmap, Organization score,
+and GM risk-matrix outcomes. Plan 1 is `completed`; manual review remaining is
+zero. Plan 4
+Tasks 1–9 and Task 11
+add locally verified telemetry, all eight alerts, separate application/identity
+backup chains, two exact isolated restores, candidate RPO/RTO, owner-scoped
+runbooks, nine image/SBOM/scan bindings, and offline Terraform/Terragrunt policy
+gates. Plan 1 is `completed`; Plans 2–4 are `ready-for-verification`. AWS Task 10 is literally
+`not run`. The result is local `GO`, `candidate-only`, and `release pending`.
+These are not deployed production services. The docs do not
 claim production identity federation,
 production authorization operations, production storage/scanning or Evidence
 records management, notification delivery, deployment, remote CI, cutover,

@@ -12,6 +12,12 @@ export function installBrowserTelemetry(
   const telemetry = createBrowserTelemetry({
     buildProfile,
     serviceVersion,
+    transport:
+      buildProfile === "demo"
+        ? {
+            send: async () => undefined,
+          }
+        : undefined,
     autoFlush: true,
   });
   const deactivate = activateBrowserTelemetry(telemetry, currentBrowserRouteID);

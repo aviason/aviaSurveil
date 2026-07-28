@@ -11,12 +11,22 @@ scenarios, PWA/readiness, atomic offline field/outbox persistence,
 manifest-first OPFS Inspection Attachment recovery, typed foreground sync, and
 all 86 React routes in demo and HTTP are `verified locally`. The Full React
 migration's Task 10 correction and Tasks 11–12 evidence have clean independent
-acceptance; its full visual gate remains literally `not verified`. Plans 1–3
-are `ready-for-verification`. The artifact is `candidate-only`, the local
-decision is `GO`, and release is `release pending`. It is not a deployed
-production application. Production identity federation, external storage,
-scanning, email, records operations, deployment, cutover, legacy removal, and
-a `production-ready` claim remain excluded or `blocked`.
+acceptance; its full visual gate remains literally `not verified`. Plan 4 adds
+local telemetry and alerting, separate application/identity backup chains,
+exact isolated restore and candidate RPO/RTO drills, owner-scoped runbooks,
+digest-bound recovery images, and offline Terraform/Terragrunt policy gates.
+Plan 1 visual stakeholder disposition is 170/170 complete; all 10 Fix records
+are `fixed-verified-locally` and zero manual decisions remain.
+The fresh strict baseline verifier is separately `not verified` on later
+UI-audit metadata drift, while a read-only content check verifies all 258/258
+baseline PNG hashes; the accepted manifest was not changed.
+Plan 1 is `completed`; Plans 2–4 are `ready-for-verification`; AWS Task 10 is
+literally `not run`.
+The artifact is `candidate-only`, the local decision is `GO`, and release is
+`release pending`. It is not a deployed production application. Production
+identity federation, external storage, scanning, email, records operations,
+deployment, cutover, legacy removal, and a `production-ready` claim remain
+excluded or `blocked`.
 The root Vanilla demo remains intact.
 
 ## Root Files
@@ -164,6 +174,30 @@ The root Vanilla demo remains intact.
   and task-owned cleanup profile.
 - `scripts/test-local-recovery.sh` — isolated local PostgreSQL dump/restore and
   exact private object backup/restore drill with dedicated cleanup.
+- `scripts/plan1-visual-stakeholder-review.mjs` — local-only Plan 1 visual
+  decision UI, decision-ledger synchronizer, and focused surface rerun helper.
+- `scripts/write-plan1-visual-codex-triage.mjs` and
+  `scripts/build-plan1-visual-triage-contact-sheets.mjs` — fail-closed
+  170-record triage and local contact-sheet generators.
+- `deploy/observability/` — candidate-only OpenTelemetry Collector,
+  Prometheus, Grafana, Loki, Tempo, Alertmanager, dashboards, and alert rules.
+- `deploy/recovery/` — separate encrypted application/identity pgBackRest
+  topology, logically isolated backup object store, recovery image, and drill
+  scenario catalog.
+- `apps/api/cmd/object-backup/` and `apps/api/cmd/recovery-fingerprint/` —
+  deterministic object manifest and authoritative application recovery
+  fingerprint commands.
+- `scripts/test-observability-profile.sh`, `scripts/verify-backup-catalog.sh`,
+  and `scripts/test-rpo-rto-drill.sh` — isolated alert, catalog, exact restore,
+  candidate RPO/RTO, and zero-residue verification profiles.
+- `docs/operations/` — candidate service objectives, telemetry/alert contracts,
+  ownership, ten operational runbooks, and gated AWS trial decisions.
+- `infra/terraform/` — reusable AWS modules, bootstrap and secure local
+  fixtures, native tests, and version/provider locks.
+- `infra/terragrunt/` — explicit-owner AWS trial component graph and
+  non-deployable validate/plan fixture.
+- `infra/policies/aws-plan.rego` and `scripts/check-terragrunt.sh` — fail-closed
+  fixture plan and policy gates that perform no AWS apply or destroy.
 
 ## Smoke Tests
 
@@ -296,6 +330,10 @@ separate `apps/web/package.json` owns the React candidate commands.
 - `docs/demo-evidence/LOCAL_PRODUCTION_LIKE_SERVICES_2026-07-22.md` —
   Plan 3 scanned-image, clean-profile, real-service, failure/restart, and
   zero-residue evidence.
+- `docs/demo-evidence/LOCAL_RELIABILITY_AND_DR_2026-07-22.md` —
+  Plan 4 local observability, alert, dual-database backup, exact restore,
+  RPO/RTO, runbook, image/SBOM/scan, Terraform/Terragrunt, cleanup, and
+  explicit AWS `not run` evidence.
 - `docs/demo-handoff/ACCEPTANCE_CRITERIA_AND_FEEDBACK.md`
 - `docs/demo-handoff/AGENT_HARNESS_RUNBOOK.md`
 - `docs/demo-handoff/CODEX_DEMO_ONLY_PROMPT.md`
@@ -368,5 +406,11 @@ and GM risk-matrix outcomes. Manual review remaining is zero. Plan 2 implements
 all 86 HTTP routes and complete mock/Go/PostgreSQL scenario parity and is
 `ready-for-verification`. Plan 3 Tasks 1–9 are `verified locally`; the required
 matrix, two final clean demo/full repetitions, and separate final main-agent
-reviews pass. Plan 3 is `ready-for-verification`, `candidate-only`, and
-`release pending`. Plan 4 remains unstarted and unauthorized.
+reviews pass. Plan 4 Tasks 1–9 and Task 11 are also `verified locally`: the
+clean 86-route/10-scenario profile, all eight alert fixtures, exact
+dual-database/object recovery, two isolated RPO/RTO drills, ten runbooks, nine
+image/SBOM/scan bindings, Terraform/Terragrunt fixtures, IaC policy gates, and
+zero-residue checks pass. Plan 1 is `completed`; Plans 2–4 are
+`ready-for-verification`. The platform remains `candidate-only` and
+`release pending`. AWS Task 10 remains optional,
+unauthorized, and literally `not run`.

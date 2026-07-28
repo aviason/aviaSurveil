@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "artifactStatus": "candidate-only",
+  "failureDomain": "same-host-logically-isolated",
+  "productionHostLossCovered": false,
+  "schedules": {
+    "full": "weekly",
+    "differential": "daily",
+    "incremental": "every-15-minutes"
+  },
+  "databaseBackup": {
+    "applicationBucket": "application-database-backups",
+    "identityBucket": "identity-database-backups",
+    "encryption": "pgBackRest AES-256-CBC",
+    "fullRetentionCount": 2,
+    "differentialRetentionCount": 4
+  },
+  "objectBackup": {
+    "sourceBuckets": [
+      "evidence-quarantine",
+      "evidence-clean",
+      "inspection-attachments",
+      "generated-documents"
+    ],
+    "targetBucket": "application-object-backups",
+    "versioningRequired": true,
+    "objectLock": {
+      "enabled": true,
+      "mode": "COMPLIANCE",
+      "retentionDays": 7
+    },
+    "manifestFields": [
+      "sourceBucket",
+      "key",
+      "versionId",
+      "etag",
+      "sha256",
+      "size",
+      "metadata",
+      "retentionUntil"
+    ]
+  },
+  "recoveryPoint": {
+    "catalogBucket": "recovery-catalog",
+    "requiredComponents": [
+      "applicationDatabase",
+      "identityDatabase",
+      "identityFingerprint",
+      "applicationObjects",
+      "configurationReferences"
+    ],
+    "partialSuccessAllowed": false
+  }
+}

@@ -13,8 +13,11 @@ case "$profile" in
   full)
     required_images="gateway web-http keycloak api worker scheduler migration"
     ;;
+  recovery)
+    required_images="postgres-recovery"
+    ;;
   *)
-    echo "usage: $0 demo|full" >&2
+    echo "usage: $0 demo|full|recovery" >&2
     exit 2
     ;;
 esac

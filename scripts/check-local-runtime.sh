@@ -10,6 +10,13 @@ STATE_DIRECTORY="${AVIASURVEIL_LOCAL_STATE_DIR:-}"
 HTTPS_PORT="${AVIA_LOCAL_HTTPS_PORT:-8443}"
 MODE="${1:-check}"
 
+for required_command in curl docker node rg; do
+  if ! command -v "${required_command}" >/dev/null 2>&1; then
+    echo "required command is unavailable: ${required_command}" >&2
+    exit 69
+  fi
+done
+
 if [[ ! "${PROJECT}" =~ ^aviasurveil360-task-[a-z0-9][a-z0-9-]*$ ]]; then
   echo "AVIA_LOCAL_PROJECT must identify one exact task-owned project" >&2
   exit 64

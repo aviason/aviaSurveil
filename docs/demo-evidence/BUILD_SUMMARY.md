@@ -115,6 +115,31 @@ spec-compliance and code-quality self-reviews found no remaining Critical or
 Important issue. Plan 3 is `ready-for-verification`, `candidate-only`, and
 `release pending`.
 
+Plan 4 Tasks 1–9 and Task 11 are `verified locally`; see
+[Local Reliability, DR, And Infrastructure Evidence](LOCAL_RELIABILITY_AND_DR_2026-07-22.md).
+The clean local full profile passed all 86 HTTP route loads and all 10
+real-service scenario families. React passed `644/644`, operations/runbook
+contracts passed `43/43`, and the canonical Go race suite passed.
+Observability proved all eight alert fixtures, grouped and resolved Mailpit
+delivery, cross-signal correlation/redaction, persistence after restart, and
+zero residue. Separate encrypted application/identity backup chains and exact
+object versions produced complete catalogs; two isolated restores retained
+normal TOTP and CAA role scope, direct-loaded all 86 routes, delivered real
+worker backlog, restarted the API node, rejected a corrupt latest catalog, and
+left zero residue. The final restores measured database/object RPO at `3/1`
+seconds and `107/102` seconds with RTO at `81` seconds for both points.
+
+All nine runtime/recovery images have digest-bound CycloneDX SBOM and passing
+HIGH/CRITICAL scan evidence. Terraform passed `12/12` native tests, TFLint, and
+zero HIGH/CRITICAL Trivy findings. Terragrunt produced `12/12` protected
+non-deployable fixture plans with empty policy denial sets and zero
+apply/destroy; infrastructure contracts passed `46/46`. Plan 4 is
+`ready-for-verification`, `candidate-only`, and `release pending`. AWS
+discovery, real planning, apply, publication, smoke, rollback, retain/destroy,
+and every other Task 10 action are literally `not run`. The local backup store
+is only same-host/logically isolated, so this is not host-loss or production
+recovery evidence.
+
 The local recommendation is `GO`, the artifact remains `candidate-only`, and
 release is `release pending`. These adjacent candidates do not make the root
 demo or the overall product `production-ready`; production remains `blocked`.
