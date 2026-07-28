@@ -36,6 +36,13 @@ complete. AWS Task 10 remains an optional future branch, is excluded from the
 local milestone, and is literally `not run`; it was not authorized by this
 sequencing decision or plan document.
 
+On 2026-07-28 the user explicitly replaced the draft per-task Git sequence
+below with one Plan 4-scoped commit. The verified local implementation and
+evidence were committed as `f9787b3` (`feat(plan4): complete reliability and
+infrastructure readiness`). The unchecked exact-message bullets remain literal
+historical records because those draft commits were not created. This Git
+reconciliation did not authorize or run AWS Task 10.
+
 ## Objective
 
 Make local operations measurable and recoverable before any cloud experiment.

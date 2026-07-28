@@ -168,6 +168,9 @@ feasibility decision.
   `OWNER-DIRECTIVE-2026-07-28-P5T1-*` approval references and exact effective
   values in contract/profile version `1.0.0`, and aligned the optional-TOTP and
   laptop-bounded profile decisions. Runtime implementation remains `not run`.
+- [x] (2026-07-28) Committed the complete Task 1 contract, profile, product
+  index, and 26/26 mutation gate as `d0f5b29` (`docs(plan5): freeze identity
+  and data foundation contract`). Tasks 2-9 remain unauthorized and `not run`.
 
 ## Tasks
 
