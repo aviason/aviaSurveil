@@ -122,6 +122,7 @@ export default defineConfig({
         "e2e/generated-document.http.spec.ts",
         "e2e/notification-delivery.http.spec.ts",
         "e2e/local-service-failures.http.spec.ts",
+        "e2e/user-lifecycle.http.spec.ts",
       ],
     },
     {

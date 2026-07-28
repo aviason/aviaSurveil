@@ -47,6 +47,34 @@
 .admin-template-identity b { margin: 3px 0 0; overflow-wrap: anywhere; }
 .admin-disabled-action { display: grid; gap: 5px; align-items: start; margin-top: 10px; }
 .admin-disabled-action small { color: #697895; line-height: 1.4; }
+.admin-identity-card dl { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.admin-identity-card h2 { margin-top: 18px; }
+.admin-lifecycle-create { align-items: end; }
+.admin-directory-state { margin: 0 0 16px; padding: 12px 14px; border: 1px solid #cbd6e5; border-radius: 9px; color: #405271; background: #f6f8fb; }
+.admin-directory-state--error { border-color: #e2a4a4; color: #8b2525; background: #fff4f4; }
+.admin-directory-state--stale { border-color: #e4c27a; color: #674b13; background: #fff9e9; }
+.admin-directory-state p { margin: 0 0 10px; }
+.admin-directory-state p:last-child { margin-bottom: 0; }
+.admin-command-error { display: grid; gap: 3px; margin-bottom: 16px; }
+.admin-command-error:focus { outline: 3px solid #7caaf0; outline-offset: 2px; }
+.admin-lifecycle-status { margin-bottom: 16px; }
+.admin-lifecycle-status__summary { margin: 10px 0; color: #16202e; font-size: 18px; font-weight: 750; }
+.admin-lifecycle-dialog { position: fixed; z-index: 70; inset: 0; display: grid; overflow: auto; place-items: center; padding: 24px; background: rgb(13 29 51 / 68%); }
+.admin-lifecycle-dialog__panel { display: grid; width: min(100%, 680px); max-height: calc(100vh - 48px); gap: 16px; overflow: auto; padding: 22px; border: 1px solid #cbd6e5; border-radius: 12px; background: #fff; box-shadow: 0 24px 70px rgb(10 25 48 / 30%); }
+.admin-lifecycle-dialog__panel > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.admin-lifecycle-dialog__panel h2 { margin: 0; color: #16202e; font-size: 20px; }
+.admin-lifecycle-dialog__panel .eyebrow { margin: 0 0 4px; color: #3777d9; font-size: 11px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+.admin-lifecycle-dialog__panel label { display: grid; gap: 6px; color: #405271; font-size: 12px; font-weight: 700; }
+.admin-lifecycle-dialog__panel input,
+.admin-lifecycle-dialog__panel select,
+.admin-lifecycle-dialog__panel textarea { width: 100%; min-width: 0; padding: 9px 11px; border: 1px solid #cbd6e5; border-radius: 8px; color: #16202e; background: #fff; font: inherit; }
+.admin-lifecycle-dialog__panel textarea { resize: vertical; }
+.admin-lifecycle-dialog__panel dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; }
+.admin-lifecycle-dialog__panel dt { color: #70809e; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+.admin-lifecycle-dialog__panel dd { margin: 3px 0 0; overflow-wrap: anywhere; }
+.admin-lifecycle-dialog__transfer { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.admin-lifecycle-dialog__guardrail { margin: 0; padding: 10px 12px; border-radius: 8px; color: #405271; background: #eef4fd; line-height: 1.5; }
+.admin-lifecycle-dialog__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .admin-question-composer,
 .admin-builder-draft,
 .admin-template-identity { margin-bottom: 16px; padding: 16px; border: 1px solid #d8e0ec; border-radius: 10px; background: #fff; }
@@ -97,4 +125,11 @@
   .admin-disabled-action button,
   .admin-action-link { width: 100%; }
   .admin-secondary-page .admin-record-card > header { align-items: flex-start; flex-direction: column; }
+  .admin-secondary-page .admin-lifecycle-dialog { align-items: end; padding: 12px; }
+  .admin-secondary-page .admin-lifecycle-dialog__panel { max-height: calc(100vh - 24px); padding: 16px; }
+  .admin-secondary-page .admin-lifecycle-dialog__panel > header { align-items: stretch; flex-direction: column; }
+  .admin-secondary-page .admin-lifecycle-dialog__panel dl,
+  .admin-secondary-page .admin-lifecycle-dialog__transfer { grid-template-columns: 1fr; }
+  .admin-secondary-page .admin-lifecycle-dialog__actions { display: grid; grid-template-columns: 1fr; }
+  .admin-secondary-page .admin-lifecycle-dialog__actions button { width: 100%; }
 }

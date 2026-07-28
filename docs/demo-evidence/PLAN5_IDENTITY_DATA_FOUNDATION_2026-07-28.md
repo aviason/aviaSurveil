@@ -2,7 +2,7 @@
 
 **Evidence date:** 2026-07-28
 
-**Scope status:** Tasks 1–4 complete; Tasks 5–9 `not run`
+**Scope status:** Tasks 1–5 complete; Tasks 6–9 `not run`
 
 **Artifact status:** `candidate-only`
 
@@ -374,7 +374,101 @@ processes, and browser processes.
 
 ### Non-claims and next boundary
 
-Task 4 does not finish the Users and Roles Admin experience, build the preprod
-loader, qualify any workload profile, deploy, exercise production identity, or
-establish production readiness. Tasks 5–9 remain `not run`; the artifact is
-still `candidate-only` and `release pending`.
+Task 4 did not finish the Users and Roles Admin experience. Task 5 now closes
+that boundary. The preprod loader, every workload profile, deployment,
+production identity, and production readiness remain `not run` in Tasks 6–9.
+The artifact is still `candidate-only` and `release pending`.
+
+## Task 5 Users And Roles Admin Experience
+
+### Strict RED evidence
+
+Before Task 5 production changes, `npm --prefix apps/web test -- --run
+src/features/admin/users-roles-page.test.tsx` failed with exit 1: 1 of 3 tests
+failed. The complete backend-shaped retained account rendered, but the first
+independently derived required fact, `Provider account`, was absent. This
+proved the page did not yet expose the complete provider, application,
+membership, authority-alignment, and session record or the exact per-action
+availability reasons. No Task 5 production implementation preceded this RED.
+
+The expanded pre-implementation focused run then failed 5 of 6 tests. Its
+independent first failures were the missing `Review provisioning` control, the
+same complete-fact contract, the missing reasoned confirmation dialog, the
+missing loading status, and the missing confirmation dialog on the retryable
+lifecycle path. The sole passing test was the retained CAA role/organization
+client-side rejection. These failures also establish RED coverage for every
+server-supported lifecycle action, focus return, loading/empty/unavailable/
+stale/retry directory states, lifecycle retry reconciliation, and focused
+command-error presentation before production implementation.
+
+The first isolated canonical HTTP Playwright run provisioned the real
+Keycloak account and completed the first lifecycle request, then failed 0/1
+after the role-update worker completed. Repeated refresh clicks had issued
+overlapping reads, so an older `PENDING` response overwrote a later
+`SUCCEEDED` response. The browser assertion received the exact candidate-002
+status regression. API and worker logs contained no secrets, both lifecycle
+work batches completed, and the harness removed every task-owned container,
+volume, network, runtime directory, Vite process, and browser process.
+
+The rerun passed monotonic lifecycle reconciliation and then failed because
+the post-role-change directory entry no longer contained the exact provider
+email/display name. The captured UI still proved `manager`, `CAA`, `invited`,
+revision 2, and `in-sync`, isolating the regression to erased provider
+identity facts. The focused Keycloak client RED then failed with exit 1: the
+authority update sent only `organization_id`, omitted username, email, first
+name, last name, email-verification state, and another retained attribute, and
+never read the current user representation. This reproduces the browser
+evidence without changing the accepted provider contract.
+
+After the preservation fix, the next HTTP run completed provisioning and role
+replacement with the provider identity intact, then failed only in the new
+responsive helper: it measured an off-screen control before scrolling and
+received the correct negative Y coordinate. The helper now follows the
+established repository geometry contract and scrolls each target into view
+before asserting viewport bounds.
+
+The first complete Web regression run then passed 649 of 650 tests and failed
+only the stylesheet ownership contract because the mobile media block repeated
+the exact `.admin-lifecycle-dialog` selector. The mobile overrides are now
+scoped through the Administration page root so each selector has one owner;
+no threshold, mask, or accepted visual baseline changed.
+
+### Implemented Admin experience
+
+- The HTTP Admin directory renders exact provider, application profile,
+  desired membership, role, organization, invitation, MFA, account,
+  synchronization, and last-session facts without placeholders.
+- Provisioning and all nine non-provision lifecycle actions are visible and
+  use a reasoned confirmation dialog. Role replacement and organization
+  transfer collect their exact additional inputs; every existing-account
+  request uses the current membership revision.
+- Each action is either operable or disabled with a specific provider,
+  authority, state, or input reason. Loading, empty, unavailable, pending,
+  succeeded, failed, stale, and retry states are stable and test-covered.
+- Directory refresh is monotonic so an older response cannot replace a newer
+  terminal result. A Keycloak authority update reads and preserves the current
+  username, email, display name, verification state, and retained attributes
+  before changing only server-owned organization and role authority.
+- Keyboard dialog operation, Escape, focus placement and restoration, error
+  summary focus, desktop/tablet/mobile geometry, and no-overlap behavior are
+  verified in focused component and real HTTP browser coverage.
+
+### Fresh GREEN verification
+
+| Command | Literal result |
+|---|---|
+| `npm --prefix apps/web run typecheck` | exit 0 |
+| `npm --prefix apps/web test -- --run src/features/admin/users-roles-page.test.tsx` | exit 0; 6/6 passed |
+| `npm --prefix apps/web run test:e2e:http -- --grep "user lifecycle"` | exit 0; isolated canonical HTTP Playwright 1/1 in 5.4 seconds; focused outbox drain passed; task-owned services, storage, Vite, and browser processes cleaned |
+| `go -C apps/api test -race -count=1 ./internal/identity` | exit 0; unrestricted package rerun passed in 1.536 seconds; the preceding restricted-sandbox attempt could not bind a loopback test listener and exited before assertions |
+| `go -C apps/api test -count=1 ./internal/identity -run '^TestTask5UpdateUserAuthorityPreservesProviderIdentityAndAttributes$'` | exit 0 |
+| `npm --prefix apps/web test -- --run` | exit 0; 650/650 passed across 64 files in 80.13 seconds |
+| `node --test tests/preprod-identity-data-contract.test.mjs` | exit 0; 26/26 passed |
+
+### Non-claims and next boundary
+
+Task 5 completes only the local candidate Users and Roles Admin experience.
+The loader, profile generation, generated datasets, workload qualification,
+deployment, external email, production identity federation, release, and
+production readiness remain `not run` in Tasks 6–9. The artifact remains
+`candidate-only` and `release pending`.

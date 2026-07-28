@@ -8,6 +8,7 @@ COMPOSE_PROJECT="aviasurveil360-task11"
 TASK_POSTGRES_PORT="${AVIA_TASK11_POSTGRES_PORT:-55442}"
 TASK_KEYCLOAK_PORT="${AVIA_TASK11_KEYCLOAK_PORT:-58090}"
 TASK_KEYCLOAK_MANAGEMENT_PORT="${AVIA_TASK11_KEYCLOAK_MANAGEMENT_PORT:-59010}"
+TASK_MAILPIT_HTTP_PORT="${AVIA_TASK11_MAILPIT_HTTP_PORT:-58095}"
 TASK_OBJECT_STORE_PORT="${AVIA_TASK11_OBJECT_STORE_PORT:-59011}"
 TASK_OBJECT_STORE_CONSOLE_PORT="${AVIA_TASK11_OBJECT_STORE_CONSOLE_PORT:-59012}"
 TASK_API_PORT="${AVIA_TASK11_API_PORT:-58091}"
@@ -20,9 +21,9 @@ API_PID=""
 WORKER_PID=""
 FOCUSED_E2E="${AVIA_HTTP_PROFILE_FOCUSED_E2E:-}"
 case "${FOCUSED_E2E}" in
-  "" | visible-actions) ;;
+  "" | user-lifecycle | visible-actions) ;;
   *)
-    echo "AVIA_HTTP_PROFILE_FOCUSED_E2E must be empty or visible-actions" >&2
+    echo "AVIA_HTTP_PROFILE_FOCUSED_E2E must be empty, user-lifecycle, or visible-actions" >&2
     exit 64
     ;;
 esac
@@ -30,6 +31,7 @@ export COMPOSE_PROGRESS="plain"
 export AVIA_TEST_POSTGRES_PORT="${TASK_POSTGRES_PORT}"
 export AVIA_TEST_KEYCLOAK_PORT="${TASK_KEYCLOAK_PORT}"
 export AVIA_TEST_KEYCLOAK_MANAGEMENT_PORT="${TASK_KEYCLOAK_MANAGEMENT_PORT}"
+export AVIA_TEST_MAILPIT_HTTP_PORT="${TASK_MAILPIT_HTTP_PORT}"
 export AVIA_TEST_OBJECT_STORE_PORT="${TASK_OBJECT_STORE_PORT}"
 export AVIA_TEST_OBJECT_STORE_CONSOLE_PORT="${TASK_OBJECT_STORE_CONSOLE_PORT}"
 export AVIA_TEST_RUNTIME_DIR="${RUNTIME_DIRECTORY}"
@@ -89,7 +91,7 @@ cleanup() {
 trap cleanup EXIT
 
 docker compose --project-name "${COMPOSE_PROJECT}" --file "${COMPOSE_FILE}" down --volumes --remove-orphans
-docker compose --project-name "${COMPOSE_PROJECT}" --file "${COMPOSE_FILE}" up --detach --wait postgres keycloak-postgres keycloak object-store
+docker compose --project-name "${COMPOSE_PROJECT}" --file "${COMPOSE_FILE}" up --detach --wait postgres keycloak-postgres mailpit keycloak object-store
 
 export AVIA_TEST_DATABASE_URL="postgres://aviasurveil:${APP_DATABASE_PASSWORD}@127.0.0.1:${TASK_POSTGRES_PORT}/aviasurveil?sslmode=disable"
 export AVIA_TEST_OIDC_ISSUER_URL="http://127.0.0.1:${TASK_KEYCLOAK_PORT}/identity/realms/aviasurveil360"
@@ -168,6 +170,9 @@ npm --prefix "${REPOSITORY_ROOT}/apps/web" run typecheck
 if [[ "${FOCUSED_E2E}" == "visible-actions" ]]; then
   npm --prefix "${REPOSITORY_ROOT}/apps/web" run test:e2e:http -- \
     tests/e2e/visible-action-contract.spec.ts
+elif [[ "${FOCUSED_E2E}" == "user-lifecycle" ]]; then
+  npm --prefix "${REPOSITORY_ROOT}/apps/web" run test:e2e:http -- \
+    --grep "user lifecycle"
 else
   npm --prefix "${REPOSITORY_ROOT}/apps/web" test
   npm --prefix "${REPOSITORY_ROOT}/apps/web" run build:demo

@@ -1,6 +1,6 @@
 # Identity And Realistic Data Foundation Plan
 
-**Status:** `active — Tasks 1–4 complete; Task 5 next`
+**Status:** `active — Tasks 1–5 complete; Task 6 next`
 
 **Reviewed task count:** 9
 
@@ -18,10 +18,11 @@ repeatable connected data covering every important workflow state.
 contract, and owner-decision packaging. Plan 1 and the combined Plans 2–4
 stakeholder disposition were completed on 2026-07-28. The current user
 authorization permits Tasks 2–9 in sequence, with one freshly verified,
-published task commit before the next task starts. Tasks 1–4 are complete;
+published task commit before the next task starts. Tasks 1–5 are complete;
 Tasks 2–4 are published as `26da3c0`, `8cf2b57`, and `bedff45`. This plan is
 the predecessor of the AviaCore/ML readiness and local preprod
-release-candidate plans. Task 5 remains `not run`.
+release-candidate plans. Task 5 is `verified locally` and awaits its publication
+record; Tasks 6–9 remain `not run`.
 
 ## Scope
 
@@ -268,6 +269,21 @@ feasibility decision.
   `bedff4575704511d107f148c289424b46485d0b2`
   (`feat(identity): enforce live session authority`) and confirmed the exact
   remote ref before starting Task 5.
+- [x] (2026-07-28) Task 5 is complete and `verified locally`. The strict RED
+  sequence failed at the missing provider-account fact, five missing
+  Admin-experience contracts, overlapping lifecycle refresh regression, and
+  erased provider identity facts after role replacement. GREEN renders the
+  exact provider/application/membership/session record; implements
+  reason-confirmed provision and all nine non-provision lifecycle actions;
+  exposes exact disabled reasons and stable loading, empty, unavailable,
+  pending, succeeded, failed, stale, and retry states; preserves the complete
+  Keycloak user representation during authority updates; and passes keyboard,
+  focus, error-summary, tablet, mobile, and no-overlap coverage. Fresh
+  verification passed Web typecheck, the focused 6/6 Web tests, the isolated
+  canonical HTTP Playwright flow 1/1 in 5.4 seconds, the race-enabled identity
+  package, the full 650/650 Web suite, and 26/26 identity/data contract tests.
+  The task commit publication hash will be recorded immediately after the
+  verified task commit is pushed.
 
 ## Tasks
 
@@ -801,6 +817,9 @@ first-login path reaches only its authorized workspace.
 
 ### Task 5: Finish The Users And Roles Admin Experience
 
+**Task status:** `complete — verified locally`; Task 4 is published and
+remotely confirmed. Task 5 publication is the final gate before Task 6 starts.
+
 **Files**
 
 - Modify `apps/web/src/features/admin/users-roles-page.tsx`.
@@ -812,18 +831,18 @@ first-login path reaches only its authorized workspace.
 
 **Work**
 
-- [ ] Render provider, application profile, role, organization, invitation,
+- [x] Render provider, application profile, role, organization, invitation,
   MFA, account, and session state without placeholder values.
-- [ ] Add working provision, resend invitation, update role, transfer
+- [x] Add working provision, resend invitation, update role, transfer
   organization, suspend, deactivate, reactivate, MFA reset, and force logout
   flows.
-- [ ] Require confirmation and reason entry for authority-changing or
+- [x] Require confirmation and reason entry for authority-changing or
   destructive actions.
-- [ ] Disable actions with an exact reason when provider state or actor
+- [x] Disable actions with an exact reason when provider state or actor
   authority makes them unavailable.
-- [ ] Provide stable loading, empty, unavailable, pending, succeeded, failed,
+- [x] Provide stable loading, empty, unavailable, pending, succeeded, failed,
   stale, and retry states.
-- [ ] Verify keyboard, focus, error summary, mobile layout, and no-overlap
+- [x] Verify keyboard, focus, error summary, mobile layout, and no-overlap
   behavior at desktop, tablet, and mobile.
 
 **Verification**
@@ -841,6 +860,31 @@ disabled with a specific reason.
 
 - The Admin UI covers the complete server-supported lifecycle.
 - No toast-only, fake, or demo-only account success remains in the HTTP profile.
+
+**Implementation and fresh verification**
+
+- The HTTP Admin page renders exact provider, application-profile, desired
+  membership, role, organization, invitation, MFA, account, synchronization,
+  and last-session facts. Provisioning and every server-supported
+  non-provision action use a reasoned confirmation dialog and current revision.
+- Directory refresh is monotonic, so an older pending read cannot overwrite a
+  later terminal result. Provider authority updates first read and preserve the
+  complete current Keycloak user representation before changing the
+  server-owned organization attribute and exact role set.
+- `npm --prefix apps/web run typecheck` passed with exit 0.
+- `npm --prefix apps/web test -- --run
+  src/features/admin/users-roles-page.test.tsx` passed 6/6 with exit 0.
+- `npm --prefix apps/web run test:e2e:http -- --grep "user lifecycle"` passed
+  1/1 in 5.4 seconds inside the isolated canonical HTTP profile; the focused
+  outbox drain passed and all task-owned services, storage, Vite, and browser
+  processes were cleaned.
+- `go -C apps/api test -race -count=1 ./internal/identity` passed with exit 0
+  in 1.536 seconds, including complete provider-user preservation. A preceding
+  restricted-sandbox attempt could not bind the Go test server's loopback
+  listener and exited before assertions; the identical unrestricted rerun is
+  the completion evidence.
+- The complete Web regression passed 650/650 tests across 64 files in 80.13
+  seconds. The identity/data contract passed 26/26.
 
 ### Task 6: Build The Out-Of-Process Preprod Data Loader
 
@@ -1194,19 +1238,20 @@ cleaned, and literal non-claims remain.
 ## Outcome Notes
 
 Task 1 produced product contract `1.0.0`, exact four-profile manifests, 11
-approved owner decisions, and the machine-readable mutation test. Tasks 2–4
+approved owner decisions, and the machine-readable mutation test. Tasks 2–5
 are `verified locally`: they establish normal/canonical-test artifact
 separation, append-only desired membership, least-privilege Keycloak client
 credentials, a provider-backed Admin directory, exact-revision lifecycle
-actions, live invitation/MFA behavior, and fail-closed session authority.
-Tasks 5–9, loader/profile feasibility, deployment, release, and production
-readiness remain `not run`; the artifact remains `candidate-only` and release
-remains `release pending`.
+actions, live invitation/MFA behavior, fail-closed session authority, and the
+complete reason-confirmed Users and Roles Admin experience. Tasks 6–9,
+loader/profile feasibility, deployment, release, and production readiness
+remain `not run`; the artifact remains `candidate-only` and release remains
+`release pending`.
 
 ## Execution Prompt
 
 ```text
-Tasks 1-4 in docs/exec-plans/active/2026-07-27-identity-and-realistic-data-foundation-plan.md are complete and verified locally; Task 4 is published as bedff4575704511d107f148c289424b46485d0b2 and its remote revision is confirmed. Task 5 is next and remains not run. Read AGENTS.md, docs/PLANS.md, the plan index, the complete plan, and the current identity/full-profile evidence first. Preserve the root demo, normal HTTP no-seed boundary, Keycloak authority, organization isolation, append-only histories, and unrelated worktree changes.
+Tasks 1-5 in docs/exec-plans/active/2026-07-27-identity-and-realistic-data-foundation-plan.md are complete and verified locally; Task 4 is published as bedff4575704511d107f148c289424b46485d0b2, Task 5 awaits its exact publication record, and Task 6 remains not run. Read AGENTS.md, docs/PLANS.md, the plan index, the complete plan, and the current identity/full-profile evidence first. Preserve the root demo, normal HTTP no-seed boundary, Keycloak authority, organization isolation, append-only histories, and unrelated worktree changes.
 
 Use strict RED -> GREEN -> focused review for each task. Establish the desired-membership revision and least-privilege Keycloak service identity before directory/lifecycle acceptance. The normal API/worker/scheduler/migration images must not link testprofile or loader/reset code. Repeatable loader reset uses only an exactly authorized disposable target and never selectively deletes append-only rows. Qualify smoke, acceptance, realistic, and stress with the same scenario/role/route catalog. Do not add public registration, a normal API reset/seed route, real PII, plaintext credentials, client-authored roles, direct fixture writes that bypass authoritative domain behavior, AWS actions, commits, or pushes without separate authorization. Keep the plan, index, tracker, and evidence synchronized with literal results. Stop after each task's acceptance gate and fix all Critical or Important review findings before continuing.
 ```

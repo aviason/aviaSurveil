@@ -339,9 +339,9 @@ separate `apps/web/package.json` owns the React candidate commands.
   RPO/RTO, runbook, image/SBOM/scan, Terraform/Terragrunt, cleanup, and
   explicit AWS `not run` evidence.
 - `docs/demo-evidence/PLAN5_IDENTITY_DATA_FOUNDATION_2026-07-28.md` —
-  Plan 5 Tasks 1–4 identity/data contract, verified local directory,
+  Plan 5 Tasks 1–5 identity/data contract, verified local directory,
   revision-guarded invitation/recovery lifecycle, live OIDC/MFA, and exact
-  session-authority evidence.
+  session-authority plus complete reason-confirmed Admin-experience evidence.
 - `docs/demo-handoff/ACCEPTANCE_CRITERIA_AND_FEEDBACK.md`
 - `docs/demo-handoff/AGENT_HARNESS_RUNBOOK.md`
 - `docs/demo-handoff/CODEX_DEMO_ONLY_PROMPT.md`

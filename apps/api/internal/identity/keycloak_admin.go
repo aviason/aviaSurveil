@@ -617,12 +617,48 @@ func (client *KeycloakAdminClient) UpdateUserAuthority(
 	}
 	response, err := client.doJSON(
 		ctx,
+		http.MethodGet,
+		client.adminEndpoint("users", subjectID),
+		accessToken,
+		nil,
+		http.StatusOK,
+	)
+	if err != nil {
+		return fmt.Errorf("read Keycloak user before authority update: %w", err)
+	}
+	var representation map[string]any
+	if err := decodeLimitedJSON(response.Body, &representation); err != nil {
+		response.Body.Close()
+		return fmt.Errorf(
+			"decode Keycloak user before authority update: %w",
+			err,
+		)
+	}
+	response.Body.Close()
+	if representedSubjectID, _ := representation["id"].(string); representedSubjectID != subjectID {
+		return fmt.Errorf(
+			"Keycloak authority-update subject mismatch: %w",
+			ErrKeycloakManualReview,
+		)
+	}
+	attributes, ok := representation["attributes"].(map[string]any)
+	if !ok {
+		if representation["attributes"] != nil {
+			return fmt.Errorf(
+				"Keycloak authority-update attributes are malformed: %w",
+				ErrKeycloakManualReview,
+			)
+		}
+		attributes = map[string]any{}
+	}
+	attributes["organization_id"] = []string{organizationID}
+	representation["attributes"] = attributes
+	response, err = client.doJSON(
+		ctx,
 		http.MethodPut,
 		client.adminEndpoint("users", subjectID),
 		accessToken,
-		map[string]map[string][]string{
-			"attributes": {"organization_id": {organizationID}},
-		},
+		representation,
 		http.StatusNoContent,
 	)
 	if err != nil {

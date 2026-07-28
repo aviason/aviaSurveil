@@ -1,14 +1,21 @@
-import { useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type MouseEvent,
+} from "react";
 
 import { useApplicationRuntime } from "../../app/providers";
 import type {
+  AdminAccessDirectoryEntryView,
   RequestUserLifecycleInput,
   Role,
   UserLifecycleAction,
   UserLifecycleRequestView,
 } from "../../backend/backend";
+import { useDialogFocus } from "../../ui/dialog-focus";
 import {
-  AdminError,
   AdminPage,
   DisabledAdminAction,
   useAdminLoad,
@@ -52,8 +59,121 @@ const lifecycleActionLabels: Record<UserLifecycleAction, string> = {
   FORCE_LOGOUT: "Force logout",
 };
 
+type Confirmation =
+  | {
+      kind: "provision";
+      input: RequestUserLifecycleInput;
+      target: string;
+    }
+  | {
+      kind: "lifecycle";
+      action: Exclude<UserLifecycleAction, "PROVISION">;
+      entry: AdminAccessDirectoryEntryView;
+      target: string;
+    };
+
 function lifecycleKey(action: string, target: string): string {
   return `user-lifecycle:${action.toLowerCase()}:${target.toLowerCase()}:${Date.now().toString(36)}`;
+}
+
+function normalizedState(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function formatInstant(value: string): string {
+  const instant = new Date(value);
+  if (Number.isNaN(instant.getTime())) return value;
+  return `${new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "UTC",
+  }).format(instant)} UTC`;
+}
+
+function lifecycleStatusLabel(status: UserLifecycleRequestView["status"]): string {
+  switch (status) {
+    case "PENDING":
+      return "Pending";
+    case "RUNNING":
+      return "Running";
+    case "SUCCEEDED":
+      return "Succeeded";
+    case "FAILED_RETRYABLE":
+      return "Failed — retry available";
+    case "FAILED_PERMANENT":
+      return "Failed — permanent";
+    case "MANUAL_REVIEW":
+      return "Manual review required";
+    case "FAILED":
+      return "Failed";
+  }
+}
+
+function unavailableReason(
+  entry: AdminAccessDirectoryEntryView,
+  action: Exclude<UserLifecycleAction, "PROVISION">,
+  busy: boolean,
+): string | null {
+  if (busy) return "Another lifecycle request is being submitted.";
+  if (
+    !entry.membershipId ||
+    entry.membershipRevision < 1 ||
+    entry.roles.length !== 1 ||
+    !entry.organizationId
+  ) {
+    return "No exact desired application membership is linked to this provider account.";
+  }
+
+  const membershipState = normalizedState(entry.membershipState);
+  switch (action) {
+    case "SUSPEND":
+      if (membershipState === "suspended") {
+        return "Membership is already suspended.";
+      }
+      if (membershipState === "deactivated") {
+        return "Deactivated membership must be reactivated before suspension.";
+      }
+      if (membershipState !== "active") {
+        return "Suspension is available only for active memberships.";
+      }
+      return null;
+    case "REACTIVATE":
+      if (
+        membershipState !== "suspended" &&
+        membershipState !== "deactivated"
+      ) {
+        return "Reactivation is available only for suspended or deactivated memberships.";
+      }
+      return null;
+    case "DEACTIVATE":
+      return membershipState === "deactivated"
+        ? "Membership is already deactivated."
+        : null;
+    case "TRANSFER_ORGANIZATION":
+      return entry.roles[0] === "auditee"
+        ? null
+        : "CAA roles require the exact CAA organization and cannot transfer.";
+    case "RESEND_INVITATION":
+      return membershipState === "invited"
+        ? null
+        : "Invitation resend is available only for invited memberships.";
+    case "RESET_MFA":
+      return entry.mfaEnrolled
+        ? null
+        : "MFA reset requires an enrolled provider authenticator.";
+    case "UPDATE_ROLES":
+    case "RESET_PASSWORD":
+    case "FORCE_LOGOUT":
+      return null;
+  }
+}
+
+function lifecycleRetryable(status: UserLifecycleRequestView["status"]): boolean {
+  return status === "FAILED_RETRYABLE";
 }
 
 export function UsersRolesPage() {
@@ -66,42 +186,77 @@ export function UsersRolesPage() {
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [reason, setReason] = useState("");
+  const [organizationId, setOrganizationId] = useState("");
+  const [provisionRole, setProvisionRole] = useState<Role>("inspector");
+  const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [actionReason, setActionReason] = useState("");
-  const [lifecycleAction, setLifecycleAction] =
-    useState<UserLifecycleAction>("DEACTIVATE");
   const [lifecycleRole, setLifecycleRole] = useState<Role>("inspector");
   const [transferOrganizationId, setTransferOrganizationId] = useState("");
   const [transferEffectiveAt, setTransferEffectiveAt] = useState("");
-  const [organizationId, setOrganizationId] = useState("");
-  const [provisionRole, setProvisionRole] = useState<Role>("inspector");
   const [lifecycle, setLifecycle] = useState<UserLifecycleRequestView | null>(null);
   const [commandError, setCommandError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [submittingLabel, setSubmittingLabel] = useState<string | null>(null);
+  const dialogContainerRef = useRef<HTMLDivElement | null>(null);
+  const dialogInitialFocusRef = useRef<HTMLButtonElement | null>(null);
+  const dialogOpenerRef = useRef<HTMLButtonElement | null>(null);
+  const commandErrorRef = useRef<HTMLDivElement | null>(null);
+  const lifecycleRefreshInFlightRef = useRef(false);
   const directory = useAdminLoad(
     () => backend.listAccessDirectory({ search, role }),
     [backend, search, role],
   );
 
-  async function requestLifecycle(input: RequestUserLifecycleInput) {
+  function closeConfirmation(returnFocus = true) {
+    setConfirmation(null);
+    setActionReason("");
+    setTransferOrganizationId("");
+    setTransferEffectiveAt("");
+    if (returnFocus) dialogOpenerRef.current?.focus();
+  }
+
+  useDialogFocus({
+    containerRef: dialogContainerRef,
+    initialFocusRef: dialogInitialFocusRef,
+    onClose: closeConfirmation,
+    open: confirmation !== null,
+  });
+
+  useEffect(() => {
+    if (commandError) commandErrorRef.current?.focus();
+  }, [commandError]);
+
+  async function requestLifecycle(
+    input: RequestUserLifecycleInput,
+  ): Promise<boolean> {
     setBusy(true);
+    setSubmittingLabel(lifecycleActionLabels[input.action]);
     setCommandError(null);
     try {
-      setLifecycle(await backend.requestUserLifecycle(input));
+      const result = await backend.requestUserLifecycle(input);
+      setLifecycle(result);
+      if (result.status === "SUCCEEDED") directory.reload();
+      return true;
     } catch (cause) {
       setCommandError(
         cause instanceof Error
           ? cause.message
           : "The identity lifecycle request could not be recorded.",
       );
+      return false;
     } finally {
       setBusy(false);
+      setSubmittingLabel(null);
     }
   }
 
-  async function provision(event: FormEvent<HTMLFormElement>) {
+  function reviewProvision(
+    event: FormEvent<HTMLFormElement>,
+  ) {
     event.preventDefault();
     const normalizedEmail = email.trim().toLowerCase();
     const normalizedOrganizationId = organizationId.trim();
+    const normalizedReason = reason.trim();
     if (caaRoles.has(provisionRole) && normalizedOrganizationId !== "CAA") {
       setCommandError("CAA roles require the exact CAA organization.");
       return;
@@ -110,26 +265,120 @@ export function UsersRolesPage() {
       setCommandError("Auditee access requires a non-CAA organization.");
       return;
     }
-    await requestLifecycle({
-      idempotencyKey: lifecycleKey("PROVISION", normalizedEmail),
-      action: "PROVISION",
-      roles: [provisionRole],
-      organizationId: normalizedOrganizationId,
-      email: normalizedEmail,
-      displayName: displayName.trim(),
-      reason: reason.trim(),
-      expectedMembershipRevision: 0,
+    const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    dialogOpenerRef.current =
+      submitter instanceof HTMLButtonElement
+        ? submitter
+        : null;
+    setCommandError(null);
+    setConfirmation({
+      kind: "provision",
+      target: normalizedEmail,
+      input: {
+        idempotencyKey: lifecycleKey("PROVISION", normalizedEmail),
+        action: "PROVISION",
+        roles: [provisionRole],
+        organizationId: normalizedOrganizationId,
+        email: normalizedEmail,
+        displayName: displayName.trim(),
+        reason: normalizedReason,
+        expectedMembershipRevision: 0,
+      },
     });
   }
 
+  function openLifecycleConfirmation(
+    entry: AdminAccessDirectoryEntryView,
+    action: Exclude<UserLifecycleAction, "PROVISION">,
+    event: MouseEvent<HTMLButtonElement>,
+  ) {
+    dialogOpenerRef.current = event.currentTarget;
+    setCommandError(null);
+    setActionReason("");
+    setLifecycleRole(entry.roles[0] ?? "inspector");
+    setTransferOrganizationId("");
+    setTransferEffectiveAt("");
+    setConfirmation({
+      kind: "lifecycle",
+      action,
+      entry,
+      target: entry.subjectId,
+    });
+  }
+
+  async function confirmRequest(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!confirmation) return;
+    if (confirmation.kind === "provision") {
+      const input = confirmation.input;
+      closeConfirmation(false);
+      const succeeded = await requestLifecycle(input);
+      if (succeeded) {
+        setShowCreate(false);
+        setEmail("");
+        setDisplayName("");
+        setReason("");
+        setOrganizationId("");
+        setProvisionRole("inspector");
+      }
+      return;
+    }
+
+    const primaryRole = confirmation.entry.roles[0];
+    if (!primaryRole) {
+      setCommandError("The provider account has no approved application role.");
+      closeConfirmation(false);
+      return;
+    }
+    const input: RequestUserLifecycleInput = {
+      idempotencyKey: lifecycleKey(
+        confirmation.action,
+        confirmation.entry.subjectId,
+      ),
+      subjectId: confirmation.entry.subjectId,
+      action: confirmation.action,
+      roles: [
+        confirmation.action === "UPDATE_ROLES"
+          ? lifecycleRole
+          : primaryRole,
+      ],
+      organizationId:
+        confirmation.action === "TRANSFER_ORGANIZATION"
+          ? transferOrganizationId.trim()
+          : confirmation.entry.organizationId!,
+      reason: actionReason.trim(),
+      expectedMembershipRevision: confirmation.entry.membershipRevision,
+    };
+    if (confirmation.action === "TRANSFER_ORGANIZATION") {
+      const effectiveAt = new Date(transferEffectiveAt);
+      if (
+        !transferOrganizationId.trim() ||
+        transferOrganizationId.trim() === confirmation.entry.organizationId ||
+        Number.isNaN(effectiveAt.getTime())
+      ) {
+        setCommandError(
+          "Organization transfer requires a different destination and valid effective time.",
+        );
+        return;
+      }
+      input.effectiveAt = effectiveAt.toISOString();
+    }
+    closeConfirmation(false);
+    await requestLifecycle(input);
+  }
+
   async function refreshLifecycle() {
-    if (!lifecycle) return;
+    if (!lifecycle || lifecycleRefreshInFlightRef.current) return;
+    lifecycleRefreshInFlightRef.current = true;
     setBusy(true);
+    setSubmittingLabel("Lifecycle status");
     setCommandError(null);
     try {
-      setLifecycle(await backend.getUserLifecycleRequest({
+      const result = await backend.getUserLifecycleRequest({
         requestId: lifecycle.id,
-      }));
+      });
+      setLifecycle(result);
+      if (result.status === "SUCCEEDED") directory.reload();
     } catch (cause) {
       setCommandError(
         cause instanceof Error
@@ -137,44 +386,33 @@ export function UsersRolesPage() {
           : "The identity lifecycle status could not be loaded.",
       );
     } finally {
+      lifecycleRefreshInFlightRef.current = false;
       setBusy(false);
+      setSubmittingLabel(null);
     }
   }
 
-  async function applyLifecycleAction(
-    entry: NonNullable<typeof directory.data>["items"][number],
-  ) {
-    const primaryRole = entry.roles[0];
-    if (!primaryRole) {
-      setCommandError("The provider account has no approved application role.");
-      return;
-    }
-    const input: RequestUserLifecycleInput = {
-      idempotencyKey: lifecycleKey(lifecycleAction, entry.subjectId),
-      subjectId: entry.subjectId,
-      action: lifecycleAction,
-      roles: [
-        lifecycleAction === "UPDATE_ROLES" ? lifecycleRole : primaryRole,
-      ],
-      organizationId:
-        lifecycleAction === "TRANSFER_ORGANIZATION"
-          ? transferOrganizationId.trim()
-          : (entry.organizationId ?? "CAA"),
-      reason: actionReason.trim(),
-      expectedMembershipRevision: entry.membershipRevision,
-    };
-    if (lifecycleAction === "TRANSFER_ORGANIZATION") {
-      const effectiveAt = new Date(transferEffectiveAt);
-      if (!transferOrganizationId.trim() || Number.isNaN(effectiveAt.getTime())) {
-        setCommandError(
-          "Organization transfer requires a destination and effective time.",
-        );
-        return;
-      }
-      input.effectiveAt = effectiveAt.toISOString();
-    }
-    await requestLifecycle(input);
-  }
+  const confirmationAction =
+    confirmation?.kind === "provision" ? "PROVISION" : confirmation?.action;
+  const confirmationLabel = confirmationAction
+    ? lifecycleActionLabels[confirmationAction]
+    : "";
+  const transferInvalid =
+    confirmation?.kind === "lifecycle" &&
+    confirmation.action === "TRANSFER_ORGANIZATION" &&
+    (
+      !transferOrganizationId.trim() ||
+      transferOrganizationId.trim() === confirmation.entry.organizationId ||
+      Number.isNaN(new Date(transferEffectiveAt).getTime())
+    );
+  const roleUnchanged =
+    confirmation?.kind === "lifecycle" &&
+    confirmation.action === "UPDATE_ROLES" &&
+    lifecycleRole === confirmation.entry.roles[0];
+  const confirmationDisabled =
+    busy ||
+    (confirmation?.kind === "lifecycle" &&
+      (!actionReason.trim() || transferInvalid || roleUnchanged));
 
   return (
     <AdminPage
@@ -183,20 +421,19 @@ export function UsersRolesPage() {
       title="Users / Roles"
       description={
         isHttp
-          ? "Application-authorized Keycloak provisioning and account lifecycle status."
+          ? "Application-authorized Keycloak directory and reasoned account lifecycle controls."
           : "Typed demo access directory. Production identity and account administration remain outside the demo profile."
       }
       action={
-        isHttp
-          ? (
-              <button
-                onClick={() => setShowCreate((value) => !value)}
-                type="button"
-              >
-                Create user
-              </button>
-            )
-          : undefined
+        isHttp ? (
+          <button
+            aria-expanded={showCreate}
+            onClick={() => setShowCreate((value) => !value)}
+            type="button"
+          >
+            Create user
+          </button>
+        ) : undefined
       }
     >
       <section className="admin-filter-bar" aria-label="User directory filters">
@@ -221,10 +458,20 @@ export function UsersRolesPage() {
             ))}
           </select>
         </label>
+        <button
+          disabled={busy}
+          onClick={directory.reload}
+          type="button"
+        >
+          Refresh user directory
+        </button>
       </section>
 
       {isHttp && showCreate ? (
-        <form className="admin-filter-bar" onSubmit={(event) => void provision(event)}>
+        <form
+          className="admin-filter-bar admin-lifecycle-create"
+          onSubmit={reviewProvision}
+        >
           <label>
             Reason
             <input
@@ -274,99 +521,98 @@ export function UsersRolesPage() {
               ))}
             </select>
           </label>
-          <button disabled={busy} type="submit">Submit provisioning</button>
+          <button disabled={busy} type="submit">Review provisioning</button>
         </form>
       ) : null}
 
-      <AdminError message={directory.error ?? commandError} />
+      {commandError ? (
+        <div
+          className="command-error admin-command-error"
+          ref={commandErrorRef}
+          role="alert"
+          tabIndex={-1}
+        >
+          <strong>Action could not be completed</strong>
+          <span>{commandError}</span>
+        </div>
+      ) : null}
+
+      {busy && submittingLabel ? (
+        <p className="admin-directory-state" role="status">
+          Submitting {submittingLabel.toLowerCase()}…
+        </p>
+      ) : null}
+
       {isHttp && lifecycle ? (
         <section
-          className="admin-record-card"
-          aria-live="polite"
+          aria-label="Lifecycle request status"
+          className="admin-record-card admin-lifecycle-status"
           id="user-lifecycle-status"
+          role="status"
         >
-          <b>Provisioning status: {lifecycle.status}</b>
-          <small>{lifecycle.id}</small>
+          <header>
+            <div>
+              <b>{lifecycleActionLabels[lifecycle.action]} request</b>
+              <small>{lifecycle.id}</small>
+            </div>
+            <span>{lifecycle.status}</span>
+          </header>
+          {lifecycle.action === "PROVISION" ? (
+            <b>Provisioning status: {lifecycle.status}</b>
+          ) : null}
+          <p className="admin-lifecycle-status__summary">
+            {lifecycleStatusLabel(lifecycle.status)}
+          </p>
           {lifecycle.failureReason ? <p>{lifecycle.failureReason}</p> : null}
+          <dl>
+            <div><dt>Requested by</dt><dd>{lifecycle.requestedBySubjectId}</dd></div>
+            <div><dt>Expected revision</dt><dd>{lifecycle.expectedMembershipRevision}</dd></div>
+            <div><dt>Resulting revision</dt><dd>{lifecycle.resultingMembershipRevision}</dd></div>
+            <div><dt>Provider acknowledgement</dt><dd>{lifecycle.providerAcknowledgedAt ? formatInstant(lifecycle.providerAcknowledgedAt) : "Pending"}</dd></div>
+            <div><dt>Attempts</dt><dd>{lifecycle.attemptCount}</dd></div>
+          </dl>
           <p>TOTP MFA is optional and self-enrolled in Keycloak.</p>
           <button
             disabled={busy}
             onClick={() => void refreshLifecycle()}
             type="button"
           >
-            Refresh provisioning status
+            {lifecycleRetryable(lifecycle.status)
+              ? "Retry lifecycle status"
+              : lifecycle.action === "PROVISION"
+                ? "Refresh provisioning status"
+                : "Refresh lifecycle status"}
           </button>
         </section>
       ) : null}
 
-      {isHttp ? (
-        <section
-          className="admin-filter-bar"
-          aria-label="Account lifecycle action"
-        >
-          <label>
-            Lifecycle action
-            <select
-              aria-label="Lifecycle action"
-              onChange={(event) => setLifecycleAction(
-                event.target.value as UserLifecycleAction,
-              )}
-              value={lifecycleAction}
-            >
-              {lifecycleActions.map((action) => (
-                <option key={action} value={action}>
-                  {lifecycleActionLabels[action]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Lifecycle action reason
-            <input
-              aria-label="Lifecycle action reason"
-              onChange={(event) => setActionReason(event.target.value)}
-              required
-              value={actionReason}
-            />
-          </label>
-          {lifecycleAction === "UPDATE_ROLES" ? (
-            <label>
-              New role
-              <select
-                aria-label="Lifecycle target role"
-                onChange={(event) => setLifecycleRole(event.target.value as Role)}
-                value={lifecycleRole}
-              >
-                {roles.map((value) => (
-                  <option key={value} value={value}>{value}</option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-          {lifecycleAction === "TRANSFER_ORGANIZATION" ? (
-            <>
-              <label>
-                Destination organization
-                <input
-                  aria-label="Transfer destination organization"
-                  onChange={(event) => setTransferOrganizationId(event.target.value)}
-                  required
-                  value={transferOrganizationId}
-                />
-              </label>
-              <label>
-                Effective time
-                <input
-                  aria-label="Transfer effective time"
-                  onChange={(event) => setTransferEffectiveAt(event.target.value)}
-                  required
-                  type="datetime-local"
-                  value={transferEffectiveAt}
-                />
-              </label>
-            </>
-          ) : null}
-        </section>
+      {directory.data === null && directory.error === null ? (
+        <p className="admin-directory-state" role="status">
+          Loading user directory…
+        </p>
+      ) : null}
+      {directory.data === null && directory.error ? (
+        <div className="admin-directory-state admin-directory-state--error">
+          <p role="alert">{directory.error}</p>
+          <button onClick={directory.reload} type="button">
+            Retry user directory
+          </button>
+        </div>
+      ) : null}
+      {directory.data && directory.error ? (
+        <div className="admin-directory-state admin-directory-state--stale">
+          <p role="status">
+            Showing the last successful directory because {directory.error}
+          </p>
+          <button onClick={directory.reload} type="button">
+            Retry user directory
+          </button>
+        </div>
+      ) : null}
+      {directory.data?.items.length === 0 ? (
+        <p className="admin-directory-state" role="status">
+          No accounts match the current filters.
+        </p>
       ) : null}
 
       <div
@@ -375,36 +621,84 @@ export function UsersRolesPage() {
         aria-label={isHttp ? "Identity access directory" : "Demo access directory"}
       >
         {directory.data?.items.map((entry) => {
-          const primaryRole = entry.roles[0];
           const demoReason =
             `${entry.subjectId} account provisioning and role changes are production-only and require Plan 3 Keycloak administration.`;
           return (
-            <article className="admin-record-card" key={entry.subjectId} role="listitem">
+            <article
+              aria-label={`${entry.displayName} ${entry.subjectId}`}
+              className="admin-record-card admin-identity-card"
+              key={entry.subjectId}
+              role="listitem"
+            >
               <header>
                 <div>
                   <b>{entry.displayName}</b>
                   <small>{entry.subjectId}</small>
                 </div>
-                <span>{entry.roles.join(", ")}</span>
+                <span>{entry.accountStatus}</span>
               </header>
               <dl>
-                <div><dt>Organization scope</dt><dd>{entry.organizationId ?? "CAA internal"}</dd></div>
+                <div><dt>Provider account</dt><dd>{entry.accountStatus}</dd></div>
+                <div><dt>Application profile</dt><dd>{entry.applicationProfileState}</dd></div>
+                <div><dt>Role</dt><dd>{entry.roles.join(", ") || "No application role"}</dd></div>
+                <div><dt>Organization</dt><dd>{entry.organizationId ?? "No application organization"}</dd></div>
                 <div><dt>Email</dt><dd>{entry.email}</dd></div>
-                <div><dt>MFA</dt><dd>{entry.mfaState}</dd></div>
                 <div><dt>Invitation</dt><dd>{entry.invitationState}</dd></div>
-                <div><dt>Account status</dt><dd>{entry.accountStatus}</dd></div>
+                <div><dt>MFA</dt><dd>{entry.mfaState}</dd></div>
+                <div><dt>Required actions</dt><dd>{entry.requiredActions.join(", ") || "None"}</dd></div>
+                <div>
+                  <dt>Desired membership</dt>
+                  <dd>
+                    {entry.membershipId
+                      ? `${entry.membershipState} · ${entry.membershipId} · revision ${entry.membershipRevision}`
+                      : "No desired membership"}
+                  </dd>
+                </div>
+                <div><dt>Authority alignment</dt><dd>{entry.membershipDrift}</dd></div>
+                <div>
+                  <dt>Last successful session</dt>
+                  <dd>
+                    {entry.lastSuccessfulSessionAt ? (
+                      <time dateTime={entry.lastSuccessfulSessionAt}>
+                        {formatInstant(entry.lastSuccessfulSessionAt)}
+                      </time>
+                    ) : "No successful application session recorded"}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Provider observed</dt>
+                  <dd>
+                    {entry.providerObservedAt ? (
+                      <time dateTime={entry.providerObservedAt}>
+                        {formatInstant(entry.providerObservedAt)}
+                      </time>
+                    ) : "No provider observation recorded"}
+                  </dd>
+                </div>
               </dl>
+              <h2>Lifecycle actions</h2>
               <div className="admin-inline-actions">
-                {isHttp ? (
-                  <button
-                    aria-controls="user-lifecycle-status"
-                    disabled={busy || !actionReason.trim() || !primaryRole}
-                    onClick={() => void applyLifecycleAction(entry)}
-                    type="button"
-                  >
-                    {lifecycleActionLabels[lifecycleAction]} {entry.subjectId}
-                  </button>
-                ) : (
+                {isHttp ? lifecycleActions.map((action) => {
+                  const reasonUnavailable = unavailableReason(entry, action, busy);
+                  const label = `${lifecycleActionLabels[action]} ${entry.subjectId}`;
+                  return reasonUnavailable ? (
+                    <DisabledAdminAction
+                      key={action}
+                      label={label}
+                      reason={reasonUnavailable}
+                    />
+                  ) : (
+                    <button
+                      aria-controls="user-lifecycle-status"
+                      key={action}
+                      onClick={(event) =>
+                        openLifecycleConfirmation(entry, action, event)}
+                      type="button"
+                    >
+                      {label}
+                    </button>
+                  );
+                }) : (
                   <>
                     <DisabledAdminAction label={`Invite ${entry.subjectId}`} reason={demoReason} />
                     <DisabledAdminAction label={`Change role ${entry.subjectId}`} reason={demoReason} />
@@ -422,6 +716,118 @@ export function UsersRolesPage() {
           label="Create user"
           reason="User creation is production-only and requires Plan 3 Keycloak administration."
         />
+      ) : null}
+
+      {confirmation ? (
+        <div
+          aria-labelledby="user-lifecycle-confirmation-title"
+          aria-modal="true"
+          className="admin-lifecycle-dialog"
+          ref={dialogContainerRef}
+          role="dialog"
+          tabIndex={-1}
+        >
+          <form
+            className="admin-lifecycle-dialog__panel"
+            onSubmit={(event) => void confirmRequest(event)}
+          >
+            <header>
+              <div>
+                <p className="eyebrow">Reasoned authority change</p>
+                <h2 id="user-lifecycle-confirmation-title">
+                  Confirm {confirmationLabel} for {confirmation.target}
+                </h2>
+              </div>
+              <button
+                aria-label="Close confirmation"
+                onClick={() => closeConfirmation()}
+                ref={dialogInitialFocusRef}
+                type="button"
+              >
+                ×
+              </button>
+            </header>
+            {confirmation.kind === "provision" ? (
+              <dl>
+                <div><dt>Email</dt><dd>{confirmation.input.email}</dd></div>
+                <div><dt>Display name</dt><dd>{confirmation.input.displayName}</dd></div>
+                <div><dt>Role</dt><dd>{confirmation.input.roles[0]}</dd></div>
+                <div><dt>Organization</dt><dd>{confirmation.input.organizationId}</dd></div>
+                <div><dt>Reason</dt><dd>{confirmation.input.reason}</dd></div>
+              </dl>
+            ) : (
+              <>
+                <p>
+                  This request is revision-bound to membership revision{" "}
+                  <b>{confirmation.entry.membershipRevision}</b>. Provider and
+                  application state will be reconciled by the server.
+                </p>
+                {confirmation.action === "UPDATE_ROLES" ? (
+                  <label>
+                    New role
+                    <select
+                      aria-label="New role"
+                      onChange={(event) => setLifecycleRole(event.target.value as Role)}
+                      value={lifecycleRole}
+                    >
+                      {(confirmation.entry.organizationId === "CAA"
+                        ? roles.filter((value) => value !== "auditee")
+                        : ["auditee"] satisfies Role[]
+                      ).map((value) => (
+                        <option key={value} value={value}>{value}</option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+                {confirmation.action === "TRANSFER_ORGANIZATION" ? (
+                  <div className="admin-lifecycle-dialog__transfer">
+                    <label>
+                      Destination organization
+                      <input
+                        aria-label="Destination organization"
+                        onChange={(event) => setTransferOrganizationId(event.target.value)}
+                        required
+                        value={transferOrganizationId}
+                      />
+                    </label>
+                    <label>
+                      Effective time
+                      <input
+                        aria-label="Effective time"
+                        onChange={(event) => setTransferEffectiveAt(event.target.value)}
+                        required
+                        type="datetime-local"
+                        value={transferEffectiveAt}
+                      />
+                    </label>
+                  </div>
+                ) : null}
+                <label>
+                  Action reason
+                  <textarea
+                    aria-label="Action reason"
+                    onChange={(event) => setActionReason(event.target.value)}
+                    required
+                    rows={3}
+                    value={actionReason}
+                  />
+                </label>
+              </>
+            )}
+            <p className="admin-lifecycle-dialog__guardrail">
+              No password, provider token, recovery code, or TOTP secret is
+              created or displayed by AviaSurveil360.
+            </p>
+            <div className="admin-lifecycle-dialog__actions">
+              <button onClick={() => closeConfirmation()} type="button">
+                Cancel
+              </button>
+              <button disabled={confirmationDisabled} type="submit">
+                Confirm {confirmationLabel}
+              </button>
+            </div>
+          </form>
+        </div>
       ) : null}
     </AdminPage>
   );

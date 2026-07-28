@@ -542,27 +542,64 @@ func TestKeycloakAdminClientUpdatesOrganizationRolesAndReactivatesUser(t *testin
 				"access_token": "admin-access-token",
 				"expires_in":   60,
 			})
+		case request.Method == http.MethodGet &&
+			request.URL.Path == "/identity/admin/realms/aviasurveil360/users/provider-subject-001":
+			transcript = append(transcript, "read-user")
+			writeKeycloakJSON(writer, http.StatusOK, map[string]any{
+				"id":            "provider-subject-001",
+				"username":      "existing.user@example.test",
+				"email":         "existing.user@example.test",
+				"firstName":     "Existing",
+				"lastName":      "User",
+				"enabled":       true,
+				"emailVerified": true,
+				"totp":          true,
+				"requiredActions": []string{
+					"VERIFY_EMAIL",
+				},
+				"attributes": map[string][]string{
+					"organization_id": {"CAA"},
+					"retained_fact":   {"preserve-me"},
+				},
+			})
 		case request.Method == http.MethodPut &&
 			request.URL.Path == "/identity/admin/realms/aviasurveil360/users/provider-subject-001":
 			var update map[string]any
 			if err := json.NewDecoder(request.Body).Decode(&update); err != nil {
 				t.Errorf("decode user update: %v", err)
 			}
-			if enabled, ok := update["enabled"]; ok {
-				if enabled != true {
-					t.Errorf("reactivation update = %#v", update)
+			if rawAttributes, ok := update["attributes"]; ok {
+				for field, expected := range map[string]any{
+					"username":      "existing.user@example.test",
+					"email":         "existing.user@example.test",
+					"firstName":     "Existing",
+					"lastName":      "User",
+					"emailVerified": true,
+				} {
+					if update[field] != expected {
+						t.Errorf("organization update lost %s: %#v", field, update)
+					}
 				}
-				transcript = append(transcript, "enable")
-			} else {
-				attributes, ok := update["attributes"].(map[string]any)
+				attributes, ok := rawAttributes.(map[string]any)
 				if !ok {
 					t.Errorf("organization update = %#v", update)
 				} else if values, ok := attributes["organization_id"].([]any); !ok ||
 					len(values) != 1 ||
 					values[0] != "auditee-org-002" {
 					t.Errorf("organization update = %#v", update)
+				} else if retained, ok := attributes["retained_fact"].([]any); !ok ||
+					len(retained) != 1 ||
+					retained[0] != "preserve-me" {
+					t.Errorf("organization update lost retained attributes: %#v", update)
 				}
 				transcript = append(transcript, "organization")
+			} else if enabled, ok := update["enabled"]; ok {
+				if enabled != true {
+					t.Errorf("reactivation update = %#v", update)
+				}
+				transcript = append(transcript, "enable")
+			} else {
+				t.Errorf("unexpected user update = %#v", update)
 			}
 			writer.WriteHeader(http.StatusNoContent)
 		case request.Method == http.MethodGet &&
@@ -621,7 +658,7 @@ func TestKeycloakAdminClientUpdatesOrganizationRolesAndReactivatesUser(t *testin
 	}
 	if !slices.Equal(
 		transcript,
-		[]string{"organization", "remove-approved", "add-approved", "enable"},
+		[]string{"read-user", "organization", "remove-approved", "add-approved", "enable"},
 	) {
 		t.Fatalf("authority transcript = %#v", transcript)
 	}
