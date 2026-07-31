@@ -394,35 +394,6 @@ async function createAdminPrerequisites(adminPage: Page): Promise<string[]> {
     await appRequest(
       adminPage,
       "POST",
-      "/api/v1/admin/checklist-template-versions",
-      {
-        operationId: "full-create-template",
-        idempotencyKey: "full-create-template",
-        expectedRevision: null,
-        templateId: "TPL-CABIN-2026",
-        templateVersionId: "CTV-CABIN-1",
-        title: "Cabin Inspection checklist",
-        ownerRole: "Department Manager",
-        questions: questionIDs.map((questionId, index) => ({
-          questionId,
-          sectionId: index < 3 ? "CABIN-SAFETY" : "CABIN-OPERATIONS",
-          prompt: `Verify authorized cabin control ${index + 1}.`,
-          configuredReference: `NAM-CAR-CABIN-${index + 1}`,
-          expectedEvidence: `Versioned cabin evidence ${index + 1}`,
-          allowedAnswers: ["COMPLIANT", "NON_COMPLIANT", "OBSERVATION", "NOT_APPLICABLE"],
-          commentRequiredFor: ["NON_COMPLIANT", "OBSERVATION"],
-        })),
-      },
-      commandHeaders("full-create-template"),
-    ),
-    201,
-    "create immutable checklist template",
-  );
-
-  expectStatus(
-    await appRequest(
-      adminPage,
-      "POST",
       "/api/v1/admin/reminder-rules",
       {
         operationId: "full-create-reminder",

@@ -18,6 +18,7 @@ Create annual and ad hoc audit/inspection plans.
 - Lead inspector
 - Team
 - Checklist template
+- Provider scopes and regulated target
 - Scope
 - Status
 
@@ -53,6 +54,12 @@ Create annual and ad hoc audit/inspection plans.
   the CAA must accept an alternative before execution is ready
 - Reschedule requires reason
 - Completed audits cannot be deleted
+- One organization may have several active provider scopes. Provider scope is
+  separate from the coarse organization type and may target an organization,
+  person, facility, device, system, asset, or location.
+- Selecting a published checklist requires the applicable provider scope and
+  typed target; a Department Manager's technical approval and publication are
+  separate decisions made before selection.
 
 ## UX direction
 

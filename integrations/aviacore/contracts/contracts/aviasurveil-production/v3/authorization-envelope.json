@@ -1,0 +1,26 @@
+{
+  "approval_evidence_reference": "Owner authorization for the v3 receipt-binding repair required by the direct-mTLS publisher, 2026-07-30",
+  "authorization_digest": "201cbed1f998b60506293efdae81c060b29d3d6e30696257785b4ec02be92c0e",
+  "authorization_id": "OWNER-DIRECTIVE-2026-07-30-AVS-V3-RECEIPT-BINDING-01",
+  "authorization_policy_digest": "a119645c7ea99a928acc444cbb28116251d0f662561f7ccc7e14ca581ce225a3",
+  "behavioral_contract_digest": "d87ec3649ff0f3b5f3871e90496eac2b1177dbec9f26fea72ced825d0beff121",
+  "contract_version": "3.0.0",
+  "evidence_class": "OWNER_AUTHORIZATION_ENVELOPE_NOT_BEHAVIORAL_CONTRACT",
+  "explicit_non_claims": [
+    "not Task 3B authorization",
+    "not AviaCore Phase 2.3 authorization",
+    "not producer implementation authorization",
+    "not connected-source, release, deployment, or production authorization"
+  ],
+  "owner_identity": "Burak Karahan",
+  "owner_role": "owner",
+  "phase_authority": [
+    "Task 3A receipt binding repair"
+  ],
+  "recorded_at": "2026-07-30T00:00:00Z",
+  "schema_version": "aviasurveil_owner_authorization_envelope.v3",
+  "scope": [
+    "AviaCore Task 3A v3 batch receipt binding repair only"
+  ],
+  "status": "approved"
+}

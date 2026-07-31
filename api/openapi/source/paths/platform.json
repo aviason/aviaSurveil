@@ -74,9 +74,6 @@
     "get": { "operationId": "listAdminQuestions", "parameters": [{ "name": "search", "in": "query", "schema": { "type": "string" } }, { "$ref": "#/components/parameters/Cursor" }, { "$ref": "#/components/parameters/Limit" }], "responses": { "200": { "description": "Question bank", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AdminQuestionPage" } } } } } },
     "post": { "operationId": "createAdminQuestion", "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateAdminQuestionInput" } } } }, "responses": { "201": { "description": "Created question", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AdminQuestionView" } } } } } }
   },
-  "/v1/admin/checklist-template-versions": {
-    "post": { "operationId": "createChecklistTemplateVersion", "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateChecklistTemplateVersionInput" } } } }, "responses": { "201": { "description": "Created immutable published checklist template version", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ChecklistTemplateVersionView" } } } }, "default": { "$ref": "#/components/responses/Problem" } } }
-  },
   "/v1/admin/reminder-rules": {
     "post": { "operationId": "createReminderRule", "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateReminderRuleInput" } } } }, "responses": { "201": { "description": "Created reminder rule", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReminderRuleView" } } } }, "default": { "$ref": "#/components/responses/Problem" } } }
   },
@@ -122,5 +119,50 @@
   },
   "/v1/assistant/drafts": {
     "post": { "operationId": "createAssistantDraft", "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateAssistantDraftInput" } } } }, "responses": { "201": { "description": "Non-canonical advisory draft", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AssistantDraftView" } } } } } }
+  },
+  "/v1/admin/governed-checklist/sources": {
+    "get": { "operationId": "listAdminGovernedSources", "responses": { "200": { "description": "Exact governed regulatory source snapshots", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GovernedSourceSnapshotPage" } } } } } }
+  },
+  "/v1/admin/governed-checklist/source-currentness-activations": {
+    "post": { "operationId": "activateAdminGovernedSourceCurrentness", "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GovernedSourceCurrentnessActivationInput" } } } }, "responses": { "201": { "description": "Explicit immutable source-currentness activation", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GovernedSourceCurrentnessActivationView" } } } }, "default": { "$ref": "#/components/responses/Problem" } } }
+  },
+  "/v1/admin/governed-checklist/generation-runs": {
+    "post": { "operationId": "importAdminGovernedGenerationRun", "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ImportAdminGovernedGenerationRunInput" } } } }, "responses": { "201": { "description": "Imported governed generation run", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GovernedGenerationRunView" } } } }, "default": { "$ref": "#/components/responses/Problem" } } }
+  },
+  "/v1/admin/governed-checklist/generation-runs/{generationRunId}": {
+    "get": { "operationId": "getAdminGovernedGenerationRun", "parameters": [{ "name": "generationRunId", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Persisted run, failure, and candidate projection", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GovernedGenerationRunView" } } } } } }
+  },
+  "/v1/admin/governed-checklist/candidates/{candidateId}": {
+    "get": { "operationId": "getAdminGovernedCandidate", "parameters": [{ "name": "candidateId", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Complete immutable candidate and lineage", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GovernedCandidateView" } } } } } }
+  },
+  "/v1/admin/governed-checklist/candidates/{candidateId}/revisions": {
+    "post": { "operationId": "createAdminGovernedCandidateRevision", "parameters": [{ "name": "candidateId", "in": "path", "required": true, "schema": { "type": "string" } }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateAdminGovernedCandidateRevisionInput" } } } }, "responses": { "201": { "description": "New immutable candidate revision", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GovernedCandidateView" } } } }, "default": { "$ref": "#/components/responses/Problem" } } }
+  },
+  "/v1/admin/governed-checklist/candidates/{candidateId}/submissions": {
+    "post": { "operationId": "submitAdminGovernedCandidateReview", "parameters": [{ "name": "candidateId", "in": "path", "required": true, "schema": { "type": "string" } }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SubmitAdminGovernedCandidateReviewInput" } } } }, "responses": { "200": { "description": "Exact candidate submitted for department review", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GovernedCandidateView" } } } }, "default": { "$ref": "#/components/responses/Problem" } } }
+  },
+  "/v1/department-manager/governed-checklist/blocked-generation-validations": {
+    "post": { "operationId": "validateDepartmentManagerBlockedGeneration", "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ValidateDepartmentManagerBlockedGenerationInput" } } } }, "responses": { "200": { "description": "Exact source-bound generation request remains blocked with zero lifecycle effects", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GovernedBlockedGenerationResult" } } } }, "default": { "$ref": "#/components/responses/Problem" } } }
+  },
+  "/v1/department-manager/governed-checklist/review-queue": {
+    "get": { "operationId": "listDepartmentManagerGovernedReviewQueue", "responses": { "200": { "description": "Current assignment-filtered governed review queue", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DepartmentManagerGovernedReviewQueue" } } } }, "default": { "$ref": "#/components/responses/Problem" } } }
+  },
+  "/v1/department-manager/governed-checklist/candidates/{candidateId}": {
+    "get": { "operationId": "getDepartmentManagerGovernedCandidate", "parameters": [{ "name": "candidateId", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Exact governed candidate review detail", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DepartmentManagerGovernedReviewItem" } } } }, "default": { "$ref": "#/components/responses/Problem" } } }
+  },
+  "/v1/department-manager/governed-checklist/candidates/{candidateId}/returns": {
+    "post": { "operationId": "returnDepartmentManagerGovernedCandidate", "parameters": [{ "name": "candidateId", "in": "path", "required": true, "schema": { "type": "string" } }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DepartmentManagerGovernedReviewCommandInput" } } } }, "responses": { "200": { "description": "Candidate returned for immutable revision", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GovernedCandidateView" } } } }, "default": { "$ref": "#/components/responses/Problem" } } }
+  },
+  "/v1/department-manager/governed-checklist/candidates/{candidateId}/rejections": {
+    "post": { "operationId": "rejectDepartmentManagerGovernedCandidate", "parameters": [{ "name": "candidateId", "in": "path", "required": true, "schema": { "type": "string" } }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DepartmentManagerGovernedReviewCommandInput" } } } }, "responses": { "200": { "description": "Candidate terminally rejected", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GovernedCandidateView" } } } }, "default": { "$ref": "#/components/responses/Problem" } } }
+  },
+  "/v1/department-manager/governed-checklist/candidates/{candidateId}/technical-approvals": {
+    "post": { "operationId": "approveDepartmentManagerGovernedCandidate", "parameters": [{ "name": "candidateId", "in": "path", "required": true, "schema": { "type": "string" } }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DepartmentManagerGovernedReviewCommandInput" } } } }, "responses": { "200": { "description": "Exact owner technical approval recorded", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GovernedCandidateView" } } } }, "default": { "$ref": "#/components/responses/Problem" } } }
+  },
+  "/v1/department-manager/governed-checklist/candidates/{candidateId}/publications": {
+    "post": { "operationId": "publishDepartmentManagerGovernedCandidate", "parameters": [{ "name": "candidateId", "in": "path", "required": true, "schema": { "type": "string" } }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DepartmentManagerGovernedReviewCommandInput" } } } }, "responses": { "201": { "description": "Separately published immutable checklist version", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GovernedPublicationView" } } } }, "default": { "$ref": "#/components/responses/Problem" } } }
+  },
+  "/v1/department-manager/governed-checklist/published-versions/{templateVersionId}": {
+    "get": { "operationId": "getDepartmentManagerGovernedPublishedVersion", "parameters": [{ "name": "templateVersionId", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Immutable publication decision and ordered mapping/question snapshot", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GovernedPublishedVersionView" } } } }, "default": { "$ref": "#/components/responses/Problem" } } }
   }
 }

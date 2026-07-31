@@ -1,0 +1,112 @@
+{
+  "$id": "https://aviacore360.local/schemas/events/aviasurveil/v3/reminder-dispatch_recorded.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "./envelope.schema.json"
+    },
+    {
+      "properties": {
+        "entity_refs": {
+          "additionalProperties": false,
+          "properties": {
+            "plan_id": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "reminder_id": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "plan_id",
+            "reminder_id"
+          ],
+          "type": "object"
+        },
+        "event_type": {
+          "const": "reminder.dispatch_recorded"
+        },
+        "event_version": {
+          "const": 1
+        },
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "channel_code": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "dispatch_outcome_code": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "dispatched_at": {
+              "format": "date-time",
+              "pattern": "Z$",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "plan_id": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "reminder_id": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "reminder_template_code": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "scheduled_at": {
+              "format": "date-time",
+              "pattern": "Z$",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "plan_id",
+            "reminder_id",
+            "reminder_template_code",
+            "channel_code",
+            "dispatch_outcome_code",
+            "scheduled_at",
+            "dispatched_at"
+          ],
+          "type": "object"
+        },
+        "state_after": {
+          "const": "reminder_dispatched"
+        },
+        "state_before": {
+          "enum": [
+            null
+          ]
+        }
+      },
+      "type": "object"
+    }
+  ],
+  "title": "reminder.dispatch_recorded v3"
+}

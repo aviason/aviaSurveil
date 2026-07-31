@@ -1,0 +1,97 @@
+{
+  "contract_version": "3.0.0",
+  "contracts": [
+    {
+      "algorithm": "SHA-256",
+      "domain_separator_utf8": "aviacore.event_content_hash.v3\\u0000",
+      "excluded": [
+        "received_at",
+        "accepted_at",
+        "object_receipt",
+        "manifest_receipt",
+        "attempt_id"
+      ],
+      "id": "event_content_hash.v3",
+      "projection": [
+        "contract_id",
+        "contract_version",
+        "event_id",
+        "event_type",
+        "event_version",
+        "occurred_at",
+        "emitted_at",
+        "effective_at",
+        "known_at",
+        "source_module",
+        "source_system",
+        "tenant_id",
+        "owning_organization_id",
+        "actor_organization_id",
+        "visibility_purpose_code",
+        "business_key",
+        "correlation_id",
+        "causation_id",
+        "aggregate_type",
+        "aggregate_id",
+        "aggregate_revision",
+        "entity_refs",
+        "state_before",
+        "state_after",
+        "privacy_class",
+        "payload",
+        "payload_sha256"
+      ]
+    },
+    {
+      "algorithm": "SHA-256",
+      "domain_separator_utf8": "aviacore.vault_hub_key.v1\\u0000",
+      "id": "vault_hub_key.v1",
+      "projection_source": "key-grain-registry.json hub key_components in declared order"
+    },
+    {
+      "algorithm": "SHA-256",
+      "domain_separator_utf8": "aviacore.vault_link_key.v1\\u0000",
+      "id": "vault_link_key.v1",
+      "projection_source": "key-grain-registry.json link parent_hub_keys in declared order"
+    },
+    {
+      "algorithm": "SHA-256",
+      "domain_separator_utf8": "aviacore.vault_hashdiff.v1\\u0000",
+      "id": "vault_hashdiff.v1",
+      "projection_source": "key-grain-registry.json satellite descriptive_fields in declared order"
+    },
+    {
+      "algorithm": "SHA-256",
+      "domain_separator_utf8": "aviacore.expected_item_set.v1\\u0000",
+      "id": "expected_item_set_digest.v1",
+      "item_order": "event_id_ascending",
+      "projection": [
+        "event_id",
+        "event_content_digest"
+      ],
+      "serialization": "typed_length_prefixed.v1"
+    }
+  ],
+  "persistence": {
+    "forward_change": "new_version_and_forward_migration_no_in_place_rehash",
+    "hash_contract_id_required_on_every_derived_hash": true,
+    "hex_case": "lowercase",
+    "storage": "32_byte_binary_preferred_lowercase_hex_at_interfaces"
+  },
+  "schema_version": "aviasurveil_hash_contracts.v1",
+  "serialization": {
+    "array_order": "preserved",
+    "boolean": "type_tag_B_and_ascii_0_or_1",
+    "decimal": "JSON_float_forbidden_use_schema_declared_canonical_decimal_string",
+    "delimiter_tokens_have_no_special_meaning": true,
+    "empty_string": "type_tag_S_with_zero_length",
+    "encoding": "UTF-8",
+    "field_framing": "one_byte_type_tag_then_ascii_decimal_byte_length_then_colon_then_value_bytes",
+    "id": "typed_length_prefixed.v1",
+    "integer": "type_tag_I_and_minimal_base10_no_leading_plus",
+    "null": "type_tag_N_with_zero_length",
+    "object_key_order": "ascending_normalized_utf8_bytes",
+    "timestamp": "RFC3339_UTC_Z_with_schema_declared_precision",
+    "unicode": "NFC"
+  }
+}

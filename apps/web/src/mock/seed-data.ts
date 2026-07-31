@@ -310,9 +310,9 @@ const opsAocCabinRampMapping: AdminRegulatoryMappingView = {
     "Permitted photo or attachment linked to the exact checklist response",
     "Inspection discrepancy and follow-up record when an exception is identified",
   ],
-  whyIncluded: "OPS PQ 4.450 identifies risk-based ramp inspection and cabin/safety coverage. The supplied Annex 6 Part I crosswalk links the surveillance obligation and selected cabin/equipment SARPs to NAMCAR clauses. The six practical questions are a candidate decomposition for NCAA technical-expert validation, not an official compliance conclusion.",
+  whyIncluded: "OPS PQ 4.450 identifies risk-based ramp inspection and cabin/safety coverage. The supplied Annex 6 Part I crosswalk links the surveillance obligation and selected cabin/equipment SARPs to NAMCAR clauses. The six practical questions are a candidate decomposition for responsible Department Manager technical review, not an official compliance conclusion.",
   reviewStatus: "EXPERT_REVIEW_REQUIRED",
-  sourceGap: "The controlled NCAA Operations surveillance/ramp-inspection procedure has not been identified or supplied. Applicability and the exact Part 127 / Part 140 linkages remain subject to NCAA technical-expert validation.",
+  sourceGap: "The controlled NCAA Operations surveillance/ramp-inspection procedure has not been identified or supplied. Applicability and the exact Part 127 / Part 140 linkages remain subject to responsible Department Manager technical review.",
   refreshPolicy: {
     sourceCollectionId: "NCAA-NAMCATS-ALL-PAGES",
     lastCheckedAt: "2026-07-28T20:46:37.914Z",
@@ -610,7 +610,7 @@ export function createCanonicalSeedState(now: string): MockState {
           configuredRules: [
             "Configured reference for Cabin Inspection sampling",
             "Candidate-only trace from OPS PQ 4.450 / CE-7 to practical cabin/ramp verification",
-            "AI draft cannot publish itself; NCAA technical-expert validation is required",
+            "AI draft cannot publish itself; responsible Department Manager technical review is required",
           ],
           changeHistory: [
             "2026-01-01 — Added to the mock regulatory library",

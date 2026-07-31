@@ -1,0 +1,122 @@
+{
+  "$id": "https://aviacore360.local/schemas/events/aviasurveil/v3/surveillance_plan-versioned.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "./envelope.schema.json"
+    },
+    {
+      "properties": {
+        "entity_refs": {
+          "additionalProperties": false,
+          "properties": {
+            "plan_id": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "plan_id"
+          ],
+          "type": "object"
+        },
+        "event_type": {
+          "const": "surveillance_plan.versioned"
+        },
+        "event_version": {
+          "const": 1
+        },
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "inspection_type_code": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "plan_id": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "plan_revision": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "plan_status_code": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "planning_period_end": {
+              "format": "date-time",
+              "pattern": "Z$",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "planning_period_start": {
+              "format": "date-time",
+              "pattern": "Z$",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "provider_scope_ref": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "qualifier_codes": {
+              "items": {
+                "maxLength": 256,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                "type": "string"
+              },
+              "maxItems": 256,
+              "minItems": 1,
+              "type": "array"
+            },
+            "typed_target_ref": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "plan_id",
+            "plan_revision",
+            "plan_status_code",
+            "planning_period_start",
+            "planning_period_end",
+            "inspection_type_code",
+            "provider_scope_ref",
+            "typed_target_ref",
+            "qualifier_codes"
+          ],
+          "type": "object"
+        },
+        "state_after": {
+          "const": "plan_versioned"
+        },
+        "state_before": {
+          "enum": [
+            null
+          ]
+        }
+      },
+      "type": "object"
+    }
+  ],
+  "title": "surveillance_plan.versioned v3"
+}

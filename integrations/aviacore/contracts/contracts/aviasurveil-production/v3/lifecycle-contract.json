@@ -1,0 +1,403 @@
+{
+  "contract_id": "aviasurveil.production-feed.lifecycle",
+  "contract_version": "3.0.0",
+  "invalid_transition_outcome": "rejected_quarantine",
+  "invariants": [
+    {
+      "id": "CAP_ACCEPTANCE_NOT_CLOSURE",
+      "rule": "cap.reviewed decision=accepted may produce cap_accepted only and never finding_closed"
+    },
+    {
+      "id": "FINDING_CLOSE_AUTHORITY",
+      "rule": "finding.closed requires verified evidence reference or authorized_closure plus closure_authority_ref"
+    },
+    {
+      "id": "CORRECTION_NEW_EVENT",
+      "rule": "correction.recorded uses a new event_id and references exactly one prior event_id"
+    },
+    {
+      "id": "SUPERSESSION_IMMUTABLE_HISTORY",
+      "rule": "event.superseded never mutates or deletes the superseded raw event"
+    },
+    {
+      "id": "REOPEN_AUTHORIZED",
+      "rule": "finding.reopened requires closed state, reason code, and authorized actor role"
+    },
+    {
+      "id": "TERMINAL_NO_IMPLICIT_ADVANCE",
+      "rule": "terminal transitions are explicit events and cannot be inferred from missing activity"
+    }
+  ],
+  "no_automatic_regulated_decision": true,
+  "schema_version": "aviasurveil_lifecycle_contract.v3",
+  "transitions": [
+    {
+      "event_type": "audit.planned",
+      "from": [
+        null
+      ],
+      "to": [
+        "audit_planned"
+      ]
+    },
+    {
+      "event_type": "audit.started",
+      "from": [
+        "audit_planned"
+      ],
+      "to": [
+        "audit_in_progress"
+      ]
+    },
+    {
+      "event_type": "checklist.response_recorded",
+      "from": [
+        "audit_in_progress"
+      ],
+      "to": [
+        "audit_in_progress"
+      ]
+    },
+    {
+      "event_type": "checklist.completed",
+      "from": [
+        "audit_in_progress"
+      ],
+      "to": [
+        "checklist_completed"
+      ]
+    },
+    {
+      "event_type": "finding.issued",
+      "from": [
+        "audit_in_progress",
+        "checklist_completed"
+      ],
+      "to": [
+        "finding_open"
+      ]
+    },
+    {
+      "event_type": "cap.submitted",
+      "from": [
+        "finding_open",
+        "evidence_required",
+        "cap_rejected"
+      ],
+      "to": [
+        "cap_under_review"
+      ]
+    },
+    {
+      "event_type": "cap.reviewed",
+      "from": [
+        "cap_under_review"
+      ],
+      "to": [
+        "cap_accepted",
+        "cap_rejected",
+        "evidence_required"
+      ]
+    },
+    {
+      "event_type": "evidence_reference.submitted",
+      "from": [
+        "cap_accepted",
+        "evidence_required",
+        "evidence_rejected"
+      ],
+      "to": [
+        "evidence_under_review"
+      ]
+    },
+    {
+      "event_type": "evidence_reference.reviewed",
+      "from": [
+        "evidence_under_review"
+      ],
+      "to": [
+        "evidence_verified",
+        "evidence_rejected",
+        "evidence_required"
+      ]
+    },
+    {
+      "event_type": "information_request.created",
+      "from": [
+        "finding_open",
+        "cap_under_review",
+        "evidence_under_review"
+      ],
+      "to": [
+        "information_requested"
+      ]
+    },
+    {
+      "event_type": "information_request.responded",
+      "from": [
+        "information_requested"
+      ],
+      "to": [
+        "finding_open",
+        "cap_under_review",
+        "evidence_under_review"
+      ]
+    },
+    {
+      "event_type": "correction.recorded",
+      "from": [
+        "any_approved_state"
+      ],
+      "to": [
+        "same_as_state_before"
+      ]
+    },
+    {
+      "event_type": "event.superseded",
+      "from": [
+        "any_approved_state"
+      ],
+      "to": [
+        "same_as_state_before"
+      ]
+    },
+    {
+      "event_type": "finding.reopened",
+      "from": [
+        "finding_closed"
+      ],
+      "to": [
+        "finding_open"
+      ]
+    },
+    {
+      "event_type": "finding.escalated",
+      "from": [
+        "finding_open",
+        "evidence_required",
+        "evidence_rejected"
+      ],
+      "to": [
+        "finding_escalated"
+      ]
+    },
+    {
+      "event_type": "finding.closed",
+      "from": [
+        "evidence_verified",
+        "finding_escalated"
+      ],
+      "to": [
+        "finding_closed"
+      ]
+    },
+    {
+      "event_type": "audit.completed",
+      "from": [
+        "audit_in_progress",
+        "checklist_completed"
+      ],
+      "to": [
+        "audit_completed"
+      ]
+    },
+    {
+      "event_type": "tombstone.recorded",
+      "from": [
+        "any_approved_state"
+      ],
+      "to": [
+        "same_as_state_before"
+      ]
+    },
+    {
+      "event_type": "surveillance_plan.versioned",
+      "from": [
+        null
+      ],
+      "to": [
+        "plan_versioned"
+      ]
+    },
+    {
+      "event_type": "surveillance_plan.approval_recorded",
+      "from": [
+        null
+      ],
+      "to": [
+        "plan_approved"
+      ]
+    },
+    {
+      "event_type": "surveillance_plan.status_changed",
+      "from": [
+        null
+      ],
+      "to": [
+        "plan_status_changed"
+      ]
+    },
+    {
+      "event_type": "reminder.dispatch_recorded",
+      "from": [
+        null
+      ],
+      "to": [
+        "reminder_dispatched"
+      ]
+    },
+    {
+      "event_type": "organization.versioned",
+      "from": [
+        null
+      ],
+      "to": [
+        "organization_versioned"
+      ]
+    },
+    {
+      "event_type": "provider_scope.versioned",
+      "from": [
+        null
+      ],
+      "to": [
+        "provider_scope_versioned"
+      ]
+    },
+    {
+      "event_type": "provider_scope.ended",
+      "from": [
+        null
+      ],
+      "to": [
+        "provider_scope_ended"
+      ]
+    },
+    {
+      "event_type": "audit_assignment.versioned",
+      "from": [
+        null
+      ],
+      "to": [
+        "assignment_versioned"
+      ]
+    },
+    {
+      "event_type": "checklist_package.versioned",
+      "from": [
+        null
+      ],
+      "to": [
+        "package_versioned"
+      ]
+    },
+    {
+      "event_type": "checklist_package.composed",
+      "from": [
+        null
+      ],
+      "to": [
+        "package_composed"
+      ]
+    },
+    {
+      "event_type": "potential_finding.versioned",
+      "from": [
+        null
+      ],
+      "to": [
+        "potential_finding_versioned"
+      ]
+    },
+    {
+      "event_type": "potential_finding.decision_recorded",
+      "from": [
+        null
+      ],
+      "to": [
+        "potential_finding_decided"
+      ]
+    },
+    {
+      "event_type": "report.versioned",
+      "from": [
+        null
+      ],
+      "to": [
+        "report_versioned"
+      ]
+    },
+    {
+      "event_type": "report.decision_recorded",
+      "from": [
+        null
+      ],
+      "to": [
+        "report_decided"
+      ]
+    },
+    {
+      "event_type": "regulatory_reference.versioned",
+      "from": [
+        null
+      ],
+      "to": [
+        "reference_versioned"
+      ]
+    },
+    {
+      "event_type": "checklist_configuration.versioned",
+      "from": [
+        null
+      ],
+      "to": [
+        "configuration_versioned"
+      ]
+    },
+    {
+      "event_type": "checklist_configuration.published",
+      "from": [
+        null
+      ],
+      "to": [
+        "configuration_published"
+      ]
+    },
+    {
+      "event_type": "checklist_generation.run_recorded",
+      "from": [
+        null
+      ],
+      "to": [
+        "generation_run_recorded"
+      ]
+    },
+    {
+      "event_type": "checklist_generation.candidate_versioned",
+      "from": [
+        null
+      ],
+      "to": [
+        "generation_candidate_versioned"
+      ]
+    },
+    {
+      "event_type": "checklist_generation.impact_review_recorded",
+      "from": [
+        null
+      ],
+      "to": [
+        "generation_impact_reviewed"
+      ]
+    },
+    {
+      "event_type": "checklist_generation.rollout_readiness_recorded",
+      "from": [
+        null
+      ],
+      "to": [
+        "generation_rollout_decided"
+      ]
+    }
+  ]
+}

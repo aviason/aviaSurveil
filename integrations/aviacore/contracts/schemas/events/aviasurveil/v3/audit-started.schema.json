@@ -1,0 +1,60 @@
+{
+  "$id": "https://aviacore360.local/schemas/events/aviasurveil/v3/audit-started.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "./envelope.schema.json"
+    },
+    {
+      "properties": {
+        "entity_refs": {
+          "additionalProperties": false,
+          "properties": {
+            "audit_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "audit_id"
+          ],
+          "type": "object"
+        },
+        "event_type": {
+          "const": "audit.started"
+        },
+        "event_version": {
+          "const": 1
+        },
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "started_at": {
+              "format": "date-time",
+              "pattern": "Z$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "started_at"
+          ],
+          "type": "object"
+        },
+        "state_after": {
+          "enum": [
+            "audit_in_progress"
+          ]
+        },
+        "state_before": {
+          "enum": [
+            "audit_planned"
+          ]
+        }
+      },
+      "type": "object"
+    }
+  ],
+  "title": "audit.started v1"
+}

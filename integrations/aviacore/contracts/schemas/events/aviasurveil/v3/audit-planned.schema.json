@@ -1,0 +1,74 @@
+{
+  "$id": "https://aviacore360.local/schemas/events/aviasurveil/v3/audit-planned.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "./envelope.schema.json"
+    },
+    {
+      "properties": {
+        "entity_refs": {
+          "additionalProperties": false,
+          "properties": {
+            "audit_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "audit_id"
+          ],
+          "type": "object"
+        },
+        "event_type": {
+          "const": "audit.planned"
+        },
+        "event_version": {
+          "const": 1
+        },
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "audit_program_ref": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "audit_scope_code": {
+              "maxLength": 64,
+              "minLength": 2,
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            "planned_start_at": {
+              "format": "date-time",
+              "pattern": "Z$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "audit_scope_code",
+            "planned_start_at",
+            "audit_program_ref"
+          ],
+          "type": "object"
+        },
+        "state_after": {
+          "enum": [
+            "audit_planned"
+          ]
+        },
+        "state_before": {
+          "enum": [
+            null
+          ]
+        }
+      },
+      "type": "object"
+    }
+  ],
+  "title": "audit.planned v1"
+}

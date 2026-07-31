@@ -13,11 +13,19 @@
 - ChecklistQuestion
 - ChecklistResponse
 - RegulatorySourceVersion
+- RegulatorySourceCurrentnessActivation
+- SourceImpactReviewDraft
+- GenerationRunSourceCurrentnessBinding
 - RegulatoryReferenceSnapshot
 - RegulatoryMapping
 - RegulatoryRequirement
 - ProposedChecklistQuestion
 - RegulatorySourceCollection
+- ServiceProviderCatalog
+- ServiceProviderScope
+- RegulatedTarget
+- DepartmentReviewDecision
+- ChecklistPublicationDecision
 - RegulatoryRefreshRun
 - DerivedRegulatoryAssessment
 - ChecklistScopeRecommendation
@@ -46,6 +54,21 @@ verification objective.
 RegulatoryRequirement may have many ProposedChecklistQuestions.
 RegulatorySourceCollection has many immutable source-file identities and
 RegulatoryRefreshRuns.
+RegulatorySourceCurrentnessActivation binds one exact current
+RegulatorySourceVersion/hash to its optional exact predecessor for one source
+identity. A changed activation has one SourceImpactReviewDraft; that Draft may
+link several independently imported candidate roots without changing any
+published checklist or Audit.
+GenerationRunSourceCurrentnessBinding proves that a generated candidate bound
+to a previously committed activation; candidate import cannot create an
+activation implicitly.
+Organization has one coarse organization type for compatibility and may have
+several provider scopes simultaneously. A ServiceProviderScope is an
+approval/oversight scope, not a replacement legal organization type, and it
+may target an ORGANIZATION, PERSON, FACILITY, DEVICE, SYSTEM, ASSET, and LOCATION.
+ServiceProviderCatalog preserves the exact provider label, topics, raw
+responsible CAA unit, aliases, target kinds, and normalization state for each
+versioned provider scope.
 DerivedRegulatoryAssessment references exact RegulatorySourceVersions and has
 many page-bound EvidenceRecords, ApplicabilityDecisions, and
 ChecklistImplications.
@@ -72,20 +95,23 @@ template-version identity rather than copying the entire source graph.
    the chain into one unreviewable citation string.
 9. One requirement may generate several practical inspection questions. Do not
    assume one regulation clause equals one checklist question.
-10. Generated mappings and questions start as `EXPERT_REVIEW_REQUIRED`.
-    Validation requires a technical expert to confirm source applicability,
-    interpretation, question decomposition, and Evidence expectation before a
-    publication owner may use them.
+10. New generated mappings and questions start as `TECHNICAL_REVIEW_REQUIRED`.
+    The currently assigned responsible Department Manager confirms source
+    applicability, interpretation, question decomposition, and Evidence
+    expectation within the manager's department scope. Existing
+    `EXPERT_REVIEW_REQUIRED` records remain readable as explicit legacy
+    compatibility only; they are not relabelled as approved.
 11. A missing controlled CAA procedure, uncertain service-provider
     applicability, or unverified crosswalk stays visible as a source gap. The
     system must not silently promote that mapping to `VALIDATED`.
-12. Mapping validation and checklist publication are separate decisions.
-    Department Manager publication authority does not make the underlying
-    regulatory interpretation legally authoritative.
+12. Technical approval and checklist publication are separate Department
+    Manager decisions with separate audit events and timestamps. Department
+    Manager publication authority does not make the underlying regulatory
+    interpretation legally authoritative.
 13. Regulatory material is a configured reference or Finding basis, not legal
     advice or an automatic compliance, enforcement, certification, or closure
     decision.
-14. Download, text extraction, clause mapping, expert validation, and checklist
+14. Download, text extraction, clause mapping, technical review, and checklist
     publication are distinct states. A successful download or extraction must
     never be displayed as a validated regulatory interpretation.
 15. A source change creates an append-only impact-review proposal. Existing
@@ -109,9 +135,30 @@ template-version identity rather than copying the entire source graph.
     `SYSTEM_LEVEL_APPLICABLE`, direct, partial, contextual, and no-direct-match
     dispositions must not be flattened into a generic “applicable” flag.
 21. A negative extracted-text search is a source-gap signal, not proof that no
-    requirement exists. Expert review must consider other regulations,
+    requirement exists. Technical review must consider other regulations,
     technical standards, approved manuals, configurations, maintenance
     sources, and controlled CAA procedures.
+22. Observing or downloading a source version does not establish currentness.
+    Currentness is an explicit append-only activation with exact
+    predecessor/current snapshot hashes; a historical version cannot be
+    reactivated after a newer head. Activation creates a review boundary, not a
+    technical, legal, or publication approval.
+23. Every generated or published ProposedChecklistQuestion contains both a
+    `scopeRecommendation` (classification, signals, operational-history basis,
+    rationale, guardrails, approval/review state) and a `regulatoryTrace`
+    (source identity/title, immutable version/SHA-256, locator/page/section/
+    clause, source type, applicability, national/CAA mapping, verification
+    objective, expected Evidence, currentness, and technical-review state).
+24. An explicit `SOURCE_MAPPING_REQUIRED` trace is allowed only as a
+    repairable candidate Draft and never as an empty or partial citation. It
+    blocks validation claims, automatic deferral, executable Audit-package
+    materialization, technical approval, and publication.
+25. Each candidate question records exactly one origin:
+    `REGULATORY_TRACE`, `EXISTING_CHECKLIST_CANDIDATE`, or
+    `HYBRID_RECONCILED`. Existing wording, operational intent, and result
+    history remain non-authoritative candidate input; hybrid reconciliation
+    makes wording, Evidence, applicability, and scope differences reviewable
+    against the current regulatory/controlled-CAA-procedure chain.
 
 ## Regulatory knowledge pilot fields
 
@@ -141,7 +188,8 @@ template-version identity rather than copying the entire source graph.
 - verification_objective
 - expected_evidence
 - why_included
-- review_status (`EXPERT_REVIEW_REQUIRED`, `VALIDATED`, or `REJECTED`)
+- review_status (`TECHNICAL_REVIEW_REQUIRED`, `VALIDATED`, or `REJECTED`;
+  existing `EXPERT_REVIEW_REQUIRED` is readable legacy compatibility)
 - source_gap
 - source_version_ids
 
@@ -172,7 +220,7 @@ template-version identity rather than copying the entire source graph.
 - extracted_text_locator
 - event_driven_review
 - reconciliation_interval_months
-- expert_validation_interval_months
+- technical_validation_interval_months
 - source_change_state
 - tracked_manifest_locator
 
@@ -191,7 +239,8 @@ state without placing full regulatory content in Git.
 - assessment_scope
 - assessment_status (`CANDIDATE_DERIVED_CONTEXT`)
 - evidence_status (`SOURCE_BOUND`)
-- review_status (`EXPERT_REVIEW_REQUIRED`, `VALIDATED`, or `REJECTED`)
+- review_status (`TECHNICAL_REVIEW_REQUIRED`, `VALIDATED`, or `REJECTED`;
+  existing `EXPERT_REVIEW_REQUIRED` is readable legacy compatibility)
 - publication_status
 - source_version_id
 - source_sha256
@@ -206,7 +255,7 @@ state without placing full regulatory content in Git.
 - checklist_question_id
 - source_disposition
 - candidate_conclusion
-- required_expert_action
+- required_department_manager_action
 - governance_gates
 - guardrails
 

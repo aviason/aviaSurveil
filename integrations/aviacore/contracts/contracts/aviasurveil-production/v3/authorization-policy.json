@@ -1,0 +1,24 @@
+{
+  "claim_boundaries": [
+    "authorization identity is not behavioral contract identity",
+    "Task 3A authorization is not Task 3B or Phase 2.3 authorization",
+    "repository-local v3 contract work is not connected-source, release, or production authorization"
+  ],
+  "contract_version": "3.0.0",
+  "currentness": {
+    "approved": "current only for the separately authorized Task 3A v3 contract cut",
+    "later_slices": "not authorized"
+  },
+  "policy_id": "aviasurveil.production-feed.owner-authorization.v3",
+  "reapproval_triggers": [
+    "behavioral_contract_digest",
+    "authorization_policy_digest",
+    "owner_identity",
+    "owner_role",
+    "scope",
+    "phase_authority",
+    "status",
+    "approval_evidence_reference"
+  ],
+  "schema_version": "aviasurveil_authorization_policy.v3"
+}

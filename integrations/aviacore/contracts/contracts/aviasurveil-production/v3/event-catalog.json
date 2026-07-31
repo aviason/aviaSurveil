@@ -1,0 +1,577 @@
+{
+  "accountable_owners": [
+    "producer/domain",
+    "contract-governance"
+  ],
+  "compatibility": {
+    "additive_optional_field": "requires_contract_review_before_acceptance",
+    "breaking_change": "new_major_contract_and_overlap_plan",
+    "silent_coercion": false,
+    "unknown_event_type": "reject_quarantine",
+    "unknown_event_version": "reject_quarantine"
+  },
+  "contract_id": "aviasurveil.production-feed.events",
+  "contract_version": "3.0.0",
+  "delivery_mode": "event_api",
+  "event_id_ownership": {
+    "correction_rule": "new_event_id_with_explicit_correction_or_supersession_reference",
+    "format": "uuid",
+    "owner": "producer",
+    "reuse": "forbidden",
+    "scope": "global_across_all_sources_and_tenants"
+  },
+  "events": [
+    {
+      "event_type": "audit.planned",
+      "event_version": 1,
+      "grain": "audit",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "audit_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/audit-planned.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "audit-planned"
+    },
+    {
+      "event_type": "audit.started",
+      "event_version": 1,
+      "grain": "audit",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "audit_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/audit-started.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "audit-started"
+    },
+    {
+      "event_type": "checklist.response_recorded",
+      "event_version": 1,
+      "grain": "checklist_item_response",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "audit_id",
+        "checklist_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/checklist-response-recorded.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "checklist-response-recorded"
+    },
+    {
+      "event_type": "checklist.completed",
+      "event_version": 1,
+      "grain": "checklist",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "audit_id",
+        "checklist_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/checklist-completed.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "checklist-completed"
+    },
+    {
+      "event_type": "finding.issued",
+      "event_version": 1,
+      "grain": "finding",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "audit_id",
+        "finding_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/finding-issued.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "finding-issued"
+    },
+    {
+      "event_type": "cap.submitted",
+      "event_version": 1,
+      "grain": "cap",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "audit_id",
+        "finding_id",
+        "cap_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/cap-submitted.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "cap-submitted"
+    },
+    {
+      "event_type": "cap.reviewed",
+      "event_version": 1,
+      "grain": "cap_review",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "audit_id",
+        "finding_id",
+        "cap_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/cap-reviewed.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "cap-reviewed"
+    },
+    {
+      "event_type": "evidence_reference.submitted",
+      "event_version": 1,
+      "grain": "evidence_reference",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "audit_id",
+        "finding_id",
+        "evidence_ref_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/evidence-reference-submitted.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "evidence-reference-submitted"
+    },
+    {
+      "event_type": "evidence_reference.reviewed",
+      "event_version": 1,
+      "grain": "evidence_reference_review",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "audit_id",
+        "finding_id",
+        "evidence_ref_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/evidence-reference-reviewed.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "evidence-reference-reviewed"
+    },
+    {
+      "event_type": "information_request.created",
+      "event_version": 1,
+      "grain": "information_request",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "audit_id",
+        "finding_id",
+        "request_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/information-request-created.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "information-request-created"
+    },
+    {
+      "event_type": "information_request.responded",
+      "event_version": 1,
+      "grain": "information_request_response",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "audit_id",
+        "finding_id",
+        "request_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/information-request-responded.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "information-request-responded"
+    },
+    {
+      "event_type": "correction.recorded",
+      "event_version": 1,
+      "grain": "event_correction",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "audit_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/correction-recorded.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "correction-recorded"
+    },
+    {
+      "event_type": "event.superseded",
+      "event_version": 1,
+      "grain": "event_supersession",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "audit_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/event-superseded.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "event-superseded"
+    },
+    {
+      "event_type": "finding.reopened",
+      "event_version": 1,
+      "grain": "finding_reopen",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "audit_id",
+        "finding_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/finding-reopened.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "finding-reopened"
+    },
+    {
+      "event_type": "finding.escalated",
+      "event_version": 1,
+      "grain": "finding_escalation",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "audit_id",
+        "finding_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/finding-escalated.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "finding-escalated"
+    },
+    {
+      "event_type": "finding.closed",
+      "event_version": 1,
+      "grain": "finding_terminal_transition",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "audit_id",
+        "finding_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/finding-closed.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "finding-closed"
+    },
+    {
+      "event_type": "audit.completed",
+      "event_version": 1,
+      "grain": "audit_terminal_transition",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "audit_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/audit-completed.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "audit-completed"
+    },
+    {
+      "event_type": "surveillance_plan.versioned",
+      "event_version": 1,
+      "grain": "immutable_owner_approved_extension_fact",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "plan_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/surveillance_plan-versioned.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "surveillance_plan-versioned"
+    },
+    {
+      "event_type": "surveillance_plan.approval_recorded",
+      "event_version": 1,
+      "grain": "immutable_owner_approved_extension_fact",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "plan_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/surveillance_plan-approval_recorded.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "surveillance_plan-approval_recorded"
+    },
+    {
+      "event_type": "surveillance_plan.status_changed",
+      "event_version": 1,
+      "grain": "immutable_owner_approved_extension_fact",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "plan_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/surveillance_plan-status_changed.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "surveillance_plan-status_changed"
+    },
+    {
+      "event_type": "reminder.dispatch_recorded",
+      "event_version": 1,
+      "grain": "immutable_owner_approved_extension_fact",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "plan_id",
+        "reminder_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/reminder-dispatch_recorded.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "reminder-dispatch_recorded"
+    },
+    {
+      "event_type": "organization.versioned",
+      "event_version": 1,
+      "grain": "immutable_owner_approved_extension_fact",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "organization_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/organization-versioned.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "organization-versioned"
+    },
+    {
+      "event_type": "provider_scope.versioned",
+      "event_version": 1,
+      "grain": "immutable_owner_approved_extension_fact",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "organization_id",
+        "provider_scope_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/provider_scope-versioned.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "provider_scope-versioned"
+    },
+    {
+      "event_type": "provider_scope.ended",
+      "event_version": 1,
+      "grain": "immutable_owner_approved_extension_fact",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "organization_id",
+        "provider_scope_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/provider_scope-ended.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "provider_scope-ended"
+    },
+    {
+      "event_type": "audit_assignment.versioned",
+      "event_version": 1,
+      "grain": "immutable_owner_approved_extension_fact",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "audit_id",
+        "assignment_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/audit_assignment-versioned.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "audit_assignment-versioned"
+    },
+    {
+      "event_type": "checklist_package.versioned",
+      "event_version": 1,
+      "grain": "immutable_owner_approved_extension_fact",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "audit_id",
+        "package_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/checklist_package-versioned.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "checklist_package-versioned"
+    },
+    {
+      "event_type": "checklist_package.composed",
+      "event_version": 1,
+      "grain": "immutable_owner_approved_extension_fact",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "audit_id",
+        "package_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/checklist_package-composed.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "checklist_package-composed"
+    },
+    {
+      "event_type": "potential_finding.versioned",
+      "event_version": 1,
+      "grain": "immutable_owner_approved_extension_fact",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "potential_finding_id",
+        "source_audit_id",
+        "source_question_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/potential_finding-versioned.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "potential_finding-versioned"
+    },
+    {
+      "event_type": "potential_finding.decision_recorded",
+      "event_version": 1,
+      "grain": "immutable_owner_approved_extension_fact",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "potential_finding_id",
+        "decision_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/potential_finding-decision_recorded.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "potential_finding-decision_recorded"
+    },
+    {
+      "event_type": "report.versioned",
+      "event_version": 1,
+      "grain": "immutable_owner_approved_extension_fact",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "report_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/report-versioned.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "report-versioned"
+    },
+    {
+      "event_type": "report.decision_recorded",
+      "event_version": 1,
+      "grain": "immutable_owner_approved_extension_fact",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "report_id",
+        "decision_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/report-decision_recorded.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "report-decision_recorded"
+    },
+    {
+      "event_type": "regulatory_reference.versioned",
+      "event_version": 1,
+      "grain": "immutable_owner_approved_extension_fact",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "reference_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/regulatory_reference-versioned.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "regulatory_reference-versioned"
+    },
+    {
+      "event_type": "checklist_configuration.versioned",
+      "event_version": 1,
+      "grain": "immutable_owner_approved_extension_fact",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "configuration_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/checklist_configuration-versioned.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "checklist_configuration-versioned"
+    },
+    {
+      "event_type": "checklist_configuration.published",
+      "event_version": 1,
+      "grain": "immutable_owner_approved_extension_fact",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "configuration_id",
+        "publication_decision_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/checklist_configuration-published.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "checklist_configuration-published"
+    },
+    {
+      "event_type": "checklist_generation.run_recorded",
+      "event_version": 1,
+      "grain": "immutable_owner_approved_extension_fact",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "generation_run_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/checklist_generation-run_recorded.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "checklist_generation-run_recorded"
+    },
+    {
+      "event_type": "checklist_generation.candidate_versioned",
+      "event_version": 1,
+      "grain": "immutable_owner_approved_extension_fact",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "generation_run_id",
+        "candidate_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/checklist_generation-candidate_versioned.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "checklist_generation-candidate_versioned"
+    },
+    {
+      "event_type": "checklist_generation.impact_review_recorded",
+      "event_version": 1,
+      "grain": "immutable_owner_approved_extension_fact",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "generation_run_id",
+        "candidate_id",
+        "impact_review_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/checklist_generation-impact_review_recorded.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "checklist_generation-impact_review_recorded"
+    },
+    {
+      "event_type": "checklist_generation.rollout_readiness_recorded",
+      "event_version": 1,
+      "grain": "immutable_owner_approved_extension_fact",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "generation_run_id",
+        "candidate_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/checklist_generation-rollout_readiness_recorded.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "checklist_generation-rollout_readiness_recorded"
+    },
+    {
+      "event_type": "tombstone.recorded",
+      "event_version": 1,
+      "grain": "tombstone_replay_publication_suppression",
+      "max_inline_privacy_class": "P2",
+      "owner": "aviasurveil360 producer/domain",
+      "required_entity_refs": [
+        "tombstoned_event_id"
+      ],
+      "schema_path": "schemas/events/aviasurveil/v3/tombstone-recorded.schema.json",
+      "schema_version": "3.0.0",
+      "vector_slug": "tombstone-recorded"
+    }
+  ],
+  "evidence_class": "CONTRACT_SOURCE_NOT_RUNTIME_EVIDENCE",
+  "forbidden_inline_content": [
+    "finding_description",
+    "investigation_notes",
+    "evidence_binary",
+    "evidence_filename",
+    "person_name",
+    "contact_value",
+    "free_text"
+  ],
+  "producer": "aviasurveil360",
+  "schema_version": "aviasurveil_event_catalog.v3"
+}

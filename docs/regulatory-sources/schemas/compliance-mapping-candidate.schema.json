@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aviasurveil360.local/schemas/compliance-mapping-candidate.schema.json",
+  "title": "Compliance mapping candidate v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["mappingId", "requirement", "relationship", "applicability", "citations", "sourceGap", "rationale"],
+  "properties": {
+    "mappingId": {"type": "string", "minLength": 1},
+    "requirement": {"type": "string", "minLength": 1},
+    "relationship": {"enum": ["ADDRESSES", "PARTIALLY_ADDRESSES", "NOT_ADDRESSED", "CONTEXT_ONLY"]},
+    "applicability": {"enum": ["DIRECT", "CONDITIONAL", "CONTEXTUAL"]},
+    "citations": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/citation"}},
+    "sourceGap": {"anyOf": [{"type": "null"}, {"type": "object", "additionalProperties": false, "required": ["status", "reason"], "properties": {"status": {"const": "UNRESOLVED"}, "reason": {"type": "string", "minLength": 1}}}]},
+    "rationale": {"type": "string", "minLength": 1}
+  },
+  "$defs": {"citation": {"type": "object", "additionalProperties": false, "required": ["sourceSnapshotId", "sourceHash", "clauseId", "locator"], "properties": {"sourceSnapshotId": {"type": "string", "minLength": 1}, "sourceHash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}, "clauseId": {"type": "string", "minLength": 1}, "locator": {"type": "string", "minLength": 1}}}}
+}

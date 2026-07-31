@@ -23,6 +23,15 @@ The workspaces must use working controls and shared browser-local demo state.
 They must not introduce a backend, database, API, real authentication, real
 file storage, real notification delivery, or a production reporting engine.
 
+## Governed checklist authority
+
+For the candidate-only governed checklist workflow, the currently assigned
+responsible Department Manager may technically review a complete candidate only
+within the manager's department scope. Technical approval and publication are
+two separate recorded decisions; publication creates an immutable version only
+after the required technical approval. Admin and generation providers can
+create or edit candidates but cannot technically approve or publish them.
+
 ## Naming Contract
 
 - Display the service provider/operator as `Fly Namibia` everywhere in the UI,

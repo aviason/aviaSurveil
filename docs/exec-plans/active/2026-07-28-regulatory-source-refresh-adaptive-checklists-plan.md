@@ -20,6 +20,9 @@ The user-visible outcome is:
 - checklist scope recommendations that distinguish mandatory, focused, and
   rotational-sampling controls without silently changing a published checklist
   or treating missing history as compliance.
+- a mandatory checklist-generation contract: every proposed question exposes
+  both its scope classification and its regulatory trace, or an explicit
+  blocking source-mapping gap; neither may be silently absent at publication.
 
 ## Scope
 
@@ -37,6 +40,10 @@ The user-visible outcome is:
   signature, file-count, and source-host checks.
 - Extend the regulatory mapping contract with refresh policy and advisory
   checklist-scope recommendations.
+- Add a governed onboarding path for existing checklist questions. Treat their
+  operational history as a candidate input, not as regulatory authority; map,
+  review, and version them against the current approved source chain before
+  publication.
 - Present refresh governance and current six-question recommendations in the
   Admin Regulatory Library and Checklist Builder.
 - Preserve immutable published checklist identity and Department Manager
@@ -53,6 +60,9 @@ The user-visible outcome is:
   enforcement, certification, or closure decision.
 - No automatic omission of a mandatory, safety-critical, changed, overdue,
   unknown, or insufficient-history control.
+- No use of an existing checklist, prior answer, or clean history as a
+  substitute for an applicable, versioned regulatory source and approved CAA
+  procedure.
 - No claim that a downloaded source has been clause-mapped or technically
   validated merely because its bytes and hash are present.
 - No root legacy-demo changes, branch operations, commit, push, deployment, or
@@ -148,6 +158,73 @@ The user-visible outcome is:
 - [x] Validate JSON shape, source hashes/locators, Markdown links, harness docs,
   demo boundaries, and diff cleanliness.
 
+### Task 6 - Make Scope And Regulatory Trace Mandatory At Checklist Generation
+
+**Status:** Task 6 implementation and focused local verification are `verified
+locally`; independent read-only implementation and final-delta review are
+accepted with no Critical or Important finding. The result remains
+`candidate-only`, `release pending`, and `production-ready: not established`.
+Earlier Task 1-5 evidence does not substitute for this requirement. See
+[Task 6 local evidence](../../demo-evidence/REGULATORY_SOURCE_REFRESH_TASK6_2026-07-31.md).
+
+**Files**
+
+- Modify `api/openapi/source/schemas/platform.json` and generated transport
+  artifacts to carry `scopeRecommendation` and `regulatoryTrace` state for
+  every proposed/published checklist question.
+- Modify the governed checklist-generation/publication application boundary to
+  reject publication when either state is absent, unresolved, or stale.
+- Modify `apps/web/src/features/admin/checklist-builder-page.tsx` so every
+  generated question visibly shows its classification and regulatory trace; a
+  missing trace renders `SOURCE_MAPPING_REQUIRED`, never an empty citation.
+- Add focused API, backend, and React tests for positive, source-gap,
+  stale-source, mandatory, rotational-sample, and deferral branches.
+
+**Work**
+
+- [x] Define the per-question generation record as two required views:
+  `scopeRecommendation` (classification, signals, history basis, rationale,
+  guardrails, and approval state) and `regulatoryTrace` (source title,
+  immutable source version/hash, locator/page/clause, source type,
+  applicability, national/CAA-procedure mapping, verification objective, and
+  expected Evidence).
+- [x] Allow a Draft question with an explicit `SOURCE_MAPPING_REQUIRED` gap so
+  a reviewer can complete it, but prevent that question from being published,
+  deferred, or presented as validated until its trace is technically approved
+  and a Department Manager records the separate publication decision.
+- [x] Apply a hybrid migration rule to existing checklist questions: retain
+  wording, result history, and known operational intent as candidate input;
+  use the current approved regulatory/CAA-procedure chain as the sole
+  authority; create a new immutable Draft/version rather than rewriting a
+  published version or an in-progress Audit.
+- [x] Require every generation decision to name its origin as
+  `REGULATORY_TRACE`, `EXISTING_CHECKLIST_CANDIDATE`, or `HYBRID_RECONCILED`.
+  `HYBRID_RECONCILED` means the legacy question was matched to the approved
+  trace and any wording, Evidence, or scope changes are visible to the
+  reviewer; legacy content is never elevated to an authority source.
+- [x] Prevent publication when any question lacks a visible classification,
+  trace, rationale, source-currentness result, or required technical review.
+  A source hash/version change invalidates the affected trace and creates a
+  new impact-review Draft rather than silently retaining eligibility.
+
+**Verification And Acceptance**
+
+- [x] Add a contract test proving that a generated Draft always returns both
+  views or the literal `SOURCE_MAPPING_REQUIRED` state.
+- [x] Add backend/publication tests that reject a missing trace, stale source,
+  unresolved source gap, omitted classification, and automatic deferral of a
+  mandatory, safety-critical, or unknown-history question.
+- [x] Add a React test proving the Checklist Builder shows classification,
+  inclusion rationale, source title/version/locator, applicability, expected
+  Evidence, and legacy/hybrid origin for every question.
+- [x] Add a migration test proving an existing checklist produces a new
+  candidate version, preserves the historical published version, and cannot
+  become authoritative without source mapping, technical approval, and a
+  separate publication decision.
+- [x] Run focused contract, Go, React, demo-boundary, and `git diff --check`
+  gates. Record fresh literal results and retain the `candidate-only` boundary
+  until the responsible owners complete their review.
+
 ## Commands And Expected Observations
 
 ```bash
@@ -190,6 +267,13 @@ boundaries remain intact, and the diff has no whitespace errors.
 - Insufficient history cannot be presented as a clean compliance history.
 - The current six-question pilot remains `EXPERT_REVIEW_REQUIRED`.
 - Local evidence remains `candidate-only`.
+- A checklist question cannot be published unless its scope classification and
+  regulatory trace are both visible, current, technically approved, and
+  accompanied by the required inclusion/defer rationale.
+- Existing checklist content is a migration candidate and historical
+  operational input only; the current approved regulatory/CAA-procedure trace
+  remains the authority. A reconciled result is published only as a new
+  immutable version.
 
 ## Risks, Dependencies, Idempotence, And Recovery
 
@@ -263,6 +347,37 @@ boundaries remain intact, and the diff has no whitespace errors.
   Focused derived-context/source-sync tests pass 10/10; harness docs, demo
   boundary, JSON parsing, full-text locator/page-marker inspection, routing,
   and diff checks pass.
+- 2026-07-31: Task 6 added mandatory per-question `scopeRecommendation` and
+  `regulatoryTrace` views, exact origin values, literal source-gap Drafts,
+  fail-closed review/publication/deferral/package validation, source-staleness
+  impact Drafts, and immutable legacy-to-hybrid reconciliation. OpenAPI,
+  generated transports, semantic mock, canonical HTTP/PostgreSQL persistence,
+  and Checklist Builder now project the same shape. Fresh local contract, Go,
+  React, demo-boundary, local-source verification, and 1440×900/390×844 HTTP
+  profile checks passed. The positive path remains the explicit synthetic
+  profile; independent Task 6 acceptance and final cleanup checks are pending.
+- 2026-07-31: Task 6 now keeps raw source observations inert until an explicit
+  append-only source-currentness activation records the exact
+  predecessor/current snapshot hashes. A raw source-change import rolls back
+  atomically with no partial lineage; an activation creates the immutable
+  impact-review Draft that one or more candidate roots can bind. The mock
+  Regulatory Library derives V1/V2 rows from immutable source lineage, and
+  the canonical activation transport rejects omitted or unknown fields while
+  preserving explicit-null predecessor semantics.
+- 2026-07-31: Independent read-only Task 6 review and final delta review found
+  no Critical or Important implementation finding. The reviewer confirmed the
+  atomic failed-import boundary, append-only currentness chain, exact V1/V2
+  mock lineage, closed activation transport, and contract-gate coverage. The
+  reviewer did not execute commands; owner-run local evidence remains scoped
+  to the Task 6 evidence record.
+- 2026-07-31: Final Task 6 closure checks passed: bounded source sync and
+  verify-only reported 58 documents / 605,250,466 bytes; contracts passed
+  16/16; focused React passed 19/19 and 28/28; Go, demo build, root smoke,
+  canonical PostgreSQL/HTTP profile, and documentation smoke passed; and
+  `git diff --check` was clean. The disposable profile removed its Docker
+  containers, volumes, network, Vite, and runtime directory; final filtered
+  process and Docker checks found no Task 6 residue. The pre-existing dirty
+  worktree was preserved without staging, commits, or branch operations.
 
 ## Decisions
 
@@ -273,6 +388,9 @@ boundaries remain intact, and the diff has no whitespace errors.
   not equivalent to verified compliance.
 - Maintain a full-scope maximum interval and never auto-defer mandatory or
   newly changed controls.
+- Use a hybrid onboarding model for existing checklists: preserve useful
+  question wording and history, but require each question to reconcile to a
+  current approved source/CAA-procedure trace before publication.
 
 ## Discoveries
 
@@ -300,7 +418,24 @@ bytes, extracted context, and page-level OCR checkpoints remain in the ignored
 local vault. Source capture, extraction, and a candidate assessment do not
 establish legal authority, publication approval, or expert validation.
 
+Task 6 implementation, focused local verification, and independent read-only
+acceptance are `verified locally`. It makes scope classification and
+regulatory trace mandatory at checklist generation and publication, while
+onboarding existing checklists as non-authoritative candidate inputs through
+controlled hybrid reconciliation. Real source-owner and responsible Department
+Manager decisions remain external `blocked` decisions; this local result stays
+`candidate-only` and `release pending`.
+
 ## Execution Prompt
+
+Complete Task 6 before treating the adaptive-scope candidate as a reusable
+checklist-generation capability. Every proposed question must show its scope
+classification, inclusion/defer rationale, and a current regulatory trace or
+the literal blocking state `SOURCE_MAPPING_REQUIRED`. Treat existing
+checklists as candidate inputs only; preserve immutable versions and history,
+reconcile them to current approved sources and CAA procedures in a new Draft,
+then require technical approval and a separate Department Manager publication
+decision.
 
 Review the source-bound Part 127 / Part 140 assessment under
 `docs/regulatory-sources/derived/` against the exact public source versions and

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import type { ReactNode } from "react";
@@ -12,6 +12,10 @@ import { AppProviders } from "../../app/providers";
 import { AppRouter } from "../../app/router";
 import { ScenarioProvider } from "../../app/scenario-context";
 import type { AdminRegulatoryReferenceView, AuditEventView, DemoBackend } from "../../backend/backend";
+import {
+  SYNTHETIC_EDITED_RATIONALE,
+  SYNTHETIC_GOVERNED_BUNDLE,
+} from "../../backend/governed-synthetic-profile";
 import {
   createMockBackendPersistentRuntime,
   createMockBackendRuntime,
@@ -214,6 +218,331 @@ describe("Admin secondary workspaces", () => {
     const user = userEvent.setup();
     await user.selectOptions(within(page).getByRole("combobox", { name: "Regulatory service provider" }), "Air Operator (AOC)");
     expect(await within(page).findByText("RMAP-OPS-AOC-CABIN-RAMP-001")).toBeVisible();
+  });
+
+  it("imports, inspects, edits, adopts, and submits only the exact governed current leaf", async () => {
+    const user = userEvent.setup();
+    const runtime = createMockBackendRuntime();
+    const governed = runtime.backendForRole("admin").adminWorkspace;
+    const importSpy = vi.spyOn(governed, "importGovernedGenerationRun");
+    const editSpy = vi.spyOn(governed, "createGovernedCandidateRevision");
+    const submitSpy = vi.spyOn(governed, "submitGovernedCandidateReview");
+    const sources = await governed.listGovernedSources({});
+    expect(sources.items[0]).toEqual(expect.objectContaining({
+      sourceHash: "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      clauseLocator: "Synthetic OPS/AOC 1",
+      partitions: [expect.objectContaining({ role: "GENERATION_INPUT", stableRowIdentity: "CC:SYNTHETIC:OPS:AOC:1" })],
+    }));
+    expect(sources.items[1].partitions[0].role).toBe("BLIND_HOLDOUT");
+    renderAdminComponent(<ChecklistBuilderPage />, runtime);
+    const page = await screen.findByLabelText("Governed candidate editor");
+    await user.click(within(page).getByRole("button", { name: "Import synthetic governed candidate" }));
+    expect(importSpy).toHaveBeenCalledWith({
+      operationId: "ADMIN-SYNTHETIC-GOVERNED-IMPORT",
+      idempotencyKey: "ADMIN-SYNTHETIC-GOVERNED-IMPORT",
+      candidateBundle: SYNTHETIC_GOVERNED_BUNDLE,
+    });
+    expect((await within(page).findAllByText(/GENRUN-SYNTHETIC-OPS-AOC-0001/)).length).toBeGreaterThan(0);
+    expect(page).toHaveTextContent("GENREQ-SYNTHETIC-OPS-AOC-0001");
+    expect(page).toHaveTextContent("regulatory-checklist-v1");
+    expect(page).toHaveTextContent("deterministic-regulatory-fixture");
+    expect(page).toHaveTextContent(/Synthetic OPS\/AOC 1/);
+    expect(page).toHaveTextContent("Scope classification");
+    expect(page).toHaveTextContent("MANDATORY CORE");
+    expect(page).toHaveTextContent("Inclusion / deferral rationale");
+    expect(page).toHaveTextContent("Synthetic test-profile source");
+    expect(page).toHaveTextContent("Source version / hash");
+    expect(page).toHaveTextContent("Page / locator / clause");
+    expect(page).toHaveTextContent("Applicability");
+    expect(page).toHaveTextContent("Currentness / technical review");
+    expect(page).toHaveTextContent("Verification objective");
+    expect(page).toHaveTextContent("Question origin");
+    const originalDigest = "sha256:377598cb1bee5388b19c9d7d4de34f1ff9f6b16b7ac1d2ff6cc5d96af798ad19";
+    expect(page).toHaveTextContent(originalDigest);
+    const rationale = within(page).getByRole("textbox", { name: "Mapping rationale" });
+    await user.clear(rationale);
+    await user.type(rationale, "Synthetic test-profile rationale reviewed by an Admin without changing the controlled source claim.");
+    const reason = within(page).getByRole("textbox", { name: "Change reason" });
+    await user.clear(reason);
+    await user.type(reason, "Apply the single controlled synthetic alternative.");
+    expect(within(page).getByRole("button", { name: "Create immutable edited revision" })).toBeEnabled();
+    await user.click(within(page).getByRole("button", { name: "Create immutable edited revision" }));
+    expect(editSpy).toHaveBeenCalledWith(expect.objectContaining({
+      candidateId: SYNTHETIC_GOVERNED_BUNDLE.candidateBundleId,
+      expectedRevision: 1,
+      expectedContentDigest: originalDigest,
+      changeReason: "Apply the single controlled synthetic alternative.",
+      mappings: [expect.objectContaining({ rationale: SYNTHETIC_EDITED_RATIONALE })],
+      questions: SYNTHETIC_GOVERNED_BUNDLE.inspectionChecklist.questions,
+      requiredOwners: [{
+        departmentId: "FLIGHT_OPERATIONS_INSPECTORATE",
+        organizationalUnitId: "FLIGHT_OPERATIONS_INSPECTORATE",
+        approvalRequired: true,
+      }],
+    }));
+    expect(await within(page).findByText(/revision 2/)).toBeVisible();
+    expect(within(page).getByText("Imported run output digest").nextSibling).toHaveTextContent(originalDigest);
+    const successorLine = within(page).getByText(/CAND-EDIT-.*revision 2/);
+    expect(successorLine).toHaveTextContent("GENERATED_DRAFT");
+    const successor = await editSpy.mock.results[0]!.value;
+    expect(within(page).getByText("Current candidate content digest").nextSibling).toHaveTextContent(successor.contentDigest);
+    expect(successor.contentDigest).not.toBe(originalDigest);
+    expect(within(page).getByRole("button", { name: "Submit exact candidate for department review" })).toBeEnabled();
+    await user.click(within(page).getByRole("button", { name: "Submit exact candidate for department review" }));
+    expect(submitSpy).toHaveBeenCalledWith(expect.objectContaining({
+      candidateId: successor.candidateId,
+      expectedRevision: 2,
+      expectedContentDigest: successor.contentDigest,
+    }));
+    expect(await within(page).findByText(/DEPARTMENT_REVIEW/)).toBeVisible();
+    expect(page).toHaveTextContent("Submitted for department review");
+    expect(within(page).queryByRole("button", { name: /approve|publish/i })).toBeNull();
+  });
+
+  it("renders literal source gaps and hybrid legacy comparisons without presenting either as authority", async () => {
+    const user = userEvent.setup();
+    const runtime = createMockBackendRuntime();
+    const governed = runtime.backendForRole("admin").adminWorkspace;
+    const candidate = await governed.getGovernedCandidate({
+      candidateId: SYNTHETIC_GOVERNED_BUNDLE.candidateBundleId,
+    });
+    const sourceGap = structuredClone(candidate.questions[0]!);
+    sourceGap.questionId = "Q-LEGACY-SOURCE-GAP";
+    sourceGap.origin = "EXISTING_CHECKLIST_CANDIDATE";
+    sourceGap.citations = [];
+    sourceGap.mandatoryCore = false;
+    sourceGap.safetyCritical = false;
+    sourceGap.scopeRecommendation = {
+      ...sourceGap.scopeRecommendation,
+      classification: "FOCUSED_FULL",
+      guardrails: {
+        ...sourceGap.scopeRecommendation.guardrails,
+        mandatoryControl: false,
+        safetyCritical: false,
+        unknownHistory: true,
+      },
+    };
+    sourceGap.regulatoryTrace = {
+      state: "SOURCE_MAPPING_REQUIRED",
+      currentnessState: "SOURCE_MAPPING_REQUIRED",
+      technicalReviewState: "NOT_AVAILABLE",
+    };
+    sourceGap.reconciliation = null;
+
+    const hybrid = structuredClone(candidate.questions[0]!);
+    hybrid.questionId = "Q-HYBRID-RECONCILED";
+    hybrid.origin = "HYBRID_RECONCILED";
+    hybrid.mandatoryCore = false;
+    hybrid.safetyCritical = false;
+    hybrid.scopeRecommendation = {
+      ...hybrid.scopeRecommendation,
+      classification: "ROTATIONAL_SAMPLE",
+      rationale: "Use the current controlled trace as a rotational sample after Department Manager technical review.",
+      guardrails: {
+        ...hybrid.scopeRecommendation.guardrails,
+        mandatoryControl: false,
+        safetyCritical: false,
+        unknownHistory: false,
+        sourceChanged: true,
+      },
+    };
+    hybrid.reconciliation = {
+      legacyQuestionId: "LEGACY-CABIN-001",
+      legacyWording: "Historical cabin checklist wording",
+      legacyOperationalIntent: "Candidate-only cabin safety observation",
+      legacyResultHistory: "Unverified candidate outcome history",
+      legacyExpectedEvidence: ["Historical checklist note"],
+      legacyApplicability: "UNKNOWN_CANDIDATE_INPUT",
+      legacyScopeClassification: "UNKNOWN_CANDIDATE_INPUT",
+      currentWording: hybrid.prompt,
+      currentExpectedEvidence: [...hybrid.expectedEvidence],
+      currentApplicability: hybrid.regulatoryTrace.applicability!,
+      currentScopeClassification: "ROTATIONAL_SAMPLE",
+      wordingChanged: true,
+      evidenceChanged: true,
+      applicabilityChanged: true,
+      scopeChanged: true,
+    };
+    vi.spyOn(governed, "getGovernedCandidate").mockResolvedValue({
+      ...candidate,
+      questions: [sourceGap, hybrid],
+    });
+
+    renderAdminComponent(<ChecklistBuilderPage />, runtime);
+    const page = await screen.findByLabelText("Governed candidate editor");
+    await user.click(within(page).getByRole("button", { name: "Import synthetic governed candidate" }));
+    await within(page).findByText("SOURCE_MAPPING_REQUIRED");
+    expect(page).toHaveTextContent("SOURCE_MAPPING_REQUIRED");
+    expect(page).toHaveTextContent("cannot be validated");
+    expect(page).toHaveTextContent("HYBRID RECONCILED");
+    expect(page).toHaveTextContent("Legacy candidate comparison");
+    expect(page).toHaveTextContent("Historical cabin checklist wording");
+    expect(page).toHaveTextContent("ROTATIONAL SAMPLE");
+  });
+
+  it("repairs a candidate-only legacy source gap only by importing a separate current-source reconciliation Draft", async () => {
+    const user = userEvent.setup();
+    const runtime = createMockBackendRuntime();
+    renderAdminComponent(<ChecklistBuilderPage />, runtime);
+    const page = await screen.findByLabelText("Governed candidate editor");
+
+    await user.click(within(page).getByRole("button", { name: "Load candidate-only legacy source-gap Draft" }));
+    expect(await within(page).findByText("SOURCE_MAPPING_REQUIRED")).toBeVisible();
+    expect(page).toHaveTextContent("candidate-only legacy checklist Draft");
+    expect(within(page).getByRole("button", { name: "Submit exact candidate for department review" })).toBeDisabled();
+    expect(within(page).getByRole("button", { name: "Activate source change and create reconciliation Draft" })).toBeEnabled();
+
+    await user.click(within(page).getByRole("button", { name: "Activate source change and create reconciliation Draft" }));
+    expect((await within(page).findAllByText(/CAND-SYNTHETIC-HYBRID-RECONCILED-0004/)).length).toBeGreaterThan(0);
+    expect(page).toHaveTextContent("Current-source activation:");
+    expect(page).toHaveTextContent("Synthetic test-profile impact source");
+    expect(page).toHaveTextContent("Legacy candidate comparison");
+    await user.click(within(page).getByRole("button", { name: "Create immutable edited revision" }));
+    expect(await within(page).findByText(/revision 2/)).toBeVisible();
+    expect(within(page).getByRole("button", { name: "Submit exact candidate for department review" })).toBeEnabled();
+  });
+
+  it("does not query a candidate before import, then inspects, edits, and submits the exact current leaf", async () => {
+    const user = userEvent.setup();
+    const runtime = createMockBackendRuntime();
+    const governed = runtime.backendForRole("admin").adminWorkspace;
+    const originalGetCandidate = governed.getGovernedCandidate.bind(governed);
+    const originalImport = governed.importGovernedGenerationRun.bind(governed);
+    let imported = false;
+    vi.spyOn(governed, "getGovernedCandidate").mockImplementation(async (input) => {
+      if (!imported) throw new Error("HTTP 404: governed candidate does not exist.");
+      return originalGetCandidate(input);
+    });
+    vi.spyOn(governed, "importGovernedGenerationRun").mockImplementation(async (input) => {
+      const result = await originalImport(input);
+      imported = true;
+      return result;
+    });
+    const editSpy = vi.spyOn(governed, "createGovernedCandidateRevision");
+    const submitSpy = vi.spyOn(governed, "submitGovernedCandidateReview");
+
+    renderAdminComponent(<ChecklistBuilderPage />, runtime);
+    const page = await screen.findByLabelText("Governed candidate editor");
+    expect(page).not.toHaveTextContent("HTTP 404: governed candidate does not exist.");
+    expect(governed.getGovernedCandidate).not.toHaveBeenCalled();
+    expect(within(page).getByRole("button", { name: "Import synthetic governed candidate" })).toBeEnabled();
+
+    await user.click(within(page).getByRole("button", { name: "Import synthetic governed candidate" }));
+    expect(await within(page).findByText(/revision 1/)).toBeVisible();
+    await user.click(within(page).getByRole("button", { name: "Inspect governed generation run" }));
+    const originalDigest = "sha256:377598cb1bee5388b19c9d7d4de34f1ff9f6b16b7ac1d2ff6cc5d96af798ad19";
+    expect(within(page).getByText("Imported run output digest").nextSibling).toHaveTextContent(originalDigest);
+
+    const rationale = within(page).getByRole("textbox", { name: "Mapping rationale" });
+    await user.clear(rationale);
+    await user.type(rationale, SYNTHETIC_EDITED_RATIONALE);
+    await user.click(within(page).getByRole("button", { name: "Create immutable edited revision" }));
+    const successor = await editSpy.mock.results[0]!.value;
+    expect(await within(page).findByText(/revision 2/)).toBeVisible();
+    expect(within(page).getByText("Imported run output digest").nextSibling).toHaveTextContent(originalDigest);
+    expect(within(page).getByText("Current candidate content digest").nextSibling).toHaveTextContent(successor.contentDigest);
+
+    await user.click(within(page).getByRole("button", { name: "Submit exact candidate for department review" }));
+    expect(submitSpy).toHaveBeenCalledWith(expect.objectContaining({
+      candidateId: successor.candidateId,
+      expectedRevision: successor.revision,
+      expectedContentDigest: successor.contentDigest,
+    }));
+    expect(await within(page).findByText(/DEPARTMENT_REVIEW/)).toBeVisible();
+    expect(within(page).queryByRole("button", { name: /approve|publish/i })).toBeNull();
+  });
+
+  it("does not overwrite an in-progress rationale edit when the post-import reload finishes", async () => {
+    const user = userEvent.setup();
+    const runtime = createMockBackendRuntime();
+    const governed = runtime.backendForRole("admin").adminWorkspace;
+    const originalGetCandidate = governed.getGovernedCandidate.bind(governed);
+    const originalImport = governed.importGovernedGenerationRun.bind(governed);
+    let delayNextCandidateRead = false;
+    let importCount = 0;
+    let releaseCandidateRead = () => {};
+    let reportCandidateReadStarted = () => {};
+    let reportCandidateReadFinished = () => {};
+    const candidateReadGate = new Promise<void>((resolve) => {
+      releaseCandidateRead = resolve;
+    });
+    const candidateReadStarted = new Promise<void>((resolve) => {
+      reportCandidateReadStarted = resolve;
+    });
+    const candidateReadFinished = new Promise<void>((resolve) => {
+      reportCandidateReadFinished = resolve;
+    });
+    vi.spyOn(governed, "getGovernedCandidate").mockImplementation(async (input) => {
+      if (!delayNextCandidateRead) return originalGetCandidate(input);
+      delayNextCandidateRead = false;
+      reportCandidateReadStarted();
+      await candidateReadGate;
+      const result = await originalGetCandidate(input);
+      reportCandidateReadFinished();
+      return result;
+    });
+    vi.spyOn(governed, "importGovernedGenerationRun").mockImplementation(async (input) => {
+      const result = await originalImport(input);
+      importCount += 1;
+      delayNextCandidateRead = importCount > 1;
+      return result;
+    });
+    const editSpy = vi.spyOn(governed, "createGovernedCandidateRevision");
+
+    renderAdminComponent(<ChecklistBuilderPage />, runtime);
+    const page = await screen.findByLabelText("Governed candidate editor");
+    await user.click(within(page).getByRole("button", { name: "Import synthetic governed candidate" }));
+    await within(page).findByRole("textbox", { name: "Mapping rationale" });
+    await user.click(within(page).getByRole("button", { name: "Import synthetic governed candidate" }));
+    await candidateReadStarted;
+
+    const rationale = within(page).getByRole("textbox", { name: "Mapping rationale" });
+    await user.clear(rationale);
+    await user.type(rationale, SYNTHETIC_EDITED_RATIONALE);
+    await act(async () => {
+      releaseCandidateRead();
+      await candidateReadFinished;
+    });
+
+    expect(rationale).toHaveValue(SYNTHETIC_EDITED_RATIONALE);
+    await user.click(within(page).getByRole("button", { name: "Create immutable edited revision" }));
+    expect(editSpy).toHaveBeenCalledWith(expect.objectContaining({
+      mappings: [expect.objectContaining({ rationale: SYNTHETIC_EDITED_RATIONALE })],
+    }));
+  });
+
+  it("inspects the exact persisted safe failed generation run without a candidate", async () => {
+    const user = userEvent.setup();
+    const runtime = createMockBackendRuntime();
+    renderAdminComponent(<ChecklistBuilderPage />, runtime);
+    const page = await screen.findByLabelText("Governed candidate editor");
+    const runId = within(page).getByRole("textbox", { name: "Generation run ID" });
+    await user.clear(runId);
+    await user.type(runId, "GENRUN-FAILED-SYNTHETIC-INSPECTION");
+    await user.click(within(page).getByRole("button", { name: "Inspect governed generation run" }));
+    expect(await within(page).findByText(/GENRUN-FAILED-SYNTHETIC-INSPECTION/)).toBeVisible();
+    expect(page).toHaveTextContent("GENREQ-FAILED-SYNTHETIC-INSPECTION");
+    expect(page).toHaveTextContent("VALIDATION_FAILED");
+    expect(page).toHaveTextContent("Exact synthetic failed-run inspection fixture");
+    expect(page).not.toHaveTextContent("CAND-FAILED-SYNTHETIC");
+    expect(within(page).queryByRole("button", { name: /approve|publish/i })).toBeNull();
+  });
+
+  it("renders exact field and source validation feedback for an unsupported governed edit", async () => {
+    const user = userEvent.setup();
+    const runtime = createMockBackendRuntime();
+    renderAdminComponent(<ChecklistBuilderPage />, runtime);
+    const page = await screen.findByLabelText("Governed candidate editor");
+    await user.click(within(page).getByRole("button", { name: "Import synthetic governed candidate" }));
+    await within(page).findByRole("textbox", { name: "Mapping rationale" });
+    const rationale = within(page).getByRole("textbox", { name: "Mapping rationale" });
+    await user.clear(rationale);
+    await user.type(rationale, "Invent unsupported regulatory prose.");
+    await user.click(within(page).getByRole("button", { name: "Create immutable edited revision" }));
+    const alert = await within(page).findByRole("alert");
+    expect(alert).toHaveTextContent("mappings[0].rationale");
+    expect(alert).toHaveTextContent("SYNTHETIC-OPS-AOC");
+    expect(alert).toHaveTextContent("CLAUSE-SYNTHETIC-OPS-AOC-1");
   });
 
   it("preserves the exact TPL-CABIN-2026 master to immutable CTV-CABIN-1 relationship and exact unsupported-row reasons", async () => {

@@ -74,6 +74,31 @@ The root Vanilla demo remains intact.
 
 - `api/openapi/aviasurveil360.yaml` — generated versioned full-platform
   transport contract for all frozen local candidate slices.
+- `integrations/aviacore/contracts/` and
+  `integrations/aviacore/contract-lock.json` — exact Task 3B local mirror of
+  the independently accepted AviaCore v3 producer contract, source-path/SHA-256
+  inventory, aggregate root, behavioral identity, and separate authorization
+  identity. It is `candidate-only`; it is not a producer runtime or Phase 2.3
+  implementation.
+- `scripts/check-aviacore-contracts.sh` and
+  `scripts/generate-aviacore-contract-types.mjs` — read-only default
+  mirror/lock/codegen drift gates; replacing the mirror requires the explicit
+  Task 3B update environment authorization.
+- `apps/api/internal/aviacorecontract/v3/` — checked generated payload types
+  and a local Go serializer/validator that runs the locked positive, negative,
+  and branch-matrix contract vectors without importing AviaCore implementation
+  code.
+- `apps/api/internal/datafeed/`, migrations `000022`/`000023`/`000024`,
+  `apps/api/cmd/data-feed-worker/`, `apps/api/cmd/data-feed-replay/`,
+  `apps/api/cmd/data-feed-backfill/`, `apps/api/cmd/data-feed-reconcile/`,
+  `scripts/test-aviacore-data-feed-publisher.sh`, and
+  `scripts/test-aviacore-feed-recovery.sh` — Task 4–6 v3 event construction,
+  AES-GCM payload envelope, immutable event/attempt history, fenced source and
+  replay-only delivery lanes, exact digest-bound direct-mTLS publication,
+  approval-bound replay/source-consistent backfill, and fail-closed synthetic
+  manifest reconciliation. This is `candidate-only`; connected AviaCore
+  ingestion, Phase 2.3, coordinated recovery, release, and production use are
+  not established.
 - `api/openapi/source/` — six deterministic source fragments for the bundled
   OpenAPI artifact.
 - `api/openapi/examples/full-platform/` — closed-schema examples for the full
@@ -298,6 +323,9 @@ separate `apps/web/package.json` owns the React candidate commands.
 
 - `docs/demo-evidence/BUILD_SUMMARY.md` — canonical demo evidence, verification
   status, and known limitations.
+- `docs/demo-evidence/GOVERNED_SERVICE_PROVIDER_CHECKLIST_2026-07-29.md` —
+  governed-checklist local inventory, authority, browser, and recovery evidence
+  with the synthetic-only claim boundary.
 - `docs/demo-evidence/UI_SCREEN_AUDIT_2026-07-19.md` — canonical 86-screen
   desktop, tablet, and mobile visual-audit evidence.
 - `docs/demo-evidence/BROWSER_SCENARIO_INTEGRITY_2026-07-20.md` — canonical

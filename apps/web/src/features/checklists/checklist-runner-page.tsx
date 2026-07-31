@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { useApplicationRuntime } from "../../app/providers";
 import { useScenario } from "../../app/scenario-context";
@@ -77,6 +77,7 @@ function responseStateLabel({
 export function ChecklistRunnerPage() {
   const runtime = useApplicationRuntime();
   const session = useOptionalSession();
+  const location = useLocation();
   const navigate = useNavigate();
   const { projection, actions } = useScenario();
   const [selectedQuestionId, setSelectedQuestionId] = useState("CAB-EMEQ-PBE-001");
@@ -85,11 +86,18 @@ export function ChecklistRunnerPage() {
   const [inspectionAttachment, setInspectionAttachment] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const requestedPackageId = new URLSearchParams(location.search).get("packageId") ?? undefined;
 
   useEffect(() => {
-    void actions.loadPackage().catch((cause) => setError(errorMessage(cause)));
+    void actions.loadPackage(requestedPackageId).catch((cause) => setError(errorMessage(cause)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [requestedPackageId]);
+
+  useEffect(() => {
+    if (projection.packageView?.questions[0] && new URLSearchParams(location.search).has("packageId")) {
+      setSelectedQuestionId(projection.packageView.questions[0].id);
+    }
+  }, [location.search, projection.packageView]);
 
   useEffect(() => {
     if (!projection.fieldMode || !projection.response) return;
@@ -138,7 +146,7 @@ export function ChecklistRunnerPage() {
       setError("Inspector comment is required");
       return;
     }
-    void run(() => actions.saveChecklistResponse(answer, comment));
+    void run(() => actions.saveChecklistResponse(answer, comment, selectedQuestionId));
   }
 
   const findingPath = projection.potentialFinding ? "Potential Finding created" : "No finding yet";
@@ -284,7 +292,7 @@ export function ChecklistRunnerPage() {
                   <button
                     className="checklist-create-finding"
                     disabled={busy || !selectedQuestionAssignedHere || checklistReadOnly || attachmentRecoveryBlocked}
-                    onClick={() => void run(actions.createPotentialFinding)}
+                    onClick={() => void run(() => actions.createPotentialFinding(selectedQuestionId))}
                     type="button"
                   >
                     Create Potential Finding
@@ -297,7 +305,7 @@ export function ChecklistRunnerPage() {
                     <span data-testid="potential-finding-status">{projection.potentialFinding.status}</span>
                   </div>
                 ) : null}
-                {projection.response && projection.potentialFinding ? (
+                {projection.response ? (
                   <section className="inspector-attachment-panel" aria-labelledby="inspection-attachment-title">
                     <h3 id="inspection-attachment-title">Inspection Attachment</h3>
                     <label>
@@ -312,20 +320,27 @@ export function ChecklistRunnerPage() {
                     <span data-testid="selected-inspection-attachment">
                       {inspectionAttachment?.name ?? "No Inspection Attachment selected"}
                     </span>
-                    {projection.fieldMode ? (
-                      <button
-                        disabled={busy || !inspectionAttachment || attachmentRecoveryBlocked}
-                        onClick={() =>
-                          void run(async () => {
-                            if (!inspectionAttachment) return;
-                            await actions.stageInspectionAttachment(inspectionAttachment);
-                            setInspectionAttachment(null);
-                          })
-                        }
-                        type="button"
-                      >
-                        Stage Inspection Attachment
-                      </button>
+                    <button
+                      disabled={busy || !inspectionAttachment || attachmentRecoveryBlocked}
+                      onClick={() =>
+                        void run(async () => {
+                          if (!inspectionAttachment) return;
+                          await actions.stageInspectionAttachment(inspectionAttachment);
+                          setInspectionAttachment(null);
+                        })
+                      }
+                      type="button"
+                    >
+                      {projection.fieldMode ? "Stage Inspection Attachment" : "Upload Inspection Attachment"}
+                    </button>
+                    {projection.uploadedInspectionAttachments.length > 0 ? (
+                      <ul aria-label="Uploaded inspection attachments">
+                        {projection.uploadedInspectionAttachments.map((attachment) => (
+                          <li key={attachment.attachmentId} data-testid="inspection-attachment-uploaded">
+                            <strong>{attachment.fileName}</strong> — UPLOADED
+                          </li>
+                        ))}
+                      </ul>
                     ) : null}
                     {projection.inspectionAttachments.length > 0 ? (
                       <ul aria-label="Staged inspection attachments">

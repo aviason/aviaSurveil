@@ -74,7 +74,6 @@ const expectedPaths = [
   "/v1/admin/regulatory-references",
   "/v1/admin/templates",
   "/v1/admin/questions",
-  "/v1/admin/checklist-template-versions",
   "/v1/admin/reminder-rules",
   "/v1/admin/templates/{templateId}",
   "/v1/admin/templates/{templateId}/drafts",
@@ -90,6 +89,21 @@ const expectedPaths = [
   "/v1/admin/audit-events",
   "/v1/assistant/guidance",
   "/v1/assistant/drafts",
+  "/v1/admin/governed-checklist/sources",
+  "/v1/admin/governed-checklist/source-currentness-activations",
+  "/v1/admin/governed-checklist/generation-runs",
+  "/v1/admin/governed-checklist/generation-runs/{generationRunId}",
+  "/v1/admin/governed-checklist/candidates/{candidateId}",
+  "/v1/admin/governed-checklist/candidates/{candidateId}/revisions",
+  "/v1/admin/governed-checklist/candidates/{candidateId}/submissions",
+  "/v1/department-manager/governed-checklist/blocked-generation-validations",
+  "/v1/department-manager/governed-checklist/review-queue",
+  "/v1/department-manager/governed-checklist/candidates/{candidateId}",
+  "/v1/department-manager/governed-checklist/candidates/{candidateId}/returns",
+  "/v1/department-manager/governed-checklist/candidates/{candidateId}/rejections",
+  "/v1/department-manager/governed-checklist/candidates/{candidateId}/technical-approvals",
+  "/v1/department-manager/governed-checklist/candidates/{candidateId}/publications",
+  "/v1/department-manager/governed-checklist/published-versions/{templateVersionId}",
 ];
 
 assert.equal(document.openapi, "3.1.0");
@@ -117,11 +131,11 @@ function unionMembers(schema) {
 
 function requiresOperationId(schema) {
   const resolved = resolve(schema);
-  if (resolved.oneOf) return resolved.oneOf.every(requiresOperationId);
   if (resolved.required?.includes("operationId") && resolved.properties?.operationId) return true;
   if (resolved.required?.includes("operation") && resolved.properties?.operation) {
     return requiresOperationId(resolved.properties.operation);
   }
+  if (resolved.oneOf) return resolved.oneOf.every(requiresOperationId);
   return false;
 }
 

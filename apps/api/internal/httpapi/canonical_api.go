@@ -15,6 +15,7 @@ import (
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/assignments"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/assistant"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/caps"
+	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/checklistgovernance"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/configuration"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/documents"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/evidence"
@@ -28,6 +29,7 @@ import (
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/idempotency"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/potentialfindings"
+	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/regulatory"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/reports"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/risk"
 	fieldsync "github.com/MarlonJD/aviaSurveil360/apps/api/internal/sync"
@@ -35,46 +37,50 @@ import (
 )
 
 type CanonicalAPIDependencies struct {
-	Pool              *database.Pool
-	Application       *application.Service
-	GrantService      *fieldsync.GrantService
-	SyncOperations    *fieldsync.OperationService
-	EvidenceUploads   *evidence.UploadService
-	AttachmentUploads *attachments.UploadService
-	Planning          *planning.Service
-	Profiles          *identity.ProfileService
-	Assignments       *assignments.Service
-	PackageDrafts     *inspections.PackageDraftService
-	AdminWorkspace    *configuration.WorkspaceService
-	Risk              *risk.Service
-	Administration    *administration.ProjectionService
-	DirectoryProvider administration.AccessDirectoryProvider
-	Users             *administration.UserService
-	Assistant         *assistant.Service
-	Communications    *application.CommunicationsWorkflow
-	Documents         *documents.Service
-	Clock             func() time.Time
+	Pool               *database.Pool
+	Application        *application.Service
+	GrantService       *fieldsync.GrantService
+	SyncOperations     *fieldsync.OperationService
+	EvidenceUploads    *evidence.UploadService
+	AttachmentUploads  *attachments.UploadService
+	Planning           *planning.Service
+	Profiles           *identity.ProfileService
+	Assignments        *assignments.Service
+	PackageDrafts      *inspections.PackageDraftService
+	AdminWorkspace     *configuration.WorkspaceService
+	Risk               *risk.Service
+	Administration     *administration.ProjectionService
+	DirectoryProvider  administration.AccessDirectoryProvider
+	Users              *administration.UserService
+	Assistant          *assistant.Service
+	Communications     *application.CommunicationsWorkflow
+	Documents          *documents.Service
+	GovernedCandidates *regulatory.AdminService
+	GovernedLifecycle  *checklistgovernance.Service
+	Clock              func() time.Time
 }
 
 type CanonicalAPI struct {
-	pool              *database.Pool
-	application       *application.Service
-	grants            *fieldsync.GrantService
-	syncOperations    *fieldsync.OperationService
-	evidenceUploads   *evidence.UploadService
-	attachmentUploads *attachments.UploadService
-	planning          *planning.Service
-	profiles          *identity.ProfileService
-	assignments       *assignments.Service
-	packageDrafts     *inspections.PackageDraftService
-	adminWorkspace    *configuration.WorkspaceService
-	risk              *risk.Service
-	administration    *administration.ProjectionService
-	users             *administration.UserService
-	assistant         *assistant.Service
-	communications    *application.CommunicationsWorkflow
-	documents         *documents.Service
-	clock             func() time.Time
+	pool               *database.Pool
+	application        *application.Service
+	grants             *fieldsync.GrantService
+	syncOperations     *fieldsync.OperationService
+	evidenceUploads    *evidence.UploadService
+	attachmentUploads  *attachments.UploadService
+	planning           *planning.Service
+	profiles           *identity.ProfileService
+	assignments        *assignments.Service
+	packageDrafts      *inspections.PackageDraftService
+	adminWorkspace     *configuration.WorkspaceService
+	risk               *risk.Service
+	administration     *administration.ProjectionService
+	users              *administration.UserService
+	assistant          *assistant.Service
+	communications     *application.CommunicationsWorkflow
+	documents          *documents.Service
+	governedCandidates *regulatory.AdminService
+	governedLifecycle  *checklistgovernance.Service
+	clock              func() time.Time
 }
 
 func NewCanonicalAPI(dependencies CanonicalAPIDependencies) *CanonicalAPI {
@@ -148,22 +154,32 @@ func NewCanonicalAPI(dependencies CanonicalAPIDependencies) *CanonicalAPI {
 			application.CommunicationsWorkflowDependencies{Clock: clock},
 		)
 	}
+	governedCandidates := dependencies.GovernedCandidates
+	if governedCandidates == nil && dependencies.Pool != nil {
+		governedCandidates = regulatory.NewAdminService(dependencies.Pool, clock)
+	}
+	governedLifecycle := dependencies.GovernedLifecycle
+	if governedLifecycle == nil && dependencies.Pool != nil {
+		governedLifecycle = checklistgovernance.NewService(dependencies.Pool, clock)
+	}
 	return &CanonicalAPI{
 		pool: dependencies.Pool, application: dependencies.Application, grants: dependencies.GrantService,
 		syncOperations:  syncOperations,
 		evidenceUploads: dependencies.EvidenceUploads, attachmentUploads: dependencies.AttachmentUploads,
-		planning:       planningService,
-		profiles:       profileService,
-		assignments:    assignmentService,
-		packageDrafts:  packageDraftService,
-		adminWorkspace: adminWorkspaceService,
-		risk:           riskService,
-		administration: administrationService,
-		users:          userService,
-		assistant:      assistantService,
-		communications: communicationsWorkflow,
-		documents:      dependencies.Documents,
-		clock:          clock,
+		planning:           planningService,
+		profiles:           profileService,
+		assignments:        assignmentService,
+		packageDrafts:      packageDraftService,
+		adminWorkspace:     adminWorkspaceService,
+		risk:               riskService,
+		administration:     administrationService,
+		users:              userService,
+		assistant:          assistantService,
+		communications:     communicationsWorkflow,
+		documents:          dependencies.Documents,
+		governedCandidates: governedCandidates,
+		governedLifecycle:  governedLifecycle,
+		clock:              clock,
 	}
 }
 
@@ -237,11 +253,22 @@ func (api *CanonicalAPI) Handler() http.Handler {
 		api.invokeAdministrationVisibleAction,
 	)
 	router.Get("/v1/admin/regulatory-references", api.listAdminRegulatoryReferences)
+	router.Get("/v1/admin/governed-checklist/sources", api.listAdminGovernedSources)
+	router.Post("/v1/admin/governed-checklist/source-currentness-activations", api.activateAdminGovernedSourceCurrentness)
+	router.Post("/v1/admin/governed-checklist/generation-runs", api.importAdminGovernedGenerationRun)
+	router.Get("/v1/admin/governed-checklist/generation-runs/{generationRunId}", api.getAdminGovernedGenerationRun)
+	router.Get("/v1/admin/governed-checklist/candidates/{candidateId}", api.getAdminGovernedCandidate)
+	router.Post("/v1/admin/governed-checklist/candidates/{candidateId}/revisions", api.createAdminGovernedCandidateRevision)
+	router.Post("/v1/admin/governed-checklist/candidates/{candidateId}/submissions", api.submitAdminGovernedCandidateReview)
+	router.Post("/v1/department-manager/governed-checklist/blocked-generation-validations", api.validateDepartmentManagerBlockedGeneration)
+	router.Get("/v1/department-manager/governed-checklist/review-queue", api.listDepartmentManagerGovernedReviewQueue)
+	router.Get("/v1/department-manager/governed-checklist/candidates/{candidateId}", api.getDepartmentManagerGovernedCandidate)
+	router.Post("/v1/department-manager/governed-checklist/candidates/{candidateId}/returns", api.returnDepartmentManagerGovernedCandidate)
+	router.Post("/v1/department-manager/governed-checklist/candidates/{candidateId}/rejections", api.rejectDepartmentManagerGovernedCandidate)
+	router.Post("/v1/department-manager/governed-checklist/candidates/{candidateId}/technical-approvals", api.approveDepartmentManagerGovernedCandidate)
+	router.Post("/v1/department-manager/governed-checklist/candidates/{candidateId}/publications", api.publishDepartmentManagerGovernedCandidate)
+	router.Get("/v1/department-manager/governed-checklist/published-versions/{templateVersionId}", api.getDepartmentManagerGovernedPublishedVersion)
 	router.Get("/v1/admin/templates", api.listAdminTemplateMasters)
-	router.Post(
-		"/v1/admin/checklist-template-versions",
-		api.createChecklistTemplateVersion,
-	)
 	router.Get("/v1/admin/questions", api.listAdminQuestions)
 	router.Post("/v1/admin/questions", api.createAdminQuestion)
 	router.Get("/v1/admin/templates/{templateId}", api.getAdminTemplate)
@@ -927,6 +954,25 @@ func (api *CanonicalAPI) pullSyncChanges(writer http.ResponseWriter, request *ht
 func (api *CanonicalAPI) respond(writer http.ResponseWriter, output any, err error) {
 	if err == nil {
 		writeJSON(writer, http.StatusOK, output)
+		return
+	}
+	var governedValidation *regulatory.ValidationError
+	if errors.As(err, &governedValidation) {
+		issues := make([]generated.GovernedValidationIssue, 0, len(governedValidation.Issues))
+		for _, issue := range governedValidation.Issues {
+			sourceIdentity, sourceHash, clauseID, locator := issue.SourceIdentity, issue.SourceHash, issue.ClauseID, issue.Locator
+			issues = append(issues, generated.GovernedValidationIssue{
+				FieldPath: issue.FieldPath, Code: issue.Code, Message: issue.Message,
+				SourceIdentity: &sourceIdentity, SourceHash: &sourceHash, ClauseId: &clauseID, Locator: &locator,
+			})
+		}
+		detail, code := governedValidation.Error(), "INVALID_GOVERNED_CANDIDATE"
+		writer.Header().Set("Content-Type", "application/problem+json")
+		writer.WriteHeader(http.StatusUnprocessableEntity)
+		_ = json.NewEncoder(writer).Encode(generated.GovernedValidationProblem{
+			Type: "about:blank", Title: "Governed candidate validation failed",
+			Status: http.StatusUnprocessableEntity, Detail: &detail, Code: &code, Issues: issues,
+		})
 		return
 	}
 	status := http.StatusInternalServerError

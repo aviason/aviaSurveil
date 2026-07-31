@@ -17,6 +17,7 @@ export function RegulatoryLibraryPage() {
   const [auditArea, setAuditArea] = useState("");
   const [serviceProvider, setServiceProvider] = useState("");
   const { data, error } = useAdminLoad(() => backend.listRegulatoryReferences({ search, status }), [backend, search, status]);
+  const governedSources = useAdminLoad(() => backend.listGovernedSources({}), [backend]);
   const mappings = data?.items.flatMap((reference) => reference.mappings) ?? [];
   const auditAreas = [...new Set(mappings.map((mapping) => mapping.auditArea))].sort();
   const serviceProviders = [...new Set(mappings.flatMap((mapping) => mapping.serviceProviderTypes))].sort();
@@ -41,6 +42,50 @@ export function RegulatoryLibraryPage() {
         <label>Service provider<select aria-label="Regulatory service provider" onChange={(event) => setServiceProvider(event.target.value)} value={serviceProvider}><option value="">All service providers</option>{serviceProviders.map((provider) => <option key={provider} value={provider}>{provider}</option>)}</select></label>
       </section>
       <AdminError message={error} />
+      <AdminError message={governedSources.error} />
+      <section className="admin-record-card" aria-label="Governed source snapshots">
+        <h2>Governed source snapshots</h2>
+        <p>Exact source identity, hash, locator, partition lineage, and affected candidate are rendered from the candidate-only governed boundary.</p>
+        <ul>
+          {governedSources.data?.items.map((source) => (
+            <li key={`${source.sourceId}-${source.clauseId}`}>
+              <b>{source.title}</b>
+              <small>
+                {source.sourceIdentity} · {source.versionIdentity} · {source.sourceHash}
+              </small>
+              <p>{source.locator} · {source.clauseLocator}</p>
+              <p>
+                Partitions:{" "}
+                {source.partitions
+                  .map(
+                    (partition) =>
+                      `${partition.role} · ${partition.partitionId} · ${partition.stableRowIdentity}`,
+                  )
+                  .join(" | ") || "none"}
+              </p>
+              <p>
+                Applicability:{" "}
+                {source.applicabilityFacts
+                  .map(
+                    (fact) =>
+                      `${fact.mappingId}: ${fact.relationship}/${fact.applicability}${
+                        fact.sourceGap ? ` · ${fact.sourceGap}` : ""
+                      }`,
+                  )
+                  .join(" | ") || "No persisted applicability decision"}
+              </p>
+              <p>
+                generation runs: {source.generationRunIds.join(", ") || "none"} ·
+                affected candidates: {source.candidateIds.join(", ") || "none"} ·
+                unresolved gaps:{" "}
+                {source.unresolvedGaps
+                  .map((gap) => `${gap.gapId}: ${gap.reason}`)
+                  .join(" | ") || "none"}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </section>
       <div className="admin-mapping-register" role="list" aria-label="Configured regulatory references">
         {references?.map((reference) => (
           <article className="admin-record-card" key={reference.id} role="listitem">

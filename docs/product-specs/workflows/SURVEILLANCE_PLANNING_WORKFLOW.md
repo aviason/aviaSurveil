@@ -13,7 +13,8 @@ tool, while applying the configured advance-notice policy before execution.
 4. Executive Director approves the plan with a demo-only mock mark
 5. General Manager performs the separate `GM Release to Department` step
 6. Department prepares the released plan
-7. Select period/year, organization, audit type, domain, location, and planned date
+7. Select period/year, organization, active provider scope, typed regulated target,
+   audit type, domain, location, and planned date
 8. Department Manager assigns the Lead Inspector
 9. Lead Inspector assigns the inspection team and checklist template
 10. Evaluate the configured advance-notice policy
@@ -36,6 +37,11 @@ tool, while applying the configured advance-notice policy before execution.
 - Risk score informational only in MVP
 - Reschedule requires reason
 - Published audit appears on inspector dashboard
+- An organization may retain multiple active provider scopes. A scope may bind
+  an organization, person, facility, device, system, asset, or location and is
+  not inferred from the coarse organization type.
+- The responsible Department Manager technically approves applicable candidate
+  content and separately records publication before it can be selected.
 - The inspection type/configured policy determines whether advance notice is
   required; do not infer this from UI color or free text.
 - Routine / Announced execution becomes ready only after the proposed date is

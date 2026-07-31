@@ -163,6 +163,51 @@ func TestBrowserSessionHashesOpaqueCredentialsEncryptsProviderTokensAndEnforcesP
 	}
 }
 
+func TestSessionManagerInjectsOnlyCurrentEffectiveDepartmentAssignments(t *testing.T) {
+	pool := canonicalDatabase(t, "session_department_assignments")
+	now := canonicalNow
+	seedTask4Membership(t, pool, "manager-session", "membership-manager-session", 1, "ACTIVE", "CAA", []string{"manager"}, now)
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO identity_references (subject_id, issuer, display_name) VALUES ('manager-session', 'test', 'Manager Session') ON CONFLICT DO NOTHING;
+		INSERT INTO caa_department_memberships (id, root_id, subject_id, department_id, organizational_unit_id, membership_role, status, effective_from)
+		VALUES ('manager-session-assignment', 'manager-session-assignment', 'manager-session', 'FLIGHT_OPERATIONS_INSPECTORATE', 'FLIGHT_OPERATIONS_INSPECTORATE', 'DEPARTMENT_MANAGER', 'ACTIVE', '2025-01-01')
+	`); err != nil {
+		t.Fatalf("seed assignment: %v", err)
+	}
+	manager, err := session.NewManager(pool, []byte("0123456789abcdef0123456789abcdef"), session.ManagerDependencies{Clock: func() time.Time { return now }, AuthorityObserver: &task4AuthorityObserver{observation: identity.AuthorityObservation{SubjectID: "manager-session", Enabled: true, OrganizationID: "CAA", Roles: []identity.Role{identity.RoleDepartmentManager}, ObservedAt: now}}})
+	if err != nil {
+		t.Fatalf("new manager: %v", err)
+	}
+	created, err := manager.Create(context.Background(), session.CreateInput{SubjectID: "manager-session", Issuer: "https://identity.example/realms/avia", DisplayName: "Manager", OrganizationID: "CAA", Roles: []identity.Role{identity.RoleDepartmentManager}})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	principal, err := manager.Authenticate(context.Background(), created.Token)
+	if err != nil {
+		t.Fatalf("authenticate: %v", err)
+	}
+	if !identity.CanTechnicallyReviewUnit(principal, "FLIGHT_OPERATIONS_INSPECTORATE", "FLIGHT_OPERATIONS_INSPECTORATE") {
+		t.Fatalf("assignment missing: %+v", principal.DepartmentAssignments)
+	}
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO caa_organizational_unit_status_facts (
+			id, root_id, supersedes_id, organizational_unit_id, status, effective_from
+		) VALUES (
+			'session-inactive-unit', 'seed-unit-status-FLIGHT_OPERATIONS_INSPECTORATE',
+			'seed-unit-status-FLIGHT_OPERATIONS_INSPECTORATE', 'FLIGHT_OPERATIONS_INSPECTORATE', 'INACTIVE', '2026-01-01'
+		)
+	`); err != nil {
+		t.Fatalf("append inactive unit status: %v", err)
+	}
+	principal, err = manager.Authenticate(context.Background(), created.Token)
+	if err != nil {
+		t.Fatalf("authenticate inactive assignment: %v", err)
+	}
+	if identity.CanTechnicallyReview(principal, "FLIGHT_OPERATIONS_INSPECTORATE") || len(principal.DepartmentAssignments) != 0 {
+		t.Fatalf("inactive assignment retained authority: %+v", principal.DepartmentAssignments)
+	}
+}
+
 func TestOIDCLoginStateIsOneTimeHashedAndRejectsUnsafeReturnTargets(t *testing.T) {
 	pool := canonicalDatabase(t, "oidc_login_state")
 	manager, err := session.NewManager(pool, []byte("0123456789abcdef0123456789abcdef"), session.ManagerDependencies{

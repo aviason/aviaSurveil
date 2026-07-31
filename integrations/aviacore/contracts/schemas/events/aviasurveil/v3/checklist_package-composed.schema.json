@@ -1,0 +1,200 @@
+{
+  "$id": "https://aviacore360.local/schemas/events/aviasurveil/v3/checklist_package-composed.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "./envelope.schema.json"
+    },
+    {
+      "properties": {
+        "entity_refs": {
+          "additionalProperties": false,
+          "properties": {
+            "audit_id": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "package_id": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "audit_id",
+            "package_id"
+          ],
+          "type": "object"
+        },
+        "event_type": {
+          "const": "checklist_package.composed"
+        },
+        "event_version": {
+          "const": 1
+        },
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "applicability_digest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "audit_id": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "checklist_digest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "checklist_version_id": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "composed_at": {
+              "format": "date-time",
+              "pattern": "Z$",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "ordered_question_snapshot": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "allowed_answer_codes": {
+                    "items": {
+                      "maxLength": 256,
+                      "minLength": 1,
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "citation_reference_ids": {
+                    "items": {
+                      "maxLength": 256,
+                      "minLength": 1,
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "expected_evidence_type_codes": {
+                    "items": {
+                      "maxLength": 256,
+                      "minLength": 1,
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "mandatory": {
+                    "type": "boolean"
+                  },
+                  "mapping_reference_ids": {
+                    "items": {
+                      "maxLength": 256,
+                      "minLength": 1,
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "ordinal": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "prompt": {
+                    "maxLength": 4096,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "question_id": {
+                    "maxLength": 256,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                    "type": "string"
+                  },
+                  "safety_critical": {
+                    "type": "boolean"
+                  },
+                  "verification_method_code": {
+                    "maxLength": 256,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "question_id",
+                  "ordinal",
+                  "prompt",
+                  "mapping_reference_ids",
+                  "citation_reference_ids",
+                  "verification_method_code",
+                  "expected_evidence_type_codes",
+                  "allowed_answer_codes",
+                  "mandatory",
+                  "safety_critical"
+                ],
+                "type": "object"
+              },
+              "maxItems": 1000,
+              "minItems": 1,
+              "type": "array"
+            },
+            "package_id": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "package_revision": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "question_count": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "audit_id",
+            "package_id",
+            "package_revision",
+            "checklist_version_id",
+            "checklist_digest",
+            "applicability_digest",
+            "ordered_question_snapshot",
+            "question_count",
+            "composed_at"
+          ],
+          "type": "object"
+        },
+        "state_after": {
+          "const": "package_composed"
+        },
+        "state_before": {
+          "enum": [
+            null
+          ]
+        }
+      },
+      "type": "object"
+    }
+  ],
+  "title": "checklist_package.composed v3"
+}

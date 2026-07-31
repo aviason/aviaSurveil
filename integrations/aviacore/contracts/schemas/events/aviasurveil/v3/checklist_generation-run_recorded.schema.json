@@ -1,0 +1,119 @@
+{
+  "$id": "https://aviacore360.local/schemas/events/aviasurveil/v3/checklist_generation-run_recorded.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "./envelope.schema.json"
+    },
+    {
+      "properties": {
+        "entity_refs": {
+          "additionalProperties": false,
+          "properties": {
+            "generation_run_id": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "generation_run_id"
+          ],
+          "type": "object"
+        },
+        "event_type": {
+          "const": "checklist_generation.run_recorded"
+        },
+        "event_version": {
+          "const": 1
+        },
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "generation_run_id": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "input_reference_ids": {
+              "items": {
+                "maxLength": 256,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                "type": "string"
+              },
+              "maxItems": 256,
+              "minItems": 1,
+              "type": "array"
+            },
+            "provider_scope_ref": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "qualifier_codes": {
+              "items": {
+                "maxLength": 256,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                "type": "string"
+              },
+              "maxItems": 256,
+              "minItems": 1,
+              "type": "array"
+            },
+            "run_revision": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "source_content_hashes": {
+              "items": {
+                "maxLength": 256,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                "type": "string"
+              },
+              "maxItems": 256,
+              "minItems": 1,
+              "type": "array"
+            },
+            "source_set_digest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "typed_target_ref": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "generation_run_id",
+            "run_revision",
+            "source_set_digest",
+            "input_reference_ids",
+            "source_content_hashes",
+            "provider_scope_ref",
+            "typed_target_ref",
+            "qualifier_codes"
+          ],
+          "type": "object"
+        },
+        "state_after": {
+          "const": "generation_run_recorded"
+        },
+        "state_before": {
+          "enum": [
+            null
+          ]
+        }
+      },
+      "type": "object"
+    }
+  ],
+  "title": "checklist_generation.run_recorded v3"
+}

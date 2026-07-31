@@ -46,6 +46,7 @@ type Runtime struct {
 	dbDuration     metric.Float64Histogram
 	outboxReadyAge metric.Float64Histogram
 	jobAttempts    metric.Int64Counter
+	dataFeedItems  metric.Int64Counter
 }
 
 func NewRuntime(ctx context.Context, config Config) (*Runtime, error) {
@@ -147,6 +148,12 @@ func NewRuntime(ctx context.Context, config Config) (*Runtime, error) {
 		_ = metricProvider.Shutdown(ctx)
 		return nil, fmt.Errorf("create job attempts counter: %w", err)
 	}
+	dataFeedItems, err := meter.Int64Counter("datafeed.delivery.items", metric.WithUnit("item"))
+	if err != nil {
+		_ = tracerProvider.Shutdown(ctx)
+		_ = metricProvider.Shutdown(ctx)
+		return nil, fmt.Errorf("create data-feed item counter: %w", err)
+	}
 	return &Runtime{
 		tracerProvider: tracerProvider,
 		metricProvider: metricProvider,
@@ -159,6 +166,7 @@ func NewRuntime(ctx context.Context, config Config) (*Runtime, error) {
 		dbDuration:     dbDuration,
 		outboxReadyAge: outboxReadyAge,
 		jobAttempts:    jobAttempts,
+		dataFeedItems:  dataFeedItems,
 	}, nil
 }
 

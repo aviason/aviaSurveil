@@ -1,0 +1,52 @@
+{
+  "event": {
+    "actor_organization_id": "caa-fixture",
+    "aggregate_id": "generation_run_id-fixture",
+    "aggregate_revision": 1,
+    "aggregate_type": "checklist_generation",
+    "business_key": "checklist_generation-run_recorded-fixture",
+    "causation_id": null,
+    "contract_id": "aviasurveil.production-feed.events",
+    "contract_version": "3.0.0",
+    "correlation_id": "10000000-0000-4000-8000-000000000002",
+    "effective_at": "2026-07-29T00:00:00Z",
+    "emitted_at": "2026-07-29T00:00:00Z",
+    "entity_refs": {
+      "generation_run_id": "generation_run_id-fixture"
+    },
+    "event_id": "10000000-0000-4000-8000-000000000001",
+    "event_type": "checklist_generation.run_recorded",
+    "event_version": 1,
+    "known_at": "2026-07-29T00:00:00Z",
+    "occurred_at": "2026-07-29T00:00:00Z",
+    "owning_organization_id": "organization-fixture",
+    "payload": {
+      "forbidden_extra": "must-be-rejected",
+      "generation_run_id": "fixture-code",
+      "input_reference_ids": [
+        "fixture-code"
+      ],
+      "provider_scope_ref": "fixture-code",
+      "qualifier_codes": [
+        "fixture-code"
+      ],
+      "run_revision": 1,
+      "source_content_hashes": [
+        "fixture-code"
+      ],
+      "source_set_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "typed_target_ref": "fixture-code"
+    },
+    "payload_sha256": "aaea05ecdcbf731ec83455c0cb76035588fab2d7386749959f8f950698c8b220",
+    "privacy_class": "P2",
+    "schema_version": "3.0.0",
+    "source_module": "aviasurveil360",
+    "source_system": "aviasurveil360",
+    "state_after": "generation_run_recorded",
+    "state_before": null,
+    "tenant_id": "tenant-fixture",
+    "visibility_purpose_code": "regulated_oversight"
+  },
+  "expected_error_code": "SCHEMA_ADDITIONAL_PROPERTY",
+  "expected_json_pointer": "/payload/forbidden_extra"
+}

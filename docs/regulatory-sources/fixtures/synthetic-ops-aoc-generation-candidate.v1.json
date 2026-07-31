@@ -1,0 +1,89 @@
+{
+  "schemaVersion": "1.0.0",
+  "candidateBundleId": "CAND-SYNTHETIC-OPS-AOC-0001",
+  "generationRunId": "GENRUN-SYNTHETIC-OPS-AOC-0001",
+  "status": "GENERATED_DRAFT",
+  "generationRequest": {
+    "schemaVersion": "1.0.0",
+    "requestId": "GENREQ-SYNTHETIC-OPS-AOC-0001",
+    "organizationId": "ORG-SYNTHETIC-AOC",
+    "serviceProviderScopeFactIds": ["SCOPE-SYNTHETIC-AOC"],
+    "serviceProviderTypes": ["AIR_OPERATOR"],
+    "providerCatalogVersion": "1.0.0",
+    "inspectionType": "RAMP_INSPECTION",
+    "target": {"targetId": "TARGET-SYNTHETIC-AOC", "kind": "ORGANIZATION"},
+    "sourceSnapshots": [{"sourceSnapshotId": "SOURCE-SYNTHETIC-OPS-AOC", "sourceHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111", "clauseIds": ["CLAUSE-SYNTHETIC-OPS-AOC-1"], "clauseLocators": ["Synthetic OPS/AOC 1"]}],
+    "secondaryCrosswalkPartition": {"partitionId": "PARTITION-SYNTHETIC-INPUT", "stableRowIds": ["CC:SYNTHETIC:OPS:AOC:1"]},
+    "unresolvedSourceGaps": [],
+    "generationPolicyVersion": "regulatory-checklist-v1",
+    "providerId": "deterministic-regulatory-fixture",
+    "providerVersion": "1.0.0",
+    "requestedOutputs": ["COMPLIANCE_MAPPING", "INSPECTION_CHECKLIST"],
+    "canonicalInputDigest": "sha256:16263c98748063fc7e29dbb7744189cf9a81fd635bed641579772bafa70a6d64"
+  },
+  "inputDigest": "sha256:16263c98748063fc7e29dbb7744189cf9a81fd635bed641579772bafa70a6d64",
+  "outputDigest": "sha256:377598cb1bee5388b19c9d7d4de34f1ff9f6b16b7ac1d2ff6cc5d96af798ad19",
+  "complianceMappings": [{
+    "mappingId": "MAP-SYNTHETIC-OPS-AOC-001",
+    "requirement": "Synthetic controlled training requirement for verifying ramp safety evidence.",
+    "relationship": "ADDRESSES",
+    "applicability": "DIRECT",
+    "citations": [{"sourceSnapshotId": "SOURCE-SYNTHETIC-OPS-AOC", "sourceHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111", "clauseId": "CLAUSE-SYNTHETIC-OPS-AOC-1", "locator": "Synthetic OPS/AOC 1"}],
+    "sourceGap": null,
+    "rationale": "This synthetic source is test-profile-only and proves the bounded import workflow without asserting real authority."
+  }],
+  "inspectionChecklist": {
+    "checklistId": "CHK-SYNTHETIC-OPS-AOC-001",
+    "questions": [{
+      "questionId": "Q-SYNTHETIC-OPS-AOC-001",
+      "mappingIds": ["MAP-SYNTHETIC-OPS-AOC-001"],
+      "prompt": "Can the inspector reconcile the synthetic ramp-safety evidence with the controlled synthetic requirement?",
+      "citations": [{"sourceSnapshotId": "SOURCE-SYNTHETIC-OPS-AOC", "sourceHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111", "clauseId": "CLAUSE-SYNTHETIC-OPS-AOC-1", "locator": "Synthetic OPS/AOC 1"}],
+      "verificationMethod": "Physical observation and controlled-record reconciliation",
+      "expectedEvidence": ["Synthetic inspection observation", "Synthetic controlled record"],
+      "allowedAnswers": ["COMPLIANT", "NON_COMPLIANT", "OBSERVATION", "NOT_APPLICABLE", "NOT_CHECKED"],
+      "mandatoryCore": true,
+      "safetyCritical": true,
+      "origin": "REGULATORY_TRACE",
+      "scopeRecommendation": {
+        "classification": "MANDATORY_CORE",
+        "inputSignals": [
+          "Mandatory synthetic safety-control configuration.",
+          "No validated operational history is available for automatic deferral."
+        ],
+        "operationalHistoryBasis": "SYNTHETIC_UNKNOWN_HISTORY",
+        "rationale": "The synthetic mandatory safety control remains included pending Department Manager review.",
+        "guardrails": {
+          "mandatoryControl": true,
+          "safetyCritical": true,
+          "unknownHistory": true,
+          "sourceChanged": false,
+          "overdueControl": false,
+          "automaticDeferralPermitted": false
+        },
+        "approvalReviewState": "TECHNICAL_REVIEW_REQUIRED",
+        "automaticDeferral": false
+      },
+      "regulatoryTrace": {
+        "state": "RESOLVED",
+        "sourceIdentity": "SYNTHETIC-OPS-AOC",
+        "sourceTitle": "Synthetic test-profile source",
+        "immutableVersion": "1",
+        "sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "locator": "Synthetic OPS/AOC 1",
+        "page": "1",
+        "section": "Synthetic OPS/AOC",
+        "clause": "CLAUSE-SYNTHETIC-OPS-AOC-1",
+        "sourceType": "SYNTHETIC_INTERNAL_TEST_PROFILE",
+        "applicability": "DIRECT",
+        "nationalReference": "Synthetic NAMCAR OPS/AOC reference",
+        "controlledCaaProcedureMapping": "Synthetic CAA ramp-inspection procedure mapping",
+        "verificationObjective": "Verify the controlled synthetic ramp-safety requirement through observation and record reconciliation.",
+        "expectedEvidence": ["Synthetic inspection observation", "Synthetic controlled record"],
+        "currentnessState": "CURRENT",
+        "technicalReviewState": "TECHNICAL_REVIEW_REQUIRED"
+      },
+      "reconciliation": null
+    }]
+  }
+}

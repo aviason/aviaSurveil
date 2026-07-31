@@ -47,6 +47,17 @@ OCR checkpoints are stored per page so an interrupted run resumes instead of
 starting the document again. The manifest distinguishes `EXTRACTED`,
 `HYBRID_EXTRACTED`, `OCR_EXTRACTED`, and `OCR_NO_TEXT_DETECTED`.
 
+## Service-provider catalog
+
+The versioned [service-provider catalog v1](catalogs/service-provider-catalog.v1.json)
+is the tracked 20-row source matrix for provider-scope identity, exact labels,
+topics, raw responsible CAA units, aliases, typed targets, and normalization
+status. Validate it with the canonical
+[catalog schema](schemas/service-provider-catalog.schema.json). A raw owner
+label containing `+` or `/` is `REVIEW_REQUIRED` and carries no inferred
+semantic relationship or `approvalRequired` owner until NCAA confirms the
+ownership relationship.
+
 ## Derived source context
 
 Compact derived assessments under `derived/` preserve reviewed conclusions
@@ -66,7 +77,10 @@ The current OPS/AOC pilot assessment is:
 - [Part 127 / Part 140 machine-readable record](derived/ncaa-namcats-part-127-140-applicability.json)
 
 It classifies Part 127 as `OPERATION_TYPE_CONDITIONAL` and Part 140 as
-`SYSTEM_LEVEL_APPLICABLE`. Both conclusions remain `EXPERT_REVIEW_REQUIRED`.
+`SYSTEM_LEVEL_APPLICABLE`. The existing derived records retain
+`EXPERT_REVIEW_REQUIRED` as explicit readable legacy compatibility; new
+workflow records use `TECHNICAL_REVIEW_REQUIRED` and require responsible
+Department Manager review.
 The 2025 Part 140 file is treated as the candidate current public reference and
 the simultaneously listed 2021 file as a comparator until an NCAA source owner
 confirms formal authority and supersession.
@@ -76,8 +90,8 @@ confirms formal authority and supersession.
 - React to an authoritative publication or content-hash change as soon as it is
   observed.
 - Reconcile the configured source collection at least every six months.
-- Complete technical-expert validation at least annually.
-- Treat `downloaded`, `text extracted`, `clause mapped`, `expert validated`,
+- Complete responsible Department Manager technical review at least annually.
+- Treat `downloaded`, `text extracted`, `clause mapped`, `technically reviewed`,
   and `published in a checklist` as separate states.
 - A source change proposes a clause-impact review and a new checklist Draft; it
   never changes a published checklist or an in-progress Audit.

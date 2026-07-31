@@ -1,5 +1,7 @@
 package identity
 
+import "time"
+
 type Role string
 
 const (
@@ -14,11 +16,21 @@ const (
 )
 
 type Principal struct {
-	SubjectID      string
-	DisplayName    string
-	OrganizationID string
-	Roles          []Role
-	SessionID      string
+	SubjectID             string
+	DisplayName           string
+	OrganizationID        string
+	Roles                 []Role
+	SessionID             string
+	DepartmentAssignments []DepartmentAssignment
+}
+
+// DepartmentAssignment is a resolved, effective-dated CAA authority fact.
+// It is intentionally separate from organization membership and role claims.
+type DepartmentAssignment struct {
+	DepartmentID         string
+	OrganizationalUnitID string
+	EffectiveFrom        time.Time
+	EffectiveTo          *time.Time
 }
 
 func (principal Principal) HasRole(expected ...Role) bool {

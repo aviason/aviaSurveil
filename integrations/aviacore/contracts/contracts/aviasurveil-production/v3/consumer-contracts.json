@@ -1,0 +1,43 @@
+{
+  "consumers": [
+    {
+      "blocks_core_readiness": false,
+      "certification_required_to_enable": true,
+      "disposition": "fixture-only",
+      "id": "bi",
+      "source": "governed_mart_or_semantic_only"
+    },
+    {
+      "blocks_core_readiness": false,
+      "certification_required_to_enable": true,
+      "disposition": "fixture-only",
+      "id": "mcp",
+      "source": "authorized_safe_output_view_only"
+    },
+    {
+      "blocks_core_readiness": false,
+      "certification_required_to_enable": true,
+      "disposition": "not-deployed",
+      "id": "external_llm",
+      "source": null
+    },
+    {
+      "blocks_core_readiness": false,
+      "certification_required_to_enable": true,
+      "disposition": "disabled",
+      "id": "production_ml",
+      "source": null
+    }
+  ],
+  "contract_version": "3.0.0",
+  "core_readiness_independent_of_consumers": true,
+  "identity_join": "passenger_and_licence_holder_never_automatically_merged",
+  "prohibited_sources": [
+    "raw",
+    "stage",
+    "raw_vault",
+    "quarantine",
+    "sensitive_object_content"
+  ],
+  "schema_version": "aviasurveil_consumer_contracts.v1"
+}

@@ -4586,79 +4586,6 @@
         ]
       }
     },
-    "/v1/admin/checklist-template-versions": {
-      "post": {
-        "operationId": "createChecklistTemplateVersion",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateChecklistTemplateVersionInput"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Created immutable published checklist template version",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ChecklistTemplateVersionView"
-                }
-              }
-            },
-            "headers": {
-              "ETag": {
-                "$ref": "#/components/headers/ETag"
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "401": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "403": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "409": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "412": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "422": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "default": {
-            "$ref": "#/components/responses/Problem"
-          }
-        },
-        "security": [
-          {
-            "oidc": []
-          }
-        ],
-        "x-authorized-roles": [
-          "admin"
-        ],
-        "x-organization-scope": "authorized-projection",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/IdempotencyKey"
-          },
-          {
-            "$ref": "#/components/parameters/CsrfToken"
-          },
-          {
-            "$ref": "#/components/parameters/ExpectedRevision"
-          }
-        ]
-      }
-    },
     "/v1/admin/reminder-rules": {
       "post": {
         "operationId": "createReminderRule",
@@ -5711,6 +5638,1030 @@
             "$ref": "#/components/parameters/ExpectedRevision"
           }
         ]
+      }
+    },
+    "/v1/admin/governed-checklist/sources": {
+      "get": {
+        "operationId": "listAdminGovernedSources",
+        "responses": {
+          "200": {
+            "description": "Exact governed regulatory source snapshots",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GovernedSourceSnapshotPage"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
+    "/v1/admin/governed-checklist/source-currentness-activations": {
+      "post": {
+        "operationId": "activateAdminGovernedSourceCurrentness",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GovernedSourceCurrentnessActivationInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Explicit immutable source-currentness activation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GovernedSourceCurrentnessActivationView"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "412": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/ExpectedRevision"
+          }
+        ]
+      }
+    },
+    "/v1/admin/governed-checklist/generation-runs": {
+      "post": {
+        "operationId": "importAdminGovernedGenerationRun",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportAdminGovernedGenerationRunInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Imported governed generation run",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GovernedGenerationRunView"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "412": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/ExpectedRevision"
+          }
+        ]
+      }
+    },
+    "/v1/admin/governed-checklist/generation-runs/{generationRunId}": {
+      "get": {
+        "operationId": "getAdminGovernedGenerationRun",
+        "parameters": [
+          {
+            "name": "generationRunId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Persisted run, failure, and candidate projection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GovernedGenerationRunView"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
+    "/v1/admin/governed-checklist/candidates/{candidateId}": {
+      "get": {
+        "operationId": "getAdminGovernedCandidate",
+        "parameters": [
+          {
+            "name": "candidateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Complete immutable candidate and lineage",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GovernedCandidateView"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
+    "/v1/admin/governed-checklist/candidates/{candidateId}/revisions": {
+      "post": {
+        "operationId": "createAdminGovernedCandidateRevision",
+        "parameters": [
+          {
+            "name": "candidateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/ExpectedRevision"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAdminGovernedCandidateRevisionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "New immutable candidate revision",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GovernedCandidateView"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "412": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
+    "/v1/admin/governed-checklist/candidates/{candidateId}/submissions": {
+      "post": {
+        "operationId": "submitAdminGovernedCandidateReview",
+        "parameters": [
+          {
+            "name": "candidateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/ExpectedRevision"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitAdminGovernedCandidateReviewInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Exact candidate submitted for department review",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GovernedCandidateView"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "412": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
+    "/v1/department-manager/governed-checklist/blocked-generation-validations": {
+      "post": {
+        "operationId": "validateDepartmentManagerBlockedGeneration",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateDepartmentManagerBlockedGenerationInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Exact source-bound generation request remains blocked with zero lifecycle effects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GovernedBlockedGenerationResult"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "412": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/ExpectedRevision"
+          }
+        ]
+      }
+    },
+    "/v1/department-manager/governed-checklist/review-queue": {
+      "get": {
+        "operationId": "listDepartmentManagerGovernedReviewQueue",
+        "responses": {
+          "200": {
+            "description": "Current assignment-filtered governed review queue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepartmentManagerGovernedReviewQueue"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
+    "/v1/department-manager/governed-checklist/candidates/{candidateId}": {
+      "get": {
+        "operationId": "getDepartmentManagerGovernedCandidate",
+        "parameters": [
+          {
+            "name": "candidateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Exact governed candidate review detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepartmentManagerGovernedReviewItem"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
+    "/v1/department-manager/governed-checklist/candidates/{candidateId}/returns": {
+      "post": {
+        "operationId": "returnDepartmentManagerGovernedCandidate",
+        "parameters": [
+          {
+            "name": "candidateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/ExpectedRevision"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DepartmentManagerGovernedReviewCommandInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Candidate returned for immutable revision",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GovernedCandidateView"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "412": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
+    "/v1/department-manager/governed-checklist/candidates/{candidateId}/rejections": {
+      "post": {
+        "operationId": "rejectDepartmentManagerGovernedCandidate",
+        "parameters": [
+          {
+            "name": "candidateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/ExpectedRevision"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DepartmentManagerGovernedReviewCommandInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Candidate terminally rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GovernedCandidateView"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "412": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
+    "/v1/department-manager/governed-checklist/candidates/{candidateId}/technical-approvals": {
+      "post": {
+        "operationId": "approveDepartmentManagerGovernedCandidate",
+        "parameters": [
+          {
+            "name": "candidateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/ExpectedRevision"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DepartmentManagerGovernedReviewCommandInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Exact owner technical approval recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GovernedCandidateView"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "412": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
+    "/v1/department-manager/governed-checklist/candidates/{candidateId}/publications": {
+      "post": {
+        "operationId": "publishDepartmentManagerGovernedCandidate",
+        "parameters": [
+          {
+            "name": "candidateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/ExpectedRevision"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DepartmentManagerGovernedReviewCommandInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Separately published immutable checklist version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GovernedPublicationView"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "412": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
+    "/v1/department-manager/governed-checklist/published-versions/{templateVersionId}": {
+      "get": {
+        "operationId": "getDepartmentManagerGovernedPublishedVersion",
+        "parameters": [
+          {
+            "name": "templateVersionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Immutable publication decision and ordered mapping/question snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GovernedPublishedVersionView"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
       }
     }
   },
@@ -11559,10 +12510,12 @@
           "reviewStatus": {
             "type": "string",
             "enum": [
+              "TECHNICAL_REVIEW_REQUIRED",
               "EXPERT_REVIEW_REQUIRED",
               "VALIDATED",
               "REJECTED"
-            ]
+            ],
+            "description": "New records use TECHNICAL_REVIEW_REQUIRED. EXPERT_REVIEW_REQUIRED remains readable legacy compatibility and is not an approval state."
           },
           "sourceGap": {
             "type": [
@@ -12330,92 +13283,6 @@
           }
         }
       },
-      "PublishedChecklistQuestionInput": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "questionId",
-          "sectionId",
-          "prompt",
-          "configuredReference",
-          "expectedEvidence",
-          "allowedAnswers",
-          "commentRequiredFor"
-        ],
-        "properties": {
-          "questionId": {
-            "type": "string"
-          },
-          "sectionId": {
-            "type": "string"
-          },
-          "prompt": {
-            "type": "string"
-          },
-          "configuredReference": {
-            "type": "string"
-          },
-          "expectedEvidence": {
-            "type": "string"
-          },
-          "allowedAnswers": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ChecklistAnswer"
-            }
-          },
-          "commentRequiredFor": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ChecklistAnswer"
-            }
-          }
-        }
-      },
-      "CreateChecklistTemplateVersionInput": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "operationId",
-          "idempotencyKey",
-          "expectedRevision",
-          "templateId",
-          "templateVersionId",
-          "title",
-          "ownerRole",
-          "questions"
-        ],
-        "properties": {
-          "operationId": {
-            "type": "string"
-          },
-          "idempotencyKey": {
-            "type": "string"
-          },
-          "expectedRevision": {
-            "type": "null"
-          },
-          "templateId": {
-            "type": "string"
-          },
-          "templateVersionId": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "ownerRole": {
-            "type": "string"
-          },
-          "questions": {
-            "type": "array",
-            "minItems": 1,
-            "items": {
-              "$ref": "#/components/schemas/PublishedChecklistQuestionInput"
-            }
-          }
-        }
-      },
       "CreateReminderRuleInput": {
         "type": "object",
         "additionalProperties": false,
@@ -12835,6 +13702,1852 @@
           "canCloseFinding": {
             "type": "boolean",
             "const": false
+          }
+        }
+      },
+      "GovernedSourcePartitionFactView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "evaluationId",
+          "partitionId",
+          "role",
+          "crosswalkRowId",
+          "stableRowIdentity"
+        ],
+        "properties": {
+          "evaluationId": {
+            "type": "string"
+          },
+          "partitionId": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "GENERATION_INPUT",
+              "BLIND_HOLDOUT"
+            ]
+          },
+          "crosswalkRowId": {
+            "type": "string"
+          },
+          "stableRowIdentity": {
+            "type": "string"
+          }
+        }
+      },
+      "GovernedUnresolvedSourceGapView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "gapId",
+          "reason"
+        ],
+        "properties": {
+          "gapId": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "GovernedSourceApplicabilityFactView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidateId",
+          "mappingId",
+          "relationship",
+          "applicability",
+          "sourceGap"
+        ],
+        "properties": {
+          "candidateId": {
+            "type": "string"
+          },
+          "mappingId": {
+            "type": "string"
+          },
+          "relationship": {
+            "type": "string",
+            "enum": [
+              "ADDRESSES",
+              "PARTIALLY_ADDRESSES",
+              "NOT_ADDRESSED",
+              "CONTEXT_ONLY"
+            ]
+          },
+          "applicability": {
+            "type": "string",
+            "enum": [
+              "DIRECT",
+              "CONDITIONAL",
+              "CONTEXTUAL"
+            ]
+          },
+          "sourceGap": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GovernedSourceGapView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "GovernedSourceSnapshotView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sourceId",
+          "sourceIdentity",
+          "versionIdentity",
+          "title",
+          "sourceHash",
+          "locator",
+          "clauseId",
+          "clauseLocator",
+          "partitions",
+          "applicabilityFacts",
+          "unresolvedGaps",
+          "generationRunIds",
+          "candidateIds"
+        ],
+        "properties": {
+          "sourceId": {
+            "type": "string"
+          },
+          "sourceIdentity": {
+            "type": "string"
+          },
+          "versionIdentity": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "sourceHash": {
+            "type": "string"
+          },
+          "locator": {
+            "type": "string"
+          },
+          "clauseId": {
+            "type": "string"
+          },
+          "clauseLocator": {
+            "type": "string"
+          },
+          "partitions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GovernedSourcePartitionFactView"
+            }
+          },
+          "applicabilityFacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GovernedSourceApplicabilityFactView"
+            }
+          },
+          "unresolvedGaps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GovernedUnresolvedSourceGapView"
+            }
+          },
+          "generationRunIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "candidateIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "GovernedSourceSnapshotPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GovernedSourceSnapshotView"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "GovernedCitationView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sourceSnapshotId",
+          "sourceHash",
+          "clauseId",
+          "locator"
+        ],
+        "properties": {
+          "sourceSnapshotId": {
+            "type": "string"
+          },
+          "sourceHash": {
+            "type": "string"
+          },
+          "clauseId": {
+            "type": "string"
+          },
+          "locator": {
+            "type": "string"
+          }
+        }
+      },
+      "GovernedSourceGapView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "reason"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "UNRESOLVED"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "GovernedMappingView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mappingId",
+          "requirement",
+          "relationship",
+          "applicability",
+          "citations",
+          "sourceGap",
+          "rationale"
+        ],
+        "properties": {
+          "mappingId": {
+            "type": "string"
+          },
+          "requirement": {
+            "type": "string"
+          },
+          "relationship": {
+            "type": "string",
+            "enum": [
+              "ADDRESSES",
+              "PARTIALLY_ADDRESSES",
+              "NOT_ADDRESSED",
+              "CONTEXT_ONLY"
+            ]
+          },
+          "applicability": {
+            "type": "string",
+            "enum": [
+              "DIRECT",
+              "CONDITIONAL",
+              "CONTEXTUAL"
+            ]
+          },
+          "citations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GovernedCitationView"
+            }
+          },
+          "sourceGap": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GovernedSourceGapView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rationale": {
+            "type": "string"
+          }
+        }
+      },
+      "GovernedQuestionOrigin": {
+        "type": "string",
+        "enum": [
+          "REGULATORY_TRACE",
+          "EXISTING_CHECKLIST_CANDIDATE",
+          "HYBRID_RECONCILED"
+        ]
+      },
+      "GovernedScopeGuardrailsView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mandatoryControl",
+          "safetyCritical",
+          "unknownHistory",
+          "sourceChanged",
+          "overdueControl",
+          "automaticDeferralPermitted"
+        ],
+        "properties": {
+          "mandatoryControl": {
+            "type": "boolean"
+          },
+          "safetyCritical": {
+            "type": "boolean"
+          },
+          "unknownHistory": {
+            "type": "boolean"
+          },
+          "sourceChanged": {
+            "type": "boolean"
+          },
+          "overdueControl": {
+            "type": "boolean"
+          },
+          "automaticDeferralPermitted": {
+            "type": "boolean"
+          }
+        }
+      },
+      "GovernedScopeRecommendationView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "classification",
+          "inputSignals",
+          "operationalHistoryBasis",
+          "rationale",
+          "guardrails",
+          "approvalReviewState",
+          "automaticDeferral"
+        ],
+        "properties": {
+          "classification": {
+            "type": "string",
+            "enum": [
+              "MANDATORY_CORE",
+              "FOCUSED_FULL",
+              "ROTATIONAL_SAMPLE",
+              "DEFER_ELIGIBLE"
+            ]
+          },
+          "inputSignals": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "operationalHistoryBasis": {
+            "type": "string"
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "guardrails": {
+            "$ref": "#/components/schemas/GovernedScopeGuardrailsView"
+          },
+          "approvalReviewState": {
+            "type": "string",
+            "enum": [
+              "TECHNICAL_REVIEW_REQUIRED",
+              "TECHNICALLY_APPROVED"
+            ]
+          },
+          "automaticDeferral": {
+            "type": "boolean"
+          }
+        }
+      },
+      "GovernedRegulatoryTraceView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "RESOLVED",
+              "SOURCE_MAPPING_REQUIRED"
+            ]
+          },
+          "sourceIdentity": {
+            "type": "string"
+          },
+          "sourceTitle": {
+            "type": "string"
+          },
+          "immutableVersion": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "locator": {
+            "type": "string"
+          },
+          "page": {
+            "type": "string"
+          },
+          "section": {
+            "type": "string"
+          },
+          "clause": {
+            "type": "string"
+          },
+          "sourceType": {
+            "type": "string"
+          },
+          "applicability": {
+            "type": "string"
+          },
+          "nationalReference": {
+            "type": "string"
+          },
+          "controlledCaaProcedureMapping": {
+            "type": "string"
+          },
+          "verificationObjective": {
+            "type": "string"
+          },
+          "expectedEvidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "currentnessState": {
+            "type": "string",
+            "enum": [
+              "CURRENT",
+              "STALE",
+              "SOURCE_MAPPING_REQUIRED"
+            ]
+          },
+          "technicalReviewState": {
+            "type": "string",
+            "enum": [
+              "TECHNICAL_REVIEW_REQUIRED",
+              "TECHNICALLY_APPROVED",
+              "NOT_AVAILABLE"
+            ]
+          }
+        }
+      },
+      "GovernedQuestionReconciliationView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "legacyQuestionId",
+          "legacyWording",
+          "legacyOperationalIntent",
+          "legacyResultHistory",
+          "legacyExpectedEvidence",
+          "legacyApplicability",
+          "legacyScopeClassification",
+          "currentWording",
+          "currentExpectedEvidence",
+          "currentApplicability",
+          "currentScopeClassification",
+          "wordingChanged",
+          "evidenceChanged",
+          "applicabilityChanged",
+          "scopeChanged"
+        ],
+        "properties": {
+          "legacyQuestionId": {
+            "type": "string"
+          },
+          "legacyWording": {
+            "type": "string"
+          },
+          "legacyOperationalIntent": {
+            "type": "string"
+          },
+          "legacyResultHistory": {
+            "type": "string"
+          },
+          "legacyExpectedEvidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "legacyApplicability": {
+            "type": "string"
+          },
+          "legacyScopeClassification": {
+            "type": "string"
+          },
+          "currentWording": {
+            "type": "string"
+          },
+          "currentExpectedEvidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "currentApplicability": {
+            "type": "string"
+          },
+          "currentScopeClassification": {
+            "type": "string"
+          },
+          "wordingChanged": {
+            "type": "boolean"
+          },
+          "evidenceChanged": {
+            "type": "boolean"
+          },
+          "applicabilityChanged": {
+            "type": "boolean"
+          },
+          "scopeChanged": {
+            "type": "boolean"
+          }
+        }
+      },
+      "GovernedQuestionView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "questionId",
+          "mappingIds",
+          "prompt",
+          "citations",
+          "verificationMethod",
+          "expectedEvidence",
+          "allowedAnswers",
+          "mandatoryCore",
+          "safetyCritical",
+          "origin",
+          "scopeRecommendation",
+          "regulatoryTrace",
+          "reconciliation"
+        ],
+        "properties": {
+          "questionId": {
+            "type": "string"
+          },
+          "mappingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "citations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GovernedCitationView"
+            }
+          },
+          "verificationMethod": {
+            "type": "string"
+          },
+          "expectedEvidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "allowedAnswers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mandatoryCore": {
+            "type": "boolean"
+          },
+          "safetyCritical": {
+            "type": "boolean"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/GovernedQuestionOrigin"
+          },
+          "scopeRecommendation": {
+            "$ref": "#/components/schemas/GovernedScopeRecommendationView"
+          },
+          "regulatoryTrace": {
+            "$ref": "#/components/schemas/GovernedRegulatoryTraceView"
+          },
+          "reconciliation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GovernedQuestionReconciliationView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "GovernedRequiredOwnerView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "departmentId",
+          "organizationalUnitId",
+          "approvalRequired"
+        ],
+        "properties": {
+          "departmentId": {
+            "type": "string"
+          },
+          "organizationalUnitId": {
+            "type": "string"
+          },
+          "approvalRequired": {
+            "type": "boolean"
+          }
+        }
+      },
+      "GovernedCandidateSourceLineageView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sourceId",
+          "sourceIdentity",
+          "versionIdentity",
+          "sourceHash",
+          "clauseId",
+          "locator"
+        ],
+        "properties": {
+          "sourceId": {
+            "type": "string"
+          },
+          "sourceIdentity": {
+            "type": "string"
+          },
+          "versionIdentity": {
+            "type": "string"
+          },
+          "sourceHash": {
+            "type": "string"
+          },
+          "clauseId": {
+            "type": "string"
+          },
+          "locator": {
+            "type": "string"
+          }
+        }
+      },
+      "GovernedCandidateView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidateId",
+          "candidateRootId",
+          "supersedesCandidateId",
+          "generationRunId",
+          "templateId",
+          "version",
+          "revision",
+          "status",
+          "contentDigest",
+          "schemaVersion",
+          "changeReason",
+          "sourceSnapshots",
+          "scopeFactIds",
+          "crosswalkPartitionIds",
+          "mappings",
+          "questions",
+          "requiredOwners"
+        ],
+        "properties": {
+          "candidateId": {
+            "type": "string"
+          },
+          "candidateRootId": {
+            "type": "string"
+          },
+          "supersedesCandidateId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "generationRunId": {
+            "type": "string"
+          },
+          "templateId": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "GENERATED_DRAFT",
+              "DEPARTMENT_REVIEW",
+              "RETURNED",
+              "REJECTED",
+              "TECHNICALLY_APPROVED",
+              "PUBLISHED"
+            ]
+          },
+          "contentDigest": {
+            "type": "string"
+          },
+          "schemaVersion": {
+            "type": "string"
+          },
+          "changeReason": {
+            "type": "string"
+          },
+          "sourceSnapshots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GovernedCandidateSourceLineageView"
+            }
+          },
+          "scopeFactIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "crosswalkPartitionIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mappings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GovernedMappingView"
+            }
+          },
+          "questions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GovernedQuestionView"
+            }
+          },
+          "requiredOwners": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GovernedRequiredOwnerView"
+            }
+          }
+        }
+      },
+      "DepartmentManagerGovernedReviewCommandInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "idempotencyKey",
+          "candidateId",
+          "expectedRevision",
+          "expectedContentDigest",
+          "reason"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "candidateId": {
+            "type": "string"
+          },
+          "expectedRevision": {
+            "type": "integer"
+          },
+          "expectedContentDigest": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "GovernedReviewDecisionView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "decisionId",
+          "decision",
+          "candidateRootId",
+          "candidateId",
+          "candidateRevision",
+          "candidateContentDigest",
+          "actorSubjectId",
+          "actorDepartmentMembershipId",
+          "actorDepartmentId",
+          "actorOrganizationalUnitId",
+          "reason",
+          "decidedAt",
+          "operationId",
+          "idempotencyKey",
+          "semanticPayloadDigest",
+          "auditEventId"
+        ],
+        "properties": {
+          "decisionId": {
+            "type": "string"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "RETURNED",
+              "REJECTED",
+              "TECHNICALLY_APPROVED"
+            ]
+          },
+          "candidateRootId": {
+            "type": "string"
+          },
+          "candidateId": {
+            "type": "string"
+          },
+          "candidateRevision": {
+            "type": "integer"
+          },
+          "candidateContentDigest": {
+            "type": "string"
+          },
+          "actorSubjectId": {
+            "type": "string"
+          },
+          "actorDepartmentMembershipId": {
+            "type": "string"
+          },
+          "actorDepartmentId": {
+            "type": "string"
+          },
+          "actorOrganizationalUnitId": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "decidedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "operationId": {
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "semanticPayloadDigest": {
+            "type": "string"
+          },
+          "auditEventId": {
+            "type": "string"
+          }
+        }
+      },
+      "DepartmentManagerGovernedReviewItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidate",
+          "requiredOwners",
+          "decisions",
+          "blockingIssues"
+        ],
+        "properties": {
+          "candidate": {
+            "$ref": "#/components/schemas/GovernedCandidateView"
+          },
+          "requiredOwners": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GovernedRequiredOwnerView"
+            }
+          },
+          "decisions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GovernedReviewDecisionView"
+            }
+          },
+          "blockingIssues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GovernedValidationIssue"
+            }
+          }
+        }
+      },
+      "DepartmentManagerGovernedReviewQueue": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DepartmentManagerGovernedReviewItem"
+            }
+          }
+        }
+      },
+      "GovernedPublicationView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "templateVersionId",
+          "publicationDecisionId",
+          "candidateRootId",
+          "candidateId",
+          "candidateRevision",
+          "candidateContentDigest",
+          "actorSubjectId",
+          "actorDepartmentMembershipId",
+          "actorDepartmentId",
+          "actorOrganizationalUnitId",
+          "reason",
+          "decidedAt",
+          "publishedAt",
+          "operationId",
+          "idempotencyKey",
+          "semanticPayloadDigest",
+          "auditEventId"
+        ],
+        "properties": {
+          "templateVersionId": {
+            "type": "string"
+          },
+          "publicationDecisionId": {
+            "type": "string"
+          },
+          "candidateRootId": {
+            "type": "string"
+          },
+          "candidateId": {
+            "type": "string"
+          },
+          "candidateRevision": {
+            "type": "integer"
+          },
+          "candidateContentDigest": {
+            "type": "string"
+          },
+          "actorSubjectId": {
+            "type": "string"
+          },
+          "actorDepartmentMembershipId": {
+            "type": "string"
+          },
+          "actorDepartmentId": {
+            "type": "string"
+          },
+          "actorOrganizationalUnitId": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "decidedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "operationId": {
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "semanticPayloadDigest": {
+            "type": "string"
+          },
+          "auditEventId": {
+            "type": "string"
+          }
+        }
+      },
+      "GovernedPublishedVersionView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "publication",
+          "mappings",
+          "questions"
+        ],
+        "properties": {
+          "publication": {
+            "$ref": "#/components/schemas/GovernedPublicationView"
+          },
+          "mappings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GovernedMappingView"
+            }
+          },
+          "questions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GovernedQuestionView"
+            }
+          }
+        }
+      },
+      "GovernedGenerationFailureView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "reason",
+          "requestId",
+          "operationId",
+          "idempotencyKey"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "operationId": {
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          }
+        }
+      },
+      "GovernedGenerationRunView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "generationRunId",
+          "status",
+          "inputDigest",
+          "outputDigest",
+          "inputSchemaVersion",
+          "generationPolicyVersion",
+          "providerCatalogVersion",
+          "providerId",
+          "providerAdapterVersion",
+          "inspectionType",
+          "targetId",
+          "requestId",
+          "failure",
+          "candidate"
+        ],
+        "properties": {
+          "generationRunId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "GENERATED",
+              "FAILED"
+            ]
+          },
+          "inputDigest": {
+            "type": "string"
+          },
+          "outputDigest": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "inputSchemaVersion": {
+            "type": "string"
+          },
+          "generationPolicyVersion": {
+            "type": "string"
+          },
+          "providerCatalogVersion": {
+            "type": "string"
+          },
+          "providerId": {
+            "type": "string"
+          },
+          "providerAdapterVersion": {
+            "type": "string"
+          },
+          "inspectionType": {
+            "type": "string"
+          },
+          "targetId": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "failure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GovernedGenerationFailureView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "candidate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GovernedCandidateView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "GovernedTargetInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "targetId",
+          "kind"
+        ],
+        "properties": {
+          "targetId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          }
+        }
+      },
+      "GovernedSourceSnapshotInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sourceSnapshotId",
+          "sourceHash",
+          "clauseIds",
+          "clauseLocators"
+        ],
+        "properties": {
+          "sourceSnapshotId": {
+            "type": "string"
+          },
+          "sourceHash": {
+            "type": "string"
+          },
+          "clauseIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "clauseLocators": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "GovernedCrosswalkPartitionInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "partitionId",
+          "stableRowIds"
+        ],
+        "properties": {
+          "partitionId": {
+            "type": "string"
+          },
+          "stableRowIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "GovernedGenerationRequestInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schemaVersion",
+          "requestId",
+          "organizationId",
+          "serviceProviderScopeFactIds",
+          "serviceProviderTypes",
+          "providerCatalogVersion",
+          "inspectionType",
+          "target",
+          "sourceSnapshots",
+          "secondaryCrosswalkPartition",
+          "unresolvedSourceGaps",
+          "generationPolicyVersion",
+          "providerId",
+          "providerVersion",
+          "requestedOutputs",
+          "canonicalInputDigest"
+        ],
+        "properties": {
+          "schemaVersion": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "organizationId": {
+            "type": "string"
+          },
+          "serviceProviderScopeFactIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "serviceProviderTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "providerCatalogVersion": {
+            "type": "string"
+          },
+          "inspectionType": {
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/GovernedTargetInput"
+          },
+          "sourceSnapshots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GovernedSourceSnapshotInput"
+            }
+          },
+          "secondaryCrosswalkPartition": {
+            "$ref": "#/components/schemas/GovernedCrosswalkPartitionInput"
+          },
+          "unresolvedSourceGaps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GovernedUnresolvedSourceGapView"
+            }
+          },
+          "generationPolicyVersion": {
+            "type": "string"
+          },
+          "providerId": {
+            "type": "string"
+          },
+          "providerVersion": {
+            "type": "string"
+          },
+          "requestedOutputs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "canonicalInputDigest": {
+            "type": "string"
+          }
+        }
+      },
+      "GovernedBlockedGenerationEffectCounts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "generationRuns",
+          "candidates",
+          "reviewDecisions",
+          "publicationDecisions",
+          "checklistVersions",
+          "auditEvents"
+        ],
+        "properties": {
+          "generationRuns": {
+            "type": "integer",
+            "enum": [
+              0
+            ]
+          },
+          "candidates": {
+            "type": "integer",
+            "enum": [
+              0
+            ]
+          },
+          "reviewDecisions": {
+            "type": "integer",
+            "enum": [
+              0
+            ]
+          },
+          "publicationDecisions": {
+            "type": "integer",
+            "enum": [
+              0
+            ]
+          },
+          "checklistVersions": {
+            "type": "integer",
+            "enum": [
+              0
+            ]
+          },
+          "auditEvents": {
+            "type": "integer",
+            "enum": [
+              0
+            ]
+          }
+        }
+      },
+      "ValidateDepartmentManagerBlockedGenerationInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "idempotencyKey",
+          "generationRequest"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "generationRequest": {
+            "$ref": "#/components/schemas/GovernedGenerationRequestInput"
+          }
+        }
+      },
+      "GovernedBlockedGenerationResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "requestId",
+          "blockingIssues",
+          "effectCounts"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "BLOCKED"
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "blockingIssues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GovernedUnresolvedSourceGapView"
+            }
+          },
+          "effectCounts": {
+            "$ref": "#/components/schemas/GovernedBlockedGenerationEffectCounts"
+          }
+        }
+      },
+      "GovernedInspectionChecklistInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "checklistId",
+          "questions"
+        ],
+        "properties": {
+          "checklistId": {
+            "type": "string"
+          },
+          "questions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GovernedQuestionView"
+            }
+          }
+        }
+      },
+      "GovernedSourceCurrentnessBindingInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "currentSourceSnapshotId",
+          "currentSourceHash",
+          "previousSourceSnapshotId",
+          "previousSourceHash"
+        ],
+        "properties": {
+          "currentSourceSnapshotId": {
+            "type": "string"
+          },
+          "currentSourceHash": {
+            "type": "string"
+          },
+          "previousSourceSnapshotId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "previousSourceHash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "oneOf": [
+          {
+            "properties": {
+              "previousSourceSnapshotId": {
+                "type": "null"
+              },
+              "previousSourceHash": {
+                "type": "null"
+              }
+            }
+          },
+          {
+            "properties": {
+              "previousSourceSnapshotId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "previousSourceHash": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        ]
+      },
+      "GovernedSourceCurrentnessActivationInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "idempotencyKey",
+          "currentSourceSnapshotId",
+          "currentSourceHash",
+          "previousSourceSnapshotId",
+          "previousSourceHash",
+          "reason"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "currentSourceSnapshotId": {
+            "type": "string"
+          },
+          "currentSourceHash": {
+            "type": "string"
+          },
+          "previousSourceSnapshotId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "previousSourceHash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "oneOf": [
+          {
+            "properties": {
+              "previousSourceSnapshotId": {
+                "type": "null"
+              },
+              "previousSourceHash": {
+                "type": "null"
+              }
+            }
+          },
+          {
+            "properties": {
+              "previousSourceSnapshotId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "previousSourceHash": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        ]
+      },
+      "GovernedSourceCurrentnessActivationView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "eventId",
+          "impactReviewDraftId",
+          "sourceIdentity",
+          "previousSourceSnapshotId",
+          "previousSourceHash",
+          "currentSourceSnapshotId",
+          "currentSourceHash",
+          "status",
+          "activatedAt"
+        ],
+        "properties": {
+          "eventId": {
+            "type": "string"
+          },
+          "impactReviewDraftId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourceIdentity": {
+            "type": "string"
+          },
+          "previousSourceSnapshotId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "previousSourceHash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "currentSourceSnapshotId": {
+            "type": "string"
+          },
+          "currentSourceHash": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "BASELINE_ACTIVATED",
+              "IMPACT_REVIEW_DRAFT"
+            ]
+          },
+          "activatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "GovernedCandidateBundleInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schemaVersion",
+          "candidateBundleId",
+          "generationRunId",
+          "status",
+          "generationRequest",
+          "inputDigest",
+          "outputDigest",
+          "complianceMappings",
+          "inspectionChecklist"
+        ],
+        "properties": {
+          "schemaVersion": {
+            "type": "string"
+          },
+          "candidateBundleId": {
+            "type": "string"
+          },
+          "generationRunId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "GENERATED_DRAFT"
+            ]
+          },
+          "generationRequest": {
+            "$ref": "#/components/schemas/GovernedGenerationRequestInput"
+          },
+          "inputDigest": {
+            "type": "string"
+          },
+          "outputDigest": {
+            "type": "string"
+          },
+          "complianceMappings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GovernedMappingView"
+            }
+          },
+          "inspectionChecklist": {
+            "$ref": "#/components/schemas/GovernedInspectionChecklistInput"
+          },
+          "sourceCurrentness": {
+            "$ref": "#/components/schemas/GovernedSourceCurrentnessBindingInput"
+          }
+        }
+      },
+      "GovernedValidationIssue": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "fieldPath",
+          "code",
+          "message",
+          "sourceIdentity",
+          "sourceHash",
+          "clauseId",
+          "locator"
+        ],
+        "properties": {
+          "fieldPath": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "sourceIdentity": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourceHash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "clauseId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "locator": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "GovernedValidationProblem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "title",
+          "status",
+          "detail",
+          "code",
+          "requestId",
+          "issues"
+        ],
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "const": 422
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requestId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GovernedValidationIssue"
+            }
+          }
+        }
+      },
+      "ImportAdminGovernedGenerationRunInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "idempotencyKey",
+          "candidateBundle"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "candidateBundle": {
+            "$ref": "#/components/schemas/GovernedCandidateBundleInput"
+          }
+        }
+      },
+      "CreateAdminGovernedCandidateRevisionInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "idempotencyKey",
+          "expectedRevision",
+          "expectedContentDigest",
+          "candidateId",
+          "changeReason",
+          "mappings",
+          "questions",
+          "requiredOwners"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "expectedRevision": {
+            "type": "integer"
+          },
+          "expectedContentDigest": {
+            "type": "string"
+          },
+          "candidateId": {
+            "type": "string"
+          },
+          "changeReason": {
+            "type": "string"
+          },
+          "mappings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GovernedMappingView"
+            }
+          },
+          "questions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GovernedQuestionView"
+            }
+          },
+          "requiredOwners": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GovernedRequiredOwnerView"
+            }
+          }
+        }
+      },
+      "SubmitAdminGovernedCandidateReviewInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "idempotencyKey",
+          "expectedRevision",
+          "expectedContentDigest",
+          "candidateId",
+          "reason"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "expectedRevision": {
+            "type": "integer"
+          },
+          "expectedContentDigest": {
+            "type": "string"
+          },
+          "candidateId": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
           }
         }
       }

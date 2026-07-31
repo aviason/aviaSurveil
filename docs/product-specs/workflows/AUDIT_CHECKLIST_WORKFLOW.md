@@ -19,10 +19,11 @@ Checklist development follows a requirements-to-inspection sequence:
 7. Decompose that verification objective into one or more practical inspection
    questions.
 8. Define the Evidence needed for each question.
-9. Have the relevant technical expert validate the source chain, applicability,
-   interpretation, questions, and Evidence.
-10. Let the authorized publication owner incorporate validated questions into a
-    versioned checklist.
+9. Have the currently assigned responsible Department Manager technically
+   review the source chain, applicability, interpretation, questions, and
+   Evidence within the department scope.
+10. Record a separate Department Manager publication decision before an
+    approved question enters an immutable versioned checklist.
 
 The inspector ultimately runs a practical checklist, not the ICAO PQ. Each
 question nevertheless remains traceable through its exact regulatory mapping.
@@ -43,11 +44,20 @@ The mapping graph is not copied into every response.
    ambiguous.
 5. Map changed clauses to affected RegulatoryMappings, requirements, proposed
    questions, Evidence expectations, and service-provider scopes.
-6. Present the impact set to the relevant technical expert. Download or
+6. Present the impact set to the responsible Department Manager. Download or
    extraction success does not satisfy this validation gate.
-7. Put accepted changes into a new checklist Draft. Keep published checklist
+7. An observed source version is inert until an Admin records an explicit,
+   append-only source-currentness activation with the exact predecessor and
+   current source snapshot/hash. A source transition creates an impact-review
+   Draft; activation is neither a legal interpretation, technical approval, nor
+   a publication decision.
+8. Import an existing or historical checklist only as an
+   `EXISTING_CHECKLIST_CANDIDATE`. Preserve its wording, operational intent,
+   and result history as candidate input, then reconcile it to the current
+   regulatory/controlled-CAA-procedure chain in a new immutable Draft.
+9. Put accepted changes into a new checklist Draft. Keep published checklist
    versions and in-progress Audits immutable.
-8. Perform a complete expert validation at least annually even if the
+10. Perform a complete Department Manager technical review at least annually even if the
    six-month reconciliation found no byte changes.
 
 ## Adaptive inspection scope
@@ -79,6 +89,14 @@ guardrails. The Inspector or Department Manager accepts or changes it with a
 recorded reason. The final scope decision is audit logged. Missing records,
 unknown history, and “no problem was recorded” cannot be treated as compliance.
 
+Every generated or published question also shows both its
+`scopeRecommendation` and `regulatoryTrace`: classification and inclusion or
+deferral rationale; source title/version/hash and locator; applicability;
+currentness/review state; verification objective; expected Evidence; and exact
+origin. A Draft source gap renders the literal `SOURCE_MAPPING_REQUIRED`, not
+an empty citation. It cannot support a validation claim, automatic deferral,
+publication, or an executable Audit package.
+
 ## Steps
 
 1. Open audit
@@ -103,11 +121,16 @@ unknown history, and “no problem was recorded” cannot be treated as complian
 - A submitted checklist stays read-only unless an Inspector or Lead Inspector
   reopens it at a valid stage and records a reason
 - A generated mapping or proposed question remains
-  `EXPERT_REVIEW_REQUIRED` until the relevant technical expert validates it
+  `TECHNICAL_REVIEW_REQUIRED` until the responsible Department Manager
+  technically approves it within the department scope. Existing
+  `EXPERT_REVIEW_REQUIRED` records remain readable legacy compatibility.
 - A source gap, including a missing controlled CAA procedure, remains visible
   and prevents the mapping from being treated as validated
-- Technical validation of the mapping does not publish a checklist; the
-  Department Manager remains the publication owner
+- A supplied source version does not by itself make an existing mapping current;
+  the immutable source-currentness activation and its impact-review Draft are
+  separate from technical approval and publication
+- Technical approval of the mapping does not publish a checklist; the
+  responsible Department Manager records publication as a separate decision
 - One interpreted requirement may produce several practical questions when
   different observations, records, equipment, personnel, or implementation
   controls must be verified
@@ -130,5 +153,7 @@ unknown history, and “no problem was recorded” cannot be treated as complian
 - In the Regulatory Library, show the complete source chain, source version,
   review state, source gaps, and why-included rationale.
 - In checklist configuration, show compact progressive disclosure for the
-  question's mapping identity, verification method, Evidence expectation, and
-  rationale without overwhelming inspection execution.
+  question's scope classification, inclusion/deferral rationale, exact source
+  title/version/hash/locator, applicability/currentness/review state,
+  verification method, expected Evidence, origin, and reconciliation changes
+  without overwhelming inspection execution.

@@ -1,0 +1,28 @@
+{
+  "behavioral_identity_excludes_authorization": true,
+  "closed_schema_per_event": true,
+  "contract_version": "3.0.0",
+  "expected_event_count": 39,
+  "expected_extension_event_count": 21,
+  "negative_vector_per_event": true,
+  "positive_vector_per_event": true,
+  "predecessor_roots_read_only": [
+    "contracts/aviasurveil-production/v1/",
+    "schemas/events/aviasurveil/v1/",
+    "contracts/aviasurveil-production/v2/behavioral-contract-manifest.json",
+    "contracts/aviasurveil-production/v2/authorization-policy.json"
+  ],
+  "required_negative_branches": [
+    "unknown_event_type",
+    "missing_required_field",
+    "extra_field",
+    "payload_digest_mismatch",
+    "tenant_identity_mismatch",
+    "timestamp_rule",
+    "privacy_forbidden_field",
+    "correction_supersession_reference",
+    "bootstrap_resume",
+    "version_compatibility_overlap"
+  ],
+  "schema_version": "aviasurveil_v3_package_integrity_matrix.v1"
+}

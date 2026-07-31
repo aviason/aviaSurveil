@@ -73,6 +73,7 @@ export interface ScenarioProjection {
   fieldMode: boolean;
   fieldPendingOperationCount: number;
   inspectionAttachments: AttachmentManifestRow[];
+  uploadedInspectionAttachments: Array<{ attachmentId: string; fileName: string }>;
   attachmentRecoveryBlocking: AttachmentRecoveryBlockingItem[];
   attachmentRecoveryQuarantinedCount: number;
   fieldSyncStatus: "idle" | "synchronized" | "contended" | "retryable" | "conflict" | "forbidden" | "invalid" | "resnapshot-required";
@@ -82,10 +83,10 @@ export interface ScenarioProjection {
 
 export interface ScenarioActions {
   loadAssignments(): Promise<void>;
-  loadPackage(): Promise<void>;
-  saveChecklistResponse(answer: ChecklistAnswer, comment: string): Promise<void>;
+  loadPackage(packageId?: string): Promise<void>;
+  saveChecklistResponse(answer: ChecklistAnswer, comment: string, questionId?: string): Promise<void>;
   stageInspectionAttachment(file: File): Promise<void>;
-  createPotentialFinding(): Promise<void>;
+  createPotentialFinding(questionId?: string): Promise<void>;
   submitChecklist(): Promise<void>;
   decidePotentialFinding(input: {
     decision: "RETURN" | "DISMISS";
@@ -146,6 +147,7 @@ const initialProjection: ScenarioProjection = {
   fieldMode: false,
   fieldPendingOperationCount: 0,
   inspectionAttachments: [],
+  uploadedInspectionAttachments: [],
   attachmentRecoveryBlocking: [],
   attachmentRecoveryQuarantinedCount: 0,
   fieldSyncStatus: "idle",
@@ -227,9 +229,10 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
         setProjection((current) => ({ ...current, assignments: result.items }));
       },
 
-      async loadPackage() {
+      async loadPackage(requestedPackageID = FIELD_PACKAGE_ID) {
+        const isFieldPackage = requestedPackageID === FIELD_PACKAGE_ID;
         const repository = fieldRepository();
-        const local = await repository.loadPackage(FIELD_PACKAGE_ID);
+        const local = isFieldPackage ? await repository.loadPackage(FIELD_PACKAGE_ID) : null;
         if (local) {
           const attachmentStore = inspectionAttachmentStore(repository);
           const recovery = await reconcileInspectionAttachments({
@@ -243,11 +246,10 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
           return;
         }
         const packageView = await backendFor("inspector").inspections.getPackage({
-          packageId: FIELD_PACKAGE_ID,
+          packageId: requestedPackageID,
         });
         const response =
-          packageView.questions.find((question) => question.id === "CAB-EMEQ-PBE-001")
-            ?.currentResponse ?? null;
+          packageView.questions.find((question) => question.currentResponse)?.currentResponse ?? null;
         setProjection((current) => ({
           ...current,
           packageView,
@@ -255,12 +257,13 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
           fieldMode: false,
           fieldPendingOperationCount: 0,
           inspectionAttachments: [],
+          uploadedInspectionAttachments: [],
           attachmentRecoveryBlocking: [],
           attachmentRecoveryQuarantinedCount: 0,
         }));
       },
 
-      async saveChecklistResponse(answer, comment) {
+      async saveChecklistResponse(answer, comment, requestedQuestionID = FIELD_QUESTION_ID) {
         if (projection.fieldMode) {
           if (projection.attachmentRecoveryBlocking.length > 0) {
             throw new Error("Resolve blocking Inspection Attachment recovery before editing.");
@@ -281,9 +284,9 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
         }
         const response = await backendFor("inspector").inspections.upsertChecklistResponse({
           operationId: operationId("OP-RESPONSE"),
-          responseId: "RESP-CAB-EMEQ-PBE-001",
-          auditId: "AUD-2026-001",
-          questionId: "CAB-EMEQ-PBE-001",
+          responseId: `RESP-${requestedQuestionID}`,
+          auditId: projection.packageView?.auditId ?? "AUD-2026-001",
+          questionId: requestedQuestionID,
           expectedResponseRevision: projection.response?.revision ?? null,
           answer,
           comment,
@@ -292,14 +295,35 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
       },
 
       async stageInspectionAttachment(file) {
-        if (!projection.fieldMode || !projection.response) {
-          throw new Error("Save the exact field checklist response before staging an attachment.");
-        }
+        if (!projection.response) throw new Error("Save the exact checklist response before staging an attachment.");
         if (projection.attachmentRecoveryBlocking.length > 0) {
           throw new Error("Resolve blocking Inspection Attachment recovery before staging bytes.");
         }
         const packageView = projection.packageView;
         if (!packageView) throw new Error("Checked-out field package is unavailable.");
+        if (!projection.fieldMode) {
+          const backend = backendFor("inspector");
+          const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+          const sha256 = `sha256:${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+          const inspectionAttachmentId = `ATT-${crypto.randomUUID()}`;
+          const upload = await backend.inspectionAttachments.beginUpload({
+            operationId: operationId("OP-ATTACHMENT-BEGIN"), inspectionAttachmentId,
+            packageId: packageView.id, byteSize: file.size, sha256, fileName: file.name,
+            declaredMediaType: file.type || "application/octet-stream",
+          });
+          if (backend.mode === "http") {
+            const uploadResponse = await fetch(upload.uploadUrl, { method: "PUT", headers: upload.requiredHeaders, body: file });
+            if (!uploadResponse.ok) throw new Error(`Inspection Attachment object upload failed with status ${uploadResponse.status}.`);
+          }
+          const completed = await backend.inspectionAttachments.completeUpload({
+            operationId: operationId("OP-ATTACHMENT-COMPLETE"), uploadId: upload.uploadId, sha256, byteSize: file.size,
+          });
+          if (completed.inspectionAttachmentId !== inspectionAttachmentId) throw new Error("Inspection Attachment completion scope changed.");
+          setProjection((current) => ({ ...current, uploadedInspectionAttachments: [
+            ...current.uploadedInspectionAttachments, { attachmentId: inspectionAttachmentId, fileName: file.name },
+          ] }));
+          return;
+        }
         const repository = fieldRepository();
         await inspectionAttachmentStore(repository).stage({
           attachmentId: `ATT-LOCAL-${crypto.randomUUID()}`,
@@ -316,7 +340,7 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
         setProjection((current) => ({ ...current, ...fieldProjection(local) }));
       },
 
-      async createPotentialFinding() {
+      async createPotentialFinding(requestedQuestionID = FIELD_QUESTION_ID) {
         if (!projection.response) throw new Error("Save the exact checklist response first.");
         if (projection.fieldMode) {
           if (projection.attachmentRecoveryBlocking.length > 0) {
@@ -344,15 +368,15 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
         }
         const potentialFinding = await backendFor("inspector").potentialFindings.create({
           operationId: operationId("OP-PF"),
-          auditId: "AUD-2026-001",
-          questionId: "CAB-EMEQ-PBE-001",
+          auditId: projection.packageView?.auditId ?? "AUD-2026-001",
+          questionId: requestedQuestionID,
           checklistResponseId: projection.response.id,
           expectedChecklistResponseRevision: projection.response.revision,
           title: "PBE serviceability and accessibility not confirmed",
           description:
             "The configured cabin check could not confirm that the PBE was serviceable and accessible.",
           requiredComment: projection.response.comment,
-          inspectionAttachmentIds: [],
+          inspectionAttachmentIds: projection.uploadedInspectionAttachments.map((attachment) => attachment.attachmentId),
         });
         setProjection((current) => ({ ...current, potentialFinding }));
       },

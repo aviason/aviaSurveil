@@ -1,3 +1,7 @@
+import type { components as GeneratedComponents } from "../generated/transport/api-types";
+
+type GeneratedSchemas = GeneratedComponents["schemas"];
+
 export type BackendMode = "mock" | "http";
 export type LocalDate = string;
 export type Instant = string;
@@ -1003,7 +1007,11 @@ export interface AdminRegulatoryMappingView {
   verificationObjective: string;
   expectedEvidence: string[];
   whyIncluded: string;
-  reviewStatus: "EXPERT_REVIEW_REQUIRED" | "VALIDATED" | "REJECTED";
+  reviewStatus:
+    | "TECHNICAL_REVIEW_REQUIRED"
+    | "EXPERT_REVIEW_REQUIRED"
+    | "VALIDATED"
+    | "REJECTED";
   sourceGap: string | null;
   refreshPolicy: AdminRegulatoryRefreshPolicyView;
   scopeRecommendation: AdminChecklistScopeRecommendationView;
@@ -1021,6 +1029,29 @@ export interface AdminRegulatoryReferenceView {
   changeHistory: string[];
   mappings: AdminRegulatoryMappingView[];
 }
+
+export type GovernedSourceSnapshotView = GeneratedSchemas["GovernedSourceSnapshotView"];
+export type GovernedCandidateView = GeneratedSchemas["GovernedCandidateView"];
+export type GovernedGenerationRunView = GeneratedSchemas["GovernedGenerationRunView"];
+export type GovernedGenerationRequestInput = GeneratedSchemas["GovernedGenerationRequestInput"];
+export type ValidateDepartmentManagerBlockedGenerationInput = GeneratedSchemas["ValidateDepartmentManagerBlockedGenerationInput"];
+export type GovernedBlockedGenerationResult = GeneratedSchemas["GovernedBlockedGenerationResult"];
+export type GovernedCandidateBundleInput = GeneratedSchemas["GovernedCandidateBundleInput"];
+export type GovernedSourceCurrentnessActivationInput = GeneratedSchemas["GovernedSourceCurrentnessActivationInput"];
+export type GovernedSourceCurrentnessActivationView = GeneratedSchemas["GovernedSourceCurrentnessActivationView"];
+export type GovernedMappingView = GeneratedSchemas["GovernedMappingView"];
+export type GovernedQuestionView = GeneratedSchemas["GovernedQuestionView"];
+export type GovernedRequiredOwnerView = GeneratedSchemas["GovernedRequiredOwnerView"];
+export type GovernedValidationIssue = GeneratedSchemas["GovernedValidationIssue"];
+export type ImportAdminGovernedGenerationRunInput = GeneratedSchemas["ImportAdminGovernedGenerationRunInput"];
+export type CreateAdminGovernedCandidateRevisionInput = GeneratedSchemas["CreateAdminGovernedCandidateRevisionInput"];
+export type SubmitAdminGovernedCandidateReviewInput = GeneratedSchemas["SubmitAdminGovernedCandidateReviewInput"];
+export type DepartmentManagerGovernedReviewCommandInput = GeneratedSchemas["DepartmentManagerGovernedReviewCommandInput"];
+export type GovernedReviewDecisionView = GeneratedSchemas["GovernedReviewDecisionView"];
+export type DepartmentManagerGovernedReviewItem = GeneratedSchemas["DepartmentManagerGovernedReviewItem"];
+export type DepartmentManagerGovernedReviewQueue = GeneratedSchemas["DepartmentManagerGovernedReviewQueue"];
+export type GovernedPublicationView = GeneratedSchemas["GovernedPublicationView"];
+export type GovernedPublishedVersionView = GeneratedSchemas["GovernedPublishedVersionView"];
 
 export interface AdminTemplateMasterView {
   id: string;
@@ -1540,6 +1571,13 @@ export interface AdministrationBackend {
 }
 
 export interface AdminWorkspaceBackend {
+  listGovernedSources(input: Record<string, never>, options?: BackendRequestOptions): Promise<PageOutput<GovernedSourceSnapshotView>>;
+  activateGovernedSourceCurrentness(input: GovernedSourceCurrentnessActivationInput, options?: BackendRequestOptions): Promise<GovernedSourceCurrentnessActivationView>;
+  importGovernedGenerationRun(input: ImportAdminGovernedGenerationRunInput, options?: BackendRequestOptions): Promise<GovernedGenerationRunView>;
+  getGovernedGenerationRun(input: { generationRunId: string }, options?: BackendRequestOptions): Promise<GovernedGenerationRunView>;
+  getGovernedCandidate(input: { candidateId: string }, options?: BackendRequestOptions): Promise<GovernedCandidateView>;
+  createGovernedCandidateRevision(input: CreateAdminGovernedCandidateRevisionInput, options?: BackendRequestOptions): Promise<GovernedCandidateView>;
+  submitGovernedCandidateReview(input: SubmitAdminGovernedCandidateReviewInput, options?: BackendRequestOptions): Promise<GovernedCandidateView>;
   listRegulatoryReferences(input: { search?: string; status?: string }, options?: BackendRequestOptions): Promise<PageOutput<AdminRegulatoryReferenceView>>;
   listTemplateMasters(input: Record<string, never>, options?: BackendRequestOptions): Promise<PageOutput<AdminTemplateMasterView>>;
   listQuestions(input: { search?: string }, options?: BackendRequestOptions): Promise<PageOutput<AdminQuestionView>>;
@@ -1556,6 +1594,17 @@ export interface AdminWorkspaceBackend {
   listOrganizations(input: { search?: string; organizationType?: string; status?: string; scope?: string }, options?: BackendRequestOptions): Promise<PageOutput<AdminOrganizationView>>;
   getOrganization(input: { organizationId: string }, options?: BackendRequestOptions): Promise<AdminOrganizationView>;
   listAuditEvents(input: { actor?: string; action?: string; entity?: string; system?: string; dateText?: string }, options?: BackendRequestOptions): Promise<PageOutput<AuditEventView>>;
+}
+
+export interface GovernedChecklistReviewBackend {
+  validateBlockedGeneration(input: ValidateDepartmentManagerBlockedGenerationInput, options?: BackendRequestOptions): Promise<GovernedBlockedGenerationResult>;
+  listQueue(input: Record<string, never>, options?: BackendRequestOptions): Promise<DepartmentManagerGovernedReviewQueue>;
+  getCandidate(input: { candidateId: string }, options?: BackendRequestOptions): Promise<DepartmentManagerGovernedReviewItem>;
+  return(input: DepartmentManagerGovernedReviewCommandInput, options?: BackendRequestOptions): Promise<GovernedCandidateView>;
+  reject(input: DepartmentManagerGovernedReviewCommandInput, options?: BackendRequestOptions): Promise<GovernedCandidateView>;
+  approve(input: DepartmentManagerGovernedReviewCommandInput, options?: BackendRequestOptions): Promise<GovernedCandidateView>;
+  publish(input: DepartmentManagerGovernedReviewCommandInput, options?: BackendRequestOptions): Promise<GovernedPublicationView>;
+  getPublishedVersion(input: { templateVersionId: string }, options?: BackendRequestOptions): Promise<GovernedPublishedVersionView>;
 }
 
 export interface AssistantDraftsBackend {
@@ -1588,6 +1637,7 @@ export interface Backend {
   readonly notifications: NotificationsBackend;
   readonly administration: AdministrationBackend;
   readonly adminWorkspace: AdminWorkspaceBackend;
+  readonly governedChecklistReview: GovernedChecklistReviewBackend;
   readonly assistantDrafts: AssistantDraftsBackend;
   readonly planningIntake: PlanningIntakeBackend;
   readonly packageDrafts: InspectionPackageDraftsBackend;
@@ -1621,6 +1671,7 @@ export const BACKEND_CAPABILITY_REGISTRY = {
   notifications: true,
   administration: true,
   adminWorkspace: true,
+  governedChecklistReview: true,
   assistantDrafts: true,
   planningIntake: true,
   packageDrafts: true,

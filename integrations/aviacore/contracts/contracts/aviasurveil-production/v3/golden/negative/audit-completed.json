@@ -1,0 +1,40 @@
+{
+  "event": {
+    "actor_organization_id": "caa-fixture",
+    "aggregate_id": "audit-ref-001",
+    "aggregate_revision": 1,
+    "aggregate_type": "audit",
+    "business_key": "audit-ref-001",
+    "causation_id": "10000000-0000-4000-8000-000000000016",
+    "contract_id": "aviasurveil.production-feed.events",
+    "contract_version": "3.0.0",
+    "correlation_id": "20000000-0000-4000-8000-000000000001",
+    "effective_at": "2026-08-17T08:00:00Z",
+    "emitted_at": "2026-08-17T08:00:01Z",
+    "entity_refs": {
+      "audit_id": "audit-ref-001"
+    },
+    "event_id": "10000000-0000-4000-8000-000000000017",
+    "event_type": "audit.completed",
+    "event_version": 1,
+    "known_at": "2026-08-17T08:00:01Z",
+    "occurred_at": "2026-08-17T08:00:00Z",
+    "owning_organization_id": "organization-fixture",
+    "payload": {
+      "completed_at": "2026-08-09T12:00:00Z",
+      "forbidden_extra": "must-be-rejected",
+      "outcome_code": "completed_with_findings"
+    },
+    "payload_sha256": "ae255debe4e6c6dbfd305fbd75d26ea8028a5993648457ec014ff3972ed151dd",
+    "privacy_class": "P2",
+    "schema_version": "3.0.0",
+    "source_module": "aviasurveil360",
+    "source_system": "aviasurveil-production-api",
+    "state_after": "audit_completed",
+    "state_before": "audit_in_progress",
+    "tenant_id": "tenant-contract-fixture",
+    "visibility_purpose_code": "regulated_oversight"
+  },
+  "expected_error_code": "SCHEMA_ADDITIONAL_PROPERTY",
+  "expected_json_pointer": "/payload/forbidden_extra"
+}

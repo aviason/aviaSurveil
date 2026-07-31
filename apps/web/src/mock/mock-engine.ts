@@ -13,6 +13,7 @@ import type {
   TeamMemberView,
   CapRevisionView,
   ChecklistResponseView,
+  ChecklistAnswer,
   EvidenceReviewState,
   FindingStatus,
   FindingView,
@@ -20,16 +21,52 @@ import type {
   InspectionTeamAuditView,
   PlanningIntakeDraftView,
   PotentialFindingView,
+  GovernedCandidateBundleInput,
+  GovernedSourceCurrentnessActivationInput,
+  GovernedSourceCurrentnessActivationView,
+  GovernedSourceSnapshotView,
+  GovernedBlockedGenerationResult,
+  GovernedCandidateView,
+  GovernedGenerationRunView,
+  GovernedMappingView,
+  GovernedQuestionView,
+  GovernedRequiredOwnerView,
+  GovernedValidationIssue,
+  GovernedReviewDecisionView,
+  GovernedPublicationView,
+  GovernedPublishedVersionView,
+  DepartmentManagerGovernedReviewCommandInput,
 } from "../backend/backend";
 import {
   BackendAuthorizationInvariantError,
   BackendConflictError,
   BackendInvariantError,
+  GovernedValidationError,
   requireNonEmpty,
   requireDemoCapability,
   requireRevision,
   requireRole,
 } from "../backend/backend-contracts";
+import {
+  SYNTHETIC_EDITED_RATIONALE,
+  EXACT_BLOCKED_REAL_OPS_AOC_REQUEST,
+  SYNTHETIC_FAILED_REQUEST_ID,
+  SYNTHETIC_FAILED_RUN_ID,
+  SYNTHETIC_GOVERNED_BUNDLE,
+	SYNTHETIC_HYBRID_RECONCILED_BUNDLE,
+  SYNTHETIC_INPUT_DIGEST,
+	SYNTHETIC_LEGACY_CHECKLIST_CANDIDATE_BUNDLE,
+  SYNTHETIC_OUTPUT_DIGEST,
+  SYNTHETIC_SOURCE_HASH,
+} from "../backend/governed-synthetic-profile";
+import {
+  governedCandidateContentDigest,
+  governedCanonicalJSON,
+  governedCanonicalSHA256,
+  governedEditSemanticDigest,
+  governedImportSemanticDigest,
+  governedSubmitSemanticDigest,
+} from "../backend/governed-canonical";
 import { MemoryMockStore } from "./memory-mock-store";
 import { REACT_ROUTE_CONTRACTS } from "../app/route-contracts";
 import {
@@ -447,13 +484,1042 @@ function capRevisionView(
   } as CapRevisionView;
 }
 
+const SYNTHETIC_OWNER: GovernedRequiredOwnerView = {
+  departmentId: "FLIGHT_OPERATIONS_INSPECTORATE",
+  organizationalUnitId: "FLIGHT_OPERATIONS_INSPECTORATE",
+  approvalRequired: true,
+};
+
+interface MockGovernedManagerAssignment {
+  membershipId: string;
+  membershipRootId: string;
+  supersedesMembershipId: string | null;
+  revision: number;
+  departmentId: string;
+  organizationalUnitId: string;
+  status: "ACTIVE" | "REVOKED" | "EXPIRED";
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  departmentActive: boolean;
+  organizationalUnitActive: boolean;
+}
+
+const MOCK_GOVERNED_MANAGER_ASSIGNMENTS: Record<string, MockGovernedManagerAssignment[]> = {
+  "USR-MANAGER-NORA": [{
+    membershipId: "MEM-TASK6-NORA",
+    membershipRootId: "MEM-TASK6-NORA-ROOT",
+    supersedesMembershipId: null,
+    revision: 1,
+    departmentId: "FLIGHT_OPERATIONS_INSPECTORATE",
+    organizationalUnitId: "FLIGHT_OPERATIONS_INSPECTORATE",
+    status: "ACTIVE",
+    effectiveFrom: "2025-01-01",
+    effectiveTo: null,
+    departmentActive: true,
+    organizationalUnitActive: true,
+  }],
+  "USR-MANAGER-AIR": [{
+    membershipId: "MEM-TASK6-AIR",
+    membershipRootId: "MEM-TASK6-AIR-ROOT",
+    supersedesMembershipId: null,
+    revision: 1,
+    departmentId: "AIRWORTHINESS_INSPECTORATE",
+    organizationalUnitId: "AIRWORTHINESS_INSPECTORATE",
+    status: "ACTIVE",
+    effectiveFrom: "2025-01-01",
+    effectiveTo: null,
+    departmentActive: true,
+    organizationalUnitActive: true,
+  }],
+  "USR-TASK6-AIR-MANAGER": [{
+    membershipId: "MEM-TASK6-AIR",
+    membershipRootId: "MEM-TASK6-AIR-ROOT",
+    supersedesMembershipId: null,
+    revision: 1,
+    departmentId: "AIRWORTHINESS_INSPECTORATE",
+    organizationalUnitId: "AIRWORTHINESS_INSPECTORATE",
+    status: "ACTIVE",
+    effectiveFrom: "2025-01-01",
+    effectiveTo: null,
+    departmentActive: true,
+    organizationalUnitActive: true,
+  }],
+  "USR-MANAGER-REVOKED": [{
+    membershipId: "MEM-TASK6-REVOKED-PREDECESSOR",
+    membershipRootId: "MEM-TASK6-REVOKED-ROOT",
+    supersedesMembershipId: null,
+    revision: 1,
+    departmentId: "FLIGHT_OPERATIONS_INSPECTORATE",
+    organizationalUnitId: "FLIGHT_OPERATIONS_INSPECTORATE",
+    status: "ACTIVE",
+    effectiveFrom: "2025-01-01",
+    effectiveTo: null,
+    departmentActive: true,
+    organizationalUnitActive: true,
+  }, {
+    membershipId: "MEM-TASK6-REVOKED-LATEST",
+    membershipRootId: "MEM-TASK6-REVOKED-ROOT",
+    supersedesMembershipId: "MEM-TASK6-REVOKED-PREDECESSOR",
+    revision: 2,
+    departmentId: "FLIGHT_OPERATIONS_INSPECTORATE",
+    organizationalUnitId: "FLIGHT_OPERATIONS_INSPECTORATE",
+    status: "REVOKED",
+    effectiveFrom: "2026-01-01",
+    effectiveTo: null,
+    departmentActive: true,
+    organizationalUnitActive: true,
+  }],
+};
+
+function mockCandidateChangeReason(bundle: GovernedCandidateBundleInput): string {
+  if (bundle.candidateBundleId === SYNTHETIC_LEGACY_CHECKLIST_CANDIDATE_BUNDLE.candidateBundleId) {
+    return "Imported candidate-only legacy checklist Draft; SOURCE_MAPPING_REQUIRED must be repaired through the current controlled source chain.";
+  }
+  if (bundle.candidateBundleId === SYNTHETIC_HYBRID_RECONCILED_BUNDLE.candidateBundleId) {
+    return "Imported current-source impact-review reconciliation Draft; Department Manager technical approval and publication remain separate.";
+  }
+  return "Imported deterministic synthetic governed candidate.";
+}
+
+function mockGovernedCandidateForBundle(bundle: GovernedCandidateBundleInput): GovernedCandidateView {
+  const source = bundle.generationRequest.sourceSnapshots[0]!;
+  return {
+  candidateId: bundle.candidateBundleId,
+  candidateRootId: bundle.candidateBundleId,
+  supersedesCandidateId: null,
+  generationRunId: bundle.generationRunId,
+  templateId: `TPL-${bundle.inspectionChecklist.checklistId}`,
+  version: 1,
+  revision: 1,
+  status: "GENERATED_DRAFT",
+  contentDigest: bundle.outputDigest,
+  schemaVersion: bundle.schemaVersion,
+  changeReason: mockCandidateChangeReason(bundle),
+  sourceSnapshots: [{
+    sourceId: source.sourceSnapshotId,
+    sourceIdentity: "SYNTHETIC-OPS-AOC",
+    versionIdentity: source.sourceSnapshotId === "SOURCE-SYNTHETIC-OPS-AOC-IMPACT-V2" ? "2" : "1",
+    sourceHash: source.sourceHash,
+    clauseId: source.clauseIds[0]!,
+    locator: source.clauseLocators[0]!,
+  }],
+  scopeFactIds: structuredClone(bundle.generationRequest.serviceProviderScopeFactIds),
+  crosswalkPartitionIds: [bundle.generationRequest.secondaryCrosswalkPartition.partitionId],
+  mappings: structuredClone(bundle.complianceMappings),
+  questions: structuredClone(bundle.inspectionChecklist.questions),
+  requiredOwners: [SYNTHETIC_OWNER],
+  };
+}
+
+function mockGovernedRunForBundle(
+  bundle: GovernedCandidateBundleInput,
+  candidate: GovernedCandidateView,
+): GovernedGenerationRunView {
+  return {
+    generationRunId: bundle.generationRunId,
+    status: "GENERATED",
+    inputDigest: bundle.inputDigest,
+    outputDigest: bundle.outputDigest,
+    inputSchemaVersion: bundle.generationRequest.schemaVersion,
+    generationPolicyVersion: bundle.generationRequest.generationPolicyVersion,
+    providerCatalogVersion: bundle.generationRequest.providerCatalogVersion,
+    providerId: bundle.generationRequest.providerId,
+    providerAdapterVersion: bundle.generationRequest.providerVersion,
+    inspectionType: bundle.generationRequest.inspectionType,
+    targetId: bundle.generationRequest.target.targetId,
+    requestId: bundle.generationRequest.requestId,
+    failure: null,
+    candidate,
+  };
+}
+
+const SYNTHETIC_GOVERNED_CANDIDATE = mockGovernedCandidateForBundle(SYNTHETIC_GOVERNED_BUNDLE);
+
+const SYNTHETIC_GOVERNED_RUN = mockGovernedRunForBundle(
+  SYNTHETIC_GOVERNED_BUNDLE,
+  SYNTHETIC_GOVERNED_CANDIDATE,
+);
+
+const SYNTHETIC_FAILED_GOVERNED_RUN: GovernedGenerationRunView = {
+  generationRunId: SYNTHETIC_FAILED_RUN_ID,
+  status: "FAILED",
+  inputDigest: SYNTHETIC_INPUT_DIGEST,
+  outputDigest: null,
+  inputSchemaVersion: "1.0.0",
+  generationPolicyVersion: "regulatory-checklist-v1",
+  providerCatalogVersion: "1.0.0",
+  providerId: "deterministic-regulatory-fixture",
+  providerAdapterVersion: "1.0.0",
+  inspectionType: "RAMP_INSPECTION",
+  targetId: "TARGET-SYNTHETIC-AOC",
+  requestId: SYNTHETIC_FAILED_REQUEST_ID,
+  failure: {
+    code: "VALIDATION_FAILED",
+    reason: "Exact synthetic failed-run inspection fixture",
+    requestId: SYNTHETIC_FAILED_REQUEST_ID,
+    operationId: "ADMIN-SYNTHETIC-GOVERNED-FAILED",
+    idempotencyKey: "ADMIN-SYNTHETIC-GOVERNED-FAILED",
+  },
+  candidate: null,
+};
+
+function governedValidationIssue(fieldPath: string, code: string, message: string): GovernedValidationIssue {
+  return {
+    fieldPath, code, message, sourceIdentity: "SYNTHETIC-OPS-AOC",
+    sourceHash: SYNTHETIC_SOURCE_HASH, clauseId: "CLAUSE-SYNTHETIC-OPS-AOC-1",
+    locator: "Synthetic OPS/AOC 1",
+  };
+}
+
+// The browser-local profile follows the same fail-closed question boundary as
+// the Go candidate service. It intentionally validates only the bounded
+// generated transport shape; it does not treat mock/seed wording as a
+// regulatory authority source.
+export function governedQuestionGovernanceIssuesForTest(question: GovernedQuestionView): GovernedValidationIssue[] {
+  const issue = (fieldPath: string, code: string, message: string) => governedValidationIssue(fieldPath, code, message);
+  const issues: GovernedValidationIssue[] = [];
+  const scope = question.scopeRecommendation;
+  const trace = question.regulatoryTrace;
+  const guarded = scope.guardrails;
+  if (![
+    "REGULATORY_TRACE",
+    "EXISTING_CHECKLIST_CANDIDATE",
+    "HYBRID_RECONCILED",
+  ].includes(question.origin)) {
+    issues.push(issue(`questions[${question.questionId}].origin`, "QUESTION_ORIGIN_REQUIRED", "every generated or published question must name one exact origin"));
+  }
+  if (![
+    "MANDATORY_CORE",
+    "FOCUSED_FULL",
+    "ROTATIONAL_SAMPLE",
+    "DEFER_ELIGIBLE",
+  ].includes(scope.classification)) {
+    issues.push(issue(`questions[${question.questionId}].scopeRecommendation.classification`, "SCOPE_CLASSIFICATION_REQUIRED", "scope recommendation requires a visible classification"));
+  }
+  if (!scope.inputSignals.length || scope.inputSignals.some((signal) => !signal.trim()) || !scope.operationalHistoryBasis.trim()) {
+    issues.push(issue(`questions[${question.questionId}].scopeRecommendation`, "SCOPE_RECOMMENDATION_REQUIRED", "scope recommendation requires input signals and an operational-history basis"));
+  }
+  if (!scope.rationale.trim()) {
+    issues.push(issue(`questions[${question.questionId}].scopeRecommendation.rationale`, "SCOPE_RATIONALE_REQUIRED", "scope recommendation requires a visible inclusion or deferral rationale"));
+  }
+  if (scope.approvalReviewState !== "TECHNICAL_REVIEW_REQUIRED") {
+    issues.push(issue(`questions[${question.questionId}].scopeRecommendation.approvalReviewState`, "SCOPE_REVIEW_STATE_REQUIRED", "immutable Draft scope state must require technical review; approval is projected only from an attributed decision"));
+  }
+  if (question.mandatoryCore !== guarded.mandatoryControl || question.safetyCritical !== guarded.safetyCritical) {
+    issues.push(issue(`questions[${question.questionId}].scopeRecommendation.guardrails`, "SCOPE_GUARDRAIL_MISMATCH", "scope guardrails must preserve the question's mandatory and safety-critical controls"));
+  }
+  if (scope.automaticDeferral && (guarded.mandatoryControl || guarded.safetyCritical || guarded.unknownHistory || guarded.sourceChanged || guarded.overdueControl || !guarded.automaticDeferralPermitted)) {
+    issues.push(issue(`questions[${question.questionId}].scopeRecommendation.automaticDeferral`, "AUTOMATIC_DEFERRAL_DENIED", "mandatory, safety-critical, changed, overdue, or unknown-history controls cannot be automatically deferred"));
+  }
+  if (question.origin === "HYBRID_RECONCILED") {
+    const reconciliation = question.reconciliation;
+    if (!reconciliation || !reconciliation.legacyQuestionId.trim() || !reconciliation.legacyWording.trim() ||
+      !reconciliation.legacyOperationalIntent.trim() || !reconciliation.legacyResultHistory.trim() ||
+      !reconciliation.legacyExpectedEvidence.length || !reconciliation.legacyApplicability.trim() ||
+      !reconciliation.legacyScopeClassification.trim() || reconciliation.currentWording !== question.prompt ||
+      JSON.stringify(reconciliation.currentExpectedEvidence) !== JSON.stringify(question.expectedEvidence) ||
+      reconciliation.currentApplicability !== trace.applicability ||
+      reconciliation.currentScopeClassification !== scope.classification) {
+      issues.push(issue(`questions[${question.questionId}].reconciliation`, "HYBRID_RECONCILIATION_REQUIRED", "hybrid reconciliation requires a complete candidate-only legacy/current comparison"));
+    }
+  } else if (question.reconciliation !== null) {
+    issues.push(issue(`questions[${question.questionId}].reconciliation`, "HYBRID_RECONCILIATION_REQUIRED", "only HYBRID_RECONCILED questions may carry a legacy/current comparison"));
+  }
+  if (question.origin === "EXISTING_CHECKLIST_CANDIDATE" && trace.state !== "SOURCE_MAPPING_REQUIRED") {
+    issues.push(issue(`questions[${question.questionId}].origin`, "QUESTION_ORIGIN_TRACE_MISMATCH", "EXISTING_CHECKLIST_CANDIDATE remains a non-authoritative source-gap Draft until a HYBRID_RECONCILED current-source trace is created"));
+  }
+  if (question.origin !== "EXISTING_CHECKLIST_CANDIDATE" && trace.state === "SOURCE_MAPPING_REQUIRED") {
+    issues.push(issue(`questions[${question.questionId}].origin`, "QUESTION_ORIGIN_TRACE_MISMATCH", "SOURCE_MAPPING_REQUIRED is reserved for an explicit EXISTING_CHECKLIST_CANDIDATE repair Draft"));
+  }
+  if (trace.state === "SOURCE_MAPPING_REQUIRED") {
+    const partialSourceGapTrace = question.citations.length !== 0 || [
+      trace.sourceIdentity,
+      trace.sourceTitle,
+      trace.immutableVersion,
+      trace.sha256,
+      trace.locator,
+      trace.page,
+      trace.section,
+      trace.clause,
+      trace.sourceType,
+      trace.applicability,
+      trace.nationalReference,
+      trace.controlledCaaProcedureMapping,
+      trace.verificationObjective,
+    ].some((value) => value?.trim()) || (trace.expectedEvidence?.length ?? 0) !== 0 ||
+      ![undefined, "SOURCE_MAPPING_REQUIRED"].includes(trace.currentnessState) ||
+      ![undefined, "NOT_AVAILABLE"].includes(trace.technicalReviewState);
+    if (partialSourceGapTrace) {
+      issues.push(issue(`questions[${question.questionId}].regulatoryTrace`, "REGULATORY_TRACE_REQUIRED", "SOURCE_MAPPING_REQUIRED must remain a literal repair state without a partial citation or trace"));
+    }
+    issues.push(issue(`questions[${question.questionId}].regulatoryTrace`, "SOURCE_MAPPING_REQUIRED", "SOURCE_MAPPING_REQUIRED must be repaired before validation, publication, deferral, or executable Audit use"));
+    return issues;
+  }
+  if (trace.state !== "RESOLVED") {
+    issues.push(issue(`questions[${question.questionId}].regulatoryTrace`, "REGULATORY_TRACE_REQUIRED", "every question requires a resolved regulatory trace or the literal SOURCE_MAPPING_REQUIRED state"));
+    return issues;
+  }
+  if (!trace.sourceIdentity?.trim() || !trace.sourceTitle?.trim() || !trace.immutableVersion?.trim() ||
+    !trace.sha256?.startsWith("sha256:") || !trace.locator?.trim() || !trace.page?.trim() ||
+    !trace.section?.trim() || !trace.clause?.trim() || !trace.sourceType?.trim() ||
+    !trace.applicability?.trim() || !trace.nationalReference?.trim() ||
+    !trace.controlledCaaProcedureMapping?.trim() || !trace.verificationObjective?.trim() ||
+    !trace.expectedEvidence?.length || trace.expectedEvidence.some((evidence) => !evidence.trim())) {
+    issues.push(issue(`questions[${question.questionId}].regulatoryTrace`, "REGULATORY_TRACE_REQUIRED", "regulatory trace requires source identity, immutable version/hash, locator, applicability, procedure mapping, objective, and expected Evidence"));
+    return issues;
+  }
+  const citation = question.citations[0];
+  if (question.citations.length !== 1 || !citation || citation.sourceHash !== trace.sha256 || citation.clauseId !== trace.clause || citation.locator !== trace.locator ||
+    JSON.stringify(trace.expectedEvidence) !== JSON.stringify(question.expectedEvidence)) {
+    issues.push(issue(`questions[${question.questionId}].regulatoryTrace`, "REGULATORY_TRACE_MISMATCH", "regulatory trace must exactly match the persisted citation and expected Evidence"));
+  }
+  if (trace.currentnessState === "STALE") {
+    issues.push(issue(`questions[${question.questionId}].regulatoryTrace.currentnessState`, "STALE_SOURCE_TRACE", "a stale source version or hash blocks publication until a new impact-review Draft is approved"));
+  } else if (trace.currentnessState !== "CURRENT") {
+    issues.push(issue(`questions[${question.questionId}].regulatoryTrace.currentnessState`, "SOURCE_CURRENTNESS_REQUIRED", "regulatory trace requires a currentness result"));
+  }
+  if (trace.technicalReviewState !== "TECHNICAL_REVIEW_REQUIRED") {
+    issues.push(issue(`questions[${question.questionId}].regulatoryTrace.technicalReviewState`, "TRACE_TECHNICAL_REVIEW_REQUIRED", "immutable Draft trace state must require technical review; approval is projected only from an attributed decision"));
+  }
+  return issues;
+}
+
+function validateMockGovernedEdit(
+  expectedCandidate: GovernedCandidateView,
+  mappings: GovernedMappingView[],
+  questions: GovernedQuestionView[],
+  owners: GovernedRequiredOwnerView[],
+): void {
+  const same = (left: unknown, right: unknown) =>
+    governedCanonicalJSON(left) === governedCanonicalJSON(right);
+  const expectedMapping = expectedCandidate.mappings[0];
+  const mapping = mappings[0];
+  if (mappings.length !== 1) {
+    const index = Math.max(0, mappings.length - 1);
+    throw new GovernedValidationError([governedValidationIssue(`mappings[${index}].mappingId`, "MAPPING_IDENTITY_MISMATCH", "the edit must preserve the complete mapping identity set")]);
+  }
+  if (!mapping || !mapping.mappingId.trim()) {
+    throw new GovernedValidationError([governedValidationIssue("mappings[0].mappingId", "DUPLICATE_OR_BLANK_MAPPING_ID", "mapping IDs must be nonblank and unique")]);
+  }
+  if (mapping.mappingId !== expectedMapping.mappingId) {
+    throw new GovernedValidationError([governedValidationIssue("mappings[0].mappingId", "MAPPING_IDENTITY_MISMATCH", "mapping identity is immutable")]);
+  }
+  if (mapping.requirement !== expectedMapping.requirement) {
+    throw new GovernedValidationError([governedValidationIssue("mappings[0].requirement", "UNSUPPORTED_CLAIM", "requirement is outside the controlled synthetic registry")]);
+  }
+  if (mapping.relationship !== expectedMapping.relationship) {
+    throw new GovernedValidationError([governedValidationIssue("mappings[0].relationship", "RELATIONSHIP_MISMATCH", "relationship must preserve the exact supported mapping")]);
+  }
+  if (mapping.applicability !== expectedMapping.applicability) {
+    throw new GovernedValidationError([governedValidationIssue("mappings[0].applicability", "APPLICABILITY_MISMATCH", "applicability must preserve the exact supported mapping")]);
+  }
+  if (mapping.sourceGap !== null) {
+    throw new GovernedValidationError([governedValidationIssue("mappings[0].sourceGap", "SOURCE_GAP_MISMATCH", "source gaps may not be inferred or fabricated")]);
+  }
+  const expectedCitation = expectedMapping.citations[0]!;
+  const citation = mapping.citations[0];
+  if (!citation || mapping.citations.length !== 1) {
+    throw new GovernedValidationError([governedValidationIssue("mappings[0].citations", "CITATION_MISMATCH", "one exact persisted citation is required")]);
+  }
+  if (citation.sourceSnapshotId !== expectedCitation.sourceSnapshotId) throw new GovernedValidationError([governedValidationIssue("mappings[0].citations[0].sourceSnapshotId", "SOURCE_IDENTITY_MISMATCH", "citation source identity is immutable")]);
+  if (citation.sourceHash !== expectedCitation.sourceHash) throw new GovernedValidationError([governedValidationIssue("mappings[0].citations[0].sourceHash", "SOURCE_HASH_MISMATCH", "citation source hash is immutable")]);
+  if (citation.clauseId !== expectedCitation.clauseId) throw new GovernedValidationError([governedValidationIssue("mappings[0].citations[0].clauseId", "CLAUSE_IDENTITY_MISMATCH", "citation clause identity is immutable")]);
+  if (citation.locator !== expectedCitation.locator) throw new GovernedValidationError([governedValidationIssue("mappings[0].citations[0].locator", "LOCATOR_MISMATCH", "citation locator is immutable")]);
+  if (mapping.rationale !== expectedMapping.rationale && mapping.rationale !== SYNTHETIC_EDITED_RATIONALE) {
+    throw new GovernedValidationError([governedValidationIssue("mappings[0].rationale", "UNSUPPORTED_CLAIM", "rationale is outside the controlled synthetic registry")]);
+  }
+  const expectedQuestion = expectedCandidate.questions[0];
+  const question = questions[0];
+  if (questions.length !== 1) {
+    const index = Math.max(0, questions.length - 1);
+    throw new GovernedValidationError([governedValidationIssue(`questions[${index}].questionId`, "QUESTION_IDENTITY_MISMATCH", "the edit must preserve the complete question identity set")]);
+  }
+  if (!question || !question.questionId.trim()) {
+    throw new GovernedValidationError([governedValidationIssue("questions[0].questionId", "DUPLICATE_OR_BLANK_QUESTION_ID", "question IDs must be nonblank and unique")]);
+  }
+  if (question.questionId !== expectedQuestion.questionId) {
+    throw new GovernedValidationError([governedValidationIssue("questions[0].questionId", "QUESTION_IDENTITY_MISMATCH", "question identity is immutable")]);
+  }
+  if (!same(question.mappingIds, [expectedMapping.mappingId])) {
+    throw new GovernedValidationError([governedValidationIssue("questions[0].mappingIds[0]", "MAPPING_REFERENCE_MISMATCH", "question mapping references must resolve to the exact preserved mapping")]);
+  }
+  if (question.prompt !== expectedQuestion.prompt) {
+    throw new GovernedValidationError([governedValidationIssue("questions[0].prompt", "UNSUPPORTED_CLAIM", "question text is outside the controlled synthetic registry")]);
+  }
+  if (question.verificationMethod !== expectedQuestion.verificationMethod) {
+    throw new GovernedValidationError([governedValidationIssue("questions[0].verificationMethod", "UNSUPPORTED_CLAIM", "verification method is outside the controlled synthetic registry")]);
+  }
+  if (question.expectedEvidence.length === 0 || question.expectedEvidence.some((value) => !value.trim())) {
+    throw new GovernedValidationError([governedValidationIssue("questions[0].expectedEvidence[0]", "BLANK_EVIDENCE", "expected Evidence entries must be nonblank")]);
+  }
+  if (!same(question.expectedEvidence, expectedQuestion.expectedEvidence)) {
+    throw new GovernedValidationError([governedValidationIssue("questions[0].expectedEvidence", "UNSUPPORTED_CLAIM", "expected Evidence is outside the controlled synthetic registry")]);
+  }
+  if (!same(question.allowedAnswers, expectedQuestion.allowedAnswers)) throw new GovernedValidationError([governedValidationIssue("questions[0].allowedAnswers", "INVALID_ALLOWED_ANSWERS", "allowed answers must preserve the exact governed set")]);
+  if (question.mandatoryCore !== expectedQuestion.mandatoryCore) throw new GovernedValidationError([governedValidationIssue("questions[0].mandatoryCore", "MANDATORY_FLAG_MISMATCH", "mandatory-core classification is immutable")]);
+  if (question.safetyCritical !== expectedQuestion.safetyCritical) throw new GovernedValidationError([governedValidationIssue("questions[0].safetyCritical", "SAFETY_FLAG_MISMATCH", "safety-critical classification is immutable")]);
+  const questionCitation = question.citations[0];
+  if (!questionCitation || question.citations.length !== 1) {
+    throw new GovernedValidationError([governedValidationIssue("questions[0].citations", "CITATION_MISMATCH", "one exact persisted citation is required")]);
+  }
+  if (questionCitation.sourceSnapshotId !== expectedCitation.sourceSnapshotId) throw new GovernedValidationError([governedValidationIssue("questions[0].citations[0].sourceSnapshotId", "SOURCE_IDENTITY_MISMATCH", "citation source identity is immutable")]);
+  if (questionCitation.sourceHash !== expectedCitation.sourceHash) throw new GovernedValidationError([governedValidationIssue("questions[0].citations[0].sourceHash", "SOURCE_HASH_MISMATCH", "citation source hash is immutable")]);
+  if (questionCitation.clauseId !== expectedCitation.clauseId) throw new GovernedValidationError([governedValidationIssue("questions[0].citations[0].clauseId", "CLAUSE_IDENTITY_MISMATCH", "citation clause identity is immutable")]);
+  if (questionCitation.locator !== expectedCitation.locator) throw new GovernedValidationError([governedValidationIssue("questions[0].citations[0].locator", "LOCATOR_MISMATCH", "citation locator is immutable")]);
+  const owner = owners[0];
+  if (!owner || owners.length !== 1) {
+    throw new GovernedValidationError([governedValidationIssue("requiredOwners", "OWNER_SET_MISMATCH", "the complete required-owner set is immutable")]);
+  }
+  if (owner.departmentId !== SYNTHETIC_OWNER.departmentId) throw new GovernedValidationError([governedValidationIssue("requiredOwners[0].departmentId", "UNKNOWN_OWNER", "required owner department is unknown or changed")]);
+  if (owner.organizationalUnitId !== SYNTHETIC_OWNER.organizationalUnitId) throw new GovernedValidationError([governedValidationIssue("requiredOwners[0].organizationalUnitId", "UNKNOWN_OWNER", "required owner organizational unit is unknown or changed")]);
+  if (owner.approvalRequired !== SYNTHETIC_OWNER.approvalRequired) throw new GovernedValidationError([governedValidationIssue("requiredOwners[0].approvalRequired", "OWNER_APPROVAL_MISMATCH", "required owner approval classification is immutable")]);
+}
+
+interface MockGovernedCommand {
+  operationId: string;
+  idempotencyKey: string;
+  semantic: string;
+  candidateId: string;
+	generationRunId?: string;
+  actorSubjectId?: string;
+  actorDepartmentMembershipId?: string;
+  candidateRevision?: number;
+  candidateContentDigest?: string;
+  reason?: string;
+  occurredAt?: string;
+  committedCandidate?: GovernedCandidateView;
+}
+
+interface MockGovernedPublishedVersion {
+  publication: GovernedPublicationView;
+  mappings: GovernedMappingView[];
+  questions: GovernedQuestionView[];
+}
+
+// The synthetic source catalog deliberately contains both the supplied V1
+// baseline and the supplied-but-inert V2 source. Currentness activation
+// changes eligibility; it never rewrites source identity or makes a V2
+// candidate appear under V1 in the Regulatory Library.
+type MockGovernedSourceDefinition = Omit<
+  GovernedSourceSnapshotView,
+  "applicabilityFacts" | "generationRunIds" | "candidateIds"
+>;
+
+const SYNTHETIC_IMPACT_SOURCE = SYNTHETIC_HYBRID_RECONCILED_BUNDLE.generationRequest.sourceSnapshots[0]!;
+
+const MOCK_GOVERNED_SOURCE_DEFINITIONS: readonly MockGovernedSourceDefinition[] = [
+  {
+    sourceId: "SOURCE-SYNTHETIC-OPS-AOC",
+    sourceIdentity: "SYNTHETIC-OPS-AOC",
+    versionIdentity: "1",
+    title: "Synthetic test-profile source",
+    sourceHash: SYNTHETIC_SOURCE_HASH,
+    locator: "Synthetic OPS/AOC source",
+    clauseId: "CLAUSE-SYNTHETIC-OPS-AOC-1",
+    clauseLocator: "Synthetic OPS/AOC 1",
+    partitions: [{
+      evaluationId: "EVAL-SYNTHETIC-OPS-AOC",
+      partitionId: "PARTITION-SYNTHETIC-INPUT",
+      role: "GENERATION_INPUT",
+      crosswalkRowId: "CCROW-SYNTHETIC-OPS-AOC-1",
+      stableRowIdentity: "CC:SYNTHETIC:OPS:AOC:1",
+    }],
+    unresolvedGaps: [],
+  },
+  {
+    sourceId: "SOURCE-SYNTHETIC-OPS-AOC",
+    sourceIdentity: "SYNTHETIC-OPS-AOC",
+    versionIdentity: "1",
+    title: "Synthetic test-profile source",
+    sourceHash: SYNTHETIC_SOURCE_HASH,
+    locator: "Synthetic OPS/AOC source",
+    clauseId: "CLAUSE-SYNTHETIC-OPS-AOC-HOLDOUT-1",
+    clauseLocator: "Synthetic OPS/AOC holdout 1",
+    partitions: [{
+      evaluationId: "EVAL-SYNTHETIC-OPS-AOC",
+      partitionId: "PARTITION-SYNTHETIC-HOLDOUT",
+      role: "BLIND_HOLDOUT",
+      crosswalkRowId: "CCROW-SYNTHETIC-OPS-AOC-HOLDOUT-1",
+      stableRowIdentity: "CC:SYNTHETIC:OPS:AOC:HOLDOUT:1",
+    }],
+    unresolvedGaps: [],
+  },
+  {
+    sourceId: SYNTHETIC_IMPACT_SOURCE.sourceSnapshotId,
+    sourceIdentity: "SYNTHETIC-OPS-AOC",
+    versionIdentity: "2",
+    title: "Synthetic test-profile impact source",
+    sourceHash: SYNTHETIC_IMPACT_SOURCE.sourceHash,
+    locator: "Synthetic OPS/AOC impact source",
+    clauseId: "CLAUSE-SYNTHETIC-OPS-AOC-IMPACT-2",
+    clauseLocator: "Synthetic OPS/AOC impact 2",
+    partitions: [{
+      evaluationId: "EVAL-SYNTHETIC-OPS-AOC-IMPACT-V2",
+      partitionId: "PARTITION-SYNTHETIC-IMPACT-INPUT",
+      role: "GENERATION_INPUT",
+      crosswalkRowId: "CCROW-SYNTHETIC-OPS-AOC-IMPACT-2",
+      stableRowIdentity: "CC:SYNTHETIC:OPS:AOC:IMPACT:2",
+    }],
+    unresolvedGaps: [],
+  },
+  {
+    sourceId: SYNTHETIC_IMPACT_SOURCE.sourceSnapshotId,
+    sourceIdentity: "SYNTHETIC-OPS-AOC",
+    versionIdentity: "2",
+    title: "Synthetic test-profile impact source",
+    sourceHash: SYNTHETIC_IMPACT_SOURCE.sourceHash,
+    locator: "Synthetic OPS/AOC impact source",
+    clauseId: "CLAUSE-SYNTHETIC-OPS-AOC-IMPACT-HOLDOUT-2",
+    clauseLocator: "Synthetic OPS/AOC impact holdout 2",
+    partitions: [{
+      evaluationId: "EVAL-SYNTHETIC-OPS-AOC-IMPACT-V2",
+      partitionId: "PARTITION-SYNTHETIC-IMPACT-HOLDOUT",
+      role: "BLIND_HOLDOUT",
+      crosswalkRowId: "CCROW-SYNTHETIC-OPS-AOC-IMPACT-HOLDOUT-2",
+      stableRowIdentity: "CC:SYNTHETIC:OPS:AOC:IMPACT:HOLDOUT:2",
+    }],
+    unresolvedGaps: [],
+  },
+];
+
+// The mock keeps explicit source-currentness activations separately from
+// candidate and published snapshots. A supplied V2 source is inert until this
+// append-only ledger records the exact predecessor/current pair; candidate
+// import only binds to that record and can never create it implicitly.
+interface MockSourceCurrentnessEvent {
+  eventId: string;
+  impactReviewDraftId: string | null;
+  sourceIdentity: string;
+  previousSourceSnapshotId: string | null;
+  previousSourceHash: string | null;
+  currentSourceSnapshotId: string;
+  currentSourceHash: string;
+  sequence: number;
+  operationId: string;
+  idempotencyKey: string;
+  semantic: string;
+  reason: string;
+  activatedAt: string;
+}
+
+interface MockSourceCurrentnessCommand {
+  operationId: string;
+  idempotencyKey: string;
+  semantic: string;
+  view: GovernedSourceCurrentnessActivationView;
+}
+
+interface MockGovernedState {
+  candidate: GovernedCandidateView;
+  candidates: Map<string, GovernedCandidateView>;
+  runs: Map<string, GovernedGenerationRunView>;
+  commands: Map<string, MockGovernedCommand>;
+  decisions: Map<string, GovernedReviewDecisionView[]>;
+  blockers: Map<string, GovernedValidationIssue[]>;
+  publicationDecisions: Map<string, GovernedPublicationView>;
+  publishedVersions: Map<string, MockGovernedPublishedVersion>;
+  sourceCurrentnessEvents: Map<string, MockSourceCurrentnessEvent>;
+  sourceCurrentnessCommands: Map<string, MockSourceCurrentnessCommand>;
+  sourceImpactCandidateBindings: Map<string, string>;
+}
+
+const governedStateByStore = new WeakMap<MemoryMockStore, MockGovernedState>();
+
 export class MockBackendEngine implements DemoBackend {
   readonly mode = "mock" as const;
+  private readonly governedState: MockGovernedState;
 
   constructor(
     private readonly store: MemoryMockStore,
     private readonly principal: BackendPrincipal,
-  ) {}
+    governedRequiredOwners?: GovernedRequiredOwnerView[],
+    governedBlockingIssues?: GovernedValidationIssue[],
+  ) {
+    const existing = governedStateByStore.get(store);
+    if (existing) {
+      this.governedState = existing;
+    } else {
+      const candidate = {
+        ...structuredClone(SYNTHETIC_GOVERNED_CANDIDATE),
+        requiredOwners: structuredClone(governedRequiredOwners ?? [SYNTHETIC_OWNER]),
+      };
+      this.governedState = {
+        candidate,
+        candidates: new Map([[candidate.candidateId, candidate]]),
+        runs: new Map([
+          [SYNTHETIC_GOVERNED_RUN.generationRunId, { ...structuredClone(SYNTHETIC_GOVERNED_RUN), candidate }],
+          [SYNTHETIC_FAILED_GOVERNED_RUN.generationRunId, structuredClone(SYNTHETIC_FAILED_GOVERNED_RUN)],
+        ]),
+        commands: new Map(),
+        decisions: new Map(),
+        blockers: new Map([[
+          candidate.candidateId,
+          structuredClone(governedBlockingIssues ?? []),
+        ]]),
+        publicationDecisions: new Map(),
+        publishedVersions: new Map(),
+        sourceCurrentnessEvents: new Map([["SRC-CURRENTNESS-TESTPROFILE-BASELINE-V1", {
+          eventId: "SRC-CURRENTNESS-TESTPROFILE-BASELINE-V1",
+          impactReviewDraftId: null,
+          sourceIdentity: "SYNTHETIC-OPS-AOC",
+          previousSourceSnapshotId: null,
+          previousSourceHash: null,
+          currentSourceSnapshotId: "SOURCE-SYNTHETIC-OPS-AOC",
+          currentSourceHash: SYNTHETIC_SOURCE_HASH,
+          sequence: 1,
+          operationId: "TESTPROFILE-SOURCE-CURRENTNESS-BASELINE-V1",
+          idempotencyKey: "TESTPROFILE-SOURCE-CURRENTNESS-BASELINE-V1",
+          semantic: "test-profile-baseline",
+          reason: "Synthetic internal test-profile baseline currentness declaration.",
+          activatedAt: store.clock(),
+        }]]),
+        sourceCurrentnessCommands: new Map(),
+        sourceImpactCandidateBindings: new Map(),
+      };
+      governedStateByStore.set(store, this.governedState);
+    }
+  }
+
+  private get governedCandidate() { return this.governedState.candidate; }
+  private set governedCandidate(candidate: GovernedCandidateView) { this.governedState.candidate = candidate; }
+  private get governedCandidates() { return this.governedState.candidates; }
+  private get governedRuns() { return this.governedState.runs; }
+  private get governedCommands() { return this.governedState.commands; }
+
+  private mockGovernedSourceSnapshots(): GovernedSourceSnapshotView[] {
+    const candidates = [...this.governedCandidates.values()];
+    const runs = [...this.governedRuns.values()];
+    return MOCK_GOVERNED_SOURCE_DEFINITIONS.map((definition) => {
+      const isExactSourceClause = (source: { sourceId: string; sourceHash: string; clauseId: string }) =>
+        source.sourceId === definition.sourceId &&
+        source.sourceHash === definition.sourceHash &&
+        source.clauseId === definition.clauseId;
+      const applicabilityFacts = candidates.flatMap((candidate) =>
+        candidate.mappings
+          .filter((mapping) => mapping.citations.some((citation) => isExactSourceClause({
+            sourceId: citation.sourceSnapshotId,
+            sourceHash: citation.sourceHash,
+            clauseId: citation.clauseId,
+          })))
+          .map((mapping) => ({
+            candidateId: candidate.candidateId,
+            mappingId: mapping.mappingId,
+            relationship: mapping.relationship,
+            applicability: mapping.applicability,
+            sourceGap: mapping.sourceGap,
+          })),
+      ).sort((left, right) =>
+        left.candidateId.localeCompare(right.candidateId) || left.mappingId.localeCompare(right.mappingId),
+      );
+      const generationRunIds = runs
+        .filter((run) => run.candidate?.sourceSnapshots.some(isExactSourceClause))
+        .map((run) => run.generationRunId)
+        .sort();
+      const candidateIds = candidates
+        .filter((candidate) => candidate.sourceSnapshots.some(isExactSourceClause))
+        .map((candidate) => candidate.candidateId)
+        .sort();
+      return {
+        ...structuredClone(definition),
+        applicabilityFacts,
+        generationRunIds,
+        candidateIds,
+      };
+    });
+  }
+
+  private mockCandidateSourceCurrentness(candidate: GovernedCandidateView): GovernedCandidateView {
+    const projected = structuredClone(candidate);
+    projected.questions = projected.questions.map((question) => {
+      if (question.regulatoryTrace.state === "SOURCE_MAPPING_REQUIRED") {
+        return {
+          ...question,
+          regulatoryTrace: {
+            ...question.regulatoryTrace,
+            currentnessState: "SOURCE_MAPPING_REQUIRED",
+            technicalReviewState: "NOT_AVAILABLE",
+          },
+        };
+      }
+      const citation = question.citations[0];
+      const stale = !!citation && [...this.governedState.sourceCurrentnessEvents.values()].some((event) =>
+        event.previousSourceSnapshotId === citation.sourceSnapshotId &&
+        event.previousSourceHash === question.regulatoryTrace.sha256,
+      );
+      if (!stale) return question;
+      return {
+        ...question,
+        scopeRecommendation: {
+          ...question.scopeRecommendation,
+          guardrails: { ...question.scopeRecommendation.guardrails, sourceChanged: true },
+        },
+        regulatoryTrace: { ...question.regulatoryTrace, currentnessState: "STALE" },
+      };
+    });
+    return projected;
+  }
+
+  // Match the Go read model: the immutable persisted question remains in the
+  // TECHNICAL_REVIEW_REQUIRED state, while an attributed approval decorates
+  // only the returned candidate projection.
+  private projectMockGovernedCandidate(candidate: GovernedCandidateView): GovernedCandidateView {
+    const projected = this.mockCandidateSourceCurrentness(candidate);
+    if (!["TECHNICALLY_APPROVED", "PUBLISHED"].includes(projected.status)) {
+      return projected;
+    }
+    projected.questions = projected.questions.map((question) => {
+      if (question.regulatoryTrace.state === "SOURCE_MAPPING_REQUIRED") return question;
+      return {
+        ...question,
+        scopeRecommendation: {
+          ...question.scopeRecommendation,
+          approvalReviewState: "TECHNICALLY_APPROVED",
+        },
+        regulatoryTrace: {
+          ...question.regulatoryTrace,
+          technicalReviewState: "TECHNICALLY_APPROVED",
+        },
+      };
+    });
+    return projected;
+  }
+
+  private projectMockGovernedRun(run: GovernedGenerationRunView): GovernedGenerationRunView {
+    if (!run.candidate) return structuredClone(run);
+    const current = this.governedCandidates.get(run.candidate.candidateId) ?? run.candidate;
+    return { ...structuredClone(run), candidate: this.projectMockGovernedCandidate(current) };
+  }
+
+  private sourceCurrentnessEventForBundle(bundle: GovernedCandidateBundleInput): MockSourceCurrentnessEvent | null {
+    const resolved = bundle.inspectionChecklist.questions.some((question) => question.regulatoryTrace.state === "RESOLVED");
+    const binding = bundle.sourceCurrentness;
+    if (!resolved) {
+      if (binding) {
+        throw new GovernedValidationError([governedValidationIssue("candidateBundle.sourceCurrentness", "SOURCE_CURRENTNESS_UNEXPECTED", "a literal SOURCE_MAPPING_REQUIRED Draft cannot claim source currentness")]);
+      }
+      return null;
+    }
+    if (!binding) {
+      throw new GovernedValidationError([governedValidationIssue("candidateBundle.sourceCurrentness", "SOURCE_CURRENTNESS_REQUIRED", "a traced candidate must bind an explicitly activated source currentness record")]);
+    }
+    const current = bundle.generationRequest.sourceSnapshots[0];
+    const previousSourceSnapshotId = binding.previousSourceSnapshotId ?? null;
+    const previousSourceHash = binding.previousSourceHash ?? null;
+    if (!current || binding.currentSourceSnapshotId !== current.sourceSnapshotId || binding.currentSourceHash !== current.sourceHash ||
+      (previousSourceSnapshotId === null) !== (previousSourceHash === null)) {
+      throw new GovernedValidationError([governedValidationIssue("candidateBundle.sourceCurrentness", "SOURCE_CURRENTNESS_BINDING_MISMATCH", "candidate currentness binding must exactly match its frozen source snapshot and predecessor pair")]);
+    }
+    const event = [...this.governedState.sourceCurrentnessEvents.values()].find((candidate) =>
+      candidate.currentSourceSnapshotId === binding.currentSourceSnapshotId &&
+      candidate.currentSourceHash === binding.currentSourceHash &&
+      candidate.previousSourceSnapshotId === previousSourceSnapshotId &&
+      candidate.previousSourceHash === previousSourceHash,
+    );
+    if (!event) {
+      throw new GovernedValidationError([governedValidationIssue("candidateBundle.sourceCurrentness", "SOURCE_CURRENTNESS_REQUIRED", "source currentness must be activated before this traced candidate can be imported")]);
+    }
+    if (previousSourceSnapshotId !== null && !event.impactReviewDraftId) {
+      throw new GovernedValidationError([governedValidationIssue("candidateBundle.sourceCurrentness", "IMPACT_REVIEW_DRAFT_REQUIRED", "a source-change candidate must bind an immutable impact-review Draft")]);
+    }
+    return event;
+  }
+
+  private recordMockSourceImpactCandidateBinding(candidate: GovernedCandidateView, event: MockSourceCurrentnessEvent | null): void {
+    if (!event?.impactReviewDraftId) return;
+    const existing = this.governedState.sourceImpactCandidateBindings.get(candidate.candidateId);
+    if (existing === event.impactReviewDraftId) return;
+    if (existing) throw new BackendConflictError("Governed candidate is already bound to a different immutable source impact-review Draft.");
+    this.governedState.sourceImpactCandidateBindings.set(candidate.candidateId, event.impactReviewDraftId);
+    const eventId = `AE-SOURCE-IMPACT-${candidate.candidateId}`;
+    const occurredAt = this.store.clock();
+    this.store.execute(`GOVERNED-SOURCE-IMPACT-BIND-${candidate.candidateId}`, event, (state) => {
+      state.auditEvents.push({
+        eventId,
+        occurredAt,
+        actorRole: "admin",
+        actorSubjectId: this.principal.subjectId,
+        action: "regulatory.source_impact_candidate_bound",
+        entityType: "REGULATORY_SOURCE_IMPACT",
+        entityId: candidate.candidateId,
+        beforeStatus: event.previousSourceHash,
+        afterStatus: event.currentSourceHash,
+        reason: "Candidate was bound to an already activated immutable source impact-review Draft.",
+        entityRevision: candidate.revision,
+      });
+      return true;
+    });
+  }
+
+  private async activateMockSourceCurrentness(input: GovernedSourceCurrentnessActivationInput): Promise<GovernedSourceCurrentnessActivationView> {
+    const hasPreviousSourceSnapshotId = Object.prototype.hasOwnProperty.call(input, "previousSourceSnapshotId");
+    const hasPreviousSourceHash = Object.prototype.hasOwnProperty.call(input, "previousSourceHash");
+    const previousSourceSnapshotId = input.previousSourceSnapshotId ?? null;
+    const previousSourceHash = input.previousSourceHash ?? null;
+    const semantic = await governedCanonicalSHA256({
+      operationId: input.operationId,
+      idempotencyKey: input.idempotencyKey,
+      currentSourceSnapshotId: input.currentSourceSnapshotId,
+      currentSourceHash: input.currentSourceHash,
+      // The Go command represents an explicit JSON null as its canonical empty
+      // predecessor value. Keep mock replay semantics byte-for-byte compatible
+      // while the transport itself still requires the two explicit null fields.
+      previousSourceSnapshotId: previousSourceSnapshotId ?? "",
+      previousSourceHash: previousSourceHash ?? "",
+      reason: input.reason,
+    });
+    const replay = this.governedState.sourceCurrentnessCommands.get(input.operationId) ?? this.governedState.sourceCurrentnessCommands.get(input.idempotencyKey);
+    if (replay) {
+      if (replay.operationId !== input.operationId || replay.idempotencyKey !== input.idempotencyKey || replay.semantic !== semantic) {
+        throw new BackendConflictError("Source-currentness activation command identity was reused with different semantics.");
+      }
+      return structuredClone(replay.view);
+    }
+    const seededReplayEvent = [...this.governedState.sourceCurrentnessEvents.values()].find((event) =>
+      event.operationId === input.operationId || event.idempotencyKey === input.idempotencyKey,
+    );
+    if (seededReplayEvent) {
+      const seededSemantic = await governedCanonicalSHA256({
+        operationId: seededReplayEvent.operationId,
+        idempotencyKey: seededReplayEvent.idempotencyKey,
+        currentSourceSnapshotId: seededReplayEvent.currentSourceSnapshotId,
+        currentSourceHash: seededReplayEvent.currentSourceHash,
+        previousSourceSnapshotId: seededReplayEvent.previousSourceSnapshotId ?? "",
+        previousSourceHash: seededReplayEvent.previousSourceHash ?? "",
+        reason: seededReplayEvent.reason,
+      });
+      if (seededReplayEvent.operationId !== input.operationId || seededReplayEvent.idempotencyKey !== input.idempotencyKey || seededSemantic !== semantic) {
+        throw new BackendConflictError("Source-currentness activation command identity was reused with different semantics.");
+      }
+      const view: GovernedSourceCurrentnessActivationView = {
+        eventId: seededReplayEvent.eventId,
+        impactReviewDraftId: seededReplayEvent.impactReviewDraftId,
+        sourceIdentity: seededReplayEvent.sourceIdentity,
+        previousSourceSnapshotId: seededReplayEvent.previousSourceSnapshotId,
+        previousSourceHash: seededReplayEvent.previousSourceHash,
+        currentSourceSnapshotId: seededReplayEvent.currentSourceSnapshotId,
+        currentSourceHash: seededReplayEvent.currentSourceHash,
+        status: seededReplayEvent.impactReviewDraftId ? "IMPACT_REVIEW_DRAFT" : "BASELINE_ACTIVATED",
+        activatedAt: seededReplayEvent.activatedAt,
+      };
+      const command: MockSourceCurrentnessCommand = { operationId: input.operationId, idempotencyKey: input.idempotencyKey, semantic, view };
+      this.governedState.sourceCurrentnessCommands.set(input.operationId, command);
+      this.governedState.sourceCurrentnessCommands.set(input.idempotencyKey, command);
+      return structuredClone(view);
+    }
+    if (!hasPreviousSourceSnapshotId || !hasPreviousSourceHash ||
+      !input.operationId || !input.idempotencyKey || !input.currentSourceSnapshotId || !input.currentSourceHash || !input.reason ||
+      (previousSourceSnapshotId === null) !== (previousSourceHash === null) ||
+      (previousSourceSnapshotId !== null && previousSourceSnapshotId === input.currentSourceSnapshotId)) {
+      throw new GovernedValidationError([governedValidationIssue("sourceCurrentness", "SOURCE_CURRENTNESS_INVALID", "activation requires a complete current snapshot and either both predecessor fields or neither")]);
+    }
+    const sourceIdentity = input.currentSourceSnapshotId === "SOURCE-SYNTHETIC-OPS-AOC" && input.currentSourceHash === SYNTHETIC_SOURCE_HASH
+      ? "SYNTHETIC-OPS-AOC"
+      : input.currentSourceSnapshotId === "SOURCE-SYNTHETIC-OPS-AOC-IMPACT-V2" && input.currentSourceHash === SYNTHETIC_HYBRID_RECONCILED_BUNDLE.generationRequest.sourceSnapshots[0]!.sourceHash
+        ? "SYNTHETIC-OPS-AOC"
+        : null;
+    if (!sourceIdentity || (previousSourceSnapshotId !== null && !(previousSourceSnapshotId === "SOURCE-SYNTHETIC-OPS-AOC" && previousSourceHash === SYNTHETIC_SOURCE_HASH))) {
+      throw new GovernedValidationError([governedValidationIssue("sourceCurrentness", "SOURCE_CURRENTNESS_BINDING_MISMATCH", "activation must use an exact known source snapshot/hash predecessor-current chain")]);
+    }
+    const chain = [...this.governedState.sourceCurrentnessEvents.values()]
+      .filter((event) => event.sourceIdentity === sourceIdentity)
+      .sort((left, right) => left.sequence - right.sequence);
+    const head = chain.at(-1);
+    if (!head && previousSourceSnapshotId !== null) {
+      throw new GovernedValidationError([governedValidationIssue("sourceCurrentness", "SOURCE_CURRENTNESS_BASELINE_REQUIRED", "a source change requires an explicit activated baseline")]);
+    }
+    if (head && previousSourceSnapshotId === null) {
+      throw new BackendConflictError("Source identity already has an activated baseline/current head.");
+    }
+    if (head && (head.currentSourceSnapshotId !== previousSourceSnapshotId || head.currentSourceHash !== previousSourceHash)) {
+      throw new GovernedValidationError([governedValidationIssue("sourceCurrentness", "SOURCE_CURRENTNESS_PREDECESSOR_MISMATCH", "activation predecessor must exactly match the latest activated source snapshot/hash")]);
+    }
+    const duplicate = chain.find((event) =>
+      event.currentSourceSnapshotId === input.currentSourceSnapshotId && event.currentSourceHash === input.currentSourceHash &&
+      event.previousSourceSnapshotId === previousSourceSnapshotId && event.previousSourceHash === previousSourceHash,
+    );
+    if (duplicate) throw new BackendConflictError("Exact source-currentness transition is already activated.");
+    const transitionDigest = await governedCanonicalSHA256({
+      sourceIdentity,
+      currentSourceSnapshotId: input.currentSourceSnapshotId,
+      currentSourceHash: input.currentSourceHash,
+      previousSourceSnapshotId: previousSourceSnapshotId ?? "",
+      previousSourceHash: previousSourceHash ?? "",
+    });
+    const suffix = transitionDigest.slice("sha256:".length, "sha256:".length + 24);
+    const impactReviewDraftId = previousSourceSnapshotId === null ? null : `SRC-IMPACT-DRAFT-${suffix}`;
+    const activatedAt = this.store.clock();
+    const event: MockSourceCurrentnessEvent = {
+      eventId: `SRC-CURRENTNESS-${suffix}`,
+      impactReviewDraftId,
+      sourceIdentity,
+      previousSourceSnapshotId,
+      previousSourceHash,
+      currentSourceSnapshotId: input.currentSourceSnapshotId,
+      currentSourceHash: input.currentSourceHash,
+      sequence: (head?.sequence ?? 0) + 1,
+      operationId: input.operationId,
+      idempotencyKey: input.idempotencyKey,
+      semantic,
+      reason: input.reason,
+      activatedAt,
+    };
+    const view: GovernedSourceCurrentnessActivationView = {
+      eventId: event.eventId,
+      impactReviewDraftId,
+      sourceIdentity,
+      previousSourceSnapshotId,
+      previousSourceHash,
+      currentSourceSnapshotId: event.currentSourceSnapshotId,
+      currentSourceHash: event.currentSourceHash,
+      status: impactReviewDraftId ? "IMPACT_REVIEW_DRAFT" : "BASELINE_ACTIVATED",
+      activatedAt,
+    };
+    this.governedState.sourceCurrentnessEvents.set(event.eventId, event);
+    const command: MockSourceCurrentnessCommand = { operationId: input.operationId, idempotencyKey: input.idempotencyKey, semantic, view };
+    this.governedState.sourceCurrentnessCommands.set(input.operationId, command);
+    this.governedState.sourceCurrentnessCommands.set(input.idempotencyKey, command);
+    this.store.execute(`GOVERNED-SOURCE-CURRENTNESS-${event.eventId}`, event, (state) => {
+      state.auditEvents.push({
+        eventId: `AE-SOURCE-CURRENTNESS-${suffix}`,
+        occurredAt: activatedAt,
+        actorRole: "admin",
+        actorSubjectId: this.principal.subjectId,
+        action: "regulatory.source_currentness_activated",
+        entityType: "REGULATORY_SOURCE_CURRENTNESS",
+        entityId: event.eventId,
+        beforeStatus: previousSourceHash,
+        afterStatus: input.currentSourceHash,
+        reason: input.reason,
+        entityRevision: 1,
+      });
+      return true;
+    });
+    return structuredClone(view);
+  }
+
+  private mockGovernedBlockers(candidate: GovernedCandidateView): GovernedValidationIssue[] {
+    const currentness = this.mockCandidateSourceCurrentness(candidate);
+    return [
+      ...structuredClone(this.governedState.blockers.get(candidate.candidateId) ?? []),
+      ...currentness.questions.flatMap((question) => governedQuestionGovernanceIssuesForTest(question)),
+    ];
+  }
+
+  // This internal mock-only test-profile seam mirrors the separate
+  // applicability/materialization command used by the canonical HTTP test
+  // boundary. Publication must never create an executable inspection package.
+  materializeSyntheticGovernedPackageForTest() {
+    const candidate = this.governedCandidate;
+    this.mockGovernedAssignmentFor(candidate);
+    if (candidate.status !== "PUBLISHED") {
+      throw new BackendConflictError("Only an exact published governed candidate can be materialized.");
+    }
+    const publication = this.governedState.publicationDecisions.get(candidate.candidateId);
+    if (!publication) {
+      throw new BackendInvariantError("Published governed candidate is missing its immutable publication decision.");
+    }
+    const selection = {
+      organizationId: "ORG-SYNTHETIC-AOC",
+      inspectionType: "RAMP_INSPECTION",
+      targetId: "TARGET-SYNTHETIC-AOC",
+      targetKind: "ORGANIZATION",
+      departmentId: "FLIGHT_OPERATIONS_INSPECTORATE",
+    } as const;
+    const packageId = "PKG-SYNTHETIC-OPS-AOC-001";
+    const inspectionId = "AUD-SYNTHETIC-OPS-AOC-001";
+    return this.store.execute("TEST-PROFILE-MATERIALIZE-SYNTHETIC", {
+      candidateId: candidate.candidateId,
+      candidateContentDigest: candidate.contentDigest,
+      templateVersionId: publication.templateVersionId,
+      selection,
+    }, (state) => {
+      state.packages[packageId] = {
+        id: packageId,
+        auditId: inspectionId,
+        organizationId: selection.organizationId,
+        organizationName: "Synthetic Internal AOC Test Profile",
+        title: "Synthetic governed ramp inspection package",
+        packageVersion: 1,
+        schemaVersion: 1,
+        protocolVersion: 1,
+        templateVersionId: publication.templateVersionId,
+        packageDigest: publication.candidateContentDigest,
+        expiresAt: "2026-08-29T00:00:00.000Z",
+        checklistStatus: "IN_PROGRESS",
+        checklistRevision: 1,
+        questions: candidate.questions.map((question) => ({
+          id: question.questionId,
+          sectionId: "SYNTHETIC-OPS-AOC",
+          prompt: question.prompt,
+          regulatoryReference: question.citations.map((citation) => citation.locator).join("; "),
+          expectedEvidence: question.expectedEvidence.join("; "),
+          allowedAnswers: question.allowedAnswers as ChecklistAnswer[],
+          commentRequiredFor: ["NON_COMPLIANT", "OBSERVATION"],
+          assignedInspectorUserIds: ["USR-INSPECTOR-AMINA"],
+          currentResponse: null,
+        })),
+      };
+      state.auditEvents.push({
+        eventId: "AE-TASK9-MATERIALIZE-SYNTHETIC",
+        occurredAt: this.store.clock(),
+        actorRole: "manager",
+        actorSubjectId: this.principal.subjectId,
+        action: "CHECKLIST_PACKAGE_MATERIALIZED",
+        entityType: "INSPECTION_PACKAGE",
+        entityId: packageId,
+        beforeStatus: "PUBLISHED",
+        afterStatus: "IN_PROGRESS",
+        reason: "Internal synthetic test-profile applicability materialization.",
+        entityRevision: 1,
+      });
+      return {
+        inspectionId,
+        packageId,
+        templateVersionId: publication.templateVersionId,
+        packageDigest: publication.candidateContentDigest,
+        selection,
+      };
+    });
+  }
+
+  private mockGovernedAssignments(): MockGovernedManagerAssignment[] {
+    requireRole(this.principal, ["manager"], "Department Manager governed-checklist authority is required.");
+    const asOf = this.store.clock().slice(0, 10);
+    const latestByRoot = new Map<string, MockGovernedManagerAssignment>();
+    for (const assignment of MOCK_GOVERNED_MANAGER_ASSIGNMENTS[this.principal.subjectId] ?? []) {
+      const current = latestByRoot.get(assignment.membershipRootId);
+      if (!current || assignment.revision > current.revision) {
+        latestByRoot.set(assignment.membershipRootId, assignment);
+      }
+    }
+    const assignments = [...latestByRoot.values()]
+      .filter((assignment) =>
+        assignment.status === "ACTIVE" &&
+        assignment.departmentActive &&
+        assignment.organizationalUnitActive &&
+        assignment.effectiveFrom <= asOf &&
+        (assignment.effectiveTo === null || assignment.effectiveTo > asOf));
+    if (assignments.length === 0) {
+      throw new BackendAuthorizationInvariantError(
+        "A current active Department Manager assignment is required.",
+      );
+    }
+    return assignments;
+  }
+
+  private mockGovernedAssignmentFor(candidate: GovernedCandidateView): MockGovernedManagerAssignment {
+    const assignment = this.mockGovernedAssignments().find((current) =>
+      candidate.requiredOwners.some((owner) =>
+        owner.approvalRequired &&
+        owner.departmentId === current.departmentId &&
+        owner.organizationalUnitId === current.organizationalUnitId));
+    if (!assignment) {
+      throw new BackendAuthorizationInvariantError(
+        "The candidate is outside the manager's current exact department and unit.",
+      );
+    }
+    return assignment;
+  }
 
   readonly communications: DemoBackend["communications"] = {
     list: async (input) => {
@@ -917,7 +1983,451 @@ export class MockBackendEngine implements DemoBackend {
       })),
   };
 
+  private requireMockGovernedCurrent(
+    input: DepartmentManagerGovernedReviewCommandInput,
+    status: GovernedCandidateView["status"],
+    candidate = this.governedCandidate,
+  ): void {
+    requireNonEmpty(input.operationId, "Operation ID");
+    requireNonEmpty(input.idempotencyKey, "Idempotency key");
+    requireNonEmpty(input.reason, "Decision reason");
+    if (input.candidateId !== candidate.candidateId ||
+      input.expectedRevision !== candidate.revision ||
+      input.expectedContentDigest !== candidate.contentDigest ||
+      candidate.status !== status) {
+      throw new BackendConflictError("Stale governed candidate revision, digest, or status.");
+    }
+  }
+
+  private async mockGovernedReviewDecision(
+    input: DepartmentManagerGovernedReviewCommandInput,
+    decision: GovernedReviewDecisionView["decision"],
+  ): Promise<GovernedCandidateView> {
+    requireDemoCapability(this.principal, "governedChecklistReview");
+    const assignment = this.mockGovernedAssignmentFor(this.governedCandidate);
+    const semantic = await governedCanonicalSHA256({
+      command: decision,
+      operationId: input.operationId,
+      candidateId: input.candidateId,
+      expectedRevision: input.expectedRevision,
+      expectedContentDigest: input.expectedContentDigest,
+      reason: input.reason,
+    });
+    const replay = this.governedCommands.get(input.operationId) ?? this.governedCommands.get(input.idempotencyKey);
+    if (replay) {
+      if (replay.operationId !== input.operationId || replay.idempotencyKey !== input.idempotencyKey ||
+        replay.semantic !== semantic) {
+        throw new BackendConflictError("Governed review command identity was reused with different semantics.");
+      }
+      return this.projectMockGovernedCandidate(replay.committedCandidate!);
+    }
+    this.requireMockGovernedCurrent(input, "DEPARTMENT_REVIEW");
+    const blockers = this.mockGovernedBlockers(this.governedCandidate);
+    if (decision === "TECHNICALLY_APPROVED" && blockers.length > 0) {
+      throw new GovernedValidationError(structuredClone(blockers));
+    }
+    const decisions = this.governedState.decisions.get(input.candidateId) ?? [];
+    if (decision === "TECHNICALLY_APPROVED" &&
+      decisions.some((item) => item.decision === decision &&
+        item.actorDepartmentId === assignment.departmentId &&
+        item.actorOrganizationalUnitId === assignment.organizationalUnitId)) {
+      throw new BackendConflictError("This exact department owner already approved the candidate.");
+    }
+    decisions.push({
+      decisionId: `DRD-${input.operationId}`,
+      decision,
+      candidateRootId: this.governedCandidate.candidateRootId,
+      candidateId: input.candidateId,
+      candidateRevision: input.expectedRevision,
+      candidateContentDigest: input.expectedContentDigest,
+      actorSubjectId: this.principal.subjectId,
+      actorDepartmentMembershipId: assignment.membershipId,
+      actorDepartmentId: assignment.departmentId,
+      actorOrganizationalUnitId: assignment.organizationalUnitId,
+      reason: input.reason,
+      decidedAt: this.store.clock(),
+      operationId: input.operationId,
+      idempotencyKey: input.idempotencyKey,
+      semanticPayloadDigest: semantic,
+      auditEventId: `AE-${input.operationId}`,
+    });
+    this.governedState.decisions.set(input.candidateId, decisions);
+    const allOwnersApproved = decision === "TECHNICALLY_APPROVED" &&
+      this.governedCandidate.requiredOwners
+        .filter((owner) => owner.approvalRequired)
+        .every((owner) => decisions.some((item) =>
+          item.decision === "TECHNICALLY_APPROVED" &&
+          item.actorDepartmentId === owner.departmentId &&
+          item.actorOrganizationalUnitId === owner.organizationalUnitId));
+    this.governedCandidate = {
+      ...this.governedCandidate,
+      status: decision === "TECHNICALLY_APPROVED" && !allOwnersApproved
+        ? "DEPARTMENT_REVIEW"
+        : decision,
+    };
+    this.governedCandidates.set(input.candidateId, this.governedCandidate);
+    const occurredAt = this.store.clock();
+    const command: MockGovernedCommand = {
+      operationId: input.operationId,
+      idempotencyKey: input.idempotencyKey,
+      semantic,
+      candidateId: input.candidateId,
+      actorSubjectId: this.principal.subjectId,
+      actorDepartmentMembershipId: assignment.membershipId,
+      candidateRevision: input.expectedRevision,
+      candidateContentDigest: input.expectedContentDigest,
+      reason: input.reason,
+      occurredAt,
+      committedCandidate: structuredClone(this.governedCandidate),
+    };
+    this.governedCommands.set(input.operationId, command);
+    this.governedCommands.set(input.idempotencyKey, command);
+    this.store.execute(`GOVERNED-AUDIT-${input.operationId}`, command, (state) => {
+      state.auditEvents.push({
+        eventId: `AE-${input.operationId}`,
+        occurredAt,
+        actorRole: "manager",
+        actorSubjectId: this.principal.subjectId,
+        action: decision === "TECHNICALLY_APPROVED"
+          ? "TECHNICAL_APPROVAL_RECORDED"
+          : decision,
+        entityType: "GOVERNED_CANDIDATE",
+        entityId: input.candidateId,
+        beforeStatus: "DEPARTMENT_REVIEW",
+        afterStatus: this.governedCandidate.status,
+        reason: input.reason,
+        entityRevision: input.expectedRevision,
+      });
+      return true;
+    });
+    return this.projectMockGovernedCandidate(this.governedCandidate);
+  }
+
+  readonly governedChecklistReview: DemoBackend["governedChecklistReview"] = {
+    validateBlockedGeneration: async (input): Promise<GovernedBlockedGenerationResult> => {
+      requireDemoCapability(this.principal, "governedChecklistReview");
+      this.mockGovernedAssignments();
+      requireNonEmpty(input.operationId, "Operation ID");
+      requireNonEmpty(input.idempotencyKey, "Idempotency key");
+      const request = input.generationRequest;
+      if (governedCanonicalJSON(request) !== governedCanonicalJSON(EXACT_BLOCKED_REAL_OPS_AOC_REQUEST)) {
+        throw new GovernedValidationError([{
+          fieldPath: "requestId",
+          code: "BLOCKED_REQUEST_IDENTITY_MISMATCH",
+          message: "The exact source-bound OPS/AOC request identity is required.",
+          sourceIdentity: request.sourceSnapshots[0]?.sourceSnapshotId,
+          sourceHash: request.sourceSnapshots[0]?.sourceHash,
+          clauseId: request.sourceSnapshots[0]?.clauseIds[0],
+          locator: request.sourceSnapshots[0]?.clauseLocators[0],
+        }]);
+      }
+      return {
+        status: "BLOCKED",
+        requestId: request.requestId,
+        blockingIssues: structuredClone(request.unresolvedSourceGaps),
+        effectCounts: {
+          generationRuns: 0,
+          candidates: 0,
+          reviewDecisions: 0,
+          publicationDecisions: 0,
+          checklistVersions: 0,
+          auditEvents: 0,
+        },
+      };
+    },
+    listQueue: async () => {
+      requireDemoCapability(this.principal, "governedChecklistReview");
+      const assignments = this.mockGovernedAssignments();
+      return {
+        items: [...this.governedCandidates.values()]
+          .filter((persistedCandidate) =>
+            ["DEPARTMENT_REVIEW", "RETURNED", "TECHNICALLY_APPROVED"].includes(persistedCandidate.status) &&
+            ![...this.governedCandidates.values()].some((successor) =>
+              successor.supersedesCandidateId === persistedCandidate.candidateId,
+            ) &&
+            assignments.some((assignment) => persistedCandidate.requiredOwners.some((owner) =>
+              owner.approvalRequired &&
+              owner.departmentId === assignment.departmentId &&
+              owner.organizationalUnitId === assignment.organizationalUnitId,
+            )),
+          )
+          .sort((left, right) => left.candidateId.localeCompare(right.candidateId))
+          .map((persistedCandidate) => ({
+            candidate: this.projectMockGovernedCandidate(persistedCandidate),
+            requiredOwners: structuredClone(persistedCandidate.requiredOwners),
+            decisions: structuredClone(this.governedState.decisions.get(persistedCandidate.candidateId) ?? []),
+            blockingIssues: this.mockGovernedBlockers(persistedCandidate),
+          })),
+      };
+    },
+    getCandidate: async ({ candidateId }) => {
+      requireDemoCapability(this.principal, "governedChecklistReview");
+      const candidate = this.governedCandidates.get(candidateId);
+      if (!candidate) {
+        throw new BackendInvariantError("Governed candidate was not found.");
+      }
+      this.mockGovernedAssignmentFor(candidate);
+      const projected = this.projectMockGovernedCandidate(candidate);
+      return {
+        candidate: projected,
+        requiredOwners: structuredClone(candidate.requiredOwners),
+        decisions: structuredClone(this.governedState.decisions.get(candidateId) ?? []),
+        blockingIssues: this.mockGovernedBlockers(candidate),
+      };
+    },
+    return: async (input) => this.mockGovernedReviewDecision(input, "RETURNED"),
+    reject: async (input) => this.mockGovernedReviewDecision(input, "REJECTED"),
+    approve: async (input) => this.mockGovernedReviewDecision(input, "TECHNICALLY_APPROVED"),
+    publish: async (input) => {
+      requireDemoCapability(this.principal, "governedChecklistReview");
+      const candidate = this.governedCandidates.get(input.candidateId);
+      if (!candidate) {
+        throw new BackendConflictError("Stale governed candidate revision, digest, or status.");
+      }
+      this.mockGovernedAssignmentFor(candidate);
+      const semantic = await governedCanonicalSHA256({
+        command: "PUBLISHED",
+        operationId: input.operationId,
+        candidateId: input.candidateId,
+        expectedRevision: input.expectedRevision,
+        expectedContentDigest: input.expectedContentDigest,
+        reason: input.reason,
+      });
+      const replay = this.governedCommands.get(input.operationId) ?? this.governedCommands.get(input.idempotencyKey);
+      if (replay) {
+        if (replay.operationId !== input.operationId || replay.idempotencyKey !== input.idempotencyKey ||
+          replay.semantic !== semantic || !this.governedState.publicationDecisions.has(input.candidateId)) {
+          throw new BackendConflictError("Governed publication command identity was reused with different semantics.");
+        }
+        return structuredClone(this.governedState.publicationDecisions.get(input.candidateId)!);
+      }
+      this.requireMockGovernedCurrent(input, "TECHNICALLY_APPROVED", candidate);
+      const blockers = this.mockGovernedBlockers(candidate);
+      if (blockers.length > 0) {
+        throw new GovernedValidationError(structuredClone(blockers));
+      }
+      const technicalDecisions = this.governedState.decisions.get(input.candidateId) ?? [];
+      if (!candidate.requiredOwners
+        .filter((owner) => owner.approvalRequired)
+        .every((owner) => technicalDecisions.some((decision) =>
+          decision.decision === "TECHNICALLY_APPROVED" &&
+          decision.actorDepartmentId === owner.departmentId &&
+          decision.actorOrganizationalUnitId === owner.organizationalUnitId))) {
+        throw new BackendConflictError("Every exact required owner must technically approve before publication.");
+      }
+      const recomputedDigest = await governedCandidateContentDigest({
+        complianceMappings: candidate.mappings,
+        inspectionChecklist: {
+          checklistId: candidate.templateId.replace(/^TPL-/, ""),
+          questions: candidate.questions,
+        },
+      });
+      if (recomputedDigest !== candidate.contentDigest) {
+        throw new GovernedValidationError([governedValidationIssue(
+          "contentDigest",
+          "CANDIDATE_DIGEST_MISMATCH",
+          "Persisted ordered mapping and question snapshots no longer match the approved digest.",
+        )]);
+      }
+      const assignment = this.mockGovernedAssignmentFor(candidate);
+      const occurredAt = this.store.clock();
+      const publication: GovernedPublicationView = {
+        templateVersionId: `CTV-GOV-${semantic.slice("sha256:".length, "sha256:".length + 20)}`,
+        publicationDecisionId: `PUBDEC-${input.operationId}`,
+        candidateRootId: candidate.candidateRootId,
+        candidateId: input.candidateId,
+        candidateRevision: input.expectedRevision,
+        candidateContentDigest: input.expectedContentDigest,
+        actorSubjectId: this.principal.subjectId,
+        actorDepartmentMembershipId: assignment.membershipId,
+        actorDepartmentId: assignment.departmentId,
+        actorOrganizationalUnitId: assignment.organizationalUnitId,
+        reason: input.reason,
+        decidedAt: occurredAt,
+        publishedAt: occurredAt,
+        operationId: input.operationId,
+        idempotencyKey: input.idempotencyKey,
+        semanticPayloadDigest: semantic,
+        auditEventId: `AE-${input.operationId}`,
+      };
+      const publishedCandidate = { ...candidate, status: "PUBLISHED" as const };
+      this.governedCandidates.set(input.candidateId, publishedCandidate);
+      if (this.governedCandidate.candidateId === input.candidateId) {
+        this.governedCandidate = publishedCandidate;
+      }
+      this.governedState.publicationDecisions.set(input.candidateId, publication);
+      this.governedState.publishedVersions.set(publication.templateVersionId, {
+        publication: structuredClone(publication),
+        mappings: structuredClone(candidate.mappings),
+        questions: structuredClone(candidate.questions),
+      });
+      const command: MockGovernedCommand = {
+        operationId: input.operationId,
+        idempotencyKey: input.idempotencyKey,
+        semantic,
+        candidateId: input.candidateId,
+        actorSubjectId: this.principal.subjectId,
+        actorDepartmentMembershipId: assignment.membershipId,
+        candidateRevision: input.expectedRevision,
+        candidateContentDigest: input.expectedContentDigest,
+        reason: input.reason,
+        occurredAt,
+      };
+      this.governedCommands.set(input.operationId, command);
+      this.governedCommands.set(input.idempotencyKey, command);
+      this.store.execute(`GOVERNED-AUDIT-${input.operationId}`, command, (state) => {
+        state.auditEvents.push({
+          eventId: `AE-${input.operationId}`,
+          occurredAt,
+          actorRole: "manager",
+          actorSubjectId: this.principal.subjectId,
+          action: "CHECKLIST_PUBLISHED",
+          entityType: "GOVERNED_CANDIDATE",
+          entityId: input.candidateId,
+          beforeStatus: "TECHNICALLY_APPROVED",
+          afterStatus: "PUBLISHED",
+          reason: input.reason,
+          entityRevision: input.expectedRevision,
+        });
+        return true;
+      });
+      return structuredClone(publication);
+    },
+    getPublishedVersion: async ({ templateVersionId }): Promise<GovernedPublishedVersionView> => {
+      requireDemoCapability(this.principal, "governedChecklistReview");
+      const published = this.governedState.publishedVersions.get(templateVersionId);
+      if (!published) {
+        throw new BackendInvariantError("Governed published version was not found.");
+      }
+      this.mockGovernedAssignmentFor(this.governedCandidates.get(
+        published.publication.candidateId,
+      )!);
+      return structuredClone(published);
+    },
+  };
+
   readonly adminWorkspace: DemoBackend["adminWorkspace"] = {
+    listGovernedSources: async () => {
+      requireDemoCapability(this.principal, "adminWorkspace"); requireRole(this.principal, ["admin"], "Admin Preview authority is required.");
+      return {
+        items: this.mockGovernedSourceSnapshots(),
+        nextCursor: null,
+      };
+    },
+    activateGovernedSourceCurrentness: async (input) => {
+      requireDemoCapability(this.principal, "adminWorkspace"); requireRole(this.principal, ["admin"], "Admin Preview authority is required.");
+      return this.activateMockSourceCurrentness(input);
+    },
+    importGovernedGenerationRun: async (input) => {
+      requireDemoCapability(this.principal, "adminWorkspace"); requireRole(this.principal, ["admin"], "Admin Preview authority is required.");
+      const semantic = await governedImportSemanticDigest(input.operationId, input.candidateBundle);
+      const replay = this.governedCommands.get(input.operationId) ?? this.governedCommands.get(input.idempotencyKey);
+      if (replay) {
+        if (replay.operationId !== input.operationId || replay.idempotencyKey !== input.idempotencyKey || replay.semantic !== semantic) throw new BackendConflictError("Governed import command identity was reused with different semantics.");
+        return this.projectMockGovernedRun(this.governedRuns.get(replay.generationRunId ?? SYNTHETIC_GOVERNED_RUN.generationRunId)!);
+      }
+      const bundle = [
+        SYNTHETIC_GOVERNED_BUNDLE,
+        SYNTHETIC_LEGACY_CHECKLIST_CANDIDATE_BUNDLE,
+        SYNTHETIC_HYBRID_RECONCILED_BUNDLE,
+      ].find((candidateBundle) =>
+        governedCanonicalJSON(input.candidateBundle) === governedCanonicalJSON(candidateBundle),
+      );
+      if (!bundle) {
+        const issue = governedValidationIssue("candidateBundle", "CANDIDATE_BUNDLE_MISMATCH", "only the exact synthetic internal test-profile bundle is supported");
+        throw new GovernedValidationError([issue]);
+      }
+      const sourceCurrentnessEvent = this.sourceCurrentnessEventForBundle(bundle);
+      let candidate = this.governedCandidates.get(bundle.candidateBundleId);
+      if (!candidate) {
+        candidate = {
+          ...mockGovernedCandidateForBundle(bundle),
+          requiredOwners: structuredClone(this.governedCandidate.requiredOwners),
+        };
+        this.governedCandidates.set(candidate.candidateId, candidate);
+        this.governedState.blockers.set(candidate.candidateId, []);
+      }
+      this.recordMockSourceImpactCandidateBinding(candidate, sourceCurrentnessEvent);
+      this.governedCandidate = candidate;
+      const run = {
+        ...mockGovernedRunForBundle(bundle, candidate),
+        candidate,
+      };
+      this.governedRuns.set(bundle.generationRunId, run);
+      const command: MockGovernedCommand = {
+        operationId: input.operationId,
+        idempotencyKey: input.idempotencyKey,
+        semantic,
+        candidateId: candidate.candidateId,
+        generationRunId: bundle.generationRunId,
+      };
+      this.governedCommands.set(input.operationId, command);
+      this.governedCommands.set(input.idempotencyKey, command);
+      return this.projectMockGovernedRun(run);
+    },
+    getGovernedGenerationRun: async ({ generationRunId }) => {
+      requireDemoCapability(this.principal, "adminWorkspace"); requireRole(this.principal, ["admin"], "Admin Preview authority is required.");
+      const run = this.governedRuns.get(generationRunId);
+      if (!run) throw new BackendInvariantError("Governed generation run was not found.");
+      return this.projectMockGovernedRun(run);
+    },
+    getGovernedCandidate: async ({ candidateId }) => {
+      requireDemoCapability(this.principal, "adminWorkspace"); requireRole(this.principal, ["admin"], "Admin Preview authority is required.");
+      const candidate = this.governedCandidates.get(candidateId);
+      if (!candidate) throw new BackendInvariantError("Governed candidate was not found.");
+      return this.projectMockGovernedCandidate(candidate);
+    },
+    createGovernedCandidateRevision: async (input) => {
+      requireDemoCapability(this.principal, "adminWorkspace"); requireRole(this.principal, ["admin"], "Admin Preview authority is required.");
+      const semantic = await governedEditSemanticDigest(input);
+      const replay = this.governedCommands.get(input.operationId) ?? this.governedCommands.get(input.idempotencyKey);
+      if (replay) {
+        if (replay.operationId !== input.operationId || replay.idempotencyKey !== input.idempotencyKey || replay.semantic !== semantic) throw new BackendConflictError("Governed edit command identity was reused with different semantics.");
+        return this.projectMockGovernedCandidate(this.governedCandidates.get(replay.candidateId)!);
+      }
+      if (input.candidateId !== this.governedCandidate.candidateId || input.expectedRevision !== this.governedCandidate.revision || input.expectedContentDigest !== this.governedCandidate.contentDigest || this.governedCandidate.status !== "GENERATED_DRAFT") throw new BackendConflictError("Stale governed candidate revision or digest.");
+      validateMockGovernedEdit(this.governedCandidate, input.mappings, input.questions, input.requiredOwners);
+      const digest = await governedCandidateContentDigest({ complianceMappings: input.mappings, inspectionChecklist: { checklistId: this.governedCandidate.templateId, questions: input.questions } });
+      const candidateId = `CAND-EDIT-${semantic.slice(7, 27)}`;
+      const successor: GovernedCandidateView = {
+        ...structuredClone(this.governedCandidate), candidateId,
+        supersedesCandidateId: this.governedCandidate.candidateId,
+        version: this.governedCandidate.version + 1, revision: this.governedCandidate.revision + 1,
+        contentDigest: digest, changeReason: input.changeReason,
+        mappings: structuredClone(input.mappings), questions: structuredClone(input.questions),
+        requiredOwners: structuredClone(input.requiredOwners),
+      };
+      this.governedCandidate = successor;
+      this.governedCandidates.set(candidateId, successor);
+      const run = this.governedRuns.get(successor.generationRunId)!;
+      this.governedRuns.set(successor.generationRunId, { ...run, candidate: successor });
+      const command = { operationId: input.operationId, idempotencyKey: input.idempotencyKey, semantic, candidateId };
+      this.governedCommands.set(input.operationId, command);
+      this.governedCommands.set(input.idempotencyKey, command);
+      return this.projectMockGovernedCandidate(successor);
+    },
+    submitGovernedCandidateReview: async (input) => {
+      requireDemoCapability(this.principal, "adminWorkspace"); requireRole(this.principal, ["admin"], "Admin Preview authority is required.");
+      const semantic = await governedSubmitSemanticDigest(input);
+      const replay = this.governedCommands.get(input.operationId) ?? this.governedCommands.get(input.idempotencyKey);
+      if (replay) {
+        if (replay.operationId !== input.operationId || replay.idempotencyKey !== input.idempotencyKey || replay.semantic !== semantic) throw new BackendConflictError("Governed submission command identity was reused with different semantics.");
+        return this.projectMockGovernedCandidate(this.governedCandidates.get(replay.candidateId)!);
+      }
+      if (input.candidateId !== this.governedCandidate.candidateId || input.expectedRevision !== this.governedCandidate.revision || input.expectedContentDigest !== this.governedCandidate.contentDigest || this.governedCandidate.status !== "GENERATED_DRAFT") throw new BackendConflictError("Stale governed candidate revision or digest.");
+      const blockers = this.mockGovernedBlockers(this.governedCandidate);
+      if (blockers.length > 0) {
+        throw new GovernedValidationError(structuredClone(blockers));
+      }
+      this.governedCandidate = { ...this.governedCandidate, status: "DEPARTMENT_REVIEW" };
+      this.governedCandidates.set(this.governedCandidate.candidateId, this.governedCandidate);
+      const run = this.governedRuns.get(this.governedCandidate.generationRunId)!;
+      this.governedRuns.set(this.governedCandidate.generationRunId, { ...run, candidate: this.governedCandidate });
+      const command = { operationId: input.operationId, idempotencyKey: input.idempotencyKey, semantic, candidateId: this.governedCandidate.candidateId };
+      this.governedCommands.set(input.operationId, command);
+      this.governedCommands.set(input.idempotencyKey, command);
+      return this.projectMockGovernedCandidate(this.governedCandidate);
+    },
     listRegulatoryReferences: async ({ search = "", status = "" }) => {
       requireDemoCapability(this.principal, "adminWorkspace");
       requireRole(this.principal, ["admin"], "Admin Preview authority is required for Administration workspace data.");
@@ -1457,8 +2967,9 @@ export class MockBackendEngine implements DemoBackend {
       return this.store.execute(input.operationId, input, (state) => {
         const packageView = packageForAudit(state, input.auditId);
         requireRevision(packageView.checklistRevision, input.expectedChecklistRevision, "Checklist");
-        if (!Object.values(state.checklistResponses).some((response) => response.questionId === "CAB-EMEQ-PBE-001")) {
-          throw new BackendInvariantError("The canonical PBE response is required before submission.");
+        if (!packageView.questions.every((question) =>
+          Object.values(state.checklistResponses).some((response) => response.questionId === question.id))) {
+          throw new BackendInvariantError("Every assigned checklist question requires an exact response before submission.");
         }
         packageView.checklistStatus = "SUBMITTED";
         packageView.checklistRevision += 1;

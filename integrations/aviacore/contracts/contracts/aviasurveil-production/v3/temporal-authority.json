@@ -1,0 +1,76 @@
+{
+  "backfill": "explicit partition window and run_as_of; never mutates raw history",
+  "contract_version": "3.0.0",
+  "correction": "new event with correction.recorded relationship",
+  "effective_as_of": "latest valid non-superseded source-effective event at or before requested effective time",
+  "equal_time_tie": "producer_sequence_then_emitted_at_then_event_id",
+  "fields": [
+    {
+      "authority": "producer",
+      "field": "occurred_at",
+      "meaning": "source-effective business event time",
+      "required": true
+    },
+    {
+      "authority": "producer",
+      "field": "emitted_at",
+      "meaning": "outbox/publisher emission time",
+      "required": true
+    },
+    {
+      "authority": "producer",
+      "field": "producer_sequence",
+      "meaning": "monotonic within tenant/source/business_key when available",
+      "required": false
+    },
+    {
+      "authority": "aviacore_ingress",
+      "field": "received_at",
+      "meaning": "authenticated request receipt time",
+      "payload_override": "forbidden"
+    },
+    {
+      "authority": "aviacore_object_adapter",
+      "field": "object_durable_at",
+      "meaning": "exact version durability confirmation time",
+      "payload_override": "forbidden"
+    },
+    {
+      "authority": "aviacore_database",
+      "field": "accepted_at",
+      "meaning": "canonical acknowledgement frontier time",
+      "payload_override": "forbidden"
+    },
+    {
+      "authority": "aviacore_pipeline",
+      "field": "loaded_at",
+      "meaning": "warehouse load time",
+      "payload_override": "forbidden"
+    },
+    {
+      "authority": "dagster_partition",
+      "field": "run_as_of",
+      "meaning": "reproducible processing cutoff",
+      "payload_override": "forbidden"
+    },
+    {
+      "authority": "database_publication_cas",
+      "field": "promoted_at",
+      "meaning": "last-trusted generation promotion time",
+      "payload_override": "forbidden"
+    }
+  ],
+  "known_as_of": "events with received_at at or before requested knowledge time",
+  "maximum_clock_skew_policy_ref_required": true,
+  "missing_clock_skew_policy": "deny_source_admission",
+  "missing_sequence": "allowed_but_ordered_after_present_sequence_at_equal_occurred_at",
+  "ordering": [
+    "occurred_at",
+    "producer_sequence_nulls_last",
+    "emitted_at",
+    "event_id"
+  ],
+  "schema_version": "aviasurveil_temporal_authority.v1",
+  "supersession": "new event with event.superseded relationship",
+  "watermark": "authenticated source tenant event frontier plus bounded allowed lateness policy reference"
+}

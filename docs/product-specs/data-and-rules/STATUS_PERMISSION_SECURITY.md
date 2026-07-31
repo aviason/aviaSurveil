@@ -35,6 +35,10 @@ Uploaded, Pending CAA Review, Accepted, Partially Accepted, Rejected, More Infor
 | Review Final Report | No | Prepare | Department review | No | Return / forward only | Final decision | Issued own-organization only | No |
 | Issue, mock-sign, or lock Final Report | No | No | No | No | No | Yes, demo-only | No | No |
 | Configure templates | No | Limited | Limited | No | No | No | No | Yes |
+| Start or import a checklist generation run | No | No | Yes, own scope | No | No | No | No | Yes, candidate only |
+| Activate an immutable source-currentness transition | No | No | No | No | No | No | No | Yes, candidate only; not technical approval or publication |
+| Technically approve a checklist candidate after technical review | No | No | Yes, current responsible department assignment and own scope | No | No | No | No | No |
+| Publish a technically approved checklist version | No | No | Yes, current responsible department assignment and own scope; separate recorded action | No | No | No | No | No |
 
 ## Security rules
 
@@ -70,6 +74,18 @@ Uploaded, Pending CAA Review, Accepted, Partially Accepted, Rejected, More Infor
   immutable audit trail.
 - Internal users should use MFA.
 - Sensitive data and files need access control.
+- A generic `manager` role without a current responsible department assignment
+  has no technical-review or publication authority. Admin and generation
+  providers may create or edit candidates but cannot technically approve or
+  publish them.
+- Source-currentness activation is append-only and records an exact
+  predecessor/current source transition. It may create an impact-review Draft,
+  but never changes a published checklist or in-progress Audit and is not a
+  legal interpretation, Department Manager technical approval, or publication
+  decision.
+- `TECHNICAL_REVIEW_REQUIRED` is the new workflow status. Existing
+  `EXPERT_REVIEW_REQUIRED` records remain readable as legacy compatibility and
+  are never treated as approved merely by being read.
 
 Implementation evidence is **demo-only** and **verified locally** through focused Node regressions and fresh isolated-browser authority/privacy checks at `1536x864`, `1366x768`, `1024x768`, and `390x844`. Production identity, authorization, signing, enforcement execution, and immutable audit logging are **not run**; **production-readiness not claimed**.
 

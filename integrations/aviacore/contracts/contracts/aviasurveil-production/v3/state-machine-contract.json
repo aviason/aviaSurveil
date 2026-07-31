@@ -1,0 +1,124 @@
+{
+  "attempt": {
+    "conflict_allowed_when": "same_event_id_and_different_digest",
+    "conflict_content_in_accepted_namespace": "forbidden",
+    "duplicate_allowed_when": "same_digest_and_canonical_winner_acknowledged",
+    "immutable": true,
+    "outcomes": [
+      "in_progress",
+      "accepted",
+      "duplicate",
+      "conflict",
+      "rejected_quarantine",
+      "retryable_failure"
+    ]
+  },
+  "canonical_event": {
+    "compare_and_swap_required": true,
+    "nonterminal_states": [
+      "reserved",
+      "object_written",
+      "object_verified",
+      "event_committed",
+      "manifest_bound",
+      "recovery_required"
+    ],
+    "stale_fence_write": "reject",
+    "states": [
+      "reserved",
+      "object_written",
+      "object_verified",
+      "event_committed",
+      "manifest_bound",
+      "acknowledged",
+      "recovery_required"
+    ],
+    "terminal_success_state": "acknowledged",
+    "transition_guard": [
+      "event_id",
+      "accepted_content_digest",
+      "lease_generation",
+      "transition_version"
+    ]
+  },
+  "contract_id": "aviasurveil.production-feed.ingest-state",
+  "contract_version": "3.0.0",
+  "crash_recovery": [
+    {
+      "after": "reservation",
+      "external_success": false,
+      "resume": "same_owner_or_expired_fenced_takeover"
+    },
+    {
+      "after": "object_write",
+      "external_success": false,
+      "resume": "verify_exact_version_then_bind"
+    },
+    {
+      "after": "event_commit",
+      "external_success": false,
+      "resume": "seal_exact_manifest"
+    },
+    {
+      "after": "manifest_seal",
+      "external_success": false,
+      "resume": "verify_binding_then_acknowledge_by_cas"
+    },
+    {
+      "after": "acknowledgement",
+      "external_success": true,
+      "resume": "return_duplicate_receipt_for_same_digest"
+    }
+  ],
+  "landing_manifest": {
+    "database_binding": "foreign_key_or_fenced_cas_to_exact_object_receipt",
+    "expected_item_set_digest_required": true,
+    "immutable_conditional_create": true,
+    "list_or_latest_resolution": "forbidden",
+    "predecessor_digest_required_after_first_manifest": true,
+    "separate_from_producer_submission_manifest": true,
+    "terminal_counter_set_required": true
+  },
+  "lease": {
+    "expires_at_required": true,
+    "generation_type": "monotonic_integer",
+    "owner_required": true,
+    "stale_owner_after_takeover": "fenced",
+    "takeover": "expired_lease_only_by_compare_and_swap",
+    "transition_version_type": "monotonic_integer"
+  },
+  "object_binding": {
+    "conditional_create": true,
+    "key_components": [
+      "tenant_id",
+      "source_system",
+      "event_content_digest"
+    ],
+    "list_or_latest_resolution": "forbidden",
+    "read_after_write_checksum": true,
+    "required_receipt_fields": [
+      "bucket",
+      "key",
+      "version_id",
+      "etag",
+      "checksum_sha256",
+      "canonical_digest"
+    ]
+  },
+  "ordered_algorithm": [
+    "authenticate_and_bind_source_tenant_principal",
+    "validate_contract_and_compute_event_content_digest",
+    "atomically_reserve_event_id_and_digest",
+    "attach_wait_or_fenced_takeover_for_same_digest_nonterminal",
+    "record_conflict_attempt_before_accepted_namespace_for_different_digest",
+    "conditional_create_tenant_source_digest_object",
+    "read_back_verify_and_persist_exact_object_version",
+    "commit_event_row_bound_to_exact_object_receipt",
+    "conditional_create_and_seal_landing_manifest",
+    "bind_exact_manifest_receipt_to_batch_and_events",
+    "advance_canonical_event_to_acknowledged_by_cas",
+    "emit_producer_acknowledgement_receipt"
+  ],
+  "orphan_rule": "any unverifiable or ambiguously bound state becomes recovery_required and blocks publication",
+  "schema_version": "aviasurveil_ingest_state_machine.v1"
+}

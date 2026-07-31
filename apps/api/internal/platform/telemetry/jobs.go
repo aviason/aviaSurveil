@@ -130,6 +130,13 @@ func (runtime *Runtime) RecordJobAttempt(
 	)
 }
 
+func (runtime *Runtime) RecordDataFeedItems(ctx context.Context, count int, outcome string) {
+	if count < 0 {
+		return
+	}
+	runtime.dataFeedItems.Add(ctx, int64(count), metric.WithAttributes(attribute.String("outcome.class", boundedOutcome(outcome))))
+}
+
 func (runtime *Runtime) RecordOutboxReadyAge(
 	ctx context.Context,
 	jobKind string,
@@ -174,7 +181,7 @@ func RecordPersistedOutboxReadyAge(
 
 func boundedJobKind(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "scan", "email", "document", "identity", "reminder":
+	case "scan", "email", "document", "identity", "reminder", "datafeed":
 		return strings.ToLower(strings.TrimSpace(value))
 	default:
 		return "other"
@@ -183,7 +190,7 @@ func boundedJobKind(value string) string {
 
 func boundedAdapter(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "clamav", "mailpit", "gotenberg", "keycloak", "postgresql":
+	case "clamav", "mailpit", "gotenberg", "keycloak", "postgresql", "aviacore":
 		return strings.ToLower(strings.TrimSpace(value))
 	default:
 		return "other"
@@ -192,7 +199,7 @@ func boundedAdapter(value string) string {
 
 func boundedQueue(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "evidence", "attachment", "notification", "document", "identity", "reminder":
+	case "evidence", "attachment", "notification", "document", "identity", "reminder", "aviacore":
 		return strings.ToLower(strings.TrimSpace(value))
 	default:
 		return "other"
@@ -201,7 +208,7 @@ func boundedQueue(value string) string {
 
 func boundedOutcome(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "ready", "succeeded", "failed", "retrying", "dead_lettered":
+	case "ready", "acknowledged", "succeeded", "failed", "retrying", "dead_lettered", "accepted", "duplicate", "conflict", "retryable", "retry_exhausted", "validation_rejected":
 		return strings.ToLower(strings.TrimSpace(value))
 	default:
 		return "other"

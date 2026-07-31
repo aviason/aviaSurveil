@@ -21,9 +21,9 @@ API_PID=""
 WORKER_PID=""
 FOCUSED_E2E="${AVIA_HTTP_PROFILE_FOCUSED_E2E:-}"
 case "${FOCUSED_E2E}" in
-  "" | user-lifecycle | visible-actions) ;;
+  "" | user-lifecycle | visible-actions | governed-checklist | regulatory-source-refresh) ;;
   *)
-    echo "AVIA_HTTP_PROFILE_FOCUSED_E2E must be empty, user-lifecycle, or visible-actions" >&2
+    echo "AVIA_HTTP_PROFILE_FOCUSED_E2E must be empty, user-lifecycle, visible-actions, governed-checklist, or regulatory-source-refresh" >&2
     exit 64
     ;;
 esac
@@ -89,6 +89,8 @@ cleanup() {
   exit "${status}"
 }
 trap cleanup EXIT
+
+node "${REPOSITORY_ROOT}/scripts/verify-governed-checklist-test-inventory.mjs"
 
 docker compose --project-name "${COMPOSE_PROJECT}" --file "${COMPOSE_FILE}" down --volumes --remove-orphans
 docker compose --project-name "${COMPOSE_PROJECT}" --file "${COMPOSE_FILE}" up --detach --wait postgres keycloak-postgres mailpit keycloak object-store
@@ -173,6 +175,19 @@ if [[ "${FOCUSED_E2E}" == "visible-actions" ]]; then
 elif [[ "${FOCUSED_E2E}" == "user-lifecycle" ]]; then
   npm --prefix "${REPOSITORY_ROOT}/apps/web" run test:e2e:http -- \
     --grep "user lifecycle"
+elif [[ "${FOCUSED_E2E}" == "governed-checklist" ]]; then
+  npm --prefix "${REPOSITORY_ROOT}/apps/web" run test:contract:http
+  go -C "${REPOSITORY_ROOT}/apps/api" test -tags canonicaltest ./tests/integration \
+    -run '^TestTask9SyntheticPublicationAndBlockedRealPilotHaveSeparatePersistedEffects$' \
+    -count=1
+  npm --prefix "${REPOSITORY_ROOT}/apps/web" run test:e2e:http -- \
+    tests/e2e/regulatory-checklist-governance.http.spec.ts
+elif [[ "${FOCUSED_E2E}" == "regulatory-source-refresh" ]]; then
+  go -C "${REPOSITORY_ROOT}/apps/api" test -tags canonicaltest ./tests/integration \
+    -run '^(TestRegulatorySourceRefreshTask6.*|TestTask6DepartmentFilteredQueueAndCurrentAssignmentAuthority|TestTask6PublicationIsSeparateDigestVerifiedAndImmutable|TestTask6CanonicalHTTPManagerLifecycleUsesRealPostgreSQLAuthority|TestTask6TechnicalApprovalFailsClosedOnPersistedSourceGap|TestTask6SubmissionAndPublicationFailClosedOnPersistedSourceGap|TestTask9SyntheticPublicationAndBlockedRealPilotHaveSeparatePersistedEffects)$' \
+    -count=1
+  npm --prefix "${REPOSITORY_ROOT}/apps/web" run test:e2e:http -- \
+    tests/e2e/regulatory-source-refresh.http.spec.ts
 else
   npm --prefix "${REPOSITORY_ROOT}/apps/web" test
   npm --prefix "${REPOSITORY_ROOT}/apps/web" run build:demo

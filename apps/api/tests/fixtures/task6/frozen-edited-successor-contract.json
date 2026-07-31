@@ -1,0 +1,207 @@
+{
+  "contractId": "task6-frozen-edited-successor-v1",
+  "candidate": {
+    "candidateRootId": "CAND-TASK6-FIX2-FROZEN",
+    "candidateId": "CAND-TASK6-FIX4-EDITED",
+    "supersedesCandidateId": "CAND-TASK6-FIX2-FROZEN",
+    "generationRunId": "GENRUN-TASK6-FIX2-FROZEN",
+    "templateId": "TPL-TASK6-FIX2-FROZEN",
+    "version": 2,
+    "revision": 2,
+    "status": "TECHNICALLY_APPROVED",
+    "contentDigest": "sha256:97a386e78b9555dd3eec5be0b7e499d5ab6236d7285c5a5a4faad80137ba762c",
+    "schemaVersion": "1.0.0",
+    "changeReason": "Frozen checked-in edited successor.",
+    "sourceSnapshots": [
+      {
+        "sourceId": "SOURCE-SYNTHETIC-OPS-AOC",
+        "sourceIdentity": "SYNTHETIC-OPS-AOC",
+        "versionIdentity": "1",
+        "sourceHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "clauseId": "CLAUSE-SYNTHETIC-OPS-AOC-1",
+        "locator": "Synthetic OPS/AOC 1"
+      }
+    ],
+    "scopeFactIds": [
+      "SCOPE-SYNTHETIC-AOC"
+    ],
+    "crosswalkPartitionIds": [
+      "PARTITION-SYNTHETIC-INPUT"
+    ],
+    "mappings": [
+      {
+        "mappingId": "MAP-Z-FROZEN-FIRST",
+        "requirement": "Synthetic controlled training requirement for verifying ramp safety evidence.",
+        "relationship": "ADDRESSES",
+        "applicability": "DIRECT",
+        "citations": [
+          {
+            "sourceSnapshotId": "SOURCE-SYNTHETIC-OPS-AOC",
+            "sourceHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "clauseId": "CLAUSE-SYNTHETIC-OPS-AOC-1",
+            "locator": "Synthetic OPS/AOC 1"
+          }
+        ],
+        "sourceGap": null,
+        "rationale": "This synthetic source is test-profile-only and proves the bounded import workflow without asserting real authority."
+      },
+      {
+        "mappingId": "MAP-A-FROZEN-SECOND",
+        "requirement": "Synthetic controlled training requirement for verifying ramp safety evidence.",
+        "relationship": "ADDRESSES",
+        "applicability": "DIRECT",
+        "citations": [
+          {
+            "sourceSnapshotId": "SOURCE-SYNTHETIC-OPS-AOC",
+            "sourceHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "clauseId": "CLAUSE-SYNTHETIC-OPS-AOC-1",
+            "locator": "Synthetic OPS/AOC 1"
+          }
+        ],
+        "sourceGap": null,
+        "rationale": "This synthetic source is test-profile-only and proves the bounded import workflow without asserting real authority."
+      },
+      {
+        "mappingId": "MAP-N-FROZEN-APPENDED",
+        "requirement": "Synthetic controlled training requirement for verifying ramp safety evidence.",
+        "relationship": "ADDRESSES",
+        "applicability": "DIRECT",
+        "citations": [
+          {
+            "sourceSnapshotId": "SOURCE-SYNTHETIC-OPS-AOC",
+            "sourceHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "clauseId": "CLAUSE-SYNTHETIC-OPS-AOC-1",
+            "locator": "Synthetic OPS/AOC 1"
+          }
+        ],
+        "sourceGap": null,
+        "rationale": "This synthetic source is test-profile-only and proves the bounded import workflow without asserting real authority."
+      }
+    ],
+    "questions": [
+      {
+        "questionId": "Q-TASK6-FIX4-EDITED",
+        "mappingIds": [
+          "MAP-Z-FROZEN-FIRST",
+          "MAP-A-FROZEN-SECOND",
+          "MAP-N-FROZEN-APPENDED"
+        ],
+        "prompt": "Can the inspector reconcile the synthetic ramp-safety evidence with the controlled synthetic requirement?",
+        "citations": [
+          {
+            "sourceSnapshotId": "SOURCE-SYNTHETIC-OPS-AOC",
+            "sourceHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "clauseId": "CLAUSE-SYNTHETIC-OPS-AOC-1",
+            "locator": "Synthetic OPS/AOC 1"
+          }
+        ],
+        "verificationMethod": "Physical observation and controlled-record reconciliation",
+        "expectedEvidence": [
+          "Synthetic inspection observation",
+          "Synthetic controlled record"
+        ],
+        "allowedAnswers": [
+          "COMPLIANT",
+          "NON_COMPLIANT",
+          "OBSERVATION",
+          "NOT_APPLICABLE",
+          "NOT_CHECKED"
+        ],
+        "mandatoryCore": true,
+        "safetyCritical": true
+      }
+    ],
+    "requiredOwners": [
+      {
+        "departmentId": "FLIGHT_OPERATIONS_INSPECTORATE",
+        "organizationalUnitId": "FLIGHT_OPERATIONS_INSPECTORATE",
+        "approvalRequired": true
+      }
+    ]
+  },
+  "preRepairDecision": {
+    "id": "DRD-TASK6-FIX4-EDITED-APPROVE",
+    "candidateRootId": null,
+    "candidateId": "CAND-TASK6-FIX4-EDITED",
+    "candidateRevision": 2,
+    "candidateContentDigest": "sha256:97a386e78b9555dd3eec5be0b7e499d5ab6236d7285c5a5a4faad80137ba762c",
+    "decision": "TECHNICALLY_APPROVED",
+    "actorSubjectId": "USR-TASK6-FIX2-FROZEN-MANAGER",
+    "actorDepartmentMembershipId": "MEM-TASK6-FIX2-FROZEN",
+    "actorDepartmentId": "FLIGHT_OPERATIONS_INSPECTORATE",
+    "actorOrganizationalUnitId": "FLIGHT_OPERATIONS_INSPECTORATE",
+    "reason": "Frozen checked-in edited successor approval.",
+    "decidedAt": "2026-01-04T00:00:00Z",
+    "operationId": "TASK6-FIX4-EDITED-APPROVE",
+    "idempotencyKey": "TASK6-FIX4-EDITED-APPROVE",
+    "semanticPayloadDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "createdAt": "2026-01-04T00:00:00Z"
+  },
+  "postRepairDecision": {
+    "id": "DRD-TASK6-FIX4-EDITED-APPROVE",
+    "candidateRootId": "CAND-TASK6-FIX2-FROZEN",
+    "candidateId": "CAND-TASK6-FIX4-EDITED",
+    "candidateRevision": 2,
+    "candidateContentDigest": "sha256:97a386e78b9555dd3eec5be0b7e499d5ab6236d7285c5a5a4faad80137ba762c",
+    "decision": "TECHNICALLY_APPROVED",
+    "actorSubjectId": "USR-TASK6-FIX2-FROZEN-MANAGER",
+    "actorDepartmentMembershipId": "MEM-TASK6-FIX2-FROZEN",
+    "actorDepartmentId": "FLIGHT_OPERATIONS_INSPECTORATE",
+    "actorOrganizationalUnitId": "FLIGHT_OPERATIONS_INSPECTORATE",
+    "reason": "Frozen checked-in edited successor approval.",
+    "decidedAt": "2026-01-04T00:00:00Z",
+    "operationId": "TASK6-FIX4-EDITED-APPROVE",
+    "idempotencyKey": "TASK6-FIX4-EDITED-APPROVE",
+    "semanticPayloadDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "createdAt": "2026-01-04T00:00:00Z"
+  },
+  "audit": {
+    "sequenceId": 4,
+    "eventId": "AE-TASK6-FIX4-EDITED-APPROVE",
+    "occurredAt": "2026-01-04T00:00:00Z",
+    "actorSubjectId": "USR-TASK6-FIX2-FROZEN-MANAGER",
+    "actorRole": "manager",
+    "organizationId": null,
+    "action": "TECHNICAL_APPROVAL_RECORDED",
+    "entityType": "GOVERNED_CANDIDATE",
+    "entityId": "CAND-TASK6-FIX4-EDITED",
+    "entityVersion": 2,
+    "beforeStatus": "DEPARTMENT_REVIEW",
+    "afterStatus": "TECHNICALLY_APPROVED",
+    "reason": "Frozen checked-in edited successor approval.",
+    "operationId": "TASK6-FIX4-EDITED-APPROVE",
+    "correlationId": "TASK6-FIX4-EDITED-APPROVE",
+    "requestId": "TASK6-FIX4-EDITED-APPROVE",
+    "closureBasis": null,
+    "details": {}
+  },
+  "publication": {
+    "publicationDecisionId": "PUBDEC-TASK6-FIX4-EDITED-PUBLISH",
+    "templateVersionId": "CTV-GOV-411cb81adde0bcd5ed1f",
+    "templateId": "TPL-TASK6-FIX2-FROZEN",
+    "version": 2,
+    "title": "Governed TPL-TASK6-FIX2-FROZEN",
+    "candidateRootId": "CAND-TASK6-FIX2-FROZEN",
+    "candidateId": "CAND-TASK6-FIX4-EDITED",
+    "candidateRevision": 2,
+    "candidateContentDigest": "sha256:97a386e78b9555dd3eec5be0b7e499d5ab6236d7285c5a5a4faad80137ba762c",
+    "decidedAt": "2026-07-29T21:00:00Z",
+    "createdAt": "2026-07-29T21:00:00Z",
+    "publishedAt": "2026-07-29T21:00:00Z",
+    "actorSubjectId": "USR-TASK6-FIX2-FROZEN-MANAGER",
+    "actorDepartmentMembershipId": "MEM-TASK6-FIX2-FROZEN",
+    "actorDepartmentId": "FLIGHT_OPERATIONS_INSPECTORATE",
+    "actorOrganizationalUnitId": "FLIGHT_OPERATIONS_INSPECTORATE",
+    "reason": "Publish exact repaired edited successor bytes.",
+    "operationId": "TASK6-FIX4-EDITED-PUBLISH",
+    "idempotencyKey": "TASK6-FIX4-EDITED-PUBLISH",
+    "semanticPayloadDigest": "sha256:411cb81adde0bcd5ed1f30233e1adce0c440b58a0abd7bfc015a49746afa402e",
+    "auditEventId": "AE-TASK6-FIX4-EDITED-PUBLISH",
+    "questionVersionOrder": [
+      {
+        "questionVersionId": "QV-CAND-TASK6-FIX4-EDITED",
+        "position": 0
+      }
+    ]
+  }
+}

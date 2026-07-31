@@ -115,61 +115,6 @@ func (api *CanonicalAPI) createPlanningIntakeDraft(
 	})
 }
 
-func (api *CanonicalAPI) createChecklistTemplateVersion(
-	writer http.ResponseWriter,
-	request *http.Request,
-) {
-	actor, ok := requirePrincipal(writer, request)
-	if !ok {
-		return
-	}
-	var input generated.CreateChecklistTemplateVersionInput
-	if !decodeJSON(writer, request, &input) {
-		return
-	}
-	if !validOptionalRevisionCommandHeaders(request, input.IdempotencyKey, nil) ||
-		input.ExpectedRevision != nil {
-		api.respond(writer, nil, application.ErrInvalid)
-		return
-	}
-	questions := make([]application.PublishedChecklistQuestion, 0, len(input.Questions))
-	for _, question := range input.Questions {
-		allowedAnswers := make([]string, 0, len(question.AllowedAnswers))
-		for _, answer := range question.AllowedAnswers {
-			allowedAnswers = append(allowedAnswers, string(answer))
-		}
-		commentRequiredFor := make([]string, 0, len(question.CommentRequiredFor))
-		for _, answer := range question.CommentRequiredFor {
-			commentRequiredFor = append(commentRequiredFor, string(answer))
-		}
-		questions = append(questions, application.PublishedChecklistQuestion{
-			QuestionID: question.QuestionId, SectionID: question.SectionId,
-			Prompt: question.Prompt, ConfiguredReference: question.ConfiguredReference,
-			ExpectedEvidence: question.ExpectedEvidence, AllowedAnswers: allowedAnswers,
-			CommentRequiredFor: commentRequiredFor,
-		})
-	}
-	record, err := api.application.CreateChecklistTemplateVersion(
-		request.Context(),
-		actor,
-		application.CreateChecklistTemplateVersionCommand{
-			OperationID: input.OperationId, IdempotencyKey: input.IdempotencyKey,
-			TemplateID: input.TemplateId, TemplateVersionID: input.TemplateVersionId,
-			Title: input.Title, OwnerRole: input.OwnerRole, Questions: questions,
-		},
-	)
-	if err != nil {
-		api.respond(writer, nil, err)
-		return
-	}
-	writer.Header().Set("ETag", strongRevisionETag(1))
-	writeJSON(writer, http.StatusCreated, generated.ChecklistTemplateVersionView{
-		Id: record.ID, TemplateId: record.TemplateID, Title: record.Title,
-		Version: record.Version, Status: record.Status, PublishedAt: record.PublishedAt,
-		QuestionCount: record.QuestionCount,
-	})
-}
-
 func (api *CanonicalAPI) createReminderRule(
 	writer http.ResponseWriter,
 	request *http.Request,

@@ -1,0 +1,115 @@
+{
+  "deletion": {
+    "authority_reference_required": true,
+    "crypto_erasure_when_approved": "forbidden",
+    "evidence_may_preserve_only_non_sensitive_digest_and_authority_reference": true,
+    "legal_hold_precedence": true,
+    "legal_hold_release_tombstone_only": true,
+    "physical_deletion": "forbidden",
+    "replay_suppression_registry_required": true,
+    "scopes": [
+      "raw_objects",
+      "raw_database",
+      "vault",
+      "marts",
+      "replicas",
+      "backups",
+      "evidence_metadata"
+    ],
+    "tombstone_event_required": true
+  },
+  "field_manifest_closed": true,
+  "inline_privacy_classes_allowed": [
+    "P0",
+    "P1",
+    "P2_pseudonymous_metadata_only"
+  ],
+  "inline_privacy_classes_denied": [
+    "P3",
+    "raw_free_text",
+    "binary_content",
+    "direct_identity"
+  ],
+  "object_reference": {
+    "access": "tenant_purpose_role_scoped_and_audited",
+    "allowed_for_sensitive_content": true,
+    "expiry_behavior": "deny_and_record_value_free_reason",
+    "raw_pointer_in_general_analytics": "forbidden",
+    "required_fields": [
+      "evidence_ref_id",
+      "bucket_scope_ref",
+      "object_key_ref",
+      "version_id",
+      "checksum_sha256",
+      "encryption_key_ref",
+      "purpose_code",
+      "expires_at"
+    ]
+  },
+  "policy_version": "3.0.0",
+  "purpose": {
+    "allowed_initial": [
+      "regulated_operational_analytics",
+      "audit_evidence"
+    ],
+    "bi_requires_governed_mart": true,
+    "llm_external": "not_deployed",
+    "mcp_requires_separate_consumer_certification": true,
+    "production_ml": "disabled"
+  },
+  "quarantine_v2": {
+    "database_fields": [
+      "quarantine_id",
+      "event_id",
+      "attempt_id",
+      "stable_reason_code",
+      "contract_id",
+      "contract_version",
+      "authenticated_source",
+      "tenant_id",
+      "content_digest",
+      "encrypted_object_pointer_ref",
+      "lifecycle_state",
+      "recorded_at"
+    ],
+    "enters_rpo_frontier": false,
+    "raw_payload_in_database_logs_dq_or_git": "forbidden",
+    "rejection_is_acknowledgement": false,
+    "replay_requires_named_authority": true,
+    "states": [
+      "open",
+      "rejection_receipt_recorded",
+      "authorized_for_replay",
+      "replayed",
+      "closed",
+      "expired"
+    ]
+  },
+  "retention": {
+    "aggregate_requires_separate_approved_rule": false,
+    "backup_expiry_must_not_exceed_approved_rule": true,
+    "canonical_records": "indefinite_immutable",
+    "legal_hold": "restrict_access_and_processing_only",
+    "missing_policy_reference": "deny_nonfixture_admission",
+    "numeric_duration_in_this_repository": "not_applicable_indefinite_immutable",
+    "physical_deletion": "forbidden",
+    "policy_reference_required_per_environment_and_privacy_class": true,
+    "rationale": "No jurisdiction/customer retention duration is invented; missing approved reference denies non-fixture admission.",
+    "raw_event_and_object_may_differ": true,
+    "tombstone_after_legal_hold_release_days": 30,
+    "tombstone_effect": "suppress_replay_and_publication_only",
+    "vault_history_requires_separate_approved_rule": false
+  },
+  "schema_version": "aviasurveil_privacy_retention_policy.v3",
+  "unknown_field": "reject_quarantine",
+  "validation_error": {
+    "fields": [
+      "stable_code",
+      "json_pointer",
+      "contract_id",
+      "contract_version"
+    ],
+    "raw_value": "forbidden",
+    "value_free": true
+  }
+}

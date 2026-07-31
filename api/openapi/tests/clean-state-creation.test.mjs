@@ -7,14 +7,13 @@ const document = assembleOpenApi();
 
 const requiredMutations = new Map([
   ["/v1/admin/organizations", "createAdminOrganization"],
-  ["/v1/admin/checklist-template-versions", "createChecklistTemplateVersion"],
   ["/v1/admin/reminder-rules", "createReminderRule"],
   ["/v1/planning/intake-drafts", "createPlanningIntakeDraft"],
   ["/v1/audit-workspaces", "createAuditWorkspace"],
   ["/v1/report-versions", "createReportVersion"],
 ]);
 
-test("clean-state resources are created through normal authorized mutations", () => {
+test("normal profiles expose only non-publication clean-state mutations", () => {
   for (const [path, operationId] of requiredMutations) {
     const operation = document.paths[path]?.post;
     assert.ok(operation, `POST ${path} is required`);
@@ -37,7 +36,6 @@ test("clean-state operations cannot expose test, reset, fixture, or seed semanti
 test("clean-state request schemas require idempotency and expected-version boundaries", () => {
   const schemaNames = [
     "CreateAdminOrganizationInput",
-    "CreateChecklistTemplateVersionInput",
     "CreateReminderRuleInput",
     "CreatePlanningIntakeDraftInput",
     "CreateAuditWorkspaceInput",
@@ -55,4 +53,16 @@ test("clean-state request schemas require idempotency and expected-version bound
       "expectedPlanningRevision",
     ),
   );
+});
+
+test("normal profiles forbid direct published checklist creation", () => {
+  // Production break: restoring the ordinary Admin direct-publication command
+  // would make this assertion fail.
+  assert.equal(
+    document.paths["/v1/admin/checklist-template-versions"],
+    undefined,
+    "normal profiles must not expose an Admin command that creates PUBLISHED checklist versions",
+  );
+  assert.equal(document.components.schemas.CreateChecklistTemplateVersionInput, undefined);
+  assert.equal(document.components.schemas.PublishedChecklistQuestionInput, undefined);
 });

@@ -1,0 +1,89 @@
+{
+  "$id": "https://aviacore360.local/schemas/events/aviasurveil/v3/checklist_generation-rollout_readiness_recorded.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "./envelope.schema.json"
+    },
+    {
+      "properties": {
+        "entity_refs": {
+          "additionalProperties": false,
+          "properties": {
+            "candidate_id": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "generation_run_id": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "generation_run_id",
+            "candidate_id"
+          ],
+          "type": "object"
+        },
+        "event_type": {
+          "const": "checklist_generation.rollout_readiness_recorded"
+        },
+        "event_version": {
+          "const": 1
+        },
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "candidate_id": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "decided_at": {
+              "format": "date-time",
+              "pattern": "Z$",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "generation_run_id": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "rollout_readiness_decision_code": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "generation_run_id",
+            "candidate_id",
+            "rollout_readiness_decision_code",
+            "decided_at"
+          ],
+          "type": "object"
+        },
+        "state_after": {
+          "const": "generation_rollout_decided"
+        },
+        "state_before": {
+          "enum": [
+            null
+          ]
+        }
+      },
+      "type": "object"
+    }
+  ],
+  "title": "checklist_generation.rollout_readiness_recorded v3"
+}

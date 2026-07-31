@@ -1,0 +1,42 @@
+{
+  "approved_plan_revision_digest": "f6697b46edf9e15cd104175bda7a65189dbc5c60691a3243ef17395946e4d250",
+  "contract_id": "aviasurveil.production-feed",
+  "contract_root_algorithm": "canonical_sorted_artifact_path_and_sha256.v1",
+  "contract_root_excludes": [
+    "artifacts/aviasurveil-production-readiness/**",
+    "approval signatures",
+    "timestamps",
+    "anchor receipts",
+    "verification results"
+  ],
+  "contract_version": "3.0.0",
+  "golden_vectors_root": "contracts/aviasurveil-production/v3/golden",
+  "openapi": "api/openapi/aviasurveil-ingestion-v3.openapi.json",
+  "readiness_gate_id": "AVS-V3-CONTRACT",
+  "required_documents": [
+    "event-catalog.json",
+    "lifecycle-contract.json",
+    "producer-protocol.json",
+    "state-machine-contract.json",
+    "hash-contracts.json",
+    "key-grain-registry.json",
+    "temporal-authority.json",
+    "privacy-retention-policy.json",
+    "quality-publication-contract.json",
+    "recovery-contract.json",
+    "consumer-contracts.json",
+    "approval-requirements.json",
+    "extension-event-contracts.json",
+    "package-integrity-matrix.json",
+    "negative-branch-matrix.json"
+  ],
+  "schema_root": "schemas/events/aviasurveil/v3",
+  "schema_version": "aviasurveil_contract_set.v3",
+  "unsupported_mode_policy": "fail_closed",
+  "version_compatibility": {
+    "negotiation": "v3_only_before_first_deployment",
+    "predeployment_overlap": "forbidden",
+    "rollback": "forward_fix_only",
+    "v1_v3_concurrent_delivery": "forbidden"
+  }
+}

@@ -1,0 +1,140 @@
+{
+  "blocking_result_states": [
+    "failed",
+    "error",
+    "timeout",
+    "cancelled",
+    "not_evaluated",
+    "missing",
+    "duplicate_result",
+    "unknown",
+    "stale",
+    "unparsable",
+    "unredactable",
+    "unwritable"
+  ],
+  "contract_version": "3.0.0",
+  "mandatory_checks": [
+    {
+      "engine": "custom",
+      "id": "AVS-CONTRACT-SCHEMA",
+      "owner": "contract-governance",
+      "severity": "critical",
+      "stage": "ingress"
+    },
+    {
+      "engine": "dagster",
+      "id": "AVS-IDENTITY-SCOPE",
+      "owner": "security/platform",
+      "severity": "critical",
+      "stage": "ingress"
+    },
+    {
+      "engine": "dagster",
+      "id": "AVS-OBJECT-MANIFEST-BINDING",
+      "owner": "ingestion/platform",
+      "severity": "critical",
+      "stage": "raw"
+    },
+    {
+      "engine": "soda",
+      "id": "AVS-RAW-STAGE-RECONCILIATION",
+      "owner": "data-quality",
+      "severity": "critical",
+      "stage": "stage"
+    },
+    {
+      "engine": "dbt",
+      "id": "AVS-HASH-PARITY",
+      "owner": "data-engineering",
+      "severity": "critical",
+      "stage": "vault"
+    },
+    {
+      "engine": "dbt",
+      "id": "AVS-LIFECYCLE-INVARIANTS",
+      "owner": "producer/domain",
+      "severity": "critical",
+      "stage": "business-vault"
+    },
+    {
+      "engine": "dagster",
+      "id": "AVS-PRIVACY-LEAKAGE",
+      "owner": "security/privacy",
+      "severity": "critical",
+      "stage": "pre-publication"
+    },
+    {
+      "engine": "dagster",
+      "id": "AVS-SOURCE-MART-RECONCILIATION",
+      "owner": "data-platform",
+      "severity": "critical",
+      "stage": "pre-publication"
+    },
+    {
+      "engine": "custom",
+      "id": "AVS-CONSUMER-SAFE-OUTPUT",
+      "owner": "consumer-governance",
+      "severity": "critical",
+      "stage": "pre-publication"
+    }
+  ],
+  "orchestration": {
+    "backfill_concurrency_policy_ref_required": true,
+    "cancellation": "persist_terminal_run_state_and_leave_last_trusted_visible",
+    "deterministic_failure_retry": "operator_authorized_only_after_remediation",
+    "owner": "dagster",
+    "resume": "same_release_contract_config_and_partition_or_new_superseding_run",
+    "retry_categories": [
+      "transient_transport",
+      "transient_storage",
+      "authority_outage",
+      "deterministic_contract_failure",
+      "privacy_failure",
+      "poison_record"
+    ],
+    "schedule_overlap": "bounded_by_partition_lease",
+    "supersession": "explicit_predecessor_run_id",
+    "upstream_downstream_mapping_required": true
+  },
+  "partition_scope": [
+    "contract_id",
+    "authenticated_source",
+    "tenant_id",
+    "data_product_id",
+    "time_window"
+  ],
+  "publication": {
+    "candidate_fields": [
+      "candidate_id",
+      "relation_set_digest",
+      "partition_scope",
+      "contract_root_digest",
+      "release_digest",
+      "config_digest",
+      "mandatory_check_set_digest",
+      "check_result_set_digest",
+      "prior_generation",
+      "prior_digest"
+    ],
+    "candidate_immutable": true,
+    "failure": "retain_last_trusted_generation",
+    "marker_owner": "database_stored_procedure",
+    "marker_update_by_orchestrator_or_scanner": "forbidden",
+    "transaction": [
+      "seal_candidate",
+      "validate_exact_complete_check_set",
+      "compare_expected_prior_generation_and_digest",
+      "promote_new_generation_and_digest"
+    ]
+  },
+  "result_identity": [
+    "check_id",
+    "check_version",
+    "dataset_id",
+    "partition_key",
+    "run_id",
+    "attempt_id"
+  ],
+  "schema_version": "aviasurveil_quality_publication_contract.v1"
+}

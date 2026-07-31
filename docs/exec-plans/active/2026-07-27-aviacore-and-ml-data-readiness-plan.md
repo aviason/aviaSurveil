@@ -1,6 +1,13 @@
 # AviaCore And ML Data Readiness Plan
 
-**Status:** `blocked`
+**Status:** `in progress` — Tasks 1–2 and separately authorized Task 3A/3B
+are `verified locally` and independently accepted. Task 4, including explicit
+authorization for forward-only migration `000022`, has one source-consistent
+workspace transition implemented, `verified locally`, and independently
+accepted. The AviaCore v3 machine-contract semantic mismatch is repaired and
+independently accepted locally; Task 5 is independently accepted and
+`verified locally`.
+Every AviaCore Phase 2.3+ slice remains separately gated.
 
 **Reviewed task count:** 9 work packages. Task 3 is a non-executable umbrella
 over one AviaCore successor-contract slice and one AviaSurveil mirror/codegen
@@ -36,13 +43,13 @@ is implied.
 
 ## Current Contract Boundary
 
-AviaCore contract version `1.0.0` currently freezes:
+AviaCore contract version `3.0.0` currently freezes:
 
 - producer: `aviasurveil360`;
 - delivery mode: `event_api`;
-- endpoint: `POST /v1/aviasurveil/event-batches`;
+- endpoint: `POST /v3/aviasurveil/event-batches`;
 - content type:
-  `application/vnd.aviacore.aviasurveil-events.v1+json`;
+  `application/vnd.aviacore.aviasurveil-events.v3+json`;
 - direct mTLS with TLS 1.3 and source/tenant SAN mapping;
 - at-least-once delivery with producer transactional outbox;
 - 1-100 events per batch, 1 MiB maximum per event, and 10 MiB maximum per
@@ -145,8 +152,85 @@ and must not be edited.
   late Data Vault/data-product design, producer privacy/recovery gaps, and the
   one-slice-per-task authority boundary. Implementation and runtime
   verification remain `not run`.
-- [ ] Identity/data predecessor acceptance.
-- [ ] Separate AviaCore Phase 2.3 execution authority.
+- [x] (2026-07-29) Identity/data predecessor acceptance verified from the
+  completed plan record and final evidence.
+- [x] (2026-07-29) Task 1 coverage register implemented, independently
+  accepted, and `verified locally`: 89 final relations and 874 post-CREATE/
+  ALTER columns have one explicit disposition; 67 OpenAPI operations, 24
+  literal Audit actions, and 24 literal internal outbox topics have exact
+  source-to-contract mappings. The v1 17-event catalog is byte-compared from
+  AviaCore; Potential Finding/report and unbounded-text facts remain extension
+  candidates or forbidden inline. Review accepted with no Critical/Important
+  findings.
+- [x] (2026-07-29) Burak Karahan / owner separately authorized Task 3A and
+  approved the closed v3 extension event families, common envelope, bounded
+  ordered question snapshot, zero-overlap compatibility, source-consistent
+  historical event-API backfill, indefinite immutable retention, legal-hold
+  restriction, replay/publication tombstone rule, and forward-fix recovery.
+- [x] (2026-07-29) Task 3A: AviaCore v3 successor contract root, behavioral
+  identity, and authorization envelope are independently accepted and
+  `verified locally`. The historical v1 Phase 1 verifier remains a
+  snapshot-bound predecessor record and is not a v3 acceptance gate.
+- [x] (2026-07-29) Task 3B: AviaSurveil's exact 140-artifact local mirror,
+  read-only lock gate, generated types, and full locked-schema validator are
+  independently accepted and `verified locally`.
+- [x] (2026-07-29) Burak Karahan / owner separately authorized Task 4 and the
+  next forward-only migration `000022_aviasurveil_data_feed_outbox`.
+- [x] (2026-07-29) Task 4: local v3 event construction, encrypted immutable
+  producer storage, SQLC queries, fenced delivery state, and focused fresh
+  PostgreSQL migration/rollback/idempotency proofs are `verified locally` and
+  independently accepted. `CreateAuditWorkspace` is the one source-consistent
+  transition: it writes the exact causal `audit.planned`/`audit.started` pair;
+  read-only and final-state claims remain explicit non-events/dispositions.
+- [x] (2026-07-30) Task 5: the direct-mTLS batch publisher is independently
+  accepted and `verified locally`. Its RED/GREEN direct-mTLS configuration
+  guard is `verified locally`. The earlier v3
+  protocol/OpenAPI mismatch was repaired in AviaCore under owner authority and
+  independently accepted: the exact protocol and OpenAPI now bind
+  `/v3/aviasurveil/event-batches` to
+  `application/vnd.aviacore.aviasurveil-events.v3+json`. A later
+  owner-authorized v3 receipt-binding repair makes the expected item-set
+  digest algorithm and every successful item digest explicit. Current
+  behavioral identity `d87ec3649ff0f3b5f3871e90496eac2b1177dbec9f26fea72ced825d0beff121`
+  and authorization identity
+  `201cbed1f998b60506293efdae81c060b29d3d6e30696257785b4ec02be92c0e` are
+  mirrored and locked locally. The repair is `candidate-only`, has no runtime
+  ingestion or Phase 2.3 execution, and opens only this authorized Task 5.
+  The local candidate now has a separate `data-feed-worker` target, closed
+  mounted-secret worker configuration, TLS 1.3 direct mTLS validation,
+  digest-bound receipt handling, exact v3 content/item-set digests, bounded
+  jitter retry with eighth-attempt operator quarantine, fenced PostgreSQL
+  acknowledgement/retry/quarantine state transitions, and scoped decrypted
+  event reconstruction that rechecks payload and canonical hashes. Focused
+  race/contract acceptance and disposable PostgreSQL migration/lease/receipt
+  tests are `verified locally`. The final independently repeated acceptance
+  uses a fresh dynamic loopback PostgreSQL port, has a fresh evidence root and
+  scoped Docker cleanup, and passed with no Critical or Important finding.
+  Telemetry records bounded named delivery outcomes plus pending-age and
+  acknowledgement-lag measurements without payload values. This remains
+  `candidate-only`; `production-ready: not established`.
+- [x] (2026-07-30) Separate AviaCore Phase 2.3 execution authority completed
+  and independently accepted `verified locally` as a local-fixture v3
+  event-API admission boundary. It supplies no admitted/raw manifest or
+  connected runtime evidence.
+- [x] (2026-07-30) Separately authorized AviaCore Phase 2.4 is independently
+  accepted `verified locally`: forward-only candidate PostgreSQL canonical
+  reservation, immutable attempts/receipts, separate submission/landing
+  manifest metadata, quarantine-v2, replay-suppression tombstones, legacy
+  plaintext-quarantine writer shutdown, and receipt-bound fenced acknowledgement
+  passed local and networkless PostgreSQL checks. This does not wire a connected
+  admission runtime or emit a source-bound admitted/raw manifest.
+- [ ] (2026-07-30) Task 6 is in progress. The candidate has an approval-bound
+  replay/backfill request model, deterministic scope digest, forward-only
+  migration `000024`, immutable replay-run/source-event snapshots, and a
+  separate fenced replay delivery lane. Focused RED/GREEN tests prove that a
+  replay receipt updates only that lane and its append-only attempt history;
+  the original producer delivery state remains unchanged. The dedicated
+  replay/backfill/reconciliation commands, exact synthetic manifest contract,
+  and local recovery aggregate are `verified locally`. The actual AviaCore
+  admission/raw manifest, coordinated two-system recovery, RPO/RTO exercise,
+  and independent Task 6 acceptance remain `not run` and `blocked` on a
+  separately authorized connected AviaCore runtime/raw-manifest slice.
 
 ## Tasks
 
@@ -162,24 +246,24 @@ and must not be edited.
 
 **Work**
 
-- [ ] Derive a closed inventory from every migration relation/column,
+- [x] Derive a closed inventory from every migration relation/column,
   structured JSON pointer, versioned object/metadata field, OpenAPI mutation,
   domain command/transition, audit action, outbox topic, projection, and
   materialized or external persistent record. Bind it to migration, OpenAPI,
   object-schema, and command-registry fingerprints so an added, removed, or
   renamed source fails the gate.
-- [ ] Give every persisted datum exactly one disposition:
+- [x] Give every persisted datum exactly one disposition:
   approved event field, approved snapshot contract, approved reference-data
   contract, approved data-product derivation, contract-extension candidate,
   operational/DQ-only, sensitive-restricted, or forbidden. A datum is never
   omitted merely because it is not currently proposed for analytics or ML.
-- [ ] Permit `approved data-product derivation` only when every derivation
+- [x] Permit `approved data-product derivation` only when every derivation
   input is already transported through an approved event, snapshot, or
   reference-data contract and the product proves deterministic field-level
   lineage. A downstream product is not a transport mechanism; otherwise the
   source datum needs a direct transport contract or an explicit non-feed/
   DQ-only disposition.
-- [ ] For every datum define source authority, contract family and grain,
+- [x] For every datum define source authority, contract family and grain,
   entity references, authenticated platform `tenant_id`, `source_system`,
   inspected/owning `organization_id`, actor organization, visibility/purpose
   scope, effective time, known time, producer revision/sequence, null
@@ -187,22 +271,22 @@ and must not be edited.
   rationale, retention/legal-hold/deletion rule, expected volume, consumer,
   lineage, and feature/label eligibility. Never derive tenant identity from a
   payload organization.
-- [ ] Compare the complete inventory against all 17 approved event types and
+- [x] Compare the complete inventory against all 17 approved event types and
   list exact gaps. At minimum inspect identity lifecycle, organization,
   planning approvals, team/question assignments, report versions/decisions,
   documents, communications metadata, notifications, calendar/reminders, risk
   inputs/outputs, and administration/audit state.
-- [ ] Keep unrestricted free text, Evidence bytes, filenames, Internal CAA
+- [x] Keep unrestricted free text, Evidence bytes, filenames, Internal CAA
   Notes, investigation notes, person names, contact values, and credentials
   forbidden inline unless a later explicit policy changes their class.
-- [ ] Require every proposed feature and label to trace to at least one
+- [x] Require every proposed feature and label to trace to at least one
   approved source fact. Reject "collect everything" fields with no named
   purpose or owner.
-- [ ] Produce three independent completeness proofs: static persisted-source
+- [x] Produce three independent completeness proofs: static persisted-source
   inventory, command/transition-to-contract coverage, and profile-manifest to
   producer-event/AviaCore-acknowledgement reconciliation. Synthetic rows alone
   do not prove an unexecuted mutation branch.
-- [ ] Include two platform tenants with colliding local business IDs, and one
+- [x] Include two platform tenants with colliding local business IDs, and one
   CAA tenant with multiple inspected Auditee organizations, in key, RLS,
   object-policy, join, restore, and reconciliation mutation tests.
 
@@ -249,45 +333,45 @@ code, or authorize Phase 2.3.
 
 **Work**
 
-- [ ] Review every Task 1 extension candidate with producer/domain,
+- [x] Review every Task 1 extension candidate with producer/domain,
   contract-governance, data-platform, data-product, privacy/retention, and
   Data/ML owners.
-- [ ] Add only facts with a named analytical/ML purpose, authority, grain,
+- [x] Add only facts with a named analytical/ML purpose, authority, grain,
   privacy class, retention class, correction rule, and owner.
-- [ ] Select and record one not-yet-existing successor contract/schema/
+- [x] Select and record one not-yet-existing successor contract/schema/
   behavioral-manifest root. Use a compatible minor contract revision for
   additive scope or a new major contract with overlap policy for breaking
   changes. Existing v1 bytes and the current v2 behavioral/authorization
   records are immutable predecessor artifacts, not candidate change paths.
-- [ ] Resolve the known correction/supersession lifecycle scope, missing hash
+- [x] Resolve the known correction/supersession lifecycle scope, missing hash
   projections, tombstone/replay-suppression semantics, and required exhaustive
   behavioral branches as part of the final successor scope.
-- [ ] Preserve all source IDs, organization identity, versions, effective
+- [x] Preserve all source IDs, organization identity, versions, effective
   times, known/availability times, and human-decision provenance needed for
   point-in-time analysis.
-- [ ] Approve explicit event, source-consistent bootstrap/snapshot,
+- [x] Approve explicit event, source-consistent bootstrap/snapshot,
   reference-data, and data-product contract families. Keep the protocol's
   `approved_snapshot` delivery mode disabled unless a separately versioned
   snapshot protocol is approved.
-- [ ] Choose one bootstrap path before outbox implementation: historical
+- [x] Choose one bootstrap path before outbox implementation: historical
   event-API backfill from a source-consistent cut, or a separately approved
   snapshot/reference protocol. Bind expected IDs/counts/digests, original
   effective and known time, producer revision, tombstones, cursor/resume, and
   reconciliation; never present a table dump as an original real-time event.
-- [ ] Separate authenticated platform `tenant_id`, `source_system`,
+- [x] Separate authenticated platform `tenant_id`, `source_system`,
   inspected/owning `organization_id`, actor organization, and visibility/
   purpose scope in envelopes, keys, policies, and reconciliation.
-- [ ] Freeze Data Vault 2 business keys with source namespace, hubs, links,
+- [x] Freeze Data Vault 2 business keys with source namespace, hubs, links,
   satellites, effectivity/record-tracking satellites, PIT/bridge needs,
   hash/hashdiff inputs, insert-only historization, late/corrected/superseded
   behavior, record source, and DQ gates before AviaCore Phase 2.5.
-- [ ] Freeze every data product's owner, purpose/legal basis, grain, input
+- [x] Freeze every data product's owner, purpose/legal basis, grain, input
   transport contracts, deterministic lineage, freshness, retention/legal
   hold/deletion, access, privacy, DQ, correction, and publication policy before
   implementation.
-- [ ] Keep payloads closed with `additionalProperties: false`; bounded
+- [x] Keep payloads closed with `additionalProperties: false`; bounded
   classified maps require explicit field-path policy.
-- [ ] Record the exact compatibility/overlap window, version negotiation,
+- [x] Record the exact compatibility/overlap window, version negotiation,
   rollback/forward-fix rule, authorization owners, and separately executable
   AviaCore-cut and AviaSurveil-mirror slices.
 
@@ -333,37 +417,37 @@ lock, and code-generation update. Neither slice authorizes Phase 2.3.
 
 **Work**
 
-- [ ] Slice 3A: add an exhaustive package-integrity matrix and implement the
+- [x] Slice 3A: add an exhaustive package-integrity matrix and implement the
   Task 2-approved successor corrections for lifecycle/schema consistency,
   complete link/satellite hash projections, tombstone/replay-suppression
   events, bootstrap/reference/product contracts, tenant/organization
   separation, and every approved coverage extension.
-- [ ] Slice 3A: require positive and negative vectors for every allowed/
+- [x] Slice 3A: require positive and negative vectors for every allowed/
   forbidden transition, required/null field, enum, identity/tenant mismatch,
   timestamp rule, privacy branch, correction/supersession reference,
   bootstrap/resume branch, and version-compatibility/overlap branch.
-- [ ] Slice 3A: issue a new successor behavioral-contract digest and a separate
+- [x] Slice 3A: issue a new successor behavioral-contract digest and a separate
   current owner-authorization envelope. Keep authorization state outside the
   behavioral digest and preserve all predecessor approvals unchanged.
-- [ ] Stop after AviaCore repository checks and independent contract-owner
+- [x] Stop after AviaCore repository checks and independent contract-owner
   acceptance. Record the exact AviaCore commit/content state, successor root,
   behavioral digest, authorization digest/currentness, and evidence root.
-- [ ] Slice 3B: copy only the final approved producer-facing protocol, event
+- [x] Slice 3B: copy only the final approved producer-facing protocol, event
   catalog, envelope/payload schemas, lifecycle, privacy, temporal, hash,
   state-machine, bootstrap/snapshot, reference-data, recovery, compatibility/
   overlap, OpenAPI surface, and every associated conformance vector needed to
   build, backfill, recover, and test the producer independently. Do not vendor
   AviaCore implementation or internal Vault/product artifacts.
-- [ ] Record the exact AviaCore commit/content state, behavioral-contract
+- [x] Record the exact AviaCore commit/content state, behavioral-contract
   digest, contract-set version, exact successor source inventory, per-file
   SHA-256, aggregate root digest, source path, and authorization-envelope
   identity/currentness separately.
-- [ ] Make the check command read-only by default and require an explicit,
+- [x] Make the check command read-only by default and require an explicit,
   separately authorized update mode to replace the producer copy.
-- [ ] Fail on local/source drift, missing or extra schema, stale/expired/
+- [x] Fail on local/source drift, missing or extra schema, stale/expired/
   revoked/superseded authorization, predecessor-root mutation, or lock-version
   mismatch.
-- [ ] Generate Go test types/validators from the locked JSON Schemas without
+- [x] Generate Go test types/validators from the locked JSON Schemas without
   importing AviaCore implementation code and run the complete branch matrix
   against the producer serializer.
 
@@ -371,8 +455,8 @@ lock, and code-generation update. Neither slice authorizes Phase 2.3.
 
 Run Slice 3A from AviaCore, then stop:
 
-    make -C /Users/marlonjd/Developer/monorepos/aviaCore aviasurveil-contract-check
-    make -C /Users/marlonjd/Developer/monorepos/aviaCore aviasurveil-protocol-check
+    make -C /Users/marlonjd/Developer/monorepos/aviaCore aviasurveil-v3-contract-check
+    make -C /Users/marlonjd/Developer/monorepos/aviaCore aviasurveil-v3-protocol-check
     make -C /Users/marlonjd/Developer/monorepos/aviaCore repo-check
     git -C /Users/marlonjd/Developer/monorepos/aviaCore diff --check
 
@@ -383,10 +467,25 @@ After separate Slice 3B authorization, run:
     ./scripts/check-contracts.sh
     git diff --check
 
-The AviaCore targets are planned by its normative plan and cannot be reported
-as run until implemented. Expected: the final successor roots match exactly,
-authorization is current, every behavioral branch passes, and accepted
-predecessor bytes remain unchanged.
+Task 3A evidence, `verified locally`: `make ... aviasurveil-v3-contract-check`
+passed 8 tests; `make ... aviasurveil-v3-protocol-check` passed with behavioral
+digest `48a6beac9891df3f1becb262e686cd3f010c7072ca0e90c938605672270db530`,
+authorization digest `f1388795d2bde4fc5b32ae5897abb3b7a4f178a7a083445fb937f46e8b482c31`,
+and status `candidate_only`; `make ... repo-check` passed 46 tests plus scans
+and repository validation; `git diff --check` passed. The independent read-only
+review found no Critical or Important finding. The v1 historical Phase 1 target
+remains a snapshot-bound historical failure and is not a v3 acceptance gate.
+Task 3B evidence, `verified locally`: the read-only local mirror has 140 exact
+source artifacts at AviaCore `8df4b0cb871d3bb4604a8cc52e3b826db029e008`,
+contract version `3.0.0`, aggregate root
+`372ad14c94009b0ab46b47989eb91fd0f09382a069ea5dc30ee07b10c7e7e078`,
+and the Task 3A behavioral/authorization digests above. The lock carries only
+Task 3B mirror currentness, not producer-runtime or Phase 2.3 authority. Its
+default checker, 3/3 lock tests, locked-schema Go validator (39 positive, 39
+negative, and 11 branch cases), existing contracts 16/16, docs smoke, and
+`git diff --check` passed; independent review found no Critical or Important
+finding. Task 4 and AviaCore Phase 2.3 remain `not run` and separately
+unauthorized.
 
 **Acceptance**
 
@@ -425,31 +524,37 @@ predecessor bytes remain unchanged.
 
 **Work**
 
-- [ ] Allocate producer-owned UUID event IDs and serialize from server-owned
-  identities and authoritative post-transition state.
-- [ ] Write the business mutation, audit event, authorized sync change,
-  internal outbox work, and AviaCore feed event in the same PostgreSQL
-  transaction.
-- [ ] Require every approved command/transition from the coverage register to
-  emit its exact feed fact in that transaction or carry a tested explicit
-  non-event disposition; table scraping cannot repair missing command
-  coverage.
-- [ ] Use exact canonicalization and digest vectors from the contract lock.
-- [ ] Keep feed payload immutable. Corrections and supersession use new events
-  and explicit references.
-- [ ] Separate pending delivery, attempt outcome, and acknowledged event state.
-  Never call a locally committed event acknowledged.
-- [ ] Add scoped indexes, bounded claims, fenced leases, stale-worker denial,
-  dead-letter visibility, and append-only attempt history.
-- [ ] Enforce a closed per-event field allowlist, PII minimization, dedicated
-  non-owner worker role, platform-tenant and organization row isolation,
-  payload encryption, acknowledged-event retention, legal hold, deletion/
-  crypto-erasure, backup expiry, tombstone, and replay-suppression rules.
-- [ ] Keep attempt, error, dead-letter, operator, log, trace, and metric data
-  value-free. A purpose-bound encrypted pointer is allowed only by an approved
-  contract and has append-only disposition history.
-- [ ] Prove rollback leaves neither domain mutation nor feed event and replay
-  creates no second event for the same operation/outcome.
+- [x] Allocate producer-owned UUID event IDs and fail closed against the
+  locally locked v3 schema before durable persistence.
+- [x] Write the `CreateAuditWorkspace` business mutation, Audit event,
+  authorized sync change, internal outbox work, and the exact locked v3
+  `audit.planned`/`audit.started` causally linked event pair in the same
+  PostgreSQL transaction. The pair is reconstructed only when a released plan
+  and newly created workspace establish both source facts; unsupported or
+  ambiguous inspection types, or an absent local writer, fail closed and roll
+  back the entire transition.
+- [x] Require every currently registered approved command/transition to emit
+  its exact fact or carry a tested explicit non-event disposition. Read-only
+  operations remain non-events; workspace materialization is the single
+  source-consistent v3 pair above, not a table-scraped final-state claim.
+- [x] Use locked-schema validation, deterministic canonical JSON, and exact
+  payload/content SHA-256 bindings.
+- [x] Keep persisted feed payload ciphertext immutable; the lock rejects an
+  unsupported correction/supersession shape before storage.
+- [x] Separate pending delivery, append-only attempt outcome, acknowledged
+  state, and replay tombstone. A local commit cannot become acknowledged.
+- [x] Add scoped indexes, bounded claim query, fenced lease generation,
+  stale-lease denial, dead-letter state, and append-only attempt history.
+- [x] Enforce a closed event-type catalog, PII minimization, authenticated
+  platform tenant binding, organization-scoped reads, AES-GCM payload storage,
+  indefinite immutable retention, legal-hold tombstone denial, and replay
+  suppression. Dedicated worker-role provisioning and network publisher are
+  Task 5 work.
+- [x] Keep persisted attempt/dead-letter diagnostics value-free. No pointer or
+  arbitrary diagnostic payload is accepted.
+- [x] Prove a rollback leaves neither a test domain mutation nor feed event,
+  repeat operation/event insertion is denied, migration 21 upgrades to 22
+  without historical rewrite, and no backfill is performed by migration.
 
 **Verification**
 
@@ -459,8 +564,9 @@ Run:
     go -C apps/api test -race -p 1 -count=1 ./internal/datafeed ./internal/application ./tests/integration
     git diff --check
 
-Expected: one authoritative transition creates one exact immutable event in the
-same transaction and no event can be updated into different content.
+Expected: the authorized workspace transition creates its exact immutable,
+causally linked v3 lifecycle pair in the same transaction, and no event can be
+updated into different content.
 
 **Acceptance**
 
@@ -470,6 +576,28 @@ same transaction and no event can be updated into different content.
   scraping.
 - A second durable payload copy has a named purpose, access policy, retention,
   deletion, and non-resurrection proof.
+
+**Execution record (2026-07-29)**
+
+Task 4 is `verified locally` and independently accepted. The only mapped
+authoritative transition is `CreateAuditWorkspace`: after locking and reading
+its released plan, it validates an exact supported inspection type and, in the
+same transaction, writes the workspace, Audit event, authorized sync change,
+internal outbox row, and causally linked locked-v3 `audit.planned` plus
+`audit.started` rows. The event pair is unavailable unless the local writer is
+explicitly configured; an absent writer or unsupported/ambiguous source type
+returns a closed error and leaves no business or feed row. The local candidate
+has no publisher, mTLS client, network call, AviaCore Phase 2.3 execution, or
+Task 5 implementation.
+
+Fresh checks: `./scripts/check-sqlc.sh`; `go -C apps/api test -race -p 1
+-count=1 ./internal/datafeed ./internal/application`; the focused migration/
+workspace integration gate; full `go -C apps/api test -race -p 1 -count=1
+./tests/integration` with disposable PostgreSQL and MinIO (`ok`, 60.969s);
+locked-contract and coverage tests (9/9); harness docs smoke; and `git diff
+--check`. Independent read-only re-review found no Critical or Important
+finding. This evidence is `candidate-only`; release remains `release pending`
+and `production-ready: not established`.
 
 ### Task 5: Implement The Direct-mTLS Batch Publisher
 
@@ -487,28 +615,28 @@ same transaction and no event can be updated into different content.
 
 **Work**
 
-- [ ] Claim bounded pending events with fenced leases and build batches of
+- [x] Claim bounded pending events with fenced leases and build batches of
   1-100 items within exact event and batch byte limits.
-- [ ] Use TLS 1.3 direct mTLS, a secret-mounted client key/certificate, an
+- [x] Use TLS 1.3 direct mTLS, a secret-mounted client key/certificate, an
   approved CA bundle fingerprint, and source/tenant SAN mapping.
-- [ ] Reject plaintext, forwarded-client-certificate headers, unknown CA/SAN,
+- [x] Reject plaintext, forwarded-client-certificate headers, unknown CA/SAN,
   expired or revoked material, wrong source/tenant, and unsafe endpoint
   configuration.
-- [ ] Implement full-jitter bounded exponential retry using the approved
+- [x] Implement full-jitter bounded exponential retry using the approved
   1-second base, 60-second cap, and operator alert after eight attempts.
-- [ ] Persist 201 accepted, 200 duplicate, 207 mixed-terminal, 409 conflict,
+- [x] Persist 201 accepted, 200 duplicate, 207 mixed-terminal, 409 conflict,
   422 validation, 401/403 identity, 413 size, 429 rate, 503 unavailable, and
   redacted 500 outcomes without logging payload values.
-- [ ] Mark acknowledged only from an AviaCore receipt that binds request,
+- [x] Mark acknowledged only from an AviaCore receipt that binds request,
   batch, attempt, event, digest, and exact acknowledged winner.
-- [ ] Treat HTTP 207 per item. Reject a missing, duplicate, unmatched,
+- [x] Treat HTTP 207 per item. Reject a missing, duplicate, unmatched,
   wrong-event, wrong-digest, or batch-level-only receipt before advancing any
   affected event; independently persist valid terminal items.
-- [ ] Quarantine contract/conflict failures for operator disposition; retry
+- [x] Quarantine contract/conflict failures for operator disposition; retry
   only retryable outcomes. Freeze retryable/permanent/manual-review taxonomy,
   maximum time/attempt policy, quarantine owner/SLA, append-only resolution,
   correction/supersession/replay options, and terminal non-retry behavior.
-- [ ] Emit low-cardinality metrics and redacted traces for pending age,
+- [x] Emit low-cardinality metrics and redacted traces for pending age,
   throughput, outcome, retry, dead letter, and acknowledgement lag.
 
 **Verification**
@@ -534,6 +662,13 @@ secret or payload value appears in logs.
 
 ### Task 6: Add Replay, Backfill, Reconciliation, And Recovery
 
+**Status:** `in progress` — the immutable, approval-bound replay/backfill
+lanes, reconciliation command, local evidence contract, and closed synthetic
+recovery aggregate are `verified locally`. The actual AviaCore
+admission/raw-manifest comparison, coordinated two-system recovery, RPO/RTO
+measurement, and independent Task 6 acceptance remain `not run` and `blocked`
+on a separately authorized connected AviaCore runtime/raw-manifest slice.
+
 **Files**
 
 - Create `apps/api/cmd/data-feed-replay/main.go`.
@@ -546,16 +681,19 @@ secret or payload value appears in logs.
 
 **Work**
 
-- [ ] Implement approval-bound replay by event IDs, time window, source,
+- [x] Implement approval-bound replay by event IDs, time window, source,
   tenant, contract version, and terminal outcome without changing event
   content or identity.
-- [ ] Implement only the Task 3-approved bootstrap/backfill contract from a
+- [x] Implement only the Task 3-approved bootstrap/backfill contract from a
   source-consistent cut. Preserve original effective/known times and producer
   revisions, use a new backfill-run identity rather than fabricated occurrence,
   and do not masquerade table dumps as original real-time events.
 - [ ] Compare expected producer manifest, canonical feed rows, attempts,
   acknowledgements, AviaCore admitted events, quarantines, raw objects, and
-  governed relation counts/digests.
+  governed relation counts/digests. The local command already rejects exact
+  missing, extra, digest-mutated, or receipt-frontier-mismatched manifest rows;
+  it cannot complete the AviaCore-owned fields without the Phase 2.4
+  admission/raw manifest.
 - [ ] Detect lost receipt, duplicate response, partial mixed batch, worker
   crash, certificate rotation, AviaCore outage, rate limit, schema rejection,
   event conflict, clock skew, and replay interruption.
@@ -876,8 +1014,10 @@ contract, evidence, and non-claim boundaries.
 
 - AviaCore already has a repository-owner-approved local `contract-ready`
   contract and a managed remediation plan.
-- AviaCore Phase 2.1 and 2.2 are verified; Phase 2.3 and later work are not
-  started and require separate authorization.
+- AviaCore Phase 2.1, 2.2, the separately authorized local-fixture Phase 2.3
+  admission boundary, and Phase 2.4 candidate persistent-state slice are
+  verified locally. A connected admission runtime/raw-manifest slice and later
+  work require their own separate authorization.
 - The current approved event catalog contains 17 event types and explicitly
   forbids free text, person/contact values, Evidence binaries, filenames,
   finding descriptions, and investigation notes inline.

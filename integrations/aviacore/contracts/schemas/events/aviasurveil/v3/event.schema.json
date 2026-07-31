@@ -1,0 +1,124 @@
+{
+  "$id": "https://aviacore360.local/schemas/events/aviasurveil/v3/event.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "$ref": "./audit-completed.schema.json"
+    },
+    {
+      "$ref": "./audit-planned.schema.json"
+    },
+    {
+      "$ref": "./audit-started.schema.json"
+    },
+    {
+      "$ref": "./audit_assignment-versioned.schema.json"
+    },
+    {
+      "$ref": "./cap-reviewed.schema.json"
+    },
+    {
+      "$ref": "./cap-submitted.schema.json"
+    },
+    {
+      "$ref": "./checklist-completed.schema.json"
+    },
+    {
+      "$ref": "./checklist-response-recorded.schema.json"
+    },
+    {
+      "$ref": "./checklist_configuration-published.schema.json"
+    },
+    {
+      "$ref": "./checklist_configuration-versioned.schema.json"
+    },
+    {
+      "$ref": "./checklist_generation-candidate_versioned.schema.json"
+    },
+    {
+      "$ref": "./checklist_generation-impact_review_recorded.schema.json"
+    },
+    {
+      "$ref": "./checklist_generation-rollout_readiness_recorded.schema.json"
+    },
+    {
+      "$ref": "./checklist_generation-run_recorded.schema.json"
+    },
+    {
+      "$ref": "./checklist_package-composed.schema.json"
+    },
+    {
+      "$ref": "./checklist_package-versioned.schema.json"
+    },
+    {
+      "$ref": "./correction-recorded.schema.json"
+    },
+    {
+      "$ref": "./event-superseded.schema.json"
+    },
+    {
+      "$ref": "./evidence-reference-reviewed.schema.json"
+    },
+    {
+      "$ref": "./evidence-reference-submitted.schema.json"
+    },
+    {
+      "$ref": "./finding-closed.schema.json"
+    },
+    {
+      "$ref": "./finding-escalated.schema.json"
+    },
+    {
+      "$ref": "./finding-issued.schema.json"
+    },
+    {
+      "$ref": "./finding-reopened.schema.json"
+    },
+    {
+      "$ref": "./information-request-created.schema.json"
+    },
+    {
+      "$ref": "./information-request-responded.schema.json"
+    },
+    {
+      "$ref": "./organization-versioned.schema.json"
+    },
+    {
+      "$ref": "./potential_finding-decision_recorded.schema.json"
+    },
+    {
+      "$ref": "./potential_finding-versioned.schema.json"
+    },
+    {
+      "$ref": "./provider_scope-ended.schema.json"
+    },
+    {
+      "$ref": "./provider_scope-versioned.schema.json"
+    },
+    {
+      "$ref": "./regulatory_reference-versioned.schema.json"
+    },
+    {
+      "$ref": "./reminder-dispatch_recorded.schema.json"
+    },
+    {
+      "$ref": "./report-decision_recorded.schema.json"
+    },
+    {
+      "$ref": "./report-versioned.schema.json"
+    },
+    {
+      "$ref": "./surveillance_plan-approval_recorded.schema.json"
+    },
+    {
+      "$ref": "./surveillance_plan-status_changed.schema.json"
+    },
+    {
+      "$ref": "./surveillance_plan-versioned.schema.json"
+    },
+    {
+      "$ref": "./tombstone-recorded.schema.json"
+    }
+  ],
+  "title": "AviaSurveil Production Feed Event v3"
+}

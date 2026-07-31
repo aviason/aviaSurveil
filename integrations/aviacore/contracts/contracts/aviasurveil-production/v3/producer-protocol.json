@@ -1,0 +1,139 @@
+{
+  "acknowledgement_frontier": {
+    "checkpoint_advance_before_frontier": "forbidden",
+    "http_2xx_before_frontier": "forbidden",
+    "producer_visible_success_before_frontier": "forbidden",
+    "requires_exact_event_object_version": true,
+    "requires_exact_sealed_landing_manifest_version": true,
+    "state": "acknowledged"
+  },
+  "contract_id": "aviasurveil.production-feed.event-api",
+  "contract_version": "3.0.0",
+  "delivery": {
+    "expected_item_set_digest": {
+      "algorithm": "SHA-256",
+      "domain_separator_utf8": "aviacore.expected_item_set.v1\\u0000",
+      "item_order": "event_id_ascending",
+      "item_projection": [
+        "event_id",
+        "event_content_digest"
+      ],
+      "serialization": "typed_length_prefixed.v1"
+    },
+    "producer_transactional_outbox_required": true,
+    "replay_id_required": true,
+    "response_correlation": [
+      "request_id",
+      "batch_id",
+      "attempt_id",
+      "event_id"
+    ],
+    "retry": {
+      "base_seconds": 1,
+      "cap_seconds": 60,
+      "max_attempts_before_operator_alert": 8,
+      "strategy": "bounded_exponential_full_jitter"
+    },
+    "semantics": "at-least-once",
+    "successful_item_receipt_required": [
+      "request_id",
+      "batch_id",
+      "attempt_id",
+      "event_id",
+      "event_content_digest",
+      "manifest_receipt_digest",
+      "acknowledgement_receipt_id",
+      "winner_event_id"
+    ]
+  },
+  "delivery_mode": "event_api",
+  "machine_contract": "api/openapi/aviasurveil-ingestion-v3.openapi.json",
+  "outcomes": {
+    "accepted": {
+      "http_status": 201,
+      "prerequisite": "canonical_event_acknowledged"
+    },
+    "conflict": {
+      "http_status": 409,
+      "safe_code": "EVENT_ID_CONTENT_CONFLICT"
+    },
+    "duplicate": {
+      "http_status": 200,
+      "prerequisite": "same_digest_prior_winner_acknowledged"
+    },
+    "forbidden": {
+      "http_status": 403,
+      "safe_code": "SOURCE_TENANT_SCOPE_DENIED"
+    },
+    "mixed_terminal": {
+      "http_status": 207,
+      "prerequisite": "every_batch_item_terminal"
+    },
+    "oversized": {
+      "http_status": 413,
+      "safe_code": "PAYLOAD_LIMIT_EXCEEDED"
+    },
+    "rate_limited": {
+      "http_status": 429,
+      "retry_after_required": true,
+      "safe_code": "RATE_LIMITED"
+    },
+    "redacted_error": {
+      "http_status": 500,
+      "safe_code": "INTERNAL_ERROR",
+      "value_free": true
+    },
+    "unauthorized": {
+      "http_status": 401,
+      "safe_code": "CLIENT_IDENTITY_REQUIRED"
+    },
+    "unavailable": {
+      "http_status": 503,
+      "retryable": true,
+      "safe_code": "INGESTION_UNAVAILABLE"
+    },
+    "validation": {
+      "http_status": 422,
+      "safe_code": "CONTRACT_VALIDATION_FAILED"
+    }
+  },
+  "partial_batch_policy": {
+    "accepted_and_duplicate_are_acknowledged": true,
+    "conflict_and_rejected_are_not_acknowledged": true,
+    "item_processing": "independent_after_batch_envelope_validation",
+    "retryable_failure_keeps_batch_unsealed": true,
+    "seal_requires_every_item_terminal": true,
+    "seal_requires_expected_item_set": true
+  },
+  "schema_version": "aviasurveil_producer_protocol.v1",
+  "transport": {
+    "content_encoding": "identity",
+    "content_type": "application/vnd.aviacore.aviasurveil-events.v3+json",
+    "max_batch_bytes": 10485760,
+    "max_event_bytes": 1048576,
+    "max_items": 100,
+    "method": "POST",
+    "min_items": 1,
+    "missing_rate_limit_profile": "deny_admission",
+    "path": "/v3/aviasurveil/event-batches",
+    "rate_limit_profile_ref_required": true
+  },
+  "trust": {
+    "authority_outage": "deny_new_connections_keep_existing_only_until_tls_session_expiry",
+    "branch": "direct_mtls",
+    "ca_bundle_fingerprint_ref_required": true,
+    "client_auth_eku_required": true,
+    "client_certificate_required": true,
+    "expired_or_revoked_certificate": "deny",
+    "forwarded_client_certificate_headers": "reject",
+    "minimum_tls": "1.3",
+    "proxy_termination": "unsupported_v1",
+    "rotation_overlap_requires_distinct_approved_fingerprints": true,
+    "san_source_tenant_mapping_ref_required": true,
+    "unknown_san": "deny"
+  },
+  "unsupported_modes": [
+    "outbox_object_export",
+    "approved_snapshot"
+  ]
+}

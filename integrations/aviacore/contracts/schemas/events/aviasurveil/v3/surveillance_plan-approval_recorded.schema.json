@@ -1,0 +1,80 @@
+{
+  "$id": "https://aviacore360.local/schemas/events/aviasurveil/v3/surveillance_plan-approval_recorded.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "./envelope.schema.json"
+    },
+    {
+      "properties": {
+        "entity_refs": {
+          "additionalProperties": false,
+          "properties": {
+            "plan_id": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "plan_id"
+          ],
+          "type": "object"
+        },
+        "event_type": {
+          "const": "surveillance_plan.approval_recorded"
+        },
+        "event_version": {
+          "const": 1
+        },
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "approval_decision_code": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "decided_at": {
+              "format": "date-time",
+              "pattern": "Z$",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "plan_id": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "plan_revision": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "plan_id",
+            "plan_revision",
+            "approval_decision_code",
+            "decided_at"
+          ],
+          "type": "object"
+        },
+        "state_after": {
+          "const": "plan_approved"
+        },
+        "state_before": {
+          "enum": [
+            null
+          ]
+        }
+      },
+      "type": "object"
+    }
+  ],
+  "title": "surveillance_plan.approval_recorded v3"
+}

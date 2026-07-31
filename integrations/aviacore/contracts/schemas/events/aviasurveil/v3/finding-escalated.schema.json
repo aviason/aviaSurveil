@@ -1,0 +1,76 @@
+{
+  "$id": "https://aviacore360.local/schemas/events/aviasurveil/v3/finding-escalated.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "./envelope.schema.json"
+    },
+    {
+      "properties": {
+        "entity_refs": {
+          "additionalProperties": false,
+          "properties": {
+            "audit_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "finding_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "audit_id",
+            "finding_id"
+          ],
+          "type": "object"
+        },
+        "event_type": {
+          "const": "finding.escalated"
+        },
+        "event_version": {
+          "const": 1
+        },
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "escalated_at": {
+              "format": "date-time",
+              "pattern": "Z$",
+              "type": "string"
+            },
+            "escalation_reason_code": {
+              "maxLength": 64,
+              "minLength": 2,
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "escalation_reason_code",
+            "escalated_at"
+          ],
+          "type": "object"
+        },
+        "state_after": {
+          "enum": [
+            "finding_escalated"
+          ]
+        },
+        "state_before": {
+          "enum": [
+            "finding_open",
+            "evidence_required",
+            "evidence_rejected"
+          ]
+        }
+      },
+      "type": "object"
+    }
+  ],
+  "title": "finding.escalated v1"
+}

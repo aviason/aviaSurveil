@@ -653,6 +653,15 @@ func (manager *Manager) Authenticate(ctx context.Context, rawToken string) (iden
 	if outcome != nil {
 		return identity.Principal{}, outcome
 	}
+	if principal.HasRole(identity.RoleDepartmentManager) {
+		assignments, assignmentErr := identity.ResolveEffectiveDepartmentAssignments(
+			ctx, manager.pool, principal.SubjectID, now,
+		)
+		if assignmentErr != nil {
+			return identity.Principal{}, fmt.Errorf("resolve authenticated department authority: %w", assignmentErr)
+		}
+		principal.DepartmentAssignments = assignments
+	}
 	return principal, nil
 }
 

@@ -1,0 +1,36 @@
+{
+  "actor_organization_id": "caa-fixture",
+  "aggregate_id": "tombstoned_event_id-fixture",
+  "aggregate_revision": 1,
+  "aggregate_type": "tombstone",
+  "business_key": "tombstone-recorded-fixture",
+  "causation_id": null,
+  "contract_id": "aviasurveil.production-feed.events",
+  "contract_version": "3.0.0",
+  "correlation_id": "10000000-0000-4000-8000-000000000002",
+  "effective_at": "2026-07-29T00:00:00Z",
+  "emitted_at": "2026-07-29T00:00:00Z",
+  "entity_refs": {
+    "tombstoned_event_id": "tombstoned_event_id-fixture"
+  },
+  "event_id": "10000000-0000-4000-8000-000000000001",
+  "event_type": "tombstone.recorded",
+  "event_version": 1,
+  "known_at": "2026-07-29T00:00:00Z",
+  "occurred_at": "2026-07-29T00:00:00Z",
+  "owning_organization_id": "organization-fixture",
+  "payload": {
+    "suppression_scope_code": "replay_publication",
+    "tombstone_reason_code": "legal_hold_release",
+    "tombstoned_event_id": "event-fixture"
+  },
+  "payload_sha256": "4b16d263dacab2278372a2d287a5d1918b334c61ca40b2d0b4d6fc7e96e40543",
+  "privacy_class": "P2",
+  "schema_version": "3.0.0",
+  "source_module": "aviasurveil360",
+  "source_system": "aviasurveil360",
+  "state_after": "tombstone_recorded",
+  "state_before": null,
+  "tenant_id": "tenant-fixture",
+  "visibility_purpose_code": "regulated_oversight"
+}

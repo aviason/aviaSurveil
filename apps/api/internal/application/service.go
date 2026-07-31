@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/assignments"
+	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/datafeed"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/documents"
 	findingstore "github.com/MarlonJD/aviaSurveil360/apps/api/internal/findings/store/postgres"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
@@ -29,12 +30,16 @@ var (
 	ErrConflict  = errors.New("conflict")
 	ErrInvalid   = errors.New("invalid command")
 	ErrNotFound  = errors.New("not found")
+	// ErrDataFeedNotConfigured prevents an authoritative mutation from silently
+	// claiming a governed feed fact when its required local writer is absent.
+	ErrDataFeedNotConfigured = errors.New("datafeed writer not configured")
 )
 
 type Dependencies struct {
 	Clock                     func() time.Time
 	IDGenerator               func(string) string
 	FindingReferenceGenerator func() string
+	DataFeedWriter            *datafeed.Writer
 }
 
 type Service struct {
@@ -42,6 +47,7 @@ type Service struct {
 	clock                     func() time.Time
 	idGenerator               func(string) string
 	findingReferenceGenerator func() string
+	dataFeedWriter            *datafeed.Writer
 }
 
 func NewService(pool *database.Pool, dependencies Dependencies) *Service {
@@ -53,7 +59,7 @@ func NewService(pool *database.Pool, dependencies Dependencies) *Service {
 	if idGenerator == nil {
 		idGenerator = randomID
 	}
-	return &Service{pool: pool, clock: clock, idGenerator: idGenerator, findingReferenceGenerator: dependencies.FindingReferenceGenerator}
+	return &Service{pool: pool, clock: clock, idGenerator: idGenerator, findingReferenceGenerator: dependencies.FindingReferenceGenerator, dataFeedWriter: dependencies.DataFeedWriter}
 }
 
 type commandEnvelope struct {
@@ -78,6 +84,7 @@ type transition[T any] struct {
 	ClosureBasis   string
 	SyncKind       string
 	OutboxTopic    string
+	DataFeedEvents []datafeed.EventInput
 }
 
 type MaterializeInspectionCommand struct {
@@ -368,7 +375,7 @@ func executeTransition[T any](ctx context.Context, service *Service, actor ident
 		if len(actor.Roles) > 0 {
 			role = string(actor.Roles[0])
 		}
-		return persistCommandTransaction(ctx, transaction, transactionEnvelopeRecord{
+		if err := persistCommandTransaction(ctx, transaction, transactionEnvelopeRecord{
 			OperationID: envelope.OperationID, CorrelationID: envelope.CorrelationID,
 			IdempotencyKey: envelope.IdempotencyKey, IdempotencyScope: scope,
 			SemanticHash: semanticHash, ResponseBody: responseBody,
@@ -379,7 +386,21 @@ func executeTransition[T any](ctx context.Context, service *Service, actor ident
 			SyncKind: result.SyncKind, OutboxTopic: result.OutboxTopic,
 			AuditEventID: service.idGenerator("audit"), OutboxMessageID: service.idGenerator("outbox"),
 			OccurredAt: now,
-		})
+		}); err != nil {
+			return err
+		}
+		if len(result.DataFeedEvents) == 0 {
+			return nil
+		}
+		if service.dataFeedWriter == nil {
+			return fmt.Errorf("datafeed event emission is configured for %s but no datafeed writer is available", envelope.Kind)
+		}
+		for _, event := range result.DataFeedEvents {
+			if _, err := service.dataFeedWriter.Append(ctx, transaction, envelope.OperationID, event); err != nil {
+				return fmt.Errorf("append datafeed event: %w", err)
+			}
+		}
+		return nil
 	})
 	if err != nil {
 		return zero, err

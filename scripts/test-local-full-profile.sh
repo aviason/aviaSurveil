@@ -175,6 +175,19 @@ compose run \
   --entrypoint /bin/sh \
   api -ec '
   database_password="$(tr -d "\r\n" </run/secrets/app_database_password)"
+  export AVIA_TEST_DATABASE_URL="postgres://aviasurveil360:${database_password}@postgres:5432/aviasurveil360?sslmode=disable"
+  unset database_password
+  exec /tmp/identitysetup.test \
+    -test.run "^TestGate0BootstrapHistoricalChecklistForFullProfile$" \
+    -test.count=1
+' historical-checklist-bootstrap
+compose run \
+  --rm \
+  --no-deps \
+  --volume "${IDENTITY_SETUP_BINARY}:/tmp/identitysetup.test:ro" \
+  --entrypoint /bin/sh \
+  api -ec '
+  database_password="$(tr -d "\r\n" </run/secrets/app_database_password)"
   service_client_secret="$(
     tr -d "\r\n" </run/secrets/keycloak_service_client_secret
   )"

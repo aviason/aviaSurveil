@@ -1,0 +1,70 @@
+{
+  "actor_organization_id": "caa-fixture",
+  "aggregate_id": "configuration_id-fixture",
+  "aggregate_revision": 1,
+  "aggregate_type": "checklist_configuration",
+  "business_key": "checklist_configuration-published-fixture",
+  "causation_id": null,
+  "contract_id": "aviasurveil.production-feed.events",
+  "contract_version": "3.0.0",
+  "correlation_id": "10000000-0000-4000-8000-000000000002",
+  "effective_at": "2026-07-29T00:00:00Z",
+  "emitted_at": "2026-07-29T00:00:00Z",
+  "entity_refs": {
+    "configuration_id": "configuration_id-fixture",
+    "publication_decision_id": "publication_decision_id-fixture"
+  },
+  "event_id": "10000000-0000-4000-8000-000000000001",
+  "event_type": "checklist_configuration.published",
+  "event_version": 1,
+  "known_at": "2026-07-29T00:00:00Z",
+  "occurred_at": "2026-07-29T00:00:00Z",
+  "owning_organization_id": "organization-fixture",
+  "payload": {
+    "configuration_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "configuration_id": "fixture-code",
+    "configuration_revision": 1,
+    "ordered_question_snapshot": [
+      {
+        "allowed_answer_codes": [
+          "yes",
+          "no",
+          "na"
+        ],
+        "citation_reference_ids": [
+          "citation-fixture-1"
+        ],
+        "expected_evidence_type_codes": [
+          "controlled_document"
+        ],
+        "mandatory": true,
+        "mapping_reference_ids": [
+          "mapping-fixture-1"
+        ],
+        "ordinal": 1,
+        "prompt": "Verify the controlled requirement.",
+        "question_id": "question-fixture-1",
+        "safety_critical": false,
+        "verification_method_code": "document_review"
+      }
+    ],
+    "provider_scope_ref": "fixture-code",
+    "publication_decision_code": "fixture-code",
+    "publication_decision_id": "fixture-code",
+    "published_at": "2026-07-29T00:00:00Z",
+    "qualifier_codes": [
+      "fixture-code"
+    ],
+    "question_count": 1,
+    "typed_target_ref": "fixture-code"
+  },
+  "payload_sha256": "97e3e6f340f8f38b88342cf128394c2cb3cb2a579fca590f932e638da6c79df4",
+  "privacy_class": "P2",
+  "schema_version": "3.0.0",
+  "source_module": "aviasurveil360",
+  "source_system": "aviasurveil360",
+  "state_after": "configuration_published",
+  "state_before": null,
+  "tenant_id": "tenant-fixture",
+  "visibility_purpose_code": "regulated_oversight"
+}

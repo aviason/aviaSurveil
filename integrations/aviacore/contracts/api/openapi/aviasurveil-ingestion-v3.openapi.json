@@ -1,0 +1,481 @@
+{
+  "components": {
+    "responses": {
+      "AllAccepted": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/BatchResult"
+            }
+          }
+        },
+        "description": "Every item reached canonical acknowledged state as a new accepted event."
+      },
+      "AllDuplicate": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/BatchResult"
+            }
+          }
+        },
+        "description": "Every item matched the digest of an already acknowledged canonical winner."
+      },
+      "Conflict": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        },
+        "description": "An event_id is already reserved or acknowledged with a different event_content_hash.v3 digest."
+      },
+      "Forbidden": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        },
+        "description": "Authenticated principal lacks exact source/tenant scope."
+      },
+      "MixedTerminal": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/BatchResult"
+            }
+          }
+        },
+        "description": "The expected item set is terminal with a mix of accepted, duplicate, conflict, or rejected outcomes. Only accepted/duplicate items are acknowledged."
+      },
+      "Oversized": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        },
+        "description": "Event or batch exceeds the frozen byte/item limit."
+      },
+      "RateLimited": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        },
+        "description": "Approved environment rate profile denied admission.",
+        "headers": {
+          "Retry-After": {
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "RedactedError": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        },
+        "description": "Internal error with a value-free correlation response."
+      },
+      "Unauthorized": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        },
+        "description": "mTLS client identity missing or invalid."
+      },
+      "Unavailable": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        },
+        "description": "Fail-closed temporary unavailability. Producer retries with bounded backoff.",
+        "headers": {
+          "Retry-After": {
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "Validation": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        },
+        "description": "Contract, version, lifecycle, identity, hash, or privacy validation failed; errors contain no submitted values."
+      }
+    },
+    "schemas": {
+      "BatchResult": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "batch_id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "batch_state": {
+            "enum": [
+              "sealed_terminal",
+              "unsealed_retryable"
+            ]
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ItemResult"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "type": "array"
+          },
+          "landing_manifest_receipt_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "request_id": {
+            "$ref": "#/components/schemas/Uuid"
+          }
+        },
+        "required": [
+          "request_id",
+          "batch_id",
+          "attempt_id",
+          "batch_state",
+          "items"
+        ],
+        "type": "object"
+      },
+      "ErrorResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/ValueFreeError"
+            },
+            "maxItems": 32,
+            "type": "array"
+          },
+          "request_id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "retry_after_seconds": {
+            "maximum": 3600,
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "safe_code": {
+            "maxLength": 96,
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "safe_code",
+          "errors"
+        ],
+        "type": "object"
+      },
+      "EventBatch": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "batch_id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "events": {
+            "items": {
+              "$ref": "../../schemas/events/aviasurveil/v3/event.schema.json"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "type": "array"
+          },
+          "expected_item_count": {
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "expected_item_set_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "predecessor_manifest_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "batch_id",
+          "attempt_id",
+          "expected_item_count",
+          "expected_item_set_digest",
+          "events"
+        ],
+        "type": "object"
+      },
+      "ItemResult": {
+        "additionalProperties": false,
+        "properties": {
+          "acknowledgement_receipt_id": {
+            "maxLength": 128,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "attempt_id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/ValueFreeError"
+            },
+            "maxItems": 32,
+            "type": "array"
+          },
+          "event_content_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "event_id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "manifest_receipt_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "outcome": {
+            "enum": [
+              "accepted",
+              "duplicate",
+              "conflict",
+              "rejected_quarantine",
+              "retryable_failure"
+            ]
+          },
+          "retry_after_seconds": {
+            "maximum": 3600,
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "safe_code": {
+            "maxLength": 96,
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "type": "string"
+          },
+          "winner_event_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "event_id",
+          "attempt_id",
+          "event_content_digest",
+          "outcome",
+          "safe_code"
+        ],
+        "type": "object"
+      },
+      "Uuid": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "ValueFreeError": {
+        "additionalProperties": false,
+        "properties": {
+          "contract_id": {
+            "const": "aviasurveil.production-feed.events"
+          },
+          "contract_version": {
+            "const": "3.0.0"
+          },
+          "json_pointer": {
+            "maxLength": 256,
+            "type": "string"
+          },
+          "stable_code": {
+            "maxLength": 96,
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stable_code",
+          "json_pointer",
+          "contract_id",
+          "contract_version"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "directMutualTLS": {
+        "description": "TLS 1.3 direct mTLS. Client certificate must have clientAuth EKU and an approved SAN-to-source/tenant mapping. Forwarded client-certificate headers are rejected.",
+        "type": "mutualTLS"
+      }
+    }
+  },
+  "info": {
+    "description": "Phase 1 contract for at-least-once AviaSurveil event delivery. A successful item response is forbidden until the exact event object and exact sealed landing manifest are durably bound.",
+    "title": "AviaCore360 AviaSurveil Production Feed Event API",
+    "version": "3.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/v3/aviasurveil/event-batches": {
+      "post": {
+        "description": "Items are processed independently after batch-envelope validation. A batch seals only after every expected item is terminal; retryable items keep it unsealed.",
+        "operationId": "submitAviaSurveilEventBatchV3",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Request-Id",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 16,
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Replay-Id",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 8,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/vnd.aviacore.aviasurveil-events.v3+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventBatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AllDuplicate"
+          },
+          "201": {
+            "$ref": "#/components/responses/AllAccepted"
+          },
+          "207": {
+            "$ref": "#/components/responses/MixedTerminal"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/Oversized"
+          },
+          "422": {
+            "$ref": "#/components/responses/Validation"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/RedactedError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "summary": "Submit one bounded AviaSurveil event batch",
+        "x-acknowledgement-frontier": "canonical_event.acknowledged",
+        "x-delivery-semantics": "at-least-once",
+        "x-http-2xx-before-acknowledgement": "forbidden",
+        "x-partial-batch-policy": "independent_items_seal_when_all_terminal"
+      }
+    }
+  },
+  "security": [
+    {
+      "directMutualTLS": []
+    }
+  ],
+  "servers": [
+    {
+      "url": "https://{approved-ingress-host}",
+      "variables": {
+        "approved-ingress-host": {
+          "default": "invalid.example",
+          "description": "Deployment supplies an approved exact host; the placeholder host is not deployable."
+        }
+      }
+    }
+  ],
+  "x-source-checkpoint-advance-before-acknowledgement": "forbidden",
+  "x-unsupported-delivery-modes": [
+    "outbox_object_export",
+    "approved_snapshot"
+  ]
+}

@@ -1,0 +1,117 @@
+{
+  "cases": [
+    {
+      "category": "unknown_event_type",
+      "expected_error_code": "UNKNOWN_EVENT_TYPE",
+      "expected_json_pointer": "/event_type",
+      "id": "unknown-event-type",
+      "kind": "event",
+      "mutation": "unknown_event_type",
+      "source_vector": "audit-planned.json"
+    },
+    {
+      "category": "missing_required_field",
+      "expected_error_code": "SCHEMA_REQUIRED",
+      "expected_json_pointer": "/payload/candidate_digest",
+      "field": "candidate_digest",
+      "id": "missing-required-field",
+      "kind": "event",
+      "mutation": "missing_required_payload_field",
+      "source_vector": "checklist_generation-candidate_versioned.json"
+    },
+    {
+      "category": "extra_field",
+      "expected_error_code": "SCHEMA_ADDITIONAL_PROPERTY",
+      "expected_json_pointer": "/payload/private_note",
+      "field": "private_note",
+      "id": "extra-field",
+      "kind": "event",
+      "mutation": "extra_payload_field",
+      "source_vector": "checklist_generation-candidate_versioned.json"
+    },
+    {
+      "category": "payload_digest_mismatch",
+      "expected_error_code": "PAYLOAD_SHA256_MISMATCH",
+      "expected_json_pointer": "/payload_sha256",
+      "id": "payload-digest",
+      "kind": "event",
+      "mutation": "payload_digest_mismatch",
+      "source_vector": "audit-planned.json"
+    },
+    {
+      "category": "tenant_identity_mismatch",
+      "expected_error_code": "TENANT_IDENTITY_MISMATCH",
+      "expected_json_pointer": "/tenant_id",
+      "id": "tenant-identity",
+      "kind": "event",
+      "mutation": "tenant_identity_mismatch",
+      "source_vector": "audit-planned.json"
+    },
+    {
+      "category": "timestamp_rule",
+      "expected_error_code": "TEMPORAL_ORDER_INVALID",
+      "expected_json_pointer": "/known_at",
+      "id": "timestamp-order",
+      "kind": "event",
+      "mutation": "timestamp_order",
+      "source_vector": "audit-planned.json"
+    },
+    {
+      "category": "privacy_forbidden_field",
+      "expected_error_code": "SCHEMA_ENUM",
+      "expected_json_pointer": "/privacy_class",
+      "id": "privacy-forbidden",
+      "kind": "event",
+      "mutation": "privacy_forbidden",
+      "source_vector": "audit-planned.json"
+    },
+    {
+      "category": "correction_supersession_reference",
+      "expected_error_code": "CORRECTION_REQUIRES_DISTINCT_EVENT_ID",
+      "expected_json_pointer": "/payload/corrected_event_id",
+      "id": "correction-self-reference",
+      "kind": "event",
+      "mutation": "correction_self_reference",
+      "source_vector": "correction-recorded.json"
+    },
+    {
+      "category": "correction_supersession_reference",
+      "expected_error_code": "SUPERSESSION_REQUIRES_DISTINCT_EVENT_IDS",
+      "expected_json_pointer": "/payload/replacement_event_id",
+      "id": "supersession-same-reference",
+      "kind": "event",
+      "mutation": "supersession_same_reference",
+      "source_vector": "event-superseded.json"
+    },
+    {
+      "category": "bootstrap_resume",
+      "expected_error_code": "BOOTSTRAP_RESUME_CONTRACT_INVALID",
+      "expected_json_pointer": "/bootstrap/cursor_resume",
+      "field": "cursor_resume",
+      "id": "bootstrap-resume",
+      "kind": "recovery_contract"
+    },
+    {
+      "category": "version_compatibility_overlap",
+      "expected_error_code": "VERSION_COMPATIBILITY_OVERLAP_INVALID",
+      "expected_json_pointer": "/version_compatibility/v1_v3_concurrent_delivery",
+      "field": "v1_v3_concurrent_delivery",
+      "id": "version-compatibility-overlap",
+      "kind": "contract_set"
+    }
+  ],
+  "contract_version": "3.0.0",
+  "required_categories": [
+    "unknown_event_type",
+    "missing_required_field",
+    "extra_field",
+    "payload_digest_mismatch",
+    "tenant_identity_mismatch",
+    "timestamp_rule",
+    "privacy_forbidden_field",
+    "correction_supersession_reference",
+    "bootstrap_resume",
+    "version_compatibility_overlap"
+  ],
+  "schema_version": "aviasurveil_v3_negative_branch_matrix.v1"
+}

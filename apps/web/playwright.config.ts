@@ -108,6 +108,7 @@ export default defineConfig({
         "e2e/executive-responsive-contract.spec.ts",
         "e2e/auditee-responsive-contract.spec.ts",
         "e2e/admin-responsive-contract.spec.ts",
+        "e2e/regulatory-checklist-governance.spec.ts",
       ],
     },
     {
@@ -123,6 +124,8 @@ export default defineConfig({
         "e2e/notification-delivery.http.spec.ts",
         "e2e/local-service-failures.http.spec.ts",
         "e2e/user-lifecycle.http.spec.ts",
+        "e2e/regulatory-checklist-governance.http.spec.ts",
+        "e2e/regulatory-source-refresh.http.spec.ts",
       ],
     },
     {

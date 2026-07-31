@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"sync"
 	"time"
 
@@ -81,6 +82,231 @@ type canonicalQuestion struct {
 	AllowedAnswers      []string `json:"allowedAnswers"`
 	CommentRequiredFor  []string `json:"commentRequiredFor"`
 	Assigned            []string `json:"assignedInspectorUserIds"`
+}
+
+const historicalFullProfileChecklistBootstrapSubjectID = "TEST-HISTORICAL-CHECKLIST-BOOTSTRAP"
+
+// BootstrapHistoricalFullProfileChecklist creates only the immutable historical
+// checklist relationship required by the isolated local full-profile harness.
+// It is an internal test-profile seam, never a normal application command.
+func BootstrapHistoricalFullProfileChecklist(
+	ctx context.Context,
+	pool *database.Pool,
+	now time.Time,
+) error {
+	if pool == nil || now.IsZero() {
+		return errors.New("historical full-profile checklist bootstrap requires database and server time")
+	}
+	now = now.UTC()
+	allowedAnswers := []string{"COMPLIANT", "NON_COMPLIANT", "OBSERVATION", "NOT_APPLICABLE"}
+	commentRequiredFor := []string{"NON_COMPLIANT", "OBSERVATION"}
+	questions := []canonicalQuestion{
+		{ID: "CAB-EMEQ-PBE-001", SectionID: "CABIN-SAFETY", Prompt: "Verify authorized cabin control 1.", RegulatoryReference: "NAM-CAR-CABIN-1", ExpectedEvidence: "Versioned cabin evidence 1", AllowedAnswers: allowedAnswers, CommentRequiredFor: commentRequiredFor},
+		{ID: "CAB-LAV-001", SectionID: "CABIN-SAFETY", Prompt: "Verify authorized cabin control 2.", RegulatoryReference: "NAM-CAR-CABIN-2", ExpectedEvidence: "Versioned cabin evidence 2", AllowedAnswers: allowedAnswers, CommentRequiredFor: commentRequiredFor},
+		{ID: "CAB-PAX-SEAT-001", SectionID: "CABIN-SAFETY", Prompt: "Verify authorized cabin control 3.", RegulatoryReference: "NAM-CAR-CABIN-3", ExpectedEvidence: "Versioned cabin evidence 3", AllowedAnswers: allowedAnswers, CommentRequiredFor: commentRequiredFor},
+		{ID: "CAB-VID-CREW-SEAT-001", SectionID: "CABIN-OPERATIONS", Prompt: "Verify authorized cabin control 4.", RegulatoryReference: "NAM-CAR-CABIN-4", ExpectedEvidence: "Versioned cabin evidence 4", AllowedAnswers: allowedAnswers, CommentRequiredFor: commentRequiredFor},
+		{ID: "CAB-GALLEY-001", SectionID: "CABIN-OPERATIONS", Prompt: "Verify authorized cabin control 5.", RegulatoryReference: "NAM-CAR-CABIN-5", ExpectedEvidence: "Versioned cabin evidence 5", AllowedAnswers: allowedAnswers, CommentRequiredFor: commentRequiredFor},
+		{ID: "CAB-DOORS-001", SectionID: "CABIN-OPERATIONS", Prompt: "Verify authorized cabin control 6.", RegulatoryReference: "NAM-CAR-CABIN-6", ExpectedEvidence: "Versioned cabin evidence 6", AllowedAnswers: allowedAnswers, CommentRequiredFor: commentRequiredFor},
+	}
+	snapshot, err := json.Marshal(map[string]any{
+		"schemaVersion": 1, "protocolVersion": 1,
+		"creatorSubjectId": historicalFullProfileChecklistBootstrapSubjectID,
+		"changeReason":     "Historical immutable full-profile checklist fixture.",
+		"questions":        questions,
+	})
+	if err != nil {
+		return fmt.Errorf("marshal historical full-profile checklist snapshot: %w", err)
+	}
+	return database.WithinTransaction(ctx, pool, func(ctx context.Context, transaction pgx.Tx) error {
+		identityExists, err := validateHistoricalBootstrapIdentity(ctx, transaction, now)
+		if err != nil {
+			return err
+		}
+		checklistExists, err := validateHistoricalChecklistVersion(ctx, transaction, snapshot, now)
+		if err != nil {
+			return err
+		}
+		questionsComplete, questionsPresent, err := validateHistoricalQuestionVersions(ctx, transaction, questions, now)
+		if err != nil {
+			return err
+		}
+		masterExists, err := validateHistoricalTemplateMaster(ctx, transaction, now)
+		if err != nil {
+			return err
+		}
+		if identityExists || checklistExists || questionsPresent || masterExists {
+			if !(identityExists && checklistExists && questionsComplete && masterExists) {
+				return errors.New("historical checklist conflict: incomplete existing fixture")
+			}
+			return validateHistoricalQuestionRelationships(ctx, transaction, questions)
+		}
+		if _, err := transaction.Exec(ctx, `
+			INSERT INTO identity_references (subject_id, issuer, display_name, created_at)
+			VALUES ($1, 'urn:avia:internal-testprofile', 'Historical checklist bootstrap', $2)
+		`, historicalFullProfileChecklistBootstrapSubjectID, now); err != nil {
+			return fmt.Errorf("bootstrap historical checklist identity: %w", err)
+		}
+		if _, err := transaction.Exec(ctx, `
+			INSERT INTO checklist_template_versions (
+				id, template_id, version, title, snapshot, published_at
+			) VALUES ('CTV-CABIN-1', 'TPL-CABIN-2026', 1, 'Cabin Inspection checklist', $1, $2)
+		`, snapshot, now); err != nil {
+			return fmt.Errorf("bootstrap historical checklist version: %w", err)
+		}
+		for position, question := range questions {
+			questionVersionID := "QV-" + question.ID + "-V1"
+			if _, err := transaction.Exec(ctx, `
+				INSERT INTO question_versions (
+					id, question_id, version, prompt, configured_reference,
+					expected_evidence, created_by_subject_id, created_at
+				) VALUES ($1, $2, 1, $3, $4, $5, $6, $7)
+			`, questionVersionID, question.ID, question.Prompt, question.RegulatoryReference,
+				question.ExpectedEvidence, historicalFullProfileChecklistBootstrapSubjectID, now); err != nil {
+				return fmt.Errorf("bootstrap historical question %s: %w", question.ID, err)
+			}
+			if _, err := transaction.Exec(ctx, `
+				INSERT INTO template_version_questions (
+					template_version_id, question_version_id, position, created_at
+				) VALUES ('CTV-CABIN-1', $1, $2, $3)
+			`, questionVersionID, position, now); err != nil {
+				return fmt.Errorf("bootstrap historical question relationship %s: %w", question.ID, err)
+			}
+		}
+		if _, err := transaction.Exec(ctx, `
+			INSERT INTO template_masters (
+				id, title, owner_role, published_template_version_id,
+				revision, created_at, updated_at
+			) VALUES ('TPL-CABIN-2026', 'Cabin Inspection checklist', 'Department Manager', 'CTV-CABIN-1', 1, $1, $1)
+		`, now); err != nil {
+			return fmt.Errorf("bootstrap historical template master: %w", err)
+		}
+		return nil
+	})
+}
+
+func validateHistoricalBootstrapIdentity(ctx context.Context, transaction pgx.Tx, now time.Time) (bool, error) {
+	var issuer, displayName string
+	var createdAt time.Time
+	err := transaction.QueryRow(ctx, `
+		SELECT issuer, display_name, created_at FROM identity_references WHERE subject_id = $1
+	`, historicalFullProfileChecklistBootstrapSubjectID).Scan(&issuer, &displayName, &createdAt)
+	if err == pgx.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("read historical bootstrap identity: %w", err)
+	}
+	if issuer != "urn:avia:internal-testprofile" || displayName != "Historical checklist bootstrap" || !createdAt.Equal(now) {
+		return false, errors.New("historical bootstrap identity conflict")
+	}
+	return true, nil
+}
+
+func validateHistoricalChecklistVersion(ctx context.Context, transaction pgx.Tx, expectedSnapshot []byte, now time.Time) (bool, error) {
+	var templateID, title string
+	var version int64
+	var snapshot []byte
+	var publishedAt time.Time
+	err := transaction.QueryRow(ctx, `
+		SELECT template_id, version, title, snapshot, published_at
+		FROM checklist_template_versions WHERE id = 'CTV-CABIN-1'
+	`).Scan(&templateID, &version, &title, &snapshot, &publishedAt)
+	if err == pgx.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("read historical checklist version: %w", err)
+	}
+	if templateID != "TPL-CABIN-2026" || version != 1 || title != "Cabin Inspection checklist" ||
+		!publishedAt.Equal(now) || !sameHistoricalJSON(snapshot, expectedSnapshot) {
+		return false, errors.New("historical checklist conflict")
+	}
+	return true, nil
+}
+
+func validateHistoricalQuestionVersions(ctx context.Context, transaction pgx.Tx, questions []canonicalQuestion, now time.Time) (allExist bool, anyExist bool, err error) {
+	allExist = true
+	for _, question := range questions {
+		var id, prompt, reference, evidence, creator string
+		var version int64
+		var createdAt time.Time
+		err := transaction.QueryRow(ctx, `
+			SELECT id, version, prompt, configured_reference, expected_evidence,
+			       created_by_subject_id, created_at
+			FROM question_versions WHERE question_id = $1 AND version = 1
+		`, question.ID).Scan(&id, &version, &prompt, &reference, &evidence, &creator, &createdAt)
+		if err == pgx.ErrNoRows {
+			allExist = false
+			continue
+		}
+		if err != nil {
+			return false, false, fmt.Errorf("read historical question %s: %w", question.ID, err)
+		}
+		anyExist = true
+		if id != "QV-"+question.ID+"-V1" || version != 1 || prompt != question.Prompt ||
+			reference != question.RegulatoryReference || evidence != question.ExpectedEvidence ||
+			creator != historicalFullProfileChecklistBootstrapSubjectID || !createdAt.Equal(now) {
+			return false, true, fmt.Errorf("historical question conflict: %s", question.ID)
+		}
+	}
+	return allExist, anyExist, nil
+}
+
+func validateHistoricalTemplateMaster(ctx context.Context, transaction pgx.Tx, now time.Time) (bool, error) {
+	var title, owner, publishedVersionID string
+	var revision int64
+	var createdAt, updatedAt time.Time
+	err := transaction.QueryRow(ctx, `
+		SELECT title, owner_role, published_template_version_id, revision, created_at, updated_at
+		FROM template_masters WHERE id = 'TPL-CABIN-2026'
+	`).Scan(&title, &owner, &publishedVersionID, &revision, &createdAt, &updatedAt)
+	if err == pgx.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("read historical template master: %w", err)
+	}
+	if title != "Cabin Inspection checklist" || owner != "Department Manager" ||
+		publishedVersionID != "CTV-CABIN-1" || revision != 1 || !createdAt.Equal(now) || !updatedAt.Equal(now) {
+		return false, errors.New("historical template master conflict")
+	}
+	return true, nil
+}
+
+func validateHistoricalQuestionRelationships(ctx context.Context, transaction pgx.Tx, questions []canonicalQuestion) error {
+	rows, err := transaction.Query(ctx, `
+		SELECT relation.question_version_id, relation.position
+		FROM template_version_questions relation
+		WHERE relation.template_version_id = 'CTV-CABIN-1'
+		ORDER BY relation.position
+	`)
+	if err != nil {
+		return fmt.Errorf("read historical checklist relationships: %w", err)
+	}
+	defer rows.Close()
+	for position, question := range questions {
+		if !rows.Next() {
+			return errors.New("historical checklist relationship conflict")
+		}
+		var questionVersionID string
+		var actualPosition int
+		if err := rows.Scan(&questionVersionID, &actualPosition); err != nil {
+			return fmt.Errorf("scan historical checklist relationship: %w", err)
+		}
+		if questionVersionID != "QV-"+question.ID+"-V1" || actualPosition != position {
+			return errors.New("historical checklist relationship conflict")
+		}
+	}
+	if rows.Next() {
+		return errors.New("historical checklist relationship conflict")
+	}
+	return rows.Err()
+}
+
+func sameHistoricalJSON(left, right []byte) bool {
+	var leftValue, rightValue any
+	return json.Unmarshal(left, &leftValue) == nil && json.Unmarshal(right, &rightValue) == nil &&
+		reflect.DeepEqual(leftValue, rightValue)
 }
 
 func Reset(ctx context.Context, pool *database.Pool, now time.Time) error {
@@ -180,7 +406,7 @@ func Reset(ctx context.Context, pool *database.Pool, now time.Time) error {
 	if err != nil {
 		return err
 	}
-	return retryCanonicalReset(ctx, func() error {
+	if err := retryCanonicalReset(ctx, func() error {
 		return database.WithinTransaction(ctx, pool, func(ctx context.Context, transaction pgx.Tx) error {
 			if _, err := transaction.Exec(ctx, `
 			TRUNCATE TABLE
@@ -239,6 +465,16 @@ func Reset(ctx context.Context, pool *database.Pool, now time.Time) error {
 				('USR-AUDITEE-FLY', 'Fly Namibia Auditee', 'ORG-FLY-NAMIBIA', 1, $1, $1)
 		`, now, CanonicalInspectorSubjectID); err != nil {
 				return fmt.Errorf("seed canonical profiles: %w", err)
+			}
+			if _, err := transaction.Exec(ctx, `
+			INSERT INTO caa_department_memberships
+				(id, root_id, subject_id, department_id, organizational_unit_id, membership_role, status, effective_from)
+			VALUES
+				('TEST-USR-MANAGER-NORA-FOI', 'TEST-USR-MANAGER-NORA-FOI',
+				 'USR-MANAGER-NORA', 'FLIGHT_OPERATIONS_INSPECTORATE',
+				 'FLIGHT_OPERATIONS_INSPECTORATE', 'DEPARTMENT_MANAGER', 'ACTIVE', '2025-01-01')
+		`); err != nil {
+				return fmt.Errorf("seed canonical department-manager authority: %w", err)
 			}
 			if _, err := transaction.Exec(ctx, `
 			INSERT INTO user_settings (
@@ -536,7 +772,16 @@ func Reset(ctx context.Context, pool *database.Pool, now time.Time) error {
 			}
 			return nil
 		})
-	})
+	}); err != nil {
+		return err
+	}
+	if err := BootstrapSyntheticRegulatoryGenerationInputs(ctx, pool); err != nil {
+		return fmt.Errorf("bootstrap synthetic governed-checklist test inputs: %w", err)
+	}
+	if err := BootstrapBlockedRealOPSAOCGenerationInputs(ctx, pool); err != nil {
+		return fmt.Errorf("bootstrap blocked real OPS/AOC test inputs: %w", err)
+	}
+	return nil
 }
 
 func retryCanonicalReset(ctx context.Context, operation func() error) error {
@@ -570,6 +815,7 @@ func Principal(subjectID string) (identity.Principal, bool) {
 		"USR-INSPECTOR-DAVID":       {SubjectID: "USR-INSPECTOR-DAVID", DisplayName: "David Inspector", OrganizationID: "CAA", SessionID: "TEST-USR-INSPECTOR-DAVID", Roles: []identity.Role{identity.RoleInspector}},
 		"USR-LEAD-CANER":            {SubjectID: "USR-LEAD-CANER", DisplayName: "Caner Lead Inspector", OrganizationID: "CAA", SessionID: "TEST-USR-LEAD-CANER", Roles: []identity.Role{identity.RoleLeadInspector}},
 		"USR-MANAGER-NORA":          {SubjectID: "USR-MANAGER-NORA", DisplayName: "Nora Department Manager", OrganizationID: "CAA", SessionID: "TEST-USR-MANAGER-NORA", Roles: []identity.Role{identity.RoleDepartmentManager}},
+		"USR-TASK6-AIR-MANAGER":     {SubjectID: "USR-TASK6-AIR-MANAGER", DisplayName: "Task 6 AIR Manager", OrganizationID: "CAA", SessionID: "TEST-USR-TASK6-AIR-MANAGER", Roles: []identity.Role{identity.RoleDepartmentManager}},
 		"USR-FINANCE-LINA":          {SubjectID: "USR-FINANCE-LINA", DisplayName: "Lina Finance Reviewer", OrganizationID: "CAA", SessionID: "TEST-USR-FINANCE-LINA", Roles: []identity.Role{identity.RoleFinance}},
 		"USR-GM-OMAR":               {SubjectID: "USR-GM-OMAR", DisplayName: "Omar General Manager", OrganizationID: "CAA", SessionID: "TEST-USR-GM-OMAR", Roles: []identity.Role{identity.RoleGeneralManager}},
 		"USR-ED-ZARA":               {SubjectID: "USR-ED-ZARA", DisplayName: "Zara Executive Director", OrganizationID: "CAA", SessionID: "TEST-USR-ED-ZARA", Roles: []identity.Role{identity.RoleExecutiveDirector}},

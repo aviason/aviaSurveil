@@ -34,6 +34,7 @@ packages=(
   notifications
   risk
   administration
+  datafeed
 )
 
 sed_arguments=()

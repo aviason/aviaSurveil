@@ -209,6 +209,23 @@ func TestSessionProjectionNeverReturnsCredentialsAndLogoutRequiresCSRF(t *testin
 	}
 }
 
+func TestAuditeeSessionProjectionOmitsDepartmentAndProviderScopeFacts(t *testing.T) {
+	principal := identity.Principal{SubjectID: "auditee-private", OrganizationID: "operator-private", SessionID: "session-private", Roles: []identity.Role{identity.RoleAuditee}, DepartmentAssignments: []identity.DepartmentAssignment{{DepartmentID: "INTERNAL", OrganizationalUnitID: "PRIVATE"}}}
+	handler := httpapi.NewAuthHandler(&fakeOIDCProvider{}, &fakeAuthSessions{principal: principal})
+	request := httptest.NewRequest(http.MethodGet, "/auth/session", nil)
+	request.AddCookie(&http.Cookie{Name: httpapi.SessionCookieName, Value: "opaque"})
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("session response = %d", response.Code)
+	}
+	for _, forbidden := range []string{"departmentAssignments", "INTERNAL", "serviceProvider", "scope"} {
+		if strings.Contains(response.Body.String(), forbidden) {
+			t.Fatalf("Auditee session projection leaked %q: %s", forbidden, response.Body.String())
+		}
+	}
+}
+
 func TestAuthenticationFailuresUseClosedProblemResponses(t *testing.T) {
 	t.Parallel()
 	sessions := &fakeAuthSessions{authenticateErr: session.ErrUnauthenticated}

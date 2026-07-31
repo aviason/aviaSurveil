@@ -30,6 +30,7 @@ The final local matrix, exact hashes, recovery measurements, and explicit AWS
 | [Backup](runbooks/BACKUP.md) | Create and verify same-host logical recovery points. |
 | [Restore](runbooks/RESTORE.md) | Restore one point into an isolated local target. |
 | [Disaster recovery](runbooks/DISASTER_RECOVERY.md) | Exercise two complete restore drills and fallback. |
+| [AviaCore feed recovery](runbooks/AVIACORE_DATA_FEED_RECOVERY.md) | Run approved replay/backfill lanes and fail-closed manifest reconciliation. |
 | [Release and rollback](runbooks/RELEASE_ROLLBACK.md) | Gate a local candidate and abandon a failed candidate safely. |
 | [Secret rotation](runbooks/SECRET_ROTATION.md) | Replace local credentials through a parallel fresh stack. |
 

@@ -1,0 +1,132 @@
+{
+  "$id": "https://aviacore360.local/schemas/events/aviasurveil/v3/checklist_generation-impact_review_recorded.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "./envelope.schema.json"
+    },
+    {
+      "properties": {
+        "entity_refs": {
+          "additionalProperties": false,
+          "properties": {
+            "candidate_id": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "generation_run_id": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "impact_review_id": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "generation_run_id",
+            "candidate_id",
+            "impact_review_id"
+          ],
+          "type": "object"
+        },
+        "event_type": {
+          "const": "checklist_generation.impact_review_recorded"
+        },
+        "event_version": {
+          "const": 1
+        },
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "adaptive_scope_guardrail_code": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "candidate_id": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "decided_at": {
+              "format": "date-time",
+              "pattern": "Z$",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "disjoint_holdout_partition_id": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "generation_run_id": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "holdout_evaluated_count": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "holdout_population_count": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "impact_decision_code": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "impact_review_id": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "overlap_count": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "generation_run_id",
+            "candidate_id",
+            "impact_review_id",
+            "impact_decision_code",
+            "disjoint_holdout_partition_id",
+            "holdout_population_count",
+            "holdout_evaluated_count",
+            "overlap_count",
+            "adaptive_scope_guardrail_code",
+            "decided_at"
+          ],
+          "type": "object"
+        },
+        "state_after": {
+          "const": "generation_impact_reviewed"
+        },
+        "state_before": {
+          "enum": [
+            null
+          ]
+        }
+      },
+      "type": "object"
+    }
+  ],
+  "title": "checklist_generation.impact_review_recorded v3"
+}

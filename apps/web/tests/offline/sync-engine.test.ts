@@ -257,6 +257,7 @@ function backend(input: {
     notifications: {} as Backend["notifications"],
     administration: {} as Backend["administration"],
     adminWorkspace: {} as Backend["adminWorkspace"],
+    governedChecklistReview: {} as Backend["governedChecklistReview"],
     assistantDrafts: {} as Backend["assistantDrafts"],
     planningIntake: {} as Backend["planningIntake"],
     packageDrafts: {} as Backend["packageDrafts"],

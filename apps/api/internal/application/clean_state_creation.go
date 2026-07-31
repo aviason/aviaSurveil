@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/datafeed"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/reports"
 	"github.com/jackc/pgx/v5"
@@ -163,150 +164,6 @@ func mapCreateConflict(err error) error {
 		return ErrConflict
 	}
 	return err
-}
-
-type PublishedChecklistQuestion struct {
-	QuestionID          string   `json:"questionId"`
-	SectionID           string   `json:"sectionId"`
-	Prompt              string   `json:"prompt"`
-	ConfiguredReference string   `json:"configuredReference"`
-	ExpectedEvidence    string   `json:"expectedEvidence"`
-	AllowedAnswers      []string `json:"allowedAnswers"`
-	CommentRequiredFor  []string `json:"commentRequiredFor"`
-}
-
-type CreateChecklistTemplateVersionCommand struct {
-	OperationID       string
-	IdempotencyKey    string
-	TemplateID        string
-	TemplateVersionID string
-	Title             string
-	OwnerRole         string
-	Questions         []PublishedChecklistQuestion
-}
-
-type ChecklistTemplateVersion struct {
-	ID            string `json:"id"`
-	TemplateID    string `json:"templateId"`
-	Title         string `json:"title"`
-	Version       int64  `json:"version"`
-	Status        string `json:"status"`
-	PublishedAt   string `json:"publishedAt"`
-	QuestionCount int64  `json:"questionCount"`
-}
-
-func (service *Service) CreateChecklistTemplateVersion(
-	ctx context.Context,
-	actor identity.Principal,
-	command CreateChecklistTemplateVersionCommand,
-) (ChecklistTemplateVersion, error) {
-	if !actor.HasRole(identity.RoleAdmin) {
-		return ChecklistTemplateVersion{}, fmt.Errorf("%w: Admin authority is required", ErrForbidden)
-	}
-	if command.OperationID == "" || command.IdempotencyKey == "" ||
-		strings.TrimSpace(command.TemplateID) == "" ||
-		strings.TrimSpace(command.TemplateVersionID) == "" ||
-		strings.TrimSpace(command.Title) == "" ||
-		strings.TrimSpace(command.OwnerRole) == "" || len(command.Questions) == 0 {
-		return ChecklistTemplateVersion{}, ErrInvalid
-	}
-	seen := map[string]struct{}{}
-	for _, question := range command.Questions {
-		if strings.TrimSpace(question.QuestionID) == "" ||
-			strings.TrimSpace(question.SectionID) == "" ||
-			strings.TrimSpace(question.Prompt) == "" ||
-			strings.TrimSpace(question.ConfiguredReference) == "" ||
-			strings.TrimSpace(question.ExpectedEvidence) == "" ||
-			len(question.AllowedAnswers) == 0 {
-			return ChecklistTemplateVersion{}, ErrInvalid
-		}
-		if _, exists := seen[question.QuestionID]; exists {
-			return ChecklistTemplateVersion{}, ErrInvalid
-		}
-		seen[question.QuestionID] = struct{}{}
-	}
-	return executeTransition(ctx, service, actor, commandEnvelope{
-		OperationID: command.OperationID, IdempotencyKey: command.IdempotencyKey,
-		CorrelationID: command.OperationID, Kind: "create_checklist_template_version",
-		EntityID: command.TemplateVersionID, Semantic: command,
-	}, func(ctx context.Context, transaction pgx.Tx) (transition[ChecklistTemplateVersion], error) {
-		now := service.clock().UTC()
-		snapshotQuestions := make([]map[string]any, 0, len(command.Questions))
-		for _, question := range command.Questions {
-			questionVersionID := "QV-" + question.QuestionID + "-V1"
-			if _, err := transaction.Exec(ctx, `
-				INSERT INTO question_versions (
-					id, question_id, version, prompt, configured_reference,
-					expected_evidence, created_by_subject_id, created_at
-				) VALUES ($1, $2, 1, $3, $4, $5, $6, $7)
-			`, questionVersionID, question.QuestionID, question.Prompt,
-				question.ConfiguredReference, question.ExpectedEvidence,
-				actor.SubjectID, now); err != nil {
-				return transition[ChecklistTemplateVersion]{}, mapCreateConflict(err)
-			}
-			snapshotQuestions = append(snapshotQuestions, map[string]any{
-				"id": question.QuestionID, "sectionId": question.SectionID,
-				"prompt":                   question.Prompt,
-				"regulatoryReference":      question.ConfiguredReference,
-				"expectedEvidence":         question.ExpectedEvidence,
-				"allowedAnswers":           question.AllowedAnswers,
-				"commentRequiredFor":       question.CommentRequiredFor,
-				"assignedInspectorUserIds": []string{},
-			})
-		}
-		snapshot, err := json.Marshal(map[string]any{
-			"schemaVersion": 1, "protocolVersion": 1,
-			"creatorSubjectId": actor.SubjectID,
-			"changeReason":     "Initial authorized published checklist version.",
-			"questions":        snapshotQuestions,
-		})
-		if err != nil {
-			return transition[ChecklistTemplateVersion]{}, err
-		}
-		if _, err := transaction.Exec(ctx, `
-			INSERT INTO checklist_template_versions (
-				id, template_id, version, title, snapshot, published_at
-			) VALUES ($1, $2, 1, $3, $4, $5)
-		`, command.TemplateVersionID, command.TemplateID, command.Title,
-			snapshot, now); err != nil {
-			return transition[ChecklistTemplateVersion]{}, mapCreateConflict(err)
-		}
-		for position, question := range command.Questions {
-			if _, err := transaction.Exec(ctx, `
-				INSERT INTO template_version_questions (
-					template_version_id, question_version_id, position, created_at
-				) VALUES ($1, $2, $3, $4)
-			`, command.TemplateVersionID, "QV-"+question.QuestionID+"-V1",
-				position, now); err != nil {
-				return transition[ChecklistTemplateVersion]{}, err
-			}
-		}
-		if _, err := transaction.Exec(ctx, `
-			INSERT INTO template_masters (
-				id, title, owner_role, published_template_version_id,
-				revision, created_at, updated_at
-			) VALUES ($1, $2, $3, $4, 1, $5, $5)
-		`, command.TemplateID, command.Title, command.OwnerRole,
-			command.TemplateVersionID, now); err != nil {
-			return transition[ChecklistTemplateVersion]{}, mapCreateConflict(err)
-		}
-		output := ChecklistTemplateVersion{
-			ID: command.TemplateVersionID, TemplateID: command.TemplateID,
-			Title: command.Title, Version: 1, Status: "PUBLISHED",
-			PublishedAt:   now.Format(time.RFC3339Nano),
-			QuestionCount: int64(len(command.Questions)),
-		}
-		return transition[ChecklistTemplateVersion]{
-			Response: output, OrganizationID: actor.OrganizationID,
-			Action:     "admin.checklist_template_published",
-			EntityType: "checklist_template_version",
-			EntityID:   command.TemplateVersionID, EntityVersion: 1,
-			AfterStatus: "PUBLISHED",
-			Reason:      "Created initial authorized checklist template version.",
-			SyncKind:    "checklist_template_version",
-			OutboxTopic: "admin.checklist_template_published",
-		}, nil
-	})
 }
 
 type CreateReminderRuleCommand struct {
@@ -465,6 +322,13 @@ func (service *Service) CreateAuditWorkspace(
 		if planStatus != "RELEASED" || planRevision != command.ExpectedPlanningRevision {
 			return transition[AuditWorkspace]{}, ErrConflict
 		}
+		auditScopeCode, err := dataFeedAuditScopeCode(inspectionType)
+		if err != nil {
+			return transition[AuditWorkspace]{}, err
+		}
+		if service.dataFeedWriter == nil {
+			return transition[AuditWorkspace]{}, ErrDataFeedNotConfigured
+		}
 		var templateSnapshot []byte
 		var templateID string
 		if err := transaction.QueryRow(ctx, `
@@ -609,6 +473,44 @@ func (service *Service) CreateAuditWorkspace(
 			TemplateVersionID: command.TemplateVersionID,
 			PackageVersion:    1, Revision: 1,
 		}
+		correlationID, err := datafeed.NewEventID()
+		if err != nil {
+			return transition[AuditWorkspace]{}, fmt.Errorf("allocate datafeed correlation id: %w", err)
+		}
+		plannedEventID, err := datafeed.NewEventID()
+		if err != nil {
+			return transition[AuditWorkspace]{}, fmt.Errorf("allocate planned datafeed event id: %w", err)
+		}
+		startedEventID, err := datafeed.NewEventID()
+		if err != nil {
+			return transition[AuditWorkspace]{}, fmt.Errorf("allocate started datafeed event id: %w", err)
+		}
+		plannedStart := time.Date(dueDate.Year(), dueDate.Month(), dueDate.Day(), 0, 0, 0, 0, time.UTC)
+		dataFeedEvents := []datafeed.EventInput{
+			{
+				EventID: plannedEventID, EventType: "audit.planned",
+				OwningOrganizationID: organizationID, ActorOrganizationID: actor.OrganizationID,
+				CorrelationID: correlationID, AggregateType: "audit", AggregateID: command.AuditID,
+				AggregateRevision: 1, EffectiveAt: now, KnownAt: now, OccurredAt: now, EmittedAt: now,
+				VisibilityPurposeCode: "regulated_oversight", EntityRefs: map[string]any{"audit_id": command.AuditID},
+				StateBefore: nil, StateAfter: "audit_planned",
+				Payload: map[string]any{
+					"audit_program_ref": command.PlanningItemID,
+					"audit_scope_code":  auditScopeCode,
+					"planned_start_at":  plannedStart.Format(time.RFC3339Nano),
+				},
+			},
+			{
+				EventID: startedEventID, EventType: "audit.started",
+				OwningOrganizationID: organizationID, ActorOrganizationID: actor.OrganizationID,
+				CorrelationID: correlationID, CausationID: plannedEventID,
+				AggregateType: "audit", AggregateID: command.AuditID, AggregateRevision: 1,
+				EffectiveAt: now, KnownAt: now, OccurredAt: now, EmittedAt: now,
+				VisibilityPurposeCode: "regulated_oversight", EntityRefs: map[string]any{"audit_id": command.AuditID},
+				StateBefore: "audit_planned", StateAfter: "audit_in_progress",
+				Payload: map[string]any{"started_at": now.Format(time.RFC3339Nano)},
+			},
+		}
 		return transition[AuditWorkspace]{
 			Response: output, OrganizationID: organizationID,
 			Action: "audit.workspace_created", EntityType: "inspection",
@@ -616,8 +518,27 @@ func (service *Service) CreateAuditWorkspace(
 			AfterStatus: "IN_PROGRESS",
 			Reason:      "Created audit workspace from a released plan and published checklist.",
 			SyncKind:    "inspection", OutboxTopic: "audit.workspace_created",
+			DataFeedEvents: dataFeedEvents,
 		}, nil
 	})
+}
+
+// dataFeedAuditScopeCode permits only source inspection-type values already
+// represented by this candidate. It intentionally does not normalize input:
+// an unknown type, including any ambiguous combined value, cannot be emitted.
+func dataFeedAuditScopeCode(inspectionType string) (string, error) {
+	switch inspectionType {
+	case "RAMP":
+		return "ramp", nil
+	case "CABIN":
+		return "cabin", nil
+	case "RAMP_INSPECTION":
+		return "ramp_inspection", nil
+	case "CABIN_INSPECTION":
+		return "cabin_inspection", nil
+	default:
+		return "", fmt.Errorf("%w: unsupported exact inspection type for datafeed: %q", ErrInvalid, inspectionType)
+	}
 }
 
 type CreateReportVersionCommand struct {

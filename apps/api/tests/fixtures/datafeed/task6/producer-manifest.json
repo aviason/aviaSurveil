@@ -1,0 +1,12 @@
+{
+  "run_id": "10000000-0000-4000-8000-000000000151",
+  "contract_version": "3.0.0",
+  "events": [
+    {
+      "event_id": "10000000-0000-4000-8000-000000000152",
+      "canonical_event_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "delivery_outcome": "ACKNOWLEDGED",
+      "acknowledgement_receipt_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ]
+}

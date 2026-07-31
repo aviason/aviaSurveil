@@ -5,7 +5,9 @@ import type {
   BackendRequestOptions,
   DecidePotentialFindingInput,
   FieldSyncOperation,
+  GovernedValidationIssue,
 } from "./backend";
+import { GovernedValidationError } from "./backend-contracts";
 import {
   activeBrowserRequestHeaders,
   recordActiveBrowserAPIOutcome,
@@ -83,6 +85,7 @@ export interface BackendProblem {
   detail: string | null;
   code: string | null;
   requestId: string | null;
+  issues: GovernedValidationIssue[];
 }
 
 export class BackendHttpError extends Error {
@@ -200,6 +203,18 @@ function parseProblem(value: unknown, fallbackStatus: number): BackendProblem | 
     detail: typeof candidate.detail === "string" ? candidate.detail : null,
     code: typeof candidate.code === "string" ? candidate.code : null,
     requestId: typeof candidate.requestId === "string" ? candidate.requestId : null,
+    issues: Array.isArray(candidate.issues)
+      ? candidate.issues.filter((issue): issue is GovernedValidationIssue =>
+        Boolean(issue) &&
+        typeof issue === "object" &&
+        typeof (issue as Record<string, unknown>).fieldPath === "string" &&
+        typeof (issue as Record<string, unknown>).code === "string" &&
+        typeof (issue as Record<string, unknown>).message === "string" &&
+        typeof (issue as Record<string, unknown>).sourceIdentity === "string" &&
+        typeof (issue as Record<string, unknown>).sourceHash === "string" &&
+        typeof (issue as Record<string, unknown>).clauseId === "string" &&
+        typeof (issue as Record<string, unknown>).locator === "string")
+      : [],
   };
 }
 
@@ -297,6 +312,9 @@ export function createHttpBackend(
         throw error;
       }
       if (response.status === 403) throw new BackendAuthorizationError(problem, correlatedRequestId);
+      if (response.status === 422 && problem?.issues.length) {
+        throw new GovernedValidationError(problem.issues);
+      }
       throw new BackendHttpError(
         problem?.title ?? `Backend request failed with status ${response.status}`,
         response.status,
@@ -905,7 +923,67 @@ export function createHttpBackend(
           ),
         ),
     },
+    governedChecklistReview: {
+      validateBlockedGeneration: async (input, options) =>
+        request<Schemas["GovernedBlockedGenerationResult"]>(
+          "/v1/department-manager/governed-checklist/blocked-generation-validations",
+          { method: "POST", headers: { "Idempotency-Key": input.idempotencyKey }, body: input },
+          options,
+        ),
+      listQueue: async (_input, options) =>
+        request<Schemas["DepartmentManagerGovernedReviewQueue"]>(
+          "/v1/department-manager/governed-checklist/review-queue",
+          {},
+          options,
+        ),
+      getCandidate: async ({ candidateId }, options) =>
+        request<Schemas["DepartmentManagerGovernedReviewItem"]>(
+          `/v1/department-manager/governed-checklist/candidates/${encodeURIComponent(candidateId)}`,
+          {},
+          options,
+        ),
+      return: async (input, options) =>
+        request<Schemas["GovernedCandidateView"]>(
+          `/v1/department-manager/governed-checklist/candidates/${encodeURIComponent(input.candidateId)}/returns`,
+          { method: "POST", headers: { "Idempotency-Key": input.idempotencyKey }, body: input },
+          options,
+        ),
+      reject: async (input, options) =>
+        request<Schemas["GovernedCandidateView"]>(
+          `/v1/department-manager/governed-checklist/candidates/${encodeURIComponent(input.candidateId)}/rejections`,
+          { method: "POST", headers: { "Idempotency-Key": input.idempotencyKey }, body: input },
+          options,
+        ),
+      approve: async (input, options) =>
+        request<Schemas["GovernedCandidateView"]>(
+          `/v1/department-manager/governed-checklist/candidates/${encodeURIComponent(input.candidateId)}/technical-approvals`,
+          { method: "POST", headers: { "Idempotency-Key": input.idempotencyKey }, body: input },
+          options,
+        ),
+      publish: async (input, options) =>
+        request<Schemas["GovernedPublicationView"]>(
+          `/v1/department-manager/governed-checklist/candidates/${encodeURIComponent(input.candidateId)}/publications`,
+          { method: "POST", headers: { "Idempotency-Key": input.idempotencyKey }, body: input },
+          options,
+        ),
+      getPublishedVersion: async ({ templateVersionId }, options) =>
+        request<Schemas["GovernedPublishedVersionView"]>(
+          `/v1/department-manager/governed-checklist/published-versions/${encodeURIComponent(templateVersionId)}`,
+          {},
+          options,
+        ),
+    },
     adminWorkspace: {
+      listGovernedSources: async (_input, options) => {
+        const output = await request<Schemas["GovernedSourceSnapshotPage"]>("/v1/admin/governed-checklist/sources", {}, options);
+        return output as unknown as import("./backend").PageOutput<import("./backend").GovernedSourceSnapshotView>;
+      },
+      activateGovernedSourceCurrentness: async (input, options) => request<Schemas["GovernedSourceCurrentnessActivationView"]>("/v1/admin/governed-checklist/source-currentness-activations", { method: "POST", headers: { "Idempotency-Key": input.idempotencyKey }, body: input }, options) as Promise<import("./backend").GovernedSourceCurrentnessActivationView>,
+      importGovernedGenerationRun: async (input, options) => request<Schemas["GovernedGenerationRunView"]>("/v1/admin/governed-checklist/generation-runs", { method: "POST", headers: { "Idempotency-Key": input.idempotencyKey }, body: input }, options) as Promise<import("./backend").GovernedGenerationRunView>,
+      getGovernedGenerationRun: async ({ generationRunId }, options) => request<Schemas["GovernedGenerationRunView"]>(`/v1/admin/governed-checklist/generation-runs/${encodeURIComponent(generationRunId)}`, {}, options) as Promise<import("./backend").GovernedGenerationRunView>,
+      getGovernedCandidate: async ({ candidateId }, options) => request<Schemas["GovernedCandidateView"]>(`/v1/admin/governed-checklist/candidates/${encodeURIComponent(candidateId)}`, {}, options) as Promise<import("./backend").GovernedCandidateView>,
+      createGovernedCandidateRevision: async (input, options) => request<Schemas["GovernedCandidateView"]>(`/v1/admin/governed-checklist/candidates/${encodeURIComponent(input.candidateId)}/revisions`, { method: "POST", headers: { "Idempotency-Key": input.idempotencyKey }, body: input }, options) as Promise<import("./backend").GovernedCandidateView>,
+      submitGovernedCandidateReview: async (input, options) => request<Schemas["GovernedCandidateView"]>(`/v1/admin/governed-checklist/candidates/${encodeURIComponent(input.candidateId)}/submissions`, { method: "POST", headers: { "Idempotency-Key": input.idempotencyKey }, body: input }, options) as Promise<import("./backend").GovernedCandidateView>,
       listRegulatoryReferences: async (input, options) => {
         const output = await request<Schemas["AdminRegulatoryReferencePage"]>(
           appendQuery("/v1/admin/regulatory-references", input),

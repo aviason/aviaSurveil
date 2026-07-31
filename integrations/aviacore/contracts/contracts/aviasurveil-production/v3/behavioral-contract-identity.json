@@ -1,0 +1,711 @@
+{
+  "artifacts": [
+    {
+      "bytes": 13270,
+      "path": "api/openapi/aviasurveil-ingestion-v3.openapi.json",
+      "sha256": "f9bba37125dea8cac4141f640f4cff08db2f0b89b068fc87f5f56d85bf4bce40"
+    },
+    {
+      "bytes": 1138,
+      "path": "contracts/aviasurveil-production/v3/consumer-contracts.json",
+      "sha256": "417981e8802973c51985c21309717c18dd40c12d886ec02838bb13ffbf81b631"
+    },
+    {
+      "bytes": 19859,
+      "path": "contracts/aviasurveil-production/v3/event-catalog.json",
+      "sha256": "aed68509b306e6a94ee8eed30abede933b21f4d3cc65677a9a6b1c747055949d"
+    },
+    {
+      "bytes": 9441,
+      "path": "contracts/aviasurveil-production/v3/extension-event-contracts.json",
+      "sha256": "a15166f19eb0ae5ca433e6630012034c3c5d70858821f4a2abfd902767a50e1b"
+    },
+    {
+      "bytes": 1500,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/audit-completed.json",
+      "sha256": "e16cd583337606a248c84b2ecc9aba1d87dfe50cc5d7f0b1a67266ef064b7550"
+    },
+    {
+      "bytes": 1496,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/audit-planned.json",
+      "sha256": "3ba31fcb6d59ca35994692808a32dbe973f7c123acf18f0eb770fbb4140c85dd"
+    },
+    {
+      "bytes": 1445,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/audit-started.json",
+      "sha256": "0b3dd5b31ff4da629013f144ca1de6fbd06ce8738b8216dd2508486db5f7a543"
+    },
+    {
+      "bytes": 1675,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/audit_assignment-versioned.json",
+      "sha256": "0871557d3c3e2350f92a1f8871f130355a3242a1f014a218f73bda4b8abdb8da"
+    },
+    {
+      "bytes": 1550,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/cap-reviewed.json",
+      "sha256": "303cffc5c23392e503fa61efa91d6d13db21f76e8e8627a32d164bd3a64b5698"
+    },
+    {
+      "bytes": 1567,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/cap-submitted.json",
+      "sha256": "26497db7e6ab6c91dac6d18fae5f2a9e968ce25c4d89c7b404dc2acf9903fce0"
+    },
+    {
+      "bytes": 1582,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/checklist-completed.json",
+      "sha256": "31197f9441d21575a736e7617d9bddb18e7e90760c0beaca6f5eda0a19ffc6b7"
+    },
+    {
+      "bytes": 1588,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/checklist-response-recorded.json",
+      "sha256": "2880e46e483da1fd3ab3fd79c2424f8d230c3ae07ec30747537350298ea38678"
+    },
+    {
+      "bytes": 2674,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/checklist_configuration-published.json",
+      "sha256": "20efce0e47354fc2c235cdbdd4578bfa221107c024c8562737edbf7f51029b51"
+    },
+    {
+      "bytes": 2460,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/checklist_configuration-versioned.json",
+      "sha256": "001f055d8a64e1c98ee2444c05988c6e90477e8f9c63e09bb851c9289aad8a51"
+    },
+    {
+      "bytes": 2663,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/checklist_generation-candidate_versioned.json",
+      "sha256": "6aac740e2a82380cb84ae75d04b2404d4384d827f202e363bb7c139bfb655f7f"
+    },
+    {
+      "bytes": 1982,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/checklist_generation-impact_review_recorded.json",
+      "sha256": "fd4d0612b19d7735160dc69a3cd6957089a7bb99fc197373a392173d83072c4e"
+    },
+    {
+      "bytes": 1696,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/checklist_generation-rollout_readiness_recorded.json",
+      "sha256": "c3f0b619ce3da67eb224e63a622eb1102141f55052b43f801d577a85193b4d6b"
+    },
+    {
+      "bytes": 1873,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/checklist_generation-run_recorded.json",
+      "sha256": "d0278f40a38229e1c412d73b0234980e687dcd76c9fc06e34f77217449f6de7d"
+    },
+    {
+      "bytes": 2513,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/checklist_package-composed.json",
+      "sha256": "89db208e480420a9b91fb53c3bc59f3ef6a99ae35956ff191c7dc97dfed567cd"
+    },
+    {
+      "bytes": 2471,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/checklist_package-versioned.json",
+      "sha256": "c15dfea664e15572f44c2ef7f8c3506d4fe68fda89a7bb6ead1c5dd005c7d3ca"
+    },
+    {
+      "bytes": 1532,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/correction-recorded.json",
+      "sha256": "f669f525ad613a3640f122bfb2f68bc8d2b97b4f7ca80f031d7d8b0ad6c6b1bf"
+    },
+    {
+      "bytes": 1595,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/event-superseded.json",
+      "sha256": "0caf4edea1337e2122fb06e8b3ed6489fd1f7b28f7fa04d6b5ac929e49d9d29f"
+    },
+    {
+      "bytes": 1608,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/evidence-reference-reviewed.json",
+      "sha256": "9c90413352c58f2f03517d30ca52f25c4fc878692a083e46afdb92650e06539e"
+    },
+    {
+      "bytes": 1748,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/evidence-reference-submitted.json",
+      "sha256": "30914f4d6e43d8d84ab2ade0098ce883e5a098ec21874bf9f43e53731736f68a"
+    },
+    {
+      "bytes": 1632,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/finding-closed.json",
+      "sha256": "69682d20bd0bb67b0e356118570a7f2f23738b15e01548ac6e0f2ce1aea58421"
+    },
+    {
+      "bytes": 1548,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/finding-escalated.json",
+      "sha256": "51fdd43241e6a903b6f7334891069981360cd7da6d250798bee5bb487c245f87"
+    },
+    {
+      "bytes": 1564,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/finding-issued.json",
+      "sha256": "61b3cdf010e7f3b64e0a26cdb68c8f5e59f4f6df6ba0c41d9d1cfd7edfc56493"
+    },
+    {
+      "bytes": 1546,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/finding-reopened.json",
+      "sha256": "19b4417a8c5d1a3fc96e9f31554e0c15278e974d1104e79214d0f7505928ffa2"
+    },
+    {
+      "bytes": 1615,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/information-request-created.json",
+      "sha256": "cd70697cb799c412839cd4f1fe1185c3187f03a304c0cfa7890fd184bbc908d5"
+    },
+    {
+      "bytes": 1610,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/information-request-responded.json",
+      "sha256": "99dd4a706588e7d9cba732b390ac8cd74cb3ca09a09edf3ca9c226647e8c79c7"
+    },
+    {
+      "bytes": 1523,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/organization-versioned.json",
+      "sha256": "41b7e123dd037f9f22f343fa3cbd40535effd4591681b9e2e63e9e0ea2ef12ec"
+    },
+    {
+      "bytes": 1733,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/potential_finding-decision_recorded.json",
+      "sha256": "e67cb330db38396528e98cd3ec16cb9e2c9f9ce0854ac2c7460a223aa77202b4"
+    },
+    {
+      "bytes": 1826,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/potential_finding-versioned.json",
+      "sha256": "3165c00697457bb50a989fc1cb7cf649d9ca8d27780bb614836a395ed4f0fcdf"
+    },
+    {
+      "bytes": 1652,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/provider_scope-ended.json",
+      "sha256": "a9ff8100733c6626ba8e48156c1237a9bcf0655b4a210619c449f12fa98dc9a6"
+    },
+    {
+      "bytes": 2009,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/provider_scope-versioned.json",
+      "sha256": "ed7e1ecb730bb9503188d48224d9772982494972f1d787eba48ce4b8ee0a3c31"
+    },
+    {
+      "bytes": 1710,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/regulatory_reference-versioned.json",
+      "sha256": "141e8167abf0e50bec43286271794efbc68a07e9e9c22cd1e61b3ebe0b10ab69"
+    },
+    {
+      "bytes": 1717,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/reminder-dispatch_recorded.json",
+      "sha256": "561da2faa4439684697a02b081aaabe93ae3b6214775d807ae95397d02724657"
+    },
+    {
+      "bytes": 1645,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/report-decision_recorded.json",
+      "sha256": "a09faa7ad010e25eec456a3c6ede1e9036a9ac54807f6e5bb18bbcbf695cd445"
+    },
+    {
+      "bytes": 1556,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/report-versioned.json",
+      "sha256": "549e5ff197824c623c78946bc16e2314e7500235778f9d6bdbf09bf95aa092e4"
+    },
+    {
+      "bytes": 1549,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/surveillance_plan-approval_recorded.json",
+      "sha256": "6a115ce5b3505af31e7abab7a91db5347bd783b976c351940dadb579c876bf2e"
+    },
+    {
+      "bytes": 1499,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/surveillance_plan-status_changed.json",
+      "sha256": "ee598dd454d7d37b25f91ca33dc2a8a28e102faffb721f6ce3f31f38531ef5cb"
+    },
+    {
+      "bytes": 1783,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/surveillance_plan-versioned.json",
+      "sha256": "50ca8d4d901b10470a0327dd4c330e3088a05789531cdda45bd61946b7d229d9"
+    },
+    {
+      "bytes": 1550,
+      "path": "contracts/aviasurveil-production/v3/golden/negative/tombstone-recorded.json",
+      "sha256": "b39ee8f12ce9b1270ce6560248259cd57c1c5a5d0c69ba64191c39facf184e2c"
+    },
+    {
+      "bytes": 1262,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/audit-completed.json",
+      "sha256": "ed600753193ee3b4f5a3fbf44f9947973e6c38cf9be582095a1bf7274c1d2ab0"
+    },
+    {
+      "bytes": 1256,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/audit-planned.json",
+      "sha256": "85b74833317385cafa4d8d10b5b4345b8117e94003756258cb69bceb09df3e85"
+    },
+    {
+      "bytes": 1209,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/audit-started.json",
+      "sha256": "97ffa06f04f959ed91c53c97938111770058d8a331b13a32ef37a166d03beef5"
+    },
+    {
+      "bytes": 1427,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/audit_assignment-versioned.json",
+      "sha256": "33775517cd6e52127d5989802f687d1639af8f5330dacbe9258df3b3104131de"
+    },
+    {
+      "bytes": 1308,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/cap-reviewed.json",
+      "sha256": "9bdd911ab49b27087415adb8c2ac10249e44951aaab21a1a62c70336ef56e7b6"
+    },
+    {
+      "bytes": 1325,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/cap-submitted.json",
+      "sha256": "a3989c12cd6f7df9a87e51d3ddf8783c7aa23b8ba60f3a7b81104dd6d8c51ee3"
+    },
+    {
+      "bytes": 1340,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/checklist-completed.json",
+      "sha256": "a9aa796795adc6b33265e7bae4fcb0e286db83720afd56619ef940c75f8c88d4"
+    },
+    {
+      "bytes": 1346,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/checklist-response-recorded.json",
+      "sha256": "11eb5019422b8a8a134f9cd11cc41e8a3eceb9fb3d3c69b4ecd7beb2db7d85da"
+    },
+    {
+      "bytes": 2366,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/checklist_configuration-published.json",
+      "sha256": "1cd68c36fc6af19e1df764cb02410dc4257d9d0f52742d3e023c8d96d6bfd7b0"
+    },
+    {
+      "bytes": 2160,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/checklist_configuration-versioned.json",
+      "sha256": "fee7a80e34ba47ac114606d137b680efcfc845c09b14faf75b66db5db26d5826"
+    },
+    {
+      "bytes": 2357,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/checklist_generation-candidate_versioned.json",
+      "sha256": "a4927cf08504142710e8e15d77a3a756d24cd51ef7b80441de9b2cd3d9064f9d"
+    },
+    {
+      "bytes": 1724,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/checklist_generation-impact_review_recorded.json",
+      "sha256": "22bafb2f8f8c4ce95e8f5078d0edd6bdb8443679e330846dcb68dccdbe598f2f"
+    },
+    {
+      "bytes": 1452,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/checklist_generation-rollout_readiness_recorded.json",
+      "sha256": "38812d8db83a302f76c44ef050cf4b3f2ac83169aa53d5a673e7ed8d205eef5d"
+    },
+    {
+      "bytes": 1611,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/checklist_generation-run_recorded.json",
+      "sha256": "e2b3c0a7550231d95a4a72d36000c87d6bfd80bba994ef3e08639fba3061d5f9"
+    },
+    {
+      "bytes": 2213,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/checklist_package-composed.json",
+      "sha256": "8ecd60ca6080ac575b6207890bc99ec47462edd58c282d673f4bf4c18cae8b6c"
+    },
+    {
+      "bytes": 2173,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/checklist_package-versioned.json",
+      "sha256": "2af86280a2d202066bdf441db996c302217ee879dde2c766e08dfb3ab9af564e"
+    },
+    {
+      "bytes": 1294,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/correction-recorded.json",
+      "sha256": "d958c7bf1dd632be638513ddc3ba27a9a3ee20a26e21e2aa03981a8cd6db616b"
+    },
+    {
+      "bytes": 1355,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/event-superseded.json",
+      "sha256": "2073b14a1206d632bb490647acf4f653da6a2699ec14d4b92db246e82ec99032"
+    },
+    {
+      "bytes": 1366,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/evidence-reference-reviewed.json",
+      "sha256": "8a0cf97843f843a68a9896244d869a6f26411f63ab2886c7219c910ca033e945"
+    },
+    {
+      "bytes": 1502,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/evidence-reference-submitted.json",
+      "sha256": "d2b158b05b01516652c2e9aeb695e106bb2787e0ca93a3c5d04bc0837a6744f9"
+    },
+    {
+      "bytes": 1388,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/finding-closed.json",
+      "sha256": "d9c887bf1f35b821f1b36014ffb74dd2ccb42a81ce2948adfe82b7b0cf31e48c"
+    },
+    {
+      "bytes": 1308,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/finding-escalated.json",
+      "sha256": "fb8b93492dd6e5d01de9abd49d99e3a0a38f3de0ee8e8e61bc994e1c9b8ea065"
+    },
+    {
+      "bytes": 1322,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/finding-issued.json",
+      "sha256": "5a0c7c22c821512236a155af5840e74d18eb4f96948baa4f19897ced4f1bcdc6"
+    },
+    {
+      "bytes": 1306,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/finding-reopened.json",
+      "sha256": "977737f39578958699773d76f621b6b4a4596f6123f6e4f7401ec7c68fa84717"
+    },
+    {
+      "bytes": 1373,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/information-request-created.json",
+      "sha256": "c1204c701e3896c84d537bd01f27e11dd85f9e657728ff0605be680b84b444dc"
+    },
+    {
+      "bytes": 1368,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/information-request-responded.json",
+      "sha256": "b5fe9d4693ac9faaad1da966cf74f7764ab3933757ce27cabbe428708a0c7803"
+    },
+    {
+      "bytes": 1283,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/organization-versioned.json",
+      "sha256": "898a79ab4a483a6a05885004488612b8f69b89d4b1008feb4d5cc253d57eed83"
+    },
+    {
+      "bytes": 1483,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/potential_finding-decision_recorded.json",
+      "sha256": "ca6fe98df9d209fae0c222a597b3e35415c11ffcac336fe34fdddcd3a0bc4971"
+    },
+    {
+      "bytes": 1574,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/potential_finding-versioned.json",
+      "sha256": "bd09c91b412e7e4b5e3d3714965bc775fc67b0523f5f686f71f553df7b783616"
+    },
+    {
+      "bytes": 1406,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/provider_scope-ended.json",
+      "sha256": "f76d9cceaadad8af5c2b5d743127cee0750b38d5288522b57149ad59bb82001d"
+    },
+    {
+      "bytes": 1741,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/provider_scope-versioned.json",
+      "sha256": "b9381735212c19dbba0b28b2869cb6a0407e4cf4a797a6abb2ebaec511afa0d2"
+    },
+    {
+      "bytes": 1462,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/regulatory_reference-versioned.json",
+      "sha256": "0cea76c6950df9a886f2226f0876b9e0280df82ab6c796756139c9dc97bf33f1"
+    },
+    {
+      "bytes": 1467,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/reminder-dispatch_recorded.json",
+      "sha256": "0ae6a793bc8a700e8dd984d2f0e12b55700e5a73a73ff255649e8a051fdaec1c"
+    },
+    {
+      "bytes": 1395,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/report-decision_recorded.json",
+      "sha256": "617df8752bfb6a60781d829a53bac1ab2864153a18675be465cb0113d042b316"
+    },
+    {
+      "bytes": 1314,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/report-versioned.json",
+      "sha256": "7041ac70122d89c03cbaa6500f3babd64ee98a4828f7137c2549cbf15add5d91"
+    },
+    {
+      "bytes": 1307,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/surveillance_plan-approval_recorded.json",
+      "sha256": "f857e4ba53cd306f8db99c754ca60c03ccfc87dbb88baa16224865d965acc183"
+    },
+    {
+      "bytes": 1259,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/surveillance_plan-status_changed.json",
+      "sha256": "8aefcefe3fa098f7a3f96f7c246576f0773f3a0b6c0043745efcecece875d7c3"
+    },
+    {
+      "bytes": 1527,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/surveillance_plan-versioned.json",
+      "sha256": "7420c4be5832b856e460d0cb54b33079dc704a5d975cf16296f4f3d05ed368a9"
+    },
+    {
+      "bytes": 1310,
+      "path": "contracts/aviasurveil-production/v3/golden/positive/tombstone-recorded.json",
+      "sha256": "363f35c51707dec6fbefac4020e1cead1d6c2030b7e2b23b4f6fba9b81b18fc9"
+    },
+    {
+      "bytes": 3127,
+      "path": "contracts/aviasurveil-production/v3/hash-contracts.json",
+      "sha256": "873a567e18df937169d6609ae7beefe51d04071a2205a6fda8e436491b3d7346"
+    },
+    {
+      "bytes": 22396,
+      "path": "contracts/aviasurveil-production/v3/key-grain-registry.json",
+      "sha256": "5b221dce183d3f13c9ee50ce59dc7c2a0164c11de9b9ccad4cf9b17bdbccd07e"
+    },
+    {
+      "bytes": 7844,
+      "path": "contracts/aviasurveil-production/v3/lifecycle-contract.json",
+      "sha256": "459d5831f9dd6f14e80db4e597ae44df744e45a6947d77e0d8bf76d108a44f87"
+    },
+    {
+      "bytes": 3989,
+      "path": "contracts/aviasurveil-production/v3/negative-branch-matrix.json",
+      "sha256": "49186877f3f992b2a0070b6bfb70431e42f31569f49634a7e86e57b8dd6f9030"
+    },
+    {
+      "bytes": 931,
+      "path": "contracts/aviasurveil-production/v3/package-integrity-matrix.json",
+      "sha256": "4d674daac5c000c9d73b5c1d34c76886ee4fbc0eb775e9ce0900993df83d5b07"
+    },
+    {
+      "bytes": 3413,
+      "path": "contracts/aviasurveil-production/v3/privacy-retention-policy.json",
+      "sha256": "104835a6bb6a21d9a1c2dfd1e5a3dee40f9a388c90ce361f984d2d2b80e8bb31"
+    },
+    {
+      "bytes": 4210,
+      "path": "contracts/aviasurveil-production/v3/producer-protocol.json",
+      "sha256": "1fb4de43cd96a9af64f6adb7f4d48cdc8f062e634c4511e2affca58651ee35fa"
+    },
+    {
+      "bytes": 3576,
+      "path": "contracts/aviasurveil-production/v3/quality-publication-contract.json",
+      "sha256": "af38a4b6db448ef9283a0dbe9a92c358b15a5fb90b96707c576185ec15552aa5"
+    },
+    {
+      "bytes": 2205,
+      "path": "contracts/aviasurveil-production/v3/recovery-contract.json",
+      "sha256": "911389971264101746299008e3a43835712874db874a8f50ab919372ed5b121c"
+    },
+    {
+      "bytes": 3766,
+      "path": "contracts/aviasurveil-production/v3/state-machine-contract.json",
+      "sha256": "b8e8a9e0071595015c07475c9dc8a99468d8c458a4b3e1490200aec86ba95a67"
+    },
+    {
+      "bytes": 2556,
+      "path": "contracts/aviasurveil-production/v3/temporal-authority.json",
+      "sha256": "4a7274e91a514107f61f2aca290555885af973d2d1f7561fb3e8fc8b943cd2fb"
+    },
+    {
+      "bytes": 1617,
+      "path": "schemas/events/aviasurveil/v3/audit-completed.schema.json",
+      "sha256": "1dcc9e2682bf3360eb1823cc3ccb9f6d26a32ff0a705516b54bb521b90cec1ac"
+    },
+    {
+      "bytes": 1836,
+      "path": "schemas/events/aviasurveil/v3/audit-planned.schema.json",
+      "sha256": "1ef7cbac60295a5633cbbada7cd377e529454358d0ce5b920561c484eb9217b3"
+    },
+    {
+      "bytes": 1386,
+      "path": "schemas/events/aviasurveil/v3/audit-started.schema.json",
+      "sha256": "54fb1c09dfd9eb275ccaca0a7b2c6022f7311724cc6bb0ab6b73e874be4453f3"
+    },
+    {
+      "bytes": 2749,
+      "path": "schemas/events/aviasurveil/v3/audit_assignment-versioned.schema.json",
+      "sha256": "b597262fd7e67c1a9869958dc40e67754cc28df0b951d2432aeaba26195327c5"
+    },
+    {
+      "bytes": 2091,
+      "path": "schemas/events/aviasurveil/v3/cap-reviewed.schema.json",
+      "sha256": "64184633c7bbb93b172424dbb77a4007dd1cd025b178ecc8b2a756899c1ba938"
+    },
+    {
+      "bytes": 2106,
+      "path": "schemas/events/aviasurveil/v3/cap-submitted.schema.json",
+      "sha256": "2e17dd5474d4cf4c5f15cfc469fc85df8b54a90cbc6b99982e255bd492e0594e"
+    },
+    {
+      "bytes": 2044,
+      "path": "schemas/events/aviasurveil/v3/checklist-completed.schema.json",
+      "sha256": "98c45e17a62403fe948d420402dfb0b5fa8d82a2ef375a9581a60c75944a40f3"
+    },
+    {
+      "bytes": 2048,
+      "path": "schemas/events/aviasurveil/v3/checklist-response-recorded.schema.json",
+      "sha256": "841a3ef8c55a6df16d9f86a9bc83b2de2a2aaf7f630fecae12fbba92d395a0cc"
+    },
+    {
+      "bytes": 7007,
+      "path": "schemas/events/aviasurveil/v3/checklist_configuration-published.schema.json",
+      "sha256": "7b222ca4423f15d0dc1a8c27eb0fda84ab0c66e6211390420f900a7259a0e07e"
+    },
+    {
+      "bytes": 6035,
+      "path": "schemas/events/aviasurveil/v3/checklist_configuration-versioned.schema.json",
+      "sha256": "4a2b5724e414e396bab27e8ac05eefe2355ba0ad4e072d5a6facde2bb3b75f47"
+    },
+    {
+      "bytes": 6676,
+      "path": "schemas/events/aviasurveil/v3/checklist_generation-candidate_versioned.schema.json",
+      "sha256": "1c72db229530d46d7fa68254f97d66082d5e7e1ef6da1c902ea1092171b72df4"
+    },
+    {
+      "bytes": 3874,
+      "path": "schemas/events/aviasurveil/v3/checklist_generation-impact_review_recorded.schema.json",
+      "sha256": "71226f640ece48ede33cf4ae0f0d013513d5656050dab49783845da5c4fe260e"
+    },
+    {
+      "bytes": 2481,
+      "path": "schemas/events/aviasurveil/v3/checklist_generation-rollout_readiness_recorded.schema.json",
+      "sha256": "76bd6867ee8bad1e7ebf61f5adcb5d8c25c77b935921c0d21e04a818ac1b704d"
+    },
+    {
+      "bytes": 3388,
+      "path": "schemas/events/aviasurveil/v3/checklist_generation-run_recorded.schema.json",
+      "sha256": "f7261a2798df0fc09ccd92a830bc35dc9f34bd58d5ced62ec414566a755cfe3d"
+    },
+    {
+      "bytes": 6188,
+      "path": "schemas/events/aviasurveil/v3/checklist_package-composed.schema.json",
+      "sha256": "00203727acb2a37c61b117f48d69463af89a9412065e81450491e0575214f6eb"
+    },
+    {
+      "bytes": 5964,
+      "path": "schemas/events/aviasurveil/v3/checklist_package-versioned.schema.json",
+      "sha256": "f9424bb7560027e179ec442fa69703709b712eab8360567c3d2ab8eeb39c859a"
+    },
+    {
+      "bytes": 1743,
+      "path": "schemas/events/aviasurveil/v3/correction-recorded.schema.json",
+      "sha256": "1d6904bf779089261f3381179d54fdc8a1f578816a3bec71a798e3ec77523da3"
+    },
+    {
+      "bytes": 4103,
+      "path": "schemas/events/aviasurveil/v3/envelope.schema.json",
+      "sha256": "4d86b42ec110089652fe21cb398701e64417cab8400af7cd383b7c0b68860e1b"
+    },
+    {
+      "bytes": 1990,
+      "path": "schemas/events/aviasurveil/v3/event-superseded.schema.json",
+      "sha256": "7b32bd069b7c6770f0ea5d8a02e893bda4e001d66cd277101cca912a7e27ebb7"
+    },
+    {
+      "bytes": 2897,
+      "path": "schemas/events/aviasurveil/v3/event.schema.json",
+      "sha256": "bffa679005ddbd1c249ec75b1d95be5d174688703620939148ec5eea98e43505"
+    },
+    {
+      "bytes": 2169,
+      "path": "schemas/events/aviasurveil/v3/evidence-reference-reviewed.schema.json",
+      "sha256": "a91d9128a1742f2a29594a356e65f8f79db5b1db12a3fb47be86db926e703c40"
+    },
+    {
+      "bytes": 2620,
+      "path": "schemas/events/aviasurveil/v3/evidence-reference-submitted.schema.json",
+      "sha256": "005119b58f2c521580a2f140eae4fa4c8ca75eb45e0821180a74724a0f1c2a7c"
+    },
+    {
+      "bytes": 2968,
+      "path": "schemas/events/aviasurveil/v3/finding-closed.schema.json",
+      "sha256": "cc72172a8654ed87f38e22f4af2d93f1f70791997fcb04e08936aefcdb48c8dd"
+    },
+    {
+      "bytes": 1918,
+      "path": "schemas/events/aviasurveil/v3/finding-escalated.schema.json",
+      "sha256": "7ea256db7e8d6fdc8e31c7c619c90f5bcffc2266fcae41515c64608c75e54bae"
+    },
+    {
+      "bytes": 2040,
+      "path": "schemas/events/aviasurveil/v3/finding-issued.schema.json",
+      "sha256": "835928939e48cfd0c9cc4513e2d03d7fc3211e7513b32ca9c56d0a7108e8d832"
+    },
+    {
+      "bytes": 1836,
+      "path": "schemas/events/aviasurveil/v3/finding-reopened.schema.json",
+      "sha256": "d6971a4c64072493b2f0dd4742d0ef648850c0835134fb55ed3287c1525f9ec4"
+    },
+    {
+      "bytes": 2157,
+      "path": "schemas/events/aviasurveil/v3/information-request-created.schema.json",
+      "sha256": "64f9ee9439d2204313c1263a85809f2af2071bb18d28cca223e6275084079542"
+    },
+    {
+      "bytes": 2186,
+      "path": "schemas/events/aviasurveil/v3/information-request-responded.schema.json",
+      "sha256": "7a8caef0cac49cfad028328dd3fbc85791fabc13b5a30f51883ad69c4448f5e2"
+    },
+    {
+      "bytes": 1853,
+      "path": "schemas/events/aviasurveil/v3/organization-versioned.schema.json",
+      "sha256": "9adace99b8e687cb50bbd998bf49302d5de259b1da3d495beeda9849c42a6b3a"
+    },
+    {
+      "bytes": 2816,
+      "path": "schemas/events/aviasurveil/v3/potential_finding-decision_recorded.schema.json",
+      "sha256": "ad3f53c85255decdd1e0f5e6c7e0080b9e96960d492a194498610024687c7394"
+    },
+    {
+      "bytes": 3257,
+      "path": "schemas/events/aviasurveil/v3/potential_finding-versioned.schema.json",
+      "sha256": "fde801e47323e5c709557f12763302c7ad640c5af1a71ef4bfcac6c66383f22c"
+    },
+    {
+      "bytes": 2519,
+      "path": "schemas/events/aviasurveil/v3/provider_scope-ended.schema.json",
+      "sha256": "8f8a0c0df3061d4e6d13c1791287d6f4c98899e74bedc7eb6352656a14ce79c7"
+    },
+    {
+      "bytes": 4459,
+      "path": "schemas/events/aviasurveil/v3/provider_scope-versioned.schema.json",
+      "sha256": "43806824c38b129283674aab9ae34f24b2b8095db9ff3148d2293b93cbf9d9da"
+    },
+    {
+      "bytes": 2360,
+      "path": "schemas/events/aviasurveil/v3/regulatory_reference-versioned.schema.json",
+      "sha256": "52fb083c7ad0799f3f83e9f94928cd9cae92229f1bbb35dc5426e225c8d3c221"
+    },
+    {
+      "bytes": 3051,
+      "path": "schemas/events/aviasurveil/v3/reminder-dispatch_recorded.schema.json",
+      "sha256": "bb481ec541d49c4a6767e093977bed4b20654831c638b2410468b5c36b343cdb"
+    },
+    {
+      "bytes": 2728,
+      "path": "schemas/events/aviasurveil/v3/report-decision_recorded.schema.json",
+      "sha256": "329179979a4eb6eedeb8f0a44a8a06d283aecdb661f7a176296573d9baf2771b"
+    },
+    {
+      "bytes": 1934,
+      "path": "schemas/events/aviasurveil/v3/report-versioned.schema.json",
+      "sha256": "0155c15c90ea0911c7da557f16c911e951a2d5be8f278b064a4ce8d1d53dedb7"
+    },
+    {
+      "bytes": 2061,
+      "path": "schemas/events/aviasurveil/v3/surveillance_plan-approval_recorded.schema.json",
+      "sha256": "c72042145b98c9fecaa0ecb9fa2ee0531a275f3bd40fd04d633d446221ed9e89"
+    },
+    {
+      "bytes": 1820,
+      "path": "schemas/events/aviasurveil/v3/surveillance_plan-status_changed.schema.json",
+      "sha256": "bb12d74d80a6cc9c18d54bf4baa705c32f8cd4868e20c4396cfd0a16f325436b"
+    },
+    {
+      "bytes": 3370,
+      "path": "schemas/events/aviasurveil/v3/surveillance_plan-versioned.schema.json",
+      "sha256": "69ff6c2daaddd43301ab7d9c5e26fa4ce43258c7d26916f7768003c11474147c"
+    },
+    {
+      "bytes": 2007,
+      "path": "schemas/events/aviasurveil/v3/tombstone-recorded.schema.json",
+      "sha256": "244d6fb620954f234c624510e31fea300cc4c6018d504ba4f8357e60e38acc72"
+    }
+  ],
+  "authorization_boundary": {
+    "approved_plan_revision_digest_in_behavioral_digest": false,
+    "authorization_envelope": "contracts/aviasurveil-production/v3/authorization-envelope.json",
+    "authorization_policy": "contracts/aviasurveil-production/v3/authorization-policy.json",
+    "identity_is_separate": true,
+    "legacy_approval_requirements": "contracts/aviasurveil-production/v1/approval-requirements.json",
+    "legacy_approval_state_in_behavioral_digest": false
+  },
+  "behavioral_claim_boundaries": [
+    "defines AviaSurveil v3 production-feed compatibility behavior only",
+    "does not authorize a producer implementation, phase 2.3, connected source, release, customer, or production action",
+    "does not promote fixture or local evidence to connected-source or production evidence",
+    "does not replace approved predecessor-plan or historical-evidence identity"
+  ],
+  "behavioral_contract_digest": "d87ec3649ff0f3b5f3871e90496eac2b1177dbec9f26fea72ced825d0beff121",
+  "canonicalization": {
+    "artifact_digest": "sha256",
+    "artifact_ordering": "repository_relative_path_ascending.v1",
+    "domain": "aviacore.aviasurveil.behavioral_contract.v3",
+    "manifest_encoding": "canonical_json_utf8_sorted_keys.v1",
+    "payload_version": "aviasurveil_behavioral_identity_payload.v3"
+  },
+  "contract_id": "aviasurveil.production-feed",
+  "contract_version": "3.0.0",
+  "identity_version": "behavioral_identity.v3",
+  "manifest": {
+    "bytes": 2930,
+    "path": "contracts/aviasurveil-production/v3/behavioral-contract-manifest.json",
+    "sha256": "c52a6a4917597fe2f06d01a4341904edc48698cafe09c808a04620f113741b15"
+  },
+  "schema_version": "aviasurveil_behavioral_contract_identity.v1",
+  "unsupported_execution_policy": {
+    "missing_inventory_source": "reject",
+    "unknown_event_type": "reject",
+    "unsupported_schema_version": "reject",
+    "unverified_manifest": "reject"
+  }
+}

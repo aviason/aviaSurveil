@@ -1,0 +1,36 @@
+{
+  "actor_organization_id": "caa-fixture",
+  "aggregate_id": "audit-ref-001",
+  "aggregate_revision": 1,
+  "aggregate_type": "audit",
+  "business_key": "audit-ref-001",
+  "causation_id": null,
+  "contract_id": "aviasurveil.production-feed.events",
+  "contract_version": "3.0.0",
+  "correlation_id": "20000000-0000-4000-8000-000000000001",
+  "effective_at": "2026-08-01T08:00:00Z",
+  "emitted_at": "2026-08-01T08:00:01Z",
+  "entity_refs": {
+    "audit_id": "audit-ref-001"
+  },
+  "event_id": "10000000-0000-4000-8000-000000000001",
+  "event_type": "audit.planned",
+  "event_version": 1,
+  "known_at": "2026-08-01T08:00:01Z",
+  "occurred_at": "2026-08-01T08:00:00Z",
+  "owning_organization_id": "organization-fixture",
+  "payload": {
+    "audit_program_ref": "program-ref-001",
+    "audit_scope_code": "airport_operations",
+    "planned_start_at": "2026-08-01T08:00:00Z"
+  },
+  "payload_sha256": "47c9a236adb976eb229d74bc447c6856ec60b8fb1576a6c1dda16afd02a0e926",
+  "privacy_class": "P2",
+  "schema_version": "3.0.0",
+  "source_module": "aviasurveil360",
+  "source_system": "aviasurveil-production-api",
+  "state_after": "audit_planned",
+  "state_before": null,
+  "tenant_id": "tenant-contract-fixture",
+  "visibility_purpose_code": "regulated_oversight"
+}

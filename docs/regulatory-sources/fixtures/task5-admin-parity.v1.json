@@ -1,0 +1,47 @@
+{
+  "import": {
+    "operationId": "TASK5-PARITY-IMPORT",
+    "idempotencyKey": "TASK5-PARITY-IMPORT-KEY"
+  },
+  "edit": {
+    "operationId": "TASK5-PARITY-EDIT",
+    "idempotencyKey": "TASK5-PARITY-EDIT",
+    "changeReason": "Apply the single controlled synthetic alternative."
+  },
+  "successor": {
+    "candidateId": "CAND-EDIT-e512051bbf68b320c910",
+    "revision": 2,
+    "contentDigest": "sha256:31554d0293d724c6ececb947d3479d306e6281e1a010fd380c5fe2bf626561de",
+    "status": "GENERATED_DRAFT"
+  },
+  "submit": {
+    "operationId": "TASK5-PARITY-SUBMIT-LEAF",
+    "idempotencyKey": "TASK5-PARITY-SUBMIT-LEAF",
+    "reason": "Submit exact leaf."
+  },
+  "submitted": {
+    "status": "DEPARTMENT_REVIEW"
+  },
+  "run": {
+    "generationRunId": "GENRUN-SYNTHETIC-OPS-AOC-0001",
+    "status": "GENERATED",
+    "inputDigest": "sha256:16263c98748063fc7e29dbb7744189cf9a81fd635bed641579772bafa70a6d64",
+    "outputDigest": "sha256:377598cb1bee5388b19c9d7d4de34f1ff9f6b16b7ac1d2ff6cc5d96af798ad19",
+    "requestId": "GENREQ-SYNTHETIC-OPS-AOC-0001",
+    "providerId": "deterministic-regulatory-fixture"
+  },
+  "validation": {
+    "operationId": "TASK5-PARITY-INVALID",
+    "idempotencyKey": "TASK5-PARITY-INVALID",
+    "changedSourceHash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "issue": {
+      "fieldPath": "mappings[0].citations[0].sourceHash",
+      "code": "SOURCE_HASH_MISMATCH",
+      "message": "citation source hash is immutable",
+      "sourceIdentity": "SYNTHETIC-OPS-AOC",
+      "sourceHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "clauseId": "CLAUSE-SYNTHETIC-OPS-AOC-1",
+      "locator": "Synthetic OPS/AOC 1"
+    }
+  }
+}

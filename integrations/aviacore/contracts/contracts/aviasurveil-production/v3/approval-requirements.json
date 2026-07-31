@@ -1,0 +1,119 @@
+{
+  "approved_evidence_class": "CONTRACT_APPROVAL_EVIDENCE",
+  "approved_plan_revision_digest": "f6697b46edf9e15cd104175bda7a65189dbc5c60691a3243ef17395946e4d250",
+  "candidate_evidence_class": "LOCAL_CONTRACT_CANDIDATE_NOT_APPROVAL_EVIDENCE",
+  "contract_version": "3.0.0",
+  "deferred_external_approvals": [
+    {
+      "blocking_effect": "blocks producer-contract-ready, not isolated Phase 2",
+      "required_by_gate": "Phase 5A",
+      "role": "producer/domain",
+      "status": "deferred_not_granted"
+    },
+    {
+      "blocking_effect": "blocks producer-contract-ready, not isolated Phase 2",
+      "required_by_gate": "Phase 5A",
+      "role": "contract-governance",
+      "status": "deferred_not_granted"
+    },
+    {
+      "blocking_effect": "blocks connected sandbox/source use, not isolated Phase 2",
+      "required_by_gate": "Phase 5B or Phase 6 as scoped",
+      "role": "security/privacy",
+      "status": "deferred_not_granted"
+    },
+    {
+      "blocking_effect": "blocks source-bound admission, not isolated Phase 2",
+      "required_by_gate": "Phase 6",
+      "role": "retention/legal",
+      "status": "deferred_not_granted"
+    },
+    {
+      "blocking_effect": "blocks end-to-end sandbox integration, not isolated Phase 2",
+      "required_by_gate": "Phase 5B",
+      "role": "ingestion/platform",
+      "status": "deferred_not_granted"
+    },
+    {
+      "blocking_effect": "blocks integrated recovery/pilot/target claims, not isolated Phase 2",
+      "required_by_gate": "Phase 5B, Phase 7, or Phase 8 as scoped",
+      "role": "operations/recovery",
+      "status": "deferred_not_granted"
+    }
+  ],
+  "deferred_external_inputs": [
+    {
+      "blocking_effect": "connected direct-mTLS identity remains disabled",
+      "id": "mtls_ca_bundle_fingerprint_reference",
+      "required_by_gate": "Phase 5A",
+      "status": "deferred_not_granted"
+    },
+    {
+      "blocking_effect": "connected direct-mTLS identity remains disabled",
+      "id": "mtls_san_source_tenant_mapping_reference",
+      "required_by_gate": "Phase 5A",
+      "status": "deferred_not_granted"
+    },
+    {
+      "blocking_effect": "connected sandbox admission remains disabled",
+      "id": "clock_skew_policy_reference",
+      "required_by_gate": "Phase 5B",
+      "status": "deferred_not_granted"
+    },
+    {
+      "blocking_effect": "connected sandbox admission remains disabled",
+      "id": "rate_limit_profile_reference",
+      "required_by_gate": "Phase 5B",
+      "status": "deferred_not_granted"
+    },
+    {
+      "blocking_effect": "non-fixture/source-bound admission remains disabled",
+      "id": "retention_policy_reference",
+      "required_by_gate": "Phase 6",
+      "status": "deferred_not_granted"
+    },
+    {
+      "blocking_effect": "blocks production approval evidence, not local contract-ready",
+      "id": "approved_contract_evidence_signer",
+      "required_by_gate": "Phase 8",
+      "status": "deferred_not_granted"
+    },
+    {
+      "blocking_effect": "blocks production approval evidence, not local contract-ready",
+      "id": "approved_trusted_time_service",
+      "required_by_gate": "Phase 8",
+      "status": "deferred_not_granted"
+    },
+    {
+      "blocking_effect": "blocks production approval evidence, not local contract-ready",
+      "id": "approved_external_append_only_anchor",
+      "required_by_gate": "Phase 8",
+      "status": "deferred_not_granted"
+    }
+  ],
+  "gate_behavior": {
+    "connected_or_nonfixture_admission": "disabled_until_exact_later_gate_inputs_verify",
+    "external_authority_inference": "forbidden",
+    "phase1_blockers": [
+      "invalid_contract_package",
+      "missing_or_invalid_repository_owner_local_authorization",
+      "plan_or_contract_digest_mismatch",
+      "independent_verifier_failure"
+    ],
+    "phase1_external_signature_required": false,
+    "phase1_scope": "isolated_local_candidate_implementation_only"
+  },
+  "local_phase1_authorization": {
+    "approval_record_path": "artifacts/aviasurveil-production-readiness/20260722T233549Z-phase1-local-contract-ready/local-contract-authorization.json",
+    "authority_class": "repository_owner_local_contract_freeze",
+    "identity_reference": "current_task_requester",
+    "scope": [
+      "approved normative plan revision",
+      "exact local AviaSurveil contract root",
+      "isolated Phase 2 candidate implementation only"
+    ],
+    "statement": "Phase 1 çıkış kapısındaki harici signer, trusted-time, anchor ve rol onaylarını sonraki üretim kapılarına taşıyan normative plan değişikliğini onaylıyorum. Yeni digest üret, Phase 1’i yerel contract-ready kapsamıyla kapat. Phase 2’yi ayrı sonraki görevde başlat.",
+    "status": "approved"
+  },
+  "schema_version": "aviasurveil_contract_approval_requirements.v2"
+}

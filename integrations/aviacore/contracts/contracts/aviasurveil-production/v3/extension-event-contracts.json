@@ -1,0 +1,370 @@
+{
+  "closed_payloads": true,
+  "contract_version": "3.0.0",
+  "events": [
+    {
+      "additional_properties": false,
+      "event_type": "surveillance_plan.versioned",
+      "required_entity_refs": [
+        "plan_id"
+      ],
+      "required_payload_fields": [
+        "plan_id",
+        "plan_revision",
+        "plan_status_code",
+        "planning_period_start",
+        "planning_period_end",
+        "inspection_type_code",
+        "provider_scope_ref",
+        "typed_target_ref",
+        "qualifier_codes"
+      ]
+    },
+    {
+      "additional_properties": false,
+      "event_type": "surveillance_plan.approval_recorded",
+      "required_entity_refs": [
+        "plan_id"
+      ],
+      "required_payload_fields": [
+        "plan_id",
+        "plan_revision",
+        "approval_decision_code",
+        "decided_at"
+      ]
+    },
+    {
+      "additional_properties": false,
+      "event_type": "surveillance_plan.status_changed",
+      "required_entity_refs": [
+        "plan_id"
+      ],
+      "required_payload_fields": [
+        "plan_id",
+        "plan_revision",
+        "plan_status_code"
+      ]
+    },
+    {
+      "additional_properties": false,
+      "event_type": "reminder.dispatch_recorded",
+      "required_entity_refs": [
+        "plan_id",
+        "reminder_id"
+      ],
+      "required_payload_fields": [
+        "plan_id",
+        "reminder_id",
+        "reminder_template_code",
+        "channel_code",
+        "dispatch_outcome_code",
+        "scheduled_at",
+        "dispatched_at"
+      ]
+    },
+    {
+      "additional_properties": false,
+      "event_type": "organization.versioned",
+      "required_entity_refs": [
+        "organization_id"
+      ],
+      "required_payload_fields": [
+        "organization_id",
+        "organization_revision",
+        "organization_type_code"
+      ]
+    },
+    {
+      "additional_properties": false,
+      "event_type": "provider_scope.versioned",
+      "required_entity_refs": [
+        "organization_id",
+        "provider_scope_id"
+      ],
+      "required_payload_fields": [
+        "organization_id",
+        "provider_scope_id",
+        "scope_revision",
+        "provider_identity_code",
+        "department_code",
+        "inspection_type_codes",
+        "typed_target_type",
+        "typed_target_id",
+        "qualifier_codes",
+        "effective_from",
+        "effective_to",
+        "scope_status_code"
+      ]
+    },
+    {
+      "additional_properties": false,
+      "event_type": "provider_scope.ended",
+      "required_entity_refs": [
+        "organization_id",
+        "provider_scope_id"
+      ],
+      "required_payload_fields": [
+        "organization_id",
+        "provider_scope_id",
+        "scope_revision",
+        "effective_to",
+        "scope_status_code"
+      ]
+    },
+    {
+      "additional_properties": false,
+      "event_type": "audit_assignment.versioned",
+      "required_entity_refs": [
+        "audit_id",
+        "assignment_id"
+      ],
+      "required_payload_fields": [
+        "audit_id",
+        "assignment_id",
+        "assignment_revision",
+        "assignment_status_code",
+        "assigned_department_code",
+        "role_code"
+      ]
+    },
+    {
+      "additional_properties": false,
+      "event_type": "checklist_package.versioned",
+      "required_entity_refs": [
+        "audit_id",
+        "package_id"
+      ],
+      "required_payload_fields": [
+        "audit_id",
+        "package_id",
+        "package_revision",
+        "checklist_version_id",
+        "checklist_digest",
+        "applicability_digest",
+        "ordered_question_snapshot",
+        "question_count"
+      ]
+    },
+    {
+      "additional_properties": false,
+      "event_type": "checklist_package.composed",
+      "required_entity_refs": [
+        "audit_id",
+        "package_id"
+      ],
+      "required_payload_fields": [
+        "audit_id",
+        "package_id",
+        "package_revision",
+        "checklist_version_id",
+        "checklist_digest",
+        "applicability_digest",
+        "ordered_question_snapshot",
+        "question_count",
+        "composed_at"
+      ]
+    },
+    {
+      "additional_properties": false,
+      "event_type": "potential_finding.versioned",
+      "required_entity_refs": [
+        "potential_finding_id",
+        "source_audit_id",
+        "source_question_id"
+      ],
+      "required_payload_fields": [
+        "potential_finding_id",
+        "finding_revision",
+        "source_audit_id",
+        "source_question_id",
+        "classification_code",
+        "severity_code",
+        "status_code"
+      ]
+    },
+    {
+      "additional_properties": false,
+      "event_type": "potential_finding.decision_recorded",
+      "required_entity_refs": [
+        "potential_finding_id",
+        "decision_id"
+      ],
+      "required_payload_fields": [
+        "potential_finding_id",
+        "decision_id",
+        "decision_code",
+        "decided_at",
+        "structured_basis_reference_ids"
+      ]
+    },
+    {
+      "additional_properties": false,
+      "event_type": "report.versioned",
+      "required_entity_refs": [
+        "report_id"
+      ],
+      "required_payload_fields": [
+        "report_id",
+        "report_revision",
+        "report_status_code",
+        "report_digest"
+      ]
+    },
+    {
+      "additional_properties": false,
+      "event_type": "report.decision_recorded",
+      "required_entity_refs": [
+        "report_id",
+        "decision_id"
+      ],
+      "required_payload_fields": [
+        "report_id",
+        "decision_id",
+        "decision_code",
+        "decided_at",
+        "structured_basis_reference_ids"
+      ]
+    },
+    {
+      "additional_properties": false,
+      "event_type": "regulatory_reference.versioned",
+      "required_entity_refs": [
+        "reference_id"
+      ],
+      "required_payload_fields": [
+        "reference_id",
+        "reference_revision",
+        "source_uri",
+        "source_content_sha256",
+        "provision_reference_codes"
+      ]
+    },
+    {
+      "additional_properties": false,
+      "event_type": "checklist_configuration.versioned",
+      "required_entity_refs": [
+        "configuration_id"
+      ],
+      "required_payload_fields": [
+        "configuration_id",
+        "configuration_revision",
+        "configuration_digest",
+        "provider_scope_ref",
+        "typed_target_ref",
+        "qualifier_codes",
+        "ordered_question_snapshot",
+        "question_count"
+      ]
+    },
+    {
+      "additional_properties": false,
+      "event_type": "checklist_configuration.published",
+      "required_entity_refs": [
+        "configuration_id",
+        "publication_decision_id"
+      ],
+      "required_payload_fields": [
+        "configuration_id",
+        "configuration_revision",
+        "configuration_digest",
+        "publication_decision_id",
+        "publication_decision_code",
+        "published_at",
+        "provider_scope_ref",
+        "typed_target_ref",
+        "qualifier_codes",
+        "ordered_question_snapshot",
+        "question_count"
+      ]
+    },
+    {
+      "additional_properties": false,
+      "event_type": "checklist_generation.run_recorded",
+      "required_entity_refs": [
+        "generation_run_id"
+      ],
+      "required_payload_fields": [
+        "generation_run_id",
+        "run_revision",
+        "source_set_digest",
+        "input_reference_ids",
+        "source_content_hashes",
+        "provider_scope_ref",
+        "typed_target_ref",
+        "qualifier_codes"
+      ]
+    },
+    {
+      "additional_properties": false,
+      "event_type": "checklist_generation.candidate_versioned",
+      "required_entity_refs": [
+        "generation_run_id",
+        "candidate_id"
+      ],
+      "required_payload_fields": [
+        "generation_run_id",
+        "candidate_id",
+        "candidate_revision",
+        "candidate_digest",
+        "parent_configuration_digest",
+        "provider_scope_ref",
+        "typed_target_ref",
+        "qualifier_codes",
+        "ordered_question_snapshot",
+        "question_count"
+      ]
+    },
+    {
+      "additional_properties": false,
+      "event_type": "checklist_generation.impact_review_recorded",
+      "required_entity_refs": [
+        "generation_run_id",
+        "candidate_id",
+        "impact_review_id"
+      ],
+      "required_payload_fields": [
+        "generation_run_id",
+        "candidate_id",
+        "impact_review_id",
+        "impact_decision_code",
+        "disjoint_holdout_partition_id",
+        "holdout_population_count",
+        "holdout_evaluated_count",
+        "overlap_count",
+        "adaptive_scope_guardrail_code",
+        "decided_at"
+      ]
+    },
+    {
+      "additional_properties": false,
+      "event_type": "checklist_generation.rollout_readiness_recorded",
+      "required_entity_refs": [
+        "generation_run_id",
+        "candidate_id"
+      ],
+      "required_payload_fields": [
+        "generation_run_id",
+        "candidate_id",
+        "rollout_readiness_decision_code",
+        "decided_at"
+      ]
+    }
+  ],
+  "question_snapshot": {
+    "additional_properties": false,
+    "max_prompt_bytes": 4096,
+    "required_fields": [
+      "question_id",
+      "ordinal",
+      "prompt",
+      "mapping_reference_ids",
+      "citation_reference_ids",
+      "verification_method_code",
+      "expected_evidence_type_codes",
+      "allowed_answer_codes",
+      "mandatory",
+      "safety_critical"
+    ]
+  },
+  "schema_version": "aviasurveil_v3_extension_event_contracts.v1"
+}

@@ -1,0 +1,467 @@
+{
+  "contractId": "task6-manager-artifact-parity-v1",
+  "clock": "2026-07-29T16:00:00Z",
+  "candidate": {
+    "candidateId": "CAND-SYNTHETIC-OPS-AOC-0001",
+    "candidateRootId": "CAND-SYNTHETIC-OPS-AOC-0001",
+    "revision": 1,
+    "contentDigest": "sha256:377598cb1bee5388b19c9d7d4de34f1ff9f6b16b7ac1d2ff6cc5d96af798ad19",
+    "absentTemplateVersionId": "CTV-GOV-APPROVAL-ONLY-ABSENT",
+    "tamperedDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "actors": {
+    "foi": {
+      "subjectId": "USR-MANAGER-NORA",
+      "membershipId": "MEM-TASK6-NORA",
+      "departmentId": "FLIGHT_OPERATIONS_INSPECTORATE",
+      "organizationalUnitId": "FLIGHT_OPERATIONS_INSPECTORATE"
+    },
+    "air": {
+      "subjectId": "USR-TASK6-AIR-MANAGER",
+      "membershipId": "MEM-TASK6-AIR",
+      "departmentId": "AIRWORTHINESS_INSPECTORATE",
+      "organizationalUnitId": "AIRWORTHINESS_INSPECTORATE"
+    }
+  },
+  "requiredOwners": [
+    {
+      "departmentId": "AIRWORTHINESS_INSPECTORATE",
+      "organizationalUnitId": "AIRWORTHINESS_INSPECTORATE",
+      "approvalRequired": true
+    },
+    {
+      "departmentId": "FLIGHT_OPERATIONS_INSPECTORATE",
+      "organizationalUnitId": "FLIGHT_OPERATIONS_INSPECTORATE",
+      "approvalRequired": true
+    }
+  ],
+  "operations": {
+    "import": {
+      "operationId": "TASK6-IMPORT-task6_fix4_shared_artifact_parity",
+      "idempotencyKey": "TASK6-IMPORT-task6_fix4_shared_artifact_parity"
+    },
+    "submit": {
+      "operationId": "TASK6-SUBMIT-task6_fix4_shared_artifact_parity",
+      "idempotencyKey": "TASK6-SUBMIT-task6_fix4_shared_artifact_parity",
+      "reason": "Submit exact synthetic candidate for Task 6 review."
+    },
+    "foiApproval": {
+      "operationId": "TASK6-FIX4-PARITY-FOI-APPROVE",
+      "idempotencyKey": "TASK6-FIX4-PARITY-FOI-APPROVE",
+      "reason": "Shared parity FOI approval."
+    },
+    "airApproval": {
+      "operationId": "TASK6-FIX4-PARITY-AIR-APPROVE",
+      "idempotencyKey": "TASK6-FIX4-PARITY-AIR-APPROVE",
+      "reason": "Shared parity AIR approval."
+    },
+    "publication": {
+      "operationId": "TASK6-FIX4-PARITY-PUBLISH",
+      "idempotencyKey": "TASK6-FIX4-PARITY-PUBLISH",
+      "reason": "Shared parity immutable publication."
+    },
+    "digestTamper": {
+      "operationId": "TASK6-FIX4-PARITY-DIGEST-TAMPER",
+      "idempotencyKey": "TASK6-FIX4-PARITY-DIGEST-TAMPER",
+      "reason": "Shared parity digest tamper must have zero effects."
+    },
+    "conflictingReplayReason": "Conflicting shared parity semantics must have zero effects."
+  },
+  "expected": {
+    "partialStatus": "DEPARTMENT_REVIEW",
+    "finalStatus": "TECHNICALLY_APPROVED",
+    "publishedStatus": "PUBLISHED",
+    "artifactCheckpoints": {
+      "approvalOnly": {
+        "reviewDecisionIds": [
+          "DRD-TASK6-FIX4-PARITY-FOI-APPROVE"
+        ],
+        "auditEventIds": [
+          "AE-TASK6-FIX4-PARITY-FOI-APPROVE"
+        ],
+        "publicationDecisionIds": [],
+        "checklistVersionIds": []
+      },
+      "jointComplete": {
+        "reviewDecisionIds": [
+          "DRD-TASK6-FIX4-PARITY-AIR-APPROVE",
+          "DRD-TASK6-FIX4-PARITY-FOI-APPROVE"
+        ],
+        "auditEventIds": [
+          "AE-TASK6-FIX4-PARITY-AIR-APPROVE",
+          "AE-TASK6-FIX4-PARITY-FOI-APPROVE"
+        ],
+        "publicationDecisionIds": [],
+        "checklistVersionIds": []
+      },
+      "published": {
+        "reviewDecisionIds": [
+          "DRD-TASK6-FIX4-PARITY-AIR-APPROVE",
+          "DRD-TASK6-FIX4-PARITY-FOI-APPROVE"
+        ],
+        "auditEventIds": [
+          "AE-TASK6-FIX4-PARITY-AIR-APPROVE",
+          "AE-TASK6-FIX4-PARITY-FOI-APPROVE",
+          "AE-TASK6-FIX4-PARITY-PUBLISH"
+        ],
+        "publicationDecisionIds": [
+          "PUBDEC-TASK6-FIX4-PARITY-PUBLISH"
+        ],
+        "checklistVersionIds": [
+          "CTV-GOV-93a18ec109e416fa216d"
+        ]
+      }
+    },
+    "artifactRows": {
+      "reviewDecisions": [
+        {
+          "decisionId": "DRD-TASK6-FIX4-PARITY-AIR-APPROVE",
+          "decision": "TECHNICALLY_APPROVED",
+          "candidateRootId": "CAND-SYNTHETIC-OPS-AOC-0001",
+          "candidateId": "CAND-SYNTHETIC-OPS-AOC-0001",
+          "candidateRevision": 1,
+          "candidateContentDigest": "sha256:377598cb1bee5388b19c9d7d4de34f1ff9f6b16b7ac1d2ff6cc5d96af798ad19",
+          "actorSubjectId": "USR-TASK6-AIR-MANAGER",
+          "actorDepartmentMembershipId": "MEM-TASK6-AIR",
+          "actorMembershipIsCurrent": true,
+          "actorDepartmentId": "AIRWORTHINESS_INSPECTORATE",
+          "actorOrganizationalUnitId": "AIRWORTHINESS_INSPECTORATE",
+          "reason": "Shared parity AIR approval.",
+          "decidedAt": "2026-07-29T16:00:00Z",
+          "operationId": "TASK6-FIX4-PARITY-AIR-APPROVE",
+          "idempotencyKey": "TASK6-FIX4-PARITY-AIR-APPROVE",
+          "semanticPayloadDigest": "sha256:e6a3aac1b69e0c062f7b6c6c6db4e32372d2d614da64d9318cfc8f21182bdef8",
+          "auditEventId": "AE-TASK6-FIX4-PARITY-AIR-APPROVE"
+        },
+        {
+          "decisionId": "DRD-TASK6-FIX4-PARITY-FOI-APPROVE",
+          "decision": "TECHNICALLY_APPROVED",
+          "candidateRootId": "CAND-SYNTHETIC-OPS-AOC-0001",
+          "candidateId": "CAND-SYNTHETIC-OPS-AOC-0001",
+          "candidateRevision": 1,
+          "candidateContentDigest": "sha256:377598cb1bee5388b19c9d7d4de34f1ff9f6b16b7ac1d2ff6cc5d96af798ad19",
+          "actorSubjectId": "USR-MANAGER-NORA",
+          "actorDepartmentMembershipId": "MEM-TASK6-NORA",
+          "actorMembershipIsCurrent": true,
+          "actorDepartmentId": "FLIGHT_OPERATIONS_INSPECTORATE",
+          "actorOrganizationalUnitId": "FLIGHT_OPERATIONS_INSPECTORATE",
+          "reason": "Shared parity FOI approval.",
+          "decidedAt": "2026-07-29T16:00:00Z",
+          "operationId": "TASK6-FIX4-PARITY-FOI-APPROVE",
+          "idempotencyKey": "TASK6-FIX4-PARITY-FOI-APPROVE",
+          "semanticPayloadDigest": "sha256:04115f2fccac45386d81c8e46ae230d9a0c546cf6ce6cc63ae1d35d87d038aed",
+          "auditEventId": "AE-TASK6-FIX4-PARITY-FOI-APPROVE"
+        }
+      ],
+      "auditEvents": [
+        {
+          "eventId": "AE-TASK6-FIX4-PARITY-AIR-APPROVE",
+          "candidateRootId": "CAND-SYNTHETIC-OPS-AOC-0001",
+          "candidateId": "CAND-SYNTHETIC-OPS-AOC-0001",
+          "candidateRevision": 1,
+          "candidateContentDigest": "sha256:377598cb1bee5388b19c9d7d4de34f1ff9f6b16b7ac1d2ff6cc5d96af798ad19",
+          "actorSubjectId": "USR-TASK6-AIR-MANAGER",
+          "actorRole": "manager",
+          "actorDepartmentMembershipId": "MEM-TASK6-AIR",
+          "actorMembershipIsCurrent": true,
+          "actorDepartmentId": "AIRWORTHINESS_INSPECTORATE",
+          "actorOrganizationalUnitId": "AIRWORTHINESS_INSPECTORATE",
+          "action": "TECHNICAL_APPROVAL_RECORDED",
+          "entityType": "GOVERNED_CANDIDATE",
+          "entityId": "CAND-SYNTHETIC-OPS-AOC-0001",
+          "beforeStatus": "DEPARTMENT_REVIEW",
+          "afterStatus": "TECHNICALLY_APPROVED",
+          "reason": "Shared parity AIR approval.",
+          "occurredAt": "2026-07-29T16:00:00Z",
+          "operationId": "TASK6-FIX4-PARITY-AIR-APPROVE",
+          "idempotencyKey": "TASK6-FIX4-PARITY-AIR-APPROVE",
+          "semanticPayloadDigest": "sha256:e6a3aac1b69e0c062f7b6c6c6db4e32372d2d614da64d9318cfc8f21182bdef8",
+          "linkedDecisionId": "DRD-TASK6-FIX4-PARITY-AIR-APPROVE"
+        },
+        {
+          "eventId": "AE-TASK6-FIX4-PARITY-FOI-APPROVE",
+          "candidateRootId": "CAND-SYNTHETIC-OPS-AOC-0001",
+          "candidateId": "CAND-SYNTHETIC-OPS-AOC-0001",
+          "candidateRevision": 1,
+          "candidateContentDigest": "sha256:377598cb1bee5388b19c9d7d4de34f1ff9f6b16b7ac1d2ff6cc5d96af798ad19",
+          "actorSubjectId": "USR-MANAGER-NORA",
+          "actorRole": "manager",
+          "actorDepartmentMembershipId": "MEM-TASK6-NORA",
+          "actorMembershipIsCurrent": true,
+          "actorDepartmentId": "FLIGHT_OPERATIONS_INSPECTORATE",
+          "actorOrganizationalUnitId": "FLIGHT_OPERATIONS_INSPECTORATE",
+          "action": "TECHNICAL_APPROVAL_RECORDED",
+          "entityType": "GOVERNED_CANDIDATE",
+          "entityId": "CAND-SYNTHETIC-OPS-AOC-0001",
+          "beforeStatus": "DEPARTMENT_REVIEW",
+          "afterStatus": "DEPARTMENT_REVIEW",
+          "reason": "Shared parity FOI approval.",
+          "occurredAt": "2026-07-29T16:00:00Z",
+          "operationId": "TASK6-FIX4-PARITY-FOI-APPROVE",
+          "idempotencyKey": "TASK6-FIX4-PARITY-FOI-APPROVE",
+          "semanticPayloadDigest": "sha256:04115f2fccac45386d81c8e46ae230d9a0c546cf6ce6cc63ae1d35d87d038aed",
+          "linkedDecisionId": "DRD-TASK6-FIX4-PARITY-FOI-APPROVE"
+        },
+        {
+          "eventId": "AE-TASK6-FIX4-PARITY-PUBLISH",
+          "candidateRootId": "CAND-SYNTHETIC-OPS-AOC-0001",
+          "candidateId": "CAND-SYNTHETIC-OPS-AOC-0001",
+          "candidateRevision": 1,
+          "candidateContentDigest": "sha256:377598cb1bee5388b19c9d7d4de34f1ff9f6b16b7ac1d2ff6cc5d96af798ad19",
+          "actorSubjectId": "USR-MANAGER-NORA",
+          "actorRole": "manager",
+          "actorDepartmentMembershipId": "MEM-TASK6-NORA",
+          "actorMembershipIsCurrent": true,
+          "actorDepartmentId": "FLIGHT_OPERATIONS_INSPECTORATE",
+          "actorOrganizationalUnitId": "FLIGHT_OPERATIONS_INSPECTORATE",
+          "action": "CHECKLIST_PUBLISHED",
+          "entityType": "GOVERNED_CANDIDATE",
+          "entityId": "CAND-SYNTHETIC-OPS-AOC-0001",
+          "beforeStatus": "TECHNICALLY_APPROVED",
+          "afterStatus": "PUBLISHED",
+          "reason": "Shared parity immutable publication.",
+          "occurredAt": "2026-07-29T16:00:00Z",
+          "operationId": "TASK6-FIX4-PARITY-PUBLISH",
+          "idempotencyKey": "TASK6-FIX4-PARITY-PUBLISH",
+          "semanticPayloadDigest": "sha256:93a18ec109e416fa216d33976c174f813cae07f0cc4c87574f7c30e56164917e",
+          "linkedDecisionId": "PUBDEC-TASK6-FIX4-PARITY-PUBLISH"
+        }
+      ],
+      "publicationDecisions": [
+        {
+          "publicationDecisionId": "PUBDEC-TASK6-FIX4-PARITY-PUBLISH",
+          "templateVersionId": "CTV-GOV-93a18ec109e416fa216d",
+          "candidateRootId": "CAND-SYNTHETIC-OPS-AOC-0001",
+          "candidateId": "CAND-SYNTHETIC-OPS-AOC-0001",
+          "candidateRevision": 1,
+          "candidateContentDigest": "sha256:377598cb1bee5388b19c9d7d4de34f1ff9f6b16b7ac1d2ff6cc5d96af798ad19",
+          "actorSubjectId": "USR-MANAGER-NORA",
+          "actorDepartmentMembershipId": "MEM-TASK6-NORA",
+          "actorMembershipIsCurrent": true,
+          "actorDepartmentId": "FLIGHT_OPERATIONS_INSPECTORATE",
+          "actorOrganizationalUnitId": "FLIGHT_OPERATIONS_INSPECTORATE",
+          "reason": "Shared parity immutable publication.",
+          "decidedAt": "2026-07-29T16:00:00Z",
+          "createdAt": "2026-07-29T16:00:00Z",
+          "publishedAt": "2026-07-29T16:00:00Z",
+          "operationId": "TASK6-FIX4-PARITY-PUBLISH",
+          "idempotencyKey": "TASK6-FIX4-PARITY-PUBLISH",
+          "semanticPayloadDigest": "sha256:93a18ec109e416fa216d33976c174f813cae07f0cc4c87574f7c30e56164917e",
+          "auditEventId": "AE-TASK6-FIX4-PARITY-PUBLISH"
+        }
+      ],
+      "checklistVersions": [
+        {
+          "templateVersionId": "CTV-GOV-93a18ec109e416fa216d",
+          "templateId": "TPL-CHK-SYNTHETIC-OPS-AOC-001",
+          "version": 1,
+          "title": "Governed TPL-CHK-SYNTHETIC-OPS-AOC-001",
+          "publishedAt": "2026-07-29T16:00:00Z",
+          "candidateRootId": "CAND-SYNTHETIC-OPS-AOC-0001",
+          "candidateId": "CAND-SYNTHETIC-OPS-AOC-0001",
+          "candidateRevision": 1,
+          "candidateContentDigest": "sha256:377598cb1bee5388b19c9d7d4de34f1ff9f6b16b7ac1d2ff6cc5d96af798ad19",
+          "publicationDecisionId": "PUBDEC-TASK6-FIX4-PARITY-PUBLISH",
+          "auditEventId": "AE-TASK6-FIX4-PARITY-PUBLISH",
+          "questionVersionOrder": [
+            {
+              "questionVersionId": "QV-Q-SYNTHETIC-OPS-AOC-001-V1",
+              "position": 0
+            }
+          ],
+          "immutableSnapshot": {
+            "candidateId": "CAND-SYNTHETIC-OPS-AOC-0001",
+            "candidateRevision": 1,
+            "candidateContentDigest": "sha256:377598cb1bee5388b19c9d7d4de34f1ff9f6b16b7ac1d2ff6cc5d96af798ad19",
+            "complianceMappings": [
+              {
+                "mappingId": "MAP-SYNTHETIC-OPS-AOC-001",
+                "requirement": "Synthetic controlled training requirement for verifying ramp safety evidence.",
+                "relationship": "ADDRESSES",
+                "applicability": "DIRECT",
+                "citations": [
+                  {
+                    "sourceSnapshotId": "SOURCE-SYNTHETIC-OPS-AOC",
+                    "sourceHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+                    "clauseId": "CLAUSE-SYNTHETIC-OPS-AOC-1",
+                    "locator": "Synthetic OPS/AOC 1"
+                  }
+                ],
+                "sourceGap": null,
+                "rationale": "This synthetic source is test-profile-only and proves the bounded import workflow without asserting real authority."
+              }
+            ],
+            "questions": [
+              {
+                "questionId": "Q-SYNTHETIC-OPS-AOC-001",
+                "mappingIds": [
+                  "MAP-SYNTHETIC-OPS-AOC-001"
+                ],
+                "prompt": "Can the inspector reconcile the synthetic ramp-safety evidence with the controlled synthetic requirement?",
+                "citations": [
+                  {
+                    "sourceSnapshotId": "SOURCE-SYNTHETIC-OPS-AOC",
+                    "sourceHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+                    "clauseId": "CLAUSE-SYNTHETIC-OPS-AOC-1",
+                    "locator": "Synthetic OPS/AOC 1"
+                  }
+                ],
+                "verificationMethod": "Physical observation and controlled-record reconciliation",
+                "expectedEvidence": [
+                  "Synthetic inspection observation",
+                  "Synthetic controlled record"
+                ],
+                "allowedAnswers": [
+                  "COMPLIANT",
+                  "NON_COMPLIANT",
+                  "OBSERVATION",
+                  "NOT_APPLICABLE",
+                  "NOT_CHECKED"
+                ],
+                "mandatoryCore": true,
+                "safetyCritical": true,
+                "origin": "REGULATORY_TRACE",
+                "scopeRecommendation": {
+                  "classification": "MANDATORY_CORE",
+                  "inputSignals": [
+                    "Mandatory synthetic safety-control configuration.",
+                    "No validated operational history is available for automatic deferral."
+                  ],
+                  "operationalHistoryBasis": "SYNTHETIC_UNKNOWN_HISTORY",
+                  "rationale": "The synthetic mandatory safety control remains included pending Department Manager review.",
+                  "guardrails": {
+                    "mandatoryControl": true,
+                    "safetyCritical": true,
+                    "unknownHistory": true,
+                    "sourceChanged": false,
+                    "overdueControl": false,
+                    "automaticDeferralPermitted": false
+                  },
+                  "approvalReviewState": "TECHNICAL_REVIEW_REQUIRED",
+                  "automaticDeferral": false
+                },
+                "regulatoryTrace": {
+                  "state": "RESOLVED",
+                  "sourceIdentity": "SYNTHETIC-OPS-AOC",
+                  "sourceTitle": "Synthetic test-profile source",
+                  "immutableVersion": "1",
+                  "sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+                  "locator": "Synthetic OPS/AOC 1",
+                  "page": "1",
+                  "section": "Synthetic OPS/AOC",
+                  "clause": "CLAUSE-SYNTHETIC-OPS-AOC-1",
+                  "sourceType": "SYNTHETIC_INTERNAL_TEST_PROFILE",
+                  "applicability": "DIRECT",
+                  "nationalReference": "Synthetic NAMCAR OPS/AOC reference",
+                  "controlledCaaProcedureMapping": "Synthetic CAA ramp-inspection procedure mapping",
+                  "verificationObjective": "Verify the controlled synthetic ramp-safety requirement through observation and record reconciliation.",
+                  "expectedEvidence": [
+                    "Synthetic inspection observation",
+                    "Synthetic controlled record"
+                  ],
+                  "currentnessState": "CURRENT",
+                  "technicalReviewState": "TECHNICAL_REVIEW_REQUIRED"
+                },
+                "reconciliation": null
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "publishedArtifact": {
+    "mappings": [
+      {
+        "mappingId": "MAP-SYNTHETIC-OPS-AOC-001",
+        "requirement": "Synthetic controlled training requirement for verifying ramp safety evidence.",
+        "relationship": "ADDRESSES",
+        "applicability": "DIRECT",
+        "citations": [
+          {
+            "sourceSnapshotId": "SOURCE-SYNTHETIC-OPS-AOC",
+            "sourceHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "clauseId": "CLAUSE-SYNTHETIC-OPS-AOC-1",
+            "locator": "Synthetic OPS/AOC 1"
+          }
+        ],
+        "sourceGap": null,
+        "rationale": "This synthetic source is test-profile-only and proves the bounded import workflow without asserting real authority."
+      }
+    ],
+    "questions": [
+      {
+        "questionId": "Q-SYNTHETIC-OPS-AOC-001",
+        "mappingIds": [
+          "MAP-SYNTHETIC-OPS-AOC-001"
+        ],
+        "prompt": "Can the inspector reconcile the synthetic ramp-safety evidence with the controlled synthetic requirement?",
+        "citations": [
+          {
+            "sourceSnapshotId": "SOURCE-SYNTHETIC-OPS-AOC",
+            "sourceHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "clauseId": "CLAUSE-SYNTHETIC-OPS-AOC-1",
+            "locator": "Synthetic OPS/AOC 1"
+          }
+        ],
+        "verificationMethod": "Physical observation and controlled-record reconciliation",
+        "expectedEvidence": [
+          "Synthetic inspection observation",
+          "Synthetic controlled record"
+        ],
+        "allowedAnswers": [
+          "COMPLIANT",
+          "NON_COMPLIANT",
+          "OBSERVATION",
+          "NOT_APPLICABLE",
+          "NOT_CHECKED"
+        ],
+        "mandatoryCore": true,
+        "safetyCritical": true,
+        "origin": "REGULATORY_TRACE",
+        "scopeRecommendation": {
+          "classification": "MANDATORY_CORE",
+          "inputSignals": [
+            "Mandatory synthetic safety-control configuration.",
+            "No validated operational history is available for automatic deferral."
+          ],
+          "operationalHistoryBasis": "SYNTHETIC_UNKNOWN_HISTORY",
+          "rationale": "The synthetic mandatory safety control remains included pending Department Manager review.",
+          "guardrails": {
+            "mandatoryControl": true,
+            "safetyCritical": true,
+            "unknownHistory": true,
+            "sourceChanged": false,
+            "overdueControl": false,
+            "automaticDeferralPermitted": false
+          },
+          "approvalReviewState": "TECHNICAL_REVIEW_REQUIRED",
+          "automaticDeferral": false
+        },
+        "regulatoryTrace": {
+          "state": "RESOLVED",
+          "sourceIdentity": "SYNTHETIC-OPS-AOC",
+          "sourceTitle": "Synthetic test-profile source",
+          "immutableVersion": "1",
+          "sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "locator": "Synthetic OPS/AOC 1",
+          "page": "1",
+          "section": "Synthetic OPS/AOC",
+          "clause": "CLAUSE-SYNTHETIC-OPS-AOC-1",
+          "sourceType": "SYNTHETIC_INTERNAL_TEST_PROFILE",
+          "applicability": "DIRECT",
+          "nationalReference": "Synthetic NAMCAR OPS/AOC reference",
+          "controlledCaaProcedureMapping": "Synthetic CAA ramp-inspection procedure mapping",
+          "verificationObjective": "Verify the controlled synthetic ramp-safety requirement through observation and record reconciliation.",
+          "expectedEvidence": [
+            "Synthetic inspection observation",
+            "Synthetic controlled record"
+          ],
+          "currentnessState": "CURRENT",
+          "technicalReviewState": "TECHNICAL_REVIEW_REQUIRED"
+        },
+        "reconciliation": null
+      }
+    ]
+  }
+}

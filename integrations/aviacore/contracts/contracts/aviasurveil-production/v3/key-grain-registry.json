@@ -1,0 +1,868 @@
+{
+  "default_namespace": [
+    "tenant_id",
+    "source_system"
+  ],
+  "entities": [
+    {
+      "grain": "one globally unique event_id",
+      "joins": [
+        "exact_object_receipt_id",
+        "exact_manifest_receipt_id"
+      ],
+      "key_components": [
+        "event_id"
+      ],
+      "kind": "raw",
+      "migration_policy": "forward_only",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system",
+        "accepted_at_date"
+      ],
+      "relation": "raw.canonical_event",
+      "uniqueness": [
+        "event_id"
+      ]
+    },
+    {
+      "grain": "one source audit identity per tenant/source",
+      "key_components": [
+        "tenant_id",
+        "source_system",
+        "audit_id"
+      ],
+      "kind": "hub",
+      "migration_policy": "forward_rekey_via_new_hash_contract",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system"
+      ],
+      "relation": "vault.h_audit",
+      "uniqueness": [
+        "audit_hk"
+      ]
+    },
+    {
+      "grain": "one source finding identity per tenant/source",
+      "key_components": [
+        "tenant_id",
+        "source_system",
+        "finding_id"
+      ],
+      "kind": "hub",
+      "migration_policy": "forward_rekey_via_new_hash_contract",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system"
+      ],
+      "relation": "vault.h_finding",
+      "uniqueness": [
+        "finding_hk"
+      ]
+    },
+    {
+      "grain": "one source CAP identity per tenant/source",
+      "key_components": [
+        "tenant_id",
+        "source_system",
+        "cap_id"
+      ],
+      "kind": "hub",
+      "migration_policy": "forward_rekey_via_new_hash_contract",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system"
+      ],
+      "relation": "vault.h_cap",
+      "uniqueness": [
+        "cap_hk"
+      ]
+    },
+    {
+      "grain": "one metadata-only evidence reference per tenant/source",
+      "key_components": [
+        "tenant_id",
+        "source_system",
+        "evidence_ref_id"
+      ],
+      "kind": "hub",
+      "migration_policy": "forward_rekey_via_new_hash_contract",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system"
+      ],
+      "relation": "vault.h_evidence_reference",
+      "uniqueness": [
+        "evidence_reference_hk"
+      ]
+    },
+    {
+      "grain": "one audit-to-finding relationship",
+      "hash_projection": [
+        "audit_hk",
+        "finding_hk"
+      ],
+      "key_components": [
+        "audit_hk",
+        "finding_hk"
+      ],
+      "kind": "link",
+      "migration_policy": "forward_rekey_via_new_hash_contract",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system"
+      ],
+      "relation": "vault.l_audit_finding",
+      "uniqueness": [
+        "audit_finding_lk"
+      ]
+    },
+    {
+      "grain": "one finding-to-CAP relationship",
+      "hash_projection": [
+        "finding_hk",
+        "cap_hk"
+      ],
+      "key_components": [
+        "finding_hk",
+        "cap_hk"
+      ],
+      "kind": "link",
+      "migration_policy": "forward_rekey_via_new_hash_contract",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system"
+      ],
+      "relation": "vault.l_finding_cap",
+      "uniqueness": [
+        "finding_cap_lk"
+      ]
+    },
+    {
+      "grain": "one finding-to-evidence-reference relationship",
+      "hash_projection": [
+        "finding_hk",
+        "evidence_reference_hk"
+      ],
+      "key_components": [
+        "finding_hk",
+        "evidence_reference_hk"
+      ],
+      "kind": "link",
+      "migration_policy": "forward_rekey_via_new_hash_contract",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system"
+      ],
+      "relation": "vault.l_finding_evidence_reference",
+      "uniqueness": [
+        "finding_evidence_reference_lk"
+      ]
+    },
+    {
+      "grain": "one historized finding state change per finding and effective ordering tuple",
+      "hash_projection": [
+        "event_type",
+        "state_before",
+        "state_after",
+        "payload_sha256"
+      ],
+      "key_components": [
+        "finding_hk",
+        "effective_at",
+        "producer_sequence",
+        "event_id"
+      ],
+      "kind": "satellite",
+      "migration_policy": "append_only_new_hashdiff_version",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system",
+        "load_date"
+      ],
+      "relation": "vault.s_finding_lifecycle",
+      "uniqueness": [
+        "finding_hk",
+        "load_datetime",
+        "hashdiff"
+      ]
+    },
+    {
+      "grain": "one finding per run_as_of",
+      "key_components": [
+        "finding_hk",
+        "run_as_of"
+      ],
+      "kind": "pit",
+      "migration_policy": "rebuild_from_raw_vault",
+      "partition_predicates": [
+        "tenant_id",
+        "run_as_of_date"
+      ],
+      "relation": "business_vault.pit_finding_as_of",
+      "uniqueness": [
+        "finding_hk",
+        "run_as_of"
+      ]
+    },
+    {
+      "grain": "one effective audit-finding path per known_as_of",
+      "key_components": [
+        "audit_hk",
+        "finding_hk",
+        "known_as_of"
+      ],
+      "kind": "bridge",
+      "migration_policy": "rebuild_from_raw_vault",
+      "partition_predicates": [
+        "tenant_id",
+        "known_as_of_date"
+      ],
+      "relation": "business_vault.bridge_audit_finding",
+      "uniqueness": [
+        "audit_hk",
+        "finding_hk",
+        "known_as_of"
+      ]
+    },
+    {
+      "grain": "one governed finding current-state row per tenant/source/finding and publication generation",
+      "key_components": [
+        "tenant_id",
+        "source_system",
+        "finding_id",
+        "publication_generation"
+      ],
+      "kind": "mart",
+      "migration_policy": "deterministic_partition_rebuild",
+      "partition_predicates": [
+        "tenant_id",
+        "publication_date"
+      ],
+      "relation": "mart.fact_surveillance_finding_lifecycle",
+      "uniqueness": [
+        "tenant_id",
+        "source_system",
+        "finding_id",
+        "publication_generation"
+      ]
+    },
+    {
+      "grain": "one governed finding row at last-trusted publication generation",
+      "key_components": [
+        "tenant_id",
+        "source_system",
+        "finding_id"
+      ],
+      "kind": "semantic",
+      "migration_policy": "view_version_change_with_consumer_contract",
+      "partition_predicates": [
+        "tenant_id"
+      ],
+      "relation": "semantic.v_surveillance_findings",
+      "uniqueness": [
+        "tenant_id",
+        "source_system",
+        "finding_id"
+      ]
+    },
+    {
+      "grain": "one source organization identity per tenant/source",
+      "key_components": [
+        "tenant_id",
+        "source_system",
+        "organization_id"
+      ],
+      "kind": "hub",
+      "migration_policy": "forward_rekey_via_new_hash_contract",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system"
+      ],
+      "relation": "vault.h_organization",
+      "uniqueness": [
+        "organization_hk"
+      ]
+    },
+    {
+      "grain": "one historized organization revision per effective ordering tuple",
+      "hash_projection": [
+        "event_type",
+        "state_before",
+        "state_after",
+        "payload_sha256"
+      ],
+      "key_components": [
+        "organization_hk",
+        "effective_at",
+        "aggregate_revision",
+        "event_id"
+      ],
+      "kind": "satellite",
+      "migration_policy": "append_only_new_hashdiff_version",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system",
+        "load_date"
+      ],
+      "relation": "vault.s_organization_history",
+      "uniqueness": [
+        "organization_hk",
+        "load_datetime",
+        "hashdiff"
+      ]
+    },
+    {
+      "grain": "one source provider_scope identity per tenant/source",
+      "key_components": [
+        "tenant_id",
+        "source_system",
+        "provider_scope_id"
+      ],
+      "kind": "hub",
+      "migration_policy": "forward_rekey_via_new_hash_contract",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system"
+      ],
+      "relation": "vault.h_provider_scope",
+      "uniqueness": [
+        "provider_scope_hk"
+      ]
+    },
+    {
+      "grain": "one historized provider_scope revision per effective ordering tuple",
+      "hash_projection": [
+        "event_type",
+        "state_before",
+        "state_after",
+        "payload_sha256"
+      ],
+      "key_components": [
+        "provider_scope_hk",
+        "effective_at",
+        "aggregate_revision",
+        "event_id"
+      ],
+      "kind": "satellite",
+      "migration_policy": "append_only_new_hashdiff_version",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system",
+        "load_date"
+      ],
+      "relation": "vault.s_provider_scope_history",
+      "uniqueness": [
+        "provider_scope_hk",
+        "load_datetime",
+        "hashdiff"
+      ]
+    },
+    {
+      "grain": "one source surveillance_plan identity per tenant/source",
+      "key_components": [
+        "tenant_id",
+        "source_system",
+        "plan_id"
+      ],
+      "kind": "hub",
+      "migration_policy": "forward_rekey_via_new_hash_contract",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system"
+      ],
+      "relation": "vault.h_surveillance_plan",
+      "uniqueness": [
+        "surveillance_plan_hk"
+      ]
+    },
+    {
+      "grain": "one historized surveillance_plan revision per effective ordering tuple",
+      "hash_projection": [
+        "event_type",
+        "state_before",
+        "state_after",
+        "payload_sha256"
+      ],
+      "key_components": [
+        "surveillance_plan_hk",
+        "effective_at",
+        "aggregate_revision",
+        "event_id"
+      ],
+      "kind": "satellite",
+      "migration_policy": "append_only_new_hashdiff_version",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system",
+        "load_date"
+      ],
+      "relation": "vault.s_surveillance_plan_history",
+      "uniqueness": [
+        "surveillance_plan_hk",
+        "load_datetime",
+        "hashdiff"
+      ]
+    },
+    {
+      "grain": "one source audit_assignment identity per tenant/source",
+      "key_components": [
+        "tenant_id",
+        "source_system",
+        "assignment_id"
+      ],
+      "kind": "hub",
+      "migration_policy": "forward_rekey_via_new_hash_contract",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system"
+      ],
+      "relation": "vault.h_audit_assignment",
+      "uniqueness": [
+        "audit_assignment_hk"
+      ]
+    },
+    {
+      "grain": "one historized audit_assignment revision per effective ordering tuple",
+      "hash_projection": [
+        "event_type",
+        "state_before",
+        "state_after",
+        "payload_sha256"
+      ],
+      "key_components": [
+        "audit_assignment_hk",
+        "effective_at",
+        "aggregate_revision",
+        "event_id"
+      ],
+      "kind": "satellite",
+      "migration_policy": "append_only_new_hashdiff_version",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system",
+        "load_date"
+      ],
+      "relation": "vault.s_audit_assignment_history",
+      "uniqueness": [
+        "audit_assignment_hk",
+        "load_datetime",
+        "hashdiff"
+      ]
+    },
+    {
+      "grain": "one source checklist_package identity per tenant/source",
+      "key_components": [
+        "tenant_id",
+        "source_system",
+        "package_id"
+      ],
+      "kind": "hub",
+      "migration_policy": "forward_rekey_via_new_hash_contract",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system"
+      ],
+      "relation": "vault.h_checklist_package",
+      "uniqueness": [
+        "checklist_package_hk"
+      ]
+    },
+    {
+      "grain": "one historized checklist_package revision per effective ordering tuple",
+      "hash_projection": [
+        "event_type",
+        "state_before",
+        "state_after",
+        "payload_sha256"
+      ],
+      "key_components": [
+        "checklist_package_hk",
+        "effective_at",
+        "aggregate_revision",
+        "event_id"
+      ],
+      "kind": "satellite",
+      "migration_policy": "append_only_new_hashdiff_version",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system",
+        "load_date"
+      ],
+      "relation": "vault.s_checklist_package_history",
+      "uniqueness": [
+        "checklist_package_hk",
+        "load_datetime",
+        "hashdiff"
+      ]
+    },
+    {
+      "grain": "one source potential_finding identity per tenant/source",
+      "key_components": [
+        "tenant_id",
+        "source_system",
+        "potential_finding_id"
+      ],
+      "kind": "hub",
+      "migration_policy": "forward_rekey_via_new_hash_contract",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system"
+      ],
+      "relation": "vault.h_potential_finding",
+      "uniqueness": [
+        "potential_finding_hk"
+      ]
+    },
+    {
+      "grain": "one historized potential_finding revision per effective ordering tuple",
+      "hash_projection": [
+        "event_type",
+        "state_before",
+        "state_after",
+        "payload_sha256"
+      ],
+      "key_components": [
+        "potential_finding_hk",
+        "effective_at",
+        "aggregate_revision",
+        "event_id"
+      ],
+      "kind": "satellite",
+      "migration_policy": "append_only_new_hashdiff_version",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system",
+        "load_date"
+      ],
+      "relation": "vault.s_potential_finding_history",
+      "uniqueness": [
+        "potential_finding_hk",
+        "load_datetime",
+        "hashdiff"
+      ]
+    },
+    {
+      "grain": "one source report identity per tenant/source",
+      "key_components": [
+        "tenant_id",
+        "source_system",
+        "report_id"
+      ],
+      "kind": "hub",
+      "migration_policy": "forward_rekey_via_new_hash_contract",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system"
+      ],
+      "relation": "vault.h_report",
+      "uniqueness": [
+        "report_hk"
+      ]
+    },
+    {
+      "grain": "one historized report revision per effective ordering tuple",
+      "hash_projection": [
+        "event_type",
+        "state_before",
+        "state_after",
+        "payload_sha256"
+      ],
+      "key_components": [
+        "report_hk",
+        "effective_at",
+        "aggregate_revision",
+        "event_id"
+      ],
+      "kind": "satellite",
+      "migration_policy": "append_only_new_hashdiff_version",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system",
+        "load_date"
+      ],
+      "relation": "vault.s_report_history",
+      "uniqueness": [
+        "report_hk",
+        "load_datetime",
+        "hashdiff"
+      ]
+    },
+    {
+      "grain": "one source regulatory_reference identity per tenant/source",
+      "key_components": [
+        "tenant_id",
+        "source_system",
+        "reference_id"
+      ],
+      "kind": "hub",
+      "migration_policy": "forward_rekey_via_new_hash_contract",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system"
+      ],
+      "relation": "vault.h_regulatory_reference",
+      "uniqueness": [
+        "regulatory_reference_hk"
+      ]
+    },
+    {
+      "grain": "one historized regulatory_reference revision per effective ordering tuple",
+      "hash_projection": [
+        "event_type",
+        "state_before",
+        "state_after",
+        "payload_sha256"
+      ],
+      "key_components": [
+        "regulatory_reference_hk",
+        "effective_at",
+        "aggregate_revision",
+        "event_id"
+      ],
+      "kind": "satellite",
+      "migration_policy": "append_only_new_hashdiff_version",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system",
+        "load_date"
+      ],
+      "relation": "vault.s_regulatory_reference_history",
+      "uniqueness": [
+        "regulatory_reference_hk",
+        "load_datetime",
+        "hashdiff"
+      ]
+    },
+    {
+      "grain": "one source checklist_configuration identity per tenant/source",
+      "key_components": [
+        "tenant_id",
+        "source_system",
+        "configuration_id"
+      ],
+      "kind": "hub",
+      "migration_policy": "forward_rekey_via_new_hash_contract",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system"
+      ],
+      "relation": "vault.h_checklist_configuration",
+      "uniqueness": [
+        "checklist_configuration_hk"
+      ]
+    },
+    {
+      "grain": "one historized checklist_configuration revision per effective ordering tuple",
+      "hash_projection": [
+        "event_type",
+        "state_before",
+        "state_after",
+        "payload_sha256"
+      ],
+      "key_components": [
+        "checklist_configuration_hk",
+        "effective_at",
+        "aggregate_revision",
+        "event_id"
+      ],
+      "kind": "satellite",
+      "migration_policy": "append_only_new_hashdiff_version",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system",
+        "load_date"
+      ],
+      "relation": "vault.s_checklist_configuration_history",
+      "uniqueness": [
+        "checklist_configuration_hk",
+        "load_datetime",
+        "hashdiff"
+      ]
+    },
+    {
+      "grain": "one source checklist_generation_run identity per tenant/source",
+      "key_components": [
+        "tenant_id",
+        "source_system",
+        "generation_run_id"
+      ],
+      "kind": "hub",
+      "migration_policy": "forward_rekey_via_new_hash_contract",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system"
+      ],
+      "relation": "vault.h_checklist_generation_run",
+      "uniqueness": [
+        "checklist_generation_run_hk"
+      ]
+    },
+    {
+      "grain": "one historized checklist_generation_run revision per effective ordering tuple",
+      "hash_projection": [
+        "event_type",
+        "state_before",
+        "state_after",
+        "payload_sha256"
+      ],
+      "key_components": [
+        "checklist_generation_run_hk",
+        "effective_at",
+        "aggregate_revision",
+        "event_id"
+      ],
+      "kind": "satellite",
+      "migration_policy": "append_only_new_hashdiff_version",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system",
+        "load_date"
+      ],
+      "relation": "vault.s_checklist_generation_run_history",
+      "uniqueness": [
+        "checklist_generation_run_hk",
+        "load_datetime",
+        "hashdiff"
+      ]
+    },
+    {
+      "grain": "one source checklist_generation_candidate identity per tenant/source",
+      "key_components": [
+        "tenant_id",
+        "source_system",
+        "candidate_id"
+      ],
+      "kind": "hub",
+      "migration_policy": "forward_rekey_via_new_hash_contract",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system"
+      ],
+      "relation": "vault.h_checklist_generation_candidate",
+      "uniqueness": [
+        "checklist_generation_candidate_hk"
+      ]
+    },
+    {
+      "grain": "one historized checklist_generation_candidate revision per effective ordering tuple",
+      "hash_projection": [
+        "event_type",
+        "state_before",
+        "state_after",
+        "payload_sha256"
+      ],
+      "key_components": [
+        "checklist_generation_candidate_hk",
+        "effective_at",
+        "aggregate_revision",
+        "event_id"
+      ],
+      "kind": "satellite",
+      "migration_policy": "append_only_new_hashdiff_version",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system",
+        "load_date"
+      ],
+      "relation": "vault.s_checklist_generation_candidate_history",
+      "uniqueness": [
+        "checklist_generation_candidate_hk",
+        "load_datetime",
+        "hashdiff"
+      ]
+    },
+    {
+      "grain": "one source organization_provider_scope relationship",
+      "hash_projection": [
+        "organization_hk",
+        "provider_scope_hk"
+      ],
+      "key_components": [
+        "organization_hk",
+        "provider_scope_hk"
+      ],
+      "kind": "link",
+      "migration_policy": "forward_rekey_via_new_hash_contract",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system"
+      ],
+      "relation": "vault.l_organization_provider_scope",
+      "uniqueness": [
+        "organization_provider_scope_lk"
+      ]
+    },
+    {
+      "grain": "one source audit_assignment relationship",
+      "hash_projection": [
+        "audit_hk",
+        "audit_assignment_hk"
+      ],
+      "key_components": [
+        "audit_hk",
+        "audit_assignment_hk"
+      ],
+      "kind": "link",
+      "migration_policy": "forward_rekey_via_new_hash_contract",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system"
+      ],
+      "relation": "vault.l_audit_assignment",
+      "uniqueness": [
+        "audit_assignment_lk"
+      ]
+    },
+    {
+      "grain": "one source audit_checklist_package relationship",
+      "hash_projection": [
+        "audit_hk",
+        "checklist_package_hk"
+      ],
+      "key_components": [
+        "audit_hk",
+        "checklist_package_hk"
+      ],
+      "kind": "link",
+      "migration_policy": "forward_rekey_via_new_hash_contract",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system"
+      ],
+      "relation": "vault.l_audit_checklist_package",
+      "uniqueness": [
+        "audit_checklist_package_lk"
+      ]
+    },
+    {
+      "grain": "one source generation_candidate relationship",
+      "hash_projection": [
+        "checklist_generation_run_hk",
+        "checklist_generation_candidate_hk"
+      ],
+      "key_components": [
+        "checklist_generation_run_hk",
+        "checklist_generation_candidate_hk"
+      ],
+      "kind": "link",
+      "migration_policy": "forward_rekey_via_new_hash_contract",
+      "partition_predicates": [
+        "tenant_id",
+        "source_system"
+      ],
+      "relation": "vault.l_generation_candidate",
+      "uniqueness": [
+        "generation_candidate_lk"
+      ]
+    }
+  ],
+  "global_conformance": {
+    "automatic_cross_source_identity_merge": false,
+    "conformed_identity_requires_separate_authority": true,
+    "source_identity_preserved": true
+  },
+  "registry_version": "3.0.0",
+  "schema_version": "aviasurveil_key_grain_registry.v1"
+}

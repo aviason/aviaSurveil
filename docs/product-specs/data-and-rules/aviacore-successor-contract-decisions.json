@@ -1,0 +1,101 @@
+{
+  "schema_version": "aviacore_successor_contract_decisions.v1",
+  "status": "owner_approved_task_2_scope_only",
+  "owner": { "name": "Burak Karahan", "role": "owner", "authority_scope": ["producer/domain", "contract-governance", "data-platform", "data-product", "privacy/retention", "data-ml"] },
+  "predecessor_read_only_paths": [
+    "contracts/aviasurveil-production/v1/",
+    "schemas/events/aviasurveil/v1/",
+    "contracts/aviasurveil-production/v2/behavioral-contract-manifest.json",
+    "contracts/aviasurveil-production/v2/authorization-policy.json"
+  ],
+  "successor": { "root": "contracts/aviasurveil-production/v3/", "contract_version": "3.0.0", "existing_predecessor_mutation": "forbidden", "payloads_closed": true, "classified_maps_require_field_path_policy": true },
+  "compatibility": { "overlap": "none_not_deployed", "version_negotiation": "v3_only_before_first_deployment", "rollback": "forward_fix_only", "authorization_owner": "Burak Karahan / owner" },
+  "bootstrap": { "mode": "historical_event_api_backfill_from_source_consistent_cut", "snapshot_delivery": "disabled", "binds": ["expected_ids_counts_digests", "original_effective_and_known_time", "producer_revision", "tombstones", "cursor_resume", "reconciliation"], "table_dump_as_realtime_event": "forbidden" },
+  "retention": { "canonical_retention": "indefinite_immutable", "legal_hold": "access_and_processing_restriction_no_tombstone", "tombstone": "replay_and_publication_suppression_only", "tombstone_after_legal_hold_release_days": 30, "physical_deletion": "not_approved", "tombstone_owner": "Burak Karahan / owner" },
+  "identity_and_temporal": { "tenant_id": "authenticated_platform_tenant_never_payload_derived", "source_system": "aviasurveil360", "organization_id": "separate_inspected_or_owning_identity", "actor_organization_id": "separate_actor_identity_or_explicit_caa_null", "times": ["effective_time", "known_available_time"], "provenance": "preserve_human_decision_and_source_revision" },
+  "predecessor_contradictions": [
+    { "id": "correction_supersession_scope", "decision": "v3 permits explicit correction/supersession references across the approved lifecycle; append-only only" },
+    { "id": "hash_projection_registry", "decision": "v3 defines complete source-namespaced hub/link/satellite/hashdiff inputs before Phase 2.5" },
+    { "id": "tombstone_replay_suppression", "decision": "v3 defines tombstone event and replay/publication suppression without physical deletion" },
+    { "id": "negative_branch_vectors", "decision": "v3 requires exhaustive positive/negative transition, identity, privacy, bootstrap, and compatibility vectors" }
+  ],
+  "extension_decisions": [
+    { "coverage_policy_id": "audit_assignment_and_package", "purpose": "reproducible assignment and immutable checklist-package lineage", "authority": "producer/domain", "grain": "assignment/package/question snapshot", "privacy_class": "P2 with restricted actor fields excluded", "retention_class": "indefinite_immutable", "correction_rule": "new versioned fact with supersession", "owner": "Burak Karahan / owner", "successor_disposition": "v3_event_extension" },
+    { "coverage_policy_id": "configuration_and_reference_versions", "purpose": "traceable approved checklist, question, and reference configuration", "authority": "contract-governance", "grain": "versioned configuration/reference fact", "privacy_class": "P2", "retention_class": "indefinite_immutable", "correction_rule": "new immutable version", "owner": "Burak Karahan / owner", "successor_disposition": "v3_reference_data_contract" },
+    { "coverage_policy_id": "governed_checklist_generation", "purpose": "reproducible governed generation and source-impact lineage", "authority": "producer/domain", "grain": "generation run and candidate lineage", "privacy_class": "P2; source text and internal deliberation remain excluded", "retention_class": "indefinite_immutable", "correction_rule": "new immutable run or candidate revision", "owner": "Burak Karahan / owner", "successor_disposition": "v3_event_extension" },
+    { "coverage_policy_id": "organization_and_scope", "purpose": "tenant-safe inspected organization and effective provider-scope lineage", "authority": "producer/domain", "grain": "organization/scope effective-dated version", "privacy_class": "P2", "retention_class": "indefinite_immutable", "correction_rule": "new effective-dated scope fact", "owner": "Burak Karahan / owner", "successor_disposition": "v3_event_extension" },
+    { "coverage_policy_id": "planning_and_reminders", "purpose": "oversight planning and controlled reminder lifecycle analysis", "authority": "producer/domain", "grain": "planning decision or reminder dispatch", "privacy_class": "P2; recipient identity excluded", "retention_class": "indefinite_immutable", "correction_rule": "new lifecycle fact", "owner": "Burak Karahan / owner", "successor_disposition": "v3_event_extension" },
+    { "coverage_policy_id": "potential_findings_and_reports", "purpose": "human-governed Potential Finding and report decision trend analysis", "authority": "producer/domain", "grain": "Potential Finding/report version and decision", "privacy_class": "P2; narrative text and person fields excluded", "retention_class": "indefinite_immutable", "correction_rule": "new version/decision fact", "owner": "Burak Karahan / owner", "successor_disposition": "v3_event_extension" }
+  ],
+  "common_envelope": {
+    "required_fields": ["event_id", "event_type", "occurred_at", "effective_at", "known_at", "source_system", "tenant_id", "owning_organization_id", "actor_organization_id", "visibility_purpose_code", "correlation_id", "causation_id", "aggregate_type", "aggregate_id", "aggregate_revision", "payload_sha256"],
+    "actor_organization_id": "nullable_only_when_no_actor_organization_exists",
+    "additional_properties": false,
+    "forbidden_fields": ["person_id", "person_name", "contact_value", "credential", "token", "ip_address", "free_form_internal_note", "evidence_bytes", "filename"]
+  },
+  "question_snapshot_contract": {
+    "required_fields": ["question_id", "ordinal", "prompt", "mapping_reference_ids", "citation_reference_ids", "verification_method_code", "expected_evidence_type_codes", "allowed_answer_codes", "mandatory", "safety_critical"],
+    "max_prompt_bytes": 4096,
+    "additional_properties": false,
+    "forbidden_fields": ["evidence_bytes", "filename", "person_data", "unbounded_free_text"]
+  },
+  "extension_event_contracts": {
+    "planning_reminders": {
+      "event_names": ["surveillance_plan.versioned", "surveillance_plan.approval_recorded", "surveillance_plan.status_changed", "reminder.dispatch_recorded"],
+      "required_fields": ["plan_id", "plan_revision", "plan_status_code", "planning_period_start", "planning_period_end", "inspection_type_code", "provider_scope_ref", "typed_target_ref", "qualifier_codes", "approval_decision_code", "reminder_id", "reminder_template_code", "channel_code", "dispatch_outcome_code", "scheduled_at", "dispatched_at"],
+      "conditional_field_rules": ["reminder_id, reminder_template_code, channel_code, dispatch_outcome_code, scheduled_at, and dispatched_at are required only for reminder.dispatch_recorded"],
+      "forbidden_fields": ["recipient_identity", "recipient_contact_value", "reminder_body", "calendar_body", "free_text_reason", "person_identity", "secret", "token"],
+      "entity_ref": "tenant_id + owning_organization_id + plan_id; reminder_id is a child fact",
+      "grain": "one immutable plan revision, approval/status decision, or reminder dispatch",
+      "additional_properties": false
+    },
+    "organization_provider_scope": {
+      "event_names": ["organization.versioned", "provider_scope.versioned", "provider_scope.ended"],
+      "required_fields": ["organization_id", "organization_revision", "organization_type_code", "provider_scope_id", "scope_revision", "provider_identity_code", "department_code", "inspection_type_codes", "typed_target_type", "typed_target_id", "qualifier_codes", "effective_from", "effective_to", "scope_status_code"],
+      "conditional_field_rules": ["effective_to is nullable only for an active scope", "provider scope fields are required only for provider_scope.versioned and provider_scope.ended"],
+      "forbidden_fields": ["organization_contact_data", "person_data", "arbitrary_target_text", "ambiguous_plus_or_slash_combined_codes", "credential", "unrestricted_note"],
+      "entity_ref": "tenant_id + organization_id; provider_scope_id is the effective-dated child",
+      "grain": "one immutable organization revision or effective-dated provider-scope revision/end",
+      "additional_properties": false
+    },
+    "assignment_package": {
+      "event_names": ["audit_assignment.versioned", "checklist_package.versioned", "checklist_package.composed"],
+      "required_fields": ["audit_id", "assignment_id", "assignment_revision", "assignment_status_code", "assigned_department_code", "role_code", "package_id", "package_revision", "checklist_version_id", "checklist_digest", "applicability_digest", "ordered_question_snapshot", "question_count", "composed_at"],
+      "conditional_field_rules": ["package fields and ordered_question_snapshot are required only for checklist package events", "composed_at is required only for checklist_package.composed"],
+      "forbidden_fields": ["assignee_person_identity", "free_text_assignment_instruction", "evidence_bytes", "comment", "unbounded_audit_narrative"],
+      "entity_ref": "tenant_id + owning_organization_id + audit_id; assignment_id/package_id are child facts",
+      "grain": "one immutable assignment revision, package revision, or package composition",
+      "additional_properties": false
+    },
+    "potential_findings_report_decisions": {
+      "event_names": ["potential_finding.versioned", "potential_finding.decision_recorded", "report.versioned", "report.decision_recorded"],
+      "required_fields": ["potential_finding_id", "finding_revision", "source_audit_id", "source_question_id", "classification_code", "severity_code", "status_code", "decision_id", "decision_code", "decided_at", "report_id", "report_revision", "report_status_code", "report_digest", "structured_basis_reference_ids"],
+      "conditional_field_rules": ["decision fields are required only for decision events", "report fields are required only for report events"],
+      "forbidden_fields": ["finding_narrative", "report_narrative", "report_document_bytes", "filename", "person_identity", "free_text_deliberation", "internal_caa_note", "enforcement_recommendation_text"],
+      "entity_ref": "tenant_id + owning_organization_id + potential_finding_id/report_id",
+      "grain": "one immutable finding/report revision or human decision",
+      "additional_properties": false
+    },
+    "configuration_reference_versions": {
+      "event_names": ["regulatory_reference.versioned", "checklist_configuration.versioned", "checklist_configuration.published"],
+      "required_fields": ["reference_id", "reference_revision", "source_uri", "source_content_sha256", "provision_reference_codes", "configuration_id", "configuration_revision", "configuration_digest", "publication_decision_id", "publication_decision_code", "published_at", "provider_scope_ref", "typed_target_ref", "qualifier_codes", "ordered_question_snapshot", "question_count"],
+      "conditional_field_rules": ["reference fields are required only for regulatory_reference.versioned", "publication fields are required only for checklist_configuration.published"],
+      "forbidden_fields": ["source_document_bytes", "unrestricted_source_text", "publisher_person_identity", "private_review_deliberation", "arbitrary_metadata", "credential"],
+      "entity_ref": "tenant_id + configuration_id/reference_id; revision is immutable",
+      "grain": "one immutable reference/configuration revision or publication decision",
+      "additional_properties": false
+    },
+    "governed_checklist_generation": {
+      "event_names": ["checklist_generation.run_recorded", "checklist_generation.candidate_versioned", "checklist_generation.impact_review_recorded", "checklist_generation.rollout_readiness_recorded"],
+      "required_fields": ["generation_run_id", "run_revision", "source_set_digest", "input_reference_ids", "source_content_hashes", "candidate_id", "candidate_revision", "candidate_digest", "parent_configuration_digest", "impact_review_id", "impact_decision_code", "disjoint_holdout_partition_id", "holdout_population_count", "holdout_evaluated_count", "overlap_count", "adaptive_scope_guardrail_code", "rollout_readiness_decision_code", "decided_at", "provider_scope_ref", "typed_target_ref", "qualifier_codes", "ordered_question_snapshot", "question_count"],
+      "conditional_field_rules": ["candidate fields and ordered_question_snapshot are required only for checklist_generation.candidate_versioned", "impact fields are required only for checklist_generation.impact_review_recorded", "rollout decision fields are required only for checklist_generation.rollout_readiness_recorded"],
+      "forbidden_fields": ["model_prompt_text", "model_completion_text", "source_document_bytes", "raw_cc_examples", "training_data", "evaluator_identity", "internal_deliberation", "unsupported_performance_claim", "unbounded_generation_log"],
+      "entity_ref": "tenant_id + generation_run_id; candidate_id is the immutable generated child",
+      "grain": "one immutable generation run, candidate revision, impact decision, or rollout decision",
+      "additional_properties": false
+    }
+  },
+  "data_vault_and_product_scope": { "business_keys": "source_system plus immutable source identifier; tenant, inspected organization, and actor organization remain separate keys", "history": "insert_only_effectivity_and_record_tracking_satellites", "point_in_time": "PIT/bridge supports effective_as_of and known_as_of", "products": "each future product requires owner, purpose/legal basis, grain, transport inputs, deterministic field lineage, freshness, access, privacy, DQ, correction, and publication policy before implementation" },
+  "ml": { "training_allowed": false, "production_ml_readiness": "NOT_READY", "access": "read_only_or_suggestion_only", "later_prerequisites": ["source_bound_dataset", "approved_label_window", "point_in_time_features", "leakage_evidence", "offline_evaluation", "fallback_owner_review_kill_switch"] },
+  "execution_gates": { "aviacore_v3_cut": "separately_authorized_task_3a", "producer_mirror_codegen": "separately_authorized_task_3b", "aviacore_phase_2_3": "separately_authorized_after_3a_and_3b" }
+}

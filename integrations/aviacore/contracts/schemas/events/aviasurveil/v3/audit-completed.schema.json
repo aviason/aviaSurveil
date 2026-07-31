@@ -1,0 +1,68 @@
+{
+  "$id": "https://aviacore360.local/schemas/events/aviasurveil/v3/audit-completed.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "./envelope.schema.json"
+    },
+    {
+      "properties": {
+        "entity_refs": {
+          "additionalProperties": false,
+          "properties": {
+            "audit_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "audit_id"
+          ],
+          "type": "object"
+        },
+        "event_type": {
+          "const": "audit.completed"
+        },
+        "event_version": {
+          "const": 1
+        },
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "completed_at": {
+              "format": "date-time",
+              "pattern": "Z$",
+              "type": "string"
+            },
+            "outcome_code": {
+              "enum": [
+                "completed",
+                "completed_with_findings"
+              ]
+            }
+          },
+          "required": [
+            "completed_at",
+            "outcome_code"
+          ],
+          "type": "object"
+        },
+        "state_after": {
+          "enum": [
+            "audit_completed"
+          ]
+        },
+        "state_before": {
+          "enum": [
+            "audit_in_progress",
+            "checklist_completed"
+          ]
+        }
+      },
+      "type": "object"
+    }
+  ],
+  "title": "audit.completed v1"
+}

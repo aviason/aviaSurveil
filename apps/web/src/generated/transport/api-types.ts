@@ -1060,22 +1060,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/checklist-template-versions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["createChecklistTemplateVersion"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/admin/reminder-rules": {
         parameters: {
             query?: never;
@@ -1310,6 +1294,246 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["createAssistantDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/governed-checklist/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listAdminGovernedSources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/governed-checklist/source-currentness-activations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["activateAdminGovernedSourceCurrentness"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/governed-checklist/generation-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["importAdminGovernedGenerationRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/governed-checklist/generation-runs/{generationRunId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminGovernedGenerationRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/governed-checklist/candidates/{candidateId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminGovernedCandidate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/governed-checklist/candidates/{candidateId}/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createAdminGovernedCandidateRevision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/governed-checklist/candidates/{candidateId}/submissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["submitAdminGovernedCandidateReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/department-manager/governed-checklist/blocked-generation-validations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["validateDepartmentManagerBlockedGeneration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/department-manager/governed-checklist/review-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listDepartmentManagerGovernedReviewQueue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/department-manager/governed-checklist/candidates/{candidateId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getDepartmentManagerGovernedCandidate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/department-manager/governed-checklist/candidates/{candidateId}/returns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["returnDepartmentManagerGovernedCandidate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/department-manager/governed-checklist/candidates/{candidateId}/rejections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["rejectDepartmentManagerGovernedCandidate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/department-manager/governed-checklist/candidates/{candidateId}/technical-approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["approveDepartmentManagerGovernedCandidate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/department-manager/governed-checklist/candidates/{candidateId}/publications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["publishDepartmentManagerGovernedCandidate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/department-manager/governed-checklist/published-versions/{templateVersionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getDepartmentManagerGovernedPublishedVersion"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2699,8 +2923,11 @@ export interface components {
             verificationObjective: string;
             expectedEvidence: string[];
             whyIncluded: string;
-            /** @enum {string} */
-            reviewStatus: "EXPERT_REVIEW_REQUIRED" | "VALIDATED" | "REJECTED";
+            /**
+             * @description New records use TECHNICAL_REVIEW_REQUIRED. EXPERT_REVIEW_REQUIRED remains readable legacy compatibility and is not an approval state.
+             * @enum {string}
+             */
+            reviewStatus: "TECHNICAL_REVIEW_REQUIRED" | "EXPERT_REVIEW_REQUIRED" | "VALIDATED" | "REJECTED";
             sourceGap: string | null;
             refreshPolicy: components["schemas"]["AdminRegulatoryRefreshPolicyView"];
             scopeRecommendation: components["schemas"]["AdminChecklistScopeRecommendationView"];
@@ -2870,25 +3097,6 @@ export interface components {
             /** @enum {string} */
             organizationType: "AUTHORITY" | "OPERATOR" | "SERVICE_PROVIDER";
         };
-        PublishedChecklistQuestionInput: {
-            questionId: string;
-            sectionId: string;
-            prompt: string;
-            configuredReference: string;
-            expectedEvidence: string;
-            allowedAnswers: components["schemas"]["ChecklistAnswer"][];
-            commentRequiredFor: components["schemas"]["ChecklistAnswer"][];
-        };
-        CreateChecklistTemplateVersionInput: {
-            operationId: string;
-            idempotencyKey: string;
-            expectedRevision: null;
-            templateId: string;
-            templateVersionId: string;
-            title: string;
-            ownerRole: string;
-            questions: components["schemas"]["PublishedChecklistQuestionInput"][];
-        };
         CreateReminderRuleInput: {
             operationId: string;
             idempotencyKey: string;
@@ -2983,6 +3191,421 @@ export interface components {
             canSetSeverity: false;
             /** @constant */
             canCloseFinding: false;
+        };
+        GovernedSourcePartitionFactView: {
+            evaluationId: string;
+            partitionId: string;
+            /** @enum {string} */
+            role: "GENERATION_INPUT" | "BLIND_HOLDOUT";
+            crosswalkRowId: string;
+            stableRowIdentity: string;
+        };
+        GovernedUnresolvedSourceGapView: {
+            gapId: string;
+            reason: string;
+        };
+        GovernedSourceApplicabilityFactView: {
+            candidateId: string;
+            mappingId: string;
+            /** @enum {string} */
+            relationship: "ADDRESSES" | "PARTIALLY_ADDRESSES" | "NOT_ADDRESSED" | "CONTEXT_ONLY";
+            /** @enum {string} */
+            applicability: "DIRECT" | "CONDITIONAL" | "CONTEXTUAL";
+            sourceGap: components["schemas"]["GovernedSourceGapView"] | null;
+        };
+        GovernedSourceSnapshotView: {
+            sourceId: string;
+            sourceIdentity: string;
+            versionIdentity: string;
+            title: string;
+            sourceHash: string;
+            locator: string;
+            clauseId: string;
+            clauseLocator: string;
+            partitions: components["schemas"]["GovernedSourcePartitionFactView"][];
+            applicabilityFacts: components["schemas"]["GovernedSourceApplicabilityFactView"][];
+            unresolvedGaps: components["schemas"]["GovernedUnresolvedSourceGapView"][];
+            generationRunIds: string[];
+            candidateIds: string[];
+        };
+        GovernedSourceSnapshotPage: {
+            items: components["schemas"]["GovernedSourceSnapshotView"][];
+            nextCursor: string | null;
+        };
+        GovernedCitationView: {
+            sourceSnapshotId: string;
+            sourceHash: string;
+            clauseId: string;
+            locator: string;
+        };
+        GovernedSourceGapView: {
+            /** @enum {string} */
+            status: "UNRESOLVED";
+            reason: string;
+        };
+        GovernedMappingView: {
+            mappingId: string;
+            requirement: string;
+            /** @enum {string} */
+            relationship: "ADDRESSES" | "PARTIALLY_ADDRESSES" | "NOT_ADDRESSED" | "CONTEXT_ONLY";
+            /** @enum {string} */
+            applicability: "DIRECT" | "CONDITIONAL" | "CONTEXTUAL";
+            citations: components["schemas"]["GovernedCitationView"][];
+            sourceGap: components["schemas"]["GovernedSourceGapView"] | null;
+            rationale: string;
+        };
+        /** @enum {string} */
+        GovernedQuestionOrigin: "REGULATORY_TRACE" | "EXISTING_CHECKLIST_CANDIDATE" | "HYBRID_RECONCILED";
+        GovernedScopeGuardrailsView: {
+            mandatoryControl: boolean;
+            safetyCritical: boolean;
+            unknownHistory: boolean;
+            sourceChanged: boolean;
+            overdueControl: boolean;
+            automaticDeferralPermitted: boolean;
+        };
+        GovernedScopeRecommendationView: {
+            /** @enum {string} */
+            classification: "MANDATORY_CORE" | "FOCUSED_FULL" | "ROTATIONAL_SAMPLE" | "DEFER_ELIGIBLE";
+            inputSignals: string[];
+            operationalHistoryBasis: string;
+            rationale: string;
+            guardrails: components["schemas"]["GovernedScopeGuardrailsView"];
+            /** @enum {string} */
+            approvalReviewState: "TECHNICAL_REVIEW_REQUIRED" | "TECHNICALLY_APPROVED";
+            automaticDeferral: boolean;
+        };
+        GovernedRegulatoryTraceView: {
+            /** @enum {string} */
+            state: "RESOLVED" | "SOURCE_MAPPING_REQUIRED";
+            sourceIdentity?: string;
+            sourceTitle?: string;
+            immutableVersion?: string;
+            sha256?: string;
+            locator?: string;
+            page?: string;
+            section?: string;
+            clause?: string;
+            sourceType?: string;
+            applicability?: string;
+            nationalReference?: string;
+            controlledCaaProcedureMapping?: string;
+            verificationObjective?: string;
+            expectedEvidence?: string[];
+            /** @enum {string} */
+            currentnessState?: "CURRENT" | "STALE" | "SOURCE_MAPPING_REQUIRED";
+            /** @enum {string} */
+            technicalReviewState?: "TECHNICAL_REVIEW_REQUIRED" | "TECHNICALLY_APPROVED" | "NOT_AVAILABLE";
+        };
+        GovernedQuestionReconciliationView: {
+            legacyQuestionId: string;
+            legacyWording: string;
+            legacyOperationalIntent: string;
+            legacyResultHistory: string;
+            legacyExpectedEvidence: string[];
+            legacyApplicability: string;
+            legacyScopeClassification: string;
+            currentWording: string;
+            currentExpectedEvidence: string[];
+            currentApplicability: string;
+            currentScopeClassification: string;
+            wordingChanged: boolean;
+            evidenceChanged: boolean;
+            applicabilityChanged: boolean;
+            scopeChanged: boolean;
+        };
+        GovernedQuestionView: {
+            questionId: string;
+            mappingIds: string[];
+            prompt: string;
+            citations: components["schemas"]["GovernedCitationView"][];
+            verificationMethod: string;
+            expectedEvidence: string[];
+            allowedAnswers: string[];
+            mandatoryCore: boolean;
+            safetyCritical: boolean;
+            origin: components["schemas"]["GovernedQuestionOrigin"];
+            scopeRecommendation: components["schemas"]["GovernedScopeRecommendationView"];
+            regulatoryTrace: components["schemas"]["GovernedRegulatoryTraceView"];
+            reconciliation: components["schemas"]["GovernedQuestionReconciliationView"] | null;
+        };
+        GovernedRequiredOwnerView: {
+            departmentId: string;
+            organizationalUnitId: string;
+            approvalRequired: boolean;
+        };
+        GovernedCandidateSourceLineageView: {
+            sourceId: string;
+            sourceIdentity: string;
+            versionIdentity: string;
+            sourceHash: string;
+            clauseId: string;
+            locator: string;
+        };
+        GovernedCandidateView: {
+            candidateId: string;
+            candidateRootId: string;
+            supersedesCandidateId: string | null;
+            generationRunId: string;
+            templateId: string;
+            version: number;
+            revision: number;
+            /** @enum {string} */
+            status: "GENERATED_DRAFT" | "DEPARTMENT_REVIEW" | "RETURNED" | "REJECTED" | "TECHNICALLY_APPROVED" | "PUBLISHED";
+            contentDigest: string;
+            schemaVersion: string;
+            changeReason: string;
+            sourceSnapshots: components["schemas"]["GovernedCandidateSourceLineageView"][];
+            scopeFactIds: string[];
+            crosswalkPartitionIds: string[];
+            mappings: components["schemas"]["GovernedMappingView"][];
+            questions: components["schemas"]["GovernedQuestionView"][];
+            requiredOwners: components["schemas"]["GovernedRequiredOwnerView"][];
+        };
+        DepartmentManagerGovernedReviewCommandInput: {
+            operationId: string;
+            idempotencyKey: string;
+            candidateId: string;
+            expectedRevision: number;
+            expectedContentDigest: string;
+            reason: string;
+        };
+        GovernedReviewDecisionView: {
+            decisionId: string;
+            /** @enum {string} */
+            decision: "RETURNED" | "REJECTED" | "TECHNICALLY_APPROVED";
+            candidateRootId: string;
+            candidateId: string;
+            candidateRevision: number;
+            candidateContentDigest: string;
+            actorSubjectId: string;
+            actorDepartmentMembershipId: string;
+            actorDepartmentId: string;
+            actorOrganizationalUnitId: string;
+            reason: string;
+            /** Format: date-time */
+            decidedAt: string;
+            operationId: string;
+            idempotencyKey: string;
+            semanticPayloadDigest: string;
+            auditEventId: string;
+        };
+        DepartmentManagerGovernedReviewItem: {
+            candidate: components["schemas"]["GovernedCandidateView"];
+            requiredOwners: components["schemas"]["GovernedRequiredOwnerView"][];
+            decisions: components["schemas"]["GovernedReviewDecisionView"][];
+            blockingIssues: components["schemas"]["GovernedValidationIssue"][];
+        };
+        DepartmentManagerGovernedReviewQueue: {
+            items: components["schemas"]["DepartmentManagerGovernedReviewItem"][];
+        };
+        GovernedPublicationView: {
+            templateVersionId: string;
+            publicationDecisionId: string;
+            candidateRootId: string;
+            candidateId: string;
+            candidateRevision: number;
+            candidateContentDigest: string;
+            actorSubjectId: string;
+            actorDepartmentMembershipId: string;
+            actorDepartmentId: string;
+            actorOrganizationalUnitId: string;
+            reason: string;
+            /** Format: date-time */
+            decidedAt: string;
+            /** Format: date-time */
+            publishedAt: string;
+            operationId: string;
+            idempotencyKey: string;
+            semanticPayloadDigest: string;
+            auditEventId: string;
+        };
+        GovernedPublishedVersionView: {
+            publication: components["schemas"]["GovernedPublicationView"];
+            mappings: components["schemas"]["GovernedMappingView"][];
+            questions: components["schemas"]["GovernedQuestionView"][];
+        };
+        GovernedGenerationFailureView: {
+            code: string;
+            reason: string;
+            requestId: string;
+            operationId: string;
+            idempotencyKey: string;
+        };
+        GovernedGenerationRunView: {
+            generationRunId: string;
+            /** @enum {string} */
+            status: "GENERATED" | "FAILED";
+            inputDigest: string;
+            outputDigest: string | null;
+            inputSchemaVersion: string;
+            generationPolicyVersion: string;
+            providerCatalogVersion: string;
+            providerId: string;
+            providerAdapterVersion: string;
+            inspectionType: string;
+            targetId: string;
+            requestId: string;
+            failure: components["schemas"]["GovernedGenerationFailureView"] | null;
+            candidate: components["schemas"]["GovernedCandidateView"] | null;
+        };
+        GovernedTargetInput: {
+            targetId: string;
+            kind: string;
+        };
+        GovernedSourceSnapshotInput: {
+            sourceSnapshotId: string;
+            sourceHash: string;
+            clauseIds: string[];
+            clauseLocators: string[];
+        };
+        GovernedCrosswalkPartitionInput: {
+            partitionId: string;
+            stableRowIds: string[];
+        };
+        GovernedGenerationRequestInput: {
+            schemaVersion: string;
+            requestId: string;
+            organizationId: string;
+            serviceProviderScopeFactIds: string[];
+            serviceProviderTypes: string[];
+            providerCatalogVersion: string;
+            inspectionType: string;
+            target: components["schemas"]["GovernedTargetInput"];
+            sourceSnapshots: components["schemas"]["GovernedSourceSnapshotInput"][];
+            secondaryCrosswalkPartition: components["schemas"]["GovernedCrosswalkPartitionInput"];
+            unresolvedSourceGaps: components["schemas"]["GovernedUnresolvedSourceGapView"][];
+            generationPolicyVersion: string;
+            providerId: string;
+            providerVersion: string;
+            requestedOutputs: string[];
+            canonicalInputDigest: string;
+        };
+        GovernedBlockedGenerationEffectCounts: {
+            /** @enum {integer} */
+            generationRuns: 0;
+            /** @enum {integer} */
+            candidates: 0;
+            /** @enum {integer} */
+            reviewDecisions: 0;
+            /** @enum {integer} */
+            publicationDecisions: 0;
+            /** @enum {integer} */
+            checklistVersions: 0;
+            /** @enum {integer} */
+            auditEvents: 0;
+        };
+        ValidateDepartmentManagerBlockedGenerationInput: {
+            operationId: string;
+            idempotencyKey: string;
+            generationRequest: components["schemas"]["GovernedGenerationRequestInput"];
+        };
+        GovernedBlockedGenerationResult: {
+            /** @enum {string} */
+            status: "BLOCKED";
+            requestId: string;
+            blockingIssues: components["schemas"]["GovernedUnresolvedSourceGapView"][];
+            effectCounts: components["schemas"]["GovernedBlockedGenerationEffectCounts"];
+        };
+        GovernedInspectionChecklistInput: {
+            checklistId: string;
+            questions: components["schemas"]["GovernedQuestionView"][];
+        };
+        GovernedSourceCurrentnessBindingInput: {
+            currentSourceSnapshotId: string;
+            currentSourceHash: string;
+            previousSourceSnapshotId: string | null;
+            previousSourceHash: string | null;
+        } & ({
+            previousSourceSnapshotId?: null;
+            previousSourceHash?: null;
+        } | {
+            previousSourceSnapshotId?: string;
+            previousSourceHash?: string;
+        });
+        GovernedSourceCurrentnessActivationInput: {
+            operationId: string;
+            idempotencyKey: string;
+            currentSourceSnapshotId: string;
+            currentSourceHash: string;
+            previousSourceSnapshotId: string | null;
+            previousSourceHash: string | null;
+            reason: string;
+        } & ({
+            previousSourceSnapshotId?: null;
+            previousSourceHash?: null;
+        } | {
+            previousSourceSnapshotId?: string;
+            previousSourceHash?: string;
+        });
+        GovernedSourceCurrentnessActivationView: {
+            eventId: string;
+            impactReviewDraftId: string | null;
+            sourceIdentity: string;
+            previousSourceSnapshotId: string | null;
+            previousSourceHash: string | null;
+            currentSourceSnapshotId: string;
+            currentSourceHash: string;
+            /** @enum {string} */
+            status: "BASELINE_ACTIVATED" | "IMPACT_REVIEW_DRAFT";
+            /** Format: date-time */
+            activatedAt: string;
+        };
+        GovernedCandidateBundleInput: {
+            schemaVersion: string;
+            candidateBundleId: string;
+            generationRunId: string;
+            /** @enum {string} */
+            status: "GENERATED_DRAFT";
+            generationRequest: components["schemas"]["GovernedGenerationRequestInput"];
+            inputDigest: string;
+            outputDigest: string;
+            complianceMappings: components["schemas"]["GovernedMappingView"][];
+            inspectionChecklist: components["schemas"]["GovernedInspectionChecklistInput"];
+            sourceCurrentness?: components["schemas"]["GovernedSourceCurrentnessBindingInput"];
+        };
+        GovernedValidationIssue: {
+            fieldPath: string;
+            code: string;
+            message: string;
+            sourceIdentity: string | null;
+            sourceHash: string | null;
+            clauseId: string | null;
+            locator: string | null;
+        };
+        GovernedValidationProblem: {
+            type: string;
+            title: string;
+            /** @constant */
+            status: 422;
+            detail: string | null;
+            code: string | null;
+            requestId: string | null;
+            issues: components["schemas"]["GovernedValidationIssue"][];
+        };
+        ImportAdminGovernedGenerationRunInput: {
+            operationId: string;
+            idempotencyKey: string;
+            candidateBundle: components["schemas"]["GovernedCandidateBundleInput"];
+        };
+        CreateAdminGovernedCandidateRevisionInput: {
+            operationId: string;
+            idempotencyKey: string;
+            expectedRevision: number;
+            expectedContentDigest: string;
+            candidateId: string;
+            changeReason: string;
+            mappings: components["schemas"]["GovernedMappingView"][];
+            questions: components["schemas"]["GovernedQuestionView"][];
+            requiredOwners: components["schemas"]["GovernedRequiredOwnerView"][];
+        };
+        SubmitAdminGovernedCandidateReviewInput: {
+            operationId: string;
+            idempotencyKey: string;
+            expectedRevision: number;
+            expectedContentDigest: string;
+            candidateId: string;
+            reason: string;
         };
     };
     responses: {
@@ -5234,43 +5857,6 @@ export interface operations {
             422: components["responses"]["Problem"];
         };
     };
-    createChecklistTemplateVersion: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-CSRF-Token": components["parameters"]["CsrfToken"];
-                /** @description Expected entity revision encoded as a strong ETag. */
-                "If-Match": components["parameters"]["ExpectedRevision"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateChecklistTemplateVersionInput"];
-            };
-        };
-        responses: {
-            /** @description Created immutable published checklist template version */
-            201: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ChecklistTemplateVersionView"];
-                };
-            };
-            400: components["responses"]["Problem"];
-            401: components["responses"]["Problem"];
-            403: components["responses"]["Problem"];
-            409: components["responses"]["Problem"];
-            412: components["responses"]["Problem"];
-            422: components["responses"]["Problem"];
-            default: components["responses"]["Problem"];
-        };
-    };
     createReminderRule: {
         parameters: {
             query?: never;
@@ -5774,6 +6360,500 @@ export interface operations {
             409: components["responses"]["Problem"];
             412: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+        };
+    };
+    listAdminGovernedSources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Exact governed regulatory source snapshots */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernedSourceSnapshotPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    activateAdminGovernedSourceCurrentness: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GovernedSourceCurrentnessActivationInput"];
+            };
+        };
+        responses: {
+            /** @description Explicit immutable source-currentness activation */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernedSourceCurrentnessActivationView"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    importAdminGovernedGenerationRun: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportAdminGovernedGenerationRunInput"];
+            };
+        };
+        responses: {
+            /** @description Imported governed generation run */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernedGenerationRunView"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getAdminGovernedGenerationRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                generationRunId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Persisted run, failure, and candidate projection */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernedGenerationRunView"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    getAdminGovernedCandidate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Complete immutable candidate and lineage */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernedCandidateView"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    createAdminGovernedCandidateRevision: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                candidateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAdminGovernedCandidateRevisionInput"];
+            };
+        };
+        responses: {
+            /** @description New immutable candidate revision */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernedCandidateView"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    submitAdminGovernedCandidateReview: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                candidateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitAdminGovernedCandidateReviewInput"];
+            };
+        };
+        responses: {
+            /** @description Exact candidate submitted for department review */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernedCandidateView"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    validateDepartmentManagerBlockedGeneration: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ValidateDepartmentManagerBlockedGenerationInput"];
+            };
+        };
+        responses: {
+            /** @description Exact source-bound generation request remains blocked with zero lifecycle effects */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernedBlockedGenerationResult"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listDepartmentManagerGovernedReviewQueue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current assignment-filtered governed review queue */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DepartmentManagerGovernedReviewQueue"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getDepartmentManagerGovernedCandidate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Exact governed candidate review detail */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DepartmentManagerGovernedReviewItem"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    returnDepartmentManagerGovernedCandidate: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                candidateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DepartmentManagerGovernedReviewCommandInput"];
+            };
+        };
+        responses: {
+            /** @description Candidate returned for immutable revision */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernedCandidateView"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    rejectDepartmentManagerGovernedCandidate: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                candidateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DepartmentManagerGovernedReviewCommandInput"];
+            };
+        };
+        responses: {
+            /** @description Candidate terminally rejected */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernedCandidateView"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    approveDepartmentManagerGovernedCandidate: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                candidateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DepartmentManagerGovernedReviewCommandInput"];
+            };
+        };
+        responses: {
+            /** @description Exact owner technical approval recorded */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernedCandidateView"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    publishDepartmentManagerGovernedCandidate: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                candidateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DepartmentManagerGovernedReviewCommandInput"];
+            };
+        };
+        responses: {
+            /** @description Separately published immutable checklist version */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernedPublicationView"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getDepartmentManagerGovernedPublishedVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateVersionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Immutable publication decision and ordered mapping/question snapshot */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernedPublishedVersionView"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
         };
     };
 }

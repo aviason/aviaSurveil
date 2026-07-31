@@ -1,14 +1,15 @@
-import type { BackendPrincipal, Role } from "./backend";
+import type { BackendPrincipal, GovernedValidationIssue, Role } from "./backend";
 
 export type DemoCapabilityName =
   | "communications" | "calendar" | "profiles" | "teams" | "risk" | "documents"
   | "notifications" | "administration" | "assistantDrafts" | "planningIntake"
-  | "packageDrafts" | "auditeeCoordination" | "auditeeReports" | "adminWorkspace";
+  | "packageDrafts" | "auditeeCoordination" | "auditeeReports" | "adminWorkspace"
+  | "governedChecklistReview";
 
 export const DEMO_CAPABILITY_PERMISSION_MATRIX: Readonly<Record<Role, readonly DemoCapabilityName[]>> = {
   inspector: ["communications", "calendar", "profiles", "documents", "notifications", "administration", "assistantDrafts"],
   leadInspector: ["communications", "calendar", "profiles", "documents", "notifications", "administration", "assistantDrafts"],
-  manager: ["communications", "calendar", "profiles", "teams", "risk", "documents", "notifications", "administration", "planningIntake", "packageDrafts"],
+  manager: ["communications", "calendar", "profiles", "teams", "risk", "documents", "notifications", "administration", "planningIntake", "packageDrafts", "governedChecklistReview"],
   finance: ["profiles", "notifications", "administration"],
   gm: ["profiles", "notifications", "administration"],
   executiveDirector: ["profiles", "notifications", "administration"],
@@ -40,6 +41,13 @@ export class BackendConflictError extends BackendInvariantError {
   constructor(message: string) {
     super(message);
     this.name = "BackendConflictError";
+  }
+}
+
+export class GovernedValidationError extends BackendInvariantError {
+  constructor(readonly issues: GovernedValidationIssue[]) {
+    super(issues.map((issue) => `${issue.fieldPath}: ${issue.message}`).join("; "));
+    this.name = "GovernedValidationError";
   }
 }
 

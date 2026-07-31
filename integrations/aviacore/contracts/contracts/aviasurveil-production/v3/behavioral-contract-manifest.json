@@ -1,0 +1,56 @@
+{
+  "authorization_boundary": {
+    "approved_plan_revision_digest_in_behavioral_digest": false,
+    "authorization_envelope": "contracts/aviasurveil-production/v3/authorization-envelope.json",
+    "authorization_policy": "contracts/aviasurveil-production/v3/authorization-policy.json",
+    "identity_is_separate": true,
+    "legacy_approval_requirements": "contracts/aviasurveil-production/v1/approval-requirements.json",
+    "legacy_approval_state_in_behavioral_digest": false
+  },
+  "behavioral_claim_boundaries": [
+    "defines AviaSurveil v3 production-feed compatibility behavior only",
+    "does not authorize a producer implementation, phase 2.3, connected source, release, customer, or production action",
+    "does not promote fixture or local evidence to connected-source or production evidence",
+    "does not replace approved predecessor-plan or historical-evidence identity"
+  ],
+  "canonicalization": {
+    "artifact_digest": "sha256",
+    "artifact_ordering": "repository_relative_path_ascending.v1",
+    "domain": "aviacore.aviasurveil.behavioral_contract.v3",
+    "manifest_encoding": "canonical_json_utf8_sorted_keys.v1",
+    "payload_version": "aviasurveil_behavioral_identity_payload.v3"
+  },
+  "contract_id": "aviasurveil.production-feed",
+  "contract_version": "3.0.0",
+  "identity_version": "behavioral_identity.v3",
+  "schema_version": "aviasurveil_behavioral_contract_manifest.v1",
+  "source_inventory": {
+    "documents": [
+      "contracts/aviasurveil-production/v3/event-catalog.json",
+      "contracts/aviasurveil-production/v3/lifecycle-contract.json",
+      "contracts/aviasurveil-production/v3/producer-protocol.json",
+      "contracts/aviasurveil-production/v3/state-machine-contract.json",
+      "contracts/aviasurveil-production/v3/hash-contracts.json",
+      "contracts/aviasurveil-production/v3/key-grain-registry.json",
+      "contracts/aviasurveil-production/v3/temporal-authority.json",
+      "contracts/aviasurveil-production/v3/privacy-retention-policy.json",
+      "contracts/aviasurveil-production/v3/quality-publication-contract.json",
+      "contracts/aviasurveil-production/v3/recovery-contract.json",
+      "contracts/aviasurveil-production/v3/consumer-contracts.json",
+      "contracts/aviasurveil-production/v3/extension-event-contracts.json",
+      "contracts/aviasurveil-production/v3/package-integrity-matrix.json",
+      "contracts/aviasurveil-production/v3/negative-branch-matrix.json"
+    ],
+    "event_schema_pattern": "*.json",
+    "event_schema_root": "schemas/events/aviasurveil/v3",
+    "golden_vectors_pattern": "*.json",
+    "golden_vectors_root": "contracts/aviasurveil-production/v3/golden",
+    "openapi": "api/openapi/aviasurveil-ingestion-v3.openapi.json"
+  },
+  "unsupported_execution_policy": {
+    "missing_inventory_source": "reject",
+    "unknown_event_type": "reject",
+    "unsupported_schema_version": "reject",
+    "unverified_manifest": "reject"
+  }
+}

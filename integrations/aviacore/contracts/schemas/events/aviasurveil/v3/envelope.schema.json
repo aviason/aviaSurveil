@@ -1,0 +1,184 @@
+{
+  "$id": "https://aviacore360.local/schemas/events/aviasurveil/v3/envelope.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "actor_organization_id": {
+      "maxLength": 128,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "aggregate_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "type": "string"
+    },
+    "aggregate_revision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "aggregate_type": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "type": "string"
+    },
+    "business_key": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "type": "string"
+    },
+    "causation_id": {
+      "format": "uuid",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "contract_id": {
+      "const": "aviasurveil.production-feed.events"
+    },
+    "contract_version": {
+      "const": "3.0.0"
+    },
+    "correlation_id": {
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "type": "string"
+    },
+    "effective_at": {
+      "format": "date-time",
+      "pattern": "Z$",
+      "type": "string"
+    },
+    "emitted_at": {
+      "format": "date-time",
+      "pattern": "Z$",
+      "type": "string"
+    },
+    "entity_refs": {
+      "additionalProperties": {
+        "maxLength": 256,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+        "type": "string"
+      },
+      "maxProperties": 8,
+      "minProperties": 1,
+      "type": "object"
+    },
+    "event_id": {
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "type": "string"
+    },
+    "event_type": {
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$",
+      "type": "string"
+    },
+    "event_version": {
+      "const": 1
+    },
+    "known_at": {
+      "format": "date-time",
+      "pattern": "Z$",
+      "type": "string"
+    },
+    "occurred_at": {
+      "format": "date-time",
+      "pattern": "Z$",
+      "type": "string"
+    },
+    "owning_organization_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "type": "string"
+    },
+    "payload": {
+      "type": "object"
+    },
+    "payload_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "privacy_class": {
+      "enum": [
+        "P0",
+        "P1",
+        "P2"
+      ]
+    },
+    "schema_version": {
+      "const": "3.0.0"
+    },
+    "source_module": {
+      "const": "aviasurveil360"
+    },
+    "source_system": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "type": "string"
+    },
+    "state_after": {
+      "maxLength": 64,
+      "type": "string"
+    },
+    "state_before": {
+      "maxLength": 64,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tenant_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "type": "string"
+    },
+    "visibility_purpose_code": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "contract_id",
+    "contract_version",
+    "schema_version",
+    "event_id",
+    "event_type",
+    "event_version",
+    "occurred_at",
+    "emitted_at",
+    "effective_at",
+    "known_at",
+    "source_module",
+    "source_system",
+    "tenant_id",
+    "owning_organization_id",
+    "actor_organization_id",
+    "visibility_purpose_code",
+    "business_key",
+    "correlation_id",
+    "causation_id",
+    "aggregate_type",
+    "aggregate_id",
+    "aggregate_revision",
+    "entity_refs",
+    "state_before",
+    "state_after",
+    "privacy_class",
+    "payload",
+    "payload_sha256"
+  ],
+  "title": "AviaSurveil Production Feed Canonical Event Envelope v3",
+  "type": "object"
+}

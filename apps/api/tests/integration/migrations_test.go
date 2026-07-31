@@ -136,7 +136,7 @@ func loadFixture(moduleRoot, fixture string) ([]byte, error) {
 	return []byte(expanded.String()), nil
 }
 
-func TestMigrationsAreForwardOnly(t *testing.T) {
+func TestMigrationsAreForwardOnlyExceptTheGuardedGovernedRecoveryMigration(t *testing.T) {
 	migrationFiles, err := filepath.Glob(filepath.Join(apiModuleRoot(t), "migrations", "*.sql"))
 	if err != nil {
 		t.Fatalf("find migrations: %v", err)
@@ -146,7 +146,10 @@ func TestMigrationsAreForwardOnly(t *testing.T) {
 	}
 	for _, migrationFile := range migrationFiles {
 		if strings.HasSuffix(migrationFile, ".down.sql") {
-			t.Errorf("down migration is not allowed: %s", migrationFile)
+			if filepath.Base(migrationFile) != "000021_regulatory_checklist_governance.down.sql" {
+				t.Errorf("unapproved down migration is not allowed: %s", migrationFile)
+			}
+			continue
 		}
 		if !strings.HasSuffix(migrationFile, ".up.sql") {
 			t.Errorf("migration is not forward-only: %s", migrationFile)

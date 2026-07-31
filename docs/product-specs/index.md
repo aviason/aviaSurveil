@@ -26,11 +26,12 @@ repository documents.
 18. `data-and-rules/STATUS_PERMISSION_SECURITY.md`
 19. `data-and-rules/PRODUCTION_CONTRACT_VOCABULARY.md`
 20. `data-and-rules/PREPROD_IDENTITY_AND_DATA_PROFILE.md`
-21. `analytics/OVERSIGHT_HEALTH_INDEX_AND_KPIS.md`
-22. `analytics/REPORT_CATALOG.md`
-23. `scenarios/DEMO_SCENARIO_OPERATOR_AUDIT.md`
-24. `scenarios/OTHER_DOMAIN_SCENARIOS_AND_EDGE_CASES.md`
-25. `references/GLOSSARY_AND_SOURCE_NOTES.md`
+21. `data-and-rules/AVIACORE_DATA_FEED_COVERAGE.md`
+22. `analytics/OVERSIGHT_HEALTH_INDEX_AND_KPIS.md`
+23. `analytics/REPORT_CATALOG.md`
+24. `scenarios/DEMO_SCENARIO_OPERATOR_AUDIT.md`
+25. `scenarios/OTHER_DOMAIN_SCENARIOS_AND_EDGE_CASES.md`
+26. `references/GLOSSARY_AND_SOURCE_NOTES.md`
 
 ## Folder Map
 
@@ -42,7 +43,7 @@ repository documents.
 | `workflows/` | Surveillance, checklist, Finding, CAP, Evidence, reminders, and escalation lifecycle rules. |
 | `modules/` | Module-level fields, states, actions, and acceptance criteria. |
 | `screen-specs/` | Screen inventory, form-level expectations, and the Department/General Manager oversight workspaces design. |
-| `data-and-rules/` | Conceptual data model, statuses, permissions, visibility, security rules, and versioned preprod identity/data profiles. |
+| `data-and-rules/` | Conceptual data model, statuses, permissions, visibility, security rules, versioned preprod identity/data profiles, and the fingerprint-bound AviaCore source-to-contract coverage register. |
 | `analytics/` | Oversight Health Index, KPIs, and report catalog. |
 | `scenarios/` | Demo scenario and edge-case replay paths. |
 | `references/` | Glossary, terminology, and source notes. |

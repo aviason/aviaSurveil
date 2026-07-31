@@ -13,6 +13,10 @@ RUN mkdir -p /out \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/api ./cmd/api \
     && go build -trimpath -tags canonicaltest -buildvcs=false -ldflags="-s -w -buildid=" -o /out/canonical-test-api ./cmd/api \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/worker ./cmd/worker \
+    && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/data-feed-worker ./cmd/data-feed-worker \
+    && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/data-feed-replay ./cmd/data-feed-replay \
+    && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/data-feed-backfill ./cmd/data-feed-backfill \
+    && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/data-feed-reconcile ./cmd/data-feed-reconcile \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/scheduler ./cmd/reminder-scheduler \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/migrate ./cmd/migrate \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-data-loader ./cmd/preprod-data-loader
@@ -41,6 +45,22 @@ FROM runtime-base AS worker
 COPY --from=go-build --chown=10001:10001 /out/worker /app/worker
 COPY --chown=10001:10001 deploy/local/worker/entrypoint.sh /app/entrypoint.sh
 ENTRYPOINT ["/app/entrypoint.sh"]
+
+FROM runtime-base AS data-feed-worker
+COPY --from=go-build --chown=10001:10001 /out/data-feed-worker /app/data-feed-worker
+ENTRYPOINT ["/app/data-feed-worker"]
+
+FROM runtime-base AS data-feed-replay
+COPY --from=go-build --chown=10001:10001 /out/data-feed-replay /app/data-feed-replay
+ENTRYPOINT ["/app/data-feed-replay"]
+
+FROM runtime-base AS data-feed-backfill
+COPY --from=go-build --chown=10001:10001 /out/data-feed-backfill /app/data-feed-backfill
+ENTRYPOINT ["/app/data-feed-backfill"]
+
+FROM runtime-base AS data-feed-reconcile
+COPY --from=go-build --chown=10001:10001 /out/data-feed-reconcile /app/data-feed-reconcile
+ENTRYPOINT ["/app/data-feed-reconcile"]
 
 FROM runtime-base AS scheduler
 COPY --from=go-build --chown=10001:10001 /out/scheduler /app/scheduler

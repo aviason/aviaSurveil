@@ -9,6 +9,8 @@ Maintain audited organizations and their oversight profile.
 - Organization ID
 - Legal name
 - Organization type
+- Active provider scopes
+- Regulated targets
 - Approval/certificate number
 - Status
 - Responsible CAA department
@@ -36,6 +38,10 @@ Maintain audited organizations and their oversight profile.
 - Auditee users see only their organization
 - Suspended/expired status creates warning
 - Organization profile shows risk/open findings first
+- Preserve coarse organization type for compatibility. Store each active
+  provider/oversight scope separately so one organization can hold several
+  scopes. A scope can apply to an organization, person, facility, device,
+  system, asset, or location.
 
 ## UX direction
 

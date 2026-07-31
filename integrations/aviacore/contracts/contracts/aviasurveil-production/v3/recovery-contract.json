@@ -1,0 +1,76 @@
+{
+  "bootstrap": {
+    "cursor_resume": "required",
+    "realtime_table_dump": "forbidden",
+    "reconciliation": "required_before_resume",
+    "required_provenance": [
+      "source_consistent_cut_id",
+      "expected_ids_counts_digests",
+      "original_effective_known_time",
+      "producer_revision",
+      "tombstones"
+    ],
+    "strategy": "historical_event_api_backfill_from_source_consistent_cut"
+  },
+  "contract_version": "3.0.0",
+  "fence_release": "only_after_independent_package_verification_and_frontier_reconciliation",
+  "forbidden": [
+    "post_loss_cut_synthesis",
+    "post_loss_package_synthesis",
+    "package_mutation",
+    "live_primary_dependency_during_restore",
+    "live_primary_key_dependency_during_restore"
+  ],
+  "restore_gate": [
+    "isolated_clean_topology",
+    "postgres_data_roles_acl_rls_pitr",
+    "dagster_state",
+    "exact_object_bytes_and_manifests",
+    "required_keys_by_reference",
+    "ingest_probe",
+    "replay_probe",
+    "reconciliation_probe",
+    "dq_probe",
+    "publication_probe",
+    "resume_probe"
+  ],
+  "schema_version": "aviasurveil_recovery_contract.v1",
+  "stage_one_cut_intent": {
+    "fields": [
+      "recovery_epoch",
+      "analytics_timeline",
+      "analytics_lsn",
+      "dagster_timeline",
+      "dagster_lsn",
+      "acknowledged_event_frontier_digest",
+      "sealed_manifest_frontier_digest",
+      "object_version_set_intent_digest",
+      "last_trusted_marker_digest",
+      "candidate_digest",
+      "release_digest",
+      "config_digest",
+      "contract_root_digest",
+      "captured_at"
+    ],
+    "healthy_system_fenced": true,
+    "must_exist_before_loss": true
+  },
+  "stage_two_verified_package": {
+    "create_only": true,
+    "detached_signature_required": true,
+    "external_anchor_required": true,
+    "fields": [
+      "cut_intent_digest",
+      "postgres_backup_provider_id",
+      "postgres_backup_checksum",
+      "dagster_backup_provider_id",
+      "dagster_backup_checksum",
+      "offhost_object_copy_provider_id",
+      "exact_object_version_inventory_digest",
+      "key_reference_ids_and_versions",
+      "verified_at"
+    ],
+    "must_exist_before_loss": true,
+    "trusted_time_required": true
+  }
+}
