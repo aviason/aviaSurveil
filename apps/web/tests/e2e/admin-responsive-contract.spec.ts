@@ -7,7 +7,7 @@ const viewports = [
 ] as const;
 
 const adminRoutes = [
-  ["/admin/regulatory-library", "admin-regulatory-library-page", "Regulatory Library", "Mock regulatory library"],
+  ["/admin/regulatory-library", "admin-regulatory-library-page", "Regulatory Library", "Candidate-only regulatory library"],
   ["/admin/template-library", "admin-template-list-page", "Templates", "CTV-CABIN-1"],
   ["/admin/templates", "admin-template-preview-page", "Templates", "CTV-CABIN-1"],
   ["/admin/question-bank", "admin-question-bank-page", "Question Bank", "CAB-GALLEY-001"],
@@ -86,7 +86,7 @@ for (const viewport of viewports) {
     await regulatory.getByLabel("Regulatory status").selectOption("SUPERSEDED");
     await expect(regulatory).toContainText("NAMCARS-FOPS-004");
     await expect(regulatory).not.toContainText("NAMCARS-CAB-001");
-    await expect(regulatory).toContainText("Configured reference only");
+    await expect(regulatory).toContainText("Candidate-only configured reference");
 
     await page.goto("/admin/template-library");
     const templates = page.getByTestId("admin-template-list-page");

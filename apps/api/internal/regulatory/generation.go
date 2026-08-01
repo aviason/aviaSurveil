@@ -315,8 +315,28 @@ func requestDigest(request GenerationRequest) (string, error) {
 	delete(decoded, "canonicalInputDigest")
 	return CanonicalSHA256(decoded)
 }
+func candidateContentProjection(bundle CandidateBundle) map[string]any {
+	checklist := bundle.InspectionChecklist
+	checklist.Questions = append([]ChecklistQuestion(nil), checklist.Questions...)
+	for index, question := range checklist.Questions {
+		if question.RegulatoryTrace.State != SourceMappingRequired {
+			continue
+		}
+		// Source-gap review states are server-derived projections. They may be
+		// carried by transport views (for example NOT_AVAILABLE), but they do
+		// not alter the immutable candidate content digest.
+		question.RegulatoryTrace.TechnicalReviewState = ""
+		checklist.Questions[index] = question
+	}
+	return map[string]any{"complianceMappings": bundle.ComplianceMappings, "inspectionChecklist": checklist}
+}
+
 func candidateOutputDigest(bundle CandidateBundle) (string, error) {
-	return CanonicalSHA256(map[string]any{"complianceMappings": bundle.ComplianceMappings, "inspectionChecklist": bundle.InspectionChecklist})
+	return CanonicalSHA256(candidateContentProjection(bundle))
+}
+
+func candidateOutputArtifact(bundle CandidateBundle) ([]byte, error) {
+	return json.Marshal(candidateContentProjection(bundle))
 }
 
 func ValidateRequest(request GenerationRequest, sourceAuthorityResolved bool) (ValidatedGenerationRequest, error) {
@@ -460,6 +480,7 @@ func validQuestionGovernance(question ChecklistQuestion) bool {
 }
 
 func isLiteralSourceMappingRequired(trace RegulatoryTrace) bool {
+	technicalReviewState := strings.TrimSpace(trace.TechnicalReviewState)
 	return trace.State == SourceMappingRequired &&
 		strings.TrimSpace(trace.SourceIdentity) == "" &&
 		strings.TrimSpace(trace.SourceTitle) == "" &&
@@ -476,7 +497,7 @@ func isLiteralSourceMappingRequired(trace RegulatoryTrace) bool {
 		strings.TrimSpace(trace.VerificationObjective) == "" &&
 		len(trace.ExpectedEvidence) == 0 &&
 		strings.TrimSpace(trace.CurrentnessState) == "" &&
-		strings.TrimSpace(trace.TechnicalReviewState) == ""
+		(technicalReviewState == "" || technicalReviewState == "NOT_AVAILABLE")
 }
 
 func validQuestionReconciliation(question ChecklistQuestion) bool {

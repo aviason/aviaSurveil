@@ -1,0 +1,2 @@
+register_row_id,section_or_department,checklist_title,controlled_document_id,revision,effective_date,next_review_date,status,checklist_filename,sha256,owner_confirmation_date,notes
+PENDING-001,TO_BE_CONFIRMED,TO_BE_CONFIRMED,TO_BE_CONFIRMED,TO_BE_CONFIRMED,TO_BE_CONFIRMED,TO_BE_CONFIRMED,MISSING_SOURCE_DOCUMENT,TO_BE_CONFIRMED,TO_BE_CONFIRMED,TO_BE_CONFIRMED,"Replace this placeholder only with a current controlled operational checklist record."

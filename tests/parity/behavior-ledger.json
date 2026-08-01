@@ -2450,23 +2450,6 @@
         "tablet",
         "mobile"
       ],
-      "profiles": [
-        "http"
-      ],
-      "controlKey": "route|BUTTON|button|Deactivate 154ec5ac-6f97-4f55-916f-d2f142fc6211|user-lifecycle-status|1",
-      "boundary": "verified-controlled-state",
-      "durableEffect": "Activating Deactivate 154ec5ac-6f97-4f55-916f-d2f142fc6211 updates the declared user lifecycle status surface.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertControlledSurfaceOutcome"
-    },
-    {
-      "surfaceId": "admin-users-roles",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
       "controlKey": "route|BUTTON|button|Deactivate USR-ADMIN-ADA unavailable: USR-ADMIN-ADA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Deactivate USR-ADMIN-ADA unavailable: USR-ADMIN-ADA account provisioning and role chang...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
@@ -2475,23 +2458,6 @@
       "profiles": [
         "mock"
       ]
-    },
-    {
-      "surfaceId": "admin-users-roles",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "profiles": [
-        "http"
-      ],
-      "controlKey": "route|BUTTON|button|Deactivate USR-ADMIN-ADA|user-lifecycle-status|1",
-      "boundary": "verified-controlled-state",
-      "durableEffect": "Activating Deactivate USR-ADMIN-ADA updates the declared user lifecycle status surface.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertControlledSurfaceOutcome"
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2518,23 +2484,6 @@
         "tablet",
         "mobile"
       ],
-      "profiles": [
-        "http"
-      ],
-      "controlKey": "route|BUTTON|button|Deactivate USR-AUDITEE-FLY|user-lifecycle-status|1",
-      "boundary": "verified-controlled-state",
-      "durableEffect": "Activating Deactivate USR-AUDITEE-FLY updates the declared user lifecycle status surface.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertControlledSurfaceOutcome"
-    },
-    {
-      "surfaceId": "admin-users-roles",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
       "controlKey": "route|BUTTON|button|Deactivate USR-ED-ZARA unavailable: USR-ED-ZARA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Deactivate USR-ED-ZARA unavailable: USR-ED-ZARA account provisioning and role changes a...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
@@ -2543,23 +2492,6 @@
       "profiles": [
         "mock"
       ]
-    },
-    {
-      "surfaceId": "admin-users-roles",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "profiles": [
-        "http"
-      ],
-      "controlKey": "route|BUTTON|button|Deactivate USR-ED-ZARA|user-lifecycle-status|1",
-      "boundary": "verified-controlled-state",
-      "durableEffect": "Activating Deactivate USR-ED-ZARA updates the declared user lifecycle status surface.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertControlledSurfaceOutcome"
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2586,23 +2518,6 @@
         "tablet",
         "mobile"
       ],
-      "profiles": [
-        "http"
-      ],
-      "controlKey": "route|BUTTON|button|Deactivate USR-FINANCE-LINA|user-lifecycle-status|1",
-      "boundary": "verified-controlled-state",
-      "durableEffect": "Activating Deactivate USR-FINANCE-LINA updates the declared user lifecycle status surface.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertControlledSurfaceOutcome"
-    },
-    {
-      "surfaceId": "admin-users-roles",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
       "controlKey": "route|BUTTON|button|Deactivate USR-GM-OMAR unavailable: USR-GM-OMAR account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Deactivate USR-GM-OMAR unavailable: USR-GM-OMAR account provisioning and role changes a...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
@@ -2611,23 +2526,6 @@
       "profiles": [
         "mock"
       ]
-    },
-    {
-      "surfaceId": "admin-users-roles",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "profiles": [
-        "http"
-      ],
-      "controlKey": "route|BUTTON|button|Deactivate USR-GM-OMAR|user-lifecycle-status|1",
-      "boundary": "verified-controlled-state",
-      "durableEffect": "Activating Deactivate USR-GM-OMAR updates the declared user lifecycle status surface.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertControlledSurfaceOutcome"
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2671,23 +2569,6 @@
         "tablet",
         "mobile"
       ],
-      "profiles": [
-        "http"
-      ],
-      "controlKey": "route|BUTTON|button|Deactivate USR-INSPECTOR-DAVID|user-lifecycle-status|1",
-      "boundary": "verified-controlled-state",
-      "durableEffect": "Activating Deactivate USR-INSPECTOR-DAVID updates the declared user lifecycle status surface.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertControlledSurfaceOutcome"
-    },
-    {
-      "surfaceId": "admin-users-roles",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
       "controlKey": "route|BUTTON|button|Deactivate USR-LEAD-CANER unavailable: USR-LEAD-CANER account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Deactivate USR-LEAD-CANER unavailable: USR-LEAD-CANER account provisioning and role cha...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
@@ -2705,23 +2586,6 @@
         "tablet",
         "mobile"
       ],
-      "profiles": [
-        "http"
-      ],
-      "controlKey": "route|BUTTON|button|Deactivate USR-LEAD-CANER|user-lifecycle-status|1",
-      "boundary": "verified-controlled-state",
-      "durableEffect": "Activating Deactivate USR-LEAD-CANER updates the declared user lifecycle status surface.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertControlledSurfaceOutcome"
-    },
-    {
-      "surfaceId": "admin-users-roles",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
       "controlKey": "route|BUTTON|button|Deactivate USR-MANAGER-NORA unavailable: USR-MANAGER-NORA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Deactivate USR-MANAGER-NORA unavailable: USR-MANAGER-NORA account provisioning and role...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
@@ -2730,23 +2594,6 @@
       "profiles": [
         "mock"
       ]
-    },
-    {
-      "surfaceId": "admin-users-roles",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "profiles": [
-        "http"
-      ],
-      "controlKey": "route|BUTTON|button|Deactivate USR-MANAGER-NORA|user-lifecycle-status|1",
-      "boundary": "verified-controlled-state",
-      "durableEffect": "Activating Deactivate USR-MANAGER-NORA updates the declared user lifecycle status surface.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertControlledSurfaceOutcome"
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2909,40 +2756,6 @@
         "tablet",
         "mobile"
       ],
-      "profiles": [
-        "http"
-      ],
-      "controlKey": "route|BUTTON|button|Manage MFA 154ec5ac-6f97-4f55-916f-d2f142fc6211 unavailable: MFA enrollment is user-controlled through the required first-login Keycloak action.||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable Manage MFA control for 154ec5ac-6f97-4f55-916f-d2f142fc6211 exposes the Keycloak first-login ownership reason.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "admin-users-roles",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "profiles": [
-        "http"
-      ],
-      "controlKey": "route|BUTTON|button|Manage MFA USR-ADMIN-ADA unavailable: MFA enrollment is user-controlled through the required first-login Keycloak action.||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable Manage MFA control for USR-ADMIN-ADA exposes the Keycloak first-login ownership reason.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "admin-users-roles",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
       "controlKey": "route|BUTTON|button|Manage MFA USR-ADMIN-ADA unavailable: USR-ADMIN-ADA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Manage MFA USR-ADMIN-ADA unavailable: USR-ADMIN-ADA account provisioning and role chang...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
@@ -2951,23 +2764,6 @@
       "profiles": [
         "mock"
       ]
-    },
-    {
-      "surfaceId": "admin-users-roles",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "profiles": [
-        "http"
-      ],
-      "controlKey": "route|BUTTON|button|Manage MFA USR-AUDITEE-FLY unavailable: MFA enrollment is user-controlled through the required first-login Keycloak action.||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable Manage MFA control for USR-AUDITEE-FLY exposes the Keycloak first-login ownership reason.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
     },
     {
       "surfaceId": "admin-users-roles",
@@ -2994,23 +2790,6 @@
         "tablet",
         "mobile"
       ],
-      "profiles": [
-        "http"
-      ],
-      "controlKey": "route|BUTTON|button|Manage MFA USR-ED-ZARA unavailable: MFA enrollment is user-controlled through the required first-login Keycloak action.||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable Manage MFA control for USR-ED-ZARA exposes the Keycloak first-login ownership reason.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "admin-users-roles",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
       "controlKey": "route|BUTTON|button|Manage MFA USR-ED-ZARA unavailable: USR-ED-ZARA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Manage MFA USR-ED-ZARA unavailable: USR-ED-ZARA account provisioning and role changes a...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
@@ -3028,23 +2807,6 @@
         "tablet",
         "mobile"
       ],
-      "profiles": [
-        "http"
-      ],
-      "controlKey": "route|BUTTON|button|Manage MFA USR-FINANCE-LINA unavailable: MFA enrollment is user-controlled through the required first-login Keycloak action.||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable Manage MFA control for USR-FINANCE-LINA exposes the Keycloak first-login ownership reason.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "admin-users-roles",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
       "controlKey": "route|BUTTON|button|Manage MFA USR-FINANCE-LINA unavailable: USR-FINANCE-LINA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Manage MFA USR-FINANCE-LINA unavailable: USR-FINANCE-LINA account provisioning and role...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
@@ -3053,23 +2815,6 @@
       "profiles": [
         "mock"
       ]
-    },
-    {
-      "surfaceId": "admin-users-roles",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "profiles": [
-        "http"
-      ],
-      "controlKey": "route|BUTTON|button|Manage MFA USR-GM-OMAR unavailable: MFA enrollment is user-controlled through the required first-login Keycloak action.||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable Manage MFA control for USR-GM-OMAR exposes the Keycloak first-login ownership reason.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
     },
     {
       "surfaceId": "admin-users-roles",
@@ -3113,23 +2858,6 @@
         "tablet",
         "mobile"
       ],
-      "profiles": [
-        "http"
-      ],
-      "controlKey": "route|BUTTON|button|Manage MFA USR-INSPECTOR-DAVID unavailable: MFA enrollment is user-controlled through the required first-login Keycloak action.||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable Manage MFA control for USR-INSPECTOR-DAVID exposes the Keycloak first-login ownership reason.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "admin-users-roles",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
       "controlKey": "route|BUTTON|button|Manage MFA USR-INSPECTOR-DAVID unavailable: USR-INSPECTOR-DAVID account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Manage MFA USR-INSPECTOR-DAVID unavailable: USR-INSPECTOR-DAVID account provisioning an...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
@@ -3147,23 +2875,6 @@
         "tablet",
         "mobile"
       ],
-      "profiles": [
-        "http"
-      ],
-      "controlKey": "route|BUTTON|button|Manage MFA USR-LEAD-CANER unavailable: MFA enrollment is user-controlled through the required first-login Keycloak action.||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable Manage MFA control for USR-LEAD-CANER exposes the Keycloak first-login ownership reason.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "admin-users-roles",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
       "controlKey": "route|BUTTON|button|Manage MFA USR-LEAD-CANER unavailable: USR-LEAD-CANER account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Manage MFA USR-LEAD-CANER unavailable: USR-LEAD-CANER account provisioning and role cha...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
@@ -3172,23 +2883,6 @@
       "profiles": [
         "mock"
       ]
-    },
-    {
-      "surfaceId": "admin-users-roles",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "profiles": [
-        "http"
-      ],
-      "controlKey": "route|BUTTON|button|Manage MFA USR-MANAGER-NORA unavailable: MFA enrollment is user-controlled through the required first-login Keycloak action.||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable Manage MFA control for USR-MANAGER-NORA exposes the Keycloak first-login ownership reason.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
     },
     {
       "surfaceId": "admin-users-roles",
@@ -6246,7 +5940,7 @@
         "desktop",
         "tablet"
       ],
-      "controlKey": "route|BUTTON|button|CAP & Verification||1",
+      "controlKey": "route|BUTTON|tab|CAP & Verification||1",
       "boundary": "verified-visible-state",
       "durableEffect": "Activating \"CAP & Verification\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -6259,7 +5953,7 @@
         "desktop",
         "tablet"
       ],
-      "controlKey": "route|BUTTON|button|Conversation 2||1",
+      "controlKey": "route|BUTTON|tab|Conversation 2||1",
       "boundary": "verified-visible-state",
       "durableEffect": "Activating \"Conversation 2\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -6272,7 +5966,7 @@
         "desktop",
         "tablet"
       ],
-      "controlKey": "route|BUTTON|button|Details||1",
+      "controlKey": "route|BUTTON|tab|Details||1",
       "boundary": "verified-visible-state",
       "durableEffect": "Activating \"Details\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -6285,7 +5979,7 @@
         "desktop",
         "tablet"
       ],
-      "controlKey": "route|BUTTON|button|Files 3||1",
+      "controlKey": "route|BUTTON|tab|Files 3||1",
       "boundary": "verified-visible-state",
       "durableEffect": "Activating \"Files 3\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -6310,7 +6004,7 @@
         "desktop",
         "tablet"
       ],
-      "controlKey": "route|BUTTON|button|History||1",
+      "controlKey": "route|BUTTON|tab|History||1",
       "boundary": "verified-visible-state",
       "durableEffect": "Activating \"History\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -9283,6 +8977,325 @@
       "durableEffect": "Activating \"Skip to workspace selection\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertDurableControlOutcome"
+    },
+    {
+      "surfaceId": "admin-regulatory-library",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|SELECT|select-one|Regulatory audit area||1",
+      "boundary": "verified-form-behavior",
+      "durableEffect": "Changing the Regulatory audit area filter updates the visible candidate-only mapping register.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertNativeFormControlOutcome",
+      "includeInScenarioCatalog": false
+    },
+    {
+      "surfaceId": "admin-regulatory-library",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|SELECT|select-one|Regulatory service provider||1",
+      "boundary": "verified-form-behavior",
+      "durableEffect": "Changing the Regulatory service provider filter updates the visible candidate-only mapping register.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertNativeFormControlOutcome",
+      "includeInScenarioCatalog": false
+    },
+    {
+      "surfaceId": "admin-regulatory-library",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|A|control|NCAA public NAMCARS download library|https://www.ncaa.com.na/downloads.php?pagetitle=NAMCARS|1",
+      "boundary": "verified-navigation",
+      "durableEffect": "Activating the NAMCARS public download link uses the declared external source-library destination.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertExternalNavigationOutcome",
+      "includeInScenarioCatalog": false
+    },
+    {
+      "surfaceId": "admin-regulatory-library",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|A|control|NCAA public NAMCATS download library|https://www.ncaa.com.na/downloads.php?pagetitle=NAMCATS|1",
+      "boundary": "verified-navigation",
+      "durableEffect": "Activating the NAMCATS public download link uses the declared external source-library destination.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertExternalNavigationOutcome",
+      "includeInScenarioCatalog": false
+    },
+    {
+      "surfaceId": "admin-checklist-builder",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|BUTTON|button|Import synthetic governed candidate||1",
+      "boundary": "typed-mutation:typed-workflow-mutations",
+      "durableEffect": "Importing the synthetic governed candidate replaces the candidate-only editor with its persisted generation-run and source-lineage result.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertDurableControlOutcome",
+      "includeInScenarioCatalog": false
+    },
+    {
+      "surfaceId": "admin-checklist-builder",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|BUTTON|button|Load candidate-only legacy source-gap Draft||1",
+      "boundary": "selection-or-filter:typed-workflow-mutations",
+      "durableEffect": "Loading the candidate-only legacy source-gap Draft renders its immutable source-gap status and fail-closed review boundary.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertDurableControlOutcome",
+      "includeInScenarioCatalog": false
+    },
+    {
+      "surfaceId": "admin-checklist-builder",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|INPUT|text|Generation run ID||1",
+      "boundary": "verified-form-behavior",
+      "durableEffect": "Editing Generation run ID preserves the exact inspection input value used by the governed generation-run lookup.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertNativeFormControlOutcome",
+      "includeInScenarioCatalog": false
+    },
+    {
+      "surfaceId": "admin-checklist-builder",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|BUTTON|button|Inspect governed generation run||1",
+      "boundary": "selection-or-filter:typed-workflow-mutations",
+      "durableEffect": "Inspecting a governed generation run renders the exact persisted run outcome or its explicit unavailable error.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertDurableControlOutcome",
+      "includeInScenarioCatalog": false
+    },
+    {
+      "surfaceId": "admin-checklist-builder",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|BUTTON|button|Receive candidate-only archive||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The candidate-only archive receive command remains disabled until the external archive is received through the governed intake route.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason"
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|BUTTON|button|Refresh user directory||1",
+      "boundary": "selection-or-filter:typed-workflow-mutations",
+      "durableEffect": "Refreshing the user directory renders the latest provider observation or preserves the last successful directory with its explicit status.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertDurableControlOutcome",
+      "includeInScenarioCatalog": false
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Update role USR-INSPECTOR-DAVID unavailable: No exact desired application membership is linked to this provider account.||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable Update role control for USR-INSPECTOR-DAVID exposes the exact server-owned membership boundary reason.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason"
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Suspend USR-INSPECTOR-DAVID unavailable: No exact desired application membership is linked to this provider account.||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable Suspend control for USR-INSPECTOR-DAVID exposes the exact server-owned membership boundary reason.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason"
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Reactivate USR-INSPECTOR-DAVID unavailable: No exact desired application membership is linked to this provider account.||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable Reactivate control for USR-INSPECTOR-DAVID exposes the exact server-owned membership boundary reason.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason"
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Deactivate USR-INSPECTOR-DAVID unavailable: No exact desired application membership is linked to this provider account.||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable Deactivate control for USR-INSPECTOR-DAVID exposes the exact server-owned membership boundary reason.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason"
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Transfer organization USR-INSPECTOR-DAVID unavailable: No exact desired application membership is linked to this provider account.||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable Transfer organization control for USR-INSPECTOR-DAVID exposes the exact server-owned membership boundary reason.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason"
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Resend invitation USR-INSPECTOR-DAVID unavailable: No exact desired application membership is linked to this provider account.||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable Resend invitation control for USR-INSPECTOR-DAVID exposes the exact server-owned membership boundary reason.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason"
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Reset password USR-INSPECTOR-DAVID unavailable: No exact desired application membership is linked to this provider account.||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable Reset password control for USR-INSPECTOR-DAVID exposes the exact server-owned membership boundary reason.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason"
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Reset MFA USR-INSPECTOR-DAVID unavailable: No exact desired application membership is linked to this provider account.||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable Reset MFA control for USR-INSPECTOR-DAVID exposes the exact server-owned membership boundary reason.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason"
+    },
+    {
+      "surfaceId": "admin-users-roles",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Force logout USR-INSPECTOR-DAVID unavailable: No exact desired application membership is linked to this provider account.||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable Force logout control for USR-INSPECTOR-DAVID exposes the exact server-owned membership boundary reason.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason"
+    },
+    {
+      "surfaceId": "admin-organization-master-data",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "profiles": [
+        "http"
+      ],
+      "controlKey": "route|BUTTON|button|Open ORG-SYNTHETIC-AOC unavailable: No declared contextual Admin detail route.||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The candidate-only synthetic organization exposes an explicit Admin detail-route boundary reason.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason"
     }
   ],
   "actionEvidenceGroups": [
@@ -9887,6 +9900,16 @@
       "boundary": "selection-or-filter",
       "durableEffect": "Executes a routed navigation, visible selection/dialog/tab state, form transition, or Backend command covered by the named route tests.",
       "evidence": "apps/web/tests/e2e/full-route-accessibility.spec.ts"
+    },
+    {
+      "id": "admin-governed-builder-actions",
+      "surfaceIds": [
+        "admin-checklist-builder"
+      ],
+      "namePattern": "^(Import synthetic governed candidate|Load candidate-only legacy source-gap Draft|Inspect governed generation run)$",
+      "boundary": "typed-mutation",
+      "durableEffect": "Executes the named candidate-only Admin builder command and renders its persisted or explicitly blocked result.",
+      "evidence": "apps/web/src/features/admin/admin-secondary-pages.test.tsx"
     }
   ],
   "entries": [

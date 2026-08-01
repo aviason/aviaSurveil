@@ -635,7 +635,7 @@ const REVIEWED_SOURCE_ASSERTIONS: Partial<Record<ReactSurfaceId, ReviewedLegacyA
     expectedSemanticMarker: "Released Reports and submitted Evidence",
   },
   "auditee-settings": { expectedHeading: "Service Provider Settings", expectedSemanticMarker: "Privacy boundary" },
-  "admin-regulatory-library": { expectedHeading: "Regulatory Library", expectedSemanticMarker: "Mock regulatory library" },
+  "admin-regulatory-library": { expectedHeading: "Regulatory Library", expectedSemanticMarker: "Candidate-only regulatory library" },
   "admin-template-list": { expectedHeading: "Checklist Templates", expectedSemanticMarker: "Template" },
   "admin-question-bank": { expectedHeading: "Question Bank", expectedSemanticMarker: "Question" },
   "admin-checklist-builder": { expectedHeading: "Checklist Builder", expectedSemanticMarker: "Checklist" },
@@ -739,6 +739,9 @@ const REACT_SURFACE_SEMANTIC_OVERRIDES = {
   "inspector-findings": {
     expectedHeading: "Findings",
     expectedSemanticMarker: "CAR-2026-099",
+  },
+  "manager-checklist-management": {
+    expectedSemanticMarker: "configured questions",
   },
   "lead-home": {
     expectedSemanticMarker: "Lead decision required",

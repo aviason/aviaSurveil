@@ -104,6 +104,26 @@ const expectedPaths = [
   "/v1/department-manager/governed-checklist/candidates/{candidateId}/technical-approvals",
   "/v1/department-manager/governed-checklist/candidates/{candidateId}/publications",
   "/v1/department-manager/governed-checklist/published-versions/{templateVersionId}",
+  "/v1/admin/governed-checklist/import-batches",
+  "/v1/admin/governed-checklist/import-batches/{importBatchId}",
+  "/v1/admin/governed-checklist/import-batches/{importBatchId}/files",
+  "/v1/admin/governed-checklist/import-batches/{importBatchId}/receipts",
+  "/v1/admin/governed-checklist/import-batches/{importBatchId}/files/{importFileId}/extraction-reviews",
+  "/v1/admin/governed-checklist/import-batches/{importBatchId}/files/{importFileId}/extraction-review",
+  "/v1/admin/governed-checklist/import-batches/{importBatchId}/files/{importFileId}/identity-resolutions",
+  "/v1/admin/governed-checklist/import-batches/{importBatchId}/files/{importFileId}/candidate-imports",
+  "/v1/governed-checklist/source-review-queue",
+  "/v1/governed-checklist/source-review-items/{reviewItemId}",
+  "/v1/governed-checklist/reviewer-queue",
+  "/v1/governed-checklist/source-versions/{sourceVersionId}/authority-attestations",
+  "/v1/governed-checklist/existing-candidates/{existingCandidateId}",
+  "/v1/governed-checklist/existing-candidates/{existingCandidateId}/drafts",
+  "/v1/governed-checklist/official-source-drafts",
+  "/v1/governed-checklist/candidates/{candidateId}",
+  "/v1/governed-checklist/candidates/{candidateId}/hybrid-reconciliations",
+  "/v1/governed-checklist/candidates/{candidateId}/review-comments",
+  "/v1/governed-checklist/candidates/{candidateId}/source-mapping-attestations",
+  "/v1/governed-checklist/published-versions/{publishedVersionId}/audit-package-eligibility-evaluations",
 ];
 
 assert.equal(document.openapi, "3.1.0");
@@ -145,8 +165,17 @@ for (const [route, pathItem] of Object.entries(document.paths)) {
     assert.ok(operation.responses, `${method.toUpperCase()} ${route} needs responses`);
     if (!["post", "put", "patch", "delete"].includes(method)) continue;
     const schema = operation.requestBody?.content?.["application/json"]?.schema;
-    assert.ok(schema, `${method.toUpperCase()} ${route} needs a JSON request schema`);
-    assert.ok(requiresOperationId(schema), `${operation.operationId} must require operationId`);
+    const multipart = operation.requestBody?.content?.["multipart/form-data"]?.schema;
+    if (multipart) {
+      assert.equal(multipart.type, "object", `${operation.operationId} multipart body must be an object`);
+      assert.deepEqual(multipart.required, ["archive", "receipt"], `${operation.operationId} multipart cardinality is fixed`);
+      assert.equal(multipart.additionalProperties, false, `${operation.operationId} multipart body must be closed`);
+      assert.equal(multipart.properties?.archive?.format, "binary", `${operation.operationId} archive must be binary`);
+      assert.ok(requiresOperationId(multipart.properties?.receipt), `${operation.operationId} receipt must require operationId`);
+    } else {
+      assert.ok(schema, `${method.toUpperCase()} ${route} needs a JSON request schema`);
+      assert.ok(requiresOperationId(schema), `${operation.operationId} must require operationId`);
+    }
   }
 }
 

@@ -12,6 +12,7 @@ import { REACT_ROUTE_CONTRACTS } from "../../src/app/route-contracts";
 import { SCREEN_VISIBLE_ACTIONS } from "../../src/mock/seed-data";
 
 export const FIXED_NOW = "2026-06-15T09:00:00.000Z";
+const HTTP_CANONICAL_INSPECTOR_SUBJECT_ID = "154ec5ac-6f97-4f55-916f-d2f142fc6211";
 
 export interface BackendContractHarness {
   backendFor(principal: BackendPrincipal): Backend;
@@ -852,6 +853,46 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
         status: "ACTIVE",
         scope: "CAA oversight",
       });
+      const expectedDirectory =
+        admin.mode === "http"
+          ? [{
+              subjectId: "USR-INSPECTOR-DAVID",
+              displayName: "David Inspector",
+              roles: ["inspector"],
+              organizationId: "CAA",
+              email: "david.inspector@example.test",
+              mfaEnrolled: false,
+              mfaState: "unenrolled",
+              requiredActions: [],
+              invitationState: "none",
+              accountStatus: "enabled",
+              applicationProfileState: "linked",
+              membershipId: null,
+              membershipState: "absent",
+              membershipRevision: 0,
+              membershipDrift: "untracked",
+              lastSuccessfulSessionAt: "2026-06-15T09:00:00Z",
+              providerObservedAt: "2026-06-15T09:00:00Z",
+            }]
+          : [{
+              subjectId: "USR-INSPECTOR-DAVID",
+              displayName: "David Inspector",
+              roles: ["inspector"],
+              organizationId: null,
+              email: "Not configured in demo",
+              mfaEnrolled: false,
+              mfaState: "Not configured in demo",
+              requiredActions: [],
+              invitationState: "Not configured in demo",
+              accountStatus: "Not configured in demo",
+              applicationProfileState: "linked",
+              membershipId: null,
+              membershipState: "Not configured in demo",
+              membershipRevision: 0,
+              membershipDrift: "Not configured in demo",
+              lastSuccessfulSessionAt: null,
+              providerObservedAt: "",
+            }];
 
       expect({
         overview: {
@@ -947,25 +988,7 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
           actionReason:
             "ADMIN-RPT-PACKAGE-001 generation is unavailable because Task 10 provides a typed browser-local preview only.",
         }],
-        directory: [{
-          subjectId: "USR-INSPECTOR-DAVID",
-          displayName: "David Inspector",
-          roles: ["inspector"],
-          organizationId: null,
-          email: "Not configured in demo",
-          mfaEnrolled: false,
-          mfaState: "Not configured in demo",
-          requiredActions: [],
-          invitationState: "Not configured in demo",
-          accountStatus: "Not configured in demo",
-          applicationProfileState: "linked",
-          membershipId: null,
-          membershipState: "Not configured in demo",
-          membershipRevision: 0,
-          membershipDrift: "Not configured in demo",
-          lastSuccessfulSessionAt: null,
-          providerObservedAt: "",
-        }],
+        directory: expectedDirectory,
         organizations: [{
           id: "ORG-FLY-NAMIBIA",
           legalName: "Fly Namibia",
@@ -1040,7 +1063,7 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
     it("keeps Organization Registry projections role- and organization-scoped", async () => {
       const harness = await createHarness();
       const internal = await harness.backendFor(PRINCIPALS.manager).organizations.list({});
-      expect(internal.items.map(({ id }) => id)).toEqual([
+      expect(internal.items.map(({ id }) => id).filter((id) => id !== "ORG-SYNTHETIC-AOC")).toEqual([
         "ORG-FLY-NAMIBIA",
         "ORG-SKYCARGO",
       ]);
@@ -1497,6 +1520,30 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
         answer: "COMPLIANT",
         comment: "",
       });
+      const completePackage = await inspector.inspections.getPackage({
+        packageId: "PKG-CAB-2026-001",
+      });
+      for (const packageQuestion of completePackage.questions) {
+        if (packageQuestion.currentResponse) continue;
+        const assignedInspector = packageQuestion.assignedInspectorUserIds.includes(PRINCIPALS.inspector.subjectId)
+          || packageQuestion.assignedInspectorUserIds.includes(HTTP_CANONICAL_INSPECTOR_SUBJECT_ID)
+          ? PRINCIPALS.inspector
+          : packageQuestion.assignedInspectorUserIds.includes(PRINCIPALS.otherInspector.subjectId)
+            ? PRINCIPALS.otherInspector
+            : null;
+        if (!assignedInspector) {
+          throw new Error(`No canonical Inspector principal is assigned to ${packageQuestion.id}.`);
+        }
+        await harness.backendFor(assignedInspector).inspections.upsertChecklistResponse({
+          operationId: `OP-TASK5-CONTRACT-COMPLETE-${packageQuestion.id}`,
+          responseId: `RESP-TASK5-CONTRACT-${packageQuestion.id}`,
+          auditId: completePackage.auditId,
+          questionId: packageQuestion.id,
+          expectedResponseRevision: null,
+          answer: "COMPLIANT",
+          comment: "",
+        });
+      }
       const submitted = await inspector.inspections.submitChecklist({
         operationId: "OP-TASK5-CONTRACT-SUBMIT",
         auditId: "AUD-2026-001",

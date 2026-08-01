@@ -1,12 +1,14 @@
 import { bootstrap } from "../app/bootstrap";
 import { DEMO_PRINCIPALS, createMockBackendPersistentRuntime } from "../mock/create-mock-backend";
 import { seedVisualRuntimeForPath } from "../mock/seed-visual-runtime";
+import { completeMockChecklist } from "../mock/test-checklist-fixtures";
 
 const mockRuntime = createMockBackendPersistentRuntime(window.localStorage);
 
 declare global {
   interface Window {
     __aviaMaterializeSyntheticGovernedPackageForTest?: () => unknown;
+    __aviaCompleteCanonicalChecklistForTest?: () => Promise<unknown>;
   }
 }
 
@@ -14,6 +16,23 @@ declare global {
 // part of the HTTP client or production API surface.
 window.__aviaMaterializeSyntheticGovernedPackageForTest = () =>
   mockRuntime.materializeSyntheticGovernedPackageForTest();
+
+// Test-only fixture seam: complete every canonical question except the PBE
+// question driven by the UI, so the lifecycle exercises the server's
+// fail-closed submit rule without changing Inspector assignment boundaries.
+window.__aviaCompleteCanonicalChecklistForTest = async () => {
+  const inspector = mockRuntime.backendForRole("inspector");
+  const packageView = await inspector.inspections.getPackage({ packageId: "PKG-CAB-2026-001" });
+  await completeMockChecklist(mockRuntime, packageView.id, {
+    excludeQuestionIds: ["CAB-EMEQ-PBE-001"],
+  });
+  const completed = await inspector.inspections.getPackage({ packageId: packageView.id });
+  return completed.questions.map((question) => ({
+    id: question.id,
+    assignedInspectorUserIds: question.assignedInspectorUserIds,
+    currentResponse: question.currentResponse?.answer ?? null,
+  }));
+};
 
 async function startDemo(): Promise<void> {
   if (

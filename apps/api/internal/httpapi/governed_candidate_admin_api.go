@@ -235,6 +235,29 @@ func governedCandidateView(value regulatory.CandidateView) generated.GovernedCan
 	output := generated.GovernedCandidateView{}
 	raw, _ := json.Marshal(value)
 	_ = json.Unmarshal(raw, &output)
+	if value.GenerationRunID != "" {
+		output.Lineage = generated.GovernedCandidateLineage{
+			GovernedGenerationRunLineage: &generated.GovernedGenerationRunLineage{
+				LineageType:           "GENERATION_RUN",
+				EntryPath:             "GENERATION_RUN",
+				LineageKind:           "GENERATION_RUN",
+				CandidateRootId:       value.CandidateRootID,
+				SupersedesCandidateId: value.SupersedesCandidateID,
+				GenerationRunId:       value.GenerationRunID,
+			},
+		}
+	} else {
+		output.Lineage = generated.GovernedCandidateLineage{
+			GovernedExistingCandidateLineage: &generated.GovernedExistingCandidateLineage{
+				LineageType:           "EXISTING_CANDIDATE",
+				EntryPath:             "EXISTING_CANDIDATE",
+				LineageKind:           "EXISTING_CANDIDATE",
+				CandidateRootId:       value.CandidateRootID,
+				SupersedesCandidateId: value.SupersedesCandidateID,
+				ExistingCandidateId:   value.CandidateID,
+			},
+		}
+	}
 	return output
 }
 func governedGenerationRunView(value regulatory.GenerationRunView) generated.GovernedGenerationRunView {

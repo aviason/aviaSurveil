@@ -480,6 +480,16 @@ async function assertControlledSurfaceOutcome(
   ).toBe(true);
 }
 
+async function assertExternalNavigationOutcome(
+  surface: VisualSurfaceFixture,
+  current: VisibleControl,
+  control: ReturnType<Page["locator"]>,
+): Promise<void> {
+  expect(current.tag, `${surface.id}/${current.controlKey} is an external source link`).toBe("A");
+  expect(current.href, `${surface.id}/${current.controlKey} declares an external source destination`).toMatch(/^https:\/\//);
+  await expect(control).toHaveAttribute("href", current.href!);
+}
+
 async function assertDurableControlOutcome(
   page: Page,
   surface: VisualSurfaceFixture,

@@ -81,7 +81,7 @@
   border-radius: 8px;
   color: #16202e;
   background: #fff;
-  transform: translateY(-5px);
+  transform: none;
 }
 
 .inspector-secondary-actions {
@@ -408,7 +408,7 @@
 .inspector-finding-selected dd { margin: 7px 0 0; font-size: 12px; font-weight: 750; }
 .inspector-finding-selected dd small { display: block; margin-top: 5px; color: #6b7891; font-weight: 400; }
 
-.inspector-finding-selected > nav {
+.inspector-finding-selected > .inspector-finding-selected__sections {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 6px;
@@ -416,7 +416,7 @@
   border-bottom: 1px solid #d7dfeb;
 }
 
-.inspector-finding-selected > nav button {
+.inspector-finding-selected > .inspector-finding-selected__sections button {
   min-height: 44px;
   border: 1px solid #d7dfeb;
   border-radius: 7px;
@@ -427,8 +427,8 @@
   font-weight: 700;
 }
 
-.inspector-finding-selected > nav button.is-active { border-color: #2f6fd6; color: #16202e; background: #edf4ff; }
-.inspector-finding-selected > nav b { display: inline-grid; min-width: 17px; height: 17px; place-items: center; border-radius: 999px; color: #fff; background: #c43b32; }
+.inspector-finding-selected > .inspector-finding-selected__sections button.is-active { border-color: #2f6fd6; color: #16202e; background: #edf4ff; }
+.inspector-finding-selected > .inspector-finding-selected__sections b { display: inline-grid; min-width: 17px; height: 17px; place-items: center; border-radius: 999px; color: #fff; background: #c43b32; }
 
 .inspector-finding-selected__body {
   display: grid;
@@ -1155,7 +1155,7 @@
 
 @media (min-width: 1101px) {
   .inspector-findings-page .inspector-secondary-head.workbench-page-header {
-    margin-top: 17px;
+    margin-top: 22px;
   }
 
   .inspector-findings-page .inspector-secondary-actions button:disabled {
@@ -1201,7 +1201,7 @@
     line-height: 1.2;
   }
 
-  .inspector-findings-page .inspector-finding-selected > nav {
+  .inspector-findings-page .inspector-finding-selected > .inspector-finding-selected__sections {
     padding-bottom: 7px;
   }
 

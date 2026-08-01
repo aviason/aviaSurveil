@@ -5,6 +5,18 @@ import { fileURLToPath } from "node:url";
 
 export const GENERATOR_VERSION = "1.0.0";
 
+const strictGovernedUnionNames = new Set([
+  "GovernedRegulatoryTraceContent",
+  "GovernedCandidateLineage",
+  "GovernedCurrentDecision",
+  "GovernedSourceReviewDetailView",
+  "ChecklistImportExtractionDecisionSetView",
+  "ChecklistImportIdentityResolutionState",
+  "ExtractionDecisionInput",
+  "CandidateLineageAction",
+  "ExtractionDecisionAction",
+]);
+
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(scriptDirectory, "..");
 const outputRoot = process.env.AVIA_CONTRACT_OUTPUT_ROOT
@@ -46,6 +58,9 @@ function schemaType(schema) {
     if (nonNull.length === 1 && nonNull.length !== schema.oneOf.length) {
       const memberType = schemaType(nonNull[0]);
       return memberType.startsWith("*") ? memberType : `*${memberType}`;
+    }
+    if (schema.discriminator) {
+      throw new Error("Discriminated unions must be named schemas: inline union encountered");
     }
     return "json.RawMessage";
   }
@@ -105,6 +120,28 @@ function generateSchema(name, schema) {
       .join("\n");
     return `type ${typeName} ${baseType}\n\nconst (\n${constants}\n)`;
   }
+  if (schema.oneOf && schema.discriminator && strictGovernedUnionNames.has(name)) {
+    const discriminator = schema.discriminator.propertyName;
+    const variants = schema.oneOf.map((member) => {
+      if (!member.$ref) throw new Error(`${name} discriminator members must be references`);
+      return referenceName(member.$ref);
+    });
+    const fields = variants.map((variant) => `\t${variant} *${variant} \`json:"-"\``).join("\n");
+    const unmarshalCases = variants.map((variant) => {
+      const member = schema.oneOf.find((candidate) => referenceName(candidate.$ref) === variant);
+      const memberSchema = resolveReference(member.$ref);
+      const discriminatorSchema = memberSchema?.properties?.[discriminator];
+      const literals = discriminatorSchema?.const === undefined
+        ? discriminatorSchema?.enum
+        : [discriminatorSchema.const];
+      if (!Array.isArray(literals) || literals.length === 0) {
+        throw new Error(`${name}.${variant} must declare ${discriminator} const or enum`);
+      }
+      return `\tcase ${literals.map((literal) => JSON.stringify(literal)).join(", ")}:\n\t\tvar value ${variant}\n\t\tif err := json.Unmarshal(data, &value); err != nil { return err }\n\t\t*receiver = ${typeName}{${variant}: &value}`;
+    }).join("\n");
+    const marshalCases = variants.map((variant) => `\tif value.${variant} != nil { return json.Marshal(value.${variant}) }`).join("\n");
+    return `type ${typeName} struct {\n${fields}\n}\n\nfunc (receiver *${typeName}) UnmarshalJSON(data []byte) error {\n\tvar discriminatorValue struct {\n\t\tValue string \`json:"${discriminator}"\`\n\t}\n\tif err := json.Unmarshal(data, &discriminatorValue); err != nil { return err }\n\tswitch discriminatorValue.Value {\n${unmarshalCases}\n\tdefault:\n\t\treturn fmt.Errorf("${typeName}: unsupported ${discriminator} %q", discriminatorValue.Value)\n\t}\n\treturn nil\n}\n\nfunc (value ${typeName}) MarshalJSON() ([]byte, error) {\n${marshalCases}\n\treturn nil, fmt.Errorf("${typeName}: empty union")\n}`;
+  }
   if (schema.oneOf) {
     return `type ${typeName} = json.RawMessage`;
   }
@@ -158,7 +195,15 @@ const operationBlocks = operations.map(({ operation, pathItem }) => {
     return `\t${goName(parameter.name)} ${type} \`${parameter.in}:"${parameter.name}"\``;
   });
   const bodySchema = operation.requestBody?.content?.["application/json"]?.schema;
-  const bodyField = bodySchema ? [`\tBody ${schemaType(bodySchema)} \`json:"body"\``] : [];
+  const multipartSchema = operation.requestBody?.content?.["multipart/form-data"]?.schema;
+  const bodyField = bodySchema
+    ? [`\tBody ${schemaType(bodySchema)} \`json:"body"\``]
+    : multipartSchema
+      ? [
+          `\tArchive io.Reader \`multipart:"archive"\``,
+          `\tReceipt ${schemaType(multipartSchema.properties?.receipt)} \`json:"receipt"\``,
+        ]
+      : [];
   return `// operationId: ${operation.operationId}\n` +
     `type ${requestName} struct {\n\tHeaders http.Header \`json:"-"\`\n${[...parameters, ...bodyField].join("\n")}\n}\n\n` +
     `type ${responseName} struct {\n\tStatusCode int\n\tHeaders http.Header\n\tBody ${successBodyType(operation)}\n}`;
@@ -185,6 +230,8 @@ package generated
 import (
 \t"context"
 \t"encoding/json"
+\t"fmt"
+\t"io"
 \t"net/http"
 )
 

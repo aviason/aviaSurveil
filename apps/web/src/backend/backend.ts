@@ -1041,6 +1041,7 @@ export type GovernedSourceCurrentnessActivationInput = GeneratedSchemas["Governe
 export type GovernedSourceCurrentnessActivationView = GeneratedSchemas["GovernedSourceCurrentnessActivationView"];
 export type GovernedMappingView = GeneratedSchemas["GovernedMappingView"];
 export type GovernedQuestionView = GeneratedSchemas["GovernedQuestionView"];
+export type GovernedQuestionReconciliationView = GeneratedSchemas["GovernedQuestionReconciliationView"];
 export type GovernedRequiredOwnerView = GeneratedSchemas["GovernedRequiredOwnerView"];
 export type GovernedValidationIssue = GeneratedSchemas["GovernedValidationIssue"];
 export type ImportAdminGovernedGenerationRunInput = GeneratedSchemas["ImportAdminGovernedGenerationRunInput"];
@@ -1052,6 +1053,31 @@ export type DepartmentManagerGovernedReviewItem = GeneratedSchemas["DepartmentMa
 export type DepartmentManagerGovernedReviewQueue = GeneratedSchemas["DepartmentManagerGovernedReviewQueue"];
 export type GovernedPublicationView = GeneratedSchemas["GovernedPublicationView"];
 export type GovernedPublishedVersionView = GeneratedSchemas["GovernedPublishedVersionView"];
+export type CreateChecklistImportBatchReceiptInput = GeneratedSchemas["CreateChecklistImportBatchReceiptInput"];
+export type ChecklistImportBatchView = GeneratedSchemas["ChecklistImportBatchView"];
+export type ChecklistImportBatchReceiptView = GeneratedSchemas["ChecklistImportBatchReceiptView"];
+export type ChecklistImportFileView = GeneratedSchemas["ChecklistImportFileView"];
+export type ChecklistImportFilePage = GeneratedSchemas["ChecklistImportFilePage"];
+export type ChecklistImportReceiptPage = GeneratedSchemas["ChecklistImportReceiptPage"];
+export type CreateChecklistImportFileExtractionReviewInput = GeneratedSchemas["CreateChecklistImportFileExtractionReviewInput"];
+export type ChecklistImportExtractionReviewPage = GeneratedSchemas["ChecklistImportExtractionReviewPage"];
+export type ChecklistImportExtractionReviewSummaryView = GeneratedSchemas["ChecklistImportExtractionReviewSummaryView"];
+export type ResolveChecklistImportFileIdentityInput = GeneratedSchemas["ResolveChecklistImportFileIdentityInput"];
+export type ExistingChecklistCandidateView = GeneratedSchemas["ExistingChecklistCandidateView"];
+export type CreateExistingChecklistCandidateInput = GeneratedSchemas["CreateExistingChecklistCandidateInput"];
+export type CreateDraftFromExistingChecklistCandidateInput = GeneratedSchemas["CreateDraftFromExistingChecklistCandidateInput"];
+export type CreateOfficialSourceChecklistDraftInput = GeneratedSchemas["CreateOfficialSourceChecklistDraftInput"];
+export type CreateHybridReconciledChecklistDraftInput = GeneratedSchemas["CreateHybridReconciledChecklistDraftInput"];
+export type GovernedSourceReviewQueuePage = GeneratedSchemas["GovernedSourceReviewQueuePage"];
+export type GovernedReviewerQueuePage = GeneratedSchemas["GovernedReviewerQueuePage"];
+export type GovernedSourceAuthorityAttestationInput = GeneratedSchemas["GovernedSourceAuthorityAttestationInput"];
+export type GovernedSourceAuthorityAttestationView = GeneratedSchemas["GovernedSourceAuthorityAttestationView"];
+export type GovernedChecklistReviewCommentInput = GeneratedSchemas["GovernedChecklistReviewCommentInput"];
+export type GovernedChecklistReviewCommentPage = GeneratedSchemas["GovernedChecklistReviewCommentPage"];
+export type GovernedSourceMappingAttestationInput = GeneratedSchemas["GovernedSourceMappingAttestationInput"];
+export type GovernedAuditPackageEligibilityInput = GeneratedSchemas["GovernedAuditPackageEligibilityInput"];
+export type GovernedAuditPackageEligibilityView = GeneratedSchemas["GovernedAuditPackageEligibilityView"];
+export type GovernedBackendCommandResult = GeneratedSchemas["GovernedBackendCommandResult"];
 
 export interface AdminTemplateMasterView {
   id: string;
@@ -1607,6 +1633,32 @@ export interface GovernedChecklistReviewBackend {
   getPublishedVersion(input: { templateVersionId: string }, options?: BackendRequestOptions): Promise<GovernedPublishedVersionView>;
 }
 
+/** Candidate-only intake and source-review surface. Admin inventory data never
+ * appears in auditee projections; every command is server-authorized. */
+export interface GovernedChecklistIntakeBackend {
+  receiveBatch(input: CreateChecklistImportBatchReceiptInput & { archive: Blob | Uint8Array }, options?: BackendRequestOptions): Promise<ChecklistImportBatchReceiptView>;
+  getBatch(input: { importBatchId: string }, options?: BackendRequestOptions): Promise<ChecklistImportBatchView>;
+  listFiles(input: { importBatchId: string; cursor?: string; limit?: number }, options?: BackendRequestOptions): Promise<ChecklistImportFilePage>;
+  listReceipts(input: { importBatchId: string; cursor?: string; limit?: number }, options?: BackendRequestOptions): Promise<ChecklistImportReceiptPage>;
+  createExtractionReview(input: CreateChecklistImportFileExtractionReviewInput, options?: BackendRequestOptions): Promise<ChecklistImportExtractionReviewSummaryView>;
+  getExtractionReview(input: { importBatchId: string; importFileId: string; cursor?: string; limit?: number }, options?: BackendRequestOptions): Promise<ChecklistImportExtractionReviewPage>;
+  resolveIdentity(input: ResolveChecklistImportFileIdentityInput, options?: BackendRequestOptions): Promise<ChecklistImportFileView>;
+  importCandidate(input: CreateExistingChecklistCandidateInput, options?: BackendRequestOptions): Promise<GovernedBackendCommandResult>;
+  listSourceReviewQueue(input: { cursor?: string; limit?: number }, options?: BackendRequestOptions): Promise<GovernedSourceReviewQueuePage>;
+  getSourceReviewItem(input: { reviewItemId: string }, options?: BackendRequestOptions): Promise<GovernedSourceReviewQueuePage["items"][number]>;
+  listReviewerQueue(input: { cursor?: string; limit?: number }, options?: BackendRequestOptions): Promise<GovernedReviewerQueuePage>;
+  attestSourceAuthority(input: GovernedSourceAuthorityAttestationInput, options?: BackendRequestOptions): Promise<GovernedSourceAuthorityAttestationView>;
+  getExistingCandidate(input: { existingCandidateId: string }, options?: BackendRequestOptions): Promise<ExistingChecklistCandidateView>;
+  createDraftFromExisting(input: CreateDraftFromExistingChecklistCandidateInput, options?: BackendRequestOptions): Promise<GovernedBackendCommandResult>;
+  createOfficialSourceDraft(input: CreateOfficialSourceChecklistDraftInput, options?: BackendRequestOptions): Promise<GovernedBackendCommandResult>;
+  getDraft(input: { candidateId: string }, options?: BackendRequestOptions): Promise<GeneratedSchemas["GovernedCandidateDetailView"]>;
+  createHybridReconciliation(input: CreateHybridReconciledChecklistDraftInput, options?: BackendRequestOptions): Promise<GovernedBackendCommandResult>;
+  listReviewComments(input: { candidateId: string; cursor?: string; limit?: number }, options?: BackendRequestOptions): Promise<GovernedChecklistReviewCommentPage>;
+  createReviewComment(input: GovernedChecklistReviewCommentInput, options?: BackendRequestOptions): Promise<GeneratedSchemas["GovernedChecklistReviewCommentView"]>;
+  attestSourceMapping(input: GovernedSourceMappingAttestationInput, options?: BackendRequestOptions): Promise<GeneratedSchemas["GovernedSourceMappingAttestationView"]>;
+  evaluateAuditPackageEligibility(input: GovernedAuditPackageEligibilityInput, options?: BackendRequestOptions): Promise<GovernedAuditPackageEligibilityView>;
+}
+
 export interface AssistantDraftsBackend {
   getGuidance(input: Record<string, never>, options?: BackendRequestOptions): Promise<{ advisoryOnly: true; prohibitedActions: readonly string[] }>;
   createDraft(input: { findingId: string; prompt: string }, options?: BackendRequestOptions): Promise<AssistantDraftView>;
@@ -1638,6 +1690,7 @@ export interface Backend {
   readonly administration: AdministrationBackend;
   readonly adminWorkspace: AdminWorkspaceBackend;
   readonly governedChecklistReview: GovernedChecklistReviewBackend;
+  readonly governedChecklistIntake: GovernedChecklistIntakeBackend;
   readonly assistantDrafts: AssistantDraftsBackend;
   readonly planningIntake: PlanningIntakeBackend;
   readonly packageDrafts: InspectionPackageDraftsBackend;
@@ -1672,6 +1725,7 @@ export const BACKEND_CAPABILITY_REGISTRY = {
   administration: true,
   adminWorkspace: true,
   governedChecklistReview: true,
+  governedChecklistIntake: true,
   assistantDrafts: true,
   planningIntake: true,
   packageDrafts: true,

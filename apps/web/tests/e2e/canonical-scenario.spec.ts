@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import { createHttpBackend } from "../../src/backend/http-backend";
+import { createCanonicalTestFetch } from "../../src/test-profile/http-test-boundary";
 
 import {
   expectCanonicalScenarioTranscript,
@@ -65,6 +67,39 @@ test("canonical Cabin Inspection lifecycle is backend-shaped and organization-sa
     }
   });
 
+  if (testInfo.project.name === "http") {
+    // The canonical HTTP package is server-assigned to the canonical UUID
+    // subject.  Use that exact server-owned identity for fixture prefill;
+    // the human-facing role label remains a UI concern and must not be used
+    // to bypass the assignment boundary.
+    const otherInspector = createHttpBackend(
+      { apiBaseUrl: apiURL, environmentLabel: "Canonical HTTP fixture" },
+      { fetchImplementation: createCanonicalTestFetch("154ec5ac-6f97-4f55-916f-d2f142fc6211", testToken) },
+    );
+    const packageView = await otherInspector.inspections.getPackage({ packageId: "PKG-CAB-2026-001" });
+    for (const question of packageView.questions) {
+      if (question.id === "CAB-EMEQ-PBE-001") continue;
+      await otherInspector.inspections.upsertChecklistResponse({
+        operationId: `OP-E2E-PREFILL-${question.id}`,
+        responseId: `RESP-${question.id}`,
+        auditId: packageView.auditId,
+        questionId: question.id,
+        expectedResponseRevision: null,
+        answer: "COMPLIANT",
+        comment: "",
+      });
+    }
+  } else {
+    await page.goto("/");
+    const fixtureResponses = await page.evaluate(async () => {
+      if (!window.__aviaCompleteCanonicalChecklistForTest) throw new Error("Mock checklist fixture seam is unavailable.");
+      return window.__aviaCompleteCanonicalChecklistForTest();
+    });
+    expect(fixtureResponses).toEqual(expect.arrayContaining([
+      { id: "CAB-EMEQ-PBE-001", assignedInspectorUserIds: ["USR-INSPECTOR-AMINA"], currentResponse: null },
+    ]));
+  }
+
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "AviaSurveil360" })).toBeVisible();
   await expect(page.getByRole("link", { name: /CAA Inspector/i })).toBeVisible();
@@ -83,7 +118,7 @@ test("canonical Cabin Inspection lifecycle is backend-shaped and organization-sa
     "Assigned to another Inspector — read-only",
   );
 
-  await page.getByTestId("question-CAB-EMEQ-PBE-001").click();
+  await page.getByRole("button", { name: "Open question 4" }).click();
   await page.getByLabel("Checklist answer").selectOption("NON_COMPLIANT");
   await page
     .getByLabel("Inspector comment")

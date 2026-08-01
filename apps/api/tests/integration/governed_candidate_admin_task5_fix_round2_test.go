@@ -33,7 +33,12 @@ func TestTask5FixRound2RepairsGenuineAlreadyLedgeredPreTask5Version21State(t *te
 	}
 	for _, file := range files {
 		name := filepath.Base(file)
-		if strings.HasPrefix(name, "000021_") || strings.HasPrefix(name, "000022_") {
+		versionText := strings.TrimLeft(strings.SplitN(name, "_", 2)[0], "0")
+		var version int
+		if _, err := fmt.Sscanf(versionText, "%d", &version); err != nil {
+			t.Fatalf("parse %s version: %v", name, err)
+		}
+		if version >= 21 {
 			continue
 		}
 		contents, err := os.ReadFile(file)
@@ -42,11 +47,6 @@ func TestTask5FixRound2RepairsGenuineAlreadyLedgeredPreTask5Version21State(t *te
 		}
 		if _, err := pool.Exec(ctx, string(contents)); err != nil {
 			t.Fatalf("apply %s: %v", name, err)
-		}
-		versionText := strings.TrimLeft(strings.SplitN(name, "_", 2)[0], "0")
-		var version int
-		if _, err := fmt.Sscanf(versionText, "%d", &version); err != nil {
-			t.Fatalf("parse %s version: %v", name, err)
 		}
 		if _, err := pool.Exec(ctx, `INSERT INTO schema_migrations(version,name) VALUES ($1,$2)`, version, name); err != nil {
 			t.Fatalf("record %s: %v", name, err)
@@ -66,6 +66,27 @@ func TestTask5FixRound2RepairsGenuineAlreadyLedgeredPreTask5Version21State(t *te
 	}
 	if _, err := pool.Exec(ctx, `INSERT INTO schema_migrations(version,name) VALUES (21,$1)`, v21Name); err != nil {
 		t.Fatalf("record already-ledgered version 21: %v", err)
+	}
+	for _, file := range files {
+		name := filepath.Base(file)
+		versionText := strings.TrimLeft(strings.SplitN(name, "_", 2)[0], "0")
+		var version int
+		if _, err := fmt.Sscanf(versionText, "%d", &version); err != nil {
+			t.Fatalf("parse %s version: %v", name, err)
+		}
+		if version <= 21 {
+			continue
+		}
+		contents, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+		if _, err := pool.Exec(ctx, string(contents)); err != nil {
+			t.Fatalf("apply %s: %v", name, err)
+		}
+		if _, err := pool.Exec(ctx, `INSERT INTO schema_migrations(version,name) VALUES ($1,$2)`, version, name); err != nil {
+			t.Fatalf("record %s: %v", name, err)
+		}
 	}
 	var task5Table *string
 	if err := pool.QueryRow(ctx, `SELECT to_regclass('public.governed_candidate_commands')::text`).Scan(&task5Table); err != nil || task5Table != nil {
@@ -340,7 +361,10 @@ func TestTask5FixRound2RollsBackSuccessfulImportGraphWhenCommandPersistenceFails
 		"regulatory_generation_runs":  0,
 		"template_draft_versions":     0,
 		"governed_candidate_commands": 0,
-		"audit_events":                0,
+		// The synthetic baseline-currentness receipt is an explicit, durable
+		// Audit event created by the test-profile bootstrap before the failed
+		// import attempt.
+		"audit_events": 1,
 	} {
 		var got int
 		if err := pool.QueryRow(ctx, "SELECT COUNT(*) FROM "+table).Scan(&got); err != nil || got != want {
@@ -387,7 +411,9 @@ func TestTask5FixRound2PersistsAndReplaysMissingFieldFailureAtomically(t *testin
 		"regulatory_generation_runs":  1,
 		"template_draft_versions":     0,
 		"governed_candidate_commands": 1,
-		"audit_events":                1,
+		// One event is the baseline-currentness receipt; the second is the
+		// durable FAILED_IMPORT receipt for this malformed request.
+		"audit_events": 2,
 	} {
 		var got int
 		if err := pool.QueryRow(ctx, "SELECT COUNT(*) FROM "+table).Scan(&got); err != nil || got != want {
@@ -403,7 +429,7 @@ func TestTask5FixRound2PersistsAndReplaysMissingFieldFailureAtomically(t *testin
 		t.Fatalf("failed-import command=%s/%s/%s/%s/%v", kind, operationID, key, runID, candidateID)
 	}
 	var auditOperationID, correlationID, requestID, entityType, action string
-	if err := pool.QueryRow(ctx, `SELECT operation_id,correlation_id,request_id,entity_type,action FROM audit_events`).Scan(&auditOperationID, &correlationID, &requestID, &entityType, &action); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT operation_id,correlation_id,request_id,entity_type,action FROM audit_events WHERE operation_id=$1`, "TASK5-R2-MISSING").Scan(&auditOperationID, &correlationID, &requestID, &entityType, &action); err != nil {
 		t.Fatalf("read failed-import audit identity: %v", err)
 	}
 	if auditOperationID != "TASK5-R2-MISSING" || correlationID != "TASK5-R2-MISSING" ||

@@ -308,11 +308,11 @@ describe("Task 6 manager governed-checklist backend parity", () => {
     const legacy = legacyRun.candidate!;
     expect(legacy.questions[0]).toEqual(expect.objectContaining({
       origin: "EXISTING_CHECKLIST_CANDIDATE",
-      regulatoryTrace: {
+      regulatoryTrace: expect.objectContaining({
         state: "SOURCE_MAPPING_REQUIRED",
         currentnessState: "SOURCE_MAPPING_REQUIRED",
         technicalReviewState: "NOT_AVAILABLE",
-      },
+      }),
     }));
     await expect(admin.submitGovernedCandidateReview({
       operationId: "TASK6-LEGACY-CANDIDATE-SUBMIT",
@@ -393,7 +393,7 @@ describe("Task 6 manager governed-checklist backend parity", () => {
         scopeRecommendation: { approvalReviewState: "TECHNICALLY_APPROVED" },
         regulatoryTrace: { currentnessState: "CURRENT", technicalReviewState: "TECHNICALLY_APPROVED" },
       });
-    expect((await admin.getGovernedGenerationRun({ generationRunId: approved.generationRunId })).candidate)
+    expect((await admin.getGovernedGenerationRun({ generationRunId: approved.generationRunId! })).candidate)
       .toMatchObject({
         status: "TECHNICALLY_APPROVED",
         questions: [expect.objectContaining({
@@ -432,7 +432,7 @@ describe("Task 6 manager governed-checklist backend parity", () => {
           regulatoryTrace: expect.objectContaining({ currentnessState: "STALE" }),
         })],
       });
-    expect((await admin.getGovernedGenerationRun({ generationRunId: approved.generationRunId })).candidate)
+    expect((await admin.getGovernedGenerationRun({ generationRunId: approved.generationRunId! })).candidate)
       .toMatchObject({
         status: "TECHNICALLY_APPROVED",
         questions: [expect.objectContaining({

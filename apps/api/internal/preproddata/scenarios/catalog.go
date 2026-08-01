@@ -41,12 +41,13 @@ func ParseCatalogs(routeSource, ledgerSource []byte) (Catalog, error) {
 			SurfaceIDs []string `json:"reactParitySurfaceIds"`
 		} `json:"reactScope"`
 		ActionEvidence []struct {
-			SurfaceID  string   `json:"surfaceId"`
-			Scope      string   `json:"scope"`
-			Profiles   []string `json:"profiles"`
-			ControlKey string   `json:"controlKey"`
-			Boundary   string   `json:"boundary"`
-			Assertion  string   `json:"assertion"`
+			SurfaceID                string   `json:"surfaceId"`
+			Scope                    string   `json:"scope"`
+			Profiles                 []string `json:"profiles"`
+			ControlKey               string   `json:"controlKey"`
+			Boundary                 string   `json:"boundary"`
+			Assertion                string   `json:"assertion"`
+			IncludeInScenarioCatalog *bool    `json:"includeInScenarioCatalog"`
 		} `json:"actionEvidence"`
 	}
 	if err := decodeExactJSON(ledgerSource, &ledger); err != nil {
@@ -95,6 +96,12 @@ func ParseCatalogs(routeSource, ledgerSource []byte) (Catalog, error) {
 		"suggestedFilename":              true,
 	}
 	for _, evidence := range ledger.ActionEvidence {
+		// Candidate-only authoring controls are still covered by the browser
+		// action ledger, but are intentionally outside the frozen connected
+		// pre-production scenario catalog.
+		if evidence.IncludeInScenarioCatalog != nil && !*evidence.IncludeInScenarioCatalog {
+			continue
+		}
 		if evidence.Scope != "route" ||
 			!executableAssertions[evidence.Assertion] ||
 			(len(evidence.Profiles) > 0 &&

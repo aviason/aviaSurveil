@@ -93,7 +93,7 @@ describe("Inspector secondary routes", () => {
 
     const page = await screen.findByTestId("inspector-findings-page");
     const selectedFinding = within(page).getByRole("article", { name: "Selected Finding CAB-2026-001" });
-    expect(within(selectedFinding).getByRole("navigation", { name: "Finding dossier sections" })).toBeVisible();
+    expect(within(selectedFinding).getByRole("tablist", { name: "Finding dossier sections" })).toBeVisible();
   });
 
   it("exports the currently visible Finding queue as a downloadable CSV artifact", async () => {
@@ -136,7 +136,7 @@ describe("Inspector secondary routes", () => {
       ["History", "History for CAB-2026-001"],
       ["CAP & Verification", "CAP and verification for CAB-2026-001"],
     ] as const) {
-      await user.click(within(selectedFinding).getByRole("button", { name: tab }));
+      await user.click(within(selectedFinding).getByRole("tab", { name: tab }));
       expect(within(selectedFinding).getByRole("region", { name: outcome })).toBeVisible();
     }
   });

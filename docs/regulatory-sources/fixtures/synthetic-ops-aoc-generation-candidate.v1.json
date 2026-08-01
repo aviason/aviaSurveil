@@ -85,5 +85,9 @@
       },
       "reconciliation": null
     }]
+  },
+  "sourceCurrentness": {
+    "currentSourceSnapshotId": "SOURCE-SYNTHETIC-OPS-AOC",
+    "currentSourceHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
   }
 }

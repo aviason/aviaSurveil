@@ -187,6 +187,19 @@
   ],
   "users": [
     {
+      "id": "USR-INSPECTOR-DAVID",
+      "username": "david.inspector",
+      "enabled": true,
+      "email": "david.inspector@example.test",
+      "emailVerified": true,
+      "firstName": "David",
+      "lastName": "Inspector",
+      "attributes": {
+        "organization_id": ["CAA"]
+      },
+      "realmRoles": ["inspector"]
+    },
+    {
       "username": "service-account-aviasurveil360-lifecycle",
       "enabled": true,
       "serviceAccountClientId": "aviasurveil360-lifecycle",

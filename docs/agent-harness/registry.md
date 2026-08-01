@@ -42,6 +42,7 @@ evidence afterward. It is an inventory, not a new product specification.
 | `../exec-plans/active/2026-06-29-aviasurveil-harness-engineering-adaptation-plan.md` | Historical partial-adaptation record superseded by the readiness completion plan. |
 | `../exec-plans/active/2026-07-20-react-vite-pwa-go-offline-first-production-plan.md` | Active authorized local-candidate task order, scope boundaries, decisions, and next todo. |
 | `../exec-plans/active/2026-07-28-regulatory-source-refresh-adaptive-checklists-plan.md` | Public NAMCATS synchronization, OCR, refresh policy, adaptive checklist scope, and derived-context plan. |
+| `../exec-plans/active/2026-07-31-governed-aga-checklist-intake-and-official-source-authoring-plan.md` | Candidate-only AGA intake/authoring contract, phased inventory, external archive verifier, and real-owner handoff. |
 | `../exec-plans/tech-debt-tracker.md` | Durable blocker, accepted-risk, missing-evidence, and technical-debt tracker. |
 | `../demo-evidence/BUILD_SUMMARY.md` | Current demo evidence, local verification status, and production gaps. |
 | `../demo-evidence/PWA_OFFLINE_READINESS_2026-07-21.md` | Task 6 app-shell, readiness, restart, multi-client update, and actual offline startup evidence. |
@@ -83,6 +84,9 @@ The React candidate uses `apps/web/package.json`.
 | `../../tests/ncaa-regulatory-source-sync.test.mjs` | Bounded three-page NCAA source discovery and page-level extraction merge behavior. |
 | `../../tests/ncaa-regulatory-derived-context.test.mjs` | Part 127 / Part 140 source hashes, locators, evidence pages, applicability dispositions, six-question implications, and human gates. |
 | `../../tests/preprod-data-boundary.test.mjs` | Isolated one-shot loader topology, immutable authorization/control-store boundaries, MinIO policy, migration config, normal-artifact exclusion, and networkless cleanup recorder. |
+| `../../tests/aga-checklist-archive-inventory.test.mjs` | Read-only `AGA_CHECKLIST_ARCHIVE` stream/hash/central-directory inventory; never extracts or copies source bytes. |
+| `../../tests/governed-checklist-intake-plan-contract.test.mjs` | Frozen lifecycle, authority, role/privacy, source-trace, and AGA limit contract. |
+| `../../tests/governed-checklist-intake-security.test.mjs` | Phased fail-closed inventory and security-boundary contract. |
 
 ## Task-To-Source Routing
 
@@ -97,6 +101,7 @@ The React candidate uses `apps/web/package.json`.
 | UI/visual QA | UX docs, screen specs, active plan | Screenshot/browser evidence and demo summary when accepted. |
 | Plan lifecycle | `../../AGENTS.md`, `../exec-plans/index.md`, target plan | Plan file, index row, and tech-debt tracker entry if a durable gap exists. |
 | Regulatory source assessment | `../regulatory-sources/README.md`, tracked manifest, applicable derived JSON/Markdown, conceptual data model, active regulatory plan | Derived assessment, focused source-context test, plan/index, and durable tracker; keep full text in the ignored local vault. |
+| Governed AGA intake/authoring | The active AGA plan, product specs, OpenAPI source, `../agent-harness/verification-matrix.md`, and fresh Git status | Run the phase inventory, path-driven archive verifier, bounded candidate/security tests, focused Go/React/HTTP checks, cleanup assertion, and metadata-only evidence. Keep real Form 048, owner/manager, connected-runtime, and expansion decisions `blocked`. |
 | Connected preprod data | Plan 5, `../product-specs/data-and-rules/PREPROD_IDENTITY_AND_DATA_PROFILE.md`, loader/scenario packages | `./scripts/test-preprod-data-profile.sh smoke`, then `acceptance`, `realistic`, and `stress`; active versions are `smoke@1.0.0`, `acceptance@1.0.0`, `realistic@1.1.0`, and `stress@1.1.0`. Full-volume realistic/stress `1.0.0` endurance remains retained and `not run`. Synchronize Plan 5 evidence, plan index, and tracker. |
 
 ## Authorization Boundary

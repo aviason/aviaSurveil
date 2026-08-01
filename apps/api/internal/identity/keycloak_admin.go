@@ -247,6 +247,7 @@ func (client *KeycloakAdminClient) ListDirectory(
 		if len(organizations) == 1 {
 			organizationID = organizations[0]
 		}
+		requiredActions := append([]string{}, representation.RequiredActions...)
 		page.Users = append(page.Users, KeycloakDirectoryUser{
 			SubjectID:       representation.ID,
 			Email:           representation.Email,
@@ -254,7 +255,7 @@ func (client *KeycloakAdminClient) ListDirectory(
 			OrganizationID:  organizationID,
 			Enabled:         representation.Enabled,
 			TOTPConfigured:  representation.TOTP,
-			RequiredActions: append([]string(nil), representation.RequiredActions...),
+			RequiredActions: requiredActions,
 			Roles:           roles,
 		})
 	}

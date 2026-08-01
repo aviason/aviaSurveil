@@ -8,6 +8,8 @@ import {
 } from "./governed-synthetic-profile";
 import {
   governedCandidateContentDigest,
+  governedEditSemanticDigest,
+  governedImportSemanticDigest,
   governedRequestDigest,
 } from "./governed-canonical";
 import { governedQuestionGovernanceIssuesForTest } from "../mock/mock-engine";
@@ -40,6 +42,84 @@ function scopedQuestion(classification: "FOCUSED_FULL" | "ROTATIONAL_SAMPLE"): G
 }
 
 describe("Task 6 question-governance mock parity", () => {
+  it("excludes server-derived mapping review projections from immutable content digests", async () => {
+    const baseline = structuredClone(SYNTHETIC_GOVERNED_BUNDLE);
+    const accepted = structuredClone(baseline);
+    accepted.inspectionChecklist.questions[0]!.regulatoryTrace.mappingReviewState = "ACCEPTED";
+    expect(await governedCandidateContentDigest({
+      complianceMappings: baseline.complianceMappings,
+      inspectionChecklist: baseline.inspectionChecklist,
+    })).toBe(await governedCandidateContentDigest({
+      complianceMappings: accepted.complianceMappings,
+      inspectionChecklist: accepted.inspectionChecklist,
+    }));
+  });
+
+  it("excludes server-derived mapping review projections from import and edit digests", async () => {
+    const baseline = structuredClone(SYNTHETIC_GOVERNED_BUNDLE);
+    const projected = structuredClone(baseline);
+    projected.inspectionChecklist.questions[0]!.regulatoryTrace.mappingReviewState = "ACCEPTED";
+
+    expect(await governedImportSemanticDigest("TASK6-MAPPING-PROJECTION", baseline))
+      .toBe(await governedImportSemanticDigest("TASK6-MAPPING-PROJECTION", projected));
+
+    const baseCommand = {
+      candidateId: baseline.candidateBundleId,
+      expectedRevision: 1,
+      expectedContentDigest: baseline.outputDigest,
+      changeReason: "Apply the controlled synthetic mapping review projection.",
+      mappings: structuredClone(baseline.complianceMappings),
+      questions: structuredClone(baseline.inspectionChecklist.questions),
+      requiredOwners: [{
+        departmentId: "FLIGHT_OPERATIONS_INSPECTORATE",
+        organizationalUnitId: "FLIGHT_OPERATIONS_INSPECTORATE",
+        approvalRequired: true,
+      }],
+    };
+    const projectedCommand = {
+      ...baseCommand,
+      questions: structuredClone(projected.inspectionChecklist.questions),
+    };
+    expect(await governedEditSemanticDigest(baseCommand))
+      .toBe(await governedEditSemanticDigest(projectedCommand));
+  });
+
+  it("excludes the literal source-gap technical projection from candidate, import, and edit digests", async () => {
+    const baseline = structuredClone(SYNTHETIC_LEGACY_CHECKLIST_CANDIDATE_BUNDLE);
+    const projected = structuredClone(baseline);
+    projected.inspectionChecklist.questions[0]!.regulatoryTrace.technicalReviewState = "TECHNICAL_REVIEW_REQUIRED";
+
+    expect(await governedCandidateContentDigest({
+      complianceMappings: baseline.complianceMappings,
+      inspectionChecklist: baseline.inspectionChecklist,
+    })).toBe(await governedCandidateContentDigest({
+      complianceMappings: projected.complianceMappings,
+      inspectionChecklist: projected.inspectionChecklist,
+    }));
+    expect(await governedImportSemanticDigest("TASK6-SOURCE-GAP-PROJECTION", baseline))
+      .toBe(await governedImportSemanticDigest("TASK6-SOURCE-GAP-PROJECTION", projected));
+
+    const baseCommand = {
+      candidateId: baseline.candidateBundleId,
+      expectedRevision: 1,
+      expectedContentDigest: baseline.outputDigest,
+      changeReason: "Keep the source gap visible while awaiting mapping.",
+      mappings: structuredClone(baseline.complianceMappings),
+      questions: structuredClone(baseline.inspectionChecklist.questions),
+      requiredOwners: [{
+        departmentId: "FLIGHT_OPERATIONS_INSPECTORATE",
+        organizationalUnitId: "FLIGHT_OPERATIONS_INSPECTORATE",
+        approvalRequired: true,
+      }],
+    };
+    const projectedCommand = {
+      ...baseCommand,
+      questions: structuredClone(projected.inspectionChecklist.questions),
+    };
+    expect(await governedEditSemanticDigest(baseCommand))
+      .toBe(await governedEditSemanticDigest(projectedCommand));
+  });
+
   it("pins candidate-only legacy and hybrid fixtures to the Go digest vectors", async () => {
     for (const bundle of [
       SYNTHETIC_LEGACY_CHECKLIST_CANDIDATE_BUNDLE,
@@ -71,13 +151,19 @@ describe("Task 6 question-governance mock parity", () => {
         automaticDeferralPermitted: false,
       },
     };
-    question.regulatoryTrace = { state: "SOURCE_MAPPING_REQUIRED" };
+    question.regulatoryTrace = {
+      state: "SOURCE_MAPPING_REQUIRED",
+      mappingReviewState: "SOURCE_MAPPING_REQUIRED",
+      technicalReviewState: "NOT_AVAILABLE",
+    };
 
     expect(governedQuestionGovernanceIssuesForTest(question).map((issue) => issue.code))
       .toEqual(["SOURCE_MAPPING_REQUIRED"]);
 
     question.regulatoryTrace = {
       state: "SOURCE_MAPPING_REQUIRED",
+      mappingReviewState: "SOURCE_MAPPING_REQUIRED",
+      technicalReviewState: "NOT_AVAILABLE",
       sourceTitle: "Unverified partial trace",
     };
     expect(governedQuestionGovernanceIssuesForTest(question).map((issue) => issue.code))
@@ -96,7 +182,11 @@ describe("Task 6 question-governance mock parity", () => {
     const cases: Array<{ name: string; question: GovernedQuestionView; code: string }> = [];
 
     const missingTrace = completeQuestion();
-    missingTrace.regulatoryTrace = { state: "RESOLVED" };
+    missingTrace.regulatoryTrace = {
+      state: "RESOLVED",
+      mappingReviewState: "SOURCE_OWNER_REVIEW_REQUIRED",
+      technicalReviewState: "TECHNICAL_REVIEW_REQUIRED",
+    };
     cases.push({ name: "missing trace", question: missingTrace, code: "REGULATORY_TRACE_REQUIRED" });
 
     const missingClassification = completeQuestion();

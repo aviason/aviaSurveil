@@ -6,6 +6,15 @@ import type {
   DecidePotentialFindingInput,
   FieldSyncOperation,
   GovernedValidationIssue,
+  GovernedChecklistIntakeBackend,
+  CreateChecklistImportBatchReceiptInput,
+  CreateChecklistImportFileExtractionReviewInput,
+  ResolveChecklistImportFileIdentityInput,
+  CreateExistingChecklistCandidateInput,
+  GovernedSourceAuthorityAttestationInput,
+  GovernedChecklistReviewCommentInput,
+  GovernedSourceMappingAttestationInput,
+  GovernedAuditPackageEligibilityInput,
 } from "./backend";
 import { GovernedValidationError } from "./backend-contracts";
 import {
@@ -241,8 +250,13 @@ export function createHttpBackend(
     for (const [name, value] of Object.entries(activeBrowserRequestHeaders())) {
       headers.set(name, value);
     }
-    if (requestInput.body !== undefined) {
+    const multipart = typeof FormData !== "undefined" && requestInput.body instanceof FormData;
+    if (requestInput.body !== undefined && !multipart) {
       headers.set("content-type", "application/json");
+      const token = csrfToken();
+      if (token) headers.set("x-csrf-token", token);
+    }
+    if (multipart) {
       const token = csrfToken();
       if (token) headers.set("x-csrf-token", token);
     }
@@ -264,7 +278,7 @@ export function createHttpBackend(
         method,
         credentials: "same-origin",
         headers,
-        body: requestInput.body === undefined ? undefined : JSON.stringify(requestInput.body),
+        body: requestInput.body === undefined ? undefined : multipart ? requestInput.body as FormData : JSON.stringify(requestInput.body),
         signal,
       });
     } catch (error) {
@@ -972,6 +986,41 @@ export function createHttpBackend(
           {},
           options,
         ),
+    },
+    governedChecklistIntake: {
+      receiveBatch: async (input, options) => {
+        const form = new FormData();
+        const archive = input.archive instanceof Blob ? input.archive : new Blob([input.archive as unknown as BlobPart]);
+        form.append("archive", archive, "archive.zip");
+        const receipt: CreateChecklistImportBatchReceiptInput = {
+          operationId: input.operationId,
+          idempotencyKey: input.idempotencyKey,
+          expectedArchiveSha256: input.expectedArchiveSha256,
+          reason: input.reason,
+        };
+        form.append("receipt", new Blob([JSON.stringify(receipt)], { type: "application/json" }), "receipt.json");
+        return request<Schemas["ChecklistImportBatchReceiptView"]>("/v1/admin/governed-checklist/import-batches", { method: "POST", headers: { "Idempotency-Key": input.idempotencyKey }, body: form }, options);
+      },
+      getBatch: async ({ importBatchId }, options) => request<Schemas["ChecklistImportBatchView"]>(`/v1/admin/governed-checklist/import-batches/${encodeURIComponent(importBatchId)}`, {}, options),
+      listFiles: async ({ importBatchId, cursor, limit }, options) => request<Schemas["ChecklistImportFilePage"]>(appendQuery(`/v1/admin/governed-checklist/import-batches/${encodeURIComponent(importBatchId)}/files`, { cursor, limit }), {}, options),
+      listReceipts: async ({ importBatchId, cursor, limit }, options) => request<Schemas["ChecklistImportReceiptPage"]>(appendQuery(`/v1/admin/governed-checklist/import-batches/${encodeURIComponent(importBatchId)}/receipts`, { cursor, limit }), {}, options),
+      createExtractionReview: async (input: CreateChecklistImportFileExtractionReviewInput, options) => request<Schemas["ChecklistImportExtractionReviewSummaryView"]>(`/v1/admin/governed-checklist/import-batches/${encodeURIComponent(input.importBatchId)}/files/${encodeURIComponent(input.importFileId)}/extraction-reviews`, { method: "POST", headers: { "Idempotency-Key": input.idempotencyKey }, body: input }, options),
+      getExtractionReview: async ({ importBatchId, importFileId, cursor, limit }, options) => request<Schemas["ChecklistImportExtractionReviewPage"]>(appendQuery(`/v1/admin/governed-checklist/import-batches/${encodeURIComponent(importBatchId)}/files/${encodeURIComponent(importFileId)}/extraction-review`, { cursor, limit }), {}, options),
+      resolveIdentity: async (input: ResolveChecklistImportFileIdentityInput, options) => request<Schemas["ChecklistImportFileView"]>(`/v1/admin/governed-checklist/import-batches/${encodeURIComponent(input.importBatchId)}/files/${encodeURIComponent(input.importFileId)}/identity-resolutions`, { method: "POST", headers: { "Idempotency-Key": input.idempotencyKey }, body: input }, options),
+      importCandidate: async (input: CreateExistingChecklistCandidateInput, options) => request<Schemas["GovernedBackendCommandResult"]>(`/v1/admin/governed-checklist/import-batches/${encodeURIComponent(input.importBatchId)}/files/${encodeURIComponent(input.importFileId)}/candidate-imports`, { method: "POST", headers: { "Idempotency-Key": input.idempotencyKey }, body: input }, options),
+      listSourceReviewQueue: async ({ cursor, limit }, options) => request<Schemas["GovernedSourceReviewQueuePage"]>(appendQuery("/v1/governed-checklist/source-review-queue", { cursor, limit }), {}, options),
+      getSourceReviewItem: async ({ reviewItemId }, options) => request<Schemas["GovernedSourceReviewQueuePage"]["items"][number]>(`/v1/governed-checklist/source-review-items/${encodeURIComponent(reviewItemId)}`, {}, options),
+      listReviewerQueue: async ({ cursor, limit }, options) => request<Schemas["GovernedReviewerQueuePage"]>(appendQuery("/v1/governed-checklist/reviewer-queue", { cursor, limit }), {}, options),
+      attestSourceAuthority: async (input: GovernedSourceAuthorityAttestationInput, options) => request<Schemas["GovernedSourceAuthorityAttestationView"]>(`/v1/governed-checklist/source-versions/${encodeURIComponent(input.sourceVersionId)}/authority-attestations`, { method: "POST", headers: { "Idempotency-Key": input.idempotencyKey }, body: input }, options),
+      getExistingCandidate: async ({ existingCandidateId }, options) => request<Schemas["ExistingChecklistCandidateView"]>(`/v1/governed-checklist/existing-candidates/${encodeURIComponent(existingCandidateId)}`, {}, options),
+      createDraftFromExisting: async (input, options) => request<Schemas["GovernedBackendCommandResult"]>(`/v1/governed-checklist/existing-candidates/${encodeURIComponent(input.existingCandidateId)}/drafts`, { method: "POST", headers: { "Idempotency-Key": input.idempotencyKey }, body: input }, options),
+      createOfficialSourceDraft: async (input, options) => request<Schemas["GovernedBackendCommandResult"]>("/v1/governed-checklist/official-source-drafts", { method: "POST", headers: { "Idempotency-Key": input.idempotencyKey }, body: input }, options),
+      getDraft: async ({ candidateId }, options) => request<Schemas["GovernedCandidateDetailView"]>(`/v1/governed-checklist/candidates/${encodeURIComponent(candidateId)}`, {}, options),
+      createHybridReconciliation: async (input, options) => request<Schemas["GovernedBackendCommandResult"]>(`/v1/governed-checklist/candidates/${encodeURIComponent(input.candidateId)}/hybrid-reconciliations`, { method: "POST", headers: { "Idempotency-Key": input.idempotencyKey }, body: input }, options),
+      listReviewComments: async ({ candidateId, cursor, limit }, options) => request<Schemas["GovernedChecklistReviewCommentPage"]>(appendQuery(`/v1/governed-checklist/candidates/${encodeURIComponent(candidateId)}/review-comments`, { cursor, limit }), {}, options),
+      createReviewComment: async (input: GovernedChecklistReviewCommentInput, options) => request<Schemas["GovernedChecklistReviewCommentView"]>(`/v1/governed-checklist/candidates/${encodeURIComponent(input.candidateId)}/review-comments`, { method: "POST", headers: { "Idempotency-Key": input.idempotencyKey }, body: input }, options),
+      attestSourceMapping: async (input: GovernedSourceMappingAttestationInput, options) => request<Schemas["GovernedSourceMappingAttestationView"]>(`/v1/governed-checklist/candidates/${encodeURIComponent(input.candidateId)}/source-mapping-attestations`, { method: "POST", headers: { "Idempotency-Key": input.idempotencyKey }, body: input }, options),
+      evaluateAuditPackageEligibility: async (input: GovernedAuditPackageEligibilityInput, options) => request<Schemas["GovernedAuditPackageEligibilityView"]>(`/v1/governed-checklist/published-versions/${encodeURIComponent(input.publishedVersionId)}/audit-package-eligibility-evaluations`, { method: "POST", headers: { "Idempotency-Key": input.operationId }, body: input }, options),
     },
     adminWorkspace: {
       listGovernedSources: async (_input, options) => {

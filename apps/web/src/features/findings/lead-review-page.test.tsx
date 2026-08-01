@@ -10,6 +10,7 @@ import { AppProviders } from "../../app/providers";
 import { ScenarioProvider } from "../../app/scenario-context";
 import type { Role } from "../../backend/backend";
 import { createMockBackendRuntime } from "../../mock/create-mock-backend";
+import { completeMockChecklist } from "../../mock/test-checklist-fixtures";
 import { LeadReviewPage } from "./lead-review-page";
 
 afterEach(cleanup);
@@ -39,6 +40,7 @@ async function seedPotentialFinding(runtime: MockRuntime) {
     requiredComment: response.comment,
     inspectionAttachmentIds: [],
   });
+  await completeMockChecklist(runtime, packageView.id);
   await inspector.inspections.submitChecklist({
     operationId: "OP-TEST-CHECKLIST",
     auditId: packageView.auditId,

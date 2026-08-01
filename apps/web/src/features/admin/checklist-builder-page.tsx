@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import type { AdminProposedInspectionQuestionView, AdminRegulatoryMappingView, AdminTemplateVersionView, GovernedCandidateBundleInput, GovernedGenerationRunView, GovernedQuestionView, GovernedValidationIssue } from "../../backend/backend";
+import type { AdminProposedInspectionQuestionView, AdminRegulatoryMappingView, AdminTemplateVersionView, ChecklistImportBatchView, GovernedCandidateBundleInput, GovernedGenerationRunView, GovernedQuestionView, GovernedValidationIssue } from "../../backend/backend";
 import { GovernedValidationError } from "../../backend/backend-contracts";
 import {
   SYNTHETIC_EDITED_RATIONALE,
@@ -9,6 +9,7 @@ import {
   SYNTHETIC_LEGACY_CHECKLIST_CANDIDATE_BUNDLE,
 } from "../../backend/governed-synthetic-profile";
 import { AdminError, AdminPage, DisabledAdminAction, useAdminLoad, useAdminWorkspace } from "./admin-workspace-shared";
+import { ChecklistIntakePanel } from "./checklist-intake-panel";
 
 interface RegulatoryQuestionTrace {
   mapping: AdminRegulatoryMappingView;
@@ -95,6 +96,7 @@ export function ChecklistBuilderPage() {
   const [validationIssues, setValidationIssues] = useState<GovernedValidationIssue[]>([]);
   const [commandError, setCommandError] = useState<string | null>(null);
   const [sourceActivationReceipt, setSourceActivationReceipt] = useState<string | null>(null);
+  const [intakeBatch] = useState<ChecklistImportBatchView | null>(null);
   const templateLoad = useAdminLoad(() => backend.getTemplate({ templateId: "TPL-CABIN-2026" }), [backend]);
   const questionLoad = useAdminLoad(() => backend.listQuestions({}), [backend]);
   const regulatoryLoad = useAdminLoad(() => backend.listRegulatoryReferences({ status: "ACTIVE" }), [backend]);
@@ -286,6 +288,10 @@ export function ChecklistBuilderPage() {
   return (
     <AdminPage testId="admin-checklist-builder-page" routeLabel="Checklist Builder" title="Checklist Builder" description="Configure one exact working Draft without changing the immutable published version.">
       <AdminError message={templateLoad.error ?? questionLoad.error ?? commandError} />
+      <ChecklistIntakePanel
+        batch={intakeBatch}
+        disabledReason="The supplied AGA archive is an external, read-only dependency; an Admin must receive it through the governed intake route before candidate review."
+      />
       <section className="admin-template-identity" aria-label="Template identity">
         <div><span>Template master</span><b>TPL-CABIN-2026</b></div><div><span>Immutable published version</span><b>CTV-CABIN-1</b></div><div><span>Published owner</span><b>Department Manager</b></div>
       </section>

@@ -10,7 +10,9 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     page.on("console", (message) => { if (["error", "warning"].includes(message.type())) issues.push(message.text()); });
     page.on("pageerror", (error) => issues.push(error.message));
     page.on("request", (outgoing) => {
-      if (outgoing.method() === "POST" && outgoing.url().includes("/v1/")) commands.push(new URL(outgoing.url()).pathname);
+      if (outgoing.method() === "POST" && outgoing.url().includes("/v1/")) {
+        commands.push(new URL(outgoing.url()).pathname.replace(/^\/api(?=\/v1\/)/, ""));
+      }
     });
     await page.setViewportSize(viewport);
 
@@ -67,7 +69,8 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     await page.getByRole("button", { name: "Save response" }).click();
     await expect(page.getByTestId("response-status")).toContainText("NON COMPLIANT");
     await page.getByLabel("Attachment file").setInputFiles({
-      name: "synthetic-controlled-record.pdf", mimeType: "application/pdf", buffer: Buffer.from("synthetic governed evidence"),
+      name: "synthetic-controlled-record.pdf", mimeType: "application/pdf",
+      buffer: Buffer.from("%PDF-1.4\nsynthetic governed evidence\n%%EOF\n"),
     });
     await page.getByRole("button", { name: "Upload Inspection Attachment" }).click();
     await expect(page.getByTestId("inspection-attachment-uploaded")).toContainText("synthetic-controlled-record.pdf");
@@ -78,9 +81,9 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
 
     expect(commands).toEqual(expect.arrayContaining([
       "/v1/admin/governed-checklist/generation-runs",
-      "/v1/admin/governed-checklist/candidates/CAND-SYNTHETIC-OPS-AOC/submissions",
-      "/v1/department-manager/governed-checklist/candidates/CAND-SYNTHETIC-OPS-AOC/technical-approvals",
-      "/v1/department-manager/governed-checklist/candidates/CAND-SYNTHETIC-OPS-AOC/publications",
+      "/v1/admin/governed-checklist/candidates/CAND-SYNTHETIC-OPS-AOC-0001/submissions",
+      "/v1/department-manager/governed-checklist/candidates/CAND-SYNTHETIC-OPS-AOC-0001/technical-approvals",
+      "/v1/department-manager/governed-checklist/candidates/CAND-SYNTHETIC-OPS-AOC-0001/publications",
     ]));
     expect(commands.some((path) => path.startsWith("/v1/inspection-attachments/"))).toBe(true);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);

@@ -657,9 +657,10 @@ describe("UsersRolesPage production-like identity controls", () => {
     await user.click(screen.getByRole("button", {
       name: "Refresh user directory",
     }));
-    expect(await screen.findByRole("status")).toHaveTextContent(
+    expect(screen.getByText("User directory refresh requested (2).")).toBeVisible();
+    expect(await screen.findByText(
       "Showing the last successful directory because Provider observation timed out.",
-    );
+    )).toBeVisible();
     expect(screen.getByText("Existing Inspector")).toBeVisible();
     expect(screen.getByRole("button", {
       name: "Retry user directory",

@@ -32,6 +32,14 @@ two separate recorded decisions; publication creates an immutable version only
 after the required technical approval. Admin and generation providers can
 create or edit candidates but cannot technically approve or publish them.
 
+For governed AGA intake, the manager sees only the server-derived required
+Department/unit scope and immutable Draft digest. The manager cannot repair a
+missing owner, supply authority by selecting a source, or convert an archive
+receipt into a published checklist. `SOURCE_MAPPING_REQUIRED`, stale authority,
+incomplete required-owner resolution, or an unavailable scoped assignment blocks
+technical approval. Publication is a separate decision and remains distinct
+from computed Audit-package eligibility.
+
 ## Naming Contract
 
 - Display the service provider/operator as `Fly Namibia` everywhere in the UI,

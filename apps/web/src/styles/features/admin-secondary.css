@@ -134,6 +134,7 @@
 .admin-regulatory-sources li div { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .admin-regulatory-sources span,
 .admin-regulatory-sources small { color: #70809e; }
+.admin-regulatory-sources a { display: inline-flex; min-height: 44px; align-items: center; }
 .admin-regulatory-disclaimer { margin: 16px 0 0; padding: 10px 12px; border-radius: 8px; color: #405271; background: #eef4fd; }
 .admin-regulatory-pilot { margin-bottom: 16px; padding: 16px; border: 1px solid #a9c8f4; border-radius: 10px; background: #f6f9fe; }
 .admin-regulatory-pilot dl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 16px 0; }

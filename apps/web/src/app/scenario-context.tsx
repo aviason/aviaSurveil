@@ -52,6 +52,7 @@ import {
   type FieldSyncTrigger,
   type SyncStatusBroadcast,
 } from "../offline/sync-engine";
+import { getOrCreateDeviceInstanceId } from "../offline/storage-readiness";
 import { useApplicationRuntime } from "./providers";
 
 export interface ScenarioProjection {
@@ -282,12 +283,15 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
           setProjection((current) => ({ ...current, ...fieldProjection(local) }));
           return;
         }
+        const existingResponse =
+          projection.packageView?.questions.find((question) => question.id === requestedQuestionID)?.currentResponse ??
+          (projection.response?.questionId === requestedQuestionID ? projection.response : null);
         const response = await backendFor("inspector").inspections.upsertChecklistResponse({
           operationId: operationId("OP-RESPONSE"),
           responseId: `RESP-${requestedQuestionID}`,
           auditId: projection.packageView?.auditId ?? "AUD-2026-001",
           questionId: requestedQuestionID,
-          expectedResponseRevision: projection.response?.revision ?? null,
+          expectedResponseRevision: existingResponse?.revision ?? null,
           answer,
           comment,
         });
@@ -305,7 +309,45 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
           const backend = backendFor("inspector");
           const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
           const sha256 = `sha256:${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
-          const inspectionAttachmentId = `ATT-${crypto.randomUUID()}`;
+          const requestedInspectionAttachmentId = `ATT-${crypto.randomUUID()}`;
+          let inspectionAttachmentId = requestedInspectionAttachmentId;
+          if (backend.mode === "http") {
+            const deviceInstanceId = await getOrCreateDeviceInstanceId();
+            const checkout = await backend.inspections.checkout({
+              operationId: operationId("OP-ATTACHMENT-CHECKOUT"),
+              packageId: packageView.id,
+              expectedPackageVersion: packageView.packageVersion,
+              deviceInstanceId,
+            });
+            const registrationOperationId = operationId("OP-ATTACHMENT-REGISTER");
+            const registration = await backend.sync.pushOperation({
+              operation: {
+                operationId: registrationOperationId,
+                protocolVersion: checkout.inspectionPackage.protocolVersion,
+                offlineGrantId: checkout.offlineGrant.grantId,
+                packageId: checkout.inspectionPackage.id,
+                packageVersion: checkout.inspectionPackage.packageVersion,
+                entityId: requestedInspectionAttachmentId,
+                commandType: "REGISTER_INSPECTION_ATTACHMENT",
+                baseRevision: null,
+                deviceInstanceId: checkout.offlineGrant.deviceInstanceId,
+                clientOccurredAt: (runtime.now ?? (() => new Date()))().toISOString(),
+                payload: {
+                  auditId: checkout.inspectionPackage.auditId,
+                  checklistResponseId: projection.response.id,
+                  potentialFindingOperationId: null,
+                  fileName: file.name,
+                  mediaType: file.type || "application/octet-stream",
+                  byteSize: file.size,
+                  sha256,
+                },
+              },
+            });
+            if ((registration.status !== "accepted" && registration.status !== "already_applied") || !registration.authoritativeEntityId) {
+              throw new Error(`Inspection Attachment registration was not accepted (${registration.errorCode ?? registration.status}).`);
+            }
+            inspectionAttachmentId = registration.authoritativeEntityId;
+          }
           const upload = await backend.inspectionAttachments.beginUpload({
             operationId: operationId("OP-ATTACHMENT-BEGIN"), inspectionAttachmentId,
             packageId: packageView.id, byteSize: file.size, sha256, fileName: file.name,
@@ -341,7 +383,10 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
       },
 
       async createPotentialFinding(requestedQuestionID = FIELD_QUESTION_ID) {
-        if (!projection.response) throw new Error("Save the exact checklist response first.");
+        const selectedResponse =
+          projection.packageView?.questions.find((question) => question.id === requestedQuestionID)?.currentResponse ??
+          (projection.response?.questionId === requestedQuestionID ? projection.response : null);
+        if (!selectedResponse) throw new Error("Save the exact checklist response first.");
         if (projection.fieldMode) {
           if (projection.attachmentRecoveryBlocking.length > 0) {
             throw new Error("Resolve blocking Inspection Attachment recovery before creating a Potential Finding.");
@@ -352,11 +397,11 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
             packageId: FIELD_PACKAGE_ID,
             localId: `PF-LOCAL-${crypto.randomUUID()}`,
             questionId: FIELD_QUESTION_ID,
-            checklistResponseId: projection.response.id,
+            checklistResponseId: selectedResponse.id,
             title: "PBE serviceability and accessibility not confirmed",
             description:
               "The configured cabin check could not confirm that the PBE was serviceable and accessible.",
-            requiredComment: projection.response.comment,
+            requiredComment: selectedResponse.comment,
             inspectionAttachmentIds: projection.inspectionAttachments
               .filter((attachment) => attachment.stagingState === "ready")
               .map((attachment) => attachment.attachmentId),
@@ -370,12 +415,12 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
           operationId: operationId("OP-PF"),
           auditId: projection.packageView?.auditId ?? "AUD-2026-001",
           questionId: requestedQuestionID,
-          checklistResponseId: projection.response.id,
-          expectedChecklistResponseRevision: projection.response.revision,
+          checklistResponseId: selectedResponse.id,
+          expectedChecklistResponseRevision: selectedResponse.revision,
           title: "PBE serviceability and accessibility not confirmed",
           description:
             "The configured cabin check could not confirm that the PBE was serviceable and accessible.",
-          requiredComment: projection.response.comment,
+          requiredComment: selectedResponse.comment,
           inspectionAttachmentIds: projection.uploadedInspectionAttachments.map((attachment) => attachment.attachmentId),
         });
         setProjection((current) => ({ ...current, potentialFinding }));

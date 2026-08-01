@@ -22,8 +22,8 @@ func TestDataFeedMigrationCreatesImmutableEventAndDeliveryHistory(t *testing.T) 
 	if err := migrations.Apply(ctx, pool); err != nil {
 		t.Fatalf("apply migrations: %v", err)
 	}
-	if migrations.LatestVersion != 27 {
-		t.Fatalf("latest migration = %d, want 27", migrations.LatestVersion)
+	if migrations.LatestVersion != 28 {
+		t.Fatalf("latest migration = %d, want 28", migrations.LatestVersion)
 	}
 	for _, table := range []string{"datafeed_event_type_catalog", "datafeed_events", "datafeed_delivery_state", "datafeed_delivery_attempts", "datafeed_replay_tombstones"} {
 		var relation *string
@@ -122,8 +122,8 @@ func TestDataFeedPublisherMigrationFencesRetryAndQuarantineTransitions(t *testin
 	if err := migrations.Apply(ctx, pool); err != nil {
 		t.Fatalf("apply migrations: %v", err)
 	}
-	if migrations.LatestVersion != 27 {
-		t.Fatalf("latest migration = %d, want 27", migrations.LatestVersion)
+	if migrations.LatestVersion != 28 {
+		t.Fatalf("latest migration = %d, want 28", migrations.LatestVersion)
 	}
 	_, err := pool.Exec(ctx, `
 		INSERT INTO datafeed_events (
@@ -174,8 +174,8 @@ func TestDataFeedReplayMigrationCreatesImmutableRunMembership(t *testing.T) {
 	if err := migrations.Apply(ctx, pool); err != nil {
 		t.Fatalf("apply migrations: %v", err)
 	}
-	if migrations.LatestVersion != 27 {
-		t.Fatalf("latest migration = %d, want 27", migrations.LatestVersion)
+	if migrations.LatestVersion != 28 {
+		t.Fatalf("latest migration = %d, want 28", migrations.LatestVersion)
 	}
 	for _, table := range []string{"datafeed_replay_runs", "datafeed_replay_run_events", "datafeed_replay_delivery_state"} {
 		var relation *string

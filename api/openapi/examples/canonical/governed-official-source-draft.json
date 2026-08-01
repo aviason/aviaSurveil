@@ -1,0 +1,24 @@
+{
+  "schema": "CreateOfficialSourceChecklistDraftInput",
+  "value": {
+    "operationId": "SYNTHETIC-OFFICIAL-DRAFT-001",
+    "idempotencyKey": "SYNTHETIC-OFFICIAL-DRAFT-001",
+    "providerId": "SYNTHETIC-PROVIDER",
+    "targetId": "SYNTHETIC-TARGET",
+    "inspectionType": "AERODROME",
+    "templateId": "SYNTHETIC-TEMPLATE",
+    "changeReason": "Synthetic candidate-only contract example.",
+    "questions": [
+      {
+        "questionId": "Q-SYNTHETIC-001",
+        "prompt": "Verify the controlled procedure.",
+        "sourceClauseIds": ["CLAUSE-SYNTHETIC-001"],
+        "verificationObjective": "Confirm the documented control exists.",
+        "verificationMethod": "Document review",
+        "expectedEvidence": ["Approved procedure"],
+        "applicability": "APPLICABLE",
+        "applicabilityRationale": "Synthetic scope fixture only."
+      }
+    ]
+  }
+}

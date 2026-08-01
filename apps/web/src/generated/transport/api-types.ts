@@ -1540,6 +1540,326 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/governed-checklist/import-batches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createAdminChecklistImportBatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/governed-checklist/import-batches/{importBatchId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminChecklistImportBatch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/governed-checklist/import-batches/{importBatchId}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listAdminChecklistImportFiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/governed-checklist/import-batches/{importBatchId}/receipts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listAdminChecklistImportReceipts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/governed-checklist/import-batches/{importBatchId}/files/{importFileId}/extraction-reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createAdminChecklistImportFileExtractionReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/governed-checklist/import-batches/{importBatchId}/files/{importFileId}/extraction-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminChecklistImportFileExtractionReview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/governed-checklist/import-batches/{importBatchId}/files/{importFileId}/identity-resolutions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["resolveAdminChecklistImportFileIdentity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/governed-checklist/import-batches/{importBatchId}/files/{importFileId}/candidate-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createAdminExistingChecklistCandidate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/governed-checklist/source-review-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listGovernedChecklistSourceReviewQueue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/governed-checklist/source-review-items/{reviewItemId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getGovernedChecklistSourceReviewItem"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/governed-checklist/reviewer-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listGovernedChecklistReviewerQueue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/governed-checklist/source-versions/{sourceVersionId}/authority-attestations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["attestRegulatorySourceAuthority"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/governed-checklist/existing-candidates/{existingCandidateId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getExistingChecklistCandidate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/governed-checklist/existing-candidates/{existingCandidateId}/drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createDraftFromExistingChecklistCandidate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/governed-checklist/official-source-drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createOfficialSourceChecklistDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/governed-checklist/candidates/{candidateId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getGovernedChecklistDraft"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/governed-checklist/candidates/{candidateId}/hybrid-reconciliations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createHybridReconciledChecklistDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/governed-checklist/candidates/{candidateId}/review-comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listGovernedChecklistReviewComments"];
+        put?: never;
+        post: operations["createGovernedChecklistReviewComment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/governed-checklist/candidates/{candidateId}/source-mapping-attestations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["attestGovernedChecklistSourceMapping"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/governed-checklist/published-versions/{publishedVersionId}/audit-package-eligibility-evaluations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["evaluateGovernedChecklistAuditPackageEligibility"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3278,6 +3598,13 @@ export interface components {
         GovernedRegulatoryTraceView: {
             /** @enum {string} */
             state: "RESOLVED" | "SOURCE_MAPPING_REQUIRED";
+            content?: components["schemas"]["GovernedRegulatoryTraceContent"];
+            /** @enum {string} */
+            mappingReviewState: "SOURCE_MAPPING_REQUIRED" | "SOURCE_OWNER_REVIEW_REQUIRED" | "ACCEPTED" | "RETURNED";
+            sourceMappingAttestationId?: string | null;
+            /** @enum {string} */
+            technicalReviewState: "TECHNICAL_REVIEW_REQUIRED" | "TECHNICALLY_APPROVED" | "NOT_AVAILABLE";
+            technicalDecisionId?: string | null;
             sourceIdentity?: string;
             sourceTitle?: string;
             immutableVersion?: string;
@@ -3294,8 +3621,6 @@ export interface components {
             expectedEvidence?: string[];
             /** @enum {string} */
             currentnessState?: "CURRENT" | "STALE" | "SOURCE_MAPPING_REQUIRED";
-            /** @enum {string} */
-            technicalReviewState?: "TECHNICAL_REVIEW_REQUIRED" | "TECHNICALLY_APPROVED" | "NOT_AVAILABLE";
         };
         GovernedQuestionReconciliationView: {
             legacyQuestionId: string;
@@ -3346,7 +3671,7 @@ export interface components {
             candidateId: string;
             candidateRootId: string;
             supersedesCandidateId: string | null;
-            generationRunId: string;
+            generationRunId: string | null;
             templateId: string;
             version: number;
             revision: number;
@@ -3361,6 +3686,7 @@ export interface components {
             mappings: components["schemas"]["GovernedMappingView"][];
             questions: components["schemas"]["GovernedQuestionView"][];
             requiredOwners: components["schemas"]["GovernedRequiredOwnerView"][];
+            lineage: components["schemas"]["GovernedCandidateLineage"];
         };
         DepartmentManagerGovernedReviewCommandInput: {
             operationId: string;
@@ -3606,6 +3932,612 @@ export interface components {
             expectedContentDigest: string;
             candidateId: string;
             reason: string;
+        };
+        GovernedSourceChainLink: {
+            /** @enum {string} */
+            role: "PRIMARY_AUTHORITY" | "SUPPORTING_AUTHORITY" | "CONTROLLED_CAA_PROCEDURE";
+            sourceIdentity: string;
+            sourceTitle: string;
+            sourceType: string;
+            immutableVersion: string;
+            sha256: string;
+            clauseId: string;
+            locator: string;
+            page: string;
+            section: string;
+            clause: string;
+            currentnessEventId: string;
+            sourceAuthorityAttestationId: string;
+        };
+        GovernedRegulatoryTraceSourceMappingRequiredContent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            state: "SOURCE_MAPPING_REQUIRED";
+            gapReason: string;
+            missingFields: string[];
+            /** Format: date-time */
+            lastReviewedAt: string;
+        };
+        GovernedRegulatoryTraceResolvedContent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            state: "RESOLVED";
+            sourceChain: components["schemas"]["GovernedSourceChainLink"][];
+            sourceChainDigest: string;
+            applicability: string;
+            /** @enum {string} */
+            applicabilityDisposition: "DIRECT" | "CONDITIONAL" | "CONTEXTUAL";
+            applicabilityRationale: string;
+            verificationObjective: string;
+            verificationMethod: string;
+            expectedEvidence: string[];
+            /** @constant */
+            currentnessState: "CURRENT";
+        };
+        GovernedRegulatoryTraceContent: components["schemas"]["GovernedRegulatoryTraceSourceMappingRequiredContent"] | components["schemas"]["GovernedRegulatoryTraceResolvedContent"];
+        GovernedPreV28GenerationRunLineage: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            lineageType: "PRE_V28_GENERATION_RUN";
+            /** @constant */
+            entryPath: "GENERATION_RUN";
+            /** @constant */
+            lineageKind: "PRE_V28_UNATTESTED";
+            candidateRootId: string;
+            supersedesCandidateId: string | null;
+            supersedesContentDigest: string | null;
+            generationRunId: string;
+            existingCandidateId: null;
+            bindingSetId: null;
+            /** @constant */
+            legacyAuthorityState: "PRE_V28_UNATTESTED";
+            sourceSnapshots: components["schemas"]["GovernedCandidateSourceLineageView"][];
+            scopeFactIds: string[];
+            crosswalkPartitionIds: string[];
+        };
+        GovernedGenerationRunLineage: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            lineageType: "GENERATION_RUN";
+            /** @constant */
+            entryPath: "GENERATION_RUN";
+            /** @constant */
+            lineageKind: "GENERATION_RUN";
+            candidateRootId: string;
+            supersedesCandidateId: string | null;
+            supersedesContentDigest: string | null;
+            generationRunId: string;
+            existingCandidateId: null;
+            legacyAuthorityState: null;
+            bindingSetId: string | null;
+        };
+        GovernedExistingCandidateLineage: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            lineageType: "EXISTING_CANDIDATE";
+            /** @constant */
+            entryPath: "EXISTING_CANDIDATE";
+            /** @constant */
+            lineageKind: "EXISTING_CANDIDATE";
+            candidateRootId: string;
+            supersedesCandidateId: string | null;
+            supersedesContentDigest: string | null;
+            generationRunId: null;
+            existingCandidateId: string;
+            legacyAuthorityState: null;
+            bindingSetId: string | null;
+        };
+        GovernedDirectOfficialSourceLineage: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            lineageType: "DIRECT_OFFICIAL_SOURCE";
+            /** @constant */
+            entryPath: "OFFICIAL_SOURCE";
+            /** @constant */
+            lineageKind: "DIRECT_OFFICIAL_SOURCE";
+            candidateRootId: string;
+            supersedesCandidateId: string | null;
+            supersedesContentDigest: string | null;
+            generationRunId: null;
+            existingCandidateId: null;
+            legacyAuthorityState: null;
+            bindingSetId: string;
+        };
+        GovernedCandidateLineage: components["schemas"]["GovernedPreV28GenerationRunLineage"] | components["schemas"]["GovernedGenerationRunLineage"] | components["schemas"]["GovernedExistingCandidateLineage"] | components["schemas"]["GovernedDirectOfficialSourceLineage"];
+        GovernedCurrentDecisionNoDecision: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            decisionState: "NO_DECISION";
+        };
+        GovernedCurrentDecisionDecided: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            decisionState: "DECIDED";
+            decisionRootId: string;
+            decisionLeafId: string;
+            /** @enum {string} */
+            outcome: "ACCEPT" | "RETURN";
+            decisionSubjectDigest: string;
+            leafSemanticDigest: string;
+            currentLeafToken: string;
+        };
+        GovernedCurrentDecision: components["schemas"]["GovernedCurrentDecisionNoDecision"] | components["schemas"]["GovernedCurrentDecisionDecided"];
+        GovernedSourceAuthorityReviewDetail: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            reviewItemKind: "SOURCE_AUTHORITY";
+            reviewItemId: string;
+            sourceId: string;
+            sourceVersionId: string;
+            sourceHash: string;
+            sourceClass: string;
+            chainRole: string;
+            currentnessEventId: string;
+            assignmentId: string;
+            currentDecision: components["schemas"]["GovernedCurrentDecision"];
+        };
+        GovernedCandidateMappingReviewDetail: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            reviewItemKind: "CANDIDATE_MAPPING";
+            reviewItemId: string;
+            candidateId: string;
+            candidateRevision: number;
+            candidateContentDigest: string;
+            sourceChainDigest: string;
+            bindingSetId?: string | null;
+            reviewedSourceSetId: string;
+            reviewedSourceSetVersion: number;
+            reviewedSourceSetDigest: string;
+            providerId: string;
+            targetId: string;
+            inspectionType: string;
+            departmentId: string;
+            organizationalUnitId: string;
+            provenanceReceiptIds: string[];
+            reconciliation: components["schemas"]["GovernedQuestionReconciliationView"][];
+            blockingIssues: components["schemas"]["GovernedValidationIssue"][];
+            currentDecision: components["schemas"]["GovernedCurrentDecision"];
+        };
+        GovernedSourceReviewDetailView: components["schemas"]["GovernedSourceAuthorityReviewDetail"] | components["schemas"]["GovernedCandidateMappingReviewDetail"];
+        CreateChecklistImportBatchReceiptInput: {
+            operationId: string;
+            idempotencyKey: string;
+            expectedArchiveSha256: string;
+            reason: string;
+        };
+        ChecklistImportBatchView: {
+            importBatchId: string;
+            expectedArchiveSha256: string;
+            /** @enum {string} */
+            status: "RECEIVED" | "PROCESSING" | "INVENTORY_COMPLETE" | "INVENTORY_FAILED";
+            manifestDigest: string | null;
+            fileCount: number;
+            registerCount: number;
+            blockingIssues: string[];
+        };
+        ChecklistImportBatchReceiptView: {
+            batch: components["schemas"]["ChecklistImportBatchView"];
+            replayed: boolean;
+        };
+        ChecklistImportFileView: {
+            importBatchId: string;
+            importFileId: string;
+            normalizedPath: string;
+            /** @enum {string} */
+            initialIdentityMatchState: "REGISTER_MATCHED" | "IDENTITY_REVIEW_REQUIRED" | "NOT_REGISTERED";
+            /** @enum {string} */
+            initialCandidateImportState: "ELIGIBLE" | "REQUIRES_IDENTITY_RESOLUTION" | "INELIGIBLE";
+            /** @enum {string} */
+            effectiveIdentityStatus: "UNAMBIGUOUS" | "RESOLVED" | "IDENTITY_REVIEW_REQUIRED" | "NOT_REGISTERED";
+            effectiveCandidateImportEligible: boolean;
+            terminalManifestDigest: string;
+            currentResolution: components["schemas"]["ChecklistImportIdentityResolutionState"];
+        };
+        ChecklistImportFilePage: {
+            items: components["schemas"]["ChecklistImportFileView"][];
+            nextCursor: string | null;
+        };
+        ChecklistImportReceiptPage: {
+            items: {
+                receiptId: string;
+                phase: string;
+                outcome: string;
+                resultDigest: string;
+            }[];
+            nextCursor: string | null;
+        };
+        ChecklistImportExtractionReviewProposalView: {
+            proposalId: string;
+            proposalOrdinal: number;
+            originalText: string;
+            textDigest: string;
+            page: number;
+            section: string;
+            row: string;
+            region: string;
+            textSpan: string;
+            provenance: string;
+            /** @enum {string} */
+            proposedBoundaryKind: "QUESTION" | "HEADER" | "UNKNOWN";
+        };
+        ChecklistImportExtractionDecisionSetNoDecision: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            decisionState: "NO_DECISION";
+        };
+        ChecklistImportExtractionDecisionSetCurrent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            decisionState: "CURRENT";
+            decisionSetRootId: string;
+            decisionSetLeafId: string;
+            revision: number;
+            semanticDigest: string;
+            currentLeafToken: string;
+        };
+        ChecklistImportExtractionDecisionSetView: components["schemas"]["ChecklistImportExtractionDecisionSetNoDecision"] | components["schemas"]["ChecklistImportExtractionDecisionSetCurrent"];
+        ChecklistImportExtractionReviewPage: {
+            importBatchId: string;
+            importFileId: string;
+            terminalManifestDigest: string;
+            parserReceiptId: string;
+            parserOutputDigest: string;
+            packetId: string;
+            packetDigest: string;
+            competingIdentities: string[];
+            currentDecisionSet: components["schemas"]["ChecklistImportExtractionDecisionSetView"];
+            proposals: components["schemas"]["ChecklistImportExtractionReviewProposalView"][];
+            nextCursor: string | null;
+        };
+        ChecklistImportExtractionReviewSummaryView: {
+            importBatchId: string;
+            importFileId: string;
+            packetId: string;
+            packetDigest: string;
+            /** @enum {string} */
+            outcome: "READY" | "FAILED";
+            proposalCount: number;
+            replayed: boolean;
+        };
+        ChecklistImportIdentityResolutionNoCurrent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            resolutionState: "NO_RESOLUTION";
+        };
+        ChecklistImportIdentityResolutionCurrent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            resolutionState: "CURRENT";
+            resolutionRootId: string;
+            resolutionLeafId: string;
+            revision: number;
+            contentDigest: string;
+            currentLeafToken: string;
+        };
+        ChecklistImportIdentityResolutionState: components["schemas"]["ChecklistImportIdentityResolutionNoCurrent"] | components["schemas"]["ChecklistImportIdentityResolutionCurrent"];
+        ResolveChecklistImportFileIdentityInput: {
+            operationId: string;
+            idempotencyKey: string;
+            importBatchId: string;
+            importFileId: string;
+            expectedFileSha256: string;
+            expectedManifestDigest: string;
+            expectedResolutionState: components["schemas"]["ChecklistImportIdentityResolutionState"];
+            /** @enum {string} */
+            selectedIdentitySource: "REGISTER" | "VISIBLE" | "PDF_METADATA" | "HUMAN_TRANSCRIPTION";
+            selectedIdentityValue: string;
+            transcriptionReason?: string;
+            transcriptionReceiptId?: string;
+            reason: string;
+        };
+        AcceptExtractionDecisionInput: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            decisionKind: "ACCEPT";
+            proposalId: string;
+            proposalDigest: string;
+            reason: string;
+        };
+        SplitExtractionDecisionInput: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            decisionKind: "SPLIT";
+            proposalId: string;
+            proposalDigest: string;
+            subspans: {
+                startByte: number;
+                endByte: number;
+            }[];
+            reason: string;
+        };
+        MergeExtractionDecisionInput: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            decisionKind: "MERGE";
+            proposalIds: string[];
+            proposalDigests: string[];
+            reason: string;
+        };
+        TranscribeExtractionDecisionInput: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            decisionKind: "TRANSCRIBE";
+            proposalId: string;
+            proposalDigest: string;
+            replacementText: string;
+            transcriptionBasis: string;
+            reason: string;
+        };
+        ExcludeExtractionDecisionInput: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            decisionKind: "EXCLUDE";
+            proposalId: string;
+            proposalDigest: string;
+            exclusionReason: string;
+            reason: string;
+        };
+        ExtractionDecisionInput: components["schemas"]["AcceptExtractionDecisionInput"] | components["schemas"]["SplitExtractionDecisionInput"] | components["schemas"]["MergeExtractionDecisionInput"] | components["schemas"]["TranscribeExtractionDecisionInput"] | components["schemas"]["ExcludeExtractionDecisionInput"];
+        InitialCandidateLineageAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            action: "INITIAL";
+        };
+        CorrectCurrentCandidateLineageAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            action: "CORRECT_CURRENT";
+            candidateRootId: string;
+            candidateLeafId: string;
+            expectedRevision: number;
+            expectedContentDigest: string;
+            currentLeafToken: string;
+        };
+        CandidateLineageAction: components["schemas"]["InitialCandidateLineageAction"] | components["schemas"]["CorrectCurrentCandidateLineageAction"];
+        AppendExtractionDecisionAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            action: "APPEND";
+            expectedDecisionState: components["schemas"]["ChecklistImportExtractionDecisionSetView"];
+            decisions: components["schemas"]["ExtractionDecisionInput"][];
+        };
+        ReuseCurrentExtractionDecisionAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            action: "REUSE_CURRENT";
+            currentDecisionSet: components["schemas"]["ChecklistImportExtractionDecisionSetCurrent"];
+        };
+        ExtractionDecisionAction: components["schemas"]["AppendExtractionDecisionAction"] | components["schemas"]["ReuseCurrentExtractionDecisionAction"];
+        CreateChecklistImportFileExtractionReviewInput: {
+            operationId: string;
+            idempotencyKey: string;
+            importBatchId: string;
+            importFileId: string;
+            terminalManifestDigest: string;
+            parserReceiptId: string;
+            parserOutputDigest: string;
+            parserOutputBytes: number;
+            generatorPolicyVersion: string;
+            reason: string;
+        };
+        CreateExistingChecklistCandidateInput: {
+            operationId: string;
+            idempotencyKey: string;
+            importBatchId: string;
+            importFileId: string;
+            expectedFileSha256: string;
+            expectedManifestDigest: string;
+            packetId: string;
+            packetDigest: string;
+            expectedIdentityResolution: components["schemas"]["ChecklistImportIdentityResolutionState"];
+            reason: string;
+            candidateLineageAction: components["schemas"]["CandidateLineageAction"];
+            extractionDecisionAction: components["schemas"]["ExtractionDecisionAction"];
+        };
+        CreateDraftFromExistingChecklistCandidateInput: {
+            operationId: string;
+            idempotencyKey: string;
+            existingCandidateId: string;
+            candidateRootId: string;
+            candidateLeafId: string;
+            expectedRevision: number;
+            expectedContentDigest: string;
+            currentLeafToken: string;
+            providerId: string;
+            targetId: string;
+            inspectionType: string;
+            selectedQuestionIds: string[];
+            initialFieldDispositions: string[];
+            reason: string;
+        };
+        OfficialSourceQuestionInput: {
+            questionId: string;
+            prompt: string;
+            sourceClauseIds: string[];
+            verificationObjective: string;
+            verificationMethod: string;
+            expectedEvidence: string[];
+            applicability: string;
+            applicabilityRationale: string;
+        };
+        CreateOfficialSourceChecklistDraftInput: {
+            operationId: string;
+            idempotencyKey: string;
+            providerId: string;
+            targetId: string;
+            inspectionType: string;
+            templateId: string;
+            changeReason: string;
+            questions: components["schemas"]["OfficialSourceQuestionInput"][];
+        };
+        CreateHybridReconciledChecklistDraftInput: {
+            operationId: string;
+            idempotencyKey: string;
+            candidateId: string;
+            expectedRevision: number;
+            expectedContentDigest: string;
+            currentLeafToken: string;
+            inheritScope: boolean;
+            providerId?: string;
+            targetId?: string;
+            inspectionType?: string;
+            questions: components["schemas"]["OfficialSourceQuestionInput"][];
+            reason: string;
+        };
+        GovernedSourceReviewQueuePage: {
+            items: components["schemas"]["GovernedSourceReviewDetailView"][];
+            nextCursor: string | null;
+        };
+        GovernedReviewerQueuePage: {
+            items: components["schemas"]["GovernedCandidateView"][];
+            nextCursor: string | null;
+        };
+        GovernedChecklistReviewCommentInput: {
+            operationId: string;
+            idempotencyKey: string;
+            candidateId: string;
+            expectedRevision: number;
+            expectedContentDigest: string;
+            comment: string;
+        };
+        GovernedChecklistReviewCommentView: {
+            commentId: string;
+            candidateId: string;
+            candidateContentDigest: string;
+            body: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        GovernedChecklistReviewCommentPage: {
+            items: components["schemas"]["GovernedChecklistReviewCommentView"][];
+            nextCursor: string | null;
+        };
+        GovernedSourceMappingAttestationInput: {
+            operationId: string;
+            idempotencyKey: string;
+            candidateId: string;
+            expectedRevision: number;
+            expectedContentDigest: string;
+            reviewedSourceSetId: string;
+            reviewedSourceSetVersion: number;
+            reviewedSourceSetDigest: string;
+            /** @enum {string} */
+            outcome: "ACCEPT" | "RETURN";
+            reason: string;
+        };
+        GovernedAuditPackageEligibilityInput: {
+            operationId: string;
+            publishedVersionId: string;
+            auditId: string;
+            targetId: string;
+            inspectionType: string;
+        };
+        GovernedAuditPackageEligibilityView: {
+            publishedVersionId: string;
+            eligible: boolean;
+            blockerCodes: string[];
+        };
+        ExistingChecklistCandidateView: {
+            existingCandidateId: string;
+            candidateRootId: string;
+            revision: number;
+            contentDigest: string;
+            /** @constant */
+            origin: "EXISTING_CHECKLIST_CANDIDATE";
+            questions: {
+                questionId: string;
+                ordinal: number;
+                wording: string;
+            }[];
+            /** @enum {string} */
+            candidateCurrentness: "CURRENT" | "SUPERSEDED";
+            successorCandidateId?: string | null;
+            successorRevision?: number | null;
+            successorContentDigest?: string | null;
+        };
+        GovernedBackendCommandResult: {
+            view: components["schemas"]["GovernedCandidateView"];
+            replayed: boolean;
+        };
+        GovernedCandidateDetailView: {
+            candidate: components["schemas"]["GovernedCandidateView"];
+            reconciliation: components["schemas"]["GovernedQuestionReconciliationView"][];
+            blockingIssues: components["schemas"]["GovernedValidationIssue"][];
+        };
+        GovernedSourceAuthorityAttestationInput: {
+            operationId: string;
+            idempotencyKey: string;
+            sourceVersionId: string;
+            sourceId: string;
+            sourceHash: string;
+            currentnessEventId: string;
+            chainRole: string;
+            /** @enum {string} */
+            outcome: "ACCEPT" | "RETURN";
+            reason: string;
+        };
+        GovernedSourceAuthorityAttestationView: {
+            attestationId: string;
+            sourceVersionId: string;
+            sourceHash: string;
+            /** @enum {string} */
+            outcome: "ACCEPT" | "RETURN";
+            decisionDigest: string;
+        };
+        GovernedSourceMappingAttestationView: {
+            attestationId: string;
+            candidateId: string;
+            reviewedSourceSetId: string;
+            /** @enum {string} */
+            outcome: "ACCEPT" | "RETURN";
+            decisionDigest: string;
         };
     };
     responses: {
@@ -6853,6 +7785,744 @@ export interface operations {
             };
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    createAdminChecklistImportBatch: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    archive: string;
+                    receipt: components["schemas"]["CreateChecklistImportBatchReceiptInput"];
+                };
+            };
+        };
+        responses: {
+            /** @description Idempotent archive receipt replay */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChecklistImportBatchReceiptView"];
+                };
+            };
+            /** @description Immutable archive receipt */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChecklistImportBatchReceiptView"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getAdminChecklistImportBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                importBatchId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Immutable batch summary */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChecklistImportBatchView"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    listAdminChecklistImportFiles: {
+        parameters: {
+            query?: {
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path: {
+                importBatchId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ordered immutable file inventory */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChecklistImportFilePage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    listAdminChecklistImportReceipts: {
+        parameters: {
+            query?: {
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path: {
+                importBatchId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Append-only phase receipts */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChecklistImportReceiptPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    createAdminChecklistImportFileExtractionReview: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                importBatchId: string;
+                importFileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateChecklistImportFileExtractionReviewInput"];
+            };
+        };
+        responses: {
+            /** @description Idempotent extraction packet replay */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChecklistImportExtractionReviewSummaryView"];
+                };
+            };
+            /** @description Immutable extraction packet */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChecklistImportExtractionReviewSummaryView"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getAdminChecklistImportFileExtractionReview: {
+        parameters: {
+            query?: {
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path: {
+                importBatchId: string;
+                importFileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Private bounded extraction packet projection */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChecklistImportExtractionReviewPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    resolveAdminChecklistImportFileIdentity: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                importBatchId: string;
+                importFileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveChecklistImportFileIdentityInput"];
+            };
+        };
+        responses: {
+            /** @description Idempotent identity resolution replay */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChecklistImportFileView"];
+                };
+            };
+            /** @description Immutable identity resolution */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChecklistImportFileView"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    createAdminExistingChecklistCandidate: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                importBatchId: string;
+                importFileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateExistingChecklistCandidateInput"];
+            };
+        };
+        responses: {
+            /** @description Idempotent candidate import replay */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExistingChecklistCandidateView"];
+                };
+            };
+            /** @description Immutable candidate-only import */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExistingChecklistCandidateView"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listGovernedChecklistSourceReviewQueue: {
+        parameters: {
+            query?: {
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Assignment-scoped source review queue */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernedSourceReviewQueuePage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    getGovernedChecklistSourceReviewItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reviewItemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Assignment-scoped source or mapping detail */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernedSourceReviewDetailView"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    listGovernedChecklistReviewerQueue: {
+        parameters: {
+            query?: {
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Assignment-scoped reviewer queue */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernedReviewerQueuePage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    attestRegulatorySourceAuthority: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                sourceVersionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GovernedSourceAuthorityAttestationInput"];
+            };
+        };
+        responses: {
+            /** @description Immutable source-authority attestation */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernedSourceAuthorityAttestationView"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getExistingChecklistCandidate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                existingCandidateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Scoped immutable existing candidate */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExistingChecklistCandidateView"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    createDraftFromExistingChecklistCandidate: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                existingCandidateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDraftFromExistingChecklistCandidateInput"];
+            };
+        };
+        responses: {
+            /** @description Immutable source-gap Draft */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernedBackendCommandResult"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    createOfficialSourceChecklistDraft: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOfficialSourceChecklistDraftInput"];
+            };
+        };
+        responses: {
+            /** @description Immutable official-source Draft */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernedBackendCommandResult"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getGovernedChecklistDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Role-projected immutable Draft */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernedCandidateDetailView"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    createHybridReconciledChecklistDraft: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                candidateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateHybridReconciledChecklistDraftInput"];
+            };
+        };
+        responses: {
+            /** @description Immutable hybrid reconciliation Draft */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernedBackendCommandResult"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listGovernedChecklistReviewComments: {
+        parameters: {
+            query?: {
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path: {
+                candidateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Scoped append-only comments */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernedChecklistReviewCommentPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    createGovernedChecklistReviewComment: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                candidateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GovernedChecklistReviewCommentInput"];
+            };
+        };
+        responses: {
+            /** @description Immutable internal comment */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernedChecklistReviewCommentView"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    attestGovernedChecklistSourceMapping: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                candidateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GovernedSourceMappingAttestationInput"];
+            };
+        };
+        responses: {
+            /** @description Immutable source-mapping attestation */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernedSourceMappingAttestationView"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    evaluateGovernedChecklistAuditPackageEligibility: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                publishedVersionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GovernedAuditPackageEligibilityInput"];
+            };
+        };
+        responses: {
+            /** @description Computed package eligibility */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GovernedAuditPackageEligibilityView"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };

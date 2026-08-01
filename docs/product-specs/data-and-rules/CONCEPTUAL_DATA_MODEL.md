@@ -36,6 +36,15 @@
 - Notification
 - Report
 - AuditLog
+- ChecklistImportBatch
+- ChecklistImportFile
+- ChecklistImportPhaseReceipt
+- ExistingChecklistCandidate
+- GovernedReviewedSourceSet
+- GovernedChecklistFunctionalAssignment
+- RegulatorySourceAuthorityAttestation
+- GovernedCandidateSourceBindingSet
+- GovernedRequiredOwnerResolutionFact
 
 ## Relationships
 
@@ -77,6 +86,12 @@ question set, source snapshot, and history-signal snapshot.
 An approved ProposedChecklistQuestion may resolve to an exact
 ChecklistQuestion identity; ChecklistResponses retain that exact question and
 template-version identity rather than copying the entire source graph.
+Existing checklist material is non-authoritative candidate input. A candidate
+may preserve its wording, guidance, and supplied history, but none is a source
+authority, technical decision, publication decision, or Audit-package fact.
+The server derives immutable required-owner facts from current reviewed
+provider scope, typed target, inspection type, and source/procedure
+responsibility records. Missing or ambiguous ownership fails closed.
 
 ## Critical modeling rules
 
@@ -159,6 +174,39 @@ template-version identity rather than copying the entire source graph.
     history remain non-authoritative candidate input; hybrid reconciliation
     makes wording, Evidence, applicability, and scope differences reviewable
     against the current regulatory/controlled-CAA-procedure chain.
+26. A resolved `REGULATORY_TRACE` is authoritative only when every required
+    `OFFICIAL_CHECKLIST_SOURCE_CHAIN_V1` link is current and has a separate
+    append-only source-authority acceptance by a scoped
+    `REGULATORY_SOURCE_OWNER`. Source discovery, metadata, currentness,
+    `REVIEWED_SOURCE_SET`, and candidate mapping attestation do not substitute
+    for source-authority acceptance.
+27. Candidate mapping attestation applies the complete source chain to one
+    immutable Draft digest. It is distinct from source-authority acceptance,
+    Department Manager technical approval, publication, and computed
+    Audit-package eligibility. Technical approval and publication are separate.
+28. Functional assignments, including `REGULATORY_SOURCE_OWNER` and
+    `CHECKLIST_REVIEWER`, are scoped assignments, not top-level roles. Real
+    functional-assignment provisioning is blocked; only synthetic fixtures may
+    seed assignments until the governance owner defines grant/revoke authority.
+
+## AGA archive intake contract (candidate-only)
+
+`AGA_ZIP_PDF_V1` accepts a ZIP receipt only when its archive is at most
+50 MiB, contains at most 128 PDF entries, uses no encrypted/ZIP64/unsafe or
+duplicate paths, and keeps every per-file and whole-archive expansion ratio at
+or below 20:1. Maximum archive bytes: 50 MiB. Maximum PDF entries: 128.
+Maximum per-file and whole-archive expansion ratio: 20:1. Archive and parser
+outputs remain private receipt-bound objects; raw extracted text is not a
+regulatory source and is never exposed to an Auditee.
+
+The supplied archive is planning identity only: SHA-256
+`dd819cfa6a670760e0cfceed94496e2e466dc53bac13e6fd792b1128314d6e32`,
+12,227,415 bytes, 53 PDFs (one register and 52 forms). The register SHA-256 is
+`29ed8384693b615926fc42a0ca4654be2ea9a36b0946f217975571ca0ad9564f`.
+`FSS-AGA-FORM-048.pdf` SHA-256 is
+`495aa7b0a1edca1ac5e874e6a63f50b47c6d207aa264cc390970a7db1acdc6e3`.
+The inventory preserves missing 049 and present 035A; it creates no candidate,
+mapping, approval, publication, or executable Audit package.
 
 ## Regulatory knowledge pilot fields
 

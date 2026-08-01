@@ -6,6 +6,7 @@ export default defineConfig({
     include: [
       "tests/contract/http-backend-live.test.ts",
       "src/backend/governed-checklist-http-parity.test.ts",
+      "src/backend/governed-checklist-intake-parity.test.ts",
     ],
     testTimeout: 15_000,
     hookTimeout: 15_000,

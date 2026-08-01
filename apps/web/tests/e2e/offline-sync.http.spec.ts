@@ -200,8 +200,13 @@ test("offline field work survives a lost acknowledgement and foreground-syncs th
     localBytesPresent: true,
     purgeEligibleAt: null,
   });
-  expect(consoleIssues.some((issue) => issue.includes("net::ERR_FAILED"))).toBe(true);
-  expect(consoleIssues.filter((issue) => !issue.includes("net::ERR_FAILED"))).toEqual([]);
+  const expectedNetworkErrors = consoleIssues.filter((issue) =>
+    issue.includes("net::ERR_FAILED") || issue.includes("net::ERR_INTERNET_DISCONNECTED"),
+  );
+  expect(expectedNetworkErrors.length).toBeGreaterThan(0);
+  expect(consoleIssues.filter((issue) =>
+    !issue.includes("net::ERR_FAILED") && !issue.includes("net::ERR_INTERNET_DISCONNECTED"),
+  )).toEqual([]);
 });
 
 test("a stale field response preserves the local draft until explicit re-entry resolves the conflict", async ({

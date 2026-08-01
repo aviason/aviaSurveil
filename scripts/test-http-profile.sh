@@ -21,9 +21,9 @@ API_PID=""
 WORKER_PID=""
 FOCUSED_E2E="${AVIA_HTTP_PROFILE_FOCUSED_E2E:-}"
 case "${FOCUSED_E2E}" in
-  "" | user-lifecycle | visible-actions | governed-checklist | regulatory-source-refresh) ;;
+  "" | user-lifecycle | visible-actions | governed-checklist | governed-checklist-intake | regulatory-source-refresh) ;;
   *)
-    echo "AVIA_HTTP_PROFILE_FOCUSED_E2E must be empty, user-lifecycle, visible-actions, governed-checklist, or regulatory-source-refresh" >&2
+    echo "AVIA_HTTP_PROFILE_FOCUSED_E2E must be empty, user-lifecycle, visible-actions, governed-checklist, governed-checklist-intake, or regulatory-source-refresh" >&2
     exit 64
     ;;
 esac
@@ -113,7 +113,7 @@ export AVIA_OIDC_REDIRECT_URL="${AVIA_TEST_OIDC_REDIRECT_URL}"
 export AVIA_SESSION_ENCRYPTION_KEY="${SESSION_ENCRYPTION_KEY}"
 export AVIA_ENABLE_CANONICAL_SEED="true"
 export AVIA_ENABLE_CANONICAL_TEST_PROFILE="true"
-export AVIA_CANONICAL_TEST_TOKEN="$(openssl rand -hex 32)"
+export AVIA_CANONICAL_TEST_TOKEN="${AVIA_CANONICAL_TEST_TOKEN:-$(openssl rand -hex 32)}"
 export AVIA_OBJECT_STORE_ENDPOINT="${AVIA_TEST_OBJECT_STORE_ENDPOINT}"
 export AVIA_OBJECT_STORE_ACCESS_KEY="${MINIO_ROOT_USER}"
 export AVIA_OBJECT_STORE_SECRET_KEY="${MINIO_ROOT_PASSWORD}"
@@ -182,6 +182,13 @@ elif [[ "${FOCUSED_E2E}" == "governed-checklist" ]]; then
     -count=1
   npm --prefix "${REPOSITORY_ROOT}/apps/web" run test:e2e:http -- \
     tests/e2e/regulatory-checklist-governance.http.spec.ts
+elif [[ "${FOCUSED_E2E}" == "governed-checklist-intake" ]]; then
+  npm --prefix "${REPOSITORY_ROOT}/apps/web" run test:contract:http -- --run src/backend/governed-checklist-intake-parity.test.ts
+  go -C "${REPOSITORY_ROOT}/apps/api" test -tags canonicaltest ./internal/checklistintake ./internal/regulatory ./tests/integration \
+    -run '^(Test(AGAZipPDFV1LimitsAreFrozen|InventoryArchive|ParseBoundedPDF|IdentityResolution|AGAForm048CandidateIntake|GovernedChecklistDualAuthoring|AGAForm048Reconciliation|GovernedChecklistIntakeLifecycle))$' \
+    -count=1
+  npm --prefix "${REPOSITORY_ROOT}/apps/web" run test:e2e:http -- \
+    tests/e2e/governed-checklist-intake.http.spec.ts
 elif [[ "${FOCUSED_E2E}" == "regulatory-source-refresh" ]]; then
   go -C "${REPOSITORY_ROOT}/apps/api" test -tags canonicaltest ./tests/integration \
     -run '^(TestRegulatorySourceRefreshTask6.*|TestTask6DepartmentFilteredQueueAndCurrentAssignmentAuthority|TestTask6PublicationIsSeparateDigestVerifiedAndImmutable|TestTask6CanonicalHTTPManagerLifecycleUsesRealPostgreSQLAuthority|TestTask6TechnicalApprovalFailsClosedOnPersistedSourceGap|TestTask6SubmissionAndPublicationFailClosedOnPersistedSourceGap|TestTask9SyntheticPublicationAndBlockedRealPilotHaveSeparatePersistedEffects)$' \

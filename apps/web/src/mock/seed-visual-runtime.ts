@@ -1,5 +1,6 @@
 import type { FindingView } from "../backend/backend";
 import type { createMockBackendRuntime } from "./create-mock-backend";
+import { completeMockChecklist } from "./test-checklist-fixtures";
 
 type MockRuntime = ReturnType<typeof createMockBackendRuntime>;
 
@@ -26,6 +27,7 @@ async function seedPotentialFinding(runtime: MockRuntime) {
     requiredComment: response.comment,
     inspectionAttachmentIds: [],
   });
+  await completeMockChecklist(runtime, packageView.id);
   await inspector.inspections.submitChecklist({
     operationId: "OP-VISUAL-CHECKLIST",
     auditId: packageView.auditId,

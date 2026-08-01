@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { AppProviders } from "../../app/providers";
 import type { FindingView } from "../../backend/backend";
 import { createMockBackendRuntime } from "../../mock/create-mock-backend";
+import { completeMockChecklist } from "../../mock/test-checklist-fixtures";
 import { ExecutiveDashboardPage } from "./executive-dashboard-page";
 
 afterEach(cleanup);
@@ -55,6 +56,7 @@ async function seedCanonicalFinding(runtime: MockRuntime): Promise<FindingView> 
     requiredComment: response.comment,
     inspectionAttachmentIds: [],
   });
+  await completeMockChecklist(runtime, packageView.id);
   await inspector.inspections.submitChecklist({
     operationId: "OP-EXEC-SUBMIT",
     auditId: packageView.auditId,

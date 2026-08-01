@@ -116,6 +116,21 @@ For each checklist item:
 - Mock Evidence filename
 - Create Potential Finding button scoped to the exact Audit
 
+## Governed AGA intake and authoring screens (candidate-only contract)
+
+Admin inventory presents archive hash, byte count, ordered file/register
+receipt states, identity conflict state, and blocking error codes. It never
+exposes raw extracted text outside the Admin-only extraction-review surface and
+never treats archive contents as regulatory authority. The client cannot select
+required Department owners; it may submit scope hints only.
+
+Checklist authoring visibly distinguishes `EXISTING_CHECKLIST_CANDIDATE`,
+`REGULATORY_TRACE`, and `HYBRID_RECONCILED`. Every question shows either an
+explicit complete regulated trace or literal `SOURCE_MAPPING_REQUIRED`.
+Functional-assignment queues are scoped internal views, never a new role or an
+Auditee projection. Technical approval, publication, and Audit-package
+eligibility remain separately displayed decisions.
+
 Submitted checklists are read-only. Inspector or Lead Inspector may reopen only
 at a valid stage through a reason-required confirmation. Templates with no
 configured execution package show an explicitly disabled action.

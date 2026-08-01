@@ -1,7 +1,12 @@
 .manager-intelligence-page {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 22px;
   padding: 28px;
+}
+
+.manager-intelligence-page > .manager-intelligence-panel--featured-risk {
+  grid-column: 1 / -1;
 }
 
 .manager-intelligence-boundary {

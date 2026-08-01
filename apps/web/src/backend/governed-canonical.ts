@@ -12,6 +12,30 @@ function canonicalValue(value: unknown): string {
   return `{${entries.map(([key, child]) => `${JSON.stringify(key)}: ${canonicalValue(child)}`).join(", ")}}`;
 }
 
+// Review projections are server-derived views over immutable candidate bytes.
+// They must never change the content or command digests that bind a candidate
+// to its persisted source/mapping snapshots.
+function withoutServerDerivedMappingReviewProjection(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(withoutServerDerivedMappingReviewProjection);
+  if (value === null || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => key !== "mappingReviewState" &&
+        !(key === "technicalReviewState" && (value as { state?: unknown }).state === "SOURCE_MAPPING_REQUIRED"))
+      .map(([key, child]) => [key, withoutServerDerivedMappingReviewProjection(child)]),
+  );
+}
+
+function withoutNullableSourcePredecessor(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(withoutNullableSourcePredecessor);
+  if (value === null || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key, child]) => !["previousSourceSnapshotId", "previousSourceHash"].includes(key) || child !== null)
+      .map(([key, child]) => [key, withoutNullableSourcePredecessor(child)]),
+  );
+}
+
 export function governedCanonicalJSON(value: unknown): string {
   return canonicalValue(JSON.parse(JSON.stringify(value)) as unknown);
 }
@@ -34,20 +58,22 @@ export function governedCandidateContentDigest(candidateOutput: {
   complianceMappings: unknown;
   inspectionChecklist: unknown;
 }): Promise<string> {
-  return governedCanonicalSHA256(candidateOutput);
+  return governedCanonicalSHA256(withoutServerDerivedMappingReviewProjection(candidateOutput));
 }
 
 export function governedImportSemanticDigest(
   operationId: string,
   candidateBundle: GovernedCandidateBundleInput,
 ): Promise<string> {
-  return governedCanonicalSHA256({ operationId, candidateBundle });
+  return governedCanonicalSHA256(withoutNullableSourcePredecessor(
+    withoutServerDerivedMappingReviewProjection({ operationId, candidateBundle }),
+  ));
 }
 
 export function governedEditSemanticDigest(
   command: Omit<CreateAdminGovernedCandidateRevisionInput, "operationId" | "idempotencyKey">,
 ): Promise<string> {
-  return governedCanonicalSHA256({
+  return governedCanonicalSHA256(withoutServerDerivedMappingReviewProjection({
     candidateId: command.candidateId,
     expectedRevision: command.expectedRevision,
     expectedContentDigest: command.expectedContentDigest,
@@ -55,7 +81,7 @@ export function governedEditSemanticDigest(
     mappings: command.mappings,
     questions: command.questions,
     requiredOwners: command.requiredOwners,
-  });
+  }));
 }
 
 export function governedSubmitSemanticDigest(

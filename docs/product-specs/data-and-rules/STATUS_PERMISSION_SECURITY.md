@@ -87,6 +87,28 @@ Uploaded, Pending CAA Review, Accepted, Partially Accepted, Rejected, More Infor
   `EXPERT_REVIEW_REQUIRED` records remain readable as legacy compatibility and
   are never treated as approved merely by being read.
 
+## Governed AGA intake authority and privacy boundary
+
+The eight top-level roles remain Inspector, Lead Inspector, Department Manager,
+Finance, General Manager, Executive Director, Auditee, and Admin. Functional
+assignments are not top-level roles: `REGULATORY_SOURCE_OWNER` may attest only
+the exact assigned source scope, and `CHECKLIST_REVIEWER` may comment or make a
+non-binding recommendation only. A source-owner or reviewer assignment never
+confers Admin, author, technical-approval, publication, or Audit-package power.
+
+Client Department/unit input is only an untrusted selection hint. The server
+derives required owners; missing or ambiguous ownership fails closed. Admin may
+receive inventory and prepare candidate Drafts but cannot establish source
+authority, technically approve, publish, or evaluate an executable package as
+eligible. An Auditee cannot view intake inventory, raw extraction, source-owner
+or reviewer comments, Internal CAA Note, required-owner facts, technical
+decisions, publication deliberation, or other organizations' records.
+
+`SOURCE_MAPPING_REQUIRED` is a literal source-gap state, not an empty trace.
+Source-authority acceptance, candidate mapping attestation, technical approval,
+publication, and package eligibility are distinct facts. Publication does not
+imply Audit-package eligibility, and no role bypass is permitted.
+
 Implementation evidence is **demo-only** and **verified locally** through focused Node regressions and fresh isolated-browser authority/privacy checks at `1536x864`, `1366x768`, `1024x768`, and `390x844`. Production identity, authorization, signing, enforcement execution, and immutable audit logging are **not run**; **production-readiness not claimed**.
 
 Approvals and timestamps are browser-local mock records. Attachments are mock

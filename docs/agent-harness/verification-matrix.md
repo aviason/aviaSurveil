@@ -168,6 +168,34 @@ privacy canaries; cleanup consumes separate authority through a networkless
 standalone recorder; and task-owned residue is zero. This is local
 `candidate-only` evidence, not deployment or production readiness.
 
+## Governed AGA Intake And Official-Source Authoring Lane
+
+Use this lane for the approved AGA checklist intake/authoring plan. It is
+boundary-sensitive and remains local `candidate-only` evidence.
+
+```bash
+node scripts/verify-governed-checklist-test-inventory.mjs --phase gate0
+AGA_CHECKLIST_ARCHIVE='/path/to/AGA - Checklists and Form.zip' \
+  node --test tests/governed-checklist-intake-plan-contract.test.mjs \
+  tests/governed-checklist-intake-security.test.mjs \
+  tests/aga-checklist-archive-inventory.test.mjs
+./scripts/test-governed-checklist-intake-profile.sh --security-only
+node scripts/verify-governed-checklist-test-inventory.mjs --phase task8
+node scripts/verify-governed-checklist-test-inventory.mjs --phase final
+node scripts/check-governed-checklist-intake-cleanup.mjs
+```
+
+The focused OpenAPI/generated, Go, React/HTTP, typecheck/build, artifact, root
+legacy, and harness commands from the active plan are required for the slices
+they own. The archive verifier streams/hash-checks only the explicit external
+path and writes nothing. A successful `gate0`/`task8` exit is `verified locally`;
+`task9` and `final` may exit `2` only for the explicit real Form 048 mechanism
+and Phase 2 expansion authorization blocker after all required artifacts and
+Vitest/Playwright runner discovery are non-zero and present. Missing artifacts
+remain failures, never skips. Live PostgreSQL, MinIO, ClamAV, Poppler, browser,
+source-owner, reviewed-source-set, assignment-provisioning, Department Manager,
+release, and production evidence are `blocked` until separately authorized.
+
 ## Current Harness Completion Gate
 
 For agent harness readiness work, run:

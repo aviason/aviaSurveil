@@ -4,7 +4,7 @@ export type DemoCapabilityName =
   | "communications" | "calendar" | "profiles" | "teams" | "risk" | "documents"
   | "notifications" | "administration" | "assistantDrafts" | "planningIntake"
   | "packageDrafts" | "auditeeCoordination" | "auditeeReports" | "adminWorkspace"
-  | "governedChecklistReview";
+  | "governedChecklistReview" | "governedChecklistIntake";
 
 export const DEMO_CAPABILITY_PERMISSION_MATRIX: Readonly<Record<Role, readonly DemoCapabilityName[]>> = {
   inspector: ["communications", "calendar", "profiles", "documents", "notifications", "administration", "assistantDrafts"],
@@ -14,7 +14,7 @@ export const DEMO_CAPABILITY_PERMISSION_MATRIX: Readonly<Record<Role, readonly D
   gm: ["profiles", "notifications", "administration"],
   executiveDirector: ["profiles", "notifications", "administration"],
   auditee: ["communications", "calendar", "profiles", "documents", "notifications", "administration", "auditeeCoordination", "auditeeReports"],
-  admin: ["profiles", "teams", "documents", "notifications", "administration", "adminWorkspace"],
+  admin: ["profiles", "teams", "documents", "notifications", "administration", "adminWorkspace", "governedChecklistIntake"],
 };
 
 export function requireDemoCapability(principal: BackendPrincipal, capability: DemoCapabilityName): void {

@@ -83,6 +83,29 @@ func TestSourceMappingRequiredQuestionRemainsARepairableDraft(t *testing.T) {
 	}
 }
 
+func TestSourceMappingRequiredTransportMarkerRemainsLiteral(t *testing.T) {
+	bundle := SyntheticLegacyChecklistCandidateBundle()
+	bundle.InspectionChecklist.Questions[0].RegulatoryTrace.TechnicalReviewState = "NOT_AVAILABLE"
+	bundle.OutputDigest, _ = candidateOutputDigest(bundle)
+
+	if err := ValidateCandidateBundle(bundle, SyntheticLegacyCandidateGenerationRequest()); err != nil {
+		t.Fatalf("transport-compatible source-gap Draft rejected: %v", err)
+	}
+}
+
+func TestSourceMappingRequiredTechnicalProjectionDoesNotChangeContentDigest(t *testing.T) {
+	bundle := SyntheticLegacyChecklistCandidateBundle()
+	baseline := bundle.OutputDigest
+	bundle.InspectionChecklist.Questions[0].RegulatoryTrace.TechnicalReviewState = "NOT_AVAILABLE"
+	projected, err := candidateOutputDigest(bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if projected != baseline {
+		t.Fatalf("source-gap technical projection changed content digest: baseline=%s projected=%s", baseline, projected)
+	}
+}
+
 // Break caught: a historical question could be marked as a fully resolved
 // regulatory question without the mandatory hybrid reconciliation record. An
 // existing checklist stays a candidate-only source-gap Draft until its current

@@ -21,6 +21,17 @@ const generated = fs.readFileSync(generatedPath, "utf8");
 const specificationHash = crypto.createHash("sha256").update(specificationBytes).digest("hex");
 assert.match(generated, new RegExp(`OpenAPI-SHA256: ${specificationHash}`));
 assert.match(generated, /type StrictServerInterface interface/);
+for (const unionName of [
+  "GovernedRegulatoryTraceContent",
+  "GovernedCandidateLineage",
+  "GovernedSourceReviewDetailView",
+  "ExtractionDecisionInput",
+]) {
+  assert.match(generated, new RegExp(`type ${unionName} struct`));
+  assert.doesNotMatch(generated, new RegExp(`type ${unionName} = json\\.RawMessage`));
+}
+assert.match(generated, /Archive\s+io\.Reader\s+`multipart:"archive"`/);
+assert.match(generated, /Receipt\s+CreateChecklistImportBatchReceiptInput\s+`json:"receipt"`/);
 
 for (const pathItem of Object.values(specification.paths)) {
   for (const operation of Object.values(pathItem)) {

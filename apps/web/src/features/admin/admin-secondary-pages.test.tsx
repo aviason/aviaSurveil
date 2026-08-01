@@ -324,6 +324,7 @@ describe("Admin secondary workspaces", () => {
     };
     sourceGap.regulatoryTrace = {
       state: "SOURCE_MAPPING_REQUIRED",
+      mappingReviewState: "SOURCE_MAPPING_REQUIRED",
       currentnessState: "SOURCE_MAPPING_REQUIRED",
       technicalReviewState: "NOT_AVAILABLE",
     };

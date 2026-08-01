@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { AppProviders } from "../../app/providers";
 import { ScenarioProvider } from "../../app/scenario-context";
 import { createMockBackendRuntime } from "../../mock/create-mock-backend";
+import { completeMockChecklist } from "../../mock/test-checklist-fixtures";
 import { FindingDetailPage } from "./finding-detail-page";
 
 afterEach(cleanup);
@@ -37,6 +38,7 @@ async function seedFinding(runtime: MockRuntime) {
     requiredComment: response.comment,
     inspectionAttachmentIds: [],
   });
+  await completeMockChecklist(runtime, packageView.id);
   await inspector.inspections.submitChecklist({
     operationId: "OP-TEST-CHECKLIST",
     auditId: packageView.auditId,

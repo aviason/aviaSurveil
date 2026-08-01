@@ -138,6 +138,7 @@ export const SYNTHETIC_GOVERNED_BUNDLE: GovernedCandidateBundleInput = {
       },
       regulatoryTrace: {
         state: "RESOLVED",
+        mappingReviewState: "SOURCE_OWNER_REVIEW_REQUIRED",
         sourceIdentity: "SYNTHETIC-OPS-AOC",
         sourceTitle: "Synthetic test-profile source",
         immutableVersion: "1",
@@ -242,7 +243,11 @@ export const SYNTHETIC_LEGACY_CHECKLIST_CANDIDATE_BUNDLE: GovernedCandidateBundl
         approvalReviewState: "TECHNICAL_REVIEW_REQUIRED",
         automaticDeferral: false,
       },
-      regulatoryTrace: { state: "SOURCE_MAPPING_REQUIRED" },
+      regulatoryTrace: {
+        state: "SOURCE_MAPPING_REQUIRED",
+        mappingReviewState: "SOURCE_MAPPING_REQUIRED",
+        technicalReviewState: "NOT_AVAILABLE",
+      },
       reconciliation: null,
     }],
   },
@@ -343,6 +348,7 @@ export const SYNTHETIC_HYBRID_RECONCILED_BUNDLE: GovernedCandidateBundleInput = 
       },
       regulatoryTrace: {
         state: "RESOLVED",
+        mappingReviewState: "SOURCE_OWNER_REVIEW_REQUIRED",
         sourceIdentity: "SYNTHETIC-OPS-AOC",
         sourceTitle: "Synthetic test-profile impact source",
         immutableVersion: "2",

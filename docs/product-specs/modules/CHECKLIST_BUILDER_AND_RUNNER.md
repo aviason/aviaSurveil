@@ -38,6 +38,21 @@ Create reusable checklists and let inspectors execute them.
 - Submitted checklist reopen requires Inspector/Lead authority, a valid stage,
   and a reason
 
+## Governed AGA checklist-intake contract (candidate-only)
+
+The governed lifecycle is `EXISTING_CHECKLIST_CANDIDATE` or
+`REGULATORY_TRACE` intake, optional `HYBRID_RECONCILED` Draft revision,
+source-authority acceptance, candidate mapping attestation, Department Manager
+technical approval, separate Department Manager publication, and separately
+computed Audit-package eligibility. Each fact is immutable and append-only.
+
+Existing checklist material is non-authoritative candidate input. A question
+without a complete current official chain is visibly `SOURCE_MAPPING_REQUIRED`;
+it cannot be published, technically approved, automatically deferred, or used
+in an executable Audit package. A resolved question requires a complete
+`OFFICIAL_CHECKLIST_SOURCE_CHAIN_V1` and never accepts a client citation string
+as source authority.
+
 ## UX direction
 
 The screen must show status, owner, due date and next action before secondary details. Advanced configuration must stay behind admin permissions.

@@ -426,7 +426,7 @@ func (service *ProjectionService) ListAccessDirectory(
 			Email:                 providerUser.Email,
 			MFAEnrolled:           providerUser.TOTPConfigured,
 			MFAState:              providerMFAState(providerUser),
-			RequiredActions:       append([]string(nil), providerUser.RequiredActions...),
+			RequiredActions:       append([]string{}, providerUser.RequiredActions...),
 			InvitationState:       deriveInvitationState(local, providerUser.RequiredActions),
 			AccountStatus:         accountStatus,
 			ApplicationProfile:    profileState,

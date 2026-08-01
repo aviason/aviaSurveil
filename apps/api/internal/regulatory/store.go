@@ -129,7 +129,7 @@ func importCandidateBundle(ctx context.Context, tx pgx.Tx, bundle CandidateBundl
 	if err != nil {
 		return err
 	}
-	outputArtifact, err := json.Marshal(map[string]any{"complianceMappings": bundle.ComplianceMappings, "inspectionChecklist": bundle.InspectionChecklist})
+	outputArtifact, err := candidateOutputArtifact(bundle)
 	if err != nil {
 		return err
 	}

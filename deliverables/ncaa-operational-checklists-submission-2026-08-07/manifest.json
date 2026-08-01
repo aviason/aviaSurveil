@@ -1,0 +1,17 @@
+{
+  "package_id": "ncaa-operational-checklists-submission-2026-08-07",
+  "requested_submission_date": "2026-08-07",
+  "status": "PENDING_SOURCE_DOCUMENTS",
+  "source_document_count": 0,
+  "register_row_count": 0,
+  "submission_authority": "Responsible Section/Department owner",
+  "source_boundary": "Current controlled operational checklists and their current Sectional/Departmental Checklist Register only.",
+  "forbidden_substitutes": [
+    "repository product specifications",
+    "demo scenarios or fixtures",
+    "regulatory-source copies",
+    "candidate-generated checklists",
+    "screenshots",
+    "unverified documents"
+  ]
+}

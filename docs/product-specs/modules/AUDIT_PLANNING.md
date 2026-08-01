@@ -60,6 +60,10 @@ Create annual and ad hoc audit/inspection plans.
 - Selecting a published checklist requires the applicable provider scope and
   typed target; a Department Manager's technical approval and publication are
   separate decisions made before selection.
+- Selecting a published checklist does not itself make it executable. Computed
+  Audit-package eligibility is separate from publication and fails closed when
+  the exact immutable version, scope, typed target, source currentness,
+  required owners, or question trace is incomplete.
 
 ## UX direction
 

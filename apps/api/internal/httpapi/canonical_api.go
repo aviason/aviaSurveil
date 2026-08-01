@@ -16,6 +16,7 @@ import (
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/assistant"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/caps"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/checklistgovernance"
+	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/checklistintake"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/configuration"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/documents"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/evidence"
@@ -57,6 +58,7 @@ type CanonicalAPIDependencies struct {
 	Documents          *documents.Service
 	GovernedCandidates *regulatory.AdminService
 	GovernedLifecycle  *checklistgovernance.Service
+	ChecklistIntake    *checklistintake.Service
 	Clock              func() time.Time
 }
 
@@ -80,6 +82,7 @@ type CanonicalAPI struct {
 	documents          *documents.Service
 	governedCandidates *regulatory.AdminService
 	governedLifecycle  *checklistgovernance.Service
+	checklistIntake    *checklistintake.Service
 	clock              func() time.Time
 }
 
@@ -162,6 +165,14 @@ func NewCanonicalAPI(dependencies CanonicalAPIDependencies) *CanonicalAPI {
 	if governedLifecycle == nil && dependencies.Pool != nil {
 		governedLifecycle = checklistgovernance.NewService(dependencies.Pool, clock)
 	}
+	checklistIntake := dependencies.ChecklistIntake
+	if checklistIntake == nil {
+		var store checklistintake.Store
+		if dependencies.Pool != nil {
+			store = checklistintake.NewPostgresStore(dependencies.Pool)
+		}
+		checklistIntake = checklistintake.NewService(store)
+	}
 	return &CanonicalAPI{
 		pool: dependencies.Pool, application: dependencies.Application, grants: dependencies.GrantService,
 		syncOperations:  syncOperations,
@@ -179,6 +190,7 @@ func NewCanonicalAPI(dependencies CanonicalAPIDependencies) *CanonicalAPI {
 		documents:          dependencies.Documents,
 		governedCandidates: governedCandidates,
 		governedLifecycle:  governedLifecycle,
+		checklistIntake:    checklistIntake,
 		clock:              clock,
 	}
 }
@@ -268,6 +280,30 @@ func (api *CanonicalAPI) Handler() http.Handler {
 	router.Post("/v1/department-manager/governed-checklist/candidates/{candidateId}/technical-approvals", api.approveDepartmentManagerGovernedCandidate)
 	router.Post("/v1/department-manager/governed-checklist/candidates/{candidateId}/publications", api.publishDepartmentManagerGovernedCandidate)
 	router.Get("/v1/department-manager/governed-checklist/published-versions/{templateVersionId}", api.getDepartmentManagerGovernedPublishedVersion)
+	// Candidate-only AGA intake and authoring routes. The handlers derive all
+	// authority from the server principal and fail closed when the corresponding
+	// real packet/assignment or PostgreSQL persistence is unavailable.
+	router.Post("/v1/admin/governed-checklist/import-batches", api.createAdminChecklistImportBatch)
+	router.Get("/v1/admin/governed-checklist/import-batches/{importBatchId}", api.getAdminChecklistImportBatch)
+	router.Get("/v1/admin/governed-checklist/import-batches/{importBatchId}/files", api.listAdminChecklistImportFiles)
+	router.Get("/v1/admin/governed-checklist/import-batches/{importBatchId}/receipts", api.listAdminChecklistImportReceipts)
+	router.Post("/v1/admin/governed-checklist/import-batches/{importBatchId}/files/{importFileId}/extraction-reviews", api.createAdminChecklistImportFileExtractionReview)
+	router.Get("/v1/admin/governed-checklist/import-batches/{importBatchId}/files/{importFileId}/extraction-review", api.getAdminChecklistImportFileExtractionReview)
+	router.Post("/v1/admin/governed-checklist/import-batches/{importBatchId}/files/{importFileId}/identity-resolutions", api.resolveAdminChecklistImportFileIdentity)
+	router.Post("/v1/admin/governed-checklist/import-batches/{importBatchId}/files/{importFileId}/candidate-imports", api.createAdminExistingChecklistCandidate)
+	router.Get("/v1/governed-checklist/source-review-queue", api.listGovernedChecklistSourceReviewQueue)
+	router.Get("/v1/governed-checklist/source-review-items/{reviewItemId}", api.getGovernedChecklistSourceReviewItem)
+	router.Get("/v1/governed-checklist/reviewer-queue", api.listGovernedChecklistReviewerQueue)
+	router.Post("/v1/governed-checklist/source-versions/{sourceVersionId}/authority-attestations", api.attestRegulatorySourceAuthority)
+	router.Get("/v1/governed-checklist/existing-candidates/{existingCandidateId}", api.getExistingChecklistCandidate)
+	router.Post("/v1/governed-checklist/existing-candidates/{existingCandidateId}/drafts", api.createDraftFromExistingChecklistCandidate)
+	router.Post("/v1/governed-checklist/official-source-drafts", api.createOfficialSourceChecklistDraft)
+	router.Get("/v1/governed-checklist/candidates/{candidateId}", api.getGovernedChecklistDraft)
+	router.Post("/v1/governed-checklist/candidates/{candidateId}/hybrid-reconciliations", api.createHybridReconciledChecklistDraft)
+	router.Get("/v1/governed-checklist/candidates/{candidateId}/review-comments", api.listGovernedChecklistReviewComments)
+	router.Post("/v1/governed-checklist/candidates/{candidateId}/review-comments", api.createGovernedChecklistReviewComment)
+	router.Post("/v1/governed-checklist/candidates/{candidateId}/source-mapping-attestations", api.attestGovernedChecklistSourceMapping)
+	router.Post("/v1/governed-checklist/published-versions/{publishedVersionId}/audit-package-eligibility-evaluations", api.evaluateGovernedChecklistAuditPackageEligibility)
 	router.Get("/v1/admin/templates", api.listAdminTemplateMasters)
 	router.Get("/v1/admin/questions", api.listAdminQuestions)
 	router.Post("/v1/admin/questions", api.createAdminQuestion)

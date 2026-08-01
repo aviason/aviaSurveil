@@ -109,6 +109,7 @@ export default defineConfig({
         "e2e/auditee-responsive-contract.spec.ts",
         "e2e/admin-responsive-contract.spec.ts",
         "e2e/regulatory-checklist-governance.spec.ts",
+        "e2e/governed-checklist-intake.spec.ts",
       ],
     },
     {
@@ -126,6 +127,7 @@ export default defineConfig({
         "e2e/user-lifecycle.http.spec.ts",
         "e2e/regulatory-checklist-governance.http.spec.ts",
         "e2e/regulatory-source-refresh.http.spec.ts",
+        "e2e/governed-checklist-intake.http.spec.ts",
       ],
     },
     {

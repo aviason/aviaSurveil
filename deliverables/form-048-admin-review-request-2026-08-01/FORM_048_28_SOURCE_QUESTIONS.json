@@ -1,0 +1,526 @@
+{
+  "packageVersion": "AGA_EXTRACTION_REVIEW_V1",
+  "status": "PENDING_ADMIN_REVIEW",
+  "bindingState": "PENDING_CURRENT_SERVER_PACKET_BINDING",
+  "source": {
+    "archiveSha": "sha256:dd819cfa6a670760e0cfceed94496e2e466dc53bac13e6fd792b1128314d6e32",
+    "archiveBytes": 12227415,
+    "formSha": "sha256:495aa7b0a1edca1ac5e874e6a63f50b47c6d207aa264cc390970a7db1acdc6e3",
+    "formPath": "FSS-AGA-FORM-048.pdf",
+    "pageCount": 9,
+    "questionCount": 28,
+    "visibleTitle": "Checklist for the surveillance of an aerodrome",
+    "embeddedMetadataTitle": "Check list for inspection of the maintenance arrangements",
+    "parserReceipt": "sha256:adc3a19a56109a44a6e48e9effe4d285a803e63feba836298cf313cdd6039505",
+    "packetDigest": "sha256:4b3a07ea20af11e762a93dc1ae0223400c307f6a0af83d9471769f11082d2a4b",
+    "rawSourcePersisted": false
+  },
+  "questions": [
+    {
+      "ordinal": 1,
+      "formCode": "AGA 048.100",
+      "page": 1,
+      "line": 28,
+      "sourceLocator": "PDF page 1; protocol AGA 048.100; Protocol question column",
+      "sourceRefs": [
+        "NAMCARs 139.17.2",
+        "NAMCATS 139.17.2"
+      ],
+      "originalText": "Is a maintenance mechanism established at the aerodrome to maintain facilities in a condition which does not impair the safety, regularity, or efficiency of air navigation?",
+      "textDigest": "sha256:77454a231cde8e5f202fae8ab4d02b34f1e1df6e006888888c20d985ed1c8bc5",
+      "proposalId": "proposal-preview-79ed818f6480a400",
+      "proposalDigest": "sha256:77454a231cde8e5f202fae8ab4d02b34f1e1df6e006888888c20d985ed1c8bc5",
+      "decisionKind": "",
+      "resultHistoryState": "NOT_SUPPLIED",
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED"
+    },
+    {
+      "ordinal": 2,
+      "formCode": "AGA 048.102",
+      "page": 1,
+      "line": 42,
+      "sourceLocator": "PDF page 1; protocol AGA 048.102; Protocol question column",
+      "sourceRefs": [
+        "NAMCARs 139.17.2",
+        "NAMCATS 139.17.2"
+      ],
+      "originalText": "Is a system of preventive maintenance of disabled aircraft removal equipment employed to ensure effectiveness of the equipment and compliance with the specified procedure for the removal of disabled aircraft?",
+      "textDigest": "sha256:dfd56af6a2395a96797eabe8b274923103e4c878c5177cb4cb04b7cb3ae21b8d",
+      "proposalId": "proposal-preview-15752e078e577715",
+      "proposalDigest": "sha256:dfd56af6a2395a96797eabe8b274923103e4c878c5177cb4cb04b7cb3ae21b8d",
+      "decisionKind": "",
+      "resultHistoryState": "NOT_SUPPLIED",
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED"
+    },
+    {
+      "ordinal": 3,
+      "formCode": "AGA 048.104",
+      "page": 2,
+      "line": 8,
+      "sourceLocator": "PDF page 2; protocol AGA 048.104; Protocol question column",
+      "sourceRefs": [
+        "NAMCARs 139.17.2",
+        "NAMCATS 139.17.2"
+      ],
+      "originalText": "Is a system of reducing wildlife strikes employed at the aerodrome?",
+      "textDigest": "sha256:60cfb95cefa965b5d982da8f3db1a07f12af9beb129d2d203fefb62328d496b8",
+      "proposalId": "proposal-preview-751c35c86a234409",
+      "proposalDigest": "sha256:60cfb95cefa965b5d982da8f3db1a07f12af9beb129d2d203fefb62328d496b8",
+      "decisionKind": "",
+      "resultHistoryState": "NOT_SUPPLIED",
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED"
+    },
+    {
+      "ordinal": 4,
+      "formCode": "AGA 048.106",
+      "page": 2,
+      "line": 26,
+      "sourceLocator": "PDF page 2; protocol AGA 048.106; Protocol question column",
+      "sourceRefs": [
+        "NAMCARs 139.17.2",
+        "NAMCATS 139.17.2"
+      ],
+      "originalText": "Is a system of preventive maintenance of electrical system employed to ensure effectiveness of the equipment and compliance with the specified requirements for primary supply, secondary supply, and switch-over time?",
+      "textDigest": "sha256:88f5e557e2514be8511dab7ce16ed0936a0ef52fe1f1c7e099a97a2ed6177914",
+      "proposalId": "proposal-preview-2c91b6d75d608e51",
+      "proposalDigest": "sha256:88f5e557e2514be8511dab7ce16ed0936a0ef52fe1f1c7e099a97a2ed6177914",
+      "decisionKind": "",
+      "resultHistoryState": "NOT_SUPPLIED",
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED"
+    },
+    {
+      "ordinal": 5,
+      "formCode": "AGA 048.202",
+      "page": 2,
+      "line": 51,
+      "sourceLocator": "PDF page 2; protocol AGA 048.202; Protocol question column",
+      "sourceRefs": [
+        "NAMCARs 139.17.2",
+        "NAMCATS 139.17.2"
+      ],
+      "originalText": "Are the surfaces of all movement areas inspected and their conditions monitored regularly as part of an aerodrome preventive and corrective maintenance mechanism with the objective of avoiding and eliminating any loose objects/debris that might cause damage to aircraft or impair the operation of aircraft systems?",
+      "textDigest": "sha256:02e9cd3cd9e3303c72b7b6f0e56cb085fa0d4b5ba2e8831add74323a8723fa3c",
+      "proposalId": "proposal-preview-831cda1b45c2152a",
+      "proposalDigest": "sha256:02e9cd3cd9e3303c72b7b6f0e56cb085fa0d4b5ba2e8831add74323a8723fa3c",
+      "decisionKind": "",
+      "resultHistoryState": "NOT_SUPPLIED",
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED"
+    },
+    {
+      "ordinal": 6,
+      "formCode": "AGA 048.204",
+      "page": 3,
+      "line": 8,
+      "sourceLocator": "PDF page 3; protocol AGA 048.204; Protocol question column",
+      "sourceRefs": [
+        "NAMCARs 139.17.2",
+        "NAMCATS 139.17.2"
+      ],
+      "originalText": "Is the surface of the runway and taxiway shoulders maintained to be free of any loose stones or other objects that could be ingested by the aeroplane engines?",
+      "textDigest": "sha256:0e56a6b87de8e14f5bb2ccd4dd9cc92b06213d69dd4632114c290da03fa36bc3",
+      "proposalId": "proposal-preview-2a596d013ac48fea",
+      "proposalDigest": "sha256:0e56a6b87de8e14f5bb2ccd4dd9cc92b06213d69dd4632114c290da03fa36bc3",
+      "decisionKind": "",
+      "resultHistoryState": "NOT_SUPPLIED",
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED"
+    },
+    {
+      "ordinal": 7,
+      "formCode": "AGA 048.206",
+      "page": 3,
+      "line": 20,
+      "sourceLocator": "PDF page 3; protocol AGA 048.206; Protocol question column",
+      "sourceRefs": [
+        "NAMCARs 139.17.2",
+        "NAMCATS 139.17.2"
+      ],
+      "originalText": "Is there a programme in place to ensure that standing water, mud, dust, sand, oil, rubber deposits and other contaminants are removed from the surface of runways in use as rapidly and completely as possible to minimize accumulation?",
+      "textDigest": "sha256:a7fdc97c0eb740b9817021de1bd0cf0d7171c5de36c54574b93f6db0209c9ae6",
+      "proposalId": "proposal-preview-fc2c5322af5d50a5",
+      "proposalDigest": "sha256:a7fdc97c0eb740b9817021de1bd0cf0d7171c5de36c54574b93f6db0209c9ae6",
+      "decisionKind": "",
+      "resultHistoryState": "NOT_SUPPLIED",
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED"
+    },
+    {
+      "ordinal": 8,
+      "formCode": "AGA 048.208",
+      "page": 3,
+      "line": 33,
+      "sourceLocator": "PDF page 3; protocol AGA 048.208; Protocol question column",
+      "sourceRefs": [
+        "NAMCARs 139.17.2",
+        "NAMCATS 139.17.2"
+      ],
+      "originalText": "Does the preventive maintenance programme include the water hydrant system?",
+      "textDigest": "sha256:9b6d6325be0a885ec8d3613d4d3fefdb088ab2a02d6d73f5dc2fd490852faf0c",
+      "proposalId": "proposal-preview-4ffcda92a6efb3ca",
+      "proposalDigest": "sha256:9b6d6325be0a885ec8d3613d4d3fefdb088ab2a02d6d73f5dc2fd490852faf0c",
+      "decisionKind": "",
+      "resultHistoryState": "NOT_SUPPLIED",
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED"
+    },
+    {
+      "ordinal": 9,
+      "formCode": "AGA 048.210",
+      "page": 3,
+      "line": 45,
+      "sourceLocator": "PDF page 3; protocol AGA 048.210; Protocol question column",
+      "sourceRefs": [
+        "NAMCARs 139.17.2",
+        "NAMCATS 139.17.2"
+      ],
+      "originalText": "Does the preventive maintenance programme include the sweepers and other pavement maintenance vehicles?",
+      "textDigest": "sha256:130bad99548f3faaa8081aeae5ac195e6b330ad17d388898181a0ee0c4768b53",
+      "proposalId": "proposal-preview-50ee8f99d693a6a2",
+      "proposalDigest": "sha256:130bad99548f3faaa8081aeae5ac195e6b330ad17d388898181a0ee0c4768b53",
+      "decisionKind": "",
+      "resultHistoryState": "NOT_SUPPLIED",
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED"
+    },
+    {
+      "ordinal": 10,
+      "formCode": "AGA 048.302",
+      "page": 4,
+      "line": 11,
+      "sourceLocator": "PDF page 4; protocol AGA 048.302; Protocol question column",
+      "sourceRefs": [
+        "NAMCARs 139.17.6",
+        "NAMCATS 139.17.6"
+      ],
+      "originalText": "Is a system of preventive maintenance of visual aids employed to ensure lighting, marking, signage and electrical system reliability?",
+      "textDigest": "sha256:7595c50673b059628caa40fa76ee436295e53bab325a6cddc64abe4952cc0ec6",
+      "proposalId": "proposal-preview-68f26dd476da4f2b",
+      "proposalDigest": "sha256:7595c50673b059628caa40fa76ee436295e53bab325a6cddc64abe4952cc0ec6",
+      "decisionKind": "",
+      "resultHistoryState": "NOT_SUPPLIED",
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED"
+    },
+    {
+      "ordinal": 11,
+      "formCode": "AGA 048.304",
+      "page": 4,
+      "line": 30,
+      "sourceLocator": "PDF page 4; protocol AGA 048.304; Protocol question column",
+      "sourceRefs": [
+        "NAMCARs 139.17.6",
+        "NAMCATS 139.17.6"
+      ],
+      "originalText": "Is there an adequate stock of spare parts available for the maintenance personnel?",
+      "textDigest": "sha256:6faf515af549d681b7d794507ce0f7c53e6faf14749f35df121a68e5e5e5fb0b",
+      "proposalId": "proposal-preview-4ce75341296fee02",
+      "proposalDigest": "sha256:6faf515af549d681b7d794507ce0f7c53e6faf14749f35df121a68e5e5e5fb0b",
+      "decisionKind": "",
+      "resultHistoryState": "NOT_SUPPLIED",
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED"
+    },
+    {
+      "ordinal": 12,
+      "formCode": "AGA 048.306",
+      "page": 4,
+      "line": 37,
+      "sourceLocator": "PDF page 4; protocol AGA 048.306; Protocol question column",
+      "sourceRefs": [
+        "NAMCARs 139.17.6",
+        "NAMCATS 139.17.6"
+      ],
+      "originalText": "Does the maintenance schedule of lights and other equipment follow the recommendations of the manufacturer to ensure the required service standard?",
+      "textDigest": "sha256:ec94c931c98988a9296feefa094ef863193b65b21998e8ada4f3f074276d83fe",
+      "proposalId": "proposal-preview-74137222085374f5",
+      "proposalDigest": "sha256:ec94c931c98988a9296feefa094ef863193b65b21998e8ada4f3f074276d83fe",
+      "decisionKind": "",
+      "resultHistoryState": "NOT_SUPPLIED",
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED"
+    },
+    {
+      "ordinal": 13,
+      "formCode": "AGA 048.402",
+      "page": 4,
+      "line": 49,
+      "sourceLocator": "PDF page 4; protocol AGA 048.402; Protocol question column",
+      "sourceRefs": [
+        "NAMCARs 139.16.3",
+        "NAMCATS 139.16.3"
+      ],
+      "originalText": "Has the aerodrome operator determined the fire category in accordance with the largest aeroplane type conducting regular air operations to and from the aerodrome?",
+      "textDigest": "sha256:3c72363a684cadeac4dc25285ba5c506ec31ca78e7387be9f9fa80ac01753e4b",
+      "proposalId": "proposal-preview-5111ba55434cb6a7",
+      "proposalDigest": "sha256:3c72363a684cadeac4dc25285ba5c506ec31ca78e7387be9f9fa80ac01753e4b",
+      "decisionKind": "",
+      "resultHistoryState": "NOT_SUPPLIED",
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED"
+    },
+    {
+      "ordinal": 14,
+      "formCode": "AGA 048.502",
+      "page": 5,
+      "line": 10,
+      "sourceLocator": "PDF page 5; protocol AGA 048.502; Protocol question column",
+      "sourceRefs": [
+        "NAMCARs 139.16.3",
+        "NAMCATS 139.16.3"
+      ],
+      "originalText": "Has the aerodrome operator determined the number of fire vehicles required to meet the minimum extinguishing agents and rescue equipment?",
+      "textDigest": "sha256:1202e283da89f133fc8752c00a2ab46a0686e24a7ac60d3e5cd45362a17d4f71",
+      "proposalId": "proposal-preview-ff8519aa0e997024",
+      "proposalDigest": "sha256:1202e283da89f133fc8752c00a2ab46a0686e24a7ac60d3e5cd45362a17d4f71",
+      "decisionKind": "",
+      "resultHistoryState": "NOT_SUPPLIED",
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED"
+    },
+    {
+      "ordinal": 15,
+      "formCode": "AGA 048.504",
+      "page": 5,
+      "line": 19,
+      "sourceLocator": "PDF page 5; protocol AGA 048.504; Protocol question column",
+      "sourceRefs": [
+        "NAMCARs 139.16.3",
+        "NAMCATS 139.16.3"
+      ],
+      "originalText": "Is each rescue and fire fighting vehicle equipped with adequate two-way radio communication?",
+      "textDigest": "sha256:059a0e3b2212f369982bdeec3430308ee9c2a2c157ca70079a5b9e433be12f16",
+      "proposalId": "proposal-preview-19b16796f80e3e6c",
+      "proposalDigest": "sha256:059a0e3b2212f369982bdeec3430308ee9c2a2c157ca70079a5b9e433be12f16",
+      "decisionKind": "",
+      "resultHistoryState": "NOT_SUPPLIED",
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED"
+    },
+    {
+      "ordinal": 16,
+      "formCode": "AGA 048.506",
+      "page": 5,
+      "line": 46,
+      "sourceLocator": "PDF page 5; protocol AGA 048.506; Protocol question column",
+      "sourceRefs": [
+        "NAMCARs 139.16.3",
+        "NAMCATS 139.16.3"
+      ],
+      "originalText": "Are each rescue and fire- fighting vehicle equipped with adequate fire-fighting equipment?",
+      "textDigest": "sha256:4f0a16150762c48bd8a9aa0ce73fc4cb2057d359f9b894be192b07c643fea432",
+      "proposalId": "proposal-preview-1636737af127cd26",
+      "proposalDigest": "sha256:4f0a16150762c48bd8a9aa0ce73fc4cb2057d359f9b894be192b07c643fea432",
+      "decisionKind": "",
+      "resultHistoryState": "NOT_SUPPLIED",
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED"
+    },
+    {
+      "ordinal": 17,
+      "formCode": "AGA 048.508",
+      "page": 6,
+      "line": 8,
+      "sourceLocator": "PDF page 6; protocol AGA 048.508; Protocol question column",
+      "sourceRefs": [
+        "NAMCARs 139.16.3",
+        "NAMCATS 139.16.3"
+      ],
+      "originalText": "Does the Aerodrome have adequate rescue equipment at the scene of any aircraft accident?",
+      "textDigest": "sha256:6c500ad7a81771833c1675ba2ae89f85a8909ca3c30b94cb4cc5ee86e1a4aaf9",
+      "proposalId": "proposal-preview-31514b0edb2031a0",
+      "proposalDigest": "sha256:6c500ad7a81771833c1675ba2ae89f85a8909ca3c30b94cb4cc5ee86e1a4aaf9",
+      "decisionKind": "",
+      "resultHistoryState": "NOT_SUPPLIED",
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED"
+    },
+    {
+      "ordinal": 18,
+      "formCode": "AGA 048.602",
+      "page": 7,
+      "line": 10,
+      "sourceLocator": "PDF page 7; protocol AGA 048.602; Protocol question column",
+      "sourceRefs": [
+        "NAMCARs 139.16.3",
+        "NAMCATS 139.16.3"
+      ],
+      "originalText": "Is the response time in optimum visibility and surface conditions conform to the requirements?",
+      "textDigest": "sha256:5b19ef5c32e359687a86e021874a7c0133c59d5398db5d8e5a6644d76ff57109",
+      "proposalId": "proposal-preview-a02adda4f27b56df",
+      "proposalDigest": "sha256:5b19ef5c32e359687a86e021874a7c0133c59d5398db5d8e5a6644d76ff57109",
+      "decisionKind": "",
+      "resultHistoryState": "NOT_SUPPLIED",
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED"
+    },
+    {
+      "ordinal": 19,
+      "formCode": "AGA 048.604",
+      "page": 7,
+      "line": 31,
+      "sourceLocator": "PDF page 7; protocol AGA 048.604; Protocol question column",
+      "sourceRefs": [
+        "NAMCARs 139.16.3",
+        "NAMCATS 139.16.3"
+      ],
+      "originalText": "Are the rescue and fire fighting vehicles able to respond 1000 m from the threshold of each runway in the approach?",
+      "textDigest": "sha256:129792d55386d05f8f2c8328b12218e798f5c4c962a8d5587a5feb9507a2ee3c",
+      "proposalId": "proposal-preview-65b570de76a396bc",
+      "proposalDigest": "sha256:129792d55386d05f8f2c8328b12218e798f5c4c962a8d5587a5feb9507a2ee3c",
+      "decisionKind": "",
+      "resultHistoryState": "NOT_SUPPLIED",
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED"
+    },
+    {
+      "ordinal": 20,
+      "formCode": "AGA 048.802",
+      "page": 7,
+      "line": 46,
+      "sourceLocator": "PDF page 7; protocol AGA 048.802; Protocol question column",
+      "sourceRefs": [
+        "NAMCARs 139.17.2",
+        "NAMCATS 139.17.2"
+      ],
+      "originalText": "Does the aerodrome operator have a mechanism in place to maintain fire fighting vehicle or vehicles?",
+      "textDigest": "sha256:3dec519d7167f055d04d73ddd079b0440543d735e141f7956e1910747660ec9f",
+      "proposalId": "proposal-preview-454eb55b8d8e5548",
+      "proposalDigest": "sha256:3dec519d7167f055d04d73ddd079b0440543d735e141f7956e1910747660ec9f",
+      "decisionKind": "",
+      "resultHistoryState": "NOT_SUPPLIED",
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED"
+    },
+    {
+      "ordinal": 21,
+      "formCode": "AGA 048.804",
+      "page": 8,
+      "line": 8,
+      "sourceLocator": "PDF page 8; protocol AGA 048.804; Protocol question column",
+      "sourceRefs": [
+        "NAMCARs 139.17.2",
+        "NAMCATS 139.17.2"
+      ],
+      "originalText": "Does the aerodrome operator carry out maintenance, and testing of the water refill source and associated distribution system regularly?",
+      "textDigest": "sha256:3b348536538d0b76625f4c168e52dd8f263112f6124df315e2001f30f1305b19",
+      "proposalId": "proposal-preview-86d68a2ea2b5f84d",
+      "proposalDigest": "sha256:3b348536538d0b76625f4c168e52dd8f263112f6124df315e2001f30f1305b19",
+      "decisionKind": "",
+      "resultHistoryState": "NOT_SUPPLIED",
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED"
+    },
+    {
+      "ordinal": 22,
+      "formCode": "AGA 048.806",
+      "page": 8,
+      "line": 19,
+      "sourceLocator": "PDF page 8; protocol AGA 048.806; Protocol question column",
+      "sourceRefs": [
+        "NAMCARs 139.17.2",
+        "NAMCATS 139.17.2"
+      ],
+      "originalText": "Does the aerodrome operator regularly conduct inspection and physical tests where necessary on the emergency gate/s?",
+      "textDigest": "sha256:2bab68bfd949035be24cebd07d43d7805a630c40c8c0ed3e8528c9ae9fd8e944",
+      "proposalId": "proposal-preview-b1ccedeb5a9884bd",
+      "proposalDigest": "sha256:2bab68bfd949035be24cebd07d43d7805a630c40c8c0ed3e8528c9ae9fd8e944",
+      "decisionKind": "",
+      "resultHistoryState": "NOT_SUPPLIED",
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED"
+    },
+    {
+      "ordinal": 23,
+      "formCode": "AGA 048.1002",
+      "page": 8,
+      "line": 28,
+      "sourceLocator": "PDF page 8; protocol AGA 048.1002; Protocol question column",
+      "sourceRefs": [
+        "NAMCARs 139.16.3",
+        "NAMCATS 139.16.3"
+      ],
+      "originalText": "Does the aerodrome operator have an adequate system to assess initial and continuous fitness of rescue and fire fighting personnel?",
+      "textDigest": "sha256:6824bb202f07b756dd52d720c64cc6b1ebae5cdc63c44e992f32ac0383a6416e",
+      "proposalId": "proposal-preview-b2af19242c8fa48d",
+      "proposalDigest": "sha256:6824bb202f07b756dd52d720c64cc6b1ebae5cdc63c44e992f32ac0383a6416e",
+      "decisionKind": "",
+      "resultHistoryState": "NOT_SUPPLIED",
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED"
+    },
+    {
+      "ordinal": 24,
+      "formCode": "AGA 048.1004",
+      "page": 8,
+      "line": 35,
+      "sourceLocator": "PDF page 8; protocol AGA 048.1004; Protocol question column",
+      "sourceRefs": [
+        "NAMCARs 139.16.3",
+        "NAMCATS 139.16.3"
+      ],
+      "originalText": "Are all responding rescue and fire fighting personnel are provided with protective clothing and respiratory equipment?",
+      "textDigest": "sha256:7e066e7184bb9aabe64566a1a32f7d576f74ead10860bb8e19317ebaa7b67eb4",
+      "proposalId": "proposal-preview-aa1d97f7f5001bfd",
+      "proposalDigest": "sha256:7e066e7184bb9aabe64566a1a32f7d576f74ead10860bb8e19317ebaa7b67eb4",
+      "decisionKind": "",
+      "resultHistoryState": "NOT_SUPPLIED",
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED"
+    },
+    {
+      "ordinal": 25,
+      "formCode": "AGA 048.1102",
+      "page": 8,
+      "line": 48,
+      "sourceLocator": "PDF page 8; protocol AGA 048.1102; Protocol question column",
+      "sourceRefs": [
+        "NAMCARs 139.01.7",
+        "NAMCATS 139.01.7"
+      ],
+      "originalText": "Does the aerodrome employ an operating procedure for notification of aerodrome data and reporting changes to aerodrome information?",
+      "textDigest": "sha256:8bedf5b0b2933f0ab69bcb335539bc5ef15c789a886fda4664b367c65c6f526a",
+      "proposalId": "proposal-preview-f8bf336cd1590c5e",
+      "proposalDigest": "sha256:8bedf5b0b2933f0ab69bcb335539bc5ef15c789a886fda4664b367c65c6f526a",
+      "decisionKind": "",
+      "resultHistoryState": "NOT_SUPPLIED",
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED"
+    },
+    {
+      "ordinal": 26,
+      "formCode": "AGA 048.1104",
+      "page": 8,
+      "line": 55,
+      "sourceLocator": "PDF page 8; protocol AGA 048.1104; Protocol question column",
+      "sourceRefs": [
+        "NAMCARs 139.01.7",
+        "NAMCATS 139.01.7"
+      ],
+      "originalText": "Does the procedure for notification of aerodrome and reporting changes clearly identify the information that require the issuance of a NOTAM?",
+      "textDigest": "sha256:96886c59589376dd35cf9846cfa45704a99a3fd3972a1c7498c98f5323ed6f07",
+      "proposalId": "proposal-preview-4469bd8873c29acc",
+      "proposalDigest": "sha256:96886c59589376dd35cf9846cfa45704a99a3fd3972a1c7498c98f5323ed6f07",
+      "decisionKind": "",
+      "resultHistoryState": "NOT_SUPPLIED",
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED"
+    },
+    {
+      "ordinal": 27,
+      "formCode": "AGA 048.1106",
+      "page": 9,
+      "line": 8,
+      "sourceLocator": "PDF page 9; protocol AGA 048.1106; Protocol question column",
+      "sourceRefs": [
+        "NAMCARs 139.01.7",
+        "NAMCATS 139.01.7"
+      ],
+      "originalText": "Does the aerodrome employ an operating procedure for reporting safety occurrences?",
+      "textDigest": "sha256:4827ca1c12ccc665f7158f06a64698250e2d059269553cf9630d9016474e4af6",
+      "proposalId": "proposal-preview-8bafb039ea028382",
+      "proposalDigest": "sha256:4827ca1c12ccc665f7158f06a64698250e2d059269553cf9630d9016474e4af6",
+      "decisionKind": "",
+      "resultHistoryState": "NOT_SUPPLIED",
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED"
+    },
+    {
+      "ordinal": 28,
+      "formCode": "AGA 048.1108",
+      "page": 9,
+      "line": 16,
+      "sourceLocator": "PDF page 9; protocol AGA 048.1108; Protocol question column",
+      "sourceRefs": [
+        "NAMCARs 139.08.4",
+        "NAMCATS 139.08.4",
+        "NAMCARs 139.08.6",
+        "NAMCATS 139.08.6"
+      ],
+      "originalText": "Does the incidence reporting procedure include investigation and sharing the report with stakeholders?",
+      "textDigest": "sha256:cc6391a5520269ddf3e37ad33b3b7ada64f0a622101266bb3f871d8a1c51346f",
+      "proposalId": "proposal-preview-68ab6f8d6092e7a5",
+      "proposalDigest": "sha256:cc6391a5520269ddf3e37ad33b3b7ada64f0a622101266bb3f871d8a1c51346f",
+      "decisionKind": "",
+      "resultHistoryState": "NOT_SUPPLIED",
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED"
+    }
+  ]
+}

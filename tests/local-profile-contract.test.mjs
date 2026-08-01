@@ -121,6 +121,14 @@ test("full profile script cannot enable test authority or publish internal servi
   assert.match(source, /local-stack\.sh"\s+up\s+full/);
 });
 
+test("focused HTTP profile preserves an explicitly supplied canonical test token", () => {
+  const source = readRequired("scripts/test-http-profile.sh");
+  assert.equal(
+    source.includes('AVIA_CANONICAL_TEST_TOKEN="${AVIA_CANONICAL_TEST_TOKEN:-$(openssl rand -hex 32)}"'),
+    true,
+  );
+});
+
 test("full profile binds one exact Admin membership before normal OIDC login", () => {
   const script = readRequired(fullScriptPath);
   const setup = readRequired(identitySetupPath);

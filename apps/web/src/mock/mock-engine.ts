@@ -36,6 +36,31 @@ import type {
   GovernedPublicationView,
   GovernedPublishedVersionView,
   DepartmentManagerGovernedReviewCommandInput,
+  GovernedChecklistIntakeBackend,
+  CreateChecklistImportBatchReceiptInput,
+  ChecklistImportBatchReceiptView,
+  ChecklistImportBatchView,
+  ChecklistImportFilePage,
+  ChecklistImportReceiptPage,
+  CreateChecklistImportFileExtractionReviewInput,
+  ChecklistImportExtractionReviewPage,
+  ChecklistImportExtractionReviewSummaryView,
+  ResolveChecklistImportFileIdentityInput,
+  CreateExistingChecklistCandidateInput,
+  GovernedBackendCommandResult,
+  GovernedSourceReviewQueuePage,
+  GovernedReviewerQueuePage,
+  GovernedSourceAuthorityAttestationInput,
+  GovernedSourceAuthorityAttestationView,
+  ExistingChecklistCandidateView,
+  CreateDraftFromExistingChecklistCandidateInput,
+  CreateOfficialSourceChecklistDraftInput,
+  CreateHybridReconciledChecklistDraftInput,
+  GovernedChecklistReviewCommentInput,
+  GovernedChecklistReviewCommentPage,
+  GovernedSourceMappingAttestationInput,
+  GovernedAuditPackageEligibilityInput,
+  GovernedAuditPackageEligibilityView,
 } from "../backend/backend";
 import {
   BackendAuthorizationInvariantError,
@@ -608,6 +633,18 @@ function mockGovernedCandidateForBundle(bundle: GovernedCandidateBundleInput): G
   mappings: structuredClone(bundle.complianceMappings),
   questions: structuredClone(bundle.inspectionChecklist.questions),
   requiredOwners: [SYNTHETIC_OWNER],
+  lineage: {
+    lineageType: "GENERATION_RUN",
+    entryPath: "GENERATION_RUN",
+    lineageKind: "GENERATION_RUN",
+    candidateRootId: bundle.candidateBundleId,
+    supersedesCandidateId: null,
+    supersedesContentDigest: null,
+    generationRunId: bundle.generationRunId,
+    existingCandidateId: null,
+    legacyAuthorityState: null,
+    bindingSetId: null,
+  },
   };
 }
 
@@ -1028,6 +1065,7 @@ const governedStateByStore = new WeakMap<MemoryMockStore, MockGovernedState>();
 export class MockBackendEngine implements DemoBackend {
   readonly mode = "mock" as const;
   private readonly governedState: MockGovernedState;
+  private readonly governedIntakeBatches = new Map<string, ChecklistImportBatchReceiptView>();
 
   constructor(
     private readonly store: MemoryMockStore,
@@ -2306,6 +2344,125 @@ export class MockBackendEngine implements DemoBackend {
     },
   };
 
+  readonly governedChecklistIntake: GovernedChecklistIntakeBackend = {
+    receiveBatch: async (input: CreateChecklistImportBatchReceiptInput & { archive: Blob | Uint8Array }) => {
+      requireDemoCapability(this.principal, "governedChecklistIntake");
+      requireRole(this.principal, ["admin"], "Admin authority is required for candidate-only archive intake.");
+      void input.archive;
+      const existing = this.governedIntakeBatches.get(input.operationId) ?? this.governedIntakeBatches.get(input.idempotencyKey);
+      if (existing) return { ...structuredClone(existing), replayed: true };
+      const batch: ChecklistImportBatchView = {
+        importBatchId: `IMPORT-${input.operationId}`,
+        expectedArchiveSha256: input.expectedArchiveSha256,
+        status: "RECEIVED",
+        manifestDigest: null,
+        fileCount: 0,
+        registerCount: 0,
+        blockingIssues: ["PARSER_PENDING", "CANDIDATE_ONLY"],
+      };
+      const receipt = { batch, replayed: false };
+      this.governedIntakeBatches.set(input.operationId, receipt);
+      this.governedIntakeBatches.set(input.idempotencyKey, receipt);
+      return structuredClone(receipt);
+    },
+    getBatch: async ({ importBatchId }) => {
+      requireDemoCapability(this.principal, "governedChecklistIntake");
+      requireRole(this.principal, ["admin"], "Admin authority is required for candidate-only inventory.");
+      const receipt = [...this.governedIntakeBatches.values()].find(({ batch }) => batch.importBatchId === importBatchId);
+      if (!receipt) throw new BackendInvariantError("Import batch was not found.");
+      return structuredClone(receipt.batch);
+    },
+    listFiles: async () => {
+      requireDemoCapability(this.principal, "governedChecklistIntake");
+      requireRole(this.principal, ["admin"], "Admin authority is required for candidate-only inventory.");
+      return { items: [], nextCursor: null } as ChecklistImportFilePage;
+    },
+    listReceipts: async () => {
+      requireDemoCapability(this.principal, "governedChecklistIntake");
+      requireRole(this.principal, ["admin"], "Admin authority is required for candidate-only receipts.");
+      return { items: [], nextCursor: null } as ChecklistImportReceiptPage;
+    },
+    createExtractionReview: async (_input: CreateChecklistImportFileExtractionReviewInput) => {
+      requireDemoCapability(this.principal, "governedChecklistIntake");
+      requireRole(this.principal, ["admin"], "Admin authority is required for private extraction review.");
+      throw new BackendInvariantError("Synthetic mock has no parser-output object; extraction review remains blocked.");
+    },
+    getExtractionReview: async ({ importBatchId, importFileId }) => {
+      requireDemoCapability(this.principal, "governedChecklistIntake");
+      requireRole(this.principal, ["admin"], "Admin authority is required for private extraction review.");
+      const page: ChecklistImportExtractionReviewPage = {
+        importBatchId,
+        importFileId,
+        terminalManifestDigest: "",
+        parserReceiptId: "",
+        parserOutputDigest: "",
+        packetId: "",
+        packetDigest: "",
+        competingIdentities: [],
+        currentDecisionSet: { decisionState: "NO_DECISION" },
+        proposals: [],
+        nextCursor: null,
+      };
+      return page;
+    },
+    resolveIdentity: async (_input: ResolveChecklistImportFileIdentityInput) => {
+      requireDemoCapability(this.principal, "governedChecklistIntake");
+      requireRole(this.principal, ["admin"], "Admin authority is required for identity resolution.");
+      throw new BackendInvariantError("Synthetic mock has no conflicting inventory identity to resolve.");
+    },
+    importCandidate: async (_input: CreateExistingChecklistCandidateInput): Promise<GovernedBackendCommandResult> => {
+      requireDemoCapability(this.principal, "governedChecklistIntake");
+      requireRole(this.principal, ["admin"], "Admin authority is required for candidate import.");
+      throw new BackendInvariantError("Candidate import remains blocked until the private extraction packet is present.");
+    },
+    listSourceReviewQueue: async () => {
+      requireRole(this.principal, ["admin", "manager"], "Scoped source-review authority is required.");
+      return { items: [], nextCursor: null } as GovernedSourceReviewQueuePage;
+    },
+    getSourceReviewItem: async () => {
+      requireRole(this.principal, ["admin", "manager"], "Source review item is not in the current assignment scope.");
+      throw new BackendAuthorizationInvariantError("Source review item is not in the current assignment scope.");
+    },
+    listReviewerQueue: async () => {
+      requireRole(this.principal, ["manager"], "Current Department Manager assignment is required for reviewer queue.");
+      return { items: [], nextCursor: null } as GovernedReviewerQueuePage;
+    },
+    attestSourceAuthority: async (_input: GovernedSourceAuthorityAttestationInput): Promise<GovernedSourceAuthorityAttestationView> => {
+      throw new BackendAuthorizationInvariantError("No synthetic source-owner assignment can attest regulatory authority.");
+    },
+    getExistingCandidate: async (_input: { existingCandidateId: string }): Promise<ExistingChecklistCandidateView> => {
+      requireRole(this.principal, ["admin", "manager"], "Existing candidate is not in the current assignment scope.");
+      throw new BackendAuthorizationInvariantError("Existing candidate is not in the current assignment scope.");
+    },
+    createDraftFromExisting: async (_input: CreateDraftFromExistingChecklistCandidateInput): Promise<GovernedBackendCommandResult> => {
+      throw new BackendInvariantError("Candidate Draft creation remains blocked until server-derived owner resolution.");
+    },
+    createOfficialSourceDraft: async (_input: CreateOfficialSourceChecklistDraftInput): Promise<GovernedBackendCommandResult> => {
+      throw new BackendInvariantError("Official-source Draft creation requires persisted accepted source links.");
+    },
+    getDraft: async (_input: { candidateId: string }) => {
+      requireRole(this.principal, ["admin", "manager"], "Governed Draft is not in the current assignment scope.");
+      throw new BackendAuthorizationInvariantError("Governed Draft is not in the current assignment scope.");
+    },
+    createHybridReconciliation: async (_input: CreateHybridReconciledChecklistDraftInput): Promise<GovernedBackendCommandResult> => {
+      throw new BackendInvariantError("Hybrid reconciliation remains blocked until accepted source binding.");
+    },
+    listReviewComments: async (_input: { candidateId: string; cursor?: string; limit?: number }): Promise<GovernedChecklistReviewCommentPage> => {
+      requireRole(this.principal, ["manager"], "Scoped reviewer authority is required for internal comments.");
+      return { items: [], nextCursor: null };
+    },
+    createReviewComment: async (_input: GovernedChecklistReviewCommentInput) => {
+      throw new BackendAuthorizationInvariantError("Reviewer comment scope is not established in the synthetic profile.");
+    },
+    attestSourceMapping: async (_input: GovernedSourceMappingAttestationInput) => {
+      throw new BackendAuthorizationInvariantError("No reviewed-source-set assignment can attest candidate mapping.");
+    },
+    evaluateAuditPackageEligibility: async (input: GovernedAuditPackageEligibilityInput): Promise<GovernedAuditPackageEligibilityView> => {
+      requireRole(this.principal, ["manager"], "Current Department Manager assignment is required for eligibility evaluation.");
+      return { publishedVersionId: input.publishedVersionId, eligible: false, blockerCodes: ["SOURCE_AUTHORITY_OR_MAPPING_REQUIRED"] };
+    },
+  };
+
   readonly adminWorkspace: DemoBackend["adminWorkspace"] = {
     listGovernedSources: async () => {
       requireDemoCapability(this.principal, "adminWorkspace"); requireRole(this.principal, ["admin"], "Admin Preview authority is required.");
@@ -2399,8 +2556,10 @@ export class MockBackendEngine implements DemoBackend {
       };
       this.governedCandidate = successor;
       this.governedCandidates.set(candidateId, successor);
-      const run = this.governedRuns.get(successor.generationRunId)!;
-      this.governedRuns.set(successor.generationRunId, { ...run, candidate: successor });
+      const generationRunId = successor.generationRunId;
+      if (!generationRunId) throw new BackendInvariantError("Governed successor lost its generation-run lineage.");
+      const run = this.governedRuns.get(generationRunId)!;
+      this.governedRuns.set(generationRunId, { ...run, candidate: successor });
       const command = { operationId: input.operationId, idempotencyKey: input.idempotencyKey, semantic, candidateId };
       this.governedCommands.set(input.operationId, command);
       this.governedCommands.set(input.idempotencyKey, command);
@@ -2421,8 +2580,10 @@ export class MockBackendEngine implements DemoBackend {
       }
       this.governedCandidate = { ...this.governedCandidate, status: "DEPARTMENT_REVIEW" };
       this.governedCandidates.set(this.governedCandidate.candidateId, this.governedCandidate);
-      const run = this.governedRuns.get(this.governedCandidate.generationRunId)!;
-      this.governedRuns.set(this.governedCandidate.generationRunId, { ...run, candidate: this.governedCandidate });
+      const generationRunId = this.governedCandidate.generationRunId;
+      if (!generationRunId) throw new BackendInvariantError("Governed candidate lost its generation-run lineage.");
+      const run = this.governedRuns.get(generationRunId)!;
+      this.governedRuns.set(generationRunId, { ...run, candidate: this.governedCandidate });
       const command = { operationId: input.operationId, idempotencyKey: input.idempotencyKey, semantic, candidateId: this.governedCandidate.candidateId };
       this.governedCommands.set(input.operationId, command);
       this.governedCommands.set(input.idempotencyKey, command);

@@ -186,7 +186,7 @@ describe("Task 5 semantic mock and HTTP parity", () => {
     })).toBe("sha256:377598cb1bee5388b19c9d7d4de34f1ff9f6b16b7ac1d2ff6cc5d96af798ad19");
     expect(editedDigest).toBe("sha256:31554d0293d724c6ececb947d3479d306e6281e1a010fd380c5fe2bf626561de");
     expect(await governedImportSemanticDigest("TASK5-GOLDEN-IMPORT", SYNTHETIC_GOVERNED_BUNDLE))
-      .toBe("sha256:015e0eef81c198543d353047e1fc023ee0695ac11cbc8a0cd4dae1f159965f1c");
+      .toBe("sha256:c956df2ea2b43049e976aab22f79ab1d1526112b55a4b4bcea5e288b279b4ce1");
     expect(await governedEditSemanticDigest({
       candidateId: SYNTHETIC_GOVERNED_BUNDLE.candidateBundleId,
       expectedRevision: 1,

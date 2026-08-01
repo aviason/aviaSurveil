@@ -342,6 +342,7 @@
                 },
                 "regulatoryTrace": {
                   "state": "RESOLVED",
+                  "mappingReviewState": "SOURCE_OWNER_REVIEW_REQUIRED",
                   "sourceIdentity": "SYNTHETIC-OPS-AOC",
                   "sourceTitle": "Synthetic test-profile source",
                   "immutableVersion": "1",
@@ -440,6 +441,7 @@
         },
         "regulatoryTrace": {
           "state": "RESOLVED",
+          "mappingReviewState": "SOURCE_OWNER_REVIEW_REQUIRED",
           "sourceIdentity": "SYNTHETIC-OPS-AOC",
           "sourceTitle": "Synthetic test-profile source",
           "immutableVersion": "1",

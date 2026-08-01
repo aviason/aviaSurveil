@@ -1,0 +1,35 @@
+{
+  "packageVersion": "AGA_PHASE2_EXPANSION_AUTHORIZATION_V1",
+  "authorizationState": "PENDING",
+  "authorizedBy": {
+    "subjectId": "",
+    "role": "",
+    "decisionId": "",
+    "decidedAt": "",
+    "reason": ""
+  },
+  "prerequisites": {
+    "form048IdentityDecisionId": "",
+    "form048DecisionSetLeafId": "",
+    "form048CandidateId": "",
+    "form048CandidateContentDigest": "",
+    "form048SourceGapDraftId": "",
+    "form048SourceGapState": "SOURCE_MAPPING_REQUIRED"
+  },
+  "scope": {
+    "formIds": [],
+    "layoutFamilies": [],
+    "maxCandidateCount": 0,
+    "stopOnHardError": true,
+    "perFileReviewRequired": true
+  },
+  "constraints": {
+    "candidateOnly": true,
+    "sourceMappingAuthorized": false,
+    "sourceOwnerAttestationAuthorized": false,
+    "technicalApprovalAuthorized": false,
+    "publicationAuthorized": false,
+    "bulkImportAuthorized": false
+  },
+  "confirmation": ""
+}

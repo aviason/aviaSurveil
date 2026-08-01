@@ -197,6 +197,7 @@ export function UsersRolesPage() {
   const [commandError, setCommandError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [submittingLabel, setSubmittingLabel] = useState<string | null>(null);
+  const [directoryRefreshCount, setDirectoryRefreshCount] = useState(0);
   const dialogContainerRef = useRef<HTMLDivElement | null>(null);
   const dialogInitialFocusRef = useRef<HTMLButtonElement | null>(null);
   const dialogOpenerRef = useRef<HTMLButtonElement | null>(null);
@@ -392,6 +393,11 @@ export function UsersRolesPage() {
     }
   }
 
+  function refreshDirectory() {
+    setDirectoryRefreshCount((count) => count + 1);
+    directory.reload();
+  }
+
   const confirmationAction =
     confirmation?.kind === "provision" ? "PROVISION" : confirmation?.action;
   const confirmationLabel = confirmationAction
@@ -460,7 +466,7 @@ export function UsersRolesPage() {
         </label>
         <button
           disabled={busy}
-          onClick={directory.reload}
+          onClick={refreshDirectory}
           type="button"
         >
           Refresh user directory
@@ -543,6 +549,12 @@ export function UsersRolesPage() {
         </p>
       ) : null}
 
+      {directoryRefreshCount > 0 ? (
+        <p className="admin-directory-state" data-durable-outcome role="status">
+          User directory refresh requested ({directoryRefreshCount}).
+        </p>
+      ) : null}
+
       {isHttp && lifecycle ? (
         <section
           aria-label="Lifecycle request status"
@@ -594,7 +606,7 @@ export function UsersRolesPage() {
       {directory.data === null && directory.error ? (
         <div className="admin-directory-state admin-directory-state--error">
           <p role="alert">{directory.error}</p>
-          <button onClick={directory.reload} type="button">
+          <button onClick={refreshDirectory} type="button">
             Retry user directory
           </button>
         </div>
@@ -604,7 +616,7 @@ export function UsersRolesPage() {
           <p role="status">
             Showing the last successful directory because {directory.error}
           </p>
-          <button onClick={directory.reload} type="button">
+          <button onClick={refreshDirectory} type="button">
             Retry user directory
           </button>
         </div>

@@ -610,11 +610,12 @@ func loadCanonicalCatalog(t *testing.T) scenarios.Catalog {
 
 	var ledger struct {
 		ActionEvidence []struct {
-			SurfaceID  string   `json:"surfaceId"`
-			Scope      string   `json:"scope"`
-			Profiles   []string `json:"profiles"`
-			ControlKey string   `json:"controlKey"`
-			Assertion  string   `json:"assertion"`
+			SurfaceID                string   `json:"surfaceId"`
+			Scope                    string   `json:"scope"`
+			Profiles                 []string `json:"profiles"`
+			ControlKey               string   `json:"controlKey"`
+			Assertion                string   `json:"assertion"`
+			IncludeInScenarioCatalog *bool    `json:"includeInScenarioCatalog"`
 		} `json:"actionEvidence"`
 	}
 	if err := json.Unmarshal(ledgerSource, &ledger); err != nil {
@@ -629,6 +630,9 @@ func loadCanonicalCatalog(t *testing.T) scenarios.Catalog {
 	}
 	var expectedActionIDs []string
 	for _, entry := range ledger.ActionEvidence {
+		if entry.IncludeInScenarioCatalog != nil && !*entry.IncludeInScenarioCatalog {
+			continue
+		}
 		if entry.Scope != "route" || !executableAssertions[entry.Assertion] {
 			continue
 		}

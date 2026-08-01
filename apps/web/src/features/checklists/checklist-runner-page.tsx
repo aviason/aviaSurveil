@@ -109,20 +109,23 @@ export function ChecklistRunnerPage() {
   const selectedQuestion = packageView?.questions.find(
     (question) => question.id === selectedQuestionId,
   );
+  const selectedResponse =
+    selectedQuestion?.currentResponse ??
+    (projection.response?.questionId === selectedQuestionId ? projection.response : null);
   const activeSubjectId = runtime.subjectId ?? "USR-INSPECTOR-AMINA";
   const selectedQuestionAssignedHere =
     selectedQuestion?.assignedInspectorUserIds.includes(activeSubjectId) ?? false;
   const checklistReadOnly = packageView?.checklistStatus === "SUBMITTED";
   const attachmentRecoveryBlocked = projection.attachmentRecoveryBlocking.length > 0;
   const commentRequired = selectedQuestion?.commentRequiredFor.includes(answer) ?? false;
-  const responseState = projection.response
+  const responseState = selectedResponse
     ? responseStateLabel({
-        answer: projection.response.answer,
+        answer: selectedResponse.answer,
         fieldMode: projection.fieldMode,
         pendingCount: projection.fieldPendingOperationCount,
       })
     : null;
-  const answeredCount = projection.response ? 1 : 0;
+  const answeredCount = selectedResponse ? 1 : 0;
   const questionCount = packageView?.questions.length ?? 6;
   const progress = questionCount > 0 ? Math.round((answeredCount / questionCount) * 100) : 0;
   const identityMode =
@@ -149,7 +152,9 @@ export function ChecklistRunnerPage() {
     void run(() => actions.saveChecklistResponse(answer, comment, selectedQuestionId));
   }
 
-  const findingPath = projection.potentialFinding ? "Potential Finding created" : "No finding yet";
+  const findingPath = projection.potentialFinding && projection.potentialFinding.questionId === selectedQuestionId
+    ? "Potential Finding created"
+    : "No finding yet";
   const activeFlagged = answer === "NON_COMPLIANT" || answer === "OBSERVATION";
 
   return (
@@ -223,7 +228,7 @@ export function ChecklistRunnerPage() {
                 </section>
                 <div className="checklist-command-strip">
                   <span><b>Current owner</b><strong>CAA Inspector</strong></span>
-                  <span className="is-warn"><b>Next action</b><strong>{projection.response ? "Confirm answer and notes" : "Choose an answer"}</strong></span>
+                  <span className="is-warn"><b>Next action</b><strong>{selectedResponse ? "Confirm answer and notes" : "Choose an answer"}</strong></span>
                   <span><b>Finding path</b><strong>{findingPath}</strong></span>
                 </div>
                 <div className="checklist-ai-entry">
@@ -288,7 +293,7 @@ export function ChecklistRunnerPage() {
                   {responseState ? <span data-testid="response-status">{responseState}</span> : null}
                 </div>
                 {responseState ? <p data-testid="local-server-state">{responseState}</p> : null}
-                {projection.response && !projection.potentialFinding ? (
+                {selectedResponse && !projection.potentialFinding ? (
                   <button
                     className="checklist-create-finding"
                     disabled={busy || !selectedQuestionAssignedHere || checklistReadOnly || attachmentRecoveryBlocked}
@@ -305,7 +310,7 @@ export function ChecklistRunnerPage() {
                     <span data-testid="potential-finding-status">{projection.potentialFinding.status}</span>
                   </div>
                 ) : null}
-                {projection.response ? (
+                {selectedResponse ? (
                   <section className="inspector-attachment-panel" aria-labelledby="inspection-attachment-title">
                     <h3 id="inspection-attachment-title">Inspection Attachment</h3>
                     <label>
@@ -394,7 +399,7 @@ export function ChecklistRunnerPage() {
                               : `${question.sectionId} / ${question.regulatoryReference}`}
                           </small>
                         </td>
-                        <td><span>● {active && projection.response ? answerLabel(projection.response.answer) : "Not answered"}</span></td>
+                        <td><span>● {active && selectedResponse ? answerLabel(selectedResponse.answer) : "Not answered"}</span></td>
                         <td>{acceptedQuestion?.evidence ?? question.expectedEvidence}</td>
                         <td>{active && activeFlagged ? findingPath : "No finding"}</td>
                         <td><span>{active ? "Current" : assignedHere ? "Select row" : "Read-only"}</span></td>

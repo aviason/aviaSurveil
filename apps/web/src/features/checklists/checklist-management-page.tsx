@@ -11,6 +11,10 @@ import type {
 import { EXACT_BLOCKED_REAL_OPS_AOC_REQUEST } from "../../backend/governed-synthetic-profile";
 import { CommandError, errorMessage, PageHeader, WorkspaceShell } from "../shared/workspace-shell";
 
+function activeReviewQueueItems(items: DepartmentManagerGovernedReviewItem[]): DepartmentManagerGovernedReviewItem[] {
+  return items.filter((item) => ["DEPARTMENT_REVIEW", "TECHNICALLY_APPROVED"].includes(item.candidate.status));
+}
+
 type ReviewAction = "return" | "reject" | "approve";
 
 export function ChecklistManagementPage() {
@@ -38,8 +42,9 @@ export function ChecklistManagementPage() {
     ]).then(([loadedPackage, queue, blocked]) => {
       if (!cancelled) {
         setInspectionPackage(loadedPackage);
-        setReviewQueue(queue.items);
-        setReviewItem(queue.items[0] ?? null);
+        const activeItems = activeReviewQueueItems(queue.items);
+        setReviewQueue(activeItems);
+        setReviewItem(activeItems[0] ?? null);
         setBlockedGeneration(blocked);
       }
     }).catch((cause) => !cancelled && setError(errorMessage(cause)));
@@ -94,7 +99,7 @@ export function ChecklistManagementPage() {
         detail = { ...reviewItem!, candidate };
       }
       const queue = await backend.governedChecklistReview.listQueue({});
-      setReviewQueue(queue.items);
+      setReviewQueue(activeReviewQueueItems(queue.items));
       setReviewItem(detail);
       setReason("");
     } catch (cause) {

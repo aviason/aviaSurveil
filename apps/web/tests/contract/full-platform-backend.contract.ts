@@ -532,6 +532,20 @@ async function potentialFindingAuthority(state: ScenarioState): Promise<void> {
       convertedObservation.finding.status === "EVIDENCE_REQUIRED",
   );
 
+  const fixtureLead = backendFor(state, PRINCIPALS.leadInspector);
+  const packageView = await fixtureLead.inspections.getPackage({ packageId: "PKG-CAB-2026-001" });
+  for (const packageQuestion of packageView.questions) {
+    if (packageQuestion.currentResponse) continue;
+    await fixtureLead.inspections.upsertChecklistResponse({
+      operationId: `OP-FULL-CHECKLIST-COMPLETE-${packageQuestion.id}`,
+      responseId: `RESP-FULL-CHECKLIST-${packageQuestion.id}`,
+      auditId: packageView.auditId,
+      questionId: packageQuestion.id,
+      expectedResponseRevision: null,
+      answer: "COMPLIANT",
+      comment: "",
+    });
+  }
   const submittedChecklist = await backendFor(state, PRINCIPALS.inspector)
     .inspections.submitChecklist({
       operationId: "OP-FULL-CHECKLIST-SUBMIT",

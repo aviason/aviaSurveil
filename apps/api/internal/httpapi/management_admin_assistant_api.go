@@ -242,7 +242,7 @@ func (api *CanonicalAPI) listAdminAccessDirectory(
 			SubjectId: record.SubjectID, DisplayName: record.DisplayName,
 			Roles: roles, OrganizationId: organizationID, Email: record.Email,
 			MfaEnrolled: record.MFAEnrolled, MfaState: record.MFAState,
-			RequiredActions:         append([]string(nil), record.RequiredActions...),
+			RequiredActions:         append([]string{}, record.RequiredActions...),
 			InvitationState:         record.InvitationState,
 			AccountStatus:           record.AccountStatus,
 			ApplicationProfileState: record.ApplicationProfile,

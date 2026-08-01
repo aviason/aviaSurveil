@@ -29,6 +29,19 @@ Configure templates and rules without code changes.
 - Admin changes audited
 - Normal users cannot edit config during audits
 
+## Governed intake administration boundary
+
+Admin may receive a candidate-only AGA archive, review its immutable inventory,
+resolve a file identity, and prepare a Draft. Admin cannot establish source
+authority, technically approve, publish, or make an Audit package eligible.
+
+`REGULATORY_SOURCE_OWNER` and `CHECKLIST_REVIEWER` are scoped,
+effective-dated functional assignments for authenticated internal CAA users;
+they are not top-level roles. `REVIEWED_SOURCE_SET` assignment provisioning is
+blocked pending a named governance directive. There is no Admin grant/revoke
+route and synthetic fixtures only may seed those assignments. Missing,
+ambiguous, expired, revoked, or out-of-scope assignments fail closed.
+
 ## UX direction
 
 The screen must show status, owner, due date and next action before secondary details. Advanced configuration must stay behind admin permissions.
