@@ -1,0 +1,1717 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:aviasurveil360:aga-question-classification:v1",
+  "title": "AGA Hybrid Question Classification V1",
+  "x-taxonomy-version": "AGA_QUESTION_CLASSIFICATION_V1",
+  "x-taxonomy-digest": "sha256:d9fa2bba1079c693afbdc8710ec8cc661d3be4d59ba8aa02766bedccc28c935d",
+  "oneOf": [
+    { "$ref": "#/$defs/passBatchOutput" },
+    { "$ref": "#/$defs/passSealReceipt" },
+    { "$ref": "#/$defs/passProposalRecord" },
+    { "$ref": "#/$defs/sealedClassificationItem" },
+    { "$ref": "#/$defs/classificationAggregate" },
+    { "$ref": "#/$defs/classificationRunReceipt" },
+    { "$ref": "#/$defs/loadingClassificationRunRecord" },
+    { "$ref": "#/$defs/rejectedClassificationRunRecord" },
+    { "$ref": "#/$defs/classificationInputRejected" },
+    { "$ref": "#/$defs/classificationBatchManifest" },
+    { "$ref": "#/$defs/draftItem" },
+    { "$ref": "#/$defs/questionRef" }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "classificationBatchSizingValue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maximumValidAsciiValue", "maximumValidAsciiBytes"],
+      "properties": {
+        "maximumValidAsciiValue": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+        "maximumValidAsciiBytes": { "type": "integer", "minimum": 1, "maximum": 128 }
+      }
+    },
+    "classificationBatchSizingContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["taxonomyVersion", "canonicalJSON", "passInputDigestDomain", "fixedSha256StringBytes", "passRoles", "classificationRunId", "candidatePassRunId", "challengePassRunId"],
+      "properties": {
+        "taxonomyVersion": { "const": "AGA_QUESTION_CLASSIFICATION_V1" },
+        "canonicalJSON": { "const": "AVIASURVEIL360_CANONICAL_JSON_V1" },
+        "passInputDigestDomain": { "const": "AGA-CLASSIFICATION-PASS-INPUT-V1" },
+        "fixedSha256StringBytes": { "const": 71 },
+        "passRoles": { "type": "array", "items": { "enum": ["CANDIDATE", "CHALLENGE"] }, "minItems": 2, "maxItems": 2, "uniqueItems": true },
+        "classificationRunId": { "$ref": "#/$defs/classificationBatchSizingValue" },
+        "candidatePassRunId": { "$ref": "#/$defs/classificationBatchSizingValue" },
+        "challengePassRunId": { "$ref": "#/$defs/classificationBatchSizingValue" }
+      }
+    },
+    "classificationBatchEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["batchOrdinal", "itemCount", "candidateCanonicalBytes", "challengeCanonicalBytes", "worstCaseCanonicalBytes", "sourceSnapshotDigest", "orderedIdentityDigest", "identities", "batchEntryDigest"],
+      "properties": {
+        "batchOrdinal": { "type": "integer", "minimum": 1, "maximum": 25 },
+        "itemCount": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "candidateCanonicalBytes": { "type": "integer", "minimum": 1, "maximum": 98304 },
+        "challengeCanonicalBytes": { "type": "integer", "minimum": 1, "maximum": 98304 },
+        "worstCaseCanonicalBytes": { "type": "integer", "minimum": 1, "maximum": 98304 },
+        "sourceSnapshotDigest": { "$ref": "#/$defs/sha256" },
+        "orderedIdentityDigest": { "$ref": "#/$defs/sha256" },
+        "identities": { "type": "array", "items": { "$ref": "#/$defs/baseIdentity" }, "minItems": 1, "maxItems": 64 },
+        "batchEntryDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "classificationBatchManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "itemCount", "batchCount", "maxItems", "maxCanonicalBytes", "sizingContract", "fixedInputDigests", "discoveryBatchManifestDigest", "prohibitedDiscoveryInputDigests", "orderedIdentityDigest", "batches", "manifestDigest"],
+      "properties": {
+        "schemaVersion": { "const": "aga-hybrid-classification-batch-manifest/v2" },
+        "itemCount": { "const": 1310 },
+        "batchCount": { "const": 25 },
+        "maxItems": { "const": 64 },
+        "maxCanonicalBytes": { "const": 98304 },
+        "sizingContract": { "$ref": "#/$defs/classificationBatchSizingContract" },
+        "fixedInputDigests": { "$ref": "#/$defs/fixedInputDigests" },
+        "discoveryBatchManifestDigest": { "const": "sha256:000bb8c32076a74c9468c19e9d8b35901c83279e0635a0e84dc109801977873c" },
+        "prohibitedDiscoveryInputDigests": { "type": "array", "items": { "$ref": "#/$defs/sha256" }, "minItems": 24, "maxItems": 24, "uniqueItems": true },
+        "orderedIdentityDigest": { "$ref": "#/$defs/sha256" },
+        "batches": { "type": "array", "items": { "$ref": "#/$defs/classificationBatchEntry" }, "minItems": 25, "maxItems": 25 },
+        "manifestDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "passInputDigest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "x-digest-role": "PASS_BATCH_INPUT_DIGEST",
+      "x-digest-domain": "AGA-CLASSIFICATION-PASS-INPUT-V1",
+      "x-preimage-contract": "classificationPassInputPreimage"
+    },
+    "runInputDigest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "x-digest-role": "CLASSIFICATION_RUN_INPUT_DIGEST",
+      "x-digest-domain": "AGA-CLASSIFICATION-RUN-INPUT-V1",
+      "x-preimage-contract": "runInputPayloadFields"
+    },
+    "serverId": {
+      "type": "string",
+      "pattern": "^aga-ws-[a-z0-9][a-z0-9-]{7,63}$"
+    },
+    "classificationRunId": {
+      "type": "string",
+      "pattern": "^aga-classification-run-[a-z0-9][a-z0-9-]{0,63}$"
+    },
+    "passRunId": {
+      "type": "string",
+      "pattern": "^aga-classification-pass-(?:candidate|challenge)-[a-z0-9][a-z0-9-]{0,63}$"
+    },
+    "subjectId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+    },
+    "canonicalUtc": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?Z$"
+    },
+    "formCode": {
+      "type": "string",
+      "pattern": "^FSS-AGA-FORM-(?:0(?:0[1-9]|[12][0-9]|3[0-4])|035A|0(?:3[6-9]|4[0-8]|5[0-3]))$"
+    },
+    "baseIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "packageVersion",
+        "packageJsonSha256",
+        "formCode",
+        "proposalId",
+        "ordinal",
+        "textDigest"
+      ],
+      "properties": {
+        "packageVersion": { "const": "AGA_ALL_FORMS_SOURCE_RISK_DRAFT_V1" },
+        "packageJsonSha256": {
+          "const": "sha256:5ebcce2d70ee22fef4165b490cb6e4b276ad776f40dbaf12e5cea85c9da91b15"
+        },
+        "formCode": { "$ref": "#/$defs/formCode" },
+        "proposalId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "ordinal": { "type": "integer", "minimum": 1, "maximum": 256 },
+        "textDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "modelDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "modelId",
+        "modelIdSource",
+        "runtimeReportedFamily",
+        "service",
+        "interface",
+        "requestedReasoningEffort",
+        "forkTurns",
+        "snapshotBuildLabel",
+        "unavailableFields"
+      ],
+      "properties": {
+        "modelId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "modelIdSource": { "enum": ["accepted-collaboration-spawn-agent-model-override"] },
+        "runtimeReportedFamily": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "service": { "const": "Codex" },
+        "interface": { "const": "API" },
+        "requestedReasoningEffort": { "enum": ["xhigh"] },
+        "forkTurns": { "const": "none" },
+        "snapshotBuildLabel": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "minLength": 1, "maxLength": 128 }
+          ]
+        },
+        "unavailableFields": {
+          "type": "array",
+          "items": { "enum": ["exactModelVersion", "serviceTier", "snapshotBuildLabel"] },
+          "uniqueItems": true,
+          "maxItems": 3
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["snapshotBuildLabel"],
+            "properties": { "snapshotBuildLabel": { "type": "null" } }
+          },
+          "then": {
+            "properties": {
+              "unavailableFields": {
+                "contains": { "const": "snapshotBuildLabel" },
+                "minContains": 1,
+                "maxContains": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["snapshotBuildLabel"],
+            "properties": { "snapshotBuildLabel": { "type": "string" } }
+          },
+          "then": {
+            "properties": {
+              "unavailableFields": {
+                "not": { "contains": { "const": "snapshotBuildLabel" } }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "classificationPackageFacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "formKind",
+        "formRiskBand",
+        "questionRiskBand",
+        "questionRiskDomain",
+        "sourceMappingState",
+        "sourceAuthorityState",
+        "extractionState",
+        "riskClassificationState",
+        "decisionState",
+        "sourceProposalDigests",
+        "sourceReferenceDigests"
+      ],
+      "properties": {
+        "formKind": { "enum": ["ADMINISTRATIVE_FORM", "CHECKLIST", "FORM"] },
+        "formRiskBand": { "enum": ["PROPOSED_CONTROL_ASSURANCE", "PROPOSED_HIGH_OPERATIONAL", "PROPOSED_REVIEW_REQUIRED", "PROPOSED_SAFETY_CRITICAL"] },
+        "questionRiskBand": { "enum": ["PROPOSED_CONTROL_ASSURANCE", "PROPOSED_HIGH_OPERATIONAL", "PROPOSED_REVIEW_REQUIRED", "PROPOSED_SAFETY_CRITICAL"] },
+        "questionRiskDomain": { "enum": ["AERODROME_OPERATIONAL_SAFETY", "GOVERNANCE_AND_RECORDS", "OPERATIONAL_ASSURANCE", "UNCLASSIFIED"] },
+        "sourceMappingState": { "const": "SOURCE_MAPPING_REQUIRED" },
+        "sourceAuthorityState": { "const": "NOT_ATTESTED" },
+        "extractionState": { "enum": ["EXTRACTED_CANDIDATE", "EXACT_SOURCE_BACKED"] },
+        "riskClassificationState": { "const": "CANDIDATE_INTERPRETATION_REQUIRES_EXPERT_REVIEW" },
+        "decisionState": { "const": "DECISION_NOT_SUPPLIED" },
+        "sourceProposalDigests": { "type": "array", "items": { "$ref": "#/$defs/sha256" }, "uniqueItems": true, "maxItems": 8 },
+        "sourceReferenceDigests": { "type": "array", "items": { "$ref": "#/$defs/sha256" }, "uniqueItems": true, "maxItems": 8 }
+      }
+    },
+    "classificationResearchCandidateFacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "form_code",
+        "proposal_id",
+        "ordinal",
+        "text_digest",
+        "target_kind",
+        "operation_activity_qualifier",
+        "primary_subject_proposal",
+        "operational_interface_candidates",
+        "evidence_contributor_candidates",
+        "provider_applicability_unresolved",
+        "unresolved_reasons",
+        "source_refs"
+      ],
+      "properties": {
+        "form_code": { "$ref": "#/$defs/formCode" },
+        "proposal_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "ordinal": { "type": "string", "pattern": "^[1-9][0-9]{0,2}$" },
+        "text_digest": { "$ref": "#/$defs/sha256" },
+        "target_kind": { "enum": ["AERODROME_AND_SURROUNDING_AIRSPACE", "AERODROME_APRON_FUNCTION", "AERODROME_DATA", "AERODROME_EMERGENCY_PLAN", "AERODROME_OR_HELIPORT", "AERODROME_RFFS_FUNCTION", "AERODROME_RUNWAY_SAFETY_PROGRAMME", "AERODROME_SMS", "AERODROME_SYSTEM_OR_ASSET", "AERODROME_WILDLIFE_PROGRAMME", "MILITARY_AERODROME_CIVIL_USE"] },
+        "operation_activity_qualifier": { "enum": ["AERODROME_AND_SURROUNDING_AIRSPACE", "AERODROME_APRON_FUNCTION", "AERODROME_DATA", "AERODROME_EMERGENCY_PLAN", "AERODROME_OR_HELIPORT", "AERODROME_RFFS_FUNCTION", "AERODROME_RUNWAY_SAFETY_PROGRAMME", "AERODROME_SMS", "AERODROME_SYSTEM_OR_ASSET", "AERODROME_WILDLIFE_PROGRAMME", "MILITARY_CIVIL_USE_APPLICATION"] },
+        "primary_subject_proposal": { "const": "AERODROME_OPERATOR" },
+        "operational_interface_candidates": { "enum": ["", "AIR_OPERATOR", "AIS_AIM_PROVIDER", "ANSP", "CNS_PROVIDER"] },
+        "evidence_contributor_candidates": { "enum": ["", "AIR_OPERATOR", "AIS_AIM_PROVIDER", "ANSP", "CNS_PROVIDER"] },
+        "provider_applicability_unresolved": { "enum": ["false", "true"] },
+        "unresolved_reasons": { "enum": ["", "missing_source_reference", "possible_external_actor_as_grammatical_subject"] },
+        "source_refs": { "type": "string", "maxLength": 256 }
+      }
+    },
+    "classificationPassInputItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "questionBody", "packageFacts", "researchCandidateFacts"],
+      "properties": {
+        "identity": { "$ref": "#/$defs/baseIdentity" },
+        "questionBody": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "packageFacts": { "$ref": "#/$defs/classificationPackageFacts" },
+        "researchCandidateFacts": { "$ref": "#/$defs/classificationResearchCandidateFacts" }
+      }
+    },
+    "classificationPassInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "purpose",
+        "classificationRunId",
+        "passRole",
+        "passRunId",
+        "batchOrdinal",
+        "taxonomyVersion",
+        "taxonomyDigest",
+        "promptDigest",
+        "modelDescriptorDigest",
+        "batchManifestDigest",
+        "fixedInputDigests",
+        "items"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "aga-hybrid-classification-pass-input/v1" },
+        "purpose": { "const": "ROW_CLASSIFICATION_PRIVATE_INPUT" },
+        "classificationRunId": { "$ref": "#/$defs/classificationRunId" },
+        "passRole": { "enum": ["CANDIDATE", "CHALLENGE"] },
+        "passRunId": { "$ref": "#/$defs/passRunId" },
+        "batchOrdinal": { "type": "integer", "minimum": 1, "maximum": 25 },
+        "taxonomyVersion": { "const": "AGA_QUESTION_CLASSIFICATION_V1" },
+        "taxonomyDigest": { "const": "sha256:d9fa2bba1079c693afbdc8710ec8cc661d3be4d59ba8aa02766bedccc28c935d" },
+        "promptDigest": { "const": "sha256:a3e1a02c64d403bbca346b6bb33f4dcd509c06fafcc082d197120098322dd1b1" },
+        "modelDescriptorDigest": { "$ref": "#/$defs/sha256" },
+        "batchManifestDigest": { "const": "sha256:dee3a0101dcfdeaef9dbb8c3f53d7e4a99de9499eaa7d82a039eb6cac077c96b" },
+        "fixedInputDigests": { "$ref": "#/$defs/fixedInputDigests" },
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/classificationPassInputItem" },
+          "minItems": 1,
+          "maxItems": 64
+        }
+      }
+    },
+    "sealedBaseQuestionRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "questionOrigin",
+        "packageVersion",
+        "packageJsonSha256",
+        "formCode",
+        "proposalId",
+        "ordinal",
+        "textDigest"
+      ],
+      "properties": {
+        "questionOrigin": { "const": "SEALED_BASE" },
+        "packageVersion": { "const": "AGA_ALL_FORMS_SOURCE_RISK_DRAFT_V1" },
+        "packageJsonSha256": {
+          "const": "sha256:5ebcce2d70ee22fef4165b490cb6e4b276ad776f40dbaf12e5cea85c9da91b15"
+        },
+        "formCode": { "$ref": "#/$defs/formCode" },
+        "proposalId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "ordinal": { "type": "integer", "minimum": 1, "maximum": 256 },
+        "textDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "sealedBaseParentQuestionKey": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "questionOrigin",
+        "packageVersion",
+        "packageJsonSha256",
+        "formCode",
+        "proposalId",
+        "ordinal",
+        "textDigest"
+      ],
+      "properties": {
+        "questionOrigin": { "const": "SEALED_BASE" },
+        "packageVersion": { "const": "AGA_ALL_FORMS_SOURCE_RISK_DRAFT_V1" },
+        "packageJsonSha256": {
+          "const": "sha256:5ebcce2d70ee22fef4165b490cb6e4b276ad776f40dbaf12e5cea85c9da91b15"
+        },
+        "formCode": { "$ref": "#/$defs/formCode" },
+        "proposalId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "ordinal": { "type": "integer", "minimum": 1, "maximum": 256 },
+        "textDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "workspaceParentQuestionKey": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "questionOrigin",
+        "generationId",
+        "questionRootId",
+        "questionVersionId",
+        "proposalId",
+        "rootSequence",
+        "bodyDigest"
+      ],
+      "properties": {
+        "questionOrigin": { "const": "WORKSPACE" },
+        "generationId": { "$ref": "#/$defs/serverId" },
+        "questionRootId": { "$ref": "#/$defs/serverId" },
+        "questionVersionId": { "$ref": "#/$defs/serverId" },
+        "proposalId": { "$ref": "#/$defs/serverId" },
+        "rootSequence": { "type": "integer", "minimum": 1 },
+        "bodyDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "parentQuestionKey": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/sealedBaseParentQuestionKey" },
+        { "$ref": "#/$defs/workspaceParentQuestionKey" }
+      ]
+    },
+    "workspaceQuestionRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "questionOrigin",
+        "generationId",
+        "questionRootId",
+        "questionVersionId",
+        "proposalId",
+        "rootSequence",
+        "bodyDigest",
+        "parentQuestionKey",
+        "createdBySubjectId",
+        "createdAt",
+        "reasonCode"
+      ],
+      "properties": {
+        "questionOrigin": { "const": "WORKSPACE" },
+        "generationId": { "$ref": "#/$defs/serverId" },
+        "questionRootId": { "$ref": "#/$defs/serverId" },
+        "questionVersionId": { "$ref": "#/$defs/serverId" },
+        "proposalId": { "$ref": "#/$defs/serverId" },
+        "rootSequence": { "type": "integer", "minimum": 1 },
+        "bodyDigest": { "$ref": "#/$defs/sha256" },
+        "parentQuestionKey": { "$ref": "#/$defs/parentQuestionKey" },
+        "createdBySubjectId": { "$ref": "#/$defs/subjectId" },
+        "createdAt": { "$ref": "#/$defs/canonicalUtc" },
+        "reasonCode": {
+          "enum": ["SYNTHETIC_CANDIDATE_ADDED", "SYNTHETIC_CANDIDATE_REWORDED"]
+        }
+      }
+    },
+    "questionRef": {
+      "oneOf": [
+        { "$ref": "#/$defs/sealedBaseQuestionRef" },
+        { "$ref": "#/$defs/workspaceQuestionRef" }
+      ]
+    },
+    "operationQualifier": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["key", "value"],
+          "properties": {
+            "key": { "const": "APPROACH_CATEGORY" },
+            "value": { "enum": ["CAT_I", "CAT_II", "CAT_III", "NON_PRECISION", "NOT_APPLICABLE"] }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["key", "value"],
+          "properties": {
+            "key": { "const": "DAY_OR_NIGHT" },
+            "value": { "enum": ["DAY", "DAY_AND_NIGHT", "NIGHT"] }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["key", "value"],
+          "properties": {
+            "key": { "const": "LOW_VISIBILITY_BAND" },
+            "value": { "enum": ["LOW_VISIBILITY_PROCEDURES", "NORMAL_VISIBILITY", "VERY_LOW_VISIBILITY"] }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["key", "value"],
+          "properties": {
+            "key": { "const": "OPERATION_STATUS" },
+            "value": { "enum": ["ACTIVE", "CLOSED", "TEMPORARILY_RESTRICTED"] }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["key", "value"],
+          "properties": {
+            "key": { "const": "RUNWAY_USE" },
+            "value": { "enum": ["ARRIVAL", "DEPARTURE", "MIXED", "NOT_APPLICABLE"] }
+          }
+        }
+      ]
+    },
+    "activityQualifier": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["key", "value"],
+          "properties": {
+            "key": { "const": "ACTIVITY_TYPE" },
+            "value": {
+              "enum": [
+                "DATA_PROVISION",
+                "EMERGENCY_RESPONSE",
+                "LIGHTING_INSPECTION",
+                "MAINTENANCE",
+                "MARKING_INSPECTION",
+                "OBSTACLE_SURVEY",
+                "RISK_ASSESSMENT",
+                "RUNWAY_CONDITION_ASSESSMENT",
+                "WILDLIFE_HAZARD_ASSESSMENT"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "qualifier": {
+      "oneOf": [
+        { "$ref": "#/$defs/operationQualifier" },
+        { "$ref": "#/$defs/activityQualifier" }
+      ]
+    },
+    "confidenceEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proposalField",
+        "proposalValueDigest",
+        "rationaleCode",
+        "inputFactSelector",
+        "inputFactValueDigest"
+      ],
+      "properties": {
+        "proposalField": {
+          "enum": [
+            "activityQualifiers",
+            "applicabilityDisposition",
+            "canonicalTargetKind",
+            "evidenceExpectationCodes",
+            "inspectionProfileCodes",
+            "inspectionTypeCodes",
+            "mainDomainCode",
+            "operationQualifiers",
+            "targetProfileCode",
+            "topicCodes"
+          ]
+        },
+        "proposalValueDigest": { "$ref": "#/$defs/sha256" },
+        "rationaleCode": {
+          "enum": [
+            "CONFIGURATION_CUE",
+            "CONTRACTED_ACTIVITY_CUE",
+            "DATA_QUALITY_CUE",
+            "EXTERNAL_INTERFACE_CUE",
+            "GOVERNANCE_CUE",
+            "LOW_VISIBILITY_CUE",
+            "MANAGEMENT_SYSTEM_CUE",
+            "OPERATIONAL_SAFETY_CUE",
+            "PHYSICAL_CHARACTERISTICS_CUE",
+            "SOURCE_EVIDENCE_PRESENT",
+            "SOURCE_GAP_CUE"
+          ]
+        },
+        "inputFactSelector": {
+          "enum": [
+            "FORM_METADATA_DIGEST",
+            "QUESTION_BODY_DIGEST",
+            "RESEARCH_ROW_DIGEST",
+            "SOURCE_PROPOSAL_DIGEST",
+            "SOURCE_REFERENCE_DIGEST",
+            "VALIDATOR_SIGNAL_RULE_MATCH_DIGEST"
+          ]
+        },
+        "inputFactValueDigest": { "$ref": "#/$defs/sha256" },
+        "signalRuleId": {
+          "enum": [
+            "CONTRACTED_PERSONNEL_V1",
+            "CROSS_QUESTION_DEPENDENCY_V1",
+            "EMBEDDED_FORM_TEMPLATE_TEXT_V1",
+            "EMERGENCY_AGENCY_PARTICIPATION_V1",
+            "EXPLICIT_EXTERNAL_ACTOR_V1",
+            "EXTERNAL_APPROVAL_AUTHORITY_V1",
+            "EXTERNAL_REVIEW_PROVIDER_V1",
+            "EXTERNAL_STAKEHOLDER_V1",
+            "PRIOR_RESPONSE_DEPENDENCY_V1",
+            "PROVIDER_APPLICABILITY_UNRESOLVED_V1",
+            "SOURCE_PROPOSAL_GAP_V1",
+            "SPECIALIST_RESCUE_SERVICE_V1",
+            "THIRD_PARTY_SIGNOFF_V1"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": { "required": ["signalRuleId"] },
+          "then": {
+            "properties": {
+              "inputFactSelector": { "const": "VALIDATOR_SIGNAL_RULE_MATCH_DIGEST" }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["inputFactSelector"],
+            "properties": {
+              "inputFactSelector": { "const": "VALIDATOR_SIGNAL_RULE_MATCH_DIGEST" }
+            }
+          },
+          "then": { "required": ["signalRuleId"] }
+        }
+      ]
+    },
+    "externalInvolvementConfidenceEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proposalField",
+        "proposalValueDigest",
+        "rationaleCode",
+        "inputFactSelector",
+        "inputFactValueDigest"
+      ],
+      "properties": {
+        "proposalField": { "const": "externalInvolvements" },
+        "proposalValueDigest": { "$ref": "#/$defs/sha256" },
+        "rationaleCode": {
+          "enum": [
+            "CONTRACTED_ACTIVITY_CUE",
+            "EXTERNAL_INTERFACE_CUE",
+            "OPERATIONAL_SAFETY_CUE",
+            "SOURCE_EVIDENCE_PRESENT",
+            "SOURCE_GAP_CUE"
+          ]
+        },
+        "inputFactSelector": {
+          "enum": [
+            "QUESTION_BODY_DIGEST",
+            "RESEARCH_ROW_DIGEST",
+            "SOURCE_PROPOSAL_DIGEST",
+            "SOURCE_REFERENCE_DIGEST",
+            "VALIDATOR_SIGNAL_RULE_MATCH_DIGEST"
+          ]
+        },
+        "inputFactValueDigest": { "$ref": "#/$defs/sha256" },
+        "signalRuleId": {
+          "enum": [
+            "CONTRACTED_PERSONNEL_V1",
+            "EMERGENCY_AGENCY_PARTICIPATION_V1",
+            "EXPLICIT_EXTERNAL_ACTOR_V1",
+            "EXTERNAL_APPROVAL_AUTHORITY_V1",
+            "EXTERNAL_REVIEW_PROVIDER_V1",
+            "EXTERNAL_STAKEHOLDER_V1",
+            "SPECIALIST_RESCUE_SERVICE_V1",
+            "THIRD_PARTY_SIGNOFF_V1"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": { "required": ["signalRuleId"] },
+          "then": {
+            "properties": {
+              "inputFactSelector": { "const": "VALIDATOR_SIGNAL_RULE_MATCH_DIGEST" }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["inputFactSelector"],
+            "properties": {
+              "inputFactSelector": { "const": "VALIDATOR_SIGNAL_RULE_MATCH_DIGEST" }
+            }
+          },
+          "then": { "required": ["signalRuleId"] }
+        }
+      ]
+    },
+    "sourceReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "referenceDigest"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "PACKAGE_SOURCE_PROPOSAL",
+            "PACKAGE_SOURCE_REFERENCE",
+            "RESEARCH_ROW",
+            "VALIDATOR_SIGNAL_RULE",
+            "WORKBOOK_FORM_HINT"
+          ]
+        },
+        "referenceDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "externalInvolvement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "providerTypeCode",
+        "involvementRoleCode",
+        "conditionCode",
+        "applicabilityDisposition",
+        "rationaleCodes",
+        "confidenceEvidence",
+        "sourceRefs",
+        "blockerCodes"
+      ],
+      "properties": {
+        "providerTypeCode": {
+          "enum": [
+            "ANSP",
+            "CNS_PROVIDER",
+            "AIS_AIM_PROVIDER",
+            "MET_PROVIDER",
+            "SAR_ORGANIZATION",
+            "AVSEC_PROVIDER",
+            "AIR_OPERATOR",
+            "AMO",
+            "ATO",
+            "GROUND_HANDLING",
+            "FUEL_PROVIDER",
+            "CARGO_REGULATED_AGENT",
+            "RPAS_UAS_OPERATOR"
+          ]
+        },
+        "involvementRoleCode": {
+          "enum": [
+            "TECHNICAL_INTERFACE",
+            "COORDINATION",
+            "DATA_ORIGINATION",
+            "DATA_PUBLICATION",
+            "EVIDENCE_CONTRIBUTION",
+            "OPERATIONAL_PARTICIPATION"
+          ]
+        },
+        "conditionCode": {
+          "enum": [
+            "AIS_AIM_PUBLICATION_REQUIRED",
+            "ANSP_COORDINATION_REQUIRED",
+            "CNS_SAFEGUARDING_REQUIRED",
+            "CONTRACTED_SERVICE_ENGAGED",
+            "EMERGENCY_AGENCY_PARTICIPATION_REQUIRED",
+            "EVIDENCE_CONTRIBUTION_REQUIRED",
+            "STAKEHOLDER_CONSULTATION_REQUIRED"
+          ]
+        },
+        "applicabilityDisposition": { "$ref": "#/$defs/applicabilityDisposition" },
+        "rationaleCodes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/externalInvolvementRationaleCode" },
+          "uniqueItems": true,
+          "maxItems": 16
+        },
+        "confidenceEvidence": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/externalInvolvementConfidenceEvidence" },
+          "uniqueItems": true,
+          "maxItems": 32
+        },
+        "sourceRefs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sourceReference" },
+          "uniqueItems": true,
+          "maxItems": 16
+        },
+        "blockerCodes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/blockerCode" },
+          "uniqueItems": true,
+          "maxItems": 8
+        }
+      }
+    },
+    "applicabilityDisposition": {
+      "enum": [
+        "APPLICABLE",
+        "CONDITIONAL_ON_CONFIGURATION",
+        "CONDITIONAL_ON_FACILITY",
+        "CONDITIONAL_ON_OPERATION",
+        "CONDITIONAL_ON_PRIOR_RESPONSE",
+        "CONDITIONAL_ON_SERVICE_ARRANGEMENT",
+        "NOT_APPLICABLE_WITH_REASON",
+        "REQUIRES_EXPERT_DETERMINATION"
+      ]
+    },
+    "rationaleCode": {
+      "enum": [
+        "CONFIGURATION_CUE",
+        "CONTRACTED_ACTIVITY_CUE",
+        "DATA_QUALITY_CUE",
+        "EXTERNAL_INTERFACE_CUE",
+        "GOVERNANCE_CUE",
+        "LOW_VISIBILITY_CUE",
+        "MANAGEMENT_SYSTEM_CUE",
+        "OPERATIONAL_SAFETY_CUE",
+        "PHYSICAL_CHARACTERISTICS_CUE",
+        "SOURCE_EVIDENCE_PRESENT",
+        "SOURCE_GAP_CUE"
+      ]
+    },
+    "externalInvolvementRationaleCode": {
+      "enum": [
+        "CONTRACTED_ACTIVITY_CUE",
+        "EXTERNAL_INTERFACE_CUE",
+        "OPERATIONAL_SAFETY_CUE",
+        "SOURCE_EVIDENCE_PRESENT",
+        "SOURCE_GAP_CUE"
+      ]
+    },
+    "blockerCode": {
+      "enum": [
+        "CANDIDATE_INTERPRETATION_REQUIRES_EXPERT_REVIEW",
+        "DECISION_NOT_SUPPLIED",
+        "EXPERT_REVIEW_REQUIRED",
+        "NOT_ATTESTED",
+        "PROVIDER_APPLICABILITY_UNRESOLVED",
+        "SOURCE_AUTHORITY_NOT_ATTESTED",
+        "SOURCE_MAPPING_REQUIRED",
+        "SOURCE_REFERENCE_MISSING"
+      ]
+    },
+    "proposalProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mainDomainCode",
+        "topicCodes",
+        "inspectionProfileCodes",
+        "inspectionTypeCodes",
+        "canonicalTargetKind",
+        "targetProfileCode",
+        "operationQualifiers",
+        "activityQualifiers",
+        "applicabilityDisposition",
+        "evidenceExpectationCodes",
+        "externalInvolvements"
+      ],
+      "properties": {
+        "mainDomainCode": { "$ref": "#/$defs/mainDomainCode" },
+        "topicCodes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/topicCode" },
+          "uniqueItems": true,
+          "maxItems": 26
+        },
+        "inspectionProfileCodes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/inspectionProfileCode" },
+          "uniqueItems": true,
+          "minItems": 1,
+          "maxItems": 10
+        },
+        "inspectionTypeCodes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/inspectionTypeCode" },
+          "uniqueItems": true,
+          "minItems": 1,
+          "maxItems": 8
+        },
+        "canonicalTargetKind": {
+          "enum": ["ORGANIZATION", "FACILITY", "DEVICE", "SYSTEM", "ASSET", "LOCATION"]
+        },
+        "targetProfileCode": { "$ref": "#/$defs/targetProfileCode" },
+        "operationQualifiers": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/operationQualifier" },
+          "uniqueItems": true,
+          "maxItems": 5
+        },
+        "activityQualifiers": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/activityQualifier" },
+          "uniqueItems": true,
+          "maxItems": 1
+        },
+        "applicabilityDisposition": { "$ref": "#/$defs/applicabilityDisposition" },
+        "evidenceExpectationCodes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/evidenceExpectationCode" },
+          "uniqueItems": true,
+          "maxItems": 14
+        },
+        "externalInvolvements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/externalInvolvement" },
+          "uniqueItems": true,
+          "maxItems": 13
+        }
+      }
+    },
+    "passProposalRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identity",
+        "classificationRunId",
+        "passRole",
+        "passRunId",
+        "promptDigest",
+        "modelDescriptorDigest",
+        "inputDigest",
+        "proposalProjection",
+        "rationaleCodes",
+        "confidenceEvidence",
+        "sourceRefs",
+        "passResultDigest"
+      ],
+      "properties": {
+        "identity": { "$ref": "#/$defs/baseIdentity" },
+        "classificationRunId": { "$ref": "#/$defs/classificationRunId" },
+        "passRole": { "enum": ["CANDIDATE", "CHALLENGE"] },
+        "passRunId": { "$ref": "#/$defs/passRunId" },
+        "promptDigest": { "const": "sha256:a3e1a02c64d403bbca346b6bb33f4dcd509c06fafcc082d197120098322dd1b1" },
+        "modelDescriptorDigest": { "$ref": "#/$defs/sha256" },
+        "inputDigest": { "$ref": "#/$defs/passInputDigest" },
+        "proposalProjection": { "$ref": "#/$defs/proposalProjection" },
+        "rationaleCodes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/rationaleCode" },
+          "uniqueItems": true,
+          "maxItems": 16
+        },
+        "confidenceEvidence": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/confidenceEvidence" },
+          "uniqueItems": true,
+          "maxItems": 68
+        },
+        "sourceRefs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sourceReference" },
+          "uniqueItems": true,
+          "maxItems": 32
+        },
+        "passResultDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "passBatchOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "classificationRunId",
+        "passRole",
+        "passRunId",
+        "batchOrdinal",
+        "promptDigest",
+        "modelDescriptorDigest",
+        "inputDigest",
+        "records",
+        "batchOutputDigest"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "aga-hybrid-classification-pass-batch/v1" },
+        "classificationRunId": { "$ref": "#/$defs/classificationRunId" },
+        "passRole": { "enum": ["CANDIDATE", "CHALLENGE"] },
+        "passRunId": { "$ref": "#/$defs/passRunId" },
+        "batchOrdinal": { "type": "integer", "minimum": 1, "maximum": 25 },
+        "promptDigest": { "const": "sha256:a3e1a02c64d403bbca346b6bb33f4dcd509c06fafcc082d197120098322dd1b1" },
+        "modelDescriptorDigest": { "$ref": "#/$defs/sha256" },
+        "inputDigest": { "$ref": "#/$defs/passInputDigest" },
+        "records": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/passProposalRecord" },
+          "minItems": 1,
+          "maxItems": 64
+        },
+        "batchOutputDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "passSealReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "classificationRunId",
+        "passRole",
+        "passRunId",
+        "promptDigest",
+        "modelDescriptorDigest",
+        "batchManifestDigest",
+        "batchCount",
+        "itemCount",
+        "orderedInputDigests",
+        "passInputSetDigest",
+        "orderedBatchOutputDigests",
+        "orderedPassResultDigests",
+        "passSealDigest"
+      ],
+      "properties": {
+        "classificationRunId": { "$ref": "#/$defs/classificationRunId" },
+        "passRole": { "enum": ["CANDIDATE", "CHALLENGE"] },
+        "passRunId": { "$ref": "#/$defs/passRunId" },
+        "promptDigest": { "const": "sha256:a3e1a02c64d403bbca346b6bb33f4dcd509c06fafcc082d197120098322dd1b1" },
+        "modelDescriptorDigest": { "$ref": "#/$defs/sha256" },
+        "batchManifestDigest": { "const": "sha256:dee3a0101dcfdeaef9dbb8c3f53d7e4a99de9499eaa7d82a039eb6cac077c96b" },
+        "batchCount": { "const": 25 },
+        "itemCount": { "const": 1310 },
+        "orderedInputDigests": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/passInputDigest" },
+          "minItems": 25,
+          "maxItems": 25
+        },
+        "passInputSetDigest": { "$ref": "#/$defs/sha256" },
+        "orderedBatchOutputDigests": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sha256" },
+          "minItems": 25,
+          "maxItems": 25
+        },
+        "orderedPassResultDigests": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sha256" },
+          "minItems": 1310,
+          "maxItems": 1310
+        },
+        "passSealDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "sealedClassificationItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "packageVersion",
+        "packageJsonSha256",
+        "formCode",
+        "proposalId",
+        "ordinal",
+        "textDigest",
+        "taxonomyVersion",
+        "mainDomainCode",
+        "topicCodes",
+        "inspectionProfileCodes",
+        "inspectionTypeCodes",
+        "canonicalTargetKind",
+        "targetProfileCode",
+        "operationQualifiers",
+        "activityQualifiers",
+        "applicabilityDisposition",
+        "evidenceExpectationCodes",
+        "externalInvolvements",
+        "agreementConfidence",
+        "recommendationState",
+        "rationaleCodes",
+        "confidenceEvidence",
+        "sourceRefs",
+        "sourceMappingState",
+        "sourceAuthorityState",
+        "riskClassificationState",
+        "decisionState",
+        "extractionState",
+        "questionSourceProposalGap",
+        "externalApplicabilityUnresolved",
+        "passDisagreementCodes",
+        "passOneResultDigest",
+        "passTwoResultDigest",
+        "passOneRunId",
+        "passTwoRunId",
+        "promptDigest",
+        "modelDescriptorDigests",
+        "taxonomyDigest",
+        "inputDigest",
+        "itemSemanticDigest",
+        "classificationRunDigest",
+        "aggregateDigest"
+      ],
+      "properties": {
+        "packageVersion": { "const": "AGA_ALL_FORMS_SOURCE_RISK_DRAFT_V1" },
+        "packageJsonSha256": {
+          "const": "sha256:5ebcce2d70ee22fef4165b490cb6e4b276ad776f40dbaf12e5cea85c9da91b15"
+        },
+        "formCode": { "$ref": "#/$defs/formCode" },
+        "proposalId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "ordinal": { "type": "integer", "minimum": 1, "maximum": 256 },
+        "textDigest": { "$ref": "#/$defs/sha256" },
+        "taxonomyVersion": { "const": "AGA_QUESTION_CLASSIFICATION_V1" },
+        "mainDomainCode": { "$ref": "#/$defs/mainDomainCode" },
+        "topicCodes": { "type": "array", "items": { "$ref": "#/$defs/topicCode" }, "uniqueItems": true, "maxItems": 26 },
+        "inspectionProfileCodes": { "type": "array", "items": { "$ref": "#/$defs/inspectionProfileCode" }, "uniqueItems": true, "minItems": 1, "maxItems": 10 },
+        "inspectionTypeCodes": { "type": "array", "items": { "$ref": "#/$defs/inspectionTypeCode" }, "uniqueItems": true, "minItems": 1, "maxItems": 8 },
+        "canonicalTargetKind": { "enum": ["ORGANIZATION", "FACILITY", "DEVICE", "SYSTEM", "ASSET", "LOCATION"] },
+        "targetProfileCode": { "$ref": "#/$defs/targetProfileCode" },
+        "operationQualifiers": { "type": "array", "items": { "$ref": "#/$defs/operationQualifier" }, "uniqueItems": true, "maxItems": 5 },
+        "activityQualifiers": { "type": "array", "items": { "$ref": "#/$defs/activityQualifier" }, "uniqueItems": true, "maxItems": 1 },
+        "applicabilityDisposition": { "$ref": "#/$defs/applicabilityDisposition" },
+        "evidenceExpectationCodes": { "type": "array", "items": { "$ref": "#/$defs/evidenceExpectationCode" }, "uniqueItems": true, "maxItems": 14 },
+        "externalInvolvements": { "type": "array", "items": { "$ref": "#/$defs/externalInvolvement" }, "uniqueItems": true, "maxItems": 13 },
+        "agreementConfidence": { "enum": ["HIGH", "MEDIUM", "LOW"] },
+        "recommendationState": { "enum": ["AUTO_PROPOSED_HIGH_CONFIDENCE", "MANAGER_REVIEW_REQUIRED", "BLOCKED_SOURCE_GAP"] },
+        "rationaleCodes": { "type": "array", "items": { "$ref": "#/$defs/rationaleCode" }, "uniqueItems": true, "maxItems": 16 },
+        "confidenceEvidence": { "type": "array", "items": { "$ref": "#/$defs/confidenceEvidence" }, "uniqueItems": true, "maxItems": 68 },
+        "sourceRefs": { "type": "array", "items": { "$ref": "#/$defs/sourceReference" }, "uniqueItems": true, "maxItems": 32 },
+        "sourceMappingState": { "const": "SOURCE_MAPPING_REQUIRED" },
+        "sourceAuthorityState": { "const": "NOT_ATTESTED" },
+        "riskClassificationState": { "const": "CANDIDATE_INTERPRETATION_REQUIRES_EXPERT_REVIEW" },
+        "decisionState": { "const": "DECISION_NOT_SUPPLIED" },
+        "extractionState": { "enum": ["EXTRACTED_CANDIDATE", "EXACT_SOURCE_BACKED"] },
+        "questionSourceProposalGap": { "type": "boolean" },
+        "externalApplicabilityUnresolved": { "type": "boolean" },
+        "passDisagreementCodes": { "type": "array", "items": { "$ref": "#/$defs/disagreementCode" }, "uniqueItems": true, "maxItems": 11 },
+        "passOneResultDigest": { "$ref": "#/$defs/sha256" },
+        "passTwoResultDigest": { "$ref": "#/$defs/sha256" },
+        "passOneRunId": { "$ref": "#/$defs/passRunId" },
+        "passTwoRunId": { "$ref": "#/$defs/passRunId" },
+        "promptDigest": { "const": "sha256:a3e1a02c64d403bbca346b6bb33f4dcd509c06fafcc082d197120098322dd1b1" },
+        "modelDescriptorDigests": { "type": "array", "items": { "$ref": "#/$defs/sha256" }, "uniqueItems": true, "minItems": 1, "maxItems": 2 },
+        "taxonomyDigest": { "const": "sha256:d9fa2bba1079c693afbdc8710ec8cc661d3be4d59ba8aa02766bedccc28c935d" },
+        "inputDigest": { "$ref": "#/$defs/runInputDigest" },
+        "itemSemanticDigest": { "$ref": "#/$defs/sha256" },
+        "classificationRunDigest": { "$ref": "#/$defs/sha256" },
+        "aggregateDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "candidatePassResolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": { "const": "ACCEPT_CANDIDATE_PASS" }
+      }
+    },
+    "challengePassResolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": { "const": "ACCEPT_CHALLENGE_PASS" }
+      }
+    },
+    "exactProposalResolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "proposalProjection"],
+      "properties": {
+        "mode": { "const": "SET_EXACT" },
+        "proposalProjection": { "$ref": "#/$defs/proposalProjection" }
+      }
+    },
+    "proposalResolution": {
+      "oneOf": [
+        { "$ref": "#/$defs/candidatePassResolution" },
+        { "$ref": "#/$defs/challengePassResolution" },
+        { "$ref": "#/$defs/exactProposalResolution" }
+      ]
+    },
+    "draftItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "questionRef",
+        "draftItemOrigin",
+        "currentLeaf",
+        "draftAgreementConfidence",
+        "draftRecommendationState",
+        "draftReviewState",
+        "draftDisposition",
+        "questionSourceProposalGap",
+        "proposalProjection",
+        "proposalResolution"
+      ],
+      "properties": {
+        "questionRef": { "$ref": "#/$defs/questionRef" },
+        "draftItemOrigin": { "enum": ["SEALED_BASE", "MANAGER_AUTHORED", "MANAGER_REWORDED"] },
+        "currentLeaf": { "type": "boolean" },
+        "draftAgreementConfidence": {
+          "oneOf": [
+            { "type": "null" },
+            { "enum": ["HIGH", "MEDIUM", "LOW"] }
+          ]
+        },
+        "draftRecommendationState": { "enum": ["AUTO_PROPOSED_HIGH_CONFIDENCE", "MANAGER_REVIEW_REQUIRED", "BLOCKED_SOURCE_GAP"] },
+        "draftReviewState": { "enum": ["AUTO_PRESELECTED", "PENDING_MANAGER_REVIEW", "MANAGER_DISPOSED"] },
+        "draftDisposition": {
+          "oneOf": [
+            { "type": "null" },
+            { "enum": ["INCLUDE", "EXCLUDE", "DEFER"] }
+          ]
+        },
+        "questionSourceProposalGap": { "type": "boolean" },
+        "proposalProjection": { "$ref": "#/$defs/proposalProjection" },
+        "proposalResolution": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/proposalResolution" }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "draftReviewState": { "const": "PENDING_MANAGER_REVIEW" } },
+            "required": ["draftReviewState"]
+          },
+          "then": { "properties": { "draftDisposition": { "type": "null" } } }
+        },
+        {
+          "if": {
+            "properties": { "draftReviewState": { "const": "AUTO_PRESELECTED" } },
+            "required": ["draftReviewState"]
+          },
+          "then": {
+            "properties": {
+              "draftAgreementConfidence": { "const": "HIGH" },
+              "draftRecommendationState": { "const": "AUTO_PROPOSED_HIGH_CONFIDENCE" },
+              "draftDisposition": { "const": "INCLUDE" },
+              "questionSourceProposalGap": { "const": false }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "draftReviewState": { "const": "MANAGER_DISPOSED" } },
+            "required": ["draftReviewState"]
+          },
+          "then": {
+            "properties": {
+              "draftDisposition": { "enum": ["INCLUDE", "EXCLUDE", "DEFER"] }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "draftDisposition": { "type": "null" } },
+            "required": ["draftDisposition"]
+          },
+          "then": {
+            "properties": { "draftReviewState": { "const": "PENDING_MANAGER_REVIEW" } }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "draftItemOrigin": { "enum": ["MANAGER_AUTHORED", "MANAGER_REWORDED"] }
+            },
+            "required": ["draftItemOrigin"]
+          },
+          "then": {
+            "properties": {
+              "draftAgreementConfidence": { "type": "null" },
+              "draftRecommendationState": { "const": "BLOCKED_SOURCE_GAP" },
+              "questionSourceProposalGap": { "const": true }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "questionSourceProposalGap": { "const": true } },
+            "required": ["questionSourceProposalGap"]
+          },
+          "then": {
+            "properties": {
+              "draftRecommendationState": { "const": "BLOCKED_SOURCE_GAP" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "draftRecommendationState": { "const": "BLOCKED_SOURCE_GAP" } },
+            "required": ["draftRecommendationState"]
+          },
+          "then": {
+            "properties": { "questionSourceProposalGap": { "const": true } }
+          }
+        }
+      ]
+    },
+    "agreementConfidenceCount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "count"],
+      "properties": {
+        "code": { "enum": ["HIGH", "MEDIUM", "LOW"] },
+        "count": { "type": "integer", "minimum": 0, "maximum": 1310 }
+      }
+    },
+    "applicabilityDispositionCount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "count"],
+      "properties": {
+        "code": { "$ref": "#/$defs/applicabilityDisposition" },
+        "count": { "type": "integer", "minimum": 0, "maximum": 1310 }
+      }
+    },
+    "canonicalTargetKindCount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "count"],
+      "properties": {
+        "code": { "enum": ["ORGANIZATION", "PERSON", "FACILITY", "DEVICE", "SYSTEM", "ASSET", "LOCATION"] },
+        "count": { "type": "integer", "minimum": 0, "maximum": 1310 }
+      }
+    },
+    "disagreementCodeCount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "count"],
+      "properties": {
+        "code": { "$ref": "#/$defs/disagreementCode" },
+        "count": { "type": "integer", "minimum": 0, "maximum": 1310 }
+      }
+    },
+    "evidenceExpectationCodeCount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "count"],
+      "properties": {
+        "code": { "$ref": "#/$defs/evidenceExpectationCode" },
+        "count": { "type": "integer", "minimum": 0, "maximum": 1310 }
+      }
+    },
+    "externalProviderTypeCodeCount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "count"],
+      "properties": {
+        "code": {
+          "enum": ["ANSP", "CNS_PROVIDER", "AIS_AIM_PROVIDER", "MET_PROVIDER", "SAR_ORGANIZATION", "AVSEC_PROVIDER", "AIR_OPERATOR", "AMO", "ATO", "GROUND_HANDLING", "FUEL_PROVIDER", "CARGO_REGULATED_AGENT", "RPAS_UAS_OPERATOR"]
+        },
+        "count": { "type": "integer", "minimum": 0, "maximum": 1310 }
+      }
+    },
+    "extractionStateCount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "count"],
+      "properties": {
+        "code": { "enum": ["EXTRACTED_CANDIDATE", "EXACT_SOURCE_BACKED"] },
+        "count": { "type": "integer", "minimum": 0, "maximum": 1310 }
+      }
+    },
+    "inspectionProfileCodeCount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "count"],
+      "properties": {
+        "code": { "$ref": "#/$defs/inspectionProfileCode" },
+        "count": { "type": "integer", "minimum": 0, "maximum": 1310 }
+      }
+    },
+    "inspectionTypeCodeCount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "count"],
+      "properties": {
+        "code": { "$ref": "#/$defs/inspectionTypeCode" },
+        "count": { "type": "integer", "minimum": 0, "maximum": 1310 }
+      }
+    },
+    "mainDomainCodeCount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "count"],
+      "properties": {
+        "code": { "$ref": "#/$defs/mainDomainCode" },
+        "count": { "type": "integer", "minimum": 0, "maximum": 1310 }
+      }
+    },
+    "recommendationStateCount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "count"],
+      "properties": {
+        "code": { "enum": ["AUTO_PROPOSED_HIGH_CONFIDENCE", "MANAGER_REVIEW_REQUIRED", "BLOCKED_SOURCE_GAP"] },
+        "count": { "type": "integer", "minimum": 0, "maximum": 1310 }
+      }
+    },
+    "targetProfileCodeCount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "count"],
+      "properties": {
+        "code": { "$ref": "#/$defs/targetProfileCode" },
+        "count": { "type": "integer", "minimum": 0, "maximum": 1310 }
+      }
+    },
+    "topicCodeCount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "count"],
+      "properties": {
+        "code": { "$ref": "#/$defs/topicCode" },
+        "count": { "type": "integer", "minimum": 0, "maximum": 1310 }
+      }
+    },
+    "classificationDistributions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agreementConfidenceCounts",
+        "applicabilityDispositionCounts",
+        "canonicalTargetKindCounts",
+        "disagreementCodeCounts",
+        "evidenceExpectationCodeCounts",
+        "externalProviderTypeCodeCounts",
+        "extractionStateCounts",
+        "inspectionProfileCodeCounts",
+        "inspectionTypeCodeCounts",
+        "mainDomainCodeCounts",
+        "recommendationStateCounts",
+        "targetProfileCodeCounts",
+        "topicCodeCounts"
+      ],
+      "properties": {
+        "agreementConfidenceCounts": { "type": "array", "items": { "$ref": "#/$defs/agreementConfidenceCount" }, "uniqueItems": true, "minItems": 3, "maxItems": 3 },
+        "applicabilityDispositionCounts": { "type": "array", "items": { "$ref": "#/$defs/applicabilityDispositionCount" }, "uniqueItems": true, "minItems": 8, "maxItems": 8 },
+        "canonicalTargetKindCounts": { "type": "array", "items": { "$ref": "#/$defs/canonicalTargetKindCount" }, "uniqueItems": true, "minItems": 7, "maxItems": 7 },
+        "disagreementCodeCounts": { "type": "array", "items": { "$ref": "#/$defs/disagreementCodeCount" }, "uniqueItems": true, "minItems": 11, "maxItems": 11 },
+        "evidenceExpectationCodeCounts": { "type": "array", "items": { "$ref": "#/$defs/evidenceExpectationCodeCount" }, "uniqueItems": true, "minItems": 14, "maxItems": 14 },
+        "externalProviderTypeCodeCounts": { "type": "array", "items": { "$ref": "#/$defs/externalProviderTypeCodeCount" }, "uniqueItems": true, "minItems": 13, "maxItems": 13 },
+        "extractionStateCounts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/extractionStateCount" },
+          "uniqueItems": true,
+          "minItems": 2,
+          "maxItems": 2,
+          "allOf": [
+            {
+              "contains": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["code", "count"],
+                "properties": {
+                  "code": { "const": "EXTRACTED_CANDIDATE" },
+                  "count": { "const": 1282 }
+                }
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["code", "count"],
+                "properties": {
+                  "code": { "const": "EXACT_SOURCE_BACKED" },
+                  "count": { "const": 28 }
+                }
+              },
+              "minContains": 1,
+              "maxContains": 1
+            }
+          ]
+        },
+        "inspectionProfileCodeCounts": { "type": "array", "items": { "$ref": "#/$defs/inspectionProfileCodeCount" }, "uniqueItems": true, "minItems": 10, "maxItems": 10 },
+        "inspectionTypeCodeCounts": { "type": "array", "items": { "$ref": "#/$defs/inspectionTypeCodeCount" }, "uniqueItems": true, "minItems": 8, "maxItems": 8 },
+        "mainDomainCodeCounts": { "type": "array", "items": { "$ref": "#/$defs/mainDomainCodeCount" }, "uniqueItems": true, "minItems": 18, "maxItems": 18 },
+        "recommendationStateCounts": { "type": "array", "items": { "$ref": "#/$defs/recommendationStateCount" }, "uniqueItems": true, "minItems": 3, "maxItems": 3 },
+        "targetProfileCodeCounts": { "type": "array", "items": { "$ref": "#/$defs/targetProfileCodeCount" }, "uniqueItems": true, "minItems": 10, "maxItems": 10 },
+        "topicCodeCounts": { "type": "array", "items": { "$ref": "#/$defs/topicCodeCount" }, "uniqueItems": true, "minItems": 26, "maxItems": 26 }
+      }
+    },
+    "exceptionInventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count", "orderedIdentityDigests", "orderedIdentityDigest"],
+      "properties": {
+        "count": { "type": "integer", "minimum": 0, "maximum": 1310 },
+        "orderedIdentityDigests": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sha256" },
+          "maxItems": 1310
+        },
+        "orderedIdentityDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "classificationExceptions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "blockedSourceGap",
+        "externalApplicabilityUnresolved",
+        "managerReviewRequired",
+        "passDisagreement",
+        "sourceGapExternalUnresolvedOverlap"
+      ],
+      "properties": {
+        "blockedSourceGap": {
+          "allOf": [
+            { "$ref": "#/$defs/exceptionInventory" },
+            { "properties": { "count": { "const": 49 }, "orderedIdentityDigests": { "minItems": 49, "maxItems": 49 } } }
+          ]
+        },
+        "externalApplicabilityUnresolved": {
+          "allOf": [
+            { "$ref": "#/$defs/exceptionInventory" },
+            { "properties": { "count": { "const": 51 }, "orderedIdentityDigests": { "minItems": 51, "maxItems": 51 } } }
+          ]
+        },
+        "managerReviewRequired": { "$ref": "#/$defs/exceptionInventory" },
+        "passDisagreement": { "$ref": "#/$defs/exceptionInventory" },
+        "sourceGapExternalUnresolvedOverlap": {
+          "allOf": [
+            { "$ref": "#/$defs/exceptionInventory" },
+            { "properties": { "count": { "const": 49 }, "orderedIdentityDigests": { "minItems": 49, "maxItems": 49 } } }
+          ]
+        }
+      }
+    },
+    "classificationAggregate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "itemCount",
+        "passProposalRecordCount",
+        "orderedItemSemanticDigests",
+        "distributions",
+        "exceptions",
+        "distributionDigest",
+        "aggregateDigest"
+      ],
+      "properties": {
+        "itemCount": { "const": 1310 },
+        "passProposalRecordCount": { "const": 2620 },
+        "orderedItemSemanticDigests": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sha256" },
+          "minItems": 1310,
+          "maxItems": 1310
+        },
+        "distributions": { "$ref": "#/$defs/classificationDistributions" },
+        "exceptions": { "$ref": "#/$defs/classificationExceptions" },
+        "distributionDigest": { "$ref": "#/$defs/sha256" },
+        "aggregateDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "fixedInputDigests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "packageJsonSha256",
+        "sealedOverlayLoaderZipSha256",
+        "providerCatalogSha256",
+        "researchZipSha256",
+        "researchQuestionCsvSha256",
+        "providerClassificationCsvSha256",
+        "ambiguityCsvSha256",
+        "workbookSha256",
+        "auditChecklistWorkflowSha256",
+        "findingCapEvidenceWorkflowSha256",
+        "productionContractVocabularySha256"
+      ],
+      "properties": {
+        "packageJsonSha256": { "const": "sha256:5ebcce2d70ee22fef4165b490cb6e4b276ad776f40dbaf12e5cea85c9da91b15" },
+        "sealedOverlayLoaderZipSha256": { "const": "sha256:30700a88aeb5b26514bf7eb76bef050deb08b96294db94117d185de5c9f163b2" },
+        "providerCatalogSha256": { "const": "sha256:42079b4046542e392c393fe6de1052d84f96938ea163cf63deed5ae9c4b6a789" },
+        "researchZipSha256": { "const": "sha256:137592c739bc22f6be026f5bad94c5b200bb983132017d026b7e39634ab392c7" },
+        "researchQuestionCsvSha256": { "const": "sha256:e39685d467c9c66220b20e998deab366a138148f4d532db7fac07e58e64e7a7c" },
+        "providerClassificationCsvSha256": { "const": "sha256:d52a98739db61828c16aa734154be18b11e6ebb358eeeb7f84c3d92a4a5430de" },
+        "ambiguityCsvSha256": { "const": "sha256:6e97a193f5e12dbe81f87d44d4b22c36ce446a40be7ef0f9fc939e8fbf1e654d" },
+        "workbookSha256": { "const": "sha256:e4d054f741b11ca9d848842a891d6f811f2e644aba29a7ffda970bfe6abb931e" },
+        "auditChecklistWorkflowSha256": { "const": "sha256:7dee737c7c5e47e996857e956514a8d46d1a4444234b021cac77cd6cff6b30a2" },
+        "findingCapEvidenceWorkflowSha256": { "const": "sha256:896f9fa7d498fdc20c582134a15ed6acdc11b78926e655854c43e49fbb24815c" },
+        "productionContractVocabularySha256": { "const": "sha256:3ef3349d738feb9789aaab6e92246f55948053604a8304706fc1bbd0cd786769" }
+      }
+    },
+    "classificationRunReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "classificationRunId",
+        "state",
+        "taxonomyVersion",
+        "taxonomyDigest",
+        "fixedInputDigests",
+        "inputDigest",
+        "promptDigest",
+        "modelDescriptors",
+        "modelDescriptorDigests",
+        "batchManifestDigest",
+        "passOneSealDigest",
+        "passTwoSealDigest",
+        "aggregateDigest",
+        "classificationRunDigest"
+      ],
+      "properties": {
+        "classificationRunId": { "$ref": "#/$defs/classificationRunId" },
+        "state": { "const": "SEALED" },
+        "taxonomyVersion": { "const": "AGA_QUESTION_CLASSIFICATION_V1" },
+        "taxonomyDigest": { "const": "sha256:d9fa2bba1079c693afbdc8710ec8cc661d3be4d59ba8aa02766bedccc28c935d" },
+        "fixedInputDigests": { "$ref": "#/$defs/fixedInputDigests" },
+        "inputDigest": { "$ref": "#/$defs/runInputDigest" },
+        "promptDigest": { "const": "sha256:a3e1a02c64d403bbca346b6bb33f4dcd509c06fafcc082d197120098322dd1b1" },
+        "modelDescriptors": { "type": "array", "items": { "$ref": "#/$defs/modelDescriptor" }, "uniqueItems": true, "minItems": 1, "maxItems": 2 },
+        "modelDescriptorDigests": { "type": "array", "items": { "$ref": "#/$defs/sha256" }, "uniqueItems": true, "minItems": 1, "maxItems": 2 },
+        "batchManifestDigest": { "const": "sha256:dee3a0101dcfdeaef9dbb8c3f53d7e4a99de9499eaa7d82a039eb6cac077c96b" },
+        "passOneSealDigest": { "$ref": "#/$defs/sha256" },
+        "passTwoSealDigest": { "$ref": "#/$defs/sha256" },
+        "aggregateDigest": { "$ref": "#/$defs/sha256" },
+        "classificationRunDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "loadingClassificationRunRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "classificationRunId",
+        "state",
+        "taxonomyVersion",
+        "taxonomyDigest",
+        "fixedInputDigests",
+        "inputDigest",
+        "promptDigest",
+        "batchManifestDigest"
+      ],
+      "properties": {
+        "classificationRunId": { "$ref": "#/$defs/classificationRunId" },
+        "state": { "const": "LOADING" },
+        "taxonomyVersion": { "const": "AGA_QUESTION_CLASSIFICATION_V1" },
+        "taxonomyDigest": { "const": "sha256:d9fa2bba1079c693afbdc8710ec8cc661d3be4d59ba8aa02766bedccc28c935d" },
+        "fixedInputDigests": { "$ref": "#/$defs/fixedInputDigests" },
+        "inputDigest": { "$ref": "#/$defs/runInputDigest" },
+        "promptDigest": { "const": "sha256:a3e1a02c64d403bbca346b6bb33f4dcd509c06fafcc082d197120098322dd1b1" },
+        "batchManifestDigest": { "const": "sha256:dee3a0101dcfdeaef9dbb8c3f53d7e4a99de9499eaa7d82a039eb6cac077c96b" }
+      }
+    },
+    "rejectedClassificationRunRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "classificationRunId",
+        "state",
+        "taxonomyVersion",
+        "taxonomyDigest",
+        "fixedInputDigests",
+        "inputDigest",
+        "promptDigest",
+        "batchManifestDigest",
+        "errorCode"
+      ],
+      "properties": {
+        "classificationRunId": { "$ref": "#/$defs/classificationRunId" },
+        "state": { "const": "REJECTED" },
+        "taxonomyVersion": { "const": "AGA_QUESTION_CLASSIFICATION_V1" },
+        "taxonomyDigest": { "const": "sha256:d9fa2bba1079c693afbdc8710ec8cc661d3be4d59ba8aa02766bedccc28c935d" },
+        "fixedInputDigests": { "$ref": "#/$defs/fixedInputDigests" },
+        "inputDigest": { "$ref": "#/$defs/runInputDigest" },
+        "promptDigest": { "const": "sha256:a3e1a02c64d403bbca346b6bb33f4dcd509c06fafcc082d197120098322dd1b1" },
+        "batchManifestDigest": { "const": "sha256:dee3a0101dcfdeaef9dbb8c3f53d7e4a99de9499eaa7d82a039eb6cac077c96b" },
+        "errorCode": {
+          "enum": ["AGGREGATE_MISMATCH", "BATCH_OUTPUT_DIGEST_MISMATCH", "DUPLICATE_IDENTITY", "EVIDENCE_FACT_DIGEST_MISMATCH", "FORBIDDEN_FIELD", "IDENTITY_MISMATCH", "INCOMPLETE_PASS", "MALFORMED_PROVENANCE", "MISSING_IDENTITY", "PASS_PROPOSAL_MISMATCH", "QUESTION_TEXT_LEAK", "SCHEMA_ERROR", "UNKNOWN_CODE", "UNKNOWN_INPUT_FACT_SELECTOR", "UNKNOWN_RATIONALE_CODE", "UNKNOWN_SIGNAL_RULE"]
+        }
+      }
+    },
+    "classificationInputRejected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["errorCode"],
+      "properties": {
+        "errorCode": { "const": "CLASSIFICATION_INPUT_REJECTED" }
+      }
+    },
+    "mainDomainCode": {
+      "enum": [
+        "GOVERNANCE_ORGANIZATION_PERSONNEL",
+        "CERTIFICATION_LICENSING_CHANGE",
+        "AERODROME_MANUAL_DOCUMENT_CONTROL",
+        "QUALITY_MANAGEMENT",
+        "SAFETY_MANAGEMENT_RISK_ASSESSMENT",
+        "AERODROME_DATA_INFORMATION_PUBLICATION",
+        "PHYSICAL_CHARACTERISTICS_MOVEMENT_AREA",
+        "OBSTACLES_OLS_WORKS",
+        "VISUAL_AIDS_MARKINGS_SIGNS_LIGHTING",
+        "ELECTRICAL_SYSTEMS_POWER",
+        "APRON_GROUND_OPERATIONS",
+        "RESCUE_FIRE_FIGHTING_FIRE_SAFETY",
+        "EMERGENCY_PLANNING",
+        "MAINTENANCE_OPERATIONAL_INSPECTION",
+        "RUNWAY_SAFETY_FRICTION_SURFACE_CONDITIONS",
+        "WILDLIFE_HAZARD_MANAGEMENT",
+        "ENVIRONMENTAL_MANAGEMENT",
+        "NIGHT_OPERATIONS_FACILITIES"
+      ]
+    },
+    "topicCode": {
+      "enum": [
+        "ACCOUNTABLE_EXECUTIVE",
+        "AERODROME_CERTIFICATE_APPLICATION",
+        "AERODROME_DATA_QUALITY",
+        "AERODROME_EMERGENCY_PLAN",
+        "AERODROME_MANUAL_CONTROL",
+        "AERODROME_ORGANIZATIONAL_CHANGE",
+        "AERODROME_SECURITY",
+        "APRON_MANAGEMENT",
+        "CHANGE_MANAGEMENT",
+        "CONTRACTED_SERVICE_OVERSIGHT",
+        "DECLARED_DISTANCES",
+        "ELECTRICAL_POWER_SUPPLY",
+        "ENVIRONMENTAL_MANAGEMENT",
+        "FOREIGN_OBJECT_DEBRIS_CONTROL",
+        "LOW_VISIBILITY_OPERATIONS",
+        "MOVEMENT_AREA_CONDITION",
+        "OBSTACLE_LIMITATION_SURFACES",
+        "PAVEMENT_STRENGTH_AND_FRICTION",
+        "QUALITY_MANAGEMENT_SYSTEM",
+        "RESCUE_AND_FIRE_FIGHTING_SERVICE",
+        "RUNWAY_INCURSION_PREVENTION",
+        "RUNWAY_SAFETY_PROGRAMME",
+        "SAFETY_MANAGEMENT_SYSTEM",
+        "STAFFING_AND_COMPETENCE",
+        "VISUAL_AIDS_MARKINGS_AND_LIGHTING",
+        "WILDLIFE_HAZARD_MANAGEMENT"
+      ]
+    },
+    "inspectionProfileCode": {
+      "enum": ["AERODROME_CERTIFICATION", "AERODROME_DATA_QUALITY", "AERODROME_MANAGEMENT_SYSTEM", "EMERGENCY_AND_RFFS", "LOW_VISIBILITY_AND_NIGHT", "MOVEMENT_AREA_PHYSICAL_CHARACTERISTICS", "OBSTACLE_SAFEGUARDING", "RUNWAY_SAFETY", "VISUAL_AIDS_SYSTEM", "WILDLIFE_AND_ENVIRONMENT"]
+    },
+    "inspectionTypeCode": {
+      "enum": ["CHANGE_APPROVAL", "DOCUMENT_AND_RECORD_REVIEW", "FOLLOW_UP", "INITIAL_CERTIFICATION", "ON_SITE_INSPECTION", "PERIODIC_SURVEILLANCE", "RENEWAL", "SPECIAL_PURPOSE"]
+    },
+    "targetProfileCode": {
+      "enum": ["AERODROME_DATA_SYSTEM", "AERODROME_MANAGEMENT_SYSTEM", "APRON_SYSTEM", "ELECTRICAL_SYSTEM", "MOVEMENT_AREA", "OBSTACLE_SAFEGUARDING_AREA", "RFFS_FUNCTION", "RUNWAY_SYSTEM", "TAXIWAY_SYSTEM", "VISUAL_AIDS_SYSTEM"]
+    },
+    "evidenceExpectationCode": {
+      "enum": ["AERODROME_MANUAL", "APPROVED_DESIGN_DRAWING", "AUDIT_OR_INSPECTION_RECORD", "COMPETENCE_RECORD", "EMERGENCY_EXERCISE_RECORD", "FUNCTIONAL_TEST_RECORD", "MAINTENANCE_RECORD", "OBSTACLE_SURVEY", "PHOTOMETRIC_TEST_RECORD", "RISK_ASSESSMENT", "RUNWAY_CONDITION_RECORD", "SAFETY_MANAGEMENT_RECORD", "SOURCE_REFERENCE", "WILDLIFE_HAZARD_RECORD"]
+    },
+    "disagreementCode": {
+      "enum": ["ACTIVITY_QUALIFIER_DISAGREEMENT", "APPLICABILITY_DISAGREEMENT", "CANONICAL_TARGET_KIND_DISAGREEMENT", "EVIDENCE_EXPECTATION_DISAGREEMENT", "EXTERNAL_INVOLVEMENT_DISAGREEMENT", "INSPECTION_PROFILE_DISAGREEMENT", "INSPECTION_TYPE_DISAGREEMENT", "MAIN_DOMAIN_DISAGREEMENT", "OPERATION_QUALIFIER_DISAGREEMENT", "TARGET_PROFILE_DISAGREEMENT", "TOPIC_SET_DISAGREEMENT"]
+    }
+  }
+}

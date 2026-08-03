@@ -1,0 +1,1690 @@
+{
+  "schemaVersion": "aga-question-classification-taxonomy/v1",
+  "taxonomyVersion": "AGA_QUESTION_CLASSIFICATION_V1",
+  "status": "FROZEN",
+  "fixedInputs": {
+    "packageJsonSha256": "sha256:5ebcce2d70ee22fef4165b490cb6e4b276ad776f40dbaf12e5cea85c9da91b15",
+    "sealedOverlayLoaderZipSha256": "sha256:30700a88aeb5b26514bf7eb76bef050deb08b96294db94117d185de5c9f163b2",
+    "providerCatalogSha256": "sha256:42079b4046542e392c393fe6de1052d84f96938ea163cf63deed5ae9c4b6a789",
+    "researchZipSha256": "sha256:137592c739bc22f6be026f5bad94c5b200bb983132017d026b7e39634ab392c7",
+    "researchQuestionCsvSha256": "sha256:e39685d467c9c66220b20e998deab366a138148f4d532db7fac07e58e64e7a7c",
+    "providerClassificationCsvSha256": "sha256:d52a98739db61828c16aa734154be18b11e6ebb358eeeb7f84c3d92a4a5430de",
+    "ambiguityCsvSha256": "sha256:6e97a193f5e12dbe81f87d44d4b22c36ce446a40be7ef0f9fc939e8fbf1e654d",
+    "workbookSha256": "sha256:e4d054f741b11ca9d848842a891d6f811f2e644aba29a7ffda970bfe6abb931e",
+    "auditChecklistWorkflowSha256": "sha256:7dee737c7c5e47e996857e956514a8d46d1a4444234b021cac77cd6cff6b30a2",
+    "findingCapEvidenceWorkflowSha256": "sha256:896f9fa7d498fdc20c582134a15ed6acdc11b78926e655854c43e49fbb24815c",
+    "productionContractVocabularySha256": "sha256:3ef3349d738feb9789aaab6e92246f55948053604a8304706fc1bbd0cd786769",
+    "vocabularyDiscoveryPromptDigest": "sha256:5fa38fea1990c0c493af502f45fc6895d00e7b55e53fff534dc2123ab0865b1d",
+    "discoveryBatchManifestDigest": "sha256:000bb8c32076a74c9468c19e9d8b35901c83279e0635a0e84dc109801977873c",
+    "classificationBatchManifestDigest": "sha256:dee3a0101dcfdeaef9dbb8c3f53d7e4a99de9499eaa7d82a039eb6cac077c96b",
+    "discoveryRunDigest": "sha256:9e2ed56ac9eaf250949b53e7a63d00cf5a3ae6fabf224e33400340d87cf16c3f",
+    "taxonomyDiscoveryDigest": "sha256:5714a6c0cbe198f3e7608163d508b7dbefe1b30a8b8cd7a04268ede03690b4ed",
+    "omissionInventoryDigest": "sha256:1347b64a24adfaf10df4514f1317f96d9d2e5f1fc39ddd647c73289029bb28df"
+  },
+  "mainDomainCodes": [
+    "GOVERNANCE_ORGANIZATION_PERSONNEL",
+    "CERTIFICATION_LICENSING_CHANGE",
+    "AERODROME_MANUAL_DOCUMENT_CONTROL",
+    "QUALITY_MANAGEMENT",
+    "SAFETY_MANAGEMENT_RISK_ASSESSMENT",
+    "AERODROME_DATA_INFORMATION_PUBLICATION",
+    "PHYSICAL_CHARACTERISTICS_MOVEMENT_AREA",
+    "OBSTACLES_OLS_WORKS",
+    "VISUAL_AIDS_MARKINGS_SIGNS_LIGHTING",
+    "ELECTRICAL_SYSTEMS_POWER",
+    "APRON_GROUND_OPERATIONS",
+    "RESCUE_FIRE_FIGHTING_FIRE_SAFETY",
+    "EMERGENCY_PLANNING",
+    "MAINTENANCE_OPERATIONAL_INSPECTION",
+    "RUNWAY_SAFETY_FRICTION_SURFACE_CONDITIONS",
+    "WILDLIFE_HAZARD_MANAGEMENT",
+    "ENVIRONMENTAL_MANAGEMENT",
+    "NIGHT_OPERATIONS_FACILITIES"
+  ],
+  "topicCodes": [
+    "ACCOUNTABLE_EXECUTIVE",
+    "AERODROME_CERTIFICATE_APPLICATION",
+    "AERODROME_DATA_QUALITY",
+    "AERODROME_EMERGENCY_PLAN",
+    "AERODROME_MANUAL_CONTROL",
+    "AERODROME_ORGANIZATIONAL_CHANGE",
+    "AERODROME_SECURITY",
+    "APRON_MANAGEMENT",
+    "CHANGE_MANAGEMENT",
+    "CONTRACTED_SERVICE_OVERSIGHT",
+    "DECLARED_DISTANCES",
+    "ELECTRICAL_POWER_SUPPLY",
+    "ENVIRONMENTAL_MANAGEMENT",
+    "FOREIGN_OBJECT_DEBRIS_CONTROL",
+    "LOW_VISIBILITY_OPERATIONS",
+    "MOVEMENT_AREA_CONDITION",
+    "OBSTACLE_LIMITATION_SURFACES",
+    "PAVEMENT_STRENGTH_AND_FRICTION",
+    "QUALITY_MANAGEMENT_SYSTEM",
+    "RESCUE_AND_FIRE_FIGHTING_SERVICE",
+    "RUNWAY_INCURSION_PREVENTION",
+    "RUNWAY_SAFETY_PROGRAMME",
+    "SAFETY_MANAGEMENT_SYSTEM",
+    "STAFFING_AND_COMPETENCE",
+    "VISUAL_AIDS_MARKINGS_AND_LIGHTING",
+    "WILDLIFE_HAZARD_MANAGEMENT"
+  ],
+  "inspectionProfileCodes": [
+    "AERODROME_CERTIFICATION",
+    "AERODROME_DATA_QUALITY",
+    "AERODROME_MANAGEMENT_SYSTEM",
+    "EMERGENCY_AND_RFFS",
+    "LOW_VISIBILITY_AND_NIGHT",
+    "MOVEMENT_AREA_PHYSICAL_CHARACTERISTICS",
+    "OBSTACLE_SAFEGUARDING",
+    "RUNWAY_SAFETY",
+    "VISUAL_AIDS_SYSTEM",
+    "WILDLIFE_AND_ENVIRONMENT"
+  ],
+  "inspectionProfileDefinitions": [
+    {
+      "code": "AERODROME_CERTIFICATION",
+      "allowedTargetKinds": ["ORGANIZATION", "SYSTEM"],
+      "allowedTargetProfileCodes": ["AERODROME_MANAGEMENT_SYSTEM", "AERODROME_DATA_SYSTEM"],
+      "allowedInspectionTypeCodes": ["INITIAL_CERTIFICATION", "RENEWAL", "CHANGE_APPROVAL", "DOCUMENT_AND_RECORD_REVIEW"],
+      "requiredOperationQualifierKeys": ["OPERATION_STATUS"],
+      "requiredActivityQualifierKeys": ["ACTIVITY_TYPE"]
+    },
+    {
+      "code": "AERODROME_DATA_QUALITY",
+      "allowedTargetKinds": ["SYSTEM"],
+      "allowedTargetProfileCodes": ["AERODROME_DATA_SYSTEM"],
+      "allowedInspectionTypeCodes": ["DOCUMENT_AND_RECORD_REVIEW", "PERIODIC_SURVEILLANCE", "SPECIAL_PURPOSE"],
+      "requiredOperationQualifierKeys": ["OPERATION_STATUS"],
+      "requiredActivityQualifierKeys": ["ACTIVITY_TYPE"]
+    },
+    {
+      "code": "AERODROME_MANAGEMENT_SYSTEM",
+      "allowedTargetKinds": ["ORGANIZATION", "SYSTEM"],
+      "allowedTargetProfileCodes": ["AERODROME_MANAGEMENT_SYSTEM"],
+      "allowedInspectionTypeCodes": ["DOCUMENT_AND_RECORD_REVIEW", "FOLLOW_UP", "PERIODIC_SURVEILLANCE"],
+      "requiredOperationQualifierKeys": ["OPERATION_STATUS"],
+      "requiredActivityQualifierKeys": ["ACTIVITY_TYPE"]
+    },
+    {
+      "code": "EMERGENCY_AND_RFFS",
+      "allowedTargetKinds": ["FACILITY", "SYSTEM"],
+      "allowedTargetProfileCodes": ["RFFS_FUNCTION", "AERODROME_MANAGEMENT_SYSTEM"],
+      "allowedInspectionTypeCodes": ["FOLLOW_UP", "ON_SITE_INSPECTION", "PERIODIC_SURVEILLANCE", "SPECIAL_PURPOSE"],
+      "requiredOperationQualifierKeys": ["OPERATION_STATUS"],
+      "requiredActivityQualifierKeys": ["ACTIVITY_TYPE"]
+    },
+    {
+      "code": "LOW_VISIBILITY_AND_NIGHT",
+      "allowedTargetKinds": ["FACILITY", "SYSTEM", "LOCATION"],
+      "allowedTargetProfileCodes": ["RUNWAY_SYSTEM", "TAXIWAY_SYSTEM", "VISUAL_AIDS_SYSTEM", "ELECTRICAL_SYSTEM", "MOVEMENT_AREA"],
+      "allowedInspectionTypeCodes": ["ON_SITE_INSPECTION", "PERIODIC_SURVEILLANCE", "SPECIAL_PURPOSE"],
+      "requiredOperationQualifierKeys": ["APPROACH_CATEGORY", "DAY_OR_NIGHT", "LOW_VISIBILITY_BAND", "OPERATION_STATUS", "RUNWAY_USE"],
+      "requiredActivityQualifierKeys": ["ACTIVITY_TYPE"]
+    },
+    {
+      "code": "MOVEMENT_AREA_PHYSICAL_CHARACTERISTICS",
+      "allowedTargetKinds": ["FACILITY", "ASSET", "LOCATION"],
+      "allowedTargetProfileCodes": ["MOVEMENT_AREA", "RUNWAY_SYSTEM", "TAXIWAY_SYSTEM", "APRON_SYSTEM"],
+      "allowedInspectionTypeCodes": ["CHANGE_APPROVAL", "FOLLOW_UP", "ON_SITE_INSPECTION", "PERIODIC_SURVEILLANCE"],
+      "requiredOperationQualifierKeys": ["OPERATION_STATUS", "RUNWAY_USE"],
+      "requiredActivityQualifierKeys": ["ACTIVITY_TYPE"]
+    },
+    {
+      "code": "OBSTACLE_SAFEGUARDING",
+      "allowedTargetKinds": ["LOCATION", "SYSTEM"],
+      "allowedTargetProfileCodes": ["OBSTACLE_SAFEGUARDING_AREA"],
+      "allowedInspectionTypeCodes": ["CHANGE_APPROVAL", "DOCUMENT_AND_RECORD_REVIEW", "ON_SITE_INSPECTION", "SPECIAL_PURPOSE"],
+      "requiredOperationQualifierKeys": ["OPERATION_STATUS"],
+      "requiredActivityQualifierKeys": ["ACTIVITY_TYPE"]
+    },
+    {
+      "code": "RUNWAY_SAFETY",
+      "allowedTargetKinds": ["FACILITY", "ASSET", "LOCATION", "SYSTEM"],
+      "allowedTargetProfileCodes": ["RUNWAY_SYSTEM", "TAXIWAY_SYSTEM", "MOVEMENT_AREA"],
+      "allowedInspectionTypeCodes": ["FOLLOW_UP", "ON_SITE_INSPECTION", "PERIODIC_SURVEILLANCE", "SPECIAL_PURPOSE"],
+      "requiredOperationQualifierKeys": ["OPERATION_STATUS", "RUNWAY_USE"],
+      "requiredActivityQualifierKeys": ["ACTIVITY_TYPE"]
+    },
+    {
+      "code": "VISUAL_AIDS_SYSTEM",
+      "allowedTargetKinds": ["DEVICE", "FACILITY", "SYSTEM"],
+      "allowedTargetProfileCodes": ["VISUAL_AIDS_SYSTEM", "ELECTRICAL_SYSTEM"],
+      "allowedInspectionTypeCodes": ["FOLLOW_UP", "ON_SITE_INSPECTION", "PERIODIC_SURVEILLANCE"],
+      "requiredOperationQualifierKeys": ["DAY_OR_NIGHT", "OPERATION_STATUS"],
+      "requiredActivityQualifierKeys": ["ACTIVITY_TYPE"]
+    },
+    {
+      "code": "WILDLIFE_AND_ENVIRONMENT",
+      "allowedTargetKinds": ["LOCATION", "ORGANIZATION", "SYSTEM"],
+      "allowedTargetProfileCodes": ["MOVEMENT_AREA", "AERODROME_MANAGEMENT_SYSTEM"],
+      "allowedInspectionTypeCodes": ["DOCUMENT_AND_RECORD_REVIEW", "ON_SITE_INSPECTION", "PERIODIC_SURVEILLANCE", "SPECIAL_PURPOSE"],
+      "requiredOperationQualifierKeys": ["OPERATION_STATUS"],
+      "requiredActivityQualifierKeys": ["ACTIVITY_TYPE"]
+    }
+  ],
+  "inspectionTypeCodes": [
+    "CHANGE_APPROVAL",
+    "DOCUMENT_AND_RECORD_REVIEW",
+    "FOLLOW_UP",
+    "INITIAL_CERTIFICATION",
+    "ON_SITE_INSPECTION",
+    "PERIODIC_SURVEILLANCE",
+    "RENEWAL",
+    "SPECIAL_PURPOSE"
+  ],
+  "canonicalTargetKinds": [
+    "ORGANIZATION",
+    "PERSON",
+    "FACILITY",
+    "DEVICE",
+    "SYSTEM",
+    "ASSET",
+    "LOCATION"
+  ],
+  "targetProfileCodes": [
+    "AERODROME_DATA_SYSTEM",
+    "AERODROME_MANAGEMENT_SYSTEM",
+    "APRON_SYSTEM",
+    "ELECTRICAL_SYSTEM",
+    "MOVEMENT_AREA",
+    "OBSTACLE_SAFEGUARDING_AREA",
+    "RFFS_FUNCTION",
+    "RUNWAY_SYSTEM",
+    "TAXIWAY_SYSTEM",
+    "VISUAL_AIDS_SYSTEM"
+  ],
+  "targetCompatibility": {
+    "ORGANIZATION": ["AERODROME_MANAGEMENT_SYSTEM"],
+    "PERSON": [],
+    "FACILITY": ["APRON_SYSTEM", "ELECTRICAL_SYSTEM", "MOVEMENT_AREA", "RFFS_FUNCTION", "RUNWAY_SYSTEM", "TAXIWAY_SYSTEM", "VISUAL_AIDS_SYSTEM"],
+    "DEVICE": ["ELECTRICAL_SYSTEM", "VISUAL_AIDS_SYSTEM"],
+    "SYSTEM": ["AERODROME_DATA_SYSTEM", "AERODROME_MANAGEMENT_SYSTEM", "APRON_SYSTEM", "ELECTRICAL_SYSTEM", "OBSTACLE_SAFEGUARDING_AREA", "RFFS_FUNCTION", "RUNWAY_SYSTEM", "TAXIWAY_SYSTEM", "VISUAL_AIDS_SYSTEM"],
+    "ASSET": ["APRON_SYSTEM", "MOVEMENT_AREA", "RUNWAY_SYSTEM", "TAXIWAY_SYSTEM", "VISUAL_AIDS_SYSTEM"],
+    "LOCATION": ["MOVEMENT_AREA", "OBSTACLE_SAFEGUARDING_AREA", "RUNWAY_SYSTEM", "TAXIWAY_SYSTEM"]
+  },
+  "canonicalTargetKindEligibility": {
+    "eligibleForV1Proposal": ["ORGANIZATION", "FACILITY", "DEVICE", "SYSTEM", "ASSET", "LOCATION"],
+    "excludedFromV1Proposal": [
+      {
+        "code": "PERSON",
+        "exclusionCode": "NO_CONTROLLED_TARGET_PROFILE_IN_V1"
+      }
+    ]
+  },
+  "operationQualifierDefinitions": [
+    {
+      "key": "APPROACH_CATEGORY",
+      "allowedValues": ["CAT_I", "CAT_II", "CAT_III", "NON_PRECISION", "NOT_APPLICABLE"]
+    },
+    {
+      "key": "DAY_OR_NIGHT",
+      "allowedValues": ["DAY", "DAY_AND_NIGHT", "NIGHT"]
+    },
+    {
+      "key": "LOW_VISIBILITY_BAND",
+      "allowedValues": ["LOW_VISIBILITY_PROCEDURES", "NORMAL_VISIBILITY", "VERY_LOW_VISIBILITY"]
+    },
+    {
+      "key": "OPERATION_STATUS",
+      "allowedValues": ["ACTIVE", "CLOSED", "TEMPORARILY_RESTRICTED"]
+    },
+    {
+      "key": "RUNWAY_USE",
+      "allowedValues": ["ARRIVAL", "DEPARTURE", "MIXED", "NOT_APPLICABLE"]
+    }
+  ],
+  "activityQualifierDefinitions": [
+    {
+      "key": "ACTIVITY_TYPE",
+      "allowedValues": [
+        "DATA_PROVISION",
+        "EMERGENCY_RESPONSE",
+        "LIGHTING_INSPECTION",
+        "MAINTENANCE",
+        "MARKING_INSPECTION",
+        "OBSTACLE_SURVEY",
+        "RISK_ASSESSMENT",
+        "RUNWAY_CONDITION_ASSESSMENT",
+        "WILDLIFE_HAZARD_ASSESSMENT"
+      ]
+    }
+  ],
+  "evidenceExpectationCodes": [
+    "AERODROME_MANUAL",
+    "APPROVED_DESIGN_DRAWING",
+    "AUDIT_OR_INSPECTION_RECORD",
+    "COMPETENCE_RECORD",
+    "EMERGENCY_EXERCISE_RECORD",
+    "FUNCTIONAL_TEST_RECORD",
+    "MAINTENANCE_RECORD",
+    "OBSTACLE_SURVEY",
+    "PHOTOMETRIC_TEST_RECORD",
+    "RISK_ASSESSMENT",
+    "RUNWAY_CONDITION_RECORD",
+    "SAFETY_MANAGEMENT_RECORD",
+    "SOURCE_REFERENCE",
+    "WILDLIFE_HAZARD_RECORD"
+  ],
+  "applicabilityDispositions": [
+    "APPLICABLE",
+    "CONDITIONAL_ON_CONFIGURATION",
+    "CONDITIONAL_ON_FACILITY",
+    "CONDITIONAL_ON_OPERATION",
+    "CONDITIONAL_ON_PRIOR_RESPONSE",
+    "CONDITIONAL_ON_SERVICE_ARRANGEMENT",
+    "NOT_APPLICABLE_WITH_REASON",
+    "REQUIRES_EXPERT_DETERMINATION"
+  ],
+  "externalInvolvementRoles": [
+    "TECHNICAL_INTERFACE",
+    "COORDINATION",
+    "DATA_ORIGINATION",
+    "DATA_PUBLICATION",
+    "EVIDENCE_CONTRIBUTION",
+    "OPERATIONAL_PARTICIPATION"
+  ],
+  "externalInvolvementConditionCodes": [
+    "AIS_AIM_PUBLICATION_REQUIRED",
+    "ANSP_COORDINATION_REQUIRED",
+    "CNS_SAFEGUARDING_REQUIRED",
+    "CONTRACTED_SERVICE_ENGAGED",
+    "EMERGENCY_AGENCY_PARTICIPATION_REQUIRED",
+    "EVIDENCE_CONTRIBUTION_REQUIRED",
+    "STAKEHOLDER_CONSULTATION_REQUIRED"
+  ],
+  "blockerCodes": [
+    "CANDIDATE_INTERPRETATION_REQUIRES_EXPERT_REVIEW",
+    "DECISION_NOT_SUPPLIED",
+    "EXPERT_REVIEW_REQUIRED",
+    "NOT_ATTESTED",
+    "PROVIDER_APPLICABILITY_UNRESOLVED",
+    "SOURCE_AUTHORITY_NOT_ATTESTED",
+    "SOURCE_MAPPING_REQUIRED",
+    "SOURCE_REFERENCE_MISSING"
+  ],
+  "rationaleCodes": [
+    "CONFIGURATION_CUE",
+    "CONTRACTED_ACTIVITY_CUE",
+    "DATA_QUALITY_CUE",
+    "EXTERNAL_INTERFACE_CUE",
+    "GOVERNANCE_CUE",
+    "LOW_VISIBILITY_CUE",
+    "MANAGEMENT_SYSTEM_CUE",
+    "OPERATIONAL_SAFETY_CUE",
+    "PHYSICAL_CHARACTERISTICS_CUE",
+    "SOURCE_EVIDENCE_PRESENT",
+    "SOURCE_GAP_CUE"
+  ],
+  "inputFactSelectors": [
+    "FORM_METADATA_DIGEST",
+    "QUESTION_BODY_DIGEST",
+    "RESEARCH_ROW_DIGEST",
+    "SOURCE_PROPOSAL_DIGEST",
+    "SOURCE_REFERENCE_DIGEST",
+    "VALIDATOR_SIGNAL_RULE_MATCH_DIGEST"
+  ],
+  "signalRuleIds": [
+    "CONTRACTED_PERSONNEL_V1",
+    "CROSS_QUESTION_DEPENDENCY_V1",
+    "EMBEDDED_FORM_TEMPLATE_TEXT_V1",
+    "EMERGENCY_AGENCY_PARTICIPATION_V1",
+    "EXPLICIT_EXTERNAL_ACTOR_V1",
+    "EXTERNAL_APPROVAL_AUTHORITY_V1",
+    "EXTERNAL_REVIEW_PROVIDER_V1",
+    "EXTERNAL_STAKEHOLDER_V1",
+    "PRIOR_RESPONSE_DEPENDENCY_V1",
+    "PROVIDER_APPLICABILITY_UNRESOLVED_V1",
+    "SOURCE_PROPOSAL_GAP_V1",
+    "SPECIALIST_RESCUE_SERVICE_V1",
+    "THIRD_PARTY_SIGNOFF_V1"
+  ],
+  "proposalFields": [
+    "activityQualifiers",
+    "applicabilityDisposition",
+    "canonicalTargetKind",
+    "evidenceExpectationCodes",
+    "externalInvolvements",
+    "inspectionProfileCodes",
+    "inspectionTypeCodes",
+    "mainDomainCode",
+    "operationQualifiers",
+    "targetProfileCode",
+    "topicCodes"
+  ],
+  "sourceReferenceKinds": [
+    "PACKAGE_SOURCE_PROPOSAL",
+    "PACKAGE_SOURCE_REFERENCE",
+    "RESEARCH_ROW",
+    "VALIDATOR_SIGNAL_RULE",
+    "WORKBOOK_FORM_HINT"
+  ],
+  "disagreementCodes": [
+    "ACTIVITY_QUALIFIER_DISAGREEMENT",
+    "APPLICABILITY_DISAGREEMENT",
+    "CANONICAL_TARGET_KIND_DISAGREEMENT",
+    "EVIDENCE_EXPECTATION_DISAGREEMENT",
+    "EXTERNAL_INVOLVEMENT_DISAGREEMENT",
+    "INSPECTION_PROFILE_DISAGREEMENT",
+    "INSPECTION_TYPE_DISAGREEMENT",
+    "MAIN_DOMAIN_DISAGREEMENT",
+    "OPERATION_QUALIFIER_DISAGREEMENT",
+    "TARGET_PROFILE_DISAGREEMENT",
+    "TOPIC_SET_DISAGREEMENT"
+  ],
+  "providerPartition": {
+    "connected": [
+      "AERODROME_OPERATOR",
+      "ANSP",
+      "CNS_PROVIDER",
+      "AIS_AIM_PROVIDER",
+      "MET_PROVIDER",
+      "SAR_ORGANIZATION",
+      "AVSEC_PROVIDER",
+      "AIR_OPERATOR",
+      "AMO",
+      "ATO",
+      "GROUND_HANDLING",
+      "FUEL_PROVIDER",
+      "CARGO_REGULATED_AGENT",
+      "RPAS_UAS_OPERATOR"
+    ],
+    "noDefaultRelationship": ["CAMO", "FSTD", "DOA", "POA", "AEMC", "AME"],
+    "inspectedScopeCode": "AERODROME_OPERATOR",
+    "externalInvolvementAllowed": [
+      "ANSP",
+      "CNS_PROVIDER",
+      "AIS_AIM_PROVIDER",
+      "MET_PROVIDER",
+      "SAR_ORGANIZATION",
+      "AVSEC_PROVIDER",
+      "AIR_OPERATOR",
+      "AMO",
+      "ATO",
+      "GROUND_HANDLING",
+      "FUEL_PROVIDER",
+      "CARGO_REGULATED_AGENT",
+      "RPAS_UAS_OPERATOR"
+    ]
+  },
+  "recommendationStates": [
+    "AUTO_PROPOSED_HIGH_CONFIDENCE",
+    "MANAGER_REVIEW_REQUIRED",
+    "BLOCKED_SOURCE_GAP"
+  ],
+  "agreementConfidenceStates": ["HIGH", "MEDIUM", "LOW"],
+  "passRoles": ["CANDIDATE", "CHALLENGE"],
+  "classificationRunStates": ["LOADING", "SEALED", "REJECTED"],
+  "draftStates": ["WORKING", "READY_FOR_DEMO_SIMULATION", "SUPERSEDED"],
+  "draftItemOrigins": ["SEALED_BASE", "MANAGER_AUTHORED", "MANAGER_REWORDED"],
+  "draftRecommendationStates": [
+    "AUTO_PROPOSED_HIGH_CONFIDENCE",
+    "MANAGER_REVIEW_REQUIRED",
+    "BLOCKED_SOURCE_GAP"
+  ],
+  "draftReviewStates": ["AUTO_PRESELECTED", "PENDING_MANAGER_REVIEW", "MANAGER_DISPOSED"],
+  "draftDispositions": ["INCLUDE", "EXCLUDE", "DEFER"],
+  "managerActions": [
+    "ADD_CANDIDATE",
+    "ADD_TOPIC",
+    "DEFER",
+    "EXCLUDE",
+    "INCLUDE",
+    "MARK_READY_FOR_DEMO_SIMULATION",
+    "RECLASSIFY_MAIN_DOMAIN",
+    "REMOVE_TOPIC",
+    "RESOLVE_CLASSIFICATION_PROPOSALS",
+    "RETAIN",
+    "REWORD_CANDIDATE"
+  ],
+  "workspaceGenerationStates": ["ACTIVE", "RESET"],
+  "reasonCodes": [
+    "CLASSIFICATION_EXPERT_REVIEW",
+    "MANAGER_EXACT_RESOLUTION",
+    "MANAGER_SCOPE_DECISION",
+    "SIMULATION_SOURCE_GAP_OVERRIDE",
+    "SYNTHETIC_CANDIDATE_ADDED",
+    "SYNTHETIC_CANDIDATE_REWORDED",
+    "SYNTHETIC_LIFECYCLE_CORRECTION",
+    "SYNTHETIC_LIFECYCLE_REVIEW",
+    "SYNTHETIC_RESET"
+  ],
+  "lifecycleCodes": {
+    "classificationQueryOperations": [
+      "GET_DRAFT",
+      "GET_HISTORY",
+      "GET_PROVIDER_CONFIGURATION",
+      "GET_SUMMARY",
+      "GET_TAXONOMY",
+      "SEARCH_ITEMS"
+    ],
+    "classificationCommandOperations": [
+      "ADD_CANDIDATE",
+      "ADD_TOPIC",
+      "DEFER",
+      "EXCLUDE",
+      "EXECUTE_BATCH",
+      "INCLUDE",
+      "MARK_READY_FOR_DEMO_SIMULATION",
+      "PREVIEW_BATCH",
+      "RECLASSIFY_MAIN_DOMAIN",
+      "REMOVE_TOPIC",
+      "RESOLVE_CLASSIFICATION_PROPOSALS",
+      "RETAIN",
+      "REWORD_CANDIDATE"
+    ],
+    "recommendationCommandOperations": ["CREATE_INSPECTION", "CREATE_RECOMMENDATION"],
+    "lifecycleQueryOperations": [
+      "GET_CAP_EVIDENCE",
+      "GET_FINDING",
+      "GET_INSPECTION",
+      "GET_ROLE_HISTORY"
+    ],
+    "lifecycleCommandOperations": [
+      "AUTHORIZED_CLOSE",
+      "CONVERT_POTENTIAL_FINDING",
+      "CREATE_POTENTIAL_FINDING",
+      "DISMISS_POTENTIAL_FINDING",
+      "RECORD_RESPONSE",
+      "REOPEN_CHECKLIST",
+      "RETURN_POTENTIAL_FINDING",
+      "REVIEW_CAP",
+      "START_INSPECTION",
+      "SUBMIT_CAP_REVISION",
+      "SUBMIT_CHECKLIST",
+      "SUBMIT_EVIDENCE_VERSION",
+      "VERIFY_EVIDENCE"
+    ],
+    "adminCommandOperations": ["RESET_GENERATION"],
+    "lifecycleEventCodes": [
+      "AUTHORIZED_CLOSE",
+      "CONVERT_POTENTIAL_FINDING",
+      "CREATE_POTENTIAL_FINDING",
+      "DISMISS_POTENTIAL_FINDING",
+      "RECORD_RESPONSE",
+      "REOPEN_CHECKLIST",
+      "RETURN_POTENTIAL_FINDING",
+      "REVIEW_CAP",
+      "START_INSPECTION",
+      "SUBMIT_CAP_REVISION",
+      "SUBMIT_CHECKLIST",
+      "SUBMIT_EVIDENCE_VERSION",
+      "VERIFY_EVIDENCE"
+    ],
+    "findingInitialStateByRequirements": {
+      "CAP_REQUIRED_EVIDENCE_REQUIRED": "WAITING_FOR_CAP",
+      "CAP_REQUIRED_NO_EVIDENCE": "WAITING_FOR_CAP",
+      "NO_CAP_EVIDENCE_REQUIRED": "EVIDENCE_REQUIRED",
+      "NO_CAP_NO_EVIDENCE": "PENDING_CLOSURE"
+    },
+    "dueDateRequirementAffectsStateBranch": false,
+    "capReviewOutcomeMappings": {
+      "REJECT": {
+        "capRevisionState": "REJECTED",
+        "findingState": "CAP_REJECTED"
+      },
+      "REQUEST_MORE_INFORMATION": {
+        "capRevisionState": "MORE_INFORMATION_REQUESTED",
+        "findingState": "CAP_MORE_INFORMATION_REQUESTED"
+      },
+      "ACCEPT_EVIDENCE_REQUIRED": {
+        "capRevisionState": "ACCEPTED",
+        "findingState": "EVIDENCE_REQUIRED"
+      },
+      "ACCEPT_NO_EVIDENCE": {
+        "capRevisionState": "ACCEPTED",
+        "findingState": "PENDING_CLOSURE"
+      }
+    },
+    "inspectionStates": ["READY", "IN_PROGRESS", "SUBMITTED", "COMPLETED"],
+    "checklistStates": ["IN_PROGRESS", "SUBMITTED"],
+    "answerStates": ["COMPLIANT", "NON_COMPLIANT", "OBSERVATION", "NOT_APPLICABLE", "NOT_CHECKED"],
+    "potentialFindingStates": ["PENDING_LEAD_REVIEW", "RETURNED", "DISMISSED", "CONVERTED"],
+    "findingStates": [
+      "WAITING_FOR_CAP",
+      "CAP_SUBMITTED",
+      "CAP_REJECTED",
+      "CAP_MORE_INFORMATION_REQUESTED",
+      "EVIDENCE_REQUIRED",
+      "EVIDENCE_SUBMITTED",
+      "PENDING_CAA_REVIEW",
+      "EVIDENCE_MORE_INFORMATION_REQUESTED",
+      "PENDING_CLOSURE",
+      "CLOSED"
+    ],
+    "capRevisionStates": ["SUBMITTED", "PENDING_CAA_REVIEW", "ACCEPTED", "REJECTED", "MORE_INFORMATION_REQUESTED", "SUPERSEDED"],
+    "evidenceReviewStates": ["PENDING_CAA_REVIEW", "ACCEPTED", "PARTIALLY_ACCEPTED", "REJECTED", "MORE_INFORMATION_REQUESTED"],
+    "evidenceDecisions": ["CLOSE", "PARTIALLY_CLOSE", "NOT_CLOSE", "REQUEST_MORE_INFORMATION"],
+    "closureBases": ["EVIDENCE_VERIFIED", "AUTHORIZED_CLOSURE"],
+    "capAcceptedFindingStates": {
+      "evidenceRequired": "EVIDENCE_REQUIRED",
+      "noEvidenceRequired": "PENDING_CLOSURE"
+    },
+    "evidenceDecisionToFindingState": {
+      "CLOSE": {
+        "evidenceReviewState": "ACCEPTED",
+        "findingState": "CLOSED",
+        "closureBasis": "EVIDENCE_VERIFIED"
+      },
+      "PARTIALLY_CLOSE": {
+        "evidenceReviewState": "PARTIALLY_ACCEPTED",
+        "findingState": "EVIDENCE_MORE_INFORMATION_REQUESTED",
+        "closureBasis": null
+      },
+      "NOT_CLOSE": {
+        "evidenceReviewState": "REJECTED",
+        "findingState": "EVIDENCE_MORE_INFORMATION_REQUESTED",
+        "closureBasis": null
+      },
+      "REQUEST_MORE_INFORMATION": {
+        "evidenceReviewState": "MORE_INFORMATION_REQUESTED",
+        "findingState": "EVIDENCE_MORE_INFORMATION_REQUESTED",
+        "closureBasis": null
+      }
+    },
+    "transitionAbsenceSentinel": "ABSENT",
+    "returnedPotentialFindingSuccessorContract": {
+      "operation": "CREATE_POTENTIAL_FINDING",
+      "sourceState": "RETURNED",
+      "targetState": "PENDING_LEAD_REVIEW",
+      "correctedResponseRequired": true,
+      "correctedResponseStates": ["NON_COMPLIANT", "OBSERVATION"],
+      "returnedVersionResponseBindingFields": ["responseRevision", "responseSemanticDigest"],
+      "correctedResponseRevisionRule": "STRICTLY_GREATER_THAN_RETURNED_BOUND_RESPONSE_REVISION",
+      "correctedResponseDigestRule": "MUST_DIFFER_FROM_RETURNED_BOUND_RESPONSE_SEMANTIC_DIGEST",
+      "successorResponseBindingRule": "EXACT_CURRENT_CORRECTED_RESPONSE_REVISION_AND_SEMANTIC_DIGEST",
+      "rootIdentity": "PRESERVE_EXISTING_ROOT_ID",
+      "successorVersion": "ALLOCATE_NEXT_IMMUTABLE_VERSION",
+      "priorVersion": "RETAIN_IMMUTABLE_RETURNED_VERSION",
+      "checklistState": "IN_PROGRESS",
+      "inspectionState": "IN_PROGRESS",
+      "resubmissionOperation": "SUBMIT_CHECKLIST",
+      "submissionGuard": {
+        "denyWhenAnyLatestRootState": ["RETURNED"],
+        "denialCode": "RETURNED_ROOT_SUCCESSOR_REQUIRED",
+        "allowAfterSuccessorLatestState": "PENDING_LEAD_REVIEW"
+      }
+    },
+    "operationTransitionRegistry": {
+      "AUTHORIZED_CLOSE": {
+        "entityTransitions": {
+          "DEMO_FINDING": {
+            "sourceStates": ["PENDING_CLOSURE"],
+            "targetStates": ["CLOSED"],
+            "targetSelectionRule": "EXACT"
+          },
+          "DEMO_CLOSURE": {
+            "sourceStates": ["ABSENT"],
+            "targetStates": ["AUTHORIZED_CLOSURE"],
+            "targetSelectionRule": "EXACT"
+          }
+        },
+        "transitionRule": "MANAGER_REASON_REQUIRED_NO_EVIDENCE_IMPERSONATION"
+      },
+      "CONVERT_POTENTIAL_FINDING": {
+        "entityTransitions": {
+          "DEMO_POTENTIAL_FINDING": {
+            "sourceStates": ["PENDING_LEAD_REVIEW"],
+            "targetStates": ["CONVERTED"],
+            "targetSelectionRule": "EXACT"
+          },
+          "DEMO_FINDING": {
+            "sourceStates": ["ABSENT"],
+            "targetStates": ["WAITING_FOR_CAP", "EVIDENCE_REQUIRED", "PENDING_CLOSURE"],
+            "targetSelectionRule": "CAP_EVIDENCE_REQUIREMENT_BRANCH_DUE_DATE_DOES_NOT_AFFECT_STATE"
+          }
+        },
+        "transitionRule": "LEAD_SELECTS_CAP_EVIDENCE_DUE_DATE_BRANCH"
+      },
+      "CREATE_POTENTIAL_FINDING": {
+        "entityTransitions": {
+          "DEMO_CHECKLIST_RESPONSE": {
+            "sourceStates": ["NON_COMPLIANT", "OBSERVATION"],
+            "targetStates": ["NON_COMPLIANT", "OBSERVATION"],
+            "targetSelectionRule": "PRESERVE_EXACT_SOURCE_STATE"
+          },
+          "DEMO_POTENTIAL_FINDING": {
+            "sourceStates": ["ABSENT", "RETURNED"],
+            "targetStates": ["PENDING_LEAD_REVIEW"],
+            "targetSelectionRule": "ABSENT_ALLOCATES_NEW_ROOT_RETURNED_APPENDS_SAME_ROOT_IMMUTABLE_SUCCESSOR"
+          }
+        },
+        "transitionRule": "ASSIGNED_INSPECTOR_COMMENT_TO_AUDITEE_REQUIRED"
+      },
+      "DISMISS_POTENTIAL_FINDING": {
+        "entityTransitions": {
+          "DEMO_POTENTIAL_FINDING": {
+            "sourceStates": ["PENDING_LEAD_REVIEW"],
+            "targetStates": ["DISMISSED"],
+            "targetSelectionRule": "EXACT"
+          },
+          "DEMO_INSPECTION": {
+            "sourceStates": ["SUBMITTED"],
+            "targetStates": ["SUBMITTED", "COMPLETED"],
+            "targetSelectionRule": "COMPLETED_IFF_ALL_LATEST_ROOTS_TERMINAL_ELSE_SUBMITTED"
+          }
+        },
+        "transitionRule": "EXACT_LEAD_TERMINAL_ROOT_RECOMPUTES_INSPECTION"
+      },
+      "RECORD_RESPONSE": {
+        "entityTransitions": {
+          "DEMO_CHECKLIST_RESPONSE": {
+            "sourceStates": ["COMPLIANT", "NON_COMPLIANT", "OBSERVATION", "NOT_APPLICABLE", "NOT_CHECKED"],
+            "targetStates": ["COMPLIANT", "NON_COMPLIANT", "OBSERVATION", "NOT_APPLICABLE", "NOT_CHECKED"],
+            "targetSelectionRule": "REQUESTED_ANSWER_CODE_WHILE_CHECKLIST_IN_PROGRESS"
+          }
+        },
+        "transitionRule": "ASSIGNED_INSPECTOR_PINNED_QUESTION_SNAPSHOT"
+      },
+      "REOPEN_CHECKLIST": {
+        "entityTransitions": {
+          "DEMO_CHECKLIST": {
+            "sourceStates": ["SUBMITTED"],
+            "targetStates": ["IN_PROGRESS"],
+            "targetSelectionRule": "EXACT"
+          },
+          "DEMO_INSPECTION": {
+            "sourceStates": ["SUBMITTED", "COMPLETED"],
+            "targetStates": ["IN_PROGRESS"],
+            "targetSelectionRule": "EXACT"
+          }
+        },
+        "transitionRule": "ASSIGNED_INSPECTOR_OR_EXACT_LEAD_REASON_REQUIRED"
+      },
+      "RETURN_POTENTIAL_FINDING": {
+        "entityTransitions": {
+          "DEMO_POTENTIAL_FINDING": {
+            "sourceStates": ["PENDING_LEAD_REVIEW"],
+            "targetStates": ["RETURNED"],
+            "targetSelectionRule": "EXACT"
+          },
+          "DEMO_CHECKLIST": {
+            "sourceStates": ["SUBMITTED"],
+            "targetStates": ["IN_PROGRESS"],
+            "targetSelectionRule": "EXACT"
+          },
+          "DEMO_INSPECTION": {
+            "sourceStates": ["SUBMITTED", "COMPLETED"],
+            "targetStates": ["IN_PROGRESS"],
+            "targetSelectionRule": "EXACT"
+          }
+        },
+        "transitionRule": "EXACT_LEAD_REASON_REQUIRED_SUCCESSOR_ROOT_VERSION"
+      },
+      "REVIEW_CAP": {
+        "entityTransitions": {
+          "DEMO_CAP_REVISION": {
+            "sourceStates": ["PENDING_CAA_REVIEW"],
+            "targetStates": ["ACCEPTED", "REJECTED", "MORE_INFORMATION_REQUESTED"],
+            "targetSelectionRule": "CAP_REVIEW_OUTCOME"
+          },
+          "DEMO_FINDING": {
+            "sourceStates": ["PENDING_CAA_REVIEW"],
+            "targetStates": ["CAP_REJECTED", "CAP_MORE_INFORMATION_REQUESTED", "EVIDENCE_REQUIRED", "PENDING_CLOSURE"],
+            "targetSelectionRule": "CAP_REVIEW_OUTCOME_AND_EVIDENCE_REQUIREMENT"
+          }
+        },
+        "transitionRule": "EXACT_CAA_REVIEWER_SEPARATE_PUBLIC_INTERNAL_NOTES"
+      },
+      "START_INSPECTION": {
+        "entityTransitions": {
+          "DEMO_INSPECTION": {
+            "sourceStates": ["READY"],
+            "targetStates": ["IN_PROGRESS"],
+            "targetSelectionRule": "EXACT"
+          },
+          "DEMO_CHECKLIST": {
+            "sourceStates": ["ABSENT"],
+            "targetStates": ["IN_PROGRESS"],
+            "targetSelectionRule": "EXACT"
+          }
+        },
+        "transitionRule": "ASSIGNED_INSPECTOR_ONLY"
+      },
+      "SUBMIT_CAP_REVISION": {
+        "entityTransitions": {
+          "DEMO_CAP_REVISION": {
+            "sourceStates": ["ABSENT"],
+            "targetStates": ["PENDING_CAA_REVIEW"],
+            "targetSelectionRule": "APPEND_SUBMITTED_THEN_PENDING_CAA_REVIEW_IN_ONE_TRANSACTION"
+          },
+          "DEMO_FINDING": {
+            "sourceStates": ["WAITING_FOR_CAP", "CAP_REJECTED", "CAP_MORE_INFORMATION_REQUESTED"],
+            "targetStates": ["PENDING_CAA_REVIEW"],
+            "targetSelectionRule": "APPEND_CAP_SUBMITTED_THEN_PENDING_CAA_REVIEW_IN_ONE_TRANSACTION"
+          }
+        },
+        "transitionRule": "MATCHING_AUDITEE_APPEND_ONLY_WITH_SUPERSESSION"
+      },
+      "SUBMIT_CHECKLIST": {
+        "entityTransitions": {
+          "DEMO_CHECKLIST": {
+            "sourceStates": ["IN_PROGRESS"],
+            "targetStates": ["SUBMITTED"],
+            "targetSelectionRule": "EXACT"
+          },
+          "DEMO_INSPECTION": {
+            "sourceStates": ["IN_PROGRESS"],
+            "targetStates": ["SUBMITTED", "COMPLETED"],
+            "targetSelectionRule": "COMPLETED_IFF_ZERO_ROOTS_OR_ALL_LATEST_ROOTS_TERMINAL_ELSE_SUBMITTED"
+          }
+        },
+        "transitionRule": "ASSIGNED_INSPECTOR_TERMINAL_ROOT_RECOMPUTATION_DENY_LATEST_RETURNED_ROOTS"
+      },
+      "SUBMIT_EVIDENCE_VERSION": {
+        "entityTransitions": {
+          "DEMO_EVIDENCE_VERSION": {
+            "sourceStates": ["ABSENT"],
+            "targetStates": ["PENDING_CAA_REVIEW"],
+            "targetSelectionRule": "APPEND_PENDING_CAA_REVIEW_METADATA_VERSION"
+          },
+          "DEMO_FINDING": {
+            "sourceStates": ["EVIDENCE_REQUIRED", "EVIDENCE_MORE_INFORMATION_REQUESTED"],
+            "targetStates": ["PENDING_CAA_REVIEW"],
+            "targetSelectionRule": "APPEND_EVIDENCE_SUBMITTED_THEN_PENDING_CAA_REVIEW_IN_ONE_TRANSACTION"
+          }
+        },
+        "transitionRule": "MATCHING_AUDITEE_APPEND_ONLY_METADATA_NO_FILE_CLAIM"
+      },
+      "VERIFY_EVIDENCE": {
+        "entityTransitions": {
+          "DEMO_EVIDENCE_VERSION": {
+            "sourceStates": ["PENDING_CAA_REVIEW"],
+            "targetStates": ["ACCEPTED", "PARTIALLY_ACCEPTED", "REJECTED", "MORE_INFORMATION_REQUESTED"],
+            "targetSelectionRule": "EVIDENCE_DECISION_MAPPING"
+          },
+          "DEMO_VERIFICATION_DECISION": {
+            "sourceStates": ["ABSENT"],
+            "targetStates": ["CLOSE", "PARTIALLY_CLOSE", "NOT_CLOSE", "REQUEST_MORE_INFORMATION"],
+            "targetSelectionRule": "REQUESTED_CONTROLLED_DECISION"
+          },
+          "DEMO_FINDING": {
+            "sourceStates": ["PENDING_CAA_REVIEW"],
+            "targetStates": ["CLOSED", "EVIDENCE_MORE_INFORMATION_REQUESTED"],
+            "targetSelectionRule": "CLOSED_IFF_DECISION_CLOSE_ELSE_EVIDENCE_MORE_INFORMATION_REQUESTED"
+          },
+          "DEMO_CLOSURE": {
+            "sourceStates": ["ABSENT"],
+            "targetStates": ["ABSENT", "EVIDENCE_VERIFIED"],
+            "targetSelectionRule": "CREATE_EVIDENCE_VERIFIED_IFF_DECISION_CLOSE_ELSE_REMAIN_ABSENT"
+          }
+        },
+        "transitionRule": "BOUND_INSPECTOR_OR_LEAD_SEPARATE_PUBLIC_INTERNAL_NOTES"
+      }
+    }
+  },
+  "evidenceBindingContract": {
+    "requiredEvidenceFields": [
+      "proposalField",
+      "proposalValueDigest",
+      "rationaleCode",
+      "inputFactSelector",
+      "inputFactValueDigest"
+    ],
+    "optionalEvidenceFields": ["signalRuleId"],
+    "edgeSemanticTupleFields": [
+      "providerTypeCode",
+      "involvementRoleCode",
+      "conditionCode",
+      "applicabilityDisposition"
+    ],
+    "combinationProfiles": {
+      "SEMANTIC_CORE": {
+        "allowedRationaleCodes": [
+          "CONFIGURATION_CUE",
+          "DATA_QUALITY_CUE",
+          "GOVERNANCE_CUE",
+          "LOW_VISIBILITY_CUE",
+          "MANAGEMENT_SYSTEM_CUE",
+          "OPERATIONAL_SAFETY_CUE",
+          "PHYSICAL_CHARACTERISTICS_CUE",
+          "SOURCE_EVIDENCE_PRESENT",
+          "SOURCE_GAP_CUE"
+        ],
+        "allowedInputFactSelectors": [
+          "FORM_METADATA_DIGEST",
+          "QUESTION_BODY_DIGEST",
+          "RESEARCH_ROW_DIGEST",
+          "SOURCE_PROPOSAL_DIGEST",
+          "SOURCE_REFERENCE_DIGEST",
+          "VALIDATOR_SIGNAL_RULE_MATCH_DIGEST"
+        ],
+        "signalRulePolicy": "OPTIONAL_RECOMPUTED_ONLY"
+      },
+      "SEMANTIC_AUXILIARY": {
+        "allowedRationaleCodes": [
+          "CONFIGURATION_CUE",
+          "CONTRACTED_ACTIVITY_CUE",
+          "DATA_QUALITY_CUE",
+          "EXTERNAL_INTERFACE_CUE",
+          "GOVERNANCE_CUE",
+          "LOW_VISIBILITY_CUE",
+          "MANAGEMENT_SYSTEM_CUE",
+          "OPERATIONAL_SAFETY_CUE",
+          "PHYSICAL_CHARACTERISTICS_CUE",
+          "SOURCE_EVIDENCE_PRESENT",
+          "SOURCE_GAP_CUE"
+        ],
+        "allowedInputFactSelectors": [
+          "FORM_METADATA_DIGEST",
+          "QUESTION_BODY_DIGEST",
+          "RESEARCH_ROW_DIGEST",
+          "SOURCE_PROPOSAL_DIGEST",
+          "SOURCE_REFERENCE_DIGEST",
+          "VALIDATOR_SIGNAL_RULE_MATCH_DIGEST"
+        ],
+        "signalRulePolicy": "OPTIONAL_RECOMPUTED_ONLY"
+      },
+      "EXTERNAL_EDGE": {
+        "allowedRationaleCodes": [
+          "CONTRACTED_ACTIVITY_CUE",
+          "EXTERNAL_INTERFACE_CUE",
+          "OPERATIONAL_SAFETY_CUE",
+          "SOURCE_EVIDENCE_PRESENT",
+          "SOURCE_GAP_CUE"
+        ],
+        "allowedInputFactSelectors": [
+          "QUESTION_BODY_DIGEST",
+          "RESEARCH_ROW_DIGEST",
+          "SOURCE_PROPOSAL_DIGEST",
+          "SOURCE_REFERENCE_DIGEST",
+          "VALIDATOR_SIGNAL_RULE_MATCH_DIGEST"
+        ],
+        "signalRulePolicy": "OPTIONAL_RECOMPUTED_ONLY"
+      }
+    },
+    "signalRuleFieldRules": {
+      "CONTRACTED_PERSONNEL_V1": [
+        {
+          "proposalField": "topicCodes",
+          "valueShape": "SET_MEMBER",
+          "allowedValues": ["CONTRACTED_SERVICE_OVERSIGHT"],
+          "allowedRationaleCodes": ["CONTRACTED_ACTIVITY_CUE"],
+          "signalAloneSatisfiesEvidence": true
+        },
+        {
+          "proposalField": "externalInvolvements",
+          "valueShape": "EXTERNAL_EDGE_TUPLE",
+          "allowedValues": ["ANY_TAXONOMY_VALID_EXTERNAL_EDGE"],
+          "allowedRationaleCodes": ["CONTRACTED_ACTIVITY_CUE", "EXTERNAL_INTERFACE_CUE"],
+          "signalAloneSatisfiesEvidence": false
+        }
+      ],
+      "CROSS_QUESTION_DEPENDENCY_V1": [
+        {
+          "proposalField": "applicabilityDisposition",
+          "valueShape": "SCALAR",
+          "allowedValues": ["CONDITIONAL_ON_PRIOR_RESPONSE"],
+          "allowedRationaleCodes": ["CONFIGURATION_CUE"],
+          "signalAloneSatisfiesEvidence": true
+        }
+      ],
+      "EMBEDDED_FORM_TEMPLATE_TEXT_V1": [
+        {
+          "proposalField": "applicabilityDisposition",
+          "valueShape": "SCALAR",
+          "allowedValues": ["REQUIRES_EXPERT_DETERMINATION"],
+          "allowedRationaleCodes": ["CONFIGURATION_CUE"],
+          "signalAloneSatisfiesEvidence": true
+        }
+      ],
+      "EMERGENCY_AGENCY_PARTICIPATION_V1": [
+        {
+          "proposalField": "externalInvolvements",
+          "valueShape": "EXTERNAL_EDGE_TUPLE",
+          "allowedValues": ["ANY_TAXONOMY_VALID_EXTERNAL_EDGE"],
+          "allowedRationaleCodes": ["EXTERNAL_INTERFACE_CUE", "OPERATIONAL_SAFETY_CUE"],
+          "signalAloneSatisfiesEvidence": false
+        }
+      ],
+      "EXPLICIT_EXTERNAL_ACTOR_V1": [
+        {
+          "proposalField": "externalInvolvements",
+          "valueShape": "EXTERNAL_EDGE_TUPLE",
+          "allowedValues": ["ANY_TAXONOMY_VALID_EXTERNAL_EDGE"],
+          "allowedRationaleCodes": ["EXTERNAL_INTERFACE_CUE"],
+          "signalAloneSatisfiesEvidence": false
+        }
+      ],
+      "EXTERNAL_APPROVAL_AUTHORITY_V1": [
+        {
+          "proposalField": "externalInvolvements",
+          "valueShape": "EXTERNAL_EDGE_TUPLE",
+          "allowedValues": ["ANY_TAXONOMY_VALID_EXTERNAL_EDGE"],
+          "allowedRationaleCodes": ["EXTERNAL_INTERFACE_CUE"],
+          "signalAloneSatisfiesEvidence": false
+        }
+      ],
+      "EXTERNAL_REVIEW_PROVIDER_V1": [
+        {
+          "proposalField": "externalInvolvements",
+          "valueShape": "EXTERNAL_EDGE_TUPLE",
+          "allowedValues": ["ANY_TAXONOMY_VALID_EXTERNAL_EDGE"],
+          "allowedRationaleCodes": ["EXTERNAL_INTERFACE_CUE"],
+          "signalAloneSatisfiesEvidence": false
+        }
+      ],
+      "EXTERNAL_STAKEHOLDER_V1": [
+        {
+          "proposalField": "externalInvolvements",
+          "valueShape": "EXTERNAL_EDGE_TUPLE",
+          "allowedValues": ["ANY_TAXONOMY_VALID_EXTERNAL_EDGE"],
+          "allowedRationaleCodes": ["EXTERNAL_INTERFACE_CUE"],
+          "signalAloneSatisfiesEvidence": false
+        }
+      ],
+      "PRIOR_RESPONSE_DEPENDENCY_V1": [
+        {
+          "proposalField": "applicabilityDisposition",
+          "valueShape": "SCALAR",
+          "allowedValues": ["CONDITIONAL_ON_PRIOR_RESPONSE"],
+          "allowedRationaleCodes": ["CONFIGURATION_CUE"],
+          "signalAloneSatisfiesEvidence": true
+        }
+      ],
+      "PROVIDER_APPLICABILITY_UNRESOLVED_V1": [
+        {
+          "proposalField": "applicabilityDisposition",
+          "valueShape": "SCALAR",
+          "allowedValues": ["REQUIRES_EXPERT_DETERMINATION"],
+          "allowedRationaleCodes": ["SOURCE_GAP_CUE"],
+          "signalAloneSatisfiesEvidence": true
+        }
+      ],
+      "SOURCE_PROPOSAL_GAP_V1": [
+        {
+          "proposalField": "evidenceExpectationCodes",
+          "valueShape": "SET_MEMBER",
+          "allowedValues": ["SOURCE_REFERENCE"],
+          "allowedRationaleCodes": ["SOURCE_GAP_CUE"],
+          "signalAloneSatisfiesEvidence": true
+        }
+      ],
+      "SPECIALIST_RESCUE_SERVICE_V1": [
+        {
+          "proposalField": "externalInvolvements",
+          "valueShape": "EXTERNAL_EDGE_TUPLE",
+          "allowedValues": ["ANY_TAXONOMY_VALID_EXTERNAL_EDGE"],
+          "allowedRationaleCodes": ["EXTERNAL_INTERFACE_CUE", "OPERATIONAL_SAFETY_CUE"],
+          "signalAloneSatisfiesEvidence": false
+        }
+      ],
+      "THIRD_PARTY_SIGNOFF_V1": [
+        {
+          "proposalField": "externalInvolvements",
+          "valueShape": "EXTERNAL_EDGE_TUPLE",
+          "allowedValues": ["ANY_TAXONOMY_VALID_EXTERNAL_EDGE"],
+          "allowedRationaleCodes": ["EXTERNAL_INTERFACE_CUE"],
+          "signalAloneSatisfiesEvidence": false
+        }
+      ]
+    },
+    "fieldRules": {
+      "activityQualifiers": {"valueShape": "QUALIFIER_PAIR", "combinationProfile": "SEMANTIC_AUXILIARY"},
+      "applicabilityDisposition": {"valueShape": "SCALAR", "combinationProfile": "SEMANTIC_CORE"},
+      "canonicalTargetKind": {"valueShape": "SCALAR", "combinationProfile": "SEMANTIC_CORE"},
+      "evidenceExpectationCodes": {"valueShape": "SET_MEMBER", "combinationProfile": "SEMANTIC_AUXILIARY"},
+      "externalInvolvements": {"valueShape": "EXTERNAL_EDGE_TUPLE", "combinationProfile": "EXTERNAL_EDGE"},
+      "inspectionProfileCodes": {"valueShape": "SET_MEMBER", "combinationProfile": "SEMANTIC_CORE"},
+      "inspectionTypeCodes": {"valueShape": "SET_MEMBER", "combinationProfile": "SEMANTIC_AUXILIARY"},
+      "mainDomainCode": {"valueShape": "SCALAR", "combinationProfile": "SEMANTIC_CORE"},
+      "operationQualifiers": {"valueShape": "QUALIFIER_PAIR", "combinationProfile": "SEMANTIC_AUXILIARY"},
+      "targetProfileCode": {"valueShape": "SCALAR", "combinationProfile": "SEMANTIC_CORE"},
+      "topicCodes": {"valueShape": "SET_MEMBER", "combinationProfile": "SEMANTIC_AUXILIARY"}
+    },
+    "duplicateEvidencePolicy": "REJECT_SEMANTIC_KEY_BEFORE_NORMALIZATION",
+    "factDigestPolicy": "VALIDATOR_RECOMPUTES_FROM_FIXED_INPUT",
+    "crossFieldReuse": "FORBIDDEN"
+  },
+  "confidenceContract": {
+    "coreProposalFields": [
+      "mainDomainCode",
+      "canonicalTargetKind",
+      "targetProfileCode",
+      "applicabilityDisposition",
+      "inspectionProfileCodes"
+    ],
+    "auxiliaryProposalFields": [
+      "topicCodes",
+      "inspectionTypeCodes",
+      "operationQualifiers",
+      "activityQualifiers",
+      "evidenceExpectationCodes",
+      "externalInvolvements"
+    ],
+    "orderedPrecedence": ["LOW", "MEDIUM", "HIGH"],
+    "LOW": {
+      "anyOf": ["CORE_DISAGREEMENT", "CANDIDATE_CORE_EVIDENCE_MISSING", "CHALLENGE_CORE_EVIDENCE_MISSING"]
+    },
+    "MEDIUM": {
+      "allOf": ["CORE_AGREEMENT", "CORE_FULLY_EVIDENCED"],
+      "anyOf": ["AUXILIARY_DISAGREEMENT", "CANDIDATE_AUXILIARY_EVIDENCE_MISSING", "CHALLENGE_AUXILIARY_EVIDENCE_MISSING"]
+    },
+    "HIGH": {
+      "allOf": ["COMPLETE_PROJECTION_AGREEMENT", "EVERY_EMITTED_PROPOSAL_EVIDENCED_IN_BOTH_PASSES"]
+    }
+  },
+  "recommendationPrecedence": [
+    {
+      "priority": 1,
+      "whenAny": ["QUESTION_SOURCE_PROPOSAL_GAP"],
+      "result": "BLOCKED_SOURCE_GAP"
+    },
+    {
+      "priority": 2,
+      "whenAny": ["EXTERNAL_APPLICABILITY_UNRESOLVED", "PASS_DISAGREEMENT", "AGREEMENT_MEDIUM", "AGREEMENT_LOW"],
+      "result": "MANAGER_REVIEW_REQUIRED"
+    },
+    {
+      "priority": 3,
+      "whenAll": ["AGREEMENT_HIGH"],
+      "result": "AUTO_PROPOSED_HIGH_CONFIDENCE"
+    }
+  ],
+  "fatalRunErrorCodes": [
+    "AGGREGATE_MISMATCH",
+    "BATCH_OUTPUT_DIGEST_MISMATCH",
+    "DUPLICATE_IDENTITY",
+    "EVIDENCE_FACT_DIGEST_MISMATCH",
+    "FORBIDDEN_FIELD",
+    "IDENTITY_MISMATCH",
+    "INCOMPLETE_PASS",
+    "MALFORMED_PROVENANCE",
+    "MISSING_IDENTITY",
+    "PASS_PROPOSAL_MISMATCH",
+    "QUESTION_TEXT_LEAK",
+    "SCHEMA_ERROR",
+    "UNKNOWN_CODE",
+    "UNKNOWN_INPUT_FACT_SELECTOR",
+    "UNKNOWN_RATIONALE_CODE",
+    "UNKNOWN_SIGNAL_RULE"
+  ],
+  "proposalResolutionModes": [
+    "ACCEPT_CANDIDATE_PASS",
+    "ACCEPT_CHALLENGE_PASS",
+    "SET_EXACT"
+  ],
+  "draftTransitionContract": {
+    "reasonRequiredActions": [
+      "ADD_CANDIDATE",
+      "ADD_TOPIC",
+      "DEFER",
+      "EXCLUDE",
+      "MARK_READY_FOR_DEMO_SIMULATION",
+      "RECLASSIFY_MAIN_DOMAIN",
+      "REMOVE_TOPIC",
+      "RESOLVE_CLASSIFICATION_PROPOSALS",
+      "REWORD_CANDIDATE"
+    ],
+    "conditionalReasonActions": {
+      "INCLUDE": "REQUIRED_WHEN_BLOCKED_SOURCE_GAP",
+      "RETAIN": "NEVER_REQUIRED"
+    },
+    "batchAllowedActions": ["RETAIN", "RECLASSIFY_MAIN_DOMAIN", "ADD_TOPIC", "REMOVE_TOPIC"],
+    "batchMaximumItems": 500,
+    "proposalResolutionFields": [
+      "mainDomainCode",
+      "topicCodes",
+      "inspectionProfileCodes",
+      "inspectionTypeCodes",
+      "canonicalTargetKind",
+      "targetProfileCode",
+      "operationQualifiers",
+      "activityQualifiers",
+      "applicabilityDisposition",
+      "evidenceExpectationCodes",
+      "externalInvolvements"
+    ],
+    "initialSealedBaseByRecommendation": {
+      "AUTO_PROPOSED_HIGH_CONFIDENCE": {
+        "draftAgreementConfidence": "COPY_SEALED",
+        "draftReviewState": "AUTO_PRESELECTED",
+        "draftDisposition": "INCLUDE"
+      },
+      "MANAGER_REVIEW_REQUIRED": {
+        "draftAgreementConfidence": "COPY_SEALED",
+        "draftReviewState": "PENDING_MANAGER_REVIEW",
+        "draftDisposition": null
+      },
+      "BLOCKED_SOURCE_GAP": {
+        "draftAgreementConfidence": "COPY_SEALED",
+        "draftReviewState": "PENDING_MANAGER_REVIEW",
+        "draftDisposition": null
+      }
+    },
+    "dispositionInvariant": {
+      "AUTO_PRESELECTED": ["INCLUDE"],
+      "PENDING_MANAGER_REVIEW": [null],
+      "MANAGER_DISPOSED": ["INCLUDE", "EXCLUDE", "DEFER"]
+    },
+    "postResolutionRequiresSeparateDisposition": true,
+    "semanticEditSuccessor": {
+      "draftAgreementConfidence": null,
+      "draftReviewState": "PENDING_MANAGER_REVIEW",
+      "draftDisposition": null,
+      "nonGapRecommendation": "MANAGER_REVIEW_REQUIRED",
+      "gapRecommendation": "BLOCKED_SOURCE_GAP"
+    },
+    "newOrRewordedQuestion": {
+      "questionSourceProposalGap": true,
+      "sourceMappingState": "SOURCE_MAPPING_REQUIRED",
+      "sourceAuthorityState": "NOT_ATTESTED",
+      "riskClassificationState": "CANDIDATE_INTERPRETATION_REQUIRES_EXPERT_REVIEW"
+    }
+  },
+  "questionReferenceContract": {
+    "baseIdentityFields": ["packageVersion", "packageJsonSha256", "formCode", "proposalId", "ordinal", "textDigest"],
+    "questionOrigins": ["SEALED_BASE", "WORKSPACE"],
+    "serverIdPattern": "^aga-ws-[a-z0-9][a-z0-9-]{7,63}$",
+    "canonicalUtcPattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?Z$",
+    "workspaceQuestionFields": ["questionOrigin", "generationId", "questionRootId", "questionVersionId", "proposalId", "rootSequence", "bodyDigest", "parentQuestionKey", "createdBySubjectId", "createdAt", "reasonCode"],
+    "workspaceParentFields": ["questionOrigin", "generationId", "questionRootId", "questionVersionId", "proposalId", "rootSequence", "bodyDigest"],
+    "workspaceIdentityTransitions": {
+      "ADD_CANDIDATE": {
+        "parentKind": "NULL",
+        "root": "ALLOCATE",
+        "version": "ALLOCATE",
+        "proposal": "ALLOCATE",
+        "rootSequence": "ALLOCATE"
+      },
+      "REWORD_BASE": {
+        "parentKind": "SEALED_BASE",
+        "root": "ALLOCATE",
+        "version": "ALLOCATE",
+        "proposal": "ALLOCATE",
+        "rootSequence": "ALLOCATE_AT_BASE_POSITION"
+      },
+      "REWORD_WORKSPACE": {
+        "parentKind": "WORKSPACE",
+        "root": "PRESERVE",
+        "version": "ALLOCATE",
+        "proposal": "ALLOCATE",
+        "rootSequence": "PRESERVE"
+      }
+    }
+  },
+  "commandContract": {
+    "genericCommandEnvelopeFields": [
+      "operationId",
+      "idempotencyKey",
+      "expectedGenerationId"
+    ],
+    "classificationCasFields": [
+      "expectedDraftRevision",
+      "expectedDraftContentDigest"
+    ],
+    "recommendationCreationCasFields": [
+      "expectedDraftRevision",
+      "expectedDraftContentDigest"
+    ],
+    "inspectionCreationCasFields": [
+      "expectedRecommendationRevision",
+      "expectedRecommendationDigest"
+    ],
+    "lifecycleCasFields": [
+      "expectedLifecycleRevision",
+      "expectedLifecycleDigest"
+    ],
+    "resetCasFields": [
+      "expectedGenerationId",
+      "expectedGenerationRevision",
+      "expectedGenerationSealDigest"
+    ],
+    "idempotencyBindingKeyFields": [
+      "expectedGenerationId",
+      "actorSubjectId",
+      "operationId",
+      "idempotencyKey"
+    ],
+    "commandHeaderEquality": {
+      "idempotencyHeader": "Idempotency-Key",
+      "revisionHeader": "If-Match",
+      "revisionLexicalForm": "rev-N"
+    }
+  },
+  "aggregateContract": {
+    "exactCounts": {
+      "sealedItems": 1310,
+      "passProposalRecords": 2620,
+      "sourceProposalGaps": 49,
+      "externalApplicabilityUnresolved": 51,
+      "sourceGapExternalUnresolvedOverlap": 49,
+      "extractedCandidate": 1282,
+      "exactSourceBacked": 28
+    },
+    "distributionDimensions": [
+      "agreementConfidence",
+      "applicabilityDisposition",
+      "canonicalTargetKind",
+      "disagreementCode",
+      "evidenceExpectationCode",
+      "externalProviderTypeCode",
+      "extractionState",
+      "inspectionProfileCode",
+      "inspectionTypeCode",
+      "mainDomainCode",
+      "recommendationState",
+      "targetProfileCode",
+      "topicCode"
+    ],
+    "exceptionInventories": [
+      "blockedSourceGap",
+      "externalApplicabilityUnresolved",
+      "managerReviewRequired",
+      "passDisagreement",
+      "sourceGapExternalUnresolvedOverlap"
+    ],
+    "orderedDigestFields": [
+      "orderedItemSemanticDigests",
+      "orderedIdentityDigests"
+    ],
+    "countValidation": "RECONSTRUCT_FROM_1310_SEALED_ITEMS"
+  },
+  "normalization": {
+    "orderedFields": ["boundedBatches", "draftRevisions", "eventStream", "items", "lifecycleRevisions", "orderedBatchOutputDigests", "orderedIdentityDigests", "orderedInputDigests", "orderedItemSemanticDigests", "orderedPassResultDigests", "packageForms", "questionIdentities", "records", "sourceProposalDigests", "sourceReferenceDigests"],
+    "setLikeFields": ["activityQualifiers", "agreementConfidenceCounts", "applicabilityDispositionCounts", "blockerCodes", "canonicalTargetKindCounts", "confidenceEvidence", "disagreementCodeCounts", "evidenceExpectationCodeCounts", "evidenceExpectationCodes", "externalInvolvements", "externalProviderTypeCodeCounts", "extractionStateCounts", "inspectionProfileCodeCounts", "inspectionProfileCodes", "inspectionTypeCodeCounts", "inspectionTypeCodes", "mainDomainCodeCounts", "modelDescriptorDigests", "modelDescriptors", "operationQualifiers", "passDisagreementCodes", "rationaleCodes", "recommendationStateCounts", "sourceRefs", "targetProfileCodeCounts", "topicCodeCounts", "topicCodes", "unavailableFields"],
+    "schemaArrayFieldClasses": {
+      "activityQualifiers": "SET_LIKE",
+      "agreementConfidenceCounts": "SET_LIKE",
+      "applicabilityDispositionCounts": "SET_LIKE",
+      "blockerCodes": "SET_LIKE",
+      "batches": "ORDERED",
+      "canonicalTargetKindCounts": "SET_LIKE",
+      "confidenceEvidence": "SET_LIKE",
+      "disagreementCodeCounts": "SET_LIKE",
+      "evidenceExpectationCodeCounts": "SET_LIKE",
+      "evidenceExpectationCodes": "SET_LIKE",
+      "externalInvolvements": "SET_LIKE",
+      "externalProviderTypeCodeCounts": "SET_LIKE",
+      "extractionStateCounts": "SET_LIKE",
+      "inspectionProfileCodeCounts": "SET_LIKE",
+      "inspectionProfileCodes": "SET_LIKE",
+      "inspectionTypeCodeCounts": "SET_LIKE",
+      "inspectionTypeCodes": "SET_LIKE",
+      "identities": "ORDERED",
+      "items": "ORDERED",
+      "mainDomainCodeCounts": "SET_LIKE",
+      "modelDescriptorDigests": "SET_LIKE",
+      "modelDescriptors": "SET_LIKE",
+      "operationQualifiers": "SET_LIKE",
+      "orderedBatchOutputDigests": "ORDERED",
+      "orderedIdentityDigests": "ORDERED",
+      "orderedInputDigests": "ORDERED",
+      "orderedItemSemanticDigests": "ORDERED",
+      "orderedPassResultDigests": "ORDERED",
+      "passDisagreementCodes": "SET_LIKE",
+      "passRoles": "ORDERED",
+      "prohibitedDiscoveryInputDigests": "ORDERED",
+      "rationaleCodes": "SET_LIKE",
+      "recommendationStateCounts": "SET_LIKE",
+      "records": "ORDERED",
+      "sourceProposalDigests": "ORDERED",
+      "sourceReferenceDigests": "ORDERED",
+      "sourceRefs": "SET_LIKE",
+      "targetProfileCodeCounts": "SET_LIKE",
+      "topicCodeCounts": "SET_LIKE",
+      "topicCodes": "SET_LIKE",
+      "unavailableFields": "SET_LIKE"
+    },
+    "evidenceSortFields": ["proposalField", "proposalValueDigest", "rationaleCode", "inputFactSelector", "inputFactValueDigest", "signalRuleId"],
+    "optionalSortFieldAbsenceEncoding": {
+      "signalRuleId": "EMPTY_UTF8_STRING_SORTS_BEFORE_CODE"
+    },
+    "externalInvolvementSortFields": ["providerTypeCode", "involvementRoleCode", "conditionCode", "applicabilityDisposition"],
+    "qualifierSortFields": ["key", "value"],
+    "qualifierSemanticKeyFields": ["key"],
+    "inspectionProfileQualifierKeyPolicy": "REQUIRED_KEYS_ARE_EXACT_ALLOWED_KEYS_EXTRAS_REJECTED",
+    "sourceReferenceSortFields": ["kind", "referenceDigest"],
+    "modelDescriptorSemanticKey": "RECOMPUTED_MODEL_DESCRIPTOR_DIGEST",
+    "modelDescriptorSortRule": "ASCENDING_UTF8_BY_RECOMPUTED_MODEL_DESCRIPTOR_DIGEST",
+    "distributionCountSemanticKeyFields": ["code"],
+    "distributionCountSortFields": ["code", "count"],
+    "duplicatePolicy": "REJECT_BEFORE_NORMALIZATION",
+    "stringOrder": "UTF8_BYTEWISE"
+  },
+  "digestContract": {
+    "hashAlgorithm": "SHA-256",
+    "hashFraming": "UTF8_DOMAIN_IMMEDIATELY_FOLLOWED_BY_UTF8_CANONICAL_JSON_NO_DELIMITER",
+    "canonicalJSON": {
+      "profile": "AVIASURVEIL360_CANONICAL_JSON_V1",
+      "encoding": "UTF-8",
+      "objectKeyOrder": "UTF8_BYTEWISE_RECURSIVE",
+      "numberEncoding": "FINITE_INTEGER_MINIMAL_BASE10_NO_NEGATIVE_ZERO",
+      "whitespace": "NONE",
+      "arrays": "PRENORMALIZED_BY_FIELD_CONTRACT",
+      "stringEscaping": "JSON_QUOTE_BACKSLASH_AND_U0000_TO_U001F_ONLY_SHORT_ESCAPES_OTHERWISE_LOWERCASE_HEX",
+      "htmlEscaping": "DISABLED_LITERAL_UTF8_FOR_AMPERSAND_LESS_THAN_GREATER_THAN",
+      "solidusEscaping": "DISABLED",
+      "nonAsciiEncoding": "LITERAL_UTF8_NOT_U_ESCAPE",
+      "unicodeNormalization": "NONE_PRESERVE_SCALAR_SEQUENCE",
+      "loneSurrogatePolicy": "REJECT"
+    },
+    "taxonomySelfDigest": {
+      "domainSeparator": "AGA-QUESTION-CLASSIFICATION-TAXONOMY-V1",
+      "preimage": "COMPLETE_TAXONOMY_OBJECT_EXCLUDING_ONLY_TAXONOMY_DIGEST",
+      "excludedFields": ["taxonomyDigest"]
+    },
+    "domainSeparators": {
+      "canonicalJSONConformance": "AGA-CANONICAL-JSON-CONFORMANCE-V1",
+      "passProposal": "AGA-CLASSIFICATION-PASS-PROPOSAL-V1",
+      "passBatchOutput": "AGA-CLASSIFICATION-PASS-BATCH-V1",
+      "passSeal": "AGA-CLASSIFICATION-PASS-SEAL-V1",
+      "proposalScalar": "AGA-PROPOSAL-VALUE-SCALAR-V1",
+      "proposalSetMember": "AGA-PROPOSAL-VALUE-SET-MEMBER-V1",
+      "proposalQualifier": "AGA-PROPOSAL-VALUE-QUALIFIER-V1",
+      "proposalExternalInvolvement": "AGA-PROPOSAL-VALUE-EXTERNAL-INVOLVEMENT-V1",
+      "baseIdentity": "AGA-CLASSIFICATION-BASE-IDENTITY-V1",
+      "classificationSourceSnapshot": "AGA-CLASSIFICATION-SOURCE-SNAPSHOT-V1",
+      "classificationOrderedIdentities": "AGA-CLASSIFICATION-ORDERED-IDENTITIES-V1",
+      "classificationBatchEntry": "AGA-CLASSIFICATION-BATCH-ENTRY-V1",
+      "classificationBatchManifest": "AGA-CLASSIFICATION-BATCH-MANIFEST-SET-V2",
+      "classificationPassInput": "AGA-CLASSIFICATION-PASS-INPUT-V1",
+      "classificationPassInputSet": "AGA-CLASSIFICATION-PASS-INPUT-SET-V1",
+      "classificationRunInput": "AGA-CLASSIFICATION-RUN-INPUT-V1",
+      "modelDescriptor": "AGA-MODEL-DESCRIPTOR-V1",
+      "formMetadataFact": "AGA-FORM-METADATA-FACT-V1",
+      "sourceProposalFact": "AGA-SOURCE-PROPOSAL-FACT-V1",
+      "sourceProposalSetFact": "AGA-SOURCE-PROPOSAL-SET-V1",
+      "sourceReferenceFact": "AGA-SOURCE-REFERENCE-FACT-V1",
+      "sourceReferenceSetFact": "AGA-SOURCE-REFERENCE-SET-V1",
+      "researchRowFact": "AGA-RESEARCH-ROW-FACT-V1",
+      "validatorSignalRuleMatchFact": "AGA-VALIDATOR-SIGNAL-RULE-MATCH-V1",
+      "semanticItem": "AGA-CLASSIFICATION-ITEM-V1",
+      "distributions": "AGA-CLASSIFICATION-DISTRIBUTIONS-V1",
+      "exceptionIdentityInventory": "AGA-CLASSIFICATION-EXCEPTION-IDENTITY-INVENTORY-V1",
+      "aggregate": "AGA-CLASSIFICATION-AGGREGATE-V1",
+      "run": "AGA-CLASSIFICATION-RUN-V1"
+    },
+    "proposalValuePreimages": {
+      "SCALAR": ["proposalField", "value"],
+      "SET_MEMBER": ["proposalField", "value"],
+      "QUALIFIER_PAIR": ["proposalField", "key", "value"],
+      "EXTERNAL_EDGE_TUPLE": [
+        "proposalField",
+        "providerTypeCode",
+        "involvementRoleCode",
+        "conditionCode",
+        "applicabilityDisposition"
+      ]
+    },
+    "sourceElementDigestRules": {
+      "SOURCE_PROPOSAL_FACT": {
+        "domainSeparator": "AGA-SOURCE-PROPOSAL-FACT-V1",
+        "preimage": "COMPLETE_SUPPLIED_SOURCE_PROPOSAL_OBJECT_FROM_PINNED_PACKAGE"
+      },
+      "SOURCE_REFERENCE_FACT": {
+        "domainSeparator": "AGA-SOURCE-REFERENCE-FACT-V1",
+        "preimage": "COMPLETE_SUPPLIED_SOURCE_REFERENCE_VALUE_FROM_PINNED_PACKAGE"
+      }
+    },
+    "inputFactDigestRules": {
+      "QUESTION_BODY_DIGEST": {
+        "hashInput": "RAW_UTF8_QUESTION_BODY_NO_DOMAIN_SEPARATOR",
+        "preimageFields": ["questionBody"]
+      },
+      "FORM_METADATA_DIGEST": {
+        "domainSeparator": "AGA-FORM-METADATA-FACT-V1",
+        "preimageFields": ["formKind", "formRiskBand"]
+      },
+      "SOURCE_PROPOSAL_DIGEST": {
+        "domainSeparator": "AGA-SOURCE-PROPOSAL-SET-V1",
+        "preimageFields": ["sourceProposalDigests"],
+        "arrayNormalization": "ACCEPTED_PACKAGE_ORDER_PRESERVED_DUPLICATES_REJECTED"
+      },
+      "SOURCE_REFERENCE_DIGEST": {
+        "domainSeparator": "AGA-SOURCE-REFERENCE-SET-V1",
+        "preimageFields": ["sourceReferenceDigests"],
+        "arrayNormalization": "ACCEPTED_PACKAGE_ORDER_PRESERVED_DUPLICATES_REJECTED"
+      },
+      "RESEARCH_ROW_DIGEST": {
+        "domainSeparator": "AGA-RESEARCH-ROW-FACT-V1",
+        "preimageFields": [
+          "form_code",
+          "proposal_id",
+          "ordinal",
+          "text_digest",
+          "target_kind",
+          "operation_activity_qualifier",
+          "primary_subject_proposal",
+          "operational_interface_candidates",
+          "evidence_contributor_candidates",
+          "provider_applicability_unresolved",
+          "unresolved_reasons",
+          "source_refs"
+        ]
+      },
+      "VALIDATOR_SIGNAL_RULE_MATCH_DIGEST": {
+        "domainSeparator": "AGA-VALIDATOR-SIGNAL-RULE-MATCH-V1",
+        "identityDigestDomainSeparator": "AGA-CLASSIFICATION-BASE-IDENTITY-V1",
+        "preimageFields": [
+          "identityDigest",
+          "signalRuleId",
+          "inputFactSelector",
+          "inputFactValueDigest",
+          "matched"
+        ],
+        "matched": true
+      }
+    },
+    "classificationPassInputPreimage": {
+      "schemaVersion": "aga-hybrid-classification-pass-input/v1",
+      "excludedFields": [],
+      "bodyRetention": "PRIVATE_ISOLATED_CONTEXT_ONLY_DELETE_AFTER_SEAL"
+    },
+    "classificationBatchManifestContract": {
+      "schemaVersion": "aga-hybrid-classification-batch-manifest/v2",
+      "sourceSnapshotPreimageFields": ["batchOrdinal", "fixedInputDigests", "items"],
+      "sourceSnapshotExcludedFields": [],
+      "sourceSnapshotProhibits": ["taxonomyVersion", "taxonomyDigest", "promptDigest", "modelDescriptorDigest", "batchManifestDigest"],
+      "orderedIdentityPreimage": "ORDERED_COMPLETE_BASE_IDENTITIES",
+      "batchEntryExcludedFields": ["batchEntryDigest"],
+      "manifestExcludedFields": ["manifestDigest"],
+      "discoveryBatchManifestDigest": "REQUIRED_EXACT_ACCEPTED_DISCOVERY_MANIFEST_ROOT_DIGEST",
+      "sizingContractFields": ["taxonomyVersion", "canonicalJSON", "passInputDigestDomain", "fixedSha256StringBytes", "passRoles", "classificationRunId", "candidatePassRunId", "challengePassRunId"],
+      "sizingContractAuthority": "NON_AUTHORITATIVE_BYTE_WIDTH_TEMPLATE_NO_DIGEST_OR_MODEL_METADATA_PIN",
+      "prohibitedDiscoveryInputDigestCount": 24,
+      "classificationBatchCount": 25
+    },
+    "modelDescriptorPreimageFields": [
+      "modelId",
+      "modelIdSource",
+      "runtimeReportedFamily",
+      "service",
+      "interface",
+      "requestedReasoningEffort",
+      "forkTurns",
+      "snapshotBuildLabel",
+      "unavailableFields"
+    ],
+    "modelDescriptorSetBinding": {
+      "descriptorDigestDomainSeparator": "AGA-MODEL-DESCRIPTOR-V1",
+      "descriptorDigestAlgorithm": "RECOMPUTE_EACH_DESCRIPTOR",
+      "descriptorUniqueness": "REJECT_DUPLICATE_DESCRIPTOR_DIGESTS",
+      "descriptorOrdering": "ASCENDING_UTF8_BY_RECOMPUTED_MODEL_DESCRIPTOR_DIGEST",
+      "digestArrayOrdering": "ASCENDING_UTF8",
+      "setEquality": "MODEL_DESCRIPTOR_DIGESTS_EXACTLY_EQUAL_RECOMPUTED_DESCRIPTOR_DIGEST_SET"
+    },
+    "identityDigestDomains": {
+      "validatorSignalRuleMatch": "AGA-CLASSIFICATION-BASE-IDENTITY-V1",
+      "exceptionIdentityInventory": "AGA-CLASSIFICATION-BASE-IDENTITY-V1"
+    },
+    "promptDigestContract": {
+      "algorithm": "SHA-256",
+      "preimage": "EXACT_TRACKED_FILE_BYTES",
+      "path": "docs/product-specs/data-and-rules/AGA_HYBRID_CLASSIFICATION_PROMPT.md"
+    },
+    "passSealPayloadFields": [
+      "classificationRunId",
+      "passRole",
+      "passRunId",
+      "promptDigest",
+      "modelDescriptorDigest",
+      "batchManifestDigest",
+      "batchCount",
+      "itemCount",
+      "orderedInputDigests",
+      "passInputSetDigest",
+      "orderedBatchOutputDigests",
+      "orderedPassResultDigests"
+    ],
+    "passInputSetPayloadFields": [
+      "classificationRunId",
+      "passRole",
+      "passRunId",
+      "batchManifestDigest",
+      "orderedInputDigests"
+    ],
+    "runInputPayloadFields": [
+      "taxonomyVersion",
+      "taxonomyDigest",
+      "fixedInputDigests",
+      "promptDigest",
+      "batchManifestDigest"
+    ],
+    "inputDigestFieldSemantics": {
+      "passProposalRecord": {
+        "field": "inputDigest",
+        "digestRole": "PASS_BATCH_INPUT_DIGEST",
+        "domainSeparator": "AGA-CLASSIFICATION-PASS-INPUT-V1",
+        "preimageContract": "classificationPassInputPreimage",
+        "cardinality": "ONE_PER_PASS_BATCH_SHARED_BY_ALL_BATCH_RECORDS"
+      },
+      "passBatchOutput": {
+        "field": "inputDigest",
+        "digestRole": "PASS_BATCH_INPUT_DIGEST",
+        "domainSeparator": "AGA-CLASSIFICATION-PASS-INPUT-V1",
+        "preimageContract": "classificationPassInputPreimage",
+        "cardinality": "ONE_PER_PASS_BATCH"
+      },
+      "passSealReceipt": {
+        "field": "orderedInputDigests",
+        "digestRole": "ORDERED_PASS_BATCH_INPUT_DIGESTS",
+        "domainSeparator": "AGA-CLASSIFICATION-PASS-INPUT-V1",
+        "preimageContract": "classificationPassInputPreimage",
+        "cardinality": "EXACTLY_25_IN_BATCH_ORDINAL_ORDER"
+      },
+      "sealedClassificationItem": {
+        "field": "inputDigest",
+        "digestRole": "CLASSIFICATION_RUN_INPUT_DIGEST",
+        "domainSeparator": "AGA-CLASSIFICATION-RUN-INPUT-V1",
+        "preimageContract": "runInputPayloadFields",
+        "cardinality": "ONE_COMMON_DIGEST_FOR_ALL_1310_ITEMS"
+      },
+      "classificationRunReceipt": {
+        "field": "inputDigest",
+        "digestRole": "CLASSIFICATION_RUN_INPUT_DIGEST",
+        "domainSeparator": "AGA-CLASSIFICATION-RUN-INPUT-V1",
+        "preimageContract": "runInputPayloadFields",
+        "cardinality": "ONE_PER_CLASSIFICATION_RUN"
+      },
+      "loadingClassificationRunRecord": {
+        "field": "inputDigest",
+        "digestRole": "CLASSIFICATION_RUN_INPUT_DIGEST",
+        "domainSeparator": "AGA-CLASSIFICATION-RUN-INPUT-V1",
+        "preimageContract": "runInputPayloadFields",
+        "cardinality": "ONE_PER_CLASSIFICATION_RUN"
+      },
+      "rejectedClassificationRunRecord": {
+        "field": "inputDigest",
+        "digestRole": "CLASSIFICATION_RUN_INPUT_DIGEST",
+        "domainSeparator": "AGA-CLASSIFICATION-RUN-INPUT-V1",
+        "preimageContract": "runInputPayloadFields",
+        "cardinality": "ONE_PER_CLASSIFICATION_RUN"
+      }
+    },
+    "aggregatePayloadFields": [
+      "itemCount",
+      "passProposalRecordCount",
+      "orderedItemSemanticDigests",
+      "distributions",
+      "exceptions",
+      "distributionDigest"
+    ],
+    "distributionPayloadFields": ["distributions"],
+    "exceptionIdentityInventoryPayloadFields": [
+      "count",
+      "orderedIdentityDigests"
+    ],
+    "exceptionIdentityDigestDomainSeparator": "AGA-CLASSIFICATION-BASE-IDENTITY-V1",
+    "runPayloadFields": [
+      "classificationRunId",
+      "state",
+      "taxonomyVersion",
+      "taxonomyDigest",
+      "fixedInputDigests",
+      "inputDigest",
+      "promptDigest",
+      "modelDescriptors",
+      "modelDescriptorDigests",
+      "batchManifestDigest",
+      "passOneSealDigest",
+      "passTwoSealDigest",
+      "aggregateDigest"
+    ],
+    "semanticItemExcludedFields": ["itemSemanticDigest", "passOneResultDigest", "passTwoResultDigest", "classificationRunDigest", "aggregateDigest"],
+    "passProposalExcludedFields": ["passResultDigest"],
+    "passBatchOutputExcludedFields": ["batchOutputDigest"],
+    "passSealExcludedFields": ["passSealDigest"],
+    "distributionExcludedFields": ["distributionDigest"],
+    "aggregateExcludedFields": ["aggregateDigest"],
+    "runExcludedFields": ["classificationRunDigest"],
+    "knownAnswerVectors": [
+      {
+        "name": "PROPOSAL_SCALAR",
+        "domainSeparator": "AGA-PROPOSAL-VALUE-SCALAR-V1",
+        "payload": {
+          "proposalField": "mainDomainCode",
+          "value": "QUALITY_MANAGEMENT"
+        },
+        "digest": "sha256:6d45f8e40c2b1cc30de9f61afc9c8f64210bcf323979fe3fe28f4e0805ba21c8"
+      },
+      {
+        "name": "SOURCE_PROPOSAL_SET",
+        "domainSeparator": "AGA-SOURCE-PROPOSAL-SET-V1",
+        "payload": [
+          "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        ],
+        "digest": "sha256:6566c6ece811ee091cde2b4ae7a7fd918c6fec479c56dcc1347280cc0adf61ee"
+      },
+      {
+        "name": "PASS_BATCH_FRAMING",
+        "domainSeparator": "AGA-CLASSIFICATION-PASS-BATCH-V1",
+        "payload": {
+          "batchOrdinal": 1,
+          "records": []
+        },
+        "digest": "sha256:63ed7d387f03727c0dd5cdfb6c8db60ad8aaa13711e49d2c2a6960e782b90ec9"
+      },
+      {
+        "name": "AGGREGATE_FRAMING",
+        "domainSeparator": "AGA-CLASSIFICATION-AGGREGATE-V1",
+        "payload": {
+          "itemCount": 0,
+          "orderedItemSemanticDigests": []
+        },
+        "digest": "sha256:8e107c581635b3af72e3d1e4870123ac85ea0caa3e06ef71396ab4d3f0c70e0f"
+      },
+      {
+        "name": "CANONICAL_JSON_UNICODE_AND_HTML",
+        "domainSeparator": "AGA-CANONICAL-JSON-CONFORMANCE-V1",
+        "payload": {
+          "ampersand": "A&B<>",
+          "controls": "\b\t\n\f\r\u0000",
+          "unicode": "İstanbul—çığ"
+        },
+        "canonicalJSON": "{\"ampersand\":\"A&B<>\",\"controls\":\"\\b\\t\\n\\f\\r\\u0000\",\"unicode\":\"İstanbul—çığ\"}",
+        "digest": "sha256:b4cb2a2343aa92fdb0326f5934b7bd2e6a5347fed01685f92917db1e8ec20a21"
+      }
+    ]
+  },
+  "forbiddenProviderHierarchyFields": [
+    "primaryProvider",
+    "secondaryProvider",
+    "supportingProvider",
+    "owner",
+    "ownership",
+    "providerHierarchy"
+  ],
+  "taxonomyDigest": "sha256:d9fa2bba1079c693afbdc8710ec8cc661d3be4d59ba8aa02766bedccc28c935d"
+}
