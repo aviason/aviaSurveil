@@ -198,6 +198,51 @@ func TestKeycloakEndpointReusesUnexpiredServiceTokenAndRealmRole(
 	}
 }
 
+func TestKeycloakEndpointQualifiesOnlyExactExistingAccountMatrix(t *testing.T) {
+	fixture := newScenarioKeycloakFixture(t)
+	endpoint, err := scenarios.NewKeycloakEndpoint(scenarios.KeycloakEndpointConfig{
+		BaseURL: fixture.server.URL + "/identity", Realm: "task7-realm",
+		ClientID: "task7-loader", ClientSecret: "task7-secret",
+		HTTPClient: &http.Client{Timeout: 2 * time.Second},
+	})
+	if err != nil {
+		t.Fatalf("new Keycloak endpoint: %v", err)
+	}
+	roles := []string{"inspector", "leadInspector", "manager", "finance", "gm", "executiveDirector", "auditee", "auditee", "admin"}
+	accounts := make([]scenarios.ProviderAccount, 0, len(roles))
+	for index, role := range roles {
+		organizationID := "CAA"
+		if role == "auditee" {
+			organizationID = fmt.Sprintf("AUDITEE-%d", index)
+		}
+		account, err := endpoint.EnsureProviderAccount(context.Background(), scenarios.ProviderAccount{
+			ScenarioID:     fmt.Sprintf("synthetic-provideraccounts-%04d", index+1),
+			MembershipID:   fmt.Sprintf("synthetic-membership-%04d", index+1),
+			Email:          fmt.Sprintf("user-%04d@synthetic.invalid", index+1),
+			OrganizationID: organizationID, Role: role, Enabled: true,
+			RequiredActions: []string{"UPDATE_PASSWORD", "VERIFY_EMAIL"},
+		})
+		if err != nil {
+			t.Fatalf("ensure provider account %d: %v", index, err)
+		}
+		accounts = append(accounts, account)
+	}
+	const password = "qualification-password-000001"
+	if err := endpoint.QualifyExistingProviderAccounts(context.Background(), accounts, password); err != nil {
+		t.Fatalf("qualify existing accounts: %v", err)
+	}
+	for _, account := range accounts {
+		user, mappedRoles := fixture.account(account.SubjectID)
+		if !user.EmailVerified || len(user.RequiredActions) != 0 ||
+			!slices.Equal(mappedRoles, []string{account.Role}) || fixture.password(account.SubjectID) != password {
+			t.Fatalf("qualified account %s differs from exact authority", account.SubjectID)
+		}
+	}
+	if err := endpoint.QualifyExistingProviderAccounts(context.Background(), accounts[:8], password); err == nil {
+		t.Fatal("partial qualification matrix was accepted")
+	}
+}
+
 func TestMailpitInvitationEndpointDeliversOnceAndReconcilesRecipient(
 	t *testing.T,
 ) {
@@ -287,6 +332,7 @@ type scenarioKeycloakFixture struct {
 	mu            sync.Mutex
 	users         map[string]scenarioKeycloakUser
 	roles         map[string][]string
+	passwords     map[string]string
 	messages      []scenarioMailpitMessage
 	nextUser      int
 	tokenRequests int
@@ -327,6 +373,7 @@ func newScenarioKeycloakFixture(t *testing.T) *scenarioKeycloakFixture {
 		t:            t,
 		users:        make(map[string]scenarioKeycloakUser),
 		roles:        make(map[string][]string),
+		passwords:    make(map[string]string),
 		roleRequests: make(map[string]int),
 	}
 	fixture.server = httptest.NewServer(http.HandlerFunc(fixture.handle))
@@ -380,6 +427,12 @@ func (fixture *scenarioKeycloakFixture) handle(
 	case len(segments) == 2 && segments[0] == "users" &&
 		request.Method == http.MethodGet:
 		fixture.writeUser(writer, segments[1])
+	case len(segments) == 2 && segments[0] == "users" &&
+		request.Method == http.MethodPut:
+		fixture.updateUser(writer, request, segments[1])
+	case len(segments) == 3 && segments[0] == "users" &&
+		segments[2] == "reset-password" && request.Method == http.MethodPut:
+		fixture.resetPassword(writer, request, segments[1])
 	case len(segments) == 4 && segments[0] == "users" &&
 		segments[2] == "role-mappings" && segments[3] == "realm" &&
 		request.Method == http.MethodGet:
@@ -398,6 +451,43 @@ func (fixture *scenarioKeycloakFixture) handle(
 	default:
 		http.Error(writer, "not found", http.StatusNotFound)
 	}
+}
+
+func (fixture *scenarioKeycloakFixture) updateUser(writer http.ResponseWriter, request *http.Request, subjectID string) {
+	var user scenarioKeycloakUser
+	if err := json.NewDecoder(request.Body).Decode(&user); err != nil || user.ID != subjectID {
+		http.Error(writer, "invalid user", http.StatusBadRequest)
+		return
+	}
+	fixture.mu.Lock()
+	defer fixture.mu.Unlock()
+	if _, ok := fixture.users[subjectID]; !ok {
+		http.Error(writer, "not found", http.StatusNotFound)
+		return
+	}
+	fixture.users[subjectID] = user
+	writer.WriteHeader(http.StatusNoContent)
+}
+
+func (fixture *scenarioKeycloakFixture) resetPassword(writer http.ResponseWriter, request *http.Request, subjectID string) {
+	var credential struct {
+		Type      string `json:"type"`
+		Value     string `json:"value"`
+		Temporary bool   `json:"temporary"`
+	}
+	if err := json.NewDecoder(request.Body).Decode(&credential); err != nil ||
+		credential.Type != "password" || credential.Value == "" || credential.Temporary {
+		http.Error(writer, "invalid credential", http.StatusBadRequest)
+		return
+	}
+	fixture.mu.Lock()
+	defer fixture.mu.Unlock()
+	if _, ok := fixture.users[subjectID]; !ok {
+		http.Error(writer, "not found", http.StatusNotFound)
+		return
+	}
+	fixture.passwords[subjectID] = credential.Value
+	writer.WriteHeader(http.StatusNoContent)
 }
 
 func (fixture *scenarioKeycloakFixture) writeMessages(
@@ -583,6 +673,12 @@ func (fixture *scenarioKeycloakFixture) account(
 	user.Attributes = cloneScenarioAttributes(user.Attributes)
 	roles := append([]string(nil), fixture.roles[subjectID]...)
 	return user, roles
+}
+
+func (fixture *scenarioKeycloakFixture) password(subjectID string) string {
+	fixture.mu.Lock()
+	defer fixture.mu.Unlock()
+	return fixture.passwords[subjectID]
 }
 
 func (fixture *scenarioKeycloakFixture) setOrganization(

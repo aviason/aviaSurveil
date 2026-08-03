@@ -11,6 +11,7 @@ import (
 	"unicode"
 
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/administration"
+	aga "github.com/MarlonJD/aviaSurveil360/apps/api/internal/agacandidatedemo"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/application"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/assignments"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/assistant"
@@ -59,6 +60,7 @@ type CanonicalAPIDependencies struct {
 	GovernedCandidates *regulatory.AdminService
 	GovernedLifecycle  *checklistgovernance.Service
 	ChecklistIntake    *checklistintake.Service
+	AGACandidateDemo   *aga.Service
 	Clock              func() time.Time
 }
 
@@ -83,6 +85,7 @@ type CanonicalAPI struct {
 	governedCandidates *regulatory.AdminService
 	governedLifecycle  *checklistgovernance.Service
 	checklistIntake    *checklistintake.Service
+	agaCandidateDemo   *aga.Service
 	clock              func() time.Time
 }
 
@@ -191,6 +194,7 @@ func NewCanonicalAPI(dependencies CanonicalAPIDependencies) *CanonicalAPI {
 		governedCandidates: governedCandidates,
 		governedLifecycle:  governedLifecycle,
 		checklistIntake:    checklistIntake,
+		agaCandidateDemo:   dependencies.AGACandidateDemo,
 		clock:              clock,
 	}
 }
@@ -266,6 +270,11 @@ func (api *CanonicalAPI) Handler() http.Handler {
 	)
 	router.Get("/v1/admin/regulatory-references", api.listAdminRegulatoryReferences)
 	router.Get("/v1/admin/governed-checklist/sources", api.listAdminGovernedSources)
+	router.Get("/v1/admin/governed-checklist/aga-candidate-demo/capability", api.getAGACandidateDemoCapability)
+	router.Get("/v1/admin/governed-checklist/aga-candidate-demo/summary", api.getAGACandidateDemoSummary)
+	router.Get("/v1/admin/governed-checklist/aga-candidate-demo/forms", api.listAGACandidateDemoForms)
+	router.Get("/v1/admin/governed-checklist/aga-candidate-demo/forms/{formCode}", api.getAGACandidateDemoForm)
+	router.Get("/v1/admin/governed-checklist/aga-candidate-demo/questions", api.listAGACandidateDemoQuestions)
 	router.Post("/v1/admin/governed-checklist/source-currentness-activations", api.activateAdminGovernedSourceCurrentness)
 	router.Post("/v1/admin/governed-checklist/generation-runs", api.importAdminGovernedGenerationRun)
 	router.Get("/v1/admin/governed-checklist/generation-runs/{generationRunId}", api.getAdminGovernedGenerationRun)

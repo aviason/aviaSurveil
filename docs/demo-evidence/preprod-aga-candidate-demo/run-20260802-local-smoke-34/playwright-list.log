@@ -1,0 +1,16 @@
+
+> @aviasurveil360/web@0.1.0-candidate test:e2e:aga-preprod
+> AVIA_E2E_PROFILE=preprod-aga-demo playwright test --project=preprod-aga-demo --list
+
+Listing tests:
+  [preprod-aga-demo] › e2e/aga-candidate-demo-admin.http.spec.ts:37:1 › CAA Admin reads the exact sealed AGA candidate projection without persistence
+  [preprod-aga-demo] › e2e/aga-candidate-demo-privacy.http.spec.ts:25:1 › anonymous receives the neutral no-store response
+  [preprod-aga-demo] › e2e/aga-candidate-demo-privacy.http.spec.ts:39:3 › INSPECTOR receives the same neutral response and loses access after logout
+  [preprod-aga-demo] › e2e/aga-candidate-demo-privacy.http.spec.ts:39:3 › LEAD_INSPECTOR receives the same neutral response and loses access after logout
+  [preprod-aga-demo] › e2e/aga-candidate-demo-privacy.http.spec.ts:39:3 › MANAGER receives the same neutral response and loses access after logout
+  [preprod-aga-demo] › e2e/aga-candidate-demo-privacy.http.spec.ts:39:3 › FINANCE receives the same neutral response and loses access after logout
+  [preprod-aga-demo] › e2e/aga-candidate-demo-privacy.http.spec.ts:39:3 › GM receives the same neutral response and loses access after logout
+  [preprod-aga-demo] › e2e/aga-candidate-demo-privacy.http.spec.ts:39:3 › EXECUTIVE_DIRECTOR receives the same neutral response and loses access after logout
+  [preprod-aga-demo] › e2e/aga-candidate-demo-privacy.http.spec.ts:39:3 › AUDITEE receives the same neutral response and loses access after logout
+  [preprod-aga-demo] › e2e/aga-candidate-demo-privacy.http.spec.ts:67:1 › the tagged API has no candidate mutation or export route
+Total: 10 tests in 2 files

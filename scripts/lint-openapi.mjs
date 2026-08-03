@@ -123,6 +123,11 @@ const expectedPaths = [
   "/v1/governed-checklist/candidates/{candidateId}/hybrid-reconciliations",
   "/v1/governed-checklist/candidates/{candidateId}/review-comments",
   "/v1/governed-checklist/candidates/{candidateId}/source-mapping-attestations",
+  "/v1/admin/governed-checklist/aga-candidate-demo/capability",
+  "/v1/admin/governed-checklist/aga-candidate-demo/summary",
+  "/v1/admin/governed-checklist/aga-candidate-demo/forms",
+  "/v1/admin/governed-checklist/aga-candidate-demo/forms/{formCode}",
+  "/v1/admin/governed-checklist/aga-candidate-demo/questions",
   "/v1/governed-checklist/published-versions/{publishedVersionId}/audit-package-eligibility-evaluations",
 ];
 

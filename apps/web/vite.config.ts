@@ -71,6 +71,18 @@ export default defineConfig(({ command }) => {
   const apiTarget = process.env.AVIA_HTTP_API_TARGET;
   const webRoot = fileURLToPath(new URL(".", import.meta.url));
   const assetsRoot = fileURLToPath(new URL("../../assets", import.meta.url));
+  const httpProxy =
+    profile === "http" && apiTarget
+      ? {
+          "/api": {
+            target: apiTarget,
+            rewrite: (path: string) => path.replace(/^\/api/, ""),
+          },
+          "/v1": { target: apiTarget },
+          "/auth": { target: apiTarget },
+          "/health": { target: apiTarget },
+        }
+      : undefined;
 
   return {
     plugins: [
@@ -96,18 +108,10 @@ export default defineConfig(({ command }) => {
       fs: {
         allow: [webRoot, assetsRoot],
       },
-      proxy:
-        profile === "http" && apiTarget
-          ? {
-              "/api": {
-                target: apiTarget,
-                rewrite: (path) => path.replace(/^\/api/, ""),
-              },
-              "/v1": { target: apiTarget },
-              "/auth": { target: apiTarget },
-              "/health": { target: apiTarget },
-            }
-          : undefined,
+      proxy: httpProxy,
+    },
+    preview: {
+      proxy: httpProxy,
     },
     build: {
       outDir: `dist/${profile}`,

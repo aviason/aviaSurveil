@@ -56,6 +56,20 @@ describe("browser navigation telemetry", () => {
     window.dispatchEvent(new Event("pagehide"));
   });
 
+  it("emits no records or network payloads when HTTP telemetry is explicitly disabled", async () => {
+    const send = vi.fn(async () => ({ ok: true }) as Response);
+    vi.stubGlobal("fetch", send);
+
+    const telemetry = installBrowserTelemetry("http", "test", { disabled: true });
+    telemetry.recordNavigation("admin-checklist-builder", "load");
+    telemetry.recordAPIOutcome("read", "succeeded", "admin-checklist-builder");
+
+    await expect(telemetry.flush()).resolves.toEqual({ delivered: true, count: 0 });
+    expect(telemetry.requestHeaders()).toEqual({});
+    expect(send).not.toHaveBeenCalled();
+    window.dispatchEvent(new Event("pagehide"));
+  });
+
   it("classifies LCP, CLS, and interaction latency without labeling first input as INP", () => {
     expect(classifyWebVitalEntry(performanceEntry({
       entryType: "largest-contentful-paint",

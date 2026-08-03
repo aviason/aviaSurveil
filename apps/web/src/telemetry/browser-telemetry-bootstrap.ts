@@ -5,10 +5,33 @@ import {
   type BrowserTelemetry,
 } from "./browser-telemetry";
 
+interface BrowserTelemetryInstallOptions {
+  disabled?: boolean;
+}
+
+function disabledBrowserTelemetry(): BrowserTelemetry {
+  return {
+    recordNavigation: () => undefined,
+    recordWebVital: () => undefined,
+    recordAPIOutcome: () => undefined,
+    recordHandledError: () => undefined,
+    requestHeaders: () => ({}),
+    flush: async () => ({ delivered: true, count: 0 }),
+    shutdown: async () => undefined,
+  };
+}
+
 export function installBrowserTelemetry(
   buildProfile: "demo" | "http",
   serviceVersion = "candidate",
+  options: BrowserTelemetryInstallOptions = {},
 ): BrowserTelemetry {
+  if (options.disabled) {
+    const telemetry = disabledBrowserTelemetry();
+    const deactivate = activateBrowserTelemetry(telemetry, currentBrowserRouteID);
+    window.addEventListener("pagehide", deactivate, { once: true });
+    return telemetry;
+  }
   const telemetry = createBrowserTelemetry({
     buildProfile,
     serviceVersion,

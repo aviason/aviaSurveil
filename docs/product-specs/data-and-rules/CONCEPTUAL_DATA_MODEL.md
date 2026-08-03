@@ -366,3 +366,15 @@ conditions have been met and recorded.
 - created_by
 - issued_at
 - closed_at
+
+## AGA candidate demo overlay (non-domain projection)
+
+`aga-candidate-demo@1.1.0` is a separate, read-only, immutable, preprod-only,
+Admin-only projection in `preprod_aga_demo`; it cannot satisfy Task 9. It is
+not a conceptual-domain entity and has no relation to `ChecklistImportBatch`,
+`ExistingChecklistCandidate`, Draft, source authority/mapping attestation,
+functional assignment, decision, publication, template, Finding, Audit,
+notification, outbox, or delivery records. Its final reconciled seal is an
+operational receipt only. Its forms and questions retain fixed
+non-authoritative, source-mapping-required, extraction-review, proposal-gap,
+and provisional-risk states without a domain transition.

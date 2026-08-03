@@ -1674,3 +1674,73 @@ contract/profile version and a corresponding test update.
 }
 ```
 <!-- PREPROD_IDENTITY_DATA_CONTRACT:END -->
+
+## AGA candidate demo overlay contract
+
+`aga-candidate-demo@1.1.0` is a separate, read-only, immutable, preprod-only,
+Admin-only overlay beside the frozen synthetic profiles. It cannot satisfy Task
+9 of the governed AGA intake plan, revise any profile manifest, or create a
+real candidate, identity, assignment, source attestation, decision,
+publication, delivery, Finding, Audit, release, or production record.
+
+The overlay is bound to the exact accepted raw-byte-free ZIP, not to a profile:
+`AGA_ALL_FORMS_SOURCE_RISK_DRAFT_2026-08-01.zip` is 336524 bytes with SHA-256
+`30700a88aeb5b26514bf7eb76bef050deb08b96294db94117d185de5c9f163b2`; its
+package JSON is 3370312 bytes with SHA-256
+`5ebcce2d70ee22fef4165b490cb6e4b276ad776f40dbaf12e5cea85c9da91b15`; and its
+manifest SHA-256 is
+`1be7b37e78a320da51cf7069b033240f1ad032b045d3e3cd5746c4b2115c19dc`.
+Original-PDF archive and register digests are provenance identities only; this
+overlay neither receives nor reconstructs PDF bytes.
+
+The sole persistence target is disposable local-preprod schema
+`preprod_aga_demo`, bound to the exact successful base target, profile, run,
+intent, and result digests. The normal API has no overlay privilege; the tagged
+reader has `SELECT` only on sealed views; the one-shot writer has overlay DDL
+and DML only; and `PUBLIC` has no overlay privilege. The provider-free loader
+has no Keycloak, Mailpit, MinIO, SMTP, lifecycle, object-store, queue, worker,
+scheduler, or delivery capability. Its final in-transaction reconciliation
+must bind every persisted and exposed field before it inserts the only
+readability receipt: a `SEALED_PREPROD_DEMO_PROJECTION` seal. No unsealed,
+partial, divergent, or selectively repaired projection is readable; cleanup is
+whole-namespace drop/recreate only.
+
+The sealed package preserves exactly 52 identities: `FSS-AGA-FORM-001` through
+`FSS-AGA-FORM-034`, `FSS-AGA-FORM-035A`, `FSS-AGA-FORM-036` through
+`FSS-AGA-FORM-048`, and `FSS-AGA-FORM-050` through `FSS-AGA-FORM-053`.
+Numeric 035 and 049 are absent. Every form is
+`NON_AUTHORITATIVE_FORM_IDENTITY`. The 21 zero-boundary forms are
+`FSS-AGA-FORM-001`, `003`, `004`, `005`, `007`, `008`, `025`, `026`, `029`,
+`032`, `033`, `035A`, `036`, `038`, `039`, `042`, `043`, `044`, `045`, `046`,
+and `052`; each has exactly zero questions and literal
+`QUESTION_EXTRACTION_REVIEW_REQUIRED`.
+
+The remaining 31 forms contain exactly 1310 immutable question boundaries.
+Every question remains `NON_AUTHORITATIVE_CANDIDATE`,
+`SOURCE_MAPPING_REQUIRED`, and
+`CANDIDATE_INTERPRETATION_REQUIRES_EXPERT_REVIEW`. Package provenance is
+exactly 28 `EXACT_SOURCE_BACKED` rows and 1282 `EXTRACTED_CANDIDATE` rows; it
+does not establish source authority. Of the questions, 1261 are
+`PROPOSAL_PRESENT_REVIEW_REQUIRED` and 49 are
+`UNMAPPED_NO_QUESTION_LEVEL_SOURCE_PROPOSAL`; no form-level or neighboring
+proposal may fill an unmapped question. The 2329 question proposal links, 274
+form proposal links, and 174 source-reference identities are immutable review
+hints only. Governed source resolution still requires all six facts together:
+exact source bytes, SHA-256 of those bytes, effective date, clause/page
+locator, applicability, and named source-owner attestation; even these package
+local facts are necessary but not sufficient for a governed resolution.
+
+All risk values are `PROVISIONAL_RISK_PROPOSAL`: question distributions are 50
+control assurance, 457 high operational, 14 review required, and 789 safety
+critical; form distributions are 11, 23, 4, and 14 respectively; and proposed
+safety-critical values are 789 true and 521 false. The 14 review-required
+questions additionally expose `EXPERT_RISK_REVIEW_REQUIRED`. Approved risk,
+approved safety-critical, and Finding severity fields are absent.
+
+The only capability is `READ_ONLY_PREPROD_DEMO`, available to an exact CAA
+Admin after authorization before any path, cursor, filter, lookup, or reader
+call. Every other role and unavailable/default profile receives one neutral,
+label-free not-found outcome. Successful Admin responses alone retain
+`candidate-only`, `release pending`, and `production-ready: not established`.
+Responses are no-store; candidate material is forbidden from browser storage,
+caches, analytics, telemetry, logs, traces, metrics, screenshots, and video.

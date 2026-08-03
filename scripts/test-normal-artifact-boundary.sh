@@ -32,6 +32,9 @@ for package in "${normal_packages[@]}"; do
   if grep -Fxq "$module_path/internal/preproddata" <<<"$dependencies"; then
     fail "$package transitively links internal/preproddata"
   fi
+  if grep -Fxq "$module_path/internal/preproddata/agacandidatedemo" <<<"$dependencies"; then
+    fail "$package transitively links the AGA candidate demo loader"
+  fi
 done
 
 go -C "$api_root" build -trimpath -o "$temporary_root/api" ./cmd/api
@@ -63,6 +66,23 @@ fi
 go -C "$api_root" build -trimpath \
   -o "$temporary_root/preprod-data-loader" \
   ./cmd/preprod-data-loader
+
+aga_loader_dependencies="$(go -C "$api_root" list -deps ./cmd/preprod-aga-candidate-demo-loader)"
+if ! grep -Fxq "$module_path/internal/preproddata/agacandidatedemo" <<<"$aga_loader_dependencies"; then
+  fail "preprod AGA candidate demo loader does not positively link its overlay package"
+fi
+for forbidden_dependency in \
+  "$module_path/internal/identity" \
+  "$module_path/internal/objectstore" \
+  "$module_path/internal/datafeed" \
+  "$module_path/internal/checklistintake"; do
+  if grep -Fxq "$forbidden_dependency" <<<"$aga_loader_dependencies"; then
+    fail "preprod AGA candidate demo loader links forbidden provider/domain dependency $forbidden_dependency"
+  fi
+done
+go -C "$api_root" build -trimpath \
+  -o "$temporary_root/preprod-aga-candidate-demo-loader" \
+  ./cmd/preprod-aga-candidate-demo-loader
 
 go -C "$api_root" test -count=1 ./internal/httpapi \
   -run '^TestNormalApplicationDoesNotRegisterTestProfileRoutes$'

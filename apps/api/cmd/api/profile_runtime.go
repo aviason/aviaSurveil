@@ -5,12 +5,15 @@ import (
 	"net/http"
 	"time"
 
+	aga "github.com/MarlonJD/aviaSurveil360/apps/api/internal/agacandidatedemo"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/config"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/objectstore"
 )
 
 type runtimeProfile struct {
+	skipMigrations            bool
+	agaDemoOnly               bool
 	clock                     func() time.Time
 	idGenerator               func(string) string
 	findingReferenceGenerator func() string
@@ -28,4 +31,5 @@ type runtimeProfile struct {
 		objectstore.Store,
 		[]string,
 	) (http.Handler, http.Handler, error)
+	agaDemoService func(context.Context, config.Settings) (*aga.Service, func(), error)
 }

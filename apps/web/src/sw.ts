@@ -26,6 +26,9 @@ export function classifyAppShellRequest(
   if (request.method !== "GET") return "network-only";
   const url = new URL(request.url);
   if (url.origin !== origin) return "network-only";
+  if (/^\/(?:api|v1|auth|health|__test)(?:\/|$)/.test(url.pathname)) {
+    return "network-only";
+  }
   if (request.mode === "navigate") return "app-shell-navigation";
   if (/^\/assets\/[A-Za-z0-9_.-]+\.(?:css|js|map|svg|png|jpg|jpeg|webp|ttf|woff2?)$/.test(url.pathname)) {
     return "versioned-static-asset";

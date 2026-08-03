@@ -1,4 +1,5 @@
 import type { components as GeneratedComponents } from "../generated/transport/api-types";
+import type { AGACandidateDemoBackend } from "./aga-candidate-demo";
 
 type GeneratedSchemas = GeneratedComponents["schemas"];
 
@@ -1698,6 +1699,8 @@ export interface Backend {
   readonly auditeeCoordination: AuditeeCoordinationBackend;
   /** LOCKED-only Auditee report projection. */
   readonly auditeeReports: AuditeeReportsBackend;
+  /** Undefined outside the exact tagged preprod-demo capability. */
+  readonly agaCandidateDemo?: AGACandidateDemoBackend;
 }
 
 export const BACKEND_CAPABILITY_REGISTRY = {
@@ -1731,6 +1734,7 @@ export const BACKEND_CAPABILITY_REGISTRY = {
   packageDrafts: true,
   auditeeCoordination: true,
   auditeeReports: true,
+  agaCandidateDemo: true,
 } as const satisfies Record<Exclude<keyof Backend, "mode">, true>;
 
 export const BACKEND_CAPABILITY_KEYS = Object.keys(

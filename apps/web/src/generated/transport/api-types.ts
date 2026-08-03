@@ -1844,6 +1844,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/governed-checklist/aga-candidate-demo/capability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAGACandidateDemoCapability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/governed-checklist/aga-candidate-demo/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAGACandidateDemoSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/governed-checklist/aga-candidate-demo/forms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listAGACandidateDemoForms"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/governed-checklist/aga-candidate-demo/forms/{formCode}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAGACandidateDemoForm"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/governed-checklist/aga-candidate-demo/questions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listAGACandidateDemoQuestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/governed-checklist/published-versions/{publishedVersionId}/audit-package-eligibility-evaluations": {
         parameters: {
             query?: never;
@@ -2827,6 +2907,21 @@ export interface components {
             content: {
                 [key: string]: unknown;
             };
+        };
+        AGACandidateDemoForm: {
+            code: string;
+            title: string;
+            questionCount: number;
+            questionExtractionState: string;
+        };
+        AGACandidateDemoQuestion: {
+            proposalId: string;
+            formCode: string;
+            ordinal: number;
+            text: string;
+            textDigest: string;
+            sourceGapCategory: string;
+            riskBand: string;
         };
         CommunicationView: {
             id: string;
@@ -8485,6 +8580,147 @@ export interface operations {
             412: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
+        };
+    };
+    getAGACandidateDemoCapability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CAA Admin-only sealed candidate demo capability */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        available: boolean;
+                        labels: string[];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    getAGACandidateDemoSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CAA Admin-only sealed candidate demo summary */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        packageDigest: string;
+                        formCount: number;
+                        questionCount: number;
+                        sourceRequirements: string[];
+                        labels: string[];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    listAGACandidateDemoForms: {
+        parameters: {
+            query?: {
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CAA Admin-only sealed candidate demo forms */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["AGACandidateDemoForm"][];
+                        nextCursor: string | null;
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    getAGACandidateDemoForm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                formCode: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CAA Admin-only sealed candidate demo form */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AGACandidateDemoForm"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    listAGACandidateDemoQuestions: {
+        parameters: {
+            query?: {
+                formCode?: string;
+                sourceGapCategory?: "PROPOSAL_PRESENT_REVIEW_REQUIRED" | "UNMAPPED_NO_QUESTION_LEVEL_SOURCE_PROPOSAL";
+                riskBand?: "PROPOSED_CONTROL_ASSURANCE" | "PROPOSED_HIGH_OPERATIONAL" | "PROPOSED_REVIEW_REQUIRED" | "PROPOSED_SAFETY_CRITICAL";
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CAA Admin-only sealed candidate demo questions */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["AGACandidateDemoQuestion"][];
+                        nextCursor: string | null;
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
         };
     };
     evaluateGovernedChecklistAuditPackageEligibility: {

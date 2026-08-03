@@ -20,6 +20,7 @@ import (
 	identitystore "github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity/store/postgres"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 const (
@@ -35,6 +36,92 @@ var (
 	ErrUnauthenticated = errors.New("unauthenticated")
 	ErrCSRF            = errors.New("csrf validation failed")
 )
+
+type authenticationFailureError struct {
+	diagnostic string
+	cause      error
+}
+
+func (failure authenticationFailureError) Error() string { return failure.cause.Error() }
+func (failure authenticationFailureError) Unwrap() error { return failure.cause }
+
+func authenticationFailure(diagnostic string, cause error) error {
+	switch diagnostic {
+	case "missing-token", "session-not-found", "session-read", "expired-or-revoked",
+		"unbound-authority", "revocation-pending", "missing-membership",
+		"authority-read", "authority-mismatch", "invalid-observation-time",
+		"provider-unavailable", "provider-drift", "observation-refresh",
+		"identity-reference", "profile-read", "invalid-role", "idle-refresh",
+		"transaction":
+		return authenticationFailureError{diagnostic: diagnostic, cause: cause}
+	default:
+		return authenticationFailureError{diagnostic: "internal", cause: cause}
+	}
+}
+
+// AuthenticationFailureDiagnostic returns a fixed, privacy-safe stage label.
+// It never includes a subject, token, provider payload, SQL text, or raw error.
+func AuthenticationFailureDiagnostic(err error) string {
+	var failure authenticationFailureError
+	if errors.As(err, &failure) {
+		if failure.diagnostic != "internal" {
+			return failure.diagnostic
+		}
+		err = failure.cause
+	}
+	if errors.Is(err, ErrUnauthenticated) {
+		return "unauthenticated"
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return "context-expired"
+	}
+	if strings.HasPrefix(err.Error(), "resolve authenticated department authority:") {
+		return "department-assignment"
+	}
+	var postgresError *pgconn.PgError
+	if errors.As(err, &postgresError) {
+		switch {
+		case postgresError.Code == "42501":
+			for _, privilege := range []struct {
+				fragment   string
+				diagnostic string
+			}{
+				{fragment: "schema public", diagnostic: "postgres-privilege-public-schema"},
+				{fragment: "parameter \"avia.traceparent\"", diagnostic: "postgres-privilege-trace-context"},
+				{fragment: "sequence audit_events_sequence_id_seq", diagnostic: "postgres-privilege-audit-sequence"},
+			} {
+				if strings.Contains(postgresError.Message, privilege.fragment) {
+					return privilege.diagnostic
+				}
+			}
+			for _, relation := range []struct {
+				name       string
+				diagnostic string
+			}{
+				{name: "session_references", diagnostic: "postgres-privilege-session-references"},
+				{name: "identity_references", diagnostic: "postgres-privilege-identity-references"},
+				{name: "user_profiles", diagnostic: "postgres-privilege-user-profiles"},
+				{name: "desired_membership_versions", diagnostic: "postgres-privilege-membership-versions"},
+				{name: "desired_membership_sync", diagnostic: "postgres-privilege-membership-sync"},
+				{name: "oidc_login_states", diagnostic: "postgres-privilege-login-states"},
+				{name: "audit_events", diagnostic: "postgres-privilege-audit-events"},
+			} {
+				if postgresError.TableName == relation.name ||
+					strings.Contains(postgresError.Message, " "+relation.name) {
+					return relation.diagnostic
+				}
+			}
+			return "postgres-insufficient-privilege"
+		case strings.HasPrefix(postgresError.Code, "23"):
+			return "postgres-integrity"
+		case strings.HasPrefix(postgresError.Code, "08"):
+			return "postgres-connection"
+		default:
+			return "postgres"
+		}
+	}
+	return "internal"
+}
 
 type freshAuthorityObservationContextKey struct{}
 
@@ -376,7 +463,7 @@ func (manager *Manager) Create(ctx context.Context, input CreateInput) (BrowserS
 
 func (manager *Manager) Authenticate(ctx context.Context, rawToken string) (identity.Principal, error) {
 	if strings.TrimSpace(rawToken) == "" {
-		return identity.Principal{}, ErrUnauthenticated
+		return identity.Principal{}, authenticationFailure("missing-token", ErrUnauthenticated)
 	}
 	now := manager.clock().UTC()
 	var principal identity.Principal
@@ -386,13 +473,13 @@ func (manager *Manager) Authenticate(ctx context.Context, rawToken string) (iden
 		record, err := identitystore.New(transaction).GetSessionForAuthentication(ctx, &tokenHash)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return ErrUnauthenticated
+				return authenticationFailure("session-not-found", ErrUnauthenticated)
 			}
-			return fmt.Errorf("read browser session: %w", err)
+			return authenticationFailure("session-read", fmt.Errorf("read browser session: %w", err))
 		}
 		if !record.ExpiresAt.Valid || !record.AbsoluteExpiresAt.Valid || record.RevokedAt.Valid ||
 			!now.Before(record.ExpiresAt.Time) || !now.Before(record.AbsoluteExpiresAt.Time) {
-			return ErrUnauthenticated
+			return authenticationFailure("expired-or-revoked", ErrUnauthenticated)
 		}
 		if record.MembershipID == nil ||
 			record.MembershipRevision == nil ||
@@ -413,7 +500,7 @@ func (manager *Manager) Authenticate(ctx context.Context, rawToken string) (iden
 			); err != nil {
 				return err
 			}
-			outcome = ErrUnauthenticated
+			outcome = authenticationFailure("unbound-authority", ErrUnauthenticated)
 			return nil
 		}
 		if *record.AuthorityState == "REVOCATION_PENDING" {
@@ -437,7 +524,7 @@ func (manager *Manager) Authenticate(ctx context.Context, rawToken string) (iden
 					return err
 				}
 			}
-			outcome = ErrUnauthenticated
+			outcome = authenticationFailure("revocation-pending", ErrUnauthenticated)
 			return nil
 		}
 		authority, err := loadDesiredSessionAuthority(
@@ -459,11 +546,11 @@ func (manager *Manager) Authenticate(ctx context.Context, rawToken string) (iden
 			); err != nil {
 				return err
 			}
-			outcome = ErrUnauthenticated
+			outcome = authenticationFailure("missing-membership", ErrUnauthenticated)
 			return nil
 		}
 		if err != nil {
-			return fmt.Errorf("read current session authority: %w", err)
+			return authenticationFailure("authority-read", fmt.Errorf("read current session authority: %w", err))
 		}
 		sessionRoles := rolesFromStrings(record.Roles)
 		if authority.MembershipID != *record.MembershipID ||
@@ -498,7 +585,7 @@ func (manager *Manager) Authenticate(ctx context.Context, rawToken string) (iden
 			); err != nil {
 				return err
 			}
-			outcome = ErrUnauthenticated
+			outcome = authenticationFailure("authority-mismatch", ErrUnauthenticated)
 			return nil
 		}
 		if !record.AuthorityObservedAt.Valid ||
@@ -516,7 +603,7 @@ func (manager *Manager) Authenticate(ctx context.Context, rawToken string) (iden
 			); err != nil {
 				return err
 			}
-			outcome = ErrUnauthenticated
+			outcome = authenticationFailure("invalid-observation-time", ErrUnauthenticated)
 			return nil
 		}
 		observationAge := now.Sub(record.AuthorityObservedAt.Time)
@@ -543,7 +630,7 @@ func (manager *Manager) Authenticate(ctx context.Context, rawToken string) (iden
 					); err != nil {
 						return err
 					}
-					outcome = ErrUnauthenticated
+					outcome = authenticationFailure("provider-unavailable", ErrUnauthenticated)
 					return nil
 				}
 				reason := "PROVIDER_UNAVAILABLE"
@@ -564,7 +651,7 @@ func (manager *Manager) Authenticate(ctx context.Context, rawToken string) (iden
 				); err != nil {
 					return err
 				}
-				outcome = ErrUnauthenticated
+				outcome = authenticationFailure("provider-unavailable", ErrUnauthenticated)
 				return nil
 			}
 			if !observation.Enabled ||
@@ -598,7 +685,7 @@ func (manager *Manager) Authenticate(ctx context.Context, rawToken string) (iden
 				); err != nil {
 					return err
 				}
-				outcome = ErrUnauthenticated
+				outcome = authenticationFailure("provider-drift", ErrUnauthenticated)
 				return nil
 			}
 			if err := manager.refreshSessionAuthorityObservation(
@@ -610,21 +697,21 @@ func (manager *Manager) Authenticate(ctx context.Context, rawToken string) (iden
 				observation,
 				now,
 			); err != nil {
-				return err
+				return authenticationFailure("observation-refresh", err)
 			}
 		}
 		principal.SessionID = record.ID
 		principal.SubjectID = record.SubjectID
 		identityReference, err := identitystore.New(transaction).GetIdentityReference(ctx, record.SubjectID)
 		if err != nil {
-			return fmt.Errorf("read authenticated identity reference: %w", err)
+			return authenticationFailure("identity-reference", fmt.Errorf("read authenticated identity reference: %w", err))
 		}
 		principal.DisplayName = identityReference.DisplayName
 		profile, err := identitystore.New(transaction).GetProfile(ctx, record.SubjectID)
 		if err == nil {
 			principal.DisplayName = profile.DisplayName
 		} else if !errors.Is(err, pgx.ErrNoRows) {
-			return fmt.Errorf("read authenticated user profile: %w", err)
+			return authenticationFailure("profile-read", fmt.Errorf("read authenticated user profile: %w", err))
 		}
 		if record.OrganizationID != nil {
 			principal.OrganizationID = *record.OrganizationID
@@ -633,7 +720,7 @@ func (manager *Manager) Authenticate(ctx context.Context, rawToken string) (iden
 		for index, role := range record.Roles {
 			principal.Roles[index] = identity.Role(role)
 			if !validRole(principal.Roles[index]) {
-				return ErrUnauthenticated
+				return authenticationFailure("invalid-role", ErrUnauthenticated)
 			}
 		}
 		nextIdleExpiry := now.Add(idleDuration)
@@ -643,12 +730,16 @@ func (manager *Manager) Authenticate(ctx context.Context, rawToken string) (iden
 		if _, err := transaction.Exec(ctx, `
 			UPDATE session_references SET last_seen_at = $2, expires_at = $3 WHERE id = $1
 		`, principal.SessionID, now, nextIdleExpiry); err != nil {
-			return fmt.Errorf("refresh browser session idle expiry: %w", err)
+			return authenticationFailure("idle-refresh", fmt.Errorf("refresh browser session idle expiry: %w", err))
 		}
 		return nil
 	})
 	if err != nil {
-		return identity.Principal{}, err
+		var failure authenticationFailureError
+		if errors.As(err, &failure) {
+			return identity.Principal{}, err
+		}
+		return identity.Principal{}, authenticationFailure("transaction", err)
 	}
 	if outcome != nil {
 		return identity.Principal{}, outcome

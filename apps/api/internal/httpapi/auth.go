@@ -65,6 +65,29 @@ func (boundary *AuthBoundary) Protect(next http.Handler) http.Handler {
 	})
 }
 
+// ProtectReadOnlyNeutral preserves the existing OIDC/session authority check
+// while replacing its unauthenticated transport response with a caller-owned
+// neutral denial. It is intentionally suitable only for read-only capability
+// surfaces whose existence must not be disclosed.
+func (boundary *AuthBoundary) ProtectReadOnlyNeutral(next http.Handler, deny func(http.ResponseWriter)) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		sink := &discardResponseWriter{header: make(http.Header)}
+		principal, ok := boundary.authenticate(sink, request)
+		if !ok {
+			deny(writer)
+			return
+		}
+		ctx := context.WithValue(request.Context(), principalContextKey{}, principal)
+		next.ServeHTTP(writer, request.WithContext(ctx))
+	})
+}
+
+type discardResponseWriter struct{ header http.Header }
+
+func (writer *discardResponseWriter) Header() http.Header        { return writer.header }
+func (*discardResponseWriter) WriteHeader(int)                   {}
+func (*discardResponseWriter) Write(payload []byte) (int, error) { return len(payload), nil }
+
 func PrincipalFromContext(ctx context.Context) (identity.Principal, bool) {
 	principal, ok := ctx.Value(principalContextKey{}).(identity.Principal)
 	return principal, ok
@@ -181,6 +204,11 @@ func (boundary *AuthBoundary) authenticate(writer http.ResponseWriter, request *
 		cookie.Value,
 	)
 	if err != nil {
+		slog.Warn(
+			"browser session authentication rejected",
+			"diagnostic",
+			session.AuthenticationFailureDiagnostic(err),
+		)
 		if errors.Is(err, session.ErrUnauthenticated) {
 			expireBrowserSessionCookies(writer)
 		}

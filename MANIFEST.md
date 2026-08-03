@@ -33,6 +33,11 @@ with status `not run`. Task 9's fresh full matrix passed with the exact
 owner-approved 19-second stress-duration exception recorded literally;
 Task 9 was published as `9d30576876406609577af4381718e8ac66e94e06`, and
 the exact `origin/main` revision was confirmed.
+The separate AGA candidate-demo overlay is also `verified locally` in one
+whole-namespace disposable local-preprod run: its provider-free loader,
+distinct least-privilege PostgreSQL roles, committed reconciliation seal,
+Admin-only tagged reader/API/UI, privacy matrix, replay rejection, and cleanup
+remain isolated from both frozen synthetic profiles and governed AGA records.
 The artifact is `candidate-only`, the local decision is `GO`, and release is
 `release pending`. It is not a deployed production application. Production
 identity federation, external storage, scanning, email, records operations,
@@ -193,6 +198,15 @@ The root Vanilla demo remains intact.
   `realistic@1.1.0`, and `stress@1.1.0`; the full-volume `1.0.0`
   realistic/stress endurance profiles remain retained and `not run`. These
   packages are excluded from normal runtime artifacts.
+- `apps/api/cmd/preprod-aga-candidate-demo-loader/`,
+  `apps/api/cmd/preprod-aga-demo-role-provisioner/`,
+  `apps/api/cmd/preprod-aga-demo-oidc-fixture/`,
+  `apps/api/internal/preproddata/agacandidatedemo/`, and
+  `apps/api/internal/agacandidatedemo/` — separate provider-free AGA overlay
+  loading, least-privilege role provisioning, disposable identity
+  qualification, immutable PostgreSQL projection/seal, and tagged sealed-view
+  reading. The overlay is Admin-only, `candidate-only`, and cannot create or
+  advance governed AGA lifecycle records.
 - `apps/api/internal/httpapi/generated/` — checked generated Go OpenAPI types.
 - `apps/api/migrations/` — forward-only PostgreSQL foundation, authority, and
   Evidence upload migrations with retained N-1 verification.
@@ -222,6 +236,12 @@ The root Vanilla demo remains intact.
   provider-assigned subject binding, exact domain/privacy reconciliation,
   separately authorized networkless cleanup attestation, normal-artifact
   exclusion, and zero-residue gate.
+- `scripts/test-aga-candidate-demo-loader.sh`,
+  `scripts/test-aga-candidate-preprod-demo-connected.sh`, and
+  `tests/aga-candidate-preprod-demo-*.test.mjs` — exact accepted-package,
+  provider-isolation, role/privacy, committed-seal, browser, forbidden-delta,
+  replay, and whole-namespace cleanup gates for the immutable local-preprod AGA
+  candidate-demo overlay.
 - `scripts/test-local-recovery.sh` — isolated local PostgreSQL dump/restore and
   exact private object backup/restore drill with dedicated cleanup.
 - `scripts/plan1-visual-stakeholder-review.mjs` — local-only Plan 1 visual

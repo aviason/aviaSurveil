@@ -22,7 +22,11 @@ import "../styles/app.css";
 export function bootstrap(runtime: ApplicationRuntime): void {
   const rootElement = document.getElementById("root");
   if (!rootElement) throw new Error("AviaSurveil360 root element is missing");
-  const browserTelemetry = installBrowserTelemetry(runtime.buildProfile);
+  const browserTelemetry = installBrowserTelemetry(
+    runtime.buildProfile,
+    "candidate",
+    { disabled: import.meta.env.VITE_AVIA_DISABLE_BROWSER_TELEMETRY === "1" },
+  );
 
   const identityMode =
     runtime.identityMode ?? (runtime.buildProfile === "http" ? "canonical-test-role-switch" : "demo-role-switch");

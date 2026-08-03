@@ -12,6 +12,7 @@ COPY apps/api/ ./
 RUN mkdir -p /out \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/api ./cmd/api \
     && go build -trimpath -tags canonicaltest -buildvcs=false -ldflags="-s -w -buildid=" -o /out/canonical-test-api ./cmd/api \
+    && go build -trimpath -tags preproddemo -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-aga-demo-api ./cmd/api \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/worker ./cmd/worker \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/data-feed-worker ./cmd/data-feed-worker \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/data-feed-replay ./cmd/data-feed-replay \
@@ -19,7 +20,10 @@ RUN mkdir -p /out \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/data-feed-reconcile ./cmd/data-feed-reconcile \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/scheduler ./cmd/reminder-scheduler \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/migrate ./cmd/migrate \
-    && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-data-loader ./cmd/preprod-data-loader
+    && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-data-loader ./cmd/preprod-data-loader \
+    && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-aga-candidate-demo-loader ./cmd/preprod-aga-candidate-demo-loader \
+    && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-aga-demo-role-provisioner ./cmd/preprod-aga-demo-role-provisioner
+RUN go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-aga-demo-oidc-fixture ./cmd/preprod-aga-demo-oidc-fixture
 
 FROM ${GO_RUNTIME_IMAGE} AS runtime-base
 COPY --from=go-build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
@@ -38,6 +42,11 @@ ENTRYPOINT ["/app/entrypoint.sh"]
 
 FROM runtime-base AS canonical-test-api
 COPY --from=go-build --chown=10001:10001 /out/canonical-test-api /app/api
+COPY --chown=10001:10001 deploy/local/api/entrypoint.sh /app/entrypoint.sh
+ENTRYPOINT ["/app/entrypoint.sh"]
+
+FROM runtime-base AS preprod-aga-demo-api
+COPY --from=go-build --chown=10001:10001 /out/preprod-aga-demo-api /app/api
 COPY --chown=10001:10001 deploy/local/api/entrypoint.sh /app/entrypoint.sh
 ENTRYPOINT ["/app/entrypoint.sh"]
 
@@ -77,3 +86,15 @@ COPY --from=go-build --chown=10001:10001 /out/preprod-data-loader /app/preprod-d
 COPY --chown=10001:10001 apps/web/src/parity/legacy-screen-source.json /app/catalog/legacy-screen-source.json
 COPY --chown=10001:10001 tests/parity/behavior-ledger.json /app/catalog/behavior-ledger.json
 ENTRYPOINT ["/app/preprod-data-loader"]
+
+FROM runtime-base AS preprod-aga-candidate-demo-loader
+COPY --from=go-build --chown=10001:10001 /out/preprod-aga-candidate-demo-loader /app/preprod-aga-candidate-demo-loader
+ENTRYPOINT ["/app/preprod-aga-candidate-demo-loader"]
+
+FROM runtime-base AS preprod-aga-demo-role-provisioner
+COPY --from=go-build --chown=10001:10001 /out/preprod-aga-demo-role-provisioner /app/preprod-aga-demo-role-provisioner
+ENTRYPOINT ["/app/preprod-aga-demo-role-provisioner"]
+
+FROM runtime-base AS preprod-aga-demo-oidc-fixture
+COPY --from=go-build --chown=10001:10001 /out/preprod-aga-demo-oidc-fixture /app/preprod-aga-demo-oidc-fixture
+ENTRYPOINT ["/app/preprod-aga-demo-oidc-fixture"]

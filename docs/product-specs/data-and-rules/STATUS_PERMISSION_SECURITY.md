@@ -113,3 +113,16 @@ Implementation evidence is **demo-only** and **verified locally** through focuse
 
 Approvals and timestamps are browser-local mock records. Attachments are mock
 filenames in local browser state; no secure document storage is implemented.
+
+## AGA candidate demo overlay privacy boundary
+
+`aga-candidate-demo@1.1.0` is a separate, read-only, immutable, preprod-only,
+Admin-only capability and cannot satisfy Task 9. Only an exact CAA Admin may
+read its sealed projection. Authorization precedes parsing, lookup, cursor, or
+reader access; every other role, wrong organization, unavailable profile, and
+direct-ID guess receives the same neutral label-free not-found response. Normal
+API credentials have no overlay privilege, tagged-reader credentials select
+sealed views only, and the one-shot writer alone has overlay DDL/DML. Candidate
+content is forbidden from browser persistence, caches, telemetry, logs, traces,
+metrics, screenshots, and video. Successful Admin reads alone carry
+`candidate-only`, `release pending`, and `production-ready: not established`.

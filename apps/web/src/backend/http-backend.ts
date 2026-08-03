@@ -156,6 +156,9 @@ interface RequestInput {
   method?: "GET" | "POST" | "PUT";
   body?: unknown;
   headers?: Record<string, string>;
+  /** Candidate package data is never browser-cached or telemetry-correlated. */
+  cache?: RequestCache;
+  suppressTelemetry?: boolean;
 }
 
 function joinApiPath(apiBaseUrl: string, path: string): string {
@@ -243,6 +246,9 @@ export function createHttpBackend(
     const method = requestInput.method ?? "GET";
     const telemetryOperation =
       method === "GET" ? "read" : "command";
+    const recordOutcome = (outcome: "succeeded" | "failed" | "canceled") => {
+      if (!requestInput.suppressTelemetry) recordActiveBrowserAPIOutcome(telemetryOperation, outcome);
+    };
     const headers = new Headers({ Accept: "application/json" });
     for (const [name, value] of Object.entries(requestInput.headers ?? {})) {
       headers.set(name, value);
@@ -277,6 +283,7 @@ export function createHttpBackend(
       response = await fetchImplementation(joinApiPath(config.apiBaseUrl, path), {
         method,
         credentials: "same-origin",
+        cache: requestInput.cache,
         headers,
         body: requestInput.body === undefined ? undefined : multipart ? requestInput.body as FormData : JSON.stringify(requestInput.body),
         signal,
@@ -284,13 +291,13 @@ export function createHttpBackend(
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
         if (timeoutController?.signal.aborted && !options.signal?.aborted) {
-          recordActiveBrowserAPIOutcome(telemetryOperation, "failed");
+          recordOutcome("failed");
           throw new BackendTimeoutError();
         }
-        recordActiveBrowserAPIOutcome(telemetryOperation, "canceled");
+        recordOutcome("canceled");
         throw new BackendCancelledError();
       }
-      recordActiveBrowserAPIOutcome(telemetryOperation, "failed");
+      recordOutcome("failed");
       throw error;
     } finally {
       if (timeoutHandle) clearTimeout(timeoutHandle);
@@ -299,7 +306,7 @@ export function createHttpBackend(
     const requestId = response.headers.get("x-request-id");
     const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
     if (!contentType.includes("application/json") && !contentType.includes("application/problem+json")) {
-      recordActiveBrowserAPIOutcome(telemetryOperation, "failed");
+      recordOutcome("failed");
       throw new BackendProtocolError(
         `Backend response ${response.status} did not use a JSON content type.`,
         requestId,
@@ -310,11 +317,11 @@ export function createHttpBackend(
     try {
       body = await response.json();
     } catch {
-      recordActiveBrowserAPIOutcome(telemetryOperation, "failed");
+      recordOutcome("failed");
       throw new BackendProtocolError("Backend response contained invalid JSON.", requestId);
     }
     if (!response.ok) {
-      recordActiveBrowserAPIOutcome(telemetryOperation, "failed");
+      recordOutcome("failed");
       const problem = parseProblem(body, response.status);
       const correlatedRequestId = problem?.requestId ?? requestId;
       if (response.status === 401) {
@@ -337,7 +344,7 @@ export function createHttpBackend(
         problem,
       );
     }
-    recordActiveBrowserAPIOutcome(telemetryOperation, "succeeded");
+    recordOutcome("succeeded");
     return body as T;
   }
 
@@ -1250,6 +1257,33 @@ export function createHttpBackend(
           ),
         );
       },
+    },
+    agaCandidateDemo: {
+      capability: async (_input, options) => request(
+        "/v1/admin/governed-checklist/aga-candidate-demo/capability",
+        { cache: "no-store", suppressTelemetry: true },
+        options,
+      ),
+      summary: async (_input, options) => request(
+        "/v1/admin/governed-checklist/aga-candidate-demo/summary",
+        { cache: "no-store", suppressTelemetry: true },
+        options,
+      ),
+      listForms: async (input, options) => request(
+        appendQuery("/v1/admin/governed-checklist/aga-candidate-demo/forms", input),
+        { cache: "no-store", suppressTelemetry: true },
+        options,
+      ),
+      getForm: async ({ formCode }, options) => request(
+        `/v1/admin/governed-checklist/aga-candidate-demo/forms/${encodeURIComponent(formCode)}`,
+        { cache: "no-store", suppressTelemetry: true },
+        options,
+      ),
+      listQuestions: async (input, options) => request(
+        appendQuery("/v1/admin/governed-checklist/aga-candidate-demo/questions", input),
+        { cache: "no-store", suppressTelemetry: true },
+        options,
+      ),
     },
     sync: {
       pushOperation: async (input, options) =>

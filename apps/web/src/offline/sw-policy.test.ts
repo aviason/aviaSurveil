@@ -21,16 +21,21 @@ describe("Service Worker request policy", () => {
   });
 
   it.each([
-    "https://candidate.test/v1/findings",
-    "https://candidate.test/auth/session",
-    "https://candidate.test/health/ready",
-    "https://candidate.test/__test/reset",
-    "https://candidate.test/reports/RPT-001.pdf",
-    "https://other.test/assets/index-abcd1234.js",
-  ])("never caches business, API, auth, health, test, or cross-origin request %s", (url) => {
+    ["https://candidate.test/v1/findings", "cors"],
+    ["https://candidate.test/auth/session", "cors"],
+    ["https://candidate.test/health/ready", "cors"],
+    ["https://candidate.test/__test/reset", "cors"],
+    ["https://candidate.test/reports/RPT-001.pdf", "cors"],
+    ["https://other.test/assets/index-abcd1234.js", "no-cors"],
+    ["https://candidate.test/auth/login?returnTo=%2Fadmin", "navigate"],
+    ["https://candidate.test/auth/callback?state=opaque&code=opaque", "navigate"],
+    ["https://candidate.test/api/v1/admin", "navigate"],
+    ["https://candidate.test/v1/findings", "navigate"],
+    ["https://candidate.test/health/ready", "navigate"],
+  ] as const)("never caches business, API, auth, health, test, or cross-origin request %s", (url, mode) => {
     expect(
       classifyAppShellRequest(
-        { url, method: "GET", mode: "cors" },
+        { url, method: "GET", mode },
         "https://candidate.test",
       ),
     ).toBe("network-only");

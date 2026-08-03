@@ -64,6 +64,48 @@ test("preprod loader is a separate one-shot artifact with no normal runtime surf
   assert.doesNotMatch(normalProfile, /preproddata|preprod-data-loader/iu);
 });
 
+test("AGA candidate demo loader has only the isolated PostgreSQL capability", () => {
+  const dockerfile = read("apps/api/Dockerfile");
+  const compose = read("deploy/local/compose.yaml");
+  const wrapper = read("scripts/load-aga-candidate-demo.sh");
+  const service = serviceBlock(compose, "preprod-aga-candidate-demo-loader");
+
+  assert.match(dockerfile, /preprod-aga-candidate-demo-loader \.\/cmd\/preprod-aga-candidate-demo-loader/u);
+  assert.match(service, /profiles:\s*\[aga-candidate-demo\]/u);
+  assert.match(service, /preprod-postgres:[^]*?condition:\s*service_healthy/u);
+  assert.match(service, /preprod_aga_demo_writer_database_password/u);
+  assert.match(service, /preprod-app-database/u);
+  assert.doesNotMatch(service, /keycloak|minio|mailpit|smtp|worker|scheduler|object|queue|lifecycle/iu);
+  assert.match(wrapper, /umask 077/u);
+  assert.match(wrapper, /run\/config\/aga-demo\.json/u);
+  assert.match(wrapper, /run\/input\/AGA_ALL_FORMS_SOURCE_RISK_DRAFT_2026-08-01\.zip/u);
+  assert.doesNotMatch(wrapper, /AUTHORIZATION_TOKEN|--token/iu);
+});
+
+test("tagged AGA demo API uses separate normal and sealed-reader credentials", () => {
+  const compose = read("deploy/local/compose.yaml");
+  const service = serviceBlock(compose, "preprod-aga-demo-api");
+  assert.match(service, /profiles:\s*\[preproddemo\]/u);
+  assert.match(service, /target:\s*preprod-aga-demo-api/u);
+  assert.match(service, /AVIA_DATABASE_USER:\s*preprod_normal_api/u);
+  assert.match(service, /preprod_aga_demo_reader_database_password/u);
+  assert.match(service, /AVIA_AGA_DEMO_DATABASE_URL/u);
+  assert.match(service, /AVIA_OIDC_ISSUER_URL/u);
+  assert.match(service, /preprod-keycloak/u);
+  assert.doesNotMatch(service, /preprod_aga_demo_writer_database_password|minio|mailpit|smtp|worker|scheduler|queue/u);
+});
+
+test("disposable OIDC qualification is a separate predecessor fixture", () => {
+  const compose = read("deploy/local/compose.yaml");
+  const fixture = serviceBlock(compose, "preprod-aga-demo-oidc-fixture");
+  const loader = serviceBlock(compose, "preprod-aga-candidate-demo-loader");
+  assert.match(fixture, /aga-candidate-demo-oidc-fixture/u);
+  assert.match(fixture, /preprod-keycloak/u);
+  assert.match(fixture, /preprod_aga_demo_oidc_qualification_password/u);
+  assert.doesNotMatch(fixture, /preprod_aga_demo_(?:reader|writer)_database_password/u);
+  assert.doesNotMatch(loader, /keycloak|oidc|qualification|session_encryption/u);
+});
+
 test("one-shot profile owns a complete isolated disposable namespace", () => {
   const compose = read("deploy/local/compose.yaml");
   const namespaceInitializer = read("scripts/init-local-preprod-namespace.sh");

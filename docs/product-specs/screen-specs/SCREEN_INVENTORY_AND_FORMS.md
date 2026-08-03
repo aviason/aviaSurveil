@@ -190,3 +190,15 @@ Close` keep the Finding open. A Department Manager's reason-required authorized
 closure is separate from Evidence review. Finding, Auditee, and Manager
 surfaces show organization-scoped reminder history with stage, recipient, date,
 `demo_recorded` status, and `Demo in-app event; no real delivery`.
+
+## AGA candidate demo panel (preprod-only)
+
+`aga-candidate-demo@1.1.0` is a separate, read-only, immutable, preprod-only,
+Admin-only panel in Checklist Builder and cannot satisfy Task 9. The exact CAA
+Admin may view only the sealed package summary, ordered form identities,
+extraction-review queue, source-gap queue, and provisional risk blockers. The
+panel provides no control to import, accept, map, attest, assign, approve,
+publish, deliver, create a Finding, or create an Audit. Non-Admin and
+unavailable-capability paths render a neutral label-free not-found outcome;
+successful Admin reads alone display `candidate-only`, `release pending`, and
+`production-ready: not established`.

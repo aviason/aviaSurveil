@@ -1,4 +1,4 @@
-//go:build !canonicaltest
+//go:build !canonicaltest && !preproddemo
 
 package main
 

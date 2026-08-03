@@ -40,6 +40,7 @@ var (
 type Settings struct {
 	Environment                 string
 	DatabaseURL                 string
+	AGADemoDatabaseURL          string
 	HTTPAddress                 string
 	WorkerInterval              time.Duration
 	TestPrincipal               string
@@ -112,6 +113,7 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 	settings := Settings{
 		Environment:             environment,
 		DatabaseURL:             value(lookup, "AVIA_DATABASE_URL"),
+		AGADemoDatabaseURL:      value(lookup, "AVIA_AGA_DEMO_DATABASE_URL"),
 		HTTPAddress:             valueOrDefault(lookup, "AVIA_HTTP_ADDRESS", ":8080"),
 		TestPrincipal:           value(lookup, "AVIA_TEST_PRINCIPAL"),
 		TestSession:             value(lookup, "AVIA_TEST_SESSION"),

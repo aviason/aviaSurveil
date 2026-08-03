@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/administration"
+	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/agacandidatedemo"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/application"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/assistant"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/documents"
@@ -125,7 +126,11 @@ func run(ctx context.Context) error {
 		telemetryRuntime.PostgresTracer("application"),
 	)
 	if databaseErr == nil {
-		if migrationErr := migrations.Apply(ctx, pool); migrationErr == nil {
+		var migrationErr error
+		if !profile.skipMigrations {
+			migrationErr = migrations.Apply(ctx, pool)
+		}
+		if migrationErr == nil {
 			var bootstrapErr error
 			if profile.bootstrap != nil {
 				bootstrapErr = profile.bootstrap(
@@ -183,7 +188,23 @@ func run(ctx context.Context) error {
 						}
 					}
 				}
-				if settings.ObjectStoreEndpoint != "" {
+				if profile.agaDemoOnly {
+					if authBoundary == nil || profile.agaDemoService == nil {
+						probe = unavailableReadiness{err: errors.New("tagged AGA demo authentication is unavailable")}
+					} else {
+						service, closeReader, readerErr := profile.agaDemoService(ctx, settings)
+						if readerErr != nil {
+							probe = unavailableReadiness{err: readerErr}
+							slog.Error("AGA demo reader unavailable; capability will fail closed", "error", readerErr)
+						} else {
+							defer closeReader()
+							authenticatedAPI = httpapi.ProtectAGACandidateDemo(
+								authBoundary,
+								httpapi.NewAGACandidateDemoHandler(service),
+							)
+						}
+					}
+				} else if settings.ObjectStoreEndpoint != "" {
 					objects, objectErr := objectstore.NewMinIOStore(objectstore.MinIOConfig{
 						Endpoint: settings.ObjectStoreEndpoint, PublicEndpoint: settings.ObjectStorePublicEndpoint,
 						AccessKey: settings.ObjectStoreAccessKey, SecretKey: settings.ObjectStoreSecretKey,
@@ -273,6 +294,17 @@ func run(ctx context.Context) error {
 								Bucket: settings.DocumentBucket, Clock: runtimeClock,
 							},
 						)
+						var agaDemoService any
+						if profile.agaDemoService != nil {
+							service, closeReader, readerErr := profile.agaDemoService(ctx, settings)
+							if readerErr != nil {
+								probe = unavailableReadiness{err: readerErr}
+								slog.Error("AGA demo reader unavailable; capability will fail closed", "error", readerErr)
+							} else {
+								defer closeReader()
+								agaDemoService = service
+							}
+						}
 						apiHandler := httpapi.NewCanonicalAPI(httpapi.CanonicalAPIDependencies{
 							Pool: pool, Application: applicationService, GrantService: grantService,
 							SyncOperations:  syncOperations,
@@ -284,7 +316,11 @@ func run(ctx context.Context) error {
 							Documents:         documentAccess,
 							DirectoryProvider: directoryProvider,
 							Users:             userLifecycleService,
-							Clock:             runtimeClock,
+							AGACandidateDemo: func() *agacandidatedemo.Service {
+								service, _ := agaDemoService.(*agacandidatedemo.Service)
+								return service
+							}(),
+							Clock: runtimeClock,
 						}).Handler()
 						if profile.protect != nil {
 							protectedAPI, testAdmin, profileErr := profile.protect(

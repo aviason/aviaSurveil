@@ -9,6 +9,7 @@ project_name="aviasurveil360-local-preprod"
 profile_name="${1:-}"
 profile_version="1.0.0"
 task8_qualification="${AVIA_TASK8_PROFILE_QUALIFICATION:-false}"
+retain_base_handoff_directory="${AVIA_PREPROD_RETAIN_SUCCESSFUL_BASE_HANDOFF_DIR:-}"
 qualification_started_epoch="$(date -u +%s)"
 run_id="run-task7-connected-smoke"
 evidence_directory=""
@@ -167,6 +168,16 @@ if [[ "$task8_qualification" == "true" ]]; then
     fail "AVIA_TASK8_PROFILE_VERSION is invalid"
 elif [[ "$profile_name" != "smoke" ]]; then
   fail "usage: $0 smoke"
+fi
+if [[ -n "$retain_base_handoff_directory" ]]; then
+  [[ "$task8_qualification" != "true" ]] ||
+    fail "retained base handoff is a predecessor operation, not Task 8 qualification"
+  [[ "$retain_base_handoff_directory" = /* && -d "$retain_base_handoff_directory" && ! -L "$retain_base_handoff_directory" ]] ||
+    fail "retained base handoff directory must be an absolute private directory"
+  [[ "$(find "$retain_base_handoff_directory" -mindepth 1 -maxdepth 1 -print -quit)" == "" ]] ||
+    fail "retained base handoff directory must be empty"
+  [[ "$(stat -f '%Lp' "$retain_base_handoff_directory")" == "700" ]] ||
+    fail "retained base handoff directory must have mode 0700"
 fi
 command -v docker >/dev/null 2>&1 || fail "docker is required"
 command -v node >/dev/null 2>&1 || fail "node is required"
@@ -948,6 +959,93 @@ if (envelopeViolations.length > 0) {
   );
 }
 NODE
+fi
+
+if [[ -n "$retain_base_handoff_directory" ]]; then
+  AVIA_PREPROD_BASE_INTENT_PATH="$intent_file" \
+  AVIA_PREPROD_BASE_CONTROL_STORE="$control_store_directory" \
+  AVIA_PREPROD_BASE_RUN_ID="$run_id" \
+  AVIA_PREPROD_BASE_STATE_DIRECTORY="$state_directory" \
+  AVIA_PREPROD_BASE_HANDOFF_DIRECTORY="$retain_base_handoff_directory" \
+    node --input-type=module <<'NODE'
+import { readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
+
+const env = process.env;
+const intent = JSON.parse(readFileSync(env.AVIA_PREPROD_BASE_INTENT_PATH));
+const resultDigest = readFileSync(
+  path.join(env.AVIA_PREPROD_BASE_CONTROL_STORE, "runs", `${env.AVIA_PREPROD_BASE_RUN_ID}.success`),
+  "utf8",
+).trim();
+const result = JSON.parse(readFileSync(path.join(
+  env.AVIA_PREPROD_BASE_CONTROL_STORE,
+  "results",
+  env.AVIA_PREPROD_BASE_RUN_ID,
+  `${resultDigest.replace(/^sha256:/u, "")}.json`,
+)));
+if (
+  result.outcome !== "SUCCEEDED" ||
+  result.runId !== intent.runId ||
+  result.intentDigest !== intent.intentDigest ||
+  result.resultDigest !== resultDigest ||
+  !/^sha256:[a-f0-9]{64}$/u.test(intent.targetFingerprintDigest)
+) {
+  throw new Error("retained base handoff does not bind a successful exact target");
+}
+const baseResult = {
+  runId: intent.runId,
+  intentDigest: intent.intentDigest,
+  resultDigest,
+  targetFingerprintDigest: intent.targetFingerprintDigest,
+  outcome: "SUCCEEDED",
+  disposable: true,
+};
+const databaseTarget = {
+  environment: intent.target.environment,
+  databaseName: intent.target.databaseName,
+  databaseOwner: intent.target.databaseOwner,
+  postgresSystemIdentifier: intent.target.postgresSystemIdentifier,
+  postgresHost: intent.target.postgresHost,
+  postgresPort: intent.target.postgresPort,
+  composeProject: intent.target.composeProject,
+};
+if (
+  databaseTarget.environment !== "local-preprod" ||
+  databaseTarget.databaseName !== "aviasurveil360_local_preprod" ||
+  databaseTarget.databaseOwner !== "aviasurveil360_preprod_loader" ||
+  !/^[0-9]{10,24}$/u.test(databaseTarget.postgresSystemIdentifier) ||
+  databaseTarget.postgresHost !== "preprod-postgres" ||
+  databaseTarget.postgresPort !== 5432 ||
+  databaseTarget.composeProject !== "aviasurveil360-local-preprod"
+) {
+  throw new Error("retained base handoff has an invalid database target");
+}
+const handoff = {
+  schemaVersion: "preprod-retained-base-handoff/v1",
+  baseResultFile: path.join(env.AVIA_PREPROD_BASE_HANDOFF_DIRECTORY, "base-result.json"),
+  stateDirectory: env.AVIA_PREPROD_BASE_STATE_DIRECTORY,
+  controlStoreDirectory: env.AVIA_PREPROD_BASE_CONTROL_STORE,
+  targetFingerprintDigest: intent.targetFingerprintDigest,
+  databaseTarget,
+  runId: intent.runId,
+};
+writeFileSync(handoff.baseResultFile, `${JSON.stringify(baseResult)}\n`, {
+  flag: "wx",
+  mode: 0o600,
+});
+writeFileSync(
+  path.join(env.AVIA_PREPROD_BASE_HANDOFF_DIRECTORY, "handoff.json"),
+  `${JSON.stringify(handoff)}\n`,
+  { flag: "wx", mode: 0o600 },
+);
+NODE
+  # Ownership now passes only to a caller that already created the private
+  # handoff directory. Its EXIT trap must run whole-namespace cleanup.
+  project_owned="false"
+  runtime_root=""
+  printf 'preprod-connected-scenarios: retained successful base handoff at %s\n' \
+    "$retain_base_handoff_directory"
+  exit 0
 fi
 
 cleanup_started_epoch="$(date -u +%s)"

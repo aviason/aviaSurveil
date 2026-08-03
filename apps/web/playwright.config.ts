@@ -12,6 +12,8 @@ const profile =
         ? "aws-trial"
       : e2eProfile === "http"
     ? "http"
+    : e2eProfile === "preprod-aga-demo"
+      ? "preprod-aga-demo"
     : e2eProfile === "oidc"
       ? "oidc"
       : e2eProfile === "offline"
@@ -25,10 +27,11 @@ const command =
     : profile === "oidc"
       ? "AVIA_HTTP_TEST_PROFILE= npm run dev:http -- --host 127.0.0.1 --port 4174 --strictPort"
       : profile === "visual-parity"
-        ? "VITE_AVIA_VISUAL_FIXTURES=1 npm run dev:demo -- --host 127.0.0.1 --port 4174 --strictPort"
+      ? "VITE_AVIA_VISUAL_FIXTURES=1 npm run dev:demo -- --host 127.0.0.1 --port 4174 --strictPort"
     : "npm run dev:demo -- --host 127.0.0.1 --port 4174 --strictPort";
 const shouldStartWebServer =
   profile !== "offline" &&
+  profile !== "preprod-aga-demo" &&
   profile !== "local-demo" &&
   profile !== "local-full" &&
   profile !== "restored-platform" &&
@@ -55,6 +58,7 @@ export default defineConfig({
   workers: 1,
   forbidOnly: true,
   retries: 0,
+  maxFailures: profile === "preprod-aga-demo" ? 1 : 0,
   reporter: [["line"]],
   use: {
     baseURL: process.env.AVIA_E2E_BASE_URL ?? "http://127.0.0.1:4174",
@@ -129,6 +133,25 @@ export default defineConfig({
         "e2e/regulatory-source-refresh.http.spec.ts",
         "e2e/governed-checklist-intake.http.spec.ts",
       ],
+    },
+    {
+      name: "preprod-aga-demo",
+      testMatch: [
+        "e2e/aga-candidate-demo-privacy.http.spec.ts",
+        "e2e/aga-candidate-demo-admin.http.spec.ts",
+      ],
+      use: {
+        actionTimeout: 30_000,
+        navigationTimeout: 30_000,
+        trace: "off",
+        screenshot: "off",
+        video: "off",
+        launchOptions: {
+          args: [
+            `--host-resolver-rules=MAP ${process.env.AVIA_PREPROD_AGA_OIDC_HOST ?? "aga-preprod.test"} 127.0.0.1`,
+          ],
+        },
+      },
     },
     {
       name: "oidc",
