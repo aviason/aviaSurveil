@@ -180,8 +180,11 @@ This plan covers:
 
 ## Explicit Exclusions
 
-- No AGA PDF, ZIP, extracted text, screenshot, or parsed question content is
-  added to Git or to the root legacy demo.
+- No raw AGA PDF/ZIP byte artifact, page image, full extracted-text dump,
+  screenshot, or candidate record is added to Git or to the root legacy demo.
+  The separately user-authorized all-form handoff is a narrow exception for
+  bounded parser-derived candidate question strings/provenance and printed
+  reference strings only; it remains candidate-only and raw-byte-free.
 - No bulk candidate import of all 52 forms occurs before the representative
   vertical slice includes the current Admin's real Form 048 identity/boundary
   decisions, immutable real candidate, and visible real source-gap Draft,
@@ -2733,8 +2736,11 @@ real Admin identity and extraction decisions remain `blocked`.
   creating Form 048. Replay must return the same candidate; a divergent
   decision must conflict. Blank history remains `NOT_SUPPLIED`, never clean.
 - [ ] Run the read-only receipt verifier and compare the API/DB inventory with
-  the external ZIP. Store only hashes/counts/receipt identities in evidence;
-  do not copy source bytes or extracted text into Git.
+  the external ZIP. Store only hashes/counts/receipt identities in the
+  evidence record; raw source bytes and full extracted text remain excluded.
+  The separately user-authorized all-form handoff may contain bounded
+  parser-derived question strings/provenance and printed reference strings,
+  but it is not a source-text dump or an imported candidate record.
 
 ### Task 5 — Create immutable Drafts from existing and official sources
 
@@ -3092,7 +3098,8 @@ connected runtime prerequisites are evidenced.
 
 ### Task 10 — Final verification, evidence, and handoff
 
-**Status:** `verified locally` for metadata-only handoff and local checks;
+**Status:** `verified locally` for the raw-byte-free derived-text handoff and
+local checks;
 external dependencies remain `blocked`.
 
 **Files**
@@ -3108,15 +3115,21 @@ external dependencies remain `blocked`.
 
 **Interfaces**
 
-- Produces a metadata-only evidence package and precise real-owner handoff.
+- Produces a raw-byte-free derived review package and precise real-owner
+  handoff. The package may carry bounded parser-derived question strings and
+  provenance, while raw ZIP/PDF bytes, page images, and full extracted-text
+  dumps remain excluded.
 
 - [ ] Run the verification inventory preflight; do not run aggregates if a
   required test is missing or reports zero cases.
 - [ ] Run every command in the verification matrix below from a clean,
   task-owned runtime and record command, timestamp, exit status, suite/test
   counts, and literal evidence label.
-- [ ] Record AGA archive/register/file hashes and receipt IDs only; do not copy
-  ZIP/PDF/extracted text/question content into the evidence directory.
+- [ ] Record AGA archive/register/file hashes and receipt IDs in the evidence
+  record; do not copy ZIP/PDF bytes, page images, or full extracted text into
+  the evidence directory. Keep any user-authorized bounded question-string
+  handoff separate from the metadata-only evidence record and explicitly
+  candidate-only.
 - [ ] Record every source-owner and Department Manager decision as `blocked`
   until an identified real actor supplies it. Do not convert absence into
   inferred approval.
@@ -3834,6 +3847,83 @@ until supplied:
   returned the expected `BLOCKED` result (`exit 2`) because the actor-bound
   Admin identity/28 decisions, immutable candidate/source-gap Draft, and named
   expansion authorization remain external dependencies.
+- [x] 2026-08-01: At the user's request, a raw-byte-free all-form source/risk
+  review draft was prepared from the supplied archive through the explicit
+  `AGA_CHECKLIST_ARCHIVE` path. It inventories all `52` forms and `53` PDF
+  entries, preserves the missing `049`/present `035A` fact, records immutable
+  archive/register/file hashes, and derives `1,310` question-shaped candidate
+  boundaries across `31` forms. The remaining `21` non-protocol forms remain
+  inventory records; Form 048 retains the exact `28`-question source-backed
+  slice. `174` unique form/question-level NAMCAR/NAMCATS references are kept in
+  a separate source-coverage queue.
+- [x] 2026-08-01: The all-form review package deliberately keeps every source
+  mapping `SOURCE_MAPPING_REQUIRED`, source authority `NOT_ATTESTED`, risk
+  interpretation `CANDIDATE_INTERPRETATION_REQUIRES_EXPERT_REVIEW`, decision
+  `NOT_SUPPLIED`, candidate import `NOT_IMPORTED`, and publication
+  `NOT_AUTHORIZED`. NAMCAR Part 139 remains an official URL proposal without a
+  locally hashed source byte; no authority, applicability, severity,
+  functional assignment, manager decision, or production evidence was added.
+- [x] 2026-08-01: TDD for the all-form handoff recorded the expected RED
+  (`node --test tests/aga-all-forms-source-risk-draft.test.mjs`, exit `1`,
+  `2` tests / `0` passed) before the review artifacts were completed. The
+  GREEN rerun passed `2/2`; the path-driven archive test passed `1/1`, Gate-0
+  inventory passed `11` required artifacts, harness smoke passed, manifest
+  verification passed `7/7`, ZIP validation passed, explicit untracked
+  whitespace scanning passed, and `git diff --check` passed. The resulting
+  handoff is
+  `deliverables/AGA_ALL_FORMS_SOURCE_RISK_DRAFT_2026-08-01.zip` with SHA-256
+  `30700a88aeb5b26514bf7eb76bef050deb08b96294db94117d185de5c9f163b2`.
+- [x] 2026-08-01: Independent read-only review initially returned `CHANGES
+  REQUIRED` because the package README called the handoff metadata-only while
+  it intentionally carried bounded parser-derived question strings. The
+  README, plan exclusion, and outcome note were corrected to distinguish
+  derived candidate strings/provenance from raw ZIP/PDF bytes, page images, and
+  full extracted-text dumps. The repair first reproduced a manifest-mismatch
+  RED (`1/2` package tests passed), then regenerated the 7-file manifest and
+  returned the package test to `2/2` GREEN.
+- [x] 2026-08-01: The independent read-only re-review returned `APPROVED` with
+  no Critical, Important, or Minor findings. It confirmed the bounded derived
+  question-string disclosure, raw-byte/page-image/full-dump exclusion,
+  candidate-only and fail-closed states, source-authority gap, 7/7 manifest,
+  ZIP integrity, and no Task-1/runtime/migration changes. The final fresh
+  verification rerun exited `0` for the all-form test (`2/2`), archive path
+  test (`1/1`), Gate-0 inventory (`11` artifacts), harness smoke, tracked and
+  untracked whitespace checks, ZIP `unzip -t`, and fresh Git status capture.
+- [x] 2026-08-01: Actor-bound append-only candidate-scope security was added
+  with strict TDD. The first focused RED (`GOCACHE=/tmp/avia-go-cache go test
+  ./internal/checklistintake -run 'TestActorBoundCandidateScope' -count=1`,
+  exit `1`) exposed the missing ledger contract; the history-read RED (same
+  command after the test-first immutable-history assertion, exit `1`) exposed
+  the missing detached history API; and the authority-boundary/digest RED
+  exposed the missing fail-closed fields and canonical digest rejection. The
+  final focused suite is GREEN (`4/4` top-level tests, `14/14` subtests), the
+  complete `checklistintake` package is GREEN (`26/26` top-level tests plus
+  `23/23` subtests), and the focused race run is GREEN. The ledger generates
+  decision/root IDs and semantic digests server-side only after a CAA `ADMIN`
+  principal has a non-empty subject, session, membership, operation,
+  idempotency key, reason, and exact package/scope SHA-256 values. It enforces
+  the five-form/250-proposal bounds, stable idempotent replay, predecessor
+  CAS, stale-revision rejection, and detached append-only history. The record
+  remains candidate-only: source mapping/authority, applicability, risk,
+  functional assignment, technical approval, publication, release, and
+  production permissions are all fixed `false`. Tests use synthetic fixtures
+  only; no real Admin identity, source-owner decision, candidate/Draft,
+  publication, or production evidence was created, and Task 9 remains
+  `blocked`.
+- [x] 2026-08-01: Independent read-only review returned `CHANGES REQUIRED`
+  with one Important finding: actor, membership, session, package, and form
+  scope facts were still caller assertions. No external decision was created
+  while this was repaired. TDD then ran a resolver-bound RED (the updated
+  focused command exited `1` because the resolver contract and server-context
+  API were absent), followed by GREEN with `4/4` top-level tests and `14/14`
+  subtests. The ledger now requires an injected `ActorBoundResolver`; it
+  rejects a nil resolver, forged/mismatched principal context, inactive or
+  revoked membership/session, expired session, unknown package/scope, and
+  resolver form-set or membership drift. Valid-shaped but unknown package and
+  scope digests are also rejected. The resolver returns canonical facts, and
+  the ledger compares them to the command before generating any leaf. The
+  independent read-only re-review returned `APPROVED` with no Critical,
+  Important, or Minor findings.
 
 ## Decisions
 
@@ -3862,6 +3952,15 @@ until supplied:
   named expansion authorization. Connected synthetic runtime evidence does not
   substitute for those facts. Until they exist, expansion remains fail-closed
   and no additional form is imported.
+- **2026-08-01 — Permit only a derived all-form review draft.** The user's
+  request extends the source-question handoff to all `52` AGA forms, but does
+  not authorize bulk candidate import or any source/risk/authority decision.
+  The derived package may contain form/file hashes, parser candidate boundaries,
+  printed regulatory-reference strings, source proposals, and advisory risk
+  bands. It must remain raw-byte-free and candidate-only; every Admin/source
+  owner decision, exact official source hash/effective date, applicability,
+  risk classification, functional assignment, and publication action remains a
+  separate fail-closed gate.
 - **2026-07-31 — Keep decision projections out of candidate digests.** The
   server-derived `mappingReviewState` projection (and the literal source-gap
   technical projection) is excluded from immutable content/import/edit
@@ -3934,6 +4033,17 @@ until supplied:
   import manifest never changes; identity resolutions, extraction packets and
   strict decision-set successors, and existing-candidate corrections bind its
   digest through their own deterministic current-leaf roots.
+- **2026-08-01 — Generate actor-bound candidate-scope leaves server-side.** A
+  local candidate-only ledger refuses to append without an injected
+  `ActorBoundResolver`. The resolver must validate the authenticated server
+  principal against an active CAA Admin membership/current session and resolve
+  the immutable reviewed package plus exact form scope; the ledger rechecks
+  those canonical facts before generating immutable decision/root IDs, stable
+  idempotent replays, predecessor-CAS successors, and detached history reads.
+  The leaf fixes all source, applicability, risk, functional-assignment,
+  technical-approval, publication, release, and production permissions to
+  `false`; it is a security mechanism and test fixture, not a real Admin
+  decision or a durable production store.
 - **2026-07-31 — Persist parser output before cleanup.** A successful
   `PDF_PARSE` attempt owns an exact private immutable parser-output object
   version before its terminal event. Task 4 prepares proposals only from those
@@ -4054,9 +4164,12 @@ recorded above. The later bounded source-read run placed only the 28 derived
 question strings/provenance in the Admin handoff; raw AGA ZIP/PDF bytes were
 removed from temporary storage and were not copied into Git. No external
 system, branch, worktree, stage, commit, push, deployment, or production
-decision was touched. Real source-owner, assignment, manager,
-connected-runtime qualification, Form 048 identity/28 decisions, source-gap
-Draft, and Phase 2 expansion dependencies remain `blocked`.
+decision was touched. The later user-authorized all-form handoff adds only
+bounded parser-derived question strings/provenance and printed reference
+strings for `52` forms; it contains no raw ZIP/PDF bytes, full text dump,
+source authority, or candidate records. Real source-owner, assignment,
+manager, connected-runtime qualification, Form 048 identity/28 decisions,
+source-gap Draft, and Phase 2 expansion dependencies remain `blocked`.
 
 ## Execution Prompt
 
