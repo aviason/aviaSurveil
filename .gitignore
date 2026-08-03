@@ -16,6 +16,7 @@ apps/web/dist/
 apps/web/*.tsbuildinfo
 apps/web/playwright-report/
 apps/web/test-results/
+apps/web/.local/
 
 # Generated local credentials, runtime state, and AWS plan/evidence bundles
 .local/aviasurveil360/
