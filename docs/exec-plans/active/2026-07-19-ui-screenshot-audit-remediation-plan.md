@@ -1,6 +1,5 @@
 # UI Screenshot Audit Remediation Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Convert every Issue in the 19 July 2026 86-screen screenshot audit into a verified Pass while preserving all passing workflows and applying shared mobile-readability, next-action, and touch-target improvements that prevent recurrence.
 
@@ -96,7 +95,6 @@ The plan also applies the highest-value shared recommendations to long dossier s
 - There is no `package.json`; tests run directly with `node`.
 - In-app Browser/Playwright remains available. A temporary harness may live in `/private/tmp`; do not add Playwright as a repository dependency.
 - Executive Preliminary Reports may legitimately be empty; clarify the state instead of fabricating approval data.
-- Unrelated user files such as `.superpowers/` remain untouched.
 
 ## Ownership Boundaries
 
@@ -169,7 +167,7 @@ The plan also applies the highest-value shared recommendations to long dossier s
   git log -3 --oneline
   ```
 
-  Expected: no branch change; task-owned plan/audit docs may be modified; unrelated `.superpowers/` remains untouched.
+  Expected: no branch change; task-owned plan/audit docs may be modified; unrelated user files remain untouched.
 
 - [x] **Step 2: Create the consolidated test harness**
 
@@ -1293,7 +1291,7 @@ The plan also applies the highest-value shared recommendations to long dossier s
   sheets.
 - Git state: reported with `git status --short` and `git diff --stat` without
   staging or mutation. Task-owned implementation/test/docs changes are present;
-  the pre-existing untracked `.superpowers/` directory remains untouched. No
+  the pre-existing unrelated user files remain untouched. No
   branch, stage, commit, push, deployment, or GitHub write occurred.
 
 ---
@@ -1365,5 +1363,5 @@ The plan is complete only when:
 ## Execution Prompt
 
 ```text
-Implement `docs/exec-plans/active/2026-07-19-ui-screenshot-audit-remediation-plan.md` task-by-task in the current AviaSurveil360 working tree. Use `superpowers:executing-plans` or `superpowers:subagent-driven-development` as required by the plan header. Start by reading the repo-local `AGENTS.md`, the plan, `docs/demo-evidence/UI_SCREEN_AUDIT_2026-07-19.md`, and the source documents listed under Dependencies. Follow TDD: add each failing direct-Node contract, verify the red state, make the smallest implementation, and run the focused test before advancing. Preserve the static HTML/CSS/Vanilla JavaScript architecture, browser-local demo state, working controls, role visibility, Finding/CAP/Evidence lifecycle, careful regulatory wording, and demo-only boundaries. Fix all 10 Issue routes, apply the shared next-action/touch/type recommendations, bump the asset token, run every JavaScript syntax check and every `tests/*.test.js`, then capture and inspect all 86 routes at 1440x1000, 1024x900, and 390x844 with Playwright. Update the bilingual audit/build evidence, plan checkbox state, active plan index, and technical-debt tracker with literal results. Clean up browser and local-server processes. Do not create or change branches, and do not stage, commit, push, deploy, or write to GitHub unless the user explicitly authorizes that exact action in the new thread. Continue until the Completion Definition is met or a genuine external blocker requires user input.
+Implement `docs/exec-plans/active/2026-07-19-ui-screenshot-audit-remediation-plan.md` according to its defined scope and order in the current AviaSurveil360 working tree. Start by reading the repo-local `AGENTS.md`, the plan, `docs/demo-evidence/UI_SCREEN_AUDIT_2026-07-19.md`, and the source documents listed under Dependencies. Preserve the static HTML/CSS/Vanilla JavaScript architecture, browser-local demo state, working controls, role visibility, Finding/CAP/Evidence lifecycle, careful regulatory wording, and demo-only boundaries. Fix all 10 Issue routes, apply the shared next-action/touch/type recommendations, bump the asset token, run every JavaScript syntax check and every `tests/*.test.js`, then capture and inspect all 86 routes at 1440x1000, 1024x900, and 390x844 with Playwright. Update the bilingual audit/build evidence, plan checkbox state, active plan index, and technical-debt tracker with literal results. Clean up browser and local-server processes. Do not create or change branches, and do not stage, commit, push, deploy, or write to GitHub unless the user explicitly authorizes that exact action in the new thread.
 ```

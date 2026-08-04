@@ -1,6 +1,5 @@
 # React Legacy UI Parity And Backend Integration Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to execute this plan task by task. Do not dispatch subagents unless the user explicitly authorizes subagent work for the execution task.
 
 **Goal:** Make the 17 already-routed React surfaces recognizably and measurably match the accepted root Vanilla AviaSurveil360 interface, add the missing read contracts needed for direct-load Potential Finding, CAP, and Admin preview behavior, connect the normal HTTP build to the real same-origin OIDC browser-session boundary, and classify every accepted legacy screen without hiding missing Product scope or creating inert React placeholders.
 
@@ -279,7 +278,7 @@ For every task:
 
    The ahead set may contain only the recorded initial commits plus completed commits from this plan. Otherwise stop.
 7. Run `git push origin HEAD` only after the task tests and cached-diff inspection pass.
-8. Run `git status --short` after push and verify unrelated `.superpowers/`, `docs/demo-evidence/stakeholder/`, `outputs/`, and any other pre-existing content are unchanged.
+8. Run `git status --short` after verification and verify unrelated `docs/demo-evidence/stakeholder/`, `outputs/`, and any other pre-existing content are unchanged.
 
 If commit/push is not authorized in the execution request, finish each task after verification and plan-log updates without staging.
 
@@ -414,7 +413,7 @@ export interface LegacyScreenContract {
 **Execution log — 2026-07-21**
 
 - Initial branch/upstream check: branch `main`, upstream `origin/main`, ahead/behind `0/0`, and no commits in `@{upstream}..HEAD`.
-- Preserved pre-existing working-tree content: modified plan/index/tracker docs plus untracked `.superpowers/`, `docs/demo-evidence/stakeholder/`, and `outputs/`.
+- Preserved pre-existing working-tree content: modified plan/index/tracker docs plus untracked `docs/demo-evidence/stakeholder/` and `outputs/`.
 - Expected red captured before implementation:
   - `node apps/web/scripts/extract-legacy-screen-inventory.mjs --check` failed with `MODULE_NOT_FOUND` because the extractor did not exist.
   - `npm --prefix apps/web test -- src/parity/legacy-screen-manifest.test.ts src/app/route-contracts.test.ts` failed with no matching test files.
@@ -2262,7 +2261,7 @@ The shared router, OpenAPI/generated files, canonical scenario, `app.css`, and v
 
 ## Execution Prompt
 
-Use `superpowers:executing-plans` and execute `docs/exec-plans/active/2026-07-21-react-legacy-ui-parity-and-backend-integration-plan.md` exactly in its 16-task binding order. Do not dispatch subagents unless I explicitly authorize them for the execution task.
+Execute `docs/exec-plans/active/2026-07-21-react-legacy-ui-parity-and-backend-integration-plan.md` exactly in its 16-task binding order. Do not dispatch subagents unless I explicitly authorize them for the execution task.
 
 Before Task 1, read `AGENTS.md` and its complete source-of-truth reading list, then read this entire plan, the parent production-transition plan, the accepted root UI/behavior sources, and the current React/Go/OpenAPI/session/offline sources named here. Confirm the current branch/upstream/ahead set and preserve all unrelated working-tree content. Do not create, switch, rename, or delete a branch.
 

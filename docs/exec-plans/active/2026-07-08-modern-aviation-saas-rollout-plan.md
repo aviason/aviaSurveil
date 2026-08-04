@@ -1,6 +1,5 @@
 # Modern Aviation SaaS Rollout Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Apply a modern, lively, demo-impressive Aviation SaaS visual direction across the AviaSurveil360 frontend-only demo without weakening the CAA oversight workflow or demo boundaries.
 

@@ -1,6 +1,5 @@
 # Cabin Inspection Demo Scenario Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the current Flight Operations hero scenario with a Cabin Inspection scenario based on the reviewed master checklist workbook while preserving the AviaSurveil360 frontend-only demo boundary and the Finding -> CAP -> Evidence -> CAA Review -> Closure workflow.
 

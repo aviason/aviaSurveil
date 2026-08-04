@@ -1,9 +1,8 @@
 # Preprod-Only AGA Candidate Demo Intake Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use
-> `superpowers:executing-plans` only after the user separately authorizes
-> implementation. Execute one task at a time with exactly one implementation
-> writer. The 2026-08-01 request authorizes this plan artifact only; do not
+> Execute this plan only after the user separately authorizes implementation.
+> The 2026-08-01 request authorizes this plan artifact only; do not
 > start code, loader, database, browser, or runtime work from that request.
 
 **Goal:** Load the exact accepted raw-byte-free AGA review package into a
@@ -107,9 +106,8 @@ and repository verification scripts.
   Release Candidate plan.
 - Use English for code, tests, plans, evidence, UI copy, status values, and
   repository documentation.
-- Follow TDD during later implementation. Begin each task with a focused
-  failing test, record the expected failure, implement the smallest passing
-  behavior, and run the task regression gate.
+- During later implementation, begin each task with focused test coverage and
+  run the task regression gate before advancing its status.
 - Preserve unrelated user changes. Do not overwrite the currently modified
   governed AGA plan/index row, untracked actor-bound decision work,
   `apps/web/.local/`, the accepted package, or its existing untracked tests.
@@ -394,8 +392,6 @@ Governed AGA Checklist Intake plan.
 - Product Admin, source owner, Department Manager, release owner, and
   production owner decisions remain absent and are not implied by local demo
   access.
-- One implementation writer owns all later working-tree edits. Read-only
-  review may run separately only when it does not overlap a writer.
 
 ## Repository Orientation And Interfaces
 
@@ -1670,5 +1666,5 @@ state was created or changed. The intended result remains `candidate-only`,
 Use the following only after the user explicitly authorizes implementation:
 
 ```text
-Execute docs/exec-plans/active/2026-08-01-preprod-only-aga-candidate-demo-intake-plan.md one task at a time, beginning with Gate 0. Use superpowers:executing-plans. Keep exactly one implementation writer. Preserve the accepted raw-byte-free package and all unrelated working-tree changes. Build a separate provider-free AGA loader; use distinct least-privilege normal-API, tagged-reader, and one-shot-writer PostgreSQL credentials; and make the final in-transaction reconciliation seal the sole database readability receipt. Do not write real governed AGA, identity, assignment, source-attestation, decision, publication, delivery, Finding, Audit, release, or production records. Stop immediately on any package, target, count, digest, privilege, privacy, seal, provider-delta, forbidden-table-delta, or cleanup mismatch. Do not commit, push, deploy, upload, or modify external systems without separate exact authorization. Report literal evidence labels and keep candidate-only, release pending, and production-ready: not established.
+Execute docs/exec-plans/active/2026-08-01-preprod-only-aga-candidate-demo-intake-plan.md one task at a time, beginning with Gate 0. Preserve the accepted raw-byte-free package and all unrelated working-tree changes. Build a separate provider-free AGA loader; use distinct least-privilege normal-API, tagged-reader, and one-shot-writer PostgreSQL credentials; and make the final in-transaction reconciliation seal the sole database readability receipt. Do not write real governed AGA, identity, assignment, source-attestation, decision, publication, delivery, Finding, Audit, release, or production records. Stop immediately on any package, target, count, digest, privilege, privacy, seal, provider-delta, forbidden-table-delta, or cleanup mismatch. Do not commit, push, deploy, upload, or modify external systems without separate exact authorization. Report literal evidence labels and keep candidate-only, release pending, and production-ready: not established.
 ```

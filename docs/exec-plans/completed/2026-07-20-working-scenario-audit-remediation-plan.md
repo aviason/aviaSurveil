@@ -1,6 +1,6 @@
 # Working Scenario Audit Remediation Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` task-by-task. Use `browser:control-in-app-browser` for real-click verification.
+> Use `browser:control-in-app-browser` for real-click verification when this plan's browser checks are run.
 
 **Goal:** Resolve all 13 findings from the 20 July 2026 working-scenario audit and restore one truthful, reproducible, Audit-scoped workflow across all eight demo roles.
 
@@ -347,7 +347,7 @@ Canonical plan: docs/exec-plans/completed/2026-07-20-working-scenario-audit-reme
 Canonical audit: docs/demo-evidence/WORKING_SCENARIO_AUDIT_2026-07-20.md
 Turkish audit companion: docs/demo-evidence/WORKING_SCENARIO_AUDIT_2026-07-20.turkce.md
 
-Use superpowers:executing-plans and execute the plan task-by-task. Use browser:control-in-app-browser for localhost real-click verification. Start by rereading repo-local AGENTS.md and every source-of-truth file named by the plan. Work test-first: add the focused WSA regression contracts, confirm the red baseline, then implement in plan order. Do not weaken tests to preserve current defects.
+Execute the plan task-by-task. Use browser:control-in-app-browser for localhost real-click verification. Start by rereading repo-local AGENTS.md and every source-of-truth file named by the plan. Add the focused WSA regression contracts and implement in plan order. Do not weaken tests to preserve current defects.
 
 Preserve the frontend-only HTML/CSS/Vanilla JavaScript and browser-local mock-state boundary. Do not add a backend, API, database, real auth, storage, messaging, framework migration, or production claim. Work on the current branch; do not create/switch branches, commit, push, open a PR, deploy, or post GitHub comments. Preserve unrelated working-tree changes.
 

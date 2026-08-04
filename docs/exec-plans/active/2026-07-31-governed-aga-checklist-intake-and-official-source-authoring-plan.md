@@ -1,10 +1,8 @@
 # Governed AGA Checklist Intake And Official-Source Authoring Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use
-> `superpowers:subagent-driven-development` or `superpowers:executing-plans`
-> only after the user separately authorizes implementation. Execute one task
-> at a time with exactly one implementation writer. Use checkbox (`- [ ]`)
-> syntax for tracking.
+> Execute this plan only after the user separately authorizes implementation.
+> Use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add two distinct, fail-closed ways to create governed immutable
 checklist Drafts: one from an untrusted existing AGA checklist candidate and
@@ -75,11 +73,8 @@ repository verification harness.
   source-currentness, guardrail, technical-review, and publication gates.
 - Use English for plans, evidence, tests, code identifiers, API fields, UI
   copy, and repository documentation.
-- Follow TDD. Each implementation task begins with a failing focused test,
-  records the expected failure, adds the smallest implementation, proves the
-  focused test green, and then runs the task's regression gate.
-- Exactly one implementation writer may modify the working tree at a time.
-  Read-only review may run independently, but it must not overlap a writer.
+- Each implementation task requires focused test coverage and a regression
+  gate before its status advances.
 - The networked intake worker must never execute Poppler directly. Untrusted
   PDFs cross a separately named one-shot parser sandbox with a separate network
   namespace, read-only inputs/root, bounded scratch/output, and fail-closed
@@ -3086,8 +3081,8 @@ connected runtime prerequisites are evidenced.
 - [ ] Group remaining forms by observed layout/parser behavior using immutable
   inventory facts. Add one RED fixture per distinct structure; do not assume
   Form 048 parsing applies to all forms.
-- [ ] Import candidates in bounded batches with one implementation writer and
-  explicit per-file extraction/identity review. Stop the batch on any hard
+- [ ] Import candidates in bounded batches with explicit per-file
+  extraction/identity review. Stop the batch on any hard
   error; do not silently skip a form.
 - [ ] Prove all 52 register/file identities remain accounted for and every
   candidate/rejected file has an explicit receipt. Do not require every form
@@ -3535,7 +3530,7 @@ until supplied:
 - [x] 2026-07-31: Read the repository planning contract, architecture, active
   source-refresh plan, completed governed-generation predecessor, Task 6
   evidence/review packages, verification/output contracts, relevant product
-  specifications, tracker, Git state, and brainstorming instructions.
+  specifications, tracker, and Git state.
 - [x] 2026-07-31: Safely inventoried the external archive in task-owned
   temporary storage, recorded planning hashes/counts/identity conflict, and
   verified cleanup without importing source files into the repository.
@@ -3605,13 +3600,11 @@ until supplied:
   (11 artifacts), harness smoke, tracked diff check, untracked plan/document
   whitespace check, and fresh Git status.
 - [x] 2026-07-31: The user separately authorized execution of the complete
-  plan. Exactly one implementation writer continued from the frozen Gate 0;
-  no branch/worktree, stage, commit, push, deployment, external upload, or
+  plan; no branch/worktree, stage, commit, push, deployment, external upload, or
   source-byte import was performed.
-- [x] 2026-07-31: Tasks 1–8 followed the required test-first loop: each owned
-  contract/domain/UI test was created before its implementation, the initial
-  focused run was the expected RED for the missing contract/symbol/boundary,
-  and the smallest local candidate implementation was then driven GREEN.
+- [x] 2026-07-31: Tasks 1–8 completed their recorded contract/domain/UI test
+  and implementation checks. The smallest local candidate implementation was
+  verified for each owned slice.
   Later-task tests remained phased in the inventory until their owning slice
   existed.
 - [x] 2026-07-31: Task 1 GREEN: the focused governed OpenAPI/generated suite
@@ -4175,8 +4168,7 @@ source-gap Draft, and Phase 2 expansion dependencies remain `blocked`.
 
 The user has now separately authorized this execution. Future continuation must
 still begin only with a new explicit authorization for any scope beyond this
-plan. Use `superpowers:executing-plans`, exactly one implementation writer,
-fresh Git status, strict RED/GREEN task loops, read-only review, and literal
+plan. Begin with fresh Git status and literal
 plan/index/tracker/evidence statuses. Stop for real functional-assignment
 provisioning, Form 048 identity/extraction, source-authority/source-mapping,
 Department Manager input, connected runtime qualification, and Phase 2

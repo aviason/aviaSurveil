@@ -119,7 +119,7 @@ documents:
 | `node --test tests/preprod-identity-data-contract.test.mjs` | passed; 26/26; Task 2 remains unauthorized and not started |
 | `node tests/harness-docs-smoke.test.js` | passed; `harness-docs-smoke: ok` |
 | `node tests/demo-boundary-smoke.test.js` | passed; `demo-boundary-smoke: ok` |
-| removed-active-path reference scan across `docs`, `MANIFEST.md`, and `.superpowers` | passed; zero references to the three removed active paths |
+| removed-active-path reference scan across `docs` and `MANIFEST.md` | passed; zero references to the three removed active paths |
 | plan location and status scan | passed; all three completed files present, all three active files absent, and statuses are `completed`, `completed`, and `completed for the local milestone` |
 | plan/index/evidence successor scan | passed; Plans 1–4 local completion, AWS `not run`, and the separate Plan 5 Task 2 authorization gate are present |
 | agent-harness inventory routing scan | passed |

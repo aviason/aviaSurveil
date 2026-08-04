@@ -1,10 +1,7 @@
 # AGA Hybrid Question Classification And Synthetic Demo Lifecycle ExecPlan
 
 > **For agentic workers:** Execute this plan only after the user explicitly
-> authorizes implementation. Use `superpowers:executing-plans` and
-> `superpowers:test-driven-development`; keep exactly one implementation writer.
-> Read-only AI analysis may be batched, but the primary writer alone may create
-> or modify repository artifacts. Do not commit, push, deploy, call an external
+> authorizes implementation. Do not commit, push, deploy, call an external
 > system, or change a real database without separate exact authorization.
 
 **Goal:** Classify every one of the 1,310 immutable AGA candidate question
@@ -112,9 +109,8 @@ digests. No runtime LLM or external research API is added.
 - Work on the current branch. Do not create, switch, rename, or delete branches
   or worktrees. Do not stage or commit without current user authorization.
 - Use English for code, schemas, statuses, tests, plan updates, and UI copy.
-- Every implementation task follows TDD: add a focused failing test, observe
-  the expected failure, add the smallest passing implementation, run focused
-  regression, then update this plan with literal evidence.
+- Every implementation task requires focused regression coverage, a broader
+  verification gate, and an update to this plan with literal evidence.
 - Final claims remain `candidate-only`, `release pending`, and
   `production-ready: not established`.
 
@@ -1255,9 +1251,9 @@ failures and green passes literally.
 - Create `apps/api/internal/agaapplicability/draft_test.go` and
   `apps/api/internal/agaapplicability/recommendation_test.go`.
 
-**TDD sequence:**
+**Focused verification sequence:**
 
-1. Write failing tests named `TestClassifySealedBaseContract`,
+1. Add focused tests named `TestClassifySealedBaseContract`,
    `TestClassificationFatalErrorsAbortRun`,
    `TestConfidenceRecommendationPrecedence`,
    `TestConfidenceEvidenceBindsEveryProposal`,
@@ -1274,7 +1270,8 @@ failures and green passes literally.
    `TestQuestionSnapshotReconstructsExactLeaves`,
    `TestDraftBatchPreviewIsAtomic`, and
    `TestRecommendRequiresCurrentIncludedLeaf`. Run the focused regex below;
-   expected RED is undefined new types/functions, not a skipped test.
+   record the focused result for undefined new types/functions; do not skip the
+   test.
 2. Cover one main domain, optional involvement, exact provenance, accepted
    duplicate text digests, rejected duplicate full identities, unknown codes,
    canonical-kind/profile mismatch, validator-recomputed field/value-bound
@@ -1337,16 +1334,16 @@ blocker preservation. Both RED and GREEN outputs are recorded in Progress.
   `aggregates.json`, plus text-free `pass-isolation-cleanup.json`.
 - Create `tests/aga-question-classification-candidate.test.mjs`.
 
-**TDD and AI sequence:**
+**Focused verification and AI sequence:**
 
-1. Write failing tests named `TestValidatePassRequiresExactBijection`,
+1. Add focused tests named `TestValidatePassRequiresExactBijection`,
    `TestValidatePassRejectsTextAndUnknownCodes`,
    `TestValidatePassRecomputesConfidenceEvidence`,
    `TestValidatorDiagnosticsAreIdentityRedacted`,
    `TestReconcileUsesCandidateChallengePrecedence`,
    `TestReconcilePersistsBothPassProjections`, and
-   `TestCandidateReconstructsAggregates`. Run the focused Go command; expected
-   RED is the missing validator/subcommands.
+   `TestCandidateReconstructsAggregates`. Run the focused Go command and record
+   the result for the missing validator/subcommands.
 2. Implement `validate-pass`, `reconcile`, and `validate-candidate`. The tool
    consumes Gate 0B's identical 25-batch classification manifest for both
    passes and never calls a model. It reconstructs every source-snapshot,
@@ -1495,9 +1492,9 @@ classification candidate, provider catalog, tracked template, and private
 manifest, creates only synthetic workspace bindings/scopes/targets, and seals
 a receipt over every input and row aggregate.
 
-**TDD sequence:**
+**Focused verification sequence:**
 
-1. Write failing tests named `TestWorkspaceRoleMatrixIsClosed`,
+1. Add focused tests named `TestWorkspaceRoleMatrixIsClosed`,
    `TestWorkspaceLoaderReconcilesAndSeals`,
    `TestWorkspaceLoaderPersistsBothPassProjections`,
    `TestWorkspaceFixtureExporterIsReadOnlyAndExact`,
@@ -1506,8 +1503,8 @@ a receipt over every input and row aggregate.
    `TestWorkspaceQuestionReferencesRoundTripExactly`,
    `TestWorkspaceQuestionIdentityConstraintsAreClosed`,
    `TestWorkspaceResetIsForwardOnly`. Add static boundary assertions for the
-   exact Docker/Compose/services/secrets. Expected RED is missing packages,
-   commands, services, and grants.
+   exact Docker/Compose/services/secrets. The focused result should identify
+   missing packages, commands, services, and grants.
 2. Implement the five new workspace-role contract above, including the bounded
    read-only fixture-exporter role. The loader accepts only the exact text-free
    candidate directory, fixed provider catalog, tracked fixture template, and
@@ -1584,9 +1581,9 @@ the lifecycle capability unavailable with a specific neutral reason until Task
 7's real append-only state machine passes and is wired. Task 4 never returns a
 fake lifecycle success or appends a dummy event.
 
-**TDD sequence:**
+**Focused verification sequence:**
 
-1. Write failing tests named `TestWorkspaceProtectorAuthenticatesCSRFFirst`,
+1. Add focused tests named `TestWorkspaceProtectorAuthenticatesCSRFFirst`,
    `TestWorkspaceClassificationAuthorizationMatrix`,
    `TestWorkspaceLifecycleAuthorizationMatrix`, and
    `TestWorkspaceDirectIDDenialIsNeutral`. The direct-ID test covers complete
@@ -1596,8 +1593,9 @@ fake lifecycle success or appends a dummy event.
    exact `x-operation-kind`, neutral responses, header/body revision equality,
    required generic `operationId`/`idempotencyKey`/`expectedGenerationId`,
    body/header idempotency equality, lifecycle revision/digest CAS, and reset
-   ID/revision/seal CAS. Run the focused Go and OpenAPI tests; expected RED is missing
-   handler/routes/protector and generated contract/bundler behavior.
+   ID/revision/seal CAS. Run the focused Go and OpenAPI tests and record the
+   result for missing handler/routes/protector and generated contract/bundler
+   behavior.
 2. Cover anonymous, Auditee-on-classification, unrelated CAA roles, stale
    session/membership, wrong department/unit/organization, invalid CSRF,
    cross-organization ID guessing, Auditee `GET_ROLE_HISTORY` neutral denial,
@@ -1694,13 +1692,14 @@ success, or a body-bearing source map. Fixture tests prove positive and
 negative modes. Runtime capability/neutral authorization remains covered by
 route/backend tests rather than inferred from string presence.
 
-**TDD sequence:**
+**Focused verification sequence:**
 
-1. Write failing tests named `renders authorized supplemental workspace`,
+1. Add focused tests named `renders authorized supplemental workspace`,
    `executes exact batch preview`, `creates immutable wording successor`,
    `resolves every controlled proposal family`,
    `shows provider eligibility`, `admin resets generation with exact CAS`, and
-   `purges sensitive state`. Expected RED is missing modules/routes; do not
+   `purges sensitive state`. The focused result should identify missing
+   modules/routes; do not
    satisfy it with a nonfunctional shell.
    Write the Node artifact-scanner fixture test first and record RED for the
    missing scanner.
@@ -1755,14 +1754,14 @@ persistence/durability remains `not run` until Task 9.
 - Modify `apps/web/src/features/planning/new-audit-wizard.tsx` and
   `new-audit-wizard.test.tsx`.
 
-**TDD sequence:**
+**Focused verification sequence:**
 
-1. Write failing tests named `TestRecommendationRequiresServerDerivedFacts`,
+1. Add focused tests named `TestRecommendationRequiresServerDerivedFacts`,
    `TestRecommendationRejectsKindProfileMismatch`,
    `TestRecommendationRejectsAmbiguousQuestionLeafGraph`,
    `TestRecommendationSnapshotPinsReadiness`, and
-   `shows neutral fail-closed AGA recommendation`. Expected RED is the missing
-   complete contract/snapshot UI.
+   `shows neutral fail-closed AGA recommendation`. The focused result should
+   identify the missing complete contract/snapshot UI.
 2. Cover every required field, missing/extra qualifier key/value, active
    interval, provider type ID-to-code resolution, target kind/profile
    compatibility, `draftRevision`/`expectedDraftRevision` equality,
@@ -1815,9 +1814,9 @@ question set; any missing or ambiguous fact returns none and causes no write.
   `api/openapi/source/schemas/platform.json`, bundled/generated contracts, and
   `api/openapi/tests/aga-demo-workspace-contract.test.mjs`.
 
-**TDD sequence:**
+**Focused verification sequence:**
 
-1. Write failing tests named `TestLifecycleRequiresPotentialFindingConversion`,
+1. Add focused tests named `TestLifecycleRequiresPotentialFindingConversion`,
    `TestInspectionRequiresExactCurrentRecommendation`,
    `TestFindingInitialStateCoversEveryCAPEvidenceChoice`,
    `TestDueDateChoiceIsIndependentAndExact`,
@@ -1826,8 +1825,9 @@ question set; any missing or ambiguous fact returns none and causes no write.
    `TestCAPAcceptanceLeavesFindingOpen`,
    `TestEvidenceReviewOutcomeMappingIsAtomic`,
    `TestEvidenceVerificationAndAuthorizedClosureAreSeparate`, and
-   `TestAuditeeProjectionIsOrganizationScoped`. Expected RED is missing state
-   machine/events, not an assertion weakened to current behavior.
+   `TestAuditeeProjectionIsOrganizationScoped`. The focused result should
+   identify missing state machine/events; do not weaken the assertion to current
+   behavior.
 2. Cover the exact answer eligibility, required Auditee comment, Lead
    return/correct/successor/resubmit/dismiss-or-convert cycle, human severity/
    CAP/Evidence/due choices, CAP fields
@@ -1896,14 +1896,14 @@ use the separate authorized-closure path; Admin inspects history and resets a
 generation. Actors use existing synthetic preprod subjects plus workspace-only
 bindings; no UI impersonation or unauthorized role switching is introduced.
 
-**TDD sequence:**
+**Focused verification sequence:**
 
-1. Write failing Vitest paths for every role/transition, comment/note privacy,
+1. Add focused Vitest paths for every role/transition, comment/note privacy,
    CAA-only role history, Auditee public owner labels with structural omission
    of subject/membership/binding/assignment history and neutral role-history
    denial, CAP-versus-closure semantics, disabled controls, logout/principal/
-   BFCache purge, keyboard, and mobile behavior. Expected RED is missing pages/
-   routes.
+   BFCache purge, keyboard, and mobile behavior. The focused result should
+   identify missing pages/routes.
 2. Add the three Playwright files and first run list-only discovery; expected
    RED before config change is zero selected new tests or project mismatch.
 3. Implement the pages and supplemental route registration, extend `testMatch`,
@@ -1951,9 +1951,9 @@ The three connected specs have nonzero discovery; actual browser behavior stays
   subjects, memberships, IDs, question text, secrets, or browser artifacts
   into it.
 
-**TDD sequence:**
+**Focused verification sequence:**
 
-1. Write the boundary test first. It requires an inventory class for every
+1. Add the boundary test. It requires an inventory class for every
    table and sequence parsed from `apps/api/migrations/*.up.sql`, every new
    workspace object, every exact predecessor-overlay object/sequence from its
    loader contract/seal receipt, every role/grant, all Compose services/secrets, static Go
@@ -3308,9 +3308,8 @@ Execute only the currently authorized child slice in
 docs/exec-plans/active/2026-08-03-aga-hybrid-classification-demo-lifecycle-plan.md.
 The first next action is Gate 0A only: create the failing discovery contract,
 generate the deterministic text-free 1,310-identity batch/discovery receipts,
-review them, and stop before Gate 0B or any classification. Use
-superpowers:executing-plans and superpowers:test-driven-development. Keep one
-implementation writer and record exact RED/GREEN output. Preserve every
+review them, and stop before Gate 0B or any classification. Record exact
+focused-test and verification output. Preserve every
 unrelated dirty change, the accepted package, the sealed preprod_aga_demo
 schema and five Admin-only GET routes, all source/authority/risk blockers, and
 the exact fixed hashes. Do not use digest alone as identity, invent model

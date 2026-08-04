@@ -1,6 +1,5 @@
 # Stakeholder Feedback Remediation Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to implement this plan task-by-task. Do not dispatch subagents unless the user explicitly requests delegation in the current task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Status:** ready-for-verification
 
@@ -29,7 +28,7 @@
 ## Objective
 
 Implement the approved design in
-`docs/superpowers/specs/2026-07-15-stakeholder-feedback-remediation-design.md`
+`docs/product-specs/workflows/2026-07-15-stakeholder-feedback-remediation-design.md`
 and provide one coherent stakeholder-ready demo reset state.
 
 The implemented result must cover all nine source notes:
@@ -1209,7 +1208,7 @@ Furkan/Burak stakeholder review and sign-off.
 ## Dependencies
 
 - Approved design:
-  `docs/superpowers/specs/2026-07-15-stakeholder-feedback-remediation-design.md`.
+  `docs/product-specs/workflows/2026-07-15-stakeholder-feedback-remediation-design.md`.
 - Existing canonical report lifecycle and role authority from
   `docs/product-specs/screen-specs/DEPARTMENT_MANAGER_WORKSPACES.md`.
 - Existing privacy/permission boundary from
@@ -1279,7 +1278,7 @@ Implement docs/exec-plans/active/2026-07-15-stakeholder-feedback-remediation-pla
 
 Read AGENTS.md, the approved design linked by the plan, the active plan, and its listed canonical product/evidence sources before editing. Work on the current branch and preserve all unrelated dirty-worktree changes. Do not create or switch branches, stage, commit, push, deploy, open a PR, or post GitHub comments unless I separately authorize that exact action.
 
-Use superpowers:executing-plans and execute Tasks 1-7 in order with strict red-green-refactor discipline. Do not dispatch subagents unless I explicitly request delegation. Add each failing regression first, run it and confirm the expected failure, implement the smallest scoped correction, then rerun the focused and neighboring tests.
+Execute Tasks 1-7 in order. Do not dispatch subagents unless I explicitly request delegation. Add focused regression coverage for each scoped correction, then rerun the focused and neighboring tests.
 
 Keep AviaSurveil360 frontend-only with HTML, CSS, Vanilla JavaScript, mock data, and browser-local state. Do not add backend, database, API, real authentication/authorization, real upload/storage, real notifications, real e-signature, production reporting/audit-log services, framework migration, or production-readiness claims.
 

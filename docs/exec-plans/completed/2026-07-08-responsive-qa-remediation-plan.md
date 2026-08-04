@@ -1,6 +1,5 @@
 # Responsive QA Remediation Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Fix the visual, responsive, navigation, and workflow regressions found during the 2026-07-08 AviaSurveil360 full-site QA pass.
 

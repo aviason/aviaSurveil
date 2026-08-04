@@ -1,6 +1,5 @@
 # NCAA Platform V2 And MVP Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Convert the NCAA platform feedback into a practical AviaSurveil360 plan that separates a mock Frontend V2 clickable demo from a production MVP, regulatory intelligence, offline mobile, and AI governance work.
 

@@ -106,13 +106,13 @@ module boundaries.
 
 ## Testing Strategy
 
-Each implementation unit follows red-green-refactor discipline:
+Each implementation unit requires focused regression coverage and a broader
+verification gate:
 
-1. Add a focused failing contract or render test for the reproduced defect.
-2. Run that test and record the expected failure.
-3. Implement the smallest scoped correction.
-4. Run the focused test and neighboring role/workflow tests.
-5. Run all JavaScript syntax checks and `node --test tests/*.test.js`.
+1. Add a focused contract or render test for the reproduced defect.
+2. Implement the smallest scoped correction.
+3. Run the focused test and neighboring role/workflow tests.
+4. Run all JavaScript syntax checks and `node --test tests/*.test.js`.
 
 The final gate also requires a fresh isolated-browser matrix at all four target
 viewports. It must exercise negative authority and privacy cases, selected-ID

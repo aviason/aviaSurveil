@@ -1,8 +1,7 @@
 # Full React 86-Screen Migration Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use
-> `superpowers:executing-plans` to execute this plan task by task. Do not
-> dispatch subagents unless the user explicitly authorizes subagent work.
+> Execute this plan within its defined scope and acceptance criteria.
 > Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Migrate every accepted root-demo screen into one source-faithful
@@ -173,7 +172,7 @@ activate HTTP without redesigning components.
   external AI calls, real email, real storage, or real identity in this plan.
 - Do not modify the root oracle except through a separately reviewed correction.
 - Work on the current branch; do not create or switch branches.
-- Preserve `.superpowers/`, `docs/demo-evidence/stakeholder/`, and `outputs/`.
+- Preserve `docs/demo-evidence/stakeholder/` and `outputs/`.
 
 ## Ownership Boundaries
 
@@ -851,11 +850,11 @@ passage or production readiness.
 ## Historical Execution Prompt
 
 ```text
-Execute docs/exec-plans/completed/2026-07-22-full-react-86-screen-migration-plan.md task by task with superpowers:executing-plans. Do not dispatch subagents unless I explicitly authorize them. Work on the current branch and preserve unrelated .superpowers/, docs/demo-evidence/stakeholder/, and outputs/ content.
+Execute docs/exec-plans/completed/2026-07-22-full-react-86-screen-migration-plan.md within its defined task order. Do not dispatch subagents unless I explicitly authorize them. Work on the current branch and preserve unrelated docs/demo-evidence/stakeholder/ and outputs/ content.
 
 Treat the intact root Vanilla demo and the 86-row UI audit as the visual and behavioral oracle. Expand React from 17 to 86 routes and make every route fully functional in deterministic demo/mock mode. Correct the inherited role-crossed mappings so ui-audit-009 is CAA Inspector and ui-audit-044 is Department Manager; require source-role/route-role equality for every counted row. New routes must be explicitly demo-only until the next backend plan activates their HTTP capabilities; never fall back to mock state in the HTTP build. Preserve the 17-surface count and rerun every protected surface after shared shell changes.
 
-Use TDD and the exact task order. Every visible action must have a tested mock/navigation/local result or a specific disabled reason. Preserve lifecycle authority, immutable versions, Auditee organization isolation, Internal CAA Note separation, and advisory-only risk/assistant behavior. Expand the tracked decoded-pixel oracle to 86 routes × 3 viewports without broad masks or relaxed thresholds.
+Use the exact task order. Every visible action must have a tested mock/navigation/local result or a specific disabled reason. Preserve lifecycle authority, immutable versions, Auditee organization isolation, Internal CAA Note separation, and advisory-only risk/assistant behavior. Expand the tracked decoded-pixel oracle to 86 routes × 3 viewports without broad masks or relaxed thresholds.
 
 Before each commit inspect upstream, the task allowlist, cached names, the full cached diff, and diff check. Use the exact task commit message only when Git actions are separately authorized. Do not deploy, start Plan 2, claim HTTP completeness, remove the root demo, or claim production readiness. Finish with synchronized evidence and explicit stakeholder disposition.
 ```

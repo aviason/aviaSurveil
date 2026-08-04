@@ -1,8 +1,7 @@
 # Reliability, DR, And AWS Terraform/Terragrunt Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use
-> `superpowers:executing-plans` to execute this plan task by task. Do not
-> dispatch subagents unless the user explicitly authorizes subagent work.
+> Execute this plan within its defined scope and acceptance criteria.
 > Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add complete local observability, alerting, backup/restore, RPO/RTO,
@@ -840,7 +839,7 @@ deployment evidence.
 ## Execution Prompt
 
 ```text
-Execute docs/exec-plans/completed/2026-07-22-reliability-dr-and-aws-terraform-terragrunt-plan.md with superpowers:executing-plans only after the full React, backend parity, and local production-like service plans are complete and accepted. Execute Tasks 1-9, then Task 11; Task 10 is an optional separately authorized future branch and is not required for the local milestone. Do not dispatch subagents unless explicitly authorized. Work on the current branch and preserve unrelated .superpowers/, docs/demo-evidence/stakeholder/, and outputs/ content.
+Execute docs/exec-plans/completed/2026-07-22-reliability-dr-and-aws-terraform-terragrunt-plan.md only after the full React, backend parity, and local production-like service plans are complete and accepted. Execute Tasks 1-9, then Task 11; Task 10 is an optional separately authorized future branch and is not required for the local milestone. Do not dispatch subagents unless explicitly authorized. Work on the current branch and preserve unrelated docs/demo-evidence/stakeholder/ and outputs/ content.
 
 Complete local observability, alerting, separate application/Keycloak PostgreSQL backups, isolated identity/application/object restore, candidate RPO/RTO, DR drills, and runbooks before cloud work. Use OpenTelemetry Collector, Prometheus, Grafana, Loki, Tempo, Alertmanager, pgBackRest, and a logically isolated same-host backup object store; do not claim host-loss recovery. Never expose secrets, Evidence bytes, message bodies, Internal CAA Note text, provider tokens, or high-cardinality entity IDs in telemetry. Rerun the clean 86-route/10-scenario full profile before Task 11 evidence.
 

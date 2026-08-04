@@ -151,14 +151,14 @@ contract changes.
 
 ## Testing Strategy
 
-Use red-green-refactor for every behavior change:
+Use focused regression coverage for every behavior change:
 
-1. Add failing render assertions for removal of the My Assignments dossier,
+1. Add render assertions for removal of the My Assignments dossier,
    removal of Preliminary CAP-status columns, and presence of compact layout
    hooks.
-2. Add failing seed/projection assertions proving default GM, ED, and Finance
+2. Add seed/projection assertions proving default GM, ED, and Finance
    decision-ready rows.
-3. Add failing planning-contract assertions for
+3. Add planning-contract assertions for
    `Department Manager -> Finance -> GM -> Executive Director`, Finance approval
    to GM, and Finance return to Department Manager.
 4. Implement the smallest correction and rerun the focused test after each

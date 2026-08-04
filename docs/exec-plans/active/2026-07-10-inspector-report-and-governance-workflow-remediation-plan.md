@@ -1,6 +1,5 @@
 # Inspector, Report, Service Provider, and Governance Workflow Remediation Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Correct the Inspector and Lead Inspector assignment/report paths, replace the stale SMS execution surface with the Cabin Inspection scenario, rebuild the Service Provider's CAP/Preliminary/Final Report views, and add focused Finance Review and Executive Director workspaces for planning and Final Report decisions.
 

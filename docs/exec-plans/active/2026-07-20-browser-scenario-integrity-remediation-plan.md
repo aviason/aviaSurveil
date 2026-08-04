@@ -1,6 +1,5 @@
 # Browser Scenario Integrity Remediation Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make the AviaSurveil360 demo use one canonical, audit-scoped lifecycle from Planning through checklist execution, Finding, CAP, Evidence, authorized review, closure, reporting, reminders, and Auditee visibility, with every visible action verified in a real localhost browser.
 
@@ -1035,9 +1034,9 @@ Completion requires all of the following:
 ```text
 Implement the active AviaSurveil360 plan at docs/exec-plans/active/2026-07-20-browser-scenario-integrity-remediation-plan.md from the project root.
 
-First read repo-local AGENTS.md and every source-of-truth document it requires, then use superpowers:executing-plans. Preserve all existing unrelated dirty-worktree changes and re-read each touched hunk before editing because the working tree changed during the preceding browser audit. Do not create or switch branches, commit, push, open a PR, or post GitHub comments.
+First read repo-local AGENTS.md and every source-of-truth document it requires. Preserve all existing unrelated dirty-worktree changes and re-read each touched hunk before editing because the working tree changed during the preceding browser audit. Do not create or switch branches, commit, push, open a PR, or post GitHub comments.
 
-Execute the plan task-by-task in order. Prioritize the P0 canonical-data and authority tasks before Planning, checklist breadth, lifecycle labels, reminders, documentation, and browser evidence. Use TDD: add the failing focused regression contract, verify the intended failure, implement the smallest coherent fix, and rerun the focused gate after each task. Do not retain false-contract tests that expect silent role switching, auto-filled approvals, UI-only closure, or broad Lead Planning access.
+Execute the plan task-by-task in order. Prioritize the P0 canonical-data and authority tasks before Planning, checklist breadth, lifecycle labels, reminders, documentation, and browser evidence. Use the focused regression contract, implement the smallest coherent fix, and rerun the focused gate after each task. Do not retain false-contract tests that expect silent role switching, auto-filled approvals, UI-only closure, or broad Lead Planning access.
 
 The implementation must remain frontend-only and demo-only. It must use canonical audit-scoped checklist answers and canonical state.findings records across Inspector, Lead Inspector, Department Manager, Auditee, Evidence, report, reminder, and dashboard screens. CAP acceptance must not close a Finding. Evidence-verified closure and reason-required authorized closure must remain distinct. Observation must not require CAP/Evidence by default. Submitted checklist reopen must require authorized role, valid stage, and reason. All visible checklist controls must work for their exact Audit or be explicitly disabled.
 

@@ -1,6 +1,5 @@
 # Table-First Surveillance Workbench UX Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Redesign the frontend-only AviaSurveil360 demo around a table-first, action-first Surveillance Workbench so users see the work item, owner, next action, due date, status, and risk before secondary details.
 

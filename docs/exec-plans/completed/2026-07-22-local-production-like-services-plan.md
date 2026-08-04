@@ -1,8 +1,7 @@
 # Local Production-Like Services Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use
-> `superpowers:executing-plans` to execute this plan task by task. Do not
-> dispatch subagents unless the user explicitly authorizes subagent work.
+> Execute this plan within its defined scope and acceptance criteria.
 > Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Run the complete 86-screen AviaSurveil360 application locally through
@@ -905,11 +904,11 @@ task-owned residue.
 ## Execution Prompt
 
 ```text
-Execute docs/exec-plans/completed/2026-07-22-local-production-like-services-plan.md task by task with superpowers:executing-plans only after the 86-screen React and full backend parity plans are complete, ready-for-verification, and independently accepted. Do not overlap unfinished Plan 1 or Plan 2 work. Do not dispatch subagents unless explicitly authorized. Work on the current branch and preserve unrelated .superpowers/, docs/demo-evidence/stakeholder/, and outputs/ content.
+Execute docs/exec-plans/completed/2026-07-22-local-production-like-services-plan.md only after the 86-screen React and full backend parity plans are complete, ready-for-verification, and independently accepted. Do not overlap unfinished Plan 1 or Plan 2 work. Do not dispatch subagents unless explicitly authorized. Work on the current branch and preserve unrelated docs/demo-evidence/stakeholder/ and outputs/ content.
 
 Build a production-like local Docker Compose system with one Caddy HTTPS origin, separate React demo/HTTP artifacts, Go API/worker/scheduler, separate app and Keycloak PostgreSQL databases, Keycloak production-mode TOTP MFA and application provisioning, private MinIO, real ClamAV, Mailpit SMTP, and Gotenberg PDF rendering. Use Docker secrets and SOPS+age; never commit or log plaintext credentials. Pin all external images by reviewed immutable digest.
 
 Keep server authority, Auditee privacy, immutable versions, scan-clean Evidence gating, idempotent jobs, and exact audit events. Full mode must never import mock/seed, register /__test reset routes, run the test fixture initializer, or enable canonical-header authentication/deterministic scanning. Start it from fresh volumes and use normal authorized provisioning/application commands. Generate digest-bound image SBOMs and fail closed on unresolved HIGH/CRITICAL image findings. Test real failure, timeout, retry, restart, health/readiness, and cleanup behavior.
 
-Use the plan's TDD order and exact commit messages only when Git actions are separately authorized. Inspect upstream, allowlist, cached names, full cached diff, and diff check before every commit. Do not add cloud resources, modify system trust without approval, deploy, or claim production readiness. Finish with synchronized local-service evidence and stakeholder verification as the next todo.
+Use the plan's defined task order and exact commit messages only when Git actions are separately authorized. Inspect upstream, allowlist, cached names, full cached diff, and diff check before every commit. Do not add cloud resources, modify system trust without approval, deploy, or claim production readiness. Finish with synchronized local-service evidence and stakeholder verification as the next todo.
 ```

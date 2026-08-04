@@ -1,9 +1,8 @@
 # Governed Service Provider Checklist Generation And Publication
 
 > **For agentic workers:** REQUIRED SUB-SKILL: use
-> `superpowers:subagent-driven-development` or `superpowers:executing-plans`
-> when implementation is explicitly authorized. Execute one independently
-> verifiable task at a time and stop at the stated external authority gates.
+> Execute this plan only when implementation is explicitly authorized and stop
+> at the stated external authority gates.
 
 **Goal:** Build a fail-closed, department-governed path from exact regulatory
 sources to an immutable, applicable, executable checklist version.
@@ -1420,7 +1419,7 @@ predecessor tests does not substitute for the named proof.
   240.152s, full web at 67 files / 672 tests, contracts 16/16, root legacy
   103/103, both builds, artifact scans, docs smoke, demo boundary, and diff
   validation. Exact evidence is in
-  `../../../.superpowers/sdd/2026-07-29-governed-service-provider-checklist-generation-plan/task-6-fix-round-2-review-package.md`.
+  the historical Task 6 evidence recorded in this plan.
   Work remains `candidate-only`, `release pending`, and `production-ready: not
   established`; the real OPS/AOC request remains `blocked`. Task 7 remains
   prohibited pending independent Task 6 acceptance.
@@ -1442,7 +1441,7 @@ predecessor tests does not substitute for the named proof.
   673 tests, contracts 16/16, root regressions 321/321, domain/auth/HTTP
   packages, typecheck, both builds, artifact scans, docs smoke, and diff
   validation. Exact evidence is in
-  `../../../.superpowers/sdd/2026-07-29-governed-service-provider-checklist-generation-plan/task-6-fix-round-3-review-package.md`.
+  the historical Task 6 evidence recorded in this plan.
   Work remains `candidate-only`, `release pending`, and `production-ready: not
   established`; the real OPS/AOC request remains `blocked`. Task 7 remains
   prohibited pending independent Task 6 acceptance.
@@ -1468,7 +1467,7 @@ predecessor tests does not substitute for the named proof.
   regressions 321/321, Go domain/authorization/HTTP packages, typecheck, both
   builds, artifact scans, docs smoke, demo boundary, and diff validation.
   Exact evidence is in
-  `../../../.superpowers/sdd/2026-07-29-governed-service-provider-checklist-generation-plan/task-6-fix-round-4-review-package.md`.
+  the historical Task 6 evidence recorded in this plan.
   Work remains `candidate-only`, `release pending`, and `production-ready: not
   established`; the real OPS/AOC request remains `blocked`. Task 7 remains
   prohibited pending independent Task 6 acceptance.
@@ -1589,9 +1588,8 @@ evidence remain outside this plan.
 
 ## Execution Prompt
 
-Independently review Task 6 fix round 4 against
-`.superpowers/sdd/2026-07-29-governed-service-provider-checklist-generation-plan/task-6-fix-round-4-brief.md`
-and its review package. Verify the four independent exact concurrent-approval
+Independently review Task 6 fix round 4 against the historical evidence
+summarized in this plan. Verify the four independent exact concurrent-approval
 inventories, the one shared semantic-mock/actual-handler artifact parity
 contract, and the checked-in three-mapping edited-successor repair plus
 failure-atomic unrecoverable negative. Preserve the accepted complete

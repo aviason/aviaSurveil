@@ -1,6 +1,5 @@
 # Department And General Manager Workspaces Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan inline, task-by-task. Do not spawn subagents unless the user explicitly requests them. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Complete the state-backed Department Manager and General Manager demo experience: restricted role navigation, dashboards, Audits, Findings Review, Inspection Team, Reports Approval with valid PDFs, CAP Monitoring, Checklist Management, and Risk Dashboards, using the single user-facing organization name `Fly Namibia`.
 
@@ -1580,5 +1579,5 @@ single next todo supported by the final verification state.
 ## Execution Prompt
 
 ```text
-Execute docs/exec-plans/active/2026-07-09-department-manager-workspaces-plan.md task-by-task using the approved design at docs/product-specs/screen-specs/DEPARTMENT_MANAGER_WORKSPACES.md. Work on the current branch without branch operations, PRs, or GitHub comments. Preserve the unrelated untracked modern-aviation-saas rollout plan. Use test-first development for every behavior change. After each independently verified task, stage only that task's files/hunks, inspect the staged diff, create the Conventional Commit specified by the task, and push the current branch before starting the next task. Keep the frontend-only demo boundary, normalize changed user-facing organization copy to Fly Namibia, and do not claim completion without fresh full Node, browser, responsive, PDF, and design-QA evidence. Keep docs/exec-plans/index.md and the plan checkboxes synchronized with the actual final state.
+Execute docs/exec-plans/active/2026-07-09-department-manager-workspaces-plan.md according to the approved design at docs/product-specs/screen-specs/DEPARTMENT_MANAGER_WORKSPACES.md. Work on the current branch without branch operations, PRs, or GitHub comments. Preserve the unrelated untracked modern-aviation-saas rollout plan. Run the focused and full Node, browser, responsive, PDF, and design-QA evidence gates relevant to the changed behavior. Keep the frontend-only demo boundary, normalize changed user-facing organization copy to Fly Namibia, and keep docs/exec-plans/index.md and the plan checkboxes synchronized with the actual final state.
 ```

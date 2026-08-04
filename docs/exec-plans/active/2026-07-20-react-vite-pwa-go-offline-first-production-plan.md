@@ -1,6 +1,5 @@
 # React Vite PWA And Go Offline-First Production Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Do not dispatch subagents unless the user explicitly authorizes subagent work for the execution task.
 
 **Goal:** Rebuild AviaSurveil360 as a testable React + TypeScript + Vite browser application, preserve the verified demo as a behavioral oracle, prove one canonical workflow against deterministic mock and real Go-backed modes, and produce a locally verified release candidate for managed-browser offline field inspection without claiming production cutover.
 
@@ -40,7 +39,7 @@
 - Never automatically delete unknown OPFS bytes, submitted Evidence, or canonical records. Cache eviction and legal/records disposition are separate, owner-approved behaviors.
 - This plan produces a local release candidate. `production-ready`, deployment, traffic cutover, and release require a separately approved operations/release plan and matching evidence.
 - Work on the current branch. Do not create, switch, rename, or delete branches; do not stage, commit, push, deploy, open a PR, or post GitHub comments unless the user separately authorizes that exact action.
-- Preserve unrelated untracked `.superpowers/`, `docs/demo-evidence/stakeholder/`, and `outputs/` content.
+- Preserve unrelated untracked `docs/demo-evidence/stakeholder/` and `outputs/` content.
 - Keep English canonical implementation docs. Update matching `.turkce.md` companions when a stakeholder-facing canonical product or evidence document changes.
 - Use literal verification labels: `verified locally`, `not run`, `blocked`, `candidate-only`, `release pending`, and `production-ready` only when the matching evidence exists.
 
@@ -2221,7 +2220,7 @@ Do not implement the plan. Do not treat the current frontend-only demo as produc
 ```text
 Execute only the explicitly user-authorized slice from docs/exec-plans/active/2026-07-20-react-vite-pwa-go-offline-first-production-plan.md for AviaSurveil360 after Task 1 records named owner decisions and the selected slice has `GO` or `CONDITIONAL GO` with every slice-specific Blocking condition resolved.
 
-Respect AGENTS.md and the plan's Global Constraints. Use superpowers:executing-plans and work task-by-task with review checkpoints. Do not dispatch subagents unless the user explicitly authorizes subagent work. Work on the current branch; do not create, switch, rename, or delete branches. Do not stage, commit, push, deploy, open a PR, or post GitHub comments unless the user separately authorizes that exact action. Preserve unrelated untracked .superpowers/, docs/demo-evidence/stakeholder/, and outputs/ content.
+Respect AGENTS.md and the plan's Global Constraints. Work task-by-task within the plan's defined scope. Do not dispatch subagents unless the user explicitly authorizes subagent work. Work on the current branch; do not create, switch, rename, or delete branches. Do not stage, commit, push, deploy, open a PR, or post GitHub comments unless the user separately authorizes that exact action. Preserve unrelated untracked docs/demo-evidence/stakeholder/ and outputs/ content.
 
 Start with Task 1. Update the Decision Log, active index, and tracker before implementation. Then execute only the approved slice in the binding Delivery Slices order; do not silently implement the entire umbrella plan. Preserve the root Vanilla JavaScript demo as the behavioral reference until accepted cutover and a separately authorized archival/removal action.
 
@@ -2231,7 +2230,7 @@ Use the approved same-origin session/BFF for HTTP auth and a server-issued/recor
 
 Build cmd/api and cmd/worker inside one apps/api Go module. Process sync one typed operation at a time in causal order. In one PostgreSQL transaction store exact idempotency response, domain mutation, every required status-transition audit event, authorized change feed, and server outbox. Use private bounded whole-object Evidence upload, server-observed checksum/size/type, immutable versions, quarantine/scan, and clean-only review/download/closure. Do not add notification delivery, production PDF generation, multipart upload, or destructive retention in the first backend slice.
 
-Use TDD for every task: write the focused failing test, run it to confirm the expected failure, implement the smallest complete behavior, run focused verification, then run the task's broader gate. Keep mock and HTTP behavior aligned through OpenAPI, backend contract tests, Go integration tests, and the same critical Playwright scenarios in both modes.
+Use focused tests and broader gates for every task. Keep mock and HTTP behavior aligned through OpenAPI, backend contract tests, Go integration tests, and the same critical Playwright scenarios in both modes.
 
 After every material plan-state change, reconcile docs/exec-plans/index.md, this plan's Decision Log/next todo/status, docs/exec-plans/tech-debt-tracker.md, and any evidence/build summaries actually affected. Use verified locally, not run, blocked, candidate-only, release pending, and production-ready literally. Task 13 can produce only a local release-candidate recommendation. Do not deploy, route traffic, archive legacy, or claim production security, offline reliability, Evidence chain-of-custody, or production readiness without the separately approved release/operations plan, matching fresh evidence, and exact user authorization.
 ```

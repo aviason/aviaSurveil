@@ -1,7 +1,6 @@
 # AviaSurveil360 Agent Harness Readiness Completion Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans`
-> or an equivalent task-by-task execution workflow to implement this plan.
+> Execute this plan only after the user separately authorizes implementation.
 > Steps use checkbox (`- [ ]`) syntax for tracking.
 
 - **Date:** 2026-06-29

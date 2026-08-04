@@ -1,8 +1,7 @@
 # Full Backend Scenario Parity Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use
-> `superpowers:executing-plans` to execute this plan task by task. Do not
-> dispatch subagents unless the user explicitly authorizes subagent work.
+> Execute this plan within its defined scope and acceptance criteria.
 > Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Implement every capability required by all 86 React screens in the
@@ -1062,11 +1061,11 @@ zero skipped projects, and no task-owned residue.
 ## Execution Prompt
 
 ```text
-Execute docs/exec-plans/completed/2026-07-22-full-backend-scenario-parity-plan.md task by task with superpowers:executing-plans only after the Full React 86-Screen Migration completes Tasks 1-12, reaches ready-for-verification, and its route/capability/action handoff is independently accepted. Do not overlap this plan with unfinished React-plan work. Do not dispatch subagents unless explicitly authorized. Work on the current branch and preserve unrelated .superpowers/, docs/demo-evidence/stakeholder/, and outputs/ content.
+Execute docs/exec-plans/completed/2026-07-22-full-backend-scenario-parity-plan.md only after the Full React 86-Screen Migration completes Tasks 1-12, reaches ready-for-verification, and its route/capability/action handoff is independently accepted. Do not overlap this plan with unfinished React-plan work. Do not dispatch subagents unless explicitly authorized. Work on the current branch and preserve unrelated docs/demo-evidence/stakeholder/ and outputs/ content.
 
 Keep one Go modular monolith with separate API/worker processes, one generated OpenAPI contract, PostgreSQL module-owned stores, transactional idempotency/audit/change/outbox writes, and strict server authorization. Tasks 4-9 must each implement their own generated transport mapping and HttpBackend slice before running mock/HTTP transcript parity; Task 10 is the aggregate registry and route-activation gate. Implement every capability used by all 86 routes and activate a route in HTTP only after its focused live contract passes. Never fall back to mock in the HTTP artifact, and never expose test reset/seed routes in normal OIDC/full mode.
 
 Preserve Potential Finding authority, immutable checklist/CAP/Evidence/report/document versions, Auditee organization isolation, Internal CAA Note separation, scan-clean Evidence gating, report decision authority, explicit closure basis, offline recovery, and advisory-only risk/assistant behavior. Run the same scenario implementations against MockBackend and HttpBackend and require exact normalized transcript parity.
 
-Use the plan's TDD order and exact per-task commit messages only when Git actions are separately authorized. Inspect upstream, allowlist, cached names, full cached diff, and diff check before every commit. Do not start external platform-service integration, deploy, remove the root demo, or claim production readiness. Finish with synchronized evidence and stakeholder verification as the next todo.
+Use the plan's defined task order and exact per-task commit messages only when Git actions are separately authorized. Inspect upstream, allowlist, cached names, full cached diff, and diff check before every commit. Do not start external platform-service integration, deploy, remove the root demo, or claim production readiness. Finish with synchronized evidence and stakeholder verification as the next todo.
 ```

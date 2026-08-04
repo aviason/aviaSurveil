@@ -1,6 +1,5 @@
 # Stakeholder Readiness Final Remediation Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Resolve every Blocking finding and every material Suggestion from the independent review of `b1782c2^..961d5c2`, then re-establish truthful stakeholder-review readiness for the AviaSurveil360 frontend-only demo.
 
@@ -12,7 +11,7 @@
 **Date:** 2026-07-10
 **Owner:** implementation agent; independent verifier owns the final GO/NO-GO decision; stakeholder/product owner owns wording and policy acceptance.
 **Predecessor:** [Inspector, Report, Service Provider, and Governance Workflow Remediation](2026-07-10-inspector-report-and-governance-workflow-remediation-plan.md), returned to `ready-for-verification` after this corrective local demo GO.
-**Approved design:** [Stakeholder Readiness Remediation Design](../../superpowers/specs/2026-07-10-stakeholder-readiness-remediation-design.md).
+**Approved design:** [Stakeholder Readiness Remediation Design](../../product-specs/workflows/2026-07-10-stakeholder-readiness-remediation-design.md).
 
 ## Global Constraints
 
@@ -23,7 +22,7 @@
 - Keep all signatures labelled `DEMO mock approval mark - not a real e-signature`; enforcement remains a recommendation-only referral.
 - Preserve evidence versions conceptually and keep mock upload behavior filename-only.
 - Use the canonical Fly Namibia Cabin Inspection data. Do not revive stale SMS, SkyCargo, JetFast, or orphan `INS-2026-014` content in the remediated paths.
-- Preserve unrelated dirty/untracked files, including `.superpowers/` and `docs/exec-plans/active/2026-07-08-modern-aviation-saas-rollout-plan.md`.
+- Preserve unrelated dirty/untracked files, including `docs/exec-plans/active/2026-07-08-modern-aviation-saas-rollout-plan.md`.
 - Do not create or switch branches, commit, push, deploy, or create a PR unless the user separately authorizes that exact Git action in the execution task.
 - Use English for source, tests, plan notes, and canonical docs; update matching `.turkce.md` companions whenever an existing bilingual stakeholder-facing document changes.
 
@@ -64,7 +63,7 @@ Convert the independent review's NO-GO into a defensible GO by removing split re
 Read these before implementation:
 
 1. `AGENTS.md`
-2. `docs/superpowers/specs/2026-07-10-stakeholder-readiness-remediation-design.md`
+2. `docs/product-specs/workflows/2026-07-10-stakeholder-readiness-remediation-design.md`
 3. `docs/exec-plans/active/2026-07-10-inspector-report-and-governance-workflow-remediation-plan.md`
 4. `docs/product-specs/data-and-rules/STATUS_PERMISSION_SECURITY.md`
 5. `docs/product-specs/data-and-rules/STATUS_PERMISSION_SECURITY.turkce.md`
@@ -873,9 +872,9 @@ This plan may move to `ready-for-verification` only when:
 ```text
 Implement docs/exec-plans/active/2026-07-10-stakeholder-readiness-final-remediation-plan.md in /Users/marlonjd/Developer/web/aviaSurveil360.
 
-Start by reading AGENTS.md, docs/superpowers/specs/2026-07-10-stakeholder-readiness-remediation-design.md, the blocked predecessor plan, and every source document in the plan's Source And Dependency Map. Do not rely on prior task summaries; inspect current code, tests, browser behavior, and Git state yourself.
+Start by reading AGENTS.md, docs/product-specs/workflows/2026-07-10-stakeholder-readiness-remediation-design.md, the blocked predecessor plan, and every source document in the plan's Source And Dependency Map. Do not rely on prior task summaries; inspect current code, tests, browser behavior, and Git state yourself.
 
-Execute Tasks 1-9 in order with strict red-green-refactor discipline. First add the failing regression assertions for canonical report identity, GM/ED role authority, Service Provider organization privacy, state-backed Lead Final Reports, exact Preliminary IDs, assignment/execution IDs, responsive nested overflow, and visible-control behavior. Confirm each failure for the expected reason before implementing the smallest scoped fix. Do not weaken a failing desired-contract assertion to make it pass.
+Execute Tasks 1-9 in order. Add focused regression assertions for canonical report identity, GM/ED role authority, Service Provider organization privacy, state-backed Lead Final Reports, exact Preliminary IDs, assignment/execution IDs, responsive nested overflow, and visible-control behavior before implementing the smallest scoped fix. Do not weaken a desired-contract assertion to make it pass.
 
 Keep the demo frontend-only and Vanilla JavaScript. Preserve Finding -> CAP -> Evidence -> CAA Review -> Closure; CAP acceptance is not closure and report approval must not close open Findings. GM remains intermediate; ED alone may issue/mock-sign/lock. Enforce auditee organization privacy across Messages, Settings, counts, documents, reports, CAP, evidence, and notifications. Remove stale SMS/SkyCargo/INS-2026-014 content from remediated paths. Every visible control must have a real observable result or be clearly disabled.
 
