@@ -2,10 +2,12 @@ import {
   Children,
   cloneElement,
   isValidElement,
+  startTransition,
   useCallback,
   useMemo,
   type AnchorHTMLAttributes,
   type ComponentType,
+  type MouseEvent,
   type ReactElement,
   type ReactNode,
 } from "react";
@@ -65,7 +67,48 @@ type SearchParamsInit =
 
 export const BrowserRouter = LegacyRouter.BrowserRouter as ComponentType<RouterProps>;
 export const MemoryRouter = LegacyRouter.MemoryRouter as ComponentType<MemoryRouterProps>;
-export const Link = LegacyRouter.Link as unknown as ComponentType<LinkProps>;
+
+function isModifiedClick(event: MouseEvent<HTMLAnchorElement>): boolean {
+  return event.button !== 0 || event.metaKey || event.altKey || event.ctrlKey || event.shiftKey;
+}
+
+function toHref(to: To): string {
+  if (typeof to === "string") return to;
+  const search = to.search ? (to.search.startsWith("?") ? to.search : `?${to.search}`) : "";
+  const hash = to.hash ? (to.hash.startsWith("#") ? to.hash : `#${to.hash}`) : "";
+  return `${to.pathname ?? ""}${search}${hash}` || "/";
+}
+
+export function Link({ onClick, replace = false, to, ...anchorProps }: LinkProps) {
+  const history = LegacyRouter.useHistory();
+  const href = toHref(to);
+
+  const handleClick = useCallback(
+    (event: MouseEvent<HTMLAnchorElement>) => {
+      onClick?.(event);
+      if (
+        event.defaultPrevented ||
+        isModifiedClick(event) ||
+        (event.currentTarget.target !== "" && event.currentTarget.target !== "_self") ||
+        event.currentTarget.hasAttribute("download")
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      startTransition(() => {
+        if (replace) {
+          history.replace(to as Parameters<typeof history.replace>[0]);
+        } else {
+          history.push(to as Parameters<typeof history.push>[0]);
+        }
+      });
+    },
+    [history, onClick, replace, to],
+  );
+
+  return <a {...anchorProps} href={href} onClick={handleClick} />;
+}
 
 export function Routes({ children }: RouterProps) {
   const exactChildren = Children.map(children, (child) =>
@@ -97,11 +140,11 @@ export function useNavigate() {
   return useCallback(
     (to: To | number, options: NavigateOptions = {}) => {
       if (typeof to === "number") {
-        history.go(to);
+        startTransition(() => history.go(to));
         return;
       }
       const method = options.replace ? history.replace : history.push;
-      method(to, options.state);
+      startTransition(() => method(to, options.state));
     },
     [history],
   );
