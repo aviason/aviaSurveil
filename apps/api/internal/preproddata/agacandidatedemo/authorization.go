@@ -22,6 +22,9 @@ type OperationAuthorization struct {
 	RunID                   string    `json:"runId"`
 	IntentDigest            string    `json:"intentDigest"`
 	TargetFingerprintDigest string    `json:"targetFingerprintDigest"`
+	InputDigest             string    `json:"inputDigest"`
+	CodeDigest              string    `json:"codeDigest"`
+	ContractDigest          string    `json:"contractDigest"`
 }
 
 const (
@@ -33,7 +36,7 @@ func (authorization OperationAuthorization) Validate(intent IntentManifest, oper
 	if err := intent.Validate(); err != nil {
 		return err
 	}
-	if (operation != LoadOverlayOperation && operation != CleanupOverlayOperation) || authorization.SchemaVersion != "preprod-aga-candidate-demo-operation-authorization/v1" || authorization.Operation != operation || len(authorization.Token) < 16 || strings.TrimSpace(authorization.Issuer) == "" || strings.TrimSpace(authorization.Nonce) == "" || authorization.RunID != intent.RunID || authorization.IntentDigest != intent.IntentDigest || authorization.TargetFingerprintDigest != intent.TargetFingerprintDigest || !authorization.ExpiresAt.After(now.UTC()) || authorization.ExpiresAt.After(now.UTC().Add(15*time.Minute)) {
+	if (operation != LoadOverlayOperation && operation != CleanupOverlayOperation) || authorization.SchemaVersion != "preprod-aga-candidate-demo-operation-authorization/v1" || authorization.Operation != operation || len(authorization.Token) < 16 || strings.TrimSpace(authorization.Issuer) == "" || strings.TrimSpace(authorization.Nonce) == "" || authorization.RunID != intent.RunID || authorization.IntentDigest != intent.IntentDigest || authorization.TargetFingerprintDigest != intent.TargetFingerprintDigest || authorization.InputDigest != intent.PackageZipDigest || authorization.CodeDigest != intent.CodeDigest || authorization.ContractDigest != intent.ContractDigest || !authorization.ExpiresAt.After(now.UTC()) || authorization.ExpiresAt.After(now.UTC().Add(15*time.Minute)) {
 		return fmt.Errorf("invalid AGA demo operation authorization")
 	}
 	return nil

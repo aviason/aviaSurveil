@@ -204,3 +204,89 @@ func TestRecommendRequiresCurrentIncludedLeaf(t *testing.T) {
 		})
 	}
 }
+
+func recommendationReadyFixture(t *testing.T) (Draft, ProviderScopeFact, RecommendationRequest) {
+	t.Helper()
+	draft := draftFixture(t, FrozenBaseQuestionCount)
+	include := DispositionInclude
+	current := currentDraftItems(draft)
+	for index := range current {
+		current[index].Disposition = &include
+		current[index].ReviewState = ReviewManagerDisposed
+		replaceCurrentDraftItem(&draft, current[index])
+	}
+	draft.ContentDigest = ComputeDraftContentDigest(draft)
+	ready, err := applyDraftTestCommand(draft, DraftCommand{
+		Action: DraftMarkReady, ExpectedRevision: draft.Revision, ExpectedContentDigest: draft.ContentDigest,
+		ReasonCode: "SIMULATION_SOURCE_GAP_OVERRIDE", ActorSubjectID: "manager-1",
+		CreatedAt: time.Date(2026, 8, 4, 10, 0, 0, 0, time.UTC), ReadinessEventID: "aga-ws-readiness-event-0001",
+		ProviderScopeProfileDigest: digestHex("scope-profile"),
+	}, NewSequentialIDAllocator("recommendation-fixture"))
+	if err != nil {
+		t.Fatalf("ready fixture error = %v", err)
+	}
+	draft = ready
+	effectiveAt := time.Date(2026, 8, 4, 11, 0, 0, 0, time.UTC)
+	scope := ProviderScopeFact{
+		GenerationID: draft.GenerationID, OrganizationID: "org-aga", ProviderScopeRootID: "scope-root",
+		ProviderScopeID: "scope-v2", ProviderScopeVersion: 2, ProviderTypeID: "provider-type-aerodrome-operator",
+		ProviderTypeCode: "AERODROME_OPERATOR", Status: "ACTIVE", EffectiveFrom: effectiveAt.Add(-time.Hour),
+		DepartmentID: "AGA", OrganizationalUnitID: "AERODROME_INSPECTORATE",
+		Targets:             []TypedTarget{{ID: "target-1", Kind: "SYSTEM", ProfileCode: "AERODROME_MANAGEMENT_SYSTEM"}},
+		OperationQualifiers: []Qualifier{{Key: "OPERATION_STATUS", Value: "ACTIVE"}},
+		ActivityQualifiers:  []Qualifier{{Key: "ACTIVITY_TYPE", Value: "MAINTENANCE"}},
+	}
+	scope.ProfileDigest = ComputeProviderScopeProfileDigest(scope)
+	draft.ReadinessEvents[0].ProviderScopeProfileDigest = scope.ProfileDigest
+	draft.ReadinessEvents[0].ReadinessEventDigest = digestExcludingJSONFields("AGA-DEMO-READINESS-EVENT-V1", draft.ReadinessEvents[0], "readinessEventDigest")
+	readiness := draft.ReadinessEvents[0]
+	request := RecommendationRequest{
+		OperationID: "create-recommendation-1", IdempotencyKey: "idem-recommendation-1", ExpectedGenerationID: draft.GenerationID,
+		OrganizationID: scope.OrganizationID, ProviderScopeRootID: scope.ProviderScopeRootID, ProviderScopeID: scope.ProviderScopeID,
+		ProviderScopeVersion: scope.ProviderScopeVersion, ProviderTypeID: scope.ProviderTypeID,
+		DepartmentID: scope.DepartmentID, OrganizationalUnitID: scope.OrganizationalUnitID,
+		TargetID: "target-1", CanonicalTargetKind: "SYSTEM", TargetProfileCode: "AERODROME_MANAGEMENT_SYSTEM",
+		InspectionProfileCode: "AERODROME_MANAGEMENT_SYSTEM", InspectionTypeCode: "PERIODIC_SURVEILLANCE",
+		OperationQualifiers: []Qualifier{{Key: "OPERATION_STATUS", Value: "ACTIVE"}},
+		ActivityQualifiers:  []Qualifier{{Key: "ACTIVITY_TYPE", Value: "MAINTENANCE"}}, EffectiveAt: effectiveAt,
+		TaxonomyVersion: draft.TaxonomyVersion, TaxonomyDigest: draft.TaxonomyDigest,
+		ClassificationRunID: draft.ClassificationRunID, ClassificationRunDigest: draft.ClassificationRunDigest,
+		DraftID: draft.DraftID, DraftRevision: draft.Revision, DraftContentDigest: draft.ContentDigest,
+		ExpectedDraftRevision: draft.Revision, ReadinessEventID: readiness.ReadinessEventID, ReadinessEventDigest: readiness.ReadinessEventDigest,
+	}
+	return draft, scope, request
+}
+
+func TestRecommendationRequiresServerDerivedFacts(t *testing.T) {
+	draft, scope, request := recommendationReadyFixture(t)
+	request.ProviderTypeID = "client-claimed-provider-type"
+	if _, err := BuildRecommendation(draft, scope, request); !errors.Is(err, ErrProviderScopeMismatch) {
+		t.Fatalf("client provider fact error = %v, want %v", err, ErrProviderScopeMismatch)
+	}
+}
+
+func TestRecommendationRejectsKindProfileMismatch(t *testing.T) {
+	draft, scope, request := recommendationReadyFixture(t)
+	request.CanonicalTargetKind = "FACILITY"
+	if _, err := BuildRecommendation(draft, scope, request); !errors.Is(err, ErrTargetMismatch) {
+		t.Fatalf("kind/profile mismatch error = %v, want %v", err, ErrTargetMismatch)
+	}
+}
+
+func TestRecommendationRejectsAmbiguousQuestionLeafGraph(t *testing.T) {
+	draft, scope, request := recommendationReadyFixture(t)
+	draft.Items = append(draft.Items, cloneDraftItem(currentDraftItems(draft)[0]))
+	draft.ContentDigest = ComputeDraftContentDigest(draft)
+	request.DraftContentDigest = draft.ContentDigest
+	if _, err := BuildRecommendation(draft, scope, request); !errors.Is(err, ErrDraftNotReady) {
+		t.Fatalf("ambiguous leaf graph error = %v, want %v", err, ErrDraftNotReady)
+	}
+}
+
+func TestRecommendationSnapshotPinsReadiness(t *testing.T) {
+	draft, scope, request := recommendationReadyFixture(t)
+	request.ReadinessEventDigest = digestHex("stale-readiness")
+	if _, err := BuildRecommendation(draft, scope, request); !errors.Is(err, ErrReadinessPinMismatch) {
+		t.Fatalf("stale readiness error = %v, want %v", err, ErrReadinessPinMismatch)
+	}
+}

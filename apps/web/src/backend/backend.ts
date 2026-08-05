@@ -1,5 +1,6 @@
 import type { components as GeneratedComponents } from "../generated/transport/api-types";
 import type { AGACandidateDemoBackend } from "./aga-candidate-demo";
+import type { AGADemoWorkspaceBackend } from "./aga-demo-workspace";
 
 type GeneratedSchemas = GeneratedComponents["schemas"];
 
@@ -1701,6 +1702,8 @@ export interface Backend {
   readonly auditeeReports: AuditeeReportsBackend;
   /** Undefined outside the exact tagged preprod-demo capability. */
   readonly agaCandidateDemo?: AGACandidateDemoBackend;
+  /** Defined only by the HTTP workspace capability boundary. */
+  readonly agaDemoWorkspace?: AGADemoWorkspaceBackend;
 }
 
 export const BACKEND_CAPABILITY_REGISTRY = {
@@ -1735,7 +1738,7 @@ export const BACKEND_CAPABILITY_REGISTRY = {
   auditeeCoordination: true,
   auditeeReports: true,
   agaCandidateDemo: true,
-} as const satisfies Record<Exclude<keyof Backend, "mode">, true>;
+} as const satisfies Record<Exclude<keyof Backend, "mode" | "agaDemoWorkspace">, true>;
 
 export const BACKEND_CAPABILITY_KEYS = Object.keys(
   BACKEND_CAPABILITY_REGISTRY,

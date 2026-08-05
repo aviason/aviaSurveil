@@ -251,25 +251,15 @@ export function describeLocalPackageLoss(input: {
 const FOUNDATION_DATABASE_NAME = OFFLINE_FIELD_DATABASE_NAME;
 const FOUNDATION_STORE_NAME = "foundation";
 const FOUNDATION_DATABASE_VERSION = CURRENT_OFFLINE_VERSIONS.indexedDbSchemaVersion;
-const BROWSER_BOOT_SESSION_KEY = "aviasurveil360-browser-boot-id";
 
 function createBootId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `boot-${Date.now()}`;
 }
 
-function getBrowserBootId(): string {
-  try {
-    const existing = globalThis.sessionStorage?.getItem(BROWSER_BOOT_SESSION_KEY);
-    if (existing) return existing;
-    const created = createBootId();
-    globalThis.sessionStorage?.setItem(BROWSER_BOOT_SESSION_KEY, created);
-    return created;
-  } catch {
-    return createBootId();
-  }
-}
-
-const CURRENT_BOOT_ID = getBrowserBootId();
+// Keep the canary identity in module memory. The lifecycle workspace must not
+// write identifiers to Web Storage, and a new module instance still provides
+// the restart distinction required by the IndexedDB canary.
+const CURRENT_BOOT_ID = createBootId();
 
 async function openFoundationDatabase() {
   const database = getBrowserOfflineFieldDatabase();

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	aga "github.com/MarlonJD/aviaSurveil360/apps/api/internal/agacandidatedemo"
+	workspace "github.com/MarlonJD/aviaSurveil360/apps/api/internal/agademoworkspace"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/config"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/objectstore"
@@ -31,5 +32,6 @@ type runtimeProfile struct {
 		objectstore.Store,
 		[]string,
 	) (http.Handler, http.Handler, error)
-	agaDemoService func(context.Context, config.Settings) (*aga.Service, func(), error)
+	agaDemoService      func(context.Context, config.Settings) (*aga.Service, func(), error)
+	agaWorkspaceService func(context.Context, config.Settings) (*workspace.Service, func(), error)
 }

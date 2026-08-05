@@ -6,6 +6,9 @@ import (
 )
 
 func BuildRecommendation(draft Draft, scope ProviderScopeFact, request RecommendationRequest) (Recommendation, error) {
+	if err := validateFrozenTaxonomyAuthority(); err != nil {
+		return Recommendation{}, err
+	}
 	if request.DraftRevision != draft.Revision || request.ExpectedDraftRevision != draft.Revision || request.DraftContentDigest != draft.ContentDigest || request.DraftID != draft.DraftID {
 		return Recommendation{}, ErrDraftConflict
 	}
@@ -34,7 +37,8 @@ func BuildRecommendation(draft Draft, scope ProviderScopeFact, request Recommend
 	if scope.Status != "ACTIVE" || request.EffectiveAt.IsZero() || request.EffectiveAt.Before(scope.EffectiveFrom) || (scope.EffectiveTo != nil && !request.EffectiveAt.Before(*scope.EffectiveTo)) {
 		return Recommendation{}, ErrProviderScopeNotApplicable
 	}
-	if !qualifiersEqual(scope.OperationQualifiers, request.OperationQualifiers) || !qualifiersEqual(scope.ActivityQualifiers, request.ActivityQualifiers) {
+	taxonomy := FrozenTaxonomy()
+	if !qualifiersEqualWithAllowed(scope.OperationQualifiers, request.OperationQualifiers, taxonomy.OperationQualifierValues) || !qualifiersEqualWithAllowed(scope.ActivityQualifiers, request.ActivityQualifiers, taxonomy.ActivityQualifierValues) {
 		return Recommendation{}, ErrQualifierMismatch
 	}
 	var target *TypedTarget
@@ -50,7 +54,6 @@ func BuildRecommendation(draft Draft, scope ProviderScopeFact, request Recommend
 	if target == nil || target.Kind != request.CanonicalTargetKind || target.ProfileCode != request.TargetProfileCode {
 		return Recommendation{}, ErrTargetMismatch
 	}
-	taxonomy := FrozenTaxonomy()
 	profile, exists := taxonomy.InspectionProfiles[request.InspectionProfileCode]
 	if !exists || !contains(profile.AllowedTargetKinds, request.CanonicalTargetKind) || !contains(profile.AllowedTargetProfileCodes, request.TargetProfileCode) || !contains(profile.AllowedInspectionTypeCodes, request.InspectionTypeCode) {
 		return Recommendation{}, ErrTargetMismatch
@@ -161,6 +164,12 @@ func qualifiersEqual(left, right []Qualifier) bool {
 		return false
 	}
 	return reflect.DeepEqual(leftActivity, rightActivity)
+}
+
+func qualifiersEqualWithAllowed(left, right []Qualifier, allowed map[string][]string) bool {
+	leftNormalized, leftErr := normalizeQualifiers(left, allowed, "qualifiers")
+	rightNormalized, rightErr := normalizeQualifiers(right, allowed, "qualifiers")
+	return leftErr == nil && rightErr == nil && reflect.DeepEqual(leftNormalized, rightNormalized)
 }
 
 func qualifierKeysExact(qualifiers []Qualifier, required []string) bool {

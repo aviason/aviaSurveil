@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -189,7 +190,7 @@ func run(ctx context.Context) error {
 					}
 				}
 				if profile.agaDemoOnly {
-					if authBoundary == nil || profile.agaDemoService == nil {
+					if authBoundary == nil || profile.agaDemoService == nil || profile.agaWorkspaceService == nil {
 						probe = unavailableReadiness{err: errors.New("tagged AGA demo authentication is unavailable")}
 					} else {
 						service, closeReader, readerErr := profile.agaDemoService(ctx, settings)
@@ -198,10 +199,22 @@ func run(ctx context.Context) error {
 							slog.Error("AGA demo reader unavailable; capability will fail closed", "error", readerErr)
 						} else {
 							defer closeReader()
-							authenticatedAPI = httpapi.ProtectAGACandidateDemo(
-								authBoundary,
-								httpapi.NewAGACandidateDemoHandler(service),
-							)
+							workspaceService, closeWorkspace, workspaceErr := profile.agaWorkspaceService(ctx, settings)
+							if workspaceErr != nil {
+								probe = unavailableReadiness{err: workspaceErr}
+								slog.Error("AGA demo workspace unavailable; capability will fail closed", "error", workspaceErr)
+							} else {
+								defer closeWorkspace()
+								legacyAPI := httpapi.ProtectAGACandidateDemo(authBoundary, httpapi.NewAGACandidateDemoHandler(service))
+								workspaceAPI := httpapi.ProtectAGADemoWorkspace(authBoundary, workspaceService, httpapi.NewAGADemoWorkspaceHandler(workspaceService))
+								authenticatedAPI = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+									if strings.HasPrefix(request.URL.Path, "/v1/preprod/aga-demo-workspace/") {
+										workspaceAPI.ServeHTTP(writer, request)
+										return
+									}
+									legacyAPI.ServeHTTP(writer, request)
+								})
+							}
 						}
 					}
 				} else if settings.ObjectStoreEndpoint != "" {

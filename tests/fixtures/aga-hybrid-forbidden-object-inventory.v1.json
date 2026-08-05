@@ -1,0 +1,290 @@
+{
+  "schemaVersion": "aga-hybrid-forbidden-object-inventory/v1",
+  "planPath": "docs/exec-plans/active/2026-08-03-aga-hybrid-classification-demo-lifecycle-plan.md",
+  "sourceDigests": {
+    "migrations": "sha256:0a8b22dbc6567804b32a1bc6aab4ee40e00007b0e009d48d526fa5e338b011e2",
+    "overlayContract": "sha256:d2f1aff081a59770d7d253be3fbeee32635c44fd5804958380566c7a1a619f25",
+    "workspaceContract": "sha256:a042967cea51592571a60c4b22bae81f482825c0077d728de9e7ea506aeac63f",
+    "workspaceProvision": "sha256:b52a76a65bf416cbecce287a6842e3fa05d7601bb894b7ccb881d89e0289c3c2",
+    "compose": "sha256:f144c3172c584a58ff6763822af94eef0707c811fca92b42bacbe66fc8f7f9f3"
+  },
+  "classes": {
+    "FORBIDDEN_BUSINESS": {
+      "objects": [
+        "public.audit_assignments",
+        "public.audit_question_assignments",
+        "public.audit_team_members",
+        "public.authorized_sync_changes",
+        "public.caa_department_memberships",
+        "public.caa_department_status_facts",
+        "public.caa_departments",
+        "public.caa_organizational_unit_status_facts",
+        "public.caa_organizational_units",
+        "public.candidate_required_owner_assignments",
+        "public.cap_revisions",
+        "public.checklist_import_attempt_events",
+        "public.checklist_import_attempts",
+        "public.checklist_import_batches",
+        "public.checklist_import_extraction_decision_sets",
+        "public.checklist_import_extraction_decisions",
+        "public.checklist_import_extraction_review_packets",
+        "public.checklist_import_extraction_review_proposals",
+        "public.checklist_import_files",
+        "public.checklist_import_identity_resolutions",
+        "public.checklist_import_object_intents",
+        "public.checklist_import_phase_receipts",
+        "public.checklist_publication_decisions",
+        "public.checklist_register_entries",
+        "public.checklist_responses",
+        "public.checklist_template_versions",
+        "public.command_transaction_links",
+        "public.communication_attachments",
+        "public.communication_messages",
+        "public.communication_threads",
+        "public.datafeed_delivery_attempts",
+        "public.datafeed_delivery_state",
+        "public.datafeed_event_type_catalog",
+        "public.datafeed_events",
+        "public.datafeed_replay_delivery_attempts",
+        "public.datafeed_replay_delivery_state",
+        "public.datafeed_replay_run_events",
+        "public.datafeed_replay_runs",
+        "public.datafeed_replay_tombstones",
+        "public.department_review_decisions",
+        "public.document_records",
+        "public.document_render_jobs",
+        "public.document_versions",
+        "public.evidence_version_states",
+        "public.evidence_versions",
+        "public.existing_checklist_candidate_questions",
+        "public.existing_checklist_candidates",
+        "public.findings",
+        "public.governed_candidate_commands",
+        "public.governed_candidate_source_binding_links",
+        "public.governed_candidate_source_binding_sets",
+        "public.governed_candidate_source_chain_links",
+        "public.governed_checklist_functional_assignments",
+        "public.governed_checklist_review_comments",
+        "public.governed_required_owner_resolution_facts",
+        "public.governed_reviewed_source_set_links",
+        "public.governed_reviewed_source_sets",
+        "public.governed_reviewer_recommendation_dispositions",
+        "public.governed_source_mapping_attestations",
+        "public.idempotency_responses",
+        "public.identity_action_facts",
+        "public.identity_lifecycle_alerts",
+        "public.inspection_attachments",
+        "public.inspection_checklists",
+        "public.inspection_package_drafts",
+        "public.inspection_packages",
+        "public.inspection_question_assignments",
+        "public.inspections",
+        "public.notification_delivery_jobs",
+        "public.notification_records",
+        "public.object_metadata",
+        "public.offline_grants",
+        "public.organization_service_provider_scope_targets",
+        "public.organization_service_provider_scopes",
+        "public.organizations",
+        "public.outbox_messages",
+        "public.planning_intake_drafts",
+        "public.potential_findings",
+        "public.question_versions",
+        "public.regulated_targets",
+        "public.regulatory_evaluation_partition_rows",
+        "public.regulatory_evaluation_partitions",
+        "public.regulatory_evaluations",
+        "public.regulatory_generated_mapping_snapshots",
+        "public.regulatory_generated_question_snapshots",
+        "public.regulatory_generation_run_crosswalk_partition_rows",
+        "public.regulatory_generation_run_scope_facts",
+        "public.regulatory_generation_run_source_currentness_bindings",
+        "public.regulatory_generation_run_source_snapshots",
+        "public.regulatory_generation_runs",
+        "public.regulatory_normalized_clauses",
+        "public.regulatory_reference_versions",
+        "public.regulatory_source_authority_attestations",
+        "public.regulatory_source_currentness_events",
+        "public.regulatory_source_gap_facts",
+        "public.regulatory_source_impact_candidate_links",
+        "public.regulatory_source_impact_review_drafts",
+        "public.regulatory_source_versions",
+        "public.reminder_dispatches",
+        "public.reminder_rules",
+        "public.report_approval_states",
+        "public.report_decisions",
+        "public.report_definition_versions",
+        "public.report_versions",
+        "public.review_decisions",
+        "public.risk_projection_versions",
+        "public.service_provider_topic_links",
+        "public.service_provider_topics",
+        "public.service_provider_types",
+        "public.service_provider_unit_responsibilities",
+        "public.state_compliance_crosswalk_rows",
+        "public.surveillance_plan_items",
+        "public.sync_cursor_tokens",
+        "public.sync_cursors",
+        "public.template_draft_versions",
+        "public.template_masters",
+        "public.template_version_questions",
+        "public.upload_sessions",
+        "public.user_lifecycle_requests",
+        "public.user_settings",
+        "public.finding_public_number_sequence",
+        "public.regulatory_source_currentness_events_sequence_id_seq"
+      ],
+      "reason": "Canonical business tables, sequences, and non-workspace records remain zero-delta after predecessor setup."
+    },
+    "AUTH_CONTROL_PLANE": {
+      "objects": [
+        "public.audit_events",
+        "public.desired_membership_sync",
+        "public.desired_membership_versions",
+        "public.identity_references",
+        "public.oidc_login_states",
+        "public.session_references",
+        "public.user_profiles"
+      ],
+      "columns": {
+        "public.audit_events": [
+          "entity_type",
+          "entity_id",
+          "action",
+          "occurred_at",
+          "details"
+        ],
+        "public.desired_membership_sync": [
+          "observed_provider_enabled",
+          "observed_organization_id",
+          "observed_roles",
+          "observed_at",
+          "drift_state"
+        ],
+        "public.desired_membership_versions": [
+          "observed_at",
+          "drift_state"
+        ],
+        "public.identity_references": [
+          "display_name"
+        ],
+        "public.oidc_login_states": [
+          "state_hash",
+          "expires_at"
+        ],
+        "public.session_references": [
+          "authority_state",
+          "revoked_at",
+          "last_seen_at",
+          "expires_at",
+          "absolute_expires_at"
+        ],
+        "public.user_profiles": [
+          "display_name"
+        ]
+      },
+      "allowedShapes": [
+        "AUTHENTICATION_OBSERVATION",
+        "SESSION_REFRESH",
+        "LOGOUT",
+        "OIDC_LOGIN_STATE"
+      ]
+    },
+    "SEALED_OVERLAY_ALLOWED": {
+      "schema": "preprod_aga_demo",
+      "objects": [
+        "preprod_aga_demo.form_source_proposals",
+        "preprod_aga_demo.forms",
+        "preprod_aga_demo.package_intents",
+        "preprod_aga_demo.package_seals",
+        "preprod_aga_demo.packages",
+        "preprod_aga_demo.question_source_proposals",
+        "preprod_aga_demo.questions",
+        "preprod_aga_demo.sealed_forms",
+        "preprod_aga_demo.sealed_packages",
+        "preprod_aga_demo.sealed_questions",
+        "preprod_aga_demo.source_reference_catalog"
+      ],
+      "roles": [
+        "preprod_aga_demo_owner",
+        "preprod_aga_demo_writer",
+        "preprod_aga_demo_reader"
+      ],
+      "postSealMutation": "forbidden"
+    },
+    "WORKSPACE_ALLOWED": {
+      "schema": "preprod_aga_demo_workspace",
+      "objects": [
+        "preprod_aga_demo_workspace.authority_bindings",
+        "preprod_aga_demo_workspace.batch_previews",
+        "preprod_aga_demo_workspace.classification_involvement_edges",
+        "preprod_aga_demo_workspace.classification_items",
+        "preprod_aga_demo_workspace.classification_pass_records",
+        "preprod_aga_demo_workspace.classification_runs",
+        "preprod_aga_demo_workspace.credential_revocation_receipts",
+        "preprod_aga_demo_workspace.draft_items",
+        "preprod_aga_demo_workspace.drafts",
+        "preprod_aga_demo_workspace.generations",
+        "preprod_aga_demo_workspace.idempotency_responses",
+        "preprod_aga_demo_workspace.lifecycle_events",
+        "preprod_aga_demo_workspace.lifecycle_streams",
+        "preprod_aga_demo_workspace.manager_decisions",
+        "preprod_aga_demo_workspace.provider_scopes",
+        "preprod_aga_demo_workspace.provider_targets",
+        "preprod_aga_demo_workspace.question_versions",
+        "preprod_aga_demo_workspace.readiness_snapshots",
+        "preprod_aga_demo_workspace.recommendation_snapshots",
+        "preprod_aga_demo_workspace.reset_tombstones",
+        "preprod_aga_demo_workspace.taxonomy_versions",
+        "preprod_aga_demo_workspace.workspace_seals"
+      ],
+      "functions": [
+        "preprod_aga_demo_workspace.reject_mutation",
+        "preprod_aga_demo_workspace.reject_sealed_load",
+        "preprod_aga_demo_workspace.workspace_command",
+        "preprod_aga_demo_workspace.workspace_load",
+        "preprod_aga_demo_workspace.workspace_query",
+        "preprod_aga_demo_workspace.workspace_reset"
+      ],
+      "roles": [
+        "preprod_aga_demo_workspace_command",
+        "preprod_aga_demo_workspace_fixture_exporter",
+        "preprod_aga_demo_workspace_loader",
+        "preprod_aga_demo_workspace_owner",
+        "preprod_aga_demo_workspace_reader"
+      ],
+      "grants": [
+        "GRANT USAGE ON SCHEMA preprod_aga_demo_workspace TO preprod_aga_demo_workspace_reader, preprod_aga_demo_workspace_command, preprod_aga_demo_workspace_loader",
+        "GRANT SELECT ON sealed_generations, sealed_classification_items, sealed_drafts, sealed_authority_bindings, sealed_provider_scopes, sealed_recommendations, sealed_lifecycle_projection TO preprod_aga_demo_workspace_reader",
+        "GRANT EXECUTE ON workspace_query(jsonb), workspace_command(jsonb), workspace_reset(jsonb) TO preprod_aga_demo_workspace_command",
+        "REVOKE ALL ON ALL TABLES IN SCHEMA preprod_aga_demo_workspace FROM PUBLIC, preprod_aga_demo_workspace_fixture_exporter, preprod_aga_demo_workspace_loader, preprod_aga_demo_workspace_reader",
+        "REVOKE ALL ON ALL FUNCTIONS IN SCHEMA preprod_aga_demo_workspace FROM PUBLIC, preprod_aga_demo_workspace_fixture_exporter, preprod_aga_demo_workspace_loader"
+      ],
+      "postSealMutation": "append-only-command-store-only"
+    }
+  },
+  "compose": {
+    "services": [
+      "preprod-aga-demo-workspace-role-provisioner",
+      "preprod-aga-demo-workspace-fixture-exporter",
+      "preprod-aga-demo-workspace-loader",
+      "preprod-aga-demo-api",
+      "preprod-postgres"
+    ],
+    "secrets": [
+      "preprod_aga_demo_workspace_fixture_exporter_database_password",
+      "preprod_aga_demo_workspace_loader_database_password",
+      "preprod_aga_demo_workspace_reader_database_password",
+      "preprod_aga_demo_workspace_command_database_password",
+      "preprod_aga_demo_session_encryption_key"
+    ]
+  },
+  "coverage": {
+    "migrationTableCount": 127,
+    "migrationSequenceCount": 2,
+    "authControlTableCount": 7,
+    "forbiddenBusinessObjectCount": 122,
+    "overlayObjectCount": 11,
+    "workspaceObjectCount": 22
+  }
+}

@@ -129,6 +129,13 @@ const expectedPaths = [
   "/v1/admin/governed-checklist/aga-candidate-demo/forms/{formCode}",
   "/v1/admin/governed-checklist/aga-candidate-demo/questions",
   "/v1/governed-checklist/published-versions/{publishedVersionId}/audit-package-eligibility-evaluations",
+  "/v1/preprod/aga-demo-workspace/capability",
+  "/v1/preprod/aga-demo-workspace/classification/query",
+  "/v1/preprod/aga-demo-workspace/classification/commands",
+  "/v1/preprod/aga-demo-workspace/recommendations/commands",
+  "/v1/preprod/aga-demo-workspace/lifecycle/query",
+  "/v1/preprod/aga-demo-workspace/lifecycle/commands",
+  "/v1/preprod/aga-demo-workspace/admin/commands",
 ];
 
 assert.equal(document.openapi, "3.1.0");

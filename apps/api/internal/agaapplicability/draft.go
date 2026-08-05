@@ -24,7 +24,18 @@ var draftReasonCodes = []string{
 	"SYNTHETIC_RESET",
 }
 
+// passBijectionError keeps the public sentinel stable while retaining a
+// private, aggregate-safe validation category for connected runtime
+// diagnostics. It never includes a question identity or emitted proposal
+// content.
+func passBijectionError(category string) error {
+	return fmt.Errorf("%w: %s", ErrPassBijection, category)
+}
+
 func NewDraftFromClassification(classification ClassificationResult, generationID string) (Draft, error) {
+	if err := validateFrozenTaxonomyAuthority(); err != nil {
+		return Draft{}, err
+	}
 	if !serverIDPattern.MatchString(generationID) || classification.State != ClassificationRunSealed || !classificationRunIDPattern.MatchString(classification.ClassificationRunID) {
 		return Draft{}, fmt.Errorf("%w: classification is not sealed", ErrDraftNotReady)
 	}
@@ -38,10 +49,11 @@ func NewDraftFromClassification(classification ClassificationResult, generationI
 		}
 	}
 	if len(classification.Items) != FrozenBaseQuestionCount || len(classification.CandidateRecords) != FrozenBaseQuestionCount || len(classification.ChallengeRecords) != FrozenBaseQuestionCount {
-		return Draft{}, ErrPassBijection
+		return Draft{}, passBijectionError("record counts")
 	}
 	taxonomy := FrozenTaxonomy()
-	if classification.TaxonomyVersion != taxonomy.Version || classification.TaxonomyDigest != taxonomy.Digest || classification.InputDigest != ComputeRunInputDigest(FrozenFixedInputDigests()) {
+	promptDigest := classification.RunReceipt.PromptDigest
+	if !validDigest(promptDigest) || classification.TaxonomyVersion != taxonomy.Version || classification.TaxonomyDigest != taxonomy.Digest || classification.InputDigest != ComputeRunInputDigestForPrompt(FrozenFixedInputDigests(), promptDigest) {
 		return Draft{}, fmt.Errorf("%w: taxonomy", ErrDigestMismatch)
 	}
 	for _, item := range classification.Items {
@@ -54,35 +66,37 @@ func NewDraftFromClassification(classification ClassificationResult, generationI
 		return Draft{}, fmt.Errorf("%w: classification aggregate", ErrDigestMismatch)
 	}
 	if classification.Aggregate.ItemCount != FrozenBaseQuestionCount || classification.Aggregate.PassProposalRecordCount != FrozenPassProposalRecordCount || classification.Aggregate.Exceptions.BlockedSourceGap.Count != FrozenSourceGapCount || classification.Aggregate.Exceptions.ExternalApplicabilityUnresolved.Count != FrozenExternalUnresolvedCount || classification.Aggregate.Exceptions.SourceGapExternalUnresolvedOverlap.Count != FrozenSourceExternalOverlap || codeCountValue(classification.Aggregate.Distributions.ExtractionStateCounts, ExtractionCandidate) != FrozenExtractedCandidateCount || codeCountValue(classification.Aggregate.Distributions.ExtractionStateCounts, ExtractionExactSourceBacked) != FrozenExactSourceBackedCount {
-		return Draft{}, ErrDigestMismatch
+		return Draft{}, fmt.Errorf("%w: frozen aggregate counts", ErrDigestMismatch)
 	}
 	sealedIdentityOrder := make([]BaseIdentity, len(classification.Items))
 	for index := range classification.Items {
 		sealedIdentityOrder[index] = classification.Items[index].Identity
 	}
-	if digestValue("AGA-HYBRID-ORDERED-IDENTITIES-V1", sealedIdentityOrder) != FrozenOrderedIdentityDigest || classification.PassOneSealReceipt.PassSealDigest != classification.RunReceipt.PassOneSealDigest || classification.PassTwoSealReceipt.PassSealDigest != classification.RunReceipt.PassTwoSealDigest || !validSealedPassReceipt(classification.PassOneSealReceipt, PassCandidate, classification.CandidateRecords) || !validSealedPassReceipt(classification.PassTwoSealReceipt, PassChallenge, classification.ChallengeRecords) {
-		return Draft{}, ErrDigestMismatch
+	if digestValue("AGA-CLASSIFICATION-ORDERED-IDENTITIES-V1", sealedIdentityOrder) != FrozenOrderedIdentityDigest || classification.PassOneSealReceipt.PassSealDigest != classification.RunReceipt.PassOneSealDigest || classification.PassTwoSealReceipt.PassSealDigest != classification.RunReceipt.PassTwoSealDigest || classification.PassOneSealReceipt.PromptDigest != promptDigest || classification.PassTwoSealReceipt.PromptDigest != promptDigest || !validSealedPassReceipt(classification.PassOneSealReceipt, PassCandidate, classification.CandidateRecords) || !validSealedPassReceipt(classification.PassTwoSealReceipt, PassChallenge, classification.ChallengeRecords) {
+		return Draft{}, fmt.Errorf("%w: pass seal graph", ErrDigestMismatch)
 	}
 	receipt := classification.RunReceipt
-	if receipt.ClassificationRunID != classification.ClassificationRunID || receipt.State != ClassificationRunSealed || receipt.TaxonomyVersion != taxonomy.Version || receipt.TaxonomyDigest != taxonomy.Digest || receipt.InputDigest != classification.InputDigest || receipt.AggregateDigest != classification.AggregateDigest || receipt.PromptDigest != FrozenPromptDigest || receipt.BatchManifestDigest != FrozenBatchManifestDigest || receipt.ClassificationRunDigest != classification.ClassificationRunDigest || receipt.ClassificationRunDigest != digestExcludingJSONFields("AGA-CLASSIFICATION-RUN-V1", receipt, "classificationRunDigest") || !reflect.DeepEqual(receipt.FixedInputDigests, FrozenFixedInputDigests()) {
+	candidateRunID := classification.PassOneSealReceipt.ClassificationRunID
+	challengeRunID := classification.PassTwoSealReceipt.ClassificationRunID
+	if !classificationRunIDPattern.MatchString(candidateRunID) || !classificationRunIDPattern.MatchString(challengeRunID) {
+		return Draft{}, fmt.Errorf("%w: pass run identity", ErrPassBijection)
+	}
+	if receipt.ClassificationRunID != classification.ClassificationRunID || receipt.State != ClassificationRunSealed || receipt.TaxonomyVersion != taxonomy.Version || receipt.TaxonomyDigest != taxonomy.Digest || receipt.InputDigest != classification.InputDigest || receipt.AggregateDigest != classification.AggregateDigest || receipt.PromptDigest != promptDigest || receipt.BatchManifestDigest != FrozenBatchManifestDigest || receipt.ClassificationRunDigest != classification.ClassificationRunDigest || receipt.ClassificationRunDigest != digestExcludingJSONFields("AGA-CLASSIFICATION-RUN-V1", receipt, "classificationRunDigest") || !reflect.DeepEqual(receipt.FixedInputDigests, FrozenFixedInputDigests()) {
 		return Draft{}, fmt.Errorf("%w: classification run receipt", ErrDigestMismatch)
 	}
-	receiptModelDigests := make([]string, 0, len(receipt.ModelDescriptors))
+	if len(receipt.ModelDescriptorDigests) < 1 || !validDigestSet(receipt.ModelDescriptorDigests, 2) || !reflect.DeepEqual(uniqueSorted(receipt.ModelDescriptorDigests), receipt.ModelDescriptorDigests) {
+		return Draft{}, fmt.Errorf("%w: model descriptor digest set", ErrDigestMismatch)
+	}
 	for _, descriptor := range receipt.ModelDescriptors {
 		if err := validateModelDescriptor(descriptor); err != nil {
 			return Draft{}, ErrDigestMismatch
 		}
-		receiptModelDigests = append(receiptModelDigests, ComputeModelDescriptorDigest(descriptor))
-	}
-	sort.Strings(receiptModelDigests)
-	if !reflect.DeepEqual(receiptModelDigests, receipt.ModelDescriptorDigests) {
-		return Draft{}, ErrDigestMismatch
 	}
 	candidate := make(map[string]PassProposalRecord, len(classification.CandidateRecords))
 	challenge := make(map[string]PassProposalRecord, len(classification.ChallengeRecords))
 	for _, record := range classification.CandidateRecords {
-		if record.PassRole != PassCandidate || record.ClassificationRunID != classification.ClassificationRunID || record.PassResultDigest != ComputePassResultDigest(record) {
-			return Draft{}, ErrPassBijection
+		if record.PassRole != PassCandidate || record.ClassificationRunID != candidateRunID || record.PromptDigest != promptDigest || !contains(receipt.ModelDescriptorDigests, record.ModelDescriptorDigest) || record.PassResultDigest != ComputePassResultDigest(record) {
+			return Draft{}, passBijectionError("candidate record provenance")
 		}
 		if _, duplicate := candidate[record.Identity.Key()]; duplicate {
 			return Draft{}, ErrDuplicateIdentity
@@ -90,8 +104,8 @@ func NewDraftFromClassification(classification ClassificationResult, generationI
 		candidate[record.Identity.Key()] = record
 	}
 	for _, record := range classification.ChallengeRecords {
-		if record.PassRole != PassChallenge || record.ClassificationRunID != classification.ClassificationRunID || record.PassResultDigest != ComputePassResultDigest(record) {
-			return Draft{}, ErrPassBijection
+		if record.PassRole != PassChallenge || record.ClassificationRunID != challengeRunID || record.PromptDigest != promptDigest || !contains(receipt.ModelDescriptorDigests, record.ModelDescriptorDigest) || record.PassResultDigest != ComputePassResultDigest(record) {
+			return Draft{}, passBijectionError("challenge record provenance")
 		}
 		if _, duplicate := challenge[record.Identity.Key()]; duplicate {
 			return Draft{}, ErrDuplicateIdentity
@@ -126,10 +140,10 @@ func NewDraftFromClassification(classification ClassificationResult, generationI
 		sealedChallengeRecords:    make(map[string]PassProposalRecord, len(classification.ChallengeRecords)),
 	}
 	for key, record := range candidate {
-		draft.sealedCandidateRecords[key] = cloneJSON(record)
+		draft.sealedCandidateRecords[key] = clonePassProposalRecord(record)
 	}
 	for key, record := range challenge {
-		draft.sealedChallengeRecords[key] = cloneJSON(record)
+		draft.sealedChallengeRecords[key] = clonePassProposalRecord(record)
 	}
 	identities := make(map[string]struct{}, len(classification.Items))
 	for index, sealed := range classification.Items {
@@ -141,13 +155,13 @@ func NewDraftFromClassification(classification ClassificationResult, generationI
 			return Draft{}, ErrDuplicateIdentity
 		}
 		identities[key] = struct{}{}
-		if sealed.ItemSemanticDigest != ComputeItemSemanticDigest(sealed) || sealed.ClassificationRunDigest != classification.ClassificationRunDigest || sealed.AggregateDigest != classification.AggregateDigest || sealed.InputDigest != classification.InputDigest || sealed.TaxonomyDigest != taxonomy.Digest || sealed.PromptDigest != FrozenPromptDigest {
+		if sealed.ItemSemanticDigest != ComputeItemSemanticDigest(sealed) || sealed.ClassificationRunDigest != classification.ClassificationRunDigest || sealed.AggregateDigest != classification.AggregateDigest || sealed.InputDigest != classification.InputDigest || sealed.TaxonomyDigest != taxonomy.Digest || sealed.PromptDigest != promptDigest || !reflect.DeepEqual(sealed.ModelDescriptorDigests, receipt.ModelDescriptorDigests) {
 			return Draft{}, fmt.Errorf("%w: sealed item graph", ErrDigestMismatch)
 		}
 		candidateRecord, candidateExists := candidate[key]
 		challengeRecord, challengeExists := challenge[key]
 		if !candidateExists || !challengeExists || sealed.PassOneResultDigest != candidateRecord.PassResultDigest || sealed.PassTwoResultDigest != challengeRecord.PassResultDigest || sealed.PassOneRunID != candidateRecord.PassRunID || sealed.PassTwoRunID != challengeRecord.PassRunID {
-			return Draft{}, ErrPassBijection
+			return Draft{}, passBijectionError("sealed item pass references")
 		}
 		candidateProjection := candidateRecord.ProposalProjection
 		challengeProjection := challengeRecord.ProposalProjection
@@ -164,15 +178,15 @@ func NewDraftFromClassification(classification ClassificationResult, generationI
 			return Draft{}, err
 		}
 		if !reflect.DeepEqual(currentProjection, candidateProjection) {
-			return Draft{}, ErrPassBijection
+			return Draft{}, passBijectionError("candidate projection")
 		}
 		outcome := DeriveOutcome(taxonomy, candidateProjection, challengeProjection, candidateRecord.ConfidenceEvidence, challengeRecord.ConfidenceEvidence, sealed.QuestionSourceProposalGap, sealed.ExternalApplicabilityUnresolved)
 		if sealed.AgreementConfidence != outcome.AgreementConfidence || sealed.RecommendationState != outcome.RecommendationState || !reflect.DeepEqual(sealed.RationaleCodes, candidateRecord.RationaleCodes) || !reflect.DeepEqual(sealed.ConfidenceEvidence, candidateRecord.ConfidenceEvidence) || !reflect.DeepEqual(sealed.SourceRefs, candidateRecord.SourceRefs) {
-			return Draft{}, ErrPassBijection
+			return Draft{}, passBijectionError("sealed item outcome")
 		}
 		confidence := sealed.AgreementConfidence
-		candidateCopy := cloneJSON(candidateRecord)
-		challengeCopy := cloneJSON(challengeRecord)
+		candidateCopy := clonePassProposalRecord(candidateRecord)
+		challengeCopy := clonePassProposalRecord(challengeRecord)
 		reference := BaseQuestionReference(sealed.Identity)
 		reference.RootSequence = index + 1
 		item := DraftItem{
@@ -210,8 +224,97 @@ func NewDraftFromClassification(classification ClassificationResult, generationI
 		}
 		draft.Items = append(draft.Items, item)
 	}
+	draft.sealedPassGraphValidated = true
 	draft.ContentDigest = ComputeDraftContentDigest(draft)
 	return draft, nil
+}
+
+// HydrateDraftForRuntime restores the sealed pass and governance context that
+// is intentionally omitted from the public draft JSON projection. A draft
+// revision is persisted as an append-only public payload, while command
+// validation still needs the immutable sealed classification inputs that were
+// stored in the sibling classification run projection.
+func HydrateDraftForRuntime(draft Draft, classification ClassificationResult) (Draft, error) {
+	base, err := NewDraftFromClassification(classification, draft.GenerationID)
+	if err != nil {
+		return Draft{}, err
+	}
+	return HydrateDraftForRuntimeFromSealedDraft(draft, base)
+}
+
+// HydrateDraftForRuntimeFromSealedDraft restores the immutable hidden
+// classification context from a previously validated sealed base draft. The
+// connected PostgreSQL command path uses this form after validating the
+// classification run once; the public behavior remains identical to
+// HydrateDraftForRuntime while avoiding repeated 1,310-item pass validation on
+// every append-only Draft command.
+func HydrateDraftForRuntimeFromSealedDraft(draft, base Draft) (Draft, error) {
+	if draft.GenerationID != base.GenerationID || draft.ClassificationRunID != base.ClassificationRunID || base.State != DraftWorking || len(base.Items) != FrozenBaseQuestionCount {
+		return Draft{}, fmt.Errorf("%w: sealed base context", ErrDraftNotReady)
+	}
+	hydrated := cloneDraft(draft)
+	hydrated.sealedPassGraphValidated = base.sealedPassGraphValidated
+	hydrated.sealedCandidateRecords = base.sealedCandidateRecords
+	hydrated.sealedChallengeRecords = base.sealedChallengeRecords
+	sealedByKey := make(map[string]DraftItem, len(base.Items))
+	for _, item := range base.Items {
+		sealedByKey[item.QuestionRef.Key()] = item
+	}
+	for index := range hydrated.Items {
+		item := &hydrated.Items[index]
+		sealed, found := sealedByKey[item.QuestionRef.Key()]
+		if !found {
+			if item.QuestionRef.Workspace != nil {
+				item.SourceMappingState = SourceMappingRequired
+				item.SourceAuthorityState = SourceAuthorityNotAttested
+				item.RiskClassificationState = RiskExpertReviewRequired
+			}
+			continue
+		}
+		item.SealedAgreementConfidence = cloneConfidence(sealed.SealedAgreementConfidence)
+		if item.QuestionRef.Base != nil && sealed.QuestionRef.Base != nil {
+			// Base references intentionally omit rootSequence from their public
+			// union shape. Restore the sealed, append-only ordering metadata before
+			// command validation and content-digest recomputation.
+			item.QuestionRef.RootSequence = sealed.QuestionRef.RootSequence
+		}
+		item.SourceMappingState = sealed.SourceMappingState
+		item.SourceAuthorityState = sealed.SourceAuthorityState
+		item.RiskClassificationState = sealed.RiskClassificationState
+		item.ExternalApplicabilityUnresolved = sealed.ExternalApplicabilityUnresolved
+		item.DecisionState = sealed.DecisionState
+		item.ExtractionState = sealed.ExtractionState
+		item.sealedGovernance = cloneJSON(sealed.sealedGovernance)
+		item.sealedRecommendationState = sealed.sealedRecommendationState
+		item.candidatePassRecord = sealed.candidatePassRecord
+		item.challengePassRecord = sealed.challengePassRecord
+		item.candidatePassResultDigest = sealed.candidatePassResultDigest
+		item.challengePassResultDigest = sealed.challengePassResultDigest
+		item.sealedBaseRootSequence = sealed.sealedBaseRootSequence
+	}
+	if ComputeDraftContentDigest(hydrated) != hydrated.ContentDigest {
+		return Draft{}, ErrDraftConflict
+	}
+	if err := validateDraftQuestionGraphWithTaxonomy(hydrated, FrozenTaxonomy()); err != nil {
+		return Draft{}, err
+	}
+	return hydrated, nil
+}
+
+func cloneConfidence(value *Confidence) *Confidence {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	return &copy
+}
+
+func clonePassPointer(value *PassProposalRecord) *PassProposalRecord {
+	if value == nil {
+		return nil
+	}
+	copy := clonePassProposalRecord(*value)
+	return &copy
 }
 
 func validSealedPassReceipt(receipt PassSealReceipt, role PassRole, records []PassProposalRecord) bool {
@@ -277,6 +380,15 @@ func cloneQuestionRef(reference QuestionRef) QuestionRef {
 	return result
 }
 
+func clonePassProposalRecord(record PassProposalRecord) PassProposalRecord {
+	result := record
+	result.ProposalProjection = cloneJSON(record.ProposalProjection)
+	result.RationaleCodes = cloneJSON(record.RationaleCodes)
+	result.ConfidenceEvidence = cloneJSON(record.ConfidenceEvidence)
+	result.SourceRefs = cloneJSON(record.SourceRefs)
+	return result
+}
+
 func cloneDraftItem(item DraftItem) DraftItem {
 	result := item
 	result.QuestionRef = cloneQuestionRef(item.QuestionRef)
@@ -294,11 +406,11 @@ func cloneDraftItem(item DraftItem) DraftItem {
 		result.SealedAgreementConfidence = &value
 	}
 	if item.candidatePassRecord != nil {
-		value := cloneJSON(*item.candidatePassRecord)
+		value := clonePassProposalRecord(*item.candidatePassRecord)
 		result.candidatePassRecord = &value
 	}
 	if item.challengePassRecord != nil {
-		value := cloneJSON(*item.challengePassRecord)
+		value := clonePassProposalRecord(*item.challengePassRecord)
 		result.challengePassRecord = &value
 	}
 	if item.DraftAgreementConfidence != nil {
@@ -315,7 +427,49 @@ func cloneDraftItem(item DraftItem) DraftItem {
 	return result
 }
 
+// cloneDraftItemForRuntime copies the mutable public/decision fields while
+// retaining pointers to the immutable, already-validated sealed pass records.
+// Those records are never modified by a Draft command; sharing them keeps the
+// connected append-only command path bounded by the mutable Draft projection.
+func cloneDraftItemForRuntime(item DraftItem) DraftItem {
+	result := item
+	result.QuestionRef = cloneQuestionRef(item.QuestionRef)
+	result.CurrentProjection = cloneJSON(item.CurrentProjection)
+	if item.ProposalResolution != nil {
+		resolution := *item.ProposalResolution
+		if resolution.ProposalProjection != nil {
+			projection := cloneJSON(*resolution.ProposalProjection)
+			resolution.ProposalProjection = &projection
+		}
+		result.ProposalResolution = &resolution
+	}
+	if item.SealedAgreementConfidence != nil {
+		value := *item.SealedAgreementConfidence
+		result.SealedAgreementConfidence = &value
+	}
+	if item.DraftAgreementConfidence != nil {
+		value := *item.DraftAgreementConfidence
+		result.DraftAgreementConfidence = &value
+	}
+	if item.Disposition != nil {
+		value := *item.Disposition
+		result.Disposition = &value
+	}
+	return result
+}
+
 func cloneDraft(draft Draft) Draft {
+	if draft.sealedPassGraphValidated {
+		result := draft
+		result.Items = make([]DraftItem, len(draft.Items))
+		for index, item := range draft.Items {
+			result.Items[index] = cloneDraftItemForRuntime(item)
+		}
+		result.ReadinessEvents = append([]ReadinessEvent{}, draft.ReadinessEvents...)
+		result.sealedCandidateRecords = draft.sealedCandidateRecords
+		result.sealedChallengeRecords = draft.sealedChallengeRecords
+		return result
+	}
 	result := draft
 	result.Items = make([]DraftItem, len(draft.Items))
 	for index, item := range draft.Items {
@@ -324,12 +478,19 @@ func cloneDraft(draft Draft) Draft {
 	result.ReadinessEvents = append([]ReadinessEvent{}, draft.ReadinessEvents...)
 	result.sealedCandidateRecords = make(map[string]PassProposalRecord, len(draft.sealedCandidateRecords))
 	for key, record := range draft.sealedCandidateRecords {
-		result.sealedCandidateRecords[key] = cloneJSON(record)
+		result.sealedCandidateRecords[key] = clonePassProposalRecord(record)
 	}
 	result.sealedChallengeRecords = make(map[string]PassProposalRecord, len(draft.sealedChallengeRecords))
 	for key, record := range draft.sealedChallengeRecords {
-		result.sealedChallengeRecords[key] = cloneJSON(record)
+		result.sealedChallengeRecords[key] = clonePassProposalRecord(record)
 	}
+	return result
+}
+
+func cloneDraftForRuntimeCommand(draft Draft) Draft {
+	result := draft
+	result.Items = append([]DraftItem(nil), draft.Items...)
+	result.ReadinessEvents = append([]ReadinessEvent{}, draft.ReadinessEvents...)
 	return result
 }
 
@@ -339,7 +500,11 @@ func currentDraftItems(draft Draft) []DraftItem {
 	result := make([]DraftItem, 0)
 	for _, item := range draft.Items {
 		if item.Current {
-			result = append(result, cloneDraftItem(item))
+			if draft.sealedPassGraphValidated {
+				result = append(result, cloneDraftItemForRuntime(item))
+			} else {
+				result = append(result, cloneDraftItem(item))
+			}
 		}
 	}
 	sort.Slice(result, func(i, j int) bool {
@@ -354,7 +519,11 @@ func currentDraftItems(draft Draft) []DraftItem {
 func replaceCurrentDraftItem(draft *Draft, replacement DraftItem) bool {
 	for index := range draft.Items {
 		if draft.Items[index].Current && draft.Items[index].QuestionRef.Key() == replacement.QuestionRef.Key() {
-			draft.Items[index] = cloneDraftItem(replacement)
+			if draft.sealedPassGraphValidated {
+				draft.Items[index] = cloneDraftItemForRuntime(replacement)
+			} else {
+				draft.Items[index] = cloneDraftItem(replacement)
+			}
 			return true
 		}
 	}
@@ -677,7 +846,7 @@ func ApplyDraftCommand(draft Draft, command DraftCommand, allocator IDAllocator)
 		next.State = DraftReadyForDemoSimulation
 		markingReady = true
 	default:
-		return Draft{}, fmt.Errorf("%w: action=%q", ErrUnknownCode, command.Action)
+		return Draft{}, ErrUnknownCode
 	}
 
 	if err := validateDraftQuestionGraph(next); err != nil {
@@ -698,6 +867,67 @@ func ApplyDraftCommand(draft Draft, command DraftCommand, allocator IDAllocator)
 		next.ReadinessEvents = append(next.ReadinessEvents, event)
 		next.CurrentReadinessEventID = event.ReadinessEventID
 	}
+	return next, nil
+}
+
+// ApplyDraftCommandFromValidatedRuntime applies the high-volume manager
+// disposition command against a draft whose public payload and sealed graph
+// were fully validated during runtime hydration. The command changes only the
+// target disposition/review state, so the immutable graph and every untouched
+// item remain covered by that earlier validation. All other command types use
+// the complete command path above.
+func ApplyDraftCommandFromValidatedRuntime(draft Draft, command DraftCommand, allocator IDAllocator) (Draft, error) {
+	if !draft.sealedPassGraphValidated || command.Action != DraftInclude {
+		return ApplyDraftCommand(draft, command, allocator)
+	}
+	if command.OperationID == "" || command.IdempotencyKey == "" || command.ExpectedGenerationID != draft.GenerationID {
+		return Draft{}, ErrCommandEnvelope
+	}
+	if command.ExpectedRevision != draft.Revision || command.ExpectedContentDigest != draft.ContentDigest {
+		return Draft{}, ErrDraftConflict
+	}
+	if !draftAcceptsCommands(draft) {
+		return Draft{}, ErrDraftConflict
+	}
+	if err := validateDraftReason(command.Action, command.ReasonCode); err != nil {
+		return Draft{}, err
+	}
+
+	next := cloneDraftForRuntimeCommand(draft)
+	taxonomy := FrozenTaxonomy()
+	targetIndex := -1
+	for index := range next.Items {
+		if next.Items[index].Current && next.Items[index].QuestionRef.Key() == command.TargetQuestionKey {
+			targetIndex = index
+			break
+		}
+	}
+	if targetIndex < 0 {
+		return Draft{}, ErrNonCurrentQuestion
+	}
+	target := cloneDraftItemForRuntime(next.Items[targetIndex])
+	if target.QuestionSourceProposalGap && command.ReasonCode == "" {
+		return Draft{}, ErrReasonRequired
+	}
+	if target.QuestionSourceProposalGap && command.ReasonCode != "SIMULATION_SOURCE_GAP_OVERRIDE" {
+		return Draft{}, ErrInvalidReason
+	}
+	if target.QuestionRef.Workspace != nil && target.ProposalResolution == nil {
+		return Draft{}, ErrInvalidResolution
+	}
+	disposition := DispositionInclude
+	target.Disposition = &disposition
+	target.ReviewState = ReviewManagerDisposed
+	next.Items[targetIndex] = target
+	if next.State == DraftReadyForDemoSimulation {
+		next.State = DraftWorking
+		next.CurrentReadinessEventID = ""
+	}
+	if err := validateDraftItemStateWithTaxonomy(next, target, taxonomy); err != nil {
+		return Draft{}, err
+	}
+	next.Revision++
+	next.ContentDigest = ComputeDraftContentDigest(next)
 	return next, nil
 }
 
@@ -735,7 +965,18 @@ func validateDraftReason(action DraftAction, reason string) error {
 }
 
 func validateReadinessDraft(draft Draft, reason string) error {
-	if draft.GenerationState != GenerationActive || draft.ClassificationRunState != ClassificationRunSealed || draft.BaseQuestionCount != FrozenBaseQuestionCount || draft.ClassificationItemCount != FrozenBaseQuestionCount || draft.PackageVersion != FrozenPackageVersion || draft.PackageJSONSHA256 != FrozenPackageJSONSHA256 || draft.TaxonomyVersion != FrozenTaxonomy().Version || draft.TaxonomyDigest != FrozenTaxonomy().Digest || !classificationRunIDPattern.MatchString(draft.ClassificationRunID) || !validDigest(draft.ClassificationRunDigest) || !validDigest(draft.AggregateDigest) || !reflect.DeepEqual(draft.FixedInputDigests, FrozenFixedInputDigests()) || draft.ClassificationInputDigest != ComputeRunInputDigest(draft.FixedInputDigests) {
+	promptDigest := ""
+	for _, item := range draft.Items {
+		if item.candidatePassRecord == nil {
+			continue
+		}
+		if promptDigest == "" {
+			promptDigest = item.candidatePassRecord.PromptDigest
+		} else if promptDigest != item.candidatePassRecord.PromptDigest {
+			return ErrDraftNotReady
+		}
+	}
+	if draft.GenerationState != GenerationActive || draft.ClassificationRunState != ClassificationRunSealed || draft.BaseQuestionCount != FrozenBaseQuestionCount || draft.ClassificationItemCount != FrozenBaseQuestionCount || draft.PackageVersion != FrozenPackageVersion || draft.PackageJSONSHA256 != FrozenPackageJSONSHA256 || draft.TaxonomyVersion != FrozenTaxonomy().Version || draft.TaxonomyDigest != FrozenTaxonomy().Digest || !classificationRunIDPattern.MatchString(draft.ClassificationRunID) || !validDigest(draft.ClassificationRunDigest) || !validDigest(draft.AggregateDigest) || !validDigest(promptDigest) || !reflect.DeepEqual(draft.FixedInputDigests, FrozenFixedInputDigests()) || draft.ClassificationInputDigest != ComputeRunInputDigestForPrompt(draft.FixedInputDigests, promptDigest) {
 		return ErrDraftNotReady
 	}
 	current := currentDraftItems(draft)
@@ -870,8 +1111,12 @@ func resolveProjection(taxonomy Taxonomy, draft Draft, item DraftItem, command D
 	return normalized, resolution, nil
 }
 
-func validStoredPass(record *PassProposalRecord, expectedDigest, classificationRunID string, reference QuestionRef, role PassRole) bool {
-	return record != nil && reference.Base != nil && record.PassRole == role && record.ClassificationRunID == classificationRunID && reflect.DeepEqual(record.Identity, *reference.Base) && record.PassResultDigest == expectedDigest && record.PassResultDigest == ComputePassResultDigest(*record)
+func validStoredPass(record *PassProposalRecord, expectedDigest string, reference QuestionRef, role PassRole) bool {
+	return validStoredPassShape(record, expectedDigest, reference, role) && record.PassResultDigest == ComputePassResultDigest(*record)
+}
+
+func validStoredPassShape(record *PassProposalRecord, expectedDigest string, reference QuestionRef, role PassRole) bool {
+	return record != nil && reference.Base != nil && record.PassRole == role && reflect.DeepEqual(record.Identity, *reference.Base) && record.PassResultDigest == expectedDigest
 }
 
 func sealedPassForDraft(draft Draft, item DraftItem, role PassRole) (PassProposalRecord, bool) {
@@ -893,10 +1138,74 @@ func sealedPassForDraft(draft Draft, item DraftItem, role PassRole) (PassProposa
 	} else {
 		return PassProposalRecord{}, false
 	}
-	if !validStoredPass(&sealed, sealed.PassResultDigest, draft.ClassificationRunID, item.QuestionRef, role) || !validStoredPass(copied, expectedDigest, draft.ClassificationRunID, item.QuestionRef, role) || expectedDigest != sealed.PassResultDigest || !reflect.DeepEqual(*copied, sealed) {
+	valid := validStoredPass
+	if draft.sealedPassGraphValidated {
+		valid = validStoredPassShape
+	}
+	if !valid(&sealed, sealed.PassResultDigest, item.QuestionRef, role) || !valid(copied, expectedDigest, item.QuestionRef, role) || expectedDigest != sealed.PassResultDigest || !reflect.DeepEqual(*copied, sealed) {
 		return PassProposalRecord{}, false
 	}
-	return cloneJSON(sealed), true
+	return clonePassProposalRecord(sealed), true
+}
+
+func sealedPassFailureCategory(draft Draft, item DraftItem, role PassRole) string {
+	if item.QuestionRef.Base == nil {
+		return "reference-missing"
+	}
+	key := item.QuestionRef.Base.Key()
+	var sealed PassProposalRecord
+	var copied *PassProposalRecord
+	var expectedDigest string
+	if role == PassCandidate {
+		var found bool
+		sealed, found = draft.sealedCandidateRecords[key]
+		if !found {
+			return "sealed-record-missing"
+		}
+		copied = item.candidatePassRecord
+		expectedDigest = item.candidatePassResultDigest
+	} else if role == PassChallenge {
+		var found bool
+		sealed, found = draft.sealedChallengeRecords[key]
+		if !found {
+			return "sealed-record-missing"
+		}
+		copied = item.challengePassRecord
+		expectedDigest = item.challengePassResultDigest
+	} else {
+		return "role-invalid"
+	}
+	if copied == nil {
+		return "copied-pass-missing"
+	}
+	if sealed.PassRole != role {
+		return "sealed-role-mismatch"
+	}
+	if !reflect.DeepEqual(sealed.Identity, *item.QuestionRef.Base) {
+		return "sealed-identity-mismatch"
+	}
+	if sealed.PassResultDigest != ComputePassResultDigest(sealed) {
+		return "sealed-digest-mismatch"
+	}
+	if copied.PassRole != role {
+		return "copied-role-mismatch"
+	}
+	if copied.ClassificationRunID != sealed.ClassificationRunID {
+		return "copied-run-mismatch"
+	}
+	if !reflect.DeepEqual(copied.Identity, *item.QuestionRef.Base) {
+		return "copied-identity-mismatch"
+	}
+	if copied.PassResultDigest != ComputePassResultDigest(*copied) {
+		return "copied-digest-mismatch"
+	}
+	if expectedDigest != sealed.PassResultDigest {
+		return "pass-digest-mismatch"
+	}
+	if !reflect.DeepEqual(*copied, sealed) {
+		return "copied-pass-diff"
+	}
+	return ""
 }
 
 func removeString(values []string, target string) []string {
@@ -910,6 +1219,10 @@ func removeString(values []string, target string) []string {
 }
 
 func validateDraftQuestionGraph(draft Draft) error {
+	return validateDraftQuestionGraphWithTaxonomy(draft, FrozenTaxonomy())
+}
+
+func validateDraftQuestionGraphWithTaxonomy(draft Draft, taxonomy Taxonomy) error {
 	refs := make([]WorkspaceQuestionRef, 0)
 	currentBySequence := make(map[int]struct{})
 	questionKeys := make(map[string]struct{})
@@ -925,10 +1238,10 @@ func validateDraftQuestionGraph(draft Draft) error {
 			return ErrWorkspaceIdentityAlias
 		}
 		questionKeys[item.QuestionRef.Key()] = struct{}{}
-		if err := ValidateProjection(FrozenTaxonomy(), item.CurrentProjection); err != nil {
+		if err := ValidateProjection(taxonomy, item.CurrentProjection); err != nil {
 			return err
 		}
-		if err := validateDraftItemState(draft, item); err != nil {
+		if err := validateDraftItemStateWithTaxonomy(draft, item, taxonomy); err != nil {
 			return err
 		}
 		if item.Current {
@@ -960,13 +1273,13 @@ func validateDraftQuestionGraph(draft Draft) error {
 			_, candidateValid := sealedPassForDraft(draft, item, PassCandidate)
 			_, challengeValid := sealedPassForDraft(draft, item, PassChallenge)
 			if item.Origin != DraftItemOriginSealedBase || item.SealedAgreementConfidence == nil || !candidateValid || !challengeValid {
-				return ErrPassBijection
+				return passBijectionError("draft base pass graph candidate=" + sealedPassFailureCategory(draft, item, PassCandidate) + " challenge=" + sealedPassFailureCategory(draft, item, PassChallenge))
 			}
 			baseItems[item.QuestionRef.Base.Key()] = item
 		}
 	}
 	if len(baseItems) != draft.BaseQuestionCount {
-		return ErrPassBijection
+		return passBijectionError("draft base item count")
 	}
 	if err := ValidateWorkspaceQuestionRefs(refs, draft.GenerationID); err != nil {
 		return err
@@ -1002,6 +1315,10 @@ func validateDraftQuestionGraph(draft Draft) error {
 }
 
 func validateDraftItemState(draft Draft, item DraftItem) error {
+	return validateDraftItemStateWithTaxonomy(draft, item, FrozenTaxonomy())
+}
+
+func validateDraftItemStateWithTaxonomy(draft Draft, item DraftItem, taxonomy Taxonomy) error {
 	if !contains([]string{RecommendationAutoProposed, RecommendationManagerReview, RecommendationBlockedSourceGap}, item.RecommendationState) {
 		return ErrInvalidResolution
 	}
@@ -1043,12 +1360,12 @@ func validateDraftItemState(draft Draft, item DraftItem) error {
 			candidate, candidateOK := sealedPassForDraft(draft, item, PassCandidate)
 			challenge, challengeOK := sealedPassForDraft(draft, item, PassChallenge)
 			if !candidateOK || !challengeOK {
-				return ErrPassBijection
+				return passBijectionError("draft unresolved base pass graph candidate=" + sealedPassFailureCategory(draft, item, PassCandidate) + " challenge=" + sealedPassFailureCategory(draft, item, PassChallenge))
 			}
-			if item.SealedAgreementConfidence == nil || item.DraftAgreementConfidence == nil || *item.DraftAgreementConfidence != *item.SealedAgreementConfidence || !ProjectionFieldSetsEqual(item.CurrentProjection, candidate.ProposalProjection) || item.QuestionRef.RootSequence != item.sealedBaseRootSequence {
+			if item.SealedAgreementConfidence == nil || item.DraftAgreementConfidence == nil || *item.DraftAgreementConfidence != *item.SealedAgreementConfidence || !projectionFieldSetsEqual(taxonomy, item.CurrentProjection, candidate.ProposalProjection) || item.QuestionRef.RootSequence != item.sealedBaseRootSequence {
 				return ErrInvalidResolution
 			}
-			outcome := DeriveOutcome(FrozenTaxonomy(), candidate.ProposalProjection, challenge.ProposalProjection, candidate.ConfidenceEvidence, challenge.ConfidenceEvidence, item.QuestionSourceProposalGap, item.ExternalApplicabilityUnresolved)
+			outcome := DeriveOutcome(taxonomy, candidate.ProposalProjection, challenge.ProposalProjection, candidate.ConfidenceEvidence, challenge.ConfidenceEvidence, item.QuestionSourceProposalGap, item.ExternalApplicabilityUnresolved)
 			if *item.SealedAgreementConfidence != outcome.AgreementConfidence || item.RecommendationState != outcome.RecommendationState || item.RecommendationState != item.sealedRecommendationState {
 				return ErrInvalidResolution
 			}
@@ -1059,16 +1376,16 @@ func validateDraftItemState(draft Draft, item DraftItem) error {
 	switch resolution.Mode {
 	case ResolutionCandidate:
 		record, ok := sealedPassForDraft(draft, item, PassCandidate)
-		if resolution.ProposalProjection != nil || !ok || !ProjectionFieldSetsEqual(item.CurrentProjection, record.ProposalProjection) {
+		if resolution.ProposalProjection != nil || !ok || !projectionFieldSetsEqual(taxonomy, item.CurrentProjection, record.ProposalProjection) {
 			return ErrInvalidResolution
 		}
 	case ResolutionChallenge:
 		record, ok := sealedPassForDraft(draft, item, PassChallenge)
-		if resolution.ProposalProjection != nil || !ok || !ProjectionFieldSetsEqual(item.CurrentProjection, record.ProposalProjection) {
+		if resolution.ProposalProjection != nil || !ok || !projectionFieldSetsEqual(taxonomy, item.CurrentProjection, record.ProposalProjection) {
 			return ErrInvalidResolution
 		}
 	case ResolutionSetExact:
-		if resolution.ProposalProjection == nil || !ProjectionFieldSetsEqual(item.CurrentProjection, *resolution.ProposalProjection) {
+		if resolution.ProposalProjection == nil || !projectionFieldSetsEqual(taxonomy, item.CurrentProjection, *resolution.ProposalProjection) {
 			return ErrInvalidResolution
 		}
 	default:
@@ -1081,8 +1398,12 @@ func validateDraftItemState(draft Draft, item DraftItem) error {
 }
 
 func ProjectionFieldSetsEqual(left, right ProposalProjection) bool {
-	for _, field := range FrozenTaxonomy().ProposalFields {
-		if !ProjectionFieldEqual(left, right, field) {
+	return projectionFieldSetsEqual(FrozenTaxonomy(), left, right)
+}
+
+func projectionFieldSetsEqual(taxonomy Taxonomy, left, right ProposalProjection) bool {
+	for _, field := range taxonomy.ProposalFields {
+		if !projectionFieldEqual(taxonomy, left, right, field) {
 			return false
 		}
 	}

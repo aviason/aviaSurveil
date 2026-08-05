@@ -83,6 +83,9 @@ function applyOperationContract(document) {
     for (const [method, operation] of Object.entries(pathItem)) {
       if (route.startsWith("/health/")) continue;
 
+      const operationKind = operation["x-operation-kind"];
+      const neutralDenial = operation["x-neutral-denial"] === true;
+
       operation.security ??= [{ oidc: [] }];
       operation["x-authorized-roles"] ??= authorizedRoles(route);
       operation["x-organization-scope"] ??=
@@ -95,8 +98,26 @@ function applyOperationContract(document) {
       }
 
       if (!mutationMethods.has(method)) {
-        operation.responses["401"] ??= { $ref: "#/components/responses/Problem" };
-        operation.responses["403"] ??= { $ref: "#/components/responses/Problem" };
+        if (neutralDenial) {
+          delete operation.responses["401"];
+          delete operation.responses["403"];
+          operation.responses["404"] ??= { $ref: "#/components/responses/Problem" };
+        } else {
+          operation.responses["401"] ??= { $ref: "#/components/responses/Problem" };
+          operation.responses["403"] ??= { $ref: "#/components/responses/Problem" };
+        }
+        continue;
+      }
+
+      // Query-shaped POSTs still carry CSRF, but they are not commands: no
+      // idempotency or If-Match header is advertised for them.
+      if (operationKind === "query") {
+        addParameter(operation, "#/components/parameters/CsrfToken");
+        if (neutralDenial) {
+          delete operation.responses["401"];
+          delete operation.responses["403"];
+          operation.responses["404"] ??= { $ref: "#/components/responses/Problem" };
+        }
         continue;
       }
 
@@ -104,7 +125,13 @@ function applyOperationContract(document) {
       addParameter(operation, "#/components/parameters/CsrfToken");
       addParameter(operation, "#/components/parameters/ExpectedRevision");
       for (const status of problemStatuses) {
+        if (neutralDenial && (status === "401" || status === "403")) continue;
         operation.responses[status] ??= { $ref: "#/components/responses/Problem" };
+      }
+      if (neutralDenial) {
+        delete operation.responses["401"];
+        delete operation.responses["403"];
+        operation.responses["404"] ??= { $ref: "#/components/responses/Problem" };
       }
     }
   }

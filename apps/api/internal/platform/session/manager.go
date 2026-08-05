@@ -30,6 +30,10 @@ const (
 	authorityObservationHeartbeat = 30 * time.Second
 	authorityObservationMaxAge    = 60 * time.Second
 	authorityDenialDeadline       = 120 * time.Second
+	// Provider observations are written immediately before the session row is
+	// read again during login. Allow a small bounded clock skew between those
+	// operations without weakening the stale-observation or denial deadlines.
+	authorityObservationClockSkew = 5 * time.Second
 )
 
 var (
@@ -589,7 +593,9 @@ func (manager *Manager) Authenticate(ctx context.Context, rawToken string) (iden
 			return nil
 		}
 		if !record.AuthorityObservedAt.Valid ||
-			now.Before(record.AuthorityObservedAt.Time) {
+			now.Add(authorityObservationClockSkew).Before(
+				record.AuthorityObservedAt.Time,
+			) {
 			if err := manager.denySessionAuthority(
 				ctx,
 				transaction,

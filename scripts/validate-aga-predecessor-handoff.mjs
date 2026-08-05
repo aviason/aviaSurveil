@@ -28,7 +28,8 @@ export function validateAGAPredecessorHandoff({
     handoff.runId !== receipt?.runId ||
     !handoff.databaseTarget ||
     !configuration?.target ||
-    configuration.target.overlaySchema !== "preprod_aga_demo" ||
+    (configuration.overlaySchema ?? configuration.target.overlaySchema) !==
+      "preprod_aga_demo" ||
     targetKeys.some(
       (key) => handoff.databaseTarget[key] !== configuration.target[key],
     )

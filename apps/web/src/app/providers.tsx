@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { createContext, type PropsWithChildren, useContext, useState } from "react";
+import { createContext, type ComponentType, type PropsWithChildren, type ReactElement, useContext, useState } from "react";
 
 import type { Backend, Role } from "../backend/backend";
 import type { IdentityMode, SessionClient } from "../auth/session-client";
@@ -20,6 +20,10 @@ export interface ApplicationRuntime {
   beforeSubjectChange?: (reason: "LOGOUT" | "USER_SWITCH") => Promise<void>;
   fieldRepositoryForSubject?: (subjectId: string) => IndexedDbFieldRepository;
   inspectionAttachmentStoreForSubject?: (subjectId: string) => InspectionAttachmentStore;
+  /** HTTP-only route extension; the memory-mock entry never imports it. */
+  supplementalRouteElements?: readonly ReactElement[];
+  /** HTTP-only capability-gated navigation extension. */
+  supplementalNavigation?: ComponentType<{ activeRole: Role; onNavigate?: () => void }>;
 }
 
 const ApplicationRuntimeContext = createContext<ApplicationRuntime | null>(null);
@@ -60,6 +64,10 @@ export function useApplicationRuntime(): ApplicationRuntime {
   const runtime = useContext(ApplicationRuntimeContext);
   if (!runtime) throw new Error("Application runtime is unavailable");
   return runtime;
+}
+
+export function useOptionalApplicationRuntime(): ApplicationRuntime | null {
+  return useContext(ApplicationRuntimeContext);
 }
 
 export function useBackendForRole(role: Role): Backend {

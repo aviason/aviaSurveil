@@ -62,6 +62,23 @@ complete text-free `passProposalRecord` for every full identity, for 2,620
 records total. Neither pass can see the other pass, and neither repository code
 nor the runtime application calls an LLM.
 
+For supplied sealed-pass ZIPs, the prompt and model descriptor digests carried
+by each immutable receipt remain source provenance. The validator checks their
+lexical SHA-256 form, prompt equality across roles, and the complete
+receipt/batch/record/pass-seal graph without rebinding either digest to the
+former repository prompt hash or to a locally recomputed descriptor digest.
+Truthful unavailable platform metadata remains candidate-only provenance and
+is never filled or promoted into an exact model identity.
+
+Model provenance is availability-aware. Every platform-unavailable scalar is
+stored as literal `null` with its exact field name in sorted
+`unavailableFields`; every available scalar is non-null and absent from that
+array. A displayed model label is retained separately for user-visible
+provenance but never establishes an exact `modelId`. Truthful unavailable
+platform metadata is accepted for this local synthetic `candidate-only` demo
+and does not block deterministic Task 2 validation. It is not a production
+model-provenance, release, or production-readiness claim.
+
 `fixedInputs.discoveryBatchManifestDigest` identifies only the retained
 vocabulary-discovery receipt. `fixedInputs.classificationBatchManifestDigest`
 identifies the 25-batch manifest and is the only manifest digest permitted in
@@ -254,10 +271,13 @@ scalars, no Unicode normalization, rejection of lone surrogates, and no
 insignificant whitespace. Both validator-signal `identityDigest` and aggregate
 exception `orderedIdentityDigests` use
 `AGA-CLASSIFICATION-BASE-IDENTITY-V1` over the complete six-field identity.
-Model descriptors are keyed and sorted by their independently recomputed
-`AGA-MODEL-DESCRIPTOR-V1` digests; the descriptor and digest arrays must be
-exactly set-equal. A null snapshot label requires `snapshotBuildLabel` in
-`unavailableFields`, while a supplied label forbids that unavailable marker.
+Model descriptors are keyed and sorted by their normalized descriptor shape;
+the supplied sealed-pass receipt digest set is retained as source provenance
+and must be unique and role-complete, but it is not rebound to a former local
+descriptor-digest pin. Every null model-metadata scalar requires its exact
+field in `unavailableFields`, while every supplied scalar forbids that
+unavailable marker. `displayedModelLabel` cannot substitute for `modelId`; an
+exact model ID is accepted only when separately platform-reported.
 The taxonomy self-digest uses
 `AGA-QUESTION-CLASSIFICATION-TAXONOMY-V1` over the complete taxonomy object
 excluding only `taxonomyDigest`. Pass proposal records and their enclosing
@@ -266,7 +286,11 @@ pass-batch output bind `inputDigest` to that batch's
 states bind `inputDigest` to the one shared
 `AGA-CLASSIFICATION-RUN-INPUT-V1` digest reconstructed from
 `runInputPayloadFields`; pass seals retain exactly 25 ordered pass-input
-digests. Pass proposal, semantic item, aggregate, and run domains are
+digests. For a supplied ZIP, those immutable receipt input digests are the
+source evidence retained after private-input schema, identity, fact, and
+receipt-graph validation; the validator does not silently replace them with a
+different locally derived digest. Pass proposal, semantic item, aggregate, and
+run domains are
 respectively `AGA-CLASSIFICATION-PASS-PROPOSAL-V1`,
 `AGA-CLASSIFICATION-ITEM-V1`, `AGA-CLASSIFICATION-AGGREGATE-V1`, and
 `AGA-CLASSIFICATION-RUN-V1`.

@@ -8,8 +8,10 @@ import (
 	"time"
 
 	aga "github.com/MarlonJD/aviaSurveil360/apps/api/internal/agacandidatedemo"
+	workspace "github.com/MarlonJD/aviaSurveil360/apps/api/internal/agademoworkspace"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/config"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
+	preprod "github.com/MarlonJD/aviaSurveil360/apps/api/internal/preproddata/agademoworkspace"
 )
 
 // The tagged artifact is deliberately opt-in. Reader-pool injection is wired
@@ -25,6 +27,9 @@ func activeRuntimeProfile(settings config.Settings) (runtimeProfile, error) {
 	if settings.AGADemoDatabaseURL == "" {
 		return runtimeProfile{}, fmt.Errorf("preprod AGA demo API requires a separate reader database URL")
 	}
+	if settings.AGADemoWorkspaceReaderURL == "" || settings.AGADemoWorkspaceCommandURL == "" {
+		return runtimeProfile{}, fmt.Errorf("preprod AGA demo API requires separate workspace reader and command database URLs")
+	}
 	return runtimeProfile{skipMigrations: true, agaDemoOnly: true, clock: time.Now, agaDemoService: func(ctx context.Context, settings config.Settings) (*aga.Service, func(), error) {
 		pool, err := database.Open(ctx, settings.AGADemoDatabaseURL)
 		if err != nil {
@@ -36,5 +41,40 @@ func activeRuntimeProfile(settings config.Settings) (runtimeProfile, error) {
 			return nil, nil, err
 		}
 		return aga.NewService(reader), pool.Close, nil
+	}, agaWorkspaceService: func(ctx context.Context, settings config.Settings) (*workspace.Service, func(), error) {
+		readerPool, err := database.Open(ctx, settings.AGADemoWorkspaceReaderURL)
+		if err != nil {
+			return nil, nil, err
+		}
+		readerStore, err := preprod.NewPostgresReader(readerPool)
+		if err != nil {
+			readerPool.Close()
+			return nil, nil, err
+		}
+		commandPool, err := database.Open(ctx, settings.AGADemoWorkspaceCommandURL)
+		if err != nil {
+			readerPool.Close()
+			return nil, nil, err
+		}
+		commandStore, err := preprod.NewPostgresCommandStore(commandPool)
+		if err != nil {
+			readerPool.Close()
+			commandPool.Close()
+			return nil, nil, err
+		}
+		resolver, err := workspace.NewPostgresBindingResolver(readerPool)
+		if err != nil {
+			readerPool.Close()
+			commandPool.Close()
+			return nil, nil, err
+		}
+		service := workspace.NewService(workspace.ServiceConfig{
+			ReaderStore:          readerStore,
+			CommandStore:         commandStore,
+			Resolver:             resolver,
+			RecommendationScopes: workspace.NewPostgresRecommendationScopeResolver(readerPool),
+			LifecycleBindings:    workspace.NewFixtureLifecycleBindingResolver(),
+		})
+		return service, func() { readerPool.Close(); commandPool.Close() }, nil
 	}}, nil
 }

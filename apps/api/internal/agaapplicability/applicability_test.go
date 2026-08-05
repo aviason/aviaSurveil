@@ -13,6 +13,43 @@ import (
 	"testing"
 )
 
+func TestFrozenAuthorityPins(t *testing.T) {
+	if FrozenPromptDigest != "sha256:2ff6f7fc5c5e337c592bc67540f3f925c852de2d74529ece9ddc46ca39d1cb84" {
+		t.Fatalf("prompt authority pin = %s", FrozenPromptDigest)
+	}
+	if FrozenTaxonomy().Digest != "sha256:40517b48d0820db221501f89ff7fe58b120c6674e905cd722231d0b35ba18222" {
+		t.Fatalf("taxonomy authority pin = %s", FrozenTaxonomy().Digest)
+	}
+	if FrozenOrderedIdentityDigest != "sha256:4d11d492e87619ca8e39db0dce74d85b93f7d652589067395481b5e1067aedcc" {
+		t.Fatalf("classification ordered identity authority pin = %s", FrozenOrderedIdentityDigest)
+	}
+}
+
+func TestFrozenTaxonomyReconstructsAuthoritySelfDigest(t *testing.T) {
+	const authorityDigest = "sha256:40517b48d0820db221501f89ff7fe58b120c6674e905cd722231d0b35ba18222"
+	if got := ComputeFrozenTaxonomySelfDigest(); got != authorityDigest {
+		t.Fatalf("reconstructed taxonomy digest = %s, want frozen authority digest", got)
+	}
+	if err := validateFrozenTaxonomyAuthority(); err != nil {
+		t.Fatalf("frozen taxonomy authority validation = %v", err)
+	}
+	if err := validateTaxonomyDigest(digestHex("wrong-taxonomy-authority")); !errors.Is(err, ErrDigestMismatch) {
+		t.Fatalf("mismatched taxonomy authority validation = %v", err)
+	}
+}
+
+func TestModelDescriptorAcceptsTruthfulPlatformUnavailableMetadata(t *testing.T) {
+	descriptor := ModelDescriptor{
+		ModelIDSource: "platform-unavailable", DisplayedModelLabel: testStringPointer("GPT-5.6 Pro"),
+		Service: testStringPointer("ChatGPT"), Interface: testStringPointer("native app on a desktop computer"),
+		SnapshotBuildLabel: nil,
+		UnavailableFields:  []string{"forkTurns", "modelId", "requestedReasoningEffort", "snapshotBuildLabel"},
+	}
+	if err := validateModelDescriptor(descriptor); err != nil {
+		t.Fatalf("truthful platform-unavailable descriptor = %v", err)
+	}
+}
+
 func TestClassifySealedBaseContract(t *testing.T) {
 	_, result := exactClassificationFixture(t)
 	if len(result.Items) != FrozenBaseQuestionCount {
@@ -140,6 +177,71 @@ func TestClassificationDerivesEvidenceFactsFromPrivateInput(t *testing.T) {
 	}
 }
 
+func TestDerivedResearchFactUsesFrozenDomain(t *testing.T) {
+	item := ClassificationPassInputItem{
+		QuestionBody: "bounded synthetic input",
+		ResearchCandidateFacts: ClassificationResearchCandidateFacts{
+			FormCode: "FSS-AGA-FORM-002", ProposalID: "synthetic-proposal", Ordinal: "1",
+		},
+	}
+	facts := deriveEvidenceFacts(item)
+	if got, want := facts["RESEARCH_ROW_DIGEST"][0].Digest, digestValue("AGA-RESEARCH-ROW-FACT-V1", item.ResearchCandidateFacts); got != want {
+		t.Fatalf("research fact digest = %s, want frozen-domain digest %s", got, want)
+	}
+}
+
+func TestTaxonomyDiagnosticsNeverEchoUntrustedValues(t *testing.T) {
+	const bodyLike = "body-shaped-unknown-value"
+	taxonomy := FrozenTaxonomy()
+	cases := []struct {
+		name      string
+		untrusted []string
+		check     func() error
+		want      error
+	}{
+		{
+			name:      "unknown code",
+			untrusted: []string{bodyLike},
+			check: func() error {
+				return validateCode(taxonomy.MainDomainCodes, bodyLike, "mainDomainCode")
+			},
+			want: ErrUnknownCode,
+		},
+		{
+			name:      "unknown qualifier key and value",
+			untrusted: []string{bodyLike + "-key", bodyLike + "-value"},
+			check: func() error {
+				returnErr := []Qualifier{{Key: bodyLike + "-key", Value: bodyLike + "-value"}}
+				_, err := normalizeQualifiers(returnErr, taxonomy.OperationQualifierValues, "operationQualifiers")
+				return err
+			},
+			want: ErrUnknownCode,
+		},
+		{
+			name:      "unknown evidence field",
+			untrusted: []string{bodyLike + "-field"},
+			check: func() error {
+				_, err := normalizeEvidence(taxonomy, []ConfidenceEvidence{{ProposalField: bodyLike + "-field", ProposalValueDigest: digestHex("proposal"), RationaleCode: "SOURCE_EVIDENCE_PRESENT", InputFactSelector: "QUESTION_BODY_DIGEST", InputFactValueDigest: digestHex("fact")}})
+				return err
+			},
+			want: ErrEvidenceBinding,
+		},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			err := testCase.check()
+			if !errors.Is(err, testCase.want) {
+				t.Fatalf("taxonomy diagnostic sentinel mismatch = %v", err)
+			}
+			for _, value := range testCase.untrusted {
+				if strings.Contains(err.Error(), value) {
+					t.Fatal("taxonomy diagnostic echoed caller-controlled input")
+				}
+			}
+		})
+	}
+}
+
 func TestClassificationResultJSONRoundTripIsTextFreeAndDraftable(t *testing.T) {
 	_, result := exactClassificationFixture(t)
 	encoded, err := json.Marshal(result)
@@ -155,6 +257,53 @@ func TestClassificationResultJSONRoundTripIsTextFreeAndDraftable(t *testing.T) {
 	}
 	if _, err := NewDraftFromClassification(roundTrip, "aga-ws-generation-roundtrip"); err != nil {
 		t.Fatalf("text-free classification round trip is not draftable = %v", err)
+	}
+}
+
+func TestClassificationResultHandoffRejectsUnknownAndBodyFields(t *testing.T) {
+	encoded, err := json.Marshal(ClassificationResult{})
+	if err != nil {
+		t.Fatalf("marshal empty classification result = %v", err)
+	}
+	cases := []struct {
+		name string
+		edit func(map[string]json.RawMessage)
+	}{
+		{
+			name: "top-level body-bearing field",
+			edit: func(object map[string]json.RawMessage) {
+				object["questionBody"] = json.RawMessage(`"_redacted_test_value_"`)
+			},
+		},
+		{
+			name: "pass-record body-bearing field",
+			edit: func(object map[string]json.RawMessage) {
+				object["candidateRecords"] = json.RawMessage(`[{"questionBody":"_redacted_test_value_"}]`)
+			},
+		},
+		{
+			name: "pass-record unknown field",
+			edit: func(object map[string]json.RawMessage) {
+				object["candidateRecords"] = json.RawMessage(`[{"untrustedUnknown":true}]`)
+			},
+		},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			var object map[string]json.RawMessage
+			if err := json.Unmarshal(encoded, &object); err != nil {
+				t.Fatalf("decode handoff envelope = %v", err)
+			}
+			testCase.edit(object)
+			payload, err := json.Marshal(object)
+			if err != nil {
+				t.Fatalf("marshal handoff envelope = %v", err)
+			}
+			var decoded ClassificationResult
+			if err := json.Unmarshal(payload, &decoded); !errors.Is(err, ErrQuestionReferenceUnion) {
+				t.Fatalf("unsafe classification handoff error = %v", err)
+			}
+		})
 	}
 }
 
@@ -286,6 +435,14 @@ func TestClassificationFatalErrorsAbortRun(t *testing.T) {
 		Projection: projection,
 	}); !errors.Is(err, ErrDigestMismatch) {
 		t.Fatalf("wrong prompt pin error = %v", err)
+	}
+	if _, err := NewPassProposalRecordForSuppliedProvenance(taxonomy, PassProposalInput{
+		Identity: id, ClassificationRunID: base.ClassificationRunID, PassRole: PassCandidate,
+		PassRunID: "aga-classification-pass-candidate-test", PromptDigest: digestHex("legacy-sealed-prompt"),
+		ModelDescriptorDigest: ComputeModelDescriptorDigest(testModelDescriptor()), InputDigest: digestHex("batch"),
+		Projection: projection,
+	}); err != nil {
+		t.Fatalf("supplied sealed prompt provenance rejected = %v", err)
 	}
 	if _, err := NewPassProposalRecord(taxonomy, PassProposalInput{
 		Identity: id, ClassificationRunID: base.ClassificationRunID, PassRole: PassCandidate,
@@ -707,12 +864,14 @@ func packageIdentity(index int) BaseIdentity {
 
 func testModelDescriptor() ModelDescriptor {
 	return ModelDescriptor{
-		ModelID: "test-model", ModelIDSource: "accepted-collaboration-spawn-agent-model-override",
-		RuntimeReportedFamily: "test-family", Service: "Codex", Interface: "API",
-		RequestedReasoningEffort: "xhigh", ForkTurns: "none", SnapshotBuildLabel: nil,
-		UnavailableFields: []string{"exactModelVersion", "serviceTier", "snapshotBuildLabel"},
+		ModelID: testStringPointer("test-model"), ModelIDSource: "platform-reported-exact",
+		DisplayedModelLabel: testStringPointer("test-family"), Service: testStringPointer("Codex"), Interface: testStringPointer("API"),
+		RequestedReasoningEffort: testStringPointer("xhigh"), ForkTurns: testStringPointer("none"), SnapshotBuildLabel: nil,
+		UnavailableFields: []string{"snapshotBuildLabel"},
 	}
 }
+
+func testStringPointer(value string) *string { return &value }
 
 var (
 	exactFixtureOnce   sync.Once

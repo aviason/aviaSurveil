@@ -62,6 +62,9 @@ describe("SessionClient", () => {
     expect(safeReturnTo("/inspector/inspector-assignments")).toBe(
       "/inspector/inspector-assignments",
     );
+    expect(safeReturnTo("/department-manager/aga-demo-workspace/inspection")).toBe(
+      "/department-manager/aga-demo-workspace/inspection",
+    );
     expect(safeReturnTo("https://evil.example/lead-inspector/lead-review")).toBe("/");
     expect(safeReturnTo("//evil.example/lead-inspector/lead-review")).toBe("/");
     expect(safeReturnTo("/legacy-only-screen")).toBe("/");

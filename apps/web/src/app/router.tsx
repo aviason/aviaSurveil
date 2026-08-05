@@ -95,8 +95,10 @@ function routeElement(contract: RouteContract): ReactElement {
 }
 
 export function AppRouter() {
+  const { supplementalRouteElements } = useApplicationRuntime();
   return <Routes>
     <Route path="/" element={<RoleSelectRoute />} />
+    {supplementalRouteElements ?? null}
     {REACT_ROUTE_CONTRACTS.filter((contract) => contract.id !== "role-select").map((contract) => <Route key={contract.id} path={contract.path} element={routeElement(contract)} />)}
     <Route path="*" element={<Navigate replace to="/" />} />
   </Routes>;

@@ -17,6 +17,23 @@ func applyDraftTestCommand(draft Draft, command DraftCommand, allocator IDAlloca
 	return ApplyDraftCommand(draft, command, allocator)
 }
 
+func TestDraftUnknownActionDiagnosticDoesNotEchoUntrustedAction(t *testing.T) {
+	draft := draftFixture(t, 1)
+	item := currentDraftItems(draft)[0]
+	const untrustedAction = "ATTACKER_CONTROLLED_DRAFT_ACTION"
+	_, err := applyDraftTestCommand(draft, DraftCommand{
+		Action: DraftAction(untrustedAction), TargetQuestionKey: item.QuestionRef.Key(),
+		ExpectedRevision: draft.Revision, ExpectedContentDigest: draft.ContentDigest,
+		ReasonCode: "MANAGER_SCOPE_DECISION",
+	}, NewSequentialIDAllocator("unknown-action"))
+	if !errors.Is(err, ErrUnknownCode) {
+		t.Fatalf("unknown DraftAction error = %v", err)
+	}
+	if strings.Contains(err.Error(), untrustedAction) {
+		t.Fatal("unknown DraftAction diagnostic echoed caller-controlled input")
+	}
+}
+
 func TestDraftCommandsCreateImmutableSuccessors(t *testing.T) {
 	reasonCases := []struct {
 		name   string
@@ -261,7 +278,7 @@ func TestDraftResolvesEveryProposalFamily(t *testing.T) {
 			probe.ProposalResolution = resolutionProbe
 			demoteSemanticEdit(&probe)
 			if tc.mode == ResolutionChallenge {
-				if !validStoredPass(probe.challengePassRecord, probe.challengePassResultDigest, draft.ClassificationRunID, probe.QuestionRef, PassChallenge) {
+				if !validStoredPass(probe.challengePassRecord, probe.challengePassResultDigest, probe.QuestionRef, PassChallenge) {
 					t.Fatal("resolved challenge pass pin invalid")
 				}
 				if !ProjectionFieldSetsEqual(probe.CurrentProjection, probe.challengePassRecord.ProposalProjection) {
@@ -428,6 +445,134 @@ func TestQuestionReferenceUnionIsClosed(t *testing.T) {
 	if strings.Contains(string(draftItemEncoded), "passRecord") || strings.Contains(string(draftItemEncoded), "workspaceBody") || strings.Contains(string(draftItemEncoded), "sealedAgreementConfidence") {
 		t.Fatal("draft item serialized private provenance or wording")
 	}
+}
+
+func TestValidatedRuntimeIncludeMatchesFullCommandSemantics(t *testing.T) {
+	draft := draftFixture(t, 3)
+	original := cloneDraft(draft)
+	target := currentDraftItems(draft)[0]
+	command := DraftCommand{
+		OperationID:           "test-operation",
+		IdempotencyKey:        "test-runtime-include",
+		ExpectedGenerationID:  draft.GenerationID,
+		Action:                DraftInclude,
+		TargetQuestionKey:     target.QuestionRef.Key(),
+		ExpectedRevision:      draft.Revision,
+		ExpectedContentDigest: draft.ContentDigest,
+		ReasonCode:            "MANAGER_SCOPE_DECISION",
+	}
+	fast, err := ApplyDraftCommandFromValidatedRuntime(draft, command, NewSequentialIDAllocator("runtime"))
+	if err != nil {
+		t.Fatalf("validated runtime command error = %v", err)
+	}
+	full, err := ApplyDraftCommand(draft, command, NewSequentialIDAllocator("runtime"))
+	if err != nil {
+		t.Fatalf("full command error = %v", err)
+	}
+	if !draftEqual(fast, full) {
+		t.Fatal("validated runtime successor differs from full command successor")
+	}
+	if !draftEqual(draft, original) {
+		t.Fatal("validated runtime command mutated predecessor")
+	}
+}
+
+func TestValidatedRuntimeIncludesSurviveFullScalePublicRoundTrip(t *testing.T) {
+	_, classification := exactClassificationFixture(t)
+	draft := draftFixture(t, FrozenBaseQuestionCount)
+	initialItems := slices.Clone(draft.Items)
+	allocator := NewSequentialIDAllocator("runtime-full-scale")
+	count := 0
+	for _, item := range initialItems {
+		if !item.Current || item.ReviewState != ReviewPendingManager || item.Disposition != nil {
+			continue
+		}
+		reason := "MANAGER_SCOPE_DECISION"
+		if item.QuestionSourceProposalGap {
+			reason = "SIMULATION_SOURCE_GAP_OVERRIDE"
+		}
+		var err error
+		draft, err = ApplyDraftCommandFromValidatedRuntime(draft, DraftCommand{
+			OperationID: "test-operation", IdempotencyKey: "runtime-full-scale-" + item.QuestionRef.Key(),
+			ExpectedGenerationID: draft.GenerationID, Action: DraftInclude, TargetQuestionKey: item.QuestionRef.Key(),
+			ExpectedRevision: draft.Revision, ExpectedContentDigest: draft.ContentDigest, ReasonCode: reason,
+		}, allocator)
+		if err != nil {
+			t.Fatalf("runtime include %d: %v", count+1, err)
+		}
+		count++
+	}
+	if count == 0 {
+		t.Fatal("runtime include test fixture had no pending manager items")
+	}
+	encoded, err := json.Marshal(draft)
+	if err != nil {
+		t.Fatalf("marshal runtime draft: %v", err)
+	}
+	var persisted Draft
+	if err := json.Unmarshal(encoded, &persisted); err != nil {
+		t.Fatalf("unmarshal runtime draft: %v", err)
+	}
+	if _, err := HydrateDraftForRuntime(persisted, classification); err != nil {
+		t.Fatalf("hydrate full-scale runtime draft: %v", err)
+	}
+}
+
+func TestHydrateDraftForRuntimeRestoresPrivateStateAfterPublicRoundTrip(t *testing.T) {
+	_, classification := exactClassificationFixture(t)
+	original, err := NewDraftFromClassification(classification, "aga-ws-generation-roundtrip")
+	if err != nil {
+		t.Fatalf("NewDraftFromClassification() error = %v", err)
+	}
+	encoded, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("marshal public draft: %v", err)
+	}
+	canonicalJSON := func(input []byte) []byte {
+		var value any
+		if err := json.Unmarshal(input, &value); err != nil {
+			t.Fatalf("canonicalize JSON: %v", err)
+		}
+		output, err := json.Marshal(value)
+		if err != nil {
+			t.Fatalf("marshal canonical JSON: %v", err)
+		}
+		return output
+	}
+	var persisted Draft
+	if err := json.Unmarshal(canonicalJSON(encoded), &persisted); err != nil {
+		t.Fatalf("unmarshal public draft: %v", err)
+	}
+	classificationBytes, err := json.Marshal(classification)
+	if err != nil {
+		t.Fatalf("marshal classification result: %v", err)
+	}
+	var persistedClassification ClassificationResult
+	if err := json.Unmarshal(canonicalJSON(classificationBytes), &persistedClassification); err != nil {
+		t.Fatalf("unmarshal classification result: %v", err)
+	}
+	hydrated, err := HydrateDraftForRuntime(persisted, persistedClassification)
+	if err != nil {
+		t.Fatalf("hydrate public draft: %v", err)
+	}
+	for _, item := range currentDraftItems(hydrated) {
+		if item.ReviewState != ReviewPendingManager {
+			continue
+		}
+		reason := "MANAGER_SCOPE_DECISION"
+		if item.QuestionSourceProposalGap {
+			reason = "SIMULATION_SOURCE_GAP_OVERRIDE"
+		}
+		if _, err := applyDraftTestCommand(hydrated, DraftCommand{
+			Action: DraftInclude, TargetQuestionKey: item.QuestionRef.Key(),
+			ExpectedRevision: hydrated.Revision, ExpectedContentDigest: hydrated.ContentDigest,
+			ReasonCode: reason,
+		}, NewSequentialIDAllocator("hydrate-roundtrip")); err != nil {
+			t.Fatalf("apply command after public round trip: %v", err)
+		}
+		return
+	}
+	t.Fatal("public round-trip draft had no pending manager item")
 }
 
 func TestAddAllocatesFreshWorkspaceRootVersionAndProposal(t *testing.T) {

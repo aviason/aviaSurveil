@@ -14,7 +14,7 @@ const packagePath =
 const researchZipPath =
   "/Users/marlonjd/.codex/attachments/a2fa9639-5e9a-4e5d-a68d-0b38ef797b75/AGA_INDEPENDENT_RESEARCH_DELIVERABLES_2026-08-02.zip";
 const workbookPath =
-  "/tmp/codex-remote-attachments/019fc297-2e52-7403-a817-337ba1432877/1BC79425-401B-4F87-BD0B-7C543BC1E6F0/1-AVIASURVEIL360_System_Design_Matrix.xlsx";
+  "/tmp/codex-remote-attachments/019fcd4b-4cdb-7672-bf84-c703b0a24a58/39DD3E5A-E6A8-483B-AF11-706021BCEE53/1-AVIASURVEIL360_System_Design_Matrix.xlsx";
 const preparerPath = "scripts/prepare-aga-hybrid-classification-batches.mjs";
 const discoveryPromptPath =
   "docs/product-specs/data-and-rules/AGA_HYBRID_VOCABULARY_DISCOVERY_PROMPT.md";
@@ -32,10 +32,10 @@ const createdFileInventoryPath =
   "tests/fixtures/aga-hybrid-created-file-inventory.v1.json";
 
 const frozenGate0BFileDigests = {
-  specification: "f62e8d81573dd090bd7f0385f936bc7286fba03c9d768e6a230e904e107190eb",
-  taxonomy: "7c2096359ff8a296457d6533b4a4ad64323130ad4101626eb06f21af50b1b691",
-  schema: "6f89321ae20e954deffe5268d6eb833477946b7a7959842ad01e5ed75436f2f5",
-  prompt: "a3e1a02c64d403bbca346b6bb33f4dcd509c06fafcc082d197120098322dd1b1",
+  specification: "1122cab81f1b7ab2648ae9fbbfbcd6dfe3378dd628e07c85864c9bd50617bf37",
+  taxonomy: "6ed9d19755b7bdd4891409b6de8bb4ec367ade84073ca80428e4914591aec558",
+  schema: "756f47e40ba762ef45d7fec8c35e23248632d96ad243bbdb655ca3b5581ff462",
+  prompt: "2fb92dcebf366cbfdcaf5bebdb72f4b01a2b9f8adf41512fd257df9faa039f80",
 };
 
 const sealedClassificationItemFields = [
@@ -2339,14 +2339,13 @@ test("TestGate0BClosesClassificationSchemaPromptAndDigestFreeze", () => {
   assert.ok(taxonomyDigestPins.length >= 3);
   assert.ok(taxonomyVersionPins.every((value) => value === taxonomy.taxonomyVersion));
   assert.ok(taxonomyDigestPins.every((value) => value === taxonomy.taxonomyDigest));
-  const expectedPromptDigest = `sha256:${sha256(readFileSync(classificationPromptPath))}`;
   const expectedBatchManifestDigest =
     "sha256:dee3a0101dcfdeaef9dbb8c3f53d7e4a99de9499eaa7d82a039eb6cac077c96b";
   const promptDigestSchemas = [];
   const batchManifestDigestSchemas = [];
   const collectFrozenInputPins = (value) => {
     if (!value || typeof value !== "object") return;
-    if (value.properties?.promptDigest?.const) {
+    if (value.properties?.promptDigest) {
       promptDigestSchemas.push(value.properties.promptDigest);
     }
     if (value.properties?.batchManifestDigest?.const) {
@@ -2356,7 +2355,7 @@ test("TestGate0BClosesClassificationSchemaPromptAndDigestFreeze", () => {
   };
   collectFrozenInputPins(schema.$defs);
   assert.equal(promptDigestSchemas.length, 8);
-  assert.ok(promptDigestSchemas.every((value) => value.const === expectedPromptDigest));
+  assert.ok(promptDigestSchemas.every((value) => value.$ref === "#/$defs/sha256"));
   assert.equal(batchManifestDigestSchemas.length, 5);
   assert.ok(
     batchManifestDigestSchemas.every((value) => value.const === expectedBatchManifestDigest),
@@ -3090,6 +3089,11 @@ test("TestGate0BCanonicalJSONAndIdentityDigestDomainsAreUnambiguous", () => {
     descriptorOrdering: "ASCENDING_UTF8_BY_RECOMPUTED_MODEL_DESCRIPTOR_DIGEST",
     digestArrayOrdering: "ASCENDING_UTF8",
     setEquality: "MODEL_DESCRIPTOR_DIGESTS_EXACTLY_EQUAL_RECOMPUTED_DESCRIPTOR_DIGEST_SET",
+    platformAvailabilityPolicy:
+      "NULL_FIELD_REQUIRES_EXACT_UNAVAILABLE_FIELD_MARKER_AND_NON_NULL_FIELD_FORBIDS_IT",
+    modelIdPolicy: "DISPLAYED_MODEL_LABEL_NEVER_ESTABLISHES_EXACT_MODEL_ID",
+    demoAvailabilityAcceptance:
+      "TRUTHFUL_PLATFORM_UNAVAILABLE_METADATA_IS_VALID_CANDIDATE_ONLY_PROVENANCE",
   });
   assert.deepEqual(taxonomy.digestContract.identityDigestDomains, {
     validatorSignalRuleMatch: "AGA-CLASSIFICATION-BASE-IDENTITY-V1",
@@ -3228,19 +3232,19 @@ test("TestGate0BTargetLifecycleModelAndRejectionBranchesAreClosed", () => {
   ajv.addSchema(schema);
   const validateModelDescriptor = ajv.getSchema(`${schema.$id}#/$defs/modelDescriptor`);
   const modelDescriptor = {
-    modelId: "gpt-5.6-sol",
-    modelIdSource: "accepted-collaboration-spawn-agent-model-override",
-    runtimeReportedFamily: "gpt-5.6-sol",
-    service: "Codex",
-    interface: "API",
-    requestedReasoningEffort: "xhigh",
-    forkTurns: "none",
+    modelId: null,
+    modelIdSource: "platform-unavailable",
+    displayedModelLabel: "GPT-5.6 Pro",
+    service: "ChatGPT",
+    interface: "native app on a desktop computer",
+    requestedReasoningEffort: null,
+    forkTurns: null,
     snapshotBuildLabel: null,
-    unavailableFields: ["exactModelVersion", "serviceTier", "snapshotBuildLabel"],
+    unavailableFields: ["forkTurns", "modelId", "requestedReasoningEffort", "snapshotBuildLabel"],
   };
   assert.equal(validateModelDescriptor(modelDescriptor), true);
   assert.equal(
-    validateModelDescriptor({ ...modelDescriptor, unavailableFields: ["exactModelVersion"] }),
+    validateModelDescriptor({ ...modelDescriptor, unavailableFields: ["modelId"] }),
     false,
   );
   assert.equal(
@@ -3250,6 +3254,15 @@ test("TestGate0BTargetLifecycleModelAndRejectionBranchesAreClosed", () => {
       unavailableFields: ["snapshotBuildLabel"],
     }),
     false,
+  );
+  assert.equal(
+    validateModelDescriptor({
+      ...modelDescriptor,
+      modelId: "gpt-5.6-pro-202608",
+      modelIdSource: "platform-reported-exact",
+      unavailableFields: ["forkTurns", "requestedReasoningEffort", "snapshotBuildLabel"],
+    }),
+    true,
   );
   assert.ok(schema.$defs.classificationInputRejected);
   assert.ok(

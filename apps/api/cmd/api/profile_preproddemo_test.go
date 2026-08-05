@@ -8,7 +8,7 @@ import (
 )
 
 func TestPreprodDemoProfileRejectsNonDevelopment(t *testing.T) {
-	if _, err := activeRuntimeProfile(config.Settings{Environment: "production", AGADemoDatabaseURL: "postgres://reader"}); err == nil {
+	if _, err := activeRuntimeProfile(config.Settings{Environment: "production", AGADemoDatabaseURL: "postgres://reader", AGADemoWorkspaceReaderURL: "postgres://workspace-reader", AGADemoWorkspaceCommandURL: "postgres://workspace-command"}); err == nil {
 		t.Fatal("expected tagged profile to reject production")
 	}
 }
@@ -19,15 +19,23 @@ func TestPreprodDemoProfileRequiresSeparateReaderURL(t *testing.T) {
 	}
 }
 
+func TestPreprodDemoProfileRequiresSeparateWorkspaceURLs(t *testing.T) {
+	if _, err := activeRuntimeProfile(config.Settings{Environment: "development", AGADemoDatabaseURL: "postgres://reader"}); err == nil {
+		t.Fatal("expected missing workspace URL rejection")
+	}
+}
+
 func TestPreprodDemoProfileIsMigrationFreeAndAGAOnly(t *testing.T) {
 	profile, err := activeRuntimeProfile(config.Settings{
-		Environment:        "development",
-		AGADemoDatabaseURL: "postgres://reader",
+		Environment:                "development",
+		AGADemoDatabaseURL:         "postgres://reader",
+		AGADemoWorkspaceReaderURL:  "postgres://workspace-reader",
+		AGADemoWorkspaceCommandURL: "postgres://workspace-command",
 	})
 	if err != nil {
 		t.Fatalf("activeRuntimeProfile() error = %v", err)
 	}
-	if !profile.skipMigrations || !profile.agaDemoOnly || profile.agaDemoService == nil {
+	if !profile.skipMigrations || !profile.agaDemoOnly || profile.agaDemoService == nil || profile.agaWorkspaceService == nil {
 		t.Fatalf("tagged profile is not the isolated AGA runtime: %+v", profile)
 	}
 }

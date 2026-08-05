@@ -25,6 +25,8 @@ type PlanningIntakeFormValues = Omit<PlanningIntakeDraftValues, "requestedBudget
   requestedBudget: string;
 };
 
+type AgaRecommendationState = "hidden" | "checking" | "available" | "unavailable";
+
 const requestedBudgetSchema = z
   .string()
   .trim()
@@ -105,6 +107,26 @@ export function NewAuditWizardPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [agaRecommendationState, setAgaRecommendationState] = useState<AgaRecommendationState>("hidden");
+
+  useEffect(() => {
+    const workspace = backend.agaDemoWorkspace;
+    const controller = new AbortController();
+    if (!workspace) {
+      setAgaRecommendationState("hidden");
+      return () => controller.abort();
+    }
+    setAgaRecommendationState("checking");
+    void workspace.capability({ signal: controller.signal })
+      .then((capability) => {
+        if (controller.signal.aborted) return;
+        setAgaRecommendationState(capability.available && capability.recommendationEnabled ? "available" : "unavailable");
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setAgaRecommendationState("unavailable");
+      });
+    return () => controller.abort();
+  }, [backend]);
 
   useEffect(() => {
     let cancelled = false;
@@ -254,6 +276,12 @@ export function NewAuditWizardPage() {
             {preview ? <article className="planning-intake-preview" aria-label="Planning intake preview"><p className="eyebrow">Durable in-screen preview</p><h3>{values.inspectionCategory} — {values.organizationName}</h3><p>{values.purpose}</p><small>{draft?.id} · revision {draft?.revision}</small></article> : null}
           </div> : null}
         </section>
+        {step === 5 && agaRecommendationState === "available" ? <section aria-label="AGA recommendation" className="planning-intake-governance">
+          <p className="eyebrow">Synthetic AGA workspace</p>
+          <h2>Deterministic checklist recommendation</h2>
+          <p role="status">Recommendation is unavailable until the authorized workspace supplies one current server-derived provider scope and target.</p>
+          <button disabled title="Server-derived provider scope and target facts are required" type="button">Create AGA recommendation</button>
+        </section> : null}
         <section aria-label="Planning intake actions" className="planning-intake-actions">
           {step === 1 ? <button onClick={() => navigate("/department-manager/audit-plan")} type="button">Cancel</button> : <button disabled={busy} onClick={() => void move(-1)} type="button">Back</button>}
           {step === 1 ? <button disabled={busy || !values} onClick={() => void saveOnly()} type="button">Save draft</button> : null}

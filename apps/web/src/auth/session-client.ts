@@ -38,6 +38,13 @@ export class SessionClientError extends Error {
 }
 
 const sessionPaths = new Set(REACT_ROUTE_CONTRACTS.map((contract) => contract.path));
+const supplementalWorkspacePaths = [
+  "/admin/aga-demo-workspace",
+  "/department-manager/aga-demo-workspace",
+  "/inspector/aga-demo-workspace",
+  "/lead-inspector/aga-demo-workspace",
+  "/auditee/aga-demo-workspace",
+] as const;
 const supportedRoles = new Set<Role>([
   "inspector",
   "leadInspector",
@@ -62,7 +69,10 @@ export function safeReturnTo(rawReturnTo: string, origin = window.location.origi
   try {
     const parsed = new URL(rawReturnTo || "/", origin);
     if (parsed.origin !== origin) return "/";
-    if (!sessionPaths.has(parsed.pathname)) return "/";
+    const isRegisteredPath = sessionPaths.has(parsed.pathname) || supplementalWorkspacePaths.some(
+      (path) => parsed.pathname === path || parsed.pathname.startsWith(`${path}/`),
+    );
+    if (!isRegisteredPath) return "/";
     return `${parsed.pathname}${parsed.search}`;
   } catch {
     return "/";

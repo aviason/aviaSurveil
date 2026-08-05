@@ -78,9 +78,12 @@ func (store *ControlStore) ConsumeAuthorization(authorization OperationAuthoriza
 		RunID                   string    `json:"runId"`
 		IntentDigest            string    `json:"intentDigest"`
 		TargetFingerprintDigest string    `json:"targetFingerprintDigest"`
+		InputDigest             string    `json:"inputDigest"`
+		CodeDigest              string    `json:"codeDigest"`
+		ContractDigest          string    `json:"contractDigest"`
 		ExpiresAt               time.Time `json:"expiresAt"`
 		ConsumedAt              time.Time `json:"consumedAt"`
-	}{"preprod-aga-candidate-demo-authorization-consumption/v1", authorization.Hash(), authorization.Operation, authorization.Issuer, authorization.Nonce, authorization.RunID, authorization.IntentDigest, authorization.TargetFingerprintDigest, authorization.ExpiresAt.UTC(), now.UTC()}
+	}{"preprod-aga-candidate-demo-authorization-consumption/v2", authorization.Hash(), authorization.Operation, authorization.Issuer, authorization.Nonce, authorization.RunID, authorization.IntentDigest, authorization.TargetFingerprintDigest, authorization.InputDigest, authorization.CodeDigest, authorization.ContractDigest, authorization.ExpiresAt.UTC(), now.UTC()}
 	encoded, err := json.Marshal(record)
 	if err != nil {
 		return err

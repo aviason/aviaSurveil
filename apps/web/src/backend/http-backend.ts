@@ -16,6 +16,7 @@ import type {
   GovernedSourceMappingAttestationInput,
   GovernedAuditPackageEligibilityInput,
 } from "./backend";
+import type { AGADemoWorkspaceBackend, AGADemoWorkspaceCommand, AGADemoWorkspaceQuery } from "./aga-demo-workspace";
 import { GovernedValidationError } from "./backend-contracts";
 import {
   activeBrowserRequestHeaders,
@@ -1285,6 +1286,43 @@ export function createHttpBackend(
         options,
       ),
     },
+    agaDemoWorkspace: {
+      capability: async (options) => request<Schemas["AGADemoWorkspaceCapability"]>(
+        "/v1/preprod/aga-demo-workspace/capability",
+        { cache: "no-store", suppressTelemetry: true },
+        options,
+      ),
+      classificationQuery: async (input: AGADemoWorkspaceQuery, options) => request<Schemas["AGADemoWorkspaceQueryResponse"]>(
+        "/v1/preprod/aga-demo-workspace/classification/query",
+        { method: "POST", body: input, cache: "no-store", suppressTelemetry: true },
+        options,
+      ),
+      classificationCommand: async (input: AGADemoWorkspaceCommand, options) => request<Schemas["AGADemoWorkspaceCommandResponse"]>(
+        "/v1/preprod/aga-demo-workspace/classification/commands",
+        { method: "POST", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey, expectedRevision: input.expectedDraftRevision ?? null }), cache: "no-store", suppressTelemetry: true },
+        options,
+      ),
+      recommendationCommand: async (input: AGADemoWorkspaceCommand, options) => request<Schemas["AGADemoWorkspaceCommandResponse"]>(
+        "/v1/preprod/aga-demo-workspace/recommendations/commands",
+        { method: "POST", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey, expectedRevision: input.operationId === "CREATE_INSPECTION" ? input.expectedRecommendationRevision ?? null : input.expectedDraftRevision ?? null }), cache: "no-store", suppressTelemetry: true },
+        options,
+      ),
+      lifecycleQuery: async (input: AGADemoWorkspaceQuery, options) => request<Schemas["AGADemoWorkspaceQueryResponse"]>(
+        "/v1/preprod/aga-demo-workspace/lifecycle/query",
+        { method: "POST", body: input, cache: "no-store", suppressTelemetry: true },
+        options,
+      ),
+      lifecycleCommand: async (input: AGADemoWorkspaceCommand, options) => request<Schemas["AGADemoWorkspaceCommandResponse"]>(
+        "/v1/preprod/aga-demo-workspace/lifecycle/commands",
+        { method: "POST", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey, expectedRevision: input.expectedLifecycleRevision ?? null }), cache: "no-store", suppressTelemetry: true },
+        options,
+      ),
+      adminCommand: async (input: AGADemoWorkspaceCommand, options) => request<Schemas["AGADemoWorkspaceCommandResponse"]>(
+        "/v1/preprod/aga-demo-workspace/admin/commands",
+        { method: "POST", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey, expectedRevision: input.expectedGenerationRevision ?? null }), cache: "no-store", suppressTelemetry: true },
+        options,
+      ),
+    } satisfies AGADemoWorkspaceBackend,
     sync: {
       pushOperation: async (input, options) =>
         mapPushResult(

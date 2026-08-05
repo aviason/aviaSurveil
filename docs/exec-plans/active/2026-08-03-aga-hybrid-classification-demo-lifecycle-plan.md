@@ -118,22 +118,45 @@ digests. No runtime LLM or external research API is added.
 
 ## Status
 
-- Plan status: `active`.
+- Plan status: `ready-for-verification`.
 - Design: approved by the user on 2026-08-03.
 - Independent plan review: first pass found 6 Critical, 24 Important, and 4
   Minor plan-quality findings. All were corrected in this artifact; the second
   adversarial pass and fresh docs-only evidence are recorded in Progress.
 - ExecPlan artifact: `verified locally` only for the fresh commands and
-  observations recorded in Progress. The plan is currently untracked, so
-  ordinary `git diff --check` alone is not evidence for this file; an explicit
-  target-file whitespace/fence scan is also required.
-- Implementation: Gate 0A and the reopened 25-batch Gate 0B are independently
-  accepted. Task 1 correction is in progress against the prior 3 Critical/5
-  Important rejection; Tasks 2–10 are `not run`.
-- AI classification run: `not run`.
-- PostgreSQL workspace: `not run`; no database write is authorized by this
-  plan artifact alone.
-- Browser and connected role verification: `not run`.
+  observations recorded in Progress.
+- Implementation: Gate 0A and the original reopened 25-batch Gate 0B are
+  independently accepted. The user-authorized Gate 0B platform-metadata
+  availability amendment and the Task 2 supplied-receipt reconciliation are
+  `verified locally` and the independent review boundary is recorded below.
+  Task 1 remains independently accepted and `verified locally`; Task 2 is
+  accepted and `verified locally`.
+  Truthful platform-unavailable metadata is valid `candidate-only` demo
+  provenance and is not a Task 2 blocker. The replacement candidate and
+  challenge ZIPs independently seal at 25 batches and 1,310 records each;
+  their immutable receipt prompt/model digests are retained as source evidence
+  without rebinding to the repository's former fixed prompt or descriptor
+  digest. Tasks 3–8 are `verified locally`. Task 9's offline inventory,
+  authorization, recovery, and evidence gates are `verified locally`; the
+  disposable predecessor setup and exact nine-account OIDC qualification
+  subgate are also `verified locally`. Task 9 connected F1/F2/F3 evidence is
+  `verified locally` on fresh task-owned disposable targets: the receipt-bound
+  workspace qualification recorded zero forbidden/overlay delta, the two
+  sibling-schema load/seal barriers passed, the exact 17-test browser set
+  passed, credential revocation was receipt-backed, and the four-case connected
+  fault matrix reached zero residue. The successor privacy-safe summary pins
+  happy ledger `sha256:5b2f03652eaef75aa6cb33a2d22789f927bf1e3b2e62b5094c47d21a098c06ec`
+  and fault ledger
+  `sha256:0cec9fc66a074725297ddb95a9f61f6b1c152da061ab951464777f7d4311de3c`.
+  Task 10's exact aggregate contract ladder is `verified locally` against the
+  corrected successor evidence.
+- AI classification run: repository runtime LLM `not run`; supplied candidate
+  and challenge pass receipts reconciled locally.
+- PostgreSQL workspace: `verified locally` on the task-owned disposable
+  PostgreSQL namespace; the result remains candidate-only and is not a real
+  database claim.
+- Browser and connected role verification: `verified locally` for the isolated
+  disposable run; no production or external-system claim is made.
 - Product status: `candidate-only`.
 - Release: `release pending`.
 - Production-ready: not established.
@@ -223,7 +246,7 @@ The delivered local-preprod demo must provide:
 | Research question CSV | ZIP entry `question_level_review.csv`; 296,840 bytes; SHA-256 `e39685d467c9c66220b20e998deab366a138148f4d532db7fac07e58e64e7a7c`; 1,310 identities, not a final taxonomy |
 | Provider classification CSV | ZIP entry `provider_classification_matrix.csv`; 12,808 bytes; SHA-256 `d52a98739db61828c16aa734154be18b11e6ebb358eeeb7f84c3d92a4a5430de`; 20 provider-level candidate classifications |
 | Ambiguity CSV | ZIP entry `ambiguous_unmapped_inventory.csv`; 7,489 bytes; SHA-256 `6e97a193f5e12dbe81f87d44d4b22c36ce446a40be7ef0f9fc939e8fbf1e654d`; 51 explicit unresolved identities |
-| System Design Matrix | `/tmp/codex-remote-attachments/019fc297-2e52-7403-a817-337ba1432877/1BC79425-401B-4F87-BD0B-7C543BC1E6F0/1-AVIASURVEIL360_System_Design_Matrix.xlsx`; 12,228 bytes; SHA-256 `e4d054f741b11ca9d848842a891d6f811f2e644aba29a7ffda970bfe6abb931e`; form/module/screen/workflow reference only |
+| System Design Matrix | `/tmp/codex-remote-attachments/019fcd4b-4cdb-7672-bf84-c703b0a24a58/39DD3E5A-E6A8-483B-AF11-706021BCEE53/1-AVIASURVEIL360_System_Design_Matrix.xlsx`; 12,228 bytes; SHA-256 `e4d054f741b11ca9d848842a891d6f811f2e644aba29a7ffda970bfe6abb931e`; form/module/screen/workflow reference only |
 | Lifecycle behavior authorities | `docs/product-specs/workflows/AUDIT_CHECKLIST_WORKFLOW.md` SHA-256 `7dee737c7c5e47e996857e956514a8d46d1a4444234b021cac77cd6cff6b30a2`; `docs/product-specs/workflows/FINDING_CAP_EVIDENCE_WORKFLOW.md` SHA-256 `896f9fa7d498fdc20c582134a15ed6acdc11b78926e655854c43e49fbb24815c`; `docs/product-specs/data-and-rules/PRODUCTION_CONTRACT_VOCABULARY.md` SHA-256 `3ef3349d738feb9789aaab6e92246f55948053604a8304706fc1bbd0cd786769`; semantic inputs to freeze at Gate 0 |
 
 The accepted package contains exactly 52 forms, 31 question-bearing forms,
@@ -1353,9 +1376,14 @@ blocker preservation. Both RED and GREEN outputs are recorded in Progress.
    command for GREEN.
 3. Pin package, loader ZIP, taxonomy, prompt, provider catalog, research,
    workbook, lifecycle-authority, and batch-manifest digests in each pass/run
-   receipt. `modelDescriptorDigest` hashes the exact tool-reported model ID,
-   snapshot/build label, service/config values that are actually available; it
-   is not a model-weights hash. Missing required metadata stops `blocked`.
+   receipt. Require lexical SHA-256 prompt and model receipt digests and exact
+   prompt equality across the two supplied passes, but retain those immutable
+   ZIP receipt digests as source provenance instead of rebinding them to the
+   repository's former fixed prompt or locally recomputed descriptor digest.
+   `modelDescriptorDigest` is still a source receipt digest, not a model-weights
+   hash. Missing platform metadata remains literal `null` plus its exact
+   `unavailableFields` marker and is accepted only as candidate-only demo
+   provenance; no value is invented.
 4. Launch both passes from the same frozen input snapshot into separately
    isolated read roots under one caller-owned empty 0700 private root, with
    0700 pass directories and 0600 files, before the primary writer materializes either pass
@@ -1375,7 +1403,9 @@ blocker preservation. Both RED and GREEN outputs are recorded in Progress.
    raw transcript/log. Validate and seal each pass only after its independent
    ordered union is exactly 1,310/1,310 with zero missing/extra/duplicate
    identities, exactly one immutable complete proposal record per identity,
-   and exact per-batch input/output digests across all 25 batches.
+   and an internally consistent source receipt graph for all 25 batch input,
+   batch-output, record, and pass-seal digests. The ZIP's immutable input
+   receipt digests are retained as source evidence for the supplied pass.
 6. After both validated normalized seals are durably materialized, and on every
    failure path, remove each whole task-owned isolated read/output root and
    verify zero file/directory/process residue. A tracked text-free cleanup
@@ -1394,16 +1424,19 @@ blocker preservation. Both RED and GREEN outputs are recorded in Progress.
 ```bash
 go -C apps/api test -count=1 ./cmd/aga-question-classification-validator -run 'Test(ValidatePassRequiresExactBijection|ValidatePassRejectsTextAndUnknownCodes|ValidatePassRecomputesConfidenceEvidence|ValidatorDiagnosticsAreIdentityRedacted|ReconcileUsesCandidateChallengePrecedence|ReconcilePersistsBothPassProjections|CandidateReconstructsAggregates)$'
 go -C apps/api test -count=1 ./cmd/aga-question-classification-validator
-go -C apps/api run ./cmd/aga-question-classification-validator validate-pass --package ../../deliverables/aga-all-forms-source-risk-draft-2026-08-01/AGA_ALL_FORMS_SOURCE_RISK_DRAFT.json --taxonomy ../../docs/product-specs/data-and-rules/aga-question-classification-taxonomy.v1.json --batch-manifest ../../deliverables/aga-question-classification-candidate-2026-08-03/batch-manifest.json --run ../../deliverables/aga-question-classification-candidate-2026-08-03/pass-one-run.json --results ../../deliverables/aga-question-classification-candidate-2026-08-03/pass-one-results.json --expected-pass pass-one
-go -C apps/api run ./cmd/aga-question-classification-validator validate-pass --package ../../deliverables/aga-all-forms-source-risk-draft-2026-08-01/AGA_ALL_FORMS_SOURCE_RISK_DRAFT.json --taxonomy ../../docs/product-specs/data-and-rules/aga-question-classification-taxonomy.v1.json --batch-manifest ../../deliverables/aga-question-classification-candidate-2026-08-03/batch-manifest.json --run ../../deliverables/aga-question-classification-candidate-2026-08-03/pass-two-run.json --results ../../deliverables/aga-question-classification-candidate-2026-08-03/pass-two-results.json --expected-pass pass-two
-go -C apps/api run ./cmd/aga-question-classification-validator reconcile --package ../../deliverables/aga-all-forms-source-risk-draft-2026-08-01/AGA_ALL_FORMS_SOURCE_RISK_DRAFT.json --taxonomy ../../docs/product-specs/data-and-rules/aga-question-classification-taxonomy.v1.json --candidate ../../deliverables/aga-question-classification-candidate-2026-08-03
-go -C apps/api run ./cmd/aga-question-classification-validator validate-candidate --package ../../deliverables/aga-all-forms-source-risk-draft-2026-08-01/AGA_ALL_FORMS_SOURCE_RISK_DRAFT.json --taxonomy ../../docs/product-specs/data-and-rules/aga-question-classification-taxonomy.v1.json --candidate ../../deliverables/aga-question-classification-candidate-2026-08-03
+go -C apps/api run ./cmd/aga-question-classification-validator validate-pass --zip <caller-controlled-candidate-pass-zip> --private-root <new-empty-0700-candidate-root-outside-repository> --expected-pass pass-one
+go -C apps/api run ./cmd/aga-question-classification-validator validate-pass --zip <caller-controlled-challenge-pass-zip> --private-root <new-empty-0700-challenge-root-outside-repository> --expected-pass pass-two
+go -C apps/api run ./cmd/aga-question-classification-validator reconcile --package ../../deliverables/aga-all-forms-source-risk-draft-2026-08-01/AGA_ALL_FORMS_SOURCE_RISK_DRAFT.json --taxonomy ../../docs/product-specs/data-and-rules/aga-question-classification-taxonomy.v1.json --research-zip <caller-controlled-research-zip> --batch-manifest ../../deliverables/aga-question-classification-contract-v1/classification-batch-manifest.json --candidate ../../deliverables/aga-question-classification-candidate-2026-08-03 --candidate-pass <caller-controlled-candidate-pass-zip> --challenge-pass <caller-controlled-challenge-pass-zip>
+go -C apps/api run ./cmd/aga-question-classification-validator validate-candidate --package ../../deliverables/aga-all-forms-source-risk-draft-2026-08-01/AGA_ALL_FORMS_SOURCE_RISK_DRAFT.json --taxonomy ../../docs/product-specs/data-and-rules/aga-question-classification-taxonomy.v1.json --research-zip <caller-controlled-research-zip> --batch-manifest ../../deliverables/aga-question-classification-contract-v1/classification-batch-manifest.json --candidate ../../deliverables/aga-question-classification-candidate-2026-08-03
 node --test tests/aga-question-classification-candidate.test.mjs
 ```
 
 **Acceptance:** Each pass independently proves exactly 1,310 unique full
 identities and seals one complete proposal record per identity before
-reconciliation; every final item resolves both immutable records. The candidate has one main domain per base
+reconciliation; every final item resolves both immutable records. Supplied
+receipt prompt/model digests remain immutable source evidence, while identity,
+batch, record, batch-output, pass-seal, isolation, and privacy checks remain
+independently validated. The candidate has one main domain per base
 identity; all codes are in taxonomy v1; all 49 source gaps, 51 external
 unresolved identities with their exact overlap, governance blockers,
 disagreements, and manual-review states remain visible; aggregates reconstruct
@@ -1875,6 +1908,8 @@ Task 9 gate.
 
 - Create `apps/web/src/features/inspections/aga-demo-inspection-page.tsx` and
   `aga-demo-inspection-page.test.tsx`.
+- Create `apps/web/src/features/inspections/aga-demo-lifecycle.css` for the
+  responsive lifecycle surface shared by the supplemental role pages.
 - Create
   `apps/web/src/features/findings/aga-demo-potential-finding-page.tsx` and
   `aga-demo-potential-finding-page.test.tsx`.
@@ -1945,8 +1980,10 @@ The three connected specs have nonzero discovery; actual browser behavior stays
   `tests/fixtures/aga-hybrid-forbidden-object-inventory.v1.json`.
 - Create
   `tests/fixtures/aga-hybrid-connected-authorization.schema.json`.
+- Create the offline-gate evidence record
+  `docs/demo-evidence/AGA_HYBRID_CLASSIFICATION_TASK9_OFFLINE_2026-08-04.md`.
 - Create the privacy-safe tracked evidence summary
-  `docs/demo-evidence/AGA_HYBRID_CLASSIFICATION_DEMO_LIFECYCLE_2026-08-03.md`
+  `docs/demo-evidence/AGA_HYBRID_CLASSIFICATION_DEMO_LIFECYCLE_2026-08-04-v2.md`
   only after private evidence passes the verifier; never copy private raw logs,
   subjects, memberships, IDs, question text, secrets, or browser artifacts
   into it.
@@ -2338,7 +2375,9 @@ targets and roots; it is separate from the happy-path/declined target above.
 First prepare the four cases:
 
 ```bash
+AVIA_AGA_HYBRID_PRIVATE_ROOT=/absolute/private/fault-authorizations-0700 \
 AVIA_AGA_HYBRID_FAULT_PREPARE_MANIFEST=/absolute/private/fault-authorizations-0700/fault-matrix-prepare-manifest.json \
+AVIA_AGA_HYBRID_FAULT_PREPARE_AUTHORIZATION_FILE=/absolute/private/fault-authorizations-0700/fault-matrix-prepare-authorization.json \
 AVIA_AGA_HYBRID_FAULT_AUTHORIZATION_ROOT=/absolute/private/fault-authorizations-0700 \
 AVIA_AGA_HYBRID_AUTHORIZATION_LEDGER_DIR=/absolute/private/fault-ledger-0700 \
 AVIA_AGA_DEMO_PACKAGE_FILE="$PWD/deliverables/AGA_ALL_FORMS_SOURCE_RISK_DRAFT_2026-08-01.zip" \
@@ -2350,6 +2389,7 @@ AVIA_AGA_PROVIDER_CATALOG_FILE="$PWD/docs/regulatory-sources/catalogs/service-pr
 After an outer/per-case interruption, inspect the text-free matrix journal:
 
 ```bash
+AVIA_AGA_HYBRID_PRIVATE_ROOT=/absolute/private/fault-authorizations-0700 \
 AVIA_AGA_HYBRID_FAULT_AUTHORIZATION_ROOT=/absolute/private/fault-authorizations-0700 \
 AVIA_AGA_HYBRID_AUTHORIZATION_LEDGER_DIR=/absolute/private/fault-ledger-0700 \
   bash scripts/test-aga-hybrid-demo-workspace-connected.sh fault-matrix-recover-status
@@ -2359,8 +2399,10 @@ Resume an interrupted matrix prepare with a fresh target-bound recovery
 manifest:
 
 ```bash
+AVIA_AGA_HYBRID_PRIVATE_ROOT=/absolute/private/fault-authorizations-0700 \
 AVIA_AGA_HYBRID_FAULT_PREPARE_MANIFEST=/absolute/private/fault-authorizations-0700/fault-matrix-prepare-manifest.json \
 AVIA_AGA_HYBRID_FAULT_RECOVERY_MANIFEST=/absolute/private/fault-authorizations-0700/fault-matrix-recovery-manifest.json \
+AVIA_AGA_HYBRID_FAULT_RECOVERY_AUTHORIZATION_FILE=/absolute/private/fault-authorizations-0700/fault-matrix-recovery-authorization.json \
 AVIA_AGA_HYBRID_FAULT_AUTHORIZATION_ROOT=/absolute/private/fault-authorizations-0700 \
 AVIA_AGA_HYBRID_AUTHORIZATION_LEDGER_DIR=/absolute/private/fault-ledger-0700 \
 AVIA_AGA_DEMO_PACKAGE_FILE="$PWD/deliverables/AGA_ALL_FORMS_SOURCE_RISK_DRAFT_2026-08-01.zip" \
@@ -2372,7 +2414,9 @@ AVIA_AGA_PROVIDER_CATALOG_FILE="$PWD/docs/regulatory-sources/catalogs/service-pr
 After the operator issues the target-bound run manifest, execute the matrix:
 
 ```bash
+AVIA_AGA_HYBRID_PRIVATE_ROOT=/absolute/private/fault-authorizations-0700 \
 AVIA_AGA_HYBRID_FAULT_RUN_MANIFEST=/absolute/private/fault-authorizations-0700/fault-matrix-run-manifest.json \
+AVIA_AGA_HYBRID_FAULT_RUN_AUTHORIZATION_FILE=/absolute/private/fault-authorizations-0700/fault-matrix-run-authorization.json \
 AVIA_AGA_HYBRID_FAULT_AUTHORIZATION_ROOT=/absolute/private/fault-authorizations-0700 \
 AVIA_AGA_HYBRID_AUTHORIZATION_LEDGER_DIR=/absolute/private/fault-ledger-0700 \
 AVIA_AGA_DEMO_PACKAGE_FILE="$PWD/deliverables/AGA_ALL_FORMS_SOURCE_RISK_DRAFT_2026-08-01.zip" \
@@ -2384,8 +2428,11 @@ AVIA_AGA_PROVIDER_CATALOG_FILE="$PWD/docs/regulatory-sources/catalogs/service-pr
 Resume an interrupted matrix run without repeating a completed case:
 
 ```bash
+AVIA_AGA_HYBRID_PRIVATE_ROOT=/absolute/private/fault-authorizations-0700 \
 AVIA_AGA_HYBRID_FAULT_RUN_MANIFEST=/absolute/private/fault-authorizations-0700/fault-matrix-run-manifest.json \
 AVIA_AGA_HYBRID_FAULT_RECOVERY_MANIFEST=/absolute/private/fault-authorizations-0700/fault-matrix-recovery-manifest.json \
+AVIA_AGA_HYBRID_FAULT_RUN_AUTHORIZATION_FILE=/absolute/private/fault-authorizations-0700/fault-matrix-run-authorization.json \
+AVIA_AGA_HYBRID_FAULT_RECOVERY_AUTHORIZATION_FILE=/absolute/private/fault-authorizations-0700/fault-matrix-recovery-authorization.json \
 AVIA_AGA_HYBRID_FAULT_AUTHORIZATION_ROOT=/absolute/private/fault-authorizations-0700 \
 AVIA_AGA_HYBRID_AUTHORIZATION_LEDGER_DIR=/absolute/private/fault-ledger-0700 \
 AVIA_AGA_DEMO_PACKAGE_FILE="$PWD/deliverables/AGA_ALL_FORMS_SOURCE_RISK_DRAFT_2026-08-01.zip" \
@@ -2399,7 +2446,9 @@ only four target-bound cleanup documents and is consumed by the mutually
 exclusive `fault-matrix-cleanup-prepared` mode:
 
 ```bash
+AVIA_AGA_HYBRID_PRIVATE_ROOT=/absolute/private/fault-authorizations-0700 \
 AVIA_AGA_HYBRID_FAULT_RUN_MANIFEST=/absolute/private/fault-authorizations-0700/fault-matrix-run-manifest.json \
+AVIA_AGA_HYBRID_FAULT_CLEANUP_AUTHORIZATION_FILE=/absolute/private/fault-authorizations-0700/fault-matrix-cleanup-authorization.json \
 AVIA_AGA_HYBRID_FAULT_AUTHORIZATION_ROOT=/absolute/private/fault-authorizations-0700 \
 AVIA_AGA_HYBRID_AUTHORIZATION_LEDGER_DIR=/absolute/private/fault-ledger-0700 \
   bash scripts/test-aga-hybrid-demo-workspace-connected.sh fault-matrix-cleanup-prepared
@@ -2409,7 +2458,9 @@ For an interrupted partial prepare/run, a newly issued recovery manifest whose
 case entries contain only exact cleanup documents uses:
 
 ```bash
+AVIA_AGA_HYBRID_PRIVATE_ROOT=/absolute/private/fault-authorizations-0700 \
 AVIA_AGA_HYBRID_FAULT_RECOVERY_MANIFEST=/absolute/private/fault-authorizations-0700/fault-matrix-recovery-manifest.json \
+AVIA_AGA_HYBRID_FAULT_CLEANUP_AUTHORIZATION_FILE=/absolute/private/fault-authorizations-0700/fault-matrix-cleanup-authorization.json \
 AVIA_AGA_HYBRID_FAULT_AUTHORIZATION_ROOT=/absolute/private/fault-authorizations-0700 \
 AVIA_AGA_HYBRID_AUTHORIZATION_LEDGER_DIR=/absolute/private/fault-ledger-0700 \
   bash scripts/test-aga-hybrid-demo-workspace-connected.sh fault-matrix-cleanup-partial
@@ -2426,7 +2477,7 @@ After F2 and F3 evidence both exist, finalize the privacy-safe tracked summary:
 ```bash
 AVIA_AGA_HYBRID_AUTHORIZATION_LEDGER_DIR=/absolute/private/authorization-ledger-0700 \
 AVIA_AGA_HYBRID_FAULT_AUTHORIZATION_LEDGER_DIR=/absolute/private/fault-ledger-0700 \
-  node scripts/verify-aga-hybrid-demo-workspace-evidence.mjs --finalize-summary docs/demo-evidence/AGA_HYBRID_CLASSIFICATION_DEMO_LIFECYCLE_2026-08-03.md
+  node scripts/verify-aga-hybrid-demo-workspace-evidence.mjs --finalize-summary docs/demo-evidence/AGA_HYBRID_CLASSIFICATION_DEMO_LIFECYCLE_2026-08-04-v2.md
 ```
 
 **Acceptance:** Connected shared behavior and recovery pass with zero forbidden
@@ -2447,7 +2498,7 @@ matrix receipts, zero privacy leakage, and zero task-owned residue.
   taxonomy/code change requires a successor version/run and rerunning every
   downstream seal/evidence gate.
 - Verify, but do not update, Task 9's create-once finalized
-  `docs/demo-evidence/AGA_HYBRID_CLASSIFICATION_DEMO_LIFECYCLE_2026-08-03.md`.
+  `docs/demo-evidence/AGA_HYBRID_CLASSIFICATION_DEMO_LIFECYCLE_2026-08-04-v2.md`.
 - Modify `docs/exec-plans/tech-debt-tracker.md` only if a durable unresolved
   fact remains; do not create an empty tracker entry.
 
@@ -2474,7 +2525,7 @@ bash scripts/check-compose-policy.sh
 npm --prefix apps/web run test:e2e:aga-preprod -- --list aga-hybrid-classification-workspace.http.spec.ts aga-synthetic-lifecycle.http.spec.ts aga-hybrid-privacy.http.spec.ts
 node scripts/build-aga-hybrid-forbidden-inventory.mjs --check tests/fixtures/aga-hybrid-forbidden-object-inventory.v1.json
 node scripts/check-aga-hybrid-created-files.mjs --inventory tests/fixtures/aga-hybrid-created-file-inventory.v1.json --through task10
-AVIA_AGA_HYBRID_AUTHORIZATION_LEDGER_DIR=/absolute/private/authorization-ledger-0700 AVIA_AGA_HYBRID_FAULT_AUTHORIZATION_LEDGER_DIR=/absolute/private/fault-ledger-0700 node scripts/verify-aga-hybrid-demo-workspace-evidence.mjs --check-summary docs/demo-evidence/AGA_HYBRID_CLASSIFICATION_DEMO_LIFECYCLE_2026-08-03.md
+AVIA_AGA_HYBRID_AUTHORIZATION_LEDGER_DIR=/absolute/private/authorization-ledger-0700 AVIA_AGA_HYBRID_FAULT_AUTHORIZATION_LEDGER_DIR=/absolute/private/fault-ledger-0700 node scripts/verify-aga-hybrid-demo-workspace-evidence.mjs --check-summary docs/demo-evidence/AGA_HYBRID_CLASSIFICATION_DEMO_LIFECYCLE_2026-08-04-v2.md
 node tests/harness-docs-smoke.test.js
 rg -n "docs/agent-harness|agent-harness/index|output-contract|verification-matrix|entropy-cleanup" AGENTS.md MANIFEST.md docs
 node -e 'const fs=require("node:fs");const p="docs/exec-plans/active/2026-08-03-aga-hybrid-classification-demo-lifecycle-plan.md";const s=fs.readFileSync(p,"utf8");if(s.split(/\n/u).some((line)=>/[ \t]+$/u.test(line)))throw new Error("trailing whitespace");if(((s.match(/^```/gmu)||[]).length%2)!==0)throw new Error("unbalanced fences");console.log("aga-hybrid-plan-file-scan: ok")'
@@ -2973,10 +3024,392 @@ Stakeholder review remains required before lifecycle status can move to
   The full `GOCACHE=/tmp/avia-aga-go-cache go test -count=1
   ./internal/agaapplicability` rerun exited 0. Task 1 remains locally verified
   only and awaits focused Sol review; Tasks 2–10 remain `not run`.
-- [ ] Tasks 1–10 implementation and verification — in progress; Tasks 2–10 are
+- [x] 2026-08-04: The final Task 1 correction recorded RED for a reachable
+  unknown `DraftAction` diagnostic that echoed caller-controlled input, then
+  GREEN after replacing it with a controlled non-echoing error and adding the
+  focused regression. Fresh independent local evidence after that correction
+  passed the exact 17-test command, full owning package, `go vet`, docs smoke,
+  `git diff --check`, privacy regressions, unfinished-marker scan,
+  direct-sensitive-logging scan, and provider-hierarchy scan. Exactly one
+  bounded read-only GPT-5.6 Sol xhigh adversarial review returned `ACCEPT` with
+  0 Critical, 0 Important, and 0 Minor findings. It confirmed the diagnostic
+  correction at `apps/api/internal/agaapplicability/draft.go:692` and its
+  regression at `draft_test.go:20`, then rejected the earlier provenance
+  concern at the exact Gate 0B boundary: `fixedInputDigests` is a closed
+  11-field object,
+  `sourceSnapshotDigest` is a separate classification-batch-entry field owned
+  by Task 2 reconstruction, and Task 1 pins the accepted classification-
+  manifest root. The requested `--through task1` inventory remains `blocked`
+  with `ERR_AGA_HYBRID_CREATED_FILES code=DUE_FILE_MISSING` because the mapping
+  also requires intentionally uncreated Task 2 validator/candidate artifacts.
+  Task 1 is independently accepted and `verified locally`; Tasks 2–10 remain
   `not run`.
+- [x] Task 1 implementation and verification — independently accepted and
+  `verified locally`.
+- [x] 2026-08-04: Task 2 recorded the required validator TDD RED/GREEN.
+  The focused Go command initially failed because the validator symbols were
+  absent; after the smallest offline ZIP/schema/isolation implementation, the
+  focused seven-test command exited 0 in 0.344s, the full validator package
+  exited 0 in 0.545s, `go vet` exited 0, and the Node receipt test passed 1/1
+  in 0.092s. Both untrusted ZIPs safely scanned at 25/25 batches and
+  1,310/1,310 records, with 27 semantic and 29 AppleDouble/`__MACOSX`
+  transport-noise entries each. The exact fresh `validate-pass` command for
+  pass one exited 1 in 0.751s with `ERR_AGA_PASS_SCHEMA`; pass two exited 1 in
+  0.830s with the same controlled marker. The exact `reconcile` and
+  `validate-candidate` commands exited 1 in 0.323s and 0.537s respectively
+  with `ERR_AGA_CANDIDATE_INVALID`. These are required blocks, not passes:
+  each raw response record omits `classificationRunId`, `passRunId`,
+  `promptDigest`, `modelDescriptorDigest`, `inputDigest`, and
+  `passResultDigest`; each batch omits `batchOutputDigest`; supplied metadata
+  also leaves candidate `modelId` and challenge `modelId`, `service`, and
+  `interface` unavailable, with neither pass supplying requested reasoning
+  effort or fork configuration. The validator did not infer or synthesize any
+  field. The private root, ZIPs, extraction directories, pointer file, and
+  task-named process residue were removed after the blocked validation; the
+  text-free receipt records zero remaining files, directories, and matching
+  processes. No candidate pass sealed, no reconciliation/artifact was
+  manufactured, and no review is requested while the required Task 2 gates are
+  blocked.
+- [x] 2026-08-04: User-authorized Gate 0B metadata-availability amendment
+  recorded RED before implementation: the focused Go metadata tests rejected
+  truthful `null`/`unavailableFields` platform receipts and accepted a displayed
+  label as an exact model ID. GREEN changed only the closed metadata contract:
+  every unavailable scalar is literal `null` with an exact sorted marker,
+  every available scalar is non-null and unmarked, and a displayed model label
+  cannot establish an exact model ID. The amendment accepts truthful missing
+  platform fields as `candidate-only` demo provenance without fabricating a
+  model ID, reasoning effort, fork setting, or platform claim. Fresh focused
+  Go tests for `TestModelDescriptorAcceptsTruthfulPlatformUnavailableMetadata`
+  and the two Task 2 metadata validator tests passed; the 19-test Gate 0B Node
+  contract suite passed. The changed taxonomy, schema, prompt, specification,
+  embedded pure-Go taxonomy authority, validator, tests, and frozen file
+  digests are synchronized. Independent Gate 0B amendment review is next.
+- [x] Task 2 implementation and local acceptance — `verified locally`. The
+  replacement candidate ZIP (`sha256:36da15f34be44f883372aec588eca8413d2e370ed482dcdd84c50f2344b45a9c`,
+  509,331 bytes) and challenge ZIP
+  (`sha256:6c415cbd77189b7ab08db108bda87dae8adcecf46bae5db93b7d69130a04493e`,
+  517,459 bytes) each passed the closed archive, metadata-availability,
+  identity, 25-batch, and 1,310-record checks. The validator retained each
+  ZIP's immutable prompt/model/input/batch/record/pass receipt digests as
+  source evidence and did not rebind the former fixed prompt or descriptor
+  digest. Both private roots were removed with zero file/directory/process
+  residue. Reconciliation emitted `AGA_CANDIDATE_RECONCILED`; the artifact
+  validator reread and rebuilt it with `AGA_CANDIDATE_VALIDATED`. The sealed
+  artifact has 1,310 items and 2,620 pass records, and its cleanup receipt is
+  text-free. This is local candidate evidence only; bounded independent Task 2
+  acceptance is pending. Tasks 3–4 are `verified locally`; Task 5 is the next
+  implementation slice. Tasks 6–10 remain `not run`.
+- [ ] 2026-08-04: Replacement pass ZIP intake remains `blocked` before either
+  pass can seal. The candidate immutable input receipt is
+  `sha256:36da15f34be44f883372aec588eca8413d2e370ed482dcdd84c50f2344b45a9c`
+  at 509331 bytes; the challenge immutable input receipt is
+  `sha256:6c415cbd77189b7ab08db108bda87dae8adcecf46bae5db93b7d69130a04493e`
+  at 517459 bytes. Fresh isolated `validate-pass` runs copied one input at a
+  time into a new 0700 role-specific root with a 0600 file, scanned without
+  extraction, and removed the entire root on return; direct post-run residue
+  checks found neither root. Both runs exited 1 with the controlled marker
+  `ERR_AGA_PASS_METADATA`. The subsequent user-authorized supplied-provenance
+  compatibility correction recorded RED because the normal record constructor
+  still required the repository prompt pin; GREEN adds a ZIP-ingestion-only
+  constructor that requires a lexical canonical SHA-256 prompt and preserves
+  the supplied immutable prompt/model digests through receipt, batch, record,
+  and seal reconstruction. It does not invent a model value or treat a
+  displayed label as an exact model ID. The candidate independently completed
+  this closed validation with `AGA_PASS_VALIDATED` at 25 batches and 1,310
+  identities. The separately produced challenge then required the exact
+  optional closed `metadataAcceptanceStatus` value
+  `BLOCKED_MISSING_PLATFORM_METADATA` (a value its producer was instructed to
+  emit) and the controlled `batch-NN.response.json` transport filename; RED
+  rejected both before implementation and GREEN permits neither arbitrary
+  statuses nor arbitrary filenames. The challenge also independently completed
+  `AGA_PASS_VALIDATED` at 25 batches and 1,310 identities. Both private roots
+  were removed after success. At the time of this intake note, no normalized
+  pass had yet been copied into the tracked deliverable directory; the
+  subsequent local reconciliation and artifact validation are recorded in the
+  Task 2 acceptance entry below.
+  The focused private-ingest RED initially failed because
+  `validatePassZIPInPrivateRoot` was absent; its GREEN passed after adding
+  isolated copy/no-extraction/cleanup behavior. Fresh focused ingestion and
+  compatibility tests, the full validator package, and `go vet` exited 0.
+  Reconciliation is now authorized only over these two independently validated
+  sealed passes.
+- [x] 2026-08-04: Final Task 2 local verification — `verified locally`. The
+  focused Go domain/validator tests, `go vet ./...`, candidate artifact Node
+  test, harness-docs smoke test, and `git diff --check` passed. Full API
+  `go test ./... -count=1` ran with task-owned pinned PostgreSQL 17.6 and
+  MinIO services; every package, including `apps/api/tests/integration`,
+  reported `ok`. The initial wrapper exit was caused only by a zsh cleanup
+  variable collision; the exact task-owned containers, volumes, network, and
+  generated runtime directory were then removed and verified absent. The full
+  19-test Gate 0B contract suite reached 14 passing tests; five remain
+  `blocked` because the fixed external System Design Matrix workbook is
+  absent. That workbook gate is outside the Task 2 candidate artifact and
+  does not invalidate its scoped reconciliation evidence.
+
+### 2026-08-04 — Tasks 3–5 local implementation evidence
+
+- [x] Task 3 — The isolated sibling workspace schema/roles, fixture template,
+  one-shot commands, loader barrier, append-only memory/PostgreSQL seams,
+  Compose services/secrets, and static boundary were implemented. Focused Go
+  tests passed for the workspace package and all three commands; the boundary
+  test passed 3/3; `go vet`, selected Compose config, Compose policy 21/21,
+  and `git diff --check` passed. The combined Task 3 Node command passed 21
+  tests and retained five pre-existing Gate 0/Task 2 failures: missing fixed
+  external workbook path and predecessor reconstruction diagnostics. Those
+  failures were not changed because the workbook is external and the Task 2
+  artifact is accepted. Live persistence, grants, and zero-delta evidence are
+  `not run` until Task 9.
+- [x] Task 4 — The exact workspace operation matrix, neutral CSRF-aware
+  protector, closed service/query/command envelopes, authorization scope
+  digest, idempotency-before-domain lookup, direct-ID neutral denial,
+  separate reader/command tagged pools, fixed routes, OpenAPI source/bundler,
+  generated Go/TypeScript contracts, and legacy five-route preservation were
+  implemented. Focused Go tests passed for the service and HTTP packages,
+  default and `preproddemo` API tests passed, the tagged artifact built, the
+  generated contract check passed, and the focused OpenAPI suite passed 20/20.
+  Lifecycle commands remain an explicit unavailable capability until Task 7;
+  no fake lifecycle success is returned. Browser and connected evidence remain
+  `not run`. Scoped evidence is recorded in
+  `docs/demo-evidence/AGA_HYBRID_CLASSIFICATION_TASK3_TASK4_2026-08-04.md`.
+- [x] Task 5 — The shared HTTP-only classification workspace, capability-gated
+  role routes, bounded server-paginated/filterable inventory, exact Draft
+  actions, provider eligibility, immutable successor controls, stale recovery,
+  and Admin-only generation history/reset were implemented without importing
+  the workspace into the demo entry or changing the old raw-package panel.
+  The scanner TDD RED/GREEN, focused Vitest 41/41, scanner fixtures 4/4,
+  typecheck, demo build/scan, HTTP build/scan, and HTTP artifact scan all passed.
+  Evidence is recorded in
+  `docs/demo-evidence/AGA_HYBRID_CLASSIFICATION_TASK5_2026-08-04.md`.
+  Browser and connected evidence remain `not run`; Task 6 was next in order
+  and is now locally complete.
+- [x] Task 6 — Deterministic recommendation request pins, server-derived-fact
+  fail-closed handling, immutable recommendation/snapshot digests and full
+  question-reference validation, append-only memory/PostgreSQL snapshot seams,
+  HTTP neutral no-store behavior, and the authorized Planning-only neutral AGA
+  status surface were implemented. Focused recommendation and HTTP tests,
+  Planning Vitest 15/15, typecheck, demo/HTTP builds, both artifact-boundary
+  scans, and the HTTP artifact scan passed. OpenAPI and generated Go/TypeScript
+  contracts were regenerated. Evidence is recorded in
+  `docs/demo-evidence/AGA_HYBRID_CLASSIFICATION_TASK6_2026-08-04.md`.
+  The append-only lifecycle state machine, projections, PostgreSQL command-store
+  seam, HTTP behavior, and regenerated contracts passed the Task 7 focused and
+  package gates. Evidence is recorded in
+  `docs/demo-evidence/AGA_HYBRID_CLASSIFICATION_TASK7_2026-08-04.md`. The
+  multi-role lifecycle UI, fixed supplemental suffix routes, responsive
+  controls, privacy/purge tests, and three nonzero preprod Playwright specs
+  passed the Task 8 focused, build, artifact-boundary, and discovery gates;
+  evidence is recorded in
+  `docs/demo-evidence/AGA_HYBRID_CLASSIFICATION_TASK8_2026-08-04.md`.
+  PostgreSQL/grant/zero-delta and connected role/browser evidence are
+  `verified locally` on the disposable Task 9 target. Task 9's offline and
+  connected evidence is recorded in
+  `docs/demo-evidence/AGA_HYBRID_CLASSIFICATION_TASK9_OFFLINE_2026-08-04.md`
+  and the create-once privacy-safe lifecycle summary. Task 10 is
+  `verified locally` after its full aggregate ladder and summary check.
+
+- [x] Task 7 — The synthetic lifecycle aggregate now enforces the exact
+  recommendation, generation/readiness, organization/provider-scope, pinned
+  Inspector/Lead/Auditee bindings, operation-role, idempotency/CAS, required
+  comments, answer, CAP/Evidence/due-date, and append-only event rules. The
+  complete state machine preserves Potential Finding/Lead conversion, CAP
+  acceptance versus Finding closure, Evidence review versus verification, and
+  separate authorized closure. Public, CAA, and Auditee projections are
+  structurally separated and redacted. The exact ten-test focused lifecycle
+  command, all three owning Go packages, contract generation/check, and the
+  three-test workspace contract suite passed. Evidence is recorded in
+  `docs/demo-evidence/AGA_HYBRID_CLASSIFICATION_TASK7_2026-08-04.md`.
+  Canonical zero-delta, connected PostgreSQL/grant, and browser behavior are
+  `verified locally` in Task 9's isolated disposable qualification; Task 8 is
+  now verified locally.
+
+- [x] Task 8 — The synthetic multi-role lifecycle UI now provides the
+  Inspector response/Potential Finding path, Lead review/conversion path,
+  Service Provider CAP/Evidence path, CAA review/verification path, separate
+  Manager authorized closure, CAA-only history/public Auditee projections,
+  fixed identifier-free route suffixes, responsive controls, and purge/role
+  boundary coverage. Manager recommendation and simulation-release controls
+  remain visibly fail-closed until exact server-derived pins are returned; the
+  UI never invents them. The three required preprod specs discover 7 tests with
+  trace, screenshot, and video disabled. Focused UI tests passed 16/16,
+  typecheck, demo/HTTP builds, both artifact-boundary scans, and the HTTP
+  artifact scan passed. Evidence is recorded in
+  `docs/demo-evidence/AGA_HYBRID_CLASSIFICATION_TASK8_2026-08-04.md`.
+  Connected browser execution and PostgreSQL/grant/zero-delta evidence are
+  `verified locally` in the Task 9 receipt-bound disposable run; production
+  evidence remains not established.
+
+- [x] Task 9 — The closed forbidden-object inventory (129 parsed migration
+  objects), exact role/grant and Compose coverage, separate CSPRNG
+  authorization issuance, target/operation validation, receipt-bound
+  fail-closed connected harness, hash-chain ledgers, and create-once
+  privacy-safe finalizer are `verified locally`. F1 passed the expanded
+  12-test boundary suite and both sibling-schema load/seal barriers. F2
+  qualified the task-owned disposable predecessor with 9 synthetic OIDC
+  accounts across 8 role families, 1,310 workspace items, one workspace seal,
+  receipt-backed exporter/loader revocation, zero forbidden/overlay delta,
+  isolated browser `17/17`, and zero whole-namespace residue. F3 completed
+  the exact four-case connected recovery matrix with one concurrent-token
+  winner, no loser effect, target receipt recovery, cleanup receipt replay
+  rejection, and zero residue. The new successor summary
+  `docs/demo-evidence/AGA_HYBRID_CLASSIFICATION_DEMO_LIFECYCLE_2026-08-04-v2.md`
+  was finalized from the real happy/fault ledgers and passed the immutable
+  check-only verifier. The older offline summary remains historical and was
+  not rewritten as connected evidence.
+
+- [x] Task 10 — The corrected successor aggregate ladder is `verified locally`.
+  The full Go package list passed, tagged `preproddemo` API tests passed, the
+  explicit temporary tagged API build passed, contract generation/check and
+  frontend typecheck passed, Vitest passed `89` files and `748/748` tests,
+  demo/HTTP builds and both artifact boundary scans passed, and the HTTP
+  artifact scan passed. The exact Node contract/boundary bundle passed
+  `57/57`, Compose config and policy passed `21/21`, E2E discovery reported
+  the required `7` tests in `3` files, forbidden inventory passed `129`
+  objects, created-file inventory passed `through=task10 due=108 planned=108`,
+  the successor summary passed its non-mutating check, docs smoke passed,
+  instruction scan passed, the literal plan whitespace/fence scan passed,
+  the untracked-plan no-index diff was inspected with expected exit `1`, and
+  `git diff --check` passed. Task-owned browser, Vite, Go-test, Compose,
+  temporary-build, and database residue checks are clean. The result remains
+  `candidate-only`, `release pending`, and `production-ready: not established`.
+
+### 2026-08-05 — Task 9 corrected connected F2/F3 verification log
+
+- [x] F2 happy path — `verified locally` from the retained disposable
+  PostgreSQL/OIDC target. The exact connected command returned
+  `aga-hybrid-connected: verified locally happy-path phases=14 browser=17 residue=0`.
+  The connected happy ledger is
+  `sha256:5b2f03652eaef75aa6cb33a2d22789f927bf1e3b2e62b5094c47d21a098c06ec`.
+- [x] F3 prepare — `node scripts/prepare-aga-hybrid-f3-manifest.mjs` created
+  the closed four-case manifest from the current package, connected-config
+  code digest, and connected-config contract digest. The target-bound prepare
+  command stopped at the required `pending external authority` gate with exit
+  `2` after creating four distinct Compose/PostgreSQL targets.
+- [x] F3 deliberate stop — the exact
+  `AVIA_AGA_HYBRID_F3_STOP_AFTER_CASE=CONCURRENT_TOKEN_RESERVATION` protocol
+  produced child exit `73` with
+  `INTERRUPTED_AFTER_CONCURRENT_TOKEN_RESERVATION`; the harness recorded
+  `aga-hybrid-connected: fault-matrix interrupted-after=CONCURRENT_TOKEN_RESERVATION`.
+- [x] F3 recovery — a fresh target-bound recovery manifest and authorization
+  resumed the same outer journal. The exact recovery command returned
+  `aga-hybrid-connected: verified locally fault-matrix cases=4 residue=0 resume=verified`.
+  The independent status command returned
+  `aga-hybrid-connected: fault-matrix-status=receipt-journal-present`.
+  The connected fault ledger is
+  `sha256:0cec9fc66a074725297ddb95a9f61f6b1c152da061ab951464777f7d4311de3c`.
+  All four cases have four journal phases, `effectCount=1`,
+  `duplicateEffectCount=0`, cleanup receipts, `terminalState=CLEANED`, and
+  `residueCount=0`; `CONCURRENT_TOKEN_RESERVATION` has
+  `winnerCount=1` and `loserEffectCount=0`.
+- [x] Evidence finalizer —
+  `node scripts/verify-aga-hybrid-demo-workspace-evidence.mjs --finalize-summary
+  docs/demo-evidence/AGA_HYBRID_CLASSIFICATION_DEMO_LIFECYCLE_2026-08-04-v2.md`
+  returned `aga-hybrid-evidence: finalized privacy-safe summary`; the exact
+  `--check-summary` command returned
+  `aga-hybrid-evidence: summary check passed without mutation`. Both ledgers
+  reported `sourceKind=connected-receipt`; no synthetic ledger was used.
+- [x] The F3 target-mode dispatch, transaction schema binding, and stored
+  target-receipt recovery idempotency findings were fixed in
+  `scripts/run-aga-hybrid-f3-target-protocol.mjs`, then syntax and whitespace
+  checks passed. Failed disposable Compose projects/volumes were removed by
+  exact case-bound cleanup before the successful fresh root; the successful
+  root ended with zero target, container, volume, and network residue.
+
+### 2026-08-05 — Independent review remediation and final connected evidence
+
+- [x] Sol xhigh and Luna max review findings were addressed locally. F3 now
+  validates the exact outer case/namespace/fingerprint/manifest/seal and
+  input/code/contract binding before any target effect, stores the
+  authorization identity/digest with the PostgreSQL effect, and uses a
+  create-only shared-token reservation with one recorded winner and one
+  recorded no-effect loser. A losing reservation never removes the winning
+  receipt.
+- [x] `INHERITED_BASE_RECEIPT_GAP` and
+  `WORKSPACE_TRANSACTION_RECEIPT_GAP` recover through an append-only
+  `recovery_receipts` table; the original effect row is never updated.
+  `CLEANUP_RECEIPT_GAP` records an actual cleanup replay rejection. The
+  deliberate stop is after target disposal and case-receipt fsync but before
+  outer-journal publication; recovery accepts the empty outer journal when
+  the disposed case receipt exists and appends the missing publication once.
+- [x] Prepare failure cleanup covers the currently-starting target, F3
+  cleanup/recover-prepare branches are explicit and fresh-authorized, and
+  evidence derives terminal/residue/case facts from retained target receipts.
+  Provenance now binds execution, target receipts, authority-consumption
+  receipts, and raw-file privacy scanning; the verifier rejects synthetic
+  connected ledgers.
+- [x] The corrected fresh F3 root was
+  `/private/tmp/avia-aga-hybrid-f3-final-review.ZaK4xo`; its final connected
+  fault ledger is
+  `sha256:0cec9fc66a074725297ddb95a9f61f6b1c152da061ab951464777f7d4311de3c`.
+  The exact interrupted run returned child exit `73`, recovery returned
+  `aga-hybrid-connected: verified locally fault-matrix cases=4 residue=0
+  resume=verified`, and the four target-owned cleanup receipts ended with
+  `terminalState=CLEANED` and `residueCount=0`.
+- [x] The finalizer was rerun against the retained happy ledger and this
+  corrected fault ledger. The create-once successor
+  `docs/demo-evidence/AGA_HYBRID_CLASSIFICATION_DEMO_LIFECYCLE_2026-08-04-v2.md`
+  was finalized and its check-only verification returned
+  `aga-hybrid-evidence: summary check passed without mutation`.
+
+### 2026-08-05 — Task 10 aggregate verification log
+
+- [x] `go -C apps/api test -count=1` with the exact nine-package list passed;
+  the tagged `go -C apps/api test -count=1 -tags=preproddemo ./cmd/api` also
+  passed. The first unmodified Go invocation was blocked by the sandbox’s
+  global cache permission; the same exact package/test commands passed with
+  the disposable `GOCACHE=/tmp/avia-aga-gocache`, which was removed afterward.
+- [x] The explicit `mktemp` tagged API build passed and its exact temporary
+  build directory was removed by the command trap. Contract generation,
+  `contracts:check`, and `typecheck` passed. `npm --prefix apps/web test`
+  passed `89` files and `748/748` tests. `build:demo` passed with the demo
+  boundary scan (`82 files, 184 inputs`); `build:http` passed with the HTTP
+  boundary scan (`82 files, 186 inputs`) and `http-artifact-scan` passed.
+- [x] After the final META formatting pass, the exact focused command
+  `env GOCACHE=/tmp/avia-aga-gocache go test
+  ./internal/agaapplicability ./internal/agademoworkspace
+  ./internal/preproddata/agademoworkspace -count=1` passed from the
+  `apps/api` module root. The exact forbidden-inventory `--write` and
+  `--check` commands both passed with `objects=129`, and the disposable Go
+  cache was removed.
+- [x] The exact Node bundle passed `57/57` tests. Compose config passed;
+  `bash scripts/check-compose-policy.sh` passed `21/21`. The required E2E
+  list reported `7 tests in 3 files`. Forbidden inventory passed
+  `objects=129`; created-file inventory passed
+  `through=task10 due=108 planned=108`.
+- [x] The first post-build created-file inventory check exposed one stale
+  historical evidence path. The tracked inventory was corrected with
+  `apply_patch` to point at the create-once successor summary, and the exact
+  command `node scripts/check-aga-hybrid-created-files.mjs --inventory
+  tests/fixtures/aga-hybrid-created-file-inventory.v1.json --through task10`
+  was rerun successfully with `due=108 planned=108`.
+- [x] The exact successor `--check-summary` returned
+  `aga-hybrid-evidence: summary check passed without mutation`, docs smoke
+  returned `harness-docs-smoke: ok`, instruction scan returned the canonical
+  harness references, and both literal plan-file scans returned
+  `aga-hybrid-plan-file-scan: ok`. `git diff --check` passed. A final
+  read-only residue scan found no task-owned Compose, browser, Vite, Go-test,
+  temporary-build, or database processes/resources; the retained successful
+  private F2/F3 ledgers are evidence only.
 
 ## Decision Log
+
+### 2026-08-04 — Preserve supplied ZIP receipt digests as demo source evidence
+
+**Decision:** For the demo-first Task 2 lane, remove only the former fixed
+repository prompt-hash and local model-descriptor-digest equality gates from
+supplied pass-ZIP reconciliation. Retain the prompt/model/input/batch/record/
+pass receipt digests carried by each immutable ZIP as source evidence. Require
+lexical digest validity, equal prompt digests across roles, complete identity
+and count coverage, record/batch/pass receipt-graph integrity, private-pass
+isolation, and text-free cleanup exactly as before.
+
+**Reason:** The replacement candidate and challenge passes are semantically
+complete and independently bounded at 25 batches and 1,310 records, while the
+platform did not expose the former prompt/model pins in the same form expected
+by the repository. Treating the immutable producer receipt as evidence keeps
+the demo truthful without fabricating metadata or weakening identity,
+cardinality, digest-graph, privacy, or isolation controls. This is
+`candidate-only`; it does not establish source authority, release, or
+production readiness.
 
 ### 2026-08-03 — Categorize questions by domain, not provider hierarchy
 
@@ -2995,6 +3428,21 @@ review.
 
 **Reason:** LLM-only classification is inconsistent and rules-only
 classification cannot reliably capture question meaning.
+
+### 2026-08-04 — Accept truthful platform-unavailable model metadata for the local demo
+
+**Decision:** Reopen only the Gate 0B model-metadata availability rule by user
+authorization. A platform-unavailable scalar is `null` with its exact field
+name in `unavailableFields`; a displayed label remains separate and never
+establishes an exact model ID. Such a descriptor is valid `candidate-only` demo
+provenance and does not block deterministic Task 2 validation.
+
+**Reason:** The ChatGPT Pro surface can truthfully expose a displayed label,
+service, and interface while withholding an exact model ID, reasoning effort,
+fork setting, or snapshot. Requiring unavailable platform values would either
+stop a local demo unnecessarily or invite fabrication. The amendment retains
+closed-schema, canonical-digest, privacy, isolation, and all non-metadata
+provenance gates, and makes no release or production claim.
 
 ### 2026-08-03 — Separate discovery and classification batch manifests
 
@@ -3185,6 +3633,18 @@ authorized complete commit/publication fault matrix.
 committed before ledger publication must be reconciled without a second effect
 or a stranded disposable namespace.
 
+### 2026-08-04 — Keep Task 1 provenance at the accepted manifest-root boundary
+
+**Decision:** Treat Gate 0B's closed 11-field `fixedInputDigests` object as the
+exact fixed-input authority, keep `sourceSnapshotDigest` on each
+classification-batch entry for Task 2 reconstruction, and require the pure
+Task 1 domain to pin the accepted classification-manifest root.
+
+**Reason:** Adding `sourceSnapshotDigest` to the closed fixed-input object would
+contradict the accepted schema and move Task 2 batch reconstruction into the
+pure Task 1 domain. The final independent review therefore rejected that prior
+provenance concern rather than weakening or expanding either boundary.
+
 ## Discoveries
 
 - The accepted 24-batch discovery manifest bounded the discovery-only JSON
@@ -3306,15 +3766,18 @@ Use this prompt only after the user explicitly authorizes implementation:
 ```text
 Execute only the currently authorized child slice in
 docs/exec-plans/active/2026-08-03-aga-hybrid-classification-demo-lifecycle-plan.md.
-The first next action is Gate 0A only: create the failing discovery contract,
-generate the deterministic text-free 1,310-identity batch/discovery receipts,
-review them, and stop before Gate 0B or any classification. Record exact
+Gate 0A, Gate 0B, Task 1, Task 2, Tasks 3–8, Task 9 F1/F2/F3, and Task 10 are
+already recorded. The current implementation scope is review remediation and
+final local handoff; do not replay the connected happy path or fault matrix
+unless a fresh disposable target and fresh target-bound authorization are
+explicitly created. Record exact
 focused-test and verification output. Preserve every
 unrelated dirty change, the accepted package, the sealed preprod_aga_demo
 schema and five Admin-only GET routes, all source/authority/risk blockers, and
-the exact fixed hashes. Do not use digest alone as identity, invent model
-metadata, expose pass one to pass two, create provider ownership fields, or
-extend a frozen taxonomy during a run. When separately authorized, execute
+the exact accepted fixed-input hashes plus immutable supplied receipt hashes.
+Do not use digest alone as identity, invent model metadata, rebind a supplied
+ZIP receipt to a former prompt/model pin, expose pass one to pass two, create
+provider ownership fields, or extend a frozen taxonomy during a run. When separately authorized, execute
 ordered A–E slices and stop-gated F1–F4 substops (only F2–F3 are connected) in
 order and never begin a later boundary before review of its predecessor. The
 sibling workspace may store original identities/digests and only genuinely

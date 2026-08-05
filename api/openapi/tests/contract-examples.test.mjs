@@ -362,6 +362,21 @@ test("every full-platform operation declares role security and every mutation de
       const parameterRefs = new Set(
         (operation.parameters ?? []).map((parameter) => parameter.$ref),
       );
+      if (operation["x-operation-kind"] === "query") {
+        assert.ok(
+          parameterRefs.has("#/components/parameters/CsrfToken"),
+          `${operation.operationId} must declare CSRF`,
+        );
+        assert.ok(
+          !parameterRefs.has("#/components/parameters/IdempotencyKey"),
+          `${operation.operationId} query must not declare Idempotency-Key`,
+        );
+        assert.ok(
+          !parameterRefs.has("#/components/parameters/ExpectedRevision"),
+          `${operation.operationId} query must not declare expected revision`,
+        );
+        continue;
+      }
       assert.ok(
         parameterRefs.has("#/components/parameters/IdempotencyKey"),
         `${operation.operationId} must declare Idempotency-Key`,
@@ -375,6 +390,7 @@ test("every full-platform operation declares role security and every mutation de
         `${operation.operationId} must declare expected revision`,
       );
       for (const status of ["400", "401", "403", "409", "412", "422"]) {
+        if (operation["x-neutral-denial"] === true && (status === "401" || status === "403")) continue;
         const response = operation.responses?.[status];
         const problemReference =
           response?.$ref ??

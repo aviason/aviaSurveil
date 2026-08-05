@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import type {
   AGACandidateDemoBackend,
@@ -41,7 +41,7 @@ async function loadAllQuestions(
  * Intentionally self-contained read view. It has no mutation, persistence,
  * analytics, or mock path; the server capability decides whether it renders.
  */
-export function AGACandidateDemoPanel({ capability }: { capability: AGACandidateDemoBackend | undefined }) {
+export function AGACandidateDemoPanel({ capability, supplementalLink }: { capability: AGACandidateDemoBackend | undefined; supplementalLink?: ReactNode }) {
   const [state, setState] = useState<PanelState>({ kind: "checking" });
 
   useEffect(() => {
@@ -113,6 +113,7 @@ export function AGACandidateDemoPanel({ capability }: { capability: AGACandidate
         <div className="aga-candidate-demo__labels" aria-label="Candidate demo status">
           {(state.summary?.labels ?? []).map((label) => <span key={label}>{label}</span>)}
         </div>
+        {supplementalLink ? <div className="aga-candidate-demo__supplemental-link">{supplementalLink}</div> : null}
       </header>
       {state.error ? <p className="command-error" role="status">{state.error}</p> : null}
       {state.summary ? (

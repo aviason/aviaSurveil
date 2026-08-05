@@ -1,6 +1,7 @@
 import { expect, type Page } from "@playwright/test";
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { appendFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 
 export const agaRoute = "/api/v1/admin/governed-checklist/aga-candidate-demo";
 
@@ -88,11 +89,33 @@ export function recordQualificationPhase(phase: QualificationPhase): void {
   appendFileSync(path, `${phase}\n`, { encoding: "utf8", mode: 0o600 });
 }
 
+/**
+ * The connected qualification process supplies these variables only for the
+ * disposable target. Capturing exact auth-control snapshots at each browser
+ * login/logout boundary keeps OIDC/session writes separate from the zero-delta
+ * business snapshot; ordinary browser runs remain unchanged when unset.
+ */
+function captureAuthControlEvent(eventKind: "BEFORE_LOGIN" | "AFTER_LOGIN" | "BEFORE_LOGOUT" | "AFTER_LOGOUT"): void {
+  const directory = process.env.AVIA_AGA_HYBRID_AUTH_SNAPSHOT_DIRECTORY?.trim();
+  const composeProject = process.env.AVIA_AGA_HYBRID_AUTH_SNAPSHOT_COMPOSE_PROJECT?.trim();
+  const composeFile = process.env.AVIA_AGA_HYBRID_AUTH_SNAPSHOT_COMPOSE_FILE?.trim();
+  const queryScript = process.env.AVIA_AGA_HYBRID_AUTH_SNAPSHOT_QUERY_SCRIPT?.trim();
+  if (!directory || !composeProject || !composeFile || !queryScript) return;
+  mkdirSync(directory, { recursive: true, mode: 0o700 });
+  const sequence = readdirSync(directory).filter((name) => /^event-[0-9]{4}\.json$/u.test(name)).length;
+  const query = execFileSync("node", [queryScript, "--kind", "auth"], { encoding: "utf8" });
+  const raw = execFileSync("docker", ["compose", "--project-name", composeProject, "--file", composeFile, "exec", "--no-TTY", "preprod-postgres", "psql", "--username", "aviasurveil360_preprod_loader", "--dbname", "aviasurveil360_local_preprod", "--tuples-only", "--no-align", "--quiet", "--command", query.trim()], { encoding: "utf8" }).trim();
+  const snapshot = JSON.parse(raw);
+  const output = `${directory}/event-${String(sequence).padStart(4, "0")}.json`;
+  writeFileSync(output, `${JSON.stringify({ eventKind, snapshot }, null, 2)}\n`, { encoding: "utf8", mode: 0o600, flag: "wx" });
+}
+
 export async function loginQualificationAccount(
   page: Page,
   username: string,
   returnTo = "/admin/checklist-builder",
 ): Promise<void> {
+  captureAuthControlEvent("BEFORE_LOGIN");
   await page.goto(returnTo);
   await expect(page.getByRole("heading", { name: /Sign in to AviaSurveil360/i })).toBeVisible();
   recordQualificationPhase("login-gate-visible");
@@ -211,6 +234,7 @@ export async function loginQualificationAccount(
     })}\n`, { encoding: "utf8", mode: 0o600 });
   }
   recordQualificationPhase("oidc-callback-complete");
+  captureAuthControlEvent("AFTER_LOGIN");
 }
 
 export async function browserFetch(
@@ -234,6 +258,7 @@ export async function browserFetch(
 }
 
 export async function logout(page: Page): Promise<void> {
+  captureAuthControlEvent("BEFORE_LOGOUT");
   const result = await page.evaluate(async () => {
     const csrf = document.cookie
       .split(";")
@@ -263,7 +288,10 @@ export async function logout(page: Page): Promise<void> {
     recordQualificationPhase("logout-csrf-cookie-missing");
     throw new Error("Logout revocation failed");
   }
-  if (result.status === 204) return;
+  if (result.status === 204) {
+    captureAuthControlEvent("AFTER_LOGOUT");
+    return;
+  }
   if (result.problem === "csrf") {
     recordQualificationPhase("logout-csrf-rejected");
   } else if (result.problem === "session") {

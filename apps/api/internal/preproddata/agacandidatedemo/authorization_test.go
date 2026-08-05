@@ -17,7 +17,7 @@ func TestOperationAuthorizationIsShortLivedSingleOperationAndBoundToIntent(t *te
 		t.Fatalf("build intent: %v", err)
 	}
 	now := time.Date(2026, 8, 1, 12, 1, 0, 0, time.UTC)
-	authorization := agacandidatedemo.OperationAuthorization{SchemaVersion: "preprod-aga-candidate-demo-operation-authorization/v1", Token: "one-time-private-token", Operation: agacandidatedemo.LoadOverlayOperation, Issuer: "local-operator", Nonce: "aga-demo-nonce-001", RunID: intent.RunID, IntentDigest: intent.IntentDigest, TargetFingerprintDigest: intent.TargetFingerprintDigest, ExpiresAt: now.Add(15 * time.Minute)}
+	authorization := agacandidatedemo.OperationAuthorization{SchemaVersion: "preprod-aga-candidate-demo-operation-authorization/v1", Token: "one-time-private-token", Operation: agacandidatedemo.LoadOverlayOperation, Issuer: "local-operator", Nonce: "aga-demo-nonce-001", RunID: intent.RunID, IntentDigest: intent.IntentDigest, TargetFingerprintDigest: intent.TargetFingerprintDigest, InputDigest: intent.PackageZipDigest, CodeDigest: intent.CodeDigest, ContractDigest: intent.ContractDigest, ExpiresAt: now.Add(15 * time.Minute)}
 	if err := authorization.Validate(intent, agacandidatedemo.LoadOverlayOperation, now); err != nil {
 		t.Fatalf("validate authorization: %v", err)
 	}

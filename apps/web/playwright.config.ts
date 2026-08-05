@@ -139,6 +139,9 @@ export default defineConfig({
       testMatch: [
         "e2e/aga-candidate-demo-privacy.http.spec.ts",
         "e2e/aga-candidate-demo-admin.http.spec.ts",
+        "e2e/aga-hybrid-classification-workspace.http.spec.ts",
+        "e2e/aga-synthetic-lifecycle.http.spec.ts",
+        "e2e/aga-hybrid-privacy.http.spec.ts",
       ],
       use: {
         actionTimeout: 30_000,

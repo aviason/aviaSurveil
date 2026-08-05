@@ -118,7 +118,10 @@ export default defineConfig(({ command }) => {
       assetsInlineLimit: 0,
       emptyOutDir: true,
       manifest: true,
-      sourcemap: true,
+      // Supplemental HTTP/workspace source must never cross either artifact
+      // boundary. Do not emit demo maps with source bodies: the demo bundle is
+      // recursively inspected with the same marker gate as the HTTP bundle.
+      sourcemap: false,
       rollupOptions: {
         input: {
           app: `${webRoot}index.html`,

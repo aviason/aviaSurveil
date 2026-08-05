@@ -94,6 +94,7 @@
     {"path":"apps/api/internal/preproddata/agademoworkspace/postgres_lifecycle_store_test.go","ownerSlice":"slice-e","ownerTask":"task-7"},
     {"path":"apps/web/src/features/inspections/aga-demo-inspection-page.tsx","ownerSlice":"slice-e","ownerTask":"task-8"},
     {"path":"apps/web/src/features/inspections/aga-demo-inspection-page.test.tsx","ownerSlice":"slice-e","ownerTask":"task-8"},
+    {"path":"apps/web/src/features/inspections/aga-demo-lifecycle.css","ownerSlice":"slice-e","ownerTask":"task-8"},
     {"path":"apps/web/src/features/findings/aga-demo-potential-finding-page.tsx","ownerSlice":"slice-e","ownerTask":"task-8"},
     {"path":"apps/web/src/features/findings/aga-demo-potential-finding-page.test.tsx","ownerSlice":"slice-e","ownerTask":"task-8"},
     {"path":"apps/web/src/features/caps/aga-demo-cap-evidence-page.tsx","ownerSlice":"slice-e","ownerTask":"task-8"},
@@ -107,6 +108,7 @@
     {"path":"scripts/issue-aga-hybrid-connected-authorization.mjs","ownerSlice":"slice-f","ownerTask":"task-9"},
     {"path":"tests/fixtures/aga-hybrid-forbidden-object-inventory.v1.json","ownerSlice":"slice-f","ownerTask":"task-9"},
     {"path":"tests/fixtures/aga-hybrid-connected-authorization.schema.json","ownerSlice":"slice-f","ownerTask":"task-9"},
-    {"path":"docs/demo-evidence/AGA_HYBRID_CLASSIFICATION_DEMO_LIFECYCLE_2026-08-03.md","ownerSlice":"slice-f","ownerTask":"task-9"}
+    {"path":"docs/demo-evidence/AGA_HYBRID_CLASSIFICATION_TASK9_OFFLINE_2026-08-04.md","ownerSlice":"slice-f","ownerTask":"task-9"},
+    {"path":"docs/demo-evidence/AGA_HYBRID_CLASSIFICATION_DEMO_LIFECYCLE_2026-08-04-v2.md","ownerSlice":"slice-f","ownerTask":"task-9"}
   ]
 }

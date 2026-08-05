@@ -4,11 +4,12 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppProviders } from "../../app/providers";
 import { AppRouter } from "../../app/router";
 import { ScenarioProvider } from "../../app/scenario-context";
+import type { AGADemoWorkspaceBackend } from "../../backend/aga-demo-workspace";
 import type { DemoBackend } from "../../backend/backend";
 import { createMockBackendPersistentRuntime, createMockBackendRuntime } from "../../mock/create-mock-backend";
 
@@ -208,6 +209,29 @@ describe("New Inspection Planning intake", () => {
       notifications: await auditee.notifications.list({}),
     });
     for (const value of forbidden) expect(auditeeProjection).not.toContain(value);
+  });
+
+  it("shows neutral fail-closed AGA recommendation only after authorized workspace capability", async () => {
+    const runtime = createMockBackendRuntime();
+    const workspace = {
+      capability: vi.fn().mockResolvedValue({
+        available: true,
+        projection: "DEPARTMENT_MANAGER_SCOPED",
+        classificationEnabled: true,
+        recommendationEnabled: true,
+        lifecycleEnabled: false,
+        resetEnabled: false,
+      }),
+    } as unknown as AGADemoWorkspaceBackend;
+    Object.assign(runtime.backendForRole("manager"), { agaDemoWorkspace: workspace });
+    renderWizardRoute("/department-manager/new-audit/step-5", runtime);
+
+    const recommendation = await screen.findByRole("region", { name: "AGA recommendation" });
+    expect(within(recommendation).getByRole("status")).toHaveTextContent(
+      "Recommendation is unavailable until the authorized workspace supplies one current server-derived provider scope and target.",
+    );
+    expect(within(recommendation).getByRole("button", { name: "Create AGA recommendation" })).toBeDisabled();
+    expect(workspace.capability).toHaveBeenCalledTimes(1);
   });
 
   it.each([1440, 1024, 390])("keeps step rail, form, and actions ordered at %ipx", async (width) => {

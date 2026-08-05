@@ -26,6 +26,7 @@ type TargetFingerprint struct {
 	Environment              string `json:"environment"`
 	DatabaseName             string `json:"databaseName"`
 	DatabaseOwner            string `json:"databaseOwner"`
+	OverlaySchema            string `json:"overlaySchema,omitempty"`
 	PostgresSystemIdentifier string `json:"postgresSystemIdentifier"`
 	PostgresHost             string `json:"postgresHost"`
 	PostgresPort             int    `json:"postgresPort"`
@@ -51,6 +52,8 @@ func (target TargetFingerprint) Validate() error {
 		return fmt.Errorf("%w: database is not on the disposable allowlist", ErrInvalidIntent)
 	case target.DatabaseOwner != "aviasurveil360_preprod_loader":
 		return fmt.Errorf("%w: database owner is not loader-exclusive", ErrInvalidIntent)
+	case target.OverlaySchema != "" && target.OverlaySchema != "preprod_aga_demo":
+		return fmt.Errorf("%w: overlay schema is not the isolated target", ErrInvalidIntent)
 	case !systemIDPattern.MatchString(target.PostgresSystemIdentifier):
 		return fmt.Errorf("%w: PostgreSQL system identifier is required", ErrInvalidIntent)
 	case target.PostgresHost != "preprod-postgres" || target.PostgresPort != 5432:

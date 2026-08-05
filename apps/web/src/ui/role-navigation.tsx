@@ -2,6 +2,7 @@ import { Fragment, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 import type { Role } from "../backend/backend";
+import { useOptionalApplicationRuntime } from "../app/providers";
 import {
   REACT_ROUTE_CONTRACTS,
   REACT_ROUTE_CONTRACT_BY_ID,
@@ -178,6 +179,7 @@ export function RoleNavigation({
   activeRouteId: ReactSurfaceId;
   onNavigate?: () => void;
 }) {
+  const SupplementalNavigation = useOptionalApplicationRuntime()?.supplementalNavigation;
   const activePrimary = activePrimaryRouteId(activeRouteId);
   return (
     <nav className="role-navigation" aria-label="Primary role navigation">
@@ -187,6 +189,7 @@ export function RoleNavigation({
       {activeRole === "finance" ? <p className="role-navigation__experience">Finance Review</p> : null}
       {activeRole === "executiveDirector" ? <p className="role-navigation__experience">Executive Director</p> : null}
       {activeRole === "admin" ? <p className="role-navigation__experience">Administration</p> : null}
+      {SupplementalNavigation ? <SupplementalNavigation activeRole={activeRole} onNavigate={onNavigate} /> : null}
       {ACCEPTED_NAVIGATION[activeRole].map((item) => {
         const route = item.routeId ? REACT_ROUTE_CONTRACT_BY_ID.get(item.routeId) : null;
         const targetRoute = item.targetRouteId ? REACT_ROUTE_CONTRACT_BY_ID.get(item.targetRouteId) : route;

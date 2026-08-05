@@ -10,6 +10,7 @@ profile_name="${1:-}"
 profile_version="1.0.0"
 task8_qualification="${AVIA_TASK8_PROFILE_QUALIFICATION:-false}"
 retain_base_handoff_directory="${AVIA_PREPROD_RETAIN_SUCCESSFUL_BASE_HANDOFF_DIR:-}"
+retain_target="${AVIA_PREPROD_RETAIN_TARGET:-false}"
 qualification_started_epoch="$(date -u +%s)"
 run_id="run-task7-connected-smoke"
 evidence_directory=""
@@ -359,6 +360,7 @@ const configuration = {
   behaviorLedgerFile: "/app/catalog/behavior-ledger.json",
   codeDigest: intent.codeDigest,
   contractDigest: intent.contractDigest,
+  overlaySchema: "preprod_aga_demo",
   target: intent.target,
 };
 writeFileSync(
@@ -967,6 +969,8 @@ if [[ -n "$retain_base_handoff_directory" ]]; then
   AVIA_PREPROD_BASE_RUN_ID="$run_id" \
   AVIA_PREPROD_BASE_STATE_DIRECTORY="$state_directory" \
   AVIA_PREPROD_BASE_HANDOFF_DIRECTORY="$retain_base_handoff_directory" \
+  AVIA_PREPROD_RETAIN_TARGET="$retain_target" \
+  AVIA_PREPROD_RUNTIME_ROOT="$runtime_root" \
     node --input-type=module <<'NODE'
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -1029,6 +1033,9 @@ const handoff = {
   databaseTarget,
   runId: intent.runId,
 };
+if (env.AVIA_PREPROD_RETAIN_TARGET === "true") {
+  handoff.runtimeRoot = env.AVIA_PREPROD_RUNTIME_ROOT;
+}
 writeFileSync(handoff.baseResultFile, `${JSON.stringify(baseResult)}\n`, {
   flag: "wx",
   mode: 0o600,
@@ -1039,6 +1046,16 @@ writeFileSync(
   { flag: "wx", mode: 0o600 },
 );
 NODE
+  if [[ "$retain_target" == "true" ]]; then
+    # Connected Task 9 owns the live disposable target after the predecessor
+    # handoff. The parent harness is responsible for its whole-namespace
+    # cleanup; do not leave a second target behind on the predecessor path.
+    project_owned="false"
+    runtime_root=""
+    printf 'preprod-connected-scenarios: retained live target at %s\n' \
+      "$retain_base_handoff_directory"
+    exit 0
+  fi
   # Ownership now passes only to a caller that already created the private
   # handoff directory. Its EXIT trap must run whole-namespace cleanup.
   project_owned="false"

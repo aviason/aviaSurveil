@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "aga-hybrid-classification-pass/v1",
+  "passRole": "CANDIDATE",
+  "batchOrdinal": 1,
+  "sourceSnapshotDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "records": [
+    {"identity": {}, "proposalProjection": {"mainDomainCode": "UNKNOWN_CODE"}, "rationaleCodes": [], "confidenceEvidence": [], "sourceRefs": []}
+  ]
+}

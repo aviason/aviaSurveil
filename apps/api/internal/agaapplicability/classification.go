@@ -14,6 +14,21 @@ import (
 )
 
 func NewPassProposalRecord(taxonomy Taxonomy, input PassProposalInput) (PassProposalRecord, error) {
+	return newPassProposalRecord(taxonomy, input, true)
+}
+
+// NewPassProposalRecordForSuppliedProvenance validates an immutable externally
+// sealed pass record. Unlike the normal repository producer path, it accepts
+// a lexically valid supplied prompt digest without rebinding that provenance
+// to the repository's current prompt pin.
+func NewPassProposalRecordForSuppliedProvenance(taxonomy Taxonomy, input PassProposalInput) (PassProposalRecord, error) {
+	return newPassProposalRecord(taxonomy, input, false)
+}
+
+func newPassProposalRecord(taxonomy Taxonomy, input PassProposalInput, requireFrozenPrompt bool) (PassProposalRecord, error) {
+	if err := validateFrozenTaxonomyAuthority(); err != nil {
+		return PassProposalRecord{}, err
+	}
 	if err := input.Identity.Validate(); err != nil {
 		return PassProposalRecord{}, err
 	}
@@ -26,7 +41,10 @@ func NewPassProposalRecord(taxonomy Taxonomy, input PassProposalInput) (PassProp
 	if err := validatePassRunID(input.PassRole, input.PassRunID); err != nil {
 		return PassProposalRecord{}, err
 	}
-	if input.PromptDigest != FrozenPromptDigest {
+	if requireFrozenPrompt && input.PromptDigest != FrozenPromptDigest {
+		return PassProposalRecord{}, fmt.Errorf("%w: promptDigest", ErrDigestMismatch)
+	}
+	if !requireFrozenPrompt && !validDigest(input.PromptDigest) {
 		return PassProposalRecord{}, fmt.Errorf("%w: promptDigest", ErrDigestMismatch)
 	}
 	for name, value := range map[string]string{
@@ -274,7 +292,14 @@ func validatePassRecord(taxonomy Taxonomy, record PassProposalRecord, expectedRo
 	if record.PassRole != expectedRole {
 		return ErrPassBijection
 	}
-	if record.ClassificationRunID != input.ClassificationRunID || record.PromptDigest != input.PromptDigest {
+	expectedClassificationRunID := input.ClassificationRunID
+	if expectedRole == PassCandidate && input.CandidateClassificationRunID != "" {
+		expectedClassificationRunID = input.CandidateClassificationRunID
+	}
+	if expectedRole == PassChallenge && input.ChallengeClassificationRunID != "" {
+		expectedClassificationRunID = input.ChallengeClassificationRunID
+	}
+	if record.ClassificationRunID != expectedClassificationRunID || record.PromptDigest != input.PromptDigest {
 		return fmt.Errorf("%w: run/prompt pin", ErrPassBijection)
 	}
 	if err := validatePassRunID(record.PassRole, record.PassRunID); err != nil {
@@ -390,39 +415,65 @@ func ComputeModelDescriptorDigest(descriptor ModelDescriptor) string {
 }
 
 func validateModelDescriptor(descriptor ModelDescriptor) error {
-	for _, value := range []string{descriptor.ModelID, descriptor.ModelIDSource, descriptor.RuntimeReportedFamily, descriptor.Service, descriptor.Interface, descriptor.RequestedReasoningEffort, descriptor.ForkTurns} {
-		if !utf8.ValidString(value) || len(value) == 0 || len(value) > 128 {
-			return ErrInputBounds
-		}
-	}
-	if descriptor.SnapshotBuildLabel != nil && (!utf8.ValidString(*descriptor.SnapshotBuildLabel) || len(*descriptor.SnapshotBuildLabel) > 128) {
+	if !utf8.ValidString(descriptor.ModelIDSource) || len(descriptor.ModelIDSource) == 0 || len(descriptor.ModelIDSource) > 128 {
 		return ErrInputBounds
 	}
-	if descriptor.UnavailableFields == nil {
-		return ErrInputBounds
-	}
-	if descriptor.ModelID == "" || descriptor.ModelIDSource != "accepted-collaboration-spawn-agent-model-override" || descriptor.RuntimeReportedFamily == "" || descriptor.Service != "Codex" || descriptor.Interface != "API" || descriptor.RequestedReasoningEffort != "xhigh" || descriptor.ForkTurns != "none" {
-		return fmt.Errorf("%w: model descriptor", ErrDigestMismatch)
-	}
-	allowedUnavailable := []string{"exactModelVersion", "serviceTier", "snapshotBuildLabel"}
+	allowedUnavailable := []string{"displayedModelLabel", "forkTurns", "interface", "modelId", "requestedReasoningEffort", "service", "snapshotBuildLabel"}
 	normalized, err := normalizeStrings(descriptor.UnavailableFields, allowedUnavailable, "unavailableFields", false)
 	if err != nil || !reflect.DeepEqual(normalized, descriptor.UnavailableFields) {
 		return fmt.Errorf("%w: model availability", ErrDigestMismatch)
 	}
-	hasSnapshotUnavailable := contains(descriptor.UnavailableFields, "snapshotBuildLabel")
-	if (descriptor.SnapshotBuildLabel == nil) != hasSnapshotUnavailable {
-		return fmt.Errorf("%w: snapshot availability", ErrDigestMismatch)
+	fields := map[string]*string{
+		"modelId":                  descriptor.ModelID,
+		"displayedModelLabel":      descriptor.DisplayedModelLabel,
+		"service":                  descriptor.Service,
+		"interface":                descriptor.Interface,
+		"requestedReasoningEffort": descriptor.RequestedReasoningEffort,
+		"forkTurns":                descriptor.ForkTurns,
+		"snapshotBuildLabel":       descriptor.SnapshotBuildLabel,
+	}
+	for field, value := range fields {
+		unavailable := contains(descriptor.UnavailableFields, field)
+		if (value == nil) != unavailable {
+			return fmt.Errorf("%w: %s availability", ErrDigestMismatch, field)
+		}
+		if value != nil && (!utf8.ValidString(*value) || len(*value) == 0 || len(*value) > 128) {
+			return ErrInputBounds
+		}
+	}
+	if descriptor.ModelIDSource == "platform-unavailable" {
+		if descriptor.ModelID != nil {
+			return fmt.Errorf("%w: unavailable model ID", ErrDigestMismatch)
+		}
+	} else if descriptor.ModelIDSource == "platform-reported-exact" {
+		if descriptor.ModelID == nil {
+			return fmt.Errorf("%w: exact model ID unavailable", ErrDigestMismatch)
+		}
+	} else {
+		return fmt.Errorf("%w: model ID source", ErrDigestMismatch)
+	}
+	if descriptor.ModelID != nil && descriptor.DisplayedModelLabel != nil && *descriptor.ModelID == *descriptor.DisplayedModelLabel {
+		return fmt.Errorf("%w: displayed model label is not an exact model ID", ErrDigestMismatch)
 	}
 	return nil
 }
 
 func ComputeRunInputDigest(fixed FixedInputDigests) string {
+	return ComputeRunInputDigestForPrompt(fixed, FrozenPromptDigest)
+}
+
+// ComputeRunInputDigestForPrompt binds the immutable run inputs to the
+// prompt digest carried by a sealed pass receipt. The repository producer
+// wrapper above retains the frozen discovery-prompt behavior; offline
+// reconciliation uses this supplied-provenance form after lexical digest and
+// receipt equality checks have passed.
+func ComputeRunInputDigestForPrompt(fixed FixedInputDigests, promptDigest string) string {
 	taxonomy := FrozenTaxonomy()
 	return digestValue("AGA-CLASSIFICATION-RUN-INPUT-V1", map[string]any{
 		"taxonomyVersion":     taxonomy.Version,
 		"taxonomyDigest":      taxonomy.Digest,
 		"fixedInputDigests":   fixed,
-		"promptDigest":        FrozenPromptDigest,
+		"promptDigest":        promptDigest,
 		"batchManifestDigest": FrozenBatchManifestDigest,
 	})
 }
@@ -458,7 +509,7 @@ func ComputeClassificationPassInputDigest(input ClassificationPassInput) string 
 func ComputeRoleNeutralPassInputDigest(input ClassificationPassInput) string {
 	return digestValue("AGA-CLASSIFICATION-ROLE-NEUTRAL-PASS-INPUT-V1", map[string]any{
 		"schemaVersion": input.SchemaVersion, "purpose": input.Purpose,
-		"classificationRunId": input.ClassificationRunID, "batchOrdinal": input.BatchOrdinal,
+		"batchOrdinal":    input.BatchOrdinal,
 		"taxonomyVersion": input.TaxonomyVersion, "taxonomyDigest": input.TaxonomyDigest,
 		"promptDigest": input.PromptDigest, "batchManifestDigest": input.BatchManifestDigest,
 		"fixedInputDigests": input.FixedInputDigests, "items": input.Items,
@@ -473,11 +524,17 @@ func computePassInputSetDigest(receipt PassSealReceipt) string {
 	return digestValue("AGA-CLASSIFICATION-PASS-INPUT-SET-V1", map[string]any{"classificationRunId": receipt.ClassificationRunID, "passRole": receipt.PassRole, "passRunId": receipt.PassRunID, "batchManifestDigest": receipt.BatchManifestDigest, "orderedInputDigests": receipt.OrderedInputDigests})
 }
 
+// ComputePassInputSetDigest exposes the frozen, text-free receipt binding for
+// offline validators. It does not inspect private classification input bytes.
+func ComputePassInputSetDigest(receipt PassSealReceipt) string {
+	return computePassInputSetDigest(receipt)
+}
+
 func ComputePassBatchOutputDigest(output PassBatchOutput) string {
 	return digestExcludingJSONFields("AGA-CLASSIFICATION-PASS-BATCH-V1", output, "batchOutputDigest")
 }
 
-func validatePassInput(input ClassificationPassInput, role PassRole, expectedRunID, expectedPassRunID, expectedModelDigest string, expectedOrdinal, expectedCount int, expectedIdentities []BaseIdentity) error {
+func validatePassInput(input ClassificationPassInput, role PassRole, expectedRunID, expectedPassRunID, expectedPromptDigest, expectedModelDigest string, expectedOrdinal, expectedCount int, expectedIdentities []BaseIdentity) error {
 	if input.Items == nil || expectedCount < 1 || expectedCount > 64 {
 		return ErrInputBounds
 	}
@@ -485,14 +542,17 @@ func validatePassInput(input ClassificationPassInput, role PassRole, expectedRun
 	if err != nil || len(encoded) > 98304 {
 		return ErrInputBounds
 	}
-	if input.SchemaVersion != "aga-hybrid-classification-pass-input/v1" || input.Purpose != "ROW_CLASSIFICATION_PRIVATE_INPUT" || input.ClassificationRunID != expectedRunID || input.PassRole != role || input.PassRunID != expectedPassRunID || input.BatchOrdinal != expectedOrdinal || input.TaxonomyVersion != FrozenTaxonomy().Version || input.TaxonomyDigest != FrozenTaxonomy().Digest || input.PromptDigest != FrozenPromptDigest || input.ModelDescriptorDigest != expectedModelDigest || input.BatchManifestDigest != FrozenBatchManifestDigest || !reflect.DeepEqual(input.FixedInputDigests, FrozenFixedInputDigests()) || len(input.Items) != expectedCount {
+	if input.SchemaVersion != "aga-hybrid-classification-pass-input/v1" || input.Purpose != "ROW_CLASSIFICATION_PRIVATE_INPUT" || input.ClassificationRunID != expectedRunID || input.PassRole != role || input.PassRunID != expectedPassRunID || input.BatchOrdinal != expectedOrdinal || input.TaxonomyVersion != FrozenTaxonomy().Version || input.TaxonomyDigest != FrozenTaxonomy().Digest || input.PromptDigest != expectedPromptDigest || input.ModelDescriptorDigest != expectedModelDigest || input.BatchManifestDigest != FrozenBatchManifestDigest || !reflect.DeepEqual(input.FixedInputDigests, FrozenFixedInputDigests()) || len(input.Items) != expectedCount {
 		return ErrDigestMismatch
 	}
 	if err := validatePassRunID(role, input.PassRunID); err != nil {
 		return err
 	}
 	for index, item := range input.Items {
-		if !reflect.DeepEqual(item.Identity, expectedIdentities[index]) || !utf8.ValidString(item.QuestionBody) || len(item.QuestionBody) == 0 || len(item.QuestionBody) > 2048 || item.Identity.TextDigest != rawTextDigest(item.QuestionBody) || !validPackageFacts(item.PackageFacts) || !validResearchFacts(item.ResearchCandidateFacts, item.Identity) {
+		if !reflect.DeepEqual(item.Identity, expectedIdentities[index]) {
+			return ErrDigestMismatch
+		}
+		if !utf8.ValidString(item.QuestionBody) || len(item.QuestionBody) == 0 || len(item.QuestionBody) > 2048 || item.Identity.TextDigest != rawTextDigest(item.QuestionBody) || !validPackageFacts(item.PackageFacts) || !validResearchFacts(item.ResearchCandidateFacts, item.Identity) {
 			return ErrDigestMismatch
 		}
 	}
@@ -507,10 +567,10 @@ func rawTextDigest(body string) string {
 func deriveEvidenceFacts(item ClassificationPassInputItem) EvidenceFacts {
 	return EvidenceFacts{
 		"QUESTION_BODY_DIGEST":    {{Digest: rawTextDigest(item.QuestionBody)}},
-		"FORM_METADATA_DIGEST":    {{Digest: digestValue("AGA-FORM-METADATA-FACT-V1", map[string]any{"formCode": item.Identity.FormCode, "formKind": item.PackageFacts.FormKind, "formRiskBand": item.PackageFacts.FormRiskBand})}},
-		"RESEARCH_ROW_DIGEST":     {{Digest: digestValue("AGA-RESEARCH-ROW-V1", item.ResearchCandidateFacts)}},
-		"SOURCE_PROPOSAL_DIGEST":  evidenceFactsFromDigests(item.PackageFacts.SourceProposalDigests),
-		"SOURCE_REFERENCE_DIGEST": evidenceFactsFromDigests(item.PackageFacts.SourceReferenceDigests),
+		"FORM_METADATA_DIGEST":    {{Digest: digestValue("AGA-FORM-METADATA-FACT-V1", map[string]any{"formKind": item.PackageFacts.FormKind, "formRiskBand": item.PackageFacts.FormRiskBand})}},
+		"RESEARCH_ROW_DIGEST":     {{Digest: digestValue("AGA-RESEARCH-ROW-FACT-V1", item.ResearchCandidateFacts)}},
+		"SOURCE_PROPOSAL_DIGEST":  {{Digest: digestValue("AGA-SOURCE-PROPOSAL-SET-V1", item.PackageFacts.SourceProposalDigests)}},
+		"SOURCE_REFERENCE_DIGEST": {{Digest: digestValue("AGA-SOURCE-REFERENCE-SET-V1", item.PackageFacts.SourceReferenceDigests)}},
 	}
 }
 
@@ -523,7 +583,7 @@ func evidenceFactsFromDigests(values []string) []EvidenceFact {
 }
 
 func validPackageFacts(facts ClassificationPackageFacts) bool {
-	return contains([]string{"ADMINISTRATIVE_FORM", "CHECKLIST", "FORM"}, facts.FormKind) && contains([]string{"PROPOSED_CONTROL_ASSURANCE", "PROPOSED_HIGH_OPERATIONAL", "PROPOSED_REVIEW_REQUIRED", "PROPOSED_SAFETY_CRITICAL"}, facts.FormRiskBand) && contains([]string{"PROPOSED_CONTROL_ASSURANCE", "PROPOSED_HIGH_OPERATIONAL", "PROPOSED_REVIEW_REQUIRED", "PROPOSED_SAFETY_CRITICAL"}, facts.QuestionRiskBand) && contains([]string{"AERODROME_OPERATIONAL_SAFETY", "GOVERNANCE_AND_RECORDS", "OPERATIONAL_ASSURANCE", "UNCLASSIFIED"}, facts.QuestionRiskDomain) && facts.SourceMappingState == SourceMappingRequired && facts.SourceAuthorityState == SourceAuthorityNotAttested && contains([]string{ExtractionCandidate, ExtractionExactSourceBacked}, facts.ExtractionState) && facts.RiskClassificationState == RiskExpertReviewRequired && facts.DecisionState == DecisionNotSupplied && validDigestSet(facts.SourceProposalDigests, 8) && validDigestSet(facts.SourceReferenceDigests, 8)
+	return contains([]string{"ADMINISTRATIVE_FORM", "CHECKLIST", "FORM"}, facts.FormKind) && contains([]string{"PROPOSED_CONTROL_ASSURANCE", "PROPOSED_HIGH_OPERATIONAL", "PROPOSED_REVIEW_REQUIRED", "PROPOSED_SAFETY_CRITICAL"}, facts.FormRiskBand) && contains([]string{"PROPOSED_CONTROL_ASSURANCE", "PROPOSED_HIGH_OPERATIONAL", "PROPOSED_REVIEW_REQUIRED", "PROPOSED_SAFETY_CRITICAL"}, facts.QuestionRiskBand) && contains([]string{"AERODROME_OPERATIONAL_SAFETY", "GOVERNANCE_AND_RECORDS", "OPERATIONAL_ASSURANCE", "UNCLASSIFIED"}, facts.QuestionRiskDomain) && facts.SourceMappingState == SourceMappingRequired && facts.SourceAuthorityState == SourceAuthorityNotAttested && contains([]string{ExtractionCandidate, ExtractionExactSourceBacked}, facts.ExtractionState) && facts.RiskClassificationState == RiskExpertReviewRequired && contains([]string{DecisionNotSupplied, "NOT_SUPPLIED"}, facts.DecisionState) && validDigestSet(facts.SourceProposalDigests, 8) && validDigestSet(facts.SourceReferenceDigests, 8)
 }
 
 func validResearchFacts(facts ClassificationResearchCandidateFacts, identity BaseIdentity) bool {
@@ -541,8 +601,8 @@ func validDigestSet(values []string, maximum int) bool {
 	}()
 }
 
-func validatePassSeal(receipt PassSealReceipt, role PassRole, records []PassProposalRecord, batchInputs []ClassificationPassInput, modelDigest string, orderedIdentities []BaseIdentity, verifyOutputs bool) error {
-	if receipt.ClassificationRunID == "" || receipt.PassRole != role || !validDigest(receipt.ModelDescriptorDigest) || receipt.ModelDescriptorDigest != modelDigest || receipt.PromptDigest != FrozenPromptDigest || receipt.BatchManifestDigest != FrozenBatchManifestDigest || receipt.BatchCount != len(frozenBatchItemCounts) || receipt.ItemCount != FrozenBaseQuestionCount || len(batchInputs) != len(frozenBatchItemCounts) || len(receipt.OrderedInputDigests) != len(frozenBatchItemCounts) || len(receipt.OrderedBatchOutputDigests) != len(frozenBatchItemCounts) || len(receipt.OrderedPassResultDigests) != FrozenBaseQuestionCount || !validDigest(receipt.PassSealDigest) || len(records) != FrozenBaseQuestionCount || len(orderedIdentities) != FrozenBaseQuestionCount {
+func validatePassSeal(receipt PassSealReceipt, role PassRole, records []PassProposalRecord, batchInputs []ClassificationPassInput, modelDigest string, orderedIdentities []BaseIdentity, verifyOutputs, acceptSuppliedInputDigests bool) error {
+	if receipt.ClassificationRunID == "" || receipt.PassRole != role || !validDigest(receipt.ModelDescriptorDigest) || receipt.ModelDescriptorDigest != modelDigest || !validDigest(receipt.PromptDigest) || receipt.BatchManifestDigest != FrozenBatchManifestDigest || receipt.BatchCount != len(frozenBatchItemCounts) || receipt.ItemCount != FrozenBaseQuestionCount || len(batchInputs) != len(frozenBatchItemCounts) || len(receipt.OrderedInputDigests) != len(frozenBatchItemCounts) || len(receipt.OrderedBatchOutputDigests) != len(frozenBatchItemCounts) || len(receipt.OrderedPassResultDigests) != FrozenBaseQuestionCount || !validDigest(receipt.PassSealDigest) || len(records) != FrozenBaseQuestionCount || len(orderedIdentities) != FrozenBaseQuestionCount {
 		return ErrDigestMismatch
 	}
 	if err := validatePassRunID(role, receipt.PassRunID); err != nil {
@@ -554,10 +614,13 @@ func validatePassSeal(receipt PassSealReceipt, role PassRole, records []PassProp
 	offset := 0
 	for batchIndex, count := range frozenBatchItemCounts {
 		identities := orderedIdentities[offset : offset+count]
-		if err := validatePassInput(batchInputs[batchIndex], role, receipt.ClassificationRunID, receipt.PassRunID, modelDigest, batchIndex+1, count, identities); err != nil {
+		if err := validatePassInput(batchInputs[batchIndex], role, receipt.ClassificationRunID, receipt.PassRunID, receipt.PromptDigest, modelDigest, batchIndex+1, count, identities); err != nil {
 			return err
 		}
 		expectedInput := ComputeClassificationPassInputDigest(batchInputs[batchIndex])
+		if acceptSuppliedInputDigests {
+			expectedInput = receipt.OrderedInputDigests[batchIndex]
+		}
 		inputDigests = append(inputDigests, expectedInput)
 		batchRecords := records[offset : offset+count]
 		for _, record := range batchRecords {
@@ -566,7 +629,7 @@ func validatePassSeal(receipt PassSealReceipt, role PassRole, records []PassProp
 			}
 			results = append(results, record.PassResultDigest)
 		}
-		output := PassBatchOutput{SchemaVersion: "aga-hybrid-classification-pass-batch/v1", ClassificationRunID: receipt.ClassificationRunID, PassRole: role, PassRunID: receipt.PassRunID, BatchOrdinal: batchIndex + 1, PromptDigest: FrozenPromptDigest, ModelDescriptorDigest: modelDigest, InputDigest: expectedInput, Records: batchRecords}
+		output := PassBatchOutput{SchemaVersion: "aga-hybrid-classification-pass-batch/v1", ClassificationRunID: receipt.ClassificationRunID, PassRole: role, PassRunID: receipt.PassRunID, BatchOrdinal: batchIndex + 1, PromptDigest: receipt.PromptDigest, ModelDescriptorDigest: modelDigest, InputDigest: expectedInput, Records: batchRecords}
 		output.BatchOutputDigest = ComputePassBatchOutputDigest(output)
 		batchOutputs = append(batchOutputs, output.BatchOutputDigest)
 		offset += count
@@ -578,25 +641,48 @@ func validatePassSeal(receipt PassSealReceipt, role PassRole, records []PassProp
 }
 
 func ReconcileClassification(input ClassificationInput) (ClassificationResult, error) {
+	if err := validateFrozenTaxonomyAuthority(); err != nil {
+		return ClassificationResult{}, err
+	}
 	taxonomy := FrozenTaxonomy()
-	if !classificationRunIDPattern.MatchString(input.ClassificationRunID) || input.PromptDigest != FrozenPromptDigest || input.TaxonomyDigest != taxonomy.Digest || input.BatchManifestDigest != FrozenBatchManifestDigest || !reflect.DeepEqual(input.FixedInputDigests, FrozenFixedInputDigests()) || input.RunInputDigest != ComputeRunInputDigest(input.FixedInputDigests) {
+	if !classificationRunIDPattern.MatchString(input.ClassificationRunID) || !validDigest(input.PromptDigest) || input.TaxonomyDigest != taxonomy.Digest || input.BatchManifestDigest != FrozenBatchManifestDigest || !reflect.DeepEqual(input.FixedInputDigests, FrozenFixedInputDigests()) || input.RunInputDigest != ComputeRunInputDigestForPrompt(input.FixedInputDigests, input.PromptDigest) {
 		return ClassificationResult{}, fmt.Errorf("%w: classification pins", ErrDigestMismatch)
 	}
-	modelDigests := make([]string, 0, len(input.ModelDescriptors))
-	modelDigestSet := make(map[string]struct{}, len(input.ModelDescriptors))
+	candidateClassificationRunID := input.CandidateClassificationRunID
+	if candidateClassificationRunID == "" {
+		candidateClassificationRunID = input.ClassificationRunID
+	}
+	challengeClassificationRunID := input.ChallengeClassificationRunID
+	if challengeClassificationRunID == "" {
+		challengeClassificationRunID = input.ClassificationRunID
+	}
+	if !classificationRunIDPattern.MatchString(candidateClassificationRunID) || !classificationRunIDPattern.MatchString(challengeClassificationRunID) || input.PassOneSealReceipt.ClassificationRunID != candidateClassificationRunID || input.PassTwoSealReceipt.ClassificationRunID != challengeClassificationRunID || input.PassOneSealReceipt.PromptDigest != input.PromptDigest || input.PassTwoSealReceipt.PromptDigest != input.PromptDigest {
+		return ClassificationResult{}, fmt.Errorf("%w: pass provenance", ErrDigestMismatch)
+	}
+	computedModelDigests := make([]string, 0, len(input.ModelDescriptors))
 	for _, descriptor := range input.ModelDescriptors {
 		if err := validateModelDescriptor(descriptor); err != nil {
 			return ClassificationResult{}, err
 		}
 		digest := ComputeModelDescriptorDigest(descriptor)
-		if _, duplicate := modelDigestSet[digest]; duplicate {
-			return ClassificationResult{}, fmt.Errorf("%w: model descriptor", ErrDuplicateProposalValue)
-		}
-		modelDigestSet[digest] = struct{}{}
-		modelDigests = append(modelDigests, digest)
+		computedModelDigests = append(computedModelDigests, digest)
 	}
-	if len(modelDigests) < 1 || len(modelDigests) > 2 {
+	if len(computedModelDigests) < 1 || len(computedModelDigests) > 2 {
 		return ClassificationResult{}, fmt.Errorf("%w: model descriptor count", ErrDigestMismatch)
+	}
+	modelDigests := append([]string(nil), computedModelDigests...)
+	if len(input.SuppliedModelDescriptorDigests) > 0 {
+		if len(input.SuppliedModelDescriptorDigests) != len(input.ModelDescriptors) || !validDigestSet(input.SuppliedModelDescriptorDigests, 2) {
+			return ClassificationResult{}, fmt.Errorf("%w: supplied model descriptor count", ErrDigestMismatch)
+		}
+		modelDigests = uniqueSorted(input.SuppliedModelDescriptorDigests)
+		if len(modelDigests) != len(input.ModelDescriptors) {
+			return ClassificationResult{}, fmt.Errorf("%w: supplied model descriptor uniqueness", ErrDuplicateProposalValue)
+		}
+	}
+	modelDigestSet := make(map[string]struct{}, len(modelDigests))
+	for _, digest := range modelDigests {
+		modelDigestSet[digest] = struct{}{}
 	}
 	sort.Strings(modelDigests)
 	if len(input.OrderedBaseIdentities) != FrozenBaseQuestionCount || len(input.PassInputsByRole) != 2 || len(input.CandidateRecords) != FrozenBaseQuestionCount || len(input.ChallengeRecords) != FrozenBaseQuestionCount || len(input.GovernanceByIdentity) != FrozenBaseQuestionCount || len(input.EvidenceFactsByIdentity) != FrozenBaseQuestionCount {
@@ -610,7 +696,7 @@ func ReconcileClassification(input ClassificationInput) (ClassificationResult, e
 			return ClassificationResult{}, errors.Join(ErrPrivateInputMismatch, ErrDigestMismatch)
 		}
 	}
-	if digestValue("AGA-HYBRID-ORDERED-IDENTITIES-V1", input.OrderedBaseIdentities) != FrozenOrderedIdentityDigest {
+	if digestValue("AGA-CLASSIFICATION-ORDERED-IDENTITIES-V1", input.OrderedBaseIdentities) != FrozenOrderedIdentityDigest {
 		return ClassificationResult{}, ErrPassBijection
 	}
 	candidatePrecheck := make(map[string]struct{}, FrozenBaseQuestionCount)
@@ -632,13 +718,13 @@ func ReconcileClassification(input ClassificationInput) (ClassificationResult, e
 			return ClassificationResult{}, ErrPassBijection
 		}
 	}
-	if input.PassOneSealDigest != input.PassOneSealReceipt.PassSealDigest || input.PassTwoSealDigest != input.PassTwoSealReceipt.PassSealDigest || input.PassOneSealReceipt.ClassificationRunID != input.ClassificationRunID || input.PassTwoSealReceipt.ClassificationRunID != input.ClassificationRunID {
+	if input.PassOneSealDigest != input.PassOneSealReceipt.PassSealDigest || input.PassTwoSealDigest != input.PassTwoSealReceipt.PassSealDigest {
 		return ClassificationResult{}, ErrDigestMismatch
 	}
-	if err := validatePassSeal(input.PassOneSealReceipt, PassCandidate, input.CandidateRecords, input.PassInputsByRole[PassCandidate], input.PassOneSealReceipt.ModelDescriptorDigest, input.OrderedBaseIdentities, false); err != nil {
+	if err := validatePassSeal(input.PassOneSealReceipt, PassCandidate, input.CandidateRecords, input.PassInputsByRole[PassCandidate], input.PassOneSealReceipt.ModelDescriptorDigest, input.OrderedBaseIdentities, false, input.AcceptSuppliedPassInputDigests); err != nil {
 		return ClassificationResult{}, err
 	}
-	if err := validatePassSeal(input.PassTwoSealReceipt, PassChallenge, input.ChallengeRecords, input.PassInputsByRole[PassChallenge], input.PassTwoSealReceipt.ModelDescriptorDigest, input.OrderedBaseIdentities, false); err != nil {
+	if err := validatePassSeal(input.PassTwoSealReceipt, PassChallenge, input.ChallengeRecords, input.PassInputsByRole[PassChallenge], input.PassTwoSealReceipt.ModelDescriptorDigest, input.OrderedBaseIdentities, false, input.AcceptSuppliedPassInputDigests); err != nil {
 		return ClassificationResult{}, err
 	}
 	candidateIdentitySet := make(map[string]struct{}, FrozenBaseQuestionCount)
@@ -755,10 +841,10 @@ func ReconcileClassification(input ClassificationInput) (ClassificationResult, e
 		item.ItemSemanticDigest = ComputeItemSemanticDigest(item)
 		result.Items = append(result.Items, item)
 	}
-	if err := validatePassSeal(input.PassOneSealReceipt, PassCandidate, input.CandidateRecords, input.PassInputsByRole[PassCandidate], input.PassOneSealReceipt.ModelDescriptorDigest, input.OrderedBaseIdentities, true); err != nil {
+	if err := validatePassSeal(input.PassOneSealReceipt, PassCandidate, input.CandidateRecords, input.PassInputsByRole[PassCandidate], input.PassOneSealReceipt.ModelDescriptorDigest, input.OrderedBaseIdentities, true, input.AcceptSuppliedPassInputDigests); err != nil {
 		return ClassificationResult{}, err
 	}
-	if err := validatePassSeal(input.PassTwoSealReceipt, PassChallenge, input.ChallengeRecords, input.PassInputsByRole[PassChallenge], input.PassTwoSealReceipt.ModelDescriptorDigest, input.OrderedBaseIdentities, true); err != nil {
+	if err := validatePassSeal(input.PassTwoSealReceipt, PassChallenge, input.ChallengeRecords, input.PassInputsByRole[PassChallenge], input.PassTwoSealReceipt.ModelDescriptorDigest, input.OrderedBaseIdentities, true, input.AcceptSuppliedPassInputDigests); err != nil {
 		return ClassificationResult{}, err
 	}
 	result.Aggregate = buildClassificationAggregate(taxonomy, result.Items, len(result.CandidateRecords)+len(result.ChallengeRecords))

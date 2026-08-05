@@ -1,0 +1,103 @@
+import { Fragment, useEffect, useState, type ReactElement } from "react";
+import { Link, Route, useLocation } from "react-router-dom";
+
+import { AGADemoWorkspaceGuard } from "../auth/aga-demo-workspace-guard";
+import { useApplicationRuntime } from "./providers";
+import type { Role } from "../backend/backend";
+import { AGADemoClassificationWorkspacePage } from "../features/checklists/aga-classification-workspace-page";
+import { AGADemoCAPEvidencePage } from "../features/caps/aga-demo-cap-evidence-page";
+import { AGADemoPotentialFindingPage } from "../features/findings/aga-demo-potential-finding-page";
+import { AGADemoInspectionPage, type AGADemoLifecycleProjection } from "../features/inspections/aga-demo-inspection-page";
+
+export const AGA_DEMO_WORKSPACE_ROUTES = [
+  { path: "/admin/aga-demo-workspace", role: "admin", label: "Admin Preview" },
+  { path: "/department-manager/aga-demo-workspace", role: "manager", label: "Department Manager" },
+  { path: "/inspector/aga-demo-workspace", role: "inspector", label: "CAA Inspector" },
+  { path: "/lead-inspector/aga-demo-workspace", role: "leadInspector", label: "Lead Inspector" },
+  { path: "/auditee/aga-demo-workspace", role: "auditee", label: "Auditee — Fly Namibia" },
+] as const satisfies readonly { path: string; role: Role; label: string }[];
+
+function WorkspaceRoute({ path, role, label }: { path: string; role: Role; label: string }) {
+  const location = useLocation();
+  const [projection, setProjection] = useState<AGADemoLifecycleProjection | null>(null);
+  const suffix = location.pathname.slice(path.length).replace(/\/$/u, "");
+  const page = suffix === "/inspection"
+    ? "inspection"
+    : suffix === "/potential-findings"
+      ? "potential-findings"
+      : suffix === "/caps-evidence"
+        ? "caps-evidence"
+        : "classification";
+  return (
+    <AGADemoWorkspaceGuard requiredRole={role}>
+      {(capability) => (
+        <>
+          <nav aria-label="AGA synthetic lifecycle routes" className="aga-workspace-route-nav">
+            <Link aria-current={page === "classification" ? "page" : undefined} to={path}>Classification workspace</Link>
+            <Link aria-current={page === "inspection" ? "page" : undefined} to={`${path}/inspection`}>Inspection lifecycle</Link>
+            <Link aria-current={page === "potential-findings" ? "page" : undefined} to={`${path}/potential-findings`}>Potential Findings</Link>
+            <Link aria-current={page === "caps-evidence" ? "page" : undefined} to={`${path}/caps-evidence`}>CAP and Evidence</Link>
+          </nav>
+          {page === "inspection" ? <AGADemoInspectionPage capability={capability} role={role} roleLabel={label} initialProjection={projection ?? undefined} onProjectionChange={setProjection} /> : null}
+          {page === "potential-findings" ? <AGADemoPotentialFindingPage capability={capability} role={role} roleLabel={label} initialProjection={projection ?? undefined} onProjectionChange={setProjection} /> : null}
+          {page === "caps-evidence" ? <AGADemoCAPEvidencePage capability={capability} role={role} roleLabel={label} initialProjection={projection ?? undefined} onProjectionChange={setProjection} /> : null}
+          {page === "classification" ? <AGADemoClassificationWorkspacePage capability={capability} role={role} roleLabel={label} /> : null}
+        </>
+      )}
+    </AGADemoWorkspaceGuard>
+  );
+}
+
+export const agaDemoWorkspaceRouteElements: readonly ReactElement[] = AGA_DEMO_WORKSPACE_ROUTES.map(
+  ({ path, role, label }) => <Route key={path} path={`${path}/:lifecycleView?`} element={<WorkspaceRoute path={path} role={role} label={label} />} />,
+);
+
+export function AGADemoWorkspaceNavigation({
+  activeRole,
+  onNavigate,
+}: {
+  activeRole: Role;
+  onNavigate?: () => void;
+}) {
+  const runtime = useApplicationRuntime();
+  const location = useLocation();
+  const client = runtime.backend.agaDemoWorkspace;
+  const route = AGA_DEMO_WORKSPACE_ROUTES.find((candidate) => candidate.role === activeRole);
+  const [available, setAvailable] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    if (!client || !route) {
+      setAvailable(false);
+      return () => controller.abort();
+    }
+    void client.capability({ signal: controller.signal })
+      .then((capability) => {
+        if (!controller.signal.aborted) setAvailable(capability.available);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setAvailable(false);
+      });
+    return () => controller.abort();
+  }, [client, route]);
+
+  if (!route || !available) return null;
+  const active = location.pathname === route.path || location.pathname.startsWith(`${route.path}/`);
+  return (
+    <Link
+      aria-current={active ? "page" : undefined}
+      aria-label="AGA demo workspace"
+      className={`nav-item${active ? " active" : ""}`}
+      onClick={onNavigate}
+      to={route.path}
+    >
+      <span className="nav-item__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z" /><path d="M8 9h8" /><path d="M8 13h5" /></svg></span>
+      <span>AGA demo workspace</span>
+    </Link>
+  );
+}
+
+/** Exported for focused route tests; HTTP bootstrap passes the route elements directly. */
+export function AGADemoWorkspaceRoutes() {
+  return <Fragment>{agaDemoWorkspaceRouteElements}</Fragment>;
+}

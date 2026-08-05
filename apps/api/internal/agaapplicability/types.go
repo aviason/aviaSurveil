@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"reflect"
 	"regexp"
 	"sort"
@@ -73,9 +74,9 @@ const (
 const (
 	FrozenPackageVersion           = "AGA_ALL_FORMS_SOURCE_RISK_DRAFT_V1"
 	FrozenPackageJSONSHA256        = "sha256:5ebcce2d70ee22fef4165b490cb6e4b276ad776f40dbaf12e5cea85c9da91b15"
-	FrozenPromptDigest             = "sha256:64175f771c67f2ab90aeb8bb39492ae96de9594472db4179870fc2ff7f4b86da"
+	FrozenPromptDigest             = "sha256:2ff6f7fc5c5e337c592bc67540f3f925c852de2d74529ece9ddc46ca39d1cb84"
 	FrozenBatchManifestDigest      = "sha256:dee3a0101dcfdeaef9dbb8c3f53d7e4a99de9499eaa7d82a039eb6cac077c96b"
-	FrozenOrderedIdentityDigest    = "sha256:510f379d3d8bf9eeaa77df56416660dd6225ebfda71ecf15e8e239f2794477fd"
+	FrozenOrderedIdentityDigest    = "sha256:4d11d492e87619ca8e39db0dce74d85b93f7d652589067395481b5e1067aedcc"
 	RecommendationAutoProposed     = "AUTO_PROPOSED_HIGH_CONFIDENCE"
 	RecommendationManagerReview    = "MANAGER_REVIEW_REQUIRED"
 	RecommendationBlockedSourceGap = "BLOCKED_SOURCE_GAP"
@@ -206,13 +207,13 @@ type FixedInputDigests struct {
 }
 
 type ModelDescriptor struct {
-	ModelID                  string   `json:"modelId"`
+	ModelID                  *string  `json:"modelId"`
 	ModelIDSource            string   `json:"modelIdSource"`
-	RuntimeReportedFamily    string   `json:"runtimeReportedFamily"`
-	Service                  string   `json:"service"`
-	Interface                string   `json:"interface"`
-	RequestedReasoningEffort string   `json:"requestedReasoningEffort"`
-	ForkTurns                string   `json:"forkTurns"`
+	DisplayedModelLabel      *string  `json:"displayedModelLabel"`
+	Service                  *string  `json:"service"`
+	Interface                *string  `json:"interface"`
+	RequestedReasoningEffort *string  `json:"requestedReasoningEffort"`
+	ForkTurns                *string  `json:"forkTurns"`
 	SnapshotBuildLabel       *string  `json:"snapshotBuildLabel"`
 	UnavailableFields        []string `json:"unavailableFields"`
 }
@@ -244,6 +245,44 @@ type PassProposalRecord struct {
 	ConfidenceEvidence    []ConfidenceEvidence `json:"confidenceEvidence"`
 	SourceRefs            []SourceReference    `json:"sourceRefs"`
 	PassResultDigest      string               `json:"passResultDigest"`
+}
+
+func (record *PassProposalRecord) UnmarshalJSON(data []byte) error {
+	if !utf8.Valid(data) || hasJSONLoneSurrogate(data) {
+		return ErrQuestionReferenceUnion
+	}
+	object, err := closedJSONObject(data)
+	if err != nil || !hasExactJSONKeys(object, "identity", "classificationRunId", "passRole", "passRunId", "promptDigest", "modelDescriptorDigest", "inputDigest", "proposalProjection", "rationaleCodes", "confidenceEvidence", "sourceRefs", "passResultDigest") {
+		return ErrQuestionReferenceUnion
+	}
+	type passProposalRecordAlias PassProposalRecord
+	var decoded passProposalRecordAlias
+	if err := strictJSONDecode(data, &decoded); err != nil {
+		return ErrQuestionReferenceUnion
+	}
+	recordValue := PassProposalRecord(decoded)
+	canonical, err := json.Marshal(decoded)
+	if err != nil || !semanticJSONEqual(data, canonical) {
+		return ErrQuestionReferenceUnion
+	}
+	expected, err := NewPassProposalRecordForSuppliedProvenance(FrozenTaxonomy(), PassProposalInput{
+		Identity:              recordValue.Identity,
+		ClassificationRunID:   recordValue.ClassificationRunID,
+		PassRole:              recordValue.PassRole,
+		PassRunID:             recordValue.PassRunID,
+		PromptDigest:          recordValue.PromptDigest,
+		ModelDescriptorDigest: recordValue.ModelDescriptorDigest,
+		InputDigest:           recordValue.InputDigest,
+		Projection:            recordValue.ProposalProjection,
+		RationaleCodes:        recordValue.RationaleCodes,
+		ConfidenceEvidence:    recordValue.ConfidenceEvidence,
+		SourceRefs:            recordValue.SourceRefs,
+	})
+	if err != nil || !reflect.DeepEqual(expected, recordValue) {
+		return ErrQuestionReferenceUnion
+	}
+	*record = recordValue
+	return nil
 }
 
 type GovernanceState struct {
@@ -371,7 +410,7 @@ func (item *SealedClassificationItem) UnmarshalJSON(data []byte) error {
 		ClassificationRunDigest string   `json:"classificationRunDigest"`
 		AggregateDigest         string   `json:"aggregateDigest"`
 	}
-	if err := json.Unmarshal(data, &flat); err != nil {
+	if err := strictJSONDecode(data, &flat); err != nil {
 		return ErrQuestionReferenceUnion
 	}
 	if flat.TaxonomyVersion != FrozenTaxonomy().Version {
@@ -382,7 +421,7 @@ func (item *SealedClassificationItem) UnmarshalJSON(data []byte) error {
 		return ErrQuestionReferenceUnion
 	}
 	decoded := SealedClassificationItem{Identity: identity, Projection: flat.ProposalProjection, AgreementConfidence: flat.AgreementConfidence, RecommendationState: flat.RecommendationState, RationaleCodes: flat.RationaleCodes, ConfidenceEvidence: flat.ConfidenceEvidence, SourceRefs: flat.SourceRefs, GovernanceState: flat.GovernanceState, PassDisagreementCodes: flat.PassDisagreementCodes, PassOneResultDigest: flat.PassOneResultDigest, PassTwoResultDigest: flat.PassTwoResultDigest, PassOneRunID: flat.PassOneRunID, PassTwoRunID: flat.PassTwoRunID, PromptDigest: flat.PromptDigest, ModelDescriptorDigests: flat.ModelDescriptorDigests, TaxonomyDigest: flat.TaxonomyDigest, InputDigest: flat.InputDigest, ItemSemanticDigest: flat.ItemSemanticDigest, ClassificationRunDigest: flat.ClassificationRunDigest, AggregateDigest: flat.AggregateDigest}
-	if err := ValidateProjection(FrozenTaxonomy(), decoded.Projection); err != nil || !contains([]string{string(ConfidenceHigh), string(ConfidenceMedium), string(ConfidenceLow)}, string(decoded.AgreementConfidence)) || !contains([]string{RecommendationAutoProposed, RecommendationManagerReview, RecommendationBlockedSourceGap}, decoded.RecommendationState) || decoded.SourceMappingState != SourceMappingRequired || decoded.SourceAuthorityState != SourceAuthorityNotAttested || decoded.RiskClassificationState != RiskExpertReviewRequired || decoded.DecisionState != DecisionNotSupplied || !contains([]string{ExtractionCandidate, ExtractionExactSourceBacked}, decoded.ExtractionState) || decoded.PromptDigest != FrozenPromptDigest || decoded.TaxonomyDigest != FrozenTaxonomy().Digest || decoded.InputDigest != ComputeRunInputDigest(FrozenFixedInputDigests()) || !validDigest(decoded.PassOneResultDigest) || !validDigest(decoded.PassTwoResultDigest) || !validDigest(decoded.ItemSemanticDigest) || !validDigest(decoded.ClassificationRunDigest) || !validDigest(decoded.AggregateDigest) || len(decoded.ModelDescriptorDigests) < 1 || len(decoded.ModelDescriptorDigests) > 2 || !reflect.DeepEqual(uniqueSorted(decoded.ModelDescriptorDigests), decoded.ModelDescriptorDigests) {
+	if err := ValidateProjection(FrozenTaxonomy(), decoded.Projection); err != nil || !contains([]string{string(ConfidenceHigh), string(ConfidenceMedium), string(ConfidenceLow)}, string(decoded.AgreementConfidence)) || !contains([]string{RecommendationAutoProposed, RecommendationManagerReview, RecommendationBlockedSourceGap}, decoded.RecommendationState) || decoded.SourceMappingState != SourceMappingRequired || decoded.SourceAuthorityState != SourceAuthorityNotAttested || decoded.RiskClassificationState != RiskExpertReviewRequired || decoded.DecisionState != DecisionNotSupplied || !contains([]string{ExtractionCandidate, ExtractionExactSourceBacked}, decoded.ExtractionState) || !validDigest(decoded.PromptDigest) || decoded.TaxonomyDigest != FrozenTaxonomy().Digest || decoded.InputDigest != ComputeRunInputDigestForPrompt(FrozenFixedInputDigests(), decoded.PromptDigest) || !validDigest(decoded.PassOneResultDigest) || !validDigest(decoded.PassTwoResultDigest) || !validDigest(decoded.ItemSemanticDigest) || !validDigest(decoded.ClassificationRunDigest) || !validDigest(decoded.AggregateDigest) || len(decoded.ModelDescriptorDigests) < 1 || len(decoded.ModelDescriptorDigests) > 2 || !reflect.DeepEqual(uniqueSorted(decoded.ModelDescriptorDigests), decoded.ModelDescriptorDigests) {
 		return ErrQuestionReferenceUnion
 	}
 	rationales, rationaleErr := normalizeStrings(decoded.RationaleCodes, FrozenTaxonomy().RationaleCodes, "rationaleCodes", false)
@@ -398,7 +437,7 @@ func (item *SealedClassificationItem) UnmarshalJSON(data []byte) error {
 		}
 	}
 	canonical, err := json.Marshal(decoded)
-	if err != nil || !bytes.Equal(data, canonical) || decoded.ItemSemanticDigest != ComputeItemSemanticDigest(decoded) {
+	if err != nil || !semanticJSONEqual(data, canonical) || decoded.ItemSemanticDigest != ComputeItemSemanticDigest(decoded) {
 		return ErrQuestionReferenceUnion
 	}
 	*item = decoded
@@ -406,23 +445,27 @@ func (item *SealedClassificationItem) UnmarshalJSON(data []byte) error {
 }
 
 type ClassificationInput struct {
-	ClassificationRunID     string
-	RunInputDigest          string
-	PromptDigest            string
-	TaxonomyDigest          string
-	FixedInputDigests       FixedInputDigests
-	ModelDescriptors        []ModelDescriptor
-	BatchManifestDigest     string
-	PassOneSealDigest       string
-	PassTwoSealDigest       string
-	PassOneSealReceipt      PassSealReceipt
-	PassTwoSealReceipt      PassSealReceipt
-	OrderedBaseIdentities   []BaseIdentity
-	PassInputsByRole        map[PassRole][]ClassificationPassInput
-	CandidateRecords        []PassProposalRecord
-	ChallengeRecords        []PassProposalRecord
-	GovernanceByIdentity    map[string]GovernanceState
-	EvidenceFactsByIdentity map[string]EvidenceFacts
+	ClassificationRunID            string
+	CandidateClassificationRunID   string
+	ChallengeClassificationRunID   string
+	RunInputDigest                 string
+	PromptDigest                   string
+	TaxonomyDigest                 string
+	FixedInputDigests              FixedInputDigests
+	ModelDescriptors               []ModelDescriptor
+	SuppliedModelDescriptorDigests []string
+	AcceptSuppliedPassInputDigests bool
+	BatchManifestDigest            string
+	PassOneSealDigest              string
+	PassTwoSealDigest              string
+	PassOneSealReceipt             PassSealReceipt
+	PassTwoSealReceipt             PassSealReceipt
+	OrderedBaseIdentities          []BaseIdentity
+	PassInputsByRole               map[PassRole][]ClassificationPassInput
+	CandidateRecords               []PassProposalRecord
+	ChallengeRecords               []PassProposalRecord
+	GovernanceByIdentity           map[string]GovernanceState
+	EvidenceFactsByIdentity        map[string]EvidenceFacts
 }
 
 type ClassificationPackageFacts struct {
@@ -583,6 +626,39 @@ type ClassificationResult struct {
 	Items                   []SealedClassificationItem `json:"items"`
 	PassOneSealReceipt      PassSealReceipt            `json:"passOneSealReceipt"`
 	PassTwoSealReceipt      PassSealReceipt            `json:"passTwoSealReceipt"`
+}
+
+func (result *ClassificationResult) UnmarshalJSON(data []byte) error {
+	if !utf8.Valid(data) || hasJSONLoneSurrogate(data) {
+		return ErrQuestionReferenceUnion
+	}
+	object, err := closedJSONObject(data)
+	if err != nil || !hasExactJSONKeys(object, "classificationRunId", "state", "taxonomyVersion", "taxonomyDigest", "inputDigest", "aggregateDigest", "classificationRunDigest", "aggregate", "runReceipt", "candidateRecords", "challengeRecords", "items", "passOneSealReceipt", "passTwoSealReceipt") {
+		return ErrQuestionReferenceUnion
+	}
+	type classificationResultAlias ClassificationResult
+	var decoded classificationResultAlias
+	if err := strictJSONDecode(data, &decoded); err != nil {
+		return ErrQuestionReferenceUnion
+	}
+	canonical, err := json.Marshal(decoded)
+	if err != nil || !semanticJSONEqual(data, canonical) {
+		return ErrQuestionReferenceUnion
+	}
+	*result = ClassificationResult(decoded)
+	return nil
+}
+
+// PostgreSQL jsonb preserves JSON values but not object-member order. The
+// closed-field checks above still reject unknown fields; this comparison keeps
+// the same semantic/canonical values while allowing a persistence round trip
+// through jsonb to reorder object members.
+func semanticJSONEqual(left, right []byte) bool {
+	var leftValue, rightValue any
+	if json.Unmarshal(left, &leftValue) != nil || json.Unmarshal(right, &rightValue) != nil {
+		return false
+	}
+	return reflect.DeepEqual(leftValue, rightValue)
 }
 
 type ClassificationOutcome struct {
@@ -769,6 +845,22 @@ func closedJSONObject(data []byte) (map[string]json.RawMessage, error) {
 		return nil, ErrQuestionReferenceUnion
 	}
 	return object, nil
+}
+
+func strictJSONDecode(data []byte, value any) error {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(value); err != nil {
+		return err
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err == nil {
+			return errors.New("multiple JSON values")
+		}
+		return err
+	}
+	return nil
 }
 
 func hasExactJSONKeys(object map[string]json.RawMessage, keys ...string) bool {
@@ -987,6 +1079,7 @@ type Draft struct {
 	Items                     []DraftItem       `json:"items"`
 	sealedCandidateRecords    map[string]PassProposalRecord
 	sealedChallengeRecords    map[string]PassProposalRecord
+	sealedPassGraphValidated  bool
 }
 
 type DraftCommand struct {
@@ -1179,7 +1272,26 @@ type RecommendationItem struct {
 	Projection       ProposalProjection `json:"projection"`
 }
 
+// RecommendationItem carries the accepted package order beside the compact
+// base QuestionRef union. Base references intentionally omit rootSequence from
+// their flat public shape, so restore that immutable ordering field when a
+// persisted recommendation snapshot is decoded through JSON/JSONB.
+func (item *RecommendationItem) UnmarshalJSON(data []byte) error {
+	type recommendationItemAlias RecommendationItem
+	var decoded recommendationItemAlias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	if decoded.QuestionRef.Base != nil {
+		decoded.QuestionRef.RootSequence = decoded.RootSequence
+	}
+	*item = RecommendationItem(decoded)
+	return nil
+}
+
 type Recommendation struct {
+	RecommendationID           string               `json:"recommendationId"`
+	Revision                   int                  `json:"revision"`
 	OperationID                string               `json:"operationId"`
 	IdempotencyKey             string               `json:"idempotencyKey"`
 	GenerationID               string               `json:"generationId"`

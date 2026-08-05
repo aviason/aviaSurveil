@@ -1,0 +1,275 @@
+.aga-classification-workspace {
+  display: grid;
+  gap: 20px;
+  max-width: var(--avia-content-max);
+}
+
+.aga-workspace-facts,
+.aga-workspace-provider-summary {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.aga-workspace-facts article,
+.aga-workspace-panel,
+.aga-workspace-filter-panel,
+.aga-workspace-command-panel,
+.aga-workspace-admin-panel,
+.aga-workspace-register {
+  border: 1px solid var(--avia-color-line);
+  border-radius: var(--avia-radius-panel);
+  background: var(--avia-color-panel);
+  box-shadow: var(--avia-shadow-panel);
+}
+
+.aga-workspace-facts article {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 16px;
+}
+
+.aga-workspace-facts span,
+.aga-workspace-facts small,
+.aga-workspace-panel small,
+.aga-workspace-register small {
+  color: var(--avia-color-muted);
+}
+
+.aga-workspace-facts strong {
+  overflow-wrap: anywhere;
+  color: var(--avia-color-heading);
+  font-size: 1.05rem;
+}
+
+.aga-workspace-filter-panel,
+.aga-workspace-command-panel,
+.aga-workspace-admin-panel,
+.aga-workspace-panel {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+}
+
+.aga-workspace-filter-panel h2,
+.aga-workspace-command-panel h2,
+.aga-workspace-admin-panel h2,
+.aga-workspace-panel h2,
+.aga-workspace-register h2 {
+  margin: 0;
+  color: var(--avia-color-heading);
+}
+
+.aga-workspace-filter-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.aga-workspace-filter-grid label,
+.aga-workspace-command-panel > label,
+.aga-workspace-admin-panel > label {
+  display: grid;
+  gap: 6px;
+  color: var(--avia-color-heading);
+  font-weight: 760;
+}
+
+.aga-workspace-filter-grid input,
+.aga-workspace-filter-grid select,
+.aga-workspace-command-panel input,
+.aga-workspace-command-panel select,
+.aga-workspace-command-panel textarea,
+.aga-workspace-admin-panel input {
+  min-height: 42px;
+  border: 1px solid var(--avia-color-line);
+  border-radius: var(--avia-radius-control);
+  padding: 9px 11px;
+  background: #fff;
+  color: var(--avia-color-heading);
+  font: inherit;
+}
+
+.aga-workspace-command-panel textarea {
+  min-height: 94px;
+  resize: vertical;
+}
+
+.aga-workspace-register {
+  overflow: hidden;
+}
+
+.aga-workspace-register__head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 20px;
+}
+
+.aga-workspace-register__head p,
+.aga-workspace-panel p,
+.aga-workspace-command-panel p,
+.aga-workspace-admin-panel p {
+  margin: 0;
+  color: var(--avia-color-muted);
+}
+
+.aga-workspace-pagination,
+.aga-workspace-actions,
+.aga-workspace-disabled-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.aga-workspace-pagination button,
+.aga-workspace-actions button,
+.aga-workspace-disabled-actions button,
+.aga-workspace-admin-panel > button,
+.aga-workspace-button,
+.aga-workspace-register td button {
+  min-height: 42px;
+  border: 1px solid #9eb8c1;
+  border-radius: var(--avia-radius-control);
+  padding: 8px 12px;
+  background: #fff;
+  color: #124c5b;
+  font: inherit;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.aga-workspace-pagination button:disabled,
+.aga-workspace-actions button:disabled,
+.aga-workspace-disabled-actions button:disabled,
+.aga-workspace-admin-panel > button:disabled,
+.aga-workspace-register td button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.aga-workspace-table-wrap {
+  overflow-x: auto;
+}
+
+.aga-workspace-table-wrap table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+}
+
+.aga-workspace-table-wrap th,
+.aga-workspace-table-wrap td {
+  padding: 12px 14px;
+  border-top: 1px solid var(--avia-color-line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.aga-workspace-table-wrap th {
+  color: var(--avia-color-heading);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.aga-workspace-table-wrap td,
+.aga-workspace-table-wrap td strong,
+.aga-workspace-table-wrap td small,
+.aga-workspace-table-wrap th small {
+  display: grid;
+  gap: 4px;
+}
+
+.aga-workspace-table-wrap tr[data-selected="true"] {
+  background: #eff8f8;
+}
+
+.aga-workspace-row-link {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #125f67;
+  font: inherit;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+
+.aga-workspace-panel ul,
+.aga-workspace-admin-panel ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.aga-workspace-panel li,
+.aga-workspace-admin-panel li {
+  display: grid;
+  gap: 3px;
+}
+
+.aga-workspace-confirm {
+  display: flex;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px;
+  font-weight: 650;
+}
+
+.aga-workspace-confirm input {
+  min-height: 18px;
+  width: 18px;
+}
+
+.aga-workspace-status {
+  padding: 11px 14px;
+  border: 1px solid #a9ccb4;
+  border-radius: var(--avia-radius-control);
+  background: #eef8f1;
+  color: #23613b;
+}
+
+.aga-workspace-empty,
+.aga-workspace-unavailable {
+  padding: 20px;
+  border: 1px dashed var(--avia-color-line);
+  border-radius: var(--avia-radius-panel);
+  background: var(--avia-color-panel);
+}
+
+.aga-workspace-unavailable {
+  max-width: var(--avia-content-max);
+}
+
+@media (max-width: 900px) {
+  .aga-workspace-facts,
+  .aga-workspace-filter-grid,
+  .aga-workspace-provider-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .aga-workspace-register__head {
+    align-items: start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 520px) {
+  .aga-workspace-facts,
+  .aga-workspace-filter-grid,
+  .aga-workspace-provider-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .aga-workspace-actions,
+  .aga-workspace-disabled-actions,
+  .aga-workspace-actions button,
+  .aga-workspace-disabled-actions button {
+    width: 100%;
+  }
+}

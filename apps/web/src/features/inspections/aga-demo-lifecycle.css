@@ -1,0 +1,251 @@
+.aga-workspace-route-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 auto 18px;
+  max-width: var(--avia-content-max);
+}
+
+.aga-workspace-route-nav a {
+  min-height: 38px;
+  border: 1px solid var(--avia-color-line);
+  border-radius: var(--avia-radius-control);
+  padding: 8px 12px;
+  background: var(--avia-color-panel);
+  color: var(--avia-color-heading);
+  font-weight: 760;
+  text-decoration: none;
+}
+
+.aga-workspace-route-nav a[aria-current="page"] {
+  border-color: #76aab0;
+  background: #eaf7f7;
+  color: #124c5b;
+}
+
+.aga-lifecycle-page {
+  display: grid;
+  gap: 20px;
+  max-width: var(--avia-content-max);
+}
+
+.aga-lifecycle-facts {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.aga-lifecycle-facts article,
+.aga-lifecycle-panel,
+.aga-lifecycle-register,
+.aga-lifecycle-question,
+.aga-lifecycle-unavailable,
+.aga-lifecycle-boundary {
+  border: 1px solid var(--avia-color-line);
+  border-radius: var(--avia-radius-panel);
+  background: var(--avia-color-panel);
+  box-shadow: var(--avia-shadow-panel);
+}
+
+.aga-lifecycle-facts article,
+.aga-lifecycle-panel,
+.aga-lifecycle-register,
+.aga-lifecycle-question,
+.aga-lifecycle-unavailable,
+.aga-lifecycle-boundary {
+  padding: 18px;
+}
+
+.aga-lifecycle-facts article {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.aga-lifecycle-facts span,
+.aga-lifecycle-facts small,
+.aga-lifecycle-question small,
+.aga-lifecycle-register small,
+.aga-lifecycle-panel > p,
+.aga-lifecycle-boundary p,
+.aga-lifecycle-boundary span,
+.aga-lifecycle-unavailable p {
+  color: var(--avia-color-muted);
+}
+
+.aga-lifecycle-facts strong,
+.aga-lifecycle-question strong {
+  overflow-wrap: anywhere;
+  color: var(--avia-color-heading);
+}
+
+.aga-lifecycle-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.aga-lifecycle-actions button,
+.aga-lifecycle-panel button {
+  min-height: 42px;
+  border: 1px solid #9eb8c1;
+  border-radius: var(--avia-radius-control);
+  padding: 8px 12px;
+  background: #fff;
+  color: #124c5b;
+  font: inherit;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.aga-lifecycle-actions button:disabled,
+.aga-lifecycle-panel button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.aga-lifecycle-panel,
+.aga-lifecycle-question,
+.aga-lifecycle-unavailable {
+  display: grid;
+  gap: 14px;
+}
+
+.aga-lifecycle-panel h2,
+.aga-lifecycle-register h2,
+.aga-lifecycle-unavailable h2 {
+  margin: 0;
+  color: var(--avia-color-heading);
+}
+
+.aga-lifecycle-panel label,
+.aga-lifecycle-question > label {
+  display: grid;
+  gap: 6px;
+  color: var(--avia-color-heading);
+  font-weight: 760;
+}
+
+.aga-lifecycle-panel input,
+.aga-lifecycle-panel select,
+.aga-lifecycle-panel textarea,
+.aga-lifecycle-question textarea,
+.aga-lifecycle-question select {
+  min-height: 42px;
+  border: 1px solid var(--avia-color-line);
+  border-radius: var(--avia-radius-control);
+  padding: 9px 11px;
+  background: #fff;
+  color: var(--avia-color-heading);
+  font: inherit;
+}
+
+.aga-lifecycle-panel textarea,
+.aga-lifecycle-question textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.aga-lifecycle-question-list,
+.aga-lifecycle-register {
+  display: grid;
+  gap: 14px;
+}
+
+.aga-lifecycle-question-list > h2 {
+  margin: 0;
+  color: var(--avia-color-heading);
+}
+
+.aga-lifecycle-question-list > p {
+  margin: 0;
+  color: var(--avia-color-muted);
+}
+
+.aga-lifecycle-question {
+  gap: 16px;
+}
+
+.aga-lifecycle-question > div:first-child {
+  display: grid;
+  gap: 5px;
+}
+
+.aga-lifecycle-question fieldset,
+.aga-lifecycle-panel fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  border: 1px solid var(--avia-color-line);
+  border-radius: var(--avia-radius-control);
+  padding: 12px;
+}
+
+.aga-lifecycle-question fieldset label,
+.aga-lifecycle-panel fieldset label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 650;
+}
+
+.aga-lifecycle-question fieldset input,
+.aga-lifecycle-panel fieldset input {
+  min-height: 18px;
+  width: 18px;
+}
+
+.aga-lifecycle-register ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.aga-lifecycle-register li {
+  display: grid;
+  gap: 3px;
+}
+
+.aga-lifecycle-boundary {
+  display: grid;
+  gap: 8px;
+}
+
+.aga-lifecycle-boundary p {
+  margin: 0;
+}
+
+.aga-workspace-status {
+  margin: 0;
+  padding: 11px 14px;
+  border: 1px solid #a9ccb4;
+  border-radius: var(--avia-radius-control);
+  background: #eef8f1;
+  color: #23613b;
+}
+
+@media (max-width: 900px) {
+  .aga-lifecycle-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .aga-workspace-route-nav,
+  .aga-lifecycle-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .aga-workspace-route-nav a,
+  .aga-lifecycle-actions button,
+  .aga-lifecycle-panel button {
+    width: 100%;
+  }
+
+  .aga-lifecycle-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

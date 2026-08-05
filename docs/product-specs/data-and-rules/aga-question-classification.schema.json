@@ -3,7 +3,7 @@
   "$id": "urn:aviasurveil360:aga-question-classification:v1",
   "title": "AGA Hybrid Question Classification V1",
   "x-taxonomy-version": "AGA_QUESTION_CLASSIFICATION_V1",
-  "x-taxonomy-digest": "sha256:d9fa2bba1079c693afbdc8710ec8cc661d3be4d59ba8aa02766bedccc28c935d",
+  "x-taxonomy-digest": "sha256:40517b48d0820db221501f89ff7fe58b120c6674e905cd722231d0b35ba18222",
   "oneOf": [
     { "$ref": "#/$defs/passBatchOutput" },
     { "$ref": "#/$defs/passSealReceipt" },
@@ -148,7 +148,7 @@
       "required": [
         "modelId",
         "modelIdSource",
-        "runtimeReportedFamily",
+        "displayedModelLabel",
         "service",
         "interface",
         "requestedReasoningEffort",
@@ -157,13 +157,25 @@
         "unavailableFields"
       ],
       "properties": {
-        "modelId": { "type": "string", "minLength": 1, "maxLength": 128 },
-        "modelIdSource": { "enum": ["accepted-collaboration-spawn-agent-model-override"] },
-        "runtimeReportedFamily": { "type": "string", "minLength": 1, "maxLength": 128 },
-        "service": { "const": "Codex" },
-        "interface": { "const": "API" },
-        "requestedReasoningEffort": { "enum": ["xhigh"] },
-        "forkTurns": { "const": "none" },
+        "modelId": {
+          "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1, "maxLength": 128 }]
+        },
+        "modelIdSource": { "enum": ["platform-reported-exact", "platform-unavailable"] },
+        "displayedModelLabel": {
+          "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1, "maxLength": 128 }]
+        },
+        "service": {
+          "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1, "maxLength": 128 }]
+        },
+        "interface": {
+          "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1, "maxLength": 128 }]
+        },
+        "requestedReasoningEffort": {
+          "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1, "maxLength": 128 }]
+        },
+        "forkTurns": {
+          "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1, "maxLength": 128 }]
+        },
         "snapshotBuildLabel": {
           "oneOf": [
             { "type": "null" },
@@ -172,21 +184,21 @@
         },
         "unavailableFields": {
           "type": "array",
-          "items": { "enum": ["exactModelVersion", "serviceTier", "snapshotBuildLabel"] },
+          "items": { "enum": ["modelId", "displayedModelLabel", "service", "interface", "requestedReasoningEffort", "forkTurns", "snapshotBuildLabel"] },
           "uniqueItems": true,
-          "maxItems": 3
+          "maxItems": 7
         }
       },
       "allOf": [
         {
           "if": {
-            "required": ["snapshotBuildLabel"],
-            "properties": { "snapshotBuildLabel": { "type": "null" } }
+            "properties": { "modelId": { "type": "null" } }
           },
           "then": {
             "properties": {
+              "modelIdSource": { "const": "platform-unavailable" },
               "unavailableFields": {
-                "contains": { "const": "snapshotBuildLabel" },
+                "contains": { "const": "modelId" },
                 "minContains": 1,
                 "maxContains": 1
               }
@@ -195,16 +207,44 @@
         },
         {
           "if": {
-            "required": ["snapshotBuildLabel"],
-            "properties": { "snapshotBuildLabel": { "type": "string" } }
+            "properties": { "modelId": { "type": "string" } }
           },
           "then": {
             "properties": {
-              "unavailableFields": {
-                "not": { "contains": { "const": "snapshotBuildLabel" } }
-              }
+              "modelIdSource": { "const": "platform-reported-exact" },
+              "unavailableFields": { "not": { "contains": { "const": "modelId" } } }
             }
           }
+        },
+        {
+          "if": { "properties": { "displayedModelLabel": { "type": "null" } } },
+          "then": { "properties": { "unavailableFields": { "contains": { "const": "displayedModelLabel" }, "minContains": 1, "maxContains": 1 } } },
+          "else": { "properties": { "unavailableFields": { "not": { "contains": { "const": "displayedModelLabel" } } } } }
+        },
+        {
+          "if": { "properties": { "service": { "type": "null" } } },
+          "then": { "properties": { "unavailableFields": { "contains": { "const": "service" }, "minContains": 1, "maxContains": 1 } } },
+          "else": { "properties": { "unavailableFields": { "not": { "contains": { "const": "service" } } } } }
+        },
+        {
+          "if": { "properties": { "interface": { "type": "null" } } },
+          "then": { "properties": { "unavailableFields": { "contains": { "const": "interface" }, "minContains": 1, "maxContains": 1 } } },
+          "else": { "properties": { "unavailableFields": { "not": { "contains": { "const": "interface" } } } } }
+        },
+        {
+          "if": { "properties": { "requestedReasoningEffort": { "type": "null" } } },
+          "then": { "properties": { "unavailableFields": { "contains": { "const": "requestedReasoningEffort" }, "minContains": 1, "maxContains": 1 } } },
+          "else": { "properties": { "unavailableFields": { "not": { "contains": { "const": "requestedReasoningEffort" } } } } }
+        },
+        {
+          "if": { "properties": { "forkTurns": { "type": "null" } } },
+          "then": { "properties": { "unavailableFields": { "contains": { "const": "forkTurns" }, "minContains": 1, "maxContains": 1 } } },
+          "else": { "properties": { "unavailableFields": { "not": { "contains": { "const": "forkTurns" } } } } }
+        },
+        {
+          "if": { "properties": { "snapshotBuildLabel": { "type": "null" } } },
+          "then": { "properties": { "unavailableFields": { "contains": { "const": "snapshotBuildLabel" }, "minContains": 1, "maxContains": 1 } } },
+          "else": { "properties": { "unavailableFields": { "not": { "contains": { "const": "snapshotBuildLabel" } } } } }
         }
       ]
     },
@@ -307,8 +347,8 @@
         "passRunId": { "$ref": "#/$defs/passRunId" },
         "batchOrdinal": { "type": "integer", "minimum": 1, "maximum": 25 },
         "taxonomyVersion": { "const": "AGA_QUESTION_CLASSIFICATION_V1" },
-        "taxonomyDigest": { "const": "sha256:d9fa2bba1079c693afbdc8710ec8cc661d3be4d59ba8aa02766bedccc28c935d" },
-        "promptDigest": { "const": "sha256:a3e1a02c64d403bbca346b6bb33f4dcd509c06fafcc082d197120098322dd1b1" },
+        "taxonomyDigest": { "const": "sha256:40517b48d0820db221501f89ff7fe58b120c6674e905cd722231d0b35ba18222" },
+        "promptDigest": { "$ref": "#/$defs/sha256" },
         "modelDescriptorDigest": { "$ref": "#/$defs/sha256" },
         "batchManifestDigest": { "const": "sha256:dee3a0101dcfdeaef9dbb8c3f53d7e4a99de9499eaa7d82a039eb6cac077c96b" },
         "fixedInputDigests": { "$ref": "#/$defs/fixedInputDigests" },
@@ -905,7 +945,7 @@
         "classificationRunId": { "$ref": "#/$defs/classificationRunId" },
         "passRole": { "enum": ["CANDIDATE", "CHALLENGE"] },
         "passRunId": { "$ref": "#/$defs/passRunId" },
-        "promptDigest": { "const": "sha256:a3e1a02c64d403bbca346b6bb33f4dcd509c06fafcc082d197120098322dd1b1" },
+        "promptDigest": { "$ref": "#/$defs/sha256" },
         "modelDescriptorDigest": { "$ref": "#/$defs/sha256" },
         "inputDigest": { "$ref": "#/$defs/passInputDigest" },
         "proposalProjection": { "$ref": "#/$defs/proposalProjection" },
@@ -951,7 +991,7 @@
         "passRole": { "enum": ["CANDIDATE", "CHALLENGE"] },
         "passRunId": { "$ref": "#/$defs/passRunId" },
         "batchOrdinal": { "type": "integer", "minimum": 1, "maximum": 25 },
-        "promptDigest": { "const": "sha256:a3e1a02c64d403bbca346b6bb33f4dcd509c06fafcc082d197120098322dd1b1" },
+        "promptDigest": { "$ref": "#/$defs/sha256" },
         "modelDescriptorDigest": { "$ref": "#/$defs/sha256" },
         "inputDigest": { "$ref": "#/$defs/passInputDigest" },
         "records": {
@@ -985,7 +1025,7 @@
         "classificationRunId": { "$ref": "#/$defs/classificationRunId" },
         "passRole": { "enum": ["CANDIDATE", "CHALLENGE"] },
         "passRunId": { "$ref": "#/$defs/passRunId" },
-        "promptDigest": { "const": "sha256:a3e1a02c64d403bbca346b6bb33f4dcd509c06fafcc082d197120098322dd1b1" },
+        "promptDigest": { "$ref": "#/$defs/sha256" },
         "modelDescriptorDigest": { "$ref": "#/$defs/sha256" },
         "batchManifestDigest": { "const": "sha256:dee3a0101dcfdeaef9dbb8c3f53d7e4a99de9499eaa7d82a039eb6cac077c96b" },
         "batchCount": { "const": 25 },
@@ -1097,9 +1137,9 @@
         "passTwoResultDigest": { "$ref": "#/$defs/sha256" },
         "passOneRunId": { "$ref": "#/$defs/passRunId" },
         "passTwoRunId": { "$ref": "#/$defs/passRunId" },
-        "promptDigest": { "const": "sha256:a3e1a02c64d403bbca346b6bb33f4dcd509c06fafcc082d197120098322dd1b1" },
+        "promptDigest": { "$ref": "#/$defs/sha256" },
         "modelDescriptorDigests": { "type": "array", "items": { "$ref": "#/$defs/sha256" }, "uniqueItems": true, "minItems": 1, "maxItems": 2 },
-        "taxonomyDigest": { "const": "sha256:d9fa2bba1079c693afbdc8710ec8cc661d3be4d59ba8aa02766bedccc28c935d" },
+        "taxonomyDigest": { "const": "sha256:40517b48d0820db221501f89ff7fe58b120c6674e905cd722231d0b35ba18222" },
         "inputDigest": { "$ref": "#/$defs/runInputDigest" },
         "itemSemanticDigest": { "$ref": "#/$defs/sha256" },
         "classificationRunDigest": { "$ref": "#/$defs/sha256" },
@@ -1573,10 +1613,10 @@
         "classificationRunId": { "$ref": "#/$defs/classificationRunId" },
         "state": { "const": "SEALED" },
         "taxonomyVersion": { "const": "AGA_QUESTION_CLASSIFICATION_V1" },
-        "taxonomyDigest": { "const": "sha256:d9fa2bba1079c693afbdc8710ec8cc661d3be4d59ba8aa02766bedccc28c935d" },
+        "taxonomyDigest": { "const": "sha256:40517b48d0820db221501f89ff7fe58b120c6674e905cd722231d0b35ba18222" },
         "fixedInputDigests": { "$ref": "#/$defs/fixedInputDigests" },
         "inputDigest": { "$ref": "#/$defs/runInputDigest" },
-        "promptDigest": { "const": "sha256:a3e1a02c64d403bbca346b6bb33f4dcd509c06fafcc082d197120098322dd1b1" },
+        "promptDigest": { "$ref": "#/$defs/sha256" },
         "modelDescriptors": { "type": "array", "items": { "$ref": "#/$defs/modelDescriptor" }, "uniqueItems": true, "minItems": 1, "maxItems": 2 },
         "modelDescriptorDigests": { "type": "array", "items": { "$ref": "#/$defs/sha256" }, "uniqueItems": true, "minItems": 1, "maxItems": 2 },
         "batchManifestDigest": { "const": "sha256:dee3a0101dcfdeaef9dbb8c3f53d7e4a99de9499eaa7d82a039eb6cac077c96b" },
@@ -1603,10 +1643,10 @@
         "classificationRunId": { "$ref": "#/$defs/classificationRunId" },
         "state": { "const": "LOADING" },
         "taxonomyVersion": { "const": "AGA_QUESTION_CLASSIFICATION_V1" },
-        "taxonomyDigest": { "const": "sha256:d9fa2bba1079c693afbdc8710ec8cc661d3be4d59ba8aa02766bedccc28c935d" },
+        "taxonomyDigest": { "const": "sha256:40517b48d0820db221501f89ff7fe58b120c6674e905cd722231d0b35ba18222" },
         "fixedInputDigests": { "$ref": "#/$defs/fixedInputDigests" },
         "inputDigest": { "$ref": "#/$defs/runInputDigest" },
-        "promptDigest": { "const": "sha256:a3e1a02c64d403bbca346b6bb33f4dcd509c06fafcc082d197120098322dd1b1" },
+        "promptDigest": { "$ref": "#/$defs/sha256" },
         "batchManifestDigest": { "const": "sha256:dee3a0101dcfdeaef9dbb8c3f53d7e4a99de9499eaa7d82a039eb6cac077c96b" }
       }
     },
@@ -1628,10 +1668,10 @@
         "classificationRunId": { "$ref": "#/$defs/classificationRunId" },
         "state": { "const": "REJECTED" },
         "taxonomyVersion": { "const": "AGA_QUESTION_CLASSIFICATION_V1" },
-        "taxonomyDigest": { "const": "sha256:d9fa2bba1079c693afbdc8710ec8cc661d3be4d59ba8aa02766bedccc28c935d" },
+        "taxonomyDigest": { "const": "sha256:40517b48d0820db221501f89ff7fe58b120c6674e905cd722231d0b35ba18222" },
         "fixedInputDigests": { "$ref": "#/$defs/fixedInputDigests" },
         "inputDigest": { "$ref": "#/$defs/runInputDigest" },
-        "promptDigest": { "const": "sha256:a3e1a02c64d403bbca346b6bb33f4dcd509c06fafcc082d197120098322dd1b1" },
+        "promptDigest": { "$ref": "#/$defs/sha256" },
         "batchManifestDigest": { "const": "sha256:dee3a0101dcfdeaef9dbb8c3f53d7e4a99de9499eaa7d82a039eb6cac077c96b" },
         "errorCode": {
           "enum": ["AGGREGATE_MISMATCH", "BATCH_OUTPUT_DIGEST_MISMATCH", "DUPLICATE_IDENTITY", "EVIDENCE_FACT_DIGEST_MISMATCH", "FORBIDDEN_FIELD", "IDENTITY_MISMATCH", "INCOMPLETE_PASS", "MALFORMED_PROVENANCE", "MISSING_IDENTITY", "PASS_PROPOSAL_MISMATCH", "QUESTION_TEXT_LEAK", "SCHEMA_ERROR", "UNKNOWN_CODE", "UNKNOWN_INPUT_FACT_SELECTOR", "UNKNOWN_RATIONALE_CODE", "UNKNOWN_SIGNAL_RULE"]

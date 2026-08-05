@@ -159,6 +159,7 @@ const initialProjection: ScenarioProjection = {
 const DEMO_FIELD_SUBJECT_ID = "USR-INSPECTOR-AMINA";
 const FIELD_PACKAGE_ID = "PKG-CAB-2026-001";
 const FIELD_QUESTION_ID = "CAB-EMEQ-PBE-001";
+const FIELD_WORK_ROUTE_PREFIX = "/inspector/audits/";
 
 function toPotentialFindingView(row: PotentialFindingDraftRow): PotentialFindingView {
   return {
@@ -770,7 +771,13 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
   const actionsRef = useRef(actions);
   actionsRef.current = actions;
   useEffect(() => {
-    if (runtime.buildProfile !== "http") return;
+    // The AGA workspace is an online-only, server-authoritative projection. Do
+    // not open the field IndexedDB or run its sync trigger while that route is
+    // active; field persistence starts only on the approved audit routes.
+    if (
+      runtime.buildProfile !== "http" ||
+      !window.location.pathname.startsWith(FIELD_WORK_ROUTE_PREFIX)
+    ) return;
     const broadcast = createBrowserSyncBroadcast();
     syncBroadcastRef.current = broadcast;
     const unsubscribe = broadcast?.subscribe((message) => {

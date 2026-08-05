@@ -23,7 +23,7 @@ func TestOverlayControlStoreAppendsIntentAndConsumesAuthorizationOnce(t *testing
 	if err := store.AppendIntent(intent); err != nil {
 		t.Fatalf("idempotent intent append: %v", err)
 	}
-	authorization := agacandidatedemo.OperationAuthorization{SchemaVersion: "preprod-aga-candidate-demo-operation-authorization/v1", Token: "one-time-private-token", Operation: agacandidatedemo.LoadOverlayOperation, Issuer: "local-operator", Nonce: "aga-demo-nonce-001", RunID: intent.RunID, IntentDigest: intent.IntentDigest, TargetFingerprintDigest: intent.TargetFingerprintDigest, ExpiresAt: time.Date(2026, 8, 1, 12, 15, 0, 0, time.UTC)}
+	authorization := agacandidatedemo.OperationAuthorization{SchemaVersion: "preprod-aga-candidate-demo-operation-authorization/v1", Token: "one-time-private-token", Operation: agacandidatedemo.LoadOverlayOperation, Issuer: "local-operator", Nonce: "aga-demo-nonce-001", RunID: intent.RunID, IntentDigest: intent.IntentDigest, TargetFingerprintDigest: intent.TargetFingerprintDigest, InputDigest: intent.PackageZipDigest, CodeDigest: intent.CodeDigest, ContractDigest: intent.ContractDigest, ExpiresAt: time.Date(2026, 8, 1, 12, 15, 0, 0, time.UTC)}
 	if err := store.ConsumeAuthorization(authorization, agacandidatedemo.LoadOverlayOperation, time.Date(2026, 8, 1, 12, 1, 0, 0, time.UTC)); err != nil {
 		t.Fatalf("consume authorization: %v", err)
 	}

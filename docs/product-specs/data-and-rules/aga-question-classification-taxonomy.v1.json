@@ -1488,7 +1488,7 @@
     "modelDescriptorPreimageFields": [
       "modelId",
       "modelIdSource",
-      "runtimeReportedFamily",
+      "displayedModelLabel",
       "service",
       "interface",
       "requestedReasoningEffort",
@@ -1502,7 +1502,10 @@
       "descriptorUniqueness": "REJECT_DUPLICATE_DESCRIPTOR_DIGESTS",
       "descriptorOrdering": "ASCENDING_UTF8_BY_RECOMPUTED_MODEL_DESCRIPTOR_DIGEST",
       "digestArrayOrdering": "ASCENDING_UTF8",
-      "setEquality": "MODEL_DESCRIPTOR_DIGESTS_EXACTLY_EQUAL_RECOMPUTED_DESCRIPTOR_DIGEST_SET"
+      "setEquality": "MODEL_DESCRIPTOR_DIGESTS_EXACTLY_EQUAL_RECOMPUTED_DESCRIPTOR_DIGEST_SET",
+      "platformAvailabilityPolicy": "NULL_FIELD_REQUIRES_EXACT_UNAVAILABLE_FIELD_MARKER_AND_NON_NULL_FIELD_FORBIDS_IT",
+      "modelIdPolicy": "DISPLAYED_MODEL_LABEL_NEVER_ESTABLISHES_EXACT_MODEL_ID",
+      "demoAvailabilityAcceptance": "TRUTHFUL_PLATFORM_UNAVAILABLE_METADATA_IS_VALID_CANDIDATE_ONLY_PROVENANCE"
     },
     "identityDigestDomains": {
       "validatorSignalRuleMatch": "AGA-CLASSIFICATION-BASE-IDENTITY-V1",
@@ -1686,5 +1689,5 @@
     "ownership",
     "providerHierarchy"
   ],
-  "taxonomyDigest": "sha256:d9fa2bba1079c693afbdc8710ec8cc661d3be4d59ba8aa02766bedccc28c935d"
+  "taxonomyDigest": "sha256:40517b48d0820db221501f89ff7fe58b120c6674e905cd722231d0b35ba18222"
 }

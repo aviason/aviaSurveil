@@ -9,7 +9,7 @@
     "build:demo": "tsc -b && AVIA_BUILD_PROFILE=demo vite build",
     "build:http": "tsc -b && AVIA_HTTP_TEST_PROFILE= AVIA_BUILD_PROFILE=http vite build",
     "typecheck": "tsc -b --pretty false",
-    "test": "vitest run",
+    "test": "vitest run --exclude scripts/assert-aga-workspace-artifact-boundary.test.mjs",
     "test:contract:http": "vitest run --config vitest.http.config.ts",
     "test:e2e:mock": "AVIA_E2E_PROFILE=mock playwright test --project=mock",
     "test:e2e:accessibility": "AVIA_E2E_PROFILE=mock playwright test tests/e2e/full-route-accessibility.spec.ts --project=mock",

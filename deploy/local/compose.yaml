@@ -402,6 +402,87 @@ services:
       - preprod-app-database
     restart: "no"
 
+  preprod-aga-demo-workspace-role-provisioner:
+    <<: *runtime-security
+    image: aviasurveil360/preprod-aga-demo-workspace-role-provisioner:local
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      target: preprod-aga-demo-workspace-role-provisioner
+    profiles: [aga-demo-workspace-loader]
+    user: "10001:10001"
+    depends_on:
+      preprod-postgres:
+        condition: service_healthy
+    environment:
+      AVIA_AGA_DEMO_WORKSPACE_OWNER_DATABASE_URL: postgres://aviasurveil360_preprod_loader@preprod-postgres:5432/aviasurveil360_local_preprod?sslmode=disable
+    secrets:
+      - preprod_app_database_password
+      - preprod_aga_demo_workspace_fixture_exporter_database_password
+      - preprod_aga_demo_workspace_loader_database_password
+      - preprod_aga_demo_workspace_reader_database_password
+      - preprod_aga_demo_workspace_command_database_password
+    tmpfs:
+      - /tmp:mode=1777,size=16m
+    networks:
+      - preprod-app-database
+    entrypoint: [/bin/sh, -c]
+    command:
+      - >-
+        app_password="$$(tr -d '\r\n' </run/secrets/preprod_app_database_password)";
+        exporter_password="$$(tr -d '\r\n' </run/secrets/preprod_aga_demo_workspace_fixture_exporter_database_password)";
+        loader_password="$$(tr -d '\r\n' </run/secrets/preprod_aga_demo_workspace_loader_database_password)";
+        reader_password="$$(tr -d '\r\n' </run/secrets/preprod_aga_demo_workspace_reader_database_password)";
+        command_password="$$(tr -d '\r\n' </run/secrets/preprod_aga_demo_workspace_command_database_password)";
+        export AVIA_AGA_DEMO_WORKSPACE_OWNER_DATABASE_URL="postgres://aviasurveil360_preprod_loader:$${app_password}@preprod-postgres:5432/aviasurveil360_local_preprod?sslmode=disable";
+        export AVIA_AGA_DEMO_WORKSPACE_EXPORTER_PASSWORD="$${exporter_password}";
+        export AVIA_AGA_DEMO_WORKSPACE_LOADER_PASSWORD="$${loader_password}";
+        export AVIA_AGA_DEMO_WORKSPACE_READER_PASSWORD="$${reader_password}";
+        export AVIA_AGA_DEMO_WORKSPACE_COMMAND_PASSWORD="$${command_password}";
+        unset app_password exporter_password loader_password reader_password command_password;
+        exec /app/preprod-aga-demo-workspace-role-provisioner provision
+    restart: "no"
+
+  preprod-aga-demo-workspace-fixture-exporter:
+    <<: *runtime-security
+    image: aviasurveil360/preprod-aga-demo-workspace-fixture-exporter:local
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      target: preprod-aga-demo-workspace-fixture-exporter
+    profiles: [aga-demo-workspace-loader]
+    user: "10001:10001"
+    depends_on:
+      preprod-aga-demo-workspace-role-provisioner:
+        condition: service_completed_successfully
+    secrets:
+      - preprod_aga_demo_workspace_fixture_exporter_database_password
+    tmpfs:
+      - /tmp:mode=1777,size=16m
+    networks:
+      - preprod-app-database
+    restart: "no"
+
+  preprod-aga-demo-workspace-loader:
+    <<: *runtime-security
+    image: aviasurveil360/preprod-aga-demo-workspace-loader:local
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      target: preprod-aga-demo-workspace-loader
+    profiles: [aga-demo-workspace-loader]
+    user: "10001:10001"
+    depends_on:
+      preprod-aga-demo-workspace-fixture-exporter:
+        condition: service_completed_successfully
+    secrets:
+      - preprod_aga_demo_workspace_loader_database_password
+    tmpfs:
+      - /tmp:mode=1777,size=16m
+    networks:
+      - preprod-app-database
+    restart: "no"
+
   preprod-aga-demo-oidc-fixture:
     <<: *runtime-security
     image: aviasurveil360/preprod-aga-demo-oidc-fixture:local
@@ -456,7 +537,7 @@ services:
       AVIA_OIDC_DISCOVERY_URL: http://preprod-keycloak:8080/identity/realms/aviasurveil360-local-preprod
       AVIA_OIDC_DISCOVERY_PRIVATE_NETWORK: "true"
       AVIA_OIDC_CLIENT_ID: aviasurveil360-local-preprod-web
-      AVIA_OIDC_REDIRECT_URL: "http://127.0.0.1:${AVIA_PREPROD_AGA_WEB_PORT:-4174}/auth/callback"
+      AVIA_OIDC_REDIRECT_URL: "${AVIA_PREPROD_AGA_DEMO_WEB_ORIGIN:-http://127.0.0.1:${AVIA_PREPROD_AGA_WEB_PORT:-4174}}/auth/callback"
       AVIA_KEYCLOAK_ADMIN_URL: http://preprod-keycloak:8080/identity
       AVIA_KEYCLOAK_REALM: aviasurveil360-local-preprod
       AVIA_KEYCLOAK_SERVICE_CLIENT_ID: aviasurveil360-local-preprod-lifecycle
@@ -466,19 +547,25 @@ services:
       - >-
         normal_password="$$(tr -d '\r\n' </run/secrets/preprod_normal_api_database_password)";
         reader_password="$$(tr -d '\r\n' </run/secrets/preprod_aga_demo_reader_database_password)";
+        workspace_reader_password="$$(tr -d '\r\n' </run/secrets/preprod_aga_demo_workspace_reader_database_password)";
+        workspace_command_password="$$(tr -d '\r\n' </run/secrets/preprod_aga_demo_workspace_command_database_password)";
         oidc_secret="$$(tr -d '\r\n' </run/secrets/preprod_oidc_client_secret)";
         keycloak_secret="$$(tr -d '\r\n' </run/secrets/preprod_keycloak_service_client_secret)";
         session_key="$$(tr -d '\r\n' </run/secrets/preprod_aga_demo_session_encryption_key)";
         export AVIA_DATABASE_URL="postgres://preprod_normal_api:$${normal_password}@preprod-postgres:5432/aviasurveil360_local_preprod?sslmode=disable";
         export AVIA_AGA_DEMO_DATABASE_URL="postgres://preprod_aga_demo_reader:$${reader_password}@preprod-postgres:5432/aviasurveil360_local_preprod?sslmode=disable";
+        export AVIA_AGA_DEMO_WORKSPACE_READER_DATABASE_URL="postgres://preprod_aga_demo_workspace_reader:$${workspace_reader_password}@preprod-postgres:5432/aviasurveil360_local_preprod?sslmode=disable";
+        export AVIA_AGA_DEMO_WORKSPACE_COMMAND_DATABASE_URL="postgres://preprod_aga_demo_workspace_command:$${workspace_command_password}@preprod-postgres:5432/aviasurveil360_local_preprod?sslmode=disable";
         export AVIA_OIDC_CLIENT_SECRET="$${oidc_secret}";
         export AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET="$${keycloak_secret}";
         export AVIA_SESSION_ENCRYPTION_KEY="$${session_key}";
-        unset normal_password reader_password oidc_secret keycloak_secret session_key;
+        unset normal_password reader_password workspace_reader_password workspace_command_password oidc_secret keycloak_secret session_key;
         exec /app/api
     secrets:
       - preprod_normal_api_database_password
       - preprod_aga_demo_reader_database_password
+      - preprod_aga_demo_workspace_reader_database_password
+      - preprod_aga_demo_workspace_command_database_password
       - preprod_oidc_client_secret
       - preprod_keycloak_service_client_secret
       - preprod_aga_demo_session_encryption_key
@@ -1249,6 +1336,14 @@ secrets:
 
   preprod_aga_demo_writer_database_password:
     file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_aga_demo_writer_database_password
+  preprod_aga_demo_workspace_fixture_exporter_database_password:
+    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_aga_demo_workspace_fixture_exporter_database_password
+  preprod_aga_demo_workspace_loader_database_password:
+    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_aga_demo_workspace_loader_database_password
+  preprod_aga_demo_workspace_reader_database_password:
+    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_aga_demo_workspace_reader_database_password
+  preprod_aga_demo_workspace_command_database_password:
+    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_aga_demo_workspace_command_database_password
   preprod_aga_demo_oidc_qualification_password:
     file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_aga_demo_oidc_qualification_password
   preprod_aga_demo_session_encryption_key:

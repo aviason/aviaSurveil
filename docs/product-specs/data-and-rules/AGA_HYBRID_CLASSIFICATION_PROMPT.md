@@ -7,7 +7,7 @@ compliance, a Finding, enforcement, release, or production readiness.
 Taxonomy version: `AGA_QUESTION_CLASSIFICATION_V1`
 
 Taxonomy digest:
-`sha256:d9fa2bba1079c693afbdc8710ec8cc661d3be4d59ba8aa02766bedccc28c935d`
+`sha256:40517b48d0820db221501f89ff7fe58b120c6674e905cd722231d0b35ba18222`
 
 ## Pass isolation
 
@@ -40,13 +40,44 @@ stored on sealed items and run records. Every item supplies:
 - bounded form and question facts;
 - digests of supplied source proposals and references;
 - the matching independent-research row facts; and
-- the frozen taxonomy and prompt/run configuration.
+- the taxonomy and the prompt/run configuration declared by the pass receipt.
 
 The public classification manifest directly binds the accepted discovery
 manifest root and separately retains a non-authoritative sizing contract. That
 sizing contract specifies byte widths, canonicalization, roles, and maximum
 valid ASCII run IDs only; it never presents placeholder digest strings as real
 taxonomy, prompt, manifest, model-descriptor, or runtime pins.
+
+## Platform metadata provenance
+
+`CHAT_METADATA.json` is a closed, text-free platform-availability receipt. It
+contains `modelId`, `service`, `interface`, `snapshotBuildLabel`,
+`displayedModelLabel`, `requestedReasoningEffort`, `forkTurns`, and
+`unavailableFields`. Every unavailable scalar is literal JSON `null` and its
+exact field name is in the UTF-8-bytewise sorted `unavailableFields` array;
+every available scalar is non-null and absent from that array. Do not infer,
+fill, transform, or omit unavailable metadata. `displayedModelLabel` is only a
+displayed platform label and never establishes an exact `modelId`.
+
+Truthful platform-unavailable metadata is valid `candidate-only` demo
+provenance. It does not establish production model provenance, release, or
+production readiness. The validator derives `modelIdSource` as
+`platform-unavailable` when `modelId` is null and
+`platform-reported-exact` only when the platform actually supplies a distinct
+exact model ID.
+
+## Immutable receipt provenance
+
+For a supplied sealed-pass ZIP, `promptDigest` and `modelDescriptorDigest` in
+`PASS_RUN_RECEIPT.json`, every batch, every record, and the pass seal are
+immutable source-receipt facts. The validator requires canonical SHA-256
+syntax, equality of the two pass prompt digests, and the complete
+identity/batch/record/batch-output/pass-seal graph. It does not rebind a
+supplied receipt to the former repository prompt hash or require the supplied
+model receipt digest to equal a locally recomputed descriptor digest. Missing
+platform metadata remains literal `null` with its exact availability marker;
+the validator never invents a model ID, reasoning setting, fork setting, or
+platform claim.
 
 The complete identity is the tuple `packageVersion`, `packageJsonSha256`,
 `formCode`, `proposalId`, `ordinal`, and `textDigest`. A text digest, proposal
