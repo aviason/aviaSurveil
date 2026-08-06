@@ -249,8 +249,17 @@ func HydrateDraftForRuntime(draft Draft, classification ClassificationResult) (D
 // HydrateDraftForRuntime while avoiding repeated 1,310-item pass validation on
 // every append-only Draft command.
 func HydrateDraftForRuntimeFromSealedDraft(draft, base Draft) (Draft, error) {
-	if draft.GenerationID != base.GenerationID || draft.ClassificationRunID != base.ClassificationRunID || base.State != DraftWorking || len(base.Items) != FrozenBaseQuestionCount {
-		return Draft{}, fmt.Errorf("%w: sealed base context", ErrDraftNotReady)
+	if draft.GenerationID != base.GenerationID {
+		return Draft{}, fmt.Errorf("%w: sealed base generation context", ErrDraftNotReady)
+	}
+	if draft.ClassificationRunID != base.ClassificationRunID {
+		return Draft{}, fmt.Errorf("%w: sealed base classification context", ErrDraftNotReady)
+	}
+	if base.State != DraftWorking {
+		return Draft{}, fmt.Errorf("%w: sealed base state context", ErrDraftNotReady)
+	}
+	if len(base.Items) != FrozenBaseQuestionCount {
+		return Draft{}, fmt.Errorf("%w: sealed base item context", ErrDraftNotReady)
 	}
 	hydrated := cloneDraft(draft)
 	hydrated.sealedPassGraphValidated = base.sealedPassGraphValidated
@@ -927,6 +936,78 @@ func ApplyDraftCommandFromValidatedRuntime(draft Draft, command DraftCommand, al
 		return Draft{}, err
 	}
 	next.Revision++
+	next.ContentDigest = ComputeDraftContentDigest(next)
+	return next, nil
+}
+
+// ApplyDraftDispositionBatchFromValidatedRuntime applies a server-created
+// selection batch in one validated runtime pass. The batch is still revision
+// counted once per affected item, but the immutable sealed graph is cloned and
+// the content digest is recomputed only once for the atomic successor.
+func ApplyDraftDispositionBatchFromValidatedRuntime(draft Draft, commands []DraftCommand) (Draft, error) {
+	if len(commands) == 0 || !draft.sealedPassGraphValidated {
+		return Draft{}, ErrCommandEnvelope
+	}
+	if !draftAcceptsCommands(draft) {
+		return Draft{}, ErrDraftConflict
+	}
+	first := commands[0]
+	if first.OperationID == "" || first.IdempotencyKey == "" || first.ExpectedGenerationID != draft.GenerationID || first.ExpectedRevision != draft.Revision || first.ExpectedContentDigest != draft.ContentDigest {
+		return Draft{}, ErrDraftConflict
+	}
+	// A runtime disposition batch cannot change question references, parent
+	// links, current-leaf state, or sealed pass records. The Draft arrived here
+	// with sealedPassGraphValidated=true from the cold hydrate path, and every
+	// predecessor batch preserves that invariant. Re-running the full 1,310-row
+	// pass graph for each server-issued page would make the bounded batch API
+	// unusable while adding no new validation surface.
+
+	next := cloneDraftForRuntimeCommand(draft)
+	indexByKey := make(map[string]int, len(next.Items))
+	for index := range next.Items {
+		if !next.Items[index].Current {
+			continue
+		}
+		key := next.Items[index].QuestionRef.Key()
+		if key == "" {
+			return Draft{}, ErrNonCurrentQuestion
+		}
+		indexByKey[key] = index
+	}
+	for index, command := range commands {
+		if command.OperationID == "" || command.IdempotencyKey == "" || command.ExpectedGenerationID != draft.GenerationID || command.ExpectedContentDigest == "" || (command.ExpectedRevision != draft.Revision && command.ExpectedRevision != draft.Revision+index) {
+			return Draft{}, ErrCommandEnvelope
+		}
+		if command.Action != DraftInclude && command.Action != DraftExclude && command.Action != DraftDefer {
+			return Draft{}, fmt.Errorf("%w: disposition batch action", ErrUnknownCode)
+		}
+		if err := validateDraftReason(command.Action, command.ReasonCode); err != nil {
+			return Draft{}, err
+		}
+		targetIndex, ok := indexByKey[command.TargetQuestionKey]
+		if !ok || !next.Items[targetIndex].Current {
+			return Draft{}, ErrNonCurrentQuestion
+		}
+		target := cloneDraftItemForRuntime(next.Items[targetIndex])
+		if command.Action == DraftInclude && target.QuestionSourceProposalGap && command.ReasonCode == "" {
+			return Draft{}, ErrReasonRequired
+		}
+		if command.Action == DraftInclude && target.QuestionSourceProposalGap && command.ReasonCode != "SIMULATION_SOURCE_GAP_OVERRIDE" {
+			return Draft{}, ErrInvalidReason
+		}
+		if target.QuestionRef.Workspace != nil && target.ProposalResolution == nil {
+			return Draft{}, ErrInvalidResolution
+		}
+		disposition := map[DraftAction]string{DraftInclude: DispositionInclude, DraftExclude: DispositionExclude, DraftDefer: DispositionDefer}[command.Action]
+		target.Disposition = &disposition
+		target.ReviewState = ReviewManagerDisposed
+		next.Items[targetIndex] = target
+	}
+	if next.State == DraftReadyForDemoSimulation {
+		next.State = DraftWorking
+		next.CurrentReadinessEventID = ""
+	}
+	next.Revision += len(commands)
 	next.ContentDigest = ComputeDraftContentDigest(next)
 	return next, nil
 }

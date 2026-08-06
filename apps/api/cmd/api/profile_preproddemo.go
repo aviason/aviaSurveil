@@ -51,19 +51,33 @@ func activeRuntimeProfile(settings config.Settings) (runtimeProfile, error) {
 			readerPool.Close()
 			return nil, nil, err
 		}
+		overlayPool, err := database.Open(ctx, settings.AGADemoDatabaseURL)
+		if err != nil {
+			readerPool.Close()
+			return nil, nil, err
+		}
+		questionBodies, err := workspace.NewPostgresQuestionBodyResolver(overlayPool)
+		if err != nil {
+			overlayPool.Close()
+			readerPool.Close()
+			return nil, nil, err
+		}
 		commandPool, err := database.Open(ctx, settings.AGADemoWorkspaceCommandURL)
 		if err != nil {
+			overlayPool.Close()
 			readerPool.Close()
 			return nil, nil, err
 		}
 		commandStore, err := preprod.NewPostgresCommandStore(commandPool)
 		if err != nil {
+			overlayPool.Close()
 			readerPool.Close()
 			commandPool.Close()
 			return nil, nil, err
 		}
 		resolver, err := workspace.NewPostgresBindingResolver(readerPool)
 		if err != nil {
+			overlayPool.Close()
 			readerPool.Close()
 			commandPool.Close()
 			return nil, nil, err
@@ -72,9 +86,12 @@ func activeRuntimeProfile(settings config.Settings) (runtimeProfile, error) {
 			ReaderStore:          readerStore,
 			CommandStore:         commandStore,
 			Resolver:             resolver,
+			QuestionBodies:       questionBodies,
+			QuestionTextSearch:   questionBodies,
 			RecommendationScopes: workspace.NewPostgresRecommendationScopeResolver(readerPool),
+			SimulationSetup:      workspace.NewPostgresSimulationSetupResolver(readerPool),
 			LifecycleBindings:    workspace.NewFixtureLifecycleBindingResolver(),
 		})
-		return service, func() { readerPool.Close(); commandPool.Close() }, nil
+		return service, func() { overlayPool.Close(); readerPool.Close(); commandPool.Close() }, nil
 	}}, nil
 }

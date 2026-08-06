@@ -22,6 +22,13 @@ export type AGADemoWorkspaceLifecycleVerificationDecision = Schemas["AGADemoWork
 export type AGADemoWorkspaceLifecycleProjection = Schemas["AGADemoWorkspaceLifecycleProjection"];
 export type AGADemoWorkspaceLifecycleCAAProjection = Schemas["AGADemoWorkspaceLifecycleCAAProjection"];
 export type AGADemoWorkspaceLifecycleAuditeeProjection = Schemas["AGADemoWorkspaceLifecycleAuditeeProjection"];
+export type AGADemoWorkspaceClassificationReviewItem = Schemas["AGADemoWorkspaceClassificationReviewItem"];
+export type AGADemoWorkspaceBatchPreview = Schemas["AGADemoWorkspaceBatchPreview"];
+export type AGADemoWorkspaceBatchFilter = Schemas["AGADemoWorkspaceBatchFilter"];
+export type AGADemoWorkspaceSimulationSetup = Schemas["AGADemoWorkspaceSimulationSetup"];
+export type AGADemoWorkspaceRecommendationSnapshot = Schemas["AGADemoWorkspaceRecommendationSnapshot"];
+export type AGADemoWorkspaceLifecycleQuestionPageItem = Schemas["AGADemoWorkspaceLifecycleQuestionPageItem"];
+export type AGADemoWorkspaceQuestionTextPage = Schemas["AGADemoWorkspaceQuestionTextPage"];
 
 export type AGADemoWorkspaceQueryOperation = AGADemoWorkspaceQuery["operationId"];
 export type AGADemoWorkspaceCommandOperation = AGADemoWorkspaceCommand["operationId"];
@@ -31,6 +38,7 @@ export interface AGADemoWorkspaceBackend {
   classificationQuery(input: AGADemoWorkspaceQuery, options?: BackendRequestOptions): Promise<AGADemoWorkspaceQueryResponse>;
   classificationCommand(input: AGADemoWorkspaceCommand, options?: BackendRequestOptions): Promise<AGADemoWorkspaceCommandResponse>;
   recommendationCommand(input: AGADemoWorkspaceCommand, options?: BackendRequestOptions): Promise<AGADemoWorkspaceCommandResponse>;
+  recommendationQuery?(input: AGADemoWorkspaceQuery, options?: BackendRequestOptions): Promise<AGADemoWorkspaceQueryResponse>;
   lifecycleQuery(input: AGADemoWorkspaceQuery, options?: BackendRequestOptions): Promise<AGADemoWorkspaceQueryResponse>;
   lifecycleCommand(input: AGADemoWorkspaceCommand, options?: BackendRequestOptions): Promise<AGADemoWorkspaceCommandResponse>;
   adminCommand(input: AGADemoWorkspaceCommand, options?: BackendRequestOptions): Promise<AGADemoWorkspaceCommandResponse>;

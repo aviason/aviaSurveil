@@ -14,6 +14,8 @@ const profile =
     ? "http"
     : e2eProfile === "preprod-aga-demo"
       ? "preprod-aga-demo"
+    : e2eProfile === "preprod-aga-manager"
+      ? "preprod-aga-manager"
     : e2eProfile === "oidc"
       ? "oidc"
       : e2eProfile === "offline"
@@ -32,6 +34,7 @@ const command =
 const shouldStartWebServer =
   profile !== "offline" &&
   profile !== "preprod-aga-demo" &&
+  profile !== "preprod-aga-manager" &&
   profile !== "local-demo" &&
   profile !== "local-full" &&
   profile !== "restored-platform" &&
@@ -58,7 +61,7 @@ export default defineConfig({
   workers: 1,
   forbidOnly: true,
   retries: 0,
-  maxFailures: profile === "preprod-aga-demo" ? 1 : 0,
+  maxFailures: profile === "preprod-aga-demo" || profile === "preprod-aga-manager" ? 1 : 0,
   reporter: [["line"]],
   use: {
     baseURL: process.env.AVIA_E2E_BASE_URL ?? "http://127.0.0.1:4174",
@@ -143,6 +146,22 @@ export default defineConfig({
         "e2e/aga-synthetic-lifecycle.http.spec.ts",
         "e2e/aga-hybrid-privacy.http.spec.ts",
       ],
+      use: {
+        actionTimeout: 30_000,
+        navigationTimeout: 30_000,
+        trace: "off",
+        screenshot: "off",
+        video: "off",
+        launchOptions: {
+          args: [
+            `--host-resolver-rules=MAP ${process.env.AVIA_PREPROD_AGA_OIDC_HOST ?? "aga-preprod.test"} 127.0.0.1`,
+          ],
+        },
+      },
+    },
+    {
+      name: "preprod-aga-manager",
+      testMatch: ["e2e/aga-manager-multi-role-demo.http.spec.ts"],
       use: {
         actionTimeout: 30_000,
         navigationTimeout: 30_000,

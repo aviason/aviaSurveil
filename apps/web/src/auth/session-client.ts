@@ -43,6 +43,7 @@ const supplementalWorkspacePaths = [
   "/department-manager/aga-demo-workspace",
   "/inspector/aga-demo-workspace",
   "/lead-inspector/aga-demo-workspace",
+  "/caa-reviewer/aga-demo-workspace",
   "/auditee/aga-demo-workspace",
 ] as const;
 const supportedRoles = new Set<Role>([

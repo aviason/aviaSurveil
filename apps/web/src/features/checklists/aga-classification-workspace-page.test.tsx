@@ -23,6 +23,8 @@ const draft = { draftId: "aga-ws-draft-0001", generationId: generation.generatio
 const row = {
   identity: { packageVersion: "AGA_PACKAGE", packageJsonSha256: digest, formCode: "FSS-AGA-FORM-001", proposalId: "proposal-001", ordinal: 1, textDigest: digest },
   questionKey: "server-returned-question-key",
+  questionRef: { questionOrigin: "SEALED_BASE" as const, packageVersion: "AGA_PACKAGE", packageJsonSha256: digest, formCode: "FSS-AGA-FORM-001", proposalId: "proposal-001", ordinal: 1, textDigest: digest },
+  questionOrigin: "SEALED_BASE" as const,
   projection: { mainDomainCode: "DOMAIN_A", topicCodes: ["TOPIC_A"], inspectionProfileCodes: ["PROFILE_A"], inspectionTypeCodes: ["TYPE_A"], canonicalTargetKind: "AERODROME_OPERATOR", targetProfileCode: "AERODROME_PROFILE", operationQualifiers: [], activityQualifiers: [], applicabilityDisposition: "APPLICABLE", evidenceExpectationCodes: [], externalInvolvements: [] },
   agreementConfidence: "HIGH",
   recommendationState: "AUTO_PROPOSED_HIGH_CONFIDENCE",
@@ -99,13 +101,10 @@ describe("AGA classification workspace page", () => {
     expect(screen.getByText("1310")).toBeInTheDocument();
   });
 
-  it("executes exact batch preview", async () => {
+  it("routes the manager to the fixed server-owned inspection package builder", async () => {
     const workspace = renderPage();
-    await selectRow();
-    const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /preview exact batch/i }));
-    await waitFor(() => expect(workspace.classificationCommand).toHaveBeenCalled());
-    expect(workspace.classificationCommand.mock.calls.at(-1)?.[0]).toMatchObject({ operationId: "PREVIEW_BATCH", expectedGenerationId: generation.generationId, expectedDraftRevision: draft.revision, targetQuestionKey: row.questionKey });
+    expect(await screen.findByRole("link", { name: /open inspection package builder/i })).toHaveAttribute("href", "/department-manager/aga-demo-workspace/inspection-package");
+    expect(workspace.classificationCommand).not.toHaveBeenCalledWith(expect.objectContaining({ operationId: "PREVIEW_BATCH" }));
   });
 
   it("creates immutable wording successor", async () => {

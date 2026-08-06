@@ -163,6 +163,30 @@
   color: var(--avia-color-muted);
 }
 
+.aga-lifecycle-question-list__heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.aga-lifecycle-question-list__heading > div:first-child {
+  display: grid;
+  gap: 8px;
+}
+
+.aga-lifecycle-question-list__heading p {
+  margin: 0;
+  color: var(--avia-color-muted);
+}
+
+.aga-lifecycle-question-text {
+  margin: 8px 0 0;
+  color: var(--avia-color-heading);
+  font-weight: 560;
+  line-height: 1.55;
+}
+
 .aga-lifecycle-question {
   gap: 16px;
 }
@@ -229,6 +253,11 @@
 @media (max-width: 900px) {
   .aga-lifecycle-facts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .aga-lifecycle-question-list__heading {
+    align-items: start;
+    flex-direction: column;
   }
 }
 

@@ -62,14 +62,15 @@ This ExecPlan is a living document. Keep `Progress`, `Decision Log`,
 
 ## Status
 
-- Plan status: `active`.
-- Design request: supplied by the user on 2026-08-05.
-- Implementation: `not run`.
-- Connected verification: `not run`.
+- Plan status: `ready-for-verification`.
+- Design request and implementation authorization: supplied by the user on
+  2026-08-05.
+- Gate 0 and Tasks 1–9: `verified locally`.
+- Connected happy path and four-case fault matrix: `verified locally`.
 - Release: `release pending`.
 - Production readiness: `production-ready: not established`.
-- Immediate next gate: after explicit implementation authorization, execute
-  Gate 0 and record the frozen contract before changing runtime code.
+- Immediate next gate: stakeholder/user verification before moving this plan to
+  `completed`; no release or production action is authorized.
 
 ## Objective And User-Visible Outcome
 
@@ -375,7 +376,8 @@ and may not introduce a second compatibility contract.
 - Execution supplies the preview ID/digest and current Draft CAS pins. A stale
   filter, generation, Draft, or preview is rejected without partial mutation.
 - Remove the current client-generated preview-ID path. The browser must never
-  invent a preview ID or execute without the exact server preview digest.
+  invent a preview ID or execute without the exact server preview digest. There
+  is no client-generated preview ID in the successor contract.
 
 ### Package preview and readiness
 
@@ -974,21 +976,45 @@ local simulation.
 - [x] 2026-08-05: Sol Ultra follow-up closure review confirmed all nine findings
   are materially resolved and found no residual or newly introduced Critical or
   Important issue.
-- [ ] Gate 0: contract and RED tests — `not run`; requires explicit
-  implementation authorization.
-- [ ] Task 1: authorized text composition — `not run`.
-- [ ] Task 2: complete server-side batch selection pipeline — `not run`.
-- [ ] Task 3: server-owned setup/release pins and current-object recovery —
-  `not run`.
-- [ ] Task 4: Manager inventory UI — `not run`.
-- [ ] Task 5: package-builder/release UI — `not run`.
-- [ ] Task 6: transient lifecycle question text and multi-role handoff —
-  `not run`.
-- [ ] Task 7: privacy/store/artifact qualification — `not run`.
-- [ ] Task 8: connected/manual demo session qualification — `not run`.
-- [ ] Task 9: aggregate verification and handoff — `not run`.
+- [x] Gate 0: contract and RED tests — frozen successor contract and deliberate
+  RED tests recorded; implementation was then completed against that boundary.
+- [x] Task 1: authorized text composition — bounded, digest-matched,
+  fail-closed transient composition passed focused Go, HTTP, and frontend
+  checks.
+- [x] Task 2: complete server-side batch selection pipeline — server-issued,
+  digest-bound previews and atomic 500-item-capped execution passed focused
+  unit, API, and connected Manager checks.
+- [x] Task 3: server-owned setup/release pins and current-object recovery —
+  read-only setup, server-issued readiness, current recommendation/inspection
+  reload, replay, CAS, and uniqueness protections passed.
+- [x] Task 4: Manager inventory UI — all 1,310 candidates were reached through
+  53 bounded pages with exact identity/body digest checks.
+- [x] Task 5: package-builder/release UI — deterministic eligible subset,
+  readiness, recommendation, and synthetic inspection release passed with
+  visible controls and no silent drop.
+- [x] Task 6: transient lifecycle question text and multi-role handoff — the
+  Manager → Inspector → Lead Inspector → CAA Reviewer → Auditee → CAP →
+  Evidence → closure flow passed with CAP/closure separation.
+- [x] Task 7: privacy/store/artifact qualification — contract, role, pool,
+  persistence, artifact, media-retention, and canonical-delta boundaries passed.
+- [x] Task 8: connected/manual demo session qualification — fresh connected
+  happy-path and four-case fault-matrix receipts passed with zero residue.
+- [x] Task 9: aggregate verification and handoff — focused, tagged, contract,
+  build, artifact, browser discovery, full Vitest, full Node, documentation,
+  evidence, and cleanup gates passed.
 
 ## Decision Log
+
+### 2026-08-05 — Freeze the successor transport and RED boundary before runtime work
+
+Gate 0 is accepted as a contract-only step. The new RED tests require bounded
+sealed-base text composition, transport-only review items, server-issued
+digest-bound batch previews, read-only setup/current-object queries, server-owned
+readiness IDs, and transient assigned-role lifecycle text. The focused Node
+contract test fails because the successor OpenAPI operations and schemas are not
+implemented; the focused Go test fails because the successor interfaces and
+projections do not yet exist. No runtime code, database grant, generated
+contract, or canonical surface was changed before recording this RED result.
 
 ### 2026-08-05 — Allow reviewed batch disposition, not unreviewed real use
 
@@ -1064,6 +1090,39 @@ tagged pool ownership, and verification commands. All nine were incorporated;
 the follow-up closure review confirmed no residual or newly introduced Critical
 or Important finding.
 
+### 2026-08-05 — Implement the frozen successor contract
+
+The user-authorized implementation kept original bodies in the sealed overlay,
+added explicit tagged reader-pool ownership, and composed only bounded
+digest-matched text for authorized Manager/Admin and assigned Inspector/Lead
+queries. Workspace persistence continues to store refs, digests, and metadata,
+not original bodies. Unauthorized and Auditee projections remain neutral and
+fail closed.
+
+### 2026-08-05 — Make selection, setup, and current objects server-owned
+
+The Manager now uses server-issued digest-bound batch previews with an atomic
+500-item cap, explicit selection actions, and CAS protection. Setup is
+read-only, readiness IDs are generated at commit, and recommendation/inspection
+queries are mandatory for reload and generation/scope uniqueness. Included but
+ineligible questions fail without a write; the recommendation path never
+silently drops them.
+
+### 2026-08-05 — Record connected happy and fault evidence
+
+Fresh connected evidence passed the 14-phase happy path with 17 browser tests
+and the four-case receipt-gap fault matrix. The finalizer recorded 10 lifecycle
+commands and `EVIDENCE_VERIFIED` closure; final residue and canonical delta
+were zero. The immutable ledger digests and privacy-safe summary are recorded
+in [dated evidence](../../demo-evidence/AGA_MANAGER_MULTI_ROLE_DEMO_2026-08-05.md).
+
+### 2026-08-05 — Keep plan lifecycle separate from local proof
+
+All implementation and verification gates required by this execution are
+`verified locally`. The plan remains `ready-for-verification` until the
+stakeholder/user performs the repository's separate plan-lifecycle verification;
+the local result does not imply release or production readiness.
+
 ## Discoveries
 
 ### 2026-08-05 — The lifecycle backend already implements the core commands
@@ -1111,23 +1170,58 @@ Inspector UI shows a question key rather than readable sealed text. Execution
 therefore needs a separate assigned-role transient text query, not body storage
 inside the lifecycle aggregate or command response.
 
+### 2026-08-05 — Empty collections must serialize as arrays
+
+Connected HTTP projections exposed empty Go slices as JSON `null`, which caused
+the browser to fail while rendering the first lifecycle page. Runtime
+projections now preserve empty arrays explicitly; a focused regression test
+locks that transport boundary.
+
+### 2026-08-05 — CAP revisions can share a revision number
+
+The append-only CAP flow records multiple states under the same revision. The
+client now selects the latest append order rather than sorting only by revision,
+so `PENDING_CAA_REVIEW` remains actionable and CAP acceptance cannot be mistaken
+for closure.
+
+### 2026-08-05 — The deterministic demo subset replaces initial fixture includes
+
+The sealed source Draft contains initial `INCLUDE` rows. The connected Manager
+scenario explicitly excludes both `UNSET` and initial `INCLUDE` rows before
+including the small eligible presentation subset, proving all 1,310 candidates
+are dispositioned without automatic selection.
+
 ## Outcome
 
-Planning outcome as of 2026-08-05:
+Execution outcome as of 2026-08-05:
 
-- A self-contained successor implementation plan now defines how the Department
-  Manager can see all 1,310 candidate questions, disposition an explicit subset,
-  create a synthetic inspection package, assign it through fixture bindings,
-  and demonstrate the complete multi-role lifecycle.
-- The design preserves candidate/source/governance truth and makes clear that
-  reviewed simulation disposition is not real technical approval or publication.
-- Independent Sol Ultra review corrected eligibility/no-silent-drop semantics,
-  added the missing end-to-end batch and assigned-role lifecycle-text work,
-  removed query-issued token state, made current-object reload mandatory,
-  separated transport text from persistence, corrected tagged pool ownership,
-  and repaired verification commands.
-- Implementation and verification remain `not run` until the user explicitly
-  authorizes execution.
+- Gate 0 and Tasks 1–9 are implemented and `verified locally` against the
+  frozen successor contract. The Manager can reach all 1,310 sealed candidate
+  questions through 53 bounded pages, inspect digest-matched transient text,
+  and disposition an explicit deterministic subset without treating it as
+  approval or publication.
+- The package-builder and tagged API keep provider/target/profile eligibility
+  fail closed, use server-owned setup/readiness/release facts, and preserve
+  immutable recommendation and inspection snapshots. Assigned Inspector and
+  Lead text is transient and bounded; Auditee and unauthorized projections do
+  not expose bodies, counts, or identity signals.
+- The connected happy path completed the Manager → Inspector → Lead Inspector →
+  CAA Reviewer → Auditee → CAP → Evidence → closure flow. CAP acceptance stayed
+  separate from Finding closure, and the normal happy path closed only after
+  assigned-role Evidence verification with `CLOSE`.
+- The four-case fault matrix recovered receipt gaps with no duplicate effects;
+  canonical delta, overlay delta after seal, browser privacy leaks, and final
+  task-owned residue were all zero. The runbook and dated machine-readable/text
+  evidence are written as workspace deliverables without source bodies or
+  credentials.
+- Aggregate verification passed: focused and tagged Go, generated OpenAPI and
+  closed-schema contract tests, focused frontend/typecheck, demo/HTTP builds and
+  artifact scans, boundary/discovery, artifact scanner, full Vitest (90/753),
+  full root Node (103/103), harness documentation, whitespace, and cleanup.
+- The result is exactly `interactive local-preprod multi-role AGA demo;
+  verified locally`; it remains `candidate-only`, `release pending`, and
+  `production-ready: not established`. Plan lifecycle remains
+  `ready-for-verification` pending stakeholder/user verification.
 
 ## Execution Prompt
 

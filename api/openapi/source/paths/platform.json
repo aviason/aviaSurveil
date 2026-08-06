@@ -283,6 +283,17 @@
       "responses": { "200": { "description": "Recommendation command result", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceCommandResponse" } } } }, "400": { "$ref": "#/components/responses/Problem" }, "409": { "$ref": "#/components/responses/Problem" }, "412": { "$ref": "#/components/responses/Problem" }, "404": { "description": "Neutral recommendation denial", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceNotFound" } } } } }
     }
   },
+  "/v1/preprod/aga-demo-workspace/recommendations/query": {
+    "post": {
+      "operationId": "queryAGADemoWorkspaceRecommendation",
+      "x-operation-kind": "query",
+      "x-neutral-denial": true,
+      "x-authorized-roles": ["manager"],
+      "parameters": [{ "$ref": "#/components/parameters/CsrfToken" }],
+      "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceQuery" } } } },
+      "responses": { "200": { "description": "Current synthetic recommendation snapshot", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceQueryResponse" } } } }, "404": { "description": "Neutral recommendation denial", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceNotFound" } } } } }
+    }
+  },
   "/v1/preprod/aga-demo-workspace/lifecycle/query": {
     "post": {
       "operationId": "queryAGADemoWorkspaceLifecycle",

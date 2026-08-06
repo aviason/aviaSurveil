@@ -34,9 +34,42 @@ type RecommendationSnapshotStore interface {
 	GetRecommendationSnapshot(context.Context, string, string) (RecommendationSnapshot, bool, error)
 }
 
+// BatchPreviewStore is optional so classification-only doubles remain narrow.
+// Implementations must persist only the identity/digest record and consume a
+// preview with a single compare-and-set operation.
+type BatchPreviewStore interface {
+	PutSelectionBatchPreview(context.Context, SelectionBatchPreviewRecord) (SelectionBatchPreviewRecord, bool, error)
+	GetSelectionBatchPreview(context.Context, string, string) (SelectionBatchPreviewRecord, bool, error)
+	ConsumeSelectionBatchPreview(context.Context, string, string, string, time.Time) (SelectionBatchPreviewRecord, error)
+}
+
+// AtomicBatchDraftStore applies a server-computed selection batch against one
+// expected Draft revision and persists the resulting Draft once. It is the
+// storage boundary that prevents a partially applied batch after validation or
+// a concurrent Draft change.
+type AtomicBatchDraftStore interface {
+	ApplyDraftCommandsAtomically(context.Context, aga.Draft, []aga.DraftCommand) (aga.Draft, error)
+}
+
+// SelectionBatchExecutor binds preview consumption and Draft persistence to a
+// single store transaction. Implementations must not consume the preview when
+// any command fails validation or when the expected Draft CAS is stale.
+type SelectionBatchExecutor interface {
+	ExecuteSelectionBatch(context.Context, SelectionBatchPreviewRecord, aga.Draft, []aga.DraftCommand, time.Time) (aga.Draft, SelectionBatchPreviewRecord, error)
+}
+
 type LifecycleStore interface {
 	AppendLifecycleEvent(context.Context, LifecycleEvent) (LifecycleEvent, error)
 	GetLifecycleEvents(context.Context, string, string) ([]LifecycleEvent, error)
+}
+
+// CurrentWorkspaceQuestionVersionStore is the bounded read seam for bodies
+// authored inside the disposable workspace.  Sealed-base bodies never use
+// this interface; they are resolved through the separately owned overlay
+// reader.  Implementations return only the current leaf versions for one
+// generation so lifecycle and inventory composition can remain transient.
+type CurrentWorkspaceQuestionVersionStore interface {
+	ListCurrentWorkspaceQuestionVersions(context.Context, string) ([]WorkspaceQuestionVersion, error)
 }
 
 // ValidateRecommendationSnapshot is the append-only boundary for the
@@ -97,6 +130,7 @@ type MemoryStore struct {
 	loaderRevoked     bool
 	recommendations   map[string]RecommendationSnapshot
 	lifecycleEvents   map[string][]LifecycleEvent
+	batchPreviews     map[string]SelectionBatchPreviewRecord
 }
 
 func NewMemoryStore() *MemoryStore {
@@ -107,6 +141,7 @@ func NewMemoryStore() *MemoryStore {
 		allocator:       aga.NewSequentialIDAllocator("memory"),
 		recommendations: make(map[string]RecommendationSnapshot),
 		lifecycleEvents: make(map[string][]LifecycleEvent),
+		batchPreviews:   make(map[string]SelectionBatchPreviewRecord),
 	}
 }
 
@@ -218,6 +253,133 @@ func (store *MemoryStore) GetRecommendationSnapshot(_ context.Context, generatio
 	return cloneJSON(snapshot), true, nil
 }
 
+func (store *MemoryStore) ListRecommendationSnapshots(_ context.Context, generationID string) ([]RecommendationSnapshot, error) {
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+	if !store.loadedOnce || generationID != store.currentGeneration {
+		return nil, ErrWorkspaceNotSealed
+	}
+	result := make([]RecommendationSnapshot, 0)
+	for _, snapshot := range store.recommendations {
+		if snapshot.Recommendation.GenerationID == generationID {
+			result = append(result, cloneJSON(snapshot))
+		}
+	}
+	sort.SliceStable(result, func(left, right int) bool { return result[left].CreatedAt.Before(result[right].CreatedAt) })
+	return result, nil
+}
+
+func (store *MemoryStore) PutSelectionBatchPreview(_ context.Context, record SelectionBatchPreviewRecord) (SelectionBatchPreviewRecord, bool, error) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	if !store.loadedOnce {
+		return SelectionBatchPreviewRecord{}, false, ErrWorkspaceNotSealed
+	}
+	if err := validateSelectionBatchPreviewRecord(record); err != nil || record.GenerationID != store.currentGeneration {
+		return SelectionBatchPreviewRecord{}, false, ErrWorkspaceAppendOnly
+	}
+	if existing, ok := store.batchPreviews[record.PreviewID]; ok {
+		if canonical(existing) != canonical(record) {
+			return SelectionBatchPreviewRecord{}, false, ErrWorkspaceIdempotency
+		}
+		return cloneJSON(existing), true, nil
+	}
+	store.batchPreviews[record.PreviewID] = cloneJSON(record)
+	return cloneJSON(record), false, nil
+}
+
+func (store *MemoryStore) GetSelectionBatchPreview(_ context.Context, generationID, previewID string) (SelectionBatchPreviewRecord, bool, error) {
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+	if !store.loadedOnce || generationID != store.currentGeneration {
+		return SelectionBatchPreviewRecord{}, false, ErrWorkspaceNotSealed
+	}
+	record, ok := store.batchPreviews[previewID]
+	if !ok {
+		return SelectionBatchPreviewRecord{}, false, nil
+	}
+	return cloneJSON(record), true, nil
+}
+
+func (store *MemoryStore) ConsumeSelectionBatchPreview(_ context.Context, generationID, previewID, previewDigest string, now time.Time) (SelectionBatchPreviewRecord, error) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	if !store.loadedOnce || generationID != store.currentGeneration {
+		return SelectionBatchPreviewRecord{}, ErrWorkspaceNotSealed
+	}
+	record, ok := store.batchPreviews[previewID]
+	if !ok || record.PreviewDigest != previewDigest {
+		return SelectionBatchPreviewRecord{}, ErrWorkspaceCAS
+	}
+	if record.ConsumedAt != nil || !now.UTC().Before(record.ExpiresAt) {
+		return SelectionBatchPreviewRecord{}, ErrWorkspaceCAS
+	}
+	consumed := now.UTC()
+	record.ConsumedAt = &consumed
+	store.batchPreviews[previewID] = cloneJSON(record)
+	return cloneJSON(record), nil
+}
+
+func (store *MemoryStore) ApplyDraftCommandsAtomically(_ context.Context, draft aga.Draft, commands []aga.DraftCommand) (aga.Draft, error) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	if !store.loadedOnce || draft.GenerationID != store.currentGeneration || draft.Revision != store.loaded.Draft.Draft.Revision || draft.ContentDigest != store.loaded.Draft.Draft.ContentDigest {
+		return aga.Draft{}, ErrWorkspaceCAS
+	}
+	if len(commands) == 0 {
+		return aga.Draft{}, ErrWorkspaceAppendOnly
+	}
+	current := draft
+	for index := range commands {
+		command := commands[index]
+		if index == 0 && (command.ExpectedRevision != current.Revision || command.ExpectedContentDigest != current.ContentDigest) {
+			return aga.Draft{}, ErrWorkspaceCAS
+		}
+		command.ExpectedRevision = current.Revision
+		command.ExpectedContentDigest = current.ContentDigest
+		updated, err := aga.ApplyDraftCommand(current, command, store.allocator)
+		if err != nil {
+			return aga.Draft{}, err
+		}
+		current = updated
+	}
+	store.loaded.Draft.Draft = cloneJSON(current)
+	store.syncClassificationDraftState(current)
+	return cloneJSON(current), nil
+}
+
+func (store *MemoryStore) ExecuteSelectionBatch(_ context.Context, record SelectionBatchPreviewRecord, draft aga.Draft, commands []aga.DraftCommand, now time.Time) (aga.Draft, SelectionBatchPreviewRecord, error) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	if !store.loadedOnce || record.GenerationID != store.currentGeneration || draft.GenerationID != store.currentGeneration {
+		return aga.Draft{}, SelectionBatchPreviewRecord{}, ErrWorkspaceCAS
+	}
+	stored, ok := store.batchPreviews[record.PreviewID]
+	if !ok || canonical(stored) != canonical(record) || stored.ConsumedAt != nil || !now.UTC().Before(stored.ExpiresAt) {
+		return aga.Draft{}, SelectionBatchPreviewRecord{}, ErrWorkspaceCAS
+	}
+	if draft.Revision != store.loaded.Draft.Draft.Revision || draft.ContentDigest != store.loaded.Draft.Draft.ContentDigest || len(commands) == 0 || commands[0].ExpectedRevision != draft.Revision || commands[0].ExpectedContentDigest != draft.ContentDigest {
+		return aga.Draft{}, SelectionBatchPreviewRecord{}, ErrWorkspaceCAS
+	}
+	current := draft
+	for index := range commands {
+		command := commands[index]
+		command.ExpectedRevision = current.Revision
+		command.ExpectedContentDigest = current.ContentDigest
+		updated, err := aga.ApplyDraftCommand(current, command, store.allocator)
+		if err != nil {
+			return aga.Draft{}, SelectionBatchPreviewRecord{}, err
+		}
+		current = updated
+	}
+	consumed := now.UTC()
+	stored.ConsumedAt = &consumed
+	store.batchPreviews[record.PreviewID] = cloneJSON(stored)
+	store.loaded.Draft.Draft = cloneJSON(current)
+	store.syncClassificationDraftState(current)
+	return cloneJSON(current), cloneJSON(stored), nil
+}
+
 func (store *MemoryStore) AppendLifecycleEvent(_ context.Context, event LifecycleEvent) (LifecycleEvent, error) {
 	store.mu.Lock()
 	defer store.mu.Unlock()
@@ -264,6 +426,34 @@ func (store *MemoryStore) GetLifecycleEvents(_ context.Context, generationID, li
 	return cloneJSON(events), nil
 }
 
+func (store *MemoryStore) ListLifecycleStreams(_ context.Context, generationID string) ([]LifecycleStream, error) {
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+	if !store.loadedOnce || generationID != store.currentGeneration {
+		return nil, ErrWorkspaceNotSealed
+	}
+	result := make([]LifecycleStream, 0)
+	for lifecycleID, events := range store.lifecycleEvents {
+		if len(events) == 0 {
+			continue
+		}
+		var payload struct {
+			GenerationID     string    `json:"generationId"`
+			RecommendationID string    `json:"recommendationId"`
+			Revision         int       `json:"revision"`
+			Digest           string    `json:"digest"`
+			State            string    `json:"state"`
+			UpdatedAt        time.Time `json:"updatedAt"`
+		}
+		if json.Unmarshal(events[len(events)-1].Payload, &payload) != nil || payload.GenerationID != generationID {
+			continue
+		}
+		result = append(result, LifecycleStream{LifecycleID: lifecycleID, GenerationID: generationID, RecommendationID: payload.RecommendationID, Revision: payload.Revision, Digest: payload.Digest, State: payload.State, CreatedAt: payload.UpdatedAt})
+	}
+	sort.SliceStable(result, func(left, right int) bool { return result[left].LifecycleID < result[right].LifecycleID })
+	return result, nil
+}
+
 func (store *MemoryStore) ApplyDraftCommand(_ context.Context, command aga.DraftCommand) (aga.Draft, error) {
 	store.mu.Lock()
 	defer store.mu.Unlock()
@@ -282,22 +472,44 @@ func (store *MemoryStore) ApplyDraftCommand(_ context.Context, command aga.Draft
 	return cloneJSON(updated), nil
 }
 
-func (store *MemoryStore) syncClassificationDraftState(draft aga.Draft) {
-	byKey := make(map[string]aga.DraftItem, len(draft.Items))
-	for _, item := range draft.Items {
-		byKey[item.QuestionRef.Key()] = item
+func validateSelectionBatchPreviewRecord(record SelectionBatchPreviewRecord) error {
+	invalid := func(reason string) error { return fmt.Errorf("%w: %s", ErrWorkspaceAppendOnly, reason) }
+	if !workspaceIDPattern.MatchString(record.PreviewID) {
+		return invalid("batch preview identity")
 	}
-	for index := range store.loaded.Items {
-		item := &store.loaded.Items[index]
-		draftItem, ok := byKey[item.QuestionKey]
-		if !ok {
-			continue
+	if !workspaceIDPattern.MatchString(record.GenerationID) {
+		return invalid("batch preview generation")
+	}
+	if record.DraftID == "" || record.DraftRevision < 1 {
+		return invalid("batch preview draft pin")
+	}
+	if !validDigest(record.DraftContentDigest) || !validDigest(record.ClassificationRunDigest) {
+		return invalid("batch preview classification pin")
+	}
+	if strings.TrimSpace(record.FilterJSON) == "" || !validDigest(record.FilterDigest) || !validDigest(record.AffectedIdentityDigest) {
+		return invalid("batch preview filter or affected identity digest")
+	}
+	if record.Action == "" || record.ReasonCode == "" || len(record.Items) > 500 {
+		return invalid("batch preview action, reason, or size")
+	}
+	if !validDigest(record.PreviewDigest) || record.ExpiresAt.IsZero() || record.ConsumedAt != nil {
+		return invalid("batch preview lifecycle or digest")
+	}
+	seen := make(map[string]struct{}, len(record.Items))
+	for _, item := range record.Items {
+		if item.QuestionKey == "" || !validDigest(item.IdentityDigest) {
+			return invalid("batch preview item identity")
 		}
-		item.DraftAgreementConfidence = draftItem.DraftAgreementConfidence
-		item.DraftRecommendationState = draftItem.RecommendationState
-		item.DraftReviewState = draftItem.ReviewState
-		item.DraftDisposition = draftItem.Disposition
+		if _, ok := seen[item.QuestionKey]; ok {
+			return invalid("batch preview duplicate item")
+		}
+		seen[item.QuestionKey] = struct{}{}
 	}
+	return nil
+}
+
+func (store *MemoryStore) syncClassificationDraftState(draft aga.Draft) {
+	store.loaded.Items = mergeDraftMetadata(store.loaded.Items, draft)
 }
 
 func (store *MemoryStore) AppendQuestionVersion(_ context.Context, input AppendQuestionVersionInput) (WorkspaceQuestionVersion, error) {
@@ -589,6 +801,25 @@ func (store *MemoryStore) CurrentVersions() []WorkspaceQuestionVersion {
 		return output[i].RootSequence < output[j].RootSequence
 	})
 	return output
+}
+
+func (store *MemoryStore) ListCurrentWorkspaceQuestionVersions(_ context.Context, generationID string) ([]WorkspaceQuestionVersion, error) {
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+	output := make([]WorkspaceQuestionVersion, 0, len(store.versions))
+	for _, value := range store.versions {
+		if value.GenerationID != generationID || !value.CurrentLeaf {
+			continue
+		}
+		output = append(output, cloneJSON(value))
+	}
+	sort.Slice(output, func(i, j int) bool {
+		if output[i].RootSequence == output[j].RootSequence {
+			return output[i].VersionID < output[j].VersionID
+		}
+		return output[i].RootSequence < output[j].RootSequence
+	})
+	return output, nil
 }
 
 func (store *MemoryStore) ValidateReferenceRoundTrip(reference aga.QuestionRef) error {

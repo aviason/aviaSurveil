@@ -29,7 +29,27 @@ func NewService(config ServiceConfig) *Service {
 	if readerStore == nil {
 		readerStore = config.Store
 	}
-	return &Service{store: config.Store, reader: readerStore, command: commandStore, resolver: config.Resolver, recommendationScopes: config.RecommendationScopes, lifecycleBindings: config.LifecycleBindings, clock: clock}
+	return &Service{store: config.Store, reader: readerStore, command: commandStore, resolver: config.Resolver, questionBodies: config.QuestionBodies, questionTextSearch: config.QuestionTextSearch, recommendationScopes: config.RecommendationScopes, simulationSetupResolver: config.SimulationSetup, lifecycleBindings: config.LifecycleBindings, clock: clock}
+}
+
+type readerDraftCache interface {
+	UpdateCachedReaderDraft(string, aga.Draft)
+	InvalidateCachedReaderSnapshot()
+}
+
+func (service *Service) updateReaderDraftCache(generationID string, draft *aga.Draft) {
+	if draft == nil {
+		return
+	}
+	if cache, ok := service.reader.(readerDraftCache); ok {
+		cache.UpdateCachedReaderDraft(generationID, *draft)
+	}
+}
+
+func (service *Service) invalidateReaderSnapshotCache() {
+	if cache, ok := service.reader.(readerDraftCache); ok {
+		cache.InvalidateCachedReaderSnapshot()
+	}
 }
 
 func (service *Service) Capability(ctx context.Context, principal identity.Principal) (Capability, error) {
@@ -65,6 +85,9 @@ func (service *Service) Query(ctx context.Context, principal identity.Principal,
 	if _, err := service.Authorize(ctx, principal, request.OperationID); err != nil {
 		return QueryResponse{}, err
 	}
+	if isRecommendationQuery(request.OperationID) {
+		return service.recommendationQuery(ctx, principal, request)
+	}
 	if isLifecycleQuery(request.OperationID) {
 		return service.lifecycleQuery(ctx, principal, request)
 	}
@@ -92,24 +115,92 @@ func (service *Service) Query(ctx context.Context, principal identity.Principal,
 		// performed here.
 		response.ProviderConfiguration = append([]preprod.ProviderConfigurationEntry(nil), workspace.Fixture.ProviderConfiguration...)
 	case OperationSearchItems:
-		filtered := filterClassificationItems(workspace.Items, request)
+		rows, rowsErr := service.classificationReviewRows(ctx, workspace)
+		if rowsErr != nil {
+			return QueryResponse{}, rowsErr
+		}
+		metadataRequest := request
+		// A non-empty Search is a sealed-body search when the tagged resolver is
+		// present. Do not ask the metadata-only filter to match the body fragment
+		// before the resolver has returned exact identities.
+		if request.Search != "" && service.questionTextSearch != nil {
+			metadataRequest.Search = ""
+		}
+		filteredRows := filterClassificationReviewRows(rows, metadataRequest)
+		if request.Search != "" && service.questionTextSearch != nil {
+			search, searchErr := normalizeBodySearch(request.Search)
+			if searchErr != nil {
+				return QueryResponse{}, searchErr
+			}
+			identities, resolveErr := service.questionTextSearch.Search(ctx, search)
+			if resolveErr != nil {
+				return QueryResponse{}, fmt.Errorf("%w: body search: %v", ErrQuestionBodyResolverUnavailable, resolveErr)
+			}
+			allowed := make(map[string]struct{}, len(identities))
+			for _, identity := range identities {
+				allowed[identity.Key()] = struct{}{}
+			}
+			filteredRows = filterReviewRowsByBodyIdentity(filteredRows, allowed, search)
+		}
 		pageSize := request.PageSize
 		if pageSize == 0 {
-			pageSize = 25
+			pageSize = MaxQuestionTextPage
+		}
+		if pageSize > MaxQuestionTextPage {
+			return QueryResponse{}, ErrMalformedCommand
 		}
 		start := request.Page * pageSize
-		if start > len(filtered) {
-			start = len(filtered)
+		if start > len(filteredRows) {
+			start = len(filteredRows)
 		}
 		end := start + pageSize
-		if end > len(filtered) {
-			end = len(filtered)
+		if end > len(filteredRows) {
+			end = len(filteredRows)
 		}
-		response.Items = append([]preprod.ClassificationItem(nil), filtered[start:end]...)
-		response.ItemCount = len(filtered)
+		pageRows := filteredRows[start:end]
+		response.Items = make([]ClassificationReviewItem, 0, len(pageRows))
+		for _, row := range pageRows {
+			response.Items = append(response.Items, reviewMetadataItem(row))
+		}
+		decision, decisionErr := service.Authorize(ctx, principal, request.OperationID)
+		if decisionErr != nil {
+			return QueryResponse{}, decisionErr
+		}
+		if canReceiveQuestionText(principal, decision.Binding) {
+			identities := make([]aga.BaseIdentity, 0, len(pageRows))
+			for _, row := range pageRows {
+				if row.baseIdentity != nil {
+					identities = append(identities, *row.baseIdentity)
+				}
+			}
+			bodies, bodyErr := composeReviewPage(ctx, service.questionBodies, identities, "")
+			if len(identities) > 0 && bodyErr != nil {
+				return QueryResponse{}, bodyErr
+			}
+			byKey := bodyMap(bodies)
+			for index := range response.Items {
+				row := pageRows[index]
+				var text, digest, origin string
+				if row.baseIdentity != nil {
+					body, found := byKey[row.baseIdentity.Key()]
+					if !found {
+						return QueryResponse{}, ErrQuestionBodyIncomplete
+					}
+					text, digest, origin = body.Text, body.TextDigest, "SEALED_BASE"
+				} else if row.workspaceVersion != nil && row.workspaceVersion.BodyDigest == aga.ComputeWorkspaceBodyDigest(row.workspaceVersion.Body) && row.workspaceVersion.BodyDigest == row.ref.Workspace.BodyDigest {
+					text, digest, origin = row.workspaceVersion.Body, row.workspaceVersion.BodyDigest, "WORKSPACE_AUTHORED"
+				} else {
+					return QueryResponse{}, ErrQuestionBodyIncomplete
+				}
+				response.Items[index].QuestionText = &text
+				response.Items[index].QuestionTextDigest = &digest
+				response.Items[index].TextOrigin = origin
+			}
+		}
+		response.ItemCount = len(filteredRows)
 		response.Page = request.Page
 		response.PageSize = pageSize
-		if end < len(filtered) {
+		if end < len(filteredRows) {
 			nextPage := request.Page + 1
 			response.NextPage = &nextPage
 		}
@@ -118,8 +209,134 @@ func (service *Service) Query(ctx context.Context, principal identity.Principal,
 		response.Draft = &draft
 	case OperationGetHistory:
 		response.History = []preprod.Generation{workspace.Generation}
+	case OperationGetSimulationSetup:
+		setup, setupErr := service.simulationSetup(ctx, principal, workspace)
+		if setupErr != nil {
+			return QueryResponse{}, setupErr
+		}
+		response.SimulationSetup = &setup
 	}
 	return response, nil
+}
+
+type classificationReviewRow struct {
+	item             preprod.ClassificationItem
+	ref              aga.QuestionRef
+	baseIdentity     *aga.BaseIdentity
+	workspaceVersion *preprod.WorkspaceQuestionVersion
+}
+
+func (service *Service) classificationReviewRows(ctx context.Context, workspace preprod.LoadedWorkspace) ([]classificationReviewRow, error) {
+	rows := make([]classificationReviewRow, 0, len(workspace.Items)+len(workspace.Draft.Draft.Items))
+	for _, item := range workspace.Items {
+		identity := item.Identity
+		rows = append(rows, classificationReviewRow{item: item, ref: aga.BaseQuestionReference(identity), baseIdentity: &identity})
+	}
+	versions, versionErr := service.listCurrentWorkspaceQuestionVersions(ctx, workspace.Generation.GenerationID)
+	if versionErr != nil && hasCurrentWorkspaceDraftItems(workspace.Draft.Draft) {
+		return nil, fmt.Errorf("%w: workspace candidate projection: %v", ErrWorkspaceStore, versionErr)
+	}
+	versionsByID := make(map[string]preprod.WorkspaceQuestionVersion, len(versions))
+	for _, version := range versions {
+		versionsByID[version.VersionID] = version
+	}
+	for _, draftItem := range workspace.Draft.Draft.Items {
+		if !draftItem.Current || draftItem.QuestionRef.Workspace == nil {
+			continue
+		}
+		version, found := versionsByID[draftItem.QuestionRef.Workspace.VersionID]
+		if !found || version.Reference().Key() != draftItem.QuestionRef.Key() || version.BodyDigest != draftItem.QuestionRef.Workspace.BodyDigest || version.BodyDigest != aga.ComputeWorkspaceBodyDigest(version.Body) {
+			return nil, ErrQuestionBodyIdentityMismatch
+		}
+		metadata, found := service.workspaceDraftMetadata(ctx, workspace.Generation.GenerationID, draftItem)
+		if !found {
+			return nil, ErrQuestionBodyIdentityMismatch
+		}
+		rows = append(rows, classificationReviewRow{item: metadata, ref: draftItem.QuestionRef, workspaceVersion: &version})
+	}
+	sort.SliceStable(rows, func(left, right int) bool {
+		leftSequence, rightSequence := rows[left].ref.RootSequence, rows[right].ref.RootSequence
+		if leftSequence != rightSequence {
+			return leftSequence < rightSequence
+		}
+		return rows[left].ref.Key() < rows[right].ref.Key()
+	})
+	return rows, nil
+}
+
+func hasCurrentWorkspaceDraftItems(draft aga.Draft) bool {
+	for _, item := range draft.Items {
+		if item.Current && item.QuestionRef.Workspace != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func reviewMetadataItem(row classificationReviewRow) ClassificationReviewItem {
+	return ClassificationReviewItem{ClassificationItem: row.item, QuestionRef: row.ref, QuestionOrigin: string(row.ref.Origin)}
+}
+
+func filterClassificationReviewRows(rows []classificationReviewRow, request QueryRequest) []classificationReviewRow {
+	filtered := make([]classificationReviewRow, 0, len(rows))
+	search := strings.ToLower(strings.TrimSpace(request.Search))
+	for _, row := range rows {
+		projection := row.item.Projection
+		governance := row.item.Governance
+		formCode := ""
+		proposalID := ""
+		ordinal := row.ref.RootSequence
+		textDigest := ""
+		if row.baseIdentity != nil {
+			formCode, proposalID, ordinal, textDigest = row.baseIdentity.FormCode, row.baseIdentity.ProposalID, row.baseIdentity.Ordinal, row.baseIdentity.TextDigest
+		}
+		if request.DomainCode != "" && projection.MainDomainCode != request.DomainCode || request.TopicCode != "" && !containsString(projection.TopicCodes, request.TopicCode) || request.Confidence != "" && string(row.item.AgreementConfidence) != request.Confidence || !matchesBooleanFilter(request.Blocker, len(governance.BlockerCodes) > 0) || !matchesBooleanFilter(request.SourceGap, governance.QuestionSourceProposalGap) || !matchesBooleanFilter(request.ExternalInvolvement, governance.ExternalApplicabilityUnresolved) {
+			continue
+		}
+		if request.FormCode != "" && formCode != request.FormCode {
+			continue
+		}
+		if request.Disposition != "" {
+			if request.Disposition == "UNSET" {
+				if row.item.DraftDisposition != nil {
+					continue
+				}
+			} else if row.item.DraftDisposition == nil || *row.item.DraftDisposition != request.Disposition {
+				continue
+			}
+		}
+		if search != "" {
+			fields := []string{formCode, proposalID, fmt.Sprint(ordinal), textDigest, row.item.QuestionKey, row.ref.Key(), projection.MainDomainCode, projection.TargetProfileCode, row.item.RecommendationState, string(row.item.AgreementConfidence)}
+			matched := false
+			for _, field := range fields {
+				if strings.Contains(strings.ToLower(field), search) {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				continue
+			}
+		}
+		filtered = append(filtered, row)
+	}
+	return filtered
+}
+
+func filterReviewRowsByBodyIdentity(rows []classificationReviewRow, allowed map[string]struct{}, search string) []classificationReviewRow {
+	filtered := make([]classificationReviewRow, 0, len(rows))
+	for _, row := range rows {
+		if row.baseIdentity != nil {
+			if _, ok := allowed[row.baseIdentity.Key()]; ok {
+				filtered = append(filtered, row)
+			}
+			continue
+		}
+		if row.workspaceVersion != nil && strings.Contains(strings.ToLower(row.workspaceVersion.Body), strings.ToLower(search)) {
+			filtered = append(filtered, row)
+		}
+	}
+	return filtered
 }
 
 func filterClassificationItems(items []preprod.ClassificationItem, request QueryRequest) []preprod.ClassificationItem {
@@ -145,6 +362,15 @@ func filterClassificationItems(items []preprod.ClassificationItem, request Query
 		}
 		if request.FormCode != "" && identity.FormCode != request.FormCode {
 			continue
+		}
+		if request.Disposition != "" {
+			if request.Disposition == "UNSET" {
+				if item.DraftDisposition != nil {
+					continue
+				}
+			} else if item.DraftDisposition == nil || stringValue(*item.DraftDisposition) != request.Disposition {
+				continue
+			}
 		}
 		if search != "" {
 			fields := []string{
@@ -175,6 +401,18 @@ func filterClassificationItems(items []preprod.ClassificationItem, request Query
 		}
 		return filtered[left].Identity.Ordinal < filtered[right].Identity.Ordinal
 	})
+	return filtered
+}
+
+func stringValue(value string) string { return value }
+
+func filterItemsByBaseIdentity(items []preprod.ClassificationItem, allowed map[string]struct{}) []preprod.ClassificationItem {
+	filtered := make([]preprod.ClassificationItem, 0, len(items))
+	for _, item := range items {
+		if _, ok := allowed[item.Identity.Key()]; ok {
+			filtered = append(filtered, item)
+		}
+	}
 	return filtered
 }
 
@@ -238,7 +476,8 @@ func (service *Service) Command(ctx context.Context, principal identity.Principa
 	if err != nil {
 		return CommandResponse{}, err
 	}
-	commandHash := commandDigest(command)
+	clientCommand := command
+	commandHash := commandDigest(clientCommand)
 	key := preprod.StoredResponseKey{GenerationID: command.ExpectedGenerationID, ActorSubjectID: principal.SubjectID, OperationID: command.OperationID, IdempotencyKey: command.IdempotencyKey}
 	stored, found, err := service.command.GetIdempotencyResponse(ctx, key)
 	if err != nil {
@@ -253,9 +492,15 @@ func (service *Service) Command(ctx context.Context, principal identity.Principa
 			return CommandResponse{}, fmt.Errorf("%w: stored response: %v", ErrWorkspaceStore, err)
 		}
 		replay.Replayed = true
+		service.updateReaderDraftCache(command.ExpectedGenerationID, replay.Draft)
 		return replay, nil
 	}
 	var workspace preprod.LoadedWorkspace
+	// The command store's runtime projection is complete once its immutable
+	// sealed workspace base has been loaded. It reuses the sealed items,
+	// fixture, and authority projection while reading only the mutable Draft/CAS
+	// state, so setup-bound classification commands do not rebuild 1,310 rows
+	// for every batch preview and execute.
 	if family == FamilyClassificationCommand {
 		if runtimeStore, ok := service.command.(runtimeCommandSnapshotter); ok {
 			workspace, err = runtimeStore.SnapshotForRuntimeCommand(ctx)
@@ -278,6 +523,17 @@ func (service *Service) Command(ctx context.Context, principal identity.Principa
 	if workspace.Generation.GenerationID != command.ExpectedGenerationID || workspace.Generation.State != preprod.GenerationActive {
 		return CommandResponse{}, preprod.ErrWorkspaceCAS
 	}
+	if command.SetupDigest != "" {
+		command, err = service.hydrateSetupCommand(ctx, principal, workspace, command)
+		if err != nil {
+			return CommandResponse{}, err
+		}
+		if family == FamilyRecommendationCommand {
+			if err := validateRecommendationCommand(command); err != nil {
+				return CommandResponse{}, err
+			}
+		}
+	}
 	var response CommandResponse
 	switch family {
 	case FamilyAdminCommand:
@@ -286,7 +542,21 @@ func (service *Service) Command(ctx context.Context, principal identity.Principa
 			return CommandResponse{}, resetErr
 		}
 		response = CommandResponse{OperationID: command.OperationID, Generation: &generation, ResetTombstone: &tombstone}
+		service.invalidateReaderSnapshotCache()
 	case FamilyClassificationCommand:
+		if command.OperationID == OperationPreviewBatch || command.OperationID == OperationExecuteBatch {
+			response, batchErr := service.batchCommand(ctx, principal, workspace, command)
+			if batchErr != nil {
+				return CommandResponse{}, batchErr
+			}
+			responseBytes, _ := json.Marshal(response)
+			storedResponse := preprod.IdempotencyResponse{GenerationID: command.ExpectedGenerationID, ActorSubjectID: principal.SubjectID, OperationID: command.OperationID, IdempotencyKey: command.IdempotencyKey, CommandHash: commandHash, AuthorizationScopeDigest: decision.ScopeDigest, StatusCode: 200, Response: responseBytes, CreatedAt: service.clock().UTC()}
+			if _, _, err := service.command.PutIdempotencyResponse(ctx, storedResponse); err != nil {
+				return CommandResponse{}, fmt.Errorf("%w: idempotency commit: %v", ErrWorkspaceStore, err)
+			}
+			service.updateReaderDraftCache(command.ExpectedGenerationID, response.Draft)
+			return response, nil
+		}
 		draftCommand := aga.DraftCommand{OperationID: command.OperationID, IdempotencyKey: command.IdempotencyKey, ExpectedGenerationID: command.ExpectedGenerationID, Action: command.Action, TargetQuestionKey: command.TargetQuestionKey, ExpectedRevision: command.ExpectedDraftRevision, ExpectedContentDigest: command.ExpectedDraftContentDigest, ReasonCode: command.ReasonCode, ActorSubjectID: principal.SubjectID, CreatedAt: service.clock().UTC(), MainDomainCode: command.MainDomainCode, TopicCode: command.TopicCode, ResolutionMode: command.ResolutionMode, ExactProjection: command.ExactProjection, WorkspaceBody: command.WorkspaceBody, WorkspaceBodyDigest: command.WorkspaceBodyDigest, ReadinessEventID: command.ReadinessEventID, ProviderScopeProfileDigest: command.ProviderScopeProfileDigest}
 		if draftCommand.Action == "" {
 			draftCommand.Action = aga.DraftAction(command.OperationID)
@@ -337,6 +607,7 @@ func (service *Service) Command(ctx context.Context, principal identity.Principa
 	if _, _, err := service.command.PutIdempotencyResponse(ctx, storedResponse); err != nil {
 		return CommandResponse{}, fmt.Errorf("%w: idempotency commit: %v", ErrWorkspaceStore, err)
 	}
+	service.updateReaderDraftCache(command.ExpectedGenerationID, response.Draft)
 	return response, nil
 }
 
@@ -348,15 +619,19 @@ func (service *Service) SetNonTerminalLifecycle(value bool) {
 
 func isClassificationQuery(operation string) bool {
 	switch operation {
-	case OperationGetSummary, OperationGetTaxonomy, OperationGetProviderConfiguration, OperationSearchItems, OperationGetDraft, OperationGetHistory:
+	case OperationGetSummary, OperationGetTaxonomy, OperationGetProviderConfiguration, OperationSearchItems, OperationGetDraft, OperationGetHistory, OperationGetSimulationSetup:
 		return true
 	default:
 		return false
 	}
 }
 
+func isRecommendationQuery(operation string) bool {
+	return operation == OperationGetCurrentRecommendation
+}
+
 func isLifecycleQuery(operation string) bool {
-	return operation == OperationGetInspection || operation == OperationGetFinding || operation == OperationGetCAPEvidence || operation == OperationGetRoleHistory
+	return operation == OperationGetInspection || operation == OperationGetCurrentInspection || operation == OperationGetInspectionQuestionPage || operation == OperationGetFinding || operation == OperationGetCAPEvidence || operation == OperationGetRoleHistory
 }
 
 func isClassificationCommand(operation string, action aga.DraftAction) bool {

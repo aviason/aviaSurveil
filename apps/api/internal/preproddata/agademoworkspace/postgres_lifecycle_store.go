@@ -60,3 +60,14 @@ func (store *PostgresStore) GetLifecycleEvents(ctx context.Context, generationID
 	}
 	return events, nil
 }
+
+func (store *PostgresStore) ListLifecycleStreams(ctx context.Context, generationID string) ([]LifecycleStream, error) {
+	if store == nil || store.pool == nil {
+		return nil, fmt.Errorf("workspace lifecycle requires store")
+	}
+	var streams []LifecycleStream
+	if err := queryWorkspaceJSON(ctx, store.pool, map[string]any{"operation": "GET_CURRENT_LIFECYCLES", "generationId": generationID}, &streams); err != nil {
+		return nil, err
+	}
+	return streams, nil
+}

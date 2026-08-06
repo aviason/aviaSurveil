@@ -31,6 +31,7 @@ func NewAGADemoWorkspaceHandler(service *workspace.Service) http.Handler {
 	router.Post(workspaceAPIBase+"/classification/query", api.query(workspace.FamilyClassificationQuery))
 	router.Post(workspaceAPIBase+"/classification/commands", api.command(workspace.FamilyClassificationCommand))
 	router.Post(workspaceAPIBase+"/recommendations/commands", api.command(workspace.FamilyRecommendationCommand))
+	router.Post(workspaceAPIBase+"/recommendations/query", api.query(workspace.FamilyRecommendationQuery))
 	router.Post(workspaceAPIBase+"/lifecycle/query", api.query(workspace.FamilyLifecycleQuery))
 	router.Post(workspaceAPIBase+"/lifecycle/commands", api.command(workspace.FamilyLifecycleCommand))
 	router.Post(workspaceAPIBase+"/admin/commands", api.command(workspace.FamilyAdminCommand))
@@ -139,12 +140,16 @@ func (api *agaDemoWorkspaceAPI) command(family workspace.OperationFamily) http.H
 
 func (api *agaDemoWorkspaceAPI) writeServiceError(writer http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, workspace.ErrNeutralDenied), errors.Is(err, workspace.ErrRecommendationFactsUnavailable), errors.Is(err, workspace.ErrRecommendationAmbiguous), errors.Is(err, workspace.ErrLifecycleNotFound), errors.Is(err, workspace.ErrLifecycleRecommendationStale), errors.Is(err, workspace.ErrLifecycleBindingMismatch), errors.Is(err, preprod.ErrWorkspaceGeneration), errors.Is(err, preprod.ErrWorkspaceNotSealed):
+	case errors.Is(err, workspace.ErrNeutralDenied), errors.Is(err, workspace.ErrRecommendationFactsUnavailable), errors.Is(err, workspace.ErrRecommendationAmbiguous), errors.Is(err, workspace.ErrCurrentObjectAmbiguous), errors.Is(err, workspace.ErrBatchPreviewNotFound), errors.Is(err, workspace.ErrQuestionBodyResolverUnavailable), errors.Is(err, workspace.ErrQuestionBodyIncomplete), errors.Is(err, workspace.ErrQuestionBodyIdentityMismatch), errors.Is(err, workspace.ErrQuestionBodyDigestMismatch), errors.Is(err, workspace.ErrLifecycleNotFound), errors.Is(err, workspace.ErrLifecycleRecommendationStale), errors.Is(err, workspace.ErrLifecycleBindingMismatch), errors.Is(err, preprod.ErrWorkspaceGeneration), errors.Is(err, preprod.ErrWorkspaceNotSealed):
 		agaDemoNotFound(writer)
 	case errors.Is(err, workspace.ErrMalformedCommand):
 		writeProblem(writer, http.StatusBadRequest, "Invalid workspace command", "the command envelope is incomplete", "AGA_WORKSPACE_COMMAND_INVALID")
-	case errors.Is(err, preprod.ErrWorkspaceCAS), errors.Is(err, workspace.ErrLifecycleConflict):
+	case errors.Is(err, preprod.ErrWorkspaceCAS), errors.Is(err, workspace.ErrLifecycleConflict), errors.Is(err, workspace.ErrBatchPreviewConflict), errors.Is(err, workspace.ErrBatchPreviewExpired):
 		writeProblem(writer, http.StatusPreconditionFailed, "Workspace command conflict", "the current workspace revision does not match the command", "AGA_WORKSPACE_CAS_CONFLICT")
+	case errors.Is(err, workspace.ErrBatchPreviewTooLarge):
+		writeProblem(writer, http.StatusBadRequest, "Batch selection too large", "the server-issued batch preview is limited to 500 identities", "AGA_WORKSPACE_BATCH_LIMIT")
+	case errors.Is(err, workspace.ErrIncludedQuestionIneligible):
+		writeProblem(writer, http.StatusConflict, "Batch selection rejected", "the selected questions are not all eligible for the selected provider scope", "AGA_WORKSPACE_BATCH_INELIGIBLE")
 	case errors.Is(err, preprod.ErrWorkspaceIdempotency):
 		writeProblem(writer, http.StatusConflict, "Workspace command conflict", "the idempotency binding does not match the command", "AGA_WORKSPACE_IDEMPOTENCY_CONFLICT")
 	case errors.Is(err, workspace.ErrCapabilityUnavailable):
@@ -180,7 +185,7 @@ func validateWorkspaceHeaders(request *http.Request, family workspace.OperationF
 	if strings.TrimSpace(request.Header.Get("Idempotency-Key")) == "" || request.Header.Get("Idempotency-Key") != body.IdempotencyKey {
 		return workspace.ErrNeutralDenied
 	}
-	if family == workspace.FamilyClassificationQuery || family == workspace.FamilyLifecycleQuery {
+	if family == workspace.FamilyClassificationQuery || family == workspace.FamilyRecommendationQuery || family == workspace.FamilyLifecycleQuery {
 		return workspace.ErrNeutralDenied
 	}
 	match := workspaceRevisionETag.FindStringSubmatch(request.Header.Get("If-Match"))
@@ -221,13 +226,16 @@ func validateWorkspaceHeaders(request *http.Request, family workspace.OperationF
 func queryBelongsToFamily(operation string, family workspace.OperationFamily) bool {
 	if family == workspace.FamilyClassificationQuery {
 		switch operation {
-		case workspace.OperationGetSummary, workspace.OperationGetTaxonomy, workspace.OperationGetProviderConfiguration, workspace.OperationSearchItems, workspace.OperationGetDraft, workspace.OperationGetHistory:
+		case workspace.OperationGetSummary, workspace.OperationGetTaxonomy, workspace.OperationGetProviderConfiguration, workspace.OperationSearchItems, workspace.OperationGetDraft, workspace.OperationGetHistory, workspace.OperationGetSimulationSetup:
 			return true
 		}
 	}
+	if family == workspace.FamilyRecommendationQuery {
+		return operation == workspace.OperationGetCurrentRecommendation
+	}
 	if family == workspace.FamilyLifecycleQuery {
 		switch operation {
-		case workspace.OperationGetInspection, workspace.OperationGetFinding, workspace.OperationGetCAPEvidence, workspace.OperationGetRoleHistory:
+		case workspace.OperationGetInspection, workspace.OperationGetCurrentInspection, workspace.OperationGetInspectionQuestionPage, workspace.OperationGetFinding, workspace.OperationGetCAPEvidence, workspace.OperationGetRoleHistory:
 			return true
 		}
 	}

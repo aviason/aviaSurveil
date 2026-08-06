@@ -8,6 +8,7 @@ import { AGADemoClassificationWorkspacePage } from "../features/checklists/aga-c
 import { AGADemoCAPEvidencePage } from "../features/caps/aga-demo-cap-evidence-page";
 import { AGADemoPotentialFindingPage } from "../features/findings/aga-demo-potential-finding-page";
 import { AGADemoInspectionPage, type AGADemoLifecycleProjection } from "../features/inspections/aga-demo-inspection-page";
+import { AGADemoInspectionPackagePage } from "../features/inspections/aga-demo-inspection-package-page";
 
 export const AGA_DEMO_WORKSPACE_ROUTES = [
   { path: "/admin/aga-demo-workspace", role: "admin", label: "Admin Preview" },
@@ -51,6 +52,35 @@ function WorkspaceRoute({ path, role, label }: { path: string; role: Role; label
 export const agaDemoWorkspaceRouteElements: readonly ReactElement[] = AGA_DEMO_WORKSPACE_ROUTES.map(
   ({ path, role, label }) => <Route key={path} path={`${path}/:lifecycleView?`} element={<WorkspaceRoute path={path} role={role} label={label} />} />,
 );
+
+const managerPackageRoute = (
+  <Route
+    key="/department-manager/aga-demo-workspace/inspection-package"
+    path="/department-manager/aga-demo-workspace/inspection-package"
+    element={(
+      <AGADemoWorkspaceGuard requiredRole="manager">
+        {(capability) => <AGADemoInspectionPackagePage capability={capability} role="manager" roleLabel="Department Manager" />}
+      </AGADemoWorkspaceGuard>
+    )}
+  />
+);
+
+// The connected fixture intentionally reuses the Lead Inspector session for
+// its separately bound CAA_REVIEWER membership. Keep the presentation route
+// explicit while preserving the server-side binding distinction.
+const caaReviewerRoute = (
+  <Route
+    key="/caa-reviewer/aga-demo-workspace"
+    path="/caa-reviewer/aga-demo-workspace/:lifecycleView?"
+    element={<WorkspaceRoute path="/caa-reviewer/aga-demo-workspace" role="leadInspector" label="CAA Reviewer" />}
+  />
+);
+
+export const agaDemoWorkspaceRouteElementsWithManagerPackage: readonly ReactElement[] = [
+  managerPackageRoute,
+  ...agaDemoWorkspaceRouteElements,
+  caaReviewerRoute,
+];
 
 export function AGADemoWorkspaceNavigation({
   activeRole,
@@ -99,5 +129,5 @@ export function AGADemoWorkspaceNavigation({
 
 /** Exported for focused route tests; HTTP bootstrap passes the route elements directly. */
 export function AGADemoWorkspaceRoutes() {
-  return <Fragment>{agaDemoWorkspaceRouteElements}</Fragment>;
+  return <Fragment>{agaDemoWorkspaceRouteElementsWithManagerPackage}</Fragment>;
 }

@@ -16,6 +16,7 @@
     "test:e2e:visible-actions": "AVIA_E2E_PROFILE=mock playwright test tests/e2e/visible-action-contract.spec.ts --project=mock",
     "test:e2e:http": "AVIA_E2E_PROFILE=http playwright test --project=http",
     "test:e2e:aga-preprod": "AVIA_E2E_PROFILE=preprod-aga-demo playwright test --project=preprod-aga-demo",
+    "test:e2e:aga-manager": "AVIA_E2E_PROFILE=preprod-aga-manager playwright test --project=preprod-aga-manager",
     "test:e2e:oidc": "AVIA_E2E_PROFILE=oidc playwright test --project=oidc",
     "test:e2e:offline": "npm run build:demo && AVIA_E2E_PROFILE=offline playwright test --project=offline",
     "test:e2e:brand-offline": "npm run build:demo && AVIA_E2E_PROFILE=offline playwright test tests/e2e/brand-app-shell-restart.spec.ts --project=offline",

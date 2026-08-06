@@ -6,7 +6,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppProviders } from "./providers";
-import { AGA_DEMO_WORKSPACE_ROUTES, agaDemoWorkspaceRouteElements } from "./aga-demo-workspace-routes";
+import { AGA_DEMO_WORKSPACE_ROUTES, agaDemoWorkspaceRouteElements, agaDemoWorkspaceRouteElementsWithManagerPackage } from "./aga-demo-workspace-routes";
 import type { AGADemoWorkspaceBackend } from "../backend/aga-demo-workspace";
 import { createMockBackendRuntime } from "../mock/create-mock-backend";
 import { ScenarioProvider } from "./scenario-context";
@@ -39,6 +39,7 @@ describe("AGA demo workspace supplemental routes", () => {
       "/auditee/aga-demo-workspace",
     ]);
     expect(agaDemoWorkspaceRouteElements).toHaveLength(5);
+    expect(agaDemoWorkspaceRouteElementsWithManagerPackage).toHaveLength(7);
   });
 
   it("renders an authorized supplemental workspace route through the capability gate", async () => {
@@ -54,6 +55,37 @@ describe("AGA demo workspace supplemental routes", () => {
       </AppProviders>,
     );
     expect(await screen.findByTestId("aga-classification-workspace-page")).toBeInTheDocument();
+  });
+
+  it("renders the fixed Department Manager inspection-package route without a client identifier", async () => {
+    const runtime = createMockBackendRuntime();
+    const workspace = workspaceBackend();
+    render(
+      <AppProviders runtime={{ backend: { ...runtime.backend, agaDemoWorkspace: workspace }, buildProfile: "http", environmentLabel: "test", supplementalRouteElements: agaDemoWorkspaceRouteElementsWithManagerPackage }}>
+        <ScenarioProvider>
+          <MemoryRouter initialEntries={["/department-manager/aga-demo-workspace/inspection-package"]}>
+            <AppRouter />
+          </MemoryRouter>
+        </ScenarioProvider>
+      </AppProviders>,
+    );
+    expect(await screen.findByTestId("aga-demo-inspection-package-page")).toBeInTheDocument();
+    expect(window.location.search).toBe("");
+  });
+
+  it("renders the explicit CAA Reviewer presentation route on the Lead-bound fixture session", async () => {
+    const runtime = createMockBackendRuntime();
+    const workspace = workspaceBackend();
+    render(
+      <AppProviders runtime={{ backend: { ...runtime.backend, agaDemoWorkspace: workspace }, buildProfile: "http", environmentLabel: "test", supplementalRouteElements: agaDemoWorkspaceRouteElementsWithManagerPackage }}>
+        <ScenarioProvider>
+          <MemoryRouter initialEntries={["/caa-reviewer/aga-demo-workspace/caps-evidence"]}>
+            <AppRouter />
+          </MemoryRouter>
+        </ScenarioProvider>
+      </AppProviders>,
+    );
+    expect(await screen.findByTestId("aga-demo-cap-evidence-page")).toBeInTheDocument();
   });
 
   it("does not mount supplemental elements when the runtime does not provide the HTTP extension", () => {

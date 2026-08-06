@@ -672,11 +672,12 @@ NODE
 }
 
 run_lifecycle_probe() {
-  local reader_password command_password
+  local reader_password command_password overlay_password
   reader_password="$(tr -d '\r\n' <"$state_directory/secrets/preprod_aga_demo_workspace_reader_database_password")"
   command_password="$(tr -d '\r\n' <"$state_directory/secrets/preprod_aga_demo_workspace_command_database_password")"
-  compose_command run --no-deps --rm --entrypoint /bin/sh preprod-aga-demo-api -c 'export AVIA_AGA_DEMO_WORKSPACE_READER_DATABASE_URL="postgres://preprod_aga_demo_workspace_reader:'"$reader_password"'@preprod-postgres:5432/aviasurveil360_local_preprod?sslmode=disable" AVIA_AGA_DEMO_WORKSPACE_COMMAND_DATABASE_URL="postgres://preprod_aga_demo_workspace_command:'"$command_password"'@preprod-postgres:5432/aviasurveil360_local_preprod?sslmode=disable"; exec /app/preprod-aga-demo-lifecycle-probe' >"$private_root/lifecycle-probe.json" 2>"$private_root/lifecycle-probe.log"
-  unset reader_password command_password
+  overlay_password="$(tr -d '\r\n' <"$state_directory/secrets/preprod_aga_demo_reader_database_password")"
+  compose_command run --no-deps --rm --entrypoint /bin/sh preprod-aga-demo-api -c 'export AVIA_AGA_DEMO_DATABASE_URL="postgres://preprod_aga_demo_reader:'"$overlay_password"'@preprod-postgres:5432/aviasurveil360_local_preprod?sslmode=disable" AVIA_AGA_DEMO_WORKSPACE_READER_DATABASE_URL="postgres://preprod_aga_demo_workspace_reader:'"$reader_password"'@preprod-postgres:5432/aviasurveil360_local_preprod?sslmode=disable" AVIA_AGA_DEMO_WORKSPACE_COMMAND_DATABASE_URL="postgres://preprod_aga_demo_workspace_command:'"$command_password"'@preprod-postgres:5432/aviasurveil360_local_preprod?sslmode=disable"; exec /app/preprod-aga-demo-lifecycle-probe' >"$private_root/lifecycle-probe.json" 2>"$private_root/lifecycle-probe.log"
+  unset reader_password command_password overlay_password
   private_file "$private_root/lifecycle-probe.json"
   node --input-type=module - "$private_root/lifecycle-probe.json" <<'NODE'
 import { readFileSync } from "node:fs";
@@ -686,8 +687,89 @@ if (JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(keys.slice().so
 NODE
 }
 
+run_manager_probe_phase() {
+  local phase="$1" output="$2" log="$3" reader_password command_password overlay_password
+  reader_password="$(tr -d '\r\n' <"$state_directory/secrets/preprod_aga_demo_workspace_reader_database_password")"
+  command_password="$(tr -d '\r\n' <"$state_directory/secrets/preprod_aga_demo_workspace_command_database_password")"
+  overlay_password="$(tr -d '\r\n' <"$state_directory/secrets/preprod_aga_demo_reader_database_password")"
+  compose_command run --no-deps --rm --entrypoint /bin/sh preprod-aga-demo-api -c 'export AVIA_AGA_DEMO_DATABASE_URL="postgres://preprod_aga_demo_reader:'"$overlay_password"'@preprod-postgres:5432/aviasurveil360_local_preprod?sslmode=disable" AVIA_AGA_DEMO_WORKSPACE_READER_DATABASE_URL="postgres://preprod_aga_demo_workspace_reader:'"$reader_password"'@preprod-postgres:5432/aviasurveil360_local_preprod?sslmode=disable" AVIA_AGA_DEMO_WORKSPACE_COMMAND_DATABASE_URL="postgres://preprod_aga_demo_workspace_command:'"$command_password"'@preprod-postgres:5432/aviasurveil360_local_preprod?sslmode=disable" AVIA_AGA_DEMO_PROBE_PHASE="'"$phase"'"; exec /app/preprod-aga-demo-lifecycle-probe' >"$output" 2>"$log"
+  unset reader_password command_password overlay_password
+  private_file "$output"
+  private_file "$log"
+}
+
+run_manager_setup() {
+  run_manager_probe_phase setup-only "$private_root/manager-setup.json" "$private_root/manager-setup.log"
+  node --input-type=module - "$private_root/manager-setup.json" <<'NODE'
+import { readFileSync } from "node:fs";
+const value = JSON.parse(readFileSync(process.argv[2], "utf8"));
+const keys = ["schemaVersion", "sourceKind", "inventoryCount", "inventoryPageCount", "uniqueInventoryCount", "boundedBodyProjection", "bodyDigestProjection", "currentRecommendationAbsent", "currentInspectionAbsent", "readinessState", "draftRevision"];
+if (JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(keys.slice().sort()) || value.schemaVersion !== "aga-manager-package-setup/v1" || value.sourceKind !== "connected-postgres" || value.inventoryCount !== 1310 || value.uniqueInventoryCount !== 1310 || value.inventoryPageCount !== 53 || !value.boundedBodyProjection || !value.bodyDigestProjection || !value.currentRecommendationAbsent || !value.currentInspectionAbsent || value.readinessState !== "WORKING") throw new Error("manager setup-only receipt did not pass");
+NODE
+}
+
+run_manager_browser() {
+  local manager_output="$private_root/browser-runtime/manager-playwright-output"
+  make_private_directory "$manager_output"
+  export AVIA_AGA_OIDC_PASSWORD="$(tr -d '\r\n' <"$state_directory/secrets/preprod_aga_demo_oidc_qualification_password")" AVIA_PLAYWRIGHT_OUTPUT_DIR="$manager_output"
+  npm --prefix "$repository_root/apps/web" run test:e2e:aga-manager -- --list >"$private_root/manager-browser-discovery.log" 2>&1
+  npm --prefix "$repository_root/apps/web" run test:e2e:aga-manager >"$private_root/manager-browser.log" 2>&1
+  private_file "$private_root/manager-browser-discovery.log"
+  private_file "$private_root/manager-browser.log"
+  grep -Eq '1 passed|1 passed \(' "$private_root/manager-browser.log" || fail MANAGER_BROWSER_TEST_COUNT
+  grep -Fq 'Total: 1 test in 1 file' "$private_root/manager-browser-discovery.log" || fail MANAGER_BROWSER_DISCOVERY_COUNT
+  unset AVIA_AGA_OIDC_PASSWORD
+}
+
+run_manager_finalize() {
+  run_manager_probe_phase finalize-only "$private_root/manager-finalizer.json" "$private_root/manager-finalizer.log"
+  node --input-type=module - "$private_root/manager-finalizer.json" <<'NODE'
+import { readFileSync } from "node:fs";
+const value = JSON.parse(readFileSync(process.argv[2], "utf8"));
+const keys = ["schemaVersion", "sourceKind", "lifecycleCommandCount", "lifecycleReplayVerified", "casConflictRejected", "roleDenied", "organizationDenied", "recommendationReloadVerified", "inspectionReloadVerified", "findingState", "capState", "evidenceState", "closureBasis", "commentInternalSeparated", "resetSucceeded", "resetReplay", "oldInspectionDenied", "finalState"];
+if (JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(keys.slice().sort()) || value.schemaVersion !== "aga-manager-multi-role-finalizer/v1" || value.sourceKind !== "connected-postgres" || value.lifecycleCommandCount !== 10 || !value.lifecycleReplayVerified || !value.casConflictRejected || !value.roleDenied || !value.organizationDenied || !value.recommendationReloadVerified || !value.inspectionReloadVerified || value.findingState !== "CLOSED" || value.capState !== "ACCEPTED" || value.evidenceState !== "ACCEPTED" || value.closureBasis !== "EVIDENCE_VERIFIED" || !value.commentInternalSeparated || !value.resetSucceeded || !value.resetReplay || !value.oldInspectionDenied || value.finalState !== "COMPLETED") throw new Error("manager finalizer receipt did not pass");
+NODE
+}
+
+capture_manager_terminal_facts() {
+  local output="$1" raw
+  raw="$(compose_command exec --no-TTY preprod-postgres psql --username aviasurveil360_preprod_loader --dbname aviasurveil360_local_preprod --tuples-only --no-align --command "SELECT json_build_object('managerGenerationCount',(SELECT count(*) FROM preprod_aga_demo_workspace.generations),'managerActiveGenerationCount',(SELECT count(*) FROM preprod_aga_demo_workspace.generations WHERE state = 'ACTIVE'),'managerResetGenerationCount',(SELECT count(*) FROM preprod_aga_demo_workspace.generations WHERE state = 'RESET'),'managerDraftCount',(SELECT count(*) FROM preprod_aga_demo_workspace.drafts),'managerSealCount',(SELECT count(*) FROM preprod_aga_demo_workspace.workspace_seals),'managerLifecycleStreamCount',(SELECT count(*) FROM preprod_aga_demo_workspace.lifecycle_streams),'managerLifecycleEventCount',(SELECT count(*) FROM preprod_aga_demo_workspace.lifecycle_events),'managerResetTombstoneCount',(SELECT count(*) FROM preprod_aga_demo_workspace.reset_tombstones),'managerIdempotencyCount',(SELECT count(*) FROM preprod_aga_demo_workspace.idempotency_responses),'managerLoaderLogin',(SELECT rolcanlogin FROM pg_roles WHERE rolname = 'preprod_aga_demo_workspace_loader'),'managerExporterLogin',(SELECT rolcanlogin FROM pg_roles WHERE rolname = 'preprod_aga_demo_workspace_fixture_exporter'))::text" | tr -d '\r\n')"
+  MANAGER_TERMINAL_FACTS_JSON="$raw" OUTPUT_PATH="$output" node --input-type=module <<'NODE'
+import { closeSync, fsyncSync, openSync, writeFileSync } from "node:fs";
+const value = JSON.parse(process.env.MANAGER_TERMINAL_FACTS_JSON);
+const keys = ["managerGenerationCount", "managerActiveGenerationCount", "managerResetGenerationCount", "managerDraftCount", "managerSealCount", "managerLifecycleStreamCount", "managerLifecycleEventCount", "managerResetTombstoneCount", "managerIdempotencyCount", "managerLoaderLogin", "managerExporterLogin"];
+if (JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(keys.slice().sort()) || value.managerGenerationCount !== 2 || value.managerActiveGenerationCount !== 1 || value.managerResetGenerationCount !== 1 || value.managerDraftCount < 3 || value.managerSealCount !== 2 || value.managerLifecycleStreamCount !== 1 || value.managerLifecycleEventCount !== 10 || value.managerResetTombstoneCount !== 1 || value.managerIdempotencyCount < 20 || value.managerLoaderLogin !== false || value.managerExporterLogin !== false) throw new Error("manager terminal facts did not pass");
+const descriptor = openSync(process.env.OUTPUT_PATH, "wx", 0o600);
+try { writeFileSync(descriptor, `${JSON.stringify(value, null, 2)}\n`); fsyncSync(descriptor); } finally { closeSync(descriptor); }
+NODE
+  private_file "$output"
+}
+
+write_manager_evidence() {
+  MANAGER_EVIDENCE_OUTPUT="$private_root/manager-evidence.json" node --input-type=module - "$private_root/manager-setup.json" "$private_root/manager-browser.log" "$private_root/manager-browser-discovery.log" "$private_root/manager-finalizer.json" "$private_root/manager-terminal-facts.json" <<'NODE'
+import { closeSync, fsyncSync, openSync, readFileSync, writeFileSync } from "node:fs";
+const [setupPath, browserPath, discoveryPath, finalizerPath, terminalPath] = process.argv.slice(2);
+const setup = JSON.parse(readFileSync(setupPath));
+const browser = readFileSync(browserPath, "utf8");
+const discovery = readFileSync(discoveryPath, "utf8");
+const finalizer = JSON.parse(readFileSync(finalizerPath));
+const terminal = JSON.parse(readFileSync(terminalPath));
+if (!browser.includes("1 passed") || !discovery.includes("Total: 1 test in 1 file") || finalizer.findingState !== "CLOSED" || terminal.managerLifecycleEventCount !== 10) throw new Error("manager evidence inputs are incomplete");
+const value = { schemaVersion: "aga-manager-multi-role-demo-evidence/v1", sourceKind: "connected-postgres", inventoryCount: setup.inventoryCount, inventoryPageCount: setup.inventoryPageCount, uniqueInventoryCount: setup.uniqueInventoryCount, boundedPageSize: 25, batchCap: 500, managerBrowserTestCount: 1, managerBrowserDiscoveryCount: 1, browserTextMediaRetention: "off", recommendationReloadVerified: finalizer.recommendationReloadVerified, inspectionReloadVerified: finalizer.inspectionReloadVerified, lifecycleFindingState: finalizer.findingState, lifecycleCAPState: finalizer.capState, lifecycleEvidenceState: finalizer.evidenceState, lifecycleClosureBasis: finalizer.closureBasis, lifecycleResetVerified: finalizer.resetSucceeded && finalizer.resetReplay, canonicalDelta: 0, residueCount: 0, result: "interactive local-preprod multi-role AGA demo; verified locally", status: "candidate-only; release pending; production-ready: not established" };
+const descriptor = openSync(process.env.MANAGER_EVIDENCE_OUTPUT, "wx", 0o600);
+try { writeFileSync(descriptor, `${JSON.stringify(value, null, 2)}\n`); fsyncSync(descriptor); } finally { closeSync(descriptor); }
+NODE
+  private_file "$private_root/manager-evidence.json"
+}
+
 write_happy_facts() {
-  node --input-type=module - "$private_root/workspace-facts.json" "$private_root/workspace-terminal-facts.json" "$private_root/lifecycle-probe.json" "$private_root/accounts.json" "$private_root/accounts-source-facts.json" "$private_root/browser.log" "$private_root/browser-discovery-full.log" "$private_root/browser-discovery.log" "$private_root/barrier.log" "$private_root/forbidden-before.json" "$private_root/forbidden-after-workspace.json" "$private_root/overlay-before.json" "$private_root/overlay-after-seal.json" "$private_root/overlay-after-workspace.json" "$private_root/overlay-replay-rejected.txt" "$private_root/f1-receipt.json" "$private_root/auth-before-oidc.json" "$private_root/auth-after-oidc.json" "$private_root/auth-before-browser.json" "$private_root/auth-after-browser.json" "$private_root/auth-events-manifest.json" "$private_root/happy-facts.json" "$private_root/happy-evidence.json" <<'NODE'
+  local terminal_facts_path="$private_root/workspace-terminal-facts.json"
+  local lifecycle_path="$private_root/lifecycle-probe.json"
+  if [[ "${AVIA_AGA_MANAGER_DEMO_MODE:-0}" == "1" ]]; then
+    terminal_facts_path="$private_root/manager-terminal-facts.json"
+    lifecycle_path="$private_root/manager-finalizer.json"
+  fi
+  node --input-type=module - "$private_root/workspace-facts.json" "$terminal_facts_path" "$lifecycle_path" "$private_root/accounts.json" "$private_root/accounts-source-facts.json" "$private_root/browser.log" "$private_root/browser-discovery-full.log" "$private_root/browser-discovery.log" "$private_root/barrier.log" "$private_root/forbidden-before.json" "$private_root/forbidden-after-workspace.json" "$private_root/overlay-before.json" "$private_root/overlay-after-seal.json" "$private_root/overlay-after-workspace.json" "$private_root/overlay-replay-rejected.txt" "$private_root/f1-receipt.json" "$private_root/auth-before-oidc.json" "$private_root/auth-after-oidc.json" "$private_root/auth-before-browser.json" "$private_root/auth-after-browser.json" "$private_root/auth-events-manifest.json" "$private_root/happy-facts.json" "$private_root/happy-evidence.json" <<'NODE'
 import { closeSync, fsyncSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 const [workspacePath, terminalFactsPath, lifecyclePath, accountsPath, sourceFactsPath, browserPath, fullDiscoveryPath, discoveryPath, barrierPath, forbiddenBeforePath, forbiddenAfterPath, overlayBaselinePath, overlaySealPath, overlayAfterPath, replayPath, f1Path, authBeforeOidcPath, authAfterOidcPath, authBeforeBrowserPath, authAfterBrowserPath, authEventsPath, outputPath, evidencePath] = process.argv.slice(2);
@@ -706,6 +788,22 @@ const digest = (path) => `sha256:${createHash("sha256").update(readFileSync(path
 const same = (left, right) => JSON.stringify(readJSON(left)) === JSON.stringify(readJSON(right));
 const f1 = readJSON(f1Path);
 const authEvents = readJSON(authEventsPath);
+const managerMode = lifecycle.schemaVersion === "aga-manager-multi-role-finalizer/v1";
+const terminalProjection = terminal.managerGenerationCount === undefined
+  ? terminal
+  : {
+      terminalWorkspaceGenerationCount: terminal.managerGenerationCount,
+      terminalWorkspaceActiveGenerationCount: terminal.managerActiveGenerationCount,
+      terminalWorkspaceResetGenerationCount: terminal.managerResetGenerationCount,
+      terminalWorkspaceDraftCount: terminal.managerDraftCount,
+      terminalWorkspaceSealCount: terminal.managerSealCount,
+      terminalWorkspaceLifecycleStreamCount: terminal.managerLifecycleStreamCount,
+      terminalWorkspaceLifecycleEventCount: terminal.managerLifecycleEventCount,
+      terminalWorkspaceResetTombstoneCount: terminal.managerResetTombstoneCount,
+      terminalWorkspaceIdempotencyCount: terminal.managerIdempotencyCount,
+      terminalLoaderLogin: terminal.managerLoaderLogin,
+      terminalExporterLogin: terminal.managerExporterLogin,
+    };
 if (!browser.includes("17 passed")) throw new Error("connected browser did not pass the exact 17-test set");
 if (!fullDiscovery.includes("Total: 17 tests in 5 files")) throw new Error("connected browser full discovery set is not exact");
 const discoveryCount = Number(discovery.split("Total: ")[1]?.split(" tests")[0] ?? 0);
@@ -716,13 +814,16 @@ const overlayTables = Object.values(overlayBaseline.tables ?? {}).flatMap((schem
 if (overlayTables.some((rows) => rows.length !== 0) || (overlayBaseline.sealRows ?? []).length !== 0) throw new Error("overlay baseline is not empty");
 if (!same(forbiddenBeforePath, forbiddenAfterPath) || !same(overlaySealPath, overlayAfterPath)) throw new Error("post-seal zero-delta receipt mismatch");
 if (f1.schemaVersion !== "aga-hybrid-demo-f1-receipt/v2" || f1.storedReceiptReplayCount !== 28 || f1.missingReceiptRecreationCount !== 14 || f1.caseCount !== 56) throw new Error("F1 receipt facts are not exact");
-if (lifecycle.schemaVersion !== "aga-hybrid-connected-lifecycle-probe/v1" || lifecycle.lifecycleCommandCount !== 10 || lifecycle.findingState !== "CLOSED" || lifecycle.capState !== "ACCEPTED" || lifecycle.evidenceState !== "ACCEPTED" || lifecycle.closureBasis !== "EVIDENCE_VERIFIED" || !lifecycle.commentInternalSeparated || !lifecycle.replayed || !lifecycle.casConflictRejected || !lifecycle.roleDenied || !lifecycle.organizationDenied || !lifecycle.resetSucceeded || !lifecycle.resetReplay || !lifecycle.oldGenerationDenied || lifecycle.finalState !== "COMPLETED") throw new Error("connected lifecycle facts are not exact");
+if (managerMode) {
+  const managerKeys = ["schemaVersion", "sourceKind", "lifecycleCommandCount", "lifecycleReplayVerified", "casConflictRejected", "roleDenied", "organizationDenied", "recommendationReloadVerified", "inspectionReloadVerified", "findingState", "capState", "evidenceState", "closureBasis", "commentInternalSeparated", "resetSucceeded", "resetReplay", "oldInspectionDenied", "finalState"];
+  if (JSON.stringify(Object.keys(lifecycle).sort()) !== JSON.stringify(managerKeys.slice().sort()) || lifecycle.sourceKind !== "connected-postgres" || lifecycle.lifecycleCommandCount !== 10 || !lifecycle.lifecycleReplayVerified || !lifecycle.casConflictRejected || !lifecycle.roleDenied || !lifecycle.organizationDenied || lifecycle.findingState !== "CLOSED" || lifecycle.capState !== "ACCEPTED" || lifecycle.evidenceState !== "ACCEPTED" || lifecycle.closureBasis !== "EVIDENCE_VERIFIED" || !lifecycle.commentInternalSeparated || !lifecycle.resetSucceeded || !lifecycle.resetReplay || !lifecycle.oldInspectionDenied || lifecycle.finalState !== "COMPLETED") throw new Error("manager lifecycle facts are not exact");
+} else if (lifecycle.schemaVersion !== "aga-hybrid-connected-lifecycle-probe/v1" || lifecycle.lifecycleCommandCount !== 10 || lifecycle.findingState !== "CLOSED" || lifecycle.capState !== "ACCEPTED" || lifecycle.evidenceState !== "ACCEPTED" || lifecycle.closureBasis !== "EVIDENCE_VERIFIED" || !lifecycle.commentInternalSeparated || !lifecycle.replayed || !lifecycle.casConflictRejected || !lifecycle.roleDenied || !lifecycle.organizationDenied || !lifecycle.resetSucceeded || !lifecycle.resetReplay || !lifecycle.oldGenerationDenied || lifecycle.finalState !== "COMPLETED") throw new Error("connected lifecycle facts are not exact");
 if (authEvents.schemaVersion !== "aga-hybrid-auth-control-event-manifest/v1" || !Number.isSafeInteger(authEvents.eventCount) || authEvents.eventCount < 2 || authEvents.events.length !== authEvents.eventCount) throw new Error("auth-control event receipt facts are not exact");
 readFileSync(replayPath);
 const roleFamilyCount = new Set(accounts.map(({ roles }) => roles[0])).size;
 const membershipVersions = new Set(accounts.map(({ membershipVersion }) => membershipVersion));
 if (accounts.length !== 9 || sourceFacts.sourceAccountCount !== 9 || sourceFacts.sourceRoleFamilyCount !== 8 || roleFamilyCount < 6 || membershipVersions.size !== 1 || !membershipVersions.has(3)) throw new Error("OIDC account receipt matrix is not exact");
-const facts = { baseOutcome: "SUCCEEDED", oidcAccountCount: sourceFacts.sourceAccountCount, oidcRoleFamilyCount: sourceFacts.sourceRoleFamilyCount, oidcMembershipRevision: 3, ...workspace, ...terminal, lifecycleCommandCount: lifecycle.lifecycleCommandCount, lifecycleFindingState: lifecycle.findingState, lifecycleCAPState: lifecycle.capState, lifecycleEvidenceState: lifecycle.evidenceState, lifecycleClosureBasis: lifecycle.closureBasis, lifecycleCommentInternalSeparated: lifecycle.commentInternalSeparated, lifecycleReplayVerified: lifecycle.replayed, lifecycleCASConflictRejected: lifecycle.casConflictRejected, lifecycleRoleDenied: lifecycle.roleDenied, lifecycleOrganizationDenied: lifecycle.organizationDenied, lifecycleResetVerified: lifecycle.resetSucceeded && lifecycle.resetReplay, lifecycleOldGenerationDenied: lifecycle.oldGenerationDenied, lifecycleTerminalState: lifecycle.finalState, barrierLoadThenSealWinner: true, barrierSealThenLoadRejected: true, siblingResidueCount: 0, forbiddenBusinessDelta: same(forbiddenBeforePath, forbiddenAfterPath) ? 0 : 1, sealedOverlayDeltaAfterSeal: same(overlaySealPath, overlayAfterPath) ? 0 : 1, browserTestCount: 17, browserDiscoveryCount: discoveryCount, browserPrivacyLeakCount: 0, browserAuthCallbackMatch: true, overlayCleanupReplayRejected: true, residueCount: 0 };
+const facts = { baseOutcome: "SUCCEEDED", oidcAccountCount: sourceFacts.sourceAccountCount, oidcRoleFamilyCount: sourceFacts.sourceRoleFamilyCount, oidcMembershipRevision: 3, ...workspace, ...terminalProjection, lifecycleCommandCount: lifecycle.lifecycleCommandCount, lifecycleFindingState: lifecycle.findingState, lifecycleCAPState: lifecycle.capState, lifecycleEvidenceState: lifecycle.evidenceState, lifecycleClosureBasis: lifecycle.closureBasis, lifecycleCommentInternalSeparated: lifecycle.commentInternalSeparated, lifecycleReplayVerified: managerMode ? lifecycle.lifecycleReplayVerified : lifecycle.replayed, lifecycleCASConflictRejected: lifecycle.casConflictRejected, lifecycleRoleDenied: lifecycle.roleDenied, lifecycleOrganizationDenied: lifecycle.organizationDenied, lifecycleResetVerified: lifecycle.resetSucceeded && lifecycle.resetReplay, lifecycleOldGenerationDenied: managerMode ? lifecycle.oldInspectionDenied : lifecycle.oldGenerationDenied, lifecycleTerminalState: lifecycle.finalState, barrierLoadThenSealWinner: true, barrierSealThenLoadRejected: true, siblingResidueCount: 0, forbiddenBusinessDelta: same(forbiddenBeforePath, forbiddenAfterPath) ? 0 : 1, sealedOverlayDeltaAfterSeal: same(overlaySealPath, overlayAfterPath) ? 0 : 1, browserTestCount: 17, browserDiscoveryCount: discoveryCount, browserPrivacyLeakCount: 0, browserAuthCallbackMatch: true, overlayCleanupReplayRejected: true, residueCount: 0 };
 if (facts.forbiddenBusinessDelta !== 0 || facts.sealedOverlayDeltaAfterSeal !== 0) throw new Error("snapshot delta is not zero");
 const evidence = { sourceKind: "connected-receipt", forbiddenBaselineDigest: digest(forbiddenBeforePath), forbiddenFinalDigest: digest(forbiddenAfterPath), overlayBaselineDigest: digest(overlayBaselinePath), overlaySealedDigest: digest(overlaySealPath), overlayFinalDigest: digest(overlayAfterPath), authBeforeOidcDigest: digest(authBeforeOidcPath), authAfterOidcDigest: digest(authAfterOidcPath), authBeforeBrowserDigest: digest(authBeforeBrowserPath), authAfterBrowserDigest: digest(authAfterBrowserPath), f1ReceiptDigest: digest(f1Path), f1StoredReceiptReplayCount: f1.storedReceiptReplayCount, f1MissingReceiptRecreationCount: f1.missingReceiptRecreationCount, browserResultDigest: digest(browserPath), authControlEventDigest: digest(authEventsPath), authControlEventCount: authEvents.eventCount, lifecycleProbeDigest: digest(lifecyclePath), lifecycleTerminalFactsDigest: digest(terminalFactsPath), lifecycleCommandCount: lifecycle.lifecycleCommandCount };
 const descriptor = openSync(outputPath, "wx", 0o600);
@@ -1050,11 +1151,20 @@ run_qualification() {
   record_phase CREDENTIALS_REVOKED REVOKE_WORKSPACE_ONE_SHOT_LOGINS "$private_root/workspace-revoke.log" "{\"credentialRevocationReceiptCount\":1,\"exporterLogin\":false,\"loaderLogin\":false,\"loaderRevoked\":true}"
   compose_command up --detach --build --wait preprod-aga-demo-api >"$private_root/api-start.log" 2>&1
   record_phase API_STARTED START_CONNECTED_AGA_HYBRID_API "$private_root/api-start.log" "{\"apiReady\":true}"
-  run_lifecycle_probe
-  capture_workspace_terminal_facts "$private_root/workspace-terminal-facts.json"
   make_private_directory "$private_root/auth-events"
   capture_auth_control_snapshot "$private_root/auth-before-browser.json"
-  run_browser_matrix
+  if [[ "${AVIA_AGA_MANAGER_DEMO_MODE:-0}" == "1" ]]; then
+    run_browser_matrix
+    run_manager_setup
+    run_manager_browser
+    run_manager_finalize
+    capture_manager_terminal_facts "$private_root/manager-terminal-facts.json"
+    write_manager_evidence
+  else
+    run_lifecycle_probe
+    capture_workspace_terminal_facts "$private_root/workspace-terminal-facts.json"
+    run_browser_matrix
+  fi
   capture_auth_control_snapshot "$private_root/auth-after-browser.json"
   record_phase AUTH_VERIFIED AUTHENTICATE_NINE_OIDC_SUBJECTS "$private_root/browser.log" "{\"browserAuthCallbackMatch\":true,\"browserPrivacyLeakCount\":0}"
   record_phase E2E_COMPLETE RUN_CONNECTED_AGA_HYBRID_QUALIFICATION "$private_root/browser.log" "{\"browserTestCount\":17,\"browserDiscoveryCount\":7,\"browserPrivacyLeakCount\":0,\"browserAuthCallbackMatch\":true,\"lifecycleCommandCount\":10,\"lifecycleTerminalState\":\"COMPLETED\",\"lifecycleResetVerified\":true}"

@@ -289,6 +289,11 @@ export async function logout(page: Page): Promise<void> {
     throw new Error("Logout revocation failed");
   }
   if (result.status === 204) {
+    // The application session is revoked above, but the disposable Keycloak
+    // context can still retain its SSO cookie. Clear the whole browser cookie
+    // jar before the next qualification actor logs in so an actor switch can
+    // never silently inherit the previous provider identity.
+    await page.context().clearCookies();
     captureAuthControlEvent("AFTER_LOGOUT");
     return;
   }

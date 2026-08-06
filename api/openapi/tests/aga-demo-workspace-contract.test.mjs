@@ -10,6 +10,7 @@ const expected = {
   [`${prefix}/classification/query`]: ["post"],
   [`${prefix}/classification/commands`]: ["post"],
   [`${prefix}/recommendations/commands`]: ["post"],
+  [`${prefix}/recommendations/query`]: ["post"],
   [`${prefix}/lifecycle/query`]: ["post"],
   [`${prefix}/lifecycle/commands`]: ["post"],
   [`${prefix}/admin/commands`]: ["post"],
@@ -49,4 +50,20 @@ test("lifecycle routes and closed bodies expose the append-only contract", () =>
   assert.equal(schemas.AGADemoWorkspaceQueryResponse.properties.lifecycle.$ref, "#/components/schemas/AGADemoWorkspaceLifecycleProjection");
   assert.equal(schemas.AGADemoWorkspaceQueryResponse.properties.lifecycleCaa.$ref, "#/components/schemas/AGADemoWorkspaceLifecycleCAAProjection");
   assert.equal(schemas.AGADemoWorkspaceQueryResponse.properties.lifecycleAuditee.$ref, "#/components/schemas/AGADemoWorkspaceLifecycleAuditeeProjection");
+});
+
+test("successor manager package contract is explicit and bounded", () => {
+  const query = schemas.AGADemoWorkspaceQuery;
+  for (const operation of ["GET_SIMULATION_SETUP", "GET_CURRENT_RECOMMENDATION", "GET_CURRENT_INSPECTION", "GET_INSPECTION_QUESTION_PAGE"]) {
+    assert.ok(query.properties.operationId.enum.includes(operation), operation);
+  }
+  for (const name of ["AGADemoWorkspaceClassificationReviewItem", "AGADemoWorkspaceBatchPreview", "AGADemoWorkspaceSimulationSetup", "AGADemoWorkspaceLifecycleQuestionPageItem"]) {
+    assert.equal(schemas[name].additionalProperties, false, name);
+  }
+  assert.equal(schemas.AGADemoWorkspaceQueryResponse.properties.items.items.$ref, "#/components/schemas/AGADemoWorkspaceClassificationReviewItem");
+  assert.ok(schemas.AGADemoWorkspaceQueryResponse.properties.questionPage);
+  assert.equal(schemas.AGADemoWorkspaceCommand.properties.readinessEventId.readOnly, true);
+  assert.ok(schemas.AGADemoWorkspaceCommand.properties.simulationSetupDigest);
+  assert.ok(schemas.AGADemoWorkspaceCommand.properties.inspectorSelectionPin);
+  assert.ok(schemas.AGADemoWorkspaceCommand.properties.leadSelectionPin);
 });

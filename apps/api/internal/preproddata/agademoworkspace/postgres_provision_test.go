@@ -22,7 +22,13 @@ func TestWorkspaceProvisionDDLContainsClosedFamilies(t *testing.T) {
 	if !strings.Contains(WorkspaceAppendOnlyTriggerDDL(), "credential_revocation_receipts_append_only") {
 		t.Fatal("credential revocation receipt trigger missing")
 	}
+	if !strings.Contains(WorkspaceAppendOnlyTriggerDDL(), "batch_preview_consumptions_append_only") {
+		t.Fatal("batch preview consumption trigger missing")
+	}
 	if !strings.Contains(WorkspaceSchemaDDL, "credential_revocation_receipts") {
 		t.Fatal("credential revocation receipt relation missing")
+	}
+	if !strings.Contains(WorkspaceSchemaDDL, "batch_preview_consumptions") {
+		t.Fatal("batch preview consumption relation missing")
 	}
 }

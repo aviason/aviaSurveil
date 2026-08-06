@@ -19,6 +19,7 @@ type OperationFamily string
 const (
 	FamilyClassificationQuery   OperationFamily = "classification-query"
 	FamilyClassificationCommand OperationFamily = "classification-command"
+	FamilyRecommendationQuery   OperationFamily = "recommendation-query"
 	FamilyRecommendationCommand OperationFamily = "recommendation-command"
 	FamilyLifecycleQuery        OperationFamily = "lifecycle-query"
 	FamilyLifecycleCommand      OperationFamily = "lifecycle-command"
@@ -26,12 +27,16 @@ const (
 )
 
 const (
-	OperationGetSummary               = "GET_SUMMARY"
-	OperationGetTaxonomy              = "GET_TAXONOMY"
-	OperationGetProviderConfiguration = "GET_PROVIDER_CONFIGURATION"
-	OperationSearchItems              = "SEARCH_ITEMS"
-	OperationGetDraft                 = "GET_DRAFT"
-	OperationGetHistory               = "GET_HISTORY"
+	OperationGetSummary                = "GET_SUMMARY"
+	OperationGetTaxonomy               = "GET_TAXONOMY"
+	OperationGetProviderConfiguration  = "GET_PROVIDER_CONFIGURATION"
+	OperationSearchItems               = "SEARCH_ITEMS"
+	OperationGetDraft                  = "GET_DRAFT"
+	OperationGetHistory                = "GET_HISTORY"
+	OperationGetSimulationSetup        = "GET_SIMULATION_SETUP"
+	OperationGetCurrentRecommendation  = "GET_CURRENT_RECOMMENDATION"
+	OperationGetCurrentInspection      = "GET_CURRENT_INSPECTION"
+	OperationGetInspectionQuestionPage = "GET_INSPECTION_QUESTION_PAGE"
 
 	OperationPreviewBatch = "PREVIEW_BATCH"
 	OperationExecuteBatch = "EXECUTE_BATCH"
@@ -100,6 +105,11 @@ func (resolver BindingResolverFunc) Resolve(ctx context.Context, principal ident
 // and qualifier maps.
 type RecommendationScopeResolver func(context.Context, preprod.LoadedWorkspace, aga.RecommendationRequest) ([]aga.ProviderScopeFact, error)
 
+// SimulationSetupResolver is the server-owned fact boundary for the browser
+// package builder. It returns a comparison projection only; it does not mint
+// readiness state or mutate a workspace.
+type SimulationSetupResolver func(context.Context, preprod.LoadedWorkspace, identity.Principal) (SimulationSetupProjection, error)
+
 // StaticBindingResolver is useful for service doubles and the local tagged
 // runtime. It returns only the binding keyed by the authenticated subject.
 type StaticBindingResolver struct {
@@ -121,19 +131,25 @@ type ServiceConfig struct {
 	ReaderStore          preprod.Store
 	CommandStore         preprod.Store
 	Resolver             BindingResolver
+	QuestionBodies       QuestionBodyResolver
+	QuestionTextSearch   QuestionTextSearchResolver
 	RecommendationScopes RecommendationScopeResolver
+	SimulationSetup      SimulationSetupResolver
 	LifecycleBindings    LifecycleBindingResolver
 	Clock                func() time.Time
 }
 
 type Service struct {
-	store                preprod.Store
-	reader               preprod.Store
-	command              preprod.Store
-	resolver             BindingResolver
-	recommendationScopes RecommendationScopeResolver
-	lifecycleBindings    LifecycleBindingResolver
-	clock                func() time.Time
+	store                   preprod.Store
+	reader                  preprod.Store
+	command                 preprod.Store
+	resolver                BindingResolver
+	questionBodies          QuestionBodyResolver
+	questionTextSearch      QuestionTextSearchResolver
+	recommendationScopes    RecommendationScopeResolver
+	simulationSetupResolver SimulationSetupResolver
+	lifecycleBindings       LifecycleBindingResolver
+	clock                   func() time.Time
 }
 
 type Capability struct {
@@ -157,6 +173,7 @@ type QueryRequest struct {
 	SourceGap           string `json:"sourceGap,omitempty"`
 	ExternalInvolvement string `json:"externalInvolvement,omitempty"`
 	FormCode            string `json:"formCode,omitempty"`
+	Disposition         string `json:"disposition,omitempty"`
 	InspectionID        string `json:"inspectionId,omitempty"`
 	FindingID           string `json:"findingId,omitempty"`
 	CapID               string `json:"capId,omitempty"`
@@ -236,29 +253,40 @@ type CommandEnvelope struct {
 	WorkspaceBodyDigest            string                  `json:"workspaceBodyDigest,omitempty"`
 	PreviewID                      string                  `json:"previewId,omitempty"`
 	PreviewDigest                  string                  `json:"previewDigest,omitempty"`
+	BatchFilter                    *BatchFilter            `json:"batchFilter,omitempty"`
+	BatchAction                    BatchAction             `json:"batchAction,omitempty"`
+	SetupDigest                    string                  `json:"simulationSetupDigest,omitempty"`
+	InspectorSelectionPin          string                  `json:"inspectorSelectionPin,omitempty"`
+	LeadSelectionPin               string                  `json:"leadSelectionPin,omitempty"`
 	LifecyclePayload               json.RawMessage         `json:"lifecyclePayload,omitempty"`
 }
 
 type QueryResponse struct {
-	Operation             string                               `json:"operation"`
-	Generation            preprod.Generation                   `json:"generation"`
-	Draft                 *aga.Draft                           `json:"draft,omitempty"`
-	Items                 []preprod.ClassificationItem         `json:"items,omitempty"`
-	ItemCount             int                                  `json:"itemCount,omitempty"`
-	Page                  int                                  `json:"page,omitempty"`
-	PageSize              int                                  `json:"pageSize,omitempty"`
-	NextPage              *int                                 `json:"nextPage,omitempty"`
-	BaseQuestionCount     int                                  `json:"baseQuestionCount,omitempty"`
-	DraftIncludedCount    int                                  `json:"draftIncludedCount,omitempty"`
-	DraftExcludedCount    int                                  `json:"draftExcludedCount,omitempty"`
-	DraftDeferredCount    int                                  `json:"draftDeferredCount,omitempty"`
-	Taxonomy              *preprod.TaxonomyVersion             `json:"taxonomy,omitempty"`
-	ProviderConfiguration []preprod.ProviderConfigurationEntry `json:"providerConfiguration,omitempty"`
-	History               []preprod.Generation                 `json:"history,omitempty"`
-	LifecycleAvailable    bool                                 `json:"lifecycleAvailable"`
-	Lifecycle             *LifecycleProjection                 `json:"lifecycle,omitempty"`
-	LifecycleCAA          *LifecycleCAAProjection              `json:"lifecycleCaa,omitempty"`
-	LifecycleAuditee      *LifecycleAuditeeProjection          `json:"lifecycleAuditee,omitempty"`
+	Operation              string                               `json:"operation"`
+	Generation             preprod.Generation                   `json:"generation"`
+	Draft                  *aga.Draft                           `json:"draft,omitempty"`
+	Items                  []ClassificationReviewItem           `json:"items,omitempty"`
+	ReviewItems            []ClassificationReviewItem           `json:"reviewItems,omitempty"`
+	ItemCount              int                                  `json:"itemCount,omitempty"`
+	Page                   int                                  `json:"page,omitempty"`
+	PageSize               int                                  `json:"pageSize,omitempty"`
+	NextPage               *int                                 `json:"nextPage,omitempty"`
+	BaseQuestionCount      int                                  `json:"baseQuestionCount,omitempty"`
+	DraftIncludedCount     int                                  `json:"draftIncludedCount,omitempty"`
+	DraftExcludedCount     int                                  `json:"draftExcludedCount,omitempty"`
+	DraftDeferredCount     int                                  `json:"draftDeferredCount,omitempty"`
+	Taxonomy               *preprod.TaxonomyVersion             `json:"taxonomy,omitempty"`
+	ProviderConfiguration  []preprod.ProviderConfigurationEntry `json:"providerConfiguration,omitempty"`
+	History                []preprod.Generation                 `json:"history,omitempty"`
+	LifecycleAvailable     bool                                 `json:"lifecycleAvailable"`
+	Lifecycle              *LifecycleProjection                 `json:"lifecycle,omitempty"`
+	LifecycleCAA           *LifecycleCAAProjection              `json:"lifecycleCaa,omitempty"`
+	LifecycleAuditee       *LifecycleAuditeeProjection          `json:"lifecycleAuditee,omitempty"`
+	QuestionPage           *QuestionTextPage                    `json:"questionPage,omitempty"`
+	SimulationSetup        *SimulationSetupProjection           `json:"simulationSetup,omitempty"`
+	RecommendationSnapshot *preprod.RecommendationSnapshot      `json:"recommendationSnapshot,omitempty"`
+	CurrentInspection      *LifecycleProjection                 `json:"currentInspection,omitempty"`
+	BatchPreview           *BatchPreviewProjection              `json:"batchPreview,omitempty"`
 }
 
 type CommandResponse struct {
@@ -268,6 +296,7 @@ type CommandResponse struct {
 	Draft              *aga.Draft                      `json:"draft,omitempty"`
 	ResetTombstone     *preprod.ResetTombstone         `json:"resetTombstone,omitempty"`
 	Recommendation     *preprod.RecommendationSnapshot `json:"recommendation,omitempty"`
+	BatchPreview       *BatchPreviewProjection         `json:"batchPreview,omitempty"`
 	Lifecycle          *LifecycleProjection            `json:"lifecycle,omitempty"`
 	LifecycleAvailable bool                            `json:"lifecycleAvailable"`
 	Reason             string                          `json:"reason,omitempty"`
@@ -286,6 +315,9 @@ func (request QueryRequest) Validate() error {
 	if request.OperationID == "" || request.Page < 0 || request.PageSize < 0 || request.PageSize > 1000 {
 		return ErrMalformedCommand
 	}
+	if request.PageSize > MaxQuestionTextPage && (request.OperationID == OperationSearchItems || request.OperationID == OperationGetInspectionQuestionPage) {
+		return ErrMalformedCommand
+	}
 	return nil
 }
 
@@ -302,6 +334,9 @@ func (command CommandEnvelope) Validate(family OperationFamily) error {
 	if family == FamilyClassificationCommand && command.ExpectedDraftRevision < 1 {
 		return ErrMalformedCommand
 	}
+	if command.OperationID == OperationMarkReady && (command.ReadinessEventID != "" || command.SetupDigest == "") {
+		return ErrMalformedCommand
+	}
 	if family == FamilyRecommendationCommand {
 		switch command.OperationID {
 		case OperationCreateRecommendation:
@@ -309,6 +344,12 @@ func (command CommandEnvelope) Validate(family OperationFamily) error {
 				return ErrMalformedCommand
 			}
 		case OperationCreateInspection:
+			if command.SetupDigest != "" {
+				if command.InspectorSelectionPin == "" || command.LeadSelectionPin == "" {
+					return ErrMalformedCommand
+				}
+				break
+			}
 			if command.ExpectedRecommendationRevision < 1 || command.RecommendationID == "" || command.RecommendationDigest == "" {
 				return ErrMalformedCommand
 			}

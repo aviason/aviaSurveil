@@ -6,6 +6,7 @@ const document = JSON.parse(readFileSync("api/openapi/aviasurveil360.yaml", "utf
 const prefix = "/v1/preprod/aga-demo-workspace";
 const queryPaths = [
   `${prefix}/classification/query`,
+  `${prefix}/recommendations/query`,
   `${prefix}/lifecycle/query`,
 ];
 const commandPaths = [

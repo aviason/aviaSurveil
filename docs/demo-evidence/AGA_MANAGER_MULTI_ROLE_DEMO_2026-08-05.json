@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "aga-hybrid-demo-workspace-evidence/v1",
+  "status": "verified locally",
+  "productStatus": "candidate-only",
+  "release": "release pending",
+  "productionReady": "not established",
+  "happyLedgerDigest": "sha256:b6dc258a0658f13c0a0fa8288b4ed1fd868903f63fe7e9f42039c4fecc5391b3",
+  "faultLedgerDigest": "sha256:b0e74440a647ad5ca31607f5f37a921f806faae4260a42894eb2ebd85547e709",
+  "happyPhaseCount": 14,
+  "faultCaseCount": 4,
+  "connectedBrowser": "verified locally",
+  "browserTestCount": 17,
+  "browserDiscoveryCount": 7,
+  "browserPrivacyLeakCount": 0,
+  "browserAuthCallbackMatch": true,
+  "lifecycleCommandCount": 10,
+  "lifecycleTerminalState": "COMPLETED",
+  "lifecycleClosureBasis": "EVIDENCE_VERIFIED",
+  "lifecycleResetVerified": true,
+  "forbiddenBusinessDelta": 0,
+  "sealedOverlayDeltaAfterSeal": 0,
+  "residueCount": 0
+}

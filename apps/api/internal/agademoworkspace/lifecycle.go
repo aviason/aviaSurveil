@@ -120,6 +120,18 @@ func (service *Service) createInspection(ctx context.Context, principal identity
 	if !ok {
 		return LifecycleAggregate{}, ErrCapabilityUnavailable
 	}
+	if currentStore, currentOK := service.command.(CurrentLifecycleStore); currentOK {
+		current, currentErr := currentStore.ListLifecycleStreams(ctx, workspace.Generation.GenerationID)
+		if currentErr != nil {
+			return LifecycleAggregate{}, ErrCapabilityUnavailable
+		}
+		if len(current) > 0 {
+			if len(current) > 1 {
+				return LifecycleAggregate{}, ErrCurrentObjectAmbiguous
+			}
+			return LifecycleAggregate{}, ErrCommandConflict
+		}
+	}
 	snapshot, found, err := recommendationStore.GetRecommendationSnapshot(ctx, command.ExpectedGenerationID, command.RecommendationID)
 	if err != nil {
 		return LifecycleAggregate{}, fmt.Errorf("%w: recommendation snapshot lookup failed: %v", ErrLifecycleRecommendationStale, err)

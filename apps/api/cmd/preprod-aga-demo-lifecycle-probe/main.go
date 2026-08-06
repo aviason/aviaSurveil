@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sort"
 	"time"
 
 	aga "github.com/MarlonJD/aviaSurveil360/apps/api/internal/agaapplicability"
@@ -41,8 +42,9 @@ func main() {
 func run(ctx context.Context) error {
 	readerURL := os.Getenv("AVIA_AGA_DEMO_WORKSPACE_READER_DATABASE_URL")
 	commandURL := os.Getenv("AVIA_AGA_DEMO_WORKSPACE_COMMAND_DATABASE_URL")
-	if readerURL == "" || commandURL == "" {
-		return errors.New("workspace database urls are required")
+	overlayURL := os.Getenv("AVIA_AGA_DEMO_DATABASE_URL")
+	if readerURL == "" || commandURL == "" || overlayURL == "" {
+		return errors.New("workspace and sealed overlay database urls are required")
 	}
 	readerPool, err := database.Open(ctx, readerURL)
 	if err != nil {
@@ -54,6 +56,11 @@ func run(ctx context.Context) error {
 		return err
 	}
 	defer commandPool.Close()
+	overlayPool, err := database.Open(ctx, overlayURL)
+	if err != nil {
+		return err
+	}
+	defer overlayPool.Close()
 	readerStore, err := preprod.NewPostgresReader(readerPool)
 	if err != nil {
 		return err
@@ -66,10 +73,15 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	questionBodies, err := workspace.NewPostgresQuestionBodyResolver(overlayPool)
+	if err != nil {
+		return err
+	}
 	scopeResolver := workspace.NewPostgresRecommendationScopeResolver(readerPool)
 	service := workspace.NewService(workspace.ServiceConfig{
 		ReaderStore: readerStore, CommandStore: commandStore, Resolver: bindingResolver,
-		RecommendationScopes: scopeResolver, LifecycleBindings: workspace.NewFixtureLifecycleBindingResolver(),
+		QuestionBodies: questionBodies, QuestionTextSearch: questionBodies,
+		RecommendationScopes: scopeResolver, SimulationSetup: workspace.NewPostgresSimulationSetupResolver(readerPool), LifecycleBindings: workspace.NewFixtureLifecycleBindingResolver(),
 	})
 
 	current, err := commandStore.Snapshot(ctx)
@@ -80,78 +92,97 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	draft := current.Draft.Draft
+	switch os.Getenv("AVIA_AGA_DEMO_PROBE_PHASE") {
+	case "setup-only":
+		return runManagerSetupOnly(ctx, service, accounts.manager)
+	case "finalize-only":
+		return runManagerFinalizeOnly(ctx, service, commandStore, accounts)
+	}
+	setup, err := probeSimulationSetup(ctx, service, accounts.manager)
+	if err != nil {
+		return fmt.Errorf("initial simulation setup failed: %w", err)
+	}
+	selected, domains, err := probeEligibleSubset(current, setup, 3)
+	if err != nil {
+		return err
+	}
 	classificationCount := 0
-	for _, item := range append([]aga.DraftItem(nil), draft.Items...) {
-		if !item.Current || item.ReviewState != aga.ReviewPendingManager || item.Disposition != nil {
-			continue
+	sequence := 0
+	for _, domainCode := range domains {
+		for _, disposition := range []string{"UNSET", string(aga.DispositionInclude)} {
+			filter := workspace.BatchFilter{DomainCode: domainCode, Disposition: disposition}
+			changed, commandErr := probeBatch(ctx, service, accounts.manager, filter, workspace.BatchExclude, probeReason, &sequence)
+			if commandErr != nil {
+				return commandErr
+			}
+			if changed {
+				classificationCount++
+			}
+		}
+	}
+	for _, item := range selected {
+		setup, err = probeSimulationSetup(ctx, service, accounts.manager)
+		if err != nil {
+			return err
 		}
 		reason := probeReason
-		if item.QuestionSourceProposalGap {
+		if item.Governance.QuestionSourceProposalGap {
 			reason = probeReadiness
 		}
 		response, commandErr := service.Command(ctx, accounts.manager, workspace.FamilyClassificationCommand, workspace.CommandEnvelope{
-			OperationID: workspace.OperationInclude, IdempotencyKey: fmt.Sprintf("aga-ws-probe-classification-%06d", classificationCount+1),
-			ExpectedGenerationID: draft.GenerationID, ExpectedDraftRevision: draft.Revision, ExpectedDraftContentDigest: draft.ContentDigest,
-			TargetQuestionKey: item.QuestionRef.Key(), ReasonCode: reason, Action: aga.DraftInclude,
+			OperationID: workspace.OperationInclude, IdempotencyKey: fmt.Sprintf("aga-ws-probe-selection-%06d", sequence+1),
+			ExpectedGenerationID: setup.GenerationID, ExpectedDraftRevision: setup.DraftRevision, ExpectedDraftContentDigest: setup.DraftContentDigest,
+			TargetQuestionKey: aga.BaseQuestionReference(item.Identity).Key(), ReasonCode: reason, Action: aga.DraftInclude,
 		})
-		if commandErr != nil {
-			return fmt.Errorf("classification command failed: %w (revision=%d items=%d)", commandErr, draft.Revision, len(draft.Items))
+		if commandErr != nil || response.Draft == nil {
+			return fmt.Errorf("deterministic subset include failed: %w", commandErr)
 		}
-		if response.Draft == nil {
-			return errors.New("classification command returned no draft")
-		}
-		draft = *response.Draft
+		sequence++
 		classificationCount++
 	}
-	current.Draft.Draft = draft
-
-	request := workspace.CommandEnvelope{
-		OperationID: workspace.OperationCreateRecommendation, IdempotencyKey: "aga-ws-probe-recommendation-0001", ExpectedGenerationID: current.Generation.GenerationID,
-		OrganizationID: probeOrganization, ProviderScopeRootID: "aga-ws-scope-root-matching", ProviderScopeID: "aga-ws-scope-matching", ProviderScopeVersion: 1,
-		ProviderTypeID: "AERODROME_OPERATOR", DepartmentID: "AGA-DEMO-DEPARTMENT", OrganizationalUnitID: "AGA-DEMO-UNIT", TargetID: "aga-ws-target-matching",
-		CanonicalTargetKind: "FACILITY", TargetProfileCode: "RFFS_FUNCTION", InspectionProfileCode: "EMERGENCY_AND_RFFS", InspectionTypeCode: "ON_SITE_INSPECTION",
-		OperationQualifiers: []aga.Qualifier{{Key: "OPERATION_STATUS", Value: "ACTIVE"}}, ActivityQualifiers: []aga.Qualifier{{Key: "ACTIVITY_TYPE", Value: "EMERGENCY_RESPONSE"}},
-		TaxonomyVersion: draft.TaxonomyVersion, TaxonomyDigest: draft.TaxonomyDigest, ClassificationRunID: draft.ClassificationRunID, ClassificationRunDigest: draft.ClassificationRunDigest,
-		DraftID: draft.DraftID, DraftRevision: draft.Revision, DraftContentDigest: draft.ContentDigest, ExpectedDraftRevision: draft.Revision,
+	setup, err = probeSimulationSetup(ctx, service, accounts.manager)
+	if err != nil {
+		return err
 	}
-	facts, err := scopeResolver(ctx, current, recommendationRequest(request))
-	if err != nil || len(facts) != 1 {
-		return errors.New("provider scope fact resolution failed")
-	}
-	scope := facts[0]
 	readyResponse, err := service.Command(ctx, accounts.manager, workspace.FamilyClassificationCommand, workspace.CommandEnvelope{
-		OperationID: workspace.OperationMarkReady, IdempotencyKey: "aga-ws-probe-readiness-0001", ExpectedGenerationID: draft.GenerationID,
-		ExpectedDraftRevision: draft.Revision, ExpectedDraftContentDigest: draft.ContentDigest, Action: aga.DraftMarkReady, ReasonCode: probeReadiness,
-		ReadinessEventID: "aga-ws-readiness-probe-0001", ProviderScopeProfileDigest: scope.ProfileDigest,
+		OperationID: workspace.OperationMarkReady, IdempotencyKey: "aga-ws-probe-readiness-0001", ExpectedGenerationID: setup.GenerationID,
+		ExpectedDraftRevision: setup.DraftRevision, ExpectedDraftContentDigest: setup.DraftContentDigest, Action: aga.DraftMarkReady, ReasonCode: probeReadiness,
+		SetupDigest: setup.SimulationSetupDigest,
 	})
 	if err != nil {
-		return fmt.Errorf("readiness command failed: %w (revision=%d items=%d contentDigestPresent=%t)", err, draft.Revision, len(draft.Items), draft.ContentDigest != "")
+		return fmt.Errorf("readiness command failed: %w (revision=%d contentDigestPresent=%t)", err, setup.DraftRevision, setup.DraftContentDigest != "")
 	}
 	if readyResponse.Draft == nil {
 		return errors.New("readiness command returned no draft")
 	}
-	draft = *readyResponse.Draft
-	current.Draft.Draft = draft
-	readiness := draft.ReadinessEvents[len(draft.ReadinessEvents)-1]
-	request.DraftRevision, request.ExpectedDraftRevision, request.DraftContentDigest = draft.Revision, draft.Revision, draft.ContentDigest
-	request.ReadinessEventID, request.ReadinessEventDigest, request.EffectiveAt = readiness.ReadinessEventID, readiness.ReadinessEventDigest, scope.EffectiveFrom.Add(time.Minute)
-	recommendationResponse, err := service.Command(ctx, accounts.manager, workspace.FamilyRecommendationCommand, request)
+	setup, err = probeSimulationSetup(ctx, service, accounts.manager)
+	if err != nil {
+		return err
+	}
+	recommendationResponse, err := service.Command(ctx, accounts.manager, workspace.FamilyRecommendationCommand, workspace.CommandEnvelope{
+		OperationID: workspace.OperationCreateRecommendation, IdempotencyKey: "aga-ws-probe-recommendation-0001", ExpectedGenerationID: setup.GenerationID,
+		DraftID: setup.DraftID, DraftRevision: setup.DraftRevision, ExpectedDraftRevision: setup.DraftRevision, DraftContentDigest: setup.DraftContentDigest,
+		SetupDigest: setup.SimulationSetupDigest,
+	})
 	if err != nil {
 		return fmt.Errorf("recommendation command failed: %w", err)
 	}
 	if recommendationResponse.Recommendation == nil {
 		return errors.New("recommendation command failed")
 	}
-	recommendation := recommendationResponse.Recommendation.Recommendation
-	inspector, lead, err := lifecycleFacts(ctx, current, recommendation)
+	if _, err = service.Query(ctx, accounts.manager, workspace.QueryRequest{OperationID: workspace.OperationGetCurrentRecommendation}); err != nil {
+		return fmt.Errorf("current recommendation reload failed: %w", err)
+	}
+	setup, err = probeSimulationSetup(ctx, service, accounts.manager)
 	if err != nil {
 		return err
 	}
+	if len(setup.InspectorChoices) != 1 || len(setup.LeadChoices) != 1 {
+		return errors.New("simulation role choices are not unique")
+	}
 	inspectionResponse, err := service.Command(ctx, accounts.manager, workspace.FamilyRecommendationCommand, workspace.CommandEnvelope{
-		OperationID: workspace.OperationCreateInspection, IdempotencyKey: "aga-ws-probe-inspection-0001", ExpectedGenerationID: recommendation.GenerationID,
-		RecommendationID: recommendation.RecommendationID, RecommendationDigest: recommendation.Digest, ExpectedRecommendationRevision: recommendation.Revision,
-		InspectorBindingID: inspector.BindingID, InspectorBindingRevision: inspector.BindingRevision, LeadBindingID: lead.BindingID, LeadBindingRevision: lead.BindingRevision,
+		OperationID: workspace.OperationCreateInspection, IdempotencyKey: "aga-ws-probe-inspection-0001", ExpectedGenerationID: setup.GenerationID,
+		SetupDigest: setup.SimulationSetupDigest, InspectorSelectionPin: setup.InspectorChoices[0].SelectionPin, LeadSelectionPin: setup.LeadChoices[0].SelectionPin,
 	})
 	if err != nil {
 		return fmt.Errorf("inspection creation failed: %w", err)
@@ -284,6 +315,237 @@ func run(ctx context.Context) error {
 	fmt.Printf(`{"schemaVersion":"aga-hybrid-connected-lifecycle-probe/v1","sourceKind":"connected-postgres","classificationCommandCount":%d,"lifecycleCommandCount":10,"findingState":"%s","capState":"%s","evidenceState":"%s","closureBasis":"%s","commentInternalSeparated":%t,"replayed":true,"casConflictRejected":true,"roleDenied":true,"organizationDenied":true,"resetSucceeded":true,"resetReplay":true,"oldGenerationDenied":true,"finalState":"%s"}
 `, classificationCount, findingState, capState, evidenceState, closureBasis, separated, lifecycle.State)
 	return nil
+}
+
+func runManagerSetupOnly(ctx context.Context, service *workspace.Service, manager identity.Principal) error {
+	setup, err := probeSimulationSetup(ctx, service, manager)
+	if err != nil {
+		return fmt.Errorf("manager setup-only read failed: %w", err)
+	}
+	seen := make(map[string]struct{})
+	pages, itemCount := 0, 0
+	for page := 0; ; page++ {
+		response, queryErr := service.Query(ctx, manager, workspace.QueryRequest{OperationID: workspace.OperationSearchItems, Page: page, PageSize: workspace.MaxQuestionTextPage})
+		if queryErr != nil {
+			return fmt.Errorf("manager inventory page %d failed: %w", page, queryErr)
+		}
+		if len(response.Items) > workspace.MaxQuestionTextPage {
+			return errors.New("manager inventory page exceeded the bounded text limit")
+		}
+		pages++
+		itemCount += len(response.Items)
+		for _, item := range response.Items {
+			key := aga.BaseQuestionReference(item.Identity).Key()
+			if _, exists := seen[key]; exists {
+				return errors.New("manager inventory pagination returned a duplicate identity")
+			}
+			seen[key] = struct{}{}
+			if item.QuestionText == nil || item.QuestionTextDigest == nil || *item.QuestionText == "" || *item.QuestionTextDigest == "" || *item.QuestionTextDigest != item.Identity.TextDigest {
+				return errors.New("manager inventory pagination returned an incomplete or mismatched text projection")
+			}
+		}
+		if response.NextPage == nil {
+			break
+		}
+	}
+	if itemCount != 1310 || len(seen) != 1310 {
+		return fmt.Errorf("manager inventory reachability count=%d unique=%d want 1310", itemCount, len(seen))
+	}
+	if _, queryErr := service.Query(ctx, manager, workspace.QueryRequest{OperationID: workspace.OperationGetCurrentRecommendation}); !errors.Is(queryErr, workspace.ErrNeutralDenied) {
+		return errors.New("setup-only generation unexpectedly has a current recommendation")
+	}
+	if _, queryErr := service.Query(ctx, manager, workspace.QueryRequest{OperationID: workspace.OperationGetCurrentInspection}); !errors.Is(queryErr, workspace.ErrNeutralDenied) {
+		return errors.New("setup-only generation unexpectedly has a current inspection")
+	}
+	fmt.Printf("{\"schemaVersion\":\"aga-manager-package-setup/v1\",\"sourceKind\":\"connected-postgres\",\"inventoryCount\":%d,\"inventoryPageCount\":%d,\"uniqueInventoryCount\":%d,\"boundedBodyProjection\":true,\"bodyDigestProjection\":true,\"currentRecommendationAbsent\":true,\"currentInspectionAbsent\":true,\"readinessState\":\"%s\",\"draftRevision\":%d}\n", itemCount, pages, len(seen), setup.ReadinessState, setup.DraftRevision)
+	return nil
+}
+
+func runManagerFinalizeOnly(ctx context.Context, service *workspace.Service, commandStore *preprod.PostgresStore, accounts probeAccounts) error {
+	recommendationResponse, err := service.Query(ctx, accounts.manager, workspace.QueryRequest{OperationID: workspace.OperationGetCurrentRecommendation})
+	if err != nil || recommendationResponse.RecommendationSnapshot == nil {
+		return errors.New("manager finalizer could not reload the current recommendation")
+	}
+	recommendationID := recommendationResponse.RecommendationSnapshot.Recommendation.RecommendationID
+	recommendationReload, err := service.Query(ctx, accounts.manager, workspace.QueryRequest{OperationID: workspace.OperationGetCurrentRecommendation})
+	if err != nil || recommendationReload.RecommendationSnapshot == nil || recommendationReload.RecommendationSnapshot.Recommendation.RecommendationID != recommendationID {
+		return errors.New("current recommendation reload was not stable")
+	}
+	inspectionResponse, err := service.Query(ctx, accounts.manager, workspace.QueryRequest{OperationID: workspace.OperationGetCurrentInspection})
+	if err != nil || inspectionResponse.CurrentInspection == nil {
+		return errors.New("manager finalizer could not reload the current inspection")
+	}
+	lifecycle := *inspectionResponse.CurrentInspection
+	inspectionReload, err := service.Query(ctx, accounts.manager, workspace.QueryRequest{OperationID: workspace.OperationGetCurrentInspection})
+	if err != nil || inspectionReload.CurrentInspection == nil || inspectionReload.CurrentInspection.InspectionID != lifecycle.InspectionID {
+		return errors.New("current inspection reload was not stable")
+	}
+	findingState, capState, evidenceState, closureBasis, separated := lifecycleTerminalFacts(lifecycle)
+	if findingState != string(workspace.FindingClosed) || capState != string(workspace.CAPAccepted) || evidenceState != string(workspace.EvidenceAccepted) || closureBasis != "EVIDENCE_VERIFIED" || !separated {
+		return errors.New("manager browser lifecycle did not reach the required terminal projection")
+	}
+	if lifecycle.Revision == 0 {
+		return errors.New("manager browser lifecycle revision is not usable for CAS verification")
+	}
+	_, casErr := service.Command(ctx, accounts.manager, workspace.FamilyLifecycleCommand, workspace.CommandEnvelope{
+		OperationID: workspace.OperationAuthorizedClose, IdempotencyKey: "aga-ws-manager-demo-deny-cas-0001", ExpectedGenerationID: lifecycle.GenerationID,
+		ExpectedLifecycleRevision: lifecycle.Revision - 1, ExpectedLifecycleDigest: lifecycle.Digest, InspectionID: lifecycle.InspectionID,
+		FindingID: lifecycle.Findings[len(lifecycle.Findings)-1].FindingID, ReasonCode: "MANAGER_DEMO_CAS_NEGATIVE_TEST",
+	})
+	if !(errors.Is(casErr, preprod.ErrWorkspaceCAS) || errors.Is(casErr, workspace.ErrLifecycleConflict)) {
+		return errors.New("manager demo stale lifecycle CAS was not rejected")
+	}
+	_, roleErr := service.Command(ctx, accounts.inspector, workspace.FamilyLifecycleCommand, workspace.CommandEnvelope{
+		OperationID: workspace.OperationAuthorizedClose, IdempotencyKey: "aga-ws-manager-demo-deny-role-0001", ExpectedGenerationID: lifecycle.GenerationID,
+		ExpectedLifecycleRevision: lifecycle.Revision, ExpectedLifecycleDigest: lifecycle.Digest, InspectionID: lifecycle.InspectionID,
+		FindingID: lifecycle.Findings[len(lifecycle.Findings)-1].FindingID, ReasonCode: "MANAGER_DEMO_ROLE_NEGATIVE_TEST",
+	})
+	if !errors.Is(roleErr, workspace.ErrNeutralDenied) {
+		return errors.New("manager demo role denial was not enforced")
+	}
+	if _, organizationErr := service.Query(ctx, accounts.other, workspace.QueryRequest{OperationID: workspace.OperationGetInspection, InspectionID: lifecycle.InspectionID}); !errors.Is(organizationErr, workspace.ErrNeutralDenied) {
+		return errors.New("manager demo organization denial was not enforced")
+	}
+	beforeReset, err := commandStore.Snapshot(ctx)
+	if err != nil {
+		return err
+	}
+	resetCommand := workspace.CommandEnvelope{OperationID: workspace.OperationResetGeneration, IdempotencyKey: "aga-ws-manager-demo-reset-0001", ExpectedGenerationID: beforeReset.Generation.GenerationID, ExpectedGenerationRevision: beforeReset.Generation.Revision, ExpectedGenerationSealDigest: beforeReset.Generation.SealDigest, ReasonCode: "RESET_AFTER_MANAGER_DEMO"}
+	resetResponse, err := service.Command(ctx, accounts.admin, workspace.FamilyAdminCommand, resetCommand)
+	if err != nil || resetResponse.Generation == nil || resetResponse.Generation.State != preprod.GenerationActive {
+		return fmt.Errorf("manager demo reset failed: %w", err)
+	}
+	resetReplay, err := service.Command(ctx, accounts.admin, workspace.FamilyAdminCommand, resetCommand)
+	if err != nil || !resetReplay.Replayed {
+		return errors.New("manager demo reset replay failed")
+	}
+	if _, err = service.Query(ctx, accounts.manager, workspace.QueryRequest{OperationID: workspace.OperationGetCurrentInspection}); !errors.Is(err, workspace.ErrNeutralDenied) {
+		return errors.New("manager demo old inspection remained current after reset")
+	}
+	fmt.Printf("{\"schemaVersion\":\"aga-manager-multi-role-finalizer/v1\",\"sourceKind\":\"connected-postgres\",\"lifecycleCommandCount\":10,\"lifecycleReplayVerified\":%t,\"casConflictRejected\":true,\"roleDenied\":true,\"organizationDenied\":true,\"recommendationReloadVerified\":true,\"inspectionReloadVerified\":true,\"findingState\":\"%s\",\"capState\":\"%s\",\"evidenceState\":\"%s\",\"closureBasis\":\"%s\",\"commentInternalSeparated\":%t,\"resetSucceeded\":true,\"resetReplay\":true,\"oldInspectionDenied\":true,\"finalState\":\"%s\"}\n", resetReplay.Replayed, findingState, capState, evidenceState, closureBasis, separated, lifecycle.State)
+	return nil
+}
+
+func probeSimulationSetup(ctx context.Context, service *workspace.Service, manager identity.Principal) (workspace.SimulationSetupProjection, error) {
+	response, err := service.Query(ctx, manager, workspace.QueryRequest{OperationID: workspace.OperationGetSimulationSetup})
+	if err != nil {
+		return workspace.SimulationSetupProjection{}, err
+	}
+	if response.SimulationSetup == nil || response.SimulationSetup.SimulationSetupDigest == "" || response.SimulationSetup.ReadinessEventID != "" {
+		return workspace.SimulationSetupProjection{}, errors.New("simulation setup is missing or stateful")
+	}
+	return *response.SimulationSetup, nil
+}
+
+func probeEligibleSubset(loaded preprod.LoadedWorkspace, setup workspace.SimulationSetupProjection, wanted int) ([]workspace.ClassificationReviewItem, []string, error) {
+	selected := make([]workspace.ClassificationReviewItem, 0, wanted)
+	domainCounts := make(map[string]int)
+	for _, item := range loaded.Items {
+		domainCode := item.Projection.MainDomainCode
+		if domainCode == "" {
+			return nil, nil, errors.New("deterministic batch domain is missing")
+		}
+		domainCounts[domainCode]++
+		reviewItem := workspace.ClassificationReviewItem{ClassificationItem: item, QuestionRef: aga.BaseQuestionReference(item.Identity), QuestionOrigin: "SEALED_BASE"}
+		if len(selected) < wanted && probeItemEligible(reviewItem, setup) {
+			selected = append(selected, reviewItem)
+		}
+	}
+	if len(selected) != wanted {
+		return nil, nil, fmt.Errorf("deterministic eligible subset has %d rows, want %d", len(selected), wanted)
+	}
+	domains := make([]string, 0, len(domainCounts))
+	for domainCode, count := range domainCounts {
+		if count > workspace.MaxBatchPreviewSize {
+			return nil, nil, fmt.Errorf("deterministic batch domain %q has %d rows, exceeds %d", domainCode, count, workspace.MaxBatchPreviewSize)
+		}
+		domains = append(domains, domainCode)
+	}
+	sort.Strings(domains)
+	return selected, domains, nil
+}
+
+func probeItemEligible(item workspace.ClassificationReviewItem, setup workspace.SimulationSetupProjection) bool {
+	projection := item.Projection
+	if projection.CanonicalTargetKind != setup.CanonicalTargetKind || projection.TargetProfileCode != setup.TargetProfileCode || !probeContains(projection.InspectionProfileCodes, setup.InspectionProfileCode) || !probeContains(projection.InspectionTypeCodes, setup.InspectionTypeCode) || !probeQualifiersEqual(projection.OperationQualifiers, setup.OperationQualifiers) || !probeQualifiersEqual(projection.ActivityQualifiers, setup.ActivityQualifiers) {
+		return false
+	}
+	switch projection.ApplicabilityDisposition {
+	case "APPLICABLE", "CONDITIONAL_ON_CONFIGURATION", "CONDITIONAL_ON_FACILITY", "CONDITIONAL_ON_OPERATION":
+		return true
+	default:
+		return false
+	}
+}
+
+func probeContains(values []string, wanted string) bool {
+	for _, value := range values {
+		if value == wanted {
+			return true
+		}
+	}
+	return false
+}
+
+func probeQualifiersEqual(left, right []aga.Qualifier) bool {
+	leftCopy := append([]aga.Qualifier(nil), left...)
+	rightCopy := append([]aga.Qualifier(nil), right...)
+	sort.Slice(leftCopy, func(i, j int) bool {
+		return leftCopy[i].Key+"\x00"+leftCopy[i].Value < leftCopy[j].Key+"\x00"+leftCopy[j].Value
+	})
+	sort.Slice(rightCopy, func(i, j int) bool {
+		return rightCopy[i].Key+"\x00"+rightCopy[i].Value < rightCopy[j].Key+"\x00"+rightCopy[j].Value
+	})
+	if len(leftCopy) != len(rightCopy) {
+		return false
+	}
+	for index := range leftCopy {
+		if leftCopy[index] != rightCopy[index] {
+			return false
+		}
+	}
+	return true
+}
+
+func probeBatch(ctx context.Context, service *workspace.Service, manager identity.Principal, filter workspace.BatchFilter, action workspace.BatchAction, reason string, sequence *int) (bool, error) {
+	setup, err := probeSimulationSetup(ctx, service, manager)
+	if err != nil {
+		return false, fmt.Errorf("batch setup failed: %w", err)
+	}
+	*sequence++
+	previewKey := fmt.Sprintf("aga-ws-probe-batch-preview-%04d", *sequence)
+	previewResponse, err := service.Command(ctx, manager, workspace.FamilyClassificationCommand, workspace.CommandEnvelope{
+		OperationID: workspace.OperationPreviewBatch, IdempotencyKey: previewKey, ExpectedGenerationID: setup.GenerationID,
+		ExpectedDraftRevision: setup.DraftRevision, ExpectedDraftContentDigest: setup.DraftContentDigest,
+		BatchFilter: &filter, BatchAction: action, ReasonCode: reason, SetupDigest: setup.SimulationSetupDigest,
+	})
+	if err != nil {
+		return false, fmt.Errorf("batch preview failed for %s/%s: %w", filter.FormCode, filter.Disposition, err)
+	}
+	if previewResponse.BatchPreview == nil {
+		return false, errors.New("batch preview response missing")
+	}
+	preview := previewResponse.BatchPreview
+	if preview.Count == 0 {
+		return false, nil
+	}
+	if preview.Count > workspace.MaxBatchPreviewSize {
+		return false, workspace.ErrBatchPreviewTooLarge
+	}
+	*sequence++
+	executeKey := fmt.Sprintf("aga-ws-probe-batch-execute-%04d", *sequence)
+	executeResponse, err := service.Command(ctx, manager, workspace.FamilyClassificationCommand, workspace.CommandEnvelope{
+		OperationID: workspace.OperationExecuteBatch, IdempotencyKey: executeKey, ExpectedGenerationID: setup.GenerationID,
+		ExpectedDraftRevision: preview.DraftRevision, ExpectedDraftContentDigest: preview.DraftContentDigest,
+		PreviewID: preview.PreviewID, PreviewDigest: preview.PreviewDigest, BatchFilter: &filter, BatchAction: action, ReasonCode: reason, SetupDigest: setup.SimulationSetupDigest,
+	})
+	if err != nil {
+		return false, fmt.Errorf("batch execution failed for %s/%s: %w", filter.FormCode, filter.Disposition, err)
+	}
+	if executeResponse.BatchPreview == nil || executeResponse.BatchPreview.ConsumedAt == nil {
+		return false, errors.New("batch execution did not consume its server preview")
+	}
+	return true, nil
 }
 
 func recommendationRequest(command workspace.CommandEnvelope) aga.RecommendationRequest {

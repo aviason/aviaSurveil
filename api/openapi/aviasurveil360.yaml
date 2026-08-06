@@ -8802,6 +8802,64 @@
         "x-organization-scope": "authorized-projection"
       }
     },
+    "/v1/preprod/aga-demo-workspace/recommendations/query": {
+      "post": {
+        "operationId": "queryAGADemoWorkspaceRecommendation",
+        "x-operation-kind": "query",
+        "x-neutral-denial": true,
+        "x-authorized-roles": [
+          "manager"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGADemoWorkspaceQuery"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current synthetic recommendation snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGADemoWorkspaceQueryResponse"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "404": {
+            "description": "Neutral recommendation denial",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGADemoWorkspaceNotFound"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
     "/v1/preprod/aga-demo-workspace/lifecycle/query": {
       "post": {
         "operationId": "queryAGADemoWorkspaceLifecycle",
@@ -20515,40 +20573,431 @@
           }
         }
       },
-      "AGADemoWorkspaceQuery": {
+      "AGADemoWorkspaceQualifier": {
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "operationId"
+          "key",
+          "value"
         ],
         "properties": {
-          "operationId": {
+          "key": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
+      "AGADemoWorkspaceProposalProjection": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "mainDomainCode": {
+            "type": "string"
+          },
+          "topicCodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "inspectionProfileCodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "inspectionTypeCodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "canonicalTargetKind": {
+            "type": "string"
+          },
+          "targetProfileCode": {
+            "type": "string"
+          },
+          "operationQualifiers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AGADemoWorkspaceQualifier"
+            }
+          },
+          "activityQualifiers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AGADemoWorkspaceQualifier"
+            }
+          },
+          "applicabilityDisposition": {
+            "type": "string"
+          },
+          "evidenceExpectationCodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "externalInvolvements": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false
+            }
+          }
+        }
+      },
+      "AGADemoWorkspaceParentQuestionKey": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "questionOrigin",
+              "packageVersion",
+              "packageJsonSha256",
+              "formCode",
+              "proposalId",
+              "ordinal",
+              "textDigest"
+            ],
+            "properties": {
+              "questionOrigin": {
+                "type": "string",
+                "const": "SEALED_BASE"
+              },
+              "packageVersion": {
+                "type": "string"
+              },
+              "packageJsonSha256": {
+                "type": "string"
+              },
+              "formCode": {
+                "type": "string"
+              },
+              "proposalId": {
+                "type": "string"
+              },
+              "ordinal": {
+                "type": "integer"
+              },
+              "textDigest": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "questionOrigin",
+              "generationId",
+              "questionRootId",
+              "questionVersionId",
+              "proposalId",
+              "rootSequence",
+              "bodyDigest"
+            ],
+            "properties": {
+              "questionOrigin": {
+                "type": "string",
+                "const": "WORKSPACE"
+              },
+              "generationId": {
+                "type": "string"
+              },
+              "questionRootId": {
+                "type": "string"
+              },
+              "questionVersionId": {
+                "type": "string"
+              },
+              "proposalId": {
+                "type": "string"
+              },
+              "rootSequence": {
+                "type": "integer"
+              },
+              "bodyDigest": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              }
+            }
+          }
+        ]
+      },
+      "AGADemoWorkspaceQuestionReference": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "questionOrigin",
+              "packageVersion",
+              "packageJsonSha256",
+              "formCode",
+              "proposalId",
+              "ordinal",
+              "textDigest"
+            ],
+            "properties": {
+              "questionOrigin": {
+                "type": "string",
+                "const": "SEALED_BASE"
+              },
+              "packageVersion": {
+                "type": "string"
+              },
+              "packageJsonSha256": {
+                "type": "string"
+              },
+              "formCode": {
+                "type": "string"
+              },
+              "proposalId": {
+                "type": "string"
+              },
+              "ordinal": {
+                "type": "integer"
+              },
+              "textDigest": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "questionOrigin",
+              "generationId",
+              "questionRootId",
+              "questionVersionId",
+              "proposalId",
+              "rootSequence",
+              "bodyDigest",
+              "parentQuestionKey",
+              "createdBySubjectId",
+              "createdAt",
+              "reasonCode"
+            ],
+            "properties": {
+              "questionOrigin": {
+                "type": "string",
+                "const": "WORKSPACE"
+              },
+              "generationId": {
+                "type": "string"
+              },
+              "questionRootId": {
+                "type": "string"
+              },
+              "questionVersionId": {
+                "type": "string"
+              },
+              "proposalId": {
+                "type": "string"
+              },
+              "rootSequence": {
+                "type": "integer"
+              },
+              "bodyDigest": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              "parentQuestionKey": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/AGADemoWorkspaceParentQuestionKey"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "createdBySubjectId": {
+                "type": "string"
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "reasonCode": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "AGADemoWorkspaceClassificationReviewItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "identity",
+          "questionKey",
+          "questionRef",
+          "questionOrigin",
+          "projection",
+          "agreementConfidence",
+          "recommendationState",
+          "governance",
+          "itemSemanticDigest",
+          "candidateDigest",
+          "challengeDigest"
+        ],
+        "properties": {
+          "identity": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "packageVersion",
+              "packageJsonSha256",
+              "formCode",
+              "proposalId",
+              "ordinal",
+              "textDigest"
+            ],
+            "properties": {
+              "packageVersion": {
+                "type": "string"
+              },
+              "packageJsonSha256": {
+                "type": "string"
+              },
+              "formCode": {
+                "type": "string"
+              },
+              "proposalId": {
+                "type": "string"
+              },
+              "ordinal": {
+                "type": "integer"
+              },
+              "textDigest": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              }
+            }
+          },
+          "questionKey": {
+            "type": "string"
+          },
+          "questionRef": {
+            "$ref": "#/components/schemas/AGADemoWorkspaceQuestionReference"
+          },
+          "questionOrigin": {
             "type": "string",
             "enum": [
-              "GET_SUMMARY",
-              "GET_TAXONOMY",
-              "GET_PROVIDER_CONFIGURATION",
-              "SEARCH_ITEMS",
-              "GET_DRAFT",
-              "GET_HISTORY",
-              "GET_INSPECTION",
-              "GET_FINDING",
-              "GET_CAP_EVIDENCE",
-              "GET_ROLE_HISTORY"
+              "SEALED_BASE",
+              "WORKSPACE"
             ]
           },
+          "projection": {
+            "$ref": "#/components/schemas/AGADemoWorkspaceProposalProjection"
+          },
+          "agreementConfidence": {
+            "type": "string"
+          },
+          "recommendationState": {
+            "type": "string"
+          },
+          "governance": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "sourceMappingState",
+              "sourceAuthorityState",
+              "riskClassificationState",
+              "decisionState",
+              "extractionState",
+              "questionSourceProposalGap",
+              "externalApplicabilityUnresolved",
+              "blockerCodes"
+            ],
+            "properties": {
+              "sourceMappingState": {
+                "type": "string"
+              },
+              "sourceAuthorityState": {
+                "type": "string"
+              },
+              "riskClassificationState": {
+                "type": "string"
+              },
+              "decisionState": {
+                "type": "string"
+              },
+              "extractionState": {
+                "type": "string"
+              },
+              "questionSourceProposalGap": {
+                "type": "boolean"
+              },
+              "externalApplicabilityUnresolved": {
+                "type": "boolean"
+              },
+              "blockerCodes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "itemSemanticDigest": {
+            "type": "string"
+          },
+          "candidateDigest": {
+            "type": "string"
+          },
+          "challengeDigest": {
+            "type": "string"
+          },
+          "draftAgreementConfidence": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "draftRecommendationState": {
+            "type": "string"
+          },
+          "draftReviewState": {
+            "type": "string"
+          },
+          "draftDisposition": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "questionText": {
+            "type": "string",
+            "readOnly": true
+          },
+          "questionTextDigest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "readOnly": true
+          },
+          "textOrigin": {
+            "type": "string",
+            "readOnly": true
+          }
+        }
+      },
+      "AGADemoWorkspaceBatchFilter": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
           "search": {
             "type": "string",
-            "maxLength": 256
-          },
-          "page": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "pageSize": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 1000
+            "maxLength": 200
           },
           "domainCode": {
             "type": "string"
@@ -20585,6 +21034,531 @@
           },
           "formCode": {
             "type": "string"
+          },
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "INCLUDE",
+              "EXCLUDE",
+              "DEFER",
+              "UNSET"
+            ]
+          }
+        }
+      },
+      "AGADemoWorkspaceBatchPreview": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "previewId",
+          "generationId",
+          "draftId",
+          "draftRevision",
+          "draftContentDigest",
+          "classificationRunDigest",
+          "filter",
+          "filterDigest",
+          "affectedIdentityDigest",
+          "action",
+          "reasonCode",
+          "count",
+          "currentDisposition",
+          "eligibleCount",
+          "ineligibleCount",
+          "blockerCount",
+          "sourceGapCount",
+          "expiresAt",
+          "previewDigest"
+        ],
+        "properties": {
+          "previewId": {
+            "type": "string"
+          },
+          "generationId": {
+            "type": "string"
+          },
+          "draftId": {
+            "type": "string"
+          },
+          "draftRevision": {
+            "type": "integer"
+          },
+          "draftContentDigest": {
+            "type": "string"
+          },
+          "classificationRunDigest": {
+            "type": "string"
+          },
+          "filter": {
+            "$ref": "#/components/schemas/AGADemoWorkspaceBatchFilter"
+          },
+          "filterDigest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "affectedIdentityDigest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "INCLUDE",
+              "EXCLUDE",
+              "DEFER"
+            ]
+          },
+          "reasonCode": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "currentDisposition": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "include",
+              "exclude",
+              "defer",
+              "unset"
+            ],
+            "properties": {
+              "include": {
+                "type": "integer"
+              },
+              "exclude": {
+                "type": "integer"
+              },
+              "defer": {
+                "type": "integer"
+              },
+              "unset": {
+                "type": "integer"
+              }
+            }
+          },
+          "eligibleCount": {
+            "type": "integer"
+          },
+          "ineligibleCount": {
+            "type": "integer"
+          },
+          "blockerCount": {
+            "type": "integer"
+          },
+          "sourceGapCount": {
+            "type": "integer"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "previewDigest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "consumedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AGADemoWorkspaceSimulationRoleChoice": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "selectionPin",
+          "label",
+          "role"
+        ],
+        "properties": {
+          "selectionPin": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          }
+        }
+      },
+      "AGADemoWorkspaceSimulationSetup": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "generationId",
+          "generationRevision",
+          "generationSealDigest",
+          "draftId",
+          "draftRevision",
+          "draftContentDigest",
+          "taxonomyVersion",
+          "taxonomyDigest",
+          "classificationRunId",
+          "classificationRunDigest",
+          "providerScopeRootId",
+          "providerScopeId",
+          "providerScopeVersion",
+          "providerTypeId",
+          "providerTypeCode",
+          "departmentId",
+          "organizationalUnitId",
+          "targetId",
+          "canonicalTargetKind",
+          "targetProfileCode",
+          "inspectionProfileCode",
+          "inspectionTypeCode",
+          "operationQualifiers",
+          "activityQualifiers",
+          "effectiveAt",
+          "providerScopeDigest",
+          "readinessState",
+          "currentLeafCount",
+          "includedCount",
+          "excludedCount",
+          "deferredCount",
+          "unsetCount",
+          "includedEligibleCount",
+          "includedIneligibleCount",
+          "includedBlockerCount",
+          "includedSourceGapCount",
+          "formDistribution",
+          "domainDistribution",
+          "topicDistribution",
+          "inspectorChoices",
+          "leadChoices",
+          "simulationSetupDigest"
+        ],
+        "properties": {
+          "generationId": {
+            "type": "string"
+          },
+          "generationRevision": {
+            "type": "integer"
+          },
+          "generationSealDigest": {
+            "type": "string"
+          },
+          "draftId": {
+            "type": "string"
+          },
+          "draftRevision": {
+            "type": "integer"
+          },
+          "draftContentDigest": {
+            "type": "string"
+          },
+          "taxonomyVersion": {
+            "type": "string"
+          },
+          "taxonomyDigest": {
+            "type": "string"
+          },
+          "classificationRunId": {
+            "type": "string"
+          },
+          "classificationRunDigest": {
+            "type": "string"
+          },
+          "organizationLabel": {
+            "type": "string"
+          },
+          "providerLabel": {
+            "type": "string"
+          },
+          "targetLabel": {
+            "type": "string"
+          },
+          "providerScopeRootId": {
+            "type": "string"
+          },
+          "providerScopeId": {
+            "type": "string"
+          },
+          "providerScopeVersion": {
+            "type": "integer"
+          },
+          "providerTypeId": {
+            "type": "string"
+          },
+          "providerTypeCode": {
+            "type": "string",
+            "const": "AERODROME_OPERATOR"
+          },
+          "departmentId": {
+            "type": "string"
+          },
+          "organizationalUnitId": {
+            "type": "string"
+          },
+          "targetId": {
+            "type": "string"
+          },
+          "canonicalTargetKind": {
+            "type": "string"
+          },
+          "targetProfileCode": {
+            "type": "string"
+          },
+          "inspectionProfileCode": {
+            "type": "string"
+          },
+          "inspectionTypeCode": {
+            "type": "string"
+          },
+          "operationQualifiers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AGADemoWorkspaceQualifier"
+            }
+          },
+          "activityQualifiers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AGADemoWorkspaceQualifier"
+            }
+          },
+          "effectiveAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "providerScopeDigest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "readinessState": {
+            "type": "string"
+          },
+          "readinessEventDigest": {
+            "type": "string"
+          },
+          "recommendationId": {
+            "type": "string"
+          },
+          "recommendationRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "recommendationDigest": {
+            "type": "string"
+          },
+          "currentLeafCount": {
+            "type": "integer"
+          },
+          "includedCount": {
+            "type": "integer"
+          },
+          "excludedCount": {
+            "type": "integer"
+          },
+          "deferredCount": {
+            "type": "integer"
+          },
+          "unsetCount": {
+            "type": "integer"
+          },
+          "includedEligibleCount": {
+            "type": "integer"
+          },
+          "includedIneligibleCount": {
+            "type": "integer"
+          },
+          "includedBlockerCount": {
+            "type": "integer"
+          },
+          "includedSourceGapCount": {
+            "type": "integer"
+          },
+          "formDistribution": {
+            "type": "object",
+            "additionalProperties": false,
+            "patternProperties": {
+              "^[A-Za-z0-9_-]+$": {
+                "type": "integer"
+              }
+            }
+          },
+          "domainDistribution": {
+            "type": "object",
+            "additionalProperties": false,
+            "patternProperties": {
+              "^[A-Za-z0-9_-]+$": {
+                "type": "integer"
+              }
+            }
+          },
+          "topicDistribution": {
+            "type": "object",
+            "additionalProperties": false,
+            "patternProperties": {
+              "^[A-Za-z0-9_-]+$": {
+                "type": "integer"
+              }
+            }
+          },
+          "inspectorChoices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AGADemoWorkspaceSimulationRoleChoice"
+            }
+          },
+          "leadChoices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AGADemoWorkspaceSimulationRoleChoice"
+            }
+          },
+          "simulationSetupDigest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          }
+        }
+      },
+      "AGADemoWorkspaceLifecycleQuestionPageItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "questionKey",
+          "questionRef",
+          "rootSequence",
+          "projection",
+          "questionText",
+          "questionTextDigest"
+        ],
+        "properties": {
+          "questionKey": {
+            "type": "string"
+          },
+          "questionRef": {
+            "type": "object",
+            "additionalProperties": false
+          },
+          "rootSequence": {
+            "type": "integer"
+          },
+          "projection": {
+            "$ref": "#/components/schemas/AGADemoWorkspaceProposalProjection"
+          },
+          "questionText": {
+            "type": "string"
+          },
+          "questionTextDigest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          }
+        }
+      },
+      "AGADemoWorkspaceQuestionTextPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "page",
+          "pageSize"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AGADemoWorkspaceLifecycleQuestionPageItem"
+            }
+          },
+          "page": {
+            "type": "integer"
+          },
+          "pageSize": {
+            "type": "integer"
+          },
+          "nextPage": {
+            "type": "integer"
+          }
+        }
+      },
+      "AGADemoWorkspaceQuery": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "enum": [
+              "GET_SUMMARY",
+              "GET_TAXONOMY",
+              "GET_PROVIDER_CONFIGURATION",
+              "SEARCH_ITEMS",
+              "GET_DRAFT",
+              "GET_HISTORY",
+              "GET_SIMULATION_SETUP",
+              "GET_CURRENT_RECOMMENDATION",
+              "GET_CURRENT_INSPECTION",
+              "GET_INSPECTION_QUESTION_PAGE",
+              "GET_INSPECTION",
+              "GET_FINDING",
+              "GET_CAP_EVIDENCE",
+              "GET_ROLE_HISTORY"
+            ]
+          },
+          "search": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "pageSize": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 25
+          },
+          "domainCode": {
+            "type": "string"
+          },
+          "topicCode": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "string"
+          },
+          "blocker": {
+            "type": "string",
+            "enum": [
+              "all",
+              "true",
+              "false"
+            ]
+          },
+          "sourceGap": {
+            "type": "string",
+            "enum": [
+              "all",
+              "true",
+              "false"
+            ]
+          },
+          "externalInvolvement": {
+            "type": "string",
+            "enum": [
+              "all",
+              "true",
+              "false"
+            ]
+          },
+          "formCode": {
+            "type": "string"
+          },
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "INCLUDE",
+              "EXCLUDE",
+              "DEFER",
+              "UNSET"
+            ]
           },
           "inspectionId": {
             "type": "string"
@@ -20719,39 +21693,13 @@
           "operationQualifiers": {
             "type": "array",
             "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "key",
-                "value"
-              ],
-              "properties": {
-                "key": {
-                  "type": "string"
-                },
-                "value": {
-                  "type": "string"
-                }
-              }
+              "$ref": "#/components/schemas/AGADemoWorkspaceQualifier"
             }
           },
           "activityQualifiers": {
             "type": "array",
             "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "key",
-                "value"
-              ],
-              "properties": {
-                "key": {
-                  "type": "string"
-                },
-                "value": {
-                  "type": "string"
-                }
-              }
+              "$ref": "#/components/schemas/AGADemoWorkspaceQualifier"
             }
           },
           "effectiveAt": {
@@ -20784,7 +21732,8 @@
             "pattern": "^sha256:[0-9a-f]{64}$"
           },
           "readinessEventId": {
-            "type": "string"
+            "type": "string",
+            "readOnly": true
           },
           "readinessEventDigest": {
             "type": "string",
@@ -20817,76 +21766,7 @@
             "type": "string"
           },
           "exactProjection": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "mainDomainCode": {
-                "type": "string"
-              },
-              "topicCodes": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "inspectionProfileCodes": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "inspectionTypeCodes": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "canonicalTargetKind": {
-                "type": "string"
-              },
-              "targetProfileCode": {
-                "type": "string"
-              },
-              "operationQualifiers": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "key": {
-                      "type": "string"
-                    },
-                    "value": {
-                      "type": "string"
-                    }
-                  }
-                }
-              },
-              "activityQualifiers": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "key": {
-                      "type": "string"
-                    },
-                    "value": {
-                      "type": "string"
-                    }
-                  }
-                }
-              },
-              "applicabilityDisposition": {
-                "type": "string"
-              },
-              "evidenceExpectationCodes": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              }
-            }
+            "$ref": "#/components/schemas/AGADemoWorkspaceProposalProjection"
           },
           "workspaceBody": {
             "type": "string"
@@ -20901,6 +21781,27 @@
           "previewDigest": {
             "type": "string",
             "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "batchFilter": {
+            "$ref": "#/components/schemas/AGADemoWorkspaceBatchFilter"
+          },
+          "batchAction": {
+            "type": "string",
+            "enum": [
+              "INCLUDE",
+              "EXCLUDE",
+              "DEFER"
+            ]
+          },
+          "simulationSetupDigest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "inspectorSelectionPin": {
+            "type": "string"
+          },
+          "leadSelectionPin": {
+            "type": "string"
           },
           "lifecyclePayload": {
             "type": "object",
@@ -21228,252 +22129,13 @@
           "items": {
             "type": "array",
             "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "identity",
-                "questionKey",
-                "projection",
-                "agreementConfidence",
-                "recommendationState",
-                "governance",
-                "itemSemanticDigest",
-                "candidateDigest",
-                "challengeDigest"
-              ],
-              "properties": {
-                "identity": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "packageVersion",
-                    "packageJsonSha256",
-                    "formCode",
-                    "proposalId",
-                    "ordinal",
-                    "textDigest"
-                  ],
-                  "properties": {
-                    "packageVersion": {
-                      "type": "string"
-                    },
-                    "packageJsonSha256": {
-                      "type": "string"
-                    },
-                    "formCode": {
-                      "type": "string"
-                    },
-                    "proposalId": {
-                      "type": "string"
-                    },
-                    "ordinal": {
-                      "type": "integer"
-                    },
-                    "textDigest": {
-                      "type": "string"
-                    }
-                  }
-                },
-                "questionKey": {
-                  "type": "string"
-                },
-                "projection": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "mainDomainCode",
-                    "topicCodes",
-                    "inspectionProfileCodes",
-                    "inspectionTypeCodes",
-                    "canonicalTargetKind",
-                    "targetProfileCode",
-                    "operationQualifiers",
-                    "activityQualifiers",
-                    "applicabilityDisposition",
-                    "evidenceExpectationCodes",
-                    "externalInvolvements"
-                  ],
-                  "properties": {
-                    "mainDomainCode": {
-                      "type": "string"
-                    },
-                    "topicCodes": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    },
-                    "inspectionProfileCodes": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    },
-                    "inspectionTypeCodes": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    },
-                    "canonicalTargetKind": {
-                      "type": "string"
-                    },
-                    "targetProfileCode": {
-                      "type": "string"
-                    },
-                    "operationQualifiers": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "additionalProperties": false,
-                        "required": [
-                          "key",
-                          "value"
-                        ],
-                        "properties": {
-                          "key": {
-                            "type": "string"
-                          },
-                          "value": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    },
-                    "activityQualifiers": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "additionalProperties": false,
-                        "required": [
-                          "key",
-                          "value"
-                        ],
-                        "properties": {
-                          "key": {
-                            "type": "string"
-                          },
-                          "value": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    },
-                    "applicabilityDisposition": {
-                      "type": "string"
-                    },
-                    "evidenceExpectationCodes": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    },
-                    "externalInvolvements": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "additionalProperties": false,
-                        "properties": {
-                          "providerTypeCode": {
-                            "type": "string"
-                          },
-                          "involvementRoleCode": {
-                            "type": "string"
-                          },
-                          "conditionCode": {
-                            "type": "string"
-                          },
-                          "applicabilityDisposition": {
-                            "type": "string"
-                          },
-                          "blockerCodes": {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                },
-                "agreementConfidence": {
-                  "type": "string"
-                },
-                "recommendationState": {
-                  "type": "string"
-                },
-                "governance": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "sourceMappingState",
-                    "sourceAuthorityState",
-                    "riskClassificationState",
-                    "decisionState",
-                    "extractionState",
-                    "questionSourceProposalGap",
-                    "externalApplicabilityUnresolved",
-                    "blockerCodes"
-                  ],
-                  "properties": {
-                    "sourceMappingState": {
-                      "type": "string"
-                    },
-                    "sourceAuthorityState": {
-                      "type": "string"
-                    },
-                    "riskClassificationState": {
-                      "type": "string"
-                    },
-                    "decisionState": {
-                      "type": "string"
-                    },
-                    "extractionState": {
-                      "type": "string"
-                    },
-                    "questionSourceProposalGap": {
-                      "type": "boolean"
-                    },
-                    "externalApplicabilityUnresolved": {
-                      "type": "boolean"
-                    },
-                    "blockerCodes": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    }
-                  }
-                },
-                "itemSemanticDigest": {
-                  "type": "string"
-                },
-                "candidateDigest": {
-                  "type": "string"
-                },
-                "challengeDigest": {
-                  "type": "string"
-                },
-                "draftAgreementConfidence": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
-                },
-                "draftRecommendationState": {
-                  "type": "string"
-                },
-                "draftReviewState": {
-                  "type": "string"
-                },
-                "draftDisposition": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
-                }
-              }
+              "$ref": "#/components/schemas/AGADemoWorkspaceClassificationReviewItem"
+            }
+          },
+          "reviewItems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AGADemoWorkspaceClassificationReviewItem"
             }
           },
           "itemCount": {
@@ -21526,6 +22188,21 @@
           },
           "lifecycleAuditee": {
             "$ref": "#/components/schemas/AGADemoWorkspaceLifecycleAuditeeProjection"
+          },
+          "questionPage": {
+            "$ref": "#/components/schemas/AGADemoWorkspaceQuestionTextPage"
+          },
+          "simulationSetup": {
+            "$ref": "#/components/schemas/AGADemoWorkspaceSimulationSetup"
+          },
+          "recommendationSnapshot": {
+            "$ref": "#/components/schemas/AGADemoWorkspaceRecommendationSnapshot"
+          },
+          "currentInspection": {
+            "$ref": "#/components/schemas/AGADemoWorkspaceLifecycleProjection"
+          },
+          "batchPreview": {
+            "$ref": "#/components/schemas/AGADemoWorkspaceBatchPreview"
           }
         }
       },
@@ -21818,6 +22495,9 @@
           },
           "recommendation": {
             "$ref": "#/components/schemas/AGADemoWorkspaceRecommendationSnapshot"
+          },
+          "batchPreview": {
+            "$ref": "#/components/schemas/AGADemoWorkspaceBatchPreview"
           },
           "resetTombstone": {
             "$ref": "#/components/schemas/AGADemoWorkspaceResetTombstone"

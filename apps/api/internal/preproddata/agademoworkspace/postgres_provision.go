@@ -159,6 +159,13 @@ CREATE TABLE IF NOT EXISTS preprod_aga_demo_workspace.batch_previews (
   consumed_at timestamptz NULL,
   payload jsonb NOT NULL
 );
+CREATE TABLE IF NOT EXISTS preprod_aga_demo_workspace.batch_preview_consumptions (
+  preview_id text PRIMARY KEY REFERENCES preprod_aga_demo_workspace.batch_previews(preview_id),
+  generation_id text NOT NULL,
+  preview_digest text NOT NULL,
+  consumed_at timestamptz NOT NULL,
+  payload jsonb NOT NULL
+);
 CREATE TABLE IF NOT EXISTS preprod_aga_demo_workspace.authority_bindings (
   binding_id text PRIMARY KEY,
   generation_id text NOT NULL,
@@ -442,6 +449,29 @@ BEGIN
   ELSIF operation = 'GET_RECOMMENDATION' THEN
     RETURN COALESCE((SELECT payload FROM preprod_aga_demo_workspace.recommendation_snapshots
       WHERE generation_id = input->>'generationId' AND recommendation_id = input->>'recommendationId'), 'null'::jsonb);
+  ELSIF operation = 'GET_CURRENT_RECOMMENDATIONS' THEN
+    RETURN COALESCE((SELECT jsonb_agg(payload ORDER BY created_at)
+      FROM preprod_aga_demo_workspace.recommendation_snapshots
+      WHERE generation_id = input->>'generationId'), '[]'::jsonb);
+  ELSIF operation = 'GET_CURRENT_WORKSPACE_QUESTION_VERSIONS' THEN
+    RETURN COALESCE((SELECT jsonb_agg(payload ORDER BY root_sequence, question_version_id)
+      FROM preprod_aga_demo_workspace.question_versions
+      WHERE generation_id = input->>'generationId' AND current_leaf), '[]'::jsonb);
+  ELSIF operation = 'GET_BATCH_PREVIEW' THEN
+    RETURN COALESCE((SELECT preview.payload || CASE WHEN consumption.consumed_at IS NULL THEN '{}'::jsonb
+      ELSE jsonb_build_object('consumedAt', consumption.consumed_at) END
+      FROM preprod_aga_demo_workspace.batch_previews preview
+      LEFT JOIN preprod_aga_demo_workspace.batch_preview_consumptions consumption
+        ON consumption.preview_id = preview.preview_id
+       AND consumption.generation_id = preview.generation_id
+      WHERE preview.generation_id = input->>'generationId' AND preview.preview_id = input->>'previewId'), 'null'::jsonb);
+  ELSIF operation = 'GET_CURRENT_LIFECYCLES' THEN
+    RETURN COALESCE((SELECT jsonb_agg(jsonb_build_object(
+      'lifecycleId', lifecycle_id, 'generationId', generation_id,
+      'recommendationId', recommendation_id, 'revision', revision,
+      'digest', digest, 'state', state, 'createdAt', created_at) ORDER BY created_at)
+      FROM preprod_aga_demo_workspace.lifecycle_streams
+      WHERE generation_id = input->>'generationId'), '[]'::jsonb);
   ELSIF operation = 'GET_LIFECYCLE_EVENTS' THEN
     RETURN COALESCE((SELECT jsonb_agg(jsonb_build_object(
       'eventId', event_id, 'lifecycleId', lifecycle_id, 'sequence', sequence,
@@ -525,6 +555,90 @@ BEGIN
       input->>'contentDigest', input->>'state', input->'payload', (input->>'createdAt')::timestamptz,
       input->>'canonicalPayload', input->>'rowDigest');
     RETURN jsonb_build_object('status', 'APPENDED');
+  ELSIF input->>'operation' = 'APPEND_BATCH_DRAFT' THEN
+    IF NOT EXISTS (
+      SELECT 1
+      FROM preprod_aga_demo_workspace.drafts current_draft
+      WHERE current_draft.generation_id = input->>'generationId'
+        AND current_draft.draft_id = input->>'draftId'
+        AND current_draft.revision = (input->>'expectedRevision')::integer
+        AND current_draft.content_digest = input->>'expectedContentDigest'
+        AND current_draft.revision = (
+          SELECT max(latest.revision)
+          FROM preprod_aga_demo_workspace.drafts latest
+          WHERE latest.generation_id = input->>'generationId'
+            AND latest.draft_id = input->>'draftId')) THEN
+      RAISE EXCEPTION 'batch draft compare-and-set conflict';
+    END IF;
+    INSERT INTO preprod_aga_demo_workspace.drafts
+      (generation_id,draft_id,revision,content_digest,state,payload,created_at,canonical_payload,row_digest)
+    VALUES (input->>'generationId', input->>'draftId', (input->>'revision')::integer,
+      input->>'contentDigest', input->>'state', input->'payload', (input->>'createdAt')::timestamptz,
+      input->>'canonicalPayload', input->>'rowDigest');
+    RETURN jsonb_build_object('status', 'APPENDED');
+  ELSIF input->>'operation' = 'APPEND_BATCH_PREVIEW' THEN
+    INSERT INTO preprod_aga_demo_workspace.batch_previews
+      (preview_id,generation_id,draft_id,draft_revision,preview_digest,expires_at,payload)
+    VALUES (input->>'previewId', input->>'generationId', input->>'draftId', (input->>'draftRevision')::integer,
+      input->>'previewDigest', (input->>'expiresAt')::timestamptz, input->'payload');
+    RETURN jsonb_build_object('status', 'APPENDED');
+  ELSIF input->>'operation' = 'CONSUME_BATCH_PREVIEW' THEN
+    INSERT INTO preprod_aga_demo_workspace.batch_preview_consumptions
+      (preview_id,generation_id,preview_digest,consumed_at,payload)
+    SELECT preview.preview_id, preview.generation_id, preview.preview_digest,
+      (input->>'consumedAt')::timestamptz,
+      jsonb_build_object('previewId', preview.preview_id, 'generationId', preview.generation_id,
+        'previewDigest', preview.preview_digest, 'consumedAt', (input->>'consumedAt')::timestamptz)
+    FROM preprod_aga_demo_workspace.batch_previews preview
+    WHERE preview.preview_id = input->>'previewId'
+      AND preview.generation_id = input->>'generationId'
+      AND preview.preview_digest = input->>'previewDigest'
+      AND preview.expires_at > (input->>'consumedAt')::timestamptz
+      AND NOT EXISTS (
+        SELECT 1 FROM preprod_aga_demo_workspace.batch_preview_consumptions existing
+        WHERE existing.preview_id = preview.preview_id AND existing.generation_id = preview.generation_id);
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'batch preview compare-and-set conflict';
+    END IF;
+    RETURN jsonb_build_object('status', 'CONSUMED');
+  ELSIF input->>'operation' = 'APPEND_BATCH_DRAFT_AND_CONSUME' THEN
+    IF NOT EXISTS (
+      SELECT 1
+      FROM preprod_aga_demo_workspace.drafts current_draft
+      WHERE current_draft.generation_id = input->>'generationId'
+        AND current_draft.draft_id = input->>'draftId'
+        AND current_draft.revision = (input->>'expectedRevision')::integer
+        AND current_draft.content_digest = input->>'expectedContentDigest'
+        AND current_draft.revision = (
+          SELECT max(latest.revision)
+          FROM preprod_aga_demo_workspace.drafts latest
+          WHERE latest.generation_id = input->>'generationId'
+            AND latest.draft_id = input->>'draftId')) THEN
+      RAISE EXCEPTION 'batch draft compare-and-set conflict';
+    END IF;
+    INSERT INTO preprod_aga_demo_workspace.batch_preview_consumptions
+      (preview_id,generation_id,preview_digest,consumed_at,payload)
+    SELECT preview.preview_id, preview.generation_id, preview.preview_digest,
+      (input->>'consumedAt')::timestamptz,
+      jsonb_build_object('previewId', preview.preview_id, 'generationId', preview.generation_id,
+        'previewDigest', preview.preview_digest, 'consumedAt', (input->>'consumedAt')::timestamptz)
+    FROM preprod_aga_demo_workspace.batch_previews preview
+    WHERE preview.preview_id = input->>'previewId'
+      AND preview.generation_id = input->>'generationId'
+      AND preview.preview_digest = input->>'previewDigest'
+      AND preview.expires_at > (input->>'consumedAt')::timestamptz
+      AND NOT EXISTS (
+        SELECT 1 FROM preprod_aga_demo_workspace.batch_preview_consumptions existing
+        WHERE existing.preview_id = preview.preview_id AND existing.generation_id = preview.generation_id);
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'batch preview compare-and-set conflict';
+    END IF;
+    INSERT INTO preprod_aga_demo_workspace.drafts
+      (generation_id,draft_id,revision,content_digest,state,payload,created_at,canonical_payload,row_digest)
+    VALUES (input->>'generationId', input->>'draftId', (input->>'revision')::integer,
+      input->>'contentDigest', input->>'state', input->'payload', (input->>'createdAt')::timestamptz,
+      input->>'canonicalPayload', input->>'rowDigest');
+    RETURN jsonb_build_object('status', 'APPENDED_AND_CONSUMED');
   ELSIF input->>'operation' = 'APPEND_RECOMMENDATION' THEN
     INSERT INTO preprod_aga_demo_workspace.recommendation_snapshots
       (recommendation_id,generation_id,draft_id,draft_revision,recommendation_digest,snapshot_digest,payload,created_at)
@@ -656,7 +770,7 @@ END $$;
 // append-only family. Reset tombstones and idempotency responses are included;
 // a response is inserted once and replayed, never updated in place.
 func WorkspaceAppendOnlyTriggerDDL() string {
-	const relations = `generations reset_tombstones taxonomy_versions classification_runs classification_pass_records classification_items classification_involvement_edges drafts draft_items question_versions manager_decisions batch_previews authority_bindings provider_scopes provider_targets readiness_snapshots recommendation_snapshots lifecycle_streams lifecycle_events idempotency_responses workspace_seals credential_revocation_receipts`
+	const relations = `generations reset_tombstones taxonomy_versions classification_runs classification_pass_records classification_items classification_involvement_edges drafts draft_items question_versions manager_decisions batch_previews batch_preview_consumptions authority_bindings provider_scopes provider_targets readiness_snapshots recommendation_snapshots lifecycle_streams lifecycle_events idempotency_responses workspace_seals credential_revocation_receipts`
 	var statements []string
 	for _, relation := range strings.Fields(relations) {
 		statements = append(statements, fmt.Sprintf("DROP TRIGGER IF EXISTS %s_append_only ON %s.%s; CREATE TRIGGER %s_append_only BEFORE UPDATE OR DELETE ON %s.%s FOR EACH ROW EXECUTE FUNCTION %s.reject_mutation();", relation, WorkspaceSchemaName, relation, relation, WorkspaceSchemaName, relation, WorkspaceSchemaName))
@@ -759,5 +873,5 @@ func RevokeWorkspaceOneShotLogins(ctx context.Context, pool *database.Pool) erro
 }
 
 func WorkspaceSchemaObjectNames() []string {
-	return strings.Fields("generations reset_tombstones taxonomy_versions classification_runs classification_pass_records classification_items classification_involvement_edges drafts draft_items question_versions manager_decisions batch_previews authority_bindings provider_scopes provider_targets readiness_snapshots recommendation_snapshots lifecycle_streams lifecycle_events idempotency_responses workspace_seals credential_revocation_receipts")
+	return strings.Fields("generations reset_tombstones taxonomy_versions classification_runs classification_pass_records classification_items classification_involvement_edges drafts draft_items question_versions manager_decisions batch_previews batch_preview_consumptions authority_bindings provider_scopes provider_targets readiness_snapshots recommendation_snapshots lifecycle_streams lifecycle_events idempotency_responses workspace_seals credential_revocation_receipts")
 }

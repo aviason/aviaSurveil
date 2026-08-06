@@ -233,8 +233,14 @@ function privacyScanRawFile(name, bytes) {
 
 function validateHappyFacts(facts) {
   exactKeys(facts, HAPPY_KEYS, "HAPPY_FACT_KEYS");
-  for (const [key, expected] of Object.entries(EXPECTED_HAPPY_FACTS)) if (facts[key] !== expected) fail("HAPPY_FACTS", key);
-  if (facts.workspaceDraftCount !== 1 || !Number.isSafeInteger(facts.terminalWorkspaceDraftCount) || facts.terminalWorkspaceDraftCount < 2 || !Number.isSafeInteger(facts.terminalWorkspaceIdempotencyCount) || facts.terminalWorkspaceIdempotencyCount < 10) fail("HAPPY_WORKSPACE_FACTS");
+  const managerMode = facts.terminalWorkspaceDraftCount >= 3;
+  const expected = managerMode
+    ? { ...EXPECTED_HAPPY_FACTS }
+    : EXPECTED_HAPPY_FACTS;
+  for (const [key, value] of Object.entries(expected)) if (facts[key] !== value) fail("HAPPY_FACTS", key);
+  const minimumDrafts = managerMode ? 3 : 2;
+  const minimumIdempotency = managerMode ? 20 : 10;
+  if (facts.workspaceDraftCount !== 1 || !Number.isSafeInteger(facts.terminalWorkspaceDraftCount) || facts.terminalWorkspaceDraftCount < minimumDrafts || !Number.isSafeInteger(facts.terminalWorkspaceIdempotencyCount) || facts.terminalWorkspaceIdempotencyCount < minimumIdempotency) fail("HAPPY_WORKSPACE_FACTS");
 }
 
 function validateHappyEvidence(evidence) {
@@ -404,6 +410,7 @@ function validateProvenance(directory, provenance, ledger) {
   if (ledger.ledgerKind === "fault-matrix" && ledger.evidence.sourceKind !== "connected-receipt") fail("PROVENANCE_SYNTHETIC_LEDGER");
   const referenceDigest = (name) => references.find((reference) => reference.name === `raw/${name}`)?.digest;
   if (ledger.ledgerKind === "happy-path") {
+    const managerMode = ledger.facts.terminalWorkspaceDraftCount >= 3;
     const bindings = [
       ["forbiddenBaselineDigest", "forbidden-before.json"],
       ["forbiddenFinalDigest", "forbidden-after-workspace.json"],
@@ -432,10 +439,17 @@ function validateProvenance(directory, provenance, ledger) {
     if (!authManifest || authManifest.schemaVersion !== "aga-hybrid-auth-control-event-manifest/v1" || authManifest.eventCount !== ledger.evidence.authControlEventCount || !Array.isArray(authManifest.events) || authManifest.events.length !== authManifest.eventCount) fail("PROVENANCE_AUTH_EVENTS");
     const lifecycleReference = references.find((reference) => reference.name === "raw/lifecycle-probe.json");
     const lifecycle = lifecycleReference ? JSON.parse(readFileSync(resolve(directory, lifecycleReference.name), "utf8")) : null;
-    if (!lifecycle || lifecycle.schemaVersion !== "aga-hybrid-connected-lifecycle-probe/v1" || lifecycle.lifecycleCommandCount !== ledger.evidence.lifecycleCommandCount || lifecycle.findingState !== "CLOSED" || lifecycle.capState !== "ACCEPTED" || lifecycle.evidenceState !== "ACCEPTED" || lifecycle.closureBasis !== "EVIDENCE_VERIFIED" || !lifecycle.resetSucceeded || !lifecycle.resetReplay || !lifecycle.oldGenerationDenied) fail("PROVENANCE_LIFECYCLE");
+    if (managerMode) {
+      if (!lifecycle || lifecycle.schemaVersion !== "aga-manager-multi-role-finalizer/v1" || lifecycle.lifecycleCommandCount !== ledger.evidence.lifecycleCommandCount || !lifecycle.lifecycleReplayVerified || !lifecycle.casConflictRejected || !lifecycle.roleDenied || !lifecycle.organizationDenied || lifecycle.findingState !== "CLOSED" || lifecycle.capState !== "ACCEPTED" || lifecycle.evidenceState !== "ACCEPTED" || lifecycle.closureBasis !== "EVIDENCE_VERIFIED" || !lifecycle.resetSucceeded || !lifecycle.resetReplay || !lifecycle.oldInspectionDenied) fail("PROVENANCE_MANAGER_LIFECYCLE");
+      const managerSetupReference = references.find((reference) => reference.name === "raw/manager-setup.json");
+      const managerSetup = managerSetupReference ? JSON.parse(readFileSync(resolve(directory, managerSetupReference.name), "utf8")) : null;
+      if (!managerSetup || managerSetup.schemaVersion !== "aga-manager-package-setup/v1" || managerSetup.sourceKind !== "connected-postgres" || managerSetup.inventoryCount !== 1310 || managerSetup.inventoryPageCount !== 53 || managerSetup.uniqueInventoryCount !== 1310 || !managerSetup.boundedBodyProjection || !managerSetup.bodyDigestProjection || !managerSetup.currentRecommendationAbsent || !managerSetup.currentInspectionAbsent) fail("PROVENANCE_MANAGER_SETUP");
+    } else if (!lifecycle || lifecycle.schemaVersion !== "aga-hybrid-connected-lifecycle-probe/v1" || lifecycle.lifecycleCommandCount !== ledger.evidence.lifecycleCommandCount || lifecycle.findingState !== "CLOSED" || lifecycle.capState !== "ACCEPTED" || lifecycle.evidenceState !== "ACCEPTED" || lifecycle.closureBasis !== "EVIDENCE_VERIFIED" || !lifecycle.resetSucceeded || !lifecycle.resetReplay || !lifecycle.oldGenerationDenied) fail("PROVENANCE_LIFECYCLE");
     const terminalReference = references.find((reference) => reference.name === "raw/workspace-terminal-facts.json");
     const terminal = terminalReference ? JSON.parse(readFileSync(resolve(directory, terminalReference.name), "utf8")) : null;
-    if (!terminal || terminal.terminalWorkspaceGenerationCount !== 2 || terminal.terminalWorkspaceActiveGenerationCount !== 1 || terminal.terminalWorkspaceResetGenerationCount !== 1 || terminal.terminalWorkspaceLifecycleEventCount !== 10 || terminal.terminalWorkspaceResetTombstoneCount !== 1) fail("PROVENANCE_TERMINAL_WORKSPACE");
+    if (managerMode) {
+      if (!terminal || terminal.managerGenerationCount !== 2 || terminal.managerActiveGenerationCount !== 1 || terminal.managerResetGenerationCount !== 1 || terminal.managerLifecycleEventCount !== 10 || terminal.managerResetTombstoneCount !== 1) fail("PROVENANCE_MANAGER_TERMINAL_WORKSPACE");
+    } else if (!terminal || terminal.terminalWorkspaceGenerationCount !== 2 || terminal.terminalWorkspaceActiveGenerationCount !== 1 || terminal.terminalWorkspaceResetGenerationCount !== 1 || terminal.terminalWorkspaceLifecycleEventCount !== 10 || terminal.terminalWorkspaceResetTombstoneCount !== 1) fail("PROVENANCE_TERMINAL_WORKSPACE");
   } else {
     if (ledger.evidence.f3ExecutionDigest !== referenceDigest("execution.json") || ledger.evidence.outerJournalDigest !== referenceDigest("outer-journal.jsonl")) fail("PROVENANCE_F3_BINDING");
     const executionReference = references.find((reference) => reference.name === "raw/execution.json");
@@ -488,6 +502,7 @@ export function writeProvenanceManifest(ledgerDirectory, rawRoot, ledgerKind) {
   mkdirSync(rawDirectory, { recursive: true, mode: 0o700 });
   const references = [];
   if (ledgerKind === "happy-path") {
+    const managerMode = process.env.AVIA_AGA_MANAGER_DEMO_MODE === "1";
     copyRawReference(rawDirectory, resolve(rawRoot, "phase-receipts/phase-inputs.jsonl"), "phase-receipts/phase-inputs.jsonl", "phase-receipts", references);
     copyRawReference(rawDirectory, resolve(rawRoot, "phase-receipts/journal.jsonl"), "phase-receipts/journal.jsonl", "phase-receipts", references);
     copyRawDirectory(rawDirectory, resolve(rawRoot, "target-receipts"), "target-receipts", "target-receipts", references);
@@ -497,8 +512,16 @@ export function writeProvenanceManifest(ledgerDirectory, rawRoot, ledgerKind) {
     for (const name of ["overlay-before.json", "overlay-after-seal.json", "overlay-after-workspace.json"]) copyRawReference(rawDirectory, resolve(rawRoot, name), name, "overlay-snapshot", references);
     for (const name of ["auth-before-oidc.json", "auth-after-oidc.json", "auth-before-browser.json", "auth-after-browser.json", "auth-events-manifest.json"]) copyRawReference(rawDirectory, resolve(rawRoot, name), name, "auth-snapshot", references);
     copyRawDirectory(rawDirectory, resolve(rawRoot, "auth-events"), "auth-events", "auth-snapshot", references);
-    copyRawReference(rawDirectory, resolve(rawRoot, "lifecycle-probe.json"), "lifecycle-probe.json", "lifecycle-probe", references);
-    copyRawReference(rawDirectory, resolve(rawRoot, "workspace-terminal-facts.json"), "workspace-terminal-facts.json", "workspace-terminal-facts", references);
+    if (managerMode) {
+      copyRawReference(rawDirectory, resolve(rawRoot, "manager-finalizer.json"), "lifecycle-probe.json", "lifecycle-probe", references);
+      copyRawReference(rawDirectory, resolve(rawRoot, "manager-terminal-facts.json"), "workspace-terminal-facts.json", "workspace-terminal-facts", references);
+      for (const [name, role] of [["manager-setup.json", "manager-setup"], ["manager-finalizer.json", "manager-finalizer"], ["manager-terminal-facts.json", "manager-terminal-facts"], ["manager-evidence.json", "manager-evidence"], ["manager-browser.log", "manager-browser-result"], ["manager-browser-discovery.log", "manager-browser-result"]]) {
+        if (existsSync(resolve(rawRoot, name))) copyRawReference(rawDirectory, resolve(rawRoot, name), name, role, references);
+      }
+    } else {
+      copyRawReference(rawDirectory, resolve(rawRoot, "lifecycle-probe.json"), "lifecycle-probe.json", "lifecycle-probe", references);
+      copyRawReference(rawDirectory, resolve(rawRoot, "workspace-terminal-facts.json"), "workspace-terminal-facts.json", "workspace-terminal-facts", references);
+    }
     for (const name of ["browser.log", "browser-discovery-full.log", "browser-discovery.log"]) copyRawReference(rawDirectory, resolve(rawRoot, name), name, "browser-result", references);
   } else if (ledgerKind === "fault-matrix") {
     copyRawReference(rawDirectory, resolve(rawRoot, "outer-journal.jsonl"), "outer-journal.jsonl", "outer-journal", references);

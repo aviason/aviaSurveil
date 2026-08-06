@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { useApplicationRuntime } from "../../app/providers";
 import type {
@@ -35,6 +36,7 @@ type Filters = {
   sourceGap: BooleanFilter;
   externalInvolvement: BooleanFilter;
   formCode: string;
+  disposition: string;
 };
 
 const emptyFilters: Filters = {
@@ -46,6 +48,7 @@ const emptyFilters: Filters = {
   sourceGap: "all",
   externalInvolvement: "all",
   formCode: "",
+  disposition: "",
 };
 
 function queryFor(filters: Filters, page: number): AGADemoWorkspaceQuery {
@@ -61,6 +64,19 @@ function queryFor(filters: Filters, page: number): AGADemoWorkspaceQuery {
     ...(filters.sourceGap !== "all" ? { sourceGap: filters.sourceGap } : {}),
     ...(filters.externalInvolvement !== "all" ? { externalInvolvement: filters.externalInvolvement } : {}),
     ...(filters.formCode.trim() ? { formCode: filters.formCode.trim() } : {}),
+    ...(filters.disposition ? { disposition: filters.disposition as "INCLUDE" | "EXCLUDE" | "DEFER" | "UNSET" } : {}),
+  };
+}
+
+function metadataOnlyResponse(response: AGADemoWorkspaceQueryResponse): AGADemoWorkspaceQueryResponse {
+  const stripText = (row: WorkspaceRow): WorkspaceRow => {
+    const { questionText: _questionText, questionTextDigest: _questionTextDigest, textOrigin: _textOrigin, ...metadata } = row;
+    return metadata as WorkspaceRow;
+  };
+  return {
+    ...response,
+    items: response.items?.map(stripText),
+    reviewItems: response.reviewItems?.map(stripText),
   };
 }
 
@@ -162,6 +178,8 @@ export function AGADemoClassificationWorkspacePage({
     const controller = new AbortController();
     if (!classificationAvailable || !client) return () => controller.abort();
     const key = `${filterKey}:${page}`;
+    setPageResponse(null);
+    setSelected(null);
     const cached = pageCache.current.get(key);
     if (cached) {
       setPageResponse(cached);
@@ -172,7 +190,7 @@ export function AGADemoClassificationWorkspacePage({
     void client.classificationQuery(queryFor(filters, page), { signal: controller.signal })
       .then((response) => {
         if (controller.signal.aborted) return;
-        pageCache.current.set(key, response);
+        pageCache.current.set(key, metadataOnlyResponse(response));
         while (pageCache.current.size > MAX_PAGE_CACHE) {
           const oldest = pageCache.current.keys().next().value;
           if (oldest === undefined) break;
@@ -258,13 +276,6 @@ export function AGADemoClassificationWorkspacePage({
   const runAction = useCallback((operationId: AGADemoWorkspaceCommand["operationId"], extra?: Partial<AGADemoWorkspaceCommand>) => {
     void executeCommand(operationId, extra).catch(() => undefined);
   }, [executeCommand]);
-
-  const previewBatch = useCallback(() => {
-    runAction("PREVIEW_BATCH", {
-      action: "INCLUDE",
-      previewId: `server-preview-${commandSequence.current + 1}`,
-    });
-  }, [runAction]);
 
   const createCandidate = useCallback(async () => {
     if (!workspaceBody.trim() || !selected) {
@@ -385,13 +396,14 @@ export function AGADemoClassificationWorkspacePage({
             <label>Blocker<select aria-label="Blocker filter" value={filters.blocker} onChange={(event) => updateFilter("blocker", event.target.value)}><option value="all">All</option><option value="true">Has blocker</option><option value="false">No blocker</option></select></label>
             <label>Source gap<select aria-label="Source-gap filter" value={filters.sourceGap} onChange={(event) => updateFilter("sourceGap", event.target.value)}><option value="all">All</option><option value="true">Has gap</option><option value="false">No gap</option></select></label>
             <label>External involvement<select aria-label="External-involvement filter" value={filters.externalInvolvement} onChange={(event) => updateFilter("externalInvolvement", event.target.value)}><option value="all">All</option><option value="true">Unresolved</option><option value="false">Resolved</option></select></label>
+            <label>Draft disposition<select aria-label="Disposition filter" value={filters.disposition} onChange={(event) => updateFilter("disposition", event.target.value)}><option value="">All</option><option value="INCLUDE">INCLUDE</option><option value="EXCLUDE">EXCLUDE</option><option value="DEFER">DEFER</option><option value="UNSET">UNSET</option></select></label>
           </div>
         </section>
 
         <section aria-label="Sealed classification rows" className="aga-workspace-register">
-          <div className="aga-workspace-register__head"><div><h2>Sealed base classification</h2><p>Only server-returned identity references and non-text digests are shown.</p></div><div className="aga-workspace-pagination"><button disabled={currentPageNumber === 0 || loading} onClick={() => setPage((value) => Math.max(0, value - 1))} type="button">Previous page</button><span>Page {currentPageNumber + 1}</span><button disabled={!hasNextPage || loading} onClick={() => setPage((value) => value + 1)} type="button">Next page</button></div></div>
+          <div className="aga-workspace-register__head"><div><h2>Sealed base classification</h2><p>Authorized roles receive only the active 25-row sealed text page; the four-page cache stores metadata without bodies.</p></div><div className="aga-workspace-pagination"><button disabled={currentPageNumber === 0 || loading} onClick={() => setPage((value) => Math.max(0, value - 1))} type="button">Previous page</button><span>Page {currentPageNumber + 1}</span><button disabled={!hasNextPage || loading} onClick={() => setPage((value) => value + 1)} type="button">Next page</button></div></div>
           {loading ? <p role="status">Loading server page…</p> : null}
-          <div className="aga-workspace-table-wrap"><table><caption className="sr-only">Sealed AGA classification page</caption><thead><tr><th scope="col">Server reference</th><th scope="col">Classification</th><th scope="col">Sealed AI confidence / provenance</th><th scope="col">Draft-effective state</th><th scope="col">Review</th></tr></thead><tbody>{rows.map((row) => <tr data-selected={selected?.questionKey === row.questionKey ? "true" : undefined} key={row.questionKey}><th scope="row"><button className="aga-workspace-row-link" onClick={() => setSelected(row)} type="button">{row.identity.formCode} · {row.identity.ordinal}</button><small>{row.identity.proposalId} · {row.questionKey}</small></th><td><strong>{row.projection.mainDomainCode}</strong><small>{row.projection.topicCodes.join(" · ") || "No topic"}</small><small>{row.recommendationState}</small></td><td><strong>{row.agreementConfidence}</strong><small>candidate {row.candidateDigest}</small><small>challenge {row.challengeDigest}</small></td><td><strong>{row.draftAgreementConfidence ?? "Nullable / not set"}</strong><small>{row.draftReviewState || "Review state not set"}</small><small>{row.draftDisposition ?? "Disposition not set"}</small></td><td><button onClick={() => setSelected(row)} type="button">Open controls</button></td></tr>)}</tbody></table></div>
+          <div className="aga-workspace-table-wrap"><table><caption className="sr-only">Sealed AGA classification page</caption><thead><tr><th scope="col">Server reference</th><th scope="col">Sealed candidate text</th><th scope="col">Classification</th><th scope="col">Confidence / provenance</th><th scope="col">Draft-effective state</th><th scope="col">Review</th></tr></thead><tbody>{rows.map((row) => <tr data-selected={selected?.questionKey === row.questionKey ? "true" : undefined} key={row.questionKey}><th scope="row"><button className="aga-workspace-row-link" onClick={() => setSelected(row)} type="button">{row.identity.formCode} · {row.identity.ordinal}</button><small>{row.identity.proposalId} · {row.questionKey}</small></th><td><p className="aga-workspace-question-text">{row.questionText ?? "Sealed candidate text is not available in this projection."}</p><small>{row.textOrigin === "SEALED_BASE" ? "sealed candidate text · digest matched" : "text projection not returned"}</small></td><td><strong>{row.projection.mainDomainCode}</strong><small>{(row.projection.topicCodes ?? []).join(" · ") || "No topic"}</small><small>{row.recommendationState}</small></td><td><strong>{row.agreementConfidence}</strong><small>candidate {row.candidateDigest}</small><small>challenge {row.challengeDigest}</small></td><td><strong>{row.draftAgreementConfidence ?? "Nullable / not set"}</strong><small>{row.draftReviewState || "Review state not set"}</small><small>{row.draftDisposition ?? "Disposition not set"}</small></td><td><button onClick={() => setSelected(row)} type="button">Open controls</button></td></tr>)}</tbody></table></div>
           {!loading && rows.length === 0 ? <p className="aga-workspace-empty">No sealed rows match the server filters.</p> : null}
         </section>
 
@@ -417,8 +429,7 @@ export function AGADemoClassificationWorkspacePage({
             <button disabled={!selected || pending} onClick={() => runAction("RESOLVE_CLASSIFICATION_PROPOSALS", { resolutionMode: "CANDIDATE" })} type="button">Use candidate proposal</button>
             <button disabled={!selected || pending} onClick={() => runAction("RESOLVE_CLASSIFICATION_PROPOSALS", { resolutionMode: "CHALLENGE" })} type="button">Use challenge proposal</button>
             <button disabled={!selected || pending} onClick={() => runAction("RESOLVE_CLASSIFICATION_PROPOSALS", { resolutionMode: "SET_EXACT", exactProjection: selected?.projection })} type="button">Set exact proposal</button>
-            <button disabled={!selected || pending} onClick={previewBatch} type="button">Preview exact batch</button>
-            <button disabled={!selected || pending} onClick={() => runAction("EXECUTE_BATCH", { action: "INCLUDE" })} type="button">Execute exact batch</button>
+            {role === "manager" ? <Link className="aga-workspace-button" to="/department-manager/aga-demo-workspace/inspection-package">Open inspection package builder</Link> : null}
           </div>
           <label>Candidate or successor wording<textarea aria-label="Candidate or successor wording" value={workspaceBody} onChange={(event) => setWorkspaceBody(event.target.value)} /></label>
           <div className="aga-workspace-actions"><button disabled={!selected || !workspaceBody.trim() || pending} onClick={() => void createCandidate()} type="button">Add candidate</button><button disabled={!selected || !workspaceBody.trim() || pending} onClick={() => void rewordCandidate()} type="button">Create immutable wording successor</button><button aria-label="Mark ready unavailable" disabled title="Readiness requires the complete server-pinned provider scope digest and controlled readiness event." type="button">Mark ready unavailable</button></div>

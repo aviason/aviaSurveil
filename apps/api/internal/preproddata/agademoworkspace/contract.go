@@ -258,6 +258,33 @@ type BatchPreview struct {
 	Filter  aga.DraftBatchFilter  `json:"filter"`
 }
 
+// SelectionBatchPreviewRecord is the append-only storage representation for
+// the successor manager batch flow. It contains immutable question
+// identities and digests only; the original question body is never copied
+// into the workspace batch artifact.
+type SelectionBatchPreviewItem struct {
+	QuestionKey    string `json:"questionKey"`
+	IdentityDigest string `json:"identityDigest"`
+}
+
+type SelectionBatchPreviewRecord struct {
+	PreviewID               string                      `json:"previewId"`
+	GenerationID            string                      `json:"generationId"`
+	DraftID                 string                      `json:"draftId"`
+	DraftRevision           int                         `json:"draftRevision"`
+	DraftContentDigest      string                      `json:"draftContentDigest"`
+	ClassificationRunDigest string                      `json:"classificationRunDigest"`
+	FilterJSON              string                      `json:"filterJson"`
+	FilterDigest            string                      `json:"filterDigest"`
+	AffectedIdentityDigest  string                      `json:"affectedIdentityDigest"`
+	Action                  string                      `json:"action"`
+	ReasonCode              string                      `json:"reasonCode"`
+	Items                   []SelectionBatchPreviewItem `json:"items"`
+	PreviewDigest           string                      `json:"previewDigest"`
+	ExpiresAt               time.Time                   `json:"expiresAt"`
+	ConsumedAt              *time.Time                  `json:"consumedAt,omitempty"`
+}
+
 type AuthorityBinding struct {
 	BindingID            string   `json:"bindingId"`
 	SubjectSlot          string   `json:"subjectSlot"`

@@ -60,7 +60,22 @@ function lifecycleClient(current: AGADemoWorkspaceLifecycleProjection): AGADemoW
 }
 
 describe("AGA synthetic CAP and Evidence page", () => {
-  it("submits CAP metadata as the matching Auditee without exposing Internal CAA Notes", async () => {
+	it("uses the final append-only CAP state when one revision records submission and pending review", async () => {
+		const current = projection();
+		current.findings[0] = { ...current.findings[0]!, state: "PENDING_CAA_REVIEW", nextAction: "REVIEW_CAP" };
+		current.capRevisions = [
+			{ capId: "cap-test-1", findingId: "finding-test-1", revision: 1, state: "SUBMITTED", rootCause: "root", correctiveAction: "correct", preventiveAction: "prevent", responsiblePerson: "owner", createdAt: "2026-08-04T13:00:00Z", digest: "sha256:" + "7".repeat(64) },
+			{ capId: "cap-test-1", findingId: "finding-test-1", revision: 1, state: "PENDING_CAA_REVIEW", rootCause: "root", correctiveAction: "correct", preventiveAction: "prevent", responsiblePerson: "owner", createdAt: "2026-08-04T13:00:01Z", digest: "sha256:" + "8".repeat(64) },
+		];
+		const client = lifecycleClient(current);
+		renderPage(client, "manager", current);
+		const user = userEvent.setup();
+		await user.type(screen.getByRole("textbox", { name: "Lifecycle Comment to Auditee" }), "CAP review comment");
+		await user.type(screen.getByRole("textbox", { name: "Internal CAA Note" }), "Private review note");
+		await waitFor(() => expect(screen.getByRole("button", { name: "Review CAP" })).toBeEnabled());
+	});
+
+	it("submits CAP metadata as the matching Auditee without exposing Internal CAA Notes", async () => {
     const client = lifecycleClient(projection());
     renderPage(client);
     const user = userEvent.setup();

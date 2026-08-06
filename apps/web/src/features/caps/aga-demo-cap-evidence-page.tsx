@@ -14,7 +14,10 @@ function latestFinding(projection: NonNullable<ReturnType<typeof useLifecycleWor
 }
 
 function latestCAP(projection: NonNullable<ReturnType<typeof useLifecycleWorkspace>["projection"]>, findingId: string) {
-  return projection.capRevisions.filter((cap) => cap.findingId === findingId).sort((left, right) => right.revision - left.revision)[0];
+	return projection.capRevisions.reduce<NonNullable<ReturnType<typeof useLifecycleWorkspace>["projection"]>["capRevisions"][number] | undefined>((latest, candidate) => {
+		if (candidate.findingId !== findingId) return latest;
+		return !latest || candidate.revision >= latest.revision ? candidate : latest;
+	}, undefined);
 }
 
 function latestEvidence(projection: NonNullable<ReturnType<typeof useLifecycleWorkspace>["projection"]>, findingId: string) {

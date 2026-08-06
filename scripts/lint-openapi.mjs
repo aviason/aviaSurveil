@@ -133,6 +133,7 @@ const expectedPaths = [
   "/v1/preprod/aga-demo-workspace/classification/query",
   "/v1/preprod/aga-demo-workspace/classification/commands",
   "/v1/preprod/aga-demo-workspace/recommendations/commands",
+  "/v1/preprod/aga-demo-workspace/recommendations/query",
   "/v1/preprod/aga-demo-workspace/lifecycle/query",
   "/v1/preprod/aga-demo-workspace/lifecycle/commands",
   "/v1/preprod/aga-demo-workspace/admin/commands",

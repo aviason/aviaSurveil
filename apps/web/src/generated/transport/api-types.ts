@@ -2004,6 +2004,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/preprod/aga-demo-workspace/recommendations/query": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["queryAGADemoWorkspaceRecommendation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/preprod/aga-demo-workspace/lifecycle/query": {
         parameters: {
             query?: never;
@@ -4754,9 +4770,229 @@ export interface components {
             lifecycleEnabled: boolean;
             resetEnabled: boolean;
         };
+        AGADemoWorkspaceQualifier: {
+            key: string;
+            value: string;
+        };
+        AGADemoWorkspaceProposalProjection: {
+            mainDomainCode?: string;
+            topicCodes?: string[];
+            inspectionProfileCodes?: string[];
+            inspectionTypeCodes?: string[];
+            canonicalTargetKind?: string;
+            targetProfileCode?: string;
+            operationQualifiers?: components["schemas"]["AGADemoWorkspaceQualifier"][];
+            activityQualifiers?: components["schemas"]["AGADemoWorkspaceQualifier"][];
+            applicabilityDisposition?: string;
+            evidenceExpectationCodes?: string[];
+            externalInvolvements?: Record<string, never>[];
+        };
+        AGADemoWorkspaceParentQuestionKey: {
+            /** @constant */
+            questionOrigin: "SEALED_BASE";
+            packageVersion: string;
+            packageJsonSha256: string;
+            formCode: string;
+            proposalId: string;
+            ordinal: number;
+            textDigest: string;
+        } | {
+            /** @constant */
+            questionOrigin: "WORKSPACE";
+            generationId: string;
+            questionRootId: string;
+            questionVersionId: string;
+            proposalId: string;
+            rootSequence: number;
+            bodyDigest: string;
+        };
+        AGADemoWorkspaceQuestionReference: {
+            /** @constant */
+            questionOrigin: "SEALED_BASE";
+            packageVersion: string;
+            packageJsonSha256: string;
+            formCode: string;
+            proposalId: string;
+            ordinal: number;
+            textDigest: string;
+        } | {
+            /** @constant */
+            questionOrigin: "WORKSPACE";
+            generationId: string;
+            questionRootId: string;
+            questionVersionId: string;
+            proposalId: string;
+            rootSequence: number;
+            bodyDigest: string;
+            parentQuestionKey: components["schemas"]["AGADemoWorkspaceParentQuestionKey"] | null;
+            createdBySubjectId: string;
+            /** Format: date-time */
+            createdAt: string;
+            reasonCode: string;
+        };
+        AGADemoWorkspaceClassificationReviewItem: {
+            identity: {
+                packageVersion: string;
+                packageJsonSha256: string;
+                formCode: string;
+                proposalId: string;
+                ordinal: number;
+                textDigest: string;
+            };
+            questionKey: string;
+            questionRef: components["schemas"]["AGADemoWorkspaceQuestionReference"];
+            /** @enum {string} */
+            questionOrigin: "SEALED_BASE" | "WORKSPACE";
+            projection: components["schemas"]["AGADemoWorkspaceProposalProjection"];
+            agreementConfidence: string;
+            recommendationState: string;
+            governance: {
+                sourceMappingState: string;
+                sourceAuthorityState: string;
+                riskClassificationState: string;
+                decisionState: string;
+                extractionState: string;
+                questionSourceProposalGap: boolean;
+                externalApplicabilityUnresolved: boolean;
+                blockerCodes: string[];
+            };
+            itemSemanticDigest: string;
+            candidateDigest: string;
+            challengeDigest: string;
+            draftAgreementConfidence?: string | null;
+            draftRecommendationState?: string;
+            draftReviewState?: string;
+            draftDisposition?: string | null;
+            readonly questionText?: string;
+            readonly questionTextDigest?: string;
+            readonly textOrigin?: string;
+        };
+        AGADemoWorkspaceBatchFilter: {
+            search?: string;
+            domainCode?: string;
+            topicCode?: string;
+            confidence?: string;
+            /** @enum {string} */
+            blocker?: "all" | "true" | "false";
+            /** @enum {string} */
+            sourceGap?: "all" | "true" | "false";
+            /** @enum {string} */
+            externalInvolvement?: "all" | "true" | "false";
+            formCode?: string;
+            /** @enum {string} */
+            disposition?: "INCLUDE" | "EXCLUDE" | "DEFER" | "UNSET";
+        };
+        AGADemoWorkspaceBatchPreview: {
+            previewId: string;
+            generationId: string;
+            draftId: string;
+            draftRevision: number;
+            draftContentDigest: string;
+            classificationRunDigest: string;
+            filter: components["schemas"]["AGADemoWorkspaceBatchFilter"];
+            filterDigest: string;
+            affectedIdentityDigest: string;
+            /** @enum {string} */
+            action: "INCLUDE" | "EXCLUDE" | "DEFER";
+            reasonCode: string;
+            count: number;
+            currentDisposition: {
+                include: number;
+                exclude: number;
+                defer: number;
+                unset: number;
+            };
+            eligibleCount: number;
+            ineligibleCount: number;
+            blockerCount: number;
+            sourceGapCount: number;
+            /** Format: date-time */
+            expiresAt: string;
+            previewDigest: string;
+            /** Format: date-time */
+            consumedAt?: string;
+        };
+        AGADemoWorkspaceSimulationRoleChoice: {
+            selectionPin: string;
+            label: string;
+            role: string;
+        };
+        AGADemoWorkspaceSimulationSetup: {
+            generationId: string;
+            generationRevision: number;
+            generationSealDigest: string;
+            draftId: string;
+            draftRevision: number;
+            draftContentDigest: string;
+            taxonomyVersion: string;
+            taxonomyDigest: string;
+            classificationRunId: string;
+            classificationRunDigest: string;
+            organizationLabel?: string;
+            providerLabel?: string;
+            targetLabel?: string;
+            providerScopeRootId: string;
+            providerScopeId: string;
+            providerScopeVersion: number;
+            providerTypeId: string;
+            /** @constant */
+            providerTypeCode: "AERODROME_OPERATOR";
+            departmentId: string;
+            organizationalUnitId: string;
+            targetId: string;
+            canonicalTargetKind: string;
+            targetProfileCode: string;
+            inspectionProfileCode: string;
+            inspectionTypeCode: string;
+            operationQualifiers: components["schemas"]["AGADemoWorkspaceQualifier"][];
+            activityQualifiers: components["schemas"]["AGADemoWorkspaceQualifier"][];
+            /** Format: date-time */
+            effectiveAt: string;
+            providerScopeDigest: string;
+            readinessState: string;
+            readinessEventDigest?: string;
+            recommendationId?: string;
+            recommendationRevision?: number;
+            recommendationDigest?: string;
+            currentLeafCount: number;
+            includedCount: number;
+            excludedCount: number;
+            deferredCount: number;
+            unsetCount: number;
+            includedEligibleCount: number;
+            includedIneligibleCount: number;
+            includedBlockerCount: number;
+            includedSourceGapCount: number;
+            formDistribution: {
+                [key: string]: number;
+            };
+            domainDistribution: {
+                [key: string]: number;
+            };
+            topicDistribution: {
+                [key: string]: number;
+            };
+            inspectorChoices: components["schemas"]["AGADemoWorkspaceSimulationRoleChoice"][];
+            leadChoices: components["schemas"]["AGADemoWorkspaceSimulationRoleChoice"][];
+            simulationSetupDigest: string;
+        };
+        AGADemoWorkspaceLifecycleQuestionPageItem: {
+            questionKey: string;
+            questionRef: Record<string, never>;
+            rootSequence: number;
+            projection: components["schemas"]["AGADemoWorkspaceProposalProjection"];
+            questionText: string;
+            questionTextDigest: string;
+        };
+        AGADemoWorkspaceQuestionTextPage: {
+            items: components["schemas"]["AGADemoWorkspaceLifecycleQuestionPageItem"][];
+            page: number;
+            pageSize: number;
+            nextPage?: number;
+        };
         AGADemoWorkspaceQuery: {
             /** @enum {string} */
-            operationId: "GET_SUMMARY" | "GET_TAXONOMY" | "GET_PROVIDER_CONFIGURATION" | "SEARCH_ITEMS" | "GET_DRAFT" | "GET_HISTORY" | "GET_INSPECTION" | "GET_FINDING" | "GET_CAP_EVIDENCE" | "GET_ROLE_HISTORY";
+            operationId: "GET_SUMMARY" | "GET_TAXONOMY" | "GET_PROVIDER_CONFIGURATION" | "SEARCH_ITEMS" | "GET_DRAFT" | "GET_HISTORY" | "GET_SIMULATION_SETUP" | "GET_CURRENT_RECOMMENDATION" | "GET_CURRENT_INSPECTION" | "GET_INSPECTION_QUESTION_PAGE" | "GET_INSPECTION" | "GET_FINDING" | "GET_CAP_EVIDENCE" | "GET_ROLE_HISTORY";
             search?: string;
             page?: number;
             pageSize?: number;
@@ -4770,6 +5006,8 @@ export interface components {
             /** @enum {string} */
             externalInvolvement?: "all" | "true" | "false";
             formCode?: string;
+            /** @enum {string} */
+            disposition?: "INCLUDE" | "EXCLUDE" | "DEFER" | "UNSET";
             inspectionId?: string;
             findingId?: string;
             capId?: string;
@@ -4799,14 +5037,8 @@ export interface components {
             targetProfileCode?: string;
             inspectionProfileCode?: string;
             inspectionTypeCode?: string;
-            operationQualifiers?: {
-                key: string;
-                value: string;
-            }[];
-            activityQualifiers?: {
-                key: string;
-                value: string;
-            }[];
+            operationQualifiers?: components["schemas"]["AGADemoWorkspaceQualifier"][];
+            activityQualifiers?: components["schemas"]["AGADemoWorkspaceQualifier"][];
             /** Format: date-time */
             effectiveAt?: string;
             taxonomyVersion?: string;
@@ -4816,7 +5048,7 @@ export interface components {
             draftId?: string;
             draftRevision?: number;
             draftContentDigest?: string;
-            readinessEventId?: string;
+            readonly readinessEventId?: string;
             readinessEventDigest?: string;
             recommendationId?: string;
             recommendationDigest?: string;
@@ -4826,28 +5058,17 @@ export interface components {
             mainDomainCode?: string;
             topicCode?: string;
             resolutionMode?: string;
-            exactProjection?: {
-                mainDomainCode?: string;
-                topicCodes?: string[];
-                inspectionProfileCodes?: string[];
-                inspectionTypeCodes?: string[];
-                canonicalTargetKind?: string;
-                targetProfileCode?: string;
-                operationQualifiers?: {
-                    key?: string;
-                    value?: string;
-                }[];
-                activityQualifiers?: {
-                    key?: string;
-                    value?: string;
-                }[];
-                applicabilityDisposition?: string;
-                evidenceExpectationCodes?: string[];
-            };
+            exactProjection?: components["schemas"]["AGADemoWorkspaceProposalProjection"];
             workspaceBody?: string;
             workspaceBodyDigest?: string;
             previewId?: string;
             previewDigest?: string;
+            batchFilter?: components["schemas"]["AGADemoWorkspaceBatchFilter"];
+            /** @enum {string} */
+            batchAction?: "INCLUDE" | "EXCLUDE" | "DEFER";
+            simulationSetupDigest?: string;
+            inspectorSelectionPin?: string;
+            leadSelectionPin?: string;
             lifecyclePayload?: {
                 reasonCode?: string;
                 commentToAuditee?: string;
@@ -4945,61 +5166,8 @@ export interface components {
             operation: string;
             generation: components["schemas"]["AGADemoWorkspaceGeneration"];
             draft?: components["schemas"]["AGADemoWorkspaceDraft"];
-            items?: {
-                identity: {
-                    packageVersion: string;
-                    packageJsonSha256: string;
-                    formCode: string;
-                    proposalId: string;
-                    ordinal: number;
-                    textDigest: string;
-                };
-                questionKey: string;
-                projection: {
-                    mainDomainCode: string;
-                    topicCodes: string[];
-                    inspectionProfileCodes: string[];
-                    inspectionTypeCodes: string[];
-                    canonicalTargetKind: string;
-                    targetProfileCode: string;
-                    operationQualifiers: {
-                        key: string;
-                        value: string;
-                    }[];
-                    activityQualifiers: {
-                        key: string;
-                        value: string;
-                    }[];
-                    applicabilityDisposition: string;
-                    evidenceExpectationCodes: string[];
-                    externalInvolvements: {
-                        providerTypeCode?: string;
-                        involvementRoleCode?: string;
-                        conditionCode?: string;
-                        applicabilityDisposition?: string;
-                        blockerCodes?: string[];
-                    }[];
-                };
-                agreementConfidence: string;
-                recommendationState: string;
-                governance: {
-                    sourceMappingState: string;
-                    sourceAuthorityState: string;
-                    riskClassificationState: string;
-                    decisionState: string;
-                    extractionState: string;
-                    questionSourceProposalGap: boolean;
-                    externalApplicabilityUnresolved: boolean;
-                    blockerCodes: string[];
-                };
-                itemSemanticDigest: string;
-                candidateDigest: string;
-                challengeDigest: string;
-                draftAgreementConfidence?: string | null;
-                draftRecommendationState?: string;
-                draftReviewState?: string;
-                draftDisposition?: string | null;
-            }[];
+            items?: components["schemas"]["AGADemoWorkspaceClassificationReviewItem"][];
+            reviewItems?: components["schemas"]["AGADemoWorkspaceClassificationReviewItem"][];
             itemCount: number;
             page?: number;
             pageSize?: number;
@@ -5015,6 +5183,11 @@ export interface components {
             lifecycle?: components["schemas"]["AGADemoWorkspaceLifecycleProjection"];
             lifecycleCaa?: components["schemas"]["AGADemoWorkspaceLifecycleCAAProjection"];
             lifecycleAuditee?: components["schemas"]["AGADemoWorkspaceLifecycleAuditeeProjection"];
+            questionPage?: components["schemas"]["AGADemoWorkspaceQuestionTextPage"];
+            simulationSetup?: components["schemas"]["AGADemoWorkspaceSimulationSetup"];
+            recommendationSnapshot?: components["schemas"]["AGADemoWorkspaceRecommendationSnapshot"];
+            currentInspection?: components["schemas"]["AGADemoWorkspaceLifecycleProjection"];
+            batchPreview?: components["schemas"]["AGADemoWorkspaceBatchPreview"];
         };
         AGADemoWorkspaceRecommendationSnapshot: {
             recommendation: {
@@ -5092,6 +5265,7 @@ export interface components {
             generation?: components["schemas"]["AGADemoWorkspaceGeneration"];
             draft?: components["schemas"]["AGADemoWorkspaceDraft"];
             recommendation?: components["schemas"]["AGADemoWorkspaceRecommendationSnapshot"];
+            batchPreview?: components["schemas"]["AGADemoWorkspaceBatchPreview"];
             resetTombstone?: components["schemas"]["AGADemoWorkspaceResetTombstone"];
             lifecycleAvailable: boolean;
             reason?: string;
@@ -9613,6 +9787,42 @@ export interface operations {
             409: components["responses"]["Problem"];
             412: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+        };
+    };
+    queryAGADemoWorkspaceRecommendation: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AGADemoWorkspaceQuery"];
+            };
+        };
+        responses: {
+            /** @description Current synthetic recommendation snapshot */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AGADemoWorkspaceQueryResponse"];
+                };
+            };
+            /** @description Neutral recommendation denial */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AGADemoWorkspaceNotFound"];
+                };
+            };
         };
     };
     queryAGADemoWorkspaceLifecycle: {

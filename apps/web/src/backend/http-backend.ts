@@ -1307,6 +1307,11 @@ export function createHttpBackend(
         { method: "POST", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey, expectedRevision: input.operationId === "CREATE_INSPECTION" ? input.expectedRecommendationRevision ?? null : input.expectedDraftRevision ?? null }), cache: "no-store", suppressTelemetry: true },
         options,
       ),
+      recommendationQuery: async (input: AGADemoWorkspaceQuery, options) => request<Schemas["AGADemoWorkspaceQueryResponse"]>(
+        "/v1/preprod/aga-demo-workspace/recommendations/query",
+        { method: "POST", body: input, cache: "no-store", suppressTelemetry: true },
+        options,
+      ),
       lifecycleQuery: async (input: AGADemoWorkspaceQuery, options) => request<Schemas["AGADemoWorkspaceQueryResponse"]>(
         "/v1/preprod/aga-demo-workspace/lifecycle/query",
         { method: "POST", body: input, cache: "no-store", suppressTelemetry: true },

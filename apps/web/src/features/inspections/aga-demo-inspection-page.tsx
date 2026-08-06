@@ -8,6 +8,7 @@ import type {
   AGADemoWorkspaceLifecycleCAAProjection,
   AGADemoWorkspaceLifecycleAuditeeProjection,
   AGADemoWorkspaceLifecycleProjection,
+  AGADemoWorkspaceQuestionTextPage,
   AGADemoWorkspaceQueryResponse,
 } from "../../backend/aga-demo-workspace";
 import { useApplicationRuntime } from "../../app/providers";
@@ -32,6 +33,8 @@ export interface AGADemoLifecyclePageProps {
 export interface LifecycleWorkspaceState {
   client: AGADemoWorkspaceBackend | undefined;
   projection: AGADemoLifecycleProjection | null;
+  questionPage: AGADemoWorkspaceQuestionTextPage | null;
+  questionPageLoading: boolean;
   loading: boolean;
   pending: boolean;
   status: string | null;
@@ -40,6 +43,7 @@ export interface LifecycleWorkspaceState {
     operationId: AGADemoWorkspaceCommand["operationId"],
     extra?: Partial<AGADemoWorkspaceCommand>,
   ) => Promise<AGADemoLifecycleProjection | null>;
+  loadQuestionPage: (page: number) => Promise<void>;
 }
 
 const NO_LIFECYCLE_CONTEXT =
@@ -55,7 +59,9 @@ export function useLifecycleWorkspace({
   const runtime = useApplicationRuntime();
   const client = runtime.backend.agaDemoWorkspace;
   const [projection, setProjection] = useState<AGADemoLifecycleProjection | null>(initialProjection ?? null);
+  const [questionPage, setQuestionPage] = useState<AGADemoWorkspaceQuestionTextPage | null>(null);
   const [loading, setLoading] = useState(Boolean(inspectionId && !initialProjection));
+  const [questionPageLoading, setQuestionPageLoading] = useState(false);
   const [pending, setPending] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -74,6 +80,7 @@ export function useLifecycleWorkspace({
     if (subjectRef.current === runtime.subjectId) return;
     subjectRef.current = runtime.subjectId;
     updateProjection(null);
+    setQuestionPage(null);
     setStatus(null);
     setError("The authenticated principal changed; the previous lifecycle projection was cleared.");
   }, [runtime.subjectId, updateProjection]);
@@ -91,17 +98,27 @@ export function useLifecycleWorkspace({
 
   useEffect(() => {
     const controller = new AbortController();
-    if (!inspectionId || initialProjection || !client || !capability.lifecycleEnabled) {
+    if (initialProjection || !client || !capability.lifecycleEnabled) {
       setLoading(false);
       return () => controller.abort();
     }
-    const operationId = role === "manager" || role === "leadInspector" || role === "admin"
-      ? "GET_ROLE_HISTORY"
-      : "GET_INSPECTION";
-    setLoading(true);
-    void client.lifecycleQuery({ operationId, inspectionId }, { signal: controller.signal })
+    const operationId = inspectionId
+      ? role === "manager" || role === "leadInspector" || role === "admin" ? "GET_ROLE_HISTORY" : "GET_INSPECTION"
+      : "GET_CURRENT_INSPECTION";
+    const request: Parameters<AGADemoWorkspaceBackend["lifecycleQuery"]>[0] = {
+      operationId,
+      ...(inspectionId ? { inspectionId } : {}),
+    };
+    setLoading(Boolean(inspectionId));
+    setQuestionPage(null);
+    void Promise.resolve(client.lifecycleQuery(request, { signal: controller.signal }))
       .then((response: AGADemoWorkspaceQueryResponse) => {
         if (controller.signal.aborted) return;
+        if (!response) {
+          updateProjection(null);
+          setLoading(false);
+          return;
+        }
         const next = response.lifecycleCaa ?? response.lifecycleAuditee ?? response.lifecycle ?? null;
         updateProjection(next);
         setLoading(false);
@@ -113,6 +130,25 @@ export function useLifecycleWorkspace({
       });
     return () => controller.abort();
   }, [capability.lifecycleEnabled, client, initialProjection, inspectionId, role, updateProjection]);
+
+  const loadQuestionPage = useCallback(async (page: number) => {
+    if (!client || !projection || initialProjection || role === "auditee" || !capability.lifecycleEnabled) return;
+    setQuestionPageLoading(true);
+    try {
+      const response = await client.lifecycleQuery({ operationId: "GET_INSPECTION_QUESTION_PAGE", inspectionId: projection.inspectionId, page, pageSize: 25 });
+      setQuestionPage(response.questionPage ?? null);
+    } catch (cause) {
+      setError(errorMessage(cause));
+      throw cause;
+    } finally {
+      setQuestionPageLoading(false);
+    }
+  }, [capability.lifecycleEnabled, client, initialProjection, projection, role]);
+
+  useEffect(() => {
+    if (!projection || initialProjection || role === "auditee") return;
+    void loadQuestionPage(0).catch(() => undefined);
+  }, [initialProjection, loadQuestionPage, projection, role]);
 
   const runCommand = useCallback(async (
     operationId: AGADemoWorkspaceCommand["operationId"],
@@ -147,7 +183,7 @@ export function useLifecycleWorkspace({
     }
   }, [capability.lifecycleEnabled, client, projection, updateProjection]);
 
-  return { client, projection, loading, pending, status, error, runCommand };
+  return { client, projection, questionPage, questionPageLoading, loading, pending, status, error, runCommand, loadQuestionPage };
 }
 
 export function lifecycleDisabledReason(
@@ -344,6 +380,12 @@ export function AGADemoInspectionPage({
   };
 
   const projection = workspace.projection;
+  const questionTextByKey = new Map((workspace.questionPage?.items ?? []).map((question) => [question.questionKey, question.questionText]));
+  const visibleQuestions = projection && workspace.questionPage
+    ? projection.questions.filter((question) => questionTextByKey.has(question.questionKey))
+    : initialProjection
+      ? projection?.questions.slice(0, 25) ?? []
+      : [];
   return (
     <LifecyclePageFrame
       description="Answer the server-pinned checklist and propose a Potential Finding without creating a direct Finding."
@@ -413,10 +455,10 @@ export function AGADemoInspectionPage({
             />
           </section>
           <section aria-label="Checklist questions" className="aga-lifecycle-question-list">
-            <h2>Server-pinned questions</h2>
-            <p>Question text is not copied into this workspace; exact question keys and projections are read from the authorized response.</p>
+            <div className="aga-lifecycle-question-list__heading"><div><h2>Server-pinned questions</h2><p>Question text is composed only for this active authorized page; the browser never stores the sealed body or invents a question identity.</p></div>{workspace.questionPage ? <div className="aga-workspace-pagination"><button disabled={workspace.questionPage.page === 0 || workspace.questionPageLoading} onClick={() => void workspace.loadQuestionPage(Math.max(0, workspace.questionPage!.page - 1))} type="button">Previous question page</button><span>Page {workspace.questionPage.page + 1}</span><button disabled={workspace.questionPage.nextPage === undefined || workspace.questionPageLoading} onClick={() => void workspace.loadQuestionPage(workspace.questionPage!.nextPage ?? workspace.questionPage!.page + 1)} type="button">Next question page</button></div> : null}</div>
+            {workspace.questionPageLoading ? <p role="status">Loading the authorized transient question page…</p> : null}
             <label>Comment to Auditee<textarea aria-label="Comment to Auditee" value={comment} onChange={(event) => setComment(event.target.value)} /></label>
-            {projection.questions.map((question) => {
+            {visibleQuestions.map((question) => {
               const answer = answers[question.questionKey] ?? "NOT_CHECKED";
               const eligible = answer === "NON_COMPLIANT" || answer === "OBSERVATION";
               const roleAllowed = role === "inspector";
@@ -425,7 +467,7 @@ export function AGADemoInspectionPage({
               const findingReason = lifecycleDisabledReason(capability, workspace.client, projection, roleAllowed, eligible ? (comment.trim() ? "" : "A Potential Finding requires a non-empty Comment to Auditee.") : "A Potential Finding requires NON_COMPLIANT or OBSERVATION.") ?? "The command is pending.";
               return (
                 <article aria-label={`Checklist question ${question.questionKey}`} className="aga-lifecycle-question" key={question.questionKey}>
-                  <div><span>Question {question.rootSequence}</span><strong>{question.questionKey}</strong><small>{question.projection.mainDomainCode ?? "Domain unavailable"} · {question.projection.applicabilityDisposition ?? "Applicability unavailable"}</small></div>
+                  <div><span>Question {question.rootSequence}</span><strong>{question.questionKey}</strong><small>{question.projection.mainDomainCode ?? "Domain unavailable"} · {question.projection.applicabilityDisposition ?? "Applicability unavailable"}</small>{questionTextByKey.has(question.questionKey) ? <p className="aga-lifecycle-question-text">{questionTextByKey.get(question.questionKey)}</p> : <small>Authorized transient text is not present in this page.</small>}</div>
                   <fieldset>
                     <legend>Answer for {question.questionKey}</legend>
                     {checklistAnswers.map((candidate) => <label key={candidate}><input aria-label={`${question.questionKey} ${candidate}`} checked={answer === candidate} disabled={!roleAllowed || !stateAllowed || workspace.pending} name={`answer-${question.rootSequence}`} onChange={() => setAnswers((current) => ({ ...current, [question.questionKey]: candidate }))} type="radio" />{candidate}</label>)}

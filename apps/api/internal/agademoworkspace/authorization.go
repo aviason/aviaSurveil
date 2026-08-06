@@ -56,11 +56,13 @@ func (service *Service) Authorize(ctx context.Context, principal identity.Princi
 	switch operation {
 	case OperationGetSummary, OperationGetTaxonomy, OperationGetProviderConfiguration, OperationSearchItems, OperationGetDraft, OperationGetHistory:
 		allowed = decision.IsAdmin || (hasBinding && principal.HasRole(identity.RoleDepartmentManager) && bindingHasWorkspaceRole(binding, principal, "MANAGER"))
+	case OperationGetSimulationSetup, OperationGetCurrentRecommendation:
+		allowed = hasBinding && principal.HasRole(identity.RoleDepartmentManager) && bindingHasWorkspaceRole(binding, principal, "MANAGER")
 	case OperationPreviewBatch, OperationExecuteBatch, OperationRetain, OperationReclassify, OperationAddTopic, OperationRemoveTopic, OperationResolve, OperationInclude, OperationExclude, OperationDefer, OperationAddCandidate, OperationReword, OperationMarkReady:
 		allowed = hasBinding && principal.HasRole(identity.RoleDepartmentManager) && bindingHasWorkspaceRole(binding, principal, "MANAGER")
 	case OperationCreateRecommendation, OperationCreateInspection:
 		allowed = hasBinding && principal.HasRole(identity.RoleDepartmentManager) && bindingHasWorkspaceRole(binding, principal, "MANAGER")
-	case OperationGetInspection, OperationGetFinding, OperationGetCAPEvidence:
+	case OperationGetInspection, OperationGetCurrentInspection, OperationGetInspectionQuestionPage, OperationGetFinding, OperationGetCAPEvidence:
 		allowed = decision.IsAdmin || (hasBinding && bindingHasWorkspaceRole(binding, principal, "LIFECYCLE_READ"))
 	case OperationGetRoleHistory:
 		allowed = !principal.HasRole(identity.RoleAuditee) && (decision.IsAdmin || (hasBinding && bindingHasWorkspaceRole(binding, principal, "CAA_HISTORY")))

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -22,6 +23,8 @@ type PostgresStore struct {
 	runtimeMu                sync.Mutex
 	runtimeClassification    aga.ClassificationResult
 	runtimeClassificationID  string
+	runtimeBaseWorkspace     LoadedWorkspace
+	runtimeBaseReady         bool
 	runtimeBaseDraft         aga.Draft
 	runtimeBaseGeneration    string
 	runtimeCurrentDraft      aga.Draft
@@ -172,6 +175,13 @@ func (store *PostgresStore) Snapshot(ctx context.Context) (LoadedWorkspace, erro
 	if store == nil || store.pool == nil {
 		return LoadedWorkspace{}, fmt.Errorf("workspace PostgreSQL store is required")
 	}
+	store.runtimeMu.Lock()
+	if !store.command && store.runtimeBaseReady {
+		cached := store.runtimeBaseWorkspace
+		store.runtimeMu.Unlock()
+		return cached, nil
+	}
+	store.runtimeMu.Unlock()
 	var payload []byte
 	if err := store.pool.QueryRow(ctx, `SELECT preprod_aga_demo_workspace.workspace_query('{}'::jsonb)`).Scan(&payload); err != nil {
 		return LoadedWorkspace{}, fmt.Errorf("read workspace projection: %w", err)
@@ -183,8 +193,65 @@ func (store *PostgresStore) Snapshot(ctx context.Context) (LoadedWorkspace, erro
 	if workspace.Seal.GenerationID == "" {
 		return LoadedWorkspace{}, ErrWorkspaceNotSealed
 	}
-	store.rememberRuntimeClassification(workspace.Run.Result)
+	store.runtimeMu.Lock()
+	store.runtimeClassification = workspace.Run.Result
+	store.runtimeClassificationID = workspace.Run.Result.ClassificationRunID
+	store.runtimeBaseWorkspace = workspace
+	store.runtimeBaseReady = true
+	store.runtimeMu.Unlock()
 	return workspace, nil
+}
+
+// UpdateCachedReaderDraft advances the reader's in-process projection after a
+// command has committed a new append-only Draft. The immutable sealed items
+// are copied before their transient Draft metadata is refreshed, so a query
+// already holding the previous value remains stable and no second full
+// workspace snapshot is decoded for every page request.
+func (store *PostgresStore) UpdateCachedReaderDraft(generationID string, draft aga.Draft) {
+	if store == nil || store.pool == nil || store.command {
+		return
+	}
+	store.runtimeMu.Lock()
+	defer store.runtimeMu.Unlock()
+	if !store.runtimeBaseReady || store.runtimeBaseWorkspace.Generation.GenerationID != generationID {
+		return
+	}
+	next := store.runtimeBaseWorkspace
+	next.Items = mergeDraftMetadata(store.runtimeBaseWorkspace.Items, draft)
+	next.Draft.Draft = draft
+	store.runtimeBaseWorkspace = next
+}
+
+// InvalidateCachedReaderSnapshot is used after an explicit generation reset;
+// the next authorized read must reload the new immutable generation.
+func (store *PostgresStore) InvalidateCachedReaderSnapshot() {
+	if store == nil || store.pool == nil || store.command {
+		return
+	}
+	store.runtimeMu.Lock()
+	store.runtimeBaseReady = false
+	store.runtimeMu.Unlock()
+}
+
+func (store *PostgresStore) ListCurrentWorkspaceQuestionVersions(ctx context.Context, generationID string) ([]WorkspaceQuestionVersion, error) {
+	if store == nil || store.pool == nil || strings.TrimSpace(generationID) == "" {
+		return nil, fmt.Errorf("workspace question version reader requires store and generation")
+	}
+	var payload []byte
+	if err := queryWorkspaceJSON(ctx, store.pool, map[string]any{
+		"operation":    "GET_CURRENT_WORKSPACE_QUESTION_VERSIONS",
+		"generationId": generationID,
+	}, &payload); err != nil {
+		return nil, err
+	}
+	if len(payload) == 0 || string(payload) == "null" {
+		return []WorkspaceQuestionVersion{}, nil
+	}
+	var versions []WorkspaceQuestionVersion
+	if err := json.Unmarshal(payload, &versions); err != nil {
+		return nil, fmt.Errorf("decode workspace question versions: %w", err)
+	}
+	return versions, nil
 }
 
 // SnapshotForRuntimeCommand reads only the mutable command state and reuses
@@ -199,6 +266,8 @@ func (store *PostgresStore) SnapshotForRuntimeCommand(ctx context.Context) (Load
 	store.runtimeMu.Lock()
 	classification := store.runtimeClassification
 	classificationID := store.runtimeClassificationID
+	baseWorkspace := store.runtimeBaseWorkspace
+	baseReady := store.runtimeBaseReady
 	store.runtimeMu.Unlock()
 	if classificationID == "" {
 		workspace, err := store.Snapshot(ctx)
@@ -206,7 +275,7 @@ func (store *PostgresStore) SnapshotForRuntimeCommand(ctx context.Context) (Load
 			return LoadedWorkspace{}, err
 		}
 		classification = workspace.Run.Result
-		classificationID = workspace.Run.RunID
+		classificationID = workspace.Run.Result.ClassificationRunID
 	}
 	var meta struct {
 		Generation struct {
@@ -234,10 +303,10 @@ func (store *PostgresStore) SnapshotForRuntimeCommand(ctx context.Context) (Load
 	}
 	generation := Generation{GenerationID: meta.Generation.GenerationID, State: meta.Generation.State, ClassificationRunID: meta.Generation.ClassificationRunID, ClassificationRunDigest: meta.Generation.ClassificationRunDigest, TaxonomyVersion: meta.Generation.TaxonomyVersion, TaxonomyDigest: meta.Generation.TaxonomyDigest, FixtureDigest: meta.Generation.FixtureDigest, Revision: meta.Generation.Revision, SealDigest: meta.Generation.SealDigest}
 	store.runtimeMu.Lock()
-	if store.runtimeCurrentReady && store.runtimeCurrentGeneration == generation.GenerationID && store.runtimeCurrentRevision == meta.Draft.Revision && store.runtimeCurrentDigest == meta.Draft.ContentDigest && store.runtimeClassificationID == classificationID {
+	if store.runtimeCurrentReady && store.runtimeCurrentGeneration == generation.GenerationID && store.runtimeCurrentRevision == meta.Draft.Revision && store.runtimeCurrentDigest == meta.Draft.ContentDigest && store.runtimeClassificationID == classificationID && baseReady && baseWorkspace.Generation.GenerationID == generation.GenerationID {
 		current := store.runtimeCurrentDraft
 		store.runtimeMu.Unlock()
-		return LoadedWorkspace{Generation: generation, Run: ClassificationRun{RunID: classification.ClassificationRunID, State: classification.State, TaxonomyVersion: classification.TaxonomyVersion, TaxonomyDigest: classification.TaxonomyDigest, InputDigest: classification.InputDigest, AggregateDigest: classification.AggregateDigest, ClassificationRunDigest: classification.ClassificationRunDigest, Result: classification}, Draft: DraftRecord{Draft: current}}, nil
+		return mergeRuntimeWorkspace(baseWorkspace, generation, classification, current, baseWorkspace.Seal), nil
 	}
 	store.runtimeMu.Unlock()
 	if generation.ClassificationRunID != classificationID || generation.ClassificationRunDigest != classification.ClassificationRunDigest {
@@ -246,8 +315,21 @@ func (store *PostgresStore) SnapshotForRuntimeCommand(ctx context.Context) (Load
 			return LoadedWorkspace{}, err
 		}
 		classification = workspace.Run.Result
-		classificationID = workspace.Run.RunID
+		classificationID = workspace.Run.Result.ClassificationRunID
 		generation = workspace.Generation
+		baseWorkspace = workspace
+		baseReady = true
+	}
+	if !baseReady || baseWorkspace.Generation.GenerationID != generation.GenerationID {
+		workspace, err := store.Snapshot(ctx)
+		if err != nil {
+			return LoadedWorkspace{}, err
+		}
+		classification = workspace.Run.Result
+		classificationID = workspace.Run.Result.ClassificationRunID
+		generation = workspace.Generation
+		baseWorkspace = workspace
+		baseReady = true
 	}
 	store.runtimeMu.Lock()
 	if store.runtimeBaseGeneration != generation.GenerationID || store.runtimeClassificationID != classificationID {
@@ -283,12 +365,54 @@ func (store *PostgresStore) SnapshotForRuntimeCommand(ctx context.Context) (Load
 	store.runtimeCurrentDigest = hydrated.ContentDigest
 	store.runtimeCurrentReady = true
 	store.runtimeMu.Unlock()
-	return LoadedWorkspace{
-		Generation: state.Generation,
-		Run:        ClassificationRun{RunID: classification.ClassificationRunID, State: classification.State, TaxonomyVersion: classification.TaxonomyVersion, TaxonomyDigest: classification.TaxonomyDigest, InputDigest: classification.InputDigest, AggregateDigest: classification.AggregateDigest, ClassificationRunDigest: classification.ClassificationRunDigest, Result: classification},
-		Draft:      state.Draft,
-		Seal:       state.Seal,
-	}, nil
+	return mergeRuntimeWorkspace(baseWorkspace, state.Generation, classification, hydrated, state.Seal), nil
+}
+
+func mergeRuntimeWorkspace(base LoadedWorkspace, generation Generation, classification aga.ClassificationResult, draft aga.Draft, seal WorkspaceSealReceipt) LoadedWorkspace {
+	base.Generation = generation
+	// Runtime commands reuse the immutable sealed item projection for identity,
+	// governance, and classification facts. Overlay the append-only Draft
+	// metadata before filters consume it; otherwise a current-disposition
+	// filter would inspect the sealed base state and silently miss items that a
+	// previous batch command changed.
+	base.Items = mergeDraftMetadata(base.Items, draft)
+	// Preserve the complete sealed run projection exactly as the normal
+	// workspace query exposes it. Only the nested immutable result is refreshed
+	// from the validated runtime cache; in particular, do not synthesize a new
+	// RunID spelling that would change the setup digest contract.
+	base.Run.Result = classification
+	base.Draft = DraftRecord{Draft: draft, CreatedAt: base.Draft.CreatedAt}
+	if seal.GenerationID != "" {
+		base.Seal = seal
+	}
+	return base
+}
+
+func mergeDraftMetadata(items []ClassificationItem, draft aga.Draft) []ClassificationItem {
+	merged := append([]ClassificationItem(nil), items...)
+	byKey := make(map[string]aga.DraftItem, len(draft.Items))
+	for _, draftItem := range draft.Items {
+		byKey[draftItemQuestionKey(draftItem)] = draftItem
+	}
+	for index := range merged {
+		item := &merged[index]
+		draftItem, found := byKey[item.QuestionKey]
+		if !found {
+			continue
+		}
+		item.DraftAgreementConfidence = draftItem.DraftAgreementConfidence
+		item.DraftRecommendationState = draftItem.RecommendationState
+		item.DraftReviewState = draftItem.ReviewState
+		item.DraftDisposition = draftItem.Disposition
+	}
+	return merged
+}
+
+func draftItemQuestionKey(item aga.DraftItem) string {
+	if item.QuestionRef.Base != nil {
+		return item.QuestionRef.Base.Key()
+	}
+	return item.QuestionRef.Key()
 }
 
 // queryWorkspaceJSON is the only read seam used by the runtime workspace
@@ -488,6 +612,94 @@ func (store *PostgresStore) GetRecommendationSnapshot(ctx context.Context, gener
 	return snapshot, true, nil
 }
 
+func (store *PostgresStore) ListRecommendationSnapshots(ctx context.Context, generationID string) ([]RecommendationSnapshot, error) {
+	if store == nil || store.pool == nil {
+		return nil, fmt.Errorf("workspace recommendation snapshot requires store")
+	}
+	var raw json.RawMessage
+	if err := queryWorkspaceJSON(ctx, store.pool, map[string]any{"operation": "GET_CURRENT_RECOMMENDATIONS", "generationId": generationID}, &raw); err != nil {
+		return nil, err
+	}
+	if string(raw) == "null" || len(raw) == 0 {
+		return []RecommendationSnapshot{}, nil
+	}
+	var snapshots []RecommendationSnapshot
+	if err := json.Unmarshal(raw, &snapshots); err != nil {
+		return nil, err
+	}
+	return snapshots, nil
+}
+
+func (store *PostgresStore) PutSelectionBatchPreview(ctx context.Context, record SelectionBatchPreviewRecord) (SelectionBatchPreviewRecord, bool, error) {
+	if store == nil || store.pool == nil || !store.command {
+		return SelectionBatchPreviewRecord{}, false, fmt.Errorf("workspace batch preview requires command store")
+	}
+	if err := validateSelectionBatchPreviewRecord(record); err != nil {
+		return SelectionBatchPreviewRecord{}, false, err
+	}
+	if existing, found, err := store.GetSelectionBatchPreview(ctx, record.GenerationID, record.PreviewID); err != nil {
+		return SelectionBatchPreviewRecord{}, false, err
+	} else if found {
+		if canonical(existing) != canonical(record) {
+			return SelectionBatchPreviewRecord{}, false, ErrWorkspaceIdempotency
+		}
+		return existing, true, nil
+	}
+	payload, err := json.Marshal(record)
+	if err != nil {
+		return SelectionBatchPreviewRecord{}, false, err
+	}
+	if err := callWorkspaceCommand(ctx, store.pool, map[string]any{
+		"operation": "APPEND_BATCH_PREVIEW", "previewId": record.PreviewID, "generationId": record.GenerationID,
+		"draftId": record.DraftID, "draftRevision": record.DraftRevision, "previewDigest": record.PreviewDigest,
+		"expiresAt": record.ExpiresAt, "payload": json.RawMessage(payload),
+	}); err != nil {
+		return SelectionBatchPreviewRecord{}, false, err
+	}
+	return record, false, nil
+}
+
+func (store *PostgresStore) GetSelectionBatchPreview(ctx context.Context, generationID, previewID string) (SelectionBatchPreviewRecord, bool, error) {
+	if store == nil || store.pool == nil {
+		return SelectionBatchPreviewRecord{}, false, fmt.Errorf("workspace batch preview requires store")
+	}
+	var payload json.RawMessage
+	if err := queryWorkspaceJSON(ctx, store.pool, map[string]any{"operation": "GET_BATCH_PREVIEW", "generationId": generationID, "previewId": previewID}, &payload); err != nil {
+		return SelectionBatchPreviewRecord{}, false, err
+	}
+	if string(payload) == "null" || len(payload) == 0 {
+		return SelectionBatchPreviewRecord{}, false, nil
+	}
+	var record SelectionBatchPreviewRecord
+	if err := json.Unmarshal(payload, &record); err != nil {
+		return SelectionBatchPreviewRecord{}, false, err
+	}
+	return record, true, nil
+}
+
+func (store *PostgresStore) ConsumeSelectionBatchPreview(ctx context.Context, generationID, previewID, previewDigest string, now time.Time) (SelectionBatchPreviewRecord, error) {
+	if store == nil || store.pool == nil || !store.command {
+		return SelectionBatchPreviewRecord{}, fmt.Errorf("workspace batch preview requires command store")
+	}
+	if strings.TrimSpace(previewID) == "" || strings.TrimSpace(previewDigest) == "" {
+		return SelectionBatchPreviewRecord{}, ErrWorkspaceCAS
+	}
+	if err := callWorkspaceCommand(ctx, store.pool, map[string]any{
+		"operation": "CONSUME_BATCH_PREVIEW", "generationId": generationID, "previewId": previewID,
+		"previewDigest": previewDigest, "consumedAt": now.UTC(),
+	}); err != nil {
+		return SelectionBatchPreviewRecord{}, err
+	}
+	record, found, err := store.GetSelectionBatchPreview(ctx, generationID, previewID)
+	if err != nil {
+		return SelectionBatchPreviewRecord{}, err
+	}
+	if !found || record.ConsumedAt == nil {
+		return SelectionBatchPreviewRecord{}, ErrWorkspaceCAS
+	}
+	return record, nil
+}
+
 func (store *PostgresStore) ApplyDraftCommand(ctx context.Context, command aga.DraftCommand) (aga.Draft, error) {
 	if store == nil || store.pool == nil || !store.command {
 		return aga.Draft{}, fmt.Errorf("workspace Draft command requires command store")
@@ -519,6 +731,89 @@ func (store *PostgresStore) ApplyDraftCommand(ctx context.Context, command aga.D
 	store.runtimeCurrentReady = true
 	store.runtimeMu.Unlock()
 	return updated, nil
+}
+
+func (store *PostgresStore) ApplyDraftCommandsAtomically(ctx context.Context, draft aga.Draft, commands []aga.DraftCommand) (aga.Draft, error) {
+	if store == nil || store.pool == nil || !store.command {
+		return aga.Draft{}, fmt.Errorf("workspace batch Draft command requires command store")
+	}
+	if len(commands) == 0 {
+		return aga.Draft{}, ErrWorkspaceAppendOnly
+	}
+	if commands[0].ExpectedRevision != draft.Revision || commands[0].ExpectedContentDigest != draft.ContentDigest {
+		return aga.Draft{}, ErrWorkspaceCAS
+	}
+	current := draft
+	for index := range commands {
+		command := commands[index]
+		command.ExpectedRevision = current.Revision
+		command.ExpectedContentDigest = current.ContentDigest
+		updated, err := aga.ApplyDraftCommandFromValidatedRuntime(current, command, aga.NewSequentialIDAllocator("postgres-batch"))
+		if err != nil {
+			return aga.Draft{}, err
+		}
+		current = updated
+	}
+	if err := callWorkspaceCommand(ctx, store.pool, map[string]any{
+		"operation": "APPEND_BATCH_DRAFT", "generationId": current.GenerationID, "draftId": current.DraftID,
+		"expectedRevision": draft.Revision, "expectedContentDigest": draft.ContentDigest,
+		"revision": current.Revision, "contentDigest": current.ContentDigest, "state": current.State,
+		"payload": current, "createdAt": time.Now().UTC(), "canonicalPayload": canonical(current), "rowDigest": digestJSON(current),
+	}); err != nil {
+		return aga.Draft{}, err
+	}
+	store.runtimeMu.Lock()
+	store.runtimeCurrentDraft = current
+	store.runtimeCurrentGeneration = current.GenerationID
+	store.runtimeCurrentRevision = current.Revision
+	store.runtimeCurrentDigest = current.ContentDigest
+	store.runtimeCurrentReady = true
+	store.runtimeMu.Unlock()
+	return current, nil
+}
+
+func (store *PostgresStore) ExecuteSelectionBatch(ctx context.Context, record SelectionBatchPreviewRecord, draft aga.Draft, commands []aga.DraftCommand, now time.Time) (aga.Draft, SelectionBatchPreviewRecord, error) {
+	if store == nil || store.pool == nil || !store.command {
+		return aga.Draft{}, SelectionBatchPreviewRecord{}, fmt.Errorf("workspace batch execution requires command store")
+	}
+	if runtime, err := store.SnapshotForRuntimeCommand(ctx); err == nil {
+		draft = runtime.Draft.Draft
+	} else {
+		return aga.Draft{}, SelectionBatchPreviewRecord{}, err
+	}
+	if len(commands) == 0 || commands[0].ExpectedRevision != draft.Revision || commands[0].ExpectedContentDigest != draft.ContentDigest {
+		return aga.Draft{}, SelectionBatchPreviewRecord{}, ErrWorkspaceCAS
+	}
+	current, err := aga.ApplyDraftDispositionBatchFromValidatedRuntime(draft, commands)
+	if err != nil {
+		return aga.Draft{}, SelectionBatchPreviewRecord{}, err
+	}
+	payload, err := json.Marshal(current)
+	if err != nil {
+		return aga.Draft{}, SelectionBatchPreviewRecord{}, err
+	}
+	consumed := now.UTC()
+	err = callWorkspaceCommand(ctx, store.pool, map[string]any{
+		"operation":    "APPEND_BATCH_DRAFT_AND_CONSUME",
+		"generationId": record.GenerationID, "draftId": draft.DraftID,
+		"expectedRevision": draft.Revision, "expectedContentDigest": draft.ContentDigest,
+		"previewId": record.PreviewID, "previewDigest": record.PreviewDigest,
+		"consumedAt": consumed, "revision": current.Revision, "contentDigest": current.ContentDigest,
+		"state": current.State, "payload": json.RawMessage(payload),
+		"createdAt": consumed, "canonicalPayload": canonical(current), "rowDigest": digestJSON(current),
+	})
+	if err != nil {
+		return aga.Draft{}, SelectionBatchPreviewRecord{}, err
+	}
+	record.ConsumedAt = &consumed
+	store.runtimeMu.Lock()
+	store.runtimeCurrentDraft = current
+	store.runtimeCurrentGeneration = current.GenerationID
+	store.runtimeCurrentRevision = current.Revision
+	store.runtimeCurrentDigest = current.ContentDigest
+	store.runtimeCurrentReady = true
+	store.runtimeMu.Unlock()
+	return current, record, nil
 }
 
 // ApplyDraftCommandFromRuntime persists a command against the already-loaded
