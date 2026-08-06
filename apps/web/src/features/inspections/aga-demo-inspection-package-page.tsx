@@ -103,35 +103,38 @@ export function AGADemoInspectionPackagePage({
     if (!client || role !== "manager") return;
     setLoading(true);
     setError(null);
-    const [setupResponse, draftResponse, inventoryResponse] = await Promise.all([
-      client.classificationQuery({ operationId: "GET_SIMULATION_SETUP" }, { signal }),
-      client.classificationQuery({ operationId: "GET_DRAFT" }, { signal }),
-      client.classificationQuery({ operationId: "SEARCH_ITEMS", page: inventoryPage, pageSize: PAGE_SIZE, ...(inventorySearch.trim() ? { search: inventorySearch.trim() } : {}) }, { signal }),
-    ]);
-    setSetup(setupResponse.simulationSetup ?? null);
-    setDraft(draftResponse.draft ?? null);
-    setInventory(inventoryResponse);
-    if (stage === "release" && client.recommendationQuery) {
-      try {
-        const current = await client.recommendationQuery({ operationId: "GET_CURRENT_RECOMMENDATION" }, { signal });
-        setRecommendation(current.recommendationSnapshot ?? null);
-      } catch {
-        // A transient read failure must not erase a server response that was
-        // already accepted by the preceding command. The next release-stage
-        // refresh can reconcile it without turning a rate-limit response into
-        // a false "no current recommendation" state.
+    try {
+      const [setupResponse, draftResponse, inventoryResponse] = await Promise.all([
+        client.classificationQuery({ operationId: "GET_SIMULATION_SETUP" }, { signal }),
+        client.classificationQuery({ operationId: "GET_DRAFT" }, { signal }),
+        client.classificationQuery({ operationId: "SEARCH_ITEMS", page: inventoryPage, pageSize: PAGE_SIZE, ...(inventorySearch.trim() ? { search: inventorySearch.trim() } : {}) }, { signal }),
+      ]);
+      setSetup(setupResponse.simulationSetup ?? null);
+      setDraft(draftResponse.draft ?? null);
+      setInventory(inventoryResponse);
+      if (stage === "release" && client.recommendationQuery) {
+        try {
+          const current = await client.recommendationQuery({ operationId: "GET_CURRENT_RECOMMENDATION" }, { signal });
+          setRecommendation(current.recommendationSnapshot ?? null);
+        } catch {
+          // A transient read failure must not erase a server response that was
+          // already accepted by the preceding command. The next release-stage
+          // refresh can reconcile it without turning a rate-limit response into
+          // a false "no current recommendation" state.
+        }
       }
-    }
-    if (stage === "release") {
-      try {
-        const currentInspection = await client.lifecycleQuery({ operationId: "GET_CURRENT_INSPECTION" }, { signal });
-        setReleasedInspection(currentInspection.currentInspection ?? currentInspection.lifecycle ?? null);
-      } catch {
-        // Keep the last server-confirmed inspection while a transient read is
-        // retried or the next role-bound page reloads it.
+      if (stage === "release") {
+        try {
+          const currentInspection = await client.lifecycleQuery({ operationId: "GET_CURRENT_INSPECTION" }, { signal });
+          setReleasedInspection(currentInspection.currentInspection ?? currentInspection.lifecycle ?? null);
+        } catch {
+          // Keep the last server-confirmed inspection while a transient read is
+          // retried or the next role-bound page reloads it.
+        }
       }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [client, inventoryPage, inventorySearch, role, stage]);
 
   useEffect(() => {
@@ -205,8 +208,8 @@ export function AGADemoInspectionPackagePage({
         reasonCode: preview.reasonCode,
       });
       setPreview(null);
-      await refresh();
       setStatus("Confirmed simulation disposition appended as one atomic Draft successor.");
+      await refresh();
     } catch (cause) {
       setError(errorMessage(cause));
     }

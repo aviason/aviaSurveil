@@ -46,7 +46,7 @@ fail() {
 
 require_mode() {
   case "$mode" in
-    prepare|recover-status|recover-prepare|qualify|recover-qualify|cleanup-prepared|fault-matrix-prepare|fault-matrix-recover-status|fault-matrix-recover-prepare|fault-matrix-run|fault-matrix-recover-run|fault-matrix-cleanup-prepared|fault-matrix-cleanup-partial) ;;
+    prepare|recover-status|recover-prepare|qualify|serve|recover-qualify|cleanup-prepared|fault-matrix-prepare|fault-matrix-recover-status|fault-matrix-recover-prepare|fault-matrix-run|fault-matrix-recover-run|fault-matrix-cleanup-prepared|fault-matrix-cleanup-partial) ;;
     *) fail MODE_INVALID ;;
   esac
 }
@@ -1151,6 +1151,10 @@ run_qualification() {
   record_phase CREDENTIALS_REVOKED REVOKE_WORKSPACE_ONE_SHOT_LOGINS "$private_root/workspace-revoke.log" "{\"credentialRevocationReceiptCount\":1,\"exporterLogin\":false,\"loaderLogin\":false,\"loaderRevoked\":true}"
   compose_command up --detach --build --wait preprod-aga-demo-api >"$private_root/api-start.log" 2>&1
   record_phase API_STARTED START_CONNECTED_AGA_HYBRID_API "$private_root/api-start.log" "{\"apiReady\":true}"
+  if [[ "$mode" == "serve" ]]; then
+    printf 'aga-hybrid-connected: API-backed demo ready; target remains running for interactive use\n'
+    exit 0
+  fi
   make_private_directory "$private_root/auth-events"
   capture_auth_control_snapshot "$private_root/auth-before-browser.json"
   if [[ "${AVIA_AGA_MANAGER_DEMO_MODE:-0}" == "1" ]]; then
@@ -1309,6 +1313,15 @@ case "$mode" in
     exit 2
     ;;
   qualify)
+    validate_document "$qualification_auth"
+    phase_receipt_dir="$private_root/phase-receipts"; target_receipt_dir="$private_root/target-receipts"; journal_file="$phase_receipt_dir/journal.jsonl"
+    private_file "$private_root/qualification-intent.json"
+    intent_digest="$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1])).intentDigest' "$private_root/qualification-intent.json")"
+    base_receipt_digest="$(shasum -a 256 "$private_root/base-handoff/base-result.json" | awk '{print "sha256:" $1}')"
+    run_qualification
+    exit 0
+    ;;
+  serve)
     validate_document "$qualification_auth"
     phase_receipt_dir="$private_root/phase-receipts"; target_receipt_dir="$private_root/target-receipts"; journal_file="$phase_receipt_dir/journal.jsonl"
     private_file "$private_root/qualification-intent.json"
