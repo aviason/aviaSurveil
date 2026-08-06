@@ -3,6 +3,7 @@ package agademoworkspace
 import (
 	"strings"
 	"testing"
+	"time"
 
 	aga "github.com/MarlonJD/aviaSurveil360/apps/api/internal/agaapplicability"
 	preprod "github.com/MarlonJD/aviaSurveil360/apps/api/internal/preproddata/agademoworkspace"
@@ -43,5 +44,48 @@ func TestPreviewProjectionRetainsCanonicalFilterForConsume(t *testing.T) {
 	projection := previewProjection(record, nil, SimulationSetupProjection{}, filter)
 	if projection.Filter != filter {
 		t.Fatalf("preview filter must remain available for the consume command: got %#v want %#v", projection.Filter, filter)
+	}
+}
+
+func TestPreviewIdentityIncludesServerOwnedExpiryWindow(t *testing.T) {
+	record := preprod.SelectionBatchPreviewRecord{
+		GenerationID:           "aga-ws-generation-test",
+		DraftID:                "aga-ws-draft-test",
+		DraftContentDigest:     "sha256:" + strings.Repeat("a", 64),
+		FilterDigest:           "sha256:" + strings.Repeat("b", 64),
+		AffectedIdentityDigest: "sha256:" + strings.Repeat("c", 64),
+		Action:                 string(BatchExclude),
+		ReasonCode:             "MANAGER_SCOPE_DECISION",
+		ExpiresAt:              time.Date(2026, time.August, 7, 10, 0, 0, 0, time.UTC),
+	}
+	first := previewIDFor(record)
+	if first != previewIDFor(record) {
+		t.Fatal("the same server-owned expiry window must retain its preview identity")
+	}
+	record.ExpiresAt = record.ExpiresAt.Add(selectionBatchPreviewLifetime)
+	if first == previewIDFor(record) {
+		t.Fatal("a new expiry window must receive a fresh preview identity")
+	}
+}
+
+func TestIncludeEligibilityReturnsServerOwnedReason(t *testing.T) {
+	setup := SimulationSetupProjection{
+		CanonicalTargetKind: "SYSTEM", TargetProfileCode: "AERODROME_MANAGEMENT_SYSTEM",
+		InspectionProfileCode: "AERODROME_MANAGEMENT_SYSTEM", InspectionTypeCode: "PERIODIC_SURVEILLANCE",
+		OperationQualifiers: []aga.Qualifier{{Key: "OPERATION_STATUS", Value: "ACTIVE"}},
+		ActivityQualifiers:  []aga.Qualifier{{Key: "ACTIVITY_TYPE", Value: "MAINTENANCE"}},
+	}
+	item := preprod.ClassificationItem{Projection: aga.ProposalProjection{
+		CanonicalTargetKind: "SYSTEM", TargetProfileCode: "AERODROME_MANAGEMENT_SYSTEM",
+		InspectionProfileCodes: []string{"AERODROME_MANAGEMENT_SYSTEM"}, InspectionTypeCodes: []string{"PERIODIC_SURVEILLANCE"},
+		OperationQualifiers: []aga.Qualifier{{Key: "OPERATION_STATUS", Value: "ACTIVE"}},
+		ActivityQualifiers:  []aga.Qualifier{{Key: "ACTIVITY_TYPE", Value: "MAINTENANCE"}}, ApplicabilityDisposition: "APPLICABLE",
+	}}
+	if eligible, reason := includeEligibilityForSimulation(item, setup); !eligible || reason != "ELIGIBLE_FOR_CURRENT_SIMULATION_SCOPE" {
+		t.Fatalf("eligible scope = (%t, %q)", eligible, reason)
+	}
+	item.Projection.TargetProfileCode = "OTHER_PROFILE"
+	if eligible, reason := includeEligibilityForSimulation(item, setup); eligible || reason != "TARGET_PROFILE_MISMATCH" {
+		t.Fatalf("target-profile mismatch = (%t, %q)", eligible, reason)
 	}
 }

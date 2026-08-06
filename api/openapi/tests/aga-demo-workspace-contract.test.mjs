@@ -61,6 +61,10 @@ test("successor manager package contract is explicit and bounded", () => {
     assert.equal(schemas[name].additionalProperties, false, name);
   }
   assert.equal(schemas.AGADemoWorkspaceQueryResponse.properties.items.items.$ref, "#/components/schemas/AGADemoWorkspaceClassificationReviewItem");
+  for (const property of ["includeEligible", "includeEligibilityReason"]) {
+    assert.ok(schemas.AGADemoWorkspaceClassificationReviewItem.required.includes(property), property);
+    assert.ok(schemas.AGADemoWorkspaceClassificationReviewItem.properties[property], property);
+  }
   assert.ok(schemas.AGADemoWorkspaceQueryResponse.properties.questionPage);
   assert.equal(schemas.AGADemoWorkspaceCommand.properties.readinessEventId.readOnly, true);
   assert.ok(schemas.AGADemoWorkspaceCommand.properties.simulationSetupDigest);

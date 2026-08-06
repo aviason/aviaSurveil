@@ -188,11 +188,13 @@ func (resolver QuestionTextSearchResolverFunc) Search(ctx context.Context, value
 // pointers so unauthorized projections omit both body and body digest.
 type ClassificationReviewItem struct {
 	preprod.ClassificationItem
-	QuestionRef        aga.QuestionRef `json:"questionRef"`
-	QuestionOrigin     string          `json:"questionOrigin"`
-	QuestionText       *string         `json:"questionText,omitempty"`
-	QuestionTextDigest *string         `json:"questionTextDigest,omitempty"`
-	TextOrigin         string          `json:"textOrigin,omitempty"`
+	QuestionRef              aga.QuestionRef `json:"questionRef"`
+	QuestionOrigin           string          `json:"questionOrigin"`
+	IncludeEligible          bool            `json:"includeEligible"`
+	IncludeEligibilityReason string          `json:"includeEligibilityReason"`
+	QuestionText             *string         `json:"questionText,omitempty"`
+	QuestionTextDigest       *string         `json:"questionTextDigest,omitempty"`
+	TextOrigin               string          `json:"textOrigin,omitempty"`
 }
 
 func (ClassificationReviewItem) textProjection() {}
@@ -270,7 +272,7 @@ func canReceiveQuestionText(principal identity.Principal, binding preprod.Author
 }
 
 func metadataItem(item preprod.ClassificationItem) ClassificationReviewItem {
-	return ClassificationReviewItem{ClassificationItem: item}
+	return ClassificationReviewItem{ClassificationItem: item, IncludeEligibilityReason: "SIMULATION_SCOPE_UNAVAILABLE"}
 }
 
 func bodyIdentities(items []preprod.ClassificationItem) []aga.BaseIdentity {

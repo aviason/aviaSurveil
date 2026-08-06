@@ -39,7 +39,7 @@ describe("AGA demo workspace supplemental routes", () => {
       "/auditee/aga-demo-workspace",
     ]);
     expect(agaDemoWorkspaceRouteElements).toHaveLength(5);
-    expect(agaDemoWorkspaceRouteElementsWithManagerPackage).toHaveLength(7);
+    expect(agaDemoWorkspaceRouteElementsWithManagerPackage).toHaveLength(13);
   });
 
   it("renders an authorized supplemental workspace route through the capability gate", async () => {
@@ -112,5 +112,58 @@ describe("AGA demo workspace supplemental routes", () => {
     );
     expect(await screen.findByTestId("aga-demo-potential-finding-page")).toBeInTheDocument();
     expect(window.location.search).toBe("");
+  });
+
+  it("limits the Auditee route to CAP and Evidence context", async () => {
+    const runtime = createMockBackendRuntime();
+    const workspace = workspaceBackend();
+    render(
+      <AppProviders runtime={{ backend: { ...runtime.backend, agaDemoWorkspace: workspace }, buildProfile: "http", environmentLabel: "test", supplementalRouteElements: agaDemoWorkspaceRouteElements }}>
+        <ScenarioProvider>
+          <MemoryRouter initialEntries={["/auditee/aga-demo-workspace"]}>
+            <AppRouter />
+          </MemoryRouter>
+        </ScenarioProvider>
+      </AppProviders>,
+    );
+    expect(await screen.findByTestId("aga-demo-cap-evidence-page")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "CAP and Evidence" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Classification workspace" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Inspection lifecycle" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Potential Findings" })).not.toBeInTheDocument();
+  });
+
+  it("returns a stable local not-found view for an Auditee-restricted suffix without API calls", () => {
+    const runtime = createMockBackendRuntime();
+    const workspace = workspaceBackend();
+    render(
+      <AppProviders runtime={{ backend: { ...runtime.backend, agaDemoWorkspace: workspace }, buildProfile: "http", environmentLabel: "test", supplementalRouteElements: agaDemoWorkspaceRouteElements }}>
+        <ScenarioProvider>
+          <MemoryRouter initialEntries={["/auditee/aga-demo-workspace/potential-findings"]}>
+            <AppRouter />
+          </MemoryRouter>
+        </ScenarioProvider>
+      </AppProviders>,
+    );
+    expect(screen.getByTestId("aga-demo-workspace-not-found")).toBeInTheDocument();
+    expect(workspace.capability).not.toHaveBeenCalled();
+    expect(workspace.lifecycleQuery).not.toHaveBeenCalled();
+  });
+
+  it("returns a stable local not-found view for a deep unknown suffix without API calls", () => {
+    const runtime = createMockBackendRuntime();
+    const workspace = workspaceBackend();
+    render(
+      <AppProviders runtime={{ backend: { ...runtime.backend, agaDemoWorkspace: workspace }, buildProfile: "http", environmentLabel: "test", supplementalRouteElements: agaDemoWorkspaceRouteElementsWithManagerPackage }}>
+        <ScenarioProvider>
+          <MemoryRouter initialEntries={["/inspector/aga-demo-workspace/unknown/deep-link"]}>
+            <AppRouter />
+          </MemoryRouter>
+        </ScenarioProvider>
+      </AppProviders>,
+    );
+    expect(screen.getByTestId("aga-demo-workspace-not-found")).toBeInTheDocument();
+    expect(workspace.capability).not.toHaveBeenCalled();
+    expect(workspace.lifecycleQuery).not.toHaveBeenCalled();
   });
 });

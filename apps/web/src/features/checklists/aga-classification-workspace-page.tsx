@@ -80,8 +80,11 @@ function metadataOnlyResponse(response: AGADemoWorkspaceQueryResponse): AGADemoW
   };
 }
 
-function commandKey(operationId: string, sequence: number): string {
-  return `AGA-DEMO-WORKSPACE-${operationId}-${sequence}`;
+function commandKey(operationId: string): string {
+  if (typeof globalThis.crypto?.randomUUID !== "function") {
+    throw new Error("This browser cannot create a secure idempotency key for the requested command.");
+  }
+  return `aga-demo-workspace-${operationId.toLowerCase()}-${globalThis.crypto.randomUUID()}`;
 }
 
 async function digestBody(value: string): Promise<string> {
@@ -133,17 +136,30 @@ export function AGADemoClassificationWorkspacePage({
   const [workspaceBody, setWorkspaceBody] = useState("");
   const [resetReason, setResetReason] = useState("");
   const [resetConfirmed, setResetConfirmed] = useState(false);
-  const commandSequence = useRef(0);
   const pageCache = useRef(new Map<string, AGADemoWorkspaceQueryResponse>());
 
   const filterKey = useMemo(() => JSON.stringify(filters), [filters]);
   const generation = pageResponse?.generation ?? summary?.generation ?? null;
   const draftRevision = draft?.revision ?? 0;
   const classificationAvailable = capability.classificationEnabled && Boolean(client);
+  const adminReadResetAvailable = role === "admin" && capability.available && capability.resetEnabled && Boolean(client);
+  const workspaceAvailable = classificationAvailable || adminReadResetAvailable;
 
   const refreshModels = useCallback(async (signal?: AbortSignal) => {
-    if (!client || !capability.classificationEnabled) return;
+    if (!client || !workspaceAvailable) return;
     setLoading(true);
+    if (!capability.classificationEnabled) {
+      const summaryResponse = await client.classificationQuery({ operationId: "GET_SUMMARY" }, { signal });
+      setSummary(summaryResponse);
+      setDraft(null);
+      setProviders([]);
+      pageCache.current.clear();
+      setPageResponse(null);
+      setSelected(null);
+      setRefreshVersion((value) => value + 1);
+      setLoading(false);
+      return;
+    }
     const [summaryResponse, draftResponse, providerResponse] = await Promise.all([
       client.classificationQuery({ operationId: "GET_SUMMARY" }, { signal }),
       client.classificationQuery({ operationId: "GET_DRAFT" }, { signal }),
@@ -157,11 +173,11 @@ export function AGADemoClassificationWorkspacePage({
     setSelected(null);
     setRefreshVersion((value) => value + 1);
     setLoading(false);
-  }, [capability.classificationEnabled, client]);
+  }, [capability.classificationEnabled, client, workspaceAvailable]);
 
   useEffect(() => {
     const controller = new AbortController();
-    if (!classificationAvailable) {
+    if (!workspaceAvailable) {
       setLoading(false);
       return () => controller.abort();
     }
@@ -172,7 +188,7 @@ export function AGADemoClassificationWorkspacePage({
       }
     });
     return () => controller.abort();
-  }, [classificationAvailable, refreshModels]);
+  }, [refreshModels, workspaceAvailable]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -180,12 +196,11 @@ export function AGADemoClassificationWorkspacePage({
     const key = `${filterKey}:${page}`;
     setPageResponse(null);
     setSelected(null);
+    // Cached metadata is deliberately never promoted to the loaded page: it
+    // contains no sealed question bodies. Returning Page 1 after Page 2 must
+    // always refetch its server-authoritative text before rendering it.
     const cached = pageCache.current.get(key);
-    if (cached) {
-      setPageResponse(cached);
-      setLoading(false);
-      return () => controller.abort();
-    }
+    void cached;
     setLoading(true);
     void client.classificationQuery(queryFor(filters, page), { signal: controller.signal })
       .then((response) => {
@@ -241,8 +256,7 @@ export function AGADemoClassificationWorkspacePage({
     if (!client || !generation || !draft || !selected?.questionKey) {
       throw new Error("Select a server-returned question and load the current Draft before issuing a command.");
     }
-    commandSequence.current += 1;
-    const idempotencyKey = commandKey(operationId, commandSequence.current);
+    const idempotencyKey = commandKey(operationId);
     const command: AGADemoWorkspaceCommand = {
       operationId,
       idempotencyKey,
@@ -321,8 +335,7 @@ export function AGADemoClassificationWorkspacePage({
 
   const resetGeneration = useCallback(async () => {
     if (!client || role !== "admin" || !generation || !resetConfirmed || !resetReason.trim()) return;
-    commandSequence.current += 1;
-    const idempotencyKey = commandKey("RESET_GENERATION", commandSequence.current);
+    const idempotencyKey = commandKey("RESET_GENERATION");
     setPending(true);
     setError(null);
     setStatus(null);
@@ -347,7 +360,7 @@ export function AGADemoClassificationWorkspacePage({
     }
   }, [client, generation, refreshModels, resetConfirmed, resetReason, role]);
 
-  if (!classificationAvailable) {
+  if (!workspaceAvailable) {
     return (
       <WorkspaceShell roleLabel={roleLabel} routeLabel="AGA Demo Workspace">
         <section className="aga-workspace-unavailable" data-testid="aga-workspace-projection-unavailable" role="alert">
@@ -358,12 +371,48 @@ export function AGADemoClassificationWorkspacePage({
     );
   }
 
+  if (adminReadResetAvailable && !classificationAvailable) {
+    return (
+      <WorkspaceShell roleLabel={roleLabel} routeLabel="AGA Demo Workspace">
+        <main className="aga-classification-workspace" data-testid="aga-workspace-admin-page">
+          <PageHeader
+            eyebrow="Disposable local-preprod workspace"
+            title="AGA generation administration"
+            description="CAA administrators can inspect the current disposable generation, its history, and its explicitly authorized reset boundary. Classification review remains unavailable."
+            action={<button className="aga-workspace-button" onClick={showHistory} type="button">View generation history</button>}
+          />
+          <CommandError message={error} />
+          {status ? <p className="aga-workspace-status" role="status">{status}</p> : null}
+          <section aria-label="Admin generation facts" className="aga-workspace-facts">
+            <article><span>Current generation</span><strong>{generation?.generationId ?? "Not loaded"}</strong><small>sealed revision {generation?.revision ?? "—"}</small></article>
+            <article><span>Admin capability</span><strong>Read and reset</strong><small>no classification mutations</small></article>
+          </section>
+          <section aria-label="Admin generation controls" className="aga-workspace-admin-panel">
+            <h2>Admin generation history and reset</h2>
+            <p>Reset is destructive to this disposable generation only and never writes canonical records.</p>
+            {history?.length ? <ul>{history.map((entry) => <li key={entry.generationId}>{entry.generationId} · revision {entry.revision}</li>)}</ul> : <p>No history loaded.</p>}
+            <label>Reset reason<input aria-label="Reset reason" value={resetReason} onChange={(event) => setResetReason(event.target.value)} /></label>
+            <label className="aga-workspace-confirm"><input aria-label="Confirm generation reset" checked={resetConfirmed} onChange={(event) => setResetConfirmed(event.target.checked)} type="checkbox" /> I understand this resets the disposable generation.</label>
+            <button disabled={!resetReason.trim() || !resetConfirmed || pending || !capability.resetEnabled} onClick={() => void resetGeneration()} type="button">Reset generation</button>
+          </section>
+        </main>
+      </WorkspaceShell>
+    );
+  }
+
   const rows = pageResponse?.items ?? [];
   const total = pageResponse?.itemCount ?? summary?.itemCount ?? 0;
   const currentPageNumber = pageResponse?.page ?? page;
   const hasNextPage = pageResponse?.nextPage !== undefined;
   const inspectedScopeEligible = providers.filter((entry) => entry.disposition === "INSPECTED_SCOPE_ELIGIBLE");
   const involvementOnly = providers.filter((entry) => entry.disposition === "INVOLVEMENT_ONLY");
+  const includeDisabledReason = !selected
+    ? "Select a server-returned classification item before including it."
+    : !selected.includeEligible
+      ? selected.includeEligibilityReason
+      : pending
+        ? "The current command is pending."
+        : "";
 
   return (
     <WorkspaceShell roleLabel={roleLabel} routeLabel="AGA Demo Workspace">
@@ -417,10 +466,11 @@ export function AGADemoClassificationWorkspacePage({
         <section aria-label="Draft controls" className="aga-workspace-command-panel">
           <h2>Draft controls</h2>
           <p>Every action uses the current generation, Draft revision, content digest, and a server-returned question reference.</p>
+          <p id="include-eligibility-reason" className="aga-workspace-boundary">{selected ? selected.includeEligible ? "Selected item is eligible for Include under the current server-owned simulation scope." : `Include unavailable: ${selected.includeEligibilityReason}` : "Select a server-returned item to receive its server-owned Include eligibility."}</p>
           <label>Controlled reason<select aria-label="Controlled reason" value={reasonCode} onChange={(event) => setReasonCode(event.target.value as (typeof REASON_OPTIONS)[number])}>{REASON_OPTIONS.map((reason) => <option key={reason} value={reason}>{reason}</option>)}</select></label>
           <div className="aga-workspace-actions">
             <button disabled={!selected || pending} onClick={() => runAction("RETAIN")} type="button">Retain selected item</button>
-            <button disabled={!selected || pending} onClick={() => runAction("INCLUDE")} type="button">Include selected item</button>
+            <button aria-describedby="include-eligibility-reason" disabled={Boolean(includeDisabledReason)} onClick={() => runAction("INCLUDE")} title={includeDisabledReason || undefined} type="button">Include selected item</button>
             <button disabled={!selected || pending} onClick={() => runAction("EXCLUDE")} type="button">Exclude selected item</button>
             <button disabled={!selected || pending} onClick={() => runAction("DEFER")} type="button">Defer selected item</button>
             <button disabled={!selected || pending} onClick={() => runAction("RECLASSIFY_MAIN_DOMAIN", { mainDomainCode })} type="button">Reclassify main domain</button>

@@ -18,11 +18,29 @@ export const AGA_DEMO_WORKSPACE_ROUTES = [
   { path: "/auditee/aga-demo-workspace", role: "auditee", label: "Auditee — Fly Namibia" },
 ] as const satisfies readonly { path: string; role: Role; label: string }[];
 
+export function agaDemoWorkspaceLandingPath(role: Role): string | null {
+  switch (role) {
+    case "admin": return "/admin/aga-demo-workspace";
+    case "manager": return "/department-manager/aga-demo-workspace";
+    case "inspector": return "/inspector/aga-demo-workspace/inspection";
+    case "leadInspector": return "/lead-inspector/aga-demo-workspace/inspection";
+    case "auditee": return "/auditee/aga-demo-workspace/caps-evidence";
+    default: return null;
+  }
+}
+
 function WorkspaceRoute({ path, role, label }: { path: string; role: Role; label: string }) {
   const location = useLocation();
   const [projection, setProjection] = useState<AGADemoLifecycleProjection | null>(null);
   const suffix = location.pathname.slice(path.length).replace(/\/$/u, "");
-  const page = suffix === "/inspection"
+  const knownLifecycleSuffix = suffix === "" || suffix === "/inspection" || suffix === "/potential-findings" || suffix === "/caps-evidence";
+  const auditeeSuffixAllowed = suffix === "" || suffix === "/caps-evidence";
+  if (!knownLifecycleSuffix || (role === "auditee" && !auditeeSuffixAllowed)) {
+    return <WorkspaceRouteNotFound />;
+  }
+  const page = role === "auditee"
+    ? "caps-evidence"
+    : suffix === "/inspection"
     ? "inspection"
     : suffix === "/potential-findings"
       ? "potential-findings"
@@ -34,10 +52,12 @@ function WorkspaceRoute({ path, role, label }: { path: string; role: Role; label
       {(capability) => (
         <>
           <nav aria-label="AGA synthetic lifecycle routes" className="aga-workspace-route-nav">
-            <Link aria-current={page === "classification" ? "page" : undefined} to={path}>Classification workspace</Link>
-            <Link aria-current={page === "inspection" ? "page" : undefined} to={`${path}/inspection`}>Inspection lifecycle</Link>
-            <Link aria-current={page === "potential-findings" ? "page" : undefined} to={`${path}/potential-findings`}>Potential Findings</Link>
-            <Link aria-current={page === "caps-evidence" ? "page" : undefined} to={`${path}/caps-evidence`}>CAP and Evidence</Link>
+            {role === "auditee" ? <Link aria-current="page" to={`${path}/caps-evidence`}>CAP and Evidence</Link> : <>
+              <Link aria-current={page === "classification" ? "page" : undefined} to={path}>Classification workspace</Link>
+              <Link aria-current={page === "inspection" ? "page" : undefined} to={`${path}/inspection`}>Inspection lifecycle</Link>
+              <Link aria-current={page === "potential-findings" ? "page" : undefined} to={`${path}/potential-findings`}>Potential Findings</Link>
+              <Link aria-current={page === "caps-evidence" ? "page" : undefined} to={`${path}/caps-evidence`}>CAP and Evidence</Link>
+            </>}
           </nav>
           {page === "inspection" ? <AGADemoInspectionPage capability={capability} role={role} roleLabel={label} initialProjection={projection ?? undefined} onProjectionChange={setProjection} /> : null}
           {page === "potential-findings" ? <AGADemoPotentialFindingPage capability={capability} role={role} roleLabel={label} initialProjection={projection ?? undefined} onProjectionChange={setProjection} /> : null}
@@ -46,6 +66,15 @@ function WorkspaceRoute({ path, role, label }: { path: string; role: Role; label
         </>
       )}
     </AGADemoWorkspaceGuard>
+  );
+}
+
+function WorkspaceRouteNotFound() {
+  return (
+    <main className="aga-lifecycle-page" data-testid="aga-demo-workspace-not-found">
+      <h1>AGA demo workspace route unavailable</h1>
+      <p>This lifecycle route is not available for the selected role.</p>
+    </main>
   );
 }
 
@@ -80,6 +109,9 @@ export const agaDemoWorkspaceRouteElementsWithManagerPackage: readonly ReactElem
   managerPackageRoute,
   ...agaDemoWorkspaceRouteElements,
   caaReviewerRoute,
+  ...[...AGA_DEMO_WORKSPACE_ROUTES.map(({ path }) => path), "/caa-reviewer/aga-demo-workspace"].map(
+    (path) => <Route key={`${path}:not-found`} path={`${path}/*`} element={<WorkspaceRouteNotFound />} />,
+  ),
 ];
 
 export function AGADemoWorkspaceNavigation({

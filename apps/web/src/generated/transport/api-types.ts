@@ -4843,6 +4843,8 @@ export interface components {
             questionRef: components["schemas"]["AGADemoWorkspaceQuestionReference"];
             /** @enum {string} */
             questionOrigin: "SEALED_BASE" | "WORKSPACE";
+            includeEligible: boolean;
+            includeEligibilityReason: string;
             projection: components["schemas"]["AGADemoWorkspaceProposalProjection"];
             agreementConfidence: string;
             recommendationState: string;
@@ -5055,6 +5057,7 @@ export interface components {
             action?: string;
             targetQuestionKey?: string;
             reasonCode?: string;
+            reasonExplanation?: string;
             mainDomainCode?: string;
             topicCode?: string;
             resolutionMode?: string;
@@ -5270,6 +5273,7 @@ export interface components {
             lifecycleAvailable: boolean;
             reason?: string;
             lifecycle?: components["schemas"]["AGADemoWorkspaceLifecycleProjection"];
+            lifecycleAuditee?: components["schemas"]["AGADemoWorkspaceLifecycleAuditeeProjection"];
         };
         AGADemoWorkspaceLifecycleQuestionSnapshot: {
             questionKey: string;
@@ -5476,6 +5480,17 @@ export interface components {
                 departmentId?: string;
                 organizationalUnitId?: string;
             };
+            reasonHistory: {
+                reasonId: string;
+                operationId: string;
+                reasonCode: string;
+                reasonExplanation: string;
+                findingId?: string;
+                actorSubjectId: string;
+                /** Format: date-time */
+                createdAt: string;
+                digest: string;
+            }[];
             roleHistory: {
                 role: string;
                 action: string;
@@ -5483,27 +5498,75 @@ export interface components {
                 occurredAt: string;
             }[];
         };
+        AGADemoWorkspaceLifecycleAuditeeFinding: {
+            findingId: string;
+            severity: string;
+            /** @enum {string} */
+            state: "WAITING_FOR_CAP" | "CAP_SUBMITTED" | "CAP_REJECTED" | "CAP_MORE_INFORMATION_REQUESTED" | "EVIDENCE_REQUIRED" | "EVIDENCE_SUBMITTED" | "PENDING_CAA_REVIEW" | "EVIDENCE_MORE_INFORMATION_REQUESTED" | "PENDING_CLOSURE" | "CLOSED";
+            nextAction: string;
+            capRequired: boolean;
+            evidenceRequired: boolean;
+            dueDateRequired: boolean;
+            /** Format: date-time */
+            dueDate?: string;
+            revision: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AGADemoWorkspaceLifecycleAuditeeCAPRevision: {
+            capId: string;
+            findingId: string;
+            revision: number;
+            /** @enum {string} */
+            state: "SUBMITTED" | "PENDING_CAA_REVIEW" | "ACCEPTED" | "REJECTED" | "MORE_INFORMATION_REQUESTED" | "SUPERSEDED";
+            rootCause: string;
+            correctiveAction: string;
+            preventiveAction: string;
+            responsiblePerson: string;
+            /** Format: date-time */
+            targetDate?: string;
+            commentToAuditee?: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AGADemoWorkspaceLifecycleAuditeeEvidenceVersion: {
+            evidenceId: string;
+            findingId: string;
+            version: number;
+            fileName: string;
+            /** @enum {string} */
+            reviewState: "PENDING_CAA_REVIEW" | "ACCEPTED" | "PARTIALLY_ACCEPTED" | "REJECTED" | "MORE_INFORMATION_REQUESTED";
+            commentToAuditee?: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AGADemoWorkspaceLifecycleAuditeeVerificationDecision: {
+            verificationId: string;
+            findingId: string;
+            evidenceId: string;
+            evidenceVersion: number;
+            /** @enum {string} */
+            outcome: "CLOSE" | "PARTIALLY_CLOSE" | "NOT_CLOSE" | "REQUEST_MORE_INFORMATION";
+            commentToAuditee: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
         AGADemoWorkspaceLifecycleAuditeeProjection: {
             inspectionId: string;
             generationId: string;
             organizationId: string;
-            providerScopeId: string;
             /** @enum {string} */
             state: "READY" | "IN_PROGRESS" | "SUBMITTED" | "COMPLETED";
             revision: number;
-            questions: components["schemas"]["AGADemoWorkspaceLifecycleQuestionSnapshot"][];
-            responses: components["schemas"]["AGADemoWorkspaceLifecycleResponse"][];
-            potentialFindings: components["schemas"]["AGADemoWorkspaceLifecyclePotentialFinding"][];
-            findings: components["schemas"]["AGADemoWorkspaceLifecycleFinding"][];
-            capRevisions: components["schemas"]["AGADemoWorkspaceLifecycleCAPRevision"][];
-            evidenceVersions: components["schemas"]["AGADemoWorkspaceLifecycleEvidenceVersion"][];
-            verificationDecisions: components["schemas"]["AGADemoWorkspaceLifecycleVerificationDecision"][];
-            currentOwnerRole: string;
+            findings: components["schemas"]["AGADemoWorkspaceLifecycleAuditeeFinding"][];
+            capRevisions: components["schemas"]["AGADemoWorkspaceLifecycleAuditeeCAPRevision"][];
+            evidenceVersions: components["schemas"]["AGADemoWorkspaceLifecycleAuditeeEvidenceVersion"][];
+            verificationDecisions: components["schemas"]["AGADemoWorkspaceLifecycleAuditeeVerificationDecision"][];
             nextAction: string;
+            publicOwnerLabel: string;
             /** Format: date-time */
             updatedAt: string;
             digest: string;
-            publicOwnerLabel: string;
         };
         AGADemoWorkspaceNotFound: {
             /** @constant */

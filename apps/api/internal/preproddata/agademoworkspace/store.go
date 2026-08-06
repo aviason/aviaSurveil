@@ -126,6 +126,8 @@ type MemoryStore struct {
 	responses         map[StoredResponseKey]IdempotencyResponse
 	allocator         *aga.SequentialIDAllocator
 	resetCount        int
+	generationHistory map[string]Generation
+	resetTombstones   []ResetTombstone
 	nonTerminal       bool
 	loaderRevoked     bool
 	recommendations   map[string]RecommendationSnapshot
@@ -135,13 +137,14 @@ type MemoryStore struct {
 
 func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{
-		versions:        make(map[string]WorkspaceQuestionVersion),
-		byRoot:          make(map[string][]string),
-		responses:       make(map[StoredResponseKey]IdempotencyResponse),
-		allocator:       aga.NewSequentialIDAllocator("memory"),
-		recommendations: make(map[string]RecommendationSnapshot),
-		lifecycleEvents: make(map[string][]LifecycleEvent),
-		batchPreviews:   make(map[string]SelectionBatchPreviewRecord),
+		versions:          make(map[string]WorkspaceQuestionVersion),
+		byRoot:            make(map[string][]string),
+		responses:         make(map[StoredResponseKey]IdempotencyResponse),
+		allocator:         aga.NewSequentialIDAllocator("memory"),
+		generationHistory: make(map[string]Generation),
+		recommendations:   make(map[string]RecommendationSnapshot),
+		lifecycleEvents:   make(map[string][]LifecycleEvent),
+		batchPreviews:     make(map[string]SelectionBatchPreviewRecord),
 	}
 }
 
@@ -169,8 +172,9 @@ func (store *MemoryStore) LoadAndSeal(_ context.Context, input LoadInput) (Works
 		draftItemsByKey[draftItem.QuestionRef.Key()] = draftItem
 	}
 	for _, item := range input.Classification.Items {
-		classificationItem := ClassificationItem{QuestionKey: item.Identity.Key(), Identity: item.Identity, Projection: item.Projection, AgreementConfidence: item.AgreementConfidence, RecommendationState: item.RecommendationState, Governance: item.GovernanceState, ItemSemanticDigest: item.ItemSemanticDigest, CandidateDigest: item.PassOneResultDigest, ChallengeDigest: item.PassTwoResultDigest}
-		if draftItem, ok := draftItemsByKey[item.Identity.Key()]; ok {
+		questionKey := aga.BaseQuestionReference(item.Identity).Key()
+		classificationItem := ClassificationItem{QuestionKey: questionKey, Identity: item.Identity, Projection: item.Projection, AgreementConfidence: item.AgreementConfidence, RecommendationState: item.RecommendationState, Governance: item.GovernanceState, ItemSemanticDigest: item.ItemSemanticDigest, CandidateDigest: item.PassOneResultDigest, ChallengeDigest: item.PassTwoResultDigest}
+		if draftItem, ok := draftItemsByKey[questionKey]; ok {
 			classificationItem.DraftAgreementConfidence = draftItem.DraftAgreementConfidence
 			classificationItem.DraftRecommendationState = draftItem.RecommendationState
 			classificationItem.DraftReviewState = draftItem.ReviewState
@@ -207,6 +211,7 @@ func (store *MemoryStore) LoadAndSeal(_ context.Context, input LoadInput) (Works
 	seal.SealDigest = digestValue("AGA-DEMO-WORKSPACE-SEAL-V1", seal)
 	store.loaded = LoadedWorkspace{Generation: gen, Taxonomy: input.TaxonomyVersion, Run: run, Items: items, CandidateRecords: candidate, ChallengeRecords: challenge, Draft: draftRecord, Fixture: cloneJSON(input.Fixture), Seal: seal}
 	store.currentGeneration = gen.GenerationID
+	store.generationHistory[gen.GenerationID] = cloneJSON(gen)
 	store.loadedOnce = true
 	store.loaderRevoked = false
 	return cloneJSON(seal), nil
@@ -708,16 +713,55 @@ func (store *MemoryStore) ResetGeneration(_ context.Context, input ResetInput) (
 	input.Now = input.Now.UTC()
 	store.resetCount++
 	newID := fmt.Sprintf("aga-ws-generation-reset-%d", store.resetCount)
+	freshDraft, err := freshResetDraft(store.loaded, newID)
+	if err != nil {
+		return Generation{}, ResetTombstone{}, err
+	}
 	newGen := Generation{GenerationID: newID, State: GenerationActive, ClassificationRunID: current.ClassificationRunID, ClassificationRunDigest: current.ClassificationRunDigest, TaxonomyVersion: current.TaxonomyVersion, TaxonomyDigest: current.TaxonomyDigest, FixtureDigest: current.FixtureDigest, Revision: 1, CreatedAt: input.Now, ResetFromGenerationID: current.GenerationID}
-	newGen.SealDigest = digestValue("AGA-DEMO-WORKSPACE-GENERATION-V1", newGen)
+	newGen.SealDigest = digestValue("AGA-DEMO-WORKSPACE-GENERATION-V1", struct {
+		Generation Generation
+		Draft      aga.Draft
+	}{newGen, freshDraft})
 	tombstone := ResetTombstone{TombstoneID: fmt.Sprintf("aga-ws-tombstone-%d", store.resetCount), FromGenerationID: current.GenerationID, ToGenerationID: newID, ExpectedGenerationID: input.ExpectedGenerationID, ExpectedRevision: input.ExpectedGenerationRevision, ExpectedSealDigest: input.ExpectedGenerationSealDigest, ReasonCode: trimReason(input.ReasonCode), ActorSubjectID: input.ActorSubjectID, CreatedAt: input.Now}
 	tombstone.TombstoneDigest = digestValue("AGA-DEMO-WORKSPACE-RESET-TOMBSTONE-V1", tombstone)
 	old := current
 	old.State = GenerationReset
-	store.loaded.Generation = old
+	store.generationHistory[old.GenerationID] = cloneJSON(old)
+	store.resetTombstones = append(store.resetTombstones, cloneJSON(tombstone))
 	store.loaded.Generation = newGen
+	store.loaded.Draft = DraftRecord{Draft: freshDraft, CreatedAt: input.Now}
+	store.loaded.Items = mergeDraftMetadata(store.loaded.Items, freshDraft)
+	aggregate := digestValue("AGA-DEMO-WORKSPACE-AGGREGATE-V1", struct {
+		GenerationID string
+		Run          string
+		Items        []ClassificationItem
+	}{newID, store.loaded.Run.ClassificationRunDigest, store.loaded.Items})
+	seal := WorkspaceSealReceipt{GenerationID: newID, ClassificationRunDigest: current.ClassificationRunDigest, FixtureDigest: current.FixtureDigest, WorkspaceAggregateDigest: aggregate, SealedAt: input.Now, LoaderRevoked: true}
+	seal.SealDigest = digestValue("AGA-DEMO-WORKSPACE-SEAL-V1", seal)
+	store.loaded.Seal = seal
 	store.currentGeneration = newID
+	store.generationHistory[newID] = cloneJSON(newGen)
+	store.versions = make(map[string]WorkspaceQuestionVersion)
+	store.byRoot = make(map[string][]string)
+	store.responses = make(map[StoredResponseKey]IdempotencyResponse)
+	store.recommendations = make(map[string]RecommendationSnapshot)
+	store.lifecycleEvents = make(map[string][]LifecycleEvent)
+	store.batchPreviews = make(map[string]SelectionBatchPreviewRecord)
+	store.allocator = aga.NewSequentialIDAllocator(fmt.Sprintf("memory-reset-%d", store.resetCount))
+	store.nonTerminal = false
+	store.loaderRevoked = true
 	return cloneJSON(newGen), cloneJSON(tombstone), nil
+}
+
+func freshResetDraft(workspace LoadedWorkspace, generationID string) (aga.Draft, error) {
+	if workspace.Run.Result.ClassificationRunID == "" || workspace.Run.Result.ClassificationRunDigest == "" {
+		return aga.Draft{}, ErrWorkspaceNotSealed
+	}
+	draft, err := aga.NewDraftFromClassification(workspace.Run.Result, generationID)
+	if err != nil {
+		return aga.Draft{}, fmt.Errorf("rebuild fresh reset draft: %w", err)
+	}
+	return draft, nil
 }
 
 func (store *MemoryStore) SetNonTerminalLifecycle(value bool) {

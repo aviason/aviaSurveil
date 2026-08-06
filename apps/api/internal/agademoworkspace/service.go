@@ -53,14 +53,16 @@ func (service *Service) invalidateReaderSnapshotCache() {
 }
 
 func (service *Service) Capability(ctx context.Context, principal identity.Principal) (Capability, error) {
-	if !service.HasBroadAuthority(ctx, principal) {
-		return Capability{}, ErrNeutralDenied
-	}
 	if principal.HasRole(identity.RoleAdmin) && isCAAOrganization(principal.OrganizationID) {
-		return Capability{Available: true, Projection: "CAA_ADMIN", ClassificationEnabled: true, RecommendationEnabled: true, LifecycleEnabled: true, ResetEnabled: true}, nil
+		// These capability flags gate the mutation-capable browser surfaces.
+		// A CAA admin may use the explicitly authorized read/reset operations,
+		// but is not silently represented as a Department Manager.
+		return Capability{Available: true, Projection: "CAA_ADMIN", LifecycleEnabled: true, ResetEnabled: true}, nil
 	}
-	binding, found, err := service.ResolveBinding(ctx, principal)
-	if err != nil || !found {
+	classificationEnabled := service.hasOperationAuthority(ctx, principal, OperationInclude)
+	recommendationEnabled := service.hasOperationAuthority(ctx, principal, OperationCreateRecommendation)
+	lifecycleEnabled := service.hasOperationAuthority(ctx, principal, OperationGetInspection)
+	if !classificationEnabled && !recommendationEnabled && !lifecycleEnabled {
 		return Capability{}, ErrNeutralDenied
 	}
 	projection := "WORKSPACE_SCOPED"
@@ -73,23 +75,27 @@ func (service *Service) Capability(ctx context.Context, principal identity.Princ
 	} else if principal.HasRole(identity.RoleInspector) {
 		projection = "INSPECTOR_SCOPED"
 	}
-	_ = binding
-	lifecycleEnabled := principal.HasRole(identity.RoleAuditee, identity.RoleInspector, identity.RoleLeadInspector, identity.RoleDepartmentManager) && bindingHasWorkspaceRole(binding, principal, "LIFECYCLE_READ")
-	return Capability{Available: true, Projection: projection, ClassificationEnabled: principal.HasRole(identity.RoleDepartmentManager), RecommendationEnabled: principal.HasRole(identity.RoleDepartmentManager), LifecycleEnabled: lifecycleEnabled, ResetEnabled: false}, nil
+	return Capability{Available: true, Projection: projection, ClassificationEnabled: classificationEnabled, RecommendationEnabled: recommendationEnabled, LifecycleEnabled: lifecycleEnabled, ResetEnabled: false}, nil
+}
+
+func (service *Service) hasOperationAuthority(ctx context.Context, principal identity.Principal, operation string) bool {
+	_, found, err := service.ResolveBindingForOperation(ctx, principal, operation)
+	return err == nil && found
 }
 
 func (service *Service) Query(ctx context.Context, principal identity.Principal, request QueryRequest) (QueryResponse, error) {
 	if err := request.Validate(); err != nil {
 		return QueryResponse{}, err
 	}
-	if _, err := service.Authorize(ctx, principal, request.OperationID); err != nil {
+	decision, err := service.Authorize(ctx, principal, request.OperationID)
+	if err != nil {
 		return QueryResponse{}, err
 	}
 	if isRecommendationQuery(request.OperationID) {
 		return service.recommendationQuery(ctx, principal, request)
 	}
 	if isLifecycleQuery(request.OperationID) {
-		return service.lifecycleQuery(ctx, principal, request)
+		return service.lifecycleQuery(ctx, principal, request, decision)
 	}
 	if !isClassificationQuery(request.OperationID) {
 		return QueryResponse{}, ErrCapabilityUnavailable
@@ -119,6 +125,8 @@ func (service *Service) Query(ctx context.Context, principal identity.Principal,
 		if rowsErr != nil {
 			return QueryResponse{}, rowsErr
 		}
+		setup, setupErr := service.simulationSetup(ctx, principal, workspace)
+		includeEligibilityReason := "SIMULATION_SCOPE_UNAVAILABLE"
 		metadataRequest := request
 		// A non-empty Search is a sealed-body search when the tagged resolver is
 		// present. Do not ask the metadata-only filter to match the body fragment
@@ -149,18 +157,16 @@ func (service *Service) Query(ctx context.Context, principal identity.Principal,
 		if pageSize > MaxQuestionTextPage {
 			return QueryResponse{}, ErrMalformedCommand
 		}
-		start := request.Page * pageSize
-		if start > len(filteredRows) {
-			start = len(filteredRows)
-		}
-		end := start + pageSize
-		if end > len(filteredRows) {
-			end = len(filteredRows)
-		}
+		start, end := boundedPageWindow(request.Page, pageSize, len(filteredRows))
 		pageRows := filteredRows[start:end]
 		response.Items = make([]ClassificationReviewItem, 0, len(pageRows))
 		for _, row := range pageRows {
-			response.Items = append(response.Items, reviewMetadataItem(row))
+			includeEligible := false
+			reason := includeEligibilityReason
+			if setupErr == nil {
+				includeEligible, reason = includeEligibilityForSimulation(row.item, setup)
+			}
+			response.Items = append(response.Items, reviewMetadataItem(row, includeEligible, reason))
 		}
 		decision, decisionErr := service.Authorize(ctx, principal, request.OperationID)
 		if decisionErr != nil {
@@ -219,6 +225,26 @@ func (service *Service) Query(ctx context.Context, principal identity.Principal,
 	return response, nil
 }
 
+func boundedPageWindow(page, pageSize, itemCount int) (int, int) {
+	if pageSize <= 0 || itemCount <= 0 {
+		return 0, 0
+	}
+	// Do not multiply an attacker-controlled page before proving it falls
+	// within the materialized row count.
+	if page > itemCount/pageSize {
+		return itemCount, itemCount
+	}
+	start := page * pageSize
+	if start >= itemCount {
+		return itemCount, itemCount
+	}
+	end := start + pageSize
+	if end < start || end > itemCount {
+		end = itemCount
+	}
+	return start, end
+}
+
 type classificationReviewRow struct {
 	item             preprod.ClassificationItem
 	ref              aga.QuestionRef
@@ -273,8 +299,35 @@ func hasCurrentWorkspaceDraftItems(draft aga.Draft) bool {
 	return false
 }
 
-func reviewMetadataItem(row classificationReviewRow) ClassificationReviewItem {
-	return ClassificationReviewItem{ClassificationItem: row.item, QuestionRef: row.ref, QuestionOrigin: string(row.ref.Origin)}
+func reviewMetadataItem(row classificationReviewRow, includeEligible bool, includeEligibilityReason string) ClassificationReviewItem {
+	return ClassificationReviewItem{ClassificationItem: row.item, QuestionRef: row.ref, QuestionOrigin: string(row.ref.Origin), IncludeEligible: includeEligible, IncludeEligibilityReason: includeEligibilityReason}
+}
+
+func (service *Service) validateIncludeEligibility(ctx context.Context, principal identity.Principal, workspace preprod.LoadedWorkspace, command CommandEnvelope) error {
+	rows, err := service.classificationReviewRows(ctx, workspace)
+	if err != nil {
+		return ErrIncludedQuestionIneligible
+	}
+	var selected *preprod.ClassificationItem
+	for _, row := range rows {
+		if row.item.QuestionKey != command.TargetQuestionKey {
+			continue
+		}
+		item := row.item
+		selected = &item
+		break
+	}
+	if selected == nil {
+		return ErrNeutralDenied
+	}
+	setup, err := service.simulationSetup(ctx, principal, workspace)
+	if err != nil {
+		return ErrIncludedQuestionIneligible
+	}
+	if eligible, _ := includeEligibilityForSimulation(*selected, setup); !eligible {
+		return ErrIncludedQuestionIneligible
+	}
+	return nil
 }
 
 func filterClassificationReviewRows(rows []classificationReviewRow, request QueryRequest) []classificationReviewRow {
@@ -447,9 +500,6 @@ type runtimeDraftCommandApplier interface {
 }
 
 func (service *Service) Command(ctx context.Context, principal identity.Principal, family OperationFamily, command CommandEnvelope) (CommandResponse, error) {
-	if _, err := service.Authorize(ctx, principal, command.OperationID); err != nil {
-		return CommandResponse{}, err
-	}
 	if err := command.Validate(family); err != nil {
 		return CommandResponse{}, err
 	}
@@ -534,6 +584,11 @@ func (service *Service) Command(ctx context.Context, principal identity.Principa
 			}
 		}
 	}
+	if family == FamilyClassificationCommand && command.OperationID == OperationInclude {
+		if eligibilityErr := service.validateIncludeEligibility(ctx, principal, workspace, command); eligibilityErr != nil {
+			return CommandResponse{}, eligibilityErr
+		}
+	}
 	var response CommandResponse
 	switch family {
 	case FamilyAdminCommand:
@@ -593,9 +648,17 @@ func (service *Service) Command(ctx context.Context, principal identity.Principa
 			return CommandResponse{}, ErrCapabilityUnavailable
 		}
 	case FamilyLifecycleCommand:
-		aggregate, lifecycleErr := service.lifecycleCommand(ctx, principal, command)
+		aggregate, lifecycleErr := service.lifecycleCommand(ctx, principal, command, decision.Binding, decision.IsAdmin)
 		if lifecycleErr != nil {
 			return CommandResponse{}, lifecycleErr
+		}
+		if principal.HasRole(identity.RoleAuditee) {
+			projection, projectionErr := ProjectAuditeeLifecycle(aggregate, principal)
+			if projectionErr != nil {
+				return CommandResponse{}, projectionErr
+			}
+			response = CommandResponse{OperationID: command.OperationID, LifecycleAuditee: &projection}
+			break
 		}
 		projection := ProjectLifecycle(aggregate, principal)
 		response = CommandResponse{OperationID: command.OperationID, Lifecycle: &projection}

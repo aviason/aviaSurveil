@@ -167,7 +167,7 @@ CREATE TABLE IF NOT EXISTS preprod_aga_demo_workspace.batch_preview_consumptions
   payload jsonb NOT NULL
 );
 CREATE TABLE IF NOT EXISTS preprod_aga_demo_workspace.authority_bindings (
-  binding_id text PRIMARY KEY,
+  binding_id text NOT NULL,
   generation_id text NOT NULL,
   subject_slot text NOT NULL,
   membership_slot text NOT NULL,
@@ -175,10 +175,23 @@ CREATE TABLE IF NOT EXISTS preprod_aga_demo_workspace.authority_bindings (
   department_id text NOT NULL,
   organizational_unit_id text NOT NULL,
   operation_roles jsonb NOT NULL,
-  binding_digest text NOT NULL UNIQUE,
+  binding_digest text NOT NULL,
   active boolean NOT NULL,
-  payload jsonb NOT NULL
+  payload jsonb NOT NULL,
+  PRIMARY KEY (generation_id, binding_id),
+  UNIQUE (generation_id, binding_digest)
 );
+DO $$
+BEGIN
+  ALTER TABLE preprod_aga_demo_workspace.authority_bindings
+    DROP CONSTRAINT IF EXISTS authority_bindings_pkey;
+  ALTER TABLE preprod_aga_demo_workspace.authority_bindings
+    ADD CONSTRAINT authority_bindings_pkey PRIMARY KEY (generation_id, binding_id);
+  ALTER TABLE preprod_aga_demo_workspace.authority_bindings
+    DROP CONSTRAINT IF EXISTS authority_bindings_binding_digest_key;
+  ALTER TABLE preprod_aga_demo_workspace.authority_bindings
+    ADD CONSTRAINT authority_bindings_generation_binding_digest_key UNIQUE (generation_id, binding_digest);
+END $$;
 CREATE TABLE IF NOT EXISTS preprod_aga_demo_workspace.provider_scopes (
   generation_id text NOT NULL,
   provider_scope_root_id text NOT NULL,
@@ -284,28 +297,37 @@ CREATE OR REPLACE VIEW preprod_aga_demo_workspace.sealed_classification_items AS
 SELECT classification_run_id, identity_key, payload, canonical_payload, row_digest
 FROM preprod_aga_demo_workspace.classification_items;
 CREATE OR REPLACE VIEW preprod_aga_demo_workspace.sealed_drafts AS
-SELECT generation_id, draft_id, revision, content_digest, state, payload,
-       canonical_payload, row_digest
-FROM preprod_aga_demo_workspace.drafts;
+SELECT draft.generation_id, draft.draft_id, draft.revision, draft.content_digest, draft.state, draft.payload,
+       draft.canonical_payload, draft.row_digest
+FROM preprod_aga_demo_workspace.drafts draft
+JOIN preprod_aga_demo_workspace.generations generation USING (generation_id)
+WHERE generation.state = 'ACTIVE';
 CREATE OR REPLACE VIEW preprod_aga_demo_workspace.sealed_authority_bindings AS
 SELECT binding_id, generation_id, subject_slot, membership_slot, organization_id,
        department_id, organizational_unit_id, operation_roles, binding_digest,
        active, payload
-FROM preprod_aga_demo_workspace.authority_bindings
-WHERE active;
+FROM preprod_aga_demo_workspace.authority_bindings binding
+JOIN preprod_aga_demo_workspace.generations generation USING (generation_id)
+WHERE binding.active AND generation.state = 'ACTIVE';
 CREATE OR REPLACE VIEW preprod_aga_demo_workspace.sealed_provider_scopes AS
 SELECT generation_id, provider_scope_root_id, provider_scope_id,
        provider_scope_version, provider_type_id, provider_type_code,
        organization_id, profile_digest, payload
-FROM preprod_aga_demo_workspace.provider_scopes;
+FROM preprod_aga_demo_workspace.provider_scopes scope
+JOIN preprod_aga_demo_workspace.generations generation USING (generation_id)
+WHERE generation.state = 'ACTIVE';
 CREATE OR REPLACE VIEW preprod_aga_demo_workspace.sealed_recommendations AS
 SELECT recommendation_id, generation_id, draft_id, draft_revision,
-       recommendation_digest, snapshot_digest, payload, created_at
-FROM preprod_aga_demo_workspace.recommendation_snapshots;
+       recommendation_digest, snapshot_digest, payload, recommendation.created_at
+FROM preprod_aga_demo_workspace.recommendation_snapshots recommendation
+JOIN preprod_aga_demo_workspace.generations generation USING (generation_id)
+WHERE generation.state = 'ACTIVE';
 CREATE OR REPLACE VIEW preprod_aga_demo_workspace.sealed_lifecycle_projection AS
-SELECT lifecycle_id, generation_id, recommendation_id, revision, digest, state,
-       payload, created_at
-FROM preprod_aga_demo_workspace.lifecycle_streams;
+SELECT lifecycle.lifecycle_id, lifecycle.generation_id, lifecycle.recommendation_id,
+       lifecycle.revision, lifecycle.digest, lifecycle.state, lifecycle.payload, lifecycle.created_at
+FROM preprod_aga_demo_workspace.lifecycle_streams lifecycle
+JOIN preprod_aga_demo_workspace.generations generation USING (generation_id)
+WHERE generation.state = 'ACTIVE';
 
 CREATE OR REPLACE FUNCTION preprod_aga_demo_workspace.reject_mutation() RETURNS trigger
 LANGUAGE plpgsql AS $$
@@ -682,17 +704,92 @@ SET search_path = pg_catalog, preprod_aga_demo_workspace
 AS $$
 DECLARE
   current_generation preprod_aga_demo_workspace.generations%ROWTYPE;
+  row jsonb;
+  active_generation_count integer;
+  authority_binding_count integer;
+  provider_scope_count integer;
+  provider_target_count integer;
+  affected_row_count integer;
 BEGIN
+  IF jsonb_typeof(input->'authorityBindings') IS DISTINCT FROM 'array'
+     OR jsonb_typeof(input->'providerScopes') IS DISTINCT FROM 'array'
+     OR jsonb_typeof(input->'providerTargets') IS DISTINCT FROM 'array'
+     OR jsonb_typeof(input->'draft') IS DISTINCT FROM 'object'
+     OR COALESCE(input->>'authorityBindingCount', '') !~ '^[1-9][0-9]*$'
+     OR COALESCE(input->>'providerScopeCount', '') !~ '^[1-9][0-9]*$'
+     OR COALESCE(input->>'providerTargetCount', '') !~ '^[1-9][0-9]*$' THEN
+    RAISE EXCEPTION 'workspace reset reconstruction is incomplete';
+  END IF;
+  authority_binding_count := (input->>'authorityBindingCount')::integer;
+  provider_scope_count := (input->>'providerScopeCount')::integer;
+  provider_target_count := (input->>'providerTargetCount')::integer;
+  IF jsonb_array_length(input->'authorityBindings') <> authority_binding_count
+     OR jsonb_array_length(input->'providerScopes') <> provider_scope_count
+     OR jsonb_array_length(input->'providerTargets') <> provider_target_count
+     OR input->>'toGenerationId' = ''
+     OR input->>'toGenerationId' = input->>'expectedGenerationId'
+     OR input->>'fromGenerationId' <> input->>'expectedGenerationId'
+     OR input->'draft'->>'generationId' <> input->>'toGenerationId'
+     OR input->'draft'->>'draftId' = ''
+     OR input->'draft'->>'contentDigest' = ''
+     OR COALESCE(input->'draft'->>'revision', '') <> '1' THEN
+    RAISE EXCEPTION 'workspace reset reconstruction identity conflict';
+  END IF;
+  FOR row IN SELECT value FROM jsonb_array_elements(input->'authorityBindings') LOOP
+    IF row->>'generation_id' <> input->>'toGenerationId'
+       OR row->'payload'->>'generationId' <> input->>'toGenerationId'
+       OR COALESCE(row->>'binding_id', '') = '' THEN
+      RAISE EXCEPTION 'workspace reset authority binding is not generation scoped';
+    END IF;
+  END LOOP;
+  FOR row IN SELECT value FROM jsonb_array_elements(input->'providerScopes') LOOP
+    IF row->>'generation_id' <> input->>'toGenerationId'
+       OR row->'payload'->>'generationId' <> input->>'toGenerationId'
+       OR COALESCE(row->>'provider_scope_id', '') = '' THEN
+      RAISE EXCEPTION 'workspace reset provider scope is not generation scoped';
+    END IF;
+  END LOOP;
+  FOR row IN SELECT value FROM jsonb_array_elements(input->'providerTargets') LOOP
+    IF row->>'generation_id' <> input->>'toGenerationId'
+       OR COALESCE(row->>'provider_scope_id', '') = ''
+       OR COALESCE(row->>'target_id', '') = ''
+       OR NOT EXISTS (
+         SELECT 1 FROM jsonb_array_elements(input->'providerScopes') scope
+         WHERE scope->>'generation_id' = input->>'toGenerationId'
+           AND scope->>'provider_scope_id' = row->>'provider_scope_id'
+           AND scope->>'provider_scope_version' = row->>'provider_scope_version'
+       ) THEN
+      RAISE EXCEPTION 'workspace reset provider target is not generation scoped';
+    END IF;
+  END LOOP;
+  SELECT count(*) INTO active_generation_count
+  FROM preprod_aga_demo_workspace.generations
+  WHERE state = 'ACTIVE';
+  IF active_generation_count <> 1 THEN
+    RAISE EXCEPTION 'workspace reset active generation is ambiguous';
+  END IF;
   SELECT * INTO current_generation
   FROM preprod_aga_demo_workspace.generations
   WHERE state = 'ACTIVE'
-  ORDER BY created_at DESC
-  LIMIT 1;
+  FOR UPDATE;
   IF current_generation.generation_id IS NULL
      OR current_generation.generation_id <> input->>'expectedGenerationId'
      OR current_generation.revision <> (input->>'expectedRevision')::integer
-     OR current_generation.seal_digest <> input->>'expectedSealDigest' THEN
+     OR current_generation.seal_digest <> input->>'expectedSealDigest'
+     OR current_generation.classification_run_id <> input->>'classificationRunId'
+     OR current_generation.classification_run_digest <> input->>'classificationRunDigest'
+     OR current_generation.taxonomy_version <> input->>'taxonomyVersion'
+     OR current_generation.taxonomy_digest <> input->>'taxonomyDigest'
+     OR current_generation.fixture_digest <> input->>'fixtureDigest' THEN
     RAISE EXCEPTION 'workspace reset compare-and-swap conflict';
+  END IF;
+  SELECT count(*) INTO affected_row_count
+  FROM preprod_aga_demo_workspace.workspace_seals
+  WHERE generation_id = input->>'expectedGenerationId'
+    AND classification_run_digest = current_generation.classification_run_digest
+    AND fixture_digest = current_generation.fixture_digest;
+  IF affected_row_count <> 1 THEN
+    RAISE EXCEPTION 'workspace reset immutable seal is missing or ambiguous';
   END IF;
   IF EXISTS (
   SELECT 1 FROM preprod_aga_demo_workspace.lifecycle_streams
@@ -749,19 +846,60 @@ BEGIN
     (input->>'createdAt')::timestamptz, input->>'tombstoneDigest');
   INSERT INTO preprod_aga_demo_workspace.generations
     (generation_id,state,classification_run_id,classification_run_digest,taxonomy_version,taxonomy_digest,fixture_digest,revision,seal_digest,created_at,reset_from_generation_id)
-  VALUES (input->>'toGenerationId', 'ACTIVE', input->>'classificationRunId', input->>'classificationRunDigest',
+  VALUES (input->>'toGenerationId', 'RESET', input->>'classificationRunId', input->>'classificationRunDigest',
     input->>'taxonomyVersion', input->>'taxonomyDigest', input->>'fixtureDigest', 1, input->>'newGenerationSealDigest',
     (input->>'createdAt')::timestamptz, input->>'fromGenerationId');
   INSERT INTO preprod_aga_demo_workspace.drafts
     (generation_id,draft_id,revision,content_digest,state,payload,created_at,canonical_payload,row_digest)
   VALUES (input->>'toGenerationId', input->'draft'->>'draftId', 1, input->'draft'->>'contentDigest', 'WORKING',
     input->'draft', (input->>'createdAt')::timestamptz, input->>'draftCanonicalPayload', input->>'draftRowDigest');
+  FOR row IN SELECT value FROM jsonb_array_elements(COALESCE(input->'authorityBindings', '[]'::jsonb)) LOOP
+    INSERT INTO preprod_aga_demo_workspace.authority_bindings
+    SELECT (jsonb_populate_record(NULL::preprod_aga_demo_workspace.authority_bindings, row)).*;
+  END LOOP;
+  FOR row IN SELECT value FROM jsonb_array_elements(COALESCE(input->'providerScopes', '[]'::jsonb)) LOOP
+    INSERT INTO preprod_aga_demo_workspace.provider_scopes
+    SELECT (jsonb_populate_record(NULL::preprod_aga_demo_workspace.provider_scopes, row)).*;
+  END LOOP;
+  FOR row IN SELECT value FROM jsonb_array_elements(COALESCE(input->'providerTargets', '[]'::jsonb)) LOOP
+    INSERT INTO preprod_aga_demo_workspace.provider_targets
+    SELECT (jsonb_populate_record(NULL::preprod_aga_demo_workspace.provider_targets, row)).*;
+  END LOOP;
+  SELECT count(*) INTO affected_row_count
+  FROM preprod_aga_demo_workspace.authority_bindings
+  WHERE generation_id = input->>'toGenerationId';
+  IF affected_row_count <> authority_binding_count THEN
+    RAISE EXCEPTION 'workspace reset authority binding count mismatch';
+  END IF;
+  SELECT count(*) INTO affected_row_count
+  FROM preprod_aga_demo_workspace.provider_scopes
+  WHERE generation_id = input->>'toGenerationId';
+  IF affected_row_count <> provider_scope_count THEN
+    RAISE EXCEPTION 'workspace reset provider scope count mismatch';
+  END IF;
+  SELECT count(*) INTO affected_row_count
+  FROM preprod_aga_demo_workspace.provider_targets
+  WHERE generation_id = input->>'toGenerationId';
+  IF affected_row_count <> provider_target_count THEN
+    RAISE EXCEPTION 'workspace reset provider target count mismatch';
+  END IF;
   INSERT INTO preprod_aga_demo_workspace.workspace_seals
     (generation_id,classification_run_digest,fixture_digest,workspace_aggregate_digest,seal_digest,sealed_at,loader_revoked,fixture_payload)
-  SELECT input->>'toGenerationId', classification_run_digest, fixture_digest, workspace_aggregate_digest,
+  SELECT input->>'toGenerationId', classification_run_digest, fixture_digest, input->>'workspaceAggregateDigest',
     input->>'newWorkspaceSealDigest', (input->>'createdAt')::timestamptz, true, fixture_payload
   FROM preprod_aga_demo_workspace.workspace_seals
   WHERE generation_id = input->>'fromGenerationId';
+  GET DIAGNOSTICS affected_row_count = ROW_COUNT;
+  IF affected_row_count <> 1 THEN
+    RAISE EXCEPTION 'workspace reset immutable seal reconstruction failed';
+  END IF;
+  UPDATE preprod_aga_demo_workspace.generations
+    SET state = 'ACTIVE'
+    WHERE generation_id = input->>'toGenerationId' AND state = 'RESET';
+  GET DIAGNOSTICS affected_row_count = ROW_COUNT;
+  IF affected_row_count <> 1 THEN
+    RAISE EXCEPTION 'workspace reset generation publication failed';
+  END IF;
   RETURN jsonb_build_object('status', 'RESET', 'generationId', input->>'toGenerationId');
 END $$;
 `

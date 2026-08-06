@@ -18,6 +18,8 @@ This is the canonical docs map for AviaSurveil360. Use it after the root
 | `regulatory-sources/README.md` | Candidate-only public-source intake, local source-vault, hash-manifest, extraction-state, and refresh-governance contract. |
 | `demo-handoff/` | Demo prompts, stakeholder acceptance criteria, and full-MVP handoff prompt. |
 | `demo-evidence/BUILD_SUMMARY.md` | Current local demo evidence, known limitations, and production gaps. |
+| `demo-evidence/AGA_BROWSER_QA_REVIEW_2026-08-06.md` | Fresh browser QA of the running AGA demo, including current lifecycle, command, SSO, idempotency, and package-filter findings. |
+| `demo-evidence/AGA_BROWSER_QA_REMEDIATION_2026-08-07.md` | Candidate-only remediation matrix for F-001–F-024 with focused local evidence and explicit connected/provider/transaction blockers. |
 | `demo-evidence/REACT_MOCK_SLICE_2026-07-20.md` | Tasks 2-4 React mock candidate scope, canonical transcript, local gates, and explicit exclusions. |
 | `demo-evidence/GO_POSTGRES_FOUNDATION_2026-07-21.md` | Task 9 one-module Go, forward-only PostgreSQL, generation, and local profile evidence. |
 | `demo-evidence/CANONICAL_AUTHORITY_FOUNDATION_2026-07-21.md` | Task 10 domain authority, isolation, session/OIDC, idempotency, audit, and migration evidence. |

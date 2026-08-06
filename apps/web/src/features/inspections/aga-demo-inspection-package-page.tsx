@@ -19,9 +19,7 @@ import { CommandError, PageHeader, StatusPill, WorkspaceShell, errorMessage } fr
 
 const PAGE_SIZE = 25;
 const MAX_BATCH_SIZE = 500;
-const DEFAULT_DEMO_FORM_CODE = ["FSS", "AGA", "FORM", "001"].join("-");
-const DEFAULT_BATCH_FILTER: AGADemoWorkspaceBatchFilter = {
-  formCode: DEFAULT_DEMO_FORM_CODE,
+const INITIAL_BATCH_FILTER: AGADemoWorkspaceBatchFilter = {
   disposition: "UNSET",
 };
 
@@ -34,8 +32,48 @@ function identityValue(row: ReviewRow, key: string): string | number {
   return typeof value === "string" || typeof value === "number" ? value : "—";
 }
 
-function commandKey(operationId: string, sequence: number): string {
-  return `AGA-DEMO-PACKAGE-${operationId}-${sequence}`;
+function commandKey(operationId: string): string {
+  if (typeof globalThis.crypto?.randomUUID !== "function") {
+    throw new Error("This browser cannot create a secure idempotency key for the requested command.");
+  }
+  return `aga-demo-package-${operationId.toLowerCase()}-${globalThis.crypto.randomUUID()}`;
+}
+
+function sameBatchFilter(left: AGADemoWorkspaceBatchFilter, right: AGADemoWorkspaceBatchFilter): boolean {
+  return left.search === right.search
+    && left.domainCode === right.domainCode
+    && left.topicCode === right.topicCode
+    && left.confidence === right.confidence
+    && left.blocker === right.blocker
+    && left.sourceGap === right.sourceGap
+    && left.externalInvolvement === right.externalInvolvement
+    && left.formCode === right.formCode
+    && left.disposition === right.disposition;
+}
+
+function previewMatchesControls(
+  preview: AGADemoWorkspaceBatchPreview | null,
+  filter: AGADemoWorkspaceBatchFilter,
+  action: "INCLUDE" | "EXCLUDE" | "DEFER",
+  reasonCode: string,
+): boolean {
+  if (!preview) return false;
+  return sameBatchFilter(preview.filter, filter)
+    && preview.action === action
+    && preview.reasonCode === reasonCode;
+}
+
+function previewConfirmationReason(
+  preview: AGADemoWorkspaceBatchPreview | null,
+  controlsMatch: boolean,
+): string {
+  if (!preview) return "Create a current server preview before confirming a disposition.";
+  if (!controlsMatch) return "The visible filter, action, or reason changed after this preview. Create a new preview.";
+  if (preview.count === 0) return "The server preview has no matching rows to confirm.";
+  if (preview.count > MAX_BATCH_SIZE) return "Narrow the filter; the server will not chunk or silently truncate a batch above 500 rows.";
+  if (preview.action === "INCLUDE" && preview.eligibleCount === 0) return "Every matching row is ineligible for Include under the current server-owned scope.";
+  if (preview.action === "INCLUDE" && preview.ineligibleCount > 0) return "The server preview includes ineligible rows. Narrow the filter to an entirely eligible Include set before confirming.";
+  return "";
 }
 
 function currentDraftDispositionCount(draft: AGADemoWorkspaceDraft | null): { include: number; exclude: number; defer: number; unset: number } {
@@ -83,7 +121,7 @@ export function AGADemoInspectionPackagePage({
   const [inventory, setInventory] = useState<AGADemoWorkspaceQueryResponse | null>(null);
   const [recommendation, setRecommendation] = useState<AGADemoWorkspaceRecommendationSnapshot | null>(null);
   const [releasedInspection, setReleasedInspection] = useState<AGADemoWorkspaceLifecycleProjection | null>(null);
-  const [batchFilter, setBatchFilter] = useState<AGADemoWorkspaceBatchFilter>(DEFAULT_BATCH_FILTER);
+  const [batchFilter, setBatchFilter] = useState<AGADemoWorkspaceBatchFilter>(INITIAL_BATCH_FILTER);
   const [batchAction, setBatchAction] = useState<"INCLUDE" | "EXCLUDE" | "DEFER">("INCLUDE");
   const [reasonCode, setReasonCode] = useState<"MANAGER_SCOPE_DECISION" | "SIMULATION_SOURCE_GAP_OVERRIDE">("MANAGER_SCOPE_DECISION");
   const [preview, setPreview] = useState<AGADemoWorkspaceBatchPreview | null>(null);
@@ -95,7 +133,7 @@ export function AGADemoInspectionPackagePage({
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const sequence = useRef(0);
+  const formFilterWasEdited = useRef(false);
 
   const draftCounts = useMemo(() => currentDraftDispositionCount(draft), [draft]);
 
@@ -117,21 +155,34 @@ export function AGADemoInspectionPackagePage({
           const current = await client.recommendationQuery({ operationId: "GET_CURRENT_RECOMMENDATION" }, { signal });
           setRecommendation(current.recommendationSnapshot ?? null);
         } catch {
-          // A transient read failure must not erase a server response that was
-          // already accepted by the preceding command. The next release-stage
-          // refresh can reconcile it without turning a rate-limit response into
-          // a false "no current recommendation" state.
+          // A failed authoritative refresh is not evidence that an earlier
+          // release artifact remains current after a reset or scope change.
+          setRecommendation(null);
         }
+      } else if (stage !== "release") {
+        setRecommendation(null);
       }
       if (stage === "release") {
         try {
           const currentInspection = await client.lifecycleQuery({ operationId: "GET_CURRENT_INSPECTION" }, { signal });
           setReleasedInspection(currentInspection.currentInspection ?? currentInspection.lifecycle ?? null);
         } catch {
-          // Keep the last server-confirmed inspection while a transient read is
-          // retried or the next role-bound page reloads it.
+          // Do not retain an inspection that the current authoritative read
+          // could not bind to this generation and current role.
+          setReleasedInspection(null);
         }
+      } else {
+        setReleasedInspection(null);
       }
+    } catch (cause) {
+      // The three core state reads are one server-authoritative snapshot. Do
+      // not render a mixture of old controls and a failed current refresh.
+      setSetup(null);
+      setDraft(null);
+      setInventory(null);
+      setRecommendation(null);
+      setReleasedInspection(null);
+      throw cause;
     } finally {
       setLoading(false);
     }
@@ -151,15 +202,37 @@ export function AGADemoInspectionPackagePage({
     setInventoryPage(0);
   }, [inventorySearch]);
 
+  useEffect(() => {
+    if (formFilterWasEdited.current || batchFilter.formCode || !inventory?.items?.length) return;
+    const firstFormCode = identityValue(inventory.items[0]!, "formCode");
+    if (typeof firstFormCode !== "string" || firstFormCode === "—") return;
+    setBatchFilter((current) => current.formCode ? current : { ...current, formCode: firstFormCode });
+  }, [batchFilter.formCode, inventory?.items]);
+
+  const updateBatchFilter = useCallback((field: keyof AGADemoWorkspaceBatchFilter, value: string) => {
+    if (field === "formCode") formFilterWasEdited.current = true;
+    setBatchFilter((current) => ({ ...current, [field]: value }));
+    setPreview(null);
+  }, []);
+
+  const updateBatchAction = useCallback((action: "INCLUDE" | "EXCLUDE" | "DEFER") => {
+    setBatchAction(action);
+    setPreview(null);
+  }, []);
+
+  const updateReasonCode = useCallback((nextReasonCode: "MANAGER_SCOPE_DECISION" | "SIMULATION_SOURCE_GAP_OVERRIDE") => {
+    setReasonCode(nextReasonCode);
+    setPreview(null);
+  }, []);
+
   const issueCommand = useCallback(async (
     operationId: AGADemoWorkspaceCommand["operationId"],
     fields: Partial<AGADemoWorkspaceCommand>,
   ) => {
     if (!client || !setup || !draft) throw new Error("The current server-owned setup and Draft are required.");
-    sequence.current += 1;
     const command: AGADemoWorkspaceCommand = {
       operationId,
-      idempotencyKey: commandKey(operationId, sequence.current),
+      idempotencyKey: commandKey(operationId),
       expectedGenerationId: setup.generationId,
       expectedDraftRevision: draft.revision,
       expectedDraftContentDigest: draft.contentDigest,
@@ -197,7 +270,7 @@ export function AGADemoInspectionPackagePage({
   }, [batchAction, batchFilter, draft, issueCommand, reasonCode, setup]);
 
   const executePreview = useCallback(async () => {
-    if (!setup || !draft || !preview) return;
+    if (!setup || !draft || !preview || previewConfirmationReason(preview, previewMatchesControls(preview, batchFilter, batchAction, reasonCode))) return;
     try {
       await issueCommand("EXECUTE_BATCH", {
         previewId: preview.previewId,
@@ -213,7 +286,7 @@ export function AGADemoInspectionPackagePage({
     } catch (cause) {
       setError(errorMessage(cause));
     }
-  }, [draft, issueCommand, preview, refresh, setup]);
+  }, [batchAction, batchFilter, draft, issueCommand, preview, reasonCode, refresh, setup]);
 
   const markReady = useCallback(async () => {
     if (!setup || !draft || readinessReason(setup)) return;
@@ -240,7 +313,21 @@ export function AGADemoInspectionPackagePage({
         simulationSetupDigest: setup.simulationSetupDigest,
         reasonCode: "MANAGER_SCOPE_DECISION",
       });
-      setRecommendation(response.recommendation ?? null);
+      const currentRecommendation = response.recommendation;
+      if (currentRecommendation) {
+        setRecommendation(currentRecommendation);
+        // The command response is server-accepted, so it can immediately pin
+        // the next release command while the follow-up read reconciles the
+        // wider setup projection.
+        setSetup((current) => current ? {
+          ...current,
+          recommendationId: currentRecommendation.recommendation.recommendationId,
+          recommendationRevision: currentRecommendation.recommendation.revision,
+          recommendationDigest: currentRecommendation.recommendation.digest,
+        } : current);
+      } else {
+        setRecommendation(null);
+      }
       await refresh();
       setStage("release");
       setStatus(response.replayed ? "The existing synthetic recommendation was returned by idempotent replay." : "Synthetic recommendation created from the exact eligible included set.");
@@ -254,7 +341,7 @@ export function AGADemoInspectionPackagePage({
     try {
       const response = await client?.recommendationCommand({
         operationId: "CREATE_INSPECTION",
-        idempotencyKey: commandKey("CREATE_INSPECTION", ++sequence.current),
+        idempotencyKey: commandKey("CREATE_INSPECTION"),
         expectedGenerationId: setup.generationId,
         expectedRecommendationRevision: setup.recommendationRevision,
         simulationSetupDigest: setup.simulationSetupDigest,
@@ -274,6 +361,8 @@ export function AGADemoInspectionPackagePage({
   const hasNext = inventory?.nextPage !== undefined;
   const currentSetup = setup;
   const readyReason = readinessReason(currentSetup);
+  const controlsMatchPreview = previewMatchesControls(preview, batchFilter, batchAction, reasonCode);
+  const confirmPreviewReason = previewConfirmationReason(preview, controlsMatchPreview);
 
   if (role !== "manager" || !capability.classificationEnabled || !client) {
     return (
@@ -321,17 +410,17 @@ export function AGADemoInspectionPackagePage({
           <h2>Exact server batch preview</h2>
           <p>Batch actions operate on the complete server filter result, never the visible 25-row page. A preview is identity/digest-only, expires, and must be confirmed before one atomic Draft append.</p>
           <div className="aga-package-filter-grid">
-            <label>Question text search<input aria-label="Batch search" value={batchFilter.search ?? ""} onChange={(event) => setBatchFilter((current) => ({ ...current, search: event.target.value }))} /></label>
-            <label>Form filter<input aria-label="Batch form filter" value={batchFilter.formCode ?? ""} onChange={(event) => setBatchFilter((current) => ({ ...current, formCode: event.target.value }))} /></label>
-            <label>Domain filter<input aria-label="Batch domain filter" value={batchFilter.domainCode ?? ""} onChange={(event) => setBatchFilter((current) => ({ ...current, domainCode: event.target.value }))} /></label>
-            <label>Topic filter<input aria-label="Batch topic filter" value={batchFilter.topicCode ?? ""} onChange={(event) => setBatchFilter((current) => ({ ...current, topicCode: event.target.value }))} /></label>
-            <label>Current disposition<select aria-label="Batch disposition filter" value={batchFilter.disposition ?? "UNSET"} onChange={(event) => setBatchFilter((current) => ({ ...current, disposition: event.target.value as AGADemoWorkspaceBatchFilter["disposition"] }))}><option value="UNSET">UNSET</option><option value="INCLUDE">INCLUDE</option><option value="EXCLUDE">EXCLUDE</option><option value="DEFER">DEFER</option></select></label>
-            <label>Action<select aria-label="Batch action" value={batchAction} onChange={(event) => setBatchAction(event.target.value as typeof batchAction)}><option value="INCLUDE">INCLUDE</option><option value="EXCLUDE">EXCLUDE</option><option value="DEFER">DEFER</option></select></label>
-            <label>Controlled reason<select aria-label="Batch reason" value={reasonCode} onChange={(event) => setReasonCode(event.target.value as typeof reasonCode)}><option value="MANAGER_SCOPE_DECISION">MANAGER_SCOPE_DECISION</option><option value="SIMULATION_SOURCE_GAP_OVERRIDE">SIMULATION_SOURCE_GAP_OVERRIDE</option></select></label>
+            <label>Question text search<input aria-label="Batch search" value={batchFilter.search ?? ""} onChange={(event) => updateBatchFilter("search", event.target.value)} /></label>
+            <label>Form filter<input aria-label="Batch form filter" value={batchFilter.formCode ?? ""} onChange={(event) => updateBatchFilter("formCode", event.target.value)} /></label>
+            <label>Domain filter<input aria-label="Batch domain filter" value={batchFilter.domainCode ?? ""} onChange={(event) => updateBatchFilter("domainCode", event.target.value)} /></label>
+            <label>Topic filter<input aria-label="Batch topic filter" value={batchFilter.topicCode ?? ""} onChange={(event) => updateBatchFilter("topicCode", event.target.value)} /></label>
+            <label>Current disposition<select aria-label="Batch disposition filter" value={batchFilter.disposition ?? "UNSET"} onChange={(event) => updateBatchFilter("disposition", event.target.value)}><option value="UNSET">UNSET</option><option value="INCLUDE">INCLUDE</option><option value="EXCLUDE">EXCLUDE</option><option value="DEFER">DEFER</option></select></label>
+            <label>Action<select aria-label="Batch action" value={batchAction} onChange={(event) => updateBatchAction(event.target.value as typeof batchAction)}><option value="INCLUDE">INCLUDE</option><option value="EXCLUDE">EXCLUDE</option><option value="DEFER">DEFER</option></select></label>
+            <label>Controlled reason<select aria-label="Batch reason" value={reasonCode} onChange={(event) => updateReasonCode(event.target.value as typeof reasonCode)}><option value="MANAGER_SCOPE_DECISION">MANAGER_SCOPE_DECISION</option><option value="SIMULATION_SOURCE_GAP_OVERRIDE">SIMULATION_SOURCE_GAP_OVERRIDE</option></select></label>
           </div>
-          <div className="aga-package-actions"><button disabled={pending || loading || !setup || !draft} onClick={() => void runPreview()} type="button">Create server preview</button><button disabled={pending || loading || !preview || preview.count > MAX_BATCH_SIZE} onClick={() => void executePreview()} type="button">Confirm simulation disposition</button></div>
-          <p className="aga-package-boundary">{previewSummary(preview)} {preview && preview.count > MAX_BATCH_SIZE ? "Narrow the filter; the server will not chunk or silently truncate a batch above 500." : ""}</p>
-          {preview ? <dl className="aga-package-preview-grid"><div><dt>Preview ID</dt><dd>{preview.previewId}</dd></div><div><dt>Preview digest</dt><dd>{preview.previewDigest}</dd></div><div><dt>Current disposition</dt><dd>{preview.currentDisposition.include} include · {preview.currentDisposition.exclude} exclude · {preview.currentDisposition.defer} defer · {preview.currentDisposition.unset} unset</dd></div><div><dt>Governance signals</dt><dd>{preview.blockerCount} blockers · {preview.sourceGapCount} source gaps</dd></div></dl> : null}
+          <div className="aga-package-actions"><button disabled={pending || loading || !setup || !draft} onClick={() => void runPreview()} type="button">Create server preview</button><button disabled={pending || loading || Boolean(confirmPreviewReason)} onClick={() => void executePreview()} title={confirmPreviewReason || undefined} type="button">Confirm simulation disposition</button></div>
+          <p className="aga-package-boundary">{previewSummary(preview)} {confirmPreviewReason && preview ? confirmPreviewReason : ""}</p>
+          {preview ? <dl className="aga-package-preview-grid"><div><dt>Preview ID</dt><dd>{preview.previewId}</dd></div><div><dt>Preview digest</dt><dd>{preview.previewDigest}</dd></div><div><dt>Frozen command</dt><dd>{preview.action} · {preview.reasonCode} · {preview.filter.formCode || "all forms"}</dd></div><div><dt>Current disposition</dt><dd>{preview.currentDisposition.include} include · {preview.currentDisposition.exclude} exclude · {preview.currentDisposition.defer} defer · {preview.currentDisposition.unset} unset</dd></div><div><dt>Governance signals</dt><dd>{preview.blockerCount} blockers · {preview.sourceGapCount} source gaps</dd></div></dl> : null}
         </section> : null}
 
         {stage === "release" ? <section aria-label="Synthetic simulation release" className="aga-package-panel">
@@ -345,7 +434,7 @@ export function AGADemoInspectionPackagePage({
           {setup?.leadChoices?.length ? <fieldset><legend>Explicit Lead Inspector selection</legend><select aria-label="Lead Inspector selection" value={leadPin} onChange={(event) => setLeadPin(event.target.value)}><option value="">Choose one server-returned Lead Inspector</option>{setup.leadChoices.map((choice) => <option key={choice.selectionPin} value={choice.selectionPin}>{choice.label}</option>)}</select></fieldset> : null}
           <button disabled={pending || !recommendation || !inspectorPin || !leadPin || !setup?.simulationSetupDigest} onClick={() => void releaseInspection()} type="button">Release synthetic inspection</button>
           {recommendation ? <p role="status">Synthetic recommendation is current: revision {recommendation.recommendation.revision}, digest {recommendation.snapshotDigest}.</p> : null}
-          {releasedInspection ? <section aria-label="Released synthetic inspection" className="aga-package-released"><h3>Released immutable inspection snapshot</h3><p>{releasedInspection.questions.length} immutable question reference(s) · revision {releasedInspection.revision} · {releasedInspection.digest}</p><nav aria-label="Synthetic role handoff" className="aga-package-handoff"><Link to="/department-manager/aga-demo-workspace/inspection">Manager snapshot</Link><Link to="/inspector/aga-demo-workspace/inspection">Inspector handoff</Link><Link to="/lead-inspector/aga-demo-workspace/inspection">Lead Inspector handoff</Link><Link to="/caa-reviewer/aga-demo-workspace/caps-evidence">CAA Reviewer CAP review</Link><Link to="/auditee/aga-demo-workspace/inspection">Auditee projection</Link></nav></section> : null}
+          {releasedInspection ? <section aria-label="Released synthetic inspection" className="aga-package-released"><h3>Released immutable inspection snapshot</h3><p>{releasedInspection.questions.length} immutable question reference(s) · revision {releasedInspection.revision} · {releasedInspection.digest}</p><nav aria-label="Synthetic role handoff" className="aga-package-handoff"><Link to="/department-manager/aga-demo-workspace/inspection">Manager snapshot</Link><Link to="/inspector/aga-demo-workspace/inspection">Inspector handoff</Link><Link to="/lead-inspector/aga-demo-workspace/inspection">Lead Inspector handoff</Link><Link to="/caa-reviewer/aga-demo-workspace/caps-evidence">CAA Reviewer CAP review</Link><Link to="/auditee/aga-demo-workspace/caps-evidence">Auditee public CAP and Evidence</Link></nav></section> : null}
         </section> : null}
 
         <section aria-label="Package governance labels" className="aga-package-boundary"><strong>Release labels</strong><p>1,310 candidate AGA questions · sealed candidate text · simulation disposition · synthetic recommendation · synthetic inspection · candidate-only · release pending · production-ready: not established.</p></section>

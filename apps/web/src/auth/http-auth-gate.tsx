@@ -14,7 +14,7 @@ export function HttpAuthGate({
   const session = useSession();
   const returnTo =
     location.pathname === "/"
-      ? "/inspector/inspector-assignments"
+      ? "/"
       : `${location.pathname}${location.search}`;
 
   if (session.state.status === "authenticated") {

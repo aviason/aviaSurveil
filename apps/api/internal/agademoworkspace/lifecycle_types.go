@@ -210,6 +210,22 @@ type LifecycleBindingPin struct {
 	OrganizationalUnitID string `json:"organizationalUnitId"`
 }
 
+const MaxLifecycleReasonExplanation = 1000
+
+// LifecycleReasonRecord is an append-only, CAA-auditable reason artifact for
+// exceptional lifecycle transitions. It is part of the event aggregate, so a
+// later transition cannot overwrite the reason that justified an earlier one.
+type LifecycleReasonRecord struct {
+	ReasonID          string    `json:"reasonId"`
+	OperationID       string    `json:"operationId"`
+	ReasonCode        string    `json:"reasonCode"`
+	ReasonExplanation string    `json:"reasonExplanation"`
+	FindingID         string    `json:"findingId,omitempty"`
+	ActorSubjectID    string    `json:"actorSubjectId"`
+	CreatedAt         time.Time `json:"createdAt"`
+	Digest            string    `json:"digest"`
+}
+
 type LifecycleAggregate struct {
 	InspectionID          string                          `json:"inspectionId"`
 	GenerationID          string                          `json:"generationId"`
@@ -230,6 +246,7 @@ type LifecycleAggregate struct {
 	CAPRevisions          []LifecycleCAPRevision          `json:"capRevisions"`
 	EvidenceVersions      []LifecycleEvidenceVersion      `json:"evidenceVersions"`
 	VerificationDecisions []LifecycleVerificationDecision `json:"verificationDecisions"`
+	ReasonHistory         []LifecycleReasonRecord         `json:"reasonHistory"`
 	CreatedAt             time.Time                       `json:"createdAt"`
 	UpdatedAt             time.Time                       `json:"updatedAt"`
 	Digest                string                          `json:"digest"`
@@ -259,17 +276,81 @@ type LifecycleProjection struct {
 
 type LifecycleCAAProjection struct {
 	LifecycleProjection
-	RecommendationID     string               `json:"recommendationId"`
-	RecommendationDigest string               `json:"recommendationDigest"`
-	Inspector            LifecycleBindingPin  `json:"inspector"`
-	Lead                 LifecycleBindingPin  `json:"lead"`
-	Auditee              LifecycleBindingPin  `json:"auditee"`
-	RoleHistory          []LifecycleRoleEvent `json:"roleHistory"`
+	RecommendationID     string                  `json:"recommendationId"`
+	RecommendationDigest string                  `json:"recommendationDigest"`
+	Inspector            LifecycleBindingPin     `json:"inspector"`
+	Lead                 LifecycleBindingPin     `json:"lead"`
+	Auditee              LifecycleBindingPin     `json:"auditee"`
+	ReasonHistory        []LifecycleReasonRecord `json:"reasonHistory"`
+	RoleHistory          []LifecycleRoleEvent    `json:"roleHistory"`
 }
 
 type LifecycleAuditeeProjection struct {
-	LifecycleProjection
-	PublicOwnerLabel string `json:"publicOwnerLabel"`
+	InspectionID          string                                 `json:"inspectionId"`
+	GenerationID          string                                 `json:"generationId"`
+	OrganizationID        string                                 `json:"organizationId"`
+	State                 LifecycleInspectionState               `json:"state"`
+	Revision              int                                    `json:"revision"`
+	Findings              []LifecycleAuditeeFinding              `json:"findings"`
+	CAPRevisions          []LifecycleAuditeeCAPRevision          `json:"capRevisions"`
+	EvidenceVersions      []LifecycleAuditeeEvidenceVersion      `json:"evidenceVersions"`
+	VerificationDecisions []LifecycleAuditeeVerificationDecision `json:"verificationDecisions"`
+	NextAction            string                                 `json:"nextAction"`
+	PublicOwnerLabel      string                                 `json:"publicOwnerLabel"`
+	UpdatedAt             time.Time                              `json:"updatedAt"`
+	Digest                string                                 `json:"digest"`
+}
+
+// The Auditee response is a positive allowlist, not a redacted CAA shape.
+// It deliberately excludes checklist questions and responses, potential
+// findings, binding pins, CAA workload/role data, internal notes, and actor
+// identities. These fields are sufficient for the organization-scoped CAP
+// and Evidence workflow without exposing deliberation data.
+type LifecycleAuditeeFinding struct {
+	FindingID        string       `json:"findingId"`
+	Severity         string       `json:"severity"`
+	State            FindingState `json:"state"`
+	NextAction       string       `json:"nextAction"`
+	CAPRequired      bool         `json:"capRequired"`
+	EvidenceRequired bool         `json:"evidenceRequired"`
+	DueDateRequired  bool         `json:"dueDateRequired"`
+	DueDate          *time.Time   `json:"dueDate,omitempty"`
+	Revision         int          `json:"revision"`
+	CreatedAt        time.Time    `json:"createdAt"`
+}
+
+type LifecycleAuditeeCAPRevision struct {
+	CAPID             string           `json:"capId"`
+	FindingID         string           `json:"findingId"`
+	Revision          int              `json:"revision"`
+	State             CAPRevisionState `json:"state"`
+	RootCause         string           `json:"rootCause"`
+	CorrectiveAction  string           `json:"correctiveAction"`
+	PreventiveAction  string           `json:"preventiveAction"`
+	ResponsiblePerson string           `json:"responsiblePerson"`
+	TargetDate        *time.Time       `json:"targetDate,omitempty"`
+	CommentToAuditee  string           `json:"commentToAuditee,omitempty"`
+	CreatedAt         time.Time        `json:"createdAt"`
+}
+
+type LifecycleAuditeeEvidenceVersion struct {
+	EvidenceID       string              `json:"evidenceId"`
+	FindingID        string              `json:"findingId"`
+	Version          int                 `json:"version"`
+	FileName         string              `json:"fileName"`
+	ReviewState      EvidenceReviewState `json:"reviewState"`
+	CommentToAuditee string              `json:"commentToAuditee,omitempty"`
+	CreatedAt        time.Time           `json:"createdAt"`
+}
+
+type LifecycleAuditeeVerificationDecision struct {
+	VerificationID   string                      `json:"verificationId"`
+	FindingID        string                      `json:"findingId"`
+	EvidenceID       string                      `json:"evidenceId"`
+	EvidenceVersion  int                         `json:"evidenceVersion"`
+	Outcome          EvidenceVerificationOutcome `json:"outcome"`
+	CommentToAuditee string                      `json:"commentToAuditee"`
+	CreatedAt        time.Time                   `json:"createdAt"`
 }
 
 type LifecycleRoleEvent struct {

@@ -286,12 +286,17 @@ type SelectionBatchPreviewRecord struct {
 }
 
 type AuthorityBinding struct {
+	GenerationID         string   `json:"generationId,omitempty"`
 	BindingID            string   `json:"bindingId"`
+	SubjectID            string   `json:"subjectId,omitempty"`
 	SubjectSlot          string   `json:"subjectSlot"`
+	MembershipID         string   `json:"membershipId,omitempty"`
+	MembershipVersion    int      `json:"membershipVersion,omitempty"`
 	MembershipSlot       string   `json:"membershipSlot"`
 	OrganizationID       string   `json:"organizationId"`
 	DepartmentID         string   `json:"departmentId"`
 	OrganizationalUnitID string   `json:"organizationalUnitId"`
+	ProviderScopeID      string   `json:"providerScopeId,omitempty"`
 	OperationRoles       []string `json:"operationRoles"`
 	BindingDigest        string   `json:"bindingDigest"`
 	Active               bool     `json:"active"`

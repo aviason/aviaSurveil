@@ -85,6 +85,10 @@ describe("AGA synthetic CAP and Evidence page", () => {
     await user.type(screen.getByRole("textbox", { name: "CAP responsible person" }), "Synthetic owner.");
     await user.type(screen.getByRole("textbox", { name: "Lifecycle Comment to Auditee" }), "CAP submitted for review.");
     expect(screen.queryByRole("textbox", { name: "Internal CAA Note" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Review CAP" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Verify Evidence" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Authorize Finding closure" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Append-only CAP and Evidence history" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Submit CAP revision" }));
     await waitFor(() => expect(client.lifecycleCommand).toHaveBeenCalledWith(expect.objectContaining({ operationId: "SUBMIT_CAP_REVISION", findingId: "finding-test-1", rootCause: "Synthetic root cause.", commentToAuditee: "CAP submitted for review." })));
   });
@@ -105,9 +109,11 @@ describe("AGA synthetic CAP and Evidence page", () => {
     renderPage(client, "manager", current);
     const user = userEvent.setup();
     const closeButton = screen.getByRole("button", { name: "Authorize Finding closure" });
+    expect(closeButton).toBeDisabled();
+    await user.type(screen.getByRole("textbox", { name: "Authorized closure explanation" }), "The Manager reviewed the synthetic closure basis.");
     await waitFor(() => expect(closeButton).toBeEnabled());
     await user.click(closeButton);
-    await waitFor(() => expect(client.lifecycleCommand).toHaveBeenCalledWith(expect.objectContaining({ operationId: "AUTHORIZED_CLOSE", findingId: "finding-test-1", reasonCode: "MANAGER_AUTHORIZED_CLOSURE" })));
+    await waitFor(() => expect(client.lifecycleCommand).toHaveBeenCalledWith(expect.objectContaining({ operationId: "AUTHORIZED_CLOSE", findingId: "finding-test-1", reasonCode: "MANAGER_AUTHORIZED_CLOSURE", reasonExplanation: "The Manager reviewed the synthetic closure basis." })));
     expect(client.lifecycleCommand).not.toHaveBeenCalledWith(expect.objectContaining({ operationId: "VERIFY_EVIDENCE" }));
   });
 });

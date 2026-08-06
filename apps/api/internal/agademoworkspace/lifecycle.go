@@ -87,7 +87,7 @@ func buildInspectionFromRecommendation(snapshot preprod.RecommendationSnapshot, 
 		ProviderScopeID: recommendation.ProviderScopeID, ProviderScopeVersion: recommendation.ProviderScopeVersion, State: InspectionReady, Revision: 1,
 		Inspector: bindingPin(inspector), Lead: bindingPin(lead), CreatedAt: now.UTC(), UpdatedAt: now.UTC(),
 		Questions: make([]LifecycleQuestionSnapshot, 0, len(recommendation.Items)), Responses: []LifecycleResponse{}, PotentialFindings: []LifecyclePotentialFinding{},
-		Findings: []LifecycleFinding{}, CAPRevisions: []LifecycleCAPRevision{}, EvidenceVersions: []LifecycleEvidenceVersion{}, VerificationDecisions: []LifecycleVerificationDecision{},
+		Findings: []LifecycleFinding{}, CAPRevisions: []LifecycleCAPRevision{}, EvidenceVersions: []LifecycleEvidenceVersion{}, VerificationDecisions: []LifecycleVerificationDecision{}, ReasonHistory: []LifecycleReasonRecord{},
 	}
 	for _, item := range recommendation.Items {
 		aggregate.Questions = append(aggregate.Questions, LifecycleQuestionSnapshot{QuestionKey: item.QuestionRef.Key(), QuestionRef: item.QuestionRef, RootSequence: item.RootSequence, Projection: item.Projection})
@@ -299,8 +299,11 @@ func applyLifecycleCommand(aggregate *LifecycleAggregate, command CommandEnvelop
 			aggregate.State = InspectionSubmitted
 		}
 	case OperationReopenChecklist:
-		if (aggregate.State != InspectionSubmitted && aggregate.State != InspectionCompleted) || strings.TrimSpace(command.ReasonCode) == "" {
+		if aggregate.State != InspectionSubmitted && aggregate.State != InspectionCompleted {
 			return ErrLifecycleTransition
+		}
+		if err := appendLifecycleReason(aggregate, command, principal, now); err != nil {
+			return err
 		}
 		aggregate.State = InspectionInProgress
 	case OperationReturnFinding, OperationDismissFinding, OperationConvertFinding:
@@ -361,7 +364,7 @@ func applyLifecycleCommand(aggregate *LifecycleAggregate, command CommandEnvelop
 			return err
 		}
 	case OperationAuthorizedClose:
-		if err := authorizedClose(aggregate, command, now); err != nil {
+		if err := authorizedClose(aggregate, command, principal, now); err != nil {
 			return err
 		}
 	default:
@@ -387,7 +390,7 @@ func principalMayTouchAggregate(aggregate LifecycleAggregate, principal identity
 	case OperationSubmitCAP, OperationSubmitEvidence:
 		return principal.HasRole(identity.RoleAuditee) && aggregate.Auditee.SubjectID != "" && principal.SubjectID == aggregate.Auditee.SubjectID
 	case OperationReviewCAP:
-		return principal.HasRole(identity.RoleLeadInspector) || principal.HasRole(identity.RoleDepartmentManager)
+		return principal.HasRole(identity.RoleDepartmentManager) || principal.HasRole(identity.RoleLeadInspector) && principal.SubjectID == aggregate.Lead.SubjectID
 	case OperationAuthorizedClose:
 		return principal.HasRole(identity.RoleDepartmentManager)
 	default:
@@ -572,17 +575,46 @@ func verifyEvidence(aggregate *LifecycleAggregate, command CommandEnvelope, prin
 	return nil
 }
 
-func authorizedClose(aggregate *LifecycleAggregate, command CommandEnvelope, now time.Time) error {
-	if strings.TrimSpace(command.ReasonCode) == "" {
-		return ErrLifecycleCommentRequired
-	}
+func authorizedClose(aggregate *LifecycleAggregate, command CommandEnvelope, principal identity.Principal, now time.Time) error {
 	finding, found := aggregate.latestFinding(command.FindingID)
 	if !found || finding.State != FindingPendingClosure {
 		return ErrLifecycleTransition
 	}
+	if err := appendLifecycleReason(aggregate, command, principal, now); err != nil {
+		return err
+	}
 	setFindingState(aggregate, finding.FindingID, FindingClosed, "CLOSED")
 	setFindingClosure(aggregate, finding.FindingID, "AUTHORIZED_CLOSURE")
 	return nil
+}
+
+func appendLifecycleReason(aggregate *LifecycleAggregate, command CommandEnvelope, principal identity.Principal, now time.Time) error {
+	if aggregate == nil || !validLifecycleReasonCode(command.OperationID, command.ReasonCode) {
+		return ErrLifecycleChoiceInvalid
+	}
+	explanation := strings.TrimSpace(command.ReasonExplanation)
+	if explanation == "" || len([]rune(explanation)) > MaxLifecycleReasonExplanation {
+		return ErrLifecycleCommentRequired
+	}
+	record := LifecycleReasonRecord{
+		ReasonID:    lifecycleObjectID("reason", aggregate.InspectionID, command.OperationID, len(aggregate.ReasonHistory)+1),
+		OperationID: command.OperationID, ReasonCode: strings.TrimSpace(command.ReasonCode), ReasonExplanation: explanation,
+		FindingID: command.FindingID, ActorSubjectID: principal.SubjectID, CreatedAt: now.UTC(),
+	}
+	record.Digest, _ = aga.DigestExcludingJSONFields("AGA-DEMO-LIFECYCLE-REASON-V1", record, "digest")
+	aggregate.ReasonHistory = append(aggregate.ReasonHistory, record)
+	return nil
+}
+
+func validLifecycleReasonCode(operation, reasonCode string) bool {
+	switch operation {
+	case OperationReopenChecklist:
+		return reasonCode == "REOPEN_FOR_REVIEW" || reasonCode == "REOPEN_FOR_CORRECTION"
+	case OperationAuthorizedClose:
+		return reasonCode == "MANAGER_AUTHORIZED_CLOSURE" || reasonCode == "AUTHORIZED_CLOSURE_EXCEPTION"
+	default:
+		return false
+	}
 }
 
 func setFindingState(aggregate *LifecycleAggregate, findingID string, state FindingState, next string) {
@@ -605,10 +637,13 @@ func setFindingClosure(aggregate *LifecycleAggregate, findingID, basis string) {
 	}
 }
 
-func (service *Service) applyLifecycle(ctx context.Context, principal identity.Principal, command CommandEnvelope) (LifecycleAggregate, error) {
+func (service *Service) applyLifecycle(ctx context.Context, principal identity.Principal, command CommandEnvelope, binding preprod.AuthorityBinding, isAdmin bool) (LifecycleAggregate, error) {
 	aggregate, events, err := service.loadLifecycle(ctx, command.ExpectedGenerationID, command.InspectionID)
 	if err != nil {
 		return LifecycleAggregate{}, err
+	}
+	if !isAdmin && !bindingMatchesLifecycleObject(binding, aggregate, principal) {
+		return LifecycleAggregate{}, ErrNeutralDenied
 	}
 	if err := applyLifecycleCommand(&aggregate, command, principal, service.clock().UTC()); err != nil {
 		return LifecycleAggregate{}, err
@@ -619,11 +654,11 @@ func (service *Service) applyLifecycle(ctx context.Context, principal identity.P
 	return aggregate, nil
 }
 
-func (service *Service) lifecycleCommand(ctx context.Context, principal identity.Principal, command CommandEnvelope) (LifecycleAggregate, error) {
+func (service *Service) lifecycleCommand(ctx context.Context, principal identity.Principal, command CommandEnvelope, binding preprod.AuthorityBinding, isAdmin bool) (LifecycleAggregate, error) {
 	if strings.TrimSpace(command.InspectionID) == "" {
 		return LifecycleAggregate{}, ErrLifecycleNotFound
 	}
-	return service.applyLifecycle(ctx, principal, command)
+	return service.applyLifecycle(ctx, principal, command, binding, isAdmin)
 }
 
 func validateLifecycleCommand(command CommandEnvelope) error {
@@ -631,7 +666,7 @@ func validateLifecycleCommand(command CommandEnvelope) error {
 		return ErrMalformedCommand
 	}
 	switch command.OperationID {
-	case OperationStartInspection, OperationRecordResponse, OperationCreateFinding, OperationSubmitChecklist, OperationReopenChecklist:
+	case OperationStartInspection, OperationRecordResponse, OperationCreateFinding, OperationSubmitChecklist:
 		if command.OperationID == OperationRecordResponse || command.OperationID == OperationCreateFinding {
 			if strings.TrimSpace(command.TargetQuestionKey) == "" {
 				return ErrMalformedCommand
@@ -662,8 +697,12 @@ func validateLifecycleCommand(command CommandEnvelope) error {
 		if strings.TrimSpace(command.FindingID) == "" || strings.TrimSpace(command.Outcome) == "" || strings.TrimSpace(command.CommentToAuditee) == "" || strings.TrimSpace(command.InternalCAANote) == "" {
 			return ErrMalformedCommand
 		}
+	case OperationReopenChecklist:
+		if !validLifecycleReasonCode(command.OperationID, command.ReasonCode) || strings.TrimSpace(command.ReasonExplanation) == "" || len([]rune(strings.TrimSpace(command.ReasonExplanation))) > MaxLifecycleReasonExplanation {
+			return ErrMalformedCommand
+		}
 	case OperationAuthorizedClose:
-		if strings.TrimSpace(command.FindingID) == "" || strings.TrimSpace(command.ReasonCode) == "" {
+		if strings.TrimSpace(command.FindingID) == "" || !validLifecycleReasonCode(command.OperationID, command.ReasonCode) || strings.TrimSpace(command.ReasonExplanation) == "" || len([]rune(strings.TrimSpace(command.ReasonExplanation))) > MaxLifecycleReasonExplanation {
 			return ErrMalformedCommand
 		}
 	default:

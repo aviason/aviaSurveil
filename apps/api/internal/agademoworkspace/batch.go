@@ -142,17 +142,37 @@ func dispositionCounts(items []preprod.ClassificationItem) BatchDispositionCount
 	return counts
 }
 
-func eligibleForSimulation(item preprod.ClassificationItem, setup SimulationSetupProjection) bool {
+func includeEligibilityForSimulation(item preprod.ClassificationItem, setup SimulationSetupProjection) (bool, string) {
 	projection := item.Projection
-	if projection.CanonicalTargetKind != setup.CanonicalTargetKind || projection.TargetProfileCode != setup.TargetProfileCode || !containsString(projection.InspectionProfileCodes, setup.InspectionProfileCode) || !containsString(projection.InspectionTypeCodes, setup.InspectionTypeCode) || !qualifiersEqual(projection.OperationQualifiers, setup.OperationQualifiers) || !qualifiersEqual(projection.ActivityQualifiers, setup.ActivityQualifiers) {
-		return false
+	if projection.CanonicalTargetKind != setup.CanonicalTargetKind {
+		return false, "CANONICAL_TARGET_KIND_MISMATCH"
+	}
+	if projection.TargetProfileCode != setup.TargetProfileCode {
+		return false, "TARGET_PROFILE_MISMATCH"
+	}
+	if !containsString(projection.InspectionProfileCodes, setup.InspectionProfileCode) {
+		return false, "INSPECTION_PROFILE_MISMATCH"
+	}
+	if !containsString(projection.InspectionTypeCodes, setup.InspectionTypeCode) {
+		return false, "INSPECTION_TYPE_MISMATCH"
+	}
+	if !qualifiersEqual(projection.OperationQualifiers, setup.OperationQualifiers) {
+		return false, "OPERATION_QUALIFIER_MISMATCH"
+	}
+	if !qualifiersEqual(projection.ActivityQualifiers, setup.ActivityQualifiers) {
+		return false, "ACTIVITY_QUALIFIER_MISMATCH"
 	}
 	switch projection.ApplicabilityDisposition {
 	case "APPLICABLE", "CONDITIONAL_ON_CONFIGURATION", "CONDITIONAL_ON_FACILITY", "CONDITIONAL_ON_OPERATION":
-		return true
+		return true, "ELIGIBLE_FOR_CURRENT_SIMULATION_SCOPE"
 	default:
-		return false
+		return false, "APPLICABILITY_NOT_ELIGIBLE"
 	}
+}
+
+func eligibleForSimulation(item preprod.ClassificationItem, setup SimulationSetupProjection) bool {
+	eligible, _ := includeEligibilityForSimulation(item, setup)
+	return eligible
 }
 
 func qualifiersEqual(left, right []aga.Qualifier) bool {
@@ -230,7 +250,8 @@ func previewIDFor(record preprod.SelectionBatchPreviewRecord) string {
 		Action       string
 		ReasonCode   string
 		Affected     string
-	}{record.GenerationID, record.DraftID, record.DraftContentDigest, record.FilterDigest, record.Action, record.ReasonCode, record.AffectedIdentityDigest})
+		ExpiresAt    time.Time
+	}{record.GenerationID, record.DraftID, record.DraftContentDigest, record.FilterDigest, record.Action, record.ReasonCode, record.AffectedIdentityDigest, record.ExpiresAt.UTC()})
 	if len(digest) > len("sha256:")+24 {
 		digest = digest[len("sha256:") : len("sha256:")+24]
 	}

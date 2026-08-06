@@ -7,9 +7,11 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AppProviders } from "./providers";
+import { agaDemoWorkspaceRouteElements } from "./aga-demo-workspace-routes";
 import { ScenarioProvider } from "./scenario-context";
 import { AppRouter, createRoleEntryPath, ROLE_ENTRIES } from "./router";
 import { SessionProvider, type SessionClient } from "../auth/session-provider";
+import type { AGADemoWorkspaceBackend } from "../backend/aga-demo-workspace";
 import { createHttpBackend } from "../backend/http-backend";
 import { createMockBackendRuntime } from "../mock/create-mock-backend";
 import { seedVisualRuntimeForPath } from "../mock/seed-visual-runtime";
@@ -80,8 +82,18 @@ describe("authorized role-entry inventory", () => {
     expect(screen.getAllByTestId("role-card-icon")).toHaveLength(8);
   });
 
-  it("issues one OIDC logout command under React StrictMode", async () => {
+  it("lands an authenticated local-preprod Inspector on AGA without an implicit logout or normal assignments probe", async () => {
     const runtime = createMockBackendRuntime();
+    const workspace: AGADemoWorkspaceBackend = {
+      capability: vi.fn().mockResolvedValue({ available: true, projection: "INSPECTOR_ASSIGNED", classificationEnabled: false, recommendationEnabled: false, lifecycleEnabled: true, resetEnabled: false }),
+      classificationQuery: vi.fn(),
+      classificationCommand: vi.fn(),
+      recommendationCommand: vi.fn(),
+      lifecycleQuery: vi.fn(),
+      lifecycleCommand: vi.fn(),
+      adminCommand: vi.fn(),
+    };
+    const assignmentsList = vi.spyOn(runtime.backend.assignments, "list");
     const client: SessionClient = {
       get: vi.fn().mockResolvedValue({
         subjectId: "154ec5ac-6f97-4f55-916f-d2f142fc6211",
@@ -97,26 +109,30 @@ describe("authorized role-entry inventory", () => {
       <StrictMode>
         <AppProviders
           runtime={{
-            backend: runtime.backend,
+            backend: { ...runtime.backend, agaDemoWorkspace: workspace },
             backendForRole: runtime.backendForRole,
             buildProfile: "http",
             environmentLabel: "Test",
             identityMode: "oidc-session",
             beforeSubjectChange: vi.fn().mockResolvedValue(undefined),
+            supplementalRouteElements: agaDemoWorkspaceRouteElements,
+            agaDemoWorkspaceSurfaceEnabled: true,
           }}
         >
           <SessionProvider client={client} identityMode="oidc-session">
-            <MemoryRouter initialEntries={["/"]}>
-              <AppRouter />
-            </MemoryRouter>
+            <ScenarioProvider>
+              <MemoryRouter initialEntries={["/"]}>
+                <AppRouter />
+              </MemoryRouter>
+            </ScenarioProvider>
           </SessionProvider>
         </AppProviders>
       </StrictMode>,
     );
 
-    await waitFor(() => expect(client.logout).toHaveBeenCalled());
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
-    expect(client.logout).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(workspace.capability).toHaveBeenCalled());
+    expect(client.logout).not.toHaveBeenCalled();
+    expect(assignmentsList).not.toHaveBeenCalled();
   });
 
   it("redirects an undeclared path to role selection without rendering a placeholder", async () => {

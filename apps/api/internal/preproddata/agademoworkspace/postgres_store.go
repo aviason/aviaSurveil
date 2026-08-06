@@ -86,13 +86,14 @@ func (store *PostgresStore) LoadAndSeal(ctx context.Context, input LoadInput) (W
 	}
 	items := make([]ClassificationItem, 0, len(input.Classification.Items))
 	for _, item := range input.Classification.Items {
+		questionKey := aga.BaseQuestionReference(item.Identity).Key()
 		classificationItem := ClassificationItem{
-			QuestionKey: item.Identity.Key(), Identity: item.Identity, Projection: item.Projection,
+			QuestionKey: questionKey, Identity: item.Identity, Projection: item.Projection,
 			AgreementConfidence: item.AgreementConfidence, RecommendationState: item.RecommendationState,
 			Governance: item.GovernanceState, ItemSemanticDigest: item.ItemSemanticDigest,
 			CandidateDigest: item.PassOneResultDigest, ChallengeDigest: item.PassTwoResultDigest,
 		}
-		if draftItem, ok := draftItemsByKey[item.Identity.Key()]; ok {
+		if draftItem, ok := draftItemsByKey[questionKey]; ok {
 			classificationItem.DraftAgreementConfidence = draftItem.DraftAgreementConfidence
 			classificationItem.DraftRecommendationState = draftItem.RecommendationState
 			classificationItem.DraftReviewState = draftItem.ReviewState
@@ -409,9 +410,6 @@ func mergeDraftMetadata(items []ClassificationItem, draft aga.Draft) []Classific
 }
 
 func draftItemQuestionKey(item aga.DraftItem) string {
-	if item.QuestionRef.Base != nil {
-		return item.QuestionRef.Base.Key()
-	}
 	return item.QuestionRef.Key()
 }
 
@@ -484,13 +482,15 @@ func workspaceAuthorityBindingRows(generationID string, fixture FixtureManifest)
 		if account.OrganizationID != "" {
 			organizationID = account.OrganizationID
 		}
+		providerScopeID := workspaceProviderScopeForOrganization(organizationID)
 		bindingDigest := binding.BindingDigest
 		if !validDigest(bindingDigest) {
 			bindingDigest = digestValue("AGA-DEMO-WORKSPACE-AUTHORITY-BINDING-V1", map[string]any{
 				"bindingId": binding.BindingID, "subjectSlot": binding.SubjectSlot, "membershipSlot": binding.MembershipSlot,
 				"organizationId": organizationID, "departmentId": binding.DepartmentID,
 				"organizationalUnitId": binding.OrganizationalUnitID, "operationRoles": operationRoles,
-				"subjectId": account.SubjectID, "membershipId": account.MembershipID,
+				"providerScopeId": providerScopeID,
+				"subjectId":       account.SubjectID, "membershipId": account.MembershipID,
 				"membershipVersion": account.MembershipVersion, "membershipDigest": account.MembershipDigest,
 				"roles": account.Roles, "active": binding.Active,
 			})
@@ -499,6 +499,7 @@ func workspaceAuthorityBindingRows(generationID string, fixture FixtureManifest)
 			"bindingId": binding.BindingID, "subjectSlot": binding.SubjectSlot, "membershipSlot": binding.MembershipSlot,
 			"organizationId": organizationID, "departmentId": binding.DepartmentID,
 			"organizationalUnitId": binding.OrganizationalUnitID, "operationRoles": operationRoles,
+			"generationId": generationID, "providerScopeId": providerScopeID,
 			"bindingDigest": bindingDigest, "active": binding.Active,
 			"subjectId": account.SubjectID, "membershipId": account.MembershipID,
 			"membershipVersion": account.MembershipVersion, "membershipDigest": account.MembershipDigest,
@@ -513,6 +514,19 @@ func workspaceAuthorityBindingRows(generationID string, fixture FixtureManifest)
 		})
 	}
 	return rows
+}
+
+func workspaceProviderScopeForOrganization(organizationID string) string {
+	for _, scope := range DefaultFixtureTemplate().Scopes {
+		scopeOrganizationID := "AGA-DEMO-OTHER-ORG"
+		if scope.OrganizationSlot == "MATCHING" {
+			scopeOrganizationID = "AGA-DEMO-CAA"
+		}
+		if scopeOrganizationID == organizationID {
+			return scope.ProviderScopeID
+		}
+	}
+	return ""
 }
 
 func workspaceProviderRows(generationID string, now time.Time) ([]any, []any) {
@@ -561,6 +575,74 @@ func workspaceProviderRows(generationID string, now time.Time) ([]any, []any) {
 		})
 	}
 	return scopes, targets
+}
+
+// validateResetReconstruction proves that the reset payload is a complete,
+// generation-scoped reconstruction from the immutable fixture before it enters
+// the SECURITY DEFINER reset function. The SQL function repeats the cardinality
+// and generation checks because the command role can invoke that function
+// directly; keeping the validation on both sides makes a malformed caller
+// fail before publication and preserves the database boundary as the final
+// authority.
+func validateResetReconstruction(generationID string, fixture FixtureManifest, authorityBindings, providerScopes, providerTargets []any) error {
+	if !workspaceIDPattern.MatchString(generationID) {
+		return fmt.Errorf("%w: reset generation id", ErrWorkspaceInput)
+	}
+	if err := fixture.Validate(); err != nil {
+		return fmt.Errorf("%w: reset fixture", err)
+	}
+	template := DefaultFixtureTemplate()
+	if len(authorityBindings) != len(fixture.Bindings) || len(authorityBindings) == 0 || len(providerScopes) != len(template.Scopes) || len(providerTargets) != len(template.Scopes) {
+		return fmt.Errorf("%w: reset reconstruction counts", ErrWorkspaceInput)
+	}
+	seenBindings := make(map[string]struct{}, len(authorityBindings))
+	for _, row := range authorityBindings {
+		values, ok := row.(map[string]any)
+		if !ok || values["generation_id"] != generationID {
+			return fmt.Errorf("%w: reset authority binding generation", ErrWorkspaceInput)
+		}
+		bindingID, _ := values["binding_id"].(string)
+		if bindingID == "" {
+			return fmt.Errorf("%w: reset authority binding id", ErrWorkspaceInput)
+		}
+		if _, duplicate := seenBindings[bindingID]; duplicate {
+			return fmt.Errorf("%w: reset authority binding duplicate", ErrWorkspaceInput)
+		}
+		seenBindings[bindingID] = struct{}{}
+	}
+	seenScopes := make(map[string]struct{}, len(providerScopes))
+	for _, row := range providerScopes {
+		values, ok := row.(map[string]any)
+		if !ok || values["generation_id"] != generationID {
+			return fmt.Errorf("%w: reset provider scope generation", ErrWorkspaceInput)
+		}
+		scopeID, _ := values["provider_scope_id"].(string)
+		if scopeID == "" {
+			return fmt.Errorf("%w: reset provider scope id", ErrWorkspaceInput)
+		}
+		if _, duplicate := seenScopes[scopeID]; duplicate {
+			return fmt.Errorf("%w: reset provider scope duplicate", ErrWorkspaceInput)
+		}
+		seenScopes[scopeID] = struct{}{}
+	}
+	seenTargets := make(map[string]struct{}, len(providerTargets))
+	for _, row := range providerTargets {
+		values, ok := row.(map[string]any)
+		if !ok || values["generation_id"] != generationID {
+			return fmt.Errorf("%w: reset provider target generation", ErrWorkspaceInput)
+		}
+		scopeID, _ := values["provider_scope_id"].(string)
+		targetID, _ := values["target_id"].(string)
+		key := scopeID + "\x00" + targetID
+		if _, scopeExists := seenScopes[scopeID]; scopeID == "" || targetID == "" || !scopeExists {
+			return fmt.Errorf("%w: reset provider target identity", ErrWorkspaceInput)
+		}
+		if _, duplicate := seenTargets[key]; duplicate {
+			return fmt.Errorf("%w: reset provider target duplicate", ErrWorkspaceInput)
+		}
+		seenTargets[key] = struct{}{}
+	}
+	return nil
 }
 
 func (store *PostgresStore) PutRecommendationSnapshot(ctx context.Context, snapshot RecommendationSnapshot) (RecommendationSnapshot, bool, error) {
@@ -960,25 +1042,20 @@ func (store *PostgresStore) ResetGeneration(ctx context.Context, input ResetInpu
 		input.Now = time.Now().UTC()
 	}
 	input.Now = input.Now.UTC()
-	var basePayload json.RawMessage
-	if err := queryWorkspaceJSON(ctx, store.pool, map[string]any{"operation": "GET_DRAFT_BASE", "generationId": current.GenerationID}, &basePayload); err != nil {
+	newGenerationID := fmt.Sprintf("aga-ws-generation-reset-%d", input.Now.UnixNano())
+	draft, err := freshResetDraft(workspace, newGenerationID)
+	if err != nil {
 		return Generation{}, ResetTombstone{}, err
 	}
-	var draft aga.Draft
-	if err := json.Unmarshal(basePayload, &draft); err != nil || draft.DraftID == "" {
-		return Generation{}, ResetTombstone{}, ErrWorkspaceNotSealed
-	}
-	newGenerationID := fmt.Sprintf("aga-ws-generation-reset-%d", input.Now.UnixNano())
-	draft.GenerationID = newGenerationID
-	draft.GenerationState = GenerationActive
-	draft.Revision = 1
-	draft.State = aga.DraftWorking
-	draft.ReadinessEvents = nil
-	draft.CurrentReadinessEventID = ""
-	draft.ContentDigest = aga.ComputeDraftContentDigest(draft)
+	resetItems := mergeDraftMetadata(workspace.Items, draft)
+	workspaceAggregateDigest := digestValue("AGA-DEMO-WORKSPACE-AGGREGATE-V1", struct {
+		GenerationID string
+		Run          string
+		Items        []ClassificationItem
+	}{newGenerationID, workspace.Run.ClassificationRunDigest, resetItems})
 	workspaceSeal := WorkspaceSealReceipt{
 		GenerationID: newGenerationID, ClassificationRunDigest: current.ClassificationRunDigest,
-		FixtureDigest: current.FixtureDigest, WorkspaceAggregateDigest: workspace.Seal.WorkspaceAggregateDigest,
+		FixtureDigest: current.FixtureDigest, WorkspaceAggregateDigest: workspaceAggregateDigest,
 		SealedAt: input.Now, LoaderRevoked: true,
 	}
 	workspaceSeal.SealDigest = digestValue("AGA-DEMO-WORKSPACE-SEAL-V1", workspaceSeal)
@@ -989,6 +1066,11 @@ func (store *PostgresStore) ResetGeneration(ctx context.Context, input ResetInpu
 	}{newGeneration, draft})
 	tombstone := ResetTombstone{TombstoneID: fmt.Sprintf("aga-ws-tombstone-%d", input.Now.UnixNano()), FromGenerationID: current.GenerationID, ToGenerationID: newGeneration.GenerationID, ExpectedGenerationID: input.ExpectedGenerationID, ExpectedRevision: input.ExpectedGenerationRevision, ExpectedSealDigest: input.ExpectedGenerationSealDigest, ReasonCode: trimReason(input.ReasonCode), ActorSubjectID: input.ActorSubjectID, CreatedAt: input.Now}
 	tombstone.TombstoneDigest = digestValue("AGA-DEMO-WORKSPACE-RESET-TOMBSTONE-V1", tombstone)
+	providerScopes, providerTargets := workspaceProviderRows(newGenerationID, input.Now)
+	authorityBindings := workspaceAuthorityBindingRows(newGenerationID, workspace.Fixture)
+	if err := validateResetReconstruction(newGenerationID, workspace.Fixture, authorityBindings, providerScopes, providerTargets); err != nil {
+		return Generation{}, ResetTombstone{}, err
+	}
 	err = callWorkspaceReset(ctx, store.pool, map[string]any{
 		"tombstoneId": tombstone.TombstoneID, "fromGenerationId": tombstone.FromGenerationID,
 		"toGenerationId": tombstone.ToGenerationID, "expectedGenerationId": tombstone.ExpectedGenerationID,
@@ -998,11 +1080,21 @@ func (store *PostgresStore) ResetGeneration(ctx context.Context, input ResetInpu
 		"classificationRunDigest": newGeneration.ClassificationRunDigest, "taxonomyVersion": newGeneration.TaxonomyVersion,
 		"taxonomyDigest": newGeneration.TaxonomyDigest, "fixtureDigest": newGeneration.FixtureDigest,
 		"newGenerationSealDigest": newGeneration.SealDigest, "newWorkspaceSealDigest": workspaceSeal.SealDigest,
-		"draft": draft, "draftCanonicalPayload": canonical(draft), "draftRowDigest": digestJSON(draft),
+		"workspaceAggregateDigest": workspaceSeal.WorkspaceAggregateDigest,
+		"draft":                    draft, "draftCanonicalPayload": canonical(draft), "draftRowDigest": digestJSON(draft),
+		"authorityBindings": authorityBindings, "authorityBindingCount": len(authorityBindings),
+		"providerScopes": providerScopes, "providerScopeCount": len(providerScopes),
+		"providerTargets": providerTargets, "providerTargetCount": len(providerTargets),
 	})
 	if err != nil {
 		return Generation{}, ResetTombstone{}, err
 	}
+	store.runtimeMu.Lock()
+	store.runtimeBaseReady = false
+	store.runtimeCurrentReady = false
+	store.runtimeBaseWorkspace = LoadedWorkspace{}
+	store.runtimeCurrentDraft = aga.Draft{}
+	store.runtimeMu.Unlock()
 	return newGeneration, tombstone, nil
 }
 

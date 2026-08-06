@@ -25,6 +25,8 @@ const row = {
   questionKey: "server-returned-question-key",
   questionRef: { questionOrigin: "SEALED_BASE" as const, packageVersion: "AGA_PACKAGE", packageJsonSha256: digest, formCode: "FSS-AGA-FORM-001", proposalId: "proposal-001", ordinal: 1, textDigest: digest },
   questionOrigin: "SEALED_BASE" as const,
+  includeEligible: true,
+  includeEligibilityReason: "ELIGIBLE_FOR_CURRENT_SIMULATION_SCOPE",
   projection: { mainDomainCode: "DOMAIN_A", topicCodes: ["TOPIC_A"], inspectionProfileCodes: ["PROFILE_A"], inspectionTypeCodes: ["TYPE_A"], canonicalTargetKind: "AERODROME_OPERATOR", targetProfileCode: "AERODROME_PROFILE", operationQualifiers: [], activityQualifiers: [], applicabilityDisposition: "APPLICABLE", evidenceExpectationCodes: [], externalInvolvements: [] },
   agreementConfidence: "HIGH",
   recommendationState: "AUTO_PROPOSED_HIGH_CONFIDENCE",
@@ -48,7 +50,7 @@ function response(operation: string, overrides: Partial<AGADemoWorkspaceQueryRes
   } as AGADemoWorkspaceQueryResponse;
 }
 
-function createWorkspaceBackend(resetEnabled = false) {
+function createWorkspaceBackend(resetEnabled = false, rowOverrides: Partial<typeof row> = {}) {
   const responses: Record<string, AGADemoWorkspaceQueryResponse> = {
     GET_SUMMARY: response("GET_SUMMARY", { baseQuestionCount: 1310, draftIncludedCount: 1, draftExcludedCount: 0, draftDeferredCount: 0 }),
     GET_DRAFT: response("GET_DRAFT", { draft }),
@@ -57,7 +59,7 @@ function createWorkspaceBackend(resetEnabled = false) {
       { providerTypeCode: "ANSP", disposition: "INVOLVEMENT_ONLY", reasonCode: "CANDIDATE_PROFILE_BOUNDARY" },
     ] }),
     GET_HISTORY: response("GET_HISTORY", { history: [generation] }),
-    SEARCH_ITEMS: response("SEARCH_ITEMS", { items: [row], page: 0, pageSize: 25 }),
+    SEARCH_ITEMS: response("SEARCH_ITEMS", { items: [{ ...row, ...rowOverrides }], page: 0, pageSize: 25 }),
   };
   const classificationQuery = vi.fn(async (input: AGADemoWorkspaceQuery) => responses[input.operationId] ?? responses.SEARCH_ITEMS);
   const classificationCommand = vi.fn(async (input: never) => ({ operationId: "INCLUDE", replayed: false, lifecycleAvailable: false, draft, input }));
@@ -74,13 +76,13 @@ function createWorkspaceBackend(resetEnabled = false) {
   return { backend, classificationQuery, classificationCommand, adminCommand };
 }
 
-function renderPage(role: "manager" | "admin" = "manager") {
+function renderPage(role: "manager" | "admin" = "manager", rowOverrides: Partial<typeof row> = {}) {
   const runtime = createMockBackendRuntime();
-  const workspace = createWorkspaceBackend(role === "admin");
+  const workspace = createWorkspaceBackend(role === "admin", rowOverrides);
   render(
     <AppProviders runtime={{ backend: { ...runtime.backend, agaDemoWorkspace: workspace.backend }, buildProfile: "http", environmentLabel: "test" }}>
       <MemoryRouter>
-        <AGADemoClassificationWorkspacePage capability={{ available: true, projection: role === "admin" ? "CAA_ADMIN" : "DEPARTMENT_MANAGER_SCOPED", classificationEnabled: true, recommendationEnabled: true, lifecycleEnabled: false, resetEnabled: role === "admin" }} role={role} roleLabel={role === "admin" ? "Admin Preview" : "Department Manager"} />
+        <AGADemoClassificationWorkspacePage capability={{ available: true, projection: role === "admin" ? "CAA_ADMIN" : "DEPARTMENT_MANAGER_SCOPED", classificationEnabled: role !== "admin", recommendationEnabled: role !== "admin", lifecycleEnabled: false, resetEnabled: role === "admin" }} role={role} roleLabel={role === "admin" ? "Admin Preview" : "Department Manager"} />
       </MemoryRouter>
     </AppProviders>,
   );
@@ -135,10 +137,20 @@ describe("AGA classification workspace page", () => {
     expect(screen.getByText(/ANSP · INVOLVEMENT_ONLY/i)).toBeInTheDocument();
   });
 
+  it("fails closed for an ineligible server-returned Include row", async () => {
+    const workspace = renderPage("manager", { includeEligible: false, includeEligibilityReason: "TARGET_PROFILE_MISMATCH" });
+    await selectRow();
+    const include = screen.getByRole("button", { name: /include selected item/i });
+    expect(include).toBeDisabled();
+    expect(include).toHaveAccessibleDescription(/TARGET_PROFILE_MISMATCH/);
+    await userEvent.setup().click(include);
+    expect(workspace.classificationCommand).not.toHaveBeenCalledWith(expect.objectContaining({ operationId: "INCLUDE" }));
+  });
+
   it("admin resets generation with exact CAS", async () => {
     const workspace = renderPage("admin");
     const user = userEvent.setup();
-    await screen.findByTestId("aga-classification-workspace-page");
+    await screen.findByTestId("aga-workspace-admin-page");
     await user.click(screen.getByRole("button", { name: /view generation history/i }));
     expect((await screen.findAllByText(/aga-ws-generation-0001/)).length).toBeGreaterThan(0);
     await user.type(screen.getByRole("textbox", { name: /reset reason/i }), "Reset disposable test generation");
@@ -146,6 +158,9 @@ describe("AGA classification workspace page", () => {
     await user.click(screen.getByRole("button", { name: /reset generation/i }));
     await waitFor(() => expect(workspace.adminCommand).toHaveBeenCalled());
     expect(workspace.adminCommand.mock.calls[0]?.[0]).toMatchObject({ operationId: "RESET_GENERATION", expectedGenerationId: generation.generationId, expectedGenerationRevision: generation.revision, expectedGenerationSealDigest: generation.sealDigest });
+    expect(workspace.classificationCommand).not.toHaveBeenCalled();
+    expect(workspace.classificationQuery.mock.calls.map(([request]) => request.operationId)).not.toContain("GET_DRAFT");
+    expect(workspace.classificationQuery.mock.calls.map(([request]) => request.operationId)).not.toContain("SEARCH_ITEMS");
   });
 
   it("purges sensitive state on BFCache restore and never writes browser storage", async () => {

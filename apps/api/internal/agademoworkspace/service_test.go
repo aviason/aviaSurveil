@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
 	"testing"
 	"time"
 
@@ -82,6 +83,21 @@ func TestWorkspaceDirectIDDenialIsNeutral(t *testing.T) {
 	}
 }
 
+func TestWorkspaceIncludeFailsClosedWhenSimulationScopeIsUnavailable(t *testing.T) {
+	workspace := testWorkspace()
+	baseIdentity := aga.BaseIdentity{PackageVersion: "AGA_PACKAGE", PackageJSONSHA256: digestForTest(), FormCode: "FSS-AGA-FORM-001", ProposalID: "proposal-001", Ordinal: 1, TextDigest: digestForTest()}
+	workspace.Items = []preprod.ClassificationItem{{Identity: baseIdentity, QuestionKey: "server-returned-question-key"}}
+	store := &serviceTestStore{workspace: workspace, responses: map[preprod.StoredResponseKey]preprod.IdempotencyResponse{}}
+	service := NewService(ServiceConfig{Store: store, Resolver: StaticBindingResolver{Bindings: map[string]preprod.AuthorityBinding{"manager": bindingFor("manager", "ORG", "manager")}}})
+	command := CommandEnvelope{OperationID: OperationInclude, IdempotencyKey: "scope-unavailable", ExpectedGenerationID: workspace.Generation.GenerationID, ExpectedDraftRevision: 1, ExpectedDraftContentDigest: workspace.Draft.Draft.ContentDigest, TargetQuestionKey: "server-returned-question-key", ReasonCode: "CLASSIFICATION_EXPERT_REVIEW"}
+	if _, err := service.Command(context.Background(), principalFor("manager", "ORG", identity.RoleDepartmentManager), FamilyClassificationCommand, command); !errors.Is(err, ErrIncludedQuestionIneligible) {
+		t.Fatalf("include without a server simulation scope = %v, want %v", err, ErrIncludedQuestionIneligible)
+	}
+	if store.applyCalls != 0 {
+		t.Fatalf("ineligible include reached Draft write path %d time(s)", store.applyCalls)
+	}
+}
+
 func TestWorkspaceIdempotencyLookupPrecedesDomainSnapshot(t *testing.T) {
 	store := &serviceTestStore{workspace: testWorkspace(), responses: map[preprod.StoredResponseKey]preprod.IdempotencyResponse{}}
 	service := NewService(ServiceConfig{Store: store, Resolver: StaticBindingResolver{Bindings: map[string]preprod.AuthorityBinding{"manager": bindingFor("manager", "ORG", "manager")}}})
@@ -104,5 +120,17 @@ func TestWorkspaceCommandResponseIsStoredAndReplayed(t *testing.T) {
 	}
 	if !replayed.Replayed || store.applyCalls != 0 {
 		t.Fatalf("replay = %+v, apply calls = %d", replayed, store.applyCalls)
+	}
+}
+
+func TestQueryRequestRejectsUnboundedPageBeforePagination(t *testing.T) {
+	request := QueryRequest{OperationID: OperationSearchItems, Page: MaxWorkspacePage + 1, PageSize: 25}
+	if !errors.Is(request.Validate(), ErrMalformedCommand) {
+		t.Fatalf("large page validation = %v, want malformed command", request.Validate())
+	}
+
+	start, end := boundedPageWindow(math.MaxInt, 25, 1)
+	if start != 1 || end != 1 {
+		t.Fatalf("bounded page window = (%d, %d), want empty tail", start, end)
 	}
 }

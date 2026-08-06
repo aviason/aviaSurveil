@@ -119,7 +119,7 @@ export function useLifecycleWorkspace({
           setLoading(false);
           return;
         }
-        const next = response.lifecycleCaa ?? response.lifecycleAuditee ?? response.lifecycle ?? null;
+      const next = response.lifecycleCaa ?? response.lifecycleAuditee ?? response.lifecycle ?? null;
         updateProjection(next);
         setLoading(false);
       })
@@ -171,7 +171,7 @@ export function useLifecycleWorkspace({
     setError(null);
     try {
       const response = await client.lifecycleCommand(command);
-      const next = response.lifecycle ?? null;
+      const next = response.lifecycleAuditee ?? response.lifecycle ?? null;
       if (next) updateProjection(next);
       setStatus(`${operationId} recorded${response.replayed ? " (idempotent replay)" : ""}.`);
       return next;
@@ -308,7 +308,7 @@ function ManagerSimulationSetup({
 }
 
 function latestResponseForQuestion(
-  projection: AGADemoLifecycleProjection,
+  projection: Exclude<AGADemoLifecycleProjection, AGADemoWorkspaceLifecycleAuditeeProjection>,
   questionKey: string,
 ): ChecklistAnswer {
   const response = projection.responses
@@ -342,11 +342,13 @@ export function AGADemoInspectionPage({
   const workspace = useLifecycleWorkspace({ capability, role, initialProjection, inspectionId, onProjectionChange });
   const [answers, setAnswers] = useState<Record<string, ChecklistAnswer>>({});
   const [comment, setComment] = useState("");
+  const [reopenExplanation, setReopenExplanation] = useState("");
   const [responsePending, setResponsePending] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!workspace.projection) return;
-    setAnswers(Object.fromEntries(workspace.projection.questions.map((question) => [question.questionKey, latestResponseForQuestion(workspace.projection!, question.questionKey)])));
+    const inspectionProjection = workspace.projection;
+    if (!inspectionProjection || isAuditeeProjection(inspectionProjection)) return;
+    setAnswers(Object.fromEntries(inspectionProjection.questions.map((question) => [question.questionKey, latestResponseForQuestion(inspectionProjection, question.questionKey)])));
   }, [workspace.projection]);
 
   const recordResponse = async (questionKey: string) => {
@@ -380,6 +382,24 @@ export function AGADemoInspectionPage({
   };
 
   const projection = workspace.projection;
+  if (projection && isAuditeeProjection(projection)) {
+    return (
+      <LifecyclePageFrame
+        description="The Auditee receives only the organization-scoped CAP and Evidence projection; inspection questions, responses, and Potential Findings remain CAA-only."
+        error={workspace.error}
+        eyebrow="Synthetic CAP and Evidence lifecycle"
+        roleLabel={roleLabel}
+        status={workspace.status}
+        testId="aga-demo-inspection-page"
+        title="Auditee lifecycle boundary"
+      >
+        <section aria-label="Auditee public owner" className="aga-lifecycle-boundary">
+          <strong>{projection.publicOwnerLabel}</strong>
+          <p>Use the CAP and Evidence route for the released organization-scoped lifecycle context.</p>
+        </section>
+      </LifecyclePageFrame>
+    );
+  }
   const questionTextByKey = new Map((workspace.questionPage?.items ?? []).map((question) => [question.questionKey, question.questionText]));
   const visibleQuestions = projection && workspace.questionPage
     ? projection.questions.filter((question) => questionTextByKey.has(question.questionKey))
@@ -416,12 +436,6 @@ export function AGADemoInspectionPage({
             <article><span>Questions</span><strong>{projection.questions.length}</strong><small>{projection.responses.length} response versions</small></article>
             <article><span>Potential Findings</span><strong>{projection.potentialFindings.length}</strong><small>Lead review remains separate</small></article>
           </section>
-          {isAuditeeProjection(projection) ? (
-            <section aria-label="Auditee public owner" className="aga-lifecycle-boundary">
-              <strong>{projection.publicOwnerLabel}</strong>
-              <p>This organization-scoped projection contains only the public owner label and released lifecycle content.</p>
-            </section>
-          ) : null}
           {isCAAProjection(projection) ? (
             <section aria-label="CAA role history" className="aga-lifecycle-register">
               <h2>CAA-only role history</h2>
@@ -448,12 +462,13 @@ export function AGADemoInspectionPage({
             />
             <LifecycleAction
               actionId="reopen-checklist"
-              disabled={Boolean(lifecycleDisabledReason(capability, workspace.client, projection, role === "inspector" || role === "leadInspector", projection.state === "SUBMITTED" || projection.state === "COMPLETED" ? "" : "Reopen is available only from SUBMITTED or COMPLETED.")) || workspace.pending}
+              disabled={Boolean(lifecycleDisabledReason(capability, workspace.client, projection, role === "inspector" || role === "leadInspector", projection.state === "SUBMITTED" || projection.state === "COMPLETED" ? (reopenExplanation.trim() ? "" : "A bounded reopen explanation is required.") : "Reopen is available only from SUBMITTED or COMPLETED.")) || workspace.pending}
               label="Reopen checklist"
-              onClick={() => void workspace.runCommand("REOPEN_CHECKLIST", { reasonCode: "REOPEN_FOR_REVIEW" }).catch(() => undefined)}
-              reason={lifecycleDisabledReason(capability, workspace.client, projection, role === "inspector" || role === "leadInspector", projection.state === "SUBMITTED" || projection.state === "COMPLETED" ? "" : "Reopen is available only from SUBMITTED or COMPLETED.") ?? "The command is pending."}
+              onClick={() => void workspace.runCommand("REOPEN_CHECKLIST", { reasonCode: "REOPEN_FOR_REVIEW", reasonExplanation: reopenExplanation.trim() }).catch(() => undefined)}
+              reason={lifecycleDisabledReason(capability, workspace.client, projection, role === "inspector" || role === "leadInspector", projection.state === "SUBMITTED" || projection.state === "COMPLETED" ? (reopenExplanation.trim() ? "" : "A bounded reopen explanation is required.") : "Reopen is available only from SUBMITTED or COMPLETED.") ?? "The command is pending."}
             />
           </section>
+          {(role === "inspector" || role === "leadInspector") ? <label>Reopen explanation<textarea aria-label="Reopen explanation" maxLength={1000} value={reopenExplanation} onChange={(event) => setReopenExplanation(event.target.value)} /></label> : null}
           <section aria-label="Checklist questions" className="aga-lifecycle-question-list">
             <div className="aga-lifecycle-question-list__heading"><div><h2>Server-pinned questions</h2><p>Question text is composed only for this active authorized page; the browser never stores the sealed body or invents a question identity.</p></div>{workspace.questionPage ? <div className="aga-workspace-pagination"><button disabled={workspace.questionPage.page === 0 || workspace.questionPageLoading} onClick={() => void workspace.loadQuestionPage(Math.max(0, workspace.questionPage!.page - 1))} type="button">Previous question page</button><span>Page {workspace.questionPage.page + 1}</span><button disabled={workspace.questionPage.nextPage === undefined || workspace.questionPageLoading} onClick={() => void workspace.loadQuestionPage(workspace.questionPage!.nextPage ?? workspace.questionPage!.page + 1)} type="button">Next question page</button></div> : null}</div>
             {workspace.questionPageLoading ? <p role="status">Loading the authorized transient question page…</p> : null}

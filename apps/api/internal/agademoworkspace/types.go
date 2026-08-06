@@ -73,6 +73,12 @@ const (
 	OperationVerifyEvidence  = "VERIFY_EVIDENCE"
 	OperationAuthorizedClose = "AUTHORIZED_CLOSE"
 	OperationResetGeneration = "RESET_GENERATION"
+
+	// MaxWorkspacePage is deliberately finite even though individual payloads
+	// are capped at 25 rows.  Keeping page arithmetic in a small closed range
+	// prevents an untrusted page value from overflowing before a slice bound is
+	// checked.
+	MaxWorkspacePage = 10000
 )
 
 var (
@@ -91,6 +97,13 @@ var (
 // business-domain assignment authority.
 type BindingResolver interface {
 	Resolve(context.Context, identity.Principal) (preprod.AuthorityBinding, bool, error)
+}
+
+// OperationBindingResolver is the narrow authority seam used by operations
+// that need one exact sealed membership row.  A resolver must never combine
+// roles or scope values from separate rows to manufacture a broader binding.
+type OperationBindingResolver interface {
+	ResolveForOperation(context.Context, identity.Principal, string) (preprod.AuthorityBinding, bool, error)
 }
 
 type BindingResolverFunc func(context.Context, identity.Principal) (preprod.AuthorityBinding, bool, error)
@@ -245,6 +258,7 @@ type CommandEnvelope struct {
 	Action                         aga.DraftAction         `json:"action,omitempty"`
 	TargetQuestionKey              string                  `json:"targetQuestionKey,omitempty"`
 	ReasonCode                     string                  `json:"reasonCode,omitempty"`
+	ReasonExplanation              string                  `json:"reasonExplanation,omitempty"`
 	MainDomainCode                 string                  `json:"mainDomainCode,omitempty"`
 	TopicCode                      string                  `json:"topicCode,omitempty"`
 	ResolutionMode                 aga.ResolutionMode      `json:"resolutionMode,omitempty"`
@@ -298,6 +312,7 @@ type CommandResponse struct {
 	Recommendation     *preprod.RecommendationSnapshot `json:"recommendation,omitempty"`
 	BatchPreview       *BatchPreviewProjection         `json:"batchPreview,omitempty"`
 	Lifecycle          *LifecycleProjection            `json:"lifecycle,omitempty"`
+	LifecycleAuditee   *LifecycleAuditeeProjection     `json:"lifecycleAuditee,omitempty"`
 	LifecycleAvailable bool                            `json:"lifecycleAvailable"`
 	Reason             string                          `json:"reason,omitempty"`
 }
@@ -312,7 +327,7 @@ type AuthorizationDecision struct {
 }
 
 func (request QueryRequest) Validate() error {
-	if request.OperationID == "" || request.Page < 0 || request.PageSize < 0 || request.PageSize > 1000 {
+	if request.OperationID == "" || request.Page < 0 || request.Page > MaxWorkspacePage || request.PageSize < 0 || request.PageSize > 1000 {
 		return ErrMalformedCommand
 	}
 	if request.PageSize > MaxQuestionTextPage && (request.OperationID == OperationSearchItems || request.OperationID == OperationGetInspectionQuestionPage) {

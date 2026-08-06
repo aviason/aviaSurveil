@@ -24,6 +24,12 @@ export interface ApplicationRuntime {
   supplementalRouteElements?: readonly ReactElement[];
   /** HTTP-only capability-gated navigation extension. */
   supplementalNavigation?: ComponentType<{ activeRole: Role; onNavigate?: () => void }>;
+  /**
+   * Exact local-preprod AGA route surface. This is deliberately separate from
+   * the normal HTTP runtime so an authenticated root never probes a normal
+   * role-home API when the tagged workspace is the supported entry point.
+   */
+  agaDemoWorkspaceSurfaceEnabled?: boolean;
 }
 
 const ApplicationRuntimeContext = createContext<ApplicationRuntime | null>(null);

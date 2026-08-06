@@ -31,4 +31,16 @@ func TestWorkspaceProvisionDDLContainsClosedFamilies(t *testing.T) {
 	if !strings.Contains(WorkspaceSchemaDDL, "batch_preview_consumptions") {
 		t.Fatal("batch preview consumption relation missing")
 	}
+	for _, guard := range []string{
+		"workspace reset active generation is ambiguous",
+		"workspace reset reconstruction is incomplete",
+		"workspace reset authority binding count mismatch",
+		"workspace reset provider scope count mismatch",
+		"workspace reset provider target count mismatch",
+		"GET DIAGNOSTICS affected_row_count = ROW_COUNT",
+	} {
+		if !strings.Contains(WorkspaceSchemaDDL, guard) {
+			t.Fatalf("workspace reset DDL guard missing: %s", guard)
+		}
+	}
 }

@@ -73,12 +73,23 @@ function caaProjection(): AGADemoWorkspaceLifecycleCAAProjection {
 
 function auditeeProjection(): AGADemoWorkspaceLifecycleAuditeeProjection {
   return {
-    ...projection(),
+    inspectionId: "inspection-test-1",
+    generationId: "generation-test-1",
+    organizationId: "organization-test-1",
+    state: "IN_PROGRESS",
+    revision: 3,
+    findings: [],
+    capRevisions: [],
+    evidenceVersions: [],
+    verificationDecisions: [],
+    nextAction: "Submit CAP revision",
     publicOwnerLabel: "Fly Namibia · Service Provider",
+    updatedAt: "2026-08-04T13:00:00Z",
+    digest: "sha256:" + "1".repeat(64),
   } as AGADemoWorkspaceLifecycleAuditeeProjection;
 }
 
-function lifecycleClient(current: AGADemoWorkspaceLifecycleProjection): AGADemoWorkspaceBackend {
+function lifecycleClient(current: AGADemoWorkspaceLifecycleProjection | AGADemoWorkspaceLifecycleCAAProjection | AGADemoWorkspaceLifecycleAuditeeProjection): AGADemoWorkspaceBackend {
   let latest = current;
 
   return {
@@ -88,7 +99,7 @@ function lifecycleClient(current: AGADemoWorkspaceLifecycleProjection): AGADemoW
     recommendationCommand: vi.fn(),
     lifecycleQuery: vi.fn(),
     lifecycleCommand: vi.fn().mockImplementation(async (command: AGADemoWorkspaceCommand) => {
-      if (command.operationId === "RECORD_RESPONSE") {
+      if (command.operationId === "RECORD_RESPONSE" && !("publicOwnerLabel" in latest)) {
         latest = {
           ...latest,
           responses: [
@@ -105,6 +116,14 @@ function lifecycleClient(current: AGADemoWorkspaceLifecycleProjection): AGADemoW
         };
       }
 
+      if ("publicOwnerLabel" in latest) {
+        return {
+          operationId: command.operationId,
+          replayed: false,
+          lifecycleAvailable: true,
+          lifecycleAuditee: latest,
+        };
+      }
       return {
         operationId: command.operationId,
         replayed: false,
@@ -160,6 +179,19 @@ describe("AGA synthetic inspection lifecycle page", () => {
     await user.keyboard(" ");
     expect(compliant).toBeChecked();
     expect(screen.getByRole("button", { name: "Record response" })).toBeEnabled();
+  });
+
+  it("requires and sends a bounded reopen explanation", async () => {
+    const client = lifecycleClient(projection("SUBMITTED"));
+    renderPage(client, "inspector", projection("SUBMITTED"));
+    const user = userEvent.setup();
+    const reopen = screen.getByRole("button", { name: "Reopen checklist" });
+    expect(reopen).toBeDisabled();
+    expect(reopen).toHaveAccessibleDescription(/bounded reopen explanation/i);
+    await user.type(screen.getByRole("textbox", { name: "Reopen explanation" }), "The checklist needs a focused correction.");
+    await waitFor(() => expect(reopen).toBeEnabled());
+    await user.click(reopen);
+    await waitFor(() => expect(client.lifecycleCommand).toHaveBeenCalledWith(expect.objectContaining({ operationId: "REOPEN_CHECKLIST", reasonCode: "REOPEN_FOR_REVIEW", reasonExplanation: "The checklist needs a focused correction." })));
   });
 
   it("shows CAA-only role history while the Auditee receives only its public owner label", () => {

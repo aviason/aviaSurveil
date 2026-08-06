@@ -9,7 +9,7 @@ import (
 	preprod "github.com/MarlonJD/aviaSurveil360/apps/api/internal/preproddata/agademoworkspace"
 )
 
-func (service *Service) lifecycleQuery(ctx context.Context, principal identity.Principal, request QueryRequest) (QueryResponse, error) {
+func (service *Service) lifecycleQuery(ctx context.Context, principal identity.Principal, request QueryRequest, decision AuthorizationDecision) (QueryResponse, error) {
 	if request.OperationID == OperationGetCurrentInspection || request.OperationID == OperationGetInspectionQuestionPage {
 		if strings.TrimSpace(request.InspectionID) == "" {
 			current, currentErr := service.currentInspectionID(ctx)
@@ -49,8 +49,14 @@ func (service *Service) lifecycleQuery(ctx context.Context, principal identity.P
 		return QueryResponse{}, ErrNeutralDenied
 	}
 	aggregate, _, err := loadLifecycleFromStore(ctx, store, workspace.Generation.GenerationID, request.InspectionID)
-	if err != nil || !lifecycleVisibleToPrincipal(aggregate, principal) {
+	if err != nil || !lifecycleVisibleToPrincipal(aggregate, principal) || (!decision.IsAdmin && !bindingMatchesLifecycleObject(decision.Binding, aggregate, principal)) {
 		return QueryResponse{}, ErrNeutralDenied
+	}
+	// Selector values are object references, not presentation hints. Validate
+	// them after the aggregate is loaded and access-scoped, but before any role
+	// projection can return the aggregate's surrounding lifecycle context.
+	if err := validateLifecycleQuerySelectors(aggregate, request); err != nil {
+		return QueryResponse{}, err
 	}
 	response := QueryResponse{Operation: request.OperationID, Generation: workspace.Generation, LifecycleAvailable: true}
 	if principal.HasRole(identity.RoleAuditee) {
@@ -59,7 +65,6 @@ func (service *Service) lifecycleQuery(ctx context.Context, principal identity.P
 			return QueryResponse{}, projectionErr
 		}
 		response.LifecycleAuditee = &projection
-		response.Lifecycle = &projection.LifecycleProjection
 		return response, nil
 	}
 	projection := ProjectLifecycle(aggregate, principal)
@@ -81,24 +86,83 @@ func (service *Service) lifecycleQuery(ctx context.Context, principal identity.P
 		}
 		response.QuestionPage = &page
 	}
-	if request.OperationID == OperationGetFinding && request.FindingID != "" {
-		if _, found := aggregate.latestFinding(request.FindingID); !found {
-			return QueryResponse{}, ErrNeutralDenied
+	return response, nil
+}
+
+func validateLifecycleQuerySelectors(aggregate LifecycleAggregate, request QueryRequest) error {
+	findingID := strings.TrimSpace(request.FindingID)
+	capID := strings.TrimSpace(request.CapID)
+	evidenceID := strings.TrimSpace(request.EvidenceID)
+
+	switch request.OperationID {
+	case OperationGetFinding:
+		if findingID == "" || capID != "" || evidenceID != "" {
+			return ErrNeutralDenied
 		}
-	}
-	if request.OperationID == OperationGetCAPEvidence && request.EvidenceID != "" {
-		found := false
-		for _, evidence := range aggregate.EvidenceVersions {
-			if evidence.EvidenceID == request.EvidenceID {
-				found = true
-				break
+		if _, found := aggregate.latestFinding(findingID); !found {
+			return ErrNeutralDenied
+		}
+	case OperationGetCAPEvidence:
+		if capID == "" && evidenceID == "" {
+			return ErrNeutralDenied
+		}
+		selectedFindingID := ""
+		if capID != "" {
+			value, found := lifecycleCAPFindingID(aggregate, capID)
+			if !found {
+				return ErrNeutralDenied
+			}
+			selectedFindingID = value
+		}
+		if evidenceID != "" {
+			value, found := lifecycleEvidenceFindingID(aggregate, evidenceID)
+			if !found || selectedFindingID != "" && selectedFindingID != value {
+				return ErrNeutralDenied
+			}
+			selectedFindingID = value
+		}
+		if _, found := aggregate.latestFinding(selectedFindingID); !found {
+			return ErrNeutralDenied
+		}
+		if findingID != "" {
+			if _, found := aggregate.latestFinding(findingID); !found || findingID != selectedFindingID {
+				return ErrNeutralDenied
 			}
 		}
-		if !found {
-			return QueryResponse{}, ErrNeutralDenied
+	default:
+		if findingID != "" || capID != "" || evidenceID != "" {
+			return ErrNeutralDenied
 		}
 	}
-	return response, nil
+	return nil
+}
+
+func lifecycleCAPFindingID(aggregate LifecycleAggregate, capID string) (string, bool) {
+	findingID := ""
+	for _, revision := range aggregate.CAPRevisions {
+		if revision.CAPID != capID {
+			continue
+		}
+		if findingID != "" && findingID != revision.FindingID {
+			return "", false
+		}
+		findingID = revision.FindingID
+	}
+	return findingID, findingID != ""
+}
+
+func lifecycleEvidenceFindingID(aggregate LifecycleAggregate, evidenceID string) (string, bool) {
+	findingID := ""
+	for _, version := range aggregate.EvidenceVersions {
+		if version.EvidenceID != evidenceID {
+			continue
+		}
+		if findingID != "" && findingID != version.FindingID {
+			return "", false
+		}
+		findingID = version.FindingID
+	}
+	return findingID, findingID != ""
 }
 
 func (service *Service) currentInspectionID(ctx context.Context) (string, error) {
@@ -138,8 +202,8 @@ func (service *Service) canReceiveLifecycleQuestionText(ctx context.Context, pri
 		return true
 	}
 	if principal.HasRole(identity.RoleDepartmentManager) {
-		binding, found, err := service.ResolveBinding(ctx, principal)
-		return err == nil && found && binding.OrganizationID == aggregate.OrganizationID && bindingHasWorkspaceRole(binding, principal, "MANAGER")
+		binding, found, err := service.ResolveBindingForOperation(ctx, principal, OperationGetInspectionQuestionPage)
+		return err == nil && found && bindingMatchesLifecycleObject(binding, aggregate, principal) && bindingHasWorkspaceRole(binding, principal, "MANAGER")
 	}
 	return false
 }
@@ -154,14 +218,10 @@ func (service *Service) lifecycleQuestionPage(ctx context.Context, aggregate Lif
 	if pageSize > MaxQuestionTextPage {
 		return QuestionTextPage{}, ErrMalformedCommand
 	}
-	start := page * pageSize
-	if start > len(aggregate.Questions) {
-		start = len(aggregate.Questions)
+	if page > MaxWorkspacePage {
+		return QuestionTextPage{}, ErrMalformedCommand
 	}
-	end := start + pageSize
-	if end > len(aggregate.Questions) {
-		end = len(aggregate.Questions)
-	}
+	start, end := boundedPageWindow(page, pageSize, len(aggregate.Questions))
 	questions := aggregate.Questions[start:end]
 	byKey, err := service.resolveLifecycleQuestionText(ctx, aggregate.GenerationID, questions)
 	if err != nil {
@@ -265,7 +325,7 @@ func ProjectCAALifecycle(aggregate LifecycleAggregate, principal identity.Princi
 		PotentialFindings: append([]LifecyclePotentialFinding{}, aggregate.PotentialFindings...), Findings: append([]LifecycleFinding{}, aggregate.Findings...),
 		CAPRevisions: append([]LifecycleCAPRevision{}, aggregate.CAPRevisions...), EvidenceVersions: append([]LifecycleEvidenceVersion{}, aggregate.EvidenceVersions...),
 		VerificationDecisions: append([]LifecycleVerificationDecision{}, aggregate.VerificationDecisions...), UpdatedAt: aggregate.UpdatedAt, Digest: aggregate.Digest,
-	}, RecommendationID: aggregate.RecommendationID, RecommendationDigest: aggregate.RecommendationDigest, Inspector: aggregate.Inspector, Lead: aggregate.Lead, Auditee: aggregate.Auditee}
+	}, RecommendationID: aggregate.RecommendationID, RecommendationDigest: aggregate.RecommendationDigest, Inspector: aggregate.Inspector, Lead: aggregate.Lead, Auditee: aggregate.Auditee, ReasonHistory: append([]LifecycleReasonRecord{}, aggregate.ReasonHistory...)}
 	projection.CurrentOwnerRole, projection.NextAction = lifecycleOwnerAndAction(aggregate)
 	projection.RoleHistory = []LifecycleRoleEvent{{Role: "INSPECTOR", Action: "PINNED", OccurredAt: aggregate.CreatedAt}, {Role: "LEAD", Action: "PINNED", OccurredAt: aggregate.CreatedAt}, {Role: "AUDITEE", Action: "PINNED", OccurredAt: aggregate.CreatedAt}}
 	_ = principal
@@ -276,21 +336,61 @@ func ProjectAuditeeLifecycle(aggregate LifecycleAggregate, principal identity.Pr
 	if !lifecycleBindingPinMatchesPrincipal(aggregate.Auditee, principal) || principal.SubjectID != aggregate.Auditee.SubjectID || !principal.HasRole(identity.RoleAuditee) {
 		return LifecycleAuditeeProjection{}, ErrNeutralDenied
 	}
-	return LifecycleAuditeeProjection{LifecycleProjection: ProjectLifecycle(aggregate, principal), PublicOwnerLabel: publicOwnerLabel(aggregate)}, nil
+	projection := LifecycleAuditeeProjection{
+		InspectionID: aggregate.InspectionID, GenerationID: aggregate.GenerationID, OrganizationID: aggregate.OrganizationID,
+		State: aggregate.State, Revision: aggregate.Revision, NextAction: publicOwnerLabel(aggregate),
+		PublicOwnerLabel: publicOwnerLabel(aggregate), UpdatedAt: aggregate.UpdatedAt, Digest: aggregate.Digest,
+		Findings:              make([]LifecycleAuditeeFinding, 0, len(aggregate.Findings)),
+		CAPRevisions:          make([]LifecycleAuditeeCAPRevision, 0, len(aggregate.CAPRevisions)),
+		EvidenceVersions:      make([]LifecycleAuditeeEvidenceVersion, 0, len(aggregate.EvidenceVersions)),
+		VerificationDecisions: make([]LifecycleAuditeeVerificationDecision, 0, len(aggregate.VerificationDecisions)),
+	}
+	for _, finding := range aggregate.Findings {
+		projection.Findings = append(projection.Findings, LifecycleAuditeeFinding{
+			FindingID: finding.FindingID, Severity: finding.Severity, State: finding.State, NextAction: finding.NextAction,
+			CAPRequired: finding.CAPRequired, EvidenceRequired: finding.EvidenceRequired, DueDateRequired: finding.DueDateRequired,
+			DueDate: finding.DueDate, Revision: finding.Revision, CreatedAt: finding.CreatedAt,
+		})
+	}
+	for _, revision := range aggregate.CAPRevisions {
+		projection.CAPRevisions = append(projection.CAPRevisions, LifecycleAuditeeCAPRevision{
+			CAPID: revision.CAPID, FindingID: revision.FindingID, Revision: revision.Revision, State: revision.State,
+			RootCause: revision.RootCause, CorrectiveAction: revision.CorrectiveAction, PreventiveAction: revision.PreventiveAction,
+			ResponsiblePerson: revision.ResponsiblePerson, TargetDate: revision.TargetDate, CommentToAuditee: revision.CommentToAuditee,
+			CreatedAt: revision.CreatedAt,
+		})
+	}
+	for _, evidence := range aggregate.EvidenceVersions {
+		projection.EvidenceVersions = append(projection.EvidenceVersions, LifecycleAuditeeEvidenceVersion{
+			EvidenceID: evidence.EvidenceID, FindingID: evidence.FindingID, Version: evidence.Version, FileName: evidence.FileName,
+			ReviewState: evidence.ReviewState, CommentToAuditee: evidence.CommentToAuditee, CreatedAt: evidence.CreatedAt,
+		})
+	}
+	for _, decision := range aggregate.VerificationDecisions {
+		projection.VerificationDecisions = append(projection.VerificationDecisions, LifecycleAuditeeVerificationDecision{
+			VerificationID: decision.VerificationID, FindingID: decision.FindingID, EvidenceID: decision.EvidenceID,
+			EvidenceVersion: decision.EvidenceVersion, Outcome: decision.Outcome, CommentToAuditee: decision.CommentToAuditee,
+			CreatedAt: decision.CreatedAt,
+		})
+	}
+	return projection, nil
 }
 
 func lifecycleVisibleToPrincipal(aggregate LifecycleAggregate, principal identity.Principal) bool {
 	if principal.OrganizationID == "" || principal.SubjectID == "" {
 		return false
 	}
-	if workspaceOrganizationMatchesPrincipal(principal.OrganizationID, aggregate.OrganizationID) {
+	if principal.HasRole(identity.RoleAdmin) && isCAAOrganization(principal.OrganizationID) {
+		return true
+	}
+	if principal.HasRole(identity.RoleDepartmentManager) && workspaceOrganizationMatchesPrincipal(principal.OrganizationID, aggregate.OrganizationID) {
 		return true
 	}
 	return lifecycleBindingPinMatchesPrincipal(aggregate.Inspector, principal) || lifecycleBindingPinMatchesPrincipal(aggregate.Lead, principal) || lifecycleBindingPinMatchesPrincipal(aggregate.Auditee, principal)
 }
 
 func lifecycleBindingPinMatchesPrincipal(pin LifecycleBindingPin, principal identity.Principal) bool {
-	if pin.SubjectID == "" || principal.SubjectID == "" || principal.OrganizationID == "" {
+	if pin.SubjectID == "" || principal.SubjectID == "" || pin.SubjectID != principal.SubjectID || principal.OrganizationID == "" {
 		return false
 	}
 	sourceOrganizationID := pin.SourceOrganizationID

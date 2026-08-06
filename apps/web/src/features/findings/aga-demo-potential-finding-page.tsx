@@ -28,9 +28,31 @@ export function AGADemoPotentialFindingPage({
   const [dueDate, setDueDate] = useState("");
 
   useEffect(() => {
+    if (projection && "publicOwnerLabel" in projection) {
+      setSelectedPotentialId("");
+      return;
+    }
     const pending = projection?.potentialFindings.find((potential) => potential.state === "PENDING_LEAD_REVIEW");
     setSelectedPotentialId(pending?.potentialFindingId ?? "");
   }, [projection]);
+
+  if (projection && "publicOwnerLabel" in projection) {
+    return (
+      <LifecyclePageFrame
+        description="Potential Findings are a CAA-only review artifact and are not exposed through the Auditee projection."
+        error={workspace.error}
+        eyebrow="Synthetic finding lifecycle"
+        roleLabel={roleLabel}
+        status={workspace.status}
+        testId="aga-demo-potential-finding-page"
+        title="Potential Finding review"
+      >
+        <section aria-label="Auditee finding boundary" className="aga-lifecycle-boundary">
+          <p>Use the organization-scoped CAP and Evidence workflow for released Finding follow-up.</p>
+        </section>
+      </LifecyclePageFrame>
+    );
+  }
 
   if (!projection) {
     return (

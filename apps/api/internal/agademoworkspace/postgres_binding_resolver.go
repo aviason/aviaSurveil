@@ -28,49 +28,69 @@ func (resolver *PostgresBindingResolver) Resolve(ctx context.Context, principal 
 	if resolver == nil || resolver.pool == nil || principal.SubjectID == "" || principal.OrganizationID == "" {
 		return preprod.AuthorityBinding{}, false, nil
 	}
+	candidates, err := resolver.bindingCandidates(ctx, principal)
+	if err != nil {
+		return preprod.AuthorityBinding{}, false, err
+	}
+	// A generic caller has not named an operation, so more than one matching
+	// row is ambiguous.  Returning no binding is safer than manufacturing a
+	// composite authority object.
+	if len(candidates) != 1 {
+		return preprod.AuthorityBinding{}, false, nil
+	}
+	return candidates[0], true, nil
+}
+
+func (resolver *PostgresBindingResolver) ResolveForOperation(ctx context.Context, principal identity.Principal, operation string) (preprod.AuthorityBinding, bool, error) {
+	if resolver == nil || resolver.pool == nil || operation == "" {
+		return preprod.AuthorityBinding{}, false, nil
+	}
+	candidates, err := resolver.bindingCandidates(ctx, principal)
+	if err != nil {
+		return preprod.AuthorityBinding{}, false, err
+	}
+	matching := make([]preprod.AuthorityBinding, 0, len(candidates))
+	for _, binding := range candidates {
+		if bindingAllowsWorkspaceOperation(binding, principal, operation) {
+			matching = append(matching, binding)
+		}
+	}
+	if len(matching) != 1 {
+		return preprod.AuthorityBinding{}, false, nil
+	}
+	return matching[0], true, nil
+}
+
+func (resolver *PostgresBindingResolver) bindingCandidates(ctx context.Context, principal identity.Principal) ([]preprod.AuthorityBinding, error) {
 	rows, err := resolver.pool.Query(ctx, `
 		SELECT payload
 		FROM preprod_aga_demo_workspace.sealed_authority_bindings
 		WHERE active = true
 		  AND payload->>'subjectId' = $1
-		  AND organization_id = $2
 		ORDER BY binding_id
-	`, principal.SubjectID, principal.OrganizationID)
+	`, principal.SubjectID)
 	if err != nil {
-		return preprod.AuthorityBinding{}, false, err
+		return nil, err
 	}
 	defer rows.Close()
 
-	var resolved preprod.AuthorityBinding
-	seenRoles := map[string]struct{}{}
-	found := false
+	candidates := make([]preprod.AuthorityBinding, 0)
 	for rows.Next() {
 		var payload []byte
 		if err := rows.Scan(&payload); err != nil {
-			return preprod.AuthorityBinding{}, false, err
+			return nil, err
 		}
 		var binding preprod.AuthorityBinding
 		if err := json.Unmarshal(payload, &binding); err != nil {
-			return preprod.AuthorityBinding{}, false, err
+			return nil, err
 		}
-		if !found {
-			resolved = binding
-			found = true
-		}
-		for _, role := range binding.OperationRoles {
-			if _, ok := seenRoles[role]; ok {
-				continue
-			}
-			seenRoles[role] = struct{}{}
-			resolved.OperationRoles = append(resolved.OperationRoles, role)
+		if validWorkspaceBinding(binding, principal) {
+			candidates = append(candidates, binding)
 		}
 	}
 	if err := rows.Err(); err != nil {
-		return preprod.AuthorityBinding{}, false, err
+		return nil, err
 	}
-	if !found {
-		return preprod.AuthorityBinding{}, false, nil
-	}
-	sort.Strings(resolved.OperationRoles)
-	return resolved, true, nil
+	sort.SliceStable(candidates, func(left, right int) bool { return candidates[left].BindingID < candidates[right].BindingID })
+	return candidates, nil
 }

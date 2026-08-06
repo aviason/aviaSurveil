@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppProviders } from "../../app/providers";
 import type {
   AGADemoWorkspaceBackend,
+  AGADemoWorkspaceBatchPreview,
   AGADemoWorkspaceCapability,
   AGADemoWorkspaceClassificationReviewItem,
   AGADemoWorkspaceCommand,
@@ -85,6 +86,8 @@ const row: AGADemoWorkspaceClassificationReviewItem = {
   questionKey: "question-001",
   questionRef: { questionOrigin: "SEALED_BASE" as const, packageVersion: "AGA_PACKAGE", packageJsonSha256: digest, formCode: "FSS-AGA-FORM-001", proposalId: "proposal-001", ordinal: 1, textDigest: digest },
   questionOrigin: "SEALED_BASE" as const,
+  includeEligible: true,
+  includeEligibilityReason: "ELIGIBLE_FOR_CURRENT_SIMULATION_SCOPE",
   projection: { mainDomainCode: "DOMAIN-A", topicCodes: ["TOPIC-A"] },
   agreementConfidence: "HIGH",
   recommendationState: "AUTO_PROPOSED_HIGH_CONFIDENCE",
@@ -124,7 +127,7 @@ function lifecycle(): AGADemoWorkspaceLifecycleProjection {
   } as AGADemoWorkspaceLifecycleProjection;
 }
 
-function createBackend() {
+function createBackend(previewOverrides: Partial<AGADemoWorkspaceBatchPreview> = {}) {
   let setup = setupBase;
   let currentDraft = draft;
   let currentRecommendation: AGADemoWorkspaceQueryResponse["recommendationSnapshot"];
@@ -144,7 +147,8 @@ function createBackend() {
     if (command.operationId === "MARK_READY_FOR_DEMO_SIMULATION") {
       setup = { ...setup, readinessState: "READY_FOR_DEMO_SIMULATION", readinessEventDigest: digest };
     }
-    return { operationId: command.operationId, replayed: false, lifecycleAvailable: true, batchPreview: { previewId: "server-preview-001", generationId: generation.generationId, draftId: currentDraft.draftId!, draftRevision: currentDraft.revision!, draftContentDigest: currentDraft.contentDigest!, classificationRunDigest: digest, filter: { formCode: "FSS-AGA-FORM-001", disposition: "UNSET" as const }, filterDigest: digest, affectedIdentityDigest: digest, action: "INCLUDE" as const, reasonCode: "MANAGER_SCOPE_DECISION", count: 1, currentDisposition: { include: 0, exclude: 0, defer: 0, unset: 1 }, eligibleCount: 1, ineligibleCount: 0, blockerCount: 0, sourceGapCount: 0, expiresAt: "2026-08-05T10:00:00Z", previewDigest: digest } };
+    const batchPreview: AGADemoWorkspaceBatchPreview = { previewId: "server-preview-001", generationId: generation.generationId, draftId: currentDraft.draftId!, draftRevision: currentDraft.revision!, draftContentDigest: currentDraft.contentDigest!, classificationRunDigest: digest, filter: { formCode: "FSS-AGA-FORM-001", disposition: "UNSET" as const }, filterDigest: digest, affectedIdentityDigest: digest, action: "INCLUDE" as const, reasonCode: "MANAGER_SCOPE_DECISION", count: 1, currentDisposition: { include: 0, exclude: 0, defer: 0, unset: 1 }, eligibleCount: 1, ineligibleCount: 0, blockerCount: 0, sourceGapCount: 0, expiresAt: "2026-08-05T10:00:00Z", previewDigest: digest, ...previewOverrides };
+    return { operationId: command.operationId, replayed: false, lifecycleAvailable: true, batchPreview };
   });
   const recommendationCommand = vi.fn(async (command: AGADemoWorkspaceCommand) => {
     if (command.operationId === "CREATE_RECOMMENDATION") {
@@ -190,6 +194,20 @@ describe("AGA Department Manager inspection package builder", () => {
     expect(await screen.findByText(/server-preview-001/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Confirm simulation disposition" }));
     await waitFor(() => expect(classificationCommand).toHaveBeenCalledWith(expect.objectContaining({ operationId: "EXECUTE_BATCH", previewId: "server-preview-001", previewDigest: digest, simulationSetupDigest: digest })));
+  });
+
+  it("blocks confirmation of a mixed eligible and ineligible Include preview", async () => {
+    const { backend, classificationCommand } = createBackend({ count: 2, eligibleCount: 1, ineligibleCount: 1 });
+    renderPage(backend);
+    const user = userEvent.setup();
+    await screen.findByText("1,310 candidate AGA questions; bounded pages only");
+    await user.click(screen.getByRole("button", { name: /Package preview/ }));
+    await user.click(screen.getByRole("button", { name: "Create server preview" }));
+    const confirm = await screen.findByRole("button", { name: "Confirm simulation disposition" });
+    expect(confirm).toBeDisabled();
+    expect(confirm).toHaveAccessibleDescription(/includes ineligible rows/i);
+    await user.click(confirm);
+    expect(classificationCommand).not.toHaveBeenCalledWith(expect.objectContaining({ operationId: "EXECUTE_BATCH" }));
   });
 
   it("completes readiness, recommendation, and role-pinned release with no browser readiness identifier", async () => {

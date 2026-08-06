@@ -1,4 +1,4 @@
-import type { PropsWithChildren, ReactNode } from "react";
+import { useCallback, useState, type PropsWithChildren, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 
 import type { FindingSeverity, FindingView, Role } from "../../backend/backend";
@@ -34,9 +34,10 @@ export function WorkspaceShell({
   routeLabel,
   children,
 }: PropsWithChildren<{ roleLabel: string; routeLabel: string }>) {
-  const { buildProfile, environmentLabel } = useApplicationRuntime();
+  const { buildProfile, environmentLabel, beforeSubjectChange } = useApplicationRuntime();
   const session = useOptionalSession();
   const navigate = useNavigate();
+  const [logoutError, setLogoutError] = useState<string | null>(null);
   const routeRole = roleForLabel(roleLabel);
   const activeRouteId = routeForLabel(routeLabel, routeRole);
   const authenticatedSession =
@@ -75,20 +76,39 @@ export function WorkspaceShell({
                 : 2,
           onOpen: () => undefined,
         };
+  const handleLogout = useCallback(() => {
+    if (mode !== "oidc-session" || !authenticatedSession || !session) {
+      navigate("/");
+      return;
+    }
+    setLogoutError(null);
+    void (async () => {
+      try {
+        await beforeSubjectChange?.("LOGOUT");
+        await session.logout();
+        navigate("/");
+      } catch {
+        setLogoutError("Local sign-out could not be completed. Your authenticated session remains active.");
+      }
+    })();
+  }, [authenticatedSession, beforeSubjectChange, mode, navigate, session]);
   return (
-    <ApplicationShell
-      activeRouteId={activeRouteId}
-      environmentLabel={buildProfile === "demo" ? "Deterministic mock data" : environmentLabel}
-      identity={identity}
-      notificationState={notificationState}
-      onLogout={() => navigate("/")}
-      onRoleRequest={(role) => {
-        session?.setActiveRole(role);
-        navigate(createRoleEntryPath(role));
-      }}
-    >
-      {children}
-    </ApplicationShell>
+    <>
+      <ApplicationShell
+        activeRouteId={activeRouteId}
+        environmentLabel={buildProfile === "demo" ? "Deterministic mock data" : environmentLabel}
+        identity={identity}
+        notificationState={notificationState}
+        onLogout={handleLogout}
+        onRoleRequest={(role) => {
+          session?.setActiveRole(role);
+          navigate(createRoleEntryPath(role));
+        }}
+      >
+        {logoutError ? <p className="command-error" role="alert">{logoutError}</p> : null}
+        {children}
+      </ApplicationShell>
+    </>
   );
 }
 

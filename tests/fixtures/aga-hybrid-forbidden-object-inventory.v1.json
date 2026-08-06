@@ -4,8 +4,8 @@
   "sourceDigests": {
     "migrations": "sha256:0a8b22dbc6567804b32a1bc6aab4ee40e00007b0e009d48d526fa5e338b011e2",
     "overlayContract": "sha256:d2f1aff081a59770d7d253be3fbeee32635c44fd5804958380566c7a1a619f25",
-    "workspaceContract": "sha256:c0e24ae0c0102fc1db63d95953d3255bedf94e6851ef018b03bc11d2d1f35aa3",
-    "workspaceProvision": "sha256:65628c520b219b9d8da277332a4ed42912f6783584a479fbc5aa46fd5b2ed40d",
+    "workspaceContract": "sha256:85d78fe68c881614fdd327e2d937db4a109520b0225eaca02acf8bb65ff9eb76",
+    "workspaceProvision": "sha256:7b8607aa83b3779792962e377c91e76992503cb9e9f79fbc6792256982effb17",
     "compose": "sha256:f144c3172c584a58ff6763822af94eef0707c811fca92b42bacbe66fc8f7f9f3"
   },
   "classes": {

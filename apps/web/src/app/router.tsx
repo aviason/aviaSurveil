@@ -1,11 +1,11 @@
-import { Suspense, useEffect, useRef, useState, type ReactElement } from "react";
+import { Suspense, type ReactElement } from "react";
 import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 
+import { agaDemoWorkspaceLandingPath } from "./aga-demo-workspace-routes";
 import { useApplicationRuntime } from "./providers";
 import { REACT_ROUTE_CONTRACT_BY_ID, REACT_ROUTE_CONTRACTS, type BuildProfileAvailability, type ReactSurfaceId, type RouteContract } from "./route-contracts";
 import { SCREEN_COMPONENT_REGISTRY } from "./screen-component-registry";
 import type { Role } from "../backend/backend";
-import { LoginPage } from "../auth/login-page";
 import { RoleGuard } from "../auth/role-guard";
 import { useOptionalSession } from "../auth/session-provider";
 import { RoleSelectPage, ROLE_ENTRIES, createRoleEntryPath } from "../ui/role-select-page";
@@ -16,29 +16,18 @@ function RoleSelectRoute() {
   const { buildProfile, identityMode } = useApplicationRuntime();
   const session = useOptionalSession();
   const navigate = useNavigate();
-  if (identityMode === "oidc-session" && session?.state.status === "authenticated") return <OidcLogoutRoute />;
+  if (identityMode === "oidc-session" && session?.state.status === "authenticated") {
+    return <AuthenticatedLandingRoute role={session.state.activeRole} />;
+  }
   return <RoleSelectPage mode={identityMode ?? (buildProfile === "http" ? "canonical-test-role-switch" : "demo-role-switch")} onRoleRequest={(role) => navigate(createRoleEntryPath(role))} />;
 }
 
-function OidcLogoutRoute() {
+function AuthenticatedLandingRoute({ role }: { role: Role }) {
   const runtime = useApplicationRuntime();
-  const session = useOptionalSession();
-  const logoutStarted = useRef(false);
-  const [message, setMessage] = useState("Signing out…");
-  useEffect(() => {
-    if (session?.state.status !== "authenticated" || logoutStarted.current) return;
-    logoutStarted.current = true;
-    void (async () => {
-      try {
-        await runtime.beforeSubjectChange?.("LOGOUT");
-        await session.logout();
-        setMessage("You have signed out.");
-      } catch {
-        setMessage("Logout could not be completed. Your authenticated session remains active.");
-      }
-    })();
-  }, [runtime, session]);
-  return <LoginPage message={message} onLogin={() => session?.login("/inspector/inspector-assignments")} />;
+  const agaLandingPath = runtime.agaDemoWorkspaceSurfaceEnabled
+    ? agaDemoWorkspaceLandingPath(role)
+    : null;
+  return <Navigate replace to={agaLandingPath ?? createRoleEntryPath(role)} />;
 }
 
 const roleHomeSurfaceId: Record<Role, ReactSurfaceId> = {

@@ -20,6 +20,7 @@ async function start(): Promise<void> {
     sessionClient,
     supplementalRouteElements: agaDemoWorkspaceRouteElementsWithManagerPackage,
     supplementalNavigation: AGADemoWorkspaceNavigation,
+    agaDemoWorkspaceSurfaceEnabled: true,
   });
 }
 

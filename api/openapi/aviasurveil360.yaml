@@ -20842,6 +20842,8 @@
           "questionKey",
           "questionRef",
           "questionOrigin",
+          "includeEligible",
+          "includeEligibilityReason",
           "projection",
           "agreementConfidence",
           "recommendationState",
@@ -20896,6 +20898,12 @@
               "SEALED_BASE",
               "WORKSPACE"
             ]
+          },
+          "includeEligible": {
+            "type": "boolean"
+          },
+          "includeEligibilityReason": {
+            "type": "string"
           },
           "projection": {
             "$ref": "#/components/schemas/AGADemoWorkspaceProposalProjection"
@@ -21508,7 +21516,8 @@
           },
           "page": {
             "type": "integer",
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 10000
           },
           "pageSize": {
             "type": "integer",
@@ -21755,6 +21764,11 @@
           "reasonCode": {
             "type": "string",
             "minLength": 1
+          },
+          "reasonExplanation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
           },
           "mainDomainCode": {
             "type": "string"
@@ -22510,6 +22524,9 @@
           },
           "lifecycle": {
             "$ref": "#/components/schemas/AGADemoWorkspaceLifecycleProjection"
+          },
+          "lifecycleAuditee": {
+            "$ref": "#/components/schemas/AGADemoWorkspaceLifecycleAuditeeProjection"
           }
         }
       },
@@ -23171,6 +23188,7 @@
           "inspector",
           "lead",
           "auditee",
+          "reasonHistory",
           "roleHistory"
         ],
         "properties": {
@@ -23342,6 +23360,51 @@
               }
             }
           },
+          "reasonHistory": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "reasonId",
+                "operationId",
+                "reasonCode",
+                "reasonExplanation",
+                "actorSubjectId",
+                "createdAt",
+                "digest"
+              ],
+              "properties": {
+                "reasonId": {
+                  "type": "string"
+                },
+                "operationId": {
+                  "type": "string"
+                },
+                "reasonCode": {
+                  "type": "string"
+                },
+                "reasonExplanation": {
+                  "type": "string",
+                  "maxLength": 1000
+                },
+                "findingId": {
+                  "type": "string"
+                },
+                "actorSubjectId": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "digest": {
+                  "type": "string",
+                  "pattern": "^sha256:[0-9a-f]{64}$"
+                }
+              }
+            }
+          },
           "roleHistory": {
             "type": "array",
             "items": {
@@ -23368,6 +23431,213 @@
           }
         }
       },
+      "AGADemoWorkspaceLifecycleAuditeeFinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "findingId",
+          "severity",
+          "state",
+          "nextAction",
+          "capRequired",
+          "evidenceRequired",
+          "dueDateRequired",
+          "revision",
+          "createdAt"
+        ],
+        "properties": {
+          "findingId": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "WAITING_FOR_CAP",
+              "CAP_SUBMITTED",
+              "CAP_REJECTED",
+              "CAP_MORE_INFORMATION_REQUESTED",
+              "EVIDENCE_REQUIRED",
+              "EVIDENCE_SUBMITTED",
+              "PENDING_CAA_REVIEW",
+              "EVIDENCE_MORE_INFORMATION_REQUESTED",
+              "PENDING_CLOSURE",
+              "CLOSED"
+            ]
+          },
+          "nextAction": {
+            "type": "string"
+          },
+          "capRequired": {
+            "type": "boolean"
+          },
+          "evidenceRequired": {
+            "type": "boolean"
+          },
+          "dueDateRequired": {
+            "type": "boolean"
+          },
+          "dueDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AGADemoWorkspaceLifecycleAuditeeCAPRevision": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "capId",
+          "findingId",
+          "revision",
+          "state",
+          "rootCause",
+          "correctiveAction",
+          "preventiveAction",
+          "responsiblePerson",
+          "createdAt"
+        ],
+        "properties": {
+          "capId": {
+            "type": "string"
+          },
+          "findingId": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "SUBMITTED",
+              "PENDING_CAA_REVIEW",
+              "ACCEPTED",
+              "REJECTED",
+              "MORE_INFORMATION_REQUESTED",
+              "SUPERSEDED"
+            ]
+          },
+          "rootCause": {
+            "type": "string"
+          },
+          "correctiveAction": {
+            "type": "string"
+          },
+          "preventiveAction": {
+            "type": "string"
+          },
+          "responsiblePerson": {
+            "type": "string"
+          },
+          "targetDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "commentToAuditee": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AGADemoWorkspaceLifecycleAuditeeEvidenceVersion": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "evidenceId",
+          "findingId",
+          "version",
+          "fileName",
+          "reviewState",
+          "createdAt"
+        ],
+        "properties": {
+          "evidenceId": {
+            "type": "string"
+          },
+          "findingId": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "reviewState": {
+            "type": "string",
+            "enum": [
+              "PENDING_CAA_REVIEW",
+              "ACCEPTED",
+              "PARTIALLY_ACCEPTED",
+              "REJECTED",
+              "MORE_INFORMATION_REQUESTED"
+            ]
+          },
+          "commentToAuditee": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AGADemoWorkspaceLifecycleAuditeeVerificationDecision": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "verificationId",
+          "findingId",
+          "evidenceId",
+          "evidenceVersion",
+          "outcome",
+          "commentToAuditee",
+          "createdAt"
+        ],
+        "properties": {
+          "verificationId": {
+            "type": "string"
+          },
+          "findingId": {
+            "type": "string"
+          },
+          "evidenceId": {
+            "type": "string"
+          },
+          "evidenceVersion": {
+            "type": "integer"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "CLOSE",
+              "PARTIALLY_CLOSE",
+              "NOT_CLOSE",
+              "REQUEST_MORE_INFORMATION"
+            ]
+          },
+          "commentToAuditee": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "AGADemoWorkspaceLifecycleAuditeeProjection": {
         "type": "object",
         "additionalProperties": false,
@@ -23375,21 +23645,16 @@
           "inspectionId",
           "generationId",
           "organizationId",
-          "providerScopeId",
           "state",
           "revision",
-          "questions",
-          "responses",
-          "potentialFindings",
           "findings",
           "capRevisions",
           "evidenceVersions",
           "verificationDecisions",
-          "currentOwnerRole",
           "nextAction",
+          "publicOwnerLabel",
           "updatedAt",
-          "digest",
-          "publicOwnerLabel"
+          "digest"
         ],
         "properties": {
           "inspectionId": {
@@ -23399,9 +23664,6 @@
             "type": "string"
           },
           "organizationId": {
-            "type": "string"
-          },
-          "providerScopeId": {
             "type": "string"
           },
           "state": {
@@ -23416,52 +23678,34 @@
           "revision": {
             "type": "integer"
           },
-          "questions": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AGADemoWorkspaceLifecycleQuestionSnapshot"
-            }
-          },
-          "responses": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AGADemoWorkspaceLifecycleResponse"
-            }
-          },
-          "potentialFindings": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AGADemoWorkspaceLifecyclePotentialFinding"
-            }
-          },
           "findings": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/AGADemoWorkspaceLifecycleFinding"
+              "$ref": "#/components/schemas/AGADemoWorkspaceLifecycleAuditeeFinding"
             }
           },
           "capRevisions": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/AGADemoWorkspaceLifecycleCAPRevision"
+              "$ref": "#/components/schemas/AGADemoWorkspaceLifecycleAuditeeCAPRevision"
             }
           },
           "evidenceVersions": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/AGADemoWorkspaceLifecycleEvidenceVersion"
+              "$ref": "#/components/schemas/AGADemoWorkspaceLifecycleAuditeeEvidenceVersion"
             }
           },
           "verificationDecisions": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/AGADemoWorkspaceLifecycleVerificationDecision"
+              "$ref": "#/components/schemas/AGADemoWorkspaceLifecycleAuditeeVerificationDecision"
             }
           },
-          "currentOwnerRole": {
+          "nextAction": {
             "type": "string"
           },
-          "nextAction": {
+          "publicOwnerLabel": {
             "type": "string"
           },
           "updatedAt": {
@@ -23471,9 +23715,6 @@
           "digest": {
             "type": "string",
             "pattern": "^sha256:[0-9a-f]{64}$"
-          },
-          "publicOwnerLabel": {
-            "type": "string"
           }
         }
       },

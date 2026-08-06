@@ -63,11 +63,18 @@ func TestLifecycleQuestionSnapshotRoundTripsBaseRootSequence(t *testing.T) {
 }
 
 func lifecycleCommandForTest(aggregate LifecycleAggregate, operation string) CommandEnvelope {
-	return CommandEnvelope{
+	command := CommandEnvelope{
 		OperationID: operation, IdempotencyKey: operation + "-" + time.Now().UTC().Format("150405.000000000"),
 		ExpectedGenerationID: aggregate.GenerationID, ExpectedLifecycleRevision: aggregate.Revision,
 		ExpectedLifecycleDigest: aggregate.Digest, InspectionID: aggregate.InspectionID,
 	}
+	switch operation {
+	case OperationReopenChecklist:
+		command.ReasonCode, command.ReasonExplanation = "REOPEN_FOR_REVIEW", "A focused review correction is required."
+	case OperationAuthorizedClose:
+		command.ReasonCode, command.ReasonExplanation = "MANAGER_AUTHORIZED_CLOSURE", "The manager has reviewed the accepted closure evidence."
+	}
+	return command
 }
 
 func applyLifecycleTest(t *testing.T, aggregate *LifecycleAggregate, principal identity.Principal, operation string, configure func(*CommandEnvelope)) CommandEnvelope {
@@ -298,9 +305,13 @@ func TestReopenAndInspectionCompletionTransitionsAreTotal(t *testing.T) {
 	questionCount, potentialCount := len(aggregate.Questions), len(aggregate.PotentialFindings)
 	applyLifecycleTest(t, &aggregate, inspector, OperationReopenChecklist, func(command *CommandEnvelope) {
 		command.ReasonCode = "REOPEN_FOR_REVIEW"
+		command.ReasonExplanation = "A returned potential finding requires a focused correction."
 	})
-	if aggregate.State != InspectionInProgress || len(aggregate.Questions) != questionCount || len(aggregate.PotentialFindings) != potentialCount {
+	if aggregate.State != InspectionInProgress || len(aggregate.Questions) != questionCount || len(aggregate.PotentialFindings) != potentialCount || len(aggregate.ReasonHistory) != 1 {
 		t.Fatalf("reopen did not preserve pinned graph: state=%s questions=%d potentials=%d", aggregate.State, len(aggregate.Questions), len(aggregate.PotentialFindings))
+	}
+	if reason := aggregate.ReasonHistory[0]; reason.ReasonCode != "REOPEN_FOR_REVIEW" || reason.ReasonExplanation == "" || reason.ActorSubjectID != inspector.SubjectID {
+		t.Fatalf("reopen reason was not append-only: %+v", reason)
 	}
 }
 
@@ -316,10 +327,34 @@ func TestCAPAcceptanceLeavesFindingOpen(t *testing.T) {
 	applyLifecycleTest(t, &aggregate, manager, OperationAuthorizedClose, func(command *CommandEnvelope) {
 		command.FindingID = finding.FindingID
 		command.ReasonCode = "MANAGER_AUTHORIZED_CLOSURE"
+		command.ReasonExplanation = "The manager reviewed the accepted CAP before closure."
 	})
 	closed, _ := aggregate.latestFinding(finding.FindingID)
 	if closed.State != FindingClosed || closed.ClosureBasis != "AUTHORIZED_CLOSURE" {
 		t.Fatalf("authorized closure = %+v", closed)
+	}
+}
+
+func TestLifecycleReasonRequiresClosedCodeAndBoundedExplanation(t *testing.T) {
+	aggregate, _, _, _, manager, finding := findingFixture(t, false, false, false)
+	invalidCode := lifecycleCommandForTest(aggregate, OperationAuthorizedClose)
+	invalidCode.FindingID = finding.FindingID
+	invalidCode.ReasonCode = "FREE_FORM_CLOSURE"
+	if err := applyLifecycleCommand(&aggregate, invalidCode, manager, lifecycleTestNow); !errors.Is(err, ErrLifecycleChoiceInvalid) {
+		t.Fatalf("free-form close reason = %v, want closed-code denial", err)
+	}
+	if len(aggregate.ReasonHistory) != 0 {
+		t.Fatal("invalid reason appended an audit record")
+	}
+
+	missingExplanation := lifecycleCommandForTest(aggregate, OperationAuthorizedClose)
+	missingExplanation.FindingID = finding.FindingID
+	missingExplanation.ReasonExplanation = ""
+	if err := applyLifecycleCommand(&aggregate, missingExplanation, manager, lifecycleTestNow); !errors.Is(err, ErrLifecycleCommentRequired) {
+		t.Fatalf("missing close explanation = %v, want explanation denial", err)
+	}
+	if len(aggregate.ReasonHistory) != 0 {
+		t.Fatal("missing explanation appended an audit record")
 	}
 }
 
@@ -407,7 +442,8 @@ func TestEvidenceVerificationAndAuthorizedClosureAreSeparate(t *testing.T) {
 	noFollowUp, _, _, _, manager, noFollowUpFinding := findingFixture(t, false, false, false)
 	applyLifecycleTest(t, &noFollowUp, manager, OperationAuthorizedClose, func(command *CommandEnvelope) {
 		command.FindingID = noFollowUpFinding.FindingID
-		command.ReasonCode = "AUTHORIZED_WITHOUT_EVIDENCE"
+		command.ReasonCode = "MANAGER_AUTHORIZED_CLOSURE"
+		command.ReasonExplanation = "No CAP or evidence was required for this synthetic finding."
 	})
 	closed, _ := noFollowUp.latestFinding(noFollowUpFinding.FindingID)
 	if closed.State != FindingClosed || len(noFollowUp.VerificationDecisions) != 0 || len(noFollowUp.EvidenceVersions) != 0 {
