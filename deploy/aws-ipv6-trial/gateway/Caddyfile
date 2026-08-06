@@ -1,0 +1,27 @@
+{
+	admin off
+	auto_https off
+	local_certs off
+}
+
+:8080 {
+	encode zstd gzip
+	log {
+		output stdout
+		format json
+	}
+
+	@health path /health/live /health/ready
+	handle @health {
+		respond "ok\n" 200
+	}
+
+	# CF-Connecting-IP is retained as bounded audit context only. The
+	# application remains the authority for identity, role, and organization.
+	handle {
+		reverse_proxy web-demo:8080 {
+			header_up CF-Connecting-IP {http.request.header.CF-Connecting-IP}
+			header_up X-Forwarded-Proto https
+		}
+	}
+}

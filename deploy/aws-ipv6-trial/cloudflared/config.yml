@@ -1,0 +1,6 @@
+# Tunnel identity and public hostname are managed in the separately authorized
+# Cloudflare edge/runtime-auth state. The connector token is supplied through a
+# Docker secret, never this file.
+ingress:
+  - service: http://gateway:8080
+  - service: http_status:404

@@ -17,6 +17,8 @@ The final local matrix, exact hashes, recovery measurements, and explicit AWS
 | [Ownership](OWNERSHIP.md) | Local owners and escalation boundaries. |
 | [AWS trial decisions](AWS_TRIAL_DECISIONS.md) | Required owner inputs, protected plan bundles, and exact action authorization. |
 | [AWS trial runbook](AWS_TRIAL_RUNBOOK.md) | Phase-scoped plan, apply, smoke, rollback, retention, and destroy procedure. |
+| [AWS IPv6 ARM64 trial decisions](AWS_IPV6_TRIAL_DECISIONS.md) | Separate owner-input contract for the disposable IPv6-only ARM64 trial. |
+| [AWS IPv6 ARM64 trial runbook](AWS_IPV6_TRIAL_RUNBOOK.md) | Local-only ARM64 runtime gates and exact remote authorization stop boundaries. |
 
 ## Runbooks
 

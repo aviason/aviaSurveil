@@ -1,6 +1,6 @@
 # Cost-Optimized IPv6 ARM64 EC2 And Cloudflare Trial Plan
 
-**Status:** `active` — planning and local validation only
+**Status:** `active` — local implementation and validation only
 
 **Objective:** Create a separately bounded, low-cost AWS trial profile that
 serves the AviaSurveil360 demo through Cloudflare Tunnel from one IPv6-only
@@ -342,7 +342,9 @@ Expected: incomplete or stale decisions fail without AWS or Cloudflare calls.
 **Verification**
 
     node --test tests/aws-ipv6-trial-runtime-contract.test.mjs
-    ./scripts/build-aws-ipv6-trial-images.sh --platform linux/arm64
+    ./scripts/build-aws-ipv6-trial-images.sh \
+      --platform linux/arm64 \
+      --cloudflared-image <reviewed-linux-arm64-cloudflared>@sha256:<64-hex-digest>
     ./scripts/test-aws-ipv6-trial-runtime.sh
 
 Expected: all image manifests are ARM64, the demo routes work, capacity gates
@@ -520,7 +522,22 @@ silently left behind.
   reviewed for planning.
 - [x] (2026-08-05) Existing IaC and active AWS preprod constraints were
   inspected. This low-cost trial is intentionally separate.
-- [ ] Task 1 owner inputs and local decision contract.
+- [x] (2026-08-06) Task 1 owner-input schema, fail-closed validator, and
+  offline checker were implemented and pass their focused contract suite;
+  the untracked owner overlay is intentionally absent and reports
+  `missing-owner-input`.
+- [x] (2026-08-06) Task 2 milestone-1 Compose, internal gateway, digest-bound
+  ARM64 build gate, and task-owned runtime cleanup contract were implemented
+  and pass focused static checks. Native image build, 30-minute browser loop,
+  and `t4g.small` capacity evidence remain `not run`.
+- [x] (2026-08-06) Task 3 focused IPv6 network, ARM64 single-node,
+  Cloudflare edge/runtime-auth, budget, and plan-policy contracts were added;
+  Terraform formatting and local contract tests pass. Provider initialization,
+  Terraform native tests, TFLint, Trivy, and OPA execution remain `not run`.
+- [x] (2026-08-06) Task 4 received a separate five-component
+  `aws-ipv6-trial` Terragrunt graph, local backend fixture boundary, protected
+  plan hooks, and an offline layout checker. HCL formatting passes; no remote
+  state, lock, plan, apply, or provider call was run.
 
 ## Decisions
 
@@ -548,11 +565,14 @@ silently left behind.
 
 ## Outcome Notes
 
-Planning artifact only. Local implementation, local ARM64 capacity evidence,
-AWS/Cloudflare discovery, remote state, plans, applies, image publication,
-tunnel/DNS changes, smoke, retain/destroy, and production actions are
-`not run`. Publishing this planning artifact does not authorize any of those
-actions.
+The local implementation and contract suites are `verified locally` for the
+bounded candidate surface. Owner inputs, native ARM64 image/capacity evidence,
+Terraform provider initialization, OPA/TFLint/Trivy execution, AWS/Cloudflare
+discovery, remote state/locks, plans, applies, image publication, tunnel/DNS/
+Access changes, secret population, smoke, retain/destroy, residue queries, and
+production actions are `not run`. The owner overlay remains a required
+`missing-owner-input` stop. This local work does not authorize any remote or
+cost-bearing action; the result remains `candidate-only`, release is `release pending`, and `production-ready: not established`.
 
 ## Execution Prompt
 
