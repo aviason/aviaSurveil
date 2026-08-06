@@ -429,6 +429,15 @@
     padding: 48px 32px 64px;
   }
 
+  .login-auth-panel {
+    min-height: auto;
+    align-items: stretch;
+  }
+
+  .login-auth-card {
+    width: 100%;
+  }
+
   .login-selector__groups {
     max-width: none;
   }
@@ -859,6 +868,15 @@
 
   .login-selector {
     padding: 36px 20px 56px;
+  }
+
+  .login-auth-panel {
+    padding: 28px 20px 44px;
+  }
+
+  .login-auth-card {
+    padding: 28px 22px 30px;
+    border-radius: 18px;
   }
 
   .login-selector__head h2 {

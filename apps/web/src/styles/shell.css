@@ -220,6 +220,119 @@
   background: var(--login-surface);
 }
 
+.login-auth-panel {
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(32px, 5vw, 92px);
+  background:
+    radial-gradient(circle at 15% 12%, rgb(47 111 214 / 8%), transparent 32%),
+    #f6f8fb;
+}
+
+.login-auth-card {
+  width: min(100%, 520px);
+  padding: clamp(30px, 4vw, 54px);
+  border: 1px solid #e1e7ef;
+  border-radius: 22px;
+  background: rgb(255 255 255 / 96%);
+  box-shadow: 0 24px 70px rgb(12 38 72 / 12%), 0 3px 10px rgb(12 38 72 / 6%);
+}
+
+.login-auth-card h2 {
+  margin: 12px 0 0;
+  color: var(--login-ink);
+  font-size: clamp(30px, 3vw, 42px);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.045em;
+}
+
+.login-auth-lede {
+  max-width: 420px;
+  margin: 16px 0 0;
+  color: var(--login-muted);
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.login-auth-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 28px;
+  padding: 12px 14px;
+  border: 1px solid #d8e7e2;
+  border-radius: 12px;
+  color: #176052;
+  background: #f1faf7;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.login-auth-status__dot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #1c9a79;
+  box-shadow: 0 0 0 4px rgb(28 154 121 / 14%);
+}
+
+.login-auth-card .command-error {
+  margin-top: 18px;
+}
+
+.login-auth-button {
+  width: 100%;
+  min-height: 54px;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 22px;
+  padding: 12px 18px 12px 20px;
+  border-radius: 12px;
+  font-size: 15px;
+  transition: background-color 180ms ease-out, box-shadow 180ms ease-out, transform 180ms ease-out;
+}
+
+.login-auth-button:hover {
+  background: var(--login-primary-strong);
+  box-shadow: 0 10px 22px rgb(30 95 198 / 22%);
+  transform: translateY(-1px);
+}
+
+.login-auth-button span:last-child {
+  font-size: 23px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.login-auth-note {
+  margin: 18px 0 0;
+  color: #718096;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.login-auth-hero-copy {
+  max-width: 390px;
+  margin: 22px 0 0;
+  color: #bfd0e4;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.login-auth-hero-mark {
+  color: #9cb1c9;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .login-selector__head {
   max-width: 720px;
 }
