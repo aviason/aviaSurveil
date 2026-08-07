@@ -11,6 +11,14 @@ audit-integrity, transaction, or routing regressions.
 The result remains candidate-only and release pending. This plan cannot
 establish production-ready status.
 
+## Status
+
+- Plan status: `paused` — the 2026-08-07 canonical AGA preprod successor is the
+  sole implementation direction.
+- Preserve the current dirty remediation work and historical evidence. The
+  successor Gate 0 must map every open finding and classify each change before
+  editing; do not discard or continue synthetic-only lifecycle work here.
+
 ## User-visible outcome
 
 A freshly prepared local AGA instance lands each authenticated role on a
@@ -497,7 +505,7 @@ and relationship validation, F-010 universal mutation/receipt atomicity, and
 F-004 provider end-session logout. F-001 connected qualification and fresh
 browser/database fault evidence remain `not run`. Full Vitest was not green:
 90 files/756 tests passed and the planning wizard file had two reproducible
-failures outside the direct AGA files. The plan remains `active`,
+failures outside the direct AGA files. The plan is now `paused`,
 `candidate-only`, `release pending`, and `production-ready: not established`.
 
 ### 2026-08-07 residual source/UI remediation slice
@@ -591,11 +599,14 @@ not to a second UI transport path. The working tree had advanced the worker
 marker without advancing the generated manifest, so the new worker rejected
 its install and the browser kept the previous cached `index.html` and hashed
 bundle. The app-shell manifest, worker marker, offline version vector, and
-offline test server now share version `3`; worker registration also carries
-the version query (`/sw.js?v=3`) so a rebuilt shell is discovered despite an
+offline test server now share version `5`; worker registration also carries
+the version query (`/sw.js?v=5`) so a rebuilt shell is discovered despite an
 immutable static response. The HTTP server sends `no-store` for `index.html`,
 `sw.js`, and `app-shell-assets.json`; Vite-hashed JS/CSS remain immutable. The
-worker remains app-shell-only and does not cache API/auth paths.
+worker remains app-shell-only and does not cache API/auth paths. A waiting
+worker is still deliberately not auto-activated: the existing offline safety
+policy requires explicit coordinated activation rather than risking local
+outbox or package state.
 `check:app-shell`, the focused 10-file/203-test React gate, `build:http`, local
 status (1,310 questions), header checks, and `git diff --check` passed. The
 result remains `candidate-only`, `release pending`, and
@@ -611,20 +622,40 @@ selected-question decision file with explicit scope, confidence, eligibility,
 and Draft actions. The page no longer renders the obsolete classification
 subtitle, and the focused AGA test locks the guide copy and heading hierarchy.
 Because this changes the app-shell asset graph, the generated shell marker and
-HTTP/demo manifests were advanced from version 3 to version 4 so an existing
-browser cannot keep the previous bundle indefinitely.
+HTTP/demo manifests were advanced from version 4 to version 5. The workspace
+also defines the shared `.sr-only` utility, tightens the Manager header
+line-height/spacing, prevents the Dashboard breadcrumb from wrapping, and
+replaces the top-bar emoji notification with the product SVG icon language.
 
 Fresh in-app browser verification signed in as the synthetic Manager account,
 rendered the `1,310`-question queue without a raw backend error, opened a
 decision file, and exercised Page 1 → Page 2 → Page 1 pagination. This remains
 candidate-only visual evidence; full remediation acceptance, responsive
 matrix coverage, provider end-session verification, universal F-010
-transaction proof, and stakeholder signoff remain outstanding. The plan stays
-`active`, `release pending`, and `production-ready: not established`.
+transaction proof, and stakeholder signoff remain outstanding. The plan is
+`paused`, `release pending`, and `production-ready: not established`.
+
+### 2026-08-07 lifecycle entry-point follow-up
+
+`verified locally` for the no-inspection Manager state across Inspection,
+Potential Findings, and CAP/Evidence routes. Those screens correctly fail closed
+until the server has released an immutable synthetic inspection, but previously
+left the user with disabled controls and no route to the required setup. The
+Manager lifecycle navigation now exposes a `Package builder` entry, and the
+empty lifecycle state explains the ordered Manager → Inspector → Lead handoff
+with a direct `Open package builder` action. Focused lifecycle tests passed
+`24/24`; typecheck, demo/HTTP builds, app-shell scans, and `git diff --check`
+also passed. An isolated Manager browser check verified the new entry point,
+absence of a raw UI 404 alert, and the expected privacy-preserving absent
+lifecycle query response. The plan remains `candidate-only`, `release pending`,
+and `production-ready: not established`.
 
 ## Execution Prompt
 
-Resume docs/exec-plans/active/2026-08-07-aga-browser-qa-remediation-plan.md.
+Do not resume this plan independently while it is `paused`. Execute
+docs/exec-plans/active/2026-08-07-canonical-aga-preprod-end-to-end-product-plan.md
+from Gate 0 after explicit implementation authorization, using this plan as
+dirty-diff, open-finding, and donor evidence.
 Read it completely, then read AGENTS.md, ARCHITECTURE.md, docs/PLANS.md,
 docs/demo-evidence/AGA_BROWSER_QA_REVIEW_2026-08-06.md, relevant product
 security/Auditee/lifecycle specifications, and the affected active AGA plans.

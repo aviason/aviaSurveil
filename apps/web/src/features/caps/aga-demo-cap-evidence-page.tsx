@@ -63,7 +63,7 @@ export function AGADemoCAPEvidencePage({
         testId="aga-demo-cap-evidence-page"
         title="CAP, Evidence, and closure"
       >
-        <LifecycleUnavailable capability={capability} client={workspace.client} projection={projection} loading={workspace.loading} />
+        <LifecycleUnavailable capability={capability} client={workspace.client} projection={projection} loading={workspace.loading} role={role} />
       </LifecyclePageFrame>
     );
   }

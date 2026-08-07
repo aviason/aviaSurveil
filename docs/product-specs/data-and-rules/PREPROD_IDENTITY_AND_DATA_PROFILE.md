@@ -1675,6 +1675,18 @@ contract/profile version and a corresponding test update.
 ```
 <!-- PREPROD_IDENTITY_DATA_CONTRACT:END -->
 
+## Canonical AGA exercise profile boundary
+
+The canonical AGA catalog is loaded only by an explicit disposable
+`aga-preprod@1.0.0` profile. That profile owns a whole removable namespace and
+may expose `PREPROD_EXERCISE` question versions to the canonical catalog and
+Audit-scope workflow for local qualification. The normal/default API and every
+shared or long-lived preprod profile reject that usage class. Exercise review
+can record classification/disposition facts, but it cannot invoke technical
+approval, publication, or exercise-to-operational promotion. Cleanup removes
+the complete profile namespace; no exercise body is embedded in the HTTP
+artifact, browser persistence, telemetry, or retained visual evidence.
+
 ## AGA candidate demo overlay contract
 
 `aga-candidate-demo@1.1.0` is a separate, read-only, immutable, preprod-only,

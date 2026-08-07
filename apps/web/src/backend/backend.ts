@@ -103,6 +103,11 @@ export interface RevisionedCommandMeta {
   idempotencyKey: string;
 }
 
+export interface OptionalRevisionedCommandMeta {
+  expectedRevision?: number | null;
+  idempotencyKey: string;
+}
+
 export interface CommunicationView {
   id: string;
   organizationId: string | null;
@@ -410,7 +415,7 @@ export interface InspectionPackage {
   templateVersionId: string;
   packageDigest: string;
   expiresAt: Instant;
-  checklistStatus: "IN_PROGRESS" | "SUBMITTED";
+  checklistStatus: "NOT_STARTED" | "IN_PROGRESS" | "SUBMITTED";
   checklistRevision: number;
   questions: InspectionQuestion[];
 }
@@ -437,7 +442,7 @@ export interface ReopenChecklistInput extends CommandMeta {
 
 export interface SubmitChecklistOutput {
   auditId: string;
-  checklistStatus: "IN_PROGRESS" | "SUBMITTED";
+  checklistStatus: "NOT_STARTED" | "IN_PROGRESS" | "SUBMITTED";
   checklistRevision: number;
 }
 
@@ -828,8 +833,16 @@ export interface PlanningIntakeDraftValues {
   plannedDate: LocalDate;
   mode: "On-site" | "Remote";
   location: string;
-  templateVersionId: string;
-  scope: string;
+  /** Legacy fields are retained only for reading historical returned drafts. */
+  templateVersionId?: string;
+  scope?: string;
+  catalogVersion?: string;
+  scopeDraftId?: string;
+  selectionDigest?: string;
+  selectedQuestionVersionIds?: readonly string[];
+  estimatedResourceRequirement?: number;
+  providerScopeId?: string;
+  regulatedTargetId?: string;
   requestedBudget: number;
   currency: "USD" | "EUR" | "NAD";
 }
@@ -848,7 +861,7 @@ export interface SavePlanningIntakeDraftInput extends RevisionedCommandMeta {
 
 export interface SubmitPlanningIntakeInput extends RevisionedCommandMeta {
   draftId: string;
-  planningItemId: string;
+  planningItemId?: string;
 }
 
 export interface SubmitPlanningIntakeOutput {
@@ -1347,6 +1360,10 @@ export interface AssignmentBackend {
 }
 
 export interface InspectionBackend {
+  start(
+    input: { auditId: string; operationId: string; expectedInspectionRevision: number },
+    options?: BackendRequestOptions,
+  ): Promise<StartInspectionOutput>;
   getPackage(
     input: { packageId: string },
     options?: BackendRequestOptions,
@@ -1367,6 +1384,16 @@ export interface InspectionBackend {
     input: ReopenChecklistInput,
     options?: BackendRequestOptions,
   ): Promise<SubmitChecklistOutput>;
+}
+
+export interface StartInspectionOutput {
+  inspectionId: string;
+  assignmentId: string;
+  inspectionStatus: "IN_PROGRESS";
+  assignmentStatus: string;
+  inspectionRevision: number;
+  checklistRevision: number;
+  startedAt: Instant;
 }
 
 export interface PotentialFindingBackend {
@@ -1477,6 +1504,13 @@ export interface PlanningBackend {
 }
 
 export interface PlanningIntakeBackend {
+  createDraft(
+    input: {
+      values: PlanningIntakeDraftValues;
+      draftId?: string;
+    } & CommandMeta & OptionalRevisionedCommandMeta,
+    options?: BackendRequestOptions,
+  ): Promise<PlanningIntakeDraftView>;
   getDraft(
     input: { draftId: string },
     options?: BackendRequestOptions,
@@ -1489,6 +1523,101 @@ export interface PlanningIntakeBackend {
     input: SubmitPlanningIntakeInput,
     options?: BackendRequestOptions,
   ): Promise<SubmitPlanningIntakeOutput>;
+}
+
+export type CanonicalQuestionUsageClass = "GOVERNED_OPERATIONAL" | "PREPROD_EXERCISE";
+export type CanonicalQuestionReviewAction =
+  | "RETAIN" | "INCLUDE" | "EXCLUDE" | "DEFER"
+  | "DOMAIN_RECLASSIFIED" | "TOPIC_RECLASSIFIED"
+  | "TECHNICAL_APPROVE" | "PUBLISH";
+
+export interface CanonicalQuestionCatalogEntry {
+  catalogVersion: string;
+  usageClass: CanonicalQuestionUsageClass;
+  questionVersionId: string;
+  formCode: string;
+  proposalId: string;
+  ordinal: number;
+  questionDigest: string;
+  prompt: string | null;
+  configuredReference: string | null;
+  expectedEvidence: string | null;
+  sourceLocator: string | null;
+  sourceGapState: string;
+  proposedDomain: string | null;
+  proposedTopic: string | null;
+  proposedRiskBand: string | null;
+  canSelect: boolean;
+  canPublish: boolean;
+}
+
+export interface CanonicalQuestionCatalogPage {
+  items: CanonicalQuestionCatalogEntry[];
+  nextCursor: string | null;
+  catalogVersion: string;
+  usageClass: CanonicalQuestionUsageClass;
+  totalCount: number;
+}
+
+export interface CanonicalSelectionDigest {
+  selectionDigest: string;
+  selectedQuestionVersionIds: string[];
+  selectedCount: number;
+  catalogVersion: string;
+  usageClass: CanonicalQuestionUsageClass;
+}
+
+export interface CanonicalSelectionPreview {
+  preview: CanonicalSelectionDigest;
+  affectedCount: number;
+  valid: boolean;
+  reason: string;
+}
+
+export interface CanonicalSelectionReceipt {
+  operationId: string;
+  replayed: boolean;
+  selection: CanonicalSelectionDigest;
+}
+
+export interface CanonicalQuestionReviewQueue {
+  mode: CanonicalQuestionUsageClass;
+  items: CanonicalQuestionCatalogEntry[];
+  nextCursor: string | null;
+  totalCount: number;
+  capabilities: {
+    canTechnicalApprove: boolean;
+    canPublish: boolean;
+    disabledReason: string | null;
+  };
+}
+
+export interface CanonicalQuestionReviewCommandInput extends CommandMeta {
+  idempotencyKey?: string;
+  mode: CanonicalQuestionUsageClass;
+  questionVersionId: string;
+  action: CanonicalQuestionReviewAction;
+  reason: string;
+  domain?: string | null;
+  topic?: string | null;
+}
+
+export interface CanonicalQuestionReviewCommandOutput {
+  operationId: string;
+  mode: CanonicalQuestionUsageClass;
+  questionVersionId: string;
+  action: string;
+  replayed: boolean;
+  canPublish: boolean;
+}
+
+export interface CanonicalQuestionReviewBackend {
+  listCatalog(input: { catalogVersion: string; usageClass: CanonicalQuestionUsageClass; search?: string; formCode?: string; domain?: string; topic?: string; riskBand?: string; sourceGapState?: string; selected?: "all" | "selected" | "unselected"; scopeId?: string; cursor?: string; limit?: number }, options?: BackendRequestOptions): Promise<CanonicalQuestionCatalogPage>;
+  getQuestion(input: { catalogVersion: string; usageClass: CanonicalQuestionUsageClass; questionVersionId: string }, options?: BackendRequestOptions): Promise<CanonicalQuestionCatalogEntry>;
+  previewSelection(input: { scopeId: string; operationId: string; idempotencyKey?: string; expectedSelectionDigest: string; questionVersionIds: string[]; usageClass: CanonicalQuestionUsageClass; filter?: Record<string, never> }, options?: BackendRequestOptions): Promise<CanonicalSelectionPreview>;
+  commitSelection(input: { scopeId: string; operationId: string; idempotencyKey?: string; expectedSelectionDigest: string; questionVersionIds: string[]; usageClass: CanonicalQuestionUsageClass; filter?: Record<string, never> }, options?: BackendRequestOptions): Promise<CanonicalSelectionReceipt>;
+  reviewQueue(input: { mode: CanonicalQuestionUsageClass; catalogVersion: string; search?: string; formCode?: string; domain?: string; topic?: string; riskBand?: string; sourceGapState?: string; selected?: "all" | "selected" | "unselected"; scopeId?: string; cursor?: string; limit?: number }, options?: BackendRequestOptions): Promise<CanonicalQuestionReviewQueue>;
+  command(input: CanonicalQuestionReviewCommandInput, options?: BackendRequestOptions): Promise<CanonicalQuestionReviewCommandOutput>;
 }
 
 export interface InspectionPackageDraftsBackend {
@@ -1695,6 +1824,7 @@ export interface Backend {
   readonly governedChecklistIntake: GovernedChecklistIntakeBackend;
   readonly assistantDrafts: AssistantDraftsBackend;
   readonly planningIntake: PlanningIntakeBackend;
+  readonly canonicalQuestionReview?: CanonicalQuestionReviewBackend;
   readonly packageDrafts: InspectionPackageDraftsBackend;
   /** Fail-closed Auditee coordination projection and command boundary. */
   readonly auditeeCoordination: AuditeeCoordinationBackend;
@@ -1734,6 +1864,7 @@ export const BACKEND_CAPABILITY_REGISTRY = {
   governedChecklistIntake: true,
   assistantDrafts: true,
   planningIntake: true,
+  canonicalQuestionReview: true,
   packageDrafts: true,
   auditeeCoordination: true,
   auditeeReports: true,

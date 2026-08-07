@@ -328,5 +328,89 @@
       "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceCommand" } } } },
       "responses": { "200": { "description": "Synthetic workspace administrative command result", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceCommandResponse" } } } }, "400": { "$ref": "#/components/responses/Problem" }, "409": { "$ref": "#/components/responses/Problem" }, "412": { "$ref": "#/components/responses/Problem" }, "404": { "description": "Neutral administrative denial", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceNotFound" } } } } }
     }
+  },
+  "/v1/question-catalogs/{catalogVersion}/questions": {
+    "get": {
+      "operationId": "listCanonicalQuestionCatalogEntries",
+      "parameters": [
+        { "name": "catalogVersion", "in": "path", "required": true, "schema": { "type": "string" } },
+        { "name": "search", "in": "query", "schema": { "type": "string", "maxLength": 120 } },
+        { "name": "formCode", "in": "query", "schema": { "type": "string" } },
+        { "name": "domain", "in": "query", "schema": { "type": "string" } },
+        { "name": "topic", "in": "query", "schema": { "type": "string" } },
+        { "name": "riskBand", "in": "query", "schema": { "type": "string", "maxLength": 80 } },
+        { "name": "sourceGapState", "in": "query", "schema": { "type": "string", "maxLength": 80 } },
+        { "name": "selected", "in": "query", "schema": { "type": "string", "enum": ["all", "selected", "unselected"] } },
+        { "name": "scopeId", "in": "query", "schema": { "type": "string", "maxLength": 120 } },
+        { "name": "usageClass", "in": "query", "required": true, "schema": { "$ref": "#/components/schemas/QuestionUsageClass" } },
+        { "$ref": "#/components/parameters/Cursor" },
+        { "$ref": "#/components/parameters/Limit" }
+      ],
+      "responses": { "200": { "description": "Bounded canonical catalog page", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CanonicalQuestionCatalogPage" } } } } }
+    }
+  },
+  "/v1/question-catalogs/{catalogVersion}/questions/{questionVersionId}": {
+    "get": {
+      "operationId": "getCanonicalQuestionCatalogEntry",
+      "parameters": [
+        { "name": "catalogVersion", "in": "path", "required": true, "schema": { "type": "string" } },
+        { "name": "questionVersionId", "in": "path", "required": true, "schema": { "type": "string" } },
+        { "name": "usageClass", "in": "query", "required": true, "schema": { "$ref": "#/components/schemas/QuestionUsageClass" } }
+      ],
+      "responses": { "200": { "description": "Exact canonical catalog entry", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CanonicalQuestionCatalogEntry" } } } } }
+    }
+  },
+  "/v1/audit-scopes/{scopeId}/preview": {
+    "post": {
+      "operationId": "previewCanonicalAuditScopeSelection",
+      "x-operation-kind": "query",
+      "parameters": [{ "name": "scopeId", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CanonicalAuditScopeSelectionInput" } } } },
+      "responses": { "200": { "description": "Server-previewed bounded selection", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CanonicalAuditScopeSelectionPreview" } } } } }
+    }
+  },
+  "/v1/audit-scopes/{scopeId}/selection": {
+    "put": {
+      "operationId": "commitCanonicalAuditScopeSelection",
+      "parameters": [{ "name": "scopeId", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CanonicalAuditScopeSelectionInput" } } } },
+      "responses": { "200": { "description": "Committed exact scope selection", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CanonicalAuditScopeSelectionReceipt" } } } } }
+    }
+  },
+  "/v1/department-manager/question-review": {
+    "get": {
+      "operationId": "getCanonicalQuestionReviewQueue",
+      "parameters": [
+        { "name": "mode", "in": "query", "required": true, "schema": { "$ref": "#/components/schemas/QuestionReviewMode" } },
+        { "name": "catalogVersion", "in": "query", "required": true, "schema": { "type": "string" } },
+        { "name": "search", "in": "query", "schema": { "type": "string", "maxLength": 120 } },
+        { "name": "formCode", "in": "query", "schema": { "type": "string", "maxLength": 80 } },
+        { "name": "domain", "in": "query", "schema": { "type": "string", "maxLength": 80 } },
+        { "name": "topic", "in": "query", "schema": { "type": "string", "maxLength": 80 } },
+        { "name": "riskBand", "in": "query", "schema": { "type": "string", "maxLength": 80 } },
+        { "name": "sourceGapState", "in": "query", "schema": { "type": "string", "maxLength": 80 } },
+        { "name": "selected", "in": "query", "schema": { "type": "string", "enum": ["all", "selected", "unselected"] } },
+        { "name": "scopeId", "in": "query", "schema": { "type": "string", "maxLength": 120 } },
+        { "$ref": "#/components/parameters/Cursor" },
+        { "$ref": "#/components/parameters/Limit" }
+      ],
+      "responses": { "200": { "description": "Canonical Find-Compare-Decide queue", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/QuestionReviewQueue" } } } } }
+    }
+  },
+  "/v1/department-manager/question-review/commands": {
+    "post": {
+      "operationId": "commandCanonicalQuestionReview",
+      "parameters": [],
+      "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/QuestionReviewCommandInput" } } } },
+      "responses": { "200": { "description": "Canonical governed or exercise review decision", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/QuestionReviewCommandOutput" } } } } }
+    }
+  },
+  "/v1/audits/{auditId}/start": {
+    "post": {
+      "operationId": "startInspection",
+      "parameters": [{ "name": "auditId", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StartInspectionInput" } } } },
+      "responses": { "200": { "description": "Inspector start transition", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StartInspectionOutput" } } } } }
+    }
   }
 }

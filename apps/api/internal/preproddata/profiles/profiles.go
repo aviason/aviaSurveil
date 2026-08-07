@@ -301,7 +301,47 @@ func frozenCatalog() map[string]Profile {
 		1800,
 		300,
 	)
+	catalog["aga-preprod@1.0.0"] = agaExerciseProfile()
 	return catalog
+}
+
+// agaExerciseProfile is intentionally separate from the shared synthetic
+// smoke/acceptance profiles.  The canonical AGA catalog is a disposable,
+// whole-namespace exercise target; it is never a default or shared preprod
+// dataset and its content cannot satisfy governed publication.
+func agaExerciseProfile() Profile {
+	return Profile{
+		Name:                  "aga-preprod",
+		Version:               "1.0.0",
+		Status:                "approved — disposable exercise only",
+		ImplementationAllowed: false,
+		ChangePolicy:          "new-version-required",
+		Catalogs: Catalogs{
+			RouteCount:            86,
+			VisibleActionCoverage: "canonical-aga-exercise",
+			Roles:                 slicesClone(roles),
+			LifecycleScenarios:    slicesClone(lifecycleScenarios),
+		},
+		ResourceEnvelope: ResourceEnvelope{
+			SeedRequired:         true,
+			ClockOrigin:          clockOrigin,
+			IdentityNamespace:    "canonical-aga-preprod-exercise-v1",
+			CPUCores:             4,
+			MemoryMiB:            4096,
+			DiskMiB:              20480,
+			ObjectBytes:          2147483648,
+			DurationSeconds:      1800,
+			QualificationSeconds: 900,
+			CleanupSeconds:       300,
+		},
+		ExpectedCounts: map[string]int64{
+			"catalogs": 1, "catalogForms": 52, "catalogQuestions": 1310,
+			"questionVersions": 1310, "catalogImportRuns": 1,
+		},
+		ExactDistributions: map[string]map[string]int64{
+			"catalogQuestions": {"PREPROD_EXERCISE": 1310},
+		},
+	}
 }
 
 func profile(

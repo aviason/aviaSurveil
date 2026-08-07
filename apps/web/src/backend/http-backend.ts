@@ -15,6 +15,12 @@ import type {
   GovernedChecklistReviewCommentInput,
   GovernedSourceMappingAttestationInput,
   GovernedAuditPackageEligibilityInput,
+  CanonicalQuestionCatalogEntry,
+  CanonicalQuestionCatalogPage,
+  CanonicalQuestionReviewQueue,
+  CanonicalQuestionReviewCommandOutput,
+  CanonicalSelectionPreview,
+  CanonicalSelectionReceipt,
 } from "./backend";
 import type { AGADemoWorkspaceBackend, AGADemoWorkspaceCommand, AGADemoWorkspaceQuery } from "./aga-demo-workspace";
 import { GovernedValidationError } from "./backend-contracts";
@@ -87,6 +93,48 @@ import {
 } from "./transport-mappers";
 
 type Schemas = components["schemas"];
+
+function mapCanonicalCatalogEntry(value: Schemas["CanonicalQuestionCatalogEntry"]): CanonicalQuestionCatalogEntry {
+  return {
+    catalogVersion: value.catalogVersion,
+    usageClass: value.usageClass,
+    questionVersionId: value.questionVersionId,
+    formCode: value.formCode,
+    proposalId: value.proposalId,
+    ordinal: value.ordinal,
+    questionDigest: value.questionDigest,
+    prompt: value.prompt ?? null,
+    configuredReference: value.configuredReference ?? null,
+    expectedEvidence: value.expectedEvidence ?? null,
+    sourceLocator: value.sourceLocator ?? null,
+    sourceGapState: value.sourceGapState,
+    proposedDomain: value.proposedDomain ?? null,
+    proposedTopic: value.proposedTopic ?? null,
+    proposedRiskBand: value.proposedRiskBand ?? null,
+    canSelect: value.canSelect,
+    canPublish: value.canPublish,
+  };
+}
+
+function mapCanonicalCatalogPage(value: Schemas["CanonicalQuestionCatalogPage"]): CanonicalQuestionCatalogPage {
+  return { ...value, items: value.items.map(mapCanonicalCatalogEntry) };
+}
+
+function mapCanonicalSelectionPreview(value: Schemas["CanonicalAuditScopeSelectionPreview"]): CanonicalSelectionPreview {
+  return value;
+}
+
+function mapCanonicalSelectionReceipt(value: Schemas["CanonicalAuditScopeSelectionReceipt"]): CanonicalSelectionReceipt {
+  return value;
+}
+
+function mapCanonicalReviewQueue(value: Schemas["QuestionReviewQueue"]): CanonicalQuestionReviewQueue {
+  return { ...value, items: value.items.map(mapCanonicalCatalogEntry) };
+}
+
+function mapCanonicalReviewCommand(value: Schemas["QuestionReviewCommandOutput"]): CanonicalQuestionReviewCommandOutput {
+  return value;
+}
 
 export interface BackendProblem {
   type: string;
@@ -382,6 +430,12 @@ export function createHttpBackend(
         ),
     },
     inspections: {
+      start: async (input, options) =>
+        await request<Schemas["StartInspectionOutput"]>(
+          `/v1/audits/${encodeURIComponent(input.auditId)}/start`,
+          { method: "POST", body: { operationId: input.operationId, expectedInspectionRevision: input.expectedInspectionRevision } },
+          options,
+        ),
       getPackage: async ({ packageId }, options) =>
         mapInspectionPackage(
           await request<Schemas["InspectionPackage"]>(
@@ -658,6 +712,27 @@ export function createHttpBackend(
         ),
     },
     planningIntake: {
+      createDraft: async (input, options) =>
+        mapPlanningIntakeDraft(
+          await request<Schemas["PlanningIntakeDraftView"]>(
+            "/v1/planning/intake-drafts",
+            {
+              method: "POST",
+              body: {
+                operationId: input.operationId,
+                idempotencyKey: input.idempotencyKey,
+                expectedRevision: input.expectedRevision ?? null,
+                ...(input.draftId ? { draftId: input.draftId } : {}),
+                values: input.values,
+              },
+              headers: revisionCommandHeaders({
+                idempotencyKey: input.idempotencyKey,
+                expectedRevision: null,
+              }),
+            },
+            options,
+          ),
+        ),
       getDraft: async ({ draftId }, options) =>
         mapPlanningIntakeDraft(
           await request<Schemas["PlanningIntakeDraftView"]>(
@@ -689,7 +764,26 @@ export function createHttpBackend(
             },
             options,
           ),
-        ),
+      ),
+    },
+    canonicalQuestionReview: {
+      listCatalog: async (input, options) => mapCanonicalCatalogPage(await request<Schemas["CanonicalQuestionCatalogPage"]>(
+        appendQuery(`/v1/question-catalogs/${encodeURIComponent(input.catalogVersion)}/questions`, {
+          usageClass: input.usageClass, search: input.search, formCode: input.formCode,
+          domain: input.domain, topic: input.topic, riskBand: input.riskBand,
+          sourceGapState: input.sourceGapState, selected: input.selected, scopeId: input.scopeId,
+          cursor: input.cursor, limit: input.limit,
+        }), {}, options)),
+      getQuestion: async (input, options) => mapCanonicalCatalogEntry(await request<Schemas["CanonicalQuestionCatalogEntry"]>(
+        appendQuery(`/v1/question-catalogs/${encodeURIComponent(input.catalogVersion)}/questions/${encodeURIComponent(input.questionVersionId)}`, { usageClass: input.usageClass }), {}, options)),
+      previewSelection: async (input, options) => mapCanonicalSelectionPreview(await request<Schemas["CanonicalAuditScopeSelectionPreview"]>(
+        `/v1/audit-scopes/${encodeURIComponent(input.scopeId)}/preview`, { method: "POST", body: input }, options)),
+      commitSelection: async (input, options) => mapCanonicalSelectionReceipt(await request<Schemas["CanonicalAuditScopeSelectionReceipt"]>(
+        `/v1/audit-scopes/${encodeURIComponent(input.scopeId)}/selection`, { method: "PUT", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey ?? input.operationId, expectedRevision: null }) }, options)),
+      reviewQueue: async (input, options) => mapCanonicalReviewQueue(await request<Schemas["QuestionReviewQueue"]>(
+        appendQuery("/v1/department-manager/question-review", input), { cache: "no-store", suppressTelemetry: true }, options)),
+      command: async (input, options) => mapCanonicalReviewCommand(await request<Schemas["QuestionReviewCommandOutput"]>(
+        "/v1/department-manager/question-review/commands", { method: "POST", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey ?? input.operationId, expectedRevision: null }), cache: "no-store", suppressTelemetry: true }, options)),
     },
     packageDrafts: {
       get: async ({ packageDraftId }, options) =>

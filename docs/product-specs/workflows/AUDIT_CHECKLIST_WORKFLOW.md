@@ -109,6 +109,13 @@ publication, or an executable Audit package.
 8. Submit checklist
 9. Generate draft report
 
+The checklist is created as `NOT_STARTED` by Audit materialization. The
+Inspector start is a separate atomic transition after applicable announced or
+unannounced readiness. Until that transition, every response, Potential
+Finding, execution-package read, offline execution grant/sync, and execution
+event is denied. A `PREPROD_EXERCISE` checklist is valid only in the dedicated
+disposable preprod profile and cannot enter technical approval or publication.
+
 ## Rules
 
 - Answers: Compliant, Non-Compliant, Observation, Not Applicable, Not Checked

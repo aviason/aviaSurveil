@@ -125,20 +125,22 @@ func (service *GrantService) Issue(ctx context.Context, actor identity.Principal
 			return fmt.Errorf("read idempotent checkout response: %w", err)
 		}
 
-		var inspectionID, organizationID, assignedSubject, digest string
+		var inspectionID, organizationID, assignedSubject, digest, inspectionStatus, checklistStatus string
 		var inspectionRevision, packageVersion int64
 		var packageExpiry time.Time
 		var packageRevoked *time.Time
 		if err := transaction.QueryRow(ctx, `
 			SELECT package.inspection_id, inspection.organization_id, inspection.assigned_inspector_subject_id,
-			       inspection.revision, package.package_version, package.package_digest, package.expires_at, package.revoked_at
+			       inspection.revision, package.package_version, package.package_digest, package.expires_at, package.revoked_at,
+			       inspection.status, checklist.status
 			FROM inspection_packages package
 			JOIN inspections inspection ON inspection.id = package.inspection_id
+			JOIN inspection_checklists checklist ON checklist.inspection_id = inspection.id
 			WHERE package.id = $1 FOR UPDATE OF package, inspection
-		`, input.PackageID).Scan(&inspectionID, &organizationID, &assignedSubject, &inspectionRevision, &packageVersion, &digest, &packageExpiry, &packageRevoked); err != nil {
+		`, input.PackageID).Scan(&inspectionID, &organizationID, &assignedSubject, &inspectionRevision, &packageVersion, &digest, &packageExpiry, &packageRevoked, &inspectionStatus, &checklistStatus); err != nil {
 			return err
 		}
-		if assignedSubject != actor.SubjectID || packageVersion != input.ExpectedPackageVersion {
+		if assignedSubject != actor.SubjectID || packageVersion != input.ExpectedPackageVersion || inspectionStatus != "IN_PROGRESS" || checklistStatus != "IN_PROGRESS" {
 			return ErrGrantScope
 		}
 		if packageRevoked != nil || now.After(packageExpiry) {

@@ -270,6 +270,21 @@
   cursor: pointer;
 }
 
+.auditee-root-topbar__icon > svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.9;
+}
+
+.auditee-root-topbar__crumbs {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .auditee-root-topbar__icon::before {
   position: absolute;
   inset: 5px 4px;

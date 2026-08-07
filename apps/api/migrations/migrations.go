@@ -13,7 +13,7 @@ import (
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
 )
 
-const LatestVersion int64 = 28
+const LatestVersion int64 = 29
 const advisoryLockID int64 = 36020260721
 
 //go:embed *.up.sql

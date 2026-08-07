@@ -333,7 +333,8 @@ func run(ctx context.Context) error {
 								service, _ := agaDemoService.(*agacandidatedemo.Service)
 								return service
 							}(),
-							Clock: runtimeClock,
+							PreprodExerciseProfile: os.Getenv("AVIA_PREPROD_PROFILE") == "aga-preprod@1.0.0" && strings.EqualFold(os.Getenv("AVIA_PREPROD_PROFILE_QUALIFICATION"), "true"),
+							Clock:                  runtimeClock,
 						}).Handler()
 						if profile.protect != nil {
 							protectedAPI, testAdmin, profileErr := profile.protect(

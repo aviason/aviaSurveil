@@ -337,6 +337,7 @@ func (service *Service) CreatePotentialFinding(ctx context.Context, actor identi
 			       response.response_value, response.revision, inspection.organization_id
 			FROM checklist_responses response
 			JOIN inspections inspection ON inspection.id = response.inspection_id
+			JOIN inspection_checklists checklist ON checklist.inspection_id = response.inspection_id AND checklist.status = 'IN_PROGRESS'
 			JOIN inspection_question_assignments assignment
 			  ON assignment.inspection_id = response.inspection_id
 			 AND assignment.question_id = response.question_id

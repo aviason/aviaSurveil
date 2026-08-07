@@ -12,6 +12,7 @@ import (
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/application"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/caps"
 	capstore "github.com/MarlonJD/aviaSurveil360/apps/api/internal/caps/store/postgres"
+	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/checklists"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/documents"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/httpapi/generated"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
@@ -105,6 +106,9 @@ func (api *CanonicalAPI) inspectionPackageProjection(ctx context.Context, actor 
 			return generated.InspectionPackage{}, application.ErrNotFound
 		}
 		return generated.InspectionPackage{}, err
+	}
+	if actor.HasRole(identity.RoleInspector) && output.ChecklistStatus != string(checklists.StatusInProgress) {
+		return generated.InspectionPackage{}, fmt.Errorf("%w: execution package is unavailable before Inspector start", application.ErrConflict)
 	}
 	var snapshot packageSnapshot
 	if err := json.Unmarshal(snapshotBytes, &snapshot); err != nil {

@@ -17,6 +17,15 @@ export type NotificationState =
   | { kind: "local"; unreadCount: number; onOpen(): void }
   | { kind: "unavailable"; reason: string };
 
+function NotificationIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24">
+      <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+      <path d="M10 21h4" />
+    </svg>
+  );
+}
+
 function initials(name: string): string {
   return name.split(/\s+/).map((part) => part[0] ?? "").join("").slice(0, 2).toUpperCase();
 }
@@ -108,7 +117,7 @@ export function ApplicationTopbar({
               }}
               type="button"
             >
-              <span aria-hidden="true">🔔</span>
+              <NotificationIcon />
               {notificationState.unreadCount ? <span className="auditee-root-topbar__badge">{notificationState.unreadCount}</span> : null}
             </button>
           ) : (
@@ -119,7 +128,7 @@ export function ApplicationTopbar({
               title={notificationState.reason}
               type="button"
             >
-              <span aria-hidden="true">🔔</span>
+              <NotificationIcon />
             </button>
           )}
           {notificationsOpen ? <p className="topbar-popover" role="status">{notificationState.kind === "local" ? `${notificationState.unreadCount} local notification updates` : notificationState.reason}</p> : null}
@@ -158,7 +167,7 @@ export function ApplicationTopbar({
               setNotificationsOpen((value) => !value);
             }}
           >
-            <span aria-hidden="true">🔔</span>
+            <NotificationIcon />
             {notificationState.unreadCount ? <span className="topbar-notification-dot">{auditeeChrome ? notificationState.unreadCount : null}</span> : null}
           </button>
         ) : (
@@ -171,7 +180,7 @@ export function ApplicationTopbar({
               title={notificationState.reason}
               type="button"
             >
-              <span aria-hidden="true">🔔</span>
+              <NotificationIcon />
             </button>
             <span className="topbar-unavailable-reason" id="topbar-notification-unavailable">{notificationState.reason}</span>
           </>

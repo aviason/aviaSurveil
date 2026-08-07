@@ -23,6 +23,18 @@
   color: #124c5b;
 }
 
+.aga-workspace-route-nav__setup {
+  border-color: #a8c4d8 !important;
+  background: #f2f7ff !important;
+  color: #1d5677 !important;
+}
+
+.aga-workspace-route-nav__setup:hover,
+.aga-workspace-route-nav__setup[aria-current="page"] {
+  border-color: #6c9fbd !important;
+  background: #e6f0ff !important;
+}
+
 .aga-lifecycle-page {
   display: grid;
   gap: 20px;
@@ -110,6 +122,75 @@
 .aga-lifecycle-unavailable {
   display: grid;
   gap: 14px;
+}
+
+.aga-lifecycle-next-step {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 16px;
+  border: 1px solid #c7ddec;
+  border-radius: var(--avia-radius-control);
+  background: linear-gradient(105deg, #f2f7ff, #f7fbff);
+}
+
+.aga-lifecycle-next-step > div {
+  display: grid;
+  gap: 4px;
+}
+
+.aga-lifecycle-next-step__eyebrow {
+  color: #326a8a;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.aga-lifecycle-next-step strong {
+  color: var(--avia-color-heading);
+}
+
+.aga-lifecycle-next-step p {
+  margin: 0;
+  color: var(--avia-color-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.aga-lifecycle-next-step__link,
+.aga-lifecycle-primary-link {
+  display: inline-flex;
+  min-height: 42px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #6c9fbd;
+  border-radius: var(--avia-radius-control);
+  padding: 8px 13px;
+  color: #174e70;
+  background: #e7f1ff;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.aga-lifecycle-next-step__link:hover,
+.aga-lifecycle-primary-link:hover {
+  border-color: #397b9f;
+  background: #dcecff;
+}
+
+.aga-lifecycle-primary-link {
+  border-color: #5c9ba2;
+  color: #fff;
+  background: #0f766e;
+}
+
+.aga-lifecycle-primary-link:hover {
+  border-color: #0a5c57;
+  color: #fff;
+  background: #0a5c57;
 }
 
 .aga-lifecycle-panel h2,
@@ -270,8 +351,15 @@
 
   .aga-workspace-route-nav a,
   .aga-lifecycle-actions button,
-  .aga-lifecycle-panel button {
+  .aga-lifecycle-panel button,
+  .aga-lifecycle-next-step__link,
+  .aga-lifecycle-primary-link {
     width: 100%;
+  }
+
+  .aga-lifecycle-next-step {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .aga-lifecycle-facts {

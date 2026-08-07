@@ -2068,6 +2068,118 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/question-catalogs/{catalogVersion}/questions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listCanonicalQuestionCatalogEntries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/question-catalogs/{catalogVersion}/questions/{questionVersionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getCanonicalQuestionCatalogEntry"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/audit-scopes/{scopeId}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["previewCanonicalAuditScopeSelection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/audit-scopes/{scopeId}/selection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["commitCanonicalAuditScopeSelection"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/department-manager/question-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getCanonicalQuestionReviewQueue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/department-manager/question-review/commands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["commandCanonicalQuestionReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/audits/{auditId}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["startInspection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2893,8 +3005,15 @@ export interface components {
             /** @enum {string} */
             mode: "On-site" | "Remote";
             location: string;
-            templateVersionId: string;
-            scope: string;
+            templateVersionId?: string;
+            scope?: string;
+            catalogVersion?: string;
+            scopeDraftId?: string;
+            selectionDigest?: string;
+            selectedQuestionVersionIds?: string[];
+            estimatedResourceRequirement?: number;
+            providerScopeId?: string;
+            regulatedTargetId?: string;
             requestedBudget: number;
             /** @enum {string} */
             currency: "USD" | "EUR" | "NAD";
@@ -2903,7 +3022,7 @@ export interface components {
             operationId: string;
             idempotencyKey: string;
             expectedRevision: null;
-            draftId: string;
+            draftId?: string;
             values: components["schemas"]["PlanningIntakeDraftValues"];
         };
         PlanningIntakeDraftView: {
@@ -2924,8 +3043,15 @@ export interface components {
             /** @enum {string} */
             mode: "On-site" | "Remote";
             location: string;
-            templateVersionId: string;
-            scope: string;
+            templateVersionId?: string;
+            scope?: string;
+            catalogVersion?: string;
+            scopeDraftId?: string;
+            selectionDigest?: string;
+            selectedQuestionVersionIds?: string[];
+            estimatedResourceRequirement?: number;
+            providerScopeId?: string;
+            regulatedTargetId?: string;
             requestedBudget: number;
             /** @enum {string} */
             currency: "USD" | "EUR" | "NAD";
@@ -2946,7 +3072,7 @@ export interface components {
             expectedRevision: number | null;
             idempotencyKey: string;
             draftId: string;
-            planningItemId: string;
+            planningItemId?: string;
         };
         SubmitPlanningIntakeOutput: {
             draft: components["schemas"]["PlanningIntakeDraftView"];
@@ -5571,6 +5697,107 @@ export interface components {
         AGADemoWorkspaceNotFound: {
             /** @constant */
             error: "not found";
+        };
+        /** @enum {string} */
+        QuestionUsageClass: "GOVERNED_OPERATIONAL" | "PREPROD_EXERCISE";
+        /** @enum {string} */
+        QuestionReviewMode: "GOVERNED_OPERATIONAL" | "PREPROD_EXERCISE";
+        CanonicalQuestionCatalogEntry: {
+            catalogVersion: string;
+            usageClass: components["schemas"]["QuestionUsageClass"];
+            questionVersionId: string;
+            formCode: string;
+            proposalId: string;
+            ordinal: number;
+            questionDigest: string;
+            prompt?: string | null;
+            configuredReference?: string | null;
+            expectedEvidence?: string | null;
+            sourceLocator?: string | null;
+            sourceGapState: string;
+            proposedDomain?: string | null;
+            proposedTopic?: string | null;
+            proposedRiskBand?: string | null;
+            canSelect: boolean;
+            canPublish: boolean;
+        };
+        CanonicalQuestionCatalogPage: {
+            items: components["schemas"]["CanonicalQuestionCatalogEntry"][];
+            nextCursor: string | null;
+            catalogVersion: string;
+            usageClass: components["schemas"]["QuestionUsageClass"];
+            totalCount: number;
+        };
+        AuditScopeSelectionDigest: {
+            selectionDigest: string;
+            selectedQuestionVersionIds: string[];
+            selectedCount: number;
+            catalogVersion: string;
+            usageClass: components["schemas"]["QuestionUsageClass"];
+        };
+        CanonicalAuditScopeSelectionInput: {
+            operationId: string;
+            idempotencyKey?: string;
+            expectedSelectionDigest: string;
+            questionVersionIds: string[];
+            usageClass: components["schemas"]["QuestionUsageClass"];
+            filter?: Record<string, never>;
+        };
+        CanonicalAuditScopeSelectionPreview: {
+            preview: components["schemas"]["AuditScopeSelectionDigest"];
+            affectedCount: number;
+            valid: boolean;
+            reason: string;
+        };
+        CanonicalAuditScopeSelectionReceipt: {
+            operationId: string;
+            replayed: boolean;
+            selection: components["schemas"]["AuditScopeSelectionDigest"];
+        };
+        QuestionReviewCommandInput: {
+            operationId: string;
+            idempotencyKey?: string;
+            mode: components["schemas"]["QuestionReviewMode"];
+            questionVersionId: string;
+            /** @enum {string} */
+            action: "RETAIN" | "INCLUDE" | "EXCLUDE" | "DEFER" | "DOMAIN_RECLASSIFIED" | "TOPIC_RECLASSIFIED" | "TECHNICAL_APPROVE" | "PUBLISH";
+            reason: string;
+            domain?: string | null;
+            topic?: string | null;
+        };
+        QuestionReviewQueue: {
+            mode: components["schemas"]["QuestionReviewMode"];
+            items: components["schemas"]["CanonicalQuestionCatalogEntry"][];
+            nextCursor: string | null;
+            totalCount: number;
+            capabilities: {
+                canTechnicalApprove: boolean;
+                canPublish: boolean;
+                disabledReason: string | null;
+            };
+        };
+        QuestionReviewCommandOutput: {
+            operationId: string;
+            mode: components["schemas"]["QuestionReviewMode"];
+            questionVersionId: string;
+            action: string;
+            replayed: boolean;
+            canPublish: boolean;
+        };
+        StartInspectionInput: {
+            operationId: string;
+            expectedInspectionRevision: number;
+        };
+        StartInspectionOutput: {
+            inspectionId: string;
+            assignmentId: string;
+            /** @enum {string} */
+            inspectionStatus: "IN_PROGRESS";
+            assignmentStatus: string;
+            inspectionRevision: number;
+            checklistRevision: number;
+            /** Format: date-time */
+            startedAt: string;
         };
     };
     responses: {
@@ -10005,6 +10232,248 @@ export interface operations {
                     "application/json": components["schemas"]["AGADemoWorkspaceNotFound"];
                 };
             };
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listCanonicalQuestionCatalogEntries: {
+        parameters: {
+            query: {
+                search?: string;
+                formCode?: string;
+                domain?: string;
+                topic?: string;
+                riskBand?: string;
+                sourceGapState?: string;
+                selected?: "all" | "selected" | "unselected";
+                scopeId?: string;
+                usageClass: components["schemas"]["QuestionUsageClass"];
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path: {
+                catalogVersion: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bounded canonical catalog page */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CanonicalQuestionCatalogPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    getCanonicalQuestionCatalogEntry: {
+        parameters: {
+            query: {
+                usageClass: components["schemas"]["QuestionUsageClass"];
+            };
+            header?: never;
+            path: {
+                catalogVersion: string;
+                questionVersionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Exact canonical catalog entry */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CanonicalQuestionCatalogEntry"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    previewCanonicalAuditScopeSelection: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                scopeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CanonicalAuditScopeSelectionInput"];
+            };
+        };
+        responses: {
+            /** @description Server-previewed bounded selection */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CanonicalAuditScopeSelectionPreview"];
+                };
+            };
+        };
+    };
+    commitCanonicalAuditScopeSelection: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                scopeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CanonicalAuditScopeSelectionInput"];
+            };
+        };
+        responses: {
+            /** @description Committed exact scope selection */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CanonicalAuditScopeSelectionReceipt"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getCanonicalQuestionReviewQueue: {
+        parameters: {
+            query: {
+                mode: components["schemas"]["QuestionReviewMode"];
+                catalogVersion: string;
+                search?: string;
+                formCode?: string;
+                domain?: string;
+                topic?: string;
+                riskBand?: string;
+                sourceGapState?: string;
+                selected?: "all" | "selected" | "unselected";
+                scopeId?: string;
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Canonical Find-Compare-Decide queue */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionReviewQueue"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    commandCanonicalQuestionReview: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuestionReviewCommandInput"];
+            };
+        };
+        responses: {
+            /** @description Canonical governed or exercise review decision */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionReviewCommandOutput"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    startInspection: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                auditId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartInspectionInput"];
+            };
+        };
+        responses: {
+            /** @description Inspector start transition */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartInspectionOutput"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
             412: components["responses"]["Problem"];
             422: components["responses"]["Problem"];

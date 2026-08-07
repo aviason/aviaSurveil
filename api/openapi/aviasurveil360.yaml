@@ -3,7 +3,8 @@
   "info": {
     "title": "AviaSurveil360 API",
     "version": "0.2.0-candidate",
-    "description": "Versioned full-platform candidate contract for the React and Go local release-candidate slices. Production deployment and cutover are outside this contract."
+    "description": "Versioned full-platform candidate contract for the React and Go local release-candidate slices. Production deployment and cutover are outside this contract.",
+    "x-preprod-exercise-publication": "forbidden"
   },
   "servers": [
     {
@@ -9079,6 +9080,647 @@
         ],
         "x-organization-scope": "authorized-projection"
       }
+    },
+    "/v1/question-catalogs/{catalogVersion}/questions": {
+      "get": {
+        "operationId": "listCanonicalQuestionCatalogEntries",
+        "parameters": [
+          {
+            "name": "catalogVersion",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 120
+            }
+          },
+          {
+            "name": "formCode",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "domain",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "topic",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "riskBand",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 80
+            }
+          },
+          {
+            "name": "sourceGapState",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 80
+            }
+          },
+          {
+            "name": "selected",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "selected",
+                "unselected"
+              ]
+            }
+          },
+          {
+            "name": "scopeId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 120
+            }
+          },
+          {
+            "name": "usageClass",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/QuestionUsageClass"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bounded canonical catalog page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanonicalQuestionCatalogPage"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
+    "/v1/question-catalogs/{catalogVersion}/questions/{questionVersionId}": {
+      "get": {
+        "operationId": "getCanonicalQuestionCatalogEntry",
+        "parameters": [
+          {
+            "name": "catalogVersion",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "questionVersionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "usageClass",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/QuestionUsageClass"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Exact canonical catalog entry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanonicalQuestionCatalogEntry"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
+    "/v1/audit-scopes/{scopeId}/preview": {
+      "post": {
+        "operationId": "previewCanonicalAuditScopeSelection",
+        "x-operation-kind": "query",
+        "parameters": [
+          {
+            "name": "scopeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CanonicalAuditScopeSelectionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Server-previewed bounded selection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanonicalAuditScopeSelectionPreview"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
+    "/v1/audit-scopes/{scopeId}/selection": {
+      "put": {
+        "operationId": "commitCanonicalAuditScopeSelection",
+        "parameters": [
+          {
+            "name": "scopeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/ExpectedRevision"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CanonicalAuditScopeSelectionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Committed exact scope selection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanonicalAuditScopeSelectionReceipt"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "412": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
+    "/v1/department-manager/question-review": {
+      "get": {
+        "operationId": "getCanonicalQuestionReviewQueue",
+        "parameters": [
+          {
+            "name": "mode",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/QuestionReviewMode"
+            }
+          },
+          {
+            "name": "catalogVersion",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 120
+            }
+          },
+          {
+            "name": "formCode",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 80
+            }
+          },
+          {
+            "name": "domain",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 80
+            }
+          },
+          {
+            "name": "topic",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 80
+            }
+          },
+          {
+            "name": "riskBand",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 80
+            }
+          },
+          {
+            "name": "sourceGapState",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 80
+            }
+          },
+          {
+            "name": "selected",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "selected",
+                "unselected"
+              ]
+            }
+          },
+          {
+            "name": "scopeId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 120
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Canonical Find-Compare-Decide queue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionReviewQueue"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
+    "/v1/department-manager/question-review/commands": {
+      "post": {
+        "operationId": "commandCanonicalQuestionReview",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/ExpectedRevision"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionReviewCommandInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Canonical governed or exercise review decision",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionReviewCommandOutput"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "412": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
+    "/v1/audits/{auditId}/start": {
+      "post": {
+        "operationId": "startInspection",
+        "parameters": [
+          {
+            "name": "auditId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/ExpectedRevision"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartInspectionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Inspector start transition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartInspectionOutput"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "412": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
     }
   },
   "components": {
@@ -12526,8 +13168,6 @@
           "plannedDate",
           "mode",
           "location",
-          "templateVersionId",
-          "scope",
           "requestedBudget",
           "currency"
         ],
@@ -12587,6 +13227,31 @@
           "scope": {
             "type": "string"
           },
+          "catalogVersion": {
+            "type": "string"
+          },
+          "scopeDraftId": {
+            "type": "string"
+          },
+          "selectionDigest": {
+            "type": "string"
+          },
+          "selectedQuestionVersionIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "estimatedResourceRequirement": {
+            "type": "number",
+            "minimum": 0
+          },
+          "providerScopeId": {
+            "type": "string"
+          },
+          "regulatedTargetId": {
+            "type": "string"
+          },
           "requestedBudget": {
             "type": "number"
           },
@@ -12607,7 +13272,6 @@
           "operationId",
           "idempotencyKey",
           "expectedRevision",
-          "draftId",
           "values"
         ],
         "properties": {
@@ -12645,8 +13309,6 @@
           "plannedDate",
           "mode",
           "location",
-          "templateVersionId",
-          "scope",
           "requestedBudget",
           "currency",
           "revision",
@@ -12710,6 +13372,30 @@
             "type": "string"
           },
           "scope": {
+            "type": "string"
+          },
+          "catalogVersion": {
+            "type": "string"
+          },
+          "scopeDraftId": {
+            "type": "string"
+          },
+          "selectionDigest": {
+            "type": "string"
+          },
+          "selectedQuestionVersionIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "estimatedResourceRequirement": {
+            "type": "number"
+          },
+          "providerScopeId": {
+            "type": "string"
+          },
+          "regulatedTargetId": {
             "type": "string"
           },
           "requestedBudget": {
@@ -12776,8 +13462,7 @@
           "operationId",
           "expectedRevision",
           "idempotencyKey",
-          "draftId",
-          "planningItemId"
+          "draftId"
         ],
         "properties": {
           "operationId": {
@@ -23728,6 +24413,459 @@
           "error": {
             "type": "string",
             "const": "not found"
+          }
+        }
+      },
+      "QuestionUsageClass": {
+        "type": "string",
+        "enum": [
+          "GOVERNED_OPERATIONAL",
+          "PREPROD_EXERCISE"
+        ]
+      },
+      "QuestionReviewMode": {
+        "type": "string",
+        "enum": [
+          "GOVERNED_OPERATIONAL",
+          "PREPROD_EXERCISE"
+        ]
+      },
+      "CanonicalQuestionCatalogEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "catalogVersion",
+          "usageClass",
+          "questionVersionId",
+          "formCode",
+          "proposalId",
+          "ordinal",
+          "questionDigest",
+          "sourceGapState",
+          "canSelect",
+          "canPublish"
+        ],
+        "properties": {
+          "catalogVersion": {
+            "type": "string"
+          },
+          "usageClass": {
+            "$ref": "#/components/schemas/QuestionUsageClass"
+          },
+          "questionVersionId": {
+            "type": "string"
+          },
+          "formCode": {
+            "type": "string"
+          },
+          "proposalId": {
+            "type": "string"
+          },
+          "ordinal": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "questionDigest": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "configuredReference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expectedEvidence": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourceLocator": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourceGapState": {
+            "type": "string"
+          },
+          "proposedDomain": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "proposedTopic": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "proposedRiskBand": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "canSelect": {
+            "type": "boolean"
+          },
+          "canPublish": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CanonicalQuestionCatalogPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "nextCursor",
+          "catalogVersion",
+          "usageClass",
+          "totalCount"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 25,
+            "items": {
+              "$ref": "#/components/schemas/CanonicalQuestionCatalogEntry"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "catalogVersion": {
+            "type": "string"
+          },
+          "usageClass": {
+            "$ref": "#/components/schemas/QuestionUsageClass"
+          },
+          "totalCount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "AuditScopeSelectionDigest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "selectionDigest",
+          "selectedQuestionVersionIds",
+          "selectedCount",
+          "catalogVersion",
+          "usageClass"
+        ],
+        "properties": {
+          "selectionDigest": {
+            "type": "string"
+          },
+          "selectedQuestionVersionIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "selectedCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "catalogVersion": {
+            "type": "string"
+          },
+          "usageClass": {
+            "$ref": "#/components/schemas/QuestionUsageClass"
+          }
+        }
+      },
+      "CanonicalAuditScopeSelectionInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "expectedSelectionDigest",
+          "questionVersionIds",
+          "usageClass"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "expectedSelectionDigest": {
+            "type": "string"
+          },
+          "questionVersionIds": {
+            "type": "array",
+            "maxItems": 500,
+            "items": {
+              "type": "string"
+            }
+          },
+          "usageClass": {
+            "$ref": "#/components/schemas/QuestionUsageClass"
+          },
+          "filter": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        }
+      },
+      "CanonicalAuditScopeSelectionPreview": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "preview",
+          "affectedCount",
+          "valid",
+          "reason"
+        ],
+        "properties": {
+          "preview": {
+            "$ref": "#/components/schemas/AuditScopeSelectionDigest"
+          },
+          "affectedCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "valid": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "CanonicalAuditScopeSelectionReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "replayed",
+          "selection"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "selection": {
+            "$ref": "#/components/schemas/AuditScopeSelectionDigest"
+          }
+        }
+      },
+      "QuestionReviewCommandInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "mode",
+          "questionVersionId",
+          "action",
+          "reason"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/QuestionReviewMode"
+          },
+          "questionVersionId": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "RETAIN",
+              "INCLUDE",
+              "EXCLUDE",
+              "DEFER",
+              "DOMAIN_RECLASSIFIED",
+              "TOPIC_RECLASSIFIED",
+              "TECHNICAL_APPROVE",
+              "PUBLISH"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "domain": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "topic": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "QuestionReviewQueue": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mode",
+          "items",
+          "nextCursor",
+          "totalCount",
+          "capabilities"
+        ],
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/QuestionReviewMode"
+          },
+          "items": {
+            "type": "array",
+            "maxItems": 25,
+            "items": {
+              "$ref": "#/components/schemas/CanonicalQuestionCatalogEntry"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "totalCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "capabilities": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "canTechnicalApprove",
+              "canPublish",
+              "disabledReason"
+            ],
+            "properties": {
+              "canTechnicalApprove": {
+                "type": "boolean"
+              },
+              "canPublish": {
+                "type": "boolean"
+              },
+              "disabledReason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "QuestionReviewCommandOutput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "mode",
+          "questionVersionId",
+          "action",
+          "replayed",
+          "canPublish"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/QuestionReviewMode"
+          },
+          "questionVersionId": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "canPublish": {
+            "type": "boolean"
+          }
+        }
+      },
+      "StartInspectionInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "expectedInspectionRevision"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expectedInspectionRevision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "StartInspectionOutput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "inspectionId",
+          "assignmentId",
+          "inspectionStatus",
+          "assignmentStatus",
+          "inspectionRevision",
+          "checklistRevision",
+          "startedAt"
+        ],
+        "properties": {
+          "inspectionId": {
+            "type": "string"
+          },
+          "assignmentId": {
+            "type": "string"
+          },
+          "inspectionStatus": {
+            "type": "string",
+            "enum": [
+              "IN_PROGRESS"
+            ]
+          },
+          "assignmentStatus": {
+            "type": "string"
+          },
+          "inspectionRevision": {
+            "type": "integer"
+          },
+          "checklistRevision": {
+            "type": "integer"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       }

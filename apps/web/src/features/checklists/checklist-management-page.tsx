@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { useApplicationRuntime } from "../../app/providers";
+import { CANONICAL_QUESTION_REVIEW_PATH } from "../../app/route-contracts";
 import type {
   DepartmentManagerGovernedReviewCommandInput,
   DepartmentManagerGovernedReviewItem,
@@ -145,6 +147,7 @@ export function ChecklistManagementPage() {
           eyebrow="Governed configuration"
           title="Checklist Management"
           description="Review exact source lineage and owner scope, record an attributed technical decision, then publish in a separate controlled step."
+          action={<Link className="button" to={CANONICAL_QUESTION_REVIEW_PATH}>Question Review</Link>}
         />
         <CommandError message={error} />
 

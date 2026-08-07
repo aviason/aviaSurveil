@@ -92,7 +92,7 @@ Fields:
 - Planned Date
 - Mode
 - Location
-- Checklist Template
+- Question Catalog / Exact Selection
 - Scope
 - Requested Budget
 - Approval Path

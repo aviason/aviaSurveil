@@ -6,6 +6,20 @@
   text-transform: uppercase;
 }
 
+/* Shared accessible name helper. Keep semantic labels in the accessibility tree
+   without letting them create layout or compete with visible UI copy. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .compact-list li {
   display: grid;
   gap: 4px;

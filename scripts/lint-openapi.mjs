@@ -137,6 +137,13 @@ const expectedPaths = [
   "/v1/preprod/aga-demo-workspace/lifecycle/query",
   "/v1/preprod/aga-demo-workspace/lifecycle/commands",
   "/v1/preprod/aga-demo-workspace/admin/commands",
+  "/v1/question-catalogs/{catalogVersion}/questions",
+  "/v1/question-catalogs/{catalogVersion}/questions/{questionVersionId}",
+  "/v1/audit-scopes/{scopeId}/preview",
+  "/v1/audit-scopes/{scopeId}/selection",
+  "/v1/department-manager/question-review",
+  "/v1/department-manager/question-review/commands",
+  "/v1/audits/{auditId}/start",
 ];
 
 assert.equal(document.openapi, "3.1.0");

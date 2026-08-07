@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -103,6 +104,10 @@ func (service *Service) CreatePlanningIntakeDraft(
 		)
 	}
 	command.DraftID = strings.TrimSpace(command.DraftID)
+	if command.DraftID == "" {
+		digest := sha256.Sum256([]byte("planning-intake:" + command.OperationID))
+		command.DraftID = "draft-planning-" + hex.EncodeToString(digest[:])[:24]
+	}
 	command.OrganizationID = strings.TrimSpace(command.OrganizationID)
 	if command.OperationID == "" || command.IdempotencyKey == "" ||
 		command.DraftID == "" || command.OrganizationID == "" ||
@@ -115,6 +120,17 @@ func (service *Service) CreatePlanningIntakeDraft(
 		CorrelationID: command.OperationID, Kind: "create_planning_intake_draft",
 		EntityID: command.DraftID, Semantic: command,
 	}, func(ctx context.Context, transaction pgx.Tx) (transition[PlanningIntakeDraft], error) {
+		canonicalValues := NormalizeCanonicalPlanningValues(command.Values, command.DraftID)
+		canonicalValues["organizationId"] = command.OrganizationID
+		if canonicalValues["catalogVersion"] != "" {
+			if canonicalValues["scopeDraftId"] == "" {
+				canonicalValues["scopeDraftId"] = "scope-draft-" + command.DraftID
+				command.Values["scopeDraftId"] = canonicalValues["scopeDraftId"]
+			}
+			if _, err := ValidateCanonicalScopeMap(ctx, transaction, actor, canonicalValues, false); err != nil {
+				return transition[PlanningIntakeDraft]{}, err
+			}
+		}
 		values, err := json.Marshal(command.Values)
 		if err != nil {
 			return transition[PlanningIntakeDraft]{}, ErrInvalid
@@ -138,6 +154,25 @@ func (service *Service) CreatePlanningIntakeDraft(
 		}
 		if err := json.Unmarshal(outputValues, &output.Values); err != nil {
 			return transition[PlanningIntakeDraft]{}, err
+		}
+		if canonicalValues["catalogVersion"] != "" {
+			facts, err := ValidateCanonicalScopeMap(ctx, transaction, actor, canonicalValues, false)
+			if err != nil {
+				return transition[PlanningIntakeDraft]{}, err
+			}
+			if _, err := transaction.Exec(ctx, `
+				INSERT INTO canonical_audit_scope_drafts (
+					id, planning_intake_draft_id, organization_id, provider_scope_id,
+					regulated_target_id, audit_type, catalog_id, usage_class, revision,
+					status, selected_question_count, selection_digest, requested_budget,
+					notice_policy, created_by_subject_id, created_at, updated_at
+				) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, 'DRAFT', 0, '', $9, $10, $11, $12, $12)
+			`, facts.ScopeID, output.ID, stringValue(canonicalValues["organizationId"]), facts.ProviderScopeID,
+				facts.RegulatedTargetID, stringValue(canonicalValues["applicationType"]), facts.CatalogID,
+				facts.UsageClass, numberValue(canonicalValues["requestedBudget"]),
+				stringValue(canonicalValues["noticePolicy"]), actor.SubjectID, now); err != nil {
+				return transition[PlanningIntakeDraft]{}, mapCreateConflict(err)
+			}
 		}
 		output.UpdatedAt = updatedAt.UTC().Format(time.RFC3339Nano)
 		return transition[PlanningIntakeDraft]{
@@ -329,6 +364,13 @@ func (service *Service) CreateAuditWorkspace(
 		if service.dataFeedWriter == nil {
 			return transition[AuditWorkspace]{}, ErrDataFeedNotConfigured
 		}
+		var noticePolicy string
+		if err := transaction.QueryRow(ctx, `SELECT COALESCE(values->>'noticePolicy','ADVANCE') FROM planning_intake_drafts WHERE values->>'preparedAuditId'=$1 AND tombstoned_at IS NULL FOR UPDATE`, command.AuditID).Scan(&noticePolicy); err != nil {
+			if err == pgx.ErrNoRows {
+				return transition[AuditWorkspace]{}, ErrNotFound
+			}
+			return transition[AuditWorkspace]{}, err
+		}
 		var templateSnapshot []byte
 		var templateID string
 		if err := transaction.QueryRow(ctx, `
@@ -376,7 +418,7 @@ func (service *Service) CreateAuditWorkspace(
 			INSERT INTO inspections (
 				id, organization_id, assigned_inspector_subject_id, title,
 				inspection_type, status, due_date, revision, created_at, updated_at
-			) VALUES ($1, $2, $3, $4, $5, 'IN_PROGRESS', $6, 1, $7, $7)
+			) VALUES ($1, $2, $3, $4, $5, 'READY_TO_EXECUTE', $6, 1, $7, $7)
 		`, command.AuditID, organizationID, firstAssigned, title,
 			inspectionType, dueDate, now); err != nil {
 			return transition[AuditWorkspace]{}, mapCreateConflict(err)
@@ -386,11 +428,16 @@ func (service *Service) CreateAuditWorkspace(
 				id, inspection_id, organization_id, lead_subject_id, status,
 				scheduled_start_date, scheduled_end_date, revision, created_at, updated_at
 			) VALUES (
-				$1, $2, $3, $4, 'AWAITING_AUDITEE_CONFIRMATION',
-				$5, $6, 1, $7, $7
+				$1, $2, $3, $4, $5,
+				$6, $7, 1, $8, $8
 			)
 		`, command.AssignmentID, command.AuditID, organizationID,
-			command.LeadInspectorSubjectID, start, end, now); err != nil {
+			command.LeadInspectorSubjectID, func() string {
+				if noticePolicy == "WITHHELD" {
+					return "SCHEDULED"
+				}
+				return "AWAITING_AUDITEE_CONFIRMATION"
+			}(), start, end, now); err != nil {
 			return transition[AuditWorkspace]{}, mapCreateConflict(err)
 		}
 		if _, err := transaction.Exec(ctx, `
@@ -441,7 +488,7 @@ func (service *Service) CreateAuditWorkspace(
 		}
 		if _, err := transaction.Exec(ctx, `
 			INSERT INTO inspection_checklists (inspection_id, status, revision)
-			VALUES ($1, 'IN_PROGRESS', 1)
+			VALUES ($1, 'NOT_STARTED', 1)
 		`, command.AuditID); err != nil {
 			return transition[AuditWorkspace]{}, err
 		}
@@ -481,10 +528,6 @@ func (service *Service) CreateAuditWorkspace(
 		if err != nil {
 			return transition[AuditWorkspace]{}, fmt.Errorf("allocate planned datafeed event id: %w", err)
 		}
-		startedEventID, err := datafeed.NewEventID()
-		if err != nil {
-			return transition[AuditWorkspace]{}, fmt.Errorf("allocate started datafeed event id: %w", err)
-		}
 		plannedStart := time.Date(dueDate.Year(), dueDate.Month(), dueDate.Day(), 0, 0, 0, 0, time.UTC)
 		dataFeedEvents := []datafeed.EventInput{
 			{
@@ -500,22 +543,12 @@ func (service *Service) CreateAuditWorkspace(
 					"planned_start_at":  plannedStart.Format(time.RFC3339Nano),
 				},
 			},
-			{
-				EventID: startedEventID, EventType: "audit.started",
-				OwningOrganizationID: organizationID, ActorOrganizationID: actor.OrganizationID,
-				CorrelationID: correlationID, CausationID: plannedEventID,
-				AggregateType: "audit", AggregateID: command.AuditID, AggregateRevision: 1,
-				EffectiveAt: now, KnownAt: now, OccurredAt: now, EmittedAt: now,
-				VisibilityPurposeCode: "regulated_oversight", EntityRefs: map[string]any{"audit_id": command.AuditID},
-				StateBefore: "audit_planned", StateAfter: "audit_in_progress",
-				Payload: map[string]any{"started_at": now.Format(time.RFC3339Nano)},
-			},
 		}
 		return transition[AuditWorkspace]{
 			Response: output, OrganizationID: organizationID,
 			Action: "audit.workspace_created", EntityType: "inspection",
 			EntityID: command.AuditID, EntityVersion: 1,
-			AfterStatus: "IN_PROGRESS",
+			AfterStatus: "READY_TO_EXECUTE",
 			Reason:      "Created audit workspace from a released plan and published checklist.",
 			SyncKind:    "inspection", OutboxTopic: "audit.workspace_created",
 			DataFeedEvents: dataFeedEvents,

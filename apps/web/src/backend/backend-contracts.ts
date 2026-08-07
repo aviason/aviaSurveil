@@ -4,17 +4,17 @@ export type DemoCapabilityName =
   | "communications" | "calendar" | "profiles" | "teams" | "risk" | "documents"
   | "notifications" | "administration" | "assistantDrafts" | "planningIntake"
   | "packageDrafts" | "auditeeCoordination" | "auditeeReports" | "adminWorkspace"
-  | "governedChecklistReview" | "governedChecklistIntake";
+  | "governedChecklistReview" | "governedChecklistIntake" | "canonicalQuestionReview";
 
 export const DEMO_CAPABILITY_PERMISSION_MATRIX: Readonly<Record<Role, readonly DemoCapabilityName[]>> = {
   inspector: ["communications", "calendar", "profiles", "documents", "notifications", "administration", "assistantDrafts"],
   leadInspector: ["communications", "calendar", "profiles", "documents", "notifications", "administration", "assistantDrafts"],
-  manager: ["communications", "calendar", "profiles", "teams", "risk", "documents", "notifications", "administration", "planningIntake", "packageDrafts", "governedChecklistReview"],
+  manager: ["communications", "calendar", "profiles", "teams", "risk", "documents", "notifications", "administration", "planningIntake", "packageDrafts", "governedChecklistReview", "canonicalQuestionReview"],
   finance: ["profiles", "notifications", "administration"],
   gm: ["profiles", "notifications", "administration"],
   executiveDirector: ["profiles", "notifications", "administration"],
   auditee: ["communications", "calendar", "profiles", "documents", "notifications", "administration", "auditeeCoordination", "auditeeReports"],
-  admin: ["profiles", "teams", "documents", "notifications", "administration", "adminWorkspace", "governedChecklistIntake"],
+  admin: ["profiles", "teams", "documents", "notifications", "administration", "adminWorkspace", "governedChecklistIntake", "canonicalQuestionReview"],
 };
 
 export function requireDemoCapability(principal: BackendPrincipal, capability: DemoCapabilityName): void {

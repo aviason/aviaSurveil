@@ -170,6 +170,7 @@ describe("AGA synthetic inspection lifecycle page", () => {
   it("keeps Manager recommendation and simulation release fail-closed until pinned facts arrive", () => {
     const client = lifecycleClient(projection());
     renderPage(client, "manager", null, { ...capability, recommendationEnabled: true });
+    expect(screen.getByRole("link", { name: "Open package builder" })).toHaveAttribute("href", "/department-manager/aga-demo-workspace/inspection-package");
     expect(screen.getByRole("button", { name: "Create AGA recommendation" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Create AGA recommendation" })).toHaveAccessibleDescription(/server-returned provider scope.*typed target/i);
     expect(screen.getByRole("button", { name: "Release synthetic simulation" })).toBeDisabled();

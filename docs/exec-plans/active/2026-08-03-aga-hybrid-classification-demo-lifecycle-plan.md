@@ -1,8 +1,10 @@
 # AGA Hybrid Question Classification And Synthetic Demo Lifecycle ExecPlan
 
-> **For agentic workers:** Execute this plan only after the user explicitly
-> authorizes implementation. Do not commit, push, deploy, call an external
-> system, or change a real database without separate exact authorization.
+> **For agentic workers:** This plan is `paused`; do not execute it
+> independently. After explicit implementation authorization, use the
+> 2026-08-07 canonical AGA preprod successor and treat this artifact as donor/
+> historical evidence. Do not commit, push, deploy, call an external system, or
+> change a real database without separate exact authorization.
 
 **Goal:** Classify every one of the 1,310 immutable AGA candidate question
 identities with a controlled, versioned domain model; give CAA Admin and an
@@ -118,7 +120,9 @@ digests. No runtime LLM or external research API is added.
 
 ## Status
 
-- Plan status: `ready-for-verification`.
+- Plan status: `paused` — the 2026-08-07 canonical AGA preprod successor is the
+  sole implementation direction; preserve this plan and its evidence as donor/
+  historical input and do not continue its synthetic stakeholder lifecycle.
 - Design: approved by the user on 2026-08-03.
 - Independent plan review: first pass found 6 Critical, 24 Important, and 4
   Minor plan-quality findings. All were corrected in this artifact; the second
@@ -3764,35 +3768,12 @@ production-ready: not established
 Use this prompt only after the user explicitly authorizes implementation:
 
 ```text
-Execute only the currently authorized child slice in
-docs/exec-plans/active/2026-08-03-aga-hybrid-classification-demo-lifecycle-plan.md.
-Gate 0A, Gate 0B, Task 1, Task 2, Tasks 3–8, Task 9 F1/F2/F3, and Task 10 are
-already recorded. The current implementation scope is review remediation and
-final local handoff; do not replay the connected happy path or fault matrix
-unless a fresh disposable target and fresh target-bound authorization are
-explicitly created. Record exact
-focused-test and verification output. Preserve every
-unrelated dirty change, the accepted package, the sealed preprod_aga_demo
-schema and five Admin-only GET routes, all source/authority/risk blockers, and
-the exact accepted fixed-input hashes plus immutable supplied receipt hashes.
-Do not use digest alone as identity, invent model metadata, rebind a supplied
-ZIP receipt to a former prompt/model pin, expose pass one to pass two, create
-provider ownership fields, or extend a frozen taxonomy during a run. When separately authorized, execute
-ordered A–E slices and stop-gated F1–F4 substops (only F2–F3 are connected) in
-order and never begin a later boundary before review of its predecessor. The
-sibling workspace may store original identities/digests and only genuinely
-new/reworded synthetic bodies; it must use separate least-privilege pools,
-exact operation-role projections, Potential Finding/Lead conversion,
-deterministic recommendation/readiness pins, append-only events, and
-forward-only reset. Never write canonical provider, identity, membership,
-assignment, attestation, decision, publication, Planning, Audit, Finding, CAP,
-Evidence, notification, outbox, delivery, release, or production records
-through the workspace data plane. Stop on any identity, digest, count,
-taxonomy, provenance, authority, CSRF, privacy, forbidden-object, concurrency,
-replay, recovery, discovery, or residue mismatch. Do not commit, push, deploy,
-call external systems, change branches, or change a real database without
-separate exact authorization. Keep this umbrella and its single index row
-current and use only literal verified locally, not run, blocked,
-candidate-only, release pending, and production-ready: not established
-evidence.
+Do not execute this paused plan independently. Execute
+docs/exec-plans/active/2026-08-07-canonical-aga-preprod-end-to-end-product-plan.md
+from Gate 0 after explicit implementation authorization and use this plan as
+read-only donor/historical evidence. Preserve its evidence and the current
+dirty worktree, but do not resume any A–E/F slice, synthetic lifecycle command,
+connected run, remediation, release, or closeout from this document. The
+canonical successor and its synchronized plan-index row are the sole source of
+future implementation order, stop conditions, verification, and status.
 ```

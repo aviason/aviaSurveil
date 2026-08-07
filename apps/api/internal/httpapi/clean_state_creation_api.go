@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/application"
@@ -82,17 +83,28 @@ func (api *CanonicalAPI) createPlanningIntakeDraft(
 		"plannedDate":        input.Values.PlannedDate,
 		"mode":               input.Values.Mode,
 		"location":           input.Values.Location,
-		"templateVersionId":  input.Values.TemplateVersionId,
-		"scope":              input.Values.Scope,
 		"requestedBudget":    input.Values.RequestedBudget,
 		"currency":           input.Values.Currency,
+	}
+	optionalDraftValue(values, "templateVersionId", input.Values.TemplateVersionId)
+	optionalDraftValue(values, "scope", input.Values.Scope)
+	optionalDraftValue(values, "catalogVersion", input.Values.CatalogVersion)
+	optionalDraftValue(values, "scopeDraftId", input.Values.ScopeDraftId)
+	optionalDraftValue(values, "selectionDigest", input.Values.SelectionDigest)
+	optionalDraftValue(values, "providerScopeId", input.Values.ProviderScopeId)
+	optionalDraftValue(values, "regulatedTargetId", input.Values.RegulatedTargetId)
+	if len(input.Values.SelectedQuestionVersionIds) > 0 {
+		values["selectedQuestionVersionIds"] = append([]string(nil), input.Values.SelectedQuestionVersionIds...)
+	}
+	if input.Values.EstimatedResourceRequirement != nil {
+		values["estimatedResourceRequirement"] = *input.Values.EstimatedResourceRequirement
 	}
 	record, err := api.application.CreatePlanningIntakeDraft(
 		request.Context(),
 		actor,
 		application.CreatePlanningIntakeDraftCommand{
 			OperationID: input.OperationId, IdempotencyKey: input.IdempotencyKey,
-			DraftID: input.DraftId, OrganizationID: input.Values.OrganizationId,
+			DraftID: optionalString(input.DraftId), OrganizationID: input.Values.OrganizationId,
 			Values: values,
 		},
 	)
@@ -109,10 +121,51 @@ func (api *CanonicalAPI) createPlanningIntakeDraft(
 		TriggerType: input.Values.TriggerType, RiskCategory: input.Values.RiskCategory,
 		PlannedDate: input.Values.PlannedDate, Mode: input.Values.Mode,
 		Location: input.Values.Location, TemplateVersionId: input.Values.TemplateVersionId,
-		Scope: input.Values.Scope, RequestedBudget: input.Values.RequestedBudget,
-		Currency: input.Values.Currency, Revision: record.Revision,
+		Scope: input.Values.Scope, CatalogVersion: input.Values.CatalogVersion,
+		ScopeDraftId: input.Values.ScopeDraftId, SelectionDigest: input.Values.SelectionDigest,
+		SelectedQuestionVersionIds:   append([]string(nil), input.Values.SelectedQuestionVersionIds...),
+		EstimatedResourceRequirement: input.Values.EstimatedResourceRequirement,
+		ProviderScopeId:              input.Values.ProviderScopeId, RegulatedTargetId: input.Values.RegulatedTargetId,
+		RequestedBudget: input.Values.RequestedBudget,
+		Currency:        input.Values.Currency, Revision: record.Revision,
 		SubmittedPlanningItemId: record.SubmittedPlanningItemID, UpdatedAt: record.UpdatedAt,
 	})
+}
+
+func optionalString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return strings.TrimSpace(*value)
+}
+
+func optionalStringPointer(value string) *string {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	copy := strings.TrimSpace(value)
+	return &copy
+}
+
+func optionalFloat(value *float64) float64 {
+	if value == nil {
+		return 0
+	}
+	return *value
+}
+
+func optionalFloatPointer(value float64) *float64 {
+	if value == 0 {
+		return nil
+	}
+	copy := value
+	return &copy
+}
+
+func optionalDraftValue(values map[string]any, key string, value *string) {
+	if normalized := optionalString(value); normalized != "" {
+		values[key] = normalized
+	}
 }
 
 func (api *CanonicalAPI) createReminderRule(

@@ -54,6 +54,7 @@ function WorkspaceRoute({ path, role, label }: { path: string; role: Role; label
           <nav aria-label="AGA synthetic lifecycle routes" className="aga-workspace-route-nav">
             {role === "auditee" ? <Link aria-current="page" to={`${path}/caps-evidence`}>CAP and Evidence</Link> : <>
               <Link aria-current={page === "classification" ? "page" : undefined} to={path}>Classification workspace</Link>
+              {role === "manager" ? <Link className="aga-workspace-route-nav__setup" aria-current={location.pathname === "/department-manager/aga-demo-workspace/inspection-package" ? "page" : undefined} to="/department-manager/aga-demo-workspace/inspection-package">Package builder</Link> : null}
               <Link aria-current={page === "inspection" ? "page" : undefined} to={`${path}/inspection`}>Inspection lifecycle</Link>
               <Link aria-current={page === "potential-findings" ? "page" : undefined} to={`${path}/potential-findings`}>Potential Findings</Link>
               <Link aria-current={page === "caps-evidence" ? "page" : undefined} to={`${path}/caps-evidence`}>CAP and Evidence</Link>

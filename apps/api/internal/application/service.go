@@ -259,7 +259,7 @@ func (service *Service) MaterializeInspection(
 				}
 			}
 		}
-		nextStatus := assignments.StatusReady
+		nextStatus := assignments.StatusScheduled
 		noticeWithheld := noticePolicy == "WITHHELD"
 		if !noticeWithheld {
 			nextStatus = assignments.StatusAwaitingAuditeeConfirmation

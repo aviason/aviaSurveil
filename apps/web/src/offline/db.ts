@@ -65,7 +65,7 @@ export interface PackageRow {
   grantId: string;
   accessState: FieldAccessState;
   unavailableReason: string | null;
-  localChecklistStatus: "IN_PROGRESS" | "SUBMITTED";
+  localChecklistStatus: "NOT_STARTED" | "IN_PROGRESS" | "SUBMITTED";
   localChecklistRevision: number;
   pendingSubmissionOperationId: string | null;
   inspectionPackage: InspectionPackage;

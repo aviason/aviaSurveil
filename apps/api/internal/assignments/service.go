@@ -399,7 +399,7 @@ func (service *Service) ListWorkload(
 		  AND assignment.tombstoned_at IS NULL
 		  AND assignment.status IN (
 		      'LEAD_ASSIGNED', 'TEAM_ASSIGNED', 'QUESTIONS_ASSIGNED',
-		      'AWAITING_AUDITEE_CONFIRMATION', 'CONFIRMED', 'READY'
+		      'AWAITING_AUDITEE_CONFIRMATION', 'CONFIRMED', 'SCHEDULED', 'READY'
 		  )
 		GROUP BY member.subject_id
 		ORDER BY member.subject_id

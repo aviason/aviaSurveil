@@ -14,9 +14,12 @@ tool, while applying the configured advance-notice policy before execution.
 5. General Manager performs the separate `GM Release to Department` step
 6. Department prepares the released plan
 7. Select period/year, organization, active provider scope, typed regulated target,
-   audit type, domain, location, and planned date
+   audit type, domain, location, planned date, and the exact catalog question
+   subset with its selection digest
 8. Department Manager assigns the Lead Inspector
-9. Lead Inspector assigns the inspection team and checklist template
+9. Lead Inspector assigns the inspection team and per-question coverage from
+   the released scope snapshot; no pre-approval checklist-template field is
+   used
 10. Evaluate the configured advance-notice policy
 11. For Routine / Announced inspections, send the proposed date, checklist,
    and relevant information to the Service Provider
@@ -36,12 +39,19 @@ tool, while applying the configured advance-notice policy before execution.
   not absorb or bypass the General Manager release step.
 - Risk score informational only in MVP
 - Reschedule requires reason
-- Published audit appears on inspector dashboard
+- Published audit appears on inspector dashboard only after the separate
+  Inspector-start gate. Materialization creates a `NOT_STARTED` checklist;
+  announced work waits in `AWAITING_AUDITEE_CONFIRMATION`, while unannounced
+  work is `SCHEDULED` with advance notice withheld.
 - An organization may retain multiple active provider scopes. A scope may bind
   an organization, person, facility, device, system, asset, or location and is
   not inferred from the coarse organization type.
-- The responsible Department Manager technically approves applicable candidate
-  content and separately records publication before it can be selected.
+- Operational selection uses only governed, technically approved and separately
+  published question versions. A preprod exercise selection is allowed only in
+  the dedicated disposable `PREPROD_EXERCISE` profile and cannot be published
+  or promoted.
+- The exact question subset is frozen before Finance submission and every
+  approval binds its immutable selection digest.
 - The inspection type/configured policy determines whether advance notice is
   required; do not infer this from UI color or free text.
 - Routine / Announced execution becomes ready only after the proposed date is

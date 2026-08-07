@@ -39,54 +39,56 @@ import (
 )
 
 type CanonicalAPIDependencies struct {
-	Pool               *database.Pool
-	Application        *application.Service
-	GrantService       *fieldsync.GrantService
-	SyncOperations     *fieldsync.OperationService
-	EvidenceUploads    *evidence.UploadService
-	AttachmentUploads  *attachments.UploadService
-	Planning           *planning.Service
-	Profiles           *identity.ProfileService
-	Assignments        *assignments.Service
-	PackageDrafts      *inspections.PackageDraftService
-	AdminWorkspace     *configuration.WorkspaceService
-	Risk               *risk.Service
-	Administration     *administration.ProjectionService
-	DirectoryProvider  administration.AccessDirectoryProvider
-	Users              *administration.UserService
-	Assistant          *assistant.Service
-	Communications     *application.CommunicationsWorkflow
-	Documents          *documents.Service
-	GovernedCandidates *regulatory.AdminService
-	GovernedLifecycle  *checklistgovernance.Service
-	ChecklistIntake    *checklistintake.Service
-	AGACandidateDemo   *aga.Service
-	Clock              func() time.Time
+	Pool                   *database.Pool
+	Application            *application.Service
+	GrantService           *fieldsync.GrantService
+	SyncOperations         *fieldsync.OperationService
+	EvidenceUploads        *evidence.UploadService
+	AttachmentUploads      *attachments.UploadService
+	Planning               *planning.Service
+	Profiles               *identity.ProfileService
+	Assignments            *assignments.Service
+	PackageDrafts          *inspections.PackageDraftService
+	AdminWorkspace         *configuration.WorkspaceService
+	Risk                   *risk.Service
+	Administration         *administration.ProjectionService
+	DirectoryProvider      administration.AccessDirectoryProvider
+	Users                  *administration.UserService
+	Assistant              *assistant.Service
+	Communications         *application.CommunicationsWorkflow
+	Documents              *documents.Service
+	GovernedCandidates     *regulatory.AdminService
+	GovernedLifecycle      *checklistgovernance.Service
+	ChecklistIntake        *checklistintake.Service
+	AGACandidateDemo       *aga.Service
+	PreprodExerciseProfile bool
+	Clock                  func() time.Time
 }
 
 type CanonicalAPI struct {
-	pool               *database.Pool
-	application        *application.Service
-	grants             *fieldsync.GrantService
-	syncOperations     *fieldsync.OperationService
-	evidenceUploads    *evidence.UploadService
-	attachmentUploads  *attachments.UploadService
-	planning           *planning.Service
-	profiles           *identity.ProfileService
-	assignments        *assignments.Service
-	packageDrafts      *inspections.PackageDraftService
-	adminWorkspace     *configuration.WorkspaceService
-	risk               *risk.Service
-	administration     *administration.ProjectionService
-	users              *administration.UserService
-	assistant          *assistant.Service
-	communications     *application.CommunicationsWorkflow
-	documents          *documents.Service
-	governedCandidates *regulatory.AdminService
-	governedLifecycle  *checklistgovernance.Service
-	checklistIntake    *checklistintake.Service
-	agaCandidateDemo   *aga.Service
-	clock              func() time.Time
+	pool                   *database.Pool
+	application            *application.Service
+	grants                 *fieldsync.GrantService
+	syncOperations         *fieldsync.OperationService
+	evidenceUploads        *evidence.UploadService
+	attachmentUploads      *attachments.UploadService
+	planning               *planning.Service
+	profiles               *identity.ProfileService
+	assignments            *assignments.Service
+	packageDrafts          *inspections.PackageDraftService
+	adminWorkspace         *configuration.WorkspaceService
+	risk                   *risk.Service
+	administration         *administration.ProjectionService
+	users                  *administration.UserService
+	assistant              *assistant.Service
+	communications         *application.CommunicationsWorkflow
+	documents              *documents.Service
+	governedCandidates     *regulatory.AdminService
+	governedLifecycle      *checklistgovernance.Service
+	checklistIntake        *checklistintake.Service
+	agaCandidateDemo       *aga.Service
+	preprodExerciseProfile bool
+	clock                  func() time.Time
 }
 
 func NewCanonicalAPI(dependencies CanonicalAPIDependencies) *CanonicalAPI {
@@ -180,22 +182,26 @@ func NewCanonicalAPI(dependencies CanonicalAPIDependencies) *CanonicalAPI {
 		pool: dependencies.Pool, application: dependencies.Application, grants: dependencies.GrantService,
 		syncOperations:  syncOperations,
 		evidenceUploads: dependencies.EvidenceUploads, attachmentUploads: dependencies.AttachmentUploads,
-		planning:           planningService,
-		profiles:           profileService,
-		assignments:        assignmentService,
-		packageDrafts:      packageDraftService,
-		adminWorkspace:     adminWorkspaceService,
-		risk:               riskService,
-		administration:     administrationService,
-		users:              userService,
-		assistant:          assistantService,
-		communications:     communicationsWorkflow,
-		documents:          dependencies.Documents,
-		governedCandidates: governedCandidates,
-		governedLifecycle:  governedLifecycle,
-		checklistIntake:    checklistIntake,
-		agaCandidateDemo:   dependencies.AGACandidateDemo,
-		clock:              clock,
+		planning:               planningService,
+		profiles:               profileService,
+		assignments:            assignmentService,
+		packageDrafts:          packageDraftService,
+		adminWorkspace:         adminWorkspaceService,
+		risk:                   riskService,
+		administration:         administrationService,
+		users:                  userService,
+		assistant:              assistantService,
+		communications:         communicationsWorkflow,
+		documents:              dependencies.Documents,
+		governedCandidates:     governedCandidates,
+		governedLifecycle:      governedLifecycle,
+		checklistIntake:        checklistIntake,
+		agaCandidateDemo:       dependencies.AGACandidateDemo,
+		// Exercise data is enabled only by the explicitly task-owned disposable
+		// profile dependency. A catalog/version query or ambient environment
+		// variable cannot turn it on in a normal API process.
+		preprodExerciseProfile: dependencies.PreprodExerciseProfile,
+		clock:                  clock,
 	}
 }
 
@@ -346,6 +352,13 @@ func (api *CanonicalAPI) Handler() http.Handler {
 	router.Post("/v1/assistant/drafts", api.createAssistantDraft)
 	router.Post("/v1/sync/operations", api.pushFieldOperation)
 	router.Get("/v1/sync/changes", api.pullSyncChanges)
+	router.Get("/v1/question-catalogs/{catalogVersion}/questions", api.listCanonicalQuestionCatalogEntries)
+	router.Get("/v1/question-catalogs/{catalogVersion}/questions/{questionVersionId}", api.getCanonicalQuestionCatalogEntry)
+	router.Post("/v1/audit-scopes/{scopeId}/preview", api.previewCanonicalAuditScopeSelection)
+	router.Put("/v1/audit-scopes/{scopeId}/selection", api.commitCanonicalAuditScopeSelection)
+	router.Get("/v1/department-manager/question-review", api.getCanonicalQuestionReviewQueue)
+	router.Post("/v1/department-manager/question-review/commands", api.commandCanonicalQuestionReview)
+	router.Post("/v1/audits/{auditId}/start", api.startInspection)
 	return router
 }
 

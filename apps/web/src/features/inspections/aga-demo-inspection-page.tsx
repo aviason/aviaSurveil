@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 
 import type { Role, ChecklistAnswer } from "../../backend/backend";
 import type {
@@ -286,11 +287,13 @@ export function LifecycleUnavailable({
   client,
   projection,
   loading,
+  role,
 }: {
   capability: AGADemoWorkspaceCapability;
   client: AGADemoWorkspaceBackend | undefined;
   projection: AGADemoLifecycleProjection | null;
   loading: boolean;
+  role: Role;
 }) {
   const reason = loading
     ? "Loading the server-returned lifecycle projection."
@@ -299,6 +302,16 @@ export function LifecycleUnavailable({
     <section aria-label="Synthetic lifecycle context" className="aga-lifecycle-unavailable" role={loading ? undefined : "status"}>
       <h2>Server-bound lifecycle context</h2>
       <p>{reason}</p>
+      {!loading && role === "manager" ? (
+        <div className="aga-lifecycle-next-step">
+          <div>
+            <span className="aga-lifecycle-next-step__eyebrow">Manager next step</span>
+            <strong>Build and release the synthetic inspection first</strong>
+            <p>Classify the sealed questions, create the package recommendation, then hand the released snapshot to the Inspector and Lead Inspector.</p>
+          </div>
+          <Link className="aga-lifecycle-next-step__link" to="/department-manager/aga-demo-workspace/inspection-package">Open package builder</Link>
+        </div>
+      ) : null}
       <LifecycleAction actionId="load-authorized-inspection" disabled label="Load authorized inspection" reason={reason} />
     </section>
   );
@@ -324,10 +337,11 @@ function ManagerSimulationSetup({
       <h2>Department Manager simulation setup</h2>
       <p>Recommendation creation and simulation release remain separate from technical approval and publication.</p>
       <div className="aga-lifecycle-actions">
+        {projection ? <Link className="aga-lifecycle-primary-link" to="/department-manager/aga-demo-workspace/inspection-package">Open package builder</Link> : null}
         <LifecycleAction actionId="create-aga-recommendation" disabled label="Create AGA recommendation" reason={recommendationReason} />
         <LifecycleAction actionId="release-synthetic-simulation" disabled label="Release synthetic simulation" reason={releaseReason} />
       </div>
-      <p className="aga-lifecycle-boundary">The authorized server must supply the complete pinned facts before either command can create a synthetic artifact.</p>
+      <p className="aga-lifecycle-boundary">These two buttons stay disabled on the lifecycle page by design. The package builder is the single place where the server-owned Draft, recommendation, and release pins are prepared.</p>
       {!client ? <span className="sr-only">HTTP workspace extension unavailable.</span> : null}
     </section>
   );
@@ -444,7 +458,7 @@ export function AGADemoInspectionPage({
     >
       {!projection ? <>
         {role === "manager" ? <ManagerSimulationSetup capability={capability} client={workspace.client} projection={projection} /> : null}
-        <LifecycleUnavailable capability={capability} client={workspace.client} projection={projection} loading={workspace.loading} />
+        <LifecycleUnavailable capability={capability} client={workspace.client} projection={projection} loading={workspace.loading} role={role} />
         <section aria-label="Inspection actions" className="aga-lifecycle-actions">
           <LifecycleAction
             actionId="start-inspection"

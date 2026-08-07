@@ -20,6 +20,24 @@
   margin-top: 0;
 }
 
+.aga-classification-workspace > .page-header {
+  margin-bottom: 0;
+}
+
+.aga-classification-workspace > .page-header h1 {
+  margin-bottom: 12px;
+  font-size: clamp(2.3rem, 3.2vw, 3.2rem);
+  line-height: 1.08;
+  letter-spacing: -0.045em;
+}
+
+.aga-classification-workspace > .page-header .workspace-purpose {
+  max-width: 700px;
+  margin-bottom: 0;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
 .aga-classification-workspace button,
 .aga-classification-workspace input,
 .aga-classification-workspace select,

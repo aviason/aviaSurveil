@@ -17,7 +17,8 @@ Create annual and ad hoc audit/inspection plans.
 - Remote/on-site
 - Lead inspector
 - Team
-- Checklist template
+- Selected catalog question scope (catalog version, exact question IDs, and
+  deterministic selection digest)
 - Provider scopes and regulated target
 - Scope
 - Status
@@ -32,7 +33,7 @@ Create annual and ad hoc audit/inspection plans.
 - Schedule
 - Reschedule
 - Assign inspector
-- Select checklist
+- Review and freeze the catalog question scope before Finance submission
 - Publish plan
 - Send Service Provider coordination package when advance notice is required
 - Confirm a proposed date or accept a Service Provider alternative date
@@ -44,11 +45,13 @@ Create annual and ad hoc audit/inspection plans.
   Executive Director -> GM Release to Department -> Department preparation.
 - Executive Director approval does not release the plan. General Manager
   release remains a separate recorded next action.
-- Audit type determines default templates
+- Audit type and provider scope constrain the selectable catalog questions; a
+  pre-approval New Audit does not select a checklist template.
 - Inspection type/configuration determines whether the Service Provider is
   notified in advance
-- Routine / Announced inspections share the proposed date, checklist, and
-  relevant information after the Lead Inspector is identified
+- Routine / Announced inspections share the released question scope and
+  relevant coordination information only after the Lead Inspector is
+  identified.
 - Ad Hoc / Unannounced inspections skip the Service Provider coordination step
 - A Service Provider may confirm the proposed date or suggest an alternative;
   the CAA must accept an alternative before execution is ready
@@ -57,13 +60,21 @@ Create annual and ad hoc audit/inspection plans.
 - One organization may have several active provider scopes. Provider scope is
   separate from the coarse organization type and may target an organization,
   person, facility, device, system, asset, or location.
-- Selecting a published checklist requires the applicable provider scope and
-  typed target; a Department Manager's technical approval and publication are
-  separate decisions made before selection.
-- Selecting a published checklist does not itself make it executable. Computed
-  Audit-package eligibility is separate from publication and fails closed when
-  the exact immutable version, scope, typed target, source currentness,
-  required owners, or question trace is incomplete.
+- Operational selection requires governed, technically approved, separately
+  published, package-eligible question versions for the applicable provider
+  scope and typed target. Technical approval and publication remain separate
+  decisions.
+- A disposable preprod exercise may select `PREPROD_EXERCISE` catalog members
+  only when the dedicated disposable preprod profile is active. Exercise
+  records cannot be published, promoted to operational use, or used to satisfy
+  governed package eligibility.
+- Selection freezes an immutable scope snapshot and digest before Finance
+  submission. Approval and materialization consume that snapshot rather than
+  rereading a mutable catalog.
+- Selection does not itself make work executable. Announced materialization
+  starts at `AWAITING_AUDITEE_CONFIRMATION`; unannounced materialization starts
+  at `SCHEDULED` with notice withheld. Both create a `NOT_STARTED` checklist;
+  an authorized Inspector start is a separate atomic transition.
 
 ## UX direction
 

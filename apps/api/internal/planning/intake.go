@@ -2,6 +2,8 @@ package planning
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -44,6 +46,13 @@ type IntakeDraftValues struct {
 	Location           string             `json:"location"`
 	TemplateVersionID  string             `json:"templateVersionId"`
 	Scope              string             `json:"scope"`
+	CatalogVersion     string             `json:"catalogVersion,omitempty"`
+	ScopeDraftID       string             `json:"scopeDraftId,omitempty"`
+	SelectionDigest    string             `json:"selectionDigest,omitempty"`
+	SelectedQuestionVersionIDs []string   `json:"selectedQuestionVersionIds,omitempty"`
+	EstimatedResourceRequirement float64   `json:"estimatedResourceRequirement,omitempty"`
+	ProviderScopeID    string             `json:"providerScopeId,omitempty"`
+	RegulatedTargetID  string             `json:"regulatedTargetId,omitempty"`
 	RequestedBudget    float64            `json:"requestedBudget"`
 	Currency           string             `json:"currency"`
 }
@@ -184,9 +193,12 @@ func (service *Service) SubmitIntake(
 	if strings.TrimSpace(command.OperationID) == "" ||
 		strings.TrimSpace(command.IdempotencyKey) == "" ||
 		strings.TrimSpace(command.DraftID) == "" ||
-		strings.TrimSpace(command.PlanningItemID) == "" ||
 		command.ExpectedRevision <= 0 {
 		return SubmitIntakeResult{}, application.ErrInvalid
+	}
+	if strings.TrimSpace(command.PlanningItemID) == "" {
+		digest := sha256.Sum256([]byte("planning-item:" + command.DraftID + ":" + command.OperationID))
+		command.PlanningItemID = "plan-intake-" + hex.EncodeToString(digest[:])[:24]
 	}
 	return executeIntakeCommand(ctx, service, actor, "submit_planning_intake",
 		command.OperationID, command.IdempotencyKey, command.PlanningItemID, command,
@@ -474,6 +486,11 @@ func normalizedIntakeValues(values IntakeDraftValues) IntakeDraftValues {
 	values.Location = strings.TrimSpace(values.Location)
 	values.TemplateVersionID = strings.TrimSpace(values.TemplateVersionID)
 	values.Scope = strings.TrimSpace(values.Scope)
+	values.CatalogVersion = strings.TrimSpace(values.CatalogVersion)
+	values.ScopeDraftID = strings.TrimSpace(values.ScopeDraftID)
+	values.SelectionDigest = strings.TrimSpace(values.SelectionDigest)
+	values.ProviderScopeID = strings.TrimSpace(values.ProviderScopeID)
+	values.RegulatedTargetID = strings.TrimSpace(values.RegulatedTargetID)
 	values.Currency = strings.TrimSpace(values.Currency)
 	switch values.InspectionCategory {
 	case InspectionCategoryRoutine:
@@ -502,9 +519,13 @@ func validateDraftValues(values IntakeDraftValues, complete bool) error {
 		return application.ErrInvalid
 	}
 	if complete && (values.ApplicationType == "" || values.Domain == "" ||
-		values.Purpose == "" || values.TriggerType == "" || values.RiskCategory == "" ||
-		values.Location == "" || values.TemplateVersionID == "" || values.Scope == "") {
+		values.Purpose == "" || values.TriggerType == "" || values.RiskCategory == "" || values.Location == "") {
 		return application.ErrInvalid
+	}
+	if complete {
+		legacyScope := values.TemplateVersionID != "" && values.Scope != ""
+		canonicalScope := values.CatalogVersion != "" && values.ScopeDraftID != "" && values.SelectionDigest != "" && len(values.SelectedQuestionVersionIDs) > 0
+		if !legacyScope && !canonicalScope { return application.ErrInvalid }
 	}
 	return nil
 }

@@ -2,7 +2,6 @@ import { bootstrap } from "../app/bootstrap";
 import { readPublicHttpConfig } from "../app/public-http-config";
 import { createSessionClient } from "../auth/session-client";
 import { createHttpBackend } from "../backend/http-backend";
-import { agaDemoWorkspaceRouteElementsWithManagerPackage, AGADemoWorkspaceNavigation } from "../app/aga-demo-workspace-routes";
 
 async function start(): Promise<void> {
   const config = await readPublicHttpConfig();
@@ -18,9 +17,6 @@ async function start(): Promise<void> {
     environmentLabel: config.environmentLabel,
     identityMode: "oidc-session",
     sessionClient,
-    supplementalRouteElements: agaDemoWorkspaceRouteElementsWithManagerPackage,
-    supplementalNavigation: AGADemoWorkspaceNavigation,
-    agaDemoWorkspaceSurfaceEnabled: true,
   });
 }
 

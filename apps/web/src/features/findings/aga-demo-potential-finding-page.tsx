@@ -65,7 +65,7 @@ export function AGADemoPotentialFindingPage({
         testId="aga-demo-potential-finding-page"
         title="Potential Finding review"
       >
-        <LifecycleUnavailable capability={capability} client={workspace.client} projection={projection} loading={workspace.loading} />
+        <LifecycleUnavailable capability={capability} client={workspace.client} projection={projection} loading={workspace.loading} role={role} />
         <section aria-label="Lead Potential Finding actions" className="aga-lifecycle-actions">
           <LifecycleAction
             actionId="return-potential-finding"

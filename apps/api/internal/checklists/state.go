@@ -10,6 +10,7 @@ import (
 type Status string
 
 const (
+	StatusNotStarted Status = "NOT_STARTED"
 	StatusInProgress Status = "IN_PROGRESS"
 	StatusSubmitted  Status = "SUBMITTED"
 )

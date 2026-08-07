@@ -3,7 +3,8 @@
   "info": {
     "title": "AviaSurveil360 API",
     "version": "0.2.0-candidate",
-    "description": "Versioned full-platform candidate contract for the React and Go local release-candidate slices. Production deployment and cutover are outside this contract."
+    "description": "Versioned full-platform candidate contract for the React and Go local release-candidate slices. Production deployment and cutover are outside this contract.",
+    "x-preprod-exercise-publication": "forbidden"
   },
   "servers": [{ "url": "/" }],
   "paths": {

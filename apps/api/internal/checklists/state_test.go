@@ -15,6 +15,9 @@ func TestSubmittedChecklistIsReadOnly(t *testing.T) {
 	if !checklists.CanEdit(checklists.StatusInProgress) {
 		t.Fatal("in-progress checklist is not editable")
 	}
+	if checklists.CanEdit(checklists.StatusNotStarted) {
+		t.Fatal("NOT_STARTED checklist became editable before Inspector start")
+	}
 }
 
 func TestSubmitRequiresAssignedInspectorInProgressAndExactRevision(t *testing.T) {

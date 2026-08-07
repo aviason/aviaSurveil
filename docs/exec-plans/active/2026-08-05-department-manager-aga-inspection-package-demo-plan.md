@@ -62,15 +62,18 @@ This ExecPlan is a living document. Keep `Progress`, `Decision Log`,
 
 ## Status
 
-- Plan status: `ready-for-verification`.
+- Plan status: `paused` — the 2026-08-07 canonical AGA preprod successor is the
+  sole implementation direction; preserve verified donor mechanics/evidence and
+  do not continue the duplicate synthetic stakeholder lifecycle.
 - Design request and implementation authorization: supplied by the user on
   2026-08-05.
 - Gate 0 and Tasks 1–9: `verified locally`.
 - Connected happy path and four-case fault matrix: `verified locally`.
 - Release: `release pending`.
 - Production readiness: `production-ready: not established`.
-- Immediate next gate: stakeholder/user verification before moving this plan to
-  `completed`; no release or production action is authorized.
+- Immediate next gate: no independent implementation step. Gate 0 of the
+  canonical successor must classify and carry forward reusable donor/security
+  work; no release or production action is authorized.
 
 ## Objective And User-Visible Outcome
 
@@ -1118,10 +1121,10 @@ in [dated evidence](../../demo-evidence/AGA_MANAGER_MULTI_ROLE_DEMO_2026-08-05.m
 
 ### 2026-08-05 — Keep plan lifecycle separate from local proof
 
-All implementation and verification gates required by this execution are
-`verified locally`. The plan remains `ready-for-verification` until the
-stakeholder/user performs the repository's separate plan-lifecycle verification;
-the local result does not imply release or production readiness.
+All implementation and verification gates required by this historical execution
+are `verified locally`. The plan is now `paused` in favor of the canonical
+successor; the retained local result does not imply release or production
+readiness and must not be extended as a duplicate stakeholder lifecycle.
 
 ## Discoveries
 
@@ -1220,13 +1223,17 @@ Execution outcome as of 2026-08-05:
   full root Node (103/103), harness documentation, whitespace, and cleanup.
 - The result is exactly `interactive local-preprod multi-role AGA demo;
   verified locally`; it remains `candidate-only`, `release pending`, and
-  `production-ready: not established`. Plan lifecycle remains
-  `ready-for-verification` pending stakeholder/user verification.
+  `production-ready: not established`. Plan lifecycle is `paused`; donor
+  classification and future implementation continue only in the canonical
+  successor.
 
 ## Execution Prompt
 
-After the user explicitly authorizes implementation, execute this plan in order
-on the current branch. Begin at Gate 0. Read the predecessor plan and every
+Do not execute this plan independently while it is `paused`. After the user
+explicitly authorizes canonical successor implementation, execute
+`2026-08-07-canonical-aga-preprod-end-to-end-product-plan.md` from Gate 0 on the
+current branch and use this document as donor/historical evidence. Read the
+predecessor plan and every
 authority named in `Repository Orientation` before changing runtime code. Keep
 this plan and `docs/exec-plans/index.md` synchronized after every accepted gate.
 Use test-first contract changes, preserve unrelated worktree changes, regenerate

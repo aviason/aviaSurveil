@@ -16,6 +16,7 @@ const (
 	StatusAwaitingAuditeeConfirmation Status = "AWAITING_AUDITEE_CONFIRMATION"
 	StatusConfirmed                   Status = "CONFIRMED"
 	StatusAlternativeProposed         Status = "ALTERNATIVE_PROPOSED"
+	StatusScheduled                   Status = "SCHEDULED"
 	StatusReady                       Status = "READY"
 )
 

@@ -17,6 +17,9 @@ export type IconKey =
   | "logout"
   | "menu";
 
+/** Canonical successor routes that are deliberately outside the frozen 86-screen legacy parity set. */
+export const CANONICAL_QUESTION_REVIEW_PATH = "/department-manager/checklist-management/question-review";
+
 interface RouteSeed {
   auditId: `ui-audit-${string}`;
   id: string;

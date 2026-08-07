@@ -4,28 +4,24 @@ import { z } from "zod";
 
 import { useApplicationRuntime } from "../../app/providers";
 import type {
+  CanonicalQuestionCatalogPage,
   PlanningIntakeDraftValues,
   PlanningIntakeDraftView,
   PlanningIntakeInspectionCategory,
 } from "../../backend/backend";
 import { CommandError, errorMessage, WorkspaceShell } from "../shared/workspace-shell";
 
-const DRAFT_ID = "PLAN-DRAFT-2026-001";
-const SUBMITTED_PLAN_ID = "PLAN-2026-INTAKE-001";
-
 const stepDefinitions = [
   { number: 1, title: "Inspection basics" },
   { number: 2, title: "Category and purpose" },
   { number: 3, title: "When and where" },
-  { number: 4, title: "Checklist, scope and budget" },
+  { number: 4, title: "Choose questions and budget" },
   { number: 5, title: "Review and submit" },
 ] as const;
 
 type PlanningIntakeFormValues = Omit<PlanningIntakeDraftValues, "requestedBudget"> & {
   requestedBudget: string;
 };
-
-type AgaRecommendationState = "hidden" | "checking" | "available" | "unavailable";
 
 const requestedBudgetSchema = z
   .string()
@@ -49,13 +45,15 @@ const stepSchemas = {
     location: z.string().trim().min(1, "Location is required"),
   }),
   4: z.object({
-    templateVersionId: z.string().min(1, "Checklist template is required"),
+    catalogVersion: z.string().min(1, "Question catalog is required"),
+    selectedQuestionVersionIds: z.array(z.string()).min(1, "Select at least one question"),
+    selectionDigest: z.string().min(1, "Question selection must be frozen"),
     requestedBudget: requestedBudgetSchema,
   }),
 } as const;
 
-function pathForStep(step: number): string {
-  return `/department-manager/new-audit/step-${step}`;
+function pathForStep(step: number, draftId?: string): string {
+	return `/department-manager/new-audit/step-${step}${draftId ? `?draftId=${encodeURIComponent(draftId)}` : ""}`;
 }
 
 function stepFromPath(pathname: string): number {
@@ -69,6 +67,13 @@ function noticePolicyFor(category: PlanningIntakeInspectionCategory): PlanningIn
 
 function noticeLabel(values: Pick<PlanningIntakeDraftValues, "noticePolicy">): string {
   return values.noticePolicy === "WITHHELD" ? "No Advance Notice (withheld)" : "Advance Notice Required";
+}
+
+async function selectionDigestFor(ids: readonly string[]): Promise<string> {
+  const canonical = [...new Set(ids)].sort().join("\n");
+  const bytes = new TextEncoder().encode(canonical ? `${canonical}\n` : "");
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function validationMessage(step: number, values: PlanningIntakeFormValues): string | null {
@@ -86,7 +91,7 @@ function validationMessage(step: number, values: PlanningIntakeFormValues): stri
 }
 
 function formValuesFor(draft: PlanningIntakeDraftView): PlanningIntakeFormValues {
-  return { ...draft, requestedBudget: String(draft.requestedBudget) };
+  return { ...draft, selectedQuestionVersionIds: [...(draft.selectedQuestionVersionIds ?? [])], requestedBudget: String(draft.requestedBudget) };
 }
 
 function commandValuesFor(values: PlanningIntakeFormValues): PlanningIntakeDraftValues {
@@ -107,26 +112,8 @@ export function NewAuditWizardPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [agaRecommendationState, setAgaRecommendationState] = useState<AgaRecommendationState>("hidden");
-
-  useEffect(() => {
-    const workspace = backend.agaDemoWorkspace;
-    const controller = new AbortController();
-    if (!workspace) {
-      setAgaRecommendationState("hidden");
-      return () => controller.abort();
-    }
-    setAgaRecommendationState("checking");
-    void workspace.capability({ signal: controller.signal })
-      .then((capability) => {
-        if (controller.signal.aborted) return;
-        setAgaRecommendationState(capability.available && capability.recommendationEnabled ? "available" : "unavailable");
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setAgaRecommendationState("unavailable");
-      });
-    return () => controller.abort();
-  }, [backend]);
+  const [catalogPage, setCatalogPage] = useState<CanonicalQuestionCatalogPage | null>(null);
+  const [catalogBusy, setCatalogBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -134,14 +121,61 @@ export function NewAuditWizardPage() {
       setError("Planning intake commands are unavailable in this build profile.");
       return () => { cancelled = true; };
     }
-    void backend.planningIntake.getDraft({ draftId: DRAFT_ID }).then((loaded) => {
+    const requestedDraftId = new URLSearchParams(location.search).get("draftId");
+    const operationId = `NEW-AUDIT-${requestedDraftId ?? Date.now()}`;
+    const load = requestedDraftId
+      ? backend.planningIntake.getDraft({ draftId: requestedDraftId })
+      : backend.planningIntake.createDraft({
+        operationId,
+        idempotencyKey: operationId,
+        expectedRevision: null,
+        values: {
+          organizationId: "ORG-FLY-NAMIBIA",
+          organizationName: "",
+          applicationType: "Continued Surveillance",
+          domain: "Cabin Safety",
+          inspectionCategory: "Routine / Announced",
+          noticePolicy: "ADVANCE",
+          purpose: "",
+          triggerType: "Department Manager initiated",
+          riskCategory: "",
+          plannedDate: "",
+          mode: "On-site",
+          location: "",
+          catalogVersion: "aga-preprod@1.0.0",
+          scopeDraftId: "",
+          selectionDigest: "",
+          selectedQuestionVersionIds: [],
+          requestedBudget: 0,
+          currency: "USD",
+        },
+      });
+    void load.then((loaded) => {
       if (!cancelled) {
         setDraft(loaded);
         setValues(formValuesFor(loaded));
       }
     }).catch((cause) => !cancelled && setError(errorMessage(cause)));
     return () => { cancelled = true; };
-  }, [backend]);
+  }, [backend, location.search]);
+
+  useEffect(() => {
+    if (step !== 4 || !values || !backend.canonicalQuestionReview) return;
+    const controller = new AbortController();
+    setCatalogBusy(true);
+    void backend.canonicalQuestionReview.listCatalog({
+      catalogVersion: values.catalogVersion || "aga-preprod@1.0.0",
+      usageClass: "PREPROD_EXERCISE",
+      limit: 25,
+    }, { signal: controller.signal }).then((page) => {
+      if (!controller.signal.aborted) setCatalogPage(page);
+    }).catch((cause) => {
+      if (!controller.signal.aborted) setError(errorMessage(cause));
+    }).finally(() => {
+      if (!controller.signal.aborted) setCatalogBusy(false);
+    });
+    return () => controller.abort();
+  }, [backend, step, values?.catalogVersion]);
 
   function update<K extends keyof PlanningIntakeFormValues>(key: K, value: PlanningIntakeFormValues[K]) {
     setValues((current) => current ? { ...current, [key]: value } : current);
@@ -155,6 +189,22 @@ export function NewAuditWizardPage() {
       noticePolicy: noticePolicyFor(category),
     } : current);
     setStatus(null);
+  }
+
+async function toggleQuestion(questionVersionId: string) {
+    if (!values) return;
+    const selected = new Set(values.selectedQuestionVersionIds ?? []);
+    if (selected.has(questionVersionId)) selected.delete(questionVersionId);
+    else selected.add(questionVersionId);
+    const ids = [...selected].sort();
+    const digest = await selectionDigestFor(ids);
+    setValues((current) => current ? {
+      ...current,
+      selectedQuestionVersionIds: ids,
+      selectionDigest: digest,
+      scopeDraftId: current.scopeDraftId || draft?.id || "",
+    } : current);
+    setStatus(`Exact question selection frozen locally · ${ids.length} selected · ${digest}`);
   }
 
   async function saveDraft(nextValues = values): Promise<PlanningIntakeDraftView | null> {
@@ -180,8 +230,8 @@ export function NewAuditWizardPage() {
     setBusy(true);
     setError(null);
     try {
-      await saveDraft();
-      navigate(pathForStep(step + direction));
+      const saved = await saveDraft();
+      navigate(pathForStep(step + direction, saved?.id ?? draft?.id));
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -194,7 +244,10 @@ export function NewAuditWizardPage() {
     setError(null);
     try {
       const saved = await saveDraft();
-      if (saved) setStatus(`Draft saved · revision ${saved.revision}`);
+      if (saved) {
+        setStatus(`Draft saved · revision ${saved.revision}`);
+        navigate(pathForStep(step, saved.id), { replace: true });
+      }
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -218,7 +271,6 @@ export function NewAuditWizardPage() {
         draftId: saved.id,
         expectedRevision: saved.revision,
         idempotencyKey: `SUBMIT-${saved.id}-R${saved.revision}`,
-        planningItemId: SUBMITTED_PLAN_ID,
       });
       navigate(`/department-manager/audit-plan?planningItemId=${output.planningItem.id}`);
     } catch (cause) {
@@ -264,24 +316,29 @@ export function NewAuditWizardPage() {
             <label className="is-wide">Location<input aria-label="Location" value={values.location} onChange={(event) => update("location", event.target.value)} /></label>
           </div> : null}
           {values && step === 4 ? <div className="planning-intake-fields">
-            <label>Checklist Template<select aria-label="Checklist Template" value={values.templateVersionId} onChange={(event) => update("templateVersionId", event.target.value)}><option value="CTV-CABIN-1">Cabin Inspection Checklist · version 1</option></select></label>
-            <label className="is-wide">Scope<textarea aria-label="Scope" value={values.scope} onChange={(event) => update("scope", event.target.value)} /></label>
+            <div className="planning-intake-catalog" aria-label="Question catalog selection">
+              <div className="planning-intake-catalog-header"><div><span className="eyebrow">Governed selection boundary</span><h3>Choose the exact question subset</h3><p>Only the selected immutable question versions are sent to Finance. No checklist template is selected here.</p></div><span className="planning-intake-catalog-count" aria-live="polite">{values.selectedQuestionVersionIds?.length ?? 0} selected</span></div>
+              {catalogBusy ? <p role="status">Loading catalog page…</p> : null}
+              {!catalogBusy && !catalogPage ? <p role="status">Catalog selection is unavailable in this build profile.</p> : null}
+              {catalogPage ? <ul className="planning-intake-catalog-list">
+                {catalogPage.items.map((question) => {
+                  const checked = values.selectedQuestionVersionIds?.includes(question.questionVersionId) ?? false;
+                  return <li key={question.questionVersionId}><label><input aria-label={`Select ${question.formCode} ${question.ordinal}`} checked={checked} onChange={() => void toggleQuestion(question.questionVersionId)} type="checkbox" /><span><b>{question.formCode} · item {question.ordinal}</b><small>{question.questionVersionId} · {question.proposedDomain ?? "Unclassified"}</small></span></label></li>;
+                })}
+              </ul> : null}
+              {catalogPage?.nextCursor ? <p className="planning-intake-catalog-note">Showing the first governed page of {catalogPage.totalCount} available questions. Search and filters remain available in Checklist Management → Question Review.</p> : null}
+            </div>
+            <label>Question Catalog Version<input aria-label="Question Catalog Version" readOnly value={values.catalogVersion ?? "aga-preprod@1.0.0"} /></label>
             <label>Requested Budget<input aria-label="Requested Budget" min="0" type="number" value={values.requestedBudget} onChange={(event) => update("requestedBudget", event.target.value)} /></label>
             <label>Currency<select aria-label="Currency" value={values.currency} onChange={(event) => update("currency", event.target.value as PlanningIntakeDraftValues["currency"])}><option value="USD">USD</option><option value="EUR">EUR</option><option value="NAD">NAD</option></select></label>
-            <div className="planning-intake-notice" role="note"><b>Finance Review is required even when the requested budget is zero.</b><span>Zero budget does not bypass the accepted governance chain.</span></div>
+            <div className="planning-intake-notice" role="note"><b>Finance Review is required even when the requested budget is zero.</b><span>The selection digest is retained with the Planning draft and cannot be replaced by a template identifier.</span></div>
           </div> : null}
           {values && step === 5 ? <div className="planning-intake-review">
-            <dl><div><dt>Draft</dt><dd>{draft?.id}</dd></div><div><dt>Organization</dt><dd>{values.organizationName} · {values.organizationId}</dd></div><div><dt>Category</dt><dd>{values.inspectionCategory}</dd></div><div><dt>Purpose</dt><dd>{values.purpose || "Not provided"}</dd></div><div><dt>Planned work</dt><dd>{values.plannedDate} · {values.mode} · {values.location || "Location required"}</dd></div><div><dt>Scope</dt><dd>{values.scope || "Not provided"}</dd></div><div><dt>Requested budget</dt><dd>{values.requestedBudget} {values.currency}</dd></div><div><dt>Notice</dt><dd>{noticeLabel(values)}</dd></div></dl>
+            <dl><div><dt>Draft</dt><dd>{draft?.id}</dd></div><div><dt>Organization</dt><dd>{values.organizationName} · {values.organizationId}</dd></div><div><dt>Category</dt><dd>{values.inspectionCategory}</dd></div><div><dt>Purpose</dt><dd>{values.purpose || "Not provided"}</dd></div><div><dt>Planned work</dt><dd>{values.plannedDate} · {values.mode} · {values.location || "Location required"}</dd></div><div><dt>Question selection</dt><dd>{values.catalogVersion} · {values.selectedQuestionVersionIds?.length ?? 0} exact question versions · {values.selectionDigest || "Not frozen"}</dd></div><div><dt>Requested budget</dt><dd>{values.requestedBudget} {values.currency}</dd></div><div><dt>Notice</dt><dd>{noticeLabel(values)}</dd></div></dl>
             <div className="planning-intake-governance"><b>Department Manager → Finance Review → General Manager → Executive Director → General Manager Release</b><p>No executable Audit is created at this step. The submitted record remains a Planning item awaiting Finance Review.</p></div>
             {preview ? <article className="planning-intake-preview" aria-label="Planning intake preview"><p className="eyebrow">Durable in-screen preview</p><h3>{values.inspectionCategory} — {values.organizationName}</h3><p>{values.purpose}</p><small>{draft?.id} · revision {draft?.revision}</small></article> : null}
           </div> : null}
         </section>
-        {step === 5 && agaRecommendationState === "available" ? <section aria-label="AGA recommendation" className="planning-intake-governance">
-          <p className="eyebrow">Synthetic AGA workspace</p>
-          <h2>Deterministic checklist recommendation</h2>
-          <p role="status">Recommendation is unavailable until the authorized workspace supplies one current server-derived provider scope and target.</p>
-          <button disabled title="Server-derived provider scope and target facts are required" type="button">Create AGA recommendation</button>
-        </section> : null}
         <section aria-label="Planning intake actions" className="planning-intake-actions">
           {step === 1 ? <button onClick={() => navigate("/department-manager/audit-plan")} type="button">Cancel</button> : <button disabled={busy} onClick={() => void move(-1)} type="button">Back</button>}
           {step === 1 ? <button disabled={busy || !values} onClick={() => void saveOnly()} type="button">Save draft</button> : null}
