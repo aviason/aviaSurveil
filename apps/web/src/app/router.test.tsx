@@ -135,6 +135,41 @@ describe("authorized role-entry inventory", () => {
     expect(assignmentsList).not.toHaveBeenCalled();
   });
 
+  it("keeps canonical entry links on the connected AGA surface in the local-preprod profile", async () => {
+    const runtime = createMockBackendRuntime();
+    const workspace: AGADemoWorkspaceBackend = {
+      capability: vi.fn().mockResolvedValue({ available: true, projection: "INSPECTOR_ASSIGNED", classificationEnabled: false, recommendationEnabled: false, lifecycleEnabled: true, resetEnabled: false }),
+      classificationQuery: vi.fn(),
+      classificationCommand: vi.fn(),
+      recommendationCommand: vi.fn(),
+      lifecycleQuery: vi.fn().mockResolvedValue({ operation: "GET_CURRENT_INSPECTION", lifecycleAvailable: false }),
+      lifecycleCommand: vi.fn(),
+      adminCommand: vi.fn(),
+    };
+    const assignmentsList = vi.spyOn(runtime.backend.assignments, "list");
+    render(
+      <AppProviders
+        runtime={{
+          backend: { ...runtime.backend, agaDemoWorkspace: workspace },
+          backendForRole: runtime.backendForRole,
+          buildProfile: "http",
+          environmentLabel: "Test",
+          supplementalRouteElements: agaDemoWorkspaceRouteElements,
+          agaDemoWorkspaceSurfaceEnabled: true,
+        }}
+      >
+        <ScenarioProvider>
+          <MemoryRouter initialEntries={["/inspector/inspector-assignments"]}>
+            <AppRouter />
+          </MemoryRouter>
+        </ScenarioProvider>
+      </AppProviders>,
+    );
+
+    expect(await screen.findByTestId("aga-demo-inspection-page")).toBeInTheDocument();
+    expect(assignmentsList).not.toHaveBeenCalled();
+  });
+
   it("redirects an undeclared path to role selection without rendering a placeholder", async () => {
     const runtime = createMockBackendRuntime();
     render(

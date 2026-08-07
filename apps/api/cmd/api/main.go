@@ -184,7 +184,7 @@ func run(ctx context.Context) error {
 							probe = unavailableReadiness{err: providerErr}
 							slog.Error("OIDC provider unavailable; readiness will fail closed", "error", providerErr)
 						} else {
-							authBoundary = httpapi.NewAuthBoundary(provider, sessionManager)
+							authBoundary = httpapi.NewAuthBoundaryWithCookieSecure(provider, sessionManager, settings.CookieSecure)
 							authentication = authBoundary.Handler()
 						}
 					}

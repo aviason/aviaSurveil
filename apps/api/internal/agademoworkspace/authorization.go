@@ -159,10 +159,10 @@ func bindingAllowsWorkspaceOperation(binding preprod.AuthorityBinding, principal
 
 func bindingMatchesLifecycleScope(binding preprod.AuthorityBinding, aggregate LifecycleAggregate) bool {
 	return binding.Active &&
-		workspaceOrganizationMatchesPrincipal(binding.OrganizationID, aggregate.OrganizationID) &&
+		(binding.ProviderScopeID != "" && (workspaceOrganizationMatchesPrincipal(binding.OrganizationID, aggregate.OrganizationID) || binding.ProviderScopeID == aggregate.ProviderScopeID)) &&
 		binding.DepartmentID == aggregate.Inspector.DepartmentID &&
 		binding.OrganizationalUnitID == aggregate.Inspector.OrganizationalUnitID &&
-		binding.ProviderScopeID != "" && binding.ProviderScopeID == aggregate.ProviderScopeID
+		binding.ProviderScopeID == aggregate.ProviderScopeID
 }
 
 // bindingMatchesLifecycleObject adds a subject/role relationship to the

@@ -16,7 +16,6 @@ const STATIC_CONFIG_PATHS = new Set([
   "/demo-build.json",
   "/http-config.json",
   "/index.html",
-  "/sw.js",
 ]);
 
 export function classifyAppShellRequest(
@@ -44,7 +43,7 @@ interface AppShellManifest {
 
 // Increment this whenever the app shell or its static asset graph changes so
 // an older service-worker cache cannot keep serving a previous UI indefinitely.
-const APP_SHELL_VERSION_MARKER = "AVIA_APP_SHELL_VERSION:000002";
+const APP_SHELL_VERSION_MARKER = "AVIA_APP_SHELL_VERSION:000004";
 const APP_SHELL_VERSION = Number(
   /^AVIA_APP_SHELL_VERSION:(\d{6})$/.exec(APP_SHELL_VERSION_MARKER)?.[1],
 );

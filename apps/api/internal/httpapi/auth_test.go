@@ -154,6 +154,39 @@ func TestOIDCLoginAndCallbackUseOneTimeStatePKCEAndSecureBrowserCookies(t *testi
 	}
 }
 
+func TestLocalHTTPLoginUsesNonHostCookiesThatSafariCanSend(t *testing.T) {
+	t.Parallel()
+	provider := &fakeOIDCProvider{identity: identity.OIDCIdentity{
+		SubjectID: "manager-001", Issuer: "http://identity.example/realms/avia", DisplayName: "Manager One",
+		Email: "manager.one@example.test", OrganizationID: "CAA", Roles: []identity.Role{identity.RoleDepartmentManager},
+	}}
+	sessions := &fakeAuthSessions{
+		loginState: session.LoginState{Nonce: "nonce", PKCEVerifier: "verifier", ReturnTo: "/department-manager/aga-demo-workspace"},
+		created:    session.BrowserSession{ID: "session-local", Token: "local-session", CSRFToken: "local-csrf"},
+	}
+	handler := httpapi.NewAuthBoundaryWithCookieSecure(provider, sessions, false).Handler()
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/auth/callback?state=state&code=code", nil))
+	if response.Code != http.StatusFound {
+		t.Fatalf("local callback response = %d, %s", response.Code, response.Body.String())
+	}
+	cookies := response.Result().Cookies()
+	if len(cookies) != 2 {
+		t.Fatalf("local callback cookies = %+v", cookies)
+	}
+	byName := map[string]*http.Cookie{}
+	for _, cookie := range cookies {
+		byName[cookie.Name] = cookie
+	}
+	if sessionCookie := byName["avia_session"]; sessionCookie == nil || sessionCookie.Secure || !sessionCookie.HttpOnly {
+		t.Fatalf("local session cookie = %+v", sessionCookie)
+	}
+	if csrfCookie := byName["avia_csrf"]; csrfCookie == nil || csrfCookie.Secure || csrfCookie.HttpOnly {
+		t.Fatalf("local CSRF cookie = %+v", csrfCookie)
+	}
+}
+
 func TestSessionProjectionNeverReturnsCredentialsAndLogoutRequiresCSRF(t *testing.T) {
 	t.Parallel()
 	principal := identity.Principal{

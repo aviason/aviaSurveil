@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 import { useScenario } from "../../app/scenario-context";
+import { BackendHttpError } from "../../backend/http-backend";
 import { DataRegister, type DataRegisterColumn } from "../../ui/workbench/data-register";
 import { DueState } from "../../ui/workbench/due-state";
 import { StatusPill, type StatusPillTone } from "../../ui/workbench/status-pill";
@@ -37,9 +38,14 @@ function formatStatus(value: string): string {
   return value.replaceAll("_", " ");
 }
 
+function isUnavailableAssignmentProjection(error: unknown): boolean {
+  return error instanceof BackendHttpError && error.status === 404;
+}
+
 export function InspectorAssignmentsPage() {
   const { projection, actions } = useScenario();
   const [error, setError] = useState<string | null>(null);
+  const [unavailableReason, setUnavailableReason] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -47,7 +53,14 @@ export function InspectorAssignmentsPage() {
   const [dateFilter, setDateFilter] = useState("all");
 
   useEffect(() => {
-    void actions.loadAssignments().catch((cause) => setError(errorMessage(cause)));
+    void actions.loadAssignments().catch((cause) => {
+      if (isUnavailableAssignmentProjection(cause)) {
+        setError(null);
+        setUnavailableReason("Assignments are not provisioned in this local AGA workspace.");
+        return;
+      }
+      setError(errorMessage(cause));
+    });
     // The injected Backend instance is fixed for the lifetime of this candidate shell.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -127,6 +140,7 @@ export function InspectorAssignmentsPage() {
           </div>
         </header>
       <CommandError message={error} />
+      {unavailableReason ? <p className="inspector-empty-state" role="status">{unavailableReason}</p> : null}
       <section className="inspector-assignment-kpis" aria-label="Assignment attention">
         <button aria-pressed={statusFilter === "all"} className={statusFilter === "all" ? "is-active" : ""} onClick={() => setStatusFilter("all")} type="button">
           <span className="inspector-assignment-kpi__icon" aria-hidden="true">📄</span><span><b>Open Assignments</b><strong>{projection.assignments.length}</strong><em>Audits</em></span>

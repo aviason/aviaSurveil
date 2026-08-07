@@ -11,6 +11,9 @@ export function requiredEnvironment(name: string): string {
   return value;
 }
 
+const browserSessionCookieNames = new Set(["__Host-avia_session", "avia_session"]);
+const browserCSRFCookieNames = new Set(["__Host-avia_csrf", "avia_csrf"]);
+
 type QualificationPhase =
   | "login-gate-visible"
   | "provider-page-open"
@@ -143,7 +146,7 @@ export async function loginQualificationAccount(
       return;
     }
     sessionRequestDigestReads.push(request.allHeaders().then((headers) => {
-      const token = /(?:^|; )__Host-avia_session=([^;]+)/u.exec(
+      const token = /(?:^|; )(?:__Host-avia_session|avia_session)=([^;]+)/u.exec(
         headers.cookie ?? "",
       )?.[1];
       return token ? createHash("sha256").update(token).digest("hex") : "";
@@ -205,12 +208,8 @@ export async function loginQualificationAccount(
   const callbackCookies = await page.context().cookies(
     requiredEnvironment("AVIA_E2E_BASE_URL"),
   );
-  const sessionCookie = callbackCookies.find(
-    (cookie) => cookie.name === "__Host-avia_session",
-  );
-  const hasCSRFCookie = callbackCookies.some(
-    (cookie) => cookie.name === "__Host-avia_csrf",
-  );
+  const sessionCookie = callbackCookies.find((cookie) => browserSessionCookieNames.has(cookie.name));
+  const hasCSRFCookie = callbackCookies.some((cookie) => browserCSRFCookieNames.has(cookie.name));
   if (sessionCookie && hasCSRFCookie) {
     recordQualificationPhase("oidc-cookie-pair-present");
   } else {
@@ -221,7 +220,7 @@ export async function loginQualificationAccount(
     const callbackHeaders = await callbackHTTPResponse.headersArray();
     const callbackToken = callbackHeaders
       .filter((header) => header.name.toLowerCase() === "set-cookie")
-      .map((header) => /^__Host-avia_session=([^;]+)/u.exec(header.value)?.[1])
+      .map((header) => /^(?:__Host-avia_session|avia_session)=([^;]+)/u.exec(header.value)?.[1])
       .find((value): value is string => Boolean(value));
     writeFileSync(digestPath, `${JSON.stringify({
       callback: callbackToken
@@ -260,11 +259,11 @@ export async function browserFetch(
 export async function logout(page: Page): Promise<void> {
   captureAuthControlEvent("BEFORE_LOGOUT");
   const result = await page.evaluate(async () => {
-    const csrf = document.cookie
+    const csrfEntry = document.cookie
       .split(";")
       .map((entry) => entry.trim())
-      .find((entry) => entry.startsWith("__Host-avia_csrf="))
-      ?.slice("__Host-avia_csrf=".length);
+      .find((entry) => entry.startsWith("__Host-avia_csrf=") || entry.startsWith("avia_csrf="));
+    const csrf = csrfEntry?.slice(csrfEntry.indexOf("=") + 1);
     const response = await fetch("/auth/logout", {
       method: "POST",
       credentials: "same-origin",

@@ -76,3 +76,18 @@ func TestBatchBodySearchIntersectsMetadataAfterResolvingTheBody(t *testing.T) {
 		t.Fatalf("body search result = %+v, want the resolver identity", items)
 	}
 }
+
+func TestClassificationSearchKeepsIdentityMatchesWhenBodySearchIsEmpty(t *testing.T) {
+	base := aga.BaseIdentity{
+		PackageVersion: aga.FrozenPackageVersion, PackageJSONSHA256: aga.FrozenPackageJSONSHA256,
+		FormCode: "FSS-AGA-FORM-053", ProposalID: "sealed-proposal-identity", Ordinal: 1,
+		TextDigest: "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+	}
+	row := classificationReviewRow{item: preprod.ClassificationItem{Identity: base, QuestionKey: base.Key()}, ref: aga.BaseQuestionReference(base), baseIdentity: &base}
+	metadataRows := filterClassificationReviewRows([]classificationReviewRow{row}, QueryRequest{Search: "FSS-AGA-FORM-053"})
+	bodyRows := filterReviewRowsByBodyIdentity([]classificationReviewRow{row}, map[string]struct{}{}, "FSS-AGA-FORM-053")
+	merged := mergeClassificationReviewRows(metadataRows, bodyRows)
+	if len(merged) != 1 || merged[0].ref.Key() != row.ref.Key() {
+		t.Fatalf("identity search result = %+v, want the metadata identity", merged)
+	}
+}

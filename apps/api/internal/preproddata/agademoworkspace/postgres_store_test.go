@@ -32,6 +32,70 @@ func TestPostgresRecommendationSnapshotRequiresCommandStore(t *testing.T) {
 	}
 }
 
+func TestWorkspaceProviderScopeResolvesConnectedCAAOrganizationAlias(t *testing.T) {
+	matching := workspaceProviderScopeForOrganization("CAA")
+	if matching == "" || matching != workspaceProviderScopeForOrganization("AGA-DEMO-CAA") {
+		t.Fatalf("CAA provider scope alias = %q, synthetic scope = %q", matching, workspaceProviderScopeForOrganization("AGA-DEMO-CAA"))
+	}
+	if other := workspaceProviderScopeForOrganization("AGA-DEMO-OTHER-ORG"); other == "" || other == matching {
+		t.Fatalf("other organization provider scope = %q", other)
+	}
+}
+
+func TestWorkspaceAuthorityRowsPreserveNegativeInspectorScope(t *testing.T) {
+	fixture := resetFixtureForTest(t)
+	rows := workspaceAuthorityBindingRows("aga-ws-generation-scope-test", fixture)
+	var matching, other map[string]any
+	for _, raw := range rows {
+		row, ok := raw.(map[string]any)
+		if !ok {
+			t.Fatalf("authority row has type %T", raw)
+		}
+		switch row["subject_slot"] {
+		case "INSPECTOR":
+			matching = row
+		case "INSPECTOR_OTHER":
+			other = row
+		}
+	}
+	if matching == nil || matching["organization_id"] != "AGA-DEMO-CAA" {
+		t.Fatalf("matching inspector binding organization = %#v", matching)
+	}
+	if other == nil || other["organization_id"] != "AGA-DEMO-OTHER-ORG" {
+		t.Fatalf("negative inspector binding organization = %#v", other)
+	}
+	if other["payload"].(map[string]any)["providerScopeId"] != "aga-ws-scope-other" {
+		t.Fatalf("negative inspector binding provider scope = %#v", other["payload"])
+	}
+}
+
+func TestWorkspaceAuthorityRowsPinConnectedAuditeeToFixtureScope(t *testing.T) {
+	fixture := resetFixtureForTest(t)
+	for index := range fixture.Accounts {
+		if fixture.Accounts[index].Slot == "AUDITEE_MATCHING" {
+			fixture.Accounts[index].OrganizationID = "synthetic-organizations-connected-provider"
+		}
+		if fixture.Accounts[index].Slot == "AUDITEE_OTHER_ORGANIZATION" {
+			fixture.Accounts[index].OrganizationID = "synthetic-organizations-other-provider"
+		}
+	}
+	rows := workspaceAuthorityBindingRows("aga-ws-generation-auditee-scope-test", fixture)
+	for _, raw := range rows {
+		row := raw.(map[string]any)
+		payload := row["payload"].(map[string]any)
+		switch row["subject_slot"] {
+		case "AUDITEE_MATCHING":
+			if payload["providerScopeId"] != "aga-ws-scope-matching" {
+				t.Fatalf("matching connected auditee provider scope = %#v", payload["providerScopeId"])
+			}
+		case "AUDITEE_OTHER_ORGANIZATION":
+			if payload["providerScopeId"] != "aga-ws-scope-other" {
+				t.Fatalf("other connected auditee provider scope = %#v", payload["providerScopeId"])
+			}
+		}
+	}
+}
+
 func TestRecommendationSnapshotRelationIsAppendOnly(t *testing.T) {
 	ddl := WorkspaceAppendOnlyTriggerDDL()
 	if !strings.Contains(ddl, "recommendation_snapshots_append_only") {

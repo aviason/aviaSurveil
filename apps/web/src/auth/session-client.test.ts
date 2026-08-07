@@ -93,6 +93,14 @@ describe("SessionClient", () => {
     expect(parseCsrfCookie()).toBe("csrf-cookie-value");
   });
 
+  it("parses the local HTTP CSRF cookie used by the disposable preprod demo", () => {
+    expect(parseCsrfCookie("theme=light; avia_csrf=local-csrf; other=value")).toBe("local-csrf");
+  });
+
+  it("prefers the local token when a stale secure cookie is still present", () => {
+    expect(parseCsrfCookie("__Host-avia_csrf=stale; avia_csrf=current", "http:")).toBe("current");
+  });
+
   it("sends logout with the CSRF header and same-origin credentials", async () => {
     Object.defineProperty(document, "cookie", {
       configurable: true,

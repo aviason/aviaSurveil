@@ -478,11 +478,8 @@ func workspaceAuthorityBindingRows(generationID string, fixture FixtureManifest)
 	for _, binding := range fixture.Bindings {
 		account := accounts[binding.SubjectSlot]
 		operationRoles := append([]string(nil), binding.OperationRoles...)
-		organizationID := binding.OrganizationID
-		if account.OrganizationID != "" {
-			organizationID = account.OrganizationID
-		}
-		providerScopeID := workspaceProviderScopeForOrganization(organizationID)
+		organizationID := workspaceBindingOrganizationID(binding, account)
+		providerScopeID := workspaceProviderScopeForBinding(binding, organizationID)
 		bindingDigest := binding.BindingDigest
 		if !validDigest(bindingDigest) {
 			bindingDigest = digestValue("AGA-DEMO-WORKSPACE-AUTHORITY-BINDING-V1", map[string]any{
@@ -516,17 +513,54 @@ func workspaceAuthorityBindingRows(generationID string, fixture FixtureManifest)
 	return rows
 }
 
+// workspaceBindingOrganizationID keeps the explicit negative-scope fixture
+// bindings outside the connected account's source organization.  The
+// INSPECTOR_OTHER account intentionally reuses the inspector principal to
+// prove that provider-scope and organization boundaries are enforced by the
+// sealed workspace graph, so replacing its template organization would turn
+// the two inspector rows into an ambiguous authority set.
+func workspaceBindingOrganizationID(binding AuthorityBinding, account FixtureAccount) string {
+	if binding.SubjectSlot == "INSPECTOR_OTHER" {
+		return binding.OrganizationID
+	}
+	if account.OrganizationID != "" {
+		return account.OrganizationID
+	}
+	return binding.OrganizationID
+}
+
 func workspaceProviderScopeForOrganization(organizationID string) string {
+	normalizedOrganizationID := strings.ToUpper(strings.TrimSpace(organizationID))
+	if normalizedOrganizationID == "CAA" {
+		normalizedOrganizationID = "AGA-DEMO-CAA"
+	}
 	for _, scope := range DefaultFixtureTemplate().Scopes {
 		scopeOrganizationID := "AGA-DEMO-OTHER-ORG"
 		if scope.OrganizationSlot == "MATCHING" {
 			scopeOrganizationID = "AGA-DEMO-CAA"
 		}
-		if scopeOrganizationID == organizationID {
+		if scopeOrganizationID == normalizedOrganizationID {
 			return scope.ProviderScopeID
 		}
 	}
 	return ""
+}
+
+// workspaceProviderScopeForBinding preserves the provider-scope edge for
+// connected auditee identities whose source organization id is opaque to the
+// synthetic workspace.  The fixture slot is the sealed, explicit boundary:
+// matching auditee rows belong to the matching scope and the negative rows
+// belong to the other scope.  Falling back to the organization helper keeps
+// ordinary CAA rows and legacy fixture manifests unchanged.
+func workspaceProviderScopeForBinding(binding AuthorityBinding, organizationID string) string {
+	switch binding.SubjectSlot {
+	case "AUDITEE_MATCHING":
+		return workspaceProviderScopeForOrganization("AGA-DEMO-CAA")
+	case "AUDITEE_OTHER_ORGANIZATION", "INSPECTOR_OTHER":
+		return workspaceProviderScopeForOrganization("AGA-DEMO-OTHER-ORG")
+	default:
+		return workspaceProviderScopeForOrganization(organizationID)
+	}
 }
 
 func workspaceProviderRows(generationID string, now time.Time) ([]any, []any) {

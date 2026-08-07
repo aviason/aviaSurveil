@@ -161,6 +161,11 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 		SMTPHealthAddress:         value(lookup, "AVIA_SMTP_HEALTH_ADDRESS"),
 		OTLPHTTPEndpoint:          value(lookup, "AVIA_OTEL_EXPORTER_OTLP_ENDPOINT"),
 	}
+	cookieSecure, err := parseBoolean(lookup, "AVIA_COOKIE_SECURE", true)
+	if err != nil {
+		return Settings{}, err
+	}
+	settings.CookieSecure = cookieSecure
 	if settings.OIDCDiscoveryURL == "" {
 		settings.OIDCDiscoveryURL = settings.OIDCIssuerURL
 	}
@@ -265,6 +270,9 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 		(settings.CanonicalSeed || serverManagedCORS)
 
 	if settings.Environment == "production" {
+		if !settings.CookieSecure {
+			return Settings{}, fmt.Errorf("AVIA_COOKIE_SECURE=false is forbidden in production")
+		}
 		for _, key := range []string{"AVIA_TEST_PRINCIPAL", "AVIA_TEST_SESSION", "AVIA_DEV_SESSION_SECRET", "AVIA_ENABLE_CANONICAL_SEED", "AVIA_ENABLE_CANONICAL_TEST_PROFILE", "AVIA_CANONICAL_TEST_TOKEN", "AVIA_OBJECT_STORE_SERVER_MANAGED_CORS"} {
 			if value(lookup, key) != "" {
 				return Settings{}, fmt.Errorf("%s is forbidden in production", key)

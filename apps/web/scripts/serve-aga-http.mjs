@@ -94,8 +94,12 @@ async function serveStatic(request, response, requestUrl) {
   }
   try {
     const stat = await fs.stat(filePath);
+    const noStore =
+      filePath.endsWith("index.html") ||
+      requestUrl.pathname === "/sw.js" ||
+      requestUrl.pathname === "/app-shell-assets.json";
     response.writeHead(200, {
-      "cache-control": filePath.endsWith("index.html") ? "no-store" : "public, max-age=31536000, immutable",
+      "cache-control": noStore ? "no-store" : "public, max-age=31536000, immutable",
       "content-length": stat.size,
       "content-type": contentTypes[extname(filePath).toLowerCase()] ?? "application/octet-stream",
     });

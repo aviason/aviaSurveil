@@ -72,11 +72,23 @@ function PendingImplementationRoute({ contract }: { contract: RouteContract }) {
   return <><ParentSurface contract={contract} /><section role="alert" aria-label={`${contract.label} pending implementation`} data-testid="route-pending-implementation"><strong>{contract.label}</strong> is pending implementation in this demo route contract.</section></>;
 }
 
+function AgaDemoOnlyRoute({ contract }: { contract: RouteContract }) {
+  const target = contract.requiredRole ? agaDemoWorkspaceLandingPath(contract.requiredRole) : null;
+  if (target) return <Navigate replace to={target} />;
+  return (
+    <section data-testid="aga-demo-only-route" role="status">
+      <h1>{contract.label}</h1>
+      <p>This local candidate exposes the connected AGA demo workspace only. The canonical {contract.label.toLowerCase()} surface is not provisioned by this API profile.</p>
+    </section>
+  );
+}
+
 function ContractRoute({ contract }: { contract: RouteContract }) {
-  const { buildProfile } = useApplicationRuntime();
+  const { buildProfile, agaDemoWorkspaceSurfaceEnabled } = useApplicationRuntime();
   const entry = SCREEN_COMPONENT_REGISTRY[contract.componentKey];
   const isAvailable = contract.availableProfiles.includes(buildProfile);
-  return <RoleGuard requiredRole={contract.requiredRole}><Suspense fallback={<p data-testid="route-loading">Loading route...</p>}>{!isAvailable ? <BlockedProfileRoute contract={contract} /> : entry.status === "implemented" ? <entry.component /> : <PendingImplementationRoute contract={contract} />}</Suspense></RoleGuard>;
+  const agaDemoOnly = agaDemoWorkspaceSurfaceEnabled && contract.id !== "admin-checklist-builder";
+  return <RoleGuard requiredRole={contract.requiredRole}><Suspense fallback={<p data-testid="route-loading">Loading route...</p>}>{agaDemoOnly ? <AgaDemoOnlyRoute contract={contract} /> : !isAvailable ? <BlockedProfileRoute contract={contract} /> : entry.status === "implemented" ? <entry.component /> : <PendingImplementationRoute contract={contract} />}</Suspense></RoleGuard>;
 }
 
 function routeElement(contract: RouteContract): ReactElement {

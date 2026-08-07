@@ -14,6 +14,7 @@ import type {
   AGADemoWorkspaceLifecycleCAAProjection,
   AGADemoWorkspaceLifecycleProjection,
 } from "../../backend/aga-demo-workspace";
+import { BackendHttpError } from "../../backend/http-backend";
 import { createMockBackendRuntime } from "../../mock/create-mock-backend";
 import { ScenarioProvider } from "../../app/scenario-context";
 import { AGADemoInspectionPage } from "./aga-demo-inspection-page";
@@ -153,6 +154,17 @@ describe("AGA synthetic inspection lifecycle page", () => {
     renderPage(client, "inspector", null);
     expect(screen.getByRole("status")).toHaveTextContent(/No server-returned synthetic inspection/i);
     expect(screen.getByRole("button", { name: "Load authorized inspection" })).toBeDisabled();
+  });
+
+  it("renders an empty lifecycle state instead of leaking an expected 404", async () => {
+    const client = lifecycleClient(projection());
+    vi.mocked(client.lifecycleQuery).mockRejectedValue(new BackendHttpError("Backend request failed with status 404", 404, null, null, null));
+    renderPage(client, "inspector", null);
+
+    await waitFor(() => expect(client.lifecycleQuery).toHaveBeenCalledWith(expect.objectContaining({ operationId: "GET_CURRENT_INSPECTION" }), expect.anything()));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/No server-returned synthetic inspection/i));
+    expect(screen.queryByText(/Backend request failed with status 404/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("keeps Manager recommendation and simulation release fail-closed until pinned facts arrive", () => {

@@ -82,6 +82,34 @@ func TestWorkspaceLifecycleAuthorizationAcceptsExactReviewerMembership(t *testin
 	}
 }
 
+func TestFixtureMembershipPreferenceSeparatesSharedLeadPrincipal(t *testing.T) {
+	principal := principalFor("lead", "CAA", identity.RoleLeadInspector)
+	candidates := []preprod.AuthorityBinding{
+		{BindingID: "reviewer", MembershipSlot: "CAA_REVIEWER_MEMBERSHIP"},
+		{BindingID: "lead", MembershipSlot: "LEAD_INSPECTOR_MEMBERSHIP"},
+	}
+	preferred := preferFixtureMembershipBinding(principal, OperationGetInspection, candidates)
+	if len(preferred) != 1 || preferred[0].BindingID != "lead" {
+		t.Fatalf("lifecycle preference = %#v", preferred)
+	}
+	reviewer := preferFixtureMembershipBinding(principal, OperationReviewCAP, candidates)
+	if len(reviewer) != 2 {
+		t.Fatalf("review preference should preserve operation-filtered candidates, got %#v", reviewer)
+	}
+}
+
+func TestFixtureMembershipPreferenceKeepsAmbiguousProjectionDenied(t *testing.T) {
+	principal := principalFor("inspector", "CAA", identity.RoleInspector)
+	candidates := []preprod.AuthorityBinding{
+		{BindingID: "first", MembershipSlot: "INSPECTOR_MEMBERSHIP"},
+		{BindingID: "second", MembershipSlot: "INSPECTOR_MEMBERSHIP"},
+	}
+	preferred := preferFixtureMembershipBinding(principal, OperationGetInspection, candidates)
+	if len(preferred) != 2 {
+		t.Fatalf("ambiguous inspector projection was narrowed: %#v", preferred)
+	}
+}
+
 func TestWorkspaceAdminResetRequiresCAAOrganization(t *testing.T) {
 	service := NewService(ServiceConfig{})
 	if _, err := service.Authorize(context.Background(), principalFor("admin", "ORG", identity.RoleAdmin), OperationResetGeneration); err == nil {
@@ -143,6 +171,17 @@ func TestLifecycleScopeRequiresExactProviderScope(t *testing.T) {
 	binding.ProviderScopeID = aggregate.ProviderScopeID
 	if !bindingMatchesLifecycleScope(binding, aggregate) {
 		t.Fatal("matching lifecycle scope binding was denied")
+	}
+}
+
+func TestLifecycleScopeAcceptsConnectedOrganizationAliasWhenProviderScopeMatches(t *testing.T) {
+	aggregate, _, _, _, _ := lifecycleFixture(t)
+	binding := bindingFor("auditee", "synthetic-organizations-connected-provider", "auditee")
+	binding.ProviderScopeID = aggregate.ProviderScopeID
+	binding.DepartmentID = aggregate.Inspector.DepartmentID
+	binding.OrganizationalUnitID = aggregate.Inspector.OrganizationalUnitID
+	if !bindingMatchesLifecycleScope(binding, aggregate) {
+		t.Fatal("connected auditee binding with exact provider scope was denied")
 	}
 }
 

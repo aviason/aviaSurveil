@@ -11,6 +11,7 @@ import type {
   AGADemoWorkspaceQueryResponse,
 } from "../../backend/aga-demo-workspace";
 import type { Role } from "../../backend/backend";
+import { BackendHttpError } from "../../backend/http-backend";
 import { CommandError, PageHeader, WorkspaceShell, errorMessage } from "../shared/workspace-shell";
 
 type WorkspaceRow = NonNullable<AGADemoWorkspaceQueryResponse["items"]>[number];
@@ -106,6 +107,10 @@ function conflictMessage(error: unknown): boolean {
   return /conflict|stale|compare-and-swap|cas|revision|digest/i.test(errorMessage(error));
 }
 
+function isWorkspaceNotFound(error: unknown): boolean {
+  return error instanceof BackendHttpError && error.status === 404;
+}
+
 export function AGADemoClassificationWorkspacePage({
   capability,
   role,
@@ -184,7 +189,9 @@ export function AGADemoClassificationWorkspacePage({
     void refreshModels(controller.signal).catch((cause) => {
       if (!controller.signal.aborted) {
         setLoading(false);
-        setError(errorMessage(cause));
+        setError(isWorkspaceNotFound(cause)
+          ? "Classification inventory is not provisioned in this local AGA workspace."
+          : errorMessage(cause));
       }
     });
     return () => controller.abort();
@@ -217,7 +224,9 @@ export function AGADemoClassificationWorkspacePage({
       .catch((cause) => {
         if (!controller.signal.aborted) {
           setLoading(false);
-          setError(errorMessage(cause));
+          setError(isWorkspaceNotFound(cause)
+            ? "Classification inventory is not provisioned in this local AGA workspace."
+            : errorMessage(cause));
         }
       });
     return () => controller.abort();
@@ -246,6 +255,11 @@ export function AGADemoClassificationWorkspacePage({
 
   const updateFilter = useCallback((name: keyof Filters, value: string) => {
     setFilters((current) => ({ ...current, [name]: value }));
+    setPage(0);
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setFilters(emptyFilters);
     setPage(0);
   }, []);
 
@@ -406,6 +420,13 @@ export function AGADemoClassificationWorkspacePage({
   const hasNextPage = pageResponse?.nextPage !== undefined;
   const inspectedScopeEligible = providers.filter((entry) => entry.disposition === "INSPECTED_SCOPE_ELIGIBLE");
   const involvementOnly = providers.filter((entry) => entry.disposition === "INVOLVEMENT_ONLY");
+  const activeFilterCount = Object.entries(filters).filter(([key, value]) => {
+    if (key === "blocker" || key === "sourceGap" || key === "externalInvolvement") return value !== "all";
+    return Boolean(value);
+  }).length;
+  const firstVisibleRow = rows.length > 0 ? currentPageNumber * PAGE_SIZE + 1 : 0;
+  const lastVisibleRow = rows.length > 0 ? firstVisibleRow + rows.length - 1 : 0;
+  const generationLabel = generation ? `${generation.state ?? "ACTIVE"} · revision ${generation.revision}` : "Not loaded";
   const includeDisabledReason = !selected
     ? "Select a server-returned classification item before including it."
     : !selected.includeEligible
@@ -418,72 +439,99 @@ export function AGADemoClassificationWorkspacePage({
     <WorkspaceShell roleLabel={roleLabel} routeLabel="AGA Demo Workspace">
       <main className="aga-classification-workspace" data-testid="aga-classification-workspace-page">
         <PageHeader
-          eyebrow="Disposable local-preprod workspace"
-          title="AGA classification review"
-          description="Review the sealed classification projection and create attributed Draft successors. Base package content remains outside browser persistence and telemetry."
+          eyebrow="Department Manager · local AGA candidate"
+          title="Classify AGA questions"
+          description="A guided review queue for 1,310 sealed questions. Find one, understand the current proposal, then record a Draft decision."
           action={role === "admin" ? <button className="aga-workspace-button" onClick={showHistory} type="button">View generation history</button> : undefined}
         />
+        <section aria-label="How to use this demo" className="aga-workspace-guide" data-testid="aga-demo-guidance">
+          <div className="aga-workspace-guide__lede">
+            <span className="aga-workspace-kicker">Start here</span>
+            <h2>What am I looking at?</h2>
+            <p>This is a safe local candidate. You are reviewing sealed question text and its proposed classification; nothing here publishes a regulatory decision.</p>
+            <span className="aga-workspace-safe-state"><span aria-hidden="true" /> Local candidate only</span>
+          </div>
+          <ol className="aga-workspace-guide__steps">
+            <li><span className="aga-workspace-step-number">1</span><div><strong>Find</strong><p>Search the queue or narrow it with filters.</p></div></li>
+            <li><span className="aga-workspace-step-number">2</span><div><strong>Compare</strong><p>Open a row to read its sealed text and signals.</p></div></li>
+            <li><span className="aga-workspace-step-number">3</span><div><strong>Decide</strong><p>Record one Draft action with a controlled reason.</p></div></li>
+          </ol>
+        </section>
         <CommandError message={error} />
         {status ? <p className="aga-workspace-status" role="status">{status}</p> : null}
 
         <section aria-label="Workspace generation and counts" className="aga-workspace-facts">
-          <article><span>Current generation</span><strong>{generation?.generationId ?? "Not loaded"}</strong><small>sealed revision {generation?.revision ?? "—"}</small></article>
-          <article><span>Base inventory</span><strong>{summary?.baseQuestionCount ?? 0}</strong><small>server-sealed rows</small></article>
-          <article><span>Draft items</span><strong>{currentDraftItemCount(draft)}</strong><small>effective Draft projection</small></article>
-          <article><span>Filtered rows</span><strong>{total}</strong><small>page {currentPageNumber + 1}</small></article>
+          <article><span>Questions in queue</span><strong>{summary?.baseQuestionCount ?? 0}</strong><small>sealed server inventory</small></article>
+          <article><span>Current generation</span><strong>{generationLabel}</strong><small>{generation?.generationId ?? "Waiting for server"}</small></article>
+          <article><span>Draft decisions</span><strong>{currentDraftItemCount(draft)}</strong><small>effective Draft projection</small></article>
+          <article><span>Showing now</span><strong>{total ? `${firstVisibleRow}–${lastVisibleRow}` : "—"}</strong><small>{total ? `of ${total} matching rows` : "No rows loaded"}</small></article>
         </section>
 
         <section aria-label="Server filters" className="aga-workspace-filter-panel">
-          <h2>Classification inventory</h2>
-          <p>Search and every filter are sent in the POST body. The browser retains at most four fetched pages.</p>
-          <div className="aga-workspace-filter-grid">
-            <label>Search code or digest<input aria-label="AGA search" value={filters.search} onChange={(event) => updateFilter("search", event.target.value)} /></label>
-            <label>Domain<input aria-label="Domain filter" value={filters.domainCode} onChange={(event) => updateFilter("domainCode", event.target.value)} /></label>
-            <label>Topic<input aria-label="Topic filter" value={filters.topicCode} onChange={(event) => updateFilter("topicCode", event.target.value)} /></label>
-            <label>Form<input aria-label="Form filter" value={filters.formCode} onChange={(event) => updateFilter("formCode", event.target.value)} /></label>
-            <label>Sealed confidence<select aria-label="Confidence filter" value={filters.confidence} onChange={(event) => updateFilter("confidence", event.target.value)}><option value="">All</option><option value="HIGH">HIGH</option><option value="MEDIUM">MEDIUM</option><option value="LOW">LOW</option></select></label>
-            <label>Blocker<select aria-label="Blocker filter" value={filters.blocker} onChange={(event) => updateFilter("blocker", event.target.value)}><option value="all">All</option><option value="true">Has blocker</option><option value="false">No blocker</option></select></label>
-            <label>Source gap<select aria-label="Source-gap filter" value={filters.sourceGap} onChange={(event) => updateFilter("sourceGap", event.target.value)}><option value="all">All</option><option value="true">Has gap</option><option value="false">No gap</option></select></label>
-            <label>External involvement<select aria-label="External-involvement filter" value={filters.externalInvolvement} onChange={(event) => updateFilter("externalInvolvement", event.target.value)}><option value="all">All</option><option value="true">Unresolved</option><option value="false">Resolved</option></select></label>
-            <label>Draft disposition<select aria-label="Disposition filter" value={filters.disposition} onChange={(event) => updateFilter("disposition", event.target.value)}><option value="">All</option><option value="INCLUDE">INCLUDE</option><option value="EXCLUDE">EXCLUDE</option><option value="DEFER">DEFER</option><option value="UNSET">UNSET</option></select></label>
+          <div className="aga-workspace-filter-head">
+            <div><span className="aga-workspace-kicker">Step 1 · Find</span><h2>Review queue</h2><p>Search is sent to the server; the browser keeps only lightweight page metadata.</p></div>
+            <div className="aga-workspace-filter-head__actions"><span className="aga-workspace-filter-count">{activeFilterCount ? `${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"} on` : "All questions"}</span><button className="aga-workspace-quiet-button" disabled={!activeFilterCount || loading} onClick={clearFilters} type="button">Clear filters</button></div>
           </div>
+          <label className="aga-workspace-search-field"><span>Search by form, reference, digest, or code</span><input aria-label="AGA search" placeholder="Try FSS-AGA-FORM-002 or a question reference" value={filters.search} onChange={(event) => updateFilter("search", event.target.value)} /></label>
+          <details className="aga-workspace-advanced-filters">
+            <summary>More filters</summary>
+            <div className="aga-workspace-filter-grid">
+              <label>Domain<input aria-label="Domain filter" value={filters.domainCode} onChange={(event) => updateFilter("domainCode", event.target.value)} /></label>
+              <label>Topic<input aria-label="Topic filter" value={filters.topicCode} onChange={(event) => updateFilter("topicCode", event.target.value)} /></label>
+              <label>Form<input aria-label="Form filter" value={filters.formCode} onChange={(event) => updateFilter("formCode", event.target.value)} /></label>
+              <label>Sealed confidence<select aria-label="Confidence filter" value={filters.confidence} onChange={(event) => updateFilter("confidence", event.target.value)}><option value="">All</option><option value="HIGH">HIGH</option><option value="MEDIUM">MEDIUM</option><option value="LOW">LOW</option></select></label>
+              <label>Blocker<select aria-label="Blocker filter" value={filters.blocker} onChange={(event) => updateFilter("blocker", event.target.value)}><option value="all">All</option><option value="true">Has blocker</option><option value="false">No blocker</option></select></label>
+              <label>Source gap<select aria-label="Source-gap filter" value={filters.sourceGap} onChange={(event) => updateFilter("sourceGap", event.target.value)}><option value="all">All</option><option value="true">Has gap</option><option value="false">No gap</option></select></label>
+              <label>External involvement<select aria-label="External-involvement filter" value={filters.externalInvolvement} onChange={(event) => updateFilter("externalInvolvement", event.target.value)}><option value="all">All</option><option value="true">Unresolved</option><option value="false">Resolved</option></select></label>
+              <label>Draft disposition<select aria-label="Disposition filter" value={filters.disposition} onChange={(event) => updateFilter("disposition", event.target.value)}><option value="">All</option><option value="INCLUDE">INCLUDE</option><option value="EXCLUDE">EXCLUDE</option><option value="DEFER">DEFER</option><option value="UNSET">UNSET</option></select></label>
+            </div>
+          </details>
         </section>
 
         <section aria-label="Sealed classification rows" className="aga-workspace-register">
-          <div className="aga-workspace-register__head"><div><h2>Sealed base classification</h2><p>Authorized roles receive only the active 25-row sealed text page; the four-page cache stores metadata without bodies.</p></div><div className="aga-workspace-pagination"><button disabled={currentPageNumber === 0 || loading} onClick={() => setPage((value) => Math.max(0, value - 1))} type="button">Previous page</button><span>Page {currentPageNumber + 1}</span><button disabled={!hasNextPage || loading} onClick={() => setPage((value) => value + 1)} type="button">Next page</button></div></div>
-          {loading ? <p role="status">Loading server page…</p> : null}
-          <div className="aga-workspace-table-wrap"><table><caption className="sr-only">Sealed AGA classification page</caption><thead><tr><th scope="col">Server reference</th><th scope="col">Sealed candidate text</th><th scope="col">Classification</th><th scope="col">Confidence / provenance</th><th scope="col">Draft-effective state</th><th scope="col">Review</th></tr></thead><tbody>{rows.map((row) => <tr data-selected={selected?.questionKey === row.questionKey ? "true" : undefined} key={row.questionKey}><th scope="row"><button className="aga-workspace-row-link" onClick={() => setSelected(row)} type="button">{row.identity.formCode} · {row.identity.ordinal}</button><small>{row.identity.proposalId} · {row.questionKey}</small></th><td><p className="aga-workspace-question-text">{row.questionText ?? "Sealed candidate text is not available in this projection."}</p><small>{row.textOrigin === "SEALED_BASE" ? "sealed candidate text · digest matched" : "text projection not returned"}</small></td><td><strong>{row.projection.mainDomainCode}</strong><small>{(row.projection.topicCodes ?? []).join(" · ") || "No topic"}</small><small>{row.recommendationState}</small></td><td><strong>{row.agreementConfidence}</strong><small>candidate {row.candidateDigest}</small><small>challenge {row.challengeDigest}</small></td><td><strong>{row.draftAgreementConfidence ?? "Nullable / not set"}</strong><small>{row.draftReviewState || "Review state not set"}</small><small>{row.draftDisposition ?? "Disposition not set"}</small></td><td><button onClick={() => setSelected(row)} type="button">Open controls</button></td></tr>)}</tbody></table></div>
-          {!loading && rows.length === 0 ? <p className="aga-workspace-empty">No sealed rows match the server filters.</p> : null}
+          <div className="aga-workspace-register__head"><div><span className="aga-workspace-kicker">Step 2 · Compare</span><h2>Question queue</h2><p>Select a row to open its decision file. The full sealed text is fetched only for the active page.</p></div><div className="aga-workspace-pagination"><button disabled={currentPageNumber === 0 || loading} onClick={() => setPage((value) => Math.max(0, value - 1))} type="button">Previous</button><span>Page {currentPageNumber + 1}</span><button disabled={!hasNextPage || loading} onClick={() => setPage((value) => value + 1)} type="button">Next</button></div></div>
+          {loading ? <div aria-live="polite" className="aga-workspace-queue-loading"><span /><span /><span /></div> : null}
+          <div className="aga-workspace-review-grid">
+            <section aria-label="Sealed question queue" className="aga-workspace-queue">
+              <div className="aga-workspace-queue__head"><div><strong>{total || 0}</strong><span>matching questions</span></div><span>{firstVisibleRow && lastVisibleRow ? `${firstVisibleRow}–${lastVisibleRow}` : "No rows"}</span></div>
+              <div className="aga-workspace-queue__list" role="list">
+                {rows.map((row) => <article className="aga-workspace-queue-item" data-selected={selected?.questionKey === row.questionKey ? "true" : undefined} key={row.questionKey} role="listitem">
+                  <div className="aga-workspace-queue-item__topline"><button className="aga-workspace-row-link" onClick={() => setSelected(row)} type="button">{row.identity.formCode} <span aria-hidden="true">·</span> {row.identity.ordinal}</button><span className="aga-workspace-status-chip">{row.agreementConfidence} confidence</span></div>
+                  <button className="aga-workspace-queue-item__question" onClick={() => setSelected(row)} type="button">{row.questionText ?? "Sealed candidate text is not available in this projection."}</button>
+                  <div className="aga-workspace-queue-item__signals"><span>{row.projection.mainDomainCode}</span><span>{(row.projection.topicCodes ?? []).join(" · ") || "No topic"}</span><span>{row.draftDisposition ?? "No Draft decision"}</span></div>
+                  <div className="aga-workspace-queue-item__footer"><span>{row.textOrigin === "SEALED_BASE" ? "Sealed text · digest matched" : "Text projection not returned"}</span><button className="aga-workspace-quiet-button" aria-label={`Open controls for ${row.identity.formCode} ${row.identity.ordinal}`} onClick={() => setSelected(row)} type="button">Open controls</button></div>
+                  <details className="aga-workspace-technical-details"><summary>Technical identifiers</summary><dl><div><dt>Proposal</dt><dd>{row.identity.proposalId}</dd></div><div><dt>Question key</dt><dd>{row.questionKey}</dd></div><div><dt>Candidate digest</dt><dd>{row.candidateDigest}</dd></div></dl></details>
+                </article>)}
+              </div>
+              {!loading && rows.length === 0 ? <div className="aga-workspace-empty"><strong>No questions match these filters.</strong><p>Clear the filters to return to the sealed queue.</p><button className="aga-workspace-quiet-button" onClick={clearFilters} type="button">Clear filters</button></div> : null}
+            </section>
+
+            <aside aria-label="Selected question decision file" className="aga-workspace-dossier">
+              {selected ? <>
+                <div className="aga-workspace-dossier__head"><div><span className="aga-workspace-kicker">Step 3 · Decide</span><h2>Decision file</h2><p>One server-returned question, one auditable Draft action.</p></div><span className="aga-workspace-selected-chip">Selected</span></div>
+                <blockquote className="aga-workspace-question-quote">{selected.questionText ?? "Sealed candidate text is not available in this projection."}</blockquote>
+                <dl className="aga-workspace-dossier-facts"><div><dt>Domain</dt><dd>{selected.projection.mainDomainCode}</dd></div><div><dt>Topic</dt><dd>{(selected.projection.topicCodes ?? []).join(" · ") || "No topic"}</dd></div><div><dt>Proposal</dt><dd>{selected.recommendationState}</dd></div><div><dt>Draft state</dt><dd>{selected.draftDisposition ?? "Not set"}</dd></div><div><dt>Confidence</dt><dd>{selected.agreementConfidence}</dd></div><div><dt>Scope</dt><dd>{selected.includeEligible ? "Include eligible" : "Include blocked"}</dd></div></dl>
+                <p className="aga-workspace-dossier-note">The server owns the classification signals. Your actions create attributed Draft successors in this local candidate only.</p>
+                <details className="aga-workspace-technical-details"><summary>Show governance signals</summary><dl><div><dt>Candidate digest</dt><dd>{selected.candidateDigest}</dd></div><div><dt>Challenge digest</dt><dd>{selected.challengeDigest}</dd></div><div><dt>Source mapping</dt><dd>{selected.governance.sourceMappingState}</dd></div><div><dt>Decision state</dt><dd>{selected.governance.decisionState}</dd></div></dl></details>
+                <section aria-label="Draft controls" className="aga-workspace-command-panel">
+                  <div><span className="aga-workspace-kicker">Record a Draft decision</span><h3>What should happen to this question?</h3><p id="include-eligibility-reason" className="aga-workspace-boundary">{selected.includeEligible ? "This item is eligible for Include under the current server-owned simulation scope." : `Include unavailable: ${selected.includeEligibilityReason}`}</p></div>
+                  <label>Controlled reason<select aria-label="Controlled reason" value={reasonCode} onChange={(event) => setReasonCode(event.target.value as (typeof REASON_OPTIONS)[number])}>{REASON_OPTIONS.map((reason) => <option key={reason} value={reason}>{reason}</option>)}</select></label>
+                  <div className="aga-workspace-action-grid"><button disabled={!selected || pending} onClick={() => runAction("RETAIN")} type="button">Retain</button><button className="aga-workspace-action-primary" aria-label="Include selected item" aria-describedby="include-eligibility-reason" disabled={Boolean(includeDisabledReason)} onClick={() => runAction("INCLUDE")} title={includeDisabledReason || undefined} type="button">Include</button><button disabled={!selected || pending} onClick={() => runAction("EXCLUDE")} type="button">Exclude</button><button disabled={!selected || pending} onClick={() => runAction("DEFER")} type="button">Defer</button></div>
+                  <div className="aga-workspace-advanced-actions"><button disabled={!selected || pending} onClick={() => runAction("RECLASSIFY_MAIN_DOMAIN", { mainDomainCode })} type="button">Reclassify domain</button><label>New domain<input aria-label="Main domain code" value={mainDomainCode} onChange={(event) => setMainDomainCode(event.target.value)} placeholder="DOMAIN_CODE" /></label><label>Topic code<input aria-label="Topic code" value={topicCode} onChange={(event) => setTopicCode(event.target.value)} placeholder="TOPIC_CODE" /></label><button disabled={!selected || !topicCode || pending} onClick={() => runAction("ADD_TOPIC", { topicCode })} type="button">Add topic</button><button disabled={!selected || !topicCode || pending} onClick={() => runAction("REMOVE_TOPIC", { topicCode })} type="button">Remove topic</button><button disabled={!selected || pending} onClick={() => runAction("RESOLVE_CLASSIFICATION_PROPOSALS", { resolutionMode: "CANDIDATE" })} type="button">Use candidate proposal</button><button disabled={!selected || pending} onClick={() => runAction("RESOLVE_CLASSIFICATION_PROPOSALS", { resolutionMode: "CHALLENGE" })} type="button">Use challenge proposal</button><button disabled={!selected || pending} onClick={() => runAction("RESOLVE_CLASSIFICATION_PROPOSALS", { resolutionMode: "SET_EXACT", exactProjection: selected.projection })} type="button">Set exact proposal</button></div>
+                  {role === "manager" ? <Link className="aga-workspace-inspection-link" to="/department-manager/aga-demo-workspace/inspection-package">Next: open inspection package builder</Link> : null}
+                  <label className="aga-workspace-successor-field">Candidate or successor wording<textarea aria-label="Candidate or successor wording" value={workspaceBody} onChange={(event) => setWorkspaceBody(event.target.value)} placeholder="Optional: write a controlled successor wording" /></label>
+                  <div className="aga-workspace-successor-actions"><button disabled={!selected || !workspaceBody.trim() || pending} onClick={() => void createCandidate()} type="button">Add candidate</button><button disabled={!selected || !workspaceBody.trim() || pending} onClick={() => void rewordCandidate()} type="button">Create immutable wording successor</button></div>
+                  <div className="aga-workspace-disabled-actions"><button aria-label="Mark ready unavailable" disabled title="Readiness requires the complete server-pinned provider scope digest and controlled readiness event." type="button">Mark ready unavailable</button><button aria-label="Technical approval unavailable" disabled title="Technical approval is not a classification Draft action in this workspace." type="button">Technical approval unavailable</button><button aria-label="Publication unavailable" disabled title="Publication is not available from this candidate workspace." type="button">Publication unavailable</button></div>
+                </section>
+              </> : <div className="aga-workspace-dossier-empty"><span className="aga-workspace-kicker">Step 3 · Decide</span><h2>Open a question to begin</h2><p>Choose any row in the queue. Its sealed wording, classification signals, and available Draft actions will appear here.</p><div className="aga-workspace-dossier-empty__hint"><span>1</span><strong>Select a row</strong><span aria-hidden="true">→</span><strong>Read its decision file</strong></div>{role === "manager" ? <Link className="aga-workspace-inspection-link" to="/department-manager/aga-demo-workspace/inspection-package">Open inspection package builder</Link> : null}</div>}
+            </aside>
+          </div>
         </section>
 
         <section aria-label="Provider eligibility" className="aga-workspace-panel">
-          <h2>Provider scope eligibility</h2>
-          <p>Connected provider configuration is sealed separately from classification confidence. Only the configured synthetic scope can be inspected.</p>
+          <div><span className="aga-workspace-kicker">Why scope matters</span><h2>Provider scope eligibility</h2><p>Classification confidence and provider eligibility are separate checks. Only the configured synthetic scope can be inspected in this candidate.</p></div>
           <div className="aga-workspace-provider-summary"><strong>{inspectedScopeEligible.length} inspected-scope eligible</strong><strong>{involvementOnly.length} involvement-only</strong></div>
           <ul>{providers.map((entry) => <li key={entry.providerTypeCode}>{providerLabel(entry)}<small>{entry.reasonCode}</small></li>)}</ul>
-        </section>
-
-        <section aria-label="Draft controls" className="aga-workspace-command-panel">
-          <h2>Draft controls</h2>
-          <p>Every action uses the current generation, Draft revision, content digest, and a server-returned question reference.</p>
-          <p id="include-eligibility-reason" className="aga-workspace-boundary">{selected ? selected.includeEligible ? "Selected item is eligible for Include under the current server-owned simulation scope." : `Include unavailable: ${selected.includeEligibilityReason}` : "Select a server-returned item to receive its server-owned Include eligibility."}</p>
-          <label>Controlled reason<select aria-label="Controlled reason" value={reasonCode} onChange={(event) => setReasonCode(event.target.value as (typeof REASON_OPTIONS)[number])}>{REASON_OPTIONS.map((reason) => <option key={reason} value={reason}>{reason}</option>)}</select></label>
-          <div className="aga-workspace-actions">
-            <button disabled={!selected || pending} onClick={() => runAction("RETAIN")} type="button">Retain selected item</button>
-            <button aria-describedby="include-eligibility-reason" disabled={Boolean(includeDisabledReason)} onClick={() => runAction("INCLUDE")} title={includeDisabledReason || undefined} type="button">Include selected item</button>
-            <button disabled={!selected || pending} onClick={() => runAction("EXCLUDE")} type="button">Exclude selected item</button>
-            <button disabled={!selected || pending} onClick={() => runAction("DEFER")} type="button">Defer selected item</button>
-            <button disabled={!selected || pending} onClick={() => runAction("RECLASSIFY_MAIN_DOMAIN", { mainDomainCode })} type="button">Reclassify main domain</button>
-            <button disabled={!selected || !topicCode || pending} onClick={() => runAction("ADD_TOPIC", { topicCode })} type="button">Add topic</button>
-            <button disabled={!selected || !topicCode || pending} onClick={() => runAction("REMOVE_TOPIC", { topicCode })} type="button">Remove topic</button>
-            <button disabled={!selected || pending} onClick={() => runAction("RESOLVE_CLASSIFICATION_PROPOSALS", { resolutionMode: "CANDIDATE" })} type="button">Use candidate proposal</button>
-            <button disabled={!selected || pending} onClick={() => runAction("RESOLVE_CLASSIFICATION_PROPOSALS", { resolutionMode: "CHALLENGE" })} type="button">Use challenge proposal</button>
-            <button disabled={!selected || pending} onClick={() => runAction("RESOLVE_CLASSIFICATION_PROPOSALS", { resolutionMode: "SET_EXACT", exactProjection: selected?.projection })} type="button">Set exact proposal</button>
-            {role === "manager" ? <Link className="aga-workspace-button" to="/department-manager/aga-demo-workspace/inspection-package">Open inspection package builder</Link> : null}
-          </div>
-          <label>Candidate or successor wording<textarea aria-label="Candidate or successor wording" value={workspaceBody} onChange={(event) => setWorkspaceBody(event.target.value)} /></label>
-          <div className="aga-workspace-actions"><button disabled={!selected || !workspaceBody.trim() || pending} onClick={() => void createCandidate()} type="button">Add candidate</button><button disabled={!selected || !workspaceBody.trim() || pending} onClick={() => void rewordCandidate()} type="button">Create immutable wording successor</button><button aria-label="Mark ready unavailable" disabled title="Readiness requires the complete server-pinned provider scope digest and controlled readiness event." type="button">Mark ready unavailable</button></div>
-          <div className="aga-workspace-disabled-actions"><button aria-label="Technical approval unavailable" disabled title="Technical approval is not a classification Draft action in this workspace.">Technical approval unavailable</button><button aria-label="Publication unavailable" disabled title="Publication is not available from this candidate workspace.">Publication unavailable</button></div>
         </section>
 
         {role === "admin" ? <section aria-label="Admin generation controls" className="aga-workspace-admin-panel"><h2>Admin generation history and reset</h2><p>Reset is destructive to this disposable generation only and never writes canonical records.</p>{history?.length ? <ul>{history.map((entry) => <li key={entry.generationId}>{entry.generationId} · revision {entry.revision}</li>)}</ul> : <p>No history loaded.</p>}<label>Reset reason<input aria-label="Reset reason" value={resetReason} onChange={(event) => setResetReason(event.target.value)} /></label><label className="aga-workspace-confirm"><input aria-label="Confirm generation reset" checked={resetConfirmed} onChange={(event) => setResetConfirmed(event.target.checked)} type="checkbox" /> I understand this resets the disposable generation.</label><button disabled={!resetReason.trim() || !resetConfirmed || pending || !capability.resetEnabled} onClick={() => void resetGeneration()} type="button">Reset generation</button></section> : null}

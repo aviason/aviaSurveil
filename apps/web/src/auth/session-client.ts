@@ -57,13 +57,20 @@ const supportedRoles = new Set<Role>([
   "admin",
 ]);
 
-export function parseCsrfCookie(cookieSource = document.cookie): string | null {
-  const match = cookieSource
-    .split(";")
-    .map((entry) => entry.trim())
-    .find((entry) => entry.startsWith("__Host-avia_csrf="));
-  if (!match) return null;
-  return decodeURIComponent(match.slice("__Host-avia_csrf=".length));
+export function parseCsrfCookie(cookieSource = document.cookie, protocol = window.location.protocol): string | null {
+  // Local-preprod is served over plain HTTP and intentionally uses the
+  // unprefixed cookie names. Prefer that cookie when a browser still carries a
+  // stale secure cookie from an earlier run; otherwise the stale token would
+  // be sent in the header while the API validates the local cookie.
+  const prefixes = protocol === "http:"
+    ? ["avia_csrf=", "__Host-avia_csrf="]
+    : ["__Host-avia_csrf=", "avia_csrf="];
+  const entries = cookieSource.split(";").map((entry) => entry.trim());
+  for (const prefix of prefixes) {
+    const match = entries.find((entry) => entry.startsWith(prefix));
+    if (match) return decodeURIComponent(match.slice(prefix.length));
+  }
+  return null;
 }
 
 export function safeReturnTo(rawReturnTo: string, origin = window.location.origin): string {

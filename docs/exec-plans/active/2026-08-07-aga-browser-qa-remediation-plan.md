@@ -417,6 +417,13 @@ evidence label.
   graph, validates exact binding/scope/target counts and generation IDs both
   before and inside the SQL function, locks exactly one ACTIVE generation, and
   publishes ACTIVE only after the new seal graph is complete.
+- [x] Local HTTP OIDC cookie remediation: the disposable preprod API now uses
+  explicit non-Secure `avia_session`/`avia_csrf` cookies only when
+  `AVIA_COOKIE_SECURE=false` is supplied outside production; production keeps
+  the `__Host-` secure defaults and rejects the insecure override. The client
+  selects the protocol-appropriate CSRF cookie so stale secure cookies cannot
+  poison a local POST query header, and the service-worker app-shell marker was
+  advanced for the updated bundle.
 - [ ] F-010 remains open: Draft, batch, recommendation, inspection, lifecycle,
   and idempotency receipt writes still do not share one universal transactional
   storage operation. Do not claim crash-safe replay, fault-injection coverage,
@@ -505,6 +512,115 @@ regenerated. Focused Go, tagged Go, React, contract, boundary, docs, and
 whitespace checks passed locally. This slice still has no connected
 qualification, browser execution, provider end-session, or universal F-010
 transaction proof; final independent xhigh acceptance is pending.
+
+### 2026-08-07 local HTTP login-loop remediation
+
+`verified locally` for the disposable local-preprod login/workspace path:
+
+- The root cause was an HTTP client receiving secure `__Host-` cookies; Safari
+  discarded the session and returned `/auth/session` as 401. After the first
+  local-cookie fix, stale secure CSRF state could still be selected by the old
+  app shell, causing the read-only POST workspace queries to fail closed as
+  404. The API boundary now receives an explicit environment-bound cookie
+  policy, and the client prefers `avia_csrf` on HTTP while retaining secure
+  defaults on HTTPS.
+- Fresh isolated Playwright verification passed for Manager login, the fixed
+  `/department-manager/aga-demo-workspace` route, absence of an alert, the
+  server-sealed `1310` inventory count and first table row, and CSRF-backed
+  logout: `1 passed`.
+- Focused Go packages (`internal/httpapi`, `internal/platform/config`,
+  `internal/preproddata/agademoworkspace`) passed; focused Vitest passed
+  `19/19`; `npm --prefix apps/web run build:http` and typecheck passed; and
+  `git diff --check` passed.
+
+This is still `candidate-only`, `release pending`, and
+`production-ready: not established`; full remediation acceptance, provider
+end-session verification, universal transaction proof, and stakeholder signoff
+remain outstanding.
+
+### 2026-08-07 browser 404 and unsupported-surface remediation
+
+`verified locally` for the rebuilt disposable AGA HTTP artifact and its
+user-facing route boundaries:
+
+- Non-JSON HTTP failures now preserve their status as `BackendHttpError`
+  instead of being misreported as a protocol failure. The Inspector
+  assignment projection renders an explicit empty state when the tagged AGA
+  profile has no canonical assignment endpoint.
+- In the AGA-only local profile, unsupported canonical role routes are kept
+  off the operational navigation and direct links are routed to the connected
+  AGA workspace. The Admin checklist-builder route remains available because
+  it is backed by the tagged candidate API.
+- Focused React/backend tests passed: 7 files, 154 tests. Typecheck and the
+  telemetry-disabled `build:http` artifact build passed.
+- The isolated preprod browser/privacy matrix passed `17 passed (9.5s)`.
+  An additional isolated smoke covered all eight disposable role accounts;
+  no raw backend 404 alert was rendered. Lifecycle `404` responses for an
+  absent server projection remain expected privacy-preserving responses and
+  are rendered as a bounded empty state.
+- A read-only traversal of all 85 role-bound route contracts (plus the root
+  entry through the login smoke) rendered no raw backend-404 page. Inspector,
+  Lead, and Auditee route traversals emitted only the expected absent-lifecycle
+  404 responses; no other unexpected failed request was observed.
+- `make aga-demo-status` reports the running candidate at
+  `http://127.0.0.1:4174/department-manager/aga-demo-workspace` with 1,310
+  API questions and the connected matching auditee account.
+
+The connected manager lifecycle pass remains fresh from the prior disposable
+target (`1 passed`); this UI-only slice does not mutate the current clean
+target. The plan remains `candidate-only`, `release pending`, and
+`production-ready: not established`; universal F-010 transaction proof,
+provider end-session verification, and stakeholder signoff remain open.
+
+### 2026-08-07 in-app browser follow-up
+
+The connected in-app browser reached the authenticated Manager AGA workspace
+and exposed one remaining raw 404 alert on the classification landing screen.
+The UI now maps a 404 from the sealed classification/package inventory to a
+bounded local-workspace explanation instead of exposing the transport error;
+focused classification and package tests cover this behavior. The same
+browser session expired before the remaining route traversal could complete,
+so fresh authenticated in-app traversal after sign-in is `blocked` pending a
+new local identity-provider sign-in. The implementation remains
+`candidate-only`, `release pending`, and `production-ready: not established`.
+
+### 2026-08-07 app-shell cache follow-up
+
+The remaining visible raw 404 was traced to a stale Service Worker app shell,
+not to a second UI transport path. The working tree had advanced the worker
+marker without advancing the generated manifest, so the new worker rejected
+its install and the browser kept the previous cached `index.html` and hashed
+bundle. The app-shell manifest, worker marker, offline version vector, and
+offline test server now share version `3`; worker registration also carries
+the version query (`/sw.js?v=3`) so a rebuilt shell is discovered despite an
+immutable static response. The HTTP server sends `no-store` for `index.html`,
+`sw.js`, and `app-shell-assets.json`; Vite-hashed JS/CSS remain immutable. The
+worker remains app-shell-only and does not cache API/auth paths.
+`check:app-shell`, the focused 10-file/203-test React gate, `build:http`, local
+status (1,310 questions), header checks, and `git diff --check` passed. The
+result remains `candidate-only`, `release pending`, and
+`production-ready: not established`.
+
+### 2026-08-07 AGA workspace UX redesign
+
+`verified locally` for the Manager classification workspace presentation and
+the connected synthetic sign-in path. The former wide hash-heavy table is now
+a three-step Find → Compare → Decide flow: a short local-candidate guide,
+server-backed queue cards with technical identifiers behind disclosure, and a
+selected-question decision file with explicit scope, confidence, eligibility,
+and Draft actions. The page no longer renders the obsolete classification
+subtitle, and the focused AGA test locks the guide copy and heading hierarchy.
+Because this changes the app-shell asset graph, the generated shell marker and
+HTTP/demo manifests were advanced from version 3 to version 4 so an existing
+browser cannot keep the previous bundle indefinitely.
+
+Fresh in-app browser verification signed in as the synthetic Manager account,
+rendered the `1,310`-question queue without a raw backend error, opened a
+decision file, and exercised Page 1 → Page 2 → Page 1 pagination. This remains
+candidate-only visual evidence; full remediation acceptance, responsive
+matrix coverage, provider end-session verification, universal F-010
+transaction proof, and stakeholder signoff remain outstanding. The plan stays
+`active`, `release pending`, and `production-ready: not established`.
 
 ## Execution Prompt
 

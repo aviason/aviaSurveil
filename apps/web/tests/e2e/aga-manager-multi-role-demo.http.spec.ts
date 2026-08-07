@@ -130,7 +130,7 @@ async function assertNoBrowserPersistence(page: Page): Promise<void> {
   expect(retained.localStorage).toEqual([]);
   expect(retained.sessionStorage).toEqual([]);
   expect(retained.indexedDb).toEqual([]);
-  expect(retained.cacheStorage.every((name) => name === "aviasurveil360-app-shell-v1")).toBe(true);
+  expect(retained.cacheStorage.every((name) => /^aviasurveil360-app-shell-v\d+$/u.test(name))).toBe(true);
 }
 
 test("Department Manager releases a bounded AGA package through the complete multi-role lifecycle", async ({ page }) => {

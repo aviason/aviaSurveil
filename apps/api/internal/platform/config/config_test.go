@@ -314,6 +314,31 @@ func TestProductionRequiresCompleteHTTPSOIDCAndSessionConfiguration(t *testing.T
 	}
 }
 
+func TestCookieSecureOverrideIsAllowedOnlyOutsideProduction(t *testing.T) {
+	t.Parallel()
+
+	local, err := config.LoadScheduler(mapLookup(map[string]string{
+		"AVIA_ENVIRONMENT":   "development",
+		"AVIA_DATABASE_URL":  "postgres://127.0.0.1/avia",
+		"AVIA_COOKIE_SECURE": "false",
+	}))
+	if err != nil {
+		t.Fatalf("local cookie configuration: %v", err)
+	}
+	if local.CookieSecure {
+		t.Fatal("local HTTP cookie override was ignored")
+	}
+
+	_, err = config.LoadScheduler(mapLookup(map[string]string{
+		"AVIA_ENVIRONMENT":   "production",
+		"AVIA_DATABASE_URL":  "postgres://127.0.0.1/avia",
+		"AVIA_COOKIE_SECURE": "false",
+	}))
+	if err == nil || !strings.Contains(err.Error(), "AVIA_COOKIE_SECURE") {
+		t.Fatalf("production accepted insecure cookies: %v", err)
+	}
+}
+
 func TestProductionRejectsInsecureOIDCEndpointsAndInvalidEncryptionKey(t *testing.T) {
 	t.Parallel()
 	base := map[string]string{

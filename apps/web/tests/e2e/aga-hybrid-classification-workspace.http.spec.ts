@@ -25,6 +25,9 @@ test("Department Manager opens the bounded classification and lifecycle workspac
     managerWorkspaceRoute,
   );
   await expect(page.getByRole("heading", { name: "AGA classification review" })).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Workspace generation and counts" })).toContainText("1310");
+  await expect(page.locator("table tbody tr").first()).toBeVisible();
   assertFixedWorkspaceLocation(page, managerWorkspaceRoute);
   await expect(page.getByRole("link", { name: "Inspection lifecycle" })).toHaveAttribute(
     "href",
@@ -41,7 +44,7 @@ test("CAA Admin sees history and reset controls without changing the generation"
     requiredEnvironment("AVIA_AGA_OIDC_ADMIN_USERNAME"),
     adminWorkspaceRoute,
   );
-  await expect(page.getByRole("heading", { name: "AGA classification review" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "AGA generation administration" })).toBeVisible();
   assertFixedWorkspaceLocation(page, adminWorkspaceRoute);
   await expect(page.getByRole("button", { name: "View generation history" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Admin generation history and reset" })).toBeVisible();

@@ -55,6 +55,6 @@
     {"bindingId":"template-auditee_matching","subjectSlot":"AUDITEE_MATCHING","membershipSlot":"AUDITEE_MATCHING_MEMBERSHIP","organizationId":"AGA-DEMO-CAA","departmentId":"AGA-DEMO-DEPARTMENT","organizationalUnitId":"AGA-DEMO-UNIT","operationRoles":["auditee"],"active":true},
     {"bindingId":"template-auditee_other_organization","subjectSlot":"AUDITEE_OTHER_ORGANIZATION","membershipSlot":"AUDITEE_OTHER_ORGANIZATION_MEMBERSHIP","organizationId":"AGA-DEMO-OTHER-ORG","departmentId":"AGA-DEMO-DEPARTMENT","organizationalUnitId":"AGA-DEMO-UNIT","operationRoles":["auditee"],"active":true},
     {"bindingId":"template-caa_unrelated","subjectSlot":"CAA_UNRELATED","membershipSlot":"CAA_UNRELATED_MEMBERSHIP","organizationId":"AGA-DEMO-CAA","departmentId":"AGA-DEMO-DEPARTMENT","organizationalUnitId":"AGA-DEMO-UNIT","operationRoles":["caa_reviewer"],"active":true},
-    {"bindingId":"template-inspector_other","subjectSlot":"INSPECTOR_OTHER","membershipSlot":"INSPECTOR_OTHER_MEMBERSHIP","organizationId":"AGA-DEMO-CAA","departmentId":"AGA-DEMO-DEPARTMENT","organizationalUnitId":"AGA-DEMO-UNIT","operationRoles":["inspector"],"active":true}
+    {"bindingId":"template-inspector_other","subjectSlot":"INSPECTOR_OTHER","membershipSlot":"INSPECTOR_OTHER_MEMBERSHIP","organizationId":"AGA-DEMO-OTHER-ORG","departmentId":"AGA-DEMO-DEPARTMENT","organizationalUnitId":"AGA-DEMO-UNIT","operationRoles":["inspector"],"active":true}
   ]
 }

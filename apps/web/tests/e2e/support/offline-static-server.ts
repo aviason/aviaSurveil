@@ -45,7 +45,7 @@ export class OfflineStaticServer {
         }
         let body = await readFile(filePath);
         if (requestURL.pathname === "/sw.js") {
-          const marker = "AVIA_APP_SHELL_VERSION:000002";
+          const marker = "AVIA_APP_SHELL_VERSION:000004";
           const replacement = `AVIA_APP_SHELL_VERSION:${String(this.servedShellVersion).padStart(6, "0")}`;
           const original = body.toString("utf8");
           if (!original.includes(marker)) throw new Error("Built Service Worker version marker is missing");

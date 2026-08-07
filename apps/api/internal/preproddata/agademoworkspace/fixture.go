@@ -127,7 +127,7 @@ func DefaultFixtureTemplate() FixtureTemplate {
 	bindings := make([]AuthorityBinding, 0, len(roles))
 	for _, role := range roles {
 		organization := "AGA-DEMO-CAA"
-		if role.Slot == "AUDITEE_OTHER_ORGANIZATION" {
+		if role.Slot == "AUDITEE_OTHER_ORGANIZATION" || role.Slot == "INSPECTOR_OTHER" {
 			organization = "AGA-DEMO-OTHER-ORG"
 		}
 		bindings = append(bindings, AuthorityBinding{BindingID: "template-" + strings.ToLower(role.Slot), SubjectSlot: role.Slot, MembershipSlot: role.Slot + "_MEMBERSHIP", OrganizationID: organization, DepartmentID: "AGA-DEMO-DEPARTMENT", OrganizationalUnitID: "AGA-DEMO-UNIT", OperationRoles: append([]string(nil), role.RequiredRoles...), Active: true})

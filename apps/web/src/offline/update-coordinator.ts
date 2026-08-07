@@ -1,4 +1,4 @@
-import type { OfflineVersionVector } from "./storage-readiness";
+import { CURRENT_OFFLINE_VERSIONS, type OfflineVersionVector } from "./storage-readiness";
 
 export const UPDATE_ACTIVATION_POLICY = {
   automaticSkipWaiting: false,
@@ -209,11 +209,14 @@ export function createBrowserUpdateCoordinator(): {
 
 export async function registerAppShellServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (!import.meta.env.PROD || !("serviceWorker" in navigator)) return null;
-  const registration = await navigator.serviceWorker.register("/sw.js", {
-    scope: "/",
-    type: "module",
-    updateViaCache: "none",
-  });
+  const registration = await navigator.serviceWorker.register(
+    `/sw.js?v=${CURRENT_OFFLINE_VERSIONS.appShellVersion}`,
+    {
+      scope: "/",
+      type: "module",
+      updateViaCache: "none",
+    },
+  );
   registration.addEventListener("updatefound", () => {
     const installing = registration.installing;
     installing?.addEventListener("statechange", () => {

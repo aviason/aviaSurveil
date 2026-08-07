@@ -45,7 +45,7 @@ for (const accountName of deniedAccounts) {
     recordQualificationPhase("denied-login-complete");
     const sessionCookie = (await page.context().cookies(
       requiredEnvironment("AVIA_E2E_BASE_URL"),
-    )).find((cookie) => cookie.name === "__Host-avia_session");
+    )).find((cookie) => cookie.name === "__Host-avia_session" || cookie.name === "avia_session");
     const sessionRequestPromise = page.waitForRequest(
       (request) => new URL(request.url()).pathname === "/auth/session",
     );

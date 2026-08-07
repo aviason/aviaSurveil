@@ -308,6 +308,26 @@ export function createHttpBackend(
     const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
     if (!contentType.includes("application/json") && !contentType.includes("application/problem+json")) {
       recordOutcome("failed");
+      if (!response.ok) {
+        if (response.status === 401) {
+          const error = new BackendAuthenticationError(null, requestId);
+          if (!authenticationLostNotified) {
+            authenticationLostNotified = true;
+            dependencies.onAuthenticationLost?.(error);
+          }
+          throw error;
+        }
+        if (response.status === 403) {
+          throw new BackendAuthorizationError(null, requestId);
+        }
+        throw new BackendHttpError(
+          `Backend request failed with status ${response.status}`,
+          response.status,
+          null,
+          requestId,
+          null,
+        );
+      }
       throw new BackendProtocolError(
         `Backend response ${response.status} did not use a JSON content type.`,
         requestId,

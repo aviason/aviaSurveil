@@ -128,12 +128,6 @@ func (service *Service) Query(ctx context.Context, principal identity.Principal,
 		setup, setupErr := service.simulationSetup(ctx, principal, workspace)
 		includeEligibilityReason := "SIMULATION_SCOPE_UNAVAILABLE"
 		metadataRequest := request
-		// A non-empty Search is a sealed-body search when the tagged resolver is
-		// present. Do not ask the metadata-only filter to match the body fragment
-		// before the resolver has returned exact identities.
-		if request.Search != "" && service.questionTextSearch != nil {
-			metadataRequest.Search = ""
-		}
 		filteredRows := filterClassificationReviewRows(rows, metadataRequest)
 		if request.Search != "" && service.questionTextSearch != nil {
 			search, searchErr := normalizeBodySearch(request.Search)
@@ -148,7 +142,12 @@ func (service *Service) Query(ctx context.Context, principal identity.Principal,
 			for _, identity := range identities {
 				allowed[identity.Key()] = struct{}{}
 			}
-			filteredRows = filterReviewRowsByBodyIdentity(filteredRows, allowed, search)
+			// Search accepts either an immutable identity (for example a form
+			// code) or a sealed question-body fragment. Keep metadata matches
+			// and add body matches; the union is deduplicated by the complete
+			// immutable question reference before pagination.
+			bodyRows := filterReviewRowsByBodyIdentity(rows, allowed, search)
+			filteredRows = mergeClassificationReviewRows(filteredRows, bodyRows)
 		}
 		pageSize := request.PageSize
 		if pageSize == 0 {
@@ -390,6 +389,30 @@ func filterReviewRowsByBodyIdentity(rows []classificationReviewRow, allowed map[
 		}
 	}
 	return filtered
+}
+
+func mergeClassificationReviewRows(primary, secondary []classificationReviewRow) []classificationReviewRow {
+	if len(secondary) == 0 {
+		return primary
+	}
+	merged := make([]classificationReviewRow, 0, len(primary)+len(secondary))
+	seen := make(map[string]struct{}, len(primary)+len(secondary))
+	for _, row := range append(append([]classificationReviewRow(nil), primary...), secondary...) {
+		key := row.ref.Key()
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		merged = append(merged, row)
+	}
+	sort.SliceStable(merged, func(left, right int) bool {
+		leftSequence, rightSequence := merged[left].ref.RootSequence, merged[right].ref.RootSequence
+		if leftSequence != rightSequence {
+			return leftSequence < rightSequence
+		}
+		return merged[left].ref.Key() < merged[right].ref.Key()
+	})
+	return merged
 }
 
 func filterClassificationItems(items []preprod.ClassificationItem, request QueryRequest) []preprod.ClassificationItem {

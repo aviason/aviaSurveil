@@ -19,6 +19,7 @@ import type {
   AGADemoWorkspaceQueryResponse,
   AGADemoWorkspaceSimulationSetup,
 } from "../../backend/aga-demo-workspace";
+import { BackendHttpError } from "../../backend/http-backend";
 import { createMockBackendRuntime } from "../../mock/create-mock-backend";
 import { AGADemoInspectionPackagePage } from "./aga-demo-inspection-package-page";
 
@@ -181,6 +182,14 @@ function renderPage(backend: AGADemoWorkspaceBackend) {
 }
 
 describe("AGA Department Manager inspection package builder", () => {
+  it("renders a bounded local state when the package inventory is not provisioned", async () => {
+    const { backend, classificationQuery } = createBackend();
+    classificationQuery.mockRejectedValue(new BackendHttpError("Backend request failed with status 404", 404, null, null, null));
+    renderPage(backend);
+    expect(await screen.findByRole("alert")).toHaveTextContent("The inspection package inventory is not provisioned in this local AGA workspace.");
+    expect(screen.queryByText("Backend request failed with status 404")).not.toBeInTheDocument();
+  });
+
   it("uses a server-issued digest-bound preview and exact atomic confirmation without a client preview id", async () => {
     const { backend, classificationCommand } = createBackend();
     renderPage(backend);
@@ -194,6 +203,30 @@ describe("AGA Department Manager inspection package builder", () => {
     expect(await screen.findByText(/server-preview-001/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Confirm simulation disposition" }));
     await waitFor(() => expect(classificationCommand).toHaveBeenCalledWith(expect.objectContaining({ operationId: "EXECUTE_BATCH", previewId: "server-preview-001", previewDigest: digest, simulationSetupDigest: digest })));
+  });
+
+  it("returns filtered inventory to the first page after searching from a later page", async () => {
+    const { backend, classificationQuery } = createBackend();
+    classificationQuery.mockImplementation(async (request: AGADemoWorkspaceQuery) => {
+      if (request.operationId === "GET_SIMULATION_SETUP") return queryResponse(request.operationId, { simulationSetup: setupBase });
+      if (request.operationId === "GET_DRAFT") return queryResponse(request.operationId, { draft });
+      const page = request.page ?? 0;
+      const searched = Boolean(request.search);
+      return queryResponse(request.operationId, {
+        items: [row],
+        page,
+        pageSize: 25,
+        nextPage: !searched && page === 0 ? 1 : undefined,
+      });
+    });
+    renderPage(backend);
+    const user = userEvent.setup();
+    await screen.findByText("1,310 candidate AGA questions; bounded pages only");
+    await user.click(screen.getByRole("button", { name: "Next page" }));
+    await waitFor(() => expect(classificationQuery).toHaveBeenCalledWith(expect.objectContaining({ operationId: "SEARCH_ITEMS", page: 1 }), expect.anything()));
+    await user.type(screen.getByRole("textbox", { name: "Package inventory search" }), "FSS-AGA-FORM-053");
+    await waitFor(() => expect(classificationQuery).toHaveBeenCalledWith(expect.objectContaining({ operationId: "SEARCH_ITEMS", page: 0, search: "FSS-AGA-FORM-053" }), expect.anything()));
+    expect(await screen.findByText(row.questionText!)).toBeInTheDocument();
   });
 
   it("blocks confirmation of a mixed eligible and ineligible Include preview", async () => {

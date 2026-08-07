@@ -55,10 +55,44 @@ func (resolver *PostgresBindingResolver) ResolveForOperation(ctx context.Context
 			matching = append(matching, binding)
 		}
 	}
+	matching = preferFixtureMembershipBinding(principal, operation, matching)
 	if len(matching) != 1 {
 		return preprod.AuthorityBinding{}, false, nil
 	}
 	return matching[0], true, nil
+}
+
+// preferFixtureMembershipBinding resolves the deliberate shared-principal
+// fixture boundary.  The lead-inspector subject is also used for the CAA
+// reviewer projection, but ordinary lifecycle work belongs to the explicit
+// lead-inspector membership.  ReviewCAP remains restricted by
+// bindingHasWorkspaceRole to CAA_REVIEWER_MEMBERSHIP and therefore does not
+// get silently widened by this preference.
+//
+// The helper only selects an unambiguous preferred row.  If the sealed
+// projection contains zero or multiple preferred rows, the caller retains the
+// complete candidate set and fails closed rather than guessing.
+func preferFixtureMembershipBinding(principal identity.Principal, operation string, candidates []preprod.AuthorityBinding) []preprod.AuthorityBinding {
+	preferredSlot := ""
+	switch {
+	case principal.HasRole(identity.RoleLeadInspector) && operation != OperationReviewCAP:
+		preferredSlot = "LEAD_INSPECTOR_MEMBERSHIP"
+	case principal.HasRole(identity.RoleInspector):
+		preferredSlot = "INSPECTOR_MEMBERSHIP"
+	}
+	if preferredSlot == "" {
+		return candidates
+	}
+	preferred := make([]preprod.AuthorityBinding, 0, len(candidates))
+	for _, candidate := range candidates {
+		if candidate.MembershipSlot == preferredSlot {
+			preferred = append(preferred, candidate)
+		}
+	}
+	if len(preferred) == 1 {
+		return preferred
+	}
+	return candidates
 }
 
 func (resolver *PostgresBindingResolver) bindingCandidates(ctx context.Context, principal identity.Principal) ([]preprod.AuthorityBinding, error) {

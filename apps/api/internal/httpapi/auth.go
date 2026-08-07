@@ -18,6 +18,9 @@ const (
 	SessionCookieName = "__Host-avia_session"
 	CSRFCookieName    = "__Host-avia_csrf"
 	CSRFHeaderName    = "X-CSRF-Token"
+
+	localSessionCookieName = "avia_session"
+	localCSRFCookieName    = "avia_csrf"
 )
 
 type AuthSessionManager interface {
@@ -30,12 +33,24 @@ type AuthSessionManager interface {
 }
 
 type AuthBoundary struct {
-	provider identity.OIDCProvider
-	sessions AuthSessionManager
+	provider     identity.OIDCProvider
+	sessions     AuthSessionManager
+	cookieSecure bool
 }
 
 func NewAuthBoundary(provider identity.OIDCProvider, sessions AuthSessionManager) *AuthBoundary {
-	return &AuthBoundary{provider: provider, sessions: sessions}
+	return NewAuthBoundaryWithCookieSecure(provider, sessions, true)
+}
+
+// NewAuthBoundaryWithCookieSecure keeps the cookie transport policy explicit.
+// Production must use secure cookies; the disposable local-preprod demo may
+// opt out because it is intentionally served over plain HTTP on loopback.
+func NewAuthBoundaryWithCookieSecure(
+	provider identity.OIDCProvider,
+	sessions AuthSessionManager,
+	cookieSecure bool,
+) *AuthBoundary {
+	return &AuthBoundary{provider: provider, sessions: sessions, cookieSecure: cookieSecure}
 }
 
 func NewAuthHandler(provider identity.OIDCProvider, sessions AuthSessionManager) http.Handler {
@@ -137,7 +152,7 @@ func (boundary *AuthBoundary) callback(writer http.ResponseWriter, request *http
 	})
 	if err != nil {
 		if errors.Is(err, session.ErrUnauthenticated) {
-			expireBrowserSessionCookies(writer)
+			boundary.expireBrowserSessionCookies(writer)
 			writeProblem(
 				writer,
 				http.StatusUnauthorized,
@@ -150,7 +165,7 @@ func (boundary *AuthBoundary) callback(writer http.ResponseWriter, request *http
 		writeProblem(writer, http.StatusInternalServerError, "Authentication failed", "browser session could not be created", "SESSION_CREATE_FAILED")
 		return
 	}
-	setBrowserSessionCookies(writer, browserSession)
+	boundary.setBrowserSessionCookies(writer, browserSession)
 	http.Redirect(writer, request, loginState.ReturnTo, http.StatusFound)
 }
 
@@ -179,7 +194,7 @@ func (boundary *AuthBoundary) logout(writer http.ResponseWriter, request *http.R
 		writeProblem(writer, http.StatusInternalServerError, "Logout failed", "session revocation could not be recorded", "SESSION_REVOKE_FAILED")
 		return
 	}
-	expireBrowserSessionCookies(writer)
+	boundary.expireBrowserSessionCookies(writer)
 	writer.WriteHeader(http.StatusNoContent)
 }
 
@@ -188,7 +203,7 @@ func (boundary *AuthBoundary) authenticate(writer http.ResponseWriter, request *
 		writeProblem(writer, http.StatusUnauthorized, "Authentication required", "no active browser session", "UNAUTHENTICATED")
 		return identity.Principal{}, false
 	}
-	cookie, err := request.Cookie(SessionCookieName)
+	cookie, err := request.Cookie(boundary.cookieNames().session)
 	if err != nil || strings.TrimSpace(cookie.Value) == "" {
 		writeProblem(writer, http.StatusUnauthorized, "Authentication required", "no active browser session", "UNAUTHENTICATED")
 		return identity.Principal{}, false
@@ -210,7 +225,7 @@ func (boundary *AuthBoundary) authenticate(writer http.ResponseWriter, request *
 			session.AuthenticationFailureDiagnostic(err),
 		)
 		if errors.Is(err, session.ErrUnauthenticated) {
-			expireBrowserSessionCookies(writer)
+			boundary.expireBrowserSessionCookies(writer)
 		}
 		writeProblem(writer, http.StatusUnauthorized, "Authentication required", "browser session is expired, revoked, or invalid", "UNAUTHENTICATED")
 		return identity.Principal{}, false
@@ -220,7 +235,7 @@ func (boundary *AuthBoundary) authenticate(writer http.ResponseWriter, request *
 
 func (boundary *AuthBoundary) validateCSRF(writer http.ResponseWriter, request *http.Request, sessionID string) bool {
 	headerToken := strings.TrimSpace(request.Header.Get(CSRFHeaderName))
-	cookie, err := request.Cookie(CSRFCookieName)
+	cookie, err := request.Cookie(boundary.cookieNames().csrf)
 	if err != nil || headerToken == "" || strings.TrimSpace(cookie.Value) == "" || subtle.ConstantTimeCompare([]byte(headerToken), []byte(cookie.Value)) != 1 {
 		writeProblem(writer, http.StatusForbidden, "Request forbidden", "CSRF token is missing or invalid", "CSRF_INVALID")
 		return false
@@ -232,22 +247,36 @@ func (boundary *AuthBoundary) validateCSRF(writer http.ResponseWriter, request *
 	return true
 }
 
-func setBrowserSessionCookies(writer http.ResponseWriter, browserSession session.BrowserSession) {
+type browserCookieNames struct {
+	session string
+	csrf    string
+}
+
+func (boundary *AuthBoundary) cookieNames() browserCookieNames {
+	if boundary.cookieSecure {
+		return browserCookieNames{session: SessionCookieName, csrf: CSRFCookieName}
+	}
+	return browserCookieNames{session: localSessionCookieName, csrf: localCSRFCookieName}
+}
+
+func (boundary *AuthBoundary) setBrowserSessionCookies(writer http.ResponseWriter, browserSession session.BrowserSession) {
+	cookieNames := boundary.cookieNames()
 	http.SetCookie(writer, &http.Cookie{
-		Name: SessionCookieName, Value: browserSession.Token, Path: "/", Secure: true, HttpOnly: true,
+		Name: cookieNames.session, Value: browserSession.Token, Path: "/", Secure: boundary.cookieSecure, HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	})
 	http.SetCookie(writer, &http.Cookie{
-		Name: CSRFCookieName, Value: browserSession.CSRFToken, Path: "/", Secure: true, HttpOnly: false,
+		Name: cookieNames.csrf, Value: browserSession.CSRFToken, Path: "/", Secure: boundary.cookieSecure, HttpOnly: false,
 		SameSite: http.SameSiteStrictMode,
 	})
 }
 
-func expireBrowserSessionCookies(writer http.ResponseWriter) {
+func (boundary *AuthBoundary) expireBrowserSessionCookies(writer http.ResponseWriter) {
 	expiredAt := time.Unix(1, 0).UTC()
+	cookieNames := boundary.cookieNames()
 	for _, cookie := range []*http.Cookie{
-		{Name: SessionCookieName, Path: "/", Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode, Expires: expiredAt, MaxAge: -1},
-		{Name: CSRFCookieName, Path: "/", Secure: true, HttpOnly: false, SameSite: http.SameSiteStrictMode, Expires: expiredAt, MaxAge: -1},
+		{Name: cookieNames.session, Path: "/", Secure: boundary.cookieSecure, HttpOnly: true, SameSite: http.SameSiteStrictMode, Expires: expiredAt, MaxAge: -1},
+		{Name: cookieNames.csrf, Path: "/", Secure: boundary.cookieSecure, HttpOnly: false, SameSite: http.SameSiteStrictMode, Expires: expiredAt, MaxAge: -1},
 	} {
 		http.SetCookie(writer, cookie)
 	}

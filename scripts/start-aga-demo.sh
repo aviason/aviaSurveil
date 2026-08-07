@@ -329,7 +329,7 @@ start_web() {
     cd "$repository_root/apps/web"
     AVIA_BUILD_PROFILE=http AVIA_HTTP_API_TARGET="http://127.0.0.1:${api_port}" \
       "$node_path" node_modules/typescript/bin/tsc -b
-    AVIA_BUILD_PROFILE=http AVIA_HTTP_TEST_PROFILE= AVIA_HTTP_API_TARGET="http://127.0.0.1:${api_port}" \
+    VITE_AVIA_DISABLE_BROWSER_TELEMETRY=1 AVIA_BUILD_PROFILE=http AVIA_HTTP_TEST_PROFILE= AVIA_HTTP_API_TARGET="http://127.0.0.1:${api_port}" \
       "$node_path" node_modules/vite/bin/vite.js build
   ) >"$build_log" 2>&1 || {
     sed -n '1,160p' "$build_log" >&2 || true
@@ -368,7 +368,7 @@ start_web() {
 }
 
 write_metadata() {
-  local manager_username admin_username password
+  local manager_username admin_username auditee_username password
   manager_username="$("$node_path" --input-type=module - "$private_root/browser-accounts.json" <<'NODE'
 import { readFileSync } from "node:fs";
 const accounts = JSON.parse(readFileSync(process.argv[2], "utf8")).accounts;
@@ -385,12 +385,20 @@ if (!account?.username) throw new Error("admin account missing");
 process.stdout.write(`${account.username}\n`);
 NODE
   )"
+  auditee_username="$("$node_path" --input-type=module - "$private_root/browser-accounts.json" <<'NODE'
+import { readFileSync } from "node:fs";
+const accounts = JSON.parse(readFileSync(process.argv[2], "utf8")).accounts;
+const account = accounts.find(({ slot }) => slot === "AUDITEE_MATCHING");
+if (!account?.username) throw new Error("matching auditee account missing");
+process.stdout.write(`${account.username}\n`);
+NODE
+  )"
   password="$(tr -d '\r\n' <"$state_directory/secrets/preprod_aga_demo_oidc_qualification_password")"
   [[ ${#password} -ge 24 ]] || fail "OIDC qualification password is unexpectedly short"
-  "$node_path" --input-type=module - "$metadata_file" "$private_root" "$state_directory" "$web_container_name" "$web_container_id" "$web_image" "$api_port" "$oidc_port" "$web_origin" "$oidc_host" "$manager_username" "$admin_username" <<'NODE'
+  "$node_path" --input-type=module - "$metadata_file" "$private_root" "$state_directory" "$web_container_name" "$web_container_id" "$web_image" "$api_port" "$oidc_port" "$web_origin" "$oidc_host" "$manager_username" "$admin_username" "$auditee_username" <<'NODE'
 import { closeSync, fsyncSync, openSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-const [output, privateRoot, stateDirectory, webContainerName, webContainerId, webImage, apiPort, oidcPort, webOrigin, oidcHost, managerUsername, adminUsername] = process.argv.slice(2);
+const [output, privateRoot, stateDirectory, webContainerName, webContainerId, webImage, apiPort, oidcPort, webOrigin, oidcHost, managerUsername, adminUsername, auditeeUsername] = process.argv.slice(2);
 const value = {
   schemaVersion: "aga-demo-runtime/v1",
   status: "running",
@@ -405,6 +413,7 @@ const value = {
   questionCount: 1310,
   managerUsername,
   adminUsername,
+  auditeeUsername,
   startedAt: new Date().toISOString(),
 };
 const descriptor = openSync(output, "wx", 0o600);
@@ -413,8 +422,8 @@ const parent = openSync(dirname(output), "r");
 try { fsyncSync(parent); } finally { closeSync(parent); }
 NODE
   private_file "$metadata_file"
-  printf '\nAGA API demo hazır.\nURL: %s/\nSorular: 1,310 (API workspace)\n\nGiriş için aynı parolayı kullan:\n  Department Manager: %s\n  CAA Admin:          %s\n  Parola:             %s\n\nKapatmak: make aga-demo-down\nDurum:     make aga-demo-status\n' \
-    "$web_origin/department-manager/aga-demo-workspace" "$manager_username" "$admin_username" "$password"
+  printf '\nAGA API demo hazır.\nURL: %s/\nSorular: 1,310 (API workspace)\n\nGiriş için aynı parolayı kullan:\n  Department Manager: %s\n  CAA Admin:          %s\n  Matching Auditee:   %s\n  Parola:             %s\n\nKapatmak: make aga-demo-down\nDurum:     make aga-demo-status\n' \
+    "$web_origin/department-manager/aga-demo-workspace" "$manager_username" "$admin_username" "$auditee_username" "$password"
 }
 
 [[ "$state_root" = /* ]] || fail "AVIA_AGA_DEMO_STATE_DIR must be absolute"

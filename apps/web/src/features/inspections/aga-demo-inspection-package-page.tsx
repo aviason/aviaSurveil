@@ -14,6 +14,7 @@ import type {
   AGADemoWorkspaceRecommendationSnapshot,
   AGADemoWorkspaceSimulationSetup,
 } from "../../backend/aga-demo-workspace";
+import { BackendHttpError } from "../../backend/http-backend";
 import type { Role } from "../../backend/backend";
 import { CommandError, PageHeader, StatusPill, WorkspaceShell, errorMessage } from "../shared/workspace-shell";
 
@@ -37,6 +38,12 @@ function commandKey(operationId: string): string {
     throw new Error("This browser cannot create a secure idempotency key for the requested command.");
   }
   return `aga-demo-package-${operationId.toLowerCase()}-${globalThis.crypto.randomUUID()}`;
+}
+
+function packageErrorMessage(error: unknown): string {
+  return error instanceof BackendHttpError && error.status === 404
+    ? "The inspection package inventory is not provisioned in this local AGA workspace."
+    : errorMessage(error);
 }
 
 function sameBatchFilter(left: AGADemoWorkspaceBatchFilter, right: AGADemoWorkspaceBatchFilter): boolean {
@@ -193,14 +200,10 @@ export function AGADemoInspectionPackagePage({
     void refresh(controller.signal).catch((cause: unknown) => {
       if (controller.signal.aborted) return;
       setLoading(false);
-      setError(errorMessage(cause));
+      setError(packageErrorMessage(cause));
     });
     return () => controller.abort();
   }, [refresh]);
-
-  useEffect(() => {
-    setInventoryPage(0);
-  }, [inventorySearch]);
 
   useEffect(() => {
     if (formFilterWasEdited.current || batchFilter.formCode || !inventory?.items?.length) return;
@@ -265,7 +268,7 @@ export function AGADemoInspectionPackagePage({
       setStage("preview");
       setStatus(response.batchPreview ? `Server-issued preview returned: ${previewSummary(response.batchPreview)}` : "The server returned no batch preview.");
     } catch (cause) {
-      setError(errorMessage(cause));
+      setError(packageErrorMessage(cause));
     }
   }, [batchAction, batchFilter, draft, issueCommand, reasonCode, setup]);
 
@@ -284,7 +287,7 @@ export function AGADemoInspectionPackagePage({
       setStatus("Confirmed simulation disposition appended as one atomic Draft successor.");
       await refresh();
     } catch (cause) {
-      setError(errorMessage(cause));
+      setError(packageErrorMessage(cause));
     }
   }, [batchAction, batchFilter, draft, issueCommand, preview, reasonCode, refresh, setup]);
 
@@ -299,7 +302,7 @@ export function AGADemoInspectionPackagePage({
       setStage("release");
       setStatus("Draft marked ready for demo simulation with a server-issued readiness event.");
     } catch (cause) {
-      setError(errorMessage(cause));
+      setError(packageErrorMessage(cause));
     }
   }, [draft, issueCommand, reasonCode, refresh, setup]);
 
@@ -332,19 +335,29 @@ export function AGADemoInspectionPackagePage({
       setStage("release");
       setStatus(response.replayed ? "The existing synthetic recommendation was returned by idempotent replay." : "Synthetic recommendation created from the exact eligible included set.");
     } catch (cause) {
-      setError(errorMessage(cause));
+      setError(packageErrorMessage(cause));
     }
   }, [draft, issueCommand, refresh, setup]);
 
   const releaseInspection = useCallback(async () => {
     if (!setup || !draft || !inspectorPin || !leadPin || !setup.recommendationId) return;
     try {
+      // A recommendation is committed through a separate append-only command.
+      // Re-read the setup immediately before release so the command carries
+      // the server-issued digest that includes that recommendation, rather
+      // than a render captured before the reader projection caught up.
+      const latestSetupResponse = await client?.classificationQuery({ operationId: "GET_SIMULATION_SETUP" });
+      const latestSetup = latestSetupResponse?.simulationSetup;
+      if (!latestSetup?.recommendationId || latestSetup.recommendationId !== setup.recommendationId || !latestSetup.simulationSetupDigest) {
+        throw new Error("The server-owned recommendation setup is still being reconciled. Retry release after the current setup refresh completes.");
+      }
+      setSetup(latestSetup);
       const response = await client?.recommendationCommand({
         operationId: "CREATE_INSPECTION",
         idempotencyKey: commandKey("CREATE_INSPECTION"),
-        expectedGenerationId: setup.generationId,
-        expectedRecommendationRevision: setup.recommendationRevision,
-        simulationSetupDigest: setup.simulationSetupDigest,
+        expectedGenerationId: latestSetup.generationId,
+        expectedRecommendationRevision: latestSetup.recommendationRevision,
+        simulationSetupDigest: latestSetup.simulationSetupDigest,
         inspectorSelectionPin: inspectorPin,
         leadSelectionPin: leadPin,
       });
@@ -353,7 +366,7 @@ export function AGADemoInspectionPackagePage({
       setStage("release");
       setStatus(response?.replayed ? "The existing synthetic inspection was returned by idempotent replay." : "Synthetic inspection released with immutable question references.");
     } catch (cause) {
-      setError(errorMessage(cause));
+      setError(packageErrorMessage(cause));
     }
   }, [client, draft, inspectorPin, leadPin, refresh, setup]);
 
@@ -400,7 +413,7 @@ export function AGADemoInspectionPackagePage({
 
         {stage === "inventory" ? <section aria-label="Bounded candidate inventory" className="aga-package-panel">
           <div className="aga-package-panel__heading"><div><h2>Reach the complete sealed inventory</h2><p>Each request contains at most 25 original bodies. Search, page, and text remain transient in this component; no URL or browser storage state is used.</p></div><div className="aga-workspace-pagination"><button disabled={inventoryPage === 0 || loading} onClick={() => setInventoryPage((value) => Math.max(0, value - 1))} type="button">Previous page</button><span>Page {(inventory?.page ?? inventoryPage) + 1}</span><button disabled={!hasNext || loading} onClick={() => setInventoryPage((value) => value + 1)} type="button">Next page</button></div></div>
-          <label>Search sealed candidate text or identity<input aria-label="Package inventory search" value={inventorySearch} onChange={(event) => setInventorySearch(event.target.value)} /></label>
+          <label>Search sealed candidate text or identity<input aria-label="Package inventory search" value={inventorySearch} onChange={(event) => { setInventorySearch(event.target.value); setInventoryPage(0); }} /></label>
           {loading ? <p role="status">Loading current server page…</p> : null}
           <div className="aga-package-table-wrap"><table><caption className="sr-only">Bounded sealed AGA candidate inventory</caption><thead><tr><th scope="col">Form / ordinal</th><th scope="col">Sealed candidate text</th><th scope="col">Classification and governance</th><th scope="col">Disposition</th></tr></thead><tbody>{rows.map((row) => <tr key={row.questionKey}><th scope="row">{identityValue(row, "formCode")} · {identityValue(row, "ordinal")}<small>{identityValue(row, "proposalId")}</small></th><td><p>{row.questionText ?? "Text is not available in this projection."}</p><small>{row.questionTextDigest ? "digest-matched sealed text" : "text-free projection"}</small></td><td><strong>{row.projection.mainDomainCode ?? "Domain unavailable"}</strong><small>{(row.projection.topicCodes ?? []).join(" · ") || "No topic"}</small><small>{row.governance?.questionSourceProposalGap ? "source mapping required" : "source gap not present in projection"}</small></td><td><StatusPill>{row.draftDisposition ?? "UNSET"}</StatusPill></td></tr>)}</tbody></table></div>
           {!loading && rows.length === 0 ? <p className="aga-package-boundary">No sealed candidate rows match this transient search.</p> : null}

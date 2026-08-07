@@ -29,9 +29,10 @@ NODE
 web_url="$(printf '%s' "$metadata" | "$node_path" -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).webUrl))')"
 api_url="$(printf '%s' "$metadata" | "$node_path" -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).apiUrl))')"
 question_count="$(printf '%s' "$metadata" | "$node_path" -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(String(JSON.parse(s).questionCount)))')"
+auditee_username="$(printf '%s' "$metadata" | "$node_path" -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(String(JSON.parse(s).auditeeUsername ?? "unlisted")))')"
 web_container_name="$(printf '%s' "$metadata" | "$node_path" -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).webContainerName))')"
 
 curl --fail --silent --output /dev/null "$api_url/health/ready" || { printf 'AGA API demo API is not responding at %s\n' "$api_url" >&2; exit 1; }
 [[ "$(docker inspect -f '{{.State.Running}}' "$web_container_name" 2>/dev/null || true)" = true ]] || { printf 'AGA API demo web container is not running: %s\n' "$web_container_name" >&2; exit 1; }
 curl --fail --silent --output /dev/null "$web_url" || { printf 'AGA API demo web is not responding at %s\n' "$web_url" >&2; exit 1; }
-printf 'AGA API demo responding\nURL: %s\nAPI: %s\nQuestions: %s\n' "$web_url" "$api_url" "$question_count"
+printf 'AGA API demo responding\nURL: %s\nAPI: %s\nQuestions: %s\nMatching auditee: %s\n' "$web_url" "$api_url" "$question_count" "$auditee_username"

@@ -527,6 +527,7 @@ services:
         condition: service_healthy
     environment:
       AVIA_ENVIRONMENT: development
+      AVIA_COOKIE_SECURE: "false"
       AVIA_HTTP_ADDRESS: 0.0.0.0:8080
       AVIA_DATABASE_HOST: preprod-postgres
       AVIA_DATABASE_PORT: "5432"

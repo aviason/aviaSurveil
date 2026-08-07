@@ -277,6 +277,20 @@ describe("HttpBackend", () => {
     await expect(backend.findings.list({})).rejects.toBeInstanceOf(BackendProtocolError);
   });
 
+  it("preserves an HTTP failure status when the gateway returns a non-JSON body", async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response("not found", { status: 404, headers: { "content-type": "text/plain" } }));
+    const backend = createHttpBackend(
+      { apiBaseUrl: "/", environmentLabel: "Test" },
+      { fetchImplementation, csrfToken: () => "csrf-test" },
+    );
+
+    const error = await backend.assignments.list({}).catch((cause: unknown) => cause);
+    expect(error).toBeInstanceOf(BackendHttpError);
+    expect(error).toMatchObject({ status: 404, code: null, problem: null });
+  });
+
   it("propagates an AbortSignal and maps cancellation", async () => {
     const controller = new AbortController();
     const fetchImplementation = vi.fn<typeof fetch>().mockImplementation(async (_url, init) => {

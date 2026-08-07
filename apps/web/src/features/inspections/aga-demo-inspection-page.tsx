@@ -11,6 +11,7 @@ import type {
   AGADemoWorkspaceQuestionTextPage,
   AGADemoWorkspaceQueryResponse,
 } from "../../backend/aga-demo-workspace";
+import { BackendHttpError } from "../../backend/http-backend";
 import { useApplicationRuntime } from "../../app/providers";
 import { CommandError, PageHeader, StatusPill, WorkspaceShell, errorMessage } from "../shared/workspace-shell";
 
@@ -48,6 +49,10 @@ export interface LifecycleWorkspaceState {
 
 const NO_LIFECYCLE_CONTEXT =
   "No server-returned synthetic inspection is available in this session. The page will not invent a lifecycle identifier; use an authorized server setup/release response first.";
+
+function isLifecycleNotFound(error: unknown): boolean {
+  return error instanceof BackendHttpError && error.status === 404;
+}
 
 export function useLifecycleWorkspace({
   capability,
@@ -126,6 +131,13 @@ export function useLifecycleWorkspace({
       .catch((cause: unknown) => {
         if (controller.signal.aborted) return;
         setLoading(false);
+        if (isLifecycleNotFound(cause)) {
+          updateProjection(null);
+          setQuestionPage(null);
+          setStatus(null);
+          setError(null);
+          return;
+        }
         setError(errorMessage(cause));
       });
     return () => controller.abort();
@@ -138,12 +150,19 @@ export function useLifecycleWorkspace({
       const response = await client.lifecycleQuery({ operationId: "GET_INSPECTION_QUESTION_PAGE", inspectionId: projection.inspectionId, page, pageSize: 25 });
       setQuestionPage(response.questionPage ?? null);
     } catch (cause) {
+      if (isLifecycleNotFound(cause)) {
+        updateProjection(null);
+        setQuestionPage(null);
+        setStatus(null);
+        setError(null);
+        return;
+      }
       setError(errorMessage(cause));
       throw cause;
     } finally {
       setQuestionPageLoading(false);
     }
-  }, [capability.lifecycleEnabled, client, initialProjection, projection, role]);
+  }, [capability.lifecycleEnabled, client, initialProjection, projection, role, updateProjection]);
 
   useEffect(() => {
     if (!projection || initialProjection || role === "auditee") return;
@@ -176,6 +195,13 @@ export function useLifecycleWorkspace({
       setStatus(`${operationId} recorded${response.replayed ? " (idempotent replay)" : ""}.`);
       return next;
     } catch (cause) {
+      if (isLifecycleNotFound(cause)) {
+        updateProjection(null);
+        setQuestionPage(null);
+        setStatus(null);
+        setError("The server-returned lifecycle object is no longer available. Reload the authorized inspection before continuing.");
+        throw cause;
+      }
       setError(errorMessage(cause));
       throw cause;
     } finally {

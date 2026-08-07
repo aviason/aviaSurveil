@@ -12,6 +12,7 @@ import type {
   AGADemoWorkspaceQuery,
   AGADemoWorkspaceQueryResponse,
 } from "../../backend/aga-demo-workspace";
+import { BackendHttpError } from "../../backend/http-backend";
 import { createMockBackendRuntime } from "../../mock/create-mock-backend";
 import { AGADemoClassificationWorkspacePage } from "./aga-classification-workspace-page";
 
@@ -76,9 +77,10 @@ function createWorkspaceBackend(resetEnabled = false, rowOverrides: Partial<type
   return { backend, classificationQuery, classificationCommand, adminCommand };
 }
 
-function renderPage(role: "manager" | "admin" = "manager", rowOverrides: Partial<typeof row> = {}) {
+function renderPage(role: "manager" | "admin" = "manager", rowOverrides: Partial<typeof row> = {}, queryError?: Error) {
   const runtime = createMockBackendRuntime();
   const workspace = createWorkspaceBackend(role === "admin", rowOverrides);
+  if (queryError) workspace.classificationQuery.mockRejectedValue(queryError);
   render(
     <AppProviders runtime={{ backend: { ...runtime.backend, agaDemoWorkspace: workspace.backend }, buildProfile: "http", environmentLabel: "test" }}>
       <MemoryRouter>
@@ -99,8 +101,15 @@ describe("AGA classification workspace page", () => {
   it("renders authorized supplemental workspace", async () => {
     renderPage();
     expect(await screen.findByTestId("aga-classification-workspace-page")).toBeInTheDocument();
-    expect(screen.getByText("AGA classification review")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Classify AGA questions" })).toBeInTheDocument();
+    expect(screen.getByTestId("aga-demo-guidance")).toHaveTextContent(/Find.*Compare.*Decide/s);
     expect(screen.getByText("1310")).toBeInTheDocument();
+  });
+
+  it("turns an unprovisioned 404 into a bounded local workspace state", async () => {
+    renderPage("manager", {}, new BackendHttpError("Backend request failed with status 404", 404, null, null, null));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Classification inventory is not provisioned in this local AGA workspace.");
+    expect(screen.queryByText("Backend request failed with status 404")).not.toBeInTheDocument();
   });
 
   it("routes the manager to the fixed server-owned inspection package builder", async () => {
