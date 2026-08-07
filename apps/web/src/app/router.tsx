@@ -1,7 +1,6 @@
 import { Suspense, type ReactElement } from "react";
 import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 
-import { agaDemoWorkspaceLandingPath } from "./aga-demo-workspace-routes";
 import { useApplicationRuntime } from "./providers";
 import { CANONICAL_QUESTION_REVIEW_PATH, REACT_ROUTE_CONTRACT_BY_ID, REACT_ROUTE_CONTRACTS, type BuildProfileAvailability, type ReactSurfaceId, type RouteContract } from "./route-contracts";
 import { SCREEN_COMPONENT_REGISTRY } from "./screen-component-registry";
@@ -24,11 +23,7 @@ function RoleSelectRoute() {
 }
 
 function AuthenticatedLandingRoute({ role }: { role: Role }) {
-  const runtime = useApplicationRuntime();
-  const agaLandingPath = runtime.agaDemoWorkspaceSurfaceEnabled
-    ? agaDemoWorkspaceLandingPath(role)
-    : null;
-  return <Navigate replace to={agaLandingPath ?? createRoleEntryPath(role)} />;
+  return <Navigate replace to={createRoleEntryPath(role)} />;
 }
 
 const roleHomeSurfaceId: Record<Role, ReactSurfaceId> = {
@@ -73,23 +68,11 @@ function PendingImplementationRoute({ contract }: { contract: RouteContract }) {
   return <><ParentSurface contract={contract} /><section role="alert" aria-label={`${contract.label} pending implementation`} data-testid="route-pending-implementation"><strong>{contract.label}</strong> is pending implementation in this demo route contract.</section></>;
 }
 
-function AgaDemoOnlyRoute({ contract }: { contract: RouteContract }) {
-  const target = contract.requiredRole ? agaDemoWorkspaceLandingPath(contract.requiredRole) : null;
-  if (target) return <Navigate replace to={target} />;
-  return (
-    <section data-testid="aga-demo-only-route" role="status">
-      <h1>{contract.label}</h1>
-      <p>This local candidate exposes the connected AGA demo workspace only. The canonical {contract.label.toLowerCase()} surface is not provisioned by this API profile.</p>
-    </section>
-  );
-}
-
 function ContractRoute({ contract }: { contract: RouteContract }) {
-  const { buildProfile, agaDemoWorkspaceSurfaceEnabled } = useApplicationRuntime();
+  const { buildProfile } = useApplicationRuntime();
   const entry = SCREEN_COMPONENT_REGISTRY[contract.componentKey];
   const isAvailable = contract.availableProfiles.includes(buildProfile);
-  const agaDemoOnly = agaDemoWorkspaceSurfaceEnabled && contract.id !== "admin-checklist-builder";
-  return <RoleGuard requiredRole={contract.requiredRole}><Suspense fallback={<p data-testid="route-loading">Loading route...</p>}>{agaDemoOnly ? <AgaDemoOnlyRoute contract={contract} /> : !isAvailable ? <BlockedProfileRoute contract={contract} /> : entry.status === "implemented" ? <entry.component /> : <PendingImplementationRoute contract={contract} />}</Suspense></RoleGuard>;
+  return <RoleGuard requiredRole={contract.requiredRole}><Suspense fallback={<p data-testid="route-loading">Loading route...</p>}>{!isAvailable ? <BlockedProfileRoute contract={contract} /> : entry.status === "implemented" ? <entry.component /> : <PendingImplementationRoute contract={contract} />}</Suspense></RoleGuard>;
 }
 
 function routeElement(contract: RouteContract): ReactElement {

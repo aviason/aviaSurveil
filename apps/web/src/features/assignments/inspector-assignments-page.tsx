@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 import { useScenario } from "../../app/scenario-context";
+import { useApplicationRuntime } from "../../app/providers";
 import { BackendHttpError } from "../../backend/http-backend";
 import { DataRegister, type DataRegisterColumn } from "../../ui/workbench/data-register";
 import { DueState } from "../../ui/workbench/due-state";
@@ -44,8 +45,10 @@ function isUnavailableAssignmentProjection(error: unknown): boolean {
 
 export function InspectorAssignmentsPage() {
   const { projection, actions } = useScenario();
+  const runtime = useApplicationRuntime();
   const [error, setError] = useState<string | null>(null);
   const [unavailableReason, setUnavailableReason] = useState<string | null>(null);
+  const [startingAuditId, setStartingAuditId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -94,6 +97,27 @@ export function InspectorAssignmentsPage() {
     setOrganizationFilter("all");
     setDateFilter("all");
   }
+
+  async function startInspection(assignment: (typeof projection.assignments)[number]): Promise<void> {
+    const workflow = (runtime.backendForRole?.("inspector") ?? runtime.backend).canonicalAuditWorkflow;
+    if (!workflow || !assignment.inspectionRevision) {
+      setError("Inspector start is unavailable until the server provides the materialized inspection revision.");
+      return;
+    }
+    setStartingAuditId(assignment.auditId);
+    setError(null);
+    try {
+      await workflow.start(assignment.auditId, {
+        operationId: `START-${assignment.auditId}-${assignment.inspectionRevision}`,
+        expectedInspectionRevision: assignment.inspectionRevision,
+      });
+      await actions.loadAssignments();
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setStartingAuditId(null);
+    }
+  }
   const filtersActive = statusFilter !== "all" ||
     query !== "" ||
     typeFilter !== "all" ||
@@ -121,9 +145,19 @@ export function InspectorAssignmentsPage() {
         nextAction: (
           <span className="inspector-register-action">
             <span>{assignment.nextAction}</span>
-            <Link className="primary-link" to="/inspector/audits/AUD-2026-001">
-              Open Cabin Inspection
-            </Link>
+            {assignment.status === "SCHEDULED" ? (
+              <button className="primary-link" disabled={startingAuditId === assignment.auditId} onClick={() => void startInspection(assignment)} type="button">
+                {startingAuditId === assignment.auditId ? "Starting…" : "Start inspection"}
+              </button>
+            ) : assignment.packageId && assignment.status === "IN_PROGRESS" ? (
+              <Link className="primary-link" to={`/inspector/audits/${encodeURIComponent(assignment.auditId)}`}>
+                Open {assignment.title}
+              </Link>
+            ) : (
+              <span title={assignment.status === "AWAITING_AUDITEE_CONFIRMATION" ? "Auditee confirmation is required before Inspector start." : "Execution is not ready for this assignment."}>
+                {assignment.status === "AWAITING_AUDITEE_CONFIRMATION" ? "Awaiting auditee confirmation" : "Preparation in progress"}
+              </span>
+            )}
           </span>
         ),
       })),

@@ -19,6 +19,7 @@ import (
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/planning"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
+	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/questioncatalog"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/testprofile"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/migrations"
 )
@@ -62,20 +63,14 @@ func TestRoutinePlanningReturnReentryAndAssignmentMaterialization(t *testing.T) 
 		t.Fatalf("zero-budget planning item = %+v", submitted.PlanningItem)
 	}
 
-	returned, err := planningService.Decide(context.Background(), finance, planning.DecideCommand{
-		OperationID: "op-routine-finance-return", PlanningItemID: "plan-routine",
-		ExpectedRevision: submitted.PlanningItem.Revision,
-		Decision:         planning.DecisionReturnForRevision, Reason: "Clarify the zero-budget resource allocation.",
-	})
-	if err != nil {
-		t.Fatalf("return routine planning item: %v", err)
-	}
+	returned := decidePlanning(t, planningService, finance, submitted.PlanningItem,
+		"op-routine-finance-return", planning.DecisionReturnForRevision)
 	if returned.Status != planning.StatusReturned || returned.CurrentOwnerRole != identity.RoleDepartmentManager {
 		t.Fatalf("returned planning item = %+v", returned)
 	}
 	assertCommandTransactionLink(t, pool, "op-routine-finance-return", "finance-001:planning_decision")
 	correctedValues := routineIntakeValues(12500)
-	correctedValues.Scope = "Cabin safety and emergency equipment, with corrected resource allocation."
+	correctedValues.Purpose = "Cabin safety and emergency equipment, with corrected resource allocation."
 	corrected, err := planningService.SaveIntakeDraft(context.Background(), manager, planning.SaveIntakeDraftCommand{
 		OperationID: "op-routine-save-2", IdempotencyKey: "idem-routine-save-2",
 		DraftID: submitted.Draft.ID, ExpectedRevision: submitted.Draft.Revision,
@@ -118,14 +113,14 @@ func TestRoutinePlanningReturnReentryAndAssignmentMaterialization(t *testing.T) 
 	if err != nil {
 		t.Fatalf("prepare routine Audit: %v", err)
 	}
-	if preparation.Status != assignments.StatusPreparation || preparation.Revision != 1 {
+	if preparation.Status != assignments.StatusPreparation || preparation.Revision != 1 || preparation.InspectionID != "" {
 		t.Fatalf("routine preparation = %+v", preparation)
 	}
-	assertNoExecutableAudit(t, pool, "audit-routine")
+	assertNoExecutableAudit(t, pool, "")
 
 	assignment, err := assignmentService.AssignLead(context.Background(), manager, assignments.AssignLeadCommand{
 		OperationID: "op-routine-lead", IdempotencyKey: "idem-routine-lead",
-		AssignmentID: "assignment-routine", InspectionID: "audit-routine",
+		AssignmentID: preparation.AssignmentID, InspectionID: "audit-routine",
 		ExpectedInspectionRevision: preparation.Revision, LeadSubjectID: "lead-001",
 		ScheduledStartDate: "2026-08-12", ScheduledEndDate: "2026-08-13",
 	})
@@ -160,7 +155,7 @@ func TestRoutinePlanningReturnReentryAndAssignmentMaterialization(t *testing.T) 
 		AssignmentID: assignment.ID, ExpectedRevision: assignment.Revision,
 		QuestionAssignments: []assignments.QuestionAssignment{
 			{QuestionID: "q-cabin-crew-training", SubjectID: "inspector-cabin-001"},
-			{QuestionID: "q-cabin-emergency-equipment", SubjectID: "inspector-other"},
+			{QuestionID: "q-cabin-crew-training", SubjectID: "inspector-other"},
 		},
 	})
 	if err != nil {
@@ -173,76 +168,64 @@ func TestRoutinePlanningReturnReentryAndAssignmentMaterialization(t *testing.T) 
 	if workload["inspector-cabin-001"] != 1 || workload["inspector-other"] != 1 {
 		t.Fatalf("routine workload = %#v", workload)
 	}
+	confirmed, err := assignmentService.ConfirmPreparation(context.Background(), manager, assignments.ConfirmPreparationCommand{
+		OperationID: "op-routine-confirm", IdempotencyKey: "idem-routine-confirm",
+		AssignmentID: assignment.ID, ExpectedAssignmentRevision: assignment.Revision,
+	})
+	if err != nil {
+		t.Fatalf("confirm routine preparation: %v", err)
+	}
+	if confirmed.Revision != assignment.Revision+1 {
+		t.Fatalf("confirmed routine preparation = %+v", confirmed)
+	}
 
 	applicationService := testService(pool)
 	if _, err := applicationService.MaterializeInspection(
 		context.Background(),
 		principal("inspector-cabin-001", "caa", "session-inspector", identity.RoleInspector),
 		application.MaterializeInspectionCommand{
-			OperationID: "op-routine-materialize-denied", CorrelationID: "corr-routine-materialize-denied",
-			AssignmentID: assignment.ID, ExpectedAssignmentRevision: assignment.Revision,
-			TemplateVersionID: "template-assignment-v7", PackageID: "package-routine-denied",
-			PackageVersion: 1, ExpiresAt: canonicalNow.Add(72 * time.Hour),
+			OperationID: "op-routine-materialize-denied", CorrelationID: "00000000-0000-4000-8000-000000000001",
+			AssignmentID: assignment.ID, ExpectedAssignmentRevision: confirmed.Revision,
+			ExpiresAt: canonicalNow.Add(72 * time.Hour),
 		},
 	); !errors.Is(err, application.ErrForbidden) {
 		t.Fatalf("Inspector materialization denial error = %v", err)
 	}
-	if _, err := pool.Exec(context.Background(), `
-		UPDATE inspections SET status = 'IN_PROGRESS' WHERE id = 'audit-routine'
-	`); err != nil {
-		t.Fatalf("seed invalid pre-materialization inspection status: %v", err)
-	}
-	if _, err := applicationService.MaterializeInspection(context.Background(), manager, application.MaterializeInspectionCommand{
-		OperationID: "op-routine-materialize-invalid-state", CorrelationID: "corr-routine-materialize-invalid-state",
-		AssignmentID: assignment.ID, ExpectedAssignmentRevision: assignment.Revision,
-		TemplateVersionID: "template-assignment-v7", PackageID: "package-routine-invalid-state",
-		PackageVersion: 1, ExpiresAt: canonicalNow.Add(72 * time.Hour),
-	}); !errors.Is(err, application.ErrConflict) {
-		t.Fatalf("invalid pre-materialization inspection status error = %v", err)
-	}
-	if _, err := pool.Exec(context.Background(), `
-		UPDATE inspections SET status = 'PREPARATION' WHERE id = 'audit-routine'
-	`); err != nil {
-		t.Fatalf("restore pre-materialization inspection status: %v", err)
-	}
 	materialized, err := applicationService.MaterializeInspection(context.Background(), manager, application.MaterializeInspectionCommand{
-		OperationID: "op-routine-materialize", CorrelationID: "corr-routine-materialize",
-		AssignmentID: assignment.ID, ExpectedAssignmentRevision: assignment.Revision,
-		TemplateVersionID: "template-assignment-v7", PackageID: "package-routine",
-		PackageVersion: 1, ExpiresAt: canonicalNow.Add(72 * time.Hour),
+		OperationID: "op-routine-materialize", CorrelationID: "00000000-0000-4000-8000-000000000002",
+		AssignmentID: assignment.ID, ExpectedAssignmentRevision: confirmed.Revision,
+		ExpiresAt: canonicalNow.Add(72 * time.Hour),
 	})
 	if err != nil {
 		t.Fatalf("materialize routine Audit: %v", err)
 	}
 	replayed, err := applicationService.MaterializeInspection(context.Background(), manager, application.MaterializeInspectionCommand{
-		OperationID: "op-routine-materialize", CorrelationID: "corr-routine-materialize",
-		AssignmentID: assignment.ID, ExpectedAssignmentRevision: assignment.Revision,
-		TemplateVersionID: "template-assignment-v7", PackageID: "package-routine",
-		PackageVersion: 1, ExpiresAt: canonicalNow.Add(72 * time.Hour),
+		OperationID: "op-routine-materialize", CorrelationID: "00000000-0000-4000-8000-000000000002",
+		AssignmentID: assignment.ID, ExpectedAssignmentRevision: confirmed.Revision,
+		ExpiresAt: canonicalNow.Add(72 * time.Hour),
 	})
 	if err != nil || replayed != materialized {
 		t.Fatalf("materialization replay = %+v, err = %v", replayed, err)
 	}
-	if materialized.TemplateVersionID != "template-assignment-v7" ||
+	if materialized.TemplateVersionID != "" ||
 		materialized.Status != assignments.StatusAwaitingAuditeeConfirmation {
 		t.Fatalf("materialized routine Audit = %+v", materialized)
 	}
 	if _, err := applicationService.MaterializeInspection(context.Background(), manager, application.MaterializeInspectionCommand{
-		OperationID: "op-routine-materialize-duplicate", CorrelationID: "corr-routine-materialize-duplicate",
+		OperationID: "op-routine-materialize-duplicate", CorrelationID: "00000000-0000-4000-8000-000000000003",
 		AssignmentID: assignment.ID, ExpectedAssignmentRevision: materialized.AssignmentRevision,
-		TemplateVersionID: "template-assignment-v7", PackageID: "package-routine-duplicate",
-		PackageVersion: 2, ExpiresAt: canonicalNow.Add(96 * time.Hour),
+		ExpiresAt: canonicalNow.Add(96 * time.Hour),
 	}); !errors.Is(err, application.ErrConflict) {
 		t.Fatalf("duplicate materialization error = %v", err)
 	}
-	assertMaterializedSnapshot(t, pool, "package-routine", "template-assignment-v7")
+	assertCanonicalMaterializedSnapshot(t, pool, materialized.PackageID)
 
 	auditee := principal("auditee-xyz", "airline-xyz", "session-auditee", identity.RoleAuditee)
 	coordination, err := assignmentService.ListAuditeeCoordination(context.Background(), auditee)
 	if err != nil {
 		t.Fatalf("list routine Auditee coordination: %v", err)
 	}
-	if len(coordination) != 1 || coordination[0].InspectionID != "audit-routine" ||
+	if len(coordination) != 1 || coordination[0].InspectionID != materialized.InspectionID ||
 		coordination[0].Status != assignments.StatusAwaitingAuditeeConfirmation {
 		t.Fatalf("routine Auditee coordination = %+v", coordination)
 	}
@@ -276,6 +259,32 @@ func TestAdHocPlanningWithholdsAuditeeNoticeAfterMaterialization(t *testing.T) {
 	`, "draft-ad-hoc", mustJSON(t, adHocIntakeValues())); err != nil {
 		t.Fatalf("seed submitted Ad Hoc draft: %v", err)
 	}
+	adhocSnapshot := `{"planningItemId":"plan-ad-hoc","catalogVersion":"aga-fixture@1.0.0","usageClass":"PREPROD_EXERCISE","noticePolicy":"WITHHELD","selectedQuestionVersionIds":["q-cabin-crew-training"]}`
+	adhocDigest := questioncatalog.SelectionDigest([]string{"q-cabin-crew-training"})
+	if _, err := pool.Exec(context.Background(), `
+		UPDATE canonical_audit_scope_drafts
+		SET status = 'RELEASED', notice_policy = 'WITHHELD', selection_digest = $1, selected_question_count = 1
+		WHERE id = 'scope-draft-draft-ad-hoc'
+	`, adhocDigest); err != nil {
+		t.Fatalf("seed released Ad Hoc scope draft: %v", err)
+	}
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO canonical_audit_scope_snapshots (
+			id, scope_draft_id, revision, stage, catalog_id, usage_class, selection_digest,
+			planning_snapshot_digest, selected_question_count, snapshot, created_by_subject_id
+		) VALUES (
+			'scope-snapshot-ad-hoc-released', 'scope-draft-draft-ad-hoc', 1, 'RELEASED', 'catalog-cabin-fixture',
+			'PREPROD_EXERCISE', $2, governed_jsonb_sha256($1::jsonb), 1, $1::jsonb, 'manager-001'
+		)
+	`, adhocSnapshot, adhocDigest); err != nil {
+		t.Fatalf("seed released Ad Hoc snapshot: %v", err)
+	}
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO canonical_audit_scope_snapshot_questions (snapshot_id, catalog_id, question_version_id, position)
+		VALUES ('scope-snapshot-ad-hoc-released', 'catalog-cabin-fixture', 'q-cabin-crew-training', 0)
+	`); err != nil {
+		t.Fatalf("seed released Ad Hoc scope questions: %v", err)
+	}
 	service := assignments.NewService(pool, assignments.Dependencies{
 		Clock:       func() time.Time { return canonicalNow },
 		IDGenerator: scenarioIDGenerator(),
@@ -290,7 +299,7 @@ func TestAdHocPlanningWithholdsAuditeeNoticeAfterMaterialization(t *testing.T) {
 	}
 	assignment, err := service.AssignLead(context.Background(), manager, assignments.AssignLeadCommand{
 		OperationID: "op-ad-hoc-lead", IdempotencyKey: "idem-ad-hoc-lead",
-		AssignmentID: "assignment-ad-hoc", InspectionID: preparation.InspectionID,
+		AssignmentID: preparation.AssignmentID, InspectionID: preparation.InspectionID,
 		ExpectedInspectionRevision: preparation.Revision, LeadSubjectID: "lead-001",
 		ScheduledStartDate: "2026-08-20", ScheduledEndDate: "2026-08-20",
 	})
@@ -311,22 +320,27 @@ func TestAdHocPlanningWithholdsAuditeeNoticeAfterMaterialization(t *testing.T) {
 		AssignmentID: assignment.ID, ExpectedRevision: assignment.Revision,
 		QuestionAssignments: []assignments.QuestionAssignment{
 			{QuestionID: "q-cabin-crew-training", SubjectID: "inspector-cabin-001"},
-			{QuestionID: "q-cabin-emergency-equipment", SubjectID: "inspector-cabin-001"},
 		},
 	})
 	if err != nil {
 		t.Fatalf("assign Ad Hoc questions: %v", err)
 	}
-	materialized, err := testService(pool).MaterializeInspection(context.Background(), manager, application.MaterializeInspectionCommand{
-		OperationID: "op-ad-hoc-materialize", CorrelationID: "corr-ad-hoc-materialize",
+	confirmed, err := service.ConfirmPreparation(context.Background(), manager, assignments.ConfirmPreparationCommand{
+		OperationID: "op-ad-hoc-confirm", IdempotencyKey: "idem-ad-hoc-confirm",
 		AssignmentID: assignment.ID, ExpectedAssignmentRevision: assignment.Revision,
-		TemplateVersionID: "template-assignment-v7", PackageID: "package-ad-hoc",
-		PackageVersion: 1, ExpiresAt: canonicalNow.Add(24 * time.Hour),
+	})
+	if err != nil {
+		t.Fatalf("confirm Ad Hoc preparation: %v", err)
+	}
+	materialized, err := testService(pool).MaterializeInspection(context.Background(), manager, application.MaterializeInspectionCommand{
+		OperationID: "op-ad-hoc-materialize", CorrelationID: "00000000-0000-4000-8000-000000000004",
+		AssignmentID: assignment.ID, ExpectedAssignmentRevision: confirmed.Revision,
+		ExpiresAt: canonicalNow.Add(24 * time.Hour),
 	})
 	if err != nil {
 		t.Fatalf("materialize Ad Hoc Audit: %v", err)
 	}
-	if materialized.Status != assignments.StatusReady || !materialized.NoticeWithheld {
+	if materialized.Status != assignments.StatusScheduled || !materialized.NoticeWithheld {
 		t.Fatalf("materialized Ad Hoc Audit = %+v", materialized)
 	}
 	auditee := principal("auditee-xyz", "airline-xyz", "session-auditee", identity.RoleAuditee)
@@ -542,6 +556,13 @@ func seedPlanningActors(t *testing.T, pool *database.Pool) {
 	`, canonicalNow.Add(24*time.Hour), canonicalNow); err != nil {
 		t.Fatalf("seed planning actor sessions: %v", err)
 	}
+	if _, err := pool.Exec(context.Background(), `
+		UPDATE session_references
+		SET expires_at = $1, absolute_expires_at = $1
+		WHERE id IN ('session-lead', 'session-inspector', 'session-inspector-other', 'session-manager', 'session-finance', 'session-gm', 'session-executive')
+	`, canonicalNow.Add(365*24*time.Hour)); err != nil {
+		t.Fatalf("extend Lead Inspector fixture session: %v", err)
+	}
 	templateSnapshot := map[string]any{
 		"schemaVersion":   1,
 		"protocolVersion": 1,
@@ -580,8 +601,10 @@ func routineIntakeValues(budget float64) planning.IntakeDraftValues {
 		NoticePolicy:       planning.NoticePolicyAdvance,
 		Purpose:            "Annual routine oversight", TriggerType: "Annual Plan",
 		RiskCategory: "Cabin Safety", PlannedDate: "2026-08-12", Mode: "On-site",
-		Location: "Windhoek", TemplateVersionID: "template-assignment-v7",
-		Scope: "Cabin safety and emergency equipment.", RequestedBudget: budget, Currency: "NAD",
+		Location: "Windhoek", CatalogVersion: "aga-fixture@1.0.0",
+		ScopeDraftID: "", SelectionDigest: "", SelectedQuestionVersionIDs: []string{"q-cabin-crew-training"},
+		ProviderScopeID: "scope-airline-xyz-air-operator", RegulatedTargetID: "target-airline-xyz",
+		RequestedBudget: budget, Currency: "NAD",
 	}
 }
 
@@ -604,9 +627,22 @@ func decidePlanning(
 	decision planning.Decision,
 ) planning.Item {
 	t.Helper()
+	pins, err := service.List(context.Background(), actor, 100)
+	if err != nil {
+		t.Fatalf("list planning pins before decision %s: %v", decision, err)
+	}
+	for _, candidate := range pins {
+		if candidate.ID == item.ID {
+			item.SubmittedScopeSnapshotID = candidate.SubmittedScopeSnapshotID
+			item.PlanningSnapshotDigest = candidate.PlanningSnapshotDigest
+			break
+		}
+	}
 	output, err := service.Decide(context.Background(), actor, planning.DecideCommand{
 		OperationID: operationID, PlanningItemID: item.ID, ExpectedRevision: item.Revision,
 		Decision: decision, Reason: "Scenario authority decision.",
+		ExpectedSubmittedScopeSnapshotID: item.SubmittedScopeSnapshotID,
+		ExpectedPlanningSnapshotDigest:   item.PlanningSnapshotDigest,
 	})
 	if err != nil {
 		t.Fatalf("planning decision %s: %v", decision, err)
@@ -616,13 +652,42 @@ func decidePlanning(
 
 func seedPlanningDraft(t *testing.T, pool *database.Pool, draftID, organizationID string) {
 	t.Helper()
+	values := routineIntakeValues(5000)
+	values.ScopeDraftID = "scope-draft-" + draftID
+	values.SelectionDigest = questioncatalog.SelectionDigest(values.SelectedQuestionVersionIDs)
 	if _, err := pool.Exec(context.Background(), `
 		INSERT INTO planning_intake_drafts (
 			id, organization_id, values, revision, created_by_subject_id,
 			created_at, updated_at
-		) VALUES ($1, $2, '{}'::jsonb, 1, 'manager-001', $3, $3)
-	`, draftID, organizationID, canonicalNow); err != nil {
+		) VALUES ($1, $2, $3::jsonb, 1, 'manager-001', $4, $4)
+	`, draftID, organizationID, mustJSON(t, values), canonicalNow); err != nil {
 		t.Fatalf("seed Planning intake draft: %v", err)
+	}
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO canonical_audit_scope_drafts (
+			id, planning_intake_draft_id, organization_id, provider_scope_id, regulated_target_id,
+			audit_type, catalog_id, usage_class, revision, status, selected_question_count,
+			selection_digest, requested_budget, notice_policy, created_by_subject_id
+		) VALUES ($1, $2, $3, 'scope-airline-xyz-air-operator', 'target-airline-xyz', 'CABIN',
+			'catalog-cabin-fixture', 'PREPROD_EXERCISE', 1, 'DRAFT', 1, $4, 5000, 'ADVANCE', 'manager-001')
+	`, values.ScopeDraftID, draftID, organizationID, values.SelectionDigest); err != nil {
+		t.Fatalf("seed canonical planning scope: %v", err)
+	}
+	selectionOperationID := "selection-" + draftID
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO canonical_audit_scope_selection_operations (
+			id, scope_draft_id, operation_id, idempotency_key, operation_kind,
+			expected_digest, result_digest, affected_question_version_ids, filter_payload, actor_subject_id
+		) VALUES ($1, $2, $1, $1, 'REPLACE', '', $3, '["q-cabin-crew-training"]'::jsonb, '{}'::jsonb, 'manager-001')
+	`, selectionOperationID, values.ScopeDraftID, values.SelectionDigest); err != nil {
+		t.Fatalf("seed canonical question selection: %v", err)
+	}
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO canonical_audit_scope_selection_questions (
+			operation_id, catalog_id, question_version_id, position, selection_digest
+		) VALUES ($1, 'catalog-cabin-fixture', 'q-cabin-crew-training', 0, $2)
+	`, selectionOperationID, values.SelectionDigest); err != nil {
+		t.Fatalf("seed canonical selected question: %v", err)
 	}
 }
 
@@ -637,6 +702,19 @@ func mustJSON(t *testing.T, value any) []byte {
 
 func assertNoExecutableAudit(t *testing.T, pool *database.Pool, inspectionID string) {
 	t.Helper()
+	if inspectionID == "" {
+		var count int
+		if err := pool.QueryRow(context.Background(), `
+			SELECT COUNT(*) FROM audit_assignments
+			WHERE planning_item_id = 'plan-routine' AND inspection_id IS NULL AND status = 'PREPARATION'
+		`).Scan(&count); err != nil {
+			t.Fatalf("read pre-materialization assignment: %v", err)
+		}
+		if count != 1 {
+			t.Fatalf("pre-materialization assignment count=%d", count)
+		}
+		return
+	}
 	var status string
 	var packageCount int
 	if err := pool.QueryRow(context.Background(), `
@@ -650,6 +728,22 @@ func assertNoExecutableAudit(t *testing.T, pool *database.Pool, inspectionID str
 	}
 	if status != string(assignments.StatusPreparation) || packageCount != 0 {
 		t.Fatalf("pre-materialization Audit status=%q packages=%d", status, packageCount)
+	}
+}
+
+func assertCanonicalMaterializedSnapshot(t *testing.T, pool *database.Pool, packageID string) {
+	t.Helper()
+	var templateID *string
+	var snapshot []byte
+	var scopeID *string
+	if err := pool.QueryRow(context.Background(), `
+		SELECT checklist_template_version_id, canonical_scope_snapshot_id, snapshot
+		FROM inspection_packages WHERE id = $1
+	`, packageID).Scan(&templateID, &scopeID, &snapshot); err != nil {
+		t.Fatalf("read canonical materialized package: %v", err)
+	}
+	if templateID != nil || scopeID == nil || *scopeID == "" || !json.Valid(snapshot) {
+		t.Fatalf("canonical package template=%v scope=%v snapshot=%s", templateID, scopeID, snapshot)
 	}
 }
 

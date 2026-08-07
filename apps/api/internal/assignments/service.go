@@ -3,6 +3,7 @@ package assignments
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -48,11 +49,228 @@ func NewService(pool *database.Pool, dependencies Dependencies) *Service {
 }
 
 type PrepareCommand struct {
-	OperationID              string
-	IdempotencyKey           string
-	PlanningItemID           string
+	OperationID    string
+	IdempotencyKey string
+	PlanningItemID string
+	// InspectionID is retained only for source compatibility with the paused
+	// donor tests. It is never read or persisted; canonical preparation owns no
+	// inspection identity until materialization.
 	InspectionID             string
 	ExpectedPlanningRevision int64
+}
+
+// ConfirmPreparationCommand is the explicit Department Manager gate between
+// Lead/team assignment and canonical materialization. It pins the released
+// scope and exact per-question coverage in an immutable preparation snapshot;
+// it does not open execution or notify the Auditee.
+type ConfirmPreparationCommand struct {
+	OperationID                string
+	IdempotencyKey             string
+	AssignmentID               string
+	ExpectedAssignmentRevision int64
+}
+
+func (service *Service) ConfirmPreparation(
+	ctx context.Context,
+	actor identity.Principal,
+	command ConfirmPreparationCommand,
+) (Preparation, error) {
+	if !CanPrepare(actor) {
+		return Preparation{}, ErrForbidden
+	}
+	if blank(command.OperationID, command.IdempotencyKey, command.AssignmentID) || command.ExpectedAssignmentRevision <= 0 {
+		return Preparation{}, ErrInvalid
+	}
+	return executeCommand(ctx, service, actor, "confirm_preparation", command.OperationID,
+		command.IdempotencyKey, command.AssignmentID, command,
+		func(ctx context.Context, transaction pgx.Tx) (commandResult[Preparation], error) {
+			current, err := getAssignmentForUpdate(ctx, transaction, command.AssignmentID)
+			if err != nil {
+				return commandResult[Preparation]{}, err
+			}
+			if current.Revision != command.ExpectedAssignmentRevision || current.Status != StatusQuestionsAssigned {
+				return commandResult[Preparation]{}, ErrConflict
+			}
+			if err := requireCurrentDepartmentScopeAuthority(ctx, transaction, actor, current.PlanningItemID, ""); err != nil {
+				return commandResult[Preparation]{}, err
+			}
+			var inspectionID, planningItemID, snapshotID, selectionDigest string
+			var selectedCount int
+			if err := transaction.QueryRow(ctx, `
+				SELECT COALESCE(assignment.inspection_id, ''), COALESCE(draft.submitted_planning_item_id, ''),
+				       snapshot.id, snapshot.selection_digest, snapshot.selected_question_count
+				FROM audit_assignments assignment
+				JOIN planning_intake_drafts draft
+				  ON draft.submitted_planning_item_id = assignment.planning_item_id
+				JOIN canonical_audit_scope_drafts scope
+				  ON scope.planning_intake_draft_id = draft.id
+				JOIN canonical_audit_scope_snapshots snapshot
+				  ON snapshot.id = assignment.released_scope_snapshot_id
+				 AND snapshot.scope_draft_id = scope.id
+				 AND snapshot.stage = 'RELEASED'
+				WHERE assignment.id = $1
+				  AND assignment.released_scope_snapshot_id IS NOT NULL
+				  AND draft.tombstoned_at IS NULL
+				FOR UPDATE OF assignment, draft
+			`, command.AssignmentID).Scan(&inspectionID, &planningItemID, &snapshotID, &selectionDigest, &selectedCount); err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					return commandResult[Preparation]{}, ErrConflict
+				}
+				return commandResult[Preparation]{}, err
+			}
+			if planningItemID == "" || snapshotID == "" || selectionDigest == "" || selectedCount <= 0 {
+				return commandResult[Preparation]{}, ErrConflict
+			}
+			var existingConfirmed bool
+			if err := transaction.QueryRow(ctx, `
+				SELECT EXISTS (
+					SELECT 1
+					FROM canonical_audit_preparation_snapshots
+					WHERE assignment_id = $1
+					  AND released_scope_snapshot_id = $2
+					  AND status = 'CONFIRMED'
+				)
+			`, command.AssignmentID, snapshotID).Scan(&existingConfirmed); err != nil {
+				return commandResult[Preparation]{}, err
+			}
+			if existingConfirmed {
+				return commandResult[Preparation]{}, fmt.Errorf("%w: preparation is already confirmed for this released scope", ErrConflict)
+			}
+			type coverageEntry struct {
+				QuestionID string   `json:"questionVersionId"`
+				SubjectIDs []string `json:"subjectIds"`
+			}
+			coverageByQuestion := map[string][]string{}
+			rows, err := transaction.Query(ctx, `
+				SELECT question_id, subject_id
+				FROM audit_question_assignments
+				WHERE assignment_id = $1
+				ORDER BY question_id, subject_id
+			`, command.AssignmentID)
+			if err != nil {
+				return commandResult[Preparation]{}, err
+			}
+			for rows.Next() {
+				var questionID, subjectID string
+				if err := rows.Scan(&questionID, &subjectID); err != nil {
+					rows.Close()
+					return commandResult[Preparation]{}, err
+				}
+				coverageByQuestion[questionID] = append(coverageByQuestion[questionID], subjectID)
+			}
+			if err := rows.Err(); err != nil {
+				rows.Close()
+				return commandResult[Preparation]{}, err
+			}
+			rows.Close()
+			selectedRows, err := transaction.Query(ctx, `
+				SELECT question_version_id
+				FROM canonical_audit_scope_snapshot_questions
+				WHERE snapshot_id = $1
+				ORDER BY position
+			`, snapshotID)
+			if err != nil {
+				return commandResult[Preparation]{}, err
+			}
+			selectedIDs := make([]string, 0, selectedCount)
+			for selectedRows.Next() {
+				var questionID string
+				if err := selectedRows.Scan(&questionID); err != nil {
+					selectedRows.Close()
+					return commandResult[Preparation]{}, err
+				}
+				selectedIDs = append(selectedIDs, questionID)
+				if len(coverageByQuestion[questionID]) == 0 {
+					selectedRows.Close()
+					return commandResult[Preparation]{}, fmt.Errorf("%w: every released question needs team coverage", ErrConflict)
+				}
+			}
+			if err := selectedRows.Err(); err != nil {
+				selectedRows.Close()
+				return commandResult[Preparation]{}, err
+			}
+			selectedRows.Close()
+			if len(selectedIDs) != selectedCount || len(coverageByQuestion) != selectedCount {
+				return commandResult[Preparation]{}, fmt.Errorf("%w: preparation coverage does not match released scope", ErrConflict)
+			}
+			coverageEntries := make([]coverageEntry, 0, len(selectedIDs))
+			for _, questionID := range selectedIDs {
+				subjects := append([]string(nil), coverageByQuestion[questionID]...)
+				sort.Strings(subjects)
+				coverageEntries = append(coverageEntries, coverageEntry{QuestionID: questionID, SubjectIDs: subjects})
+			}
+			payload, err := json.Marshal(struct {
+				AssignmentID string          `json:"assignmentId"`
+				SnapshotID   string          `json:"releasedScopeSnapshotId"`
+				Digest       string          `json:"selectionDigest"`
+				LeadSubject  string          `json:"leadSubjectId"`
+				Coverage     []coverageEntry `json:"coverage"`
+			}{command.AssignmentID, snapshotID, selectionDigest, current.LeadSubjectID, coverageEntries})
+			if err != nil {
+				return commandResult[Preparation]{}, err
+			}
+			digestBytes := sha256.Sum256(payload)
+			preparationDigest := "sha256:" + hex.EncodeToString(digestBytes[:])
+			var revision int64
+			if err := transaction.QueryRow(ctx, `
+				SELECT COALESCE(MAX(revision), 0) + 1
+				FROM canonical_audit_preparation_snapshots
+				WHERE released_scope_snapshot_id = $1
+			`, snapshotID).Scan(&revision); err != nil {
+				return commandResult[Preparation]{}, err
+			}
+			preparationID := fmt.Sprintf("preparation:%s:%d", command.AssignmentID, revision)
+			now := service.clock().UTC()
+			if _, err := transaction.Exec(ctx, `
+					INSERT INTO canonical_audit_preparation_snapshots (
+						id, assignment_id, released_scope_snapshot_id, lead_subject_id, revision, status,
+						preparation_digest, confirmed_by_subject_id, confirmed_at, snapshot, created_at
+					) VALUES ($1, $2, $3, $4, $5, 'CONFIRMED', $6, $7, $8, $9, $8)
+				`, preparationID, command.AssignmentID, snapshotID, current.LeadSubjectID, revision,
+				preparationDigest, actor.SubjectID, now, payload); err != nil {
+				return commandResult[Preparation]{}, err
+			}
+			for position, item := range coverageEntries {
+				for _, subjectID := range item.SubjectIDs {
+					if _, err := transaction.Exec(ctx, `
+						INSERT INTO canonical_audit_preparation_questions (
+							preparation_id, released_scope_snapshot_id, question_version_id, subject_id, position
+						) VALUES ($1, $2, $3, $4, $5)
+					`, preparationID, snapshotID, item.QuestionID, subjectID, position); err != nil {
+						return commandResult[Preparation]{}, err
+					}
+				}
+			}
+			// Confirmation is an explicit durable gate.  Keep the assignment in
+			// QUESTIONS_ASSIGNED until materialization, but advance its aggregate
+			// revision so the following materialize command is pinned to the exact
+			// confirmed preparation rather than the pre-confirmation projection.
+			updated, err := transaction.Exec(ctx, `
+				UPDATE audit_assignments
+				SET revision = revision + 1, updated_at = $2
+				WHERE id = $1 AND status = 'QUESTIONS_ASSIGNED' AND revision = $3
+			`, command.AssignmentID, now, current.Revision)
+			if err != nil {
+				return commandResult[Preparation]{}, err
+			}
+			if updated.RowsAffected() != 1 {
+				return commandResult[Preparation]{}, ErrConflict
+			}
+			confirmedRevision := current.Revision + 1
+			return commandResult[Preparation]{
+				Response: Preparation{
+					AssignmentID: command.AssignmentID, PlanningItemID: planningItemID, InspectionID: inspectionID,
+					OrganizationID: current.OrganizationID, Status: current.Status,
+					Revision: confirmedRevision, PreparationID: preparationID,
+					PreparationDigest: preparationDigest, SelectedQuestionCount: selectedCount,
+					ConfirmedAt: now,
+				},
+				OrganizationID: current.OrganizationID, Action: "planning.preparation_confirmed",
+				EntityType: "audit_assignment", EntityID: command.AssignmentID,
+				EntityVersion: confirmedRevision, BeforeStatus: string(current.Status),
+				AfterStatus: string(current.Status),
+			}, nil
+		})
 }
 
 func (service *Service) Prepare(
@@ -63,23 +281,23 @@ func (service *Service) Prepare(
 	if !CanPrepare(actor) {
 		return Preparation{}, ErrForbidden
 	}
-	if blank(command.OperationID, command.IdempotencyKey, command.PlanningItemID, command.InspectionID) ||
+	if blank(command.OperationID, command.IdempotencyKey, command.PlanningItemID) ||
 		command.ExpectedPlanningRevision <= 0 {
 		return Preparation{}, ErrInvalid
 	}
 	return executeCommand(ctx, service, actor, "prepare_audit", command.OperationID,
-		command.IdempotencyKey, command.InspectionID, command,
+		command.IdempotencyKey, "assignment:"+command.PlanningItemID, command,
 		func(ctx context.Context, transaction pgx.Tx) (commandResult[Preparation], error) {
-			var organizationID, title, inspectionType, status string
+			var organizationID, status string
 			var scheduledDate time.Time
 			var revision int64
 			if err := transaction.QueryRow(ctx, `
-				SELECT organization_id, title, inspection_type, status, scheduled_date, revision
+				SELECT organization_id, status, scheduled_date, revision
 				FROM surveillance_plan_items
 				WHERE id = $1 AND tombstoned_at IS NULL
 				FOR UPDATE
 			`, command.PlanningItemID).Scan(
-				&organizationID, &title, &inspectionType, &status, &scheduledDate, &revision,
+				&organizationID, &status, &scheduledDate, &revision,
 			); err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {
 					return commandResult[Preparation]{}, ErrNotFound
@@ -89,48 +307,56 @@ func (service *Service) Prepare(
 			if revision != command.ExpectedPlanningRevision || status != "RELEASED" {
 				return commandResult[Preparation]{}, ErrConflict
 			}
-			var alreadyPrepared string
-			err := transaction.QueryRow(ctx, `
-				SELECT COALESCE(values->>'preparedAuditId', '')
+			if err := requireCurrentDepartmentScopeAuthority(ctx, transaction, actor, command.PlanningItemID, ""); err != nil {
+				return commandResult[Preparation]{}, err
+			}
+			var draftID string
+			if err := transaction.QueryRow(ctx, `
+				SELECT id
 				FROM planning_intake_drafts
 				WHERE submitted_planning_item_id = $1 AND tombstoned_at IS NULL
+				ORDER BY revision DESC, updated_at DESC, id DESC
+				LIMIT 1
 				FOR UPDATE
-			`, command.PlanningItemID).Scan(&alreadyPrepared)
-			if err != nil {
+			`, command.PlanningItemID).Scan(&draftID); err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {
 					return commandResult[Preparation]{}, ErrNotFound
 				}
 				return commandResult[Preparation]{}, err
 			}
-			if alreadyPrepared != "" {
-				return commandResult[Preparation]{}, ErrConflict
+			assignmentID := "assignment:" + command.PlanningItemID
+			var releasedScopeSnapshotID *string
+			if err := transaction.QueryRow(ctx, `
+				SELECT snapshot.id
+				FROM canonical_audit_scope_snapshots snapshot
+				JOIN canonical_audit_scope_drafts scope ON scope.id = snapshot.scope_draft_id
+				JOIN planning_intake_drafts draft ON draft.id = scope.planning_intake_draft_id
+				WHERE draft.submitted_planning_item_id = $1
+				  AND draft.tombstoned_at IS NULL
+				  AND snapshot.stage = 'RELEASED'
+				ORDER BY snapshot.revision DESC, snapshot.id DESC
+				LIMIT 1
+			`, command.PlanningItemID).Scan(&releasedScopeSnapshotID); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				return commandResult[Preparation]{}, err
 			}
 			now := service.clock().UTC()
 			if _, err := transaction.Exec(ctx, `
-				INSERT INTO inspections (
-					id, organization_id, assigned_inspector_subject_id, title,
-					inspection_type, status, due_date, revision, created_at, updated_at
-				) VALUES ($1, $2, NULL, $3, $4, $5, $6, 1, $7, $7)
-			`, command.InspectionID, organizationID, title, inspectionType,
-				string(StatusPreparation), scheduledDate, now); err != nil {
-				return commandResult[Preparation]{}, err
-			}
-			if _, err := transaction.Exec(ctx, `
-				UPDATE planning_intake_drafts
-				SET values = jsonb_set(values, '{preparedAuditId}', to_jsonb($2::text), true),
-				    updated_at = $3
-				WHERE submitted_planning_item_id = $1 AND tombstoned_at IS NULL
-			`, command.PlanningItemID, command.InspectionID, now); err != nil {
+				INSERT INTO audit_assignments (
+					id, inspection_id, planning_item_id, organization_id, lead_subject_id, status,
+					scheduled_start_date, scheduled_end_date, revision, created_at, updated_at,
+					released_scope_snapshot_id
+				) VALUES ($1, NULL, $2, $3, NULL, 'PREPARATION', $4, $4, 1, $5, $5, $6)
+			`, assignmentID, command.PlanningItemID, organizationID, scheduledDate, now, releasedScopeSnapshotID); err != nil {
 				return commandResult[Preparation]{}, err
 			}
 			output := Preparation{
-				PlanningItemID: command.PlanningItemID, InspectionID: command.InspectionID,
+				AssignmentID: assignmentID, PlanningItemID: command.PlanningItemID, InspectionID: "",
 				OrganizationID: organizationID, Status: StatusPreparation, Revision: 1,
 			}
 			return commandResult[Preparation]{
 				Response: output, OrganizationID: organizationID,
-				Action: "planning.preparation_started", EntityType: "inspection",
-				EntityID: command.InspectionID, EntityVersion: 1,
+				Action: "planning.preparation_started", EntityType: "audit_assignment",
+				EntityID: assignmentID, EntityVersion: 1,
 				AfterStatus: string(StatusPreparation),
 			}, nil
 		})
@@ -155,42 +381,57 @@ func (service *Service) AssignLead(
 	if !CanAssignLead(actor) {
 		return Assignment{}, ErrForbidden
 	}
-	start, end, err := parseSchedule(command.ScheduledStartDate, command.ScheduledEndDate)
-	if err != nil || blank(command.OperationID, command.IdempotencyKey, command.AssignmentID,
-		command.InspectionID, command.LeadSubjectID) || command.ExpectedInspectionRevision <= 0 {
+	if blank(command.OperationID, command.IdempotencyKey, command.AssignmentID, command.LeadSubjectID) || command.ExpectedInspectionRevision <= 0 {
 		return Assignment{}, ErrInvalid
 	}
 	return executeCommand(ctx, service, actor, "assign_lead", command.OperationID,
 		command.IdempotencyKey, command.AssignmentID, command,
 		func(ctx context.Context, transaction pgx.Tx) (commandResult[Assignment], error) {
-			var organizationID, status string
-			var revision int64
+			current, err := getAssignmentForUpdate(ctx, transaction, command.AssignmentID)
+			if err != nil {
+				return commandResult[Assignment]{}, err
+			}
+			if current.Revision != command.ExpectedInspectionRevision || current.Status != StatusPreparation || current.PlanningItemID == "" {
+				return commandResult[Assignment]{}, ErrConflict
+			}
+			var releasedPlannedDate time.Time
 			if err := transaction.QueryRow(ctx, `
-				SELECT organization_id, status, revision
-				FROM inspections
-				WHERE id = $1 AND tombstoned_at IS NULL
+				SELECT plan.scheduled_date
+				FROM planning_intake_drafts draft
+				JOIN surveillance_plan_items plan ON plan.id = draft.submitted_planning_item_id
+				WHERE draft.submitted_planning_item_id = $1
+				  AND draft.tombstoned_at IS NULL
+				ORDER BY draft.revision DESC, draft.updated_at DESC, draft.id DESC
+				LIMIT 1
 				FOR UPDATE
-			`, command.InspectionID).Scan(&organizationID, &status, &revision); err != nil {
+			`, current.PlanningItemID).Scan(&releasedPlannedDate); err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {
 					return commandResult[Assignment]{}, ErrNotFound
 				}
 				return commandResult[Assignment]{}, err
 			}
-			if revision != command.ExpectedInspectionRevision || Status(status) != StatusPreparation {
-				return commandResult[Assignment]{}, ErrConflict
+			if err := requireCurrentDepartmentScopeAuthority(ctx, transaction, actor, current.PlanningItemID, ""); err != nil {
+				return commandResult[Assignment]{}, err
 			}
 			if err := requireActiveRole(ctx, transaction, command.LeadSubjectID, identity.RoleLeadInspector); err != nil {
 				return commandResult[Assignment]{}, err
 			}
+			if current.ReleasedScopeSnapshotID == "" {
+				return commandResult[Assignment]{}, fmt.Errorf("%w: canonical released scope snapshot is required before Lead assignment", ErrConflict)
+			}
 			now := service.clock().UTC()
-			if _, err := transaction.Exec(ctx, `
-				INSERT INTO audit_assignments (
-					id, inspection_id, organization_id, lead_subject_id, status,
-					scheduled_start_date, scheduled_end_date, revision, created_at, updated_at
-				) VALUES ($1, $2, $3, $4, $5, $6, $7, 1, $8, $8)
-			`, command.AssignmentID, command.InspectionID, organizationID, command.LeadSubjectID,
-				string(StatusLeadAssigned), start, end, now); err != nil {
+			updated, err := transaction.Exec(ctx, `
+				UPDATE audit_assignments
+				SET lead_subject_id = $2, status = 'LEAD_ASSIGNED',
+				    scheduled_start_date = $3, scheduled_end_date = $3,
+				    revision = revision + 1, updated_at = $4
+				WHERE id = $1 AND status = 'PREPARATION' AND revision = $5
+			`, command.AssignmentID, command.LeadSubjectID, releasedPlannedDate, now, current.Revision)
+			if err != nil {
 				return commandResult[Assignment]{}, err
+			}
+			if updated.RowsAffected() != 1 {
+				return commandResult[Assignment]{}, ErrConflict
 			}
 			if _, err := transaction.Exec(ctx, `
 				INSERT INTO audit_team_members (
@@ -199,24 +440,17 @@ func (service *Service) AssignLead(
 			`, command.AssignmentID, command.LeadSubjectID, now); err != nil {
 				return commandResult[Assignment]{}, err
 			}
-			if _, err := transaction.Exec(ctx, `
-				UPDATE inspections
-				SET assigned_inspector_subject_id = $2, revision = revision + 1, updated_at = $3
-				WHERE id = $1 AND revision = $4
-			`, command.InspectionID, command.LeadSubjectID, now, revision); err != nil {
-				return commandResult[Assignment]{}, err
-			}
 			output := Assignment{
-				ID: command.AssignmentID, InspectionID: command.InspectionID,
-				OrganizationID: organizationID, LeadSubjectID: command.LeadSubjectID,
+				ID: command.AssignmentID, InspectionID: "", PlanningItemID: current.PlanningItemID,
+				OrganizationID: current.OrganizationID, LeadSubjectID: command.LeadSubjectID,
 				MemberSubjectIDs: []string{command.LeadSubjectID}, Status: StatusLeadAssigned,
-				ScheduledStartDate: command.ScheduledStartDate,
-				ScheduledEndDate:   command.ScheduledEndDate, Revision: 1,
+				ScheduledStartDate: releasedPlannedDate.Format("2006-01-02"),
+				ScheduledEndDate:   releasedPlannedDate.Format("2006-01-02"), Revision: current.Revision + 1,
 			}
 			return commandResult[Assignment]{
-				Response: output, OrganizationID: organizationID,
+				Response: output, OrganizationID: current.OrganizationID,
 				Action: "assignment.lead_assigned", EntityType: "audit_assignment",
-				EntityID: command.AssignmentID, EntityVersion: 1,
+				EntityID: command.AssignmentID, EntityVersion: output.Revision,
 				AfterStatus: string(StatusLeadAssigned),
 			}, nil
 		})
@@ -255,6 +489,9 @@ func (service *Service) AssignTeam(
 			if !CanConfigureTeam(actor, current.LeadSubjectID) {
 				return commandResult[Assignment]{}, ErrForbidden
 			}
+			if err := requireActiveRole(ctx, transaction, actor.SubjectID, identity.RoleLeadInspector); err != nil {
+				return commandResult[Assignment]{}, ErrForbidden
+			}
 			if current.Revision != command.ExpectedRevision || current.Status != StatusLeadAssigned {
 				return commandResult[Assignment]{}, ErrConflict
 			}
@@ -279,6 +516,11 @@ func (service *Service) AssignTeam(
 			updated, err := updateAssignmentStatus(ctx, transaction, current,
 				StatusTeamAssigned, now)
 			if err != nil {
+				return commandResult[Assignment]{}, err
+			}
+			if err := recordPreparationEdit(ctx, transaction, command.AssignmentID, updated.Revision, "TEAM", actor, map[string]any{
+				"memberSubjectIds": members,
+			}); err != nil {
 				return commandResult[Assignment]{}, err
 			}
 			updated.MemberSubjectIDs = append([]string{updated.LeadSubjectID}, members...)
@@ -324,10 +566,13 @@ func (service *Service) AssignQuestions(
 			if !CanConfigureTeam(actor, current.LeadSubjectID) {
 				return commandResult[Assignment]{}, ErrForbidden
 			}
+			if err := requireActiveRole(ctx, transaction, actor.SubjectID, identity.RoleLeadInspector); err != nil {
+				return commandResult[Assignment]{}, ErrForbidden
+			}
 			if current.Revision != command.ExpectedRevision || current.Status != StatusTeamAssigned {
 				return commandResult[Assignment]{}, ErrConflict
 			}
-			allowedQuestions, err := templateQuestionIDs(ctx, transaction, current.InspectionID)
+			allowedQuestions, err := templateQuestionIDs(ctx, transaction, current.InspectionID, current.PlanningItemID)
 			if err != nil {
 				return commandResult[Assignment]{}, err
 			}
@@ -369,6 +614,11 @@ func (service *Service) AssignQuestions(
 			if err != nil {
 				return commandResult[Assignment]{}, err
 			}
+			if err := recordPreparationEdit(ctx, transaction, command.AssignmentID, updated.Revision, "QUESTION_COVERAGE", actor, map[string]any{
+				"questionAssignments": questionAssignments,
+			}); err != nil {
+				return commandResult[Assignment]{}, err
+			}
 			updated.QuestionAssignments = questionAssignments
 			updated.MemberSubjectIDs, err = listMemberIDs(ctx, transaction, command.AssignmentID)
 			if err != nil {
@@ -381,6 +631,36 @@ func (service *Service) AssignQuestions(
 				BeforeStatus: string(current.Status), AfterStatus: string(updated.Status),
 			}, nil
 		})
+}
+
+// recordPreparationEdit is the durable preview/confirm trail for mutable
+// assignment projections. It is written in the same transaction as the
+// status CAS, so a successful team/coverage command always has an immutable
+// revision receipt and a failed command has none.
+func recordPreparationEdit(
+	ctx context.Context,
+	transaction pgx.Tx,
+	assignmentID string,
+	assignmentRevision int64,
+	editKind string,
+	actor identity.Principal,
+	snapshot any,
+) error {
+	body, err := json.Marshal(snapshot)
+	if err != nil {
+		return err
+	}
+	digest, err := idempotency.SemanticHash(snapshot)
+	if err != nil {
+		return err
+	}
+	_, err = transaction.Exec(ctx, `
+		INSERT INTO canonical_audit_preparation_edit_events (
+			id, assignment_id, assignment_revision, edit_kind, edit_digest,
+			snapshot, actor_subject_id
+		) VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, fmt.Sprintf("preparation-edit:%s:%d:%s", assignmentID, assignmentRevision, strings.ToLower(editKind)), assignmentID, assignmentRevision, editKind, digest, body, actor.SubjectID)
+	return err
 }
 
 func (service *Service) ListWorkload(
@@ -437,6 +717,7 @@ func (service *Service) ListAuditeeCoordination(
 		JOIN organizations organization ON organization.id = inspection.organization_id
 		JOIN planning_intake_drafts draft
 		  ON draft.values->>'preparedAuditId' = inspection.id
+		  OR draft.submitted_planning_item_id = assignment.planning_item_id
 		WHERE inspection.organization_id = $1
 		  AND draft.values->>'noticePolicy' = 'ADVANCE'
 		  AND assignment.status IN (
@@ -485,6 +766,118 @@ type RespondCoordinationCommand struct {
 	AlternativeDate  *string
 }
 
+type ReviewCoordinationDecision string
+
+const (
+	ReviewCoordinationAccept ReviewCoordinationDecision = "ACCEPT_ALTERNATIVE"
+	ReviewCoordinationReturn ReviewCoordinationDecision = "RETURN_TO_AUDITEE"
+)
+
+type ReviewCoordinationCommand struct {
+	OperationID      string
+	IdempotencyKey   string
+	InspectionID     string
+	OrganizationID   string
+	ExpectedRevision int64
+	Decision         ReviewCoordinationDecision
+	Reason           string
+}
+
+// ReviewAuditeeCoordination is the distinct CAA command boundary for an
+// announced Auditee alternative. The Auditee can propose; only the scoped
+// Department Manager can accept or return that proposal.
+func (service *Service) ReviewAuditeeCoordination(
+	ctx context.Context,
+	actor identity.Principal,
+	command ReviewCoordinationCommand,
+) (AuditeeCoordination, error) {
+	if !actor.HasRole(identity.RoleDepartmentManager) || blank(command.OperationID, command.IdempotencyKey, command.InspectionID, command.OrganizationID, command.Reason) || command.ExpectedRevision <= 0 {
+		return AuditeeCoordination{}, ErrForbidden
+	}
+	if command.Decision != ReviewCoordinationAccept && command.Decision != ReviewCoordinationReturn {
+		return AuditeeCoordination{}, ErrInvalid
+	}
+	return executeCommand(ctx, service, actor, "review_auditee_coordination", command.OperationID, command.IdempotencyKey, command.InspectionID, command,
+		func(ctx context.Context, transaction pgx.Tx) (commandResult[AuditeeCoordination], error) {
+			var assignmentID, organizationName, title, category, status string
+			var scheduledDate time.Time
+			var revision int64
+			var alternativeDate *string
+			if err := transaction.QueryRow(ctx, `
+				SELECT assignment.id, organization.legal_name, inspection.title,
+				       draft.values->>'inspectionCategory', assignment.scheduled_start_date,
+				       assignment.status, assignment.revision,
+				       NULLIF(draft.values->>'alternativeDate', '')
+				FROM audit_assignments assignment
+				JOIN inspections inspection ON inspection.id = assignment.inspection_id
+				JOIN organizations organization ON organization.id = inspection.organization_id
+				JOIN planning_intake_drafts draft
+				  ON draft.values->>'preparedAuditId' = inspection.id
+				  OR draft.submitted_planning_item_id = assignment.planning_item_id
+				WHERE inspection.id = $1 AND inspection.organization_id = $2
+				  AND draft.values->>'noticePolicy' = 'ADVANCE'
+				  AND assignment.status = 'ALTERNATIVE_PROPOSED'
+				  AND assignment.tombstoned_at IS NULL
+				FOR UPDATE OF assignment
+			`, command.InspectionID, command.OrganizationID).Scan(&assignmentID, &organizationName, &title, &category, &scheduledDate, &status, &revision, &alternativeDate); err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					return commandResult[AuditeeCoordination]{}, ErrNotFound
+				}
+				return commandResult[AuditeeCoordination]{}, err
+			}
+			if revision != command.ExpectedRevision {
+				return commandResult[AuditeeCoordination]{}, ErrConflict
+			}
+			if err := requireCurrentDepartmentScopeAuthority(ctx, transaction, actor, "", command.InspectionID); err != nil {
+				return commandResult[AuditeeCoordination]{}, err
+			}
+			if alternativeDate == nil || strings.TrimSpace(*alternativeDate) == "" {
+				return commandResult[AuditeeCoordination]{}, fmt.Errorf("%w: an Auditee alternative date is required", ErrConflict)
+			}
+			alternative, err := time.Parse("2006-01-02", *alternativeDate)
+			if err != nil {
+				return commandResult[AuditeeCoordination]{}, ErrConflict
+			}
+			now := service.clock().UTC()
+			nextStatus := StatusAwaitingAuditeeConfirmation
+			if command.Decision == ReviewCoordinationAccept {
+				nextStatus = StatusConfirmed
+				if _, err := transaction.Exec(ctx, `
+					UPDATE audit_assignments
+					SET status = $2, scheduled_start_date = $3,
+					    scheduled_end_date = GREATEST(COALESCE(scheduled_end_date, $3), $3),
+					    revision = revision + 1, updated_at = $4
+					WHERE id = $1 AND revision = $5
+				`, assignmentID, string(nextStatus), alternative, now, revision); err != nil {
+					return commandResult[AuditeeCoordination]{}, err
+				}
+				if _, err := transaction.Exec(ctx, `
+					UPDATE inspections
+					SET status = 'SCHEDULED', revision = revision + 1, updated_at = $2
+					WHERE id = $1 AND status = 'AWAITING_AUDITEE_CONFIRMATION'
+				`, command.InspectionID, now); err != nil {
+					return commandResult[AuditeeCoordination]{}, err
+				}
+				scheduledDate = alternative
+			} else if _, err := transaction.Exec(ctx, `
+				UPDATE audit_assignments SET status = $2, revision = revision + 1, updated_at = $3
+				WHERE id = $1 AND revision = $4
+			`, assignmentID, string(nextStatus), now, revision); err != nil {
+				return commandResult[AuditeeCoordination]{}, err
+			}
+			output := AuditeeCoordination{
+				InspectionID: command.InspectionID, OrganizationID: command.OrganizationID,
+				OrganizationName: organizationName, Title: title, InspectionCategory: category,
+				ScheduledStartDate: scheduledDate.Format("2006-01-02"), Status: nextStatus,
+				AlternativeDate: alternativeDate, NextAction: coordinationNextAction(nextStatus), Revision: revision + 1,
+			}
+			return commandResult[AuditeeCoordination]{Response: output, OrganizationID: command.OrganizationID,
+				Action: "caa.coordination_reviewed", EntityType: "audit_assignment", EntityID: assignmentID,
+				EntityVersion: revision + 1, BeforeStatus: status, AfterStatus: string(nextStatus),
+			}, nil
+		})
+}
+
 func (service *Service) RespondAuditeeCoordination(
 	ctx context.Context,
 	actor identity.Principal,
@@ -525,8 +918,9 @@ func (service *Service) RespondAuditeeCoordination(
 				FROM audit_assignments assignment
 				JOIN inspections inspection ON inspection.id = assignment.inspection_id
 				JOIN organizations organization ON organization.id = inspection.organization_id
-				JOIN planning_intake_drafts draft
-				  ON draft.values->>'preparedAuditId' = inspection.id
+		JOIN planning_intake_drafts draft
+		  ON draft.values->>'preparedAuditId' = inspection.id
+		  OR draft.submitted_planning_item_id = assignment.planning_item_id
 				WHERE inspection.id = $1
 				  AND inspection.organization_id = $2
 				  AND draft.values->>'noticePolicy' = 'ADVANCE'
@@ -541,21 +935,42 @@ func (service *Service) RespondAuditeeCoordination(
 				return commandResult[AuditeeCoordination]{}, err
 			}
 			if revision != command.ExpectedRevision ||
-				(Status(status) != StatusAwaitingAuditeeConfirmation &&
-					Status(status) != StatusAlternativeProposed) {
+				(Status(status) != StatusAwaitingAuditeeConfirmation && Status(status) != StatusAlternativeProposed) {
 				return commandResult[AuditeeCoordination]{}, ErrConflict
+			}
+			// An Auditee may confirm the announced date or propose an alternative,
+			// but it cannot self-accept an alternative after the CAA must review it.
+			if command.Decision == CoordinationConfirm && Status(status) != StatusAwaitingAuditeeConfirmation {
+				return commandResult[AuditeeCoordination]{}, fmt.Errorf("%w: CAA must accept or return the proposed alternative date", ErrForbidden)
 			}
 			nextStatus := StatusConfirmed
 			if command.Decision == CoordinationProposeAlternative {
 				nextStatus = StatusAlternativeProposed
 			}
 			now := service.clock().UTC()
-			if _, err := transaction.Exec(ctx, `
+			assignmentUpdate, err := transaction.Exec(ctx, `
 				UPDATE audit_assignments
 				SET status = $2, revision = revision + 1, updated_at = $3
 				WHERE id = $1 AND revision = $4
-			`, assignmentID, string(nextStatus), now, revision); err != nil {
+			`, assignmentID, string(nextStatus), now, revision)
+			if err != nil {
 				return commandResult[AuditeeCoordination]{}, err
+			}
+			if assignmentUpdate.RowsAffected() != 1 {
+				return commandResult[AuditeeCoordination]{}, ErrConflict
+			}
+			if command.Decision == CoordinationConfirm {
+				inspectionUpdate, err := transaction.Exec(ctx, `
+						UPDATE inspections
+						SET status = 'SCHEDULED', revision = revision + 1, updated_at = $2
+						WHERE id = $1 AND status = 'AWAITING_AUDITEE_CONFIRMATION'
+					`, command.InspectionID, now)
+				if err != nil {
+					return commandResult[AuditeeCoordination]{}, err
+				}
+				if inspectionUpdate.RowsAffected() != 1 {
+					return commandResult[AuditeeCoordination]{}, ErrConflict
+				}
 			}
 			if command.AlternativeDate != nil {
 				if _, err := transaction.Exec(ctx, `
@@ -563,7 +978,8 @@ func (service *Service) RespondAuditeeCoordination(
 					SET values = jsonb_set(values, '{alternativeDate}', to_jsonb($2::text), true),
 					    updated_at = $3
 					WHERE values->>'preparedAuditId' = $1
-				`, command.InspectionID, *command.AlternativeDate, now); err != nil {
+					   OR submitted_planning_item_id = (SELECT planning_item_id FROM audit_assignments WHERE id = $4)
+				`, command.InspectionID, *command.AlternativeDate, now, assignmentID); err != nil {
 					return commandResult[AuditeeCoordination]{}, err
 				}
 			}
@@ -728,13 +1144,14 @@ func getAssignmentForUpdate(
 	var output Assignment
 	var start, end time.Time
 	err := transaction.QueryRow(ctx, `
-		SELECT id, inspection_id, organization_id, lead_subject_id, status,
-		       scheduled_start_date, scheduled_end_date, revision
+		SELECT id, COALESCE(inspection_id, ''), COALESCE(planning_item_id, ''), COALESCE(released_scope_snapshot_id, ''), organization_id,
+		       COALESCE(lead_subject_id, ''), status,
+		       COALESCE(scheduled_start_date, CURRENT_DATE), COALESCE(scheduled_end_date, CURRENT_DATE), revision
 		FROM audit_assignments
 		WHERE id = $1 AND tombstoned_at IS NULL
 		FOR UPDATE
 	`, assignmentID).Scan(
-		&output.ID, &output.InspectionID, &output.OrganizationID, &output.LeadSubjectID,
+		&output.ID, &output.InspectionID, &output.PlanningItemID, &output.ReleasedScopeSnapshotID, &output.OrganizationID, &output.LeadSubjectID,
 		&output.Status, &start, &end, &output.Revision,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -761,10 +1178,11 @@ func updateAssignmentStatus(
 		UPDATE audit_assignments
 		SET status = $2, revision = revision + 1, updated_at = $3
 		WHERE id = $1 AND revision = $4 AND tombstoned_at IS NULL
-		RETURNING id, inspection_id, organization_id, lead_subject_id, status,
-		          scheduled_start_date, scheduled_end_date, revision
+		RETURNING id, COALESCE(inspection_id, ''), COALESCE(planning_item_id, ''), COALESCE(released_scope_snapshot_id, ''), organization_id,
+		          COALESCE(lead_subject_id, ''), status,
+		          COALESCE(scheduled_start_date, CURRENT_DATE), COALESCE(scheduled_end_date, CURRENT_DATE), revision
 	`, current.ID, string(status), now, current.Revision).Scan(
-		&output.ID, &output.InspectionID, &output.OrganizationID, &output.LeadSubjectID,
+		&output.ID, &output.InspectionID, &output.PlanningItemID, &output.ReleasedScopeSnapshotID, &output.OrganizationID, &output.LeadSubjectID,
 		&output.Status, &start, &end, &output.Revision,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -793,6 +1211,8 @@ func requireActiveRole(
 			WHERE identity.subject_id = $1
 			  AND identity.tombstoned_at IS NULL
 			  AND session.revoked_at IS NULL
+			  AND session.expires_at > now()
+			  AND (session.absolute_expires_at IS NULL OR session.absolute_expires_at > now())
 			  AND $2 = ANY(session.roles)
 		)
 	`, subjectID, string(role)).Scan(&exists); err != nil {
@@ -804,10 +1224,138 @@ func requireActiveRole(
 	return nil
 }
 
+// requireCurrentDepartmentScopeAuthority binds canonical post-release
+// preparation commands to the same current provider/department authority used
+// by Planning scope selection. Legacy/template planning rows have no canonical
+// scope row and remain readable only until the explicit donor-removal gate;
+// canonical rows fail closed when their released scope is stale, revoked, or
+// outside the actor's current Department Manager responsibility.
+func requireCurrentDepartmentScopeAuthority(
+	ctx context.Context,
+	transaction pgx.Tx,
+	actor identity.Principal,
+	planningItemID string,
+	inspectionID string,
+) error {
+	var canonicalScope, authorized bool
+	if err := transaction.QueryRow(ctx, `
+		WITH matching_scope AS (
+			SELECT scope.id, scope.provider_scope_id, scope.regulated_target_id,
+			       scope.status, draft.submitted_planning_item_id,
+			       draft.values->>'preparedAuditId' AS prepared_audit_id
+			FROM planning_intake_drafts draft
+			JOIN canonical_audit_scope_drafts scope
+			  ON scope.planning_intake_draft_id = draft.id
+			WHERE draft.tombstoned_at IS NULL
+			  AND (($2 <> '' AND draft.submitted_planning_item_id = $2)
+			       OR ($3 <> '' AND (
+						 draft.values->>'preparedAuditId' = $3
+						 OR EXISTS (
+							 SELECT 1 FROM audit_assignments canonical_assignment
+							 WHERE canonical_assignment.inspection_id = $3
+							   AND canonical_assignment.planning_item_id = draft.submitted_planning_item_id
+							   AND canonical_assignment.tombstoned_at IS NULL
+						 )
+					 )))
+		), authorized_scope AS (
+			SELECT 1
+			FROM matching_scope selected
+			JOIN LATERAL (
+				SELECT snapshot.id
+				FROM canonical_audit_scope_snapshots snapshot
+				WHERE snapshot.scope_draft_id = selected.id
+				  AND snapshot.stage = 'RELEASED'
+				ORDER BY snapshot.revision DESC, snapshot.id DESC
+				LIMIT 1
+			) released ON true
+			JOIN organization_service_provider_scopes selected_scope
+			  ON selected_scope.id = selected.provider_scope_id
+			JOIN LATERAL (
+				SELECT current_scope.*
+				FROM organization_service_provider_scopes current_scope
+				WHERE current_scope.root_id = selected_scope.root_id
+				  AND current_scope.effective_from <= CURRENT_DATE
+				ORDER BY current_scope.effective_from DESC, current_scope.id DESC
+				LIMIT 1
+			) current_scope ON current_scope.id = selected_scope.id
+			JOIN regulated_targets target
+			  ON target.id = selected.regulated_target_id
+			JOIN service_provider_unit_responsibilities responsibility
+			  ON responsibility.service_provider_type_id = selected_scope.service_provider_type_id
+			JOIN caa_organizational_units unit
+			  ON unit.id = responsibility.organizational_unit_id
+			JOIN LATERAL (
+				SELECT membership.department_id, membership.organizational_unit_id
+				FROM (
+					SELECT DISTINCT ON (root_id) *
+					FROM caa_department_memberships
+					WHERE subject_id = $1 AND effective_from <= CURRENT_DATE
+					ORDER BY root_id, effective_from DESC, id DESC
+				) membership
+				WHERE membership.organizational_unit_id = unit.id
+				  AND membership.membership_role = 'DEPARTMENT_MANAGER'
+				  AND membership.status = 'ACTIVE'
+				  AND (membership.effective_to IS NULL OR membership.effective_to > CURRENT_DATE)
+				LIMIT 1
+			) membership ON true
+			JOIN LATERAL (
+				SELECT status
+				FROM caa_department_status_facts
+				WHERE department_id = membership.department_id
+				  AND effective_from <= CURRENT_DATE
+				ORDER BY effective_from DESC, id DESC
+				LIMIT 1
+			) department_status ON department_status.status = 'ACTIVE'
+			JOIN LATERAL (
+				SELECT status
+				FROM caa_organizational_unit_status_facts
+				WHERE organizational_unit_id = membership.organizational_unit_id
+				  AND effective_from <= CURRENT_DATE
+				ORDER BY effective_from DESC, id DESC
+				LIMIT 1
+			) unit_status ON unit_status.status = 'ACTIVE'
+			WHERE selected.status = 'RELEASED'
+			  AND selected_scope.status = 'ACTIVE'
+			  AND selected_scope.effective_from <= CURRENT_DATE
+			  AND (selected_scope.effective_to IS NULL OR selected_scope.effective_to > CURRENT_DATE)
+			  AND (target.organization_id IS NULL OR target.organization_id = selected_scope.organization_id)
+			  AND (target.owner_organization_id IS NULL OR target.owner_organization_id = selected_scope.organization_id)
+			  AND (selected_scope.primary_target_id = target.id OR EXISTS (
+				  SELECT 1
+				  FROM organization_service_provider_scope_targets linked
+				  WHERE linked.organization_service_provider_scope_id = selected_scope.id
+				    AND linked.regulated_target_id = target.id
+			  ))
+		)
+		SELECT EXISTS (SELECT 1 FROM matching_scope),
+		       EXISTS (SELECT 1 FROM authorized_scope)
+	`, actor.SubjectID, planningItemID, inspectionID).Scan(&canonicalScope, &authorized); err != nil {
+		return err
+	}
+	if canonicalScope && !authorized {
+		return ErrForbidden
+	}
+	return nil
+}
+
+// RequireCurrentDepartmentScopeAuthority is shared with the application
+// materializer so every canonical preparation transition enforces the same
+// current provider/department authority boundary.
+func RequireCurrentDepartmentScopeAuthority(
+	ctx context.Context,
+	transaction pgx.Tx,
+	actor identity.Principal,
+	planningItemID string,
+	inspectionID string,
+) error {
+	return requireCurrentDepartmentScopeAuthority(ctx, transaction, actor, planningItemID, inspectionID)
+}
+
 func templateQuestionIDs(
 	ctx context.Context,
 	transaction pgx.Tx,
 	inspectionID string,
+	planningItemID string,
 ) (map[string]bool, error) {
 	var snapshot []byte
 	if err := transaction.QueryRow(ctx, `
@@ -815,11 +1363,50 @@ func templateQuestionIDs(
 		FROM planning_intake_drafts draft
 		JOIN checklist_template_versions template
 		  ON template.id = draft.values->>'templateVersionId'
-		WHERE draft.values->>'preparedAuditId' = $1
+			WHERE (($1 <> '' AND draft.values->>'preparedAuditId' = $1)
+			   OR ($2 <> '' AND draft.submitted_planning_item_id = $2))
 		  AND draft.tombstoned_at IS NULL
-	`, inspectionID).Scan(&snapshot); err != nil {
+		`, inspectionID, planningItemID).Scan(&snapshot); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
+			// Canonical successor audits are selected from an immutable RELEASED
+			// scope snapshot. They intentionally have no checklist-template
+			// reference, so assignment eligibility is derived from question
+			// version identities instead.
+			rows, canonicalErr := transaction.Query(ctx, `
+				SELECT question_version_id
+				FROM canonical_audit_scope_snapshot_questions
+					WHERE snapshot_id = (
+					SELECT snapshot.id
+					FROM canonical_audit_scope_snapshots snapshot
+					JOIN canonical_audit_scope_drafts scope ON scope.id = snapshot.scope_draft_id
+					JOIN planning_intake_drafts draft ON draft.id = scope.planning_intake_draft_id
+						WHERE (($1 <> '' AND draft.values->>'preparedAuditId' = $1)
+						   OR ($2 <> '' AND draft.submitted_planning_item_id = $2))
+					  AND snapshot.stage = 'RELEASED'
+					ORDER BY snapshot.revision DESC, snapshot.id DESC
+					LIMIT 1
+				)
+				ORDER BY position
+				`, inspectionID, planningItemID)
+			if canonicalErr != nil {
+				return nil, canonicalErr
+			}
+			defer rows.Close()
+			output := map[string]bool{}
+			for rows.Next() {
+				var questionVersionID string
+				if err := rows.Scan(&questionVersionID); err != nil {
+					return nil, err
+				}
+				output[questionVersionID] = true
+			}
+			if err := rows.Err(); err != nil {
+				return nil, err
+			}
+			if len(output) == 0 {
+				return nil, ErrNotFound
+			}
+			return output, nil
 		}
 		return nil, err
 	}

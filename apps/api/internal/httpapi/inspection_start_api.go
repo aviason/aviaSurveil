@@ -24,7 +24,7 @@ func (api *CanonicalAPI) startInspection(writer http.ResponseWriter, request *ht
 		return
 	}
 	result, err := api.application.StartInspection(request.Context(), actor, application.StartInspectionCommand{
-		OperationID: input.OperationId, CorrelationID: input.OperationId,
+		OperationID:  input.OperationId,
 		InspectionID: auditID, ExpectedInspectionRevision: input.ExpectedInspectionRevision,
 	})
 	if err != nil {

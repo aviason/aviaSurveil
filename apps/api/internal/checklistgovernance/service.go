@@ -866,6 +866,26 @@ type rowQuerier interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
+// RequireCurrentDepartmentReviewAuthority is the shared horizontal authority
+// boundary for all governed candidate mutations, including the canonical
+// Question Review disposition events handled by the HTTP adapter. Callers
+// must invoke it inside their mutation transaction so an owner revocation and
+// a review decision cannot race across separate snapshots.
+func (service *Service) RequireCurrentDepartmentReviewAuthority(
+	ctx context.Context,
+	tx pgx.Tx,
+	actor identity.Principal,
+	candidateID string,
+	revision int64,
+	digest string,
+) error {
+	if tx == nil {
+		return application.ErrInvalid
+	}
+	_, err := service.assignmentForCandidate(ctx, tx, actor, candidateID, revision, digest)
+	return err
+}
+
 func (service *Service) reviewMetadata(ctx context.Context, query rowQuerier, candidate regulatory.CandidateView) ([]DecisionView, []regulatory.ValidationIssue, error) {
 	decisions := []DecisionView{}
 	rows, err := query.Query(ctx, `

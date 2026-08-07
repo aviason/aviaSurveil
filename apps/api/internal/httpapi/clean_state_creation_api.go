@@ -1,9 +1,9 @@
 package httpapi
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/application"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/httpapi/generated"
@@ -70,6 +70,10 @@ func (api *CanonicalAPI) createPlanningIntakeDraft(
 		api.respond(writer, nil, application.ErrInvalid)
 		return
 	}
+	if err := api.requireCatalogRuntimeProfile(request.Context(), optionalString(input.Values.CatalogVersion)); err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
 	values := map[string]any{
 		"organizationId":     input.Values.OrganizationId,
 		"organizationName":   input.Values.OrganizationName,
@@ -112,20 +116,25 @@ func (api *CanonicalAPI) createPlanningIntakeDraft(
 		api.respond(writer, nil, err)
 		return
 	}
+	organizationName := input.Values.OrganizationName
+	if value, ok := record.Values["organizationName"].(string); ok && strings.TrimSpace(value) != "" {
+		organizationName = value
+	}
 	writeJSON(writer, http.StatusCreated, generated.PlanningIntakeDraftView{
 		Id: record.ID, OrganizationId: record.OrganizationID,
-		OrganizationName: input.Values.OrganizationName,
+		OrganizationName: organizationName,
 		ApplicationType:  input.Values.ApplicationType, Domain: input.Values.Domain,
 		InspectionCategory: input.Values.InspectionCategory,
 		NoticePolicy:       input.Values.NoticePolicy, Purpose: input.Values.Purpose,
 		TriggerType: input.Values.TriggerType, RiskCategory: input.Values.RiskCategory,
 		PlannedDate: input.Values.PlannedDate, Mode: input.Values.Mode,
 		Location: input.Values.Location, TemplateVersionId: input.Values.TemplateVersionId,
-		Scope: input.Values.Scope, CatalogVersion: input.Values.CatalogVersion,
-		ScopeDraftId: input.Values.ScopeDraftId, SelectionDigest: input.Values.SelectionDigest,
-		SelectedQuestionVersionIds:   append([]string(nil), input.Values.SelectedQuestionVersionIds...),
+		Scope: input.Values.Scope, CatalogVersion: draftStringValue(record.Values, "catalogVersion", input.Values.CatalogVersion),
+		ScopeDraftId:                 draftStringValue(record.Values, "scopeDraftId", input.Values.ScopeDraftId),
+		SelectionDigest:              draftStringValue(record.Values, "selectionDigest", input.Values.SelectionDigest),
+		SelectedQuestionVersionIds:   stringSliceValue(record.Values, "selectedQuestionVersionIds", input.Values.SelectedQuestionVersionIds),
 		EstimatedResourceRequirement: input.Values.EstimatedResourceRequirement,
-		ProviderScopeId:              input.Values.ProviderScopeId, RegulatedTargetId: input.Values.RegulatedTargetId,
+		ProviderScopeId:              draftStringValue(record.Values, "providerScopeId", input.Values.ProviderScopeId), RegulatedTargetId: draftStringValue(record.Values, "regulatedTargetId", input.Values.RegulatedTargetId),
 		RequestedBudget: input.Values.RequestedBudget,
 		Currency:        input.Values.Currency, Revision: record.Revision,
 		SubmittedPlanningItemId: record.SubmittedPlanningItemID, UpdatedAt: record.UpdatedAt,
@@ -145,6 +154,34 @@ func optionalStringPointer(value string) *string {
 	}
 	copy := strings.TrimSpace(value)
 	return &copy
+}
+
+func draftStringValue(values map[string]any, key string, fallback *string) *string {
+	if value, ok := values[key].(string); ok {
+		return optionalStringPointer(value)
+	}
+	return fallback
+}
+
+func stringSliceValue(values map[string]any, key string, fallback []string) []string {
+	raw, ok := values[key]
+	if !ok {
+		return append([]string(nil), fallback...)
+	}
+	switch typed := raw.(type) {
+	case []string:
+		return append([]string(nil), typed...)
+	case []any:
+		output := make([]string, 0, len(typed))
+		for _, item := range typed {
+			if value, ok := item.(string); ok {
+				output = append(output, value)
+			}
+		}
+		return output
+	default:
+		return append([]string(nil), fallback...)
+	}
 }
 
 func optionalFloat(value *float64) float64 {
@@ -209,62 +246,70 @@ func (api *CanonicalAPI) createAuditWorkspace(
 	writer http.ResponseWriter,
 	request *http.Request,
 ) {
-	actor, ok := requirePrincipal(writer, request)
-	if !ok {
-		return
-	}
-	var input generated.CreateAuditWorkspaceInput
-	if !decodeJSON(writer, request, &input) {
-		return
-	}
-	if !validOptionalRevisionCommandHeaders(request, input.IdempotencyKey, nil) ||
-		request.Header.Get("If-Match") != "" {
-		api.respond(writer, nil, application.ErrInvalid)
-		return
-	}
-	expiresAt, err := time.Parse(time.RFC3339, input.ExpiresAt)
-	if err != nil {
-		api.respond(writer, nil, application.ErrInvalid)
-		return
-	}
-	questions := make([]application.AuditWorkspaceQuestion, 0, len(input.Questions))
-	for _, question := range input.Questions {
-		questions = append(questions, application.AuditWorkspaceQuestion{
-			QuestionID: question.QuestionId,
-			AssignedInspectorSubjectIDs: append(
-				[]string(nil),
-				question.AssignedInspectorSubjectIds...,
-			),
+	// The former client-authored template workspace is a disabled donor
+	// boundary. Canonical materialization consumes the released scope and
+	// confirmed preparation through the canonical materialization command; this
+	// operation must never be a fallback when canonical state is absent.
+	api.respond(writer, nil, fmt.Errorf("%w: use the released-scope preparation materialization command", application.ErrConflict))
+	return
+	/*
+		actor, ok := requirePrincipal(writer, request)
+		if !ok {
+			return
+		}
+		var input generated.CreateAuditWorkspaceInput
+		if !decodeJSON(writer, request, &input) {
+			return
+		}
+		if !validOptionalRevisionCommandHeaders(request, input.IdempotencyKey, nil) ||
+			request.Header.Get("If-Match") != "" {
+			api.respond(writer, nil, application.ErrInvalid)
+			return
+		}
+		expiresAt, err := time.Parse(time.RFC3339, input.ExpiresAt)
+		if err != nil {
+			api.respond(writer, nil, application.ErrInvalid)
+			return
+		}
+		questions := make([]application.AuditWorkspaceQuestion, 0, len(input.Questions))
+		for _, question := range input.Questions {
+			questions = append(questions, application.AuditWorkspaceQuestion{
+				QuestionID: question.QuestionId,
+				AssignedInspectorSubjectIDs: append(
+					[]string(nil),
+					question.AssignedInspectorSubjectIds...,
+				),
+			})
+		}
+		record, err := api.application.CreateAuditWorkspace(
+			request.Context(),
+			actor,
+			application.CreateAuditWorkspaceCommand{
+				OperationID: input.OperationId, IdempotencyKey: input.IdempotencyKey,
+				PlanningItemID:           input.PlanningItemId,
+				ExpectedPlanningRevision: input.ExpectedPlanningRevision,
+				AuditID:                  input.AuditId, AssignmentID: input.AssignmentId,
+				PackageID: input.PackageId, PackageDraftID: input.PackageDraftId,
+				TemplateID: input.TemplateId, TemplateVersionID: input.TemplateVersionId,
+				LeadInspectorSubjectID: input.LeadInspectorSubjectId,
+				MemberSubjectIDs:       append([]string(nil), input.MemberSubjectIds...),
+				ScheduledStartDate:     input.ScheduledStartDate,
+				ScheduledEndDate:       input.ScheduledEndDate,
+				ExpiresAt:              expiresAt, Questions: questions,
+			},
+		)
+		if err != nil {
+			api.respond(writer, nil, err)
+			return
+		}
+		writer.Header().Set("ETag", strongRevisionETag(record.Revision))
+		writeJSON(writer, http.StatusCreated, generated.AuditWorkspaceView{
+			AuditId: record.AuditID, AssignmentId: record.AssignmentID,
+			PackageId: record.PackageID, PackageDraftId: record.PackageDraftID,
+			TemplateVersionId: record.TemplateVersionID,
+			PackageVersion:    record.PackageVersion, Revision: record.Revision,
 		})
-	}
-	record, err := api.application.CreateAuditWorkspace(
-		request.Context(),
-		actor,
-		application.CreateAuditWorkspaceCommand{
-			OperationID: input.OperationId, IdempotencyKey: input.IdempotencyKey,
-			PlanningItemID:           input.PlanningItemId,
-			ExpectedPlanningRevision: input.ExpectedPlanningRevision,
-			AuditID:                  input.AuditId, AssignmentID: input.AssignmentId,
-			PackageID: input.PackageId, PackageDraftID: input.PackageDraftId,
-			TemplateID: input.TemplateId, TemplateVersionID: input.TemplateVersionId,
-			LeadInspectorSubjectID: input.LeadInspectorSubjectId,
-			MemberSubjectIDs:       append([]string(nil), input.MemberSubjectIds...),
-			ScheduledStartDate:     input.ScheduledStartDate,
-			ScheduledEndDate:       input.ScheduledEndDate,
-			ExpiresAt:              expiresAt, Questions: questions,
-		},
-	)
-	if err != nil {
-		api.respond(writer, nil, err)
-		return
-	}
-	writer.Header().Set("ETag", strongRevisionETag(record.Revision))
-	writeJSON(writer, http.StatusCreated, generated.AuditWorkspaceView{
-		AuditId: record.AuditID, AssignmentId: record.AssignmentID,
-		PackageId: record.PackageID, PackageDraftId: record.PackageDraftID,
-		TemplateVersionId: record.TemplateVersionID,
-		PackageVersion:    record.PackageVersion, Revision: record.Revision,
-	})
+	*/
 }
 
 func (api *CanonicalAPI) createReportVersion(

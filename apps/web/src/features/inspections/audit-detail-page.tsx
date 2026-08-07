@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 
 import { useApplicationRuntime } from "../../app/providers";
 import { useScenario } from "../../app/scenario-context";
-import { CommandError, errorMessage, WorkspaceShell } from "../shared/workspace-shell";
+import { CommandError, errorMessage, formatLocalDate, WorkspaceShell } from "../shared/workspace-shell";
 import { OfflineReadinessPanel } from "./offline-readiness-panel";
 
 const sections: readonly { id: string; label: string; note?: string }[] = [
@@ -18,18 +18,25 @@ const sections: readonly { id: string; label: string; note?: string }[] = [
 export function AuditDetailPage() {
   const runtime = useApplicationRuntime();
   const { projection, actions } = useScenario();
+  const [assignment, setAssignment] = useState<{ auditId: string; packageId?: string | null; dueDate: string | null; currentOwnerDisplayName?: string | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [draftSaved, setDraftSaved] = useState(false);
   const [selectedSectionId, setSelectedSectionId] = useState("EM EQ / PBE");
 
   useEffect(() => {
-    void actions.loadPackage().catch((cause) => setError(errorMessage(cause)));
+    const backend = runtime.backendForRole?.("inspector") ?? runtime.backend;
+    void backend.assignments.list({}).then(({ items }) => {
+      const current = items.find((item) => item.packageId);
+      if (!current?.packageId) throw new Error("No executable canonical Audit package is available for this Inspector.");
+      setAssignment(current);
+      return actions.loadPackage(current.packageId);
+    }).catch((cause) => setError(errorMessage(cause)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const packageView = projection.packageView;
-  const auditTitle = packageView?.title ?? "2026 Cabin Inspection - Fly Namibia";
-  const organizationName = packageView?.organizationName ?? "Fly Namibia";
+  const auditTitle = packageView?.title ?? "Audit package unavailable";
+  const organizationName = packageView?.organizationName ?? "Organization unavailable";
   const checklistQuestionCount = packageView?.questions.length ?? 6;
   const selectedSectionIndex = Math.max(0, sections.findIndex((section) => section.id === selectedSectionId));
   const selectedSection = sections[selectedSectionIndex];
@@ -43,13 +50,13 @@ export function AuditDetailPage() {
   function downloadChecklist(): void {
     const body = [
       auditTitle,
-      `Inspection ID: ${packageView?.auditId ?? "AUD-2026-001"}`,
+      `Inspection ID: ${packageView?.auditId ?? "Unavailable"}`,
       ...(packageView?.questions.map((question, index) => `${index + 1}. ${question.prompt}`) ?? []),
     ].join("\n");
     const url = URL.createObjectURL(new Blob([body], { type: "text/plain;charset=utf-8" }));
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = "AUD-2026-001-checklist.txt";
+    anchor.download = `${packageView?.auditId ?? "audit"}-checklist.txt`;
     anchor.click();
     URL.revokeObjectURL(url);
   }
@@ -59,10 +66,10 @@ export function AuditDetailPage() {
       <div className="inspection-exec" data-testid="audit-dossier">
         <div className="audit-contract-facts" aria-label="Audit backend facts">
           <span>CABIN</span>
-          <span>IN_PROGRESS</span>
+          <span>{packageView?.checklistStatus ?? "UNAVAILABLE"}</span>
           <span>CAA Inspector</span>
-          <span>Due Date: 18 Jun 2026</span>
-          <span>{packageView?.id ?? "PKG-CAB-2026-001"}</span>
+          <span>Due Date: {formatLocalDate(assignment?.dueDate ?? null)}</span>
+          <span>{packageView?.id ?? "Package unavailable"}</span>
           <span>{checklistQuestionCount}</span>
           <span>Offline eligible</span>
           <span>Run assigned Cabin checklist</span>
@@ -76,10 +83,10 @@ export function AuditDetailPage() {
             <div className="inspection-title-meta">
               <span>{organizationName}</span>
               <span>Cabin Inspection</span>
-              <span>Cabin Inspection v1.0 (2026 demo)</span>
+              <span>Canonical package v{packageView?.packageVersion ?? "—"}</span>
             </div>
             <p className="inspection-assignment-context">
-              Inspector scope: <strong>Aylin Sezer</strong>. Other Inspectors&apos; assigned
+              Inspector scope: <strong>{assignment?.currentOwnerDisplayName ?? "Current assigned Inspector"}</strong>. Other Inspectors&apos; assigned
               questions are visible but read-only.
             </p>
             <div className="inspection-status-line">
@@ -93,7 +100,7 @@ export function AuditDetailPage() {
             <Link
               aria-label="Run Cabin checklist"
               className="inspection-submit-action"
-              to="/inspector/audits/AUD-2026-001/checklist"
+              to={packageView ? `/inspector/audits/${packageView.auditId}/checklist` : "/inspector/inspector-assignments"}
             >
               ➤&nbsp; Submit to Lead Inspector
             </Link>
@@ -101,11 +108,11 @@ export function AuditDetailPage() {
         </header>
         <CommandError message={error} />
         <section className="inspection-mobile-command" aria-label="Audit next action">
-          <div><span>Current owner</span><strong>Aylin Sezer</strong></div>
+          <div><span>Current owner</span><strong>{assignment?.currentOwnerDisplayName ?? "Current assigned Inspector"}</strong></div>
           <div className="is-warn"><span>Next action</span><strong>Complete checklist sections</strong></div>
-          <div><span>Due Date</span><strong>15 Jun 2026</strong></div>
-          <div><span>Status</span><strong>In Progress</strong></div>
-          <Link aria-label="Submit to Lead Inspector" to="/inspector/audits/AUD-2026-001/checklist">
+          <div><span>Due Date</span><strong>{formatLocalDate(assignment?.dueDate ?? null)}</strong></div>
+          <div><span>Status</span><strong>{packageView?.checklistStatus ?? "Unavailable"}</strong></div>
+          <Link aria-label="Submit to Lead Inspector" to={packageView ? `/inspector/audits/${packageView.auditId}/checklist` : "/inspector/inspector-assignments"}>
             Submit to Lead Inspector
           </Link>
         </section>
@@ -114,16 +121,16 @@ export function AuditDetailPage() {
             <span className="inspection-summary-icon">📅</span>
             <div>
               <span>Inspection ID</span>
-              <b data-testid="audit-id">{packageView?.auditId ?? "AUD-2026-001"}</b>
+              <b data-testid="audit-id">{packageView?.auditId ?? "Unavailable"}</b>
             </div>
           </div>
           <div className="inspection-summary-item">
             <span className="inspection-summary-icon">📅</span>
-            <div><span>Start Date</span><b>15 Jun 2026</b></div>
+            <div><span>Start Date</span><b>{formatLocalDate(assignment?.dueDate ?? null)}</b></div>
           </div>
           <div className="inspection-summary-item">
             <span className="inspection-summary-icon">📅</span>
-            <div><span>End Date</span><b>15 Jun 2026</b></div>
+            <div><span>End Date</span><b>{formatLocalDate(assignment?.dueDate ?? null)}</b></div>
           </div>
           <div className="inspection-summary-item inspection-summary-item--wide">
             <div><span>Checklist Progress</span><b>0 / {checklistQuestionCount} (0%)</b></div>

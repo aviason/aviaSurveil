@@ -18,6 +18,13 @@ func (service *Service) ListTeamMembers(
 	if !CanViewTeamMembers(actor) {
 		return nil, ErrForbidden
 	}
+	organizationFilter := actor.OrganizationID
+	if actor.HasRole(identity.RoleAdmin) {
+		organizationFilter = ""
+	}
+	if organizationFilter == "" && !actor.HasRole(identity.RoleAdmin) {
+		return nil, ErrForbidden
+	}
 	if limit <= 0 || limit > 100 {
 		limit = 100
 	}
@@ -43,9 +50,10 @@ func (service *Service) ListTeamMembers(
 		  AND identity.tombstoned_at IS NULL
 		  AND ($1 = '' OR $1 = ANY(active_session.roles))
 		  AND COALESCE(active_session.roles[1], '') <> 'auditee'
+		  AND ($3 = '' OR profile.organization_id = $3)
 		ORDER BY profile.display_name, profile.subject_id
 		LIMIT $2
-	`, roleFilter, limit)
+	`, roleFilter, limit, organizationFilter)
 	if err != nil {
 		return nil, err
 	}
@@ -72,12 +80,20 @@ func (service *Service) GetTeamMember(
 	if !CanViewTeamMembers(actor) {
 		return TeamMember{}, ErrForbidden
 	}
-	return service.getTeamMember(ctx, subjectID)
+	organizationFilter := actor.OrganizationID
+	if actor.HasRole(identity.RoleAdmin) {
+		organizationFilter = ""
+	}
+	if organizationFilter == "" && !actor.HasRole(identity.RoleAdmin) {
+		return TeamMember{}, ErrForbidden
+	}
+	return service.getTeamMember(ctx, subjectID, organizationFilter)
 }
 
 func (service *Service) getTeamMember(
 	ctx context.Context,
 	subjectID string,
+	organizationFilter string,
 ) (TeamMember, error) {
 	var output TeamMember
 	if err := service.pool.QueryRow(ctx, `
@@ -97,7 +113,8 @@ func (service *Service) getTeamMember(
 		WHERE profile.subject_id = $1
 		  AND profile.tombstoned_at IS NULL
 		  AND identity.tombstoned_at IS NULL
-	`, subjectID).Scan(
+		  AND ($2 = '' OR profile.organization_id = $2)
+	`, subjectID, organizationFilter).Scan(
 		&output.SubjectID, &output.DisplayName, &output.Role,
 		&output.OrganizationID, &output.Revision,
 	); err != nil {
@@ -120,6 +137,13 @@ func (service *Service) ListAuditTeams(
 	if !CanViewAuditTeams(actor) {
 		return nil, ErrForbidden
 	}
+	organizationFilter := actor.OrganizationID
+	if actor.HasRole(identity.RoleAdmin) {
+		organizationFilter = ""
+	}
+	if organizationFilter == "" && !actor.HasRole(identity.RoleAdmin) {
+		return nil, ErrForbidden
+	}
 	if limit <= 0 || limit > 100 {
 		limit = 100
 	}
@@ -127,9 +151,10 @@ func (service *Service) ListAuditTeams(
 		SELECT inspection_id
 		FROM audit_assignments
 		WHERE tombstoned_at IS NULL
+		  AND ($2 = '' OR organization_id = $2)
 		ORDER BY scheduled_start_date, inspection_id
 		LIMIT $1
-	`, limit)
+	`, limit, organizationFilter)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +174,7 @@ func (service *Service) ListAuditTeams(
 	rows.Close()
 	output := make([]TeamAudit, 0, len(inspectionIDs))
 	for _, inspectionID := range inspectionIDs {
-		item, err := service.getAuditTeam(ctx, inspectionID)
+		item, err := service.getAuditTeam(ctx, inspectionID, organizationFilter)
 		if err != nil {
 			return nil, err
 		}
@@ -166,12 +191,20 @@ func (service *Service) GetAuditTeam(
 	if !CanViewAuditTeams(actor) {
 		return TeamAudit{}, ErrForbidden
 	}
-	return service.getAuditTeam(ctx, inspectionID)
+	organizationFilter := actor.OrganizationID
+	if actor.HasRole(identity.RoleAdmin) {
+		organizationFilter = ""
+	}
+	if organizationFilter == "" && !actor.HasRole(identity.RoleAdmin) {
+		return TeamAudit{}, ErrForbidden
+	}
+	return service.getAuditTeam(ctx, inspectionID, organizationFilter)
 }
 
 func (service *Service) getAuditTeam(
 	ctx context.Context,
 	inspectionID string,
+	organizationFilter string,
 ) (TeamAudit, error) {
 	var output TeamAudit
 	var assignmentID, leadSubjectID string
@@ -185,9 +218,10 @@ func (service *Service) getAuditTeam(
 		JOIN inspections inspection ON inspection.id = assignment.inspection_id
 		JOIN organizations organization ON organization.id = inspection.organization_id
 		WHERE inspection.id = $1
+		  AND ($2 = '' OR inspection.organization_id = $2)
 		  AND assignment.tombstoned_at IS NULL
 		  AND inspection.tombstoned_at IS NULL
-	`, inspectionID).Scan(
+	`, inspectionID, organizationFilter).Scan(
 		&assignmentID, &output.AuditID, &output.OrganizationID,
 		&output.OrganizationName, &output.Title, &output.Status,
 		&startDate, &endDate, &leadSubjectID, &output.Revision,
@@ -205,7 +239,7 @@ func (service *Service) getAuditTeam(
 		value := endDate.Time.Format("2006-01-02")
 		output.ScheduledEndDate = &value
 	}
-	lead, err := service.getTeamMember(ctx, leadSubjectID)
+	lead, err := service.getTeamMember(ctx, leadSubjectID, organizationFilter)
 	if err != nil {
 		return TeamAudit{}, err
 	}
@@ -228,7 +262,7 @@ func (service *Service) getAuditTeam(
 			memberRows.Close()
 			return TeamAudit{}, err
 		}
-		member, err := service.getTeamMember(ctx, subjectID)
+		member, err := service.getTeamMember(ctx, subjectID, organizationFilter)
 		if err != nil {
 			memberRows.Close()
 			return TeamAudit{}, err

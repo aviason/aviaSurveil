@@ -367,13 +367,12 @@ func TestTask2AuthenticatedAuditeeHTTPProjectionExcludesGovernedInternalFacts(t 
 	seedTask4Membership(t, pool, "task2-http-auditee", "task2-http-auditee-membership", 1, "ACTIVE", "airline-xyz", []string{"auditee"}, now)
 	if _, err := pool.Exec(context.Background(), `
 		INSERT INTO regulated_targets (id, target_kind, organization_id) VALUES
-			('task2-http-target-own', 'ORGANIZATION', 'airline-xyz'),
 			('task2-http-target-other', 'ORGANIZATION', 'airline-other');
 		INSERT INTO organization_service_provider_scopes (id, root_id, organization_id, service_provider_type_id, authorization_identifier, status, effective_from, primary_target_id) VALUES
-			('task2-http-own-scope', 'task2-http-own-scope', 'airline-xyz', 'AIR_OPERATOR', 'AOC-HTTP-OWN', 'ACTIVE', '2025-01-01', 'task2-http-target-own'),
+			('task2-http-own-scope', 'task2-http-own-scope', 'airline-xyz', 'AIR_OPERATOR', 'AOC-HTTP-OWN', 'ACTIVE', '2025-01-01', 'target-airline-xyz'),
 			('task2-http-other-scope', 'task2-http-other-scope', 'airline-other', 'CAMO', 'CAMO-HTTP-OTHER', 'ACTIVE', '2025-01-01', 'task2-http-target-other');
 		INSERT INTO caa_department_memberships (id, root_id, subject_id, department_id, organizational_unit_id, membership_role, status, effective_from) VALUES
-			('task2-http-internal-membership', 'task2-http-internal-membership', 'manager-001', 'FLIGHT_OPERATIONS_INSPECTORATE', 'FLIGHT_OPERATIONS_INSPECTORATE', 'DEPARTMENT_MANAGER', 'ACTIVE', '2025-01-01')
+			('task2-http-internal-membership', 'task2-http-internal-membership', 'manager-001', 'AIRWORTHINESS_INSPECTORATE', 'AIRWORTHINESS_INSPECTORATE', 'DEPARTMENT_MANAGER', 'ACTIVE', '2025-01-01')
 	`); err != nil {
 		t.Fatalf("seed governed facts outside auditee projection: %v", err)
 	}
@@ -400,7 +399,7 @@ func TestTask2AuthenticatedAuditeeHTTPProjectionExcludesGovernedInternalFacts(t 
 	if response.Code != http.StatusOK {
 		t.Fatalf("authenticated auditee projection status=%d body=%s", response.Code, response.Body.String())
 	}
-	for _, forbidden := range []string{"task2-http-own-scope", "task2-http-other-scope", "CAMO-HTTP-OTHER", "task2-http-internal-membership", "departmentAssignments", "FLIGHT_OPERATIONS_INSPECTORATE", "airline-other"} {
+	for _, forbidden := range []string{"task2-http-own-scope", "task2-http-other-scope", "CAMO-HTTP-OTHER", "task2-http-internal-membership", "departmentAssignments", "AIRWORTHINESS_INSPECTORATE", "airline-other"} {
 		if strings.Contains(response.Body.String(), forbidden) {
 			t.Fatalf("authenticated Auditee HTTP projection leaked %q: %s", forbidden, response.Body.String())
 		}

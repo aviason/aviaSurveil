@@ -50,7 +50,7 @@ describe("AuditDetailPage", () => {
       "6",
       "Offline eligible",
     ]) {
-      expect(within(dossier).getByText(expected)).toBeVisible();
+      expect((await within(dossier).findAllByText(expected))[0]).toBeVisible();
     }
     expect(within(dossier).getByRole("link", { name: "Run Cabin checklist" })).toHaveAttribute(
       "href",

@@ -69,8 +69,9 @@ Create annual and ad hoc audit/inspection plans.
   records cannot be published, promoted to operational use, or used to satisfy
   governed package eligibility.
 - Selection freezes an immutable scope snapshot and digest before Finance
-  submission. Approval and materialization consume that snapshot rather than
-  rereading a mutable catalog.
+  submission. Computed Audit-package eligibility is a separate, recorded
+  decision from technical approval and publication; approval and materialization
+  consume the frozen snapshot rather than rereading a mutable catalog.
 - Selection does not itself make work executable. Announced materialization
   starts at `AWAITING_AUDITEE_CONFIRMATION`; unannounced materialization starts
   at `SCHEDULED` with notice withheld. Both create a `NOT_STARTED` checklist;

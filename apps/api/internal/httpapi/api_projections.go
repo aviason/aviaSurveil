@@ -39,11 +39,22 @@ type packageSnapshot struct {
 func (api *CanonicalAPI) assignmentProjection(ctx context.Context, actor identity.Principal, status *string, limit *int64) (generated.ListAssignmentsOutput, error) {
 	query := `
 		SELECT DISTINCT inspection.id, inspection.organization_id, organization.legal_name,
-		       inspection.title, inspection.status, COALESCE(inspection.due_date::text, '')
+		       inspection.title, inspection.status, inspection.revision, COALESCE(inspection.due_date::text, ''),
+		       package.id, audit_assignment.id, audit_assignment.revision
 		FROM inspections inspection
 		JOIN organizations organization ON organization.id = inspection.organization_id
-		LEFT JOIN inspection_question_assignments assignment ON assignment.inspection_id = inspection.id
-		WHERE ($1 = false OR assignment.subject_id = $2)
+		LEFT JOIN audit_assignments audit_assignment
+		  ON audit_assignment.inspection_id = inspection.id
+		 AND audit_assignment.tombstoned_at IS NULL
+		LEFT JOIN LATERAL (
+			SELECT id
+			FROM inspection_packages
+			WHERE inspection_id = inspection.id AND revoked_at IS NULL
+			ORDER BY package_version DESC
+			LIMIT 1
+		) package ON true
+		LEFT JOIN inspection_question_assignments question_assignment ON question_assignment.inspection_id = inspection.id
+		WHERE ($1 = false OR question_assignment.subject_id = $2)
 		  AND ($3 = false OR inspection.organization_id = $4)
 		ORDER BY inspection.id
 	`
@@ -57,10 +68,12 @@ func (api *CanonicalAPI) assignmentProjection(ctx context.Context, actor identit
 	items := []generated.AssignmentSummary{}
 	for rows.Next() {
 		var item generated.AssignmentSummary
+		var inspectionRevision int64
 		var dueDate string
-		if err := rows.Scan(&item.AuditId, &item.OrganizationId, &item.OrganizationName, &item.Title, &item.Status, &dueDate); err != nil {
+		if err := rows.Scan(&item.AuditId, &item.OrganizationId, &item.OrganizationName, &item.Title, &item.Status, &inspectionRevision, &dueDate, &item.PackageId, &item.AssignmentId, &item.Revision); err != nil {
 			return generated.ListAssignmentsOutput{}, err
 		}
+		item.InspectionRevision = &inspectionRevision
 		if status != nil && item.Status != *status {
 			continue
 		}
@@ -68,7 +81,11 @@ func (api *CanonicalAPI) assignmentProjection(ctx context.Context, actor identit
 			item.DueDate = &dueDate
 		}
 		item.DueState = dueState(dueDate, api.clock())
-		item.NextAction = "Continue Cabin Inspection checklist"
+		if item.Status == "SCHEDULED" || item.Status == "AWAITING_AUDITEE_CONFIRMATION" {
+			item.NextAction = "Start inspection when ready"
+		} else {
+			item.NextAction = "Continue Cabin Inspection checklist"
+		}
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {
@@ -81,25 +98,30 @@ func (api *CanonicalAPI) assignmentProjection(ctx context.Context, actor identit
 }
 
 func (api *CanonicalAPI) inspectionPackageProjection(ctx context.Context, actor identity.Principal, packageID string) (generated.InspectionPackage, error) {
-	if actor.HasRole(identity.RoleAuditee) || !actor.IsCAA() {
-		return generated.InspectionPackage{}, fmt.Errorf("%w: Inspection execution packages are unavailable to Auditee users", application.ErrForbidden)
+	// This is an execution projection, not a general CAA document. Managers,
+	// Finance, GM, ED, and administrators use preparation/report projections;
+	// only the assigned Lead or a covered Inspector may obtain execution data.
+	if actor.HasRole(identity.RoleAuditee) || (!actor.HasRole(identity.RoleInspector) && !actor.HasRole(identity.RoleLeadInspector)) {
+		return generated.InspectionPackage{}, fmt.Errorf("%w: execution package is restricted to the assigned inspection team", application.ErrForbidden)
 	}
 	var output generated.InspectionPackage
 	var snapshotBytes []byte
-	var expiresAt time.Time
+	var expiresAt *time.Time
+	var revokedAt *time.Time
 	if err := api.pool.QueryRow(ctx, `
 		SELECT package.id, package.inspection_id, inspection.organization_id, organization.legal_name,
-		       inspection.title, package.package_version, package.checklist_template_version_id,
-		       package.package_digest, package.expires_at, package.snapshot,
+		       inspection.title, package.package_version, COALESCE(package.checklist_template_version_id, ''),
+		       package.package_digest, package.expires_at, package.revoked_at, package.snapshot,
 		       checklist.status, checklist.revision
 		FROM inspection_packages package
 		JOIN inspections inspection ON inspection.id = package.inspection_id
 		JOIN organizations organization ON organization.id = inspection.organization_id
 		JOIN inspection_checklists checklist ON checklist.inspection_id = inspection.id
 		WHERE package.id = $1
+		  AND package.canonical_scope_snapshot_id IS NOT NULL
 	`, packageID).Scan(
 		&output.Id, &output.AuditId, &output.OrganizationId, &output.OrganizationName, &output.Title,
-		&output.PackageVersion, &output.TemplateVersionId, &output.PackageDigest, &expiresAt,
+		&output.PackageVersion, &output.TemplateVersionId, &output.PackageDigest, &expiresAt, &revokedAt,
 		&snapshotBytes, &output.ChecklistStatus, &output.ChecklistRevision,
 	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -107,8 +129,62 @@ func (api *CanonicalAPI) inspectionPackageProjection(ctx context.Context, actor 
 		}
 		return generated.InspectionPackage{}, err
 	}
-	if actor.HasRole(identity.RoleInspector) && output.ChecklistStatus != string(checklists.StatusInProgress) {
+	if output.ChecklistStatus != string(checklists.StatusInProgress) {
 		return generated.InspectionPackage{}, fmt.Errorf("%w: execution package is unavailable before Inspector start", application.ErrConflict)
+	}
+	if revokedAt != nil || (expiresAt != nil && !api.clock().UTC().Before(expiresAt.UTC())) {
+		return generated.InspectionPackage{}, fmt.Errorf("%w: execution package is expired or withdrawn", application.ErrConflict)
+	}
+	if actor.HasRole(identity.RoleLeadInspector) {
+		var assignedLead bool
+		if err := api.pool.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1
+				FROM audit_assignments assignment
+				WHERE assignment.inspection_id = $1
+				  AND assignment.lead_subject_id = $2
+				  AND assignment.tombstoned_at IS NULL
+			)`, output.AuditId, actor.SubjectID).Scan(&assignedLead); err != nil {
+			return generated.InspectionPackage{}, err
+		}
+		if !assignedLead {
+			return generated.InspectionPackage{}, fmt.Errorf("%w: execution package is restricted to the assigned Lead Inspector", application.ErrForbidden)
+		}
+	}
+	inspectorOnly := actor.HasRole(identity.RoleInspector) && !actor.HasRole(identity.RoleLeadInspector)
+	assignedQuestionIDs := map[string]struct{}{}
+	if inspectorOnly {
+		rows, err := api.pool.Query(ctx, `
+			SELECT question_assignment.question_id
+			FROM inspection_question_assignments question_assignment
+			JOIN audit_assignments audit_assignment
+			  ON audit_assignment.inspection_id = question_assignment.inspection_id
+			 AND audit_assignment.tombstoned_at IS NULL
+			JOIN audit_team_members team_member
+			  ON team_member.assignment_id = audit_assignment.id
+			 AND team_member.subject_id = question_assignment.subject_id
+			 AND team_member.removed_at IS NULL
+			WHERE question_assignment.inspection_id = $1 AND question_assignment.subject_id = $2
+		`, output.AuditId, actor.SubjectID)
+		if err != nil {
+			return generated.InspectionPackage{}, err
+		}
+		for rows.Next() {
+			var questionID string
+			if err := rows.Scan(&questionID); err != nil {
+				rows.Close()
+				return generated.InspectionPackage{}, err
+			}
+			assignedQuestionIDs[questionID] = struct{}{}
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return generated.InspectionPackage{}, err
+		}
+		rows.Close()
+		if len(assignedQuestionIDs) == 0 {
+			return generated.InspectionPackage{}, fmt.Errorf("%w: Inspector has no question coverage", application.ErrForbidden)
+		}
 	}
 	var snapshot packageSnapshot
 	if err := json.Unmarshal(snapshotBytes, &snapshot); err != nil {
@@ -116,9 +192,16 @@ func (api *CanonicalAPI) inspectionPackageProjection(ctx context.Context, actor 
 	}
 	output.SchemaVersion = snapshot.SchemaVersion
 	output.ProtocolVersion = snapshot.ProtocolVersion
-	output.ExpiresAt = expiresAt.UTC().Format(time.RFC3339Nano)
+	if expiresAt != nil {
+		output.ExpiresAt = expiresAt.UTC().Format(time.RFC3339Nano)
+	}
 	output.Questions = make([]generated.InspectionQuestion, 0, len(snapshot.Questions))
 	for _, question := range snapshot.Questions {
+		if inspectorOnly {
+			if _, ok := assignedQuestionIDs[question.ID]; !ok {
+				continue
+			}
+		}
 		regulatoryReference := question.RegulatoryReference
 		expectedEvidence := question.ExpectedEvidence
 		view := generated.InspectionQuestion{

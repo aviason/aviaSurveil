@@ -49,6 +49,9 @@ func AuthorizedClose(input AuthorizedCloseInput) (TransitionResult, error) {
 	if input.Status == StatusClosed {
 		return TransitionResult{}, fmt.Errorf("Finding is already closed")
 	}
+	if input.Status != StatusPendingClosure {
+		return TransitionResult{}, fmt.Errorf("Finding must be pending closure after Evidence verification")
+	}
 	if input.Revision != input.ExpectedRevision {
 		return TransitionResult{}, fmt.Errorf("stale Finding revision")
 	}

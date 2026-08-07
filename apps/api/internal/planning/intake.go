@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -32,29 +33,29 @@ const (
 )
 
 type IntakeDraftValues struct {
-	OrganizationID     string             `json:"organizationId"`
-	OrganizationName   string             `json:"organizationName"`
-	ApplicationType    string             `json:"applicationType"`
-	Domain             string             `json:"domain"`
-	InspectionCategory InspectionCategory `json:"inspectionCategory"`
-	NoticePolicy       NoticePolicy       `json:"noticePolicy"`
-	Purpose            string             `json:"purpose"`
-	TriggerType        string             `json:"triggerType"`
-	RiskCategory       string             `json:"riskCategory"`
-	PlannedDate        string             `json:"plannedDate"`
-	Mode               string             `json:"mode"`
-	Location           string             `json:"location"`
-	TemplateVersionID  string             `json:"templateVersionId"`
-	Scope              string             `json:"scope"`
-	CatalogVersion     string             `json:"catalogVersion,omitempty"`
-	ScopeDraftID       string             `json:"scopeDraftId,omitempty"`
-	SelectionDigest    string             `json:"selectionDigest,omitempty"`
-	SelectedQuestionVersionIDs []string   `json:"selectedQuestionVersionIds,omitempty"`
-	EstimatedResourceRequirement float64   `json:"estimatedResourceRequirement,omitempty"`
-	ProviderScopeID    string             `json:"providerScopeId,omitempty"`
-	RegulatedTargetID  string             `json:"regulatedTargetId,omitempty"`
-	RequestedBudget    float64            `json:"requestedBudget"`
-	Currency           string             `json:"currency"`
+	OrganizationID               string             `json:"organizationId"`
+	OrganizationName             string             `json:"organizationName"`
+	ApplicationType              string             `json:"applicationType"`
+	Domain                       string             `json:"domain"`
+	InspectionCategory           InspectionCategory `json:"inspectionCategory"`
+	NoticePolicy                 NoticePolicy       `json:"noticePolicy"`
+	Purpose                      string             `json:"purpose"`
+	TriggerType                  string             `json:"triggerType"`
+	RiskCategory                 string             `json:"riskCategory"`
+	PlannedDate                  string             `json:"plannedDate"`
+	Mode                         string             `json:"mode"`
+	Location                     string             `json:"location"`
+	TemplateVersionID            string             `json:"templateVersionId"`
+	Scope                        string             `json:"scope"`
+	CatalogVersion               string             `json:"catalogVersion,omitempty"`
+	ScopeDraftID                 string             `json:"scopeDraftId,omitempty"`
+	SelectionDigest              string             `json:"selectionDigest,omitempty"`
+	SelectedQuestionVersionIDs   []string           `json:"selectedQuestionVersionIds,omitempty"`
+	EstimatedResourceRequirement float64            `json:"estimatedResourceRequirement,omitempty"`
+	ProviderScopeID              string             `json:"providerScopeId,omitempty"`
+	RegulatedTargetID            string             `json:"regulatedTargetId,omitempty"`
+	RequestedBudget              float64            `json:"requestedBudget"`
+	Currency                     string             `json:"currency"`
 }
 
 type IntakeDraft struct {
@@ -97,7 +98,21 @@ func (service *Service) GetIntakeDraft(
 	if strings.TrimSpace(draftID) == "" {
 		return IntakeDraft{}, application.ErrInvalid
 	}
-	return getIntakeDraft(ctx, service.pool, draftID, false)
+	draft, err := getIntakeDraft(ctx, service.pool, draftID, false, actor.SubjectID)
+	if err != nil {
+		return IntakeDraft{}, err
+	}
+	// Reads are also authority checks. A manager who created a draft but has
+	// since lost the provider/depart­ment responsibility must not retain a
+	// usable canonical planning projection.
+	values, err := canonicalValuesMap(draft.IntakeDraftValues, draft.ID)
+	if err != nil {
+		return IntakeDraft{}, application.ErrInvalid
+	}
+	if _, err := application.ValidateCanonicalScopeMap(ctx, service.pool, actor, values, false); err != nil {
+		return IntakeDraft{}, err
+	}
+	return draft, nil
 }
 
 func (service *Service) SaveIntakeDraft(
@@ -116,16 +131,22 @@ func (service *Service) SaveIntakeDraft(
 		validateDraftValues(command.Values, false) != nil {
 		return IntakeDraft{}, application.ErrInvalid
 	}
+	if command.Values.CatalogVersion == "" ||
+		command.Values.ProviderScopeID == "" || command.Values.RegulatedTargetID == "" ||
+		command.Values.TemplateVersionID != "" || command.Values.Scope != "" {
+		return IntakeDraft{}, fmt.Errorf("%w: New Audit requires a canonical catalog and authorized scope", application.ErrInvalid)
+	}
 	return executeIntakeCommand(ctx, service, actor, "save_planning_intake",
 		command.OperationID, command.IdempotencyKey, command.DraftID, command,
 		func(ctx context.Context, transaction pgx.Tx) (intakeCommandResult[IntakeDraft], error) {
-			current, err := getIntakeDraft(ctx, transaction, command.DraftID, true)
+			current, err := getIntakeDraft(ctx, transaction, command.DraftID, true, actor.SubjectID)
 			if err != nil {
 				return intakeCommandResult[IntakeDraft]{}, err
 			}
 			if current.Revision != command.ExpectedRevision {
 				return intakeCommandResult[IntakeDraft]{}, application.ErrConflict
 			}
+			returned := false
 			if current.SubmittedPlanningItemID != nil {
 				var status string
 				if err := transaction.QueryRow(ctx, `
@@ -136,6 +157,32 @@ func (service *Service) SaveIntakeDraft(
 				}
 				if Status(status) != StatusReturned {
 					return intakeCommandResult[IntakeDraft]{}, application.ErrConflict
+				}
+				returned = true
+			}
+			if returned {
+				// A returned Planning item reopens only the mutable scope draft. The
+				// previous SUBMITTED snapshot remains append-only and is replaced by
+				// a new revision on the next Finance submission.
+				if _, err := transaction.Exec(ctx, `
+					UPDATE canonical_audit_scope_drafts
+					SET status = 'DRAFT', updated_at = $2
+					WHERE planning_intake_draft_id = $1 AND status = 'SUBMITTED'
+				`, command.DraftID, service.clock().UTC()); err != nil {
+					return intakeCommandResult[IntakeDraft]{}, err
+				}
+			}
+			canonicalValues, err := canonicalValuesMap(command.Values, command.DraftID)
+			if err != nil {
+				return intakeCommandResult[IntakeDraft]{}, application.ErrInvalid
+			}
+			facts, err := application.ValidateCanonicalScopeMap(ctx, transaction, actor, canonicalValues, false)
+			if err != nil {
+				return intakeCommandResult[IntakeDraft]{}, err
+			}
+			if facts.ScopeID != "" {
+				if err := application.ValidateCanonicalScopeDraft(ctx, transaction, command.DraftID, facts); err != nil {
+					return intakeCommandResult[IntakeDraft]{}, err
 				}
 			}
 			var legalName string
@@ -203,13 +250,29 @@ func (service *Service) SubmitIntake(
 	return executeIntakeCommand(ctx, service, actor, "submit_planning_intake",
 		command.OperationID, command.IdempotencyKey, command.PlanningItemID, command,
 		func(ctx context.Context, transaction pgx.Tx) (intakeCommandResult[SubmitIntakeResult], error) {
-			draft, err := getIntakeDraft(ctx, transaction, command.DraftID, true)
+			draft, err := getIntakeDraft(ctx, transaction, command.DraftID, true, actor.SubjectID)
 			if err != nil {
 				return intakeCommandResult[SubmitIntakeResult]{}, err
 			}
 			if draft.Revision != command.ExpectedRevision ||
 				validateDraftValues(draft.IntakeDraftValues, true) != nil {
 				return intakeCommandResult[SubmitIntakeResult]{}, application.ErrConflict
+			}
+			canonicalValues, err := canonicalValuesMap(draft.IntakeDraftValues, draft.ID)
+			if err != nil {
+				return intakeCommandResult[SubmitIntakeResult]{}, application.ErrInvalid
+			}
+			facts, err := application.ValidateCanonicalScopeMap(ctx, transaction, actor, canonicalValues, true)
+			if err != nil {
+				return intakeCommandResult[SubmitIntakeResult]{}, err
+			}
+			if facts.ScopeID != "" {
+				if err := application.ValidateCanonicalScopeDraft(ctx, transaction, command.DraftID, facts); err != nil {
+					return intakeCommandResult[SubmitIntakeResult]{}, err
+				}
+				if err := persistSubmittedCanonicalScope(ctx, transaction, actor, draft, facts, service.clock().UTC()); err != nil {
+					return intakeCommandResult[SubmitIntakeResult]{}, err
+				}
 			}
 			title := fmt.Sprintf("%s — %s", draft.InspectionCategory, draft.OrganizationName)
 			inspectionType := draft.ApplicationType + " · " + draft.Domain
@@ -439,6 +502,7 @@ func getIntakeDraft(
 	querier rowQuerier,
 	draftID string,
 	lock bool,
+	ownerSubjectID string,
 ) (IntakeDraft, error) {
 	query := `
 		SELECT draft.id, draft.values, draft.submitted_planning_item_id,
@@ -446,6 +510,7 @@ func getIntakeDraft(
 		FROM planning_intake_drafts draft
 		JOIN organizations organization ON organization.id = draft.organization_id
 		WHERE draft.id = $1
+		  AND ($2 = '' OR draft.created_by_subject_id = $2)
 		  AND draft.tombstoned_at IS NULL
 		  AND organization.tombstoned_at IS NULL
 	`
@@ -455,7 +520,7 @@ func getIntakeDraft(
 	var output IntakeDraft
 	var valuesJSON []byte
 	var organizationName string
-	if err := querier.QueryRow(ctx, query, draftID).Scan(
+	if err := querier.QueryRow(ctx, query, draftID, ownerSubjectID).Scan(
 		&output.ID, &valuesJSON, &output.SubmittedPlanningItemID,
 		&output.Revision, &output.UpdatedAt, &organizationName,
 	); err != nil {
@@ -469,6 +534,44 @@ func getIntakeDraft(
 	}
 	if output.OrganizationName == "" {
 		output.OrganizationName = organizationName
+	}
+	// Selection commits are owned by the canonical scope aggregate, not by
+	// the mutable planning JSON. Overlay the latest non-preview receipt so a
+	// refresh between selection and Save/Submit cannot resurrect an empty or
+	// stale question set.
+	var canonicalScopeID, canonicalDigest string
+	var selectedJSON []byte
+	if err := querier.QueryRow(ctx, `
+	SELECT scope.id, scope.selection_digest,
+	       COALESCE((
+		   SELECT jsonb_agg(selected.question_version_id ORDER BY selected.position)
+		   FROM canonical_audit_scope_selection_operations latest
+		   JOIN canonical_audit_scope_selection_questions selected
+		     ON selected.operation_id = latest.id
+		   WHERE latest.id = (
+			   SELECT latest_operation.id
+			   FROM canonical_audit_scope_selection_operations latest_operation
+			   WHERE latest_operation.scope_draft_id = scope.id
+			     AND latest_operation.operation_kind <> 'PREVIEW'
+			   ORDER BY latest_operation.created_at DESC, latest_operation.id DESC
+			   LIMIT 1
+		   )
+	       ), '[]'::jsonb)
+		FROM canonical_audit_scope_drafts scope
+		WHERE scope.planning_intake_draft_id = $1
+		  AND scope.status IN ('DRAFT', 'SUBMITTED', 'RELEASED')
+		ORDER BY scope.updated_at DESC, scope.id DESC
+		LIMIT 1
+	`, draftID).Scan(&canonicalScopeID, &canonicalDigest, &selectedJSON); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return IntakeDraft{}, err
+	} else if err == nil {
+		var selected []string
+		if err := json.Unmarshal(selectedJSON, &selected); err != nil {
+			return IntakeDraft{}, err
+		}
+		output.SelectionDigest = strings.TrimSpace(canonicalDigest)
+		output.SelectedQuestionVersionIDs = selected
+		output.ScopeDraftID = strings.TrimSpace(canonicalScopeID)
 	}
 	return output, nil
 }
@@ -501,6 +604,89 @@ func normalizedIntakeValues(values IntakeDraftValues) IntakeDraftValues {
 	return values
 }
 
+func canonicalValuesMap(values IntakeDraftValues, draftID string) (map[string]any, error) {
+	encoded, err := json.Marshal(values)
+	if err != nil {
+		return nil, err
+	}
+	var output map[string]any
+	if err := json.Unmarshal(encoded, &output); err != nil {
+		return nil, err
+	}
+	return application.NormalizeCanonicalPlanningValues(output, draftID), nil
+}
+
+func persistSubmittedCanonicalScope(
+	ctx context.Context,
+	tx pgx.Tx,
+	actor identity.Principal,
+	draft IntakeDraft,
+	facts application.CanonicalScopeFacts,
+	now time.Time,
+) error {
+	ids := append([]string(nil), draft.SelectedQuestionVersionIDs...)
+	if len(ids) == 0 || facts.SelectionDigest == "" {
+		return application.ErrInvalid
+	}
+	snapshotID := "scope-snapshot:" + draft.ID + ":submitted:" + strconv.FormatInt(draft.Revision, 10)
+	snapshot, err := json.Marshal(map[string]any{
+		"draftId":                      draft.ID,
+		"organizationId":               draft.OrganizationID,
+		"organizationName":             draft.OrganizationName,
+		"applicationType":              draft.ApplicationType,
+		"domain":                       draft.Domain,
+		"inspectionCategory":           draft.InspectionCategory,
+		"purpose":                      draft.Purpose,
+		"triggerType":                  draft.TriggerType,
+		"riskCategory":                 draft.RiskCategory,
+		"plannedDate":                  draft.PlannedDate,
+		"mode":                         draft.Mode,
+		"location":                     draft.Location,
+		"providerScopeId":              facts.ProviderScopeID,
+		"regulatedTargetId":            facts.RegulatedTargetID,
+		"catalogVersion":               facts.CatalogVersion,
+		"usageClass":                   facts.UsageClass,
+		"selectionDigest":              facts.SelectionDigest,
+		"selectedQuestionVersionIds":   ids,
+		"estimatedResourceRequirement": draft.EstimatedResourceRequirement,
+		"requestedBudget":              draft.RequestedBudget,
+		"currency":                     draft.Currency,
+		"noticePolicy":                 draft.NoticePolicy,
+	})
+	if err != nil {
+		return err
+	}
+	digestBytes := sha256.Sum256(snapshot)
+	planningSnapshotDigest := "sha256:" + hex.EncodeToString(digestBytes[:])
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO canonical_audit_scope_snapshots (
+			id, scope_draft_id, revision, stage, catalog_id, usage_class,
+			selection_digest, planning_snapshot_digest, selected_question_count, snapshot,
+			created_by_subject_id, created_at
+		) VALUES ($1, $2, $3, 'SUBMITTED', $4, $5, $6, $7, $8, $9, $10, $11)
+	`, snapshotID, facts.ScopeID, draft.Revision, facts.CatalogID, facts.UsageClass,
+		facts.SelectionDigest, planningSnapshotDigest, len(ids), snapshot, actor.SubjectID, now); err != nil {
+		return err
+	}
+	for position, questionVersionID := range ids {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO canonical_audit_scope_snapshot_questions (
+				snapshot_id, catalog_id, question_version_id, position
+			) VALUES ($1, $2, $3, $4)
+		`, snapshotID, facts.CatalogID, questionVersionID, position); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE canonical_audit_scope_drafts
+		SET status = 'SUBMITTED', updated_at = $2
+		WHERE id = $1 AND status = 'DRAFT'
+	`, facts.ScopeID, now); err != nil {
+		return err
+	}
+	return nil
+}
+
 func validateDraftValues(values IntakeDraftValues, complete bool) error {
 	if values.OrganizationID == "" || values.RequestedBudget < 0 {
 		return application.ErrInvalid
@@ -509,7 +695,11 @@ func validateDraftValues(values IntakeDraftValues, complete bool) error {
 		values.InspectionCategory != InspectionCategoryAdHoc {
 		return application.ErrInvalid
 	}
-	if _, err := time.Parse("2006-01-02", values.PlannedDate); err != nil {
+	if values.PlannedDate != "" {
+		if _, err := time.Parse("2006-01-02", values.PlannedDate); err != nil {
+			return application.ErrInvalid
+		}
+	} else if complete {
 		return application.ErrInvalid
 	}
 	if values.Mode != "On-site" && values.Mode != "Remote" {
@@ -523,9 +713,12 @@ func validateDraftValues(values IntakeDraftValues, complete bool) error {
 		return application.ErrInvalid
 	}
 	if complete {
-		legacyScope := values.TemplateVersionID != "" && values.Scope != ""
+		// The successor New Audit route is catalog/scope-only. A checklist
+		// template identifier is never a valid pre-approval source authority.
 		canonicalScope := values.CatalogVersion != "" && values.ScopeDraftID != "" && values.SelectionDigest != "" && len(values.SelectedQuestionVersionIDs) > 0
-		if !legacyScope && !canonicalScope { return application.ErrInvalid }
+		if values.TemplateVersionID != "" || values.Scope != "" || !canonicalScope {
+			return application.ErrInvalid
+		}
 	}
 	return nil
 }

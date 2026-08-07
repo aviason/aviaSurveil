@@ -153,6 +153,14 @@ func run(ctx context.Context) error {
 				databaseProbe := database.Readiness{Pool: pool, RequiredMigrationVersion: migrations.LatestVersion}
 				databaseHealth = databaseProbe
 				probe = databaseProbe
+				exerciseProfileEnabled := canonicalAGAExerciseProfileEnabled(settings.Environment, os.LookupEnv)
+				if exerciseProfileEnabled {
+					if namespaceErr := verifyCanonicalAGAExerciseDatabase(ctx, pool); namespaceErr != nil {
+						exerciseProfileEnabled = false
+						probe = unavailableReadiness{err: namespaceErr}
+						slog.Error("canonical AGA exercise namespace does not match the connected database; readiness will fail closed", "error", namespaceErr)
+					}
+				}
 				var authBoundary *httpapi.AuthBoundary
 				if settings.OIDCIssuerURL != "" {
 					var sessionManager *session.Manager
@@ -190,33 +198,11 @@ func run(ctx context.Context) error {
 					}
 				}
 				if profile.agaDemoOnly {
-					if authBoundary == nil || profile.agaDemoService == nil || profile.agaWorkspaceService == nil {
-						probe = unavailableReadiness{err: errors.New("tagged AGA demo authentication is unavailable")}
-					} else {
-						service, closeReader, readerErr := profile.agaDemoService(ctx, settings)
-						if readerErr != nil {
-							probe = unavailableReadiness{err: readerErr}
-							slog.Error("AGA demo reader unavailable; capability will fail closed", "error", readerErr)
-						} else {
-							defer closeReader()
-							workspaceService, closeWorkspace, workspaceErr := profile.agaWorkspaceService(ctx, settings)
-							if workspaceErr != nil {
-								probe = unavailableReadiness{err: workspaceErr}
-								slog.Error("AGA demo workspace unavailable; capability will fail closed", "error", workspaceErr)
-							} else {
-								defer closeWorkspace()
-								legacyAPI := httpapi.ProtectAGACandidateDemo(authBoundary, httpapi.NewAGACandidateDemoHandler(service))
-								workspaceAPI := httpapi.ProtectAGADemoWorkspace(authBoundary, workspaceService, httpapi.NewAGADemoWorkspaceHandler(workspaceService))
-								authenticatedAPI = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-									if strings.HasPrefix(request.URL.Path, "/v1/preprod/aga-demo-workspace/") {
-										workspaceAPI.ServeHTTP(writer, request)
-										return
-									}
-									legacyAPI.ServeHTTP(writer, request)
-								})
-							}
-						}
-					}
+					// The tagged AGA donor is retained only as a deletion-gate
+					// source artifact. It is never mounted after the canonical
+					// cutover, so a stale profile fails readiness instead of
+					// silently falling back to synthetic stakeholder state.
+					probe = unavailableReadiness{err: errors.New("tagged AGA donor runtime is disabled after canonical cutover")}
 				} else if settings.ObjectStoreEndpoint != "" {
 					objects, objectErr := objectstore.NewMinIOStore(objectstore.MinIOConfig{
 						Endpoint: settings.ObjectStoreEndpoint, PublicEndpoint: settings.ObjectStorePublicEndpoint,
@@ -333,8 +319,12 @@ func run(ctx context.Context) error {
 								service, _ := agaDemoService.(*agacandidatedemo.Service)
 								return service
 							}(),
-							PreprodExerciseProfile: os.Getenv("AVIA_PREPROD_PROFILE") == "aga-preprod@1.0.0" && strings.EqualFold(os.Getenv("AVIA_PREPROD_PROFILE_QUALIFICATION"), "true"),
-							Clock:                  runtimeClock,
+							PreprodExerciseProfile: exerciseProfileEnabled,
+							PreprodIdentityNamespace: func() string {
+								value, _ := os.LookupEnv("AVIA_PREPROD_IDENTITY_NAMESPACE")
+								return value
+							}(),
+							Clock: runtimeClock,
 						}).Handler()
 						if profile.protect != nil {
 							protectedAPI, testAdmin, profileErr := profile.protect(
@@ -427,6 +417,49 @@ func run(ctx context.Context) error {
 		}
 		return fmt.Errorf("serve HTTP: %w", err)
 	}
+}
+
+// verifyCanonicalAGAExerciseDatabase checks the connected PostgreSQL
+// identity, rather than trusting process environment variables.  A copied
+// profile env file on a shared database must fail readiness before exercise
+// catalogs can become visible.
+func verifyCanonicalAGAExerciseDatabase(ctx context.Context, pool *database.Pool) error {
+	if pool == nil {
+		return errors.New("PostgreSQL pool is required for exercise namespace verification")
+	}
+	var databaseName, databaseOwner string
+	if err := pool.QueryRow(ctx, `
+		SELECT current_database(), pg_get_userbyid(datdba)
+		FROM pg_database
+		WHERE datname = current_database()
+	`).Scan(&databaseName, &databaseOwner); err != nil {
+		return fmt.Errorf("verify connected exercise database identity: %w", err)
+	}
+	if databaseName != "aviasurveil360_local_preprod" || databaseOwner != "aviasurveil360_preprod_loader" {
+		return fmt.Errorf("connected database is not the dedicated exercise namespace: got %s owned by %s", databaseName, databaseOwner)
+	}
+	return nil
+}
+
+// canonicalAGAExerciseProfileEnabled is deliberately stricter than a single
+// feature flag. Exercise content is enabled only for the local-preprod
+// runtime, the sealed versioned profile, an explicit qualification opt-in,
+// the dedicated whole-namespace identity, and the disposable database owner
+// envelope. A shared/default database can therefore never expose exercise
+// question versions merely because a profile variable was inherited.
+// Production/default API processes therefore fail closed even if a profile
+// variable is accidentally inherited.
+func canonicalAGAExerciseProfileEnabled(environment string, lookup func(string) (string, bool)) bool {
+	profile, profileOK := lookup("AVIA_PREPROD_PROFILE")
+	qualification, qualificationOK := lookup("AVIA_PREPROD_PROFILE_QUALIFICATION")
+	namespace, namespaceOK := lookup("AVIA_PREPROD_IDENTITY_NAMESPACE")
+	databaseName, databaseNameOK := lookup("AVIA_PREPROD_DATABASE_NAME")
+	databaseOwner, databaseOwnerOK := lookup("AVIA_PREPROD_DATABASE_OWNER")
+	return environment == "local-preprod" && profileOK && profile == "aga-preprod@1.0.0" &&
+		qualificationOK && strings.EqualFold(strings.TrimSpace(qualification), "true") &&
+		namespaceOK && strings.TrimSpace(namespace) == "canonical-aga-preprod-exercise-v1" &&
+		databaseNameOK && strings.TrimSpace(databaseName) == "aviasurveil360_local_preprod" &&
+		databaseOwnerOK && strings.TrimSpace(databaseOwner) == "aviasurveil360_preprod_loader"
 }
 
 func newRuntimeReadiness(

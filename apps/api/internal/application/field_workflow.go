@@ -62,19 +62,27 @@ func (service *Service) UpsertChecklistResponse(ctx context.Context, actor ident
 		}
 
 		var organizationID, checklistStatus string
+		var canonicalScopeSnapshotID *string
 		var packageExpiry *time.Time
 		var packageRevoked *time.Time
 		if err := transaction.QueryRow(ctx, `
-			SELECT inspection.organization_id, checklist.status, package.expires_at, package.revoked_at
+			SELECT inspection.organization_id, checklist.status, package.canonical_scope_snapshot_id, package.expires_at, package.revoked_at
 			FROM inspections inspection
 			JOIN inspection_checklists checklist ON checklist.inspection_id = inspection.id
 			JOIN inspection_packages package ON package.inspection_id = inspection.id AND package.id = $2
 			JOIN inspection_question_assignments assignment
 			  ON assignment.inspection_id = inspection.id AND assignment.question_id = $3 AND assignment.subject_id = $4
+			JOIN audit_assignments audit_assignment
+			  ON audit_assignment.inspection_id = inspection.id
+			 AND audit_assignment.tombstoned_at IS NULL
+			JOIN audit_team_members team_member
+			  ON team_member.assignment_id = audit_assignment.id
+			 AND team_member.subject_id = assignment.subject_id
+			 AND team_member.removed_at IS NULL
 			WHERE inspection.id = $1
 			FOR UPDATE OF checklist, package
 		`, command.InspectionID, command.PackageID, command.QuestionID, actor.SubjectID).Scan(
-			&organizationID, &checklistStatus, &packageExpiry, &packageRevoked,
+			&organizationID, &checklistStatus, &canonicalScopeSnapshotID, &packageExpiry, &packageRevoked,
 		); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return transition[ChecklistResponseResult]{}, fmt.Errorf("%w: Inspector is not assigned to this Audit question", ErrForbidden)
@@ -83,6 +91,9 @@ func (service *Service) UpsertChecklistResponse(ctx context.Context, actor ident
 		}
 		if !checklists.CanEdit(checklists.Status(checklistStatus)) {
 			return transition[ChecklistResponseResult]{}, fmt.Errorf("%w: submitted checklist is read-only", ErrConflict)
+		}
+		if canonicalScopeSnapshotID == nil || *canonicalScopeSnapshotID == "" {
+			return transition[ChecklistResponseResult]{}, fmt.Errorf("%w: canonical execution package is required", ErrConflict)
 		}
 		now := service.clock().UTC()
 		if packageRevoked != nil || (packageExpiry != nil && !now.Before(*packageExpiry)) {
@@ -177,6 +188,100 @@ func (service *Service) SubmitChecklist(ctx context.Context, actor identity.Prin
 			}
 			return transition[ChecklistTransitionResult]{}, err
 		}
+		var canonicalSnapshotID, templateVersionID *string
+		var packageExpiry, packageRevoked *time.Time
+		if err := transaction.QueryRow(ctx, `
+			SELECT canonical_scope_snapshot_id, checklist_template_version_id,
+			       expires_at, revoked_at
+			FROM inspection_packages
+			WHERE inspection_id = $1
+			ORDER BY package_version DESC
+			LIMIT 1
+			FOR UPDATE
+		`, command.InspectionID).Scan(&canonicalSnapshotID, &templateVersionID, &packageExpiry, &packageRevoked); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return transition[ChecklistTransitionResult]{}, fmt.Errorf("%w: immutable execution package is required", ErrConflict)
+			}
+			return transition[ChecklistTransitionResult]{}, err
+		}
+		now := service.clock().UTC()
+		if packageRevoked != nil || (packageExpiry != nil && !now.Before(packageExpiry.UTC())) {
+			return transition[ChecklistTransitionResult]{}, fmt.Errorf("%w: immutable execution package is expired or withdrawn", ErrConflict)
+		}
+		if canonicalSnapshotID == nil || *canonicalSnapshotID == "" || templateVersionID != nil {
+			return transition[ChecklistTransitionResult]{}, fmt.Errorf("%w: canonical execution package source is required", ErrConflict)
+		}
+		var unclearedAttachments bool
+		if err := transaction.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1
+				FROM inspection_attachments
+				WHERE inspection_id = $1
+				  AND (upload_state <> 'UPLOADED' OR scan_state <> 'CLEAN' OR canonical_object_metadata_id IS NULL)
+			)
+		`, command.InspectionID).Scan(&unclearedAttachments); err != nil {
+			return transition[ChecklistTransitionResult]{}, err
+		}
+		if unclearedAttachments {
+			return transition[ChecklistTransitionResult]{}, fmt.Errorf("%w: every Inspection Attachment must be uploaded and clean before checklist submission", ErrConflict)
+		}
+		{
+			var snapshotQuestionCount, assignedQuestionCount, uncoveredQuestionCount int64
+			if err := transaction.QueryRow(ctx, `
+				SELECT COUNT(*)
+				FROM canonical_audit_scope_snapshot_questions
+				WHERE snapshot_id = $1
+			`, *canonicalSnapshotID).Scan(&snapshotQuestionCount); err != nil {
+				return transition[ChecklistTransitionResult]{}, err
+			}
+			if err := transaction.QueryRow(ctx, `
+				SELECT COUNT(DISTINCT question_id)
+				FROM inspection_question_assignments
+				WHERE inspection_id = $1
+			`, command.InspectionID).Scan(&assignedQuestionCount); err != nil {
+				return transition[ChecklistTransitionResult]{}, err
+			}
+			if err := transaction.QueryRow(ctx, `
+				SELECT COUNT(*)
+				FROM (
+					SELECT DISTINCT assignment.question_id
+					FROM inspection_question_assignments assignment
+					LEFT JOIN canonical_audit_scope_snapshot_questions scoped
+					  ON scoped.snapshot_id = $1
+					 AND scoped.question_version_id = assignment.question_id
+					WHERE assignment.inspection_id = $2 AND scoped.question_version_id IS NULL
+				) uncovered
+			`, *canonicalSnapshotID, command.InspectionID).Scan(&uncoveredQuestionCount); err != nil {
+				return transition[ChecklistTransitionResult]{}, err
+			}
+			if snapshotQuestionCount == 0 || assignedQuestionCount != snapshotQuestionCount || uncoveredQuestionCount != 0 {
+				return transition[ChecklistTransitionResult]{}, fmt.Errorf("%w: checklist coverage does not match the immutable released package", ErrConflict)
+			}
+		}
+		var assignedQuestionCount, answeredQuestionCount, missingRequiredCommentCount int64
+		if err := transaction.QueryRow(ctx, `
+			SELECT COUNT(DISTINCT assignment.question_id),
+			       COUNT(DISTINCT response.question_id) FILTER (WHERE response.id IS NOT NULL),
+			       COUNT(DISTINCT assignment.question_id) FILTER (
+					WHERE response.id IS NOT NULL
+					  AND response.response_value IN ('NON_COMPLIANT','OBSERVATION')
+					  AND NULLIF(btrim(COALESCE(response.comment_to_auditee, '') || COALESCE(response.internal_caa_note, '')), '') IS NULL
+				)
+			FROM inspection_question_assignments assignment
+			LEFT JOIN checklist_responses response
+			  ON response.inspection_id = assignment.inspection_id
+			 AND response.question_id = assignment.question_id
+			 AND response.response_value <> ''
+			WHERE assignment.inspection_id = $1
+		`, command.InspectionID).Scan(&assignedQuestionCount, &answeredQuestionCount, &missingRequiredCommentCount); err != nil {
+			return transition[ChecklistTransitionResult]{}, err
+		}
+		if assignedQuestionCount == 0 || answeredQuestionCount != assignedQuestionCount {
+			return transition[ChecklistTransitionResult]{}, fmt.Errorf("%w: every immutable package question must have a response before submission", ErrConflict)
+		}
+		if missingRequiredCommentCount != 0 {
+			return transition[ChecklistTransitionResult]{}, fmt.Errorf("%w: non-compliant and observation responses require an auditee comment or Internal CAA Note", ErrConflict)
+		}
 		rows, err := transaction.Query(ctx, `
 			SELECT DISTINCT subject_id FROM inspection_question_assignments WHERE inspection_id = $1 ORDER BY subject_id
 		`, command.InspectionID)
@@ -203,7 +308,6 @@ func (service *Service) SubmitChecklist(ctx context.Context, actor identity.Prin
 			}
 			return transition[ChecklistTransitionResult]{}, fmt.Errorf("%w: %v", ErrConflict, err)
 		}
-		now := service.clock().UTC()
 		if _, err := transaction.Exec(ctx, `
 			UPDATE inspection_checklists SET status = $2, revision = $3, submitted_at = $4 WHERE inspection_id = $1
 		`, command.InspectionID, string(decision.Status), decision.Revision, now); err != nil {
@@ -236,8 +340,8 @@ func (service *Service) ReopenChecklist(ctx context.Context, actor identity.Prin
 		OperationID: command.OperationID, CorrelationID: command.CorrelationID,
 		Kind: "reopen_checklist", EntityID: command.InspectionID, Semantic: semantic,
 	}, func(ctx context.Context, transaction pgx.Tx) (transition[ChecklistTransitionResult], error) {
-		if !actor.HasRole(identity.RoleLeadInspector, identity.RoleDepartmentManager) {
-			return transition[ChecklistTransitionResult]{}, fmt.Errorf("%w: Lead Inspector or Department Manager role required", ErrForbidden)
+		if !actor.HasRole(identity.RoleInspector, identity.RoleLeadInspector) {
+			return transition[ChecklistTransitionResult]{}, fmt.Errorf("%w: Inspector or Lead Inspector role required", ErrForbidden)
 		}
 		var status, organizationID string
 		var revision int64
@@ -251,6 +355,58 @@ func (service *Service) ReopenChecklist(ctx context.Context, actor identity.Prin
 				return transition[ChecklistTransitionResult]{}, ErrNotFound
 			}
 			return transition[ChecklistTransitionResult]{}, err
+		}
+		var canonicalPackage bool
+		if err := transaction.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM inspection_packages
+				WHERE inspection_id = $1 AND canonical_scope_snapshot_id IS NOT NULL
+			)
+		`, command.InspectionID).Scan(&canonicalPackage); err != nil {
+			return transition[ChecklistTransitionResult]{}, err
+		}
+		if !canonicalPackage {
+			return transition[ChecklistTransitionResult]{}, fmt.Errorf("%w: canonical execution package is required", ErrConflict)
+		}
+		// Reopening is a field-stage correction only. Once a report, Finding,
+		// CAP, or Evidence record exists downstream, changing the checklist
+		// would make the immutable report/package linkage ambiguous. Require an
+		// explicit returned/superseding workflow instead of reopening in place.
+		var downstreamReport, downstreamFinding, downstreamCAP, downstreamEvidence bool
+		if err := transaction.QueryRow(ctx, `
+			SELECT
+				EXISTS (SELECT 1 FROM report_versions WHERE inspection_id = $1 AND status <> 'DRAFT'),
+				EXISTS (SELECT 1 FROM findings WHERE inspection_id = $1 AND status <> 'DRAFT'),
+				EXISTS (SELECT 1 FROM cap_revisions cap JOIN findings finding ON finding.id = cap.finding_id WHERE finding.inspection_id = $1),
+				EXISTS (SELECT 1 FROM evidence_versions evidence JOIN findings finding ON finding.id = evidence.finding_id WHERE finding.inspection_id = $1)
+		`, command.InspectionID).Scan(&downstreamReport, &downstreamFinding, &downstreamCAP, &downstreamEvidence); err != nil {
+			return transition[ChecklistTransitionResult]{}, err
+		}
+		if downstreamReport || downstreamFinding || downstreamCAP || downstreamEvidence {
+			return transition[ChecklistTransitionResult]{}, fmt.Errorf("%w: checklist cannot be reopened after report, Finding, CAP, or Evidence history exists", ErrConflict)
+		}
+		if actor.HasRole(identity.RoleLeadInspector) {
+			if err := requireLeadInspectorAuthority(ctx, transaction, actor, command.InspectionID); err != nil {
+				return transition[ChecklistTransitionResult]{}, err
+			}
+		} else {
+			var assigned bool
+			if err := transaction.QueryRow(ctx, `
+					SELECT EXISTS (
+						SELECT 1 FROM audit_assignments assignment
+						JOIN audit_team_members member ON member.assignment_id=assignment.id
+						JOIN audit_question_assignments coverage
+						  ON coverage.assignment_id=assignment.id AND coverage.subject_id=member.subject_id
+						WHERE assignment.inspection_id=$1 AND assignment.tombstoned_at IS NULL
+					  AND member.subject_id=$2 AND member.member_role='INSPECTOR'
+					  AND member.removed_at IS NULL
+				)
+			`, command.InspectionID, actor.SubjectID).Scan(&assigned); err != nil {
+				return transition[ChecklistTransitionResult]{}, err
+			}
+			if !assigned {
+				return transition[ChecklistTransitionResult]{}, fmt.Errorf("%w: Inspector is not assigned to this Audit", ErrForbidden)
+			}
 		}
 		decision, err := checklists.Reopen(checklists.ReopenInput{
 			Actor: actor, Status: checklists.Status(status), Revision: revision,
@@ -338,11 +494,20 @@ func (service *Service) CreatePotentialFinding(ctx context.Context, actor identi
 			FROM checklist_responses response
 			JOIN inspections inspection ON inspection.id = response.inspection_id
 			JOIN inspection_checklists checklist ON checklist.inspection_id = response.inspection_id AND checklist.status = 'IN_PROGRESS'
+			JOIN inspection_packages package ON package.id = response.package_id AND package.inspection_id = response.inspection_id
 			JOIN inspection_question_assignments assignment
 			  ON assignment.inspection_id = response.inspection_id
 			 AND assignment.question_id = response.question_id
 			 AND assignment.subject_id = $4
+			JOIN audit_assignments audit_assignment
+			  ON audit_assignment.inspection_id = response.inspection_id
+			 AND audit_assignment.tombstoned_at IS NULL
+			JOIN audit_team_members team_member
+			  ON team_member.assignment_id = audit_assignment.id
+			 AND team_member.subject_id = assignment.subject_id
+			 AND team_member.removed_at IS NULL
 			WHERE response.id = $1 AND response.inspection_id = $2 AND response.question_id = $3
+			  AND package.canonical_scope_snapshot_id IS NOT NULL
 			FOR UPDATE OF response
 		`, command.ChecklistResponseID, command.InspectionID, command.QuestionID, actor.SubjectID).Scan(
 			&responseInspectionID, &responseQuestionID, &assignedSubjectID, &answer, &responseRevision, &organizationID,
@@ -357,6 +522,23 @@ func (service *Service) CreatePotentialFinding(ctx context.Context, actor identi
 		}
 		if answer != "NON_COMPLIANT" && answer != "OBSERVATION" {
 			return transition[PotentialFindingResult]{}, fmt.Errorf("%w: response does not support a Potential Finding", ErrConflict)
+		}
+		var supersedesPotentialFindingID *string
+		var existingPotentialFindingID, existingPotentialFindingStatus string
+		if err := transaction.QueryRow(ctx, `
+			SELECT id, status
+			FROM potential_findings
+			WHERE checklist_response_id = $1
+			ORDER BY revision DESC, id DESC
+			LIMIT 1
+			FOR UPDATE
+		`, command.ChecklistResponseID).Scan(&existingPotentialFindingID, &existingPotentialFindingStatus); err == nil {
+			if existingPotentialFindingStatus != "RETURNED" {
+				return transition[PotentialFindingResult]{}, fmt.Errorf("%w: checklist response already has an active Potential Finding", ErrConflict)
+			}
+			supersedesPotentialFindingID = &existingPotentialFindingID
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			return transition[PotentialFindingResult]{}, err
 		}
 		if err := inspections.ValidatePotentialFindingContext(inspections.PotentialFindingContext{
 			AuditID: command.InspectionID, QuestionAuditID: responseInspectionID, ResponseAuditID: responseInspectionID,
@@ -374,6 +556,9 @@ func (service *Service) CreatePotentialFinding(ctx context.Context, actor identi
 				  AND checklist_response_id = $4
 				  AND organization_id = $5
 				  AND created_by_subject_id = $6
+				  AND upload_state = 'UPLOADED'
+				  AND scan_state = 'CLEAN'
+				  AND canonical_object_metadata_id IS NOT NULL
 				  AND potential_finding_id IS NULL
 				ORDER BY id
 				FOR UPDATE
@@ -410,14 +595,14 @@ func (service *Service) CreatePotentialFinding(ctx context.Context, actor identi
 			INSERT INTO potential_findings (
 				id, inspection_id, checklist_response_id, organization_id, status, finding_basis,
 				expected_evidence, comment_to_auditee, internal_caa_note, revision, created_at, updated_at,
-				question_id, title, description, created_by_subject_id
+				question_id, title, description, created_by_subject_id, supersedes_potential_finding_id
 			) VALUES (
 				$1, $2, $3, $4, 'PENDING_LEAD_REVIEW', $5, NULLIF($6, ''), $7, NULLIF($8, ''), 1, $9, $9,
-				$10, $11, $12, $13
+				$10, $11, $12, $13, $14
 			)
 		`, potentialFindingID, command.InspectionID, command.ChecklistResponseID, organizationID,
 			semantic.Description, semantic.ExpectedEvidence, semantic.CommentToAuditee, semantic.InternalCAANote, now,
-			command.QuestionID, semantic.Title, semantic.Description, actor.SubjectID); err != nil {
+			command.QuestionID, semantic.Title, semantic.Description, actor.SubjectID, supersedesPotentialFindingID); err != nil {
 			return transition[PotentialFindingResult]{}, fmt.Errorf("create Potential Finding: %w", err)
 		}
 		if len(semantic.InspectionAttachmentIDs) > 0 {
@@ -501,6 +686,9 @@ func (service *Service) DecidePotentialFinding(ctx context.Context, actor identi
 			if errors.Is(err, pgx.ErrNoRows) {
 				return transition[PotentialFindingResult]{}, ErrNotFound
 			}
+			return transition[PotentialFindingResult]{}, err
+		}
+		if err := requireLeadInspectorAuthority(ctx, transaction, actor, inspectionID); err != nil {
 			return transition[PotentialFindingResult]{}, err
 		}
 		decision, err := potentialfindings.Decide(potentialfindings.DecideInput{

@@ -388,6 +388,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/evidence/{evidenceVersionId}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["downloadEvidence"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/report-versions/{id}": {
         parameters: {
             query?: never;
@@ -644,7 +660,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/audit-workspaces": {
+    "/v1/audit-assignments/{assignmentId}/preparation-confirmations": {
         parameters: {
             query?: never;
             header?: never;
@@ -653,7 +669,87 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["createAuditWorkspace"];
+        post: operations["confirmAuditPreparation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/audit-assignments/{assignmentId}/materializations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["materializeCanonicalAudit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/planning/items/{planningItemId}/preparations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["prepareAudit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/audit-assignments/{assignmentId}/lead": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["assignAuditLead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/audit-assignments/{assignmentId}/team": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["assignAuditTeam"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/audit-assignments/{assignmentId}/question-coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["assignAuditQuestionCoverage"];
         delete?: never;
         options?: never;
         head?: never;
@@ -868,6 +964,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/inspection-attachments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getInspectionAttachment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/inspection-attachments/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["downloadInspectionAttachment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auditee/coordination": {
         parameters: {
             query?: never;
@@ -894,6 +1022,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["respondAuditeeCoordination"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auditee/coordination/{auditId}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reviewAuditeeCoordination"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2084,6 +2228,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/audit-scope-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listCanonicalAuditScopeOptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/question-catalogs/{catalogVersion}/questions/{questionVersionId}": {
         parameters: {
             query?: never;
@@ -2148,7 +2308,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/department-manager/question-review/commands": {
+    "/v1/department-manager/question-review/exercise-commands": {
         parameters: {
             query?: never;
             header?: never;
@@ -2157,7 +2317,23 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["commandCanonicalQuestionReview"];
+        post: operations["commandCanonicalExerciseQuestionReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/department-manager/question-review/governed-commands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["commandCanonicalGovernedQuestionReview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2242,6 +2418,10 @@ export interface components {
             dueDate: string | null;
             dueState: components["schemas"]["DueState"];
             nextAction: string;
+            packageId?: string | null;
+            assignmentId?: string | null;
+            revision?: number | null;
+            inspectionRevision?: number | null;
         };
         ListAssignmentsOutput: {
             items: components["schemas"]["AssignmentSummary"][];
@@ -2663,6 +2843,12 @@ export interface components {
             reviewState: components["schemas"]["EvidenceReviewState"];
             revision: number;
         };
+        EvidenceDownloadOutput: {
+            /** Format: uri */
+            downloadUrl: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
         ListEvidenceVersionsOutput: {
             items: components["schemas"]["EvidenceVersionView"][];
         };
@@ -2749,6 +2935,8 @@ export interface components {
             currentOwnerRole: components["schemas"]["Role"];
             nextAction: string;
             revision: number;
+            submittedScopeSnapshotId?: string;
+            planningSnapshotDigest?: string;
         };
         ListPlanningItemsOutput: {
             items: components["schemas"]["PlanningItemView"][];
@@ -2760,6 +2948,8 @@ export interface components {
             expectedPlanningRevision: number;
             decision: components["schemas"]["PlanningDecision"];
             reason: string;
+            expectedSubmittedScopeSnapshotId: string;
+            expectedPlanningSnapshotDigest: string;
         };
         ChecklistTemplateVersionView: {
             id: string;
@@ -3377,6 +3567,16 @@ export interface components {
             decision: "CONFIRM" | "PROPOSE_ALTERNATIVE";
             /** Format: date */
             alternativeDate: string | null;
+        };
+        ReviewAuditeeCoordinationInput: {
+            operationId: string;
+            expectedRevision: number;
+            idempotencyKey: string;
+            auditId: string;
+            organizationId: string;
+            /** @enum {string} */
+            decision: "ACCEPT_ALTERNATIVE" | "RETURN_TO_AUDITEE";
+            reason: string;
         };
         AuditeeReleasedReportView: {
             reportVersionId: string;
@@ -5702,6 +5902,23 @@ export interface components {
         QuestionUsageClass: "GOVERNED_OPERATIONAL" | "PREPROD_EXERCISE";
         /** @enum {string} */
         QuestionReviewMode: "GOVERNED_OPERATIONAL" | "PREPROD_EXERCISE";
+        CanonicalAuditScopeOption: {
+            organizationId: string;
+            organizationName: string;
+            providerScopeId: string;
+            regulatedTargetId: string;
+            providerTypeId: string;
+            providerTypeLabel: string;
+            /** @constant */
+            scopeStatus: "ACTIVE";
+            targetLabel: string;
+            catalogVersion: string;
+            usageClass: components["schemas"]["QuestionUsageClass"];
+        };
+        CanonicalAuditScopeOptionPage: {
+            items: components["schemas"]["CanonicalAuditScopeOption"][];
+            nextCursor: string | null;
+        };
         CanonicalQuestionCatalogEntry: {
             catalogVersion: string;
             usageClass: components["schemas"]["QuestionUsageClass"];
@@ -5720,6 +5937,13 @@ export interface components {
             proposedRiskBand?: string | null;
             canSelect: boolean;
             canPublish: boolean;
+            governedCandidateId?: string | null;
+            governedCandidateRevision?: number | null;
+            governedCandidateContentDigest?: string | null;
+            governedCandidateStatus?: string | null;
+            reviewRevision?: number;
+            reviewDisposition?: string | null;
+            reviewDigest?: string | null;
         };
         CanonicalQuestionCatalogPage: {
             items: components["schemas"]["CanonicalQuestionCatalogEntry"][];
@@ -5738,8 +5962,11 @@ export interface components {
         CanonicalAuditScopeSelectionInput: {
             operationId: string;
             idempotencyKey?: string;
+            previewOperationId?: string;
             expectedSelectionDigest: string;
             questionVersionIds: string[];
+            /** @enum {string} */
+            operationKind?: "ADD" | "REMOVE" | "REPLACE";
             usageClass: components["schemas"]["QuestionUsageClass"];
             filter?: Record<string, never>;
         };
@@ -5754,11 +5981,27 @@ export interface components {
             replayed: boolean;
             selection: components["schemas"]["AuditScopeSelectionDigest"];
         };
-        QuestionReviewCommandInput: {
+        ExerciseQuestionReviewCommandInput: {
+            operationId: string;
+            idempotencyKey: string;
+            catalogVersion: string;
+            questionVersionId: string;
+            expectedRevision: number;
+            expectedReviewDigest: string;
+            /** @enum {string} */
+            action: "RETAIN" | "INCLUDE" | "EXCLUDE" | "DEFER" | "DOMAIN_RECLASSIFIED" | "TOPIC_RECLASSIFIED";
+            reason: string;
+            domain?: string | null;
+            topic?: string | null;
+        };
+        GovernedQuestionReviewCommandInput: {
             operationId: string;
             idempotencyKey?: string;
-            mode: components["schemas"]["QuestionReviewMode"];
+            catalogVersion: string;
             questionVersionId: string;
+            candidateId: string;
+            expectedCandidateRevision: number;
+            expectedCandidateContentDigest: string;
             /** @enum {string} */
             action: "RETAIN" | "INCLUDE" | "EXCLUDE" | "DEFER" | "DOMAIN_RECLASSIFIED" | "TOPIC_RECLASSIFIED" | "TECHNICAL_APPROVE" | "PUBLISH";
             reason: string;
@@ -5783,6 +6026,8 @@ export interface components {
             action: string;
             replayed: boolean;
             canPublish: boolean;
+            reviewRevision?: number;
+            reviewDigest?: string | null;
         };
         StartInspectionInput: {
             operationId: string;
@@ -5798,6 +6043,108 @@ export interface components {
             checklistRevision: number;
             /** Format: date-time */
             startedAt: string;
+        };
+        ConfirmAuditPreparationInput: {
+            operationId: string;
+            idempotencyKey: string;
+            expectedAssignmentRevision: number;
+        };
+        PreparationConfirmationView: {
+            planningItemId: string;
+            inspectionId: string;
+            organizationId: string;
+            /** @constant */
+            status: "QUESTIONS_ASSIGNED";
+            revision: number;
+            preparationId: string;
+            preparationDigest: string;
+            selectedQuestionCount: number;
+            /** Format: date-time */
+            confirmedAt: string;
+        };
+        MaterializeCanonicalAuditInput: {
+            operationId: string;
+            idempotencyKey: string;
+            expectedAssignmentRevision: number;
+        };
+        CanonicalMaterializedAuditView: {
+            inspectionId: string;
+            assignmentId: string;
+            packageId: string;
+            packageVersion: number;
+            packageDigest: string;
+            /** @enum {string} */
+            status: "SCHEDULED" | "AWAITING_AUDITEE_CONFIRMATION";
+            noticeWithheld: boolean;
+            assignmentRevision: number;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        PrepareAuditInput: {
+            operationId: string;
+            idempotencyKey: string;
+            expectedPlanningRevision: number;
+        };
+        PreparationView: {
+            assignmentId: string;
+            planningItemId: string;
+            organizationId: string;
+            /** @constant */
+            status: "PREPARATION";
+            revision: number;
+        };
+        AssignLeadInput: {
+            operationId: string;
+            idempotencyKey: string;
+            expectedInspectionRevision: number;
+            leadSubjectId: string;
+        };
+        AssignTeamInput: {
+            operationId: string;
+            idempotencyKey: string;
+            expectedRevision: number;
+            memberSubjectIds: string[];
+        };
+        QuestionCoverageInput: {
+            questionId: string;
+            subjectId: string;
+        };
+        AssignQuestionsInput: {
+            operationId: string;
+            idempotencyKey: string;
+            expectedRevision: number;
+            questionAssignments: components["schemas"]["QuestionCoverageInput"][];
+        };
+        CanonicalAssignmentView: {
+            id: string;
+            inspectionId: string;
+            organizationId: string;
+            leadSubjectId: string;
+            memberSubjectIds: string[];
+            questionAssignments: components["schemas"]["QuestionCoverageInput"][];
+            status: string;
+            /** Format: date */
+            scheduledStartDate: string;
+            /** Format: date */
+            scheduledEndDate: string;
+            revision: number;
+        };
+        InspectionAttachmentView: {
+            id: string;
+            inspectionId: string;
+            packageId: string;
+            questionId: string;
+            checklistResponseId: string;
+            fileName: string;
+            uploadState: string;
+            scanState: string;
+            revision: number;
+        };
+        InspectionAttachmentDownloadOutput: {
+            /** Format: uri */
+            downloadUrl: string;
+            /** Format: date-time */
+            expiresAt: string;
         };
     };
     responses: {
@@ -6659,6 +7006,32 @@ export interface operations {
             default: components["responses"]["Problem"];
         };
     };
+    downloadEvidence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                evidenceVersionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Short-lived authorized Evidence download instruction */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvidenceDownloadOutput"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
     getReportVersion: {
         parameters: {
             query?: never;
@@ -7214,7 +7587,7 @@ export interface operations {
             422: components["responses"]["Problem"];
         };
     };
-    createAuditWorkspace: {
+    confirmAuditPreparation: {
         parameters: {
             query?: never;
             header: {
@@ -7223,23 +7596,220 @@ export interface operations {
                 /** @description Expected entity revision encoded as a strong ETag. */
                 "If-Match": components["parameters"]["ExpectedRevision"];
             };
-            path?: never;
+            path: {
+                assignmentId: string;
+            };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateAuditWorkspaceInput"];
+                "application/json": components["schemas"]["ConfirmAuditPreparationInput"];
             };
         };
         responses: {
-            /** @description Created immutable audit execution workspace */
+            /** @description Confirmed immutable preparation snapshot */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreparationConfirmationView"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    materializeCanonicalAudit: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                assignmentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MaterializeCanonicalAuditInput"];
+            };
+        };
+        responses: {
+            /** @description Materialized canonical non-executable Audit */
             201: {
                 headers: {
                     ETag: components["headers"]["ETag"];
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AuditWorkspaceView"];
+                    "application/json": components["schemas"]["CanonicalMaterializedAuditView"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    prepareAudit: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                planningItemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrepareAuditInput"];
+            };
+        };
+        responses: {
+            /** @description Created non-executable Audit preparation */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreparationView"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    assignAuditLead: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                assignmentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignLeadInput"];
+            };
+        };
+        responses: {
+            /** @description Assigned Lead Inspector */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CanonicalAssignmentView"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    assignAuditTeam: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                assignmentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignTeamInput"];
+            };
+        };
+        responses: {
+            /** @description Assigned inspection team */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CanonicalAssignmentView"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    assignAuditQuestionCoverage: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                assignmentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignQuestionsInput"];
+            };
+        };
+        responses: {
+            /** @description Assigned exact per-question coverage */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CanonicalAssignmentView"];
                 };
             };
             400: components["responses"]["Problem"];
@@ -7665,6 +8235,56 @@ export interface operations {
             403: components["responses"]["Problem"];
         };
     };
+    getInspectionAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["EntityId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authorized immutable Inspection Attachment projection */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InspectionAttachmentView"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    downloadInspectionAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["EntityId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authorized CLEAN Inspection Attachment download instruction */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InspectionAttachmentDownloadOutput"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
     listAuditeeCoordination: {
         parameters: {
             query?: {
@@ -7712,6 +8332,44 @@ export interface operations {
         };
         responses: {
             /** @description Auditee coordination response */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditeeCoordinationView"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    reviewAuditeeCoordination: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                auditId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewAuditeeCoordinationInput"];
+            };
+        };
+        responses: {
+            /** @description Scoped CAA coordination decision */
             200: {
                 headers: {
                     ETag: components["headers"]["ETag"];
@@ -10274,10 +10932,39 @@ export interface operations {
             403: components["responses"]["Problem"];
         };
     };
+    listCanonicalAuditScopeOptions: {
+        parameters: {
+            query?: {
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+                catalogVersion?: string;
+                usageClass?: components["schemas"]["QuestionUsageClass"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Department-authorized organization and provider scope options */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CanonicalAuditScopeOptionPage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
     getCanonicalQuestionCatalogEntry: {
         parameters: {
             query: {
                 usageClass: components["schemas"]["QuestionUsageClass"];
+                scopeId?: string;
             };
             header?: never;
             path: {
@@ -10405,7 +11092,7 @@ export interface operations {
             403: components["responses"]["Problem"];
         };
     };
-    commandCanonicalQuestionReview: {
+    commandCanonicalExerciseQuestionReview: {
         parameters: {
             query?: never;
             header: {
@@ -10419,11 +11106,47 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["QuestionReviewCommandInput"];
+                "application/json": components["schemas"]["ExerciseQuestionReviewCommandInput"];
             };
         };
         responses: {
-            /** @description Canonical governed or exercise review decision */
+            /** @description Explicit PREPROD_EXERCISE review disposition */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionReviewCommandOutput"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    commandCanonicalGovernedQuestionReview: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GovernedQuestionReviewCommandInput"];
+            };
+        };
+        responses: {
+            /** @description Explicit GOVERNED_OPERATIONAL review disposition or authority handoff */
             200: {
                 headers: {
                     ETag: components["headers"]["ETag"];

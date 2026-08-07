@@ -41,8 +41,8 @@ describe("Lead Inspector assignment and secondary routes", () => {
     renderLeadRoute("/lead-inspector/audits/AUD-2026-001/assignment");
 
     const page = await screen.findByTestId("lead-audit-assignment-page");
-    expect(page).toHaveAttribute("data-audit-id", "AUD-2026-001");
-    expect(within(page).getByRole("heading", { name: "Cabin Inspection" })).toBeVisible();
+    expect(await within(page).findByRole("heading", { name: "2026 Cabin Inspection - Fly Namibia" })).toBeVisible();
+    expect(screen.getByTestId("lead-audit-assignment-page")).toHaveAttribute("data-audit-id", "AUD-2026-001");
     expect(await within(page).findByRole("region", { name: "Inspector workload" })).toHaveTextContent("Amina Inspector");
     const summary = await within(page).findByRole("region", { name: "Audit assignment summary" });
     const owner = within(summary).getByText("Current Owner");
@@ -54,11 +54,11 @@ describe("Lead Inspector assignment and secondary routes", () => {
       "href",
       "/lead-inspector/audits/AUD-2026-001/checklist-questions",
     );
-    expect(within(page).getByRole("link", { name: "View Preliminary Report" })).toHaveAttribute(
+    expect(within(page).getByRole("link", { name: "View Preliminary Reports" })).toHaveAttribute(
       "href",
-      "/lead-inspector/preliminary-reports/PR-2026-018",
+      "/lead-inspector/preliminary-reports",
     );
-    expect(within(page).getByRole("link", { name: "View Preliminary Report" })).toHaveClass(
+    expect(within(page).getByRole("link", { name: "View Preliminary Reports" })).toHaveClass(
       "workbench-page-header__action",
     );
   });
@@ -68,8 +68,8 @@ describe("Lead Inspector assignment and secondary routes", () => {
     renderLeadRoute("/lead-inspector/audits/AUD-2026-001/checklist-questions");
 
     const page = await screen.findByTestId("lead-question-assignment-page");
-    expect(page).toHaveAttribute("data-audit-id", "AUD-2026-001");
     await within(page).findByText("CAB-GALLEY-001");
+    expect(screen.getByTestId("lead-question-assignment-page")).toHaveAttribute("data-audit-id", "AUD-2026-001");
     for (const questionId of [
       "CAB-GALLEY-001",
       "CAB-LAV-001",
@@ -92,7 +92,7 @@ describe("Lead Inspector assignment and secondary routes", () => {
     const page = await screen.findByTestId("lead-question-assignment-page");
     expect(within(page).getByRole("button", { name: "Assign Questions" })).toHaveAttribute(
       "title",
-      "Select at least one question from AUD-2026-001 before assigning.",
+      "Select at least one question before assigning.",
     );
     await user.click(within(page).getByLabelText("Select question CAB-GALLEY-001"));
     await user.click(within(page).getByLabelText("Select question CAB-EMEQ-PBE-001"));
@@ -140,9 +140,9 @@ describe("Lead Inspector assignment and secondary routes", () => {
       "href",
       "/lead-inspector/audits/AUD-2026-001/assignment",
     );
-    expect(within(calendar).getByRole("button", { name: "Assignment unavailable for AUD-2026-099" })).toHaveAttribute(
-      "title",
-      "Audit AUD-2026-099 has no declared Lead Inspector assignment route.",
+    expect(within(calendar).getByRole("link", { name: "Open assignment for AUD-2026-099" })).toHaveAttribute(
+      "href",
+      "/lead-inspector/audits/AUD-2026-099/assignment",
     );
 
     cleanup();

@@ -112,8 +112,9 @@ func importIdentity(row ImportRow) string {
 }
 
 // ImportDigest returns a deterministic aggregate digest over import lineage.
-// The digest is independent of input slice order so retries cannot create a
-// different catalog identity merely by returning rows in another order.
+// Import packages are canonicalized by their immutable source identity, so
+// retries cannot create a different catalog identity merely by returning rows
+// in another order.
 func ImportDigest(rows []ImportRow) string {
 	canonical := append([]ImportRow(nil), rows...)
 	sort.Slice(canonical, func(i, j int) bool {
@@ -281,24 +282,21 @@ func normalizeSelection(ids []string, maxBatch int, rows map[string]ImportRow) (
 		}
 		seen[id] = struct{}{}
 	}
-	// Keep a deterministic order for the persisted scope snapshot regardless
-	// of browser traversal order.
-	sorted := append([]string(nil), ids...)
-	sort.Strings(sorted)
-	return sorted, nil
+	// Preserve the caller's explicit order. The order is the package position
+	// contract and is covered by the selection digest.
+	return append([]string(nil), ids...), nil
 }
 
 func digestIDs(ids []string) string {
-	canonical := append([]string(nil), ids...)
-	sort.Strings(canonical)
 	h := sha256.New()
-	for _, id := range canonical {
-		fmt.Fprintf(h, "%s\n", id)
+	for position, id := range ids {
+		fmt.Fprintf(h, "%d\x00%s\n", position, id)
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-// SelectionDigest returns the stable CAS digest used by the HTTP scope
-// contract.  It is exported so persistence adapters can share the exact
-// canonicalization rather than reimplementing a subtly different hash.
+// SelectionDigest returns the stable ordered CAS digest used by the HTTP scope
+// contract. Selection order is part of the released Audit package contract;
+// callers must not sort or otherwise rewrite the ordered identities before
+// persisting this digest.
 func SelectionDigest(ids []string) string { return digestIDs(ids) }

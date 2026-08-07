@@ -21,24 +21,31 @@ const (
 )
 
 type Preparation struct {
-	PlanningItemID string `json:"planningItemId"`
-	InspectionID   string `json:"inspectionId"`
-	OrganizationID string `json:"organizationId"`
-	Status         Status `json:"status"`
-	Revision       int64  `json:"revision"`
+	AssignmentID          string    `json:"assignmentId"`
+	PlanningItemID        string    `json:"planningItemId"`
+	InspectionID          string    `json:"inspectionId"`
+	OrganizationID        string    `json:"organizationId"`
+	Status                Status    `json:"status"`
+	Revision              int64     `json:"revision"`
+	PreparationID         string    `json:"preparationId,omitempty"`
+	PreparationDigest     string    `json:"preparationDigest,omitempty"`
+	SelectedQuestionCount int       `json:"selectedQuestionCount,omitempty"`
+	ConfirmedAt           time.Time `json:"confirmedAt,omitempty"`
 }
 
 type Assignment struct {
-	ID                  string               `json:"id"`
-	InspectionID        string               `json:"inspectionId"`
-	OrganizationID      string               `json:"organizationId"`
-	LeadSubjectID       string               `json:"leadSubjectId"`
-	MemberSubjectIDs    []string             `json:"memberSubjectIds"`
-	QuestionAssignments []QuestionAssignment `json:"questionAssignments"`
-	Status              Status               `json:"status"`
-	ScheduledStartDate  string               `json:"scheduledStartDate"`
-	ScheduledEndDate    string               `json:"scheduledEndDate"`
-	Revision            int64                `json:"revision"`
+	ID                      string               `json:"id"`
+	PlanningItemID          string               `json:"planningItemId"`
+	ReleasedScopeSnapshotID string               `json:"releasedScopeSnapshotId,omitempty"`
+	InspectionID            string               `json:"inspectionId"`
+	OrganizationID          string               `json:"organizationId"`
+	LeadSubjectID           string               `json:"leadSubjectId"`
+	MemberSubjectIDs        []string             `json:"memberSubjectIds"`
+	QuestionAssignments     []QuestionAssignment `json:"questionAssignments"`
+	Status                  Status               `json:"status"`
+	ScheduledStartDate      string               `json:"scheduledStartDate"`
+	ScheduledEndDate        string               `json:"scheduledEndDate"`
+	Revision                int64                `json:"revision"`
 }
 
 type QuestionAssignment struct {

@@ -69,8 +69,9 @@ func Submit(input SubmitInput) (SubmitResult, error) {
 }
 
 func Reopen(input ReopenInput) (ReopenResult, error) {
-	if !input.Actor.HasRole(identity.RoleLeadInspector, identity.RoleDepartmentManager) {
-		return ReopenResult{}, fmt.Errorf("role cannot reopen a checklist")
+	if !input.Actor.HasRole(identity.RoleInspector, identity.RoleLeadInspector) ||
+		(input.Actor.HasRole(identity.RoleInspector) && input.Actor.SubjectID == "") {
+		return ReopenResult{}, fmt.Errorf("only an assigned Inspector or Lead Inspector can reopen a checklist")
 	}
 	if input.Status != StatusSubmitted {
 		return ReopenResult{}, fmt.Errorf("only a submitted checklist can be reopened")

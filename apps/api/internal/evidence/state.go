@@ -37,7 +37,7 @@ type ReviewResult struct {
 }
 
 func Review(input ReviewInput) (ReviewResult, error) {
-	if !input.Actor.HasRole(identity.RoleInspector, identity.RoleLeadInspector, identity.RoleDepartmentManager) {
+	if !input.Actor.HasRole(identity.RoleInspector, identity.RoleLeadInspector) {
 		return ReviewResult{}, fmt.Errorf("role cannot review Evidence")
 	}
 	if input.VersionID == "" || input.VersionRevision != input.ExpectedVersionRevision {

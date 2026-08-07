@@ -4,12 +4,11 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { AppProviders } from "../../app/providers";
 import { AppRouter } from "../../app/router";
 import { ScenarioProvider } from "../../app/scenario-context";
-import type { AGADemoWorkspaceBackend } from "../../backend/aga-demo-workspace";
 import type { DemoBackend } from "../../backend/backend";
 import { createMockBackendPersistentRuntime, createMockBackendRuntime } from "../../mock/create-mock-backend";
 
@@ -36,20 +35,38 @@ function renderWizardRoute(path: string, runtime: MockRuntime = createMockBacken
   return runtime;
 }
 
+async function selectFirstAuthorizedScope(user: ReturnType<typeof userEvent.setup>) {
+  const select = await screen.findByRole("combobox", { name: "Organization, provider scope, and regulated target" });
+  await waitFor(() => expect(select).toBeEnabled());
+  await waitFor(() => expect(select.querySelectorAll("option").length).toBeGreaterThan(1));
+  const option = select.querySelectorAll("option")[1] as HTMLOptionElement | undefined;
+  if (!option?.value) throw new Error("Expected an authorized scope option");
+  await user.selectOptions(select, option.value);
+  return screen.findByTestId("new-audit-wizard-page");
+}
+
 async function progressToStepFive(user: ReturnType<typeof userEvent.setup>) {
+  await selectFirstAuthorizedScope(user);
   await screen.findByRole("heading", { level: 2, name: /Step 1 of 5/ });
   await user.click(screen.getByRole("button", { name: "Next" }));
   await screen.findByRole("heading", { level: 2, name: /Step 2 of 5/ });
+  await screen.findByTestId("new-audit-wizard-page");
   await user.selectOptions(screen.getByLabelText("Inspection Category"), "Ad Hoc / Unannounced");
   await user.type(screen.getByLabelText("Purpose"), "Targeted apron safety verification");
   await user.click(screen.getByRole("button", { name: "Next" }));
   await screen.findByRole("heading", { level: 2, name: /Step 3 of 5/ });
+  await screen.findByTestId("new-audit-wizard-page");
+  await user.type(screen.getByLabelText("Planned Date"), "2026-12-10");
   await user.type(screen.getByLabelText("Location"), "Fly Namibia HQ");
   await user.click(screen.getByRole("button", { name: "Next" }));
   await screen.findByRole("heading", { level: 2, name: /Step 4 of 5/ });
+  await screen.findByTestId("new-audit-wizard-page");
+  const [firstQuestion] = await screen.findAllByRole("checkbox", { name: /Select / });
+  if (!firstQuestion) throw new Error("Expected at least one selectable question");
+  await user.click(firstQuestion);
+  await screen.findByText(/Exact question selection committed/);
   await user.clear(screen.getByLabelText("Requested Budget"));
   await user.type(screen.getByLabelText("Requested Budget"), "0");
-  await user.type(screen.getByLabelText("Scope"), "Apron and cabin operational controls");
   await user.click(screen.getByRole("button", { name: "Next" }));
   await screen.findByRole("heading", { level: 2, name: /Step 5 of 5/ });
 }
@@ -59,14 +76,15 @@ describe("New Inspection Planning intake", () => {
     ["/department-manager/new-audit/step-1", "Inspection basics"],
     ["/department-manager/new-audit/step-2", "Category and purpose"],
     ["/department-manager/new-audit/step-3", "When and where"],
-    ["/department-manager/new-audit/step-4", "Checklist, scope and budget"],
+    ["/department-manager/new-audit/step-4", "Choose questions and budget"],
     ["/department-manager/new-audit/step-5", "Review and submit"],
   ])("direct-loads %s as one explicit persisted draft step", async (path, marker) => {
+    const user = userEvent.setup();
     renderWizardRoute(path);
-    const page = await screen.findByTestId("new-audit-wizard-page");
+    const page = await selectFirstAuthorizedScope(user);
     expect(within(page).getByRole("heading", { level: 1, name: "New Inspection" })).toBeVisible();
     expect(page).toHaveTextContent(marker);
-    expect(page).toHaveAttribute("data-draft-id", "PLAN-DRAFT-2026-001");
+    expect(page.getAttribute("data-draft-id")).toMatch(/^PLAN-DRAFT-/);
     expect(screen.queryByTestId("route-pending-implementation")).toBeNull();
   });
 
@@ -85,6 +103,7 @@ describe("New Inspection Planning intake", () => {
   it("validates required prior-step data without losing the draft", async () => {
     const user = userEvent.setup();
     renderWizardRoute("/department-manager/new-audit/step-2");
+    await selectFirstAuthorizedScope(user);
     await screen.findByRole("heading", { level: 2, name: /Step 2 of 5/ });
     await user.click(screen.getByRole("button", { name: "Next" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Purpose is required");
@@ -95,8 +114,11 @@ describe("New Inspection Planning intake", () => {
   it("keeps the requested budget as raw input so blank is invalid while literal zero remains valid", async () => {
     const user = userEvent.setup();
     renderWizardRoute("/department-manager/new-audit/step-4");
+    await selectFirstAuthorizedScope(user);
     await screen.findByRole("heading", { level: 2, name: /Step 4 of 5/ });
     const budget = screen.getByLabelText("Requested Budget");
+    await user.click((await screen.findAllByRole("checkbox", { name: /Select / }))[0]);
+    await screen.findByText(/Exact question selection committed/);
 
     await user.clear(budget);
     expect(budget).toHaveValue(null);
@@ -107,16 +129,19 @@ describe("New Inspection Planning intake", () => {
     await user.type(budget, "0");
     await user.click(screen.getByRole("button", { name: "Next" }));
     expect(await screen.findByRole("heading", { level: 2, name: /Step 5 of 5/ })).toBeVisible();
-    expect(screen.getByTestId("new-audit-wizard-page")).toHaveTextContent("0 USD");
+    expect(await screen.findByTestId("new-audit-wizard-page")).toHaveTextContent("0 USD");
   });
 
   it("persists one exact draft across Back/Next, unmount, and runtime restart", async () => {
     const user = userEvent.setup();
     const firstRuntime = createMockBackendPersistentRuntime(localStorage);
     renderWizardRoute("/department-manager/new-audit/step-1", firstRuntime);
+    await selectFirstAuthorizedScope(user);
     await screen.findByRole("heading", { level: 2, name: /Step 1 of 5/ });
     await user.click(screen.getByRole("button", { name: "Next" }));
     await screen.findByRole("heading", { level: 2, name: /Step 2 of 5/ });
+    const draftId = (await screen.findByTestId("new-audit-wizard-page")).getAttribute("data-draft-id");
+    expect(draftId).toMatch(/^PLAN-DRAFT-/);
     await user.type(screen.getByLabelText("Purpose"), "Persisted targeted inspection purpose");
     await user.click(screen.getByRole("button", { name: "Next" }));
     await screen.findByRole("heading", { level: 2, name: /Step 3 of 5/ });
@@ -125,10 +150,10 @@ describe("New Inspection Planning intake", () => {
 
     cleanup();
     const restartedRuntime = createMockBackendPersistentRuntime(localStorage);
-    renderWizardRoute("/department-manager/new-audit/step-2", restartedRuntime);
+    renderWizardRoute(`/department-manager/new-audit/step-2?draftId=${encodeURIComponent(draftId ?? "")}`, restartedRuntime);
     expect(await screen.findByLabelText("Purpose")).toHaveValue("Persisted targeted inspection purpose");
-    const draft = await restartedRuntime.backendForRole("manager").planningIntake.getDraft({ draftId: "PLAN-DRAFT-2026-001" });
-    expect(draft).toMatchObject({ id: "PLAN-DRAFT-2026-001", purpose: "Persisted targeted inspection purpose" });
+    const draft = await restartedRuntime.backendForRole("manager").planningIntake.getDraft({ draftId: draftId ?? "" });
+    expect(draft).toMatchObject({ id: draftId, purpose: "Persisted targeted inspection purpose" });
   });
 
   it("submits a zero-budget unannounced Planning item to Finance without creating an Audit or exposing notice", async () => {
@@ -139,16 +164,18 @@ describe("New Inspection Planning intake", () => {
     renderWizardRoute("/department-manager/new-audit/step-1", runtime);
     await progressToStepFive(user);
 
-    const page = screen.getByTestId("new-audit-wizard-page");
+    const page = await screen.findByTestId("new-audit-wizard-page");
     expect(page).toHaveTextContent("No Advance Notice (withheld)");
     expect(page).toHaveTextContent("Department Manager → Finance Review → General Manager → Executive Director → General Manager Release");
     expect(page).toHaveTextContent("No executable Audit is created at this step");
     await user.click(within(page).getByRole("button", { name: "Submit for Finance Review" }));
-    expect(await screen.findByTestId("planning-selected-record")).toHaveTextContent("PLAN-2026-INTAKE-001");
+    const selectedRecord = await screen.findByTestId("planning-selected-record");
+    const planningItemId = selectedRecord.textContent?.match(/PLAN-[A-Z0-9-]+/)?.[0];
+    expect(planningItemId).toBeTruthy();
 
-    const submitted = (await manager.planning.list({ limit: 20 })).items.find((item) => item.id === "PLAN-2026-INTAKE-001");
+    const submitted = (await manager.planning.list({ limit: 20 })).items.find((item) => item.id === planningItemId);
     expect(submitted).toMatchObject({
-      id: "PLAN-2026-INTAKE-001",
+      id: planningItemId,
       organizationId: "ORG-FLY-NAMIBIA",
       estimatedBudget: 0,
       status: "FINANCE_REVIEW",
@@ -160,7 +187,7 @@ describe("New Inspection Planning intake", () => {
 
     const auditee = runtime.backendForRole("auditee");
     await expect(auditee.planning.list({})).rejects.toThrow(/CAA planning access is required/i);
-    expect(JSON.stringify(await auditee.calendar.list({}))).not.toContain("PLAN-2026-INTAKE-001");
+    expect(JSON.stringify(await auditee.calendar.list({}))).not.toContain(planningItemId);
     expect(JSON.stringify(await auditee.calendar.list({}))).not.toContain("Targeted apron safety verification");
   });
 
@@ -211,33 +238,20 @@ describe("New Inspection Planning intake", () => {
     for (const value of forbidden) expect(auditeeProjection).not.toContain(value);
   });
 
-  it("shows neutral fail-closed AGA recommendation only after authorized workspace capability", async () => {
+  it("keeps legacy AGA recommendation controls absent from the canonical New Audit flow", async () => {
     const runtime = createMockBackendRuntime();
-    const workspace = {
-      capability: vi.fn().mockResolvedValue({
-        available: true,
-        projection: "DEPARTMENT_MANAGER_SCOPED",
-        classificationEnabled: true,
-        recommendationEnabled: true,
-        lifecycleEnabled: false,
-        resetEnabled: false,
-      }),
-    } as unknown as AGADemoWorkspaceBackend;
-    Object.assign(runtime.backendForRole("manager"), { agaDemoWorkspace: workspace });
     renderWizardRoute("/department-manager/new-audit/step-5", runtime);
-
-    const recommendation = await screen.findByRole("region", { name: "AGA recommendation" });
-    expect(within(recommendation).getByRole("status")).toHaveTextContent(
-      "Recommendation is unavailable until the authorized workspace supplies one current server-derived provider scope and target.",
-    );
-    expect(within(recommendation).getByRole("button", { name: "Create AGA recommendation" })).toBeDisabled();
-    expect(workspace.capability).toHaveBeenCalledTimes(1);
+    await selectFirstAuthorizedScope(userEvent.setup());
+    await screen.findByRole("heading", { level: 2, name: /Step 5 of 5/ });
+    expect(screen.queryByRole("region", { name: "AGA recommendation" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Create AGA recommendation/i })).toBeNull();
   });
 
   it.each([1440, 1024, 390])("keeps step rail, form, and actions ordered at %ipx", async (width) => {
     Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
+    const user = userEvent.setup();
     renderWizardRoute("/department-manager/new-audit/step-4");
-    const page = await screen.findByTestId("new-audit-wizard-page");
+    const page = await selectFirstAuthorizedScope(user);
     const rail = within(page).getByRole("list", { name: "Planning intake steps" });
     const form = within(page).getByRole("region", { name: "Planning intake form" });
     const actions = within(page).getByRole("region", { name: "Planning intake actions" });

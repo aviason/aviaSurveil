@@ -2,6 +2,7 @@ package integration_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/application"
@@ -27,34 +28,26 @@ func TestReportApprovalUsesExactVersionAndIssueNeverClosesFinding(t *testing.T) 
 	}
 	service := testService(pool)
 
-	dmResult, err := service.DecideReport(context.Background(), principal("manager-001", "caa", "session-manager", identity.RoleDepartmentManager), application.DecideReportCommand{
+	_, err := service.DecideReport(context.Background(), principal("manager-001", "caa", "session-manager", identity.RoleDepartmentManager), application.DecideReportCommand{
 		OperationID: "op-report-dm", CorrelationID: "corr-report", ReportVersionID: "report-version-001", ExpectedRevision: 1, Decision: reports.DecisionForward,
 	})
-	if err != nil || dmResult.Status != reports.StatusGeneralManagerReview || dmResult.Revision != 2 {
-		t.Fatalf("DM report result = %+v, err = %v", dmResult, err)
-	}
-	gmResult, err := service.DecideReport(context.Background(), principal("gm-001", "caa", "session-gm", identity.RoleGeneralManager), application.DecideReportCommand{
-		OperationID: "op-report-gm", CorrelationID: "corr-report", ReportVersionID: "report-version-001", ExpectedRevision: 2, Decision: reports.DecisionForward,
-	})
-	if err != nil || gmResult.Status != reports.StatusExecutiveDirectorReview || gmResult.Revision != 3 {
-		t.Fatalf("GM report result = %+v, err = %v", gmResult, err)
-	}
-	edResult, err := service.DecideReport(context.Background(), principal("executive-001", "caa", "session-executive", identity.RoleExecutiveDirector), application.DecideReportCommand{
-		OperationID: "op-report-ed", CorrelationID: "corr-report", ReportVersionID: "report-version-001", ExpectedRevision: 3, Decision: reports.DecisionIssue,
-	})
-	if err != nil || edResult.Status != reports.StatusLocked || edResult.Revision != 4 {
-		t.Fatalf("ED report result = %+v, err = %v", edResult, err)
+	if !errors.Is(err, application.ErrConflict) {
+		t.Fatalf("Final Report approval error = %v, want lifecycle gate until Finding closure", err)
 	}
 
 	var findingStatus string
 	if err := pool.QueryRow(context.Background(), "SELECT status FROM findings WHERE id = 'finding-report'").Scan(&findingStatus); err != nil {
 		t.Fatalf("read Finding after report issue: %v", err)
 	}
-	if findingStatus == "CLOSED" {
-		t.Fatal("report issue closed Finding")
+	if findingStatus != "WAITING_FOR_CAP" {
+		t.Fatalf("report issue changed Finding status to %q", findingStatus)
 	}
 	var reportSnapshot string
 	if err := pool.QueryRow(context.Background(), "SELECT snapshot::text FROM report_versions WHERE id = 'report-version-001'").Scan(&reportSnapshot); err != nil || reportSnapshot == "" {
 		t.Fatalf("immutable report snapshot = %q, err = %v", reportSnapshot, err)
+	}
+	var reportStatus string
+	if err := pool.QueryRow(context.Background(), "SELECT status FROM report_versions WHERE id = 'report-version-001'").Scan(&reportStatus); err != nil || reportStatus != "DRAFT" {
+		t.Fatalf("blocked Final Report mutated status to %q, err = %v", reportStatus, err)
 	}
 }

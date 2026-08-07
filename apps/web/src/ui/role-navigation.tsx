@@ -182,7 +182,6 @@ export function RoleNavigation({
   const runtime = useOptionalApplicationRuntime();
   const SupplementalNavigation = runtime?.supplementalNavigation;
   const activePrimary = activePrimaryRouteId(activeRouteId);
-  const agaDemoOnly = runtime?.agaDemoWorkspaceSurfaceEnabled === true && activeRole !== "admin";
   return (
     <nav className="role-navigation" aria-label="Primary role navigation">
       {activeRole === "auditee" ? <p className="role-navigation__experience">Service Provider Portal</p> : null}
@@ -192,9 +191,7 @@ export function RoleNavigation({
       {activeRole === "executiveDirector" ? <p className="role-navigation__experience">Executive Director</p> : null}
       {activeRole === "admin" ? <p className="role-navigation__experience">Administration</p> : null}
       {SupplementalNavigation ? <SupplementalNavigation activeRole={activeRole} onNavigate={onNavigate} /> : null}
-      {agaDemoOnly ? (
-        <p className="role-navigation__experience">Only the connected AGA demo workspace is available in this local candidate.</p>
-      ) : ACCEPTED_NAVIGATION[activeRole].map((item) => {
+      {ACCEPTED_NAVIGATION[activeRole].map((item) => {
         const route = item.routeId ? REACT_ROUTE_CONTRACT_BY_ID.get(item.routeId) : null;
         const targetRoute = item.targetRouteId ? REACT_ROUTE_CONTRACT_BY_ID.get(item.targetRouteId) : route;
         const active =

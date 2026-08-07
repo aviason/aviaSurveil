@@ -54,6 +54,19 @@ func TestBuildImportManifestRecomputesDigestsAndPreservesZeroFormBoundaries(t *t
 	if manifest.ImportDigest == "" {
 		t.Fatal("expected aggregate import digest")
 	}
+	if len(manifest.ImportDigest) != len("sha256:")+64 || manifest.ImportDigest[:len("sha256:")] != "sha256:" {
+		t.Fatalf("aggregate digest is not a canonical SHA-256: %q", manifest.ImportDigest)
+	}
+	changedForm := pkg
+	changedForm.Forms = append([]agacandidatedemo.FormCandidate(nil), pkg.Forms...)
+	changedForm.Forms[0].FormSHA256 = "sha256:changed-form-lineage"
+	changedManifest, err := BuildImportManifest(changedForm, "aga-preprod@1.0.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if changedManifest.ImportDigest == manifest.ImportDigest {
+		t.Fatal("form lineage change must change the catalog root digest")
+	}
 	for _, row := range manifest.Rows {
 		if row.QuestionDigest == "" || row.Body != "" {
 			t.Fatalf("invalid catalog row %+v", row)

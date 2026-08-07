@@ -12,8 +12,8 @@ import (
 )
 
 func TestGovernedChecklistIntakeMigration(t *testing.T) {
-	if migrations.LatestVersion != 28 {
-		t.Fatalf("latest migration = %d, want version 28", migrations.LatestVersion)
+	if migrations.LatestVersion < 30 {
+		t.Fatalf("latest migration = %d, want at least version 30", migrations.LatestVersion)
 	}
 	path := filepath.Join("..", "..", "migrations", "000028_governed_checklist_intake_and_authoring.up.sql")
 	sqlBytes, err := os.ReadFile(path)

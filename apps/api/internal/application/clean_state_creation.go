@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -115,6 +116,16 @@ func (service *Service) CreatePlanningIntakeDraft(
 		strings.TrimSpace(stringValue(command.Values["organizationId"])) != command.OrganizationID {
 		return PlanningIntakeDraft{}, ErrInvalid
 	}
+	// New Audit is the canonical catalog/scope intake boundary. Legacy
+	// checklist-template and free-form scope fields are intentionally rejected
+	// before any draft row is created.
+	if strings.TrimSpace(stringValue(command.Values["catalogVersion"])) == "" ||
+		strings.TrimSpace(stringValue(command.Values["providerScopeId"])) == "" ||
+		strings.TrimSpace(stringValue(command.Values["regulatedTargetId"])) == "" ||
+		strings.TrimSpace(stringValue(command.Values["templateVersionId"])) != "" ||
+		strings.TrimSpace(stringValue(command.Values["scope"])) != "" {
+		return PlanningIntakeDraft{}, fmt.Errorf("%w: New Audit requires a canonical catalog and authorized scope", ErrInvalid)
+	}
 	return executeTransition(ctx, service, actor, commandEnvelope{
 		OperationID: command.OperationID, IdempotencyKey: command.IdempotencyKey,
 		CorrelationID: command.OperationID, Kind: "create_planning_intake_draft",
@@ -122,15 +133,28 @@ func (service *Service) CreatePlanningIntakeDraft(
 	}, func(ctx context.Context, transaction pgx.Tx) (transition[PlanningIntakeDraft], error) {
 		canonicalValues := NormalizeCanonicalPlanningValues(command.Values, command.DraftID)
 		canonicalValues["organizationId"] = command.OrganizationID
-		if canonicalValues["catalogVersion"] != "" {
-			if canonicalValues["scopeDraftId"] == "" {
-				canonicalValues["scopeDraftId"] = "scope-draft-" + command.DraftID
+		if canonicalValues["catalogVersion"] != "" || canonicalValues["scopeDraftId"] != "" || canonicalValues["providerScopeId"] != "" || canonicalValues["regulatedTargetId"] != "" {
+			if canonicalValues["catalogVersion"] == "" {
+				return transition[PlanningIntakeDraft]{}, fmt.Errorf("%w: canonical catalog identity is required when a scope is supplied", ErrInvalid)
+			}
+			if strings.TrimSpace(stringValue(command.Values["scopeDraftId"])) == "" {
 				command.Values["scopeDraftId"] = canonicalValues["scopeDraftId"]
 			}
 			if _, err := ValidateCanonicalScopeMap(ctx, transaction, actor, canonicalValues, false); err != nil {
 				return transition[PlanningIntakeDraft]{}, err
 			}
 		}
+		var legalName string
+		if err := transaction.QueryRow(ctx, `
+			SELECT legal_name FROM organizations
+			WHERE id = $1 AND tombstoned_at IS NULL
+		`, command.OrganizationID).Scan(&legalName); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return transition[PlanningIntakeDraft]{}, ErrNotFound
+			}
+			return transition[PlanningIntakeDraft]{}, err
+		}
+		command.Values["organizationName"] = legalName
 		values, err := json.Marshal(command.Values)
 		if err != nil {
 			return transition[PlanningIntakeDraft]{}, ErrInvalid
@@ -173,6 +197,10 @@ func (service *Service) CreatePlanningIntakeDraft(
 				stringValue(canonicalValues["noticePolicy"]), actor.SubjectID, now); err != nil {
 				return transition[PlanningIntakeDraft]{}, mapCreateConflict(err)
 			}
+			// The scope draft identity is server-owned. Return it in the
+			// authoritative draft projection so the first Step 1 save and a
+			// browser refresh cannot lose the canonical aggregate binding.
+			output.Values["scopeDraftId"] = facts.ScopeID
 		}
 		output.UpdatedAt = updatedAt.UTC().Format(time.RFC3339Nano)
 		return transition[PlanningIntakeDraft]{
@@ -613,10 +641,15 @@ func (service *Service) CreateReportVersion(
 	}
 	if command.OperationID == "" || command.IdempotencyKey == "" ||
 		command.ReportVersionID == "" || command.ReportID == "" ||
-		command.AuditID == "" || command.Version < 0 ||
+		command.AuditID == "" || command.Version <= 0 ||
 		(command.Kind != reports.KindPreliminary && command.Kind != reports.KindFinal) ||
 		(command.Status != "RETURNED" && command.Status != "DEPARTMENT_REVIEW") {
 		return CreatedReportVersion{}, ErrInvalid
+	}
+	var err error
+	command.FindingIDs, err = normalizedUniqueIDs(command.FindingIDs)
+	if err != nil {
+		return CreatedReportVersion{}, fmt.Errorf("%w: Finding IDs must be unique", ErrInvalid)
 	}
 	return executeTransition(ctx, service, actor, commandEnvelope{
 		OperationID: command.OperationID, IdempotencyKey: command.IdempotencyKey,
@@ -633,6 +666,96 @@ func (service *Service) CreateReportVersion(
 			}
 			return transition[CreatedReportVersion]{}, err
 		}
+		// For canonical audits, the Lead Inspector recorded on the assignment
+		// is the only authority for report version creation. Assignment-less
+		// records fail closed instead of falling back to a global role.
+		var hasAssignment, isLead bool
+		if err := transaction.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM audit_assignments
+				WHERE inspection_id = $1 AND tombstoned_at IS NULL
+			), EXISTS (
+				SELECT 1
+				FROM audit_assignments assignment
+				JOIN audit_team_members member ON member.assignment_id = assignment.id
+				WHERE assignment.inspection_id = $1
+				  AND assignment.tombstoned_at IS NULL
+				  AND assignment.lead_subject_id = $2
+				  AND member.subject_id = $2
+				  AND member.member_role = 'LEAD_INSPECTOR'
+				  AND member.removed_at IS NULL
+			)
+		`, command.AuditID, actor.SubjectID).Scan(&hasAssignment, &isLead); err != nil {
+			return transition[CreatedReportVersion]{}, err
+		}
+		if !hasAssignment {
+			return transition[CreatedReportVersion]{}, fmt.Errorf("%w: report requires a canonical Audit assignment", ErrForbidden)
+		}
+		if !isLead {
+			return transition[CreatedReportVersion]{}, fmt.Errorf("%w: report authority belongs to the assigned Lead Inspector", ErrForbidden)
+		}
+		if command.Kind == reports.KindPreliminary {
+			var checklistStatus string
+			if err := transaction.QueryRow(ctx, `
+				SELECT status FROM inspection_checklists WHERE inspection_id = $1
+			`, command.AuditID).Scan(&checklistStatus); err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					return transition[CreatedReportVersion]{}, fmt.Errorf("%w: checklist execution is required before Preliminary Report", ErrConflict)
+				}
+				return transition[CreatedReportVersion]{}, err
+			}
+			if checklistStatus != "SUBMITTED" {
+				return transition[CreatedReportVersion]{}, fmt.Errorf("%w: checklist must be submitted before Preliminary Report", ErrConflict)
+			}
+		}
+		if command.Kind == reports.KindFinal {
+			var preliminaryIssued bool
+			if err := transaction.QueryRow(ctx, `
+				SELECT EXISTS (
+					SELECT 1
+					FROM report_versions preliminary
+					JOIN report_approval_states approval ON approval.report_version_id = preliminary.id
+					WHERE preliminary.inspection_id = $1
+					  AND preliminary.snapshot->>'kind' = 'PRELIMINARY'
+					  AND approval.status IN ('ISSUED', 'LOCKED')
+				)
+			`, command.AuditID).Scan(&preliminaryIssued); err != nil {
+				return transition[CreatedReportVersion]{}, err
+			}
+			if !preliminaryIssued {
+				return transition[CreatedReportVersion]{}, fmt.Errorf("%w: Preliminary Report must be approved and issued before Final Report", ErrConflict)
+			}
+			var openFindingCount int64
+			if err := transaction.QueryRow(ctx, `SELECT COUNT(*) FROM findings WHERE inspection_id = $1 AND status <> 'CLOSED'`, command.AuditID).Scan(&openFindingCount); err != nil {
+				return transition[CreatedReportVersion]{}, err
+			}
+			if openFindingCount != 0 {
+				return transition[CreatedReportVersion]{}, fmt.Errorf("%w: all Findings must be closed before Final Report", ErrConflict)
+			}
+		}
+		var auditFindingCount, linkedFindingCount int
+		if err := transaction.QueryRow(ctx, `
+			SELECT COUNT(*) FROM findings WHERE inspection_id = $1
+		`, command.AuditID).Scan(&auditFindingCount); err != nil {
+			return transition[CreatedReportVersion]{}, err
+		}
+		if err := transaction.QueryRow(ctx, `
+			SELECT COUNT(*) FROM findings
+			WHERE inspection_id = $1 AND id = ANY($2::text[])
+		`, command.AuditID, command.FindingIDs).Scan(&linkedFindingCount); err != nil {
+			return transition[CreatedReportVersion]{}, err
+		}
+		if linkedFindingCount != auditFindingCount || linkedFindingCount != len(command.FindingIDs) {
+			return transition[CreatedReportVersion]{}, fmt.Errorf("%w: report must link the exact immutable Finding set for this Audit", ErrConflict)
+		}
+		var potentialFindingIDs []string
+		if err := transaction.QueryRow(ctx, `
+			SELECT COALESCE(array_agg(id ORDER BY id), ARRAY[]::text[])
+			FROM potential_findings
+			WHERE inspection_id = $1
+		`, command.AuditID).Scan(&potentialFindingIDs); err != nil {
+			return transition[CreatedReportVersion]{}, err
+		}
 		contentBytes, err := json.Marshal(command.Content)
 		if err != nil {
 			return transition[CreatedReportVersion]{}, ErrInvalid
@@ -642,7 +765,11 @@ func (service *Service) CreateReportVersion(
 		snapshot := map[string]any{
 			"kind": command.Kind, "ready": true,
 			"findingIds": command.FindingIDs, "contentHash": contentHash,
-			"responseDueDate": nil, "caaVisibleComment": nil,
+			// Freeze the Potential Finding roots alongside the formal Finding
+			// set. A later conversion is valid only for a root explicitly present
+			// in this immutable Preliminary snapshot.
+			"potentialFindingIds": potentialFindingIDs,
+			"responseDueDate":     nil, "caaVisibleComment": nil,
 			"content": command.Content,
 		}
 		if _, err := reports.Prepare(reports.PrepareInput{

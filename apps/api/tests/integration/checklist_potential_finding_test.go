@@ -17,6 +17,18 @@ func TestChecklistMutationSubmitReadOnlyAndAuthorizedReopenUseExactRevisions(t *
 	pool := canonicalDatabase(t, "checklist_transitions")
 	service := testService(pool)
 	inspector := principal("inspector-cabin-001", "caa", "session-inspector", identity.RoleInspector)
+	// The shared canonical fixture includes an issued Preliminary Report for
+	// lifecycle tests. This focused checklist transition test exercises the
+	// pre-report reopen boundary, so remove that unrelated history explicitly.
+	if _, err := pool.Exec(context.Background(), `
+		ALTER TABLE report_versions DISABLE TRIGGER report_versions_immutable;
+		DELETE FROM report_approval_states
+		WHERE report_version_id IN (SELECT id FROM report_versions WHERE inspection_id = 'audit-cabin-001');
+		DELETE FROM report_versions WHERE inspection_id = 'audit-cabin-001';
+		ALTER TABLE report_versions ENABLE TRIGGER report_versions_immutable;
+	`); err != nil {
+		t.Fatalf("remove report history for checklist transition test: %v", err)
+	}
 
 	edited, err := service.UpsertChecklistResponse(context.Background(), inspector, application.UpsertChecklistResponseCommand{
 		OperationID: "op-response-edit-001", CorrelationID: "corr-checklist", ResponseID: "response-cabin-001",

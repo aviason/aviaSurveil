@@ -317,8 +317,8 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 	if settings.DatabaseURL == "" {
 		return Settings{}, fmt.Errorf("AVIA_DATABASE_URL is required")
 	}
-	if !contains([]string{"development", "test", "production"}, settings.Environment) {
-		return Settings{}, fmt.Errorf("AVIA_ENVIRONMENT must be development, test, or production")
+	if !contains([]string{"development", "test", "production", "local-preprod"}, settings.Environment) {
+		return Settings{}, fmt.Errorf("AVIA_ENVIRONMENT must be development, test, production, or local-preprod")
 	}
 
 	objectStoreConfigured := settings.ObjectStoreEndpoint != "" ||

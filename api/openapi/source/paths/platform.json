@@ -37,11 +37,20 @@
   "/v1/documents/{documentId}": {
     "get": { "operationId": "getDocument", "parameters": [{ "name": "documentId", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Immutable document metadata", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DocumentMetadataView" } } } } } }
   },
+  "/v1/inspection-attachments/{id}": {
+    "get": { "operationId": "getInspectionAttachment", "parameters": [{ "$ref": "#/components/parameters/EntityId" }], "responses": { "200": { "description": "Authorized immutable Inspection Attachment projection", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/InspectionAttachmentView" } } } } } }
+  },
+  "/v1/inspection-attachments/{id}/download": {
+    "get": { "operationId": "downloadInspectionAttachment", "parameters": [{ "$ref": "#/components/parameters/EntityId" }], "responses": { "200": { "description": "Authorized CLEAN Inspection Attachment download instruction", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/InspectionAttachmentDownloadOutput" } } } } } }
+  },
   "/v1/auditee/coordination": {
     "get": { "operationId": "listAuditeeCoordination", "parameters": [{ "$ref": "#/components/parameters/Cursor" }, { "$ref": "#/components/parameters/Limit" }], "responses": { "200": { "description": "Organization-scoped Auditee coordination page", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuditeeCoordinationPage" } } } } } }
   },
   "/v1/auditee/coordination/{auditId}/responses": {
     "post": { "operationId": "respondAuditeeCoordination", "parameters": [{ "name": "auditId", "in": "path", "required": true, "schema": { "type": "string" } }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RespondToAuditeeCoordinationInput" } } } }, "responses": { "200": { "description": "Auditee coordination response", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuditeeCoordinationView" } } } } } }
+  },
+  "/v1/auditee/coordination/{auditId}/reviews": {
+    "post": { "operationId": "reviewAuditeeCoordination", "parameters": [{ "name": "auditId", "in": "path", "required": true, "schema": { "type": "string" } }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReviewAuditeeCoordinationInput" } } } }, "responses": { "200": { "description": "Scoped CAA coordination decision", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuditeeCoordinationView" } } } } } }
   },
   "/v1/auditee/report-versions": {
     "get": { "operationId": "listAuditeeReleasedReports", "parameters": [{ "name": "kind", "in": "query", "schema": { "type": "string", "enum": ["PRELIMINARY", "FINAL"] } }, { "$ref": "#/components/parameters/Cursor" }, { "$ref": "#/components/parameters/Limit" }], "responses": { "200": { "description": "Organization-scoped LOCKED report page", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuditeeReleasedReportPage" } } } } } }
@@ -349,13 +358,26 @@
       "responses": { "200": { "description": "Bounded canonical catalog page", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CanonicalQuestionCatalogPage" } } } } }
     }
   },
+  "/v1/audit-scope-options": {
+    "get": {
+      "operationId": "listCanonicalAuditScopeOptions",
+      "parameters": [
+        { "$ref": "#/components/parameters/Cursor" },
+        { "$ref": "#/components/parameters/Limit" },
+        { "name": "catalogVersion", "in": "query", "schema": { "type": "string", "maxLength": 120 } },
+        { "name": "usageClass", "in": "query", "schema": { "$ref": "#/components/schemas/QuestionUsageClass" } }
+      ],
+      "responses": { "200": { "description": "Department-authorized organization and provider scope options", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CanonicalAuditScopeOptionPage" } } } } }
+    }
+  },
   "/v1/question-catalogs/{catalogVersion}/questions/{questionVersionId}": {
     "get": {
       "operationId": "getCanonicalQuestionCatalogEntry",
       "parameters": [
         { "name": "catalogVersion", "in": "path", "required": true, "schema": { "type": "string" } },
         { "name": "questionVersionId", "in": "path", "required": true, "schema": { "type": "string" } },
-        { "name": "usageClass", "in": "query", "required": true, "schema": { "$ref": "#/components/schemas/QuestionUsageClass" } }
+        { "name": "usageClass", "in": "query", "required": true, "schema": { "$ref": "#/components/schemas/QuestionUsageClass" } },
+        { "name": "scopeId", "in": "query", "schema": { "type": "string" } }
       ],
       "responses": { "200": { "description": "Exact canonical catalog entry", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CanonicalQuestionCatalogEntry" } } } } }
     }
@@ -397,12 +419,20 @@
       "responses": { "200": { "description": "Canonical Find-Compare-Decide queue", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/QuestionReviewQueue" } } } } }
     }
   },
-  "/v1/department-manager/question-review/commands": {
+  "/v1/department-manager/question-review/exercise-commands": {
     "post": {
-      "operationId": "commandCanonicalQuestionReview",
+      "operationId": "commandCanonicalExerciseQuestionReview",
       "parameters": [],
-      "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/QuestionReviewCommandInput" } } } },
-      "responses": { "200": { "description": "Canonical governed or exercise review decision", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/QuestionReviewCommandOutput" } } } } }
+      "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ExerciseQuestionReviewCommandInput" } } } },
+      "responses": { "200": { "description": "Explicit PREPROD_EXERCISE review disposition", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/QuestionReviewCommandOutput" } } } } }
+    }
+  },
+  "/v1/department-manager/question-review/governed-commands": {
+    "post": {
+      "operationId": "commandCanonicalGovernedQuestionReview",
+      "parameters": [],
+      "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GovernedQuestionReviewCommandInput" } } } },
+      "responses": { "200": { "description": "Explicit GOVERNED_OPERATIONAL review disposition or authority handoff", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/QuestionReviewCommandOutput" } } } } }
     }
   },
   "/v1/audits/{auditId}/start": {

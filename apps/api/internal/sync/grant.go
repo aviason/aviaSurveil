@@ -129,18 +129,33 @@ func (service *GrantService) Issue(ctx context.Context, actor identity.Principal
 		var inspectionRevision, packageVersion int64
 		var packageExpiry time.Time
 		var packageRevoked *time.Time
+		var assignedQuestion bool
 		if err := transaction.QueryRow(ctx, `
 			SELECT package.inspection_id, inspection.organization_id, inspection.assigned_inspector_subject_id,
 			       inspection.revision, package.package_version, package.package_digest, package.expires_at, package.revoked_at,
-			       inspection.status, checklist.status
+			       inspection.status, checklist.status,
+				       EXISTS (
+				       SELECT 1 FROM inspection_question_assignments question_assignment
+				       JOIN audit_assignments audit_assignment
+				         ON audit_assignment.inspection_id = question_assignment.inspection_id
+				        AND audit_assignment.tombstoned_at IS NULL
+				       JOIN audit_team_members team_member
+				         ON team_member.assignment_id = audit_assignment.id
+				        AND team_member.subject_id = question_assignment.subject_id
+				        AND team_member.removed_at IS NULL
+				       WHERE question_assignment.inspection_id = package.inspection_id
+				         AND question_assignment.subject_id = $2
+			       )
 			FROM inspection_packages package
 			JOIN inspections inspection ON inspection.id = package.inspection_id
 			JOIN inspection_checklists checklist ON checklist.inspection_id = inspection.id
-			WHERE package.id = $1 FOR UPDATE OF package, inspection
-		`, input.PackageID).Scan(&inspectionID, &organizationID, &assignedSubject, &inspectionRevision, &packageVersion, &digest, &packageExpiry, &packageRevoked, &inspectionStatus, &checklistStatus); err != nil {
+			WHERE package.id = $1
+			  AND package.canonical_scope_snapshot_id IS NOT NULL
+			FOR UPDATE OF package, inspection
+		`, input.PackageID, actor.SubjectID).Scan(&inspectionID, &organizationID, &assignedSubject, &inspectionRevision, &packageVersion, &digest, &packageExpiry, &packageRevoked, &inspectionStatus, &checklistStatus, &assignedQuestion); err != nil {
 			return err
 		}
-		if assignedSubject != actor.SubjectID || packageVersion != input.ExpectedPackageVersion || inspectionStatus != "IN_PROGRESS" || checklistStatus != "IN_PROGRESS" {
+		if !assignedQuestion || packageVersion != input.ExpectedPackageVersion || inspectionStatus != "IN_PROGRESS" || checklistStatus != "IN_PROGRESS" {
 			return ErrGrantScope
 		}
 		if packageRevoked != nil || now.After(packageExpiry) {
@@ -160,8 +175,18 @@ func (service *GrantService) Issue(ctx context.Context, actor identity.Principal
 			return ErrSessionRevoked
 		}
 		rows, err := transaction.Query(ctx, `
-			SELECT question_id FROM inspection_question_assignments
-			WHERE inspection_id = $1 AND subject_id = $2 ORDER BY question_id
+			SELECT question_assignment.question_id
+			FROM inspection_question_assignments question_assignment
+			JOIN audit_assignments audit_assignment
+			  ON audit_assignment.inspection_id = question_assignment.inspection_id
+			 AND audit_assignment.tombstoned_at IS NULL
+			JOIN audit_team_members team_member
+			  ON team_member.assignment_id = audit_assignment.id
+			 AND team_member.subject_id = question_assignment.subject_id
+			 AND team_member.removed_at IS NULL
+			WHERE question_assignment.inspection_id = $1
+			  AND question_assignment.subject_id = $2
+			ORDER BY question_assignment.question_id
 		`, inspectionID, actor.SubjectID)
 		if err != nil {
 			return err
@@ -263,7 +288,8 @@ func (service *GrantService) Authorize(ctx context.Context, actor identity.Princ
 	if now.IsZero() {
 		now = service.clock().UTC()
 	}
-	var subjectID, deviceID, packageID, inspectionID, sessionID, assignedSubject string
+	var subjectID, deviceID, packageID, inspectionID, sessionID, inspectionStatus, checklistStatus string
+	var activeTeamMember bool
 	var assignmentRevision, inspectionRevision int64
 	var expiresAt, packageExpires, sessionExpires time.Time
 	var grantRevoked, packageRevoked, sessionRevoked, absoluteExpires *time.Time
@@ -271,17 +297,24 @@ func (service *GrantService) Authorize(ctx context.Context, actor identity.Princ
 	err := service.pool.QueryRow(ctx, `
 		SELECT offline_grant.subject_id, offline_grant.device_id, offline_grant.package_id, offline_grant.inspection_id, offline_grant.session_id,
 		       offline_grant.assignment_revision, offline_grant.expires_at, offline_grant.revoked_at, offline_grant.allowed_command_types,
-		       inspection.assigned_inspector_subject_id, inspection.revision,
+		       inspection.status, checklist.status, inspection.revision,
+		       EXISTS (
+		         SELECT 1 FROM audit_assignments assignment
+		         JOIN audit_team_members member ON member.assignment_id=assignment.id
+		         WHERE assignment.inspection_id=inspection.id AND assignment.tombstoned_at IS NULL
+		           AND member.subject_id=$2 AND member.removed_at IS NULL
+		       ),
 		       package.expires_at, package.revoked_at,
 		       session.expires_at, session.absolute_expires_at, session.revoked_at
 		FROM offline_grants offline_grant
 		JOIN inspections inspection ON inspection.id = offline_grant.inspection_id
+		JOIN inspection_checklists checklist ON checklist.inspection_id = inspection.id
 		JOIN inspection_packages package ON package.id = offline_grant.package_id
 		JOIN session_references session ON session.id = offline_grant.session_id
 		WHERE offline_grant.id = $1
-	`, input.GrantID).Scan(
+	`, input.GrantID, actor.SubjectID).Scan(
 		&subjectID, &deviceID, &packageID, &inspectionID, &sessionID, &assignmentRevision, &expiresAt, &grantRevoked, &allowedCommands,
-		&assignedSubject, &inspectionRevision, &packageExpires, &packageRevoked, &sessionExpires, &absoluteExpires, &sessionRevoked,
+		&inspectionStatus, &checklistStatus, &inspectionRevision, &activeTeamMember, &packageExpires, &packageRevoked, &sessionExpires, &absoluteExpires, &sessionRevoked,
 	)
 	if err != nil {
 		return fmt.Errorf("%w: load grant authority: %v", ErrGrantScope, err)
@@ -298,7 +331,10 @@ func (service *GrantService) Authorize(ctx context.Context, actor identity.Princ
 	if packageRevoked != nil || now.After(packageExpires.Add(clockSkewTolerance)) {
 		return ErrPackageRevoked
 	}
-	if assignedSubject != actor.SubjectID || inspectionRevision != assignmentRevision {
+	if inspectionStatus != "IN_PROGRESS" || checklistStatus != "IN_PROGRESS" {
+		return ErrAssignmentChanged
+	}
+	if !activeTeamMember || inspectionRevision != assignmentRevision {
 		return ErrAssignmentChanged
 	}
 	if sessionRevoked != nil || !now.Before(sessionExpires.Add(clockSkewTolerance)) || (absoluteExpires != nil && !now.Before(absoluteExpires.Add(clockSkewTolerance))) {

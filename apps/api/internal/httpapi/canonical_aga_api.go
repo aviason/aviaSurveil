@@ -9,12 +9,14 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/application"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/checklistgovernance"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/httpapi/generated"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
+	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/idempotency"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/questioncatalog"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
@@ -32,7 +34,7 @@ func (api *CanonicalAPI) requireCanonicalCatalogActor(writer http.ResponseWriter
 			api.respond(writer, nil, application.ErrForbidden)
 			return identity.Principal{}, false
 		}
-	} else if !actor.IsCAA() {
+	} else if !actor.HasRole(identity.RoleDepartmentManager) {
 		api.respond(writer, nil, application.ErrNotFound)
 		return identity.Principal{}, false
 	}
@@ -40,7 +42,7 @@ func (api *CanonicalAPI) requireCanonicalCatalogActor(writer http.ResponseWriter
 }
 
 func (api *CanonicalAPI) allowExerciseCatalog() error {
-	if !api.preprodExerciseProfile {
+	if !api.preprodExerciseProfile || api.preprodIdentityNamespace != "canonical-aga-preprod-exercise-v1" {
 		return application.ErrNotFound
 	}
 	return nil
@@ -84,42 +86,288 @@ func encodeCatalogCursor(offset int) *string {
 	return &value
 }
 
+// requireCanonicalScopeOwner is the horizontal-authorization boundary for a
+// planning scope. Scope identifiers are opaque but not secret; every read or
+// mutation that projects selected questions therefore binds the row to the
+// creating Department Manager (and its still-live planning draft) inside the
+// same database authority boundary.
+func (api *CanonicalAPI) requireCanonicalScopeOwner(ctx context.Context, scopeID, subjectID string) error {
+	if api.pool == nil || strings.TrimSpace(scopeID) == "" || strings.TrimSpace(subjectID) == "" {
+		return application.ErrNotFound
+	}
+	var owner string
+	if err := api.pool.QueryRow(ctx, `
+		SELECT scope.created_by_subject_id
+		FROM canonical_audit_scope_drafts scope
+		JOIN planning_intake_drafts draft ON draft.id = scope.planning_intake_draft_id
+		WHERE scope.id = $1
+		  AND draft.tombstoned_at IS NULL
+		  AND scope.created_by_subject_id = $2
+	`, scopeID, subjectID).Scan(&owner); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return application.ErrNotFound
+		}
+		return err
+	}
+	if owner != subjectID {
+		return application.ErrNotFound
+	}
+	return nil
+}
+
+// listCanonicalAuditScopeOptions is the server-owned selector for New Audit.
+// The browser never invents an organization, provider scope, target, or
+// catalog identity; all options are filtered through the current manager's
+// effective department authority and the sealed canonical catalog.
+func (api *CanonicalAPI) listCanonicalAuditScopeOptions(writer http.ResponseWriter, request *http.Request) {
+	actor, ok := api.requireCanonicalCatalogActor(writer, request, true)
+	if !ok {
+		return
+	}
+	usageValue := strings.TrimSpace(request.URL.Query().Get("usageClass"))
+	if usageValue == "" {
+		// Normal API processes discover only the governed operational catalog.
+		// The disposable local-preprod process is the sole server-owned opt-in
+		// for the exercise catalog.
+		if api.preprodExerciseProfile {
+			usageValue = string(questioncatalog.UsageClassPreprodExercise)
+		} else {
+			usageValue = string(questioncatalog.UsageClassGovernedOperational)
+		}
+	}
+	usage, err := parseQuestionUsageClass(usageValue)
+	if err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
+	catalogVersion := strings.TrimSpace(request.URL.Query().Get("catalogVersion"))
+	if catalogVersion == "" && usage == questioncatalog.UsageClassPreprodExercise {
+		catalogVersion = "aga-preprod@1.0.0"
+	}
+	if usage == questioncatalog.UsageClassPreprodExercise {
+		if err := api.allowExerciseCatalog(); err != nil {
+			api.respond(writer, nil, err)
+			return
+		}
+	}
+	offset, err := parseCatalogCursor(request.URL.Query().Get("cursor"))
+	if err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
+	limit := canonicalCatalogPageSize
+	if raw := request.URL.Query().Get("limit"); raw != "" {
+		parsed, parseErr := strconv.Atoi(raw)
+		if parseErr != nil || parsed < 1 || parsed > canonicalCatalogPageSize {
+			api.respond(writer, nil, fmt.Errorf("%w: scope option limit must be between 1 and 25", application.ErrInvalid))
+			return
+		}
+		limit = parsed
+	}
+	if api.pool == nil {
+		api.respond(writer, generated.CanonicalAuditScopeOptionPage{Items: []generated.CanonicalAuditScopeOption{}, NextCursor: nil}, nil)
+		return
+	}
+	if catalogVersion == "" {
+		// Governed discovery is server-owned: resolve the newest sealed
+		// operational catalog instead of requiring the browser to guess an
+		// immutable version before it can render the selector.
+		if err := api.pool.QueryRow(request.Context(), `
+			SELECT COALESCE((
+				SELECT catalog_version
+				FROM canonical_question_catalogs
+				WHERE usage_class = $1 AND status = 'SEALED'
+				ORDER BY created_at DESC, catalog_version DESC
+				LIMIT 1
+			), '')
+		`, string(usage)).Scan(&catalogVersion); err != nil {
+			api.respond(writer, nil, application.ErrNotFound)
+			return
+		}
+		if catalogVersion == "" {
+			api.respond(writer, generated.CanonicalAuditScopeOptionPage{Items: []generated.CanonicalAuditScopeOption{}, NextCursor: nil}, nil)
+			return
+		}
+	}
+	rows, err := api.pool.Query(request.Context(), `
+		SELECT organization.id, organization.legal_name,
+		       scope.id, target.id, provider.id, provider.label, scope.status,
+		       COALESCE(target.external_identifier, organization.legal_name || ' regulated target'),
+		       catalog.catalog_version, catalog.usage_class
+		FROM (
+			SELECT DISTINCT ON (root_id) *
+			FROM organization_service_provider_scopes
+			WHERE effective_from <= CURRENT_DATE
+			ORDER BY root_id, effective_from DESC, id DESC
+		) scope
+		JOIN organizations organization ON organization.id = scope.organization_id
+		JOIN service_provider_types provider ON provider.id = scope.service_provider_type_id
+		JOIN regulated_targets target
+		  ON target.id = scope.primary_target_id
+		  OR EXISTS (
+			  SELECT 1
+			  FROM organization_service_provider_scope_targets linked_target
+			  WHERE linked_target.organization_service_provider_scope_id = scope.id
+			    AND linked_target.regulated_target_id = target.id
+		  )
+		JOIN (
+			SELECT DISTINCT ON (root_id) *
+			FROM caa_department_memberships
+			WHERE subject_id = $1
+			  AND effective_from <= CURRENT_DATE
+			ORDER BY root_id, effective_from DESC, id DESC
+		) membership
+		  ON membership.subject_id = $1
+		 AND membership.membership_role = 'DEPARTMENT_MANAGER'
+		 AND membership.status = 'ACTIVE'
+		 AND (membership.effective_to IS NULL OR membership.effective_to > CURRENT_DATE)
+		JOIN LATERAL (
+			SELECT status FROM caa_department_status_facts
+			WHERE department_id = membership.department_id AND effective_from <= CURRENT_DATE
+			ORDER BY effective_from DESC, id DESC LIMIT 1
+		) department_status ON department_status.status = 'ACTIVE'
+		JOIN LATERAL (
+			SELECT status FROM caa_organizational_unit_status_facts
+			WHERE organizational_unit_id = membership.organizational_unit_id AND effective_from <= CURRENT_DATE
+			ORDER BY effective_from DESC, id DESC LIMIT 1
+		) unit_status ON unit_status.status = 'ACTIVE'
+		JOIN service_provider_unit_responsibilities responsibility
+		  ON responsibility.organizational_unit_id = membership.organizational_unit_id
+		 AND responsibility.service_provider_type_id = scope.service_provider_type_id
+		JOIN canonical_question_catalogs catalog
+		  ON ($2 = '' OR catalog.catalog_version = $2)
+		 AND catalog.usage_class = $3
+		 AND catalog.status = 'SEALED'
+			AND (catalog.usage_class <> 'PREPROD_EXERCISE' OR catalog.profile_name = 'aga-preprod')
+			AND (catalog.usage_class = 'PREPROD_EXERCISE' OR EXISTS (
+			SELECT 1
+			FROM canonical_question_catalog_memberships published_membership
+			JOIN template_version_questions published_question
+			  ON published_question.question_version_id = published_membership.question_version_id
+			JOIN checklist_template_versions published_template
+			  ON published_template.id = published_question.template_version_id
+			WHERE published_membership.catalog_id = catalog.id
+			  AND published_template.published_at IS NOT NULL
+			  AND published_template.candidate_draft_version_id IS NOT NULL
+			  AND published_template.candidate_draft_version_id = catalog.governed_candidate_draft_version_id
+			  AND published_template.candidate_revision = catalog.governed_candidate_revision
+			  AND published_template.candidate_content_digest = catalog.governed_candidate_content_digest
+			  AND published_template.publication_decision_id = catalog.governed_publication_decision_id
+			 ))
+		 AND (catalog.usage_class = 'GOVERNED_OPERATIONAL' OR EXISTS (
+			SELECT 1
+			FROM canonical_question_catalog_applicabilities exercise_applicability
+			WHERE exercise_applicability.catalog_id = catalog.id
+			  AND exercise_applicability.provider_scope_id = scope.id
+			  AND exercise_applicability.regulated_target_id = target.id
+			  AND exercise_applicability.status = 'ELIGIBLE'
+		 ))
+		WHERE scope.status = 'ACTIVE'
+		  AND (scope.effective_to IS NULL OR scope.effective_to > CURRENT_DATE)
+		  AND (target.organization_id IS NULL OR target.organization_id = scope.organization_id)
+		  AND (target.owner_organization_id IS NULL OR target.owner_organization_id = scope.organization_id)
+		  AND organization.tombstoned_at IS NULL
+		ORDER BY organization.legal_name, provider.label, scope.id, target.id
+		LIMIT $4 OFFSET $5
+	`, actor.SubjectID, catalogVersion, string(usage), limit+1, offset)
+	if err != nil {
+		api.respond(writer, nil, application.ErrNotFound)
+		return
+	}
+	defer rows.Close()
+	items := make([]generated.CanonicalAuditScopeOption, 0, limit)
+	for rows.Next() {
+		var item generated.CanonicalAuditScopeOption
+		if err := rows.Scan(
+			&item.OrganizationId, &item.OrganizationName, &item.ProviderScopeId,
+			&item.RegulatedTargetId, &item.ProviderTypeId, &item.ProviderTypeLabel,
+			&item.ScopeStatus, &item.TargetLabel, &item.CatalogVersion, &item.UsageClass,
+		); err != nil {
+			api.respond(writer, nil, application.ErrNotFound)
+			return
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		api.respond(writer, nil, application.ErrNotFound)
+		return
+	}
+	var next *string
+	if len(items) > limit {
+		items = items[:limit]
+		next = encodeCatalogCursor(offset + limit)
+	}
+	api.respond(writer, generated.CanonicalAuditScopeOptionPage{Items: items, NextCursor: next}, nil)
+}
+
 type canonicalCatalogRow struct {
-	CatalogVersion      string
-	UsageClass          string
-	QuestionID          string
-	FormCode            string
-	ProposalID          string
-	Ordinal             int64
-	Digest              string
-	SourceLocator       string
-	SourceGap           string
-	Domain              string
-	Topic               string
-	RiskBand            string
-	Prompt              string
-	ConfiguredReference string
-	ExpectedEvidence    string
+	CatalogVersion                 string
+	UsageClass                     string
+	QuestionID                     string
+	FormCode                       string
+	ProposalID                     string
+	Ordinal                        int64
+	Digest                         string
+	SourceLocator                  string
+	SourceGap                      string
+	Domain                         string
+	Topic                          string
+	RiskBand                       string
+	Prompt                         string
+	ConfiguredReference            string
+	ExpectedEvidence               string
+	GovernedCandidateID            *string
+	GovernedCandidateRevision      *int64
+	GovernedCandidateContentDigest *string
+	GovernedCandidateStatus        *string
+	ReviewRevision                 int64
+	ReviewDisposition              *string
+	ReviewReason                   *string
+	ReviewDomain                   *string
+	ReviewTopic                    *string
 }
 
 func canonicalCatalogEntry(row canonicalCatalogRow) generated.CanonicalQuestionCatalogEntry {
+	domain := row.Domain
+	topic := row.Topic
+	if row.ReviewDomain != nil && strings.TrimSpace(*row.ReviewDomain) != "" {
+		domain = *row.ReviewDomain
+	}
+	if row.ReviewTopic != nil && strings.TrimSpace(*row.ReviewTopic) != "" {
+		topic = *row.ReviewTopic
+	}
 	entry := generated.CanonicalQuestionCatalogEntry{
 		CatalogVersion:    row.CatalogVersion,
 		UsageClass:        generated.QuestionUsageClass(row.UsageClass),
 		QuestionVersionId: row.QuestionID,
 		FormCode:          row.FormCode, ProposalId: row.ProposalID, Ordinal: row.Ordinal,
 		QuestionDigest: row.Digest, SourceGapState: row.SourceGap,
-		CanSelect:  true,
-		CanPublish: row.UsageClass == string(questioncatalog.UsageClassGovernedOperational),
+		CanSelect:                      true,
+		CanPublish:                     row.UsageClass == string(questioncatalog.UsageClassGovernedOperational) && row.GovernedCandidateID != nil && row.GovernedCandidateStatus != nil && *row.GovernedCandidateStatus == "TECHNICALLY_APPROVED",
+		GovernedCandidateId:            row.GovernedCandidateID,
+		GovernedCandidateRevision:      row.GovernedCandidateRevision,
+		GovernedCandidateContentDigest: row.GovernedCandidateContentDigest,
+		GovernedCandidateStatus:        row.GovernedCandidateStatus,
+	}
+	reviewRevision := row.ReviewRevision
+	entry.ReviewRevision = &reviewRevision
+	if row.ReviewDisposition != nil {
+		entry.ReviewDisposition = row.ReviewDisposition
+	}
+	if reviewDigest, err := idempotency.SemanticHash(map[string]any{
+		"revision": row.ReviewRevision, "disposition": row.ReviewDisposition,
+		"reason": row.ReviewReason, "domain": row.ReviewDomain, "topic": row.ReviewTopic,
+	}); err == nil {
+		entry.ReviewDigest = &reviewDigest
 	}
 	if row.SourceLocator != "" {
 		entry.SourceLocator = &row.SourceLocator
 	}
-	if row.Domain != "" {
-		entry.ProposedDomain = &row.Domain
+	if domain != "" {
+		entry.ProposedDomain = &domain
 	}
-	if row.Topic != "" {
-		entry.ProposedTopic = &row.Topic
+	if topic != "" {
+		entry.ProposedTopic = &topic
 	}
 	if row.RiskBand != "" {
 		entry.ProposedRiskBand = &row.RiskBand
@@ -136,8 +384,19 @@ func canonicalCatalogEntry(row canonicalCatalogRow) generated.CanonicalQuestionC
 	return entry
 }
 
+func canonicalExerciseReviewDigest(revision int64, disposition, reason, domain, topic *string) string {
+	digest, err := idempotency.SemanticHash(map[string]any{
+		"revision": revision, "disposition": disposition, "reason": reason,
+		"domain": domain, "topic": topic,
+	})
+	if err != nil {
+		return ""
+	}
+	return digest
+}
+
 func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.ResponseWriter, request *http.Request) {
-	_, ok := api.requireCanonicalCatalogActor(writer, request, false)
+	actor, ok := api.requireCanonicalCatalogActor(writer, request, false)
 	if !ok {
 		return
 	}
@@ -179,19 +438,53 @@ func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.Respons
 	sourceGapState := strings.TrimSpace(request.URL.Query().Get("sourceGapState"))
 	selected := strings.TrimSpace(request.URL.Query().Get("selected"))
 	scopeID := strings.TrimSpace(request.URL.Query().Get("scopeId"))
+	if scopeID != "" {
+		if err := api.requireCanonicalScopeOwner(request.Context(), scopeID, actor.SubjectID); err != nil {
+			api.respond(writer, nil, err)
+			return
+		}
+	}
 	if selected != "" && selected != "all" && selected != "selected" && selected != "unselected" {
 		api.respond(writer, nil, application.ErrInvalid)
 		return
 	}
-	selectionPredicate := `($9='' OR $9='all' OR (($9='selected') = EXISTS (SELECT 1 FROM canonical_audit_scope_selection_questions sq JOIN canonical_audit_scope_selection_operations so ON so.id=sq.operation_id WHERE so.id=(SELECT latest.id FROM canonical_audit_scope_selection_operations latest WHERE latest.scope_draft_id=$10 ORDER BY latest.created_at DESC, latest.id DESC LIMIT 1) AND sq.question_version_id=m.question_version_id)))`
-	where := `c.catalog_version=$1 AND c.usage_class=$2 AND c.status='SEALED' AND ($3='' OR m.form_code ILIKE '%' || $3 || '%' OR m.proposal_id ILIKE '%' || $3 || '%') AND ($4='' OR m.form_code=$4) AND ($5='' OR COALESCE(m.proposed_domain,'')=$5) AND ($6='' OR COALESCE(m.proposed_topic,'')=$6) AND ($7='' OR COALESCE(m.proposed_risk_band,'')=$7) AND ($8='' OR m.source_gap_state=$8) AND ` + selectionPredicate
+	selectionPredicate := `($9='' OR $9='all' OR (($9='selected') = EXISTS (SELECT 1 FROM canonical_audit_scope_selection_questions sq JOIN canonical_audit_scope_selection_operations so ON so.id=sq.operation_id WHERE so.id=(SELECT latest.id FROM canonical_audit_scope_selection_operations latest WHERE latest.scope_draft_id=$10 AND latest.operation_kind <> 'PREVIEW' ORDER BY latest.created_at DESC, latest.id DESC LIMIT 1) AND sq.question_version_id=m.question_version_id)))`
+	where := `c.catalog_version=$1 AND c.usage_class=$2 AND c.status='SEALED' AND (c.usage_class <> 'PREPROD_EXERCISE' OR c.profile_name='aga-preprod') AND ($3='' OR m.form_code ILIKE '%' || $3 || '%' OR m.proposal_id ILIKE '%' || $3 || '%' OR q.prompt ILIKE '%' || $3 || '%') AND ($4='' OR m.form_code=$4) AND ($5='' OR COALESCE(m.proposed_domain,'')=$5) AND ($6='' OR COALESCE(m.proposed_topic,'')=$6) AND ($7='' OR COALESCE(m.proposed_risk_band,'')=$7) AND ($8='' OR m.source_gap_state=$8) AND (c.usage_class='PREPROD_EXERCISE' OR EXISTS (SELECT 1 FROM template_version_questions published_question JOIN checklist_template_versions published_template ON published_template.id=published_question.template_version_id WHERE published_question.question_version_id=m.question_version_id AND published_template.published_at IS NOT NULL AND published_template.candidate_draft_version_id=c.governed_candidate_draft_version_id AND published_template.candidate_revision=c.governed_candidate_revision AND published_template.candidate_content_digest=c.governed_candidate_content_digest AND published_template.publication_decision_id=c.governed_publication_decision_id)) AND COALESCE((SELECT status FROM canonical_question_catalog_membership_events event WHERE event.catalog_id=m.catalog_id AND event.question_version_id=m.question_version_id ORDER BY occurred_at DESC,event_id DESC LIMIT 1),'AVAILABLE')='AVAILABLE' AND ($10='' OR EXISTS (SELECT 1 FROM canonical_question_catalog_applicabilities applicability JOIN canonical_audit_scope_drafts scope ON scope.id=$10 WHERE applicability.catalog_id=m.catalog_id AND applicability.question_version_id=m.question_version_id AND applicability.provider_scope_id=scope.provider_scope_id AND applicability.regulated_target_id=scope.regulated_target_id AND applicability.status='ELIGIBLE')) AND ` + selectionPredicate
+	where += ` AND (c.usage_class='PREPROD_EXERCISE' OR EXISTS (SELECT 1 FROM candidate_required_owner_assignments owner JOIN (SELECT DISTINCT ON (root_id) * FROM caa_department_memberships WHERE subject_id=$11 AND effective_from <= CURRENT_DATE ORDER BY root_id,effective_from DESC,id DESC) membership ON membership.department_id=owner.department_id AND membership.organizational_unit_id=owner.organizational_unit_id WHERE owner.candidate_draft_version_id=c.governed_candidate_draft_version_id AND owner.candidate_revision=c.governed_candidate_revision AND owner.candidate_content_digest=c.governed_candidate_content_digest AND owner.approval_required AND membership.membership_role='DEPARTMENT_MANAGER' AND membership.status='ACTIVE' AND (membership.effective_to IS NULL OR membership.effective_to > CURRENT_DATE) AND COALESCE((SELECT status FROM caa_department_status_facts WHERE department_id=membership.department_id AND effective_from <= CURRENT_DATE ORDER BY effective_from DESC,id DESC LIMIT 1),'INACTIVE')='ACTIVE' AND COALESCE((SELECT status FROM caa_organizational_unit_status_facts WHERE organizational_unit_id=membership.organizational_unit_id AND effective_from <= CURRENT_DATE ORDER BY effective_from DESC,id DESC LIMIT 1),'INACTIVE')='ACTIVE'))`
 	ctx := request.Context()
 	var total int64
-	if err := api.pool.QueryRow(ctx, `SELECT COUNT(*) FROM canonical_question_catalogs c JOIN canonical_question_catalog_memberships m ON m.catalog_id = c.id WHERE `+where, catalogVersion, string(usage), search, formCode, domain, topic, riskBand, sourceGapState, selected, scopeID).Scan(&total); err != nil {
+	if err := api.pool.QueryRow(ctx, `SELECT COUNT(*) FROM canonical_question_catalogs c JOIN canonical_question_catalog_memberships m ON m.catalog_id = c.id JOIN question_versions q ON q.id=m.question_version_id WHERE `+where, catalogVersion, string(usage), search, formCode, domain, topic, riskBand, sourceGapState, selected, scopeID, actor.SubjectID).Scan(&total); err != nil {
 		api.respond(writer, nil, application.ErrNotFound)
 		return
 	}
-	rows, err := api.pool.Query(ctx, `SELECT c.catalog_version,c.usage_class,m.question_version_id,m.form_code,m.proposal_id,m.ordinal,m.question_digest,COALESCE(m.source_locator,''),m.source_gap_state,COALESCE(m.proposed_domain,''),COALESCE(m.proposed_topic,''),COALESCE(m.proposed_risk_band,'') FROM canonical_question_catalogs c JOIN canonical_question_catalog_memberships m ON m.catalog_id = c.id WHERE `+where+` ORDER BY m.form_code,m.ordinal,m.question_version_id LIMIT $11 OFFSET $12`, catalogVersion, string(usage), search, formCode, domain, topic, riskBand, sourceGapState, selected, scopeID, limit+1, offset)
+	rows, err := api.pool.Query(ctx, `
+		SELECT c.catalog_version,c.usage_class,m.question_version_id,m.form_code,m.proposal_id,m.ordinal,m.question_digest,
+		       COALESCE(m.source_locator,''),m.source_gap_state,COALESCE(m.proposed_domain,''),COALESCE(m.proposed_topic,''),COALESCE(m.proposed_risk_band,''),
+		       governed_candidate.id,governed_candidate.revision,governed_candidate.candidate_content_digest,governed_candidate.status,
+			   COALESCE(governed_review.candidate_revision, exercise_review.revision,0),COALESCE(governed_review.action, exercise_review.disposition),COALESCE(governed_review.reason, exercise_review.controlled_reason),COALESCE(governed_review.reviewed_domain, exercise_review.reviewed_domain),COALESCE(governed_review.reviewed_topic, exercise_review.reviewed_topic)
+		FROM canonical_question_catalogs c
+		JOIN canonical_question_catalog_memberships m ON m.catalog_id = c.id
+		JOIN question_versions q ON q.id=m.question_version_id
+		LEFT JOIN template_draft_versions governed_candidate
+		  ON c.usage_class='GOVERNED_OPERATIONAL'
+		 AND governed_candidate.id=c.governed_candidate_draft_version_id
+		 AND governed_candidate.revision=c.governed_candidate_revision
+		 AND governed_candidate.candidate_content_digest=c.governed_candidate_content_digest
+		 AND governed_candidate.status IN ('DEPARTMENT_REVIEW','RETURNED','TECHNICALLY_APPROVED')
+		 AND NOT EXISTS (SELECT 1 FROM template_draft_versions successor WHERE successor.supersedes_candidate_id=governed_candidate.id)
+		LEFT JOIN LATERAL (
+		 SELECT revision,disposition,controlled_reason,reviewed_domain,reviewed_topic
+		 FROM canonical_exercise_question_review_drafts
+		 WHERE catalog_id=c.id AND question_version_id=m.question_version_id
+		 ORDER BY revision DESC LIMIT 1
+		) exercise_review ON c.usage_class='PREPROD_EXERCISE'
+		LEFT JOIN LATERAL (
+		 SELECT candidate_revision, action, reason, reviewed_domain, reviewed_topic
+		 FROM canonical_governed_question_review_events
+		 WHERE catalog_id=c.id AND question_version_id=m.question_version_id
+		 ORDER BY created_at DESC, event_id DESC LIMIT 1
+		) governed_review ON c.usage_class='GOVERNED_OPERATIONAL'
+		WHERE `+where+` ORDER BY m.form_code,m.ordinal,m.question_version_id LIMIT $12 OFFSET $13`, catalogVersion, string(usage), search, formCode, domain, topic, riskBand, sourceGapState, selected, scopeID, actor.SubjectID, limit+1, offset)
 	if err != nil {
 		api.respond(writer, nil, application.ErrNotFound)
 		return
@@ -200,7 +493,7 @@ func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.Respons
 	items := make([]generated.CanonicalQuestionCatalogEntry, 0, limit)
 	for rows.Next() {
 		var row canonicalCatalogRow
-		if err := rows.Scan(&row.CatalogVersion, &row.UsageClass, &row.QuestionID, &row.FormCode, &row.ProposalID, &row.Ordinal, &row.Digest, &row.SourceLocator, &row.SourceGap, &row.Domain, &row.Topic, &row.RiskBand); err != nil {
+		if err := rows.Scan(&row.CatalogVersion, &row.UsageClass, &row.QuestionID, &row.FormCode, &row.ProposalID, &row.Ordinal, &row.Digest, &row.SourceLocator, &row.SourceGap, &row.Domain, &row.Topic, &row.RiskBand, &row.GovernedCandidateID, &row.GovernedCandidateRevision, &row.GovernedCandidateContentDigest, &row.GovernedCandidateStatus, &row.ReviewRevision, &row.ReviewDisposition, &row.ReviewReason, &row.ReviewDomain, &row.ReviewTopic); err != nil {
 			api.respond(writer, nil, application.ErrNotFound)
 			return
 		}
@@ -219,7 +512,7 @@ func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.Respons
 }
 
 func (api *CanonicalAPI) getCanonicalQuestionCatalogEntry(writer http.ResponseWriter, request *http.Request) {
-	_, ok := api.requireCanonicalCatalogActor(writer, request, false)
+	actor, ok := api.requireCanonicalCatalogActor(writer, request, false)
 	if !ok {
 		return
 	}
@@ -234,6 +527,12 @@ func (api *CanonicalAPI) getCanonicalQuestionCatalogEntry(writer http.ResponseWr
 			return
 		}
 	}
+	if scopeID := strings.TrimSpace(request.URL.Query().Get("scopeId")); scopeID != "" {
+		if err := api.requireCanonicalScopeOwner(request.Context(), scopeID, actor.SubjectID); err != nil {
+			api.respond(writer, nil, err)
+			return
+		}
+	}
 	if api.pool == nil {
 		api.respond(writer, nil, application.ErrNotFound)
 		return
@@ -242,12 +541,66 @@ func (api *CanonicalAPI) getCanonicalQuestionCatalogEntry(writer http.ResponseWr
 	err = api.pool.QueryRow(request.Context(), `
 		SELECT c.catalog_version,c.usage_class,m.question_version_id,m.form_code,m.proposal_id,m.ordinal,m.question_digest,
 		       COALESCE(m.source_locator,''),m.source_gap_state,COALESCE(m.proposed_domain,''),COALESCE(m.proposed_topic,''),COALESCE(m.proposed_risk_band,''),
-		       q.prompt,q.configured_reference,q.expected_evidence
+		       q.prompt,q.configured_reference,q.expected_evidence,
+		       governed_candidate.id,governed_candidate.revision,governed_candidate.candidate_content_digest,governed_candidate.status,
+		       COALESCE(governed_review.candidate_revision, exercise_review.revision,0),COALESCE(governed_review.action, exercise_review.disposition),COALESCE(governed_review.reason, exercise_review.controlled_reason),COALESCE(governed_review.reviewed_domain, exercise_review.reviewed_domain),COALESCE(governed_review.reviewed_topic, exercise_review.reviewed_topic)
 		FROM canonical_question_catalogs c
 		JOIN canonical_question_catalog_memberships m ON m.catalog_id=c.id
 		JOIN question_versions q ON q.id=m.question_version_id
-		WHERE c.catalog_version=$1 AND c.usage_class=$2 AND c.status='SEALED' AND m.question_version_id=$3
-	`, chi.URLParam(request, "catalogVersion"), string(usage), chi.URLParam(request, "questionVersionId")).Scan(&row.CatalogVersion, &row.UsageClass, &row.QuestionID, &row.FormCode, &row.ProposalID, &row.Ordinal, &row.Digest, &row.SourceLocator, &row.SourceGap, &row.Domain, &row.Topic, &row.RiskBand, &row.Prompt, &row.ConfiguredReference, &row.ExpectedEvidence)
+		LEFT JOIN template_draft_versions governed_candidate
+		  ON c.usage_class='GOVERNED_OPERATIONAL'
+		 AND governed_candidate.id=c.governed_candidate_draft_version_id
+		 AND governed_candidate.revision=c.governed_candidate_revision
+		 AND governed_candidate.candidate_content_digest=c.governed_candidate_content_digest
+		 AND governed_candidate.status IN ('DEPARTMENT_REVIEW','RETURNED','TECHNICALLY_APPROVED')
+		 AND NOT EXISTS (SELECT 1 FROM template_draft_versions successor WHERE successor.supersedes_candidate_id=governed_candidate.id)
+		LEFT JOIN LATERAL (
+		 SELECT revision,disposition,controlled_reason,reviewed_domain,reviewed_topic
+		 FROM canonical_exercise_question_review_drafts
+		 WHERE catalog_id=c.id AND question_version_id=m.question_version_id
+		 ORDER BY revision DESC LIMIT 1
+		) exercise_review ON c.usage_class='PREPROD_EXERCISE'
+		LEFT JOIN LATERAL (
+		 SELECT candidate_revision, action, reason, reviewed_domain, reviewed_topic
+		 FROM canonical_governed_question_review_events
+		 WHERE catalog_id=c.id AND question_version_id=m.question_version_id
+		 ORDER BY created_at DESC, event_id DESC LIMIT 1
+		) governed_review ON c.usage_class='GOVERNED_OPERATIONAL'
+		WHERE c.catalog_version=$1 AND c.usage_class=$2 AND c.status='SEALED'
+		  AND (c.usage_class <> 'PREPROD_EXERCISE' OR c.profile_name='aga-preprod')
+		  AND m.question_version_id=$3
+		  AND (c.usage_class='PREPROD_EXERCISE' OR EXISTS (
+			SELECT 1
+			FROM template_version_questions published_question
+			JOIN checklist_template_versions published_template ON published_template.id=published_question.template_version_id
+			WHERE published_question.question_version_id=m.question_version_id
+			  AND published_template.published_at IS NOT NULL
+			  AND published_template.candidate_draft_version_id=c.governed_candidate_draft_version_id
+			  AND published_template.candidate_revision=c.governed_candidate_revision
+			  AND published_template.candidate_content_digest=c.governed_candidate_content_digest
+			  AND published_template.publication_decision_id=c.governed_publication_decision_id
+		  ))
+		  AND COALESCE((SELECT status FROM canonical_question_catalog_membership_events event
+		                WHERE event.catalog_id=m.catalog_id AND event.question_version_id=m.question_version_id
+		                ORDER BY occurred_at DESC,event_id DESC LIMIT 1),'AVAILABLE')='AVAILABLE'
+		  AND ($4='' OR EXISTS (
+			SELECT 1 FROM canonical_question_catalog_applicabilities applicability
+			JOIN canonical_audit_scope_drafts scope ON scope.id=$4
+			WHERE applicability.catalog_id=c.id AND applicability.question_version_id=m.question_version_id
+			  AND applicability.provider_scope_id=scope.provider_scope_id AND applicability.regulated_target_id=scope.regulated_target_id
+			  AND applicability.status='ELIGIBLE'
+		  ))
+		  AND (c.usage_class='PREPROD_EXERCISE' OR EXISTS (
+			SELECT 1 FROM candidate_required_owner_assignments owner
+			JOIN (SELECT DISTINCT ON (root_id) * FROM caa_department_memberships WHERE subject_id=$5 AND effective_from <= CURRENT_DATE ORDER BY root_id,effective_from DESC,id DESC) membership
+			  ON membership.department_id=owner.department_id AND membership.organizational_unit_id=owner.organizational_unit_id
+			WHERE owner.candidate_draft_version_id=c.governed_candidate_draft_version_id AND owner.candidate_revision=c.governed_candidate_revision
+			  AND owner.candidate_content_digest=c.governed_candidate_content_digest AND owner.approval_required
+			  AND membership.membership_role='DEPARTMENT_MANAGER' AND membership.status='ACTIVE' AND (membership.effective_to IS NULL OR membership.effective_to > CURRENT_DATE)
+			  AND COALESCE((SELECT status FROM caa_department_status_facts WHERE department_id=membership.department_id AND effective_from <= CURRENT_DATE ORDER BY effective_from DESC,id DESC LIMIT 1),'INACTIVE')='ACTIVE'
+			  AND COALESCE((SELECT status FROM caa_organizational_unit_status_facts WHERE organizational_unit_id=membership.organizational_unit_id AND effective_from <= CURRENT_DATE ORDER BY effective_from DESC,id DESC LIMIT 1),'INACTIVE')='ACTIVE'
+		  ))
+	`, chi.URLParam(request, "catalogVersion"), string(usage), chi.URLParam(request, "questionVersionId"), strings.TrimSpace(request.URL.Query().Get("scopeId")), actor.SubjectID).Scan(&row.CatalogVersion, &row.UsageClass, &row.QuestionID, &row.FormCode, &row.ProposalID, &row.Ordinal, &row.Digest, &row.SourceLocator, &row.SourceGap, &row.Domain, &row.Topic, &row.RiskBand, &row.Prompt, &row.ConfiguredReference, &row.ExpectedEvidence, &row.GovernedCandidateID, &row.GovernedCandidateRevision, &row.GovernedCandidateContentDigest, &row.GovernedCandidateStatus, &row.ReviewRevision, &row.ReviewDisposition, &row.ReviewReason, &row.ReviewDomain, &row.ReviewTopic)
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = application.ErrNotFound
 	}
@@ -255,24 +608,130 @@ func (api *CanonicalAPI) getCanonicalQuestionCatalogEntry(writer http.ResponseWr
 }
 
 type canonicalScopeState struct {
-	CatalogID      string
-	CatalogVersion string
-	UsageClass     string
-	CurrentDigest  string
-	Selected       []string
+	CatalogID                     string
+	CatalogVersion                string
+	UsageClass                    string
+	OrganizationID                string
+	ProviderScopeID               string
+	RegulatedTargetID             string
+	GovernedPublicationDecisionID *string
+	GovernedCandidateID           *string
+	GovernedCandidateRevision     *int64
+	GovernedCandidateDigest       *string
+	CurrentDigest                 string
+	Selected                      []string
 }
 
-func (api *CanonicalAPI) readCanonicalScopeState(ctx context.Context, scopeID string) (canonicalScopeState, error) {
+type canonicalSelectionOperationKind string
+
+const (
+	canonicalSelectionAdd     canonicalSelectionOperationKind = "ADD"
+	canonicalSelectionRemove  canonicalSelectionOperationKind = "REMOVE"
+	canonicalSelectionReplace canonicalSelectionOperationKind = "REPLACE"
+)
+
+func parseCanonicalSelectionOperationKind(raw string) (canonicalSelectionOperationKind, error) {
+	switch canonicalSelectionOperationKind(strings.ToUpper(strings.TrimSpace(raw))) {
+	case "", canonicalSelectionReplace:
+		return canonicalSelectionReplace, nil
+	case canonicalSelectionAdd:
+		return canonicalSelectionAdd, nil
+	case canonicalSelectionRemove:
+		return canonicalSelectionRemove, nil
+	default:
+		return "", fmt.Errorf("%w: unsupported canonical selection operation", application.ErrInvalid)
+	}
+}
+
+func (api *CanonicalAPI) loadCanonicalScopeSelection(ctx context.Context, scopeID string) ([]string, error) {
+	var operationID string
+	err := api.pool.QueryRow(ctx, `
+		SELECT id
+		FROM canonical_audit_scope_selection_operations
+		WHERE scope_draft_id=$1 AND operation_kind <> 'PREVIEW'
+		ORDER BY created_at DESC,id DESC LIMIT 1
+	`, scopeID).Scan(&operationID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return []string{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	rows, err := api.pool.Query(ctx, `
+		SELECT question_version_id
+		FROM canonical_audit_scope_selection_questions
+		WHERE operation_id=$1 ORDER BY position
+	`, operationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	selection := []string{}
+	for rows.Next() {
+		var questionID string
+		if err := rows.Scan(&questionID); err != nil {
+			return nil, err
+		}
+		selection = append(selection, questionID)
+	}
+	return selection, rows.Err()
+}
+
+func applyCanonicalSelectionOperation(current, affected []string, kind canonicalSelectionOperationKind) []string {
+	if kind == canonicalSelectionReplace {
+		return append([]string(nil), affected...)
+	}
+	seen := make(map[string]struct{}, len(current)+len(affected))
+	result := make([]string, 0, len(current)+len(affected))
+	for _, id := range current {
+		if kind == canonicalSelectionRemove {
+			remove := false
+			for _, affectedID := range affected {
+				if affectedID == id {
+					remove = true
+					break
+				}
+			}
+			if remove {
+				continue
+			}
+		}
+		if _, exists := seen[id]; !exists {
+			seen[id] = struct{}{}
+			result = append(result, id)
+		}
+	}
+	if kind == canonicalSelectionAdd {
+		for _, id := range affected {
+			if _, exists := seen[id]; exists {
+				continue
+			}
+			seen[id] = struct{}{}
+			result = append(result, id)
+		}
+	}
+	return result
+}
+
+func (api *CanonicalAPI) readCanonicalScopeState(ctx context.Context, scopeID string, actor identity.Principal) (canonicalScopeState, error) {
 	if api.pool == nil {
 		return canonicalScopeState{}, application.ErrNotFound
 	}
+	if err := api.requireCanonicalScopeOwner(ctx, scopeID, actor.SubjectID); err != nil {
+		return canonicalScopeState{}, err
+	}
 	var state canonicalScopeState
 	if err := api.pool.QueryRow(ctx, `
-		SELECT c.id,c.catalog_version,c.usage_class,s.selection_digest
+		SELECT c.id,c.catalog_version,c.usage_class,s.organization_id,s.provider_scope_id,s.regulated_target_id,
+		       c.governed_publication_decision_id,c.governed_candidate_draft_version_id,
+		       c.governed_candidate_revision,c.governed_candidate_content_digest,
+		       s.selection_digest
 		FROM canonical_audit_scope_drafts s
 		JOIN canonical_question_catalogs c ON c.id=s.catalog_id
 		WHERE s.id=$1 AND s.status IN ('DRAFT','SUBMITTED','RELEASED')
-	`, scopeID).Scan(&state.CatalogID, &state.CatalogVersion, &state.UsageClass, &state.CurrentDigest); err != nil {
+	`, scopeID).Scan(&state.CatalogID, &state.CatalogVersion, &state.UsageClass, &state.OrganizationID, &state.ProviderScopeID, &state.RegulatedTargetID,
+		&state.GovernedPublicationDecisionID, &state.GovernedCandidateID, &state.GovernedCandidateRevision,
+		&state.GovernedCandidateDigest, &state.CurrentDigest); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return canonicalScopeState{}, application.ErrNotFound
 		}
@@ -281,12 +740,29 @@ func (api *CanonicalAPI) readCanonicalScopeState(ctx context.Context, scopeID st
 	if state.CurrentDigest == "" {
 		state.CurrentDigest = questioncatalog.SelectionDigest(nil)
 	}
+	// Re-resolve current provider/department authority in a transaction for
+	// every scope read used by preview/commit. Ownership alone is insufficient:
+	// a creator who has since lost the effective responsibility must receive no
+	// selected-set or catalog signal and cannot mutate the draft.
+	if err := database.WithinTransaction(ctx, api.pool, func(ctx context.Context, tx pgx.Tx) error {
+		_, err := application.ValidateCanonicalScopeMap(ctx, tx, actor, map[string]any{
+			"organizationId":    state.OrganizationID,
+			"catalogVersion":    state.CatalogVersion,
+			"scopeDraftId":      scopeID,
+			"selectionDigest":   state.CurrentDigest,
+			"providerScopeId":   state.ProviderScopeID,
+			"regulatedTargetId": state.RegulatedTargetID,
+		}, false)
+		return err
+	}); err != nil {
+		return canonicalScopeState{}, err
+	}
 	var payload []byte
 	var operationID string
 	err := api.pool.QueryRow(ctx, `
 		SELECT id
 		FROM canonical_audit_scope_selection_operations
-		WHERE scope_draft_id=$1
+		WHERE scope_draft_id=$1 AND operation_kind <> 'PREVIEW'
 		ORDER BY created_at DESC,id DESC LIMIT 1
 	`, scopeID).Scan(&operationID)
 	if err == nil && operationID != "" {
@@ -323,9 +799,6 @@ func validateCanonicalSelection(ctx context.Context, pool *database.Pool, state 
 	if usage != questioncatalog.UsageClass(state.UsageClass) {
 		return fmt.Errorf("%w: selection usage class does not match scope", application.ErrInvalid)
 	}
-	if len(ids) == 0 || len(ids) > 500 {
-		return fmt.Errorf("%w: selection must contain between 1 and 500 questions", application.ErrInvalid)
-	}
 	seen := map[string]struct{}{}
 	for _, id := range ids {
 		if strings.TrimSpace(id) == "" {
@@ -337,13 +810,59 @@ func validateCanonicalSelection(ctx context.Context, pool *database.Pool, state 
 		seen[id] = struct{}{}
 	}
 	var count int64
-	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM canonical_question_catalog_memberships WHERE catalog_id=$1 AND usage_class=$2 AND question_version_id = ANY($3::text[])`, state.CatalogID, string(usage), ids).Scan(&count); err != nil {
+	if err := pool.QueryRow(ctx, `
+		SELECT COUNT(*)
+		FROM canonical_question_catalog_memberships membership
+		WHERE membership.catalog_id=$1 AND membership.usage_class=$2
+		  AND membership.question_version_id = ANY($3::text[])
+		  AND COALESCE((SELECT status FROM canonical_question_catalog_membership_events event
+		                WHERE event.catalog_id=membership.catalog_id
+		                  AND event.question_version_id=membership.question_version_id
+		                ORDER BY occurred_at DESC,event_id DESC LIMIT 1),'AVAILABLE')='AVAILABLE'
+	`, state.CatalogID, string(usage), ids).Scan(&count); err != nil {
 		return err
 	}
 	if count != int64(len(ids)) {
 		return fmt.Errorf("%w: selection contains a question outside the catalog", application.ErrInvalid)
 	}
+	{
+		var applicableCount int64
+		if err := pool.QueryRow(ctx, `
+			SELECT COUNT(*)
+			FROM canonical_question_catalog_applicabilities applicability
+			JOIN canonical_question_catalogs catalog ON catalog.id=applicability.catalog_id
+			WHERE applicability.catalog_id=$1
+			  AND applicability.provider_scope_id=$2
+			  AND applicability.regulated_target_id=$3
+			  AND applicability.status='ELIGIBLE'
+			  AND applicability.question_version_id=ANY($4::text[])
+			  AND (catalog.usage_class='PREPROD_EXERCISE' OR EXISTS (
+				SELECT 1
+				FROM template_version_questions published_question
+				JOIN checklist_template_versions published_template
+				  ON published_template.id=published_question.template_version_id
+				WHERE published_question.question_version_id=applicability.question_version_id
+				  AND published_template.published_at IS NOT NULL
+				  AND published_template.candidate_draft_version_id=catalog.governed_candidate_draft_version_id
+				  AND published_template.candidate_revision=catalog.governed_candidate_revision
+				  AND published_template.candidate_content_digest=catalog.governed_candidate_content_digest
+				  AND published_template.publication_decision_id=catalog.governed_publication_decision_id
+			  ))
+		`, state.CatalogID, state.ProviderScopeID, state.RegulatedTargetID, ids).Scan(&applicableCount); err != nil {
+			return err
+		}
+		if applicableCount != int64(len(ids)) {
+			return fmt.Errorf("%w: selection contains a question without provider-scope/target eligibility", application.ErrForbidden)
+		}
+	}
 	return nil
+}
+
+func validateCanonicalSelectionBatch(ctx context.Context, pool *database.Pool, state canonicalScopeState, ids []string, usage questioncatalog.UsageClass) error {
+	if len(ids) == 0 || len(ids) > 500 {
+		return fmt.Errorf("%w: selection batch must contain between 1 and 500 questions", application.ErrInvalid)
+	}
+	return validateCanonicalSelection(ctx, pool, state, ids, usage)
 }
 
 func canonicalSelectionDigest(ids []string) string { return questioncatalog.SelectionDigest(ids) }
@@ -368,16 +887,47 @@ func (api *CanonicalAPI) previewCanonicalAuditScopeSelection(writer http.Respons
 			return
 		}
 	}
-	state, err := api.readCanonicalScopeState(request.Context(), chi.URLParam(request, "scopeId"))
+	rawOperationKind := ""
+	if input.OperationKind != nil {
+		rawOperationKind = *input.OperationKind
+	}
+	operationKind, err := parseCanonicalSelectionOperationKind(rawOperationKind)
 	if err != nil {
 		api.respond(writer, nil, err)
 		return
 	}
-	if err := validateCanonicalSelection(request.Context(), api.pool, state, input.QuestionVersionIds, usage); err != nil {
+	if len(input.QuestionVersionIds) == 0 || len(input.QuestionVersionIds) > 500 {
+		api.respond(writer, nil, fmt.Errorf("%w: selection preview is bounded to 500 question identities per batch", application.ErrInvalid))
+		return
+	}
+	state, err := api.readCanonicalScopeState(request.Context(), chi.URLParam(request, "scopeId"), actor)
+	if err != nil {
 		api.respond(writer, nil, err)
 		return
 	}
-	digest := canonicalSelectionDigest(input.QuestionVersionIds)
+	if err := validateCanonicalSelectionBatch(request.Context(), api.pool, state, input.QuestionVersionIds, usage); err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
+	if strings.TrimSpace(input.OperationId) == "" {
+		api.respond(writer, nil, fmt.Errorf("%w: preview operationId is required", application.ErrInvalid))
+		return
+	}
+	if len(input.QuestionVersionIds) > 500 {
+		api.respond(writer, nil, fmt.Errorf("%w: preview is bounded to 500 questions per batch", application.ErrInvalid))
+		return
+	}
+	currentSelection, err := api.loadCanonicalScopeSelection(request.Context(), chi.URLParam(request, "scopeId"))
+	if err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
+	resultSelection := applyCanonicalSelectionOperation(currentSelection, input.QuestionVersionIds, operationKind)
+	if err := validateCanonicalSelection(request.Context(), api.pool, state, resultSelection, usage); err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
+	digest := canonicalSelectionDigest(resultSelection)
 	expectedDigest := input.ExpectedSelectionDigest
 	if expectedDigest == "" {
 		expectedDigest = questioncatalog.SelectionDigest(nil)
@@ -387,21 +937,93 @@ func (api *CanonicalAPI) previewCanonicalAuditScopeSelection(writer http.Respons
 	if !valid {
 		reason = "selection digest is stale; reload the current scope"
 	}
+	if valid {
+		payload, _ := json.Marshal(input.QuestionVersionIds)
+		filterPayload, _ := json.Marshal(map[string]any{"operationKind": string(operationKind), "affectedQuestionVersionIds": input.QuestionVersionIds, "filter": input.Filter})
+		previewExpiry := api.clock().UTC().Add(5 * time.Minute)
+		err = database.WithinTransaction(request.Context(), api.pool, func(ctx context.Context, tx pgx.Tx) error {
+			var currentDigest, currentOrganizationID, currentCatalogVersion, currentProviderScopeID, currentTargetID string
+			if err := tx.QueryRow(ctx, `
+				SELECT scope.selection_digest, scope.organization_id, catalog.catalog_version,
+				       scope.provider_scope_id, scope.regulated_target_id
+				FROM canonical_audit_scope_drafts scope
+				JOIN canonical_question_catalogs catalog ON catalog.id = scope.catalog_id
+				WHERE scope.id=$1 AND scope.created_by_subject_id=$2 AND scope.status='DRAFT'
+				FOR UPDATE OF scope
+			`, chi.URLParam(request, "scopeId"), actor.SubjectID).Scan(&currentDigest, &currentOrganizationID, &currentCatalogVersion, &currentProviderScopeID, &currentTargetID); err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					return application.ErrNotFound
+				}
+				return err
+			}
+			if currentDigest == "" {
+				currentDigest = questioncatalog.SelectionDigest(nil)
+			}
+			if currentDigest != expectedDigest {
+				return application.ErrConflict
+			}
+			if _, err := application.ValidateCanonicalScopeMap(ctx, tx, actor, map[string]any{
+				"organizationId":    currentOrganizationID,
+				"catalogVersion":    currentCatalogVersion,
+				"scopeDraftId":      chi.URLParam(request, "scopeId"),
+				"selectionDigest":   currentDigest,
+				"providerScopeId":   currentProviderScopeID,
+				"regulatedTargetId": currentTargetID,
+			}, false); err != nil {
+				return err
+			}
+			var existingDigest string
+			var existingPayload []byte
+			var existingExpiry *time.Time
+			err := tx.QueryRow(ctx, `
+				SELECT result_digest, affected_question_version_ids, expires_at
+				FROM canonical_audit_scope_selection_operations
+				WHERE scope_draft_id=$1 AND operation_id=$2 AND operation_kind='PREVIEW'
+			`, chi.URLParam(request, "scopeId"), input.OperationId).Scan(&existingDigest, &existingPayload, &existingExpiry)
+			if err == nil {
+				if existingDigest != digest || string(existingPayload) != string(payload) || (existingExpiry != nil && !api.clock().UTC().Before(*existingExpiry)) {
+					return fmt.Errorf("%w: preview operation replay differs or has expired", application.ErrConflict)
+				}
+				return nil
+			}
+			if !errors.Is(err, pgx.ErrNoRows) {
+				return err
+			}
+			operationID := "scope-selection-preview:" + chi.URLParam(request, "scopeId") + ":" + input.OperationId
+			idempotencyKey := input.OperationId
+			if input.IdempotencyKey != nil && strings.TrimSpace(*input.IdempotencyKey) != "" {
+				idempotencyKey = strings.TrimSpace(*input.IdempotencyKey)
+			}
+			_, err = tx.Exec(ctx, `
+				INSERT INTO canonical_audit_scope_selection_operations
+				(id,scope_draft_id,operation_id,idempotency_key,operation_kind,expected_digest,result_digest,affected_question_version_ids,filter_payload,actor_subject_id,expires_at)
+				VALUES ($1,$2,$3,$4,'PREVIEW',$5,$6,$7,$8,$9,$10)
+			`, operationID, chi.URLParam(request, "scopeId"), input.OperationId, idempotencyKey, expectedDigest, digest, payload, filterPayload, actor.SubjectID, previewExpiry)
+			return err
+		})
+		if err != nil {
+			api.respond(writer, nil, err)
+			return
+		}
+	}
 	api.respond(writer, generated.CanonicalAuditScopeSelectionPreview{
-		Preview:       generated.AuditScopeSelectionDigest{SelectionDigest: digest, SelectedQuestionVersionIds: input.QuestionVersionIds, SelectedCount: int64(len(input.QuestionVersionIds)), CatalogVersion: state.CatalogVersion, UsageClass: generated.QuestionUsageClass(usage)},
+		Preview:       generated.AuditScopeSelectionDigest{SelectionDigest: digest, SelectedQuestionVersionIds: resultSelection, SelectedCount: int64(len(resultSelection)), CatalogVersion: state.CatalogVersion, UsageClass: generated.QuestionUsageClass(usage)},
 		AffectedCount: int64(len(input.QuestionVersionIds)), Valid: valid, Reason: reason,
 	}, nil)
-	_ = actor
 }
 
 func (api *CanonicalAPI) commitCanonicalAuditScopeSelection(writer http.ResponseWriter, request *http.Request) {
-	_, ok := api.requireCanonicalCatalogActor(writer, request, true)
+	actor, ok := api.requireCanonicalCatalogActor(writer, request, true)
 	if !ok {
 		return
 	}
 	var input generated.CanonicalAuditScopeSelectionInput
 	if !decodeJSON(writer, request, &input) {
 		return
+	}
+	previewOperationID := ""
+	if input.PreviewOperationId != nil {
+		previewOperationID = strings.TrimSpace(*input.PreviewOperationId)
 	}
 	usage, err := parseQuestionUsageClass(string(input.UsageClass))
 	if err != nil {
@@ -414,7 +1036,20 @@ func (api *CanonicalAPI) commitCanonicalAuditScopeSelection(writer http.Response
 			return
 		}
 	}
-	state, err := api.readCanonicalScopeState(request.Context(), chi.URLParam(request, "scopeId"))
+	rawOperationKind := ""
+	if input.OperationKind != nil {
+		rawOperationKind = *input.OperationKind
+	}
+	operationKind, err := parseCanonicalSelectionOperationKind(rawOperationKind)
+	if err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
+	if len(input.QuestionVersionIds) == 0 || len(input.QuestionVersionIds) > 500 {
+		api.respond(writer, nil, fmt.Errorf("%w: selection commit is bounded to 500 question identities per batch", application.ErrInvalid))
+		return
+	}
+	state, err := api.readCanonicalScopeState(request.Context(), chi.URLParam(request, "scopeId"), actor)
 	if err != nil {
 		api.respond(writer, nil, err)
 		return
@@ -423,34 +1058,88 @@ func (api *CanonicalAPI) commitCanonicalAuditScopeSelection(writer http.Response
 		api.respond(writer, nil, fmt.Errorf("%w: operationId is required", application.ErrInvalid))
 		return
 	}
+	if previewOperationID == "" {
+		api.respond(writer, nil, fmt.Errorf("%w: an unexpired single-use selection preview is required", application.ErrConflict))
+		return
+	}
 	expectedDigest := input.ExpectedSelectionDigest
 	if expectedDigest == "" {
 		expectedDigest = questioncatalog.SelectionDigest(nil)
 	}
-	if err := validateCanonicalSelection(request.Context(), api.pool, state, input.QuestionVersionIds, usage); err != nil {
+	if err := validateCanonicalSelectionBatch(request.Context(), api.pool, state, input.QuestionVersionIds, usage); err != nil {
 		api.respond(writer, nil, err)
 		return
 	}
-	digest := canonicalSelectionDigest(input.QuestionVersionIds)
+	currentSelection, err := api.loadCanonicalScopeSelection(request.Context(), chi.URLParam(request, "scopeId"))
+	if err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
+	resultSelection := applyCanonicalSelectionOperation(currentSelection, input.QuestionVersionIds, operationKind)
+	if err := validateCanonicalSelection(request.Context(), api.pool, state, resultSelection, usage); err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
+	digest := canonicalSelectionDigest(resultSelection)
+	var previewDigest string
+	var previewPayload []byte
+	var previewExpiry *time.Time
+	var previewActor string
+	var previewFilter []byte
+	if err := api.pool.QueryRow(request.Context(), `
+		SELECT result_digest, affected_question_version_ids, expires_at, actor_subject_id, filter_payload
+		FROM canonical_audit_scope_selection_operations
+		WHERE scope_draft_id=$1 AND operation_id=$2 AND operation_kind='PREVIEW'
+	`, chi.URLParam(request, "scopeId"), previewOperationID).Scan(&previewDigest, &previewPayload, &previewExpiry, &previewActor, &previewFilter); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			err = fmt.Errorf("%w: selection preview is missing", application.ErrConflict)
+		}
+		api.respond(writer, nil, err)
+		return
+	}
+	var previewIDs []string
+	var previewMetadata struct {
+		OperationKind       string   `json:"operationKind"`
+		AffectedQuestionIDs []string `json:"affectedQuestionVersionIds"`
+	}
+	if json.Unmarshal(previewPayload, &previewIDs) != nil || json.Unmarshal(previewFilter, &previewMetadata) != nil ||
+		previewActor != actor.SubjectID || previewMetadata.OperationKind != string(operationKind) ||
+		previewDigest != digest || len(previewIDs) != len(input.QuestionVersionIds) ||
+		len(previewMetadata.AffectedQuestionIDs) != len(input.QuestionVersionIds) ||
+		(previewExpiry != nil && !api.clock().UTC().Before(*previewExpiry)) {
+		api.respond(writer, nil, fmt.Errorf("%w: selection preview is stale, expired, or owned by another actor", application.ErrConflict))
+		return
+	}
+	for index := range previewIDs {
+		if previewIDs[index] != input.QuestionVersionIds[index] || previewMetadata.AffectedQuestionIDs[index] != input.QuestionVersionIds[index] {
+			api.respond(writer, nil, fmt.Errorf("%w: selection preview does not match commit order", application.ErrConflict))
+			return
+		}
+	}
 	// A retry with the same operation is an idempotent receipt even when a
 	// later selection has advanced the draft digest. Check the immutable
 	// operation row before enforcing the current-digest CAS for new work.
 	var priorDigest string
 	var priorPayload []byte
-	priorErr := api.pool.QueryRow(request.Context(), `SELECT result_digest, affected_question_version_ids FROM canonical_audit_scope_selection_operations WHERE scope_draft_id=$1 AND operation_id=$2`, chi.URLParam(request, "scopeId"), input.OperationId).Scan(&priorDigest, &priorPayload)
+	var priorFilter []byte
+	priorErr := api.pool.QueryRow(request.Context(), `SELECT result_digest, affected_question_version_ids, filter_payload FROM canonical_audit_scope_selection_operations WHERE scope_draft_id=$1 AND operation_id=$2 AND operation_kind <> 'PREVIEW'`, chi.URLParam(request, "scopeId"), input.OperationId).Scan(&priorDigest, &priorPayload, &priorFilter)
 	if priorErr == nil {
 		var priorIDs []string
-		if json.Unmarshal(priorPayload, &priorIDs) != nil || priorDigest != digest || len(priorIDs) != len(input.QuestionVersionIds) {
+		var priorMetadata struct {
+			OperationKind       string   `json:"operationKind"`
+			AffectedQuestionIDs []string `json:"affectedQuestionVersionIds"`
+		}
+		if json.Unmarshal(priorPayload, &priorIDs) != nil || json.Unmarshal(priorFilter, &priorMetadata) != nil || priorDigest != digest || priorMetadata.OperationKind != string(operationKind) || len(priorMetadata.AffectedQuestionIDs) != len(input.QuestionVersionIds) {
 			api.respond(writer, nil, fmt.Errorf("%w: operation replay payload differs", application.ErrConflict))
 			return
 		}
-		for i := range priorIDs {
-			if priorIDs[i] != input.QuestionVersionIds[i] {
+		for i := range input.QuestionVersionIds {
+			if priorMetadata.AffectedQuestionIDs[i] != input.QuestionVersionIds[i] {
 				api.respond(writer, nil, fmt.Errorf("%w: operation replay payload differs", application.ErrConflict))
 				return
 			}
 		}
-		api.respond(writer, generated.CanonicalAuditScopeSelectionReceipt{OperationId: input.OperationId, Replayed: true, Selection: generated.AuditScopeSelectionDigest{SelectionDigest: digest, SelectedQuestionVersionIds: input.QuestionVersionIds, SelectedCount: int64(len(input.QuestionVersionIds)), CatalogVersion: state.CatalogVersion, UsageClass: generated.QuestionUsageClass(usage)}}, nil)
+		api.respond(writer, generated.CanonicalAuditScopeSelectionReceipt{OperationId: input.OperationId, Replayed: true, Selection: generated.AuditScopeSelectionDigest{SelectionDigest: priorDigest, SelectedQuestionVersionIds: priorIDs, SelectedCount: int64(len(priorIDs)), CatalogVersion: state.CatalogVersion, UsageClass: generated.QuestionUsageClass(usage)}}, nil)
 		return
 	}
 	if !errors.Is(priorErr, pgx.ErrNoRows) {
@@ -465,15 +1154,59 @@ func (api *CanonicalAPI) commitCanonicalAuditScopeSelection(writer http.Response
 	if input.IdempotencyKey != nil && strings.TrimSpace(*input.IdempotencyKey) != "" {
 		operationKey = *input.IdempotencyKey
 	}
-	payload, _ := json.Marshal(input.QuestionVersionIds)
-	filterPayload, _ := json.Marshal(input.Filter)
-	if input.Filter == nil || len(filterPayload) == 0 || string(filterPayload) == "null" {
-		filterPayload = []byte(`{}`)
-	}
+	payload, _ := json.Marshal(resultSelection)
+	filterPayload, _ := json.Marshal(map[string]any{"operationKind": string(operationKind), "affectedQuestionVersionIds": input.QuestionVersionIds, "filter": input.Filter})
 	var replayed bool
 	err = database.WithinTransaction(request.Context(), api.pool, func(ctx context.Context, tx pgx.Tx) error {
-		var currentDigest string
-		if err := tx.QueryRow(ctx, `SELECT selection_digest FROM canonical_audit_scope_drafts WHERE id=$1 AND status='DRAFT' FOR UPDATE`, chi.URLParam(request, "scopeId")).Scan(&currentDigest); err != nil {
+		operationID := "scope-selection:" + chi.URLParam(request, "scopeId") + ":" + input.OperationId
+		var storedDigest string
+		var storedPayload []byte
+		var storedFilter []byte
+		storedErr := tx.QueryRow(ctx, `
+				SELECT result_digest, affected_question_version_ids, filter_payload
+				FROM canonical_audit_scope_selection_operations
+				WHERE scope_draft_id=$1 AND operation_id=$2 AND operation_kind <> 'PREVIEW'
+			`, chi.URLParam(request, "scopeId"), input.OperationId).Scan(&storedDigest, &storedPayload, &storedFilter)
+		if storedErr == nil {
+			var storedIDs []string
+			var storedMetadata struct {
+				OperationKind       string   `json:"operationKind"`
+				AffectedQuestionIDs []string `json:"affectedQuestionVersionIds"`
+			}
+			if json.Unmarshal(storedPayload, &storedIDs) != nil || json.Unmarshal(storedFilter, &storedMetadata) != nil || storedDigest != digest || storedMetadata.OperationKind != string(operationKind) || len(storedMetadata.AffectedQuestionIDs) != len(input.QuestionVersionIds) {
+				return fmt.Errorf("%w: operation replay payload differs", application.ErrConflict)
+			}
+			for index := range input.QuestionVersionIds {
+				if storedMetadata.AffectedQuestionIDs[index] != input.QuestionVersionIds[index] {
+					return fmt.Errorf("%w: operation replay payload differs", application.ErrConflict)
+				}
+			}
+			resultSelection = storedIDs
+			replayed = true
+			return nil
+		}
+		if !errors.Is(storedErr, pgx.ErrNoRows) {
+			return storedErr
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO canonical_audit_scope_selection_preview_consumptions
+			(preview_operation_id, commit_operation_id, actor_subject_id, consumed_at)
+			VALUES ($1,$2,$3,$4)
+			`, previewOperationID, input.OperationId, actor.SubjectID, api.clock().UTC()); err != nil {
+			if strings.Contains(strings.ToLower(err.Error()), "duplicate key") {
+				return fmt.Errorf("%w: selection preview has already been consumed", application.ErrConflict)
+			}
+			return err
+		}
+		var currentDigest, currentOrganizationID, currentCatalogVersion, currentProviderScopeID, currentTargetID string
+		if err := tx.QueryRow(ctx, `
+			SELECT scope.selection_digest, scope.organization_id, catalog.catalog_version,
+			       scope.provider_scope_id, scope.regulated_target_id
+			FROM canonical_audit_scope_drafts scope
+			JOIN canonical_question_catalogs catalog ON catalog.id = scope.catalog_id
+			WHERE scope.id=$1 AND scope.created_by_subject_id=$2 AND scope.status='DRAFT'
+			FOR UPDATE OF scope
+		`, chi.URLParam(request, "scopeId"), actor.SubjectID).Scan(&currentDigest, &currentOrganizationID, &currentCatalogVersion, &currentProviderScopeID, &currentTargetID); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return application.ErrNotFound
 			}
@@ -482,23 +1215,33 @@ func (api *CanonicalAPI) commitCanonicalAuditScopeSelection(writer http.Response
 		if currentDigest == "" {
 			currentDigest = questioncatalog.SelectionDigest(nil)
 		}
+		if _, err := application.ValidateCanonicalScopeMap(ctx, tx, actor, map[string]any{
+			"organizationId":    currentOrganizationID,
+			"catalogVersion":    currentCatalogVersion,
+			"scopeDraftId":      chi.URLParam(request, "scopeId"),
+			"selectionDigest":   currentDigest,
+			"providerScopeId":   currentProviderScopeID,
+			"regulatedTargetId": currentTargetID,
+		}, false); err != nil {
+			return err
+		}
 		if currentDigest != expectedDigest {
 			return application.ErrConflict
 		}
 		_, err := tx.Exec(ctx, `
-			INSERT INTO canonical_audit_scope_selection_operations
-			(id,scope_draft_id,operation_id,idempotency_key,operation_kind,expected_digest,result_digest,affected_question_version_ids,filter_payload,actor_subject_id)
-			VALUES ($1,$2,$3,$4,'REPLACE',$5,$6,$7,$8,$9)
-		`, "scope-selection:"+chi.URLParam(request, "scopeId")+":"+input.OperationId, chi.URLParam(request, "scopeId"), input.OperationId, operationKey, input.ExpectedSelectionDigest, digest, payload, filterPayload, requestPrincipalSubject(request))
+				INSERT INTO canonical_audit_scope_selection_operations
+				(id,scope_draft_id,operation_id,idempotency_key,operation_kind,expected_digest,result_digest,affected_question_version_ids,filter_payload,actor_subject_id)
+				VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+			`, operationID, chi.URLParam(request, "scopeId"), input.OperationId, operationKey, string(operationKind), expectedDigest, digest, payload, filterPayload, requestPrincipalSubject(request))
 		if err != nil {
 			return err
 		}
-		for position, questionVersionID := range input.QuestionVersionIds {
-			if _, err := tx.Exec(ctx, `INSERT INTO canonical_audit_scope_selection_questions (operation_id,catalog_id,question_version_id,position,selection_digest) VALUES ($1,$2,$3,$4,$5)`, "scope-selection:"+chi.URLParam(request, "scopeId")+":"+input.OperationId, state.CatalogID, questionVersionID, position, digest); err != nil {
+		for position, questionVersionID := range resultSelection {
+			if _, err := tx.Exec(ctx, `INSERT INTO canonical_audit_scope_selection_questions (operation_id,catalog_id,question_version_id,position,selection_digest) VALUES ($1,$2,$3,$4,$5)`, operationID, state.CatalogID, questionVersionID, position, digest); err != nil {
 				return err
 			}
 		}
-		_, err = tx.Exec(ctx, `UPDATE canonical_audit_scope_drafts SET selected_question_count=$2, selection_digest=$3, updated_at=now() WHERE id=$1`, chi.URLParam(request, "scopeId"), len(input.QuestionVersionIds), digest)
+		_, err = tx.Exec(ctx, `UPDATE canonical_audit_scope_drafts SET selected_question_count=$2, selection_digest=$3, updated_at=now() WHERE id=$1`, chi.URLParam(request, "scopeId"), len(resultSelection), digest)
 		return err
 	})
 	if err != nil {
@@ -509,7 +1252,7 @@ func (api *CanonicalAPI) commitCanonicalAuditScopeSelection(writer http.Response
 		api.respond(writer, nil, err)
 		return
 	}
-	api.respond(writer, generated.CanonicalAuditScopeSelectionReceipt{OperationId: input.OperationId, Replayed: replayed, Selection: generated.AuditScopeSelectionDigest{SelectionDigest: digest, SelectedQuestionVersionIds: input.QuestionVersionIds, SelectedCount: int64(len(input.QuestionVersionIds)), CatalogVersion: state.CatalogVersion, UsageClass: generated.QuestionUsageClass(usage)}}, nil)
+	api.respond(writer, generated.CanonicalAuditScopeSelectionReceipt{OperationId: input.OperationId, Replayed: replayed, Selection: generated.AuditScopeSelectionDigest{SelectionDigest: digest, SelectedQuestionVersionIds: resultSelection, SelectedCount: int64(len(resultSelection)), CatalogVersion: state.CatalogVersion, UsageClass: generated.QuestionUsageClass(usage)}}, nil)
 }
 
 func requestPrincipalSubject(request *http.Request) string {
@@ -536,33 +1279,80 @@ func (api *CanonicalAPI) getCanonicalQuestionReviewQueue(writer http.ResponseWri
 	// Reuse the catalog queue implementation while preserving an explicit
 	// review-mode capability boundary. The catalog version is a required query
 	// pin so a review cannot silently move across imported versions.
-	_ = actor
-	items, next, total, err := api.queryCanonicalCatalog(request.Context(), request.URL.Query().Get("catalogVersion"), usage, request.URL.Query().Get("search"), request.URL.Query().Get("formCode"), request.URL.Query().Get("domain"), request.URL.Query().Get("topic"), request.URL.Query().Get("riskBand"), request.URL.Query().Get("sourceGapState"), request.URL.Query().Get("selected"), request.URL.Query().Get("scopeId"), request.URL.Query().Get("cursor"), canonicalCatalogPageSize)
+	if scopeID := strings.TrimSpace(request.URL.Query().Get("scopeId")); scopeID != "" {
+		if err := api.requireCanonicalScopeOwner(request.Context(), scopeID, actor.SubjectID); err != nil {
+			api.respond(writer, nil, err)
+			return
+		}
+	}
+	items, next, total, err := api.queryCanonicalCatalog(request.Context(), actor.SubjectID, request.URL.Query().Get("catalogVersion"), usage, request.URL.Query().Get("search"), request.URL.Query().Get("formCode"), request.URL.Query().Get("domain"), request.URL.Query().Get("topic"), request.URL.Query().Get("riskBand"), request.URL.Query().Get("sourceGapState"), request.URL.Query().Get("selected"), request.URL.Query().Get("scopeId"), request.URL.Query().Get("cursor"), canonicalCatalogPageSize)
 	if err != nil {
 		api.respond(writer, nil, err)
 		return
 	}
-	capabilities := map[string]any{"canTechnicalApprove": false, "canPublish": false, "disabledReason": "Governed technical approval and publication remain on the existing candidate authority route."}
+	capabilities := map[string]any{"canTechnicalApprove": false, "canPublish": false, "disabledReason": "No current governed candidate authority is bound to the returned question revisions."}
 	if usage == questioncatalog.UsageClassPreprodExercise {
 		capabilities["disabledReason"] = "PREPROD_EXERCISE review records cannot invoke technical approval or publication"
+	} else {
+		for _, item := range items {
+			if item.GovernedCandidateId == nil || item.GovernedCandidateStatus == nil {
+				continue
+			}
+			switch *item.GovernedCandidateStatus {
+			case "DEPARTMENT_REVIEW", "RETURNED":
+				capabilities["canTechnicalApprove"] = true
+			case "TECHNICALLY_APPROVED":
+				capabilities["canPublish"] = true
+			}
+		}
+		if capabilities["canTechnicalApprove"].(bool) || capabilities["canPublish"].(bool) {
+			capabilities["disabledReason"] = nil
+		}
 	}
 	api.respond(writer, generated.QuestionReviewQueue{Mode: generated.QuestionReviewMode(usage), Items: items, NextCursor: next, TotalCount: total, Capabilities: capabilities}, nil)
 }
 
 // queryCanonicalCatalog is shared by the review queue and future New Audit
 // selector handlers. It intentionally returns at most 25 rows.
-func (api *CanonicalAPI) queryCanonicalCatalog(ctx context.Context, catalogVersion string, usage questioncatalog.UsageClass, search, formCode, domain, topic, riskBand, sourceGapState, selected, scopeID, cursor string, limit int) ([]generated.CanonicalQuestionCatalogEntry, *string, int64, error) {
+func (api *CanonicalAPI) queryCanonicalCatalog(ctx context.Context, actorSubjectID, catalogVersion string, usage questioncatalog.UsageClass, search, formCode, domain, topic, riskBand, sourceGapState, selected, scopeID, cursor string, limit int) ([]generated.CanonicalQuestionCatalogEntry, *string, int64, error) {
 	offset, err := parseCatalogCursor(cursor)
 	if err != nil {
 		return nil, nil, 0, err
 	}
 	var total int64
-	selectionPredicate := `($9='' OR $9='all' OR (($9='selected') = EXISTS (SELECT 1 FROM canonical_audit_scope_selection_questions sq JOIN canonical_audit_scope_selection_operations so ON so.id=sq.operation_id WHERE so.id=(SELECT latest.id FROM canonical_audit_scope_selection_operations latest WHERE latest.scope_draft_id=$10 ORDER BY latest.created_at DESC, latest.id DESC LIMIT 1) AND sq.question_version_id=m.question_version_id)))`
-	where := `c.catalog_version=$1 AND c.usage_class=$2 AND c.status='SEALED' AND ($3='' OR m.form_code ILIKE '%'||$3||'%' OR m.proposal_id ILIKE '%'||$3||'%') AND ($4='' OR m.form_code=$4) AND ($5='' OR COALESCE(m.proposed_domain,'')=$5) AND ($6='' OR COALESCE(m.proposed_topic,'')=$6) AND ($7='' OR COALESCE(m.proposed_risk_band,'')=$7) AND ($8='' OR m.source_gap_state=$8) AND ` + selectionPredicate
-	if err := api.pool.QueryRow(ctx, `SELECT COUNT(*) FROM canonical_question_catalogs c JOIN canonical_question_catalog_memberships m ON m.catalog_id=c.id WHERE `+where, catalogVersion, string(usage), search, formCode, domain, topic, riskBand, sourceGapState, selected, scopeID).Scan(&total); err != nil {
+	selectionPredicate := `($9='' OR $9='all' OR (($9='selected') = EXISTS (SELECT 1 FROM canonical_audit_scope_selection_questions sq JOIN canonical_audit_scope_selection_operations so ON so.id=sq.operation_id WHERE so.id=(SELECT latest.id FROM canonical_audit_scope_selection_operations latest WHERE latest.scope_draft_id=$10 AND latest.operation_kind <> 'PREVIEW' ORDER BY latest.created_at DESC, latest.id DESC LIMIT 1) AND sq.question_version_id=m.question_version_id)))`
+	where := `c.catalog_version=$1 AND c.usage_class=$2 AND c.status='SEALED' AND (c.usage_class <> 'PREPROD_EXERCISE' OR c.profile_name='aga-preprod') AND ($3='' OR m.form_code ILIKE '%'||$3||'%' OR m.proposal_id ILIKE '%'||$3||'%' OR q.prompt ILIKE '%'||$3||'%') AND ($4='' OR m.form_code=$4) AND ($5='' OR COALESCE(m.proposed_domain,'')=$5) AND ($6='' OR COALESCE(m.proposed_topic,'')=$6) AND ($7='' OR COALESCE(m.proposed_risk_band,'')=$7) AND ($8='' OR m.source_gap_state=$8) AND (c.usage_class='PREPROD_EXERCISE' OR EXISTS (SELECT 1 FROM template_version_questions published_question JOIN checklist_template_versions published_template ON published_template.id=published_question.template_version_id WHERE published_question.question_version_id=m.question_version_id AND published_template.published_at IS NOT NULL AND published_template.candidate_draft_version_id=c.governed_candidate_draft_version_id AND published_template.candidate_revision=c.governed_candidate_revision AND published_template.candidate_content_digest=c.governed_candidate_content_digest AND published_template.publication_decision_id=c.governed_publication_decision_id)) AND COALESCE((SELECT status FROM canonical_question_catalog_membership_events event WHERE event.catalog_id=m.catalog_id AND event.question_version_id=m.question_version_id ORDER BY occurred_at DESC,event_id DESC LIMIT 1),'AVAILABLE')='AVAILABLE' AND ($10='' OR EXISTS (SELECT 1 FROM canonical_question_catalog_applicabilities applicability JOIN canonical_audit_scope_drafts scope ON scope.id=$10 WHERE applicability.catalog_id=m.catalog_id AND applicability.question_version_id=m.question_version_id AND applicability.provider_scope_id=scope.provider_scope_id AND applicability.regulated_target_id=scope.regulated_target_id AND applicability.status='ELIGIBLE')) AND (c.usage_class='PREPROD_EXERCISE' OR EXISTS (SELECT 1 FROM candidate_required_owner_assignments owner JOIN (SELECT DISTINCT ON (root_id) * FROM caa_department_memberships WHERE subject_id=$11 AND effective_from <= CURRENT_DATE ORDER BY root_id,effective_from DESC,id DESC) membership ON membership.department_id=owner.department_id AND membership.organizational_unit_id=owner.organizational_unit_id WHERE owner.candidate_draft_version_id=c.governed_candidate_draft_version_id AND owner.candidate_revision=c.governed_candidate_revision AND owner.candidate_content_digest=c.governed_candidate_content_digest AND owner.approval_required AND membership.membership_role='DEPARTMENT_MANAGER' AND membership.status='ACTIVE' AND (membership.effective_to IS NULL OR membership.effective_to > CURRENT_DATE) AND COALESCE((SELECT status FROM caa_department_status_facts WHERE department_id=membership.department_id AND effective_from <= CURRENT_DATE ORDER BY effective_from DESC,id DESC LIMIT 1),'INACTIVE')='ACTIVE' AND COALESCE((SELECT status FROM caa_organizational_unit_status_facts WHERE organizational_unit_id=membership.organizational_unit_id AND effective_from <= CURRENT_DATE ORDER BY effective_from DESC,id DESC LIMIT 1),'INACTIVE')='ACTIVE')) AND ` + selectionPredicate
+	if err := api.pool.QueryRow(ctx, `SELECT COUNT(*) FROM canonical_question_catalogs c JOIN canonical_question_catalog_memberships m ON m.catalog_id=c.id JOIN question_versions q ON q.id=m.question_version_id WHERE `+where, catalogVersion, string(usage), search, formCode, domain, topic, riskBand, sourceGapState, selected, scopeID, actorSubjectID).Scan(&total); err != nil {
 		return nil, nil, 0, application.ErrNotFound
 	}
-	rows, err := api.pool.Query(ctx, `SELECT c.catalog_version,c.usage_class,m.question_version_id,m.form_code,m.proposal_id,m.ordinal,m.question_digest,COALESCE(m.source_locator,''),m.source_gap_state,COALESCE(m.proposed_domain,''),COALESCE(m.proposed_topic,''),COALESCE(m.proposed_risk_band,'') FROM canonical_question_catalogs c JOIN canonical_question_catalog_memberships m ON m.catalog_id=c.id WHERE `+where+` ORDER BY m.form_code,m.ordinal,m.question_version_id LIMIT $11 OFFSET $12`, catalogVersion, string(usage), search, formCode, domain, topic, riskBand, sourceGapState, selected, scopeID, limit+1, offset)
+	rows, err := api.pool.Query(ctx, `
+		SELECT c.catalog_version,c.usage_class,m.question_version_id,m.form_code,m.proposal_id,m.ordinal,m.question_digest,
+		       COALESCE(m.source_locator,''),m.source_gap_state,COALESCE(m.proposed_domain,''),COALESCE(m.proposed_topic,''),COALESCE(m.proposed_risk_band,''),
+		       governed_candidate.id,governed_candidate.revision,governed_candidate.candidate_content_digest,governed_candidate.status,
+		       COALESCE(governed_review.candidate_revision, exercise_review.revision,0),COALESCE(governed_review.action, exercise_review.disposition),COALESCE(governed_review.reason, exercise_review.controlled_reason),COALESCE(governed_review.reviewed_domain, exercise_review.reviewed_domain),COALESCE(governed_review.reviewed_topic, exercise_review.reviewed_topic)
+		FROM canonical_question_catalogs c
+		JOIN canonical_question_catalog_memberships m ON m.catalog_id=c.id
+		JOIN question_versions q ON q.id=m.question_version_id
+		LEFT JOIN template_draft_versions governed_candidate
+		  ON c.usage_class='GOVERNED_OPERATIONAL'
+		 AND governed_candidate.id=c.governed_candidate_draft_version_id
+		 AND governed_candidate.revision=c.governed_candidate_revision
+		 AND governed_candidate.candidate_content_digest=c.governed_candidate_content_digest
+		 AND governed_candidate.status IN ('DEPARTMENT_REVIEW','RETURNED','TECHNICALLY_APPROVED')
+		 AND NOT EXISTS (SELECT 1 FROM template_draft_versions successor WHERE successor.supersedes_candidate_id=governed_candidate.id)
+		LEFT JOIN LATERAL (
+		 SELECT revision,disposition,controlled_reason,reviewed_domain,reviewed_topic
+		 FROM canonical_exercise_question_review_drafts
+		 WHERE catalog_id=c.id AND question_version_id=m.question_version_id
+		 ORDER BY revision DESC LIMIT 1
+		) exercise_review ON c.usage_class='PREPROD_EXERCISE'
+		LEFT JOIN LATERAL (
+		 SELECT candidate_revision, action, reason, reviewed_domain, reviewed_topic
+		 FROM canonical_governed_question_review_events
+		 WHERE catalog_id=c.id AND question_version_id=m.question_version_id
+		 ORDER BY created_at DESC, event_id DESC LIMIT 1
+		) governed_review ON c.usage_class='GOVERNED_OPERATIONAL'
+		WHERE `+where+` ORDER BY m.form_code,m.ordinal,m.question_version_id LIMIT $12 OFFSET $13`, catalogVersion, string(usage), search, formCode, domain, topic, riskBand, sourceGapState, selected, scopeID, actorSubjectID, limit+1, offset)
 	if err != nil {
 		return nil, nil, 0, err
 	}
@@ -570,7 +1360,7 @@ func (api *CanonicalAPI) queryCanonicalCatalog(ctx context.Context, catalogVersi
 	items := make([]generated.CanonicalQuestionCatalogEntry, 0, limit)
 	for rows.Next() {
 		var row canonicalCatalogRow
-		if err := rows.Scan(&row.CatalogVersion, &row.UsageClass, &row.QuestionID, &row.FormCode, &row.ProposalID, &row.Ordinal, &row.Digest, &row.SourceLocator, &row.SourceGap, &row.Domain, &row.Topic, &row.RiskBand); err != nil {
+		if err := rows.Scan(&row.CatalogVersion, &row.UsageClass, &row.QuestionID, &row.FormCode, &row.ProposalID, &row.Ordinal, &row.Digest, &row.SourceLocator, &row.SourceGap, &row.Domain, &row.Topic, &row.RiskBand, &row.GovernedCandidateID, &row.GovernedCandidateRevision, &row.GovernedCandidateContentDigest, &row.GovernedCandidateStatus, &row.ReviewRevision, &row.ReviewDisposition, &row.ReviewReason, &row.ReviewDomain, &row.ReviewTopic); err != nil {
 			return nil, nil, 0, err
 		}
 		items = append(items, canonicalCatalogEntry(row))
@@ -586,85 +1376,272 @@ func (api *CanonicalAPI) queryCanonicalCatalog(ctx context.Context, catalogVersi
 	return items, next, total, nil
 }
 
-func (api *CanonicalAPI) commandCanonicalQuestionReview(writer http.ResponseWriter, request *http.Request) {
+func (api *CanonicalAPI) commandCanonicalExerciseQuestionReview(writer http.ResponseWriter, request *http.Request) {
 	actor, ok := api.requireCanonicalCatalogActor(writer, request, true)
 	if !ok {
 		return
 	}
-	var input generated.QuestionReviewCommandInput
+	var input generated.ExerciseQuestionReviewCommandInput
 	if !decodeJSON(writer, request, &input) {
 		return
 	}
 	if strings.TrimSpace(input.OperationId) == "" ||
+		strings.TrimSpace(input.IdempotencyKey) == "" ||
 		strings.TrimSpace(input.QuestionVersionId) == "" ||
+		strings.TrimSpace(input.CatalogVersion) == "" ||
+		input.ExpectedRevision < 0 ||
+		strings.TrimSpace(input.ExpectedReviewDigest) == "" ||
 		strings.TrimSpace(input.Reason) == "" {
 		api.respond(writer, nil, application.ErrInvalid)
 		return
 	}
-	usage, err := parseQuestionReviewMode(input.Mode)
+	if err := api.allowExerciseCatalog(); err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
+	if api.pool == nil {
+		api.respond(writer, nil, application.ErrNotFound)
+		return
+	}
+	action := checklistgovernance.QuestionReviewAction(input.Action)
+	switch action {
+	case checklistgovernance.QuestionReviewActionRetain, checklistgovernance.QuestionReviewActionInclude, checklistgovernance.QuestionReviewActionExclude, checklistgovernance.QuestionReviewActionDefer, checklistgovernance.QuestionReviewActionDomainReclassified, checklistgovernance.QuestionReviewActionTopicReclassified:
+	default:
+		api.respond(writer, nil, fmt.Errorf("%w: exercise review cannot invoke %s", application.ErrForbidden, input.Action))
+		return
+	}
+	payload, err := json.Marshal(map[string]any{
+		"mode": string(questioncatalog.UsageClassPreprodExercise), "catalogVersion": input.CatalogVersion,
+		"questionVersionId": input.QuestionVersionId, "reason": input.Reason,
+		"domain": input.Domain, "topic": input.Topic, "actorSubjectId": actor.SubjectID,
+		"action": input.Action, "idempotencyKey": input.IdempotencyKey,
+		"expectedRevision": input.ExpectedRevision, "expectedReviewDigest": input.ExpectedReviewDigest,
+	})
 	if err != nil {
 		api.respond(writer, nil, err)
 		return
 	}
-	if usage == questioncatalog.UsageClassPreprodExercise {
-		if err := api.allowExerciseCatalog(); err != nil {
+	replayed := false
+	var responseRevision int64
+	var responseDigest string
+	if err := database.WithinTransaction(request.Context(), api.pool, func(ctx context.Context, tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, "exercise-review:idempotency:"+input.IdempotencyKey); err != nil {
+			return err
+		}
+		var previousAction, previousActor, previousDraft, previousOperation, previousIdempotency string
+		var previousPayload []byte
+		if err := tx.QueryRow(ctx, `
+				SELECT action, payload, actor_subject_id, draft_id, operation_id, idempotency_key
+				FROM canonical_exercise_question_review_events
+				WHERE operation_id=$1 OR idempotency_key=$2
+				ORDER BY CASE WHEN operation_id=$1 THEN 0 ELSE 1 END
+				LIMIT 1
+			`, input.OperationId, input.IdempotencyKey).Scan(&previousAction, &previousPayload, &previousActor, &previousDraft, &previousOperation, &previousIdempotency); err == nil {
+			if previousAction != input.Action || previousActor != actor.SubjectID || string(previousPayload) != string(payload) ||
+				(previousOperation != input.OperationId && previousIdempotency != input.IdempotencyKey) {
+				return fmt.Errorf("%w: operation replay payload differs", application.ErrConflict)
+			}
+			var replayRevision int64
+			var replayDisposition, replayReason, replayDomain, replayTopic *string
+			if err := tx.QueryRow(ctx, `
+				SELECT revision, disposition, controlled_reason, reviewed_domain, reviewed_topic
+				FROM canonical_exercise_question_review_drafts
+				WHERE id = $1
+			`, previousDraft).Scan(&replayRevision, &replayDisposition, &replayReason, &replayDomain, &replayTopic); err != nil {
+				return err
+			}
+			responseRevision = replayRevision
+			responseDigest = canonicalExerciseReviewDigest(replayRevision, replayDisposition, replayReason, replayDomain, replayTopic)
+			replayed = true
+			return nil
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		var catalogID string
+		if err := tx.QueryRow(ctx, `SELECT c.id FROM canonical_question_catalogs c JOIN canonical_question_catalog_memberships m ON m.catalog_id=c.id WHERE c.catalog_version=$1 AND c.usage_class='PREPROD_EXERCISE' AND c.profile_name='aga-preprod' AND m.question_version_id=$2 AND c.status='SEALED'`, input.CatalogVersion, input.QuestionVersionId).Scan(&catalogID); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return application.ErrNotFound
+			}
+			return err
+		}
+		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, catalogID+":"+input.QuestionVersionId); err != nil {
+			return err
+		}
+		var currentRevision int64
+		var currentDisposition, currentReason, currentDomain, currentTopic *string
+		if err := tx.QueryRow(ctx, `
+				SELECT revision, disposition, controlled_reason, reviewed_domain, reviewed_topic
+				FROM canonical_exercise_question_review_drafts
+				WHERE catalog_id=$1 AND question_version_id=$2
+				ORDER BY revision DESC LIMIT 1
+			`, catalogID, input.QuestionVersionId).Scan(&currentRevision, &currentDisposition, &currentReason, &currentDomain, &currentTopic); errors.Is(err, pgx.ErrNoRows) {
+			currentRevision = 0
+		} else if err != nil {
+			return err
+		}
+		if input.ExpectedRevision != currentRevision || input.ExpectedReviewDigest != canonicalExerciseReviewDigest(currentRevision, currentDisposition, currentReason, currentDomain, currentTopic) {
+			return fmt.Errorf("%w: exercise review revision or digest conflict", application.ErrConflict)
+		}
+		revision := currentRevision + 1
+		responseRevision = revision
+		draftID := fmt.Sprintf("exercise-review:%s:%s:%d", catalogID, input.QuestionVersionId, revision)
+		disposition := input.Action
+		if action == checklistgovernance.QuestionReviewActionDomainReclassified || action == checklistgovernance.QuestionReviewActionTopicReclassified {
+			disposition = stringValueOrDefault(currentDisposition, string(checklistgovernance.QuestionReviewActionRetain))
+		}
+		reviewedDomain, reviewedTopic := currentDomain, currentTopic
+		if action == checklistgovernance.QuestionReviewActionDomainReclassified {
+			reviewedDomain = input.Domain
+		} else if input.Domain != nil {
+			reviewedDomain = input.Domain
+		}
+		if action == checklistgovernance.QuestionReviewActionTopicReclassified {
+			reviewedTopic = input.Topic
+		} else if input.Topic != nil {
+			reviewedTopic = input.Topic
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO canonical_exercise_question_review_drafts (id,catalog_id,question_version_id,usage_class,revision,disposition,reviewed_domain,reviewed_topic,controlled_reason,actor_subject_id) VALUES ($1,$2,$3,'PREPROD_EXERCISE',$4,$5,$6,$7,$8,$9)`, draftID, catalogID, input.QuestionVersionId, revision, disposition, reviewedDomain, reviewedTopic, input.Reason, actor.SubjectID); err != nil {
+			return err
+		}
+		reason := input.Reason
+		responseDigest = canonicalExerciseReviewDigest(revision, &disposition, &reason, reviewedDomain, reviewedTopic)
+		_, err := tx.Exec(ctx, `INSERT INTO canonical_exercise_question_review_events (event_id,operation_id,idempotency_key,draft_id,action,payload,actor_subject_id) VALUES ($1,$1,$2,$3,$4,$5,$6)`, input.OperationId, input.IdempotencyKey, draftID, input.Action, payload, actor.SubjectID)
+		return err
+	}); err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
+	var outputRevision *int64
+	if responseRevision > 0 {
+		outputRevision = &responseRevision
+	}
+	var outputDigest *string
+	if responseDigest != "" {
+		outputDigest = &responseDigest
+	}
+	api.respond(writer, generated.QuestionReviewCommandOutput{OperationId: input.OperationId, Mode: generated.QuestionReviewModePREPRODEXERCISE, QuestionVersionId: input.QuestionVersionId, Action: input.Action, Replayed: replayed, CanPublish: false, ReviewRevision: outputRevision, ReviewDigest: outputDigest}, nil)
+}
+
+func stringValueOrDefault(value *string, fallback string) string {
+	if value == nil || strings.TrimSpace(*value) == "" {
+		return fallback
+	}
+	return *value
+}
+
+func (api *CanonicalAPI) commandCanonicalGovernedQuestionReview(writer http.ResponseWriter, request *http.Request) {
+	actor, ok := api.requireCanonicalCatalogActor(writer, request, true)
+	if !ok {
+		return
+	}
+	var input generated.GovernedQuestionReviewCommandInput
+	if !decodeJSON(writer, request, &input) {
+		return
+	}
+	if strings.TrimSpace(input.OperationId) == "" || strings.TrimSpace(input.QuestionVersionId) == "" || strings.TrimSpace(input.CatalogVersion) == "" || strings.TrimSpace(input.CandidateId) == "" || input.ExpectedCandidateRevision < 1 || strings.TrimSpace(input.ExpectedCandidateContentDigest) == "" || strings.TrimSpace(input.Reason) == "" {
+		api.respond(writer, nil, application.ErrInvalid)
+		return
+	}
+	if api.pool == nil {
+		api.respond(writer, nil, application.ErrNotFound)
+		return
+	}
+	var catalogID, candidateStatus string
+	if err := api.pool.QueryRow(request.Context(), `
+		SELECT catalog.id, candidate.status
+		FROM canonical_question_catalogs catalog
+		JOIN canonical_question_catalog_memberships membership ON membership.catalog_id=catalog.id AND membership.question_version_id=$3
+		JOIN template_draft_versions candidate ON candidate.id=$4
+		WHERE catalog.catalog_version=$1 AND catalog.usage_class='GOVERNED_OPERATIONAL' AND catalog.status='SEALED'
+		  AND catalog.governed_candidate_draft_version_id=candidate.id
+		  AND catalog.governed_candidate_revision=candidate.revision
+		  AND catalog.governed_candidate_content_digest=candidate.candidate_content_digest
+		  AND candidate.revision=$5 AND candidate.candidate_content_digest=$6
+		  AND candidate.question_version_ids @> ARRAY[$3]::text[]
+		  AND candidate.status IN ('DEPARTMENT_REVIEW','RETURNED','TECHNICALLY_APPROVED')
+		  AND NOT EXISTS (SELECT 1 FROM template_draft_versions successor WHERE successor.supersedes_candidate_id=candidate.id)
+	`, input.CatalogVersion, actor.SubjectID, input.QuestionVersionId, input.CandidateId, input.ExpectedCandidateRevision, input.ExpectedCandidateContentDigest).Scan(&catalogID, &candidateStatus); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			api.respond(writer, nil, application.ErrConflict)
+		} else {
 			api.respond(writer, nil, err)
-			return
 		}
-		action := checklistgovernance.QuestionReviewAction(input.Action)
-		switch action {
-		case checklistgovernance.QuestionReviewActionRetain, checklistgovernance.QuestionReviewActionInclude, checklistgovernance.QuestionReviewActionExclude, checklistgovernance.QuestionReviewActionDefer, checklistgovernance.QuestionReviewActionDomainReclassified, checklistgovernance.QuestionReviewActionTopicReclassified:
-		default:
-			api.respond(writer, nil, fmt.Errorf("%w: exercise review cannot invoke %s", application.ErrForbidden, input.Action))
-			return
-		}
-		if api.pool == nil {
+		return
+	}
+	action := checklistgovernance.QuestionReviewAction(input.Action)
+	idempotencyKey := input.OperationId
+	if input.IdempotencyKey != nil && strings.TrimSpace(*input.IdempotencyKey) != "" {
+		idempotencyKey = *input.IdempotencyKey
+	}
+	command := checklistgovernance.ReviewCommand{OperationID: input.OperationId, IdempotencyKey: idempotencyKey, CandidateID: input.CandidateId, ExpectedRevision: input.ExpectedCandidateRevision, ExpectedContentDigest: input.ExpectedCandidateContentDigest, Reason: input.Reason}
+	switch action {
+	case checklistgovernance.QuestionReviewActionTechnicalApprove:
+		if api.governedLifecycle == nil {
 			api.respond(writer, nil, application.ErrNotFound)
 			return
 		}
-		draftID := "exercise-review:" + input.QuestionVersionId
+		candidate, err := api.governedLifecycle.Approve(request.Context(), actor, command)
+		api.respond(writer, generated.QuestionReviewCommandOutput{OperationId: input.OperationId, Mode: generated.QuestionReviewModeGOVERNEDOPERATIONAL, QuestionVersionId: input.QuestionVersionId, Action: input.Action, CanPublish: candidate.Status == "TECHNICALLY_APPROVED"}, err)
+		return
+	case checklistgovernance.QuestionReviewActionPublish:
+		if api.governedLifecycle == nil {
+			api.respond(writer, nil, application.ErrNotFound)
+			return
+		}
+		publication, err := api.governedLifecycle.Publish(request.Context(), actor, checklistgovernance.PublicationCommand(command))
+		api.respond(writer, generated.QuestionReviewCommandOutput{OperationId: input.OperationId, Mode: generated.QuestionReviewModeGOVERNEDOPERATIONAL, QuestionVersionId: input.QuestionVersionId, Action: input.Action, CanPublish: true}, err)
+		_ = publication
+		return
+	case checklistgovernance.QuestionReviewActionRetain, checklistgovernance.QuestionReviewActionInclude, checklistgovernance.QuestionReviewActionExclude, checklistgovernance.QuestionReviewActionDefer, checklistgovernance.QuestionReviewActionDomainReclassified, checklistgovernance.QuestionReviewActionTopicReclassified:
+		if candidateStatus == "TECHNICALLY_APPROVED" {
+			api.respond(writer, nil, fmt.Errorf("%w: governed candidate is already technically approved", application.ErrConflict))
+			return
+		}
+		payload, err := json.Marshal(map[string]any{"catalogVersion": input.CatalogVersion, "catalogId": catalogID, "questionVersionId": input.QuestionVersionId, "candidateId": input.CandidateId, "candidateRevision": input.ExpectedCandidateRevision, "candidateContentDigest": input.ExpectedCandidateContentDigest, "action": input.Action, "reason": input.Reason, "domain": input.Domain, "topic": input.Topic, "actorSubjectId": actor.SubjectID})
+		if err != nil {
+			api.respond(writer, nil, err)
+			return
+		}
+		_ = payload
 		replayed := false
-		if err := database.WithinTransaction(request.Context(), api.pool, func(ctx context.Context, tx pgx.Tx) error {
-			var previousAction string
-			if err := tx.QueryRow(ctx, `SELECT action FROM canonical_exercise_question_review_events WHERE event_id=$1`, input.OperationId).Scan(&previousAction); err == nil {
-				if previousAction != input.Action {
+		err = database.WithinTransaction(request.Context(), api.pool, func(ctx context.Context, tx pgx.Tx) error {
+			var existingCatalog, existingQuestion, existingCandidate, existingAction, existingReason, existingActor, existingIdempotency string
+			var existingRevision int64
+			var existingDigest string
+			var existingDomain, existingTopic *string
+			if err := tx.QueryRow(ctx, `SELECT catalog_id, question_version_id, candidate_draft_version_id, idempotency_key, action, reason, reviewed_domain, reviewed_topic, actor_subject_id, candidate_revision, candidate_content_digest FROM canonical_governed_question_review_events WHERE operation_id=$1`, input.OperationId).Scan(&existingCatalog, &existingQuestion, &existingCandidate, &existingIdempotency, &existingAction, &existingReason, &existingDomain, &existingTopic, &existingActor, &existingRevision, &existingDigest); err == nil {
+				if existingCatalog != catalogID || existingQuestion != input.QuestionVersionId || existingCandidate != input.CandidateId || existingIdempotency != idempotencyKey || existingAction != input.Action || existingReason != input.Reason || existingActor != actor.SubjectID || existingRevision != input.ExpectedCandidateRevision || existingDigest != input.ExpectedCandidateContentDigest || !sameOptionalString(existingDomain, input.Domain) || !sameOptionalString(existingTopic, input.Topic) {
 					return fmt.Errorf("%w: operation replay payload differs", application.ErrConflict)
+				}
+				if api.governedLifecycle == nil {
+					return application.ErrNotFound
+				}
+				if err := api.governedLifecycle.RequireCurrentDepartmentReviewAuthority(ctx, tx, actor, input.CandidateId, input.ExpectedCandidateRevision, input.ExpectedCandidateContentDigest); err != nil {
+					return err
 				}
 				replayed = true
 				return nil
 			} else if !errors.Is(err, pgx.ErrNoRows) {
 				return err
 			}
-			var catalogID string
-			if err := tx.QueryRow(ctx, `SELECT c.id FROM canonical_question_catalogs c JOIN canonical_question_catalog_memberships m ON m.catalog_id=c.id WHERE c.usage_class='PREPROD_EXERCISE' AND m.question_version_id=$1 AND c.status='SEALED'`, input.QuestionVersionId).Scan(&catalogID); err != nil {
-				if errors.Is(err, pgx.ErrNoRows) {
-					return application.ErrNotFound
-				}
+			if api.governedLifecycle == nil {
+				return application.ErrNotFound
+			}
+			if err := api.governedLifecycle.RequireCurrentDepartmentReviewAuthority(ctx, tx, actor, input.CandidateId, input.ExpectedCandidateRevision, input.ExpectedCandidateContentDigest); err != nil {
 				return err
 			}
-			disposition := input.Action
-			if action == checklistgovernance.QuestionReviewActionDomainReclassified || action == checklistgovernance.QuestionReviewActionTopicReclassified {
-				disposition = string(checklistgovernance.QuestionReviewActionRetain)
-			}
-			_, err := tx.Exec(ctx, `INSERT INTO canonical_exercise_question_review_drafts (id,catalog_id,question_version_id,usage_class,revision,disposition,reviewed_domain,reviewed_topic,controlled_reason,actor_subject_id) VALUES ($1,$2,$3,'PREPROD_EXERCISE',1,$4,$5,$6,$7,$8) ON CONFLICT (id) DO NOTHING`, draftID, catalogID, input.QuestionVersionId, disposition, input.Domain, input.Topic, input.Reason, actor.SubjectID)
-			if err != nil {
-				return err
-			}
-			payload, err := json.Marshal(map[string]any{"reason": input.Reason, "domain": input.Domain, "topic": input.Topic})
-			if err != nil {
-				return err
-			}
-			_, err = tx.Exec(ctx, `INSERT INTO canonical_exercise_question_review_events (event_id,draft_id,action,payload,actor_subject_id) VALUES ($1,$2,$3,$4,$5)`, input.OperationId, draftID, input.Action, payload, actor.SubjectID)
+			_, err := tx.Exec(ctx, `INSERT INTO canonical_governed_question_review_events (event_id,operation_id,idempotency_key,catalog_id,question_version_id,candidate_draft_version_id,candidate_revision,candidate_content_digest,action,reason,reviewed_domain,reviewed_topic,actor_subject_id) VALUES ($1,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`, input.OperationId, idempotencyKey, catalogID, input.QuestionVersionId, input.CandidateId, input.ExpectedCandidateRevision, input.ExpectedCandidateContentDigest, input.Action, input.Reason, input.Domain, input.Topic, actor.SubjectID)
 			return err
-		}); err != nil {
-			api.respond(writer, nil, err)
-			return
-		}
-		api.respond(writer, generated.QuestionReviewCommandOutput{OperationId: input.OperationId, Mode: input.Mode, QuestionVersionId: input.QuestionVersionId, Action: input.Action, Replayed: replayed, CanPublish: false}, nil)
-		return
+		})
+		api.respond(writer, generated.QuestionReviewCommandOutput{OperationId: input.OperationId, Mode: generated.QuestionReviewModeGOVERNEDOPERATIONAL, QuestionVersionId: input.QuestionVersionId, Action: input.Action, Replayed: replayed, CanPublish: false}, err)
+	default:
+		api.respond(writer, nil, fmt.Errorf("%w: unsupported governed Question Review action", application.ErrInvalid))
 	}
-	// Governed disposition, technical approval, and publication remain the
-	// existing candidate/Draft command boundaries. Do not return a successful
-	// receipt from this catalog route without writing that governed aggregate.
-	api.respond(writer, nil, fmt.Errorf("%w: use the governed candidate command boundary", application.ErrInvalid))
+}
+
+func sameOptionalString(left, right *string) bool {
+	if left == nil || strings.TrimSpace(*left) == "" {
+		return right == nil || strings.TrimSpace(*right) == ""
+	}
+	return right != nil && *left == *right
 }

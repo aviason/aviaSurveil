@@ -62,6 +62,8 @@ import type {
   GovernedAuditPackageEligibilityInput,
   GovernedAuditPackageEligibilityView,
   CanonicalQuestionReviewBackend,
+  CanonicalAuditWorkflowBackend,
+  CanonicalAuditScopeOptionPage,
   CanonicalQuestionCatalogEntry,
   CanonicalQuestionUsageClass,
   CanonicalQuestionReviewCommandInput,
@@ -114,6 +116,39 @@ function pad(value: number, width = 3): string {
 
 function addHours(instant: string, hours: number): string {
   return new Date(new Date(instant).getTime() + hours * 60 * 60 * 1000).toISOString();
+}
+
+async function canonicalSelectionDigest(ids: readonly string[]): Promise<string> {
+  const canonical = [...new Set(ids)].map((id, index) => `${index}\u0000${id}\n`).join("");
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function applyCanonicalSelectionOperation(
+  current: readonly string[],
+  affected: readonly string[],
+  operationKind: "ADD" | "REMOVE" | "REPLACE" = "REPLACE",
+): string[] {
+  if (operationKind === "REPLACE") return [...affected];
+  const affectedSet = new Set(affected);
+  const result: string[] = [];
+  const seen = new Set<string>();
+  for (const id of current) {
+    if (operationKind === "REMOVE" && affectedSet.has(id)) continue;
+    if (!seen.has(id)) {
+      seen.add(id);
+      result.push(id);
+    }
+  }
+  if (operationKind === "ADD") {
+    for (const id of affected) {
+      if (!seen.has(id)) {
+        seen.add(id);
+        result.push(id);
+      }
+    }
+  }
+  return result;
 }
 
 function managementRiskLevel(severity: FindingView["severity"]): RiskManagementProjectionView["findings"][number]["riskLevel"] {
@@ -2887,7 +2922,7 @@ export class MockBackendEngine implements DemoBackend {
 
   readonly planningIntake: DemoBackend["planningIntake"] = {
     createDraft: async (input) => {
-      requireDemoCapability(this.principal, "planningIntake");
+      requireDemoCapability(this.principal, "canonicalAuditWorkflow");
       requireRole(this.principal, ["manager"], "Department Manager authority is required to create Planning intake drafts.");
       requireNonEmpty(input.operationId, "Operation id");
       requireNonEmpty(input.idempotencyKey, "Idempotency key");
@@ -2897,6 +2932,7 @@ export class MockBackendEngine implements DemoBackend {
         const draftId = input.draftId ?? stableMockCommandKey("PLAN-DRAFT", [input.operationId, input.values.organizationId]);
         const existing = state.planningIntakeDrafts[draftId];
         if (existing) throw new BackendConflictError(`Planning intake draft ${draftId} already exists.`);
+        const scopeDraftId = input.values.scopeDraftId || stableMockCommandKey("SCOPE-DRAFT", [draftId]);
         const draft: PlanningIntakeDraftView = {
           id: draftId,
           organizationId: organization.id,
@@ -2914,7 +2950,7 @@ export class MockBackendEngine implements DemoBackend {
           templateVersionId: input.values.templateVersionId,
           scope: input.values.scope,
           catalogVersion: input.values.catalogVersion,
-          scopeDraftId: input.values.scopeDraftId,
+          scopeDraftId,
           selectionDigest: input.values.selectionDigest,
           selectedQuestionVersionIds: input.values.selectedQuestionVersionIds ? [...input.values.selectedQuestionVersionIds] : [],
           estimatedResourceRequirement: input.values.estimatedResourceRequirement,
@@ -2931,7 +2967,7 @@ export class MockBackendEngine implements DemoBackend {
       });
     },
     getDraft: async ({ draftId }) => {
-      requireDemoCapability(this.principal, "planningIntake");
+      requireDemoCapability(this.principal, "canonicalAuditWorkflow");
       requireRole(this.principal, ["manager"], "Department Manager authority is required for Planning intake drafts.");
       return this.store.read((state) => {
         const draft = state.planningIntakeDrafts[draftId];
@@ -2940,7 +2976,7 @@ export class MockBackendEngine implements DemoBackend {
       });
     },
     saveDraft: async (input) => {
-      requireDemoCapability(this.principal, "planningIntake");
+      requireDemoCapability(this.principal, "canonicalAuditWorkflow");
       requireRole(this.principal, ["manager"], "Department Manager authority is required for Planning intake drafts.");
       requireNonEmpty(input.idempotencyKey, "Idempotency key");
       return this.store.execute(input.idempotencyKey, input, (state) => {
@@ -2966,7 +3002,7 @@ export class MockBackendEngine implements DemoBackend {
       });
     },
     submit: async (input) => {
-      requireDemoCapability(this.principal, "planningIntake");
+      requireDemoCapability(this.principal, "canonicalAuditWorkflow");
       requireRole(this.principal, ["manager"], "Department Manager authority is required to submit a Planning intake.");
       requireNonEmpty(input.idempotencyKey, "Idempotency key");
       return this.store.execute(input.idempotencyKey, input, (state) => {
@@ -3025,9 +3061,28 @@ export class MockBackendEngine implements DemoBackend {
    * Management workbenches. The fixture text is intentionally invented and
    * never represents the sealed AGA source package. */
   readonly canonicalQuestionReview: CanonicalQuestionReviewBackend = {
+    listScopeOptions: async (input) => {
+      requireDemoCapability(this.principal, "canonicalQuestionReview");
+      requireRole(this.principal, ["manager"], "Department Manager authority is required for audit scope selection.");
+      const usageClass = input?.usageClass ?? "PREPROD_EXERCISE";
+      const catalogVersion = input?.catalogVersion ?? (usageClass === "PREPROD_EXERCISE" ? "aga-preprod@1.0.0" : "governed-operational@1.0.0");
+      const option: CanonicalAuditScopeOptionPage["items"][number] = {
+        organizationId: "ORG-FLY-NAMIBIA",
+        organizationName: "Fly Namibia",
+        providerScopeId: "SCOPE-OPS-AOC-SOURCE-BOUND",
+        regulatedTargetId: "TARGET-OPS-AOC-SOURCE-BOUND",
+        providerTypeId: "AIR_OPERATOR",
+        providerTypeLabel: "Air Operator (AOC Holder)",
+        scopeStatus: "ACTIVE",
+        targetLabel: "Fly Namibia regulated target",
+        catalogVersion,
+        usageClass,
+      };
+      return { items: [option], nextCursor: null };
+    },
     listCatalog: async (input) => {
       requireDemoCapability(this.principal, "canonicalQuestionReview");
-      requireRole(this.principal, ["manager", "admin"], "Canonical catalog access is restricted to CAA managers.");
+      requireRole(this.principal, ["manager"], "Canonical catalog access is restricted to Department Managers.");
       const limit = Math.min(25, Math.max(1, input.limit ?? 25));
       const offset = Number(input.cursor ?? 0) || 0;
       const selectedIds = input.scopeId ? new Set(this.canonicalSelections.get(input.scopeId)?.ids ?? []) : null;
@@ -3047,7 +3102,7 @@ export class MockBackendEngine implements DemoBackend {
     },
     getQuestion: async (input) => {
       requireDemoCapability(this.principal, "canonicalQuestionReview");
-      requireRole(this.principal, ["manager", "admin"], "Canonical catalog access is restricted to CAA managers.");
+      requireRole(this.principal, ["manager"], "Canonical catalog access is restricted to Department Managers.");
       const row = this.syntheticCanonicalRows(input.usageClass, input.catalogVersion).find((candidate) => candidate.questionVersionId === input.questionVersionId);
       if (!row) throw new BackendInvariantError(`Question version ${input.questionVersionId} was not found.`);
       return { ...row, prompt: `Synthetic privacy-safe question ${row.formCode} item ${row.ordinal}.`, configuredReference: "Synthetic controlled reference", expectedEvidence: "Synthetic evidence record" };
@@ -3055,41 +3110,42 @@ export class MockBackendEngine implements DemoBackend {
     previewSelection: async (input) => {
       requireDemoCapability(this.principal, "canonicalQuestionReview");
       requireRole(this.principal, ["manager"], "Department Manager authority is required for scope selection.");
-      const state = this.canonicalSelections.get(input.scopeId) ?? { digest: await governedCanonicalSHA256([]), ids: [] };
-      const ids = [...new Set(input.questionVersionIds)].sort();
+      const state = this.canonicalSelections.get(input.scopeId) ?? { digest: await canonicalSelectionDigest([]), ids: [] };
+      const ids = [...new Set(input.questionVersionIds)];
       if (ids.length === 0 || ids.length > 500 || ids.length !== input.questionVersionIds.length) throw new BackendInvariantError("Selection must contain 1–500 unique question versions.");
       if (input.expectedSelectionDigest && input.expectedSelectionDigest !== state.digest) throw new BackendConflictError("Selection digest is stale.");
-      return { preview: { selectionDigest: await governedCanonicalSHA256(ids), selectedQuestionVersionIds: ids, selectedCount: ids.length, catalogVersion: "aga-preprod@1.0.0", usageClass: input.usageClass }, affectedCount: ids.length, valid: true, reason: "Selection is ready to commit." };
+      const result = applyCanonicalSelectionOperation(state.ids, ids, input.operationKind);
+      return { preview: { selectionDigest: await canonicalSelectionDigest(result), selectedQuestionVersionIds: result, selectedCount: result.length, catalogVersion: input.usageClass === "PREPROD_EXERCISE" ? "aga-preprod@1.0.0" : "governed-operational@1.0.0", usageClass: input.usageClass }, affectedCount: ids.length, valid: true, reason: "Selection is ready to commit." };
     },
     commitSelection: async (input) => {
       requireDemoCapability(this.principal, "canonicalQuestionReview");
       requireRole(this.principal, ["manager"], "Department Manager authority is required for scope selection.");
       requireNonEmpty(input.operationId, "Selection operation");
-      const state = this.canonicalSelections.get(input.scopeId) ?? { digest: await governedCanonicalSHA256([]), ids: [] };
-      const ids = [...new Set(input.questionVersionIds)].sort();
+      const state = this.canonicalSelections.get(input.scopeId) ?? { digest: await canonicalSelectionDigest([]), ids: [] };
+      const ids = [...new Set(input.questionVersionIds)];
       if (ids.length === 0 || ids.length > 500 || ids.length !== input.questionVersionIds.length) throw new BackendInvariantError("Selection must contain 1–500 unique question versions.");
       const prior = this.canonicalReviewOperations.get(`selection:${input.operationId}`);
-      const digest = await governedCanonicalSHA256(ids);
+      const result = applyCanonicalSelectionOperation(state.ids, ids, input.operationKind);
+      const digest = await canonicalSelectionDigest(result);
       if (prior) {
         if (prior !== digest) throw new OperationIdReuseError(input.operationId);
-        return { operationId: input.operationId, replayed: true, selection: { selectionDigest: digest, selectedQuestionVersionIds: ids, selectedCount: ids.length, catalogVersion: "aga-preprod@1.0.0", usageClass: input.usageClass } };
+        return { operationId: input.operationId, replayed: true, selection: { selectionDigest: digest, selectedQuestionVersionIds: result, selectedCount: result.length, catalogVersion: input.usageClass === "PREPROD_EXERCISE" ? "aga-preprod@1.0.0" : "governed-operational@1.0.0", usageClass: input.usageClass } };
       }
-      const expected = input.expectedSelectionDigest || await governedCanonicalSHA256([]);
+      const expected = input.expectedSelectionDigest || await canonicalSelectionDigest([]);
       if (expected !== state.digest) throw new BackendConflictError("Selection digest is stale.");
-      this.canonicalSelections.set(input.scopeId, { digest, ids });
+      this.canonicalSelections.set(input.scopeId, { digest, ids: result });
       this.canonicalReviewOperations.set(`selection:${input.operationId}`, digest);
-      return { operationId: input.operationId, replayed: false, selection: { selectionDigest: digest, selectedQuestionVersionIds: ids, selectedCount: ids.length, catalogVersion: "aga-preprod@1.0.0", usageClass: input.usageClass } };
+      return { operationId: input.operationId, replayed: false, selection: { selectionDigest: digest, selectedQuestionVersionIds: result, selectedCount: result.length, catalogVersion: input.usageClass === "PREPROD_EXERCISE" ? "aga-preprod@1.0.0" : "governed-operational@1.0.0", usageClass: input.usageClass } };
     },
     reviewQueue: async (input) => {
       requireDemoCapability(this.principal, "canonicalQuestionReview");
-      requireRole(this.principal, ["manager", "admin"], "Department Manager authority is required for Question Review.");
+      requireRole(this.principal, ["manager"], "Department Manager authority is required for Question Review.");
       const page = await this.canonicalQuestionReview.listCatalog({ catalogVersion: input.catalogVersion, usageClass: input.mode, search: input.search, formCode: input.formCode, domain: input.domain, topic: input.topic, riskBand: input.riskBand, sourceGapState: input.sourceGapState, selected: input.selected, scopeId: input.scopeId, cursor: input.cursor, limit: input.limit });
       return { mode: input.mode, items: page.items, nextCursor: page.nextCursor, totalCount: page.totalCount, capabilities: { canTechnicalApprove: false, canPublish: false, disabledReason: input.mode === "PREPROD_EXERCISE" ? "PREPROD_EXERCISE review cannot invoke technical approval or publication." : "Governed technical approval and publication remain on the candidate authority route." } };
     },
     command: async (input: CanonicalQuestionReviewCommandInput) => {
       requireDemoCapability(this.principal, "canonicalQuestionReview");
       requireRole(this.principal, ["manager"], "Department Manager authority is required for Question Review.");
-      if (input.mode === "PREPROD_EXERCISE" && (input.action === "TECHNICAL_APPROVE" || input.action === "PUBLISH")) throw new BackendAuthorizationInvariantError("Exercise review cannot invoke technical approval or publication.");
       requireNonEmpty(input.reason, "Controlled reason");
       const prior = this.canonicalReviewOperations.get(`review:${input.operationId}`);
       if (prior) return { operationId: input.operationId, mode: input.mode, questionVersionId: input.questionVersionId, action: input.action, replayed: true, canPublish: input.mode === "GOVERNED_OPERATIONAL" };
@@ -3097,6 +3153,137 @@ export class MockBackendEngine implements DemoBackend {
       return { operationId: input.operationId, mode: input.mode, questionVersionId: input.questionVersionId, action: input.action, replayed: false, canPublish: input.mode === "GOVERNED_OPERATIONAL" };
     },
   };
+
+  /**
+   * The demo runtime mirrors the canonical preparation command boundary with
+   * privacy-safe state. It deliberately never creates client-authored IDs;
+   * the seeded package is only a deterministic local fixture for command and
+   * UI contract tests.
+   */
+  readonly canonicalAuditWorkflow: CanonicalAuditWorkflowBackend = {
+    prepare: async (planningItemId, input) => {
+      requireDemoCapability(this.principal, "canonicalAuditWorkflow");
+      requireRole(this.principal, ["manager"], "Department Manager authority is required for Audit preparation.");
+      requireNonEmpty(input.operationId, "Preparation operation");
+      return this.store.read((state) => {
+        const planningItem = state.planningItems[planningItemId];
+        if (!planningItem) throw new BackendInvariantError(`Planning item ${planningItemId} was not found.`);
+        return {
+          assignmentId: `ASSIGN-${planningItemId}`,
+          planningItemId,
+          organizationId: planningItem.organizationId,
+          status: "PREPARATION" as const,
+          revision: 1,
+        };
+      });
+    },
+    assignLead: async (assignmentId, input) => {
+      requireDemoCapability(this.principal, "canonicalAuditWorkflow");
+      requireRole(this.principal, ["manager"], "Department Manager authority is required to assign a Lead Inspector.");
+      requireNonEmpty(input.leadSubjectId, "Lead Inspector subject");
+      return this.store.execute(input.operationId, input, (state) => this.mockCanonicalAssignment(state, assignmentId, input.leadSubjectId, []));
+    },
+    assignTeam: async (assignmentId, input) => {
+      requireDemoCapability(this.principal, "canonicalAuditWorkflow");
+      requireRole(this.principal, ["leadInspector"], "Lead Inspector authority is required to assign the Audit team.");
+      return this.store.execute(input.operationId, input, (state) => this.mockCanonicalAssignment(state, assignmentId, "USR-LEAD-CANER", input.memberSubjectIds));
+    },
+    assignQuestionCoverage: async (assignmentId, input) => {
+      requireDemoCapability(this.principal, "canonicalAuditWorkflow");
+      requireRole(this.principal, ["leadInspector"], "Lead Inspector authority is required to assign question coverage.");
+      return this.store.execute(input.operationId, input, (state) => {
+        const auditId = assignmentId.replace(/^ASSIGN-/, "").replace(/:assignment$/, "");
+        const assignment = state.assignments.find((candidate) => candidate.auditId === auditId);
+        if (!assignment) throw new BackendInvariantError(`Audit assignment ${assignmentId} was not found.`);
+        const packageView = Object.values(state.packages).find((candidate) => candidate.auditId === auditId);
+        if (!packageView) throw new BackendInvariantError(`Audit package for ${auditId} was not found.`);
+        const subjectByQuestion = new Map(input.questionAssignments.map((item) => [item.questionId, item.subjectId]));
+        packageView.questions = packageView.questions.map((question) => {
+          const subjectId = subjectByQuestion.get(question.id);
+          return subjectId ? { ...question, assignedInspectorUserIds: [subjectId] } : question;
+        });
+        assignment.revision = (assignment.revision ?? 1) + 1;
+        return this.mockCanonicalAssignment(state, assignmentId, "USR-LEAD-CANER", [
+          ...new Set(packageView.questions.flatMap((question) => question.assignedInspectorUserIds)),
+        ], input.questionAssignments);
+      });
+    },
+    confirmPreparation: async (assignmentId, input) => {
+      requireDemoCapability(this.principal, "canonicalAuditWorkflow");
+      requireRole(this.principal, ["manager"], "Department Manager authority is required to confirm Audit preparation.");
+      return this.store.execute(input.operationId, input, (state) => {
+        const auditId = assignmentId.replace(/^ASSIGN-/, "").replace(/:assignment$/, "");
+        const assignment = state.assignments.find((candidate) => candidate.auditId === auditId);
+        const packageView = Object.values(state.packages).find((candidate) => candidate.auditId === auditId);
+        if (!assignment || !packageView) throw new BackendInvariantError(`Audit preparation ${assignmentId} was not found.`);
+        assignment.status = "QUESTIONS_ASSIGNED";
+        assignment.revision = (assignment.revision ?? 1) + 1;
+        return {
+          planningItemId: assignment.auditId,
+          inspectionId: assignment.auditId,
+          organizationId: assignment.organizationId,
+          status: "QUESTIONS_ASSIGNED" as const,
+          revision: assignment.revision,
+          preparationId: assignmentId,
+          preparationDigest: `sha256:mock-preparation-${assignment.auditId}`,
+          selectedQuestionCount: packageView.questions.length,
+          confirmedAt: this.store.clock(),
+        };
+      });
+    },
+    materialize: async (assignmentId, input) => {
+      requireDemoCapability(this.principal, "canonicalAuditWorkflow");
+      requireRole(this.principal, ["manager"], "Department Manager authority is required to materialize an Audit.");
+      return this.store.execute(input.operationId, input, (state) => {
+        const auditId = assignmentId.replace(/^ASSIGN-/, "").replace(/:assignment$/, "");
+        const assignment = state.assignments.find((candidate) => candidate.auditId === auditId);
+        const packageView = Object.values(state.packages).find((candidate) => candidate.auditId === auditId);
+        if (!assignment || !packageView) throw new BackendInvariantError(`Audit materialization ${assignmentId} was not found.`);
+        assignment.status = assignment.inspectionNotice === "ANNOUNCED" ? "AWAITING_AUDITEE_CONFIRMATION" : "SCHEDULED";
+        assignment.revision = (assignment.revision ?? 1) + 1;
+        return {
+          inspectionId: auditId,
+          assignmentId,
+          packageId: packageView.id,
+          packageVersion: packageView.packageVersion,
+          packageDigest: packageView.packageDigest,
+          status: assignment.status === "AWAITING_AUDITEE_CONFIRMATION" ? "AWAITING_AUDITEE_CONFIRMATION" as const : "SCHEDULED" as const,
+          noticeWithheld: Boolean(assignment.noticeWithheld),
+          assignmentRevision: assignment.revision,
+          expiresAt: packageView.expiresAt,
+        };
+      });
+    },
+    start: async (auditId, input) => {
+      requireDemoCapability(this.principal, "canonicalAuditWorkflow");
+      requireRole(this.principal, ["inspector"], "Assigned Inspector authority is required to start an Audit.");
+      return this.inspections.start({ auditId, operationId: input.operationId, expectedInspectionRevision: input.expectedInspectionRevision });
+    },
+  };
+
+  private mockCanonicalAssignment(
+    state: MockState,
+    assignmentId: string,
+    leadSubjectId: string,
+    memberSubjectIds: string[],
+    questionAssignments: Array<{ questionId: string; subjectId: string }> = [],
+  ) {
+    const auditId = assignmentId.replace(/^ASSIGN-/, "").replace(/:assignment$/, "");
+    const assignment = state.assignments.find((candidate) => candidate.auditId === auditId);
+    if (!assignment) throw new BackendInvariantError(`Audit assignment ${assignmentId} was not found.`);
+    return {
+      id: assignmentId,
+      inspectionId: auditId,
+      organizationId: assignment.organizationId,
+      leadSubjectId,
+      memberSubjectIds,
+      questionAssignments,
+      status: assignment.status,
+      scheduledStartDate: assignment.scheduledStartDate ?? assignment.dueDate ?? "2026-06-15",
+      scheduledEndDate: assignment.dueDate ?? "2026-06-15",
+      revision: assignment.revision ?? 1,
+    };
+  }
 
   private syntheticCanonicalRows(usageClass: CanonicalQuestionUsageClass, catalogVersion: string): CanonicalQuestionCatalogEntry[] {
     return Array.from({ length: 1310 }, (_, index) => {
@@ -3120,6 +3307,13 @@ export class MockBackendEngine implements DemoBackend {
         proposedRiskBand: "PROPOSED_REVIEW_REQUIRED",
         canSelect: true,
         canPublish: usageClass === "GOVERNED_OPERATIONAL",
+        governedCandidateId: null,
+        governedCandidateRevision: null,
+        governedCandidateContentDigest: null,
+        governedCandidateStatus: null,
+        reviewRevision: 0,
+        reviewDisposition: null,
+        reviewDigest: null,
       };
     });
   }
@@ -3177,7 +3371,18 @@ export class MockBackendEngine implements DemoBackend {
         }
         if (input.status) items = items.filter((assignment) => assignment.status === input.status);
         const limit = input.limit ?? items.length;
-        return { items: items.slice(0, limit), nextCursor: null };
+        return {
+          items: items.slice(0, limit).map((assignment) => {
+            const packageView = Object.values(state.packages).find((candidate) => candidate.auditId === assignment.auditId);
+            return {
+              ...assignment,
+              packageId: packageView?.id ?? null,
+              assignmentId: assignment.assignmentId ?? `${assignment.auditId}:assignment`,
+              revision: assignment.revision ?? 1,
+            };
+          }),
+          nextCursor: null,
+        };
       });
     },
   };

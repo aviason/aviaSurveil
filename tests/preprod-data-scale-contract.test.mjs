@@ -219,10 +219,10 @@ test("qualification uses an isolated normal API probe and loader-only interrupti
   assert.notEqual(api, "", "preprod-api service must exist");
   assert.match(api, /profiles:\s*\[local-preprod-loader\]/u);
   assert.match(api, /target:\s*api/u);
-  assert.match(api, /AVIA_ENVIRONMENT:\s*development/u);
+  assert.match(api, /AVIA_ENVIRONMENT:\s*local-preprod/u);
   assert.match(api, /AVIA_DATABASE_NAME:\s*aviasurveil360_local_preprod/u);
   assert.match(api, /preprod-app-database/u);
-  assert.doesNotMatch(api, /ports:|canonical|testprofile|AVIA_TEST_/iu);
+  assert.doesNotMatch(api, /ports:|testprofile|AVIA_TEST_/iu);
   assert.match(api, /entrypoint:\s*\[\/bin\/sh,\s*-c\]/u);
   assert.match(api, /exec \/app\/api/u);
   assert.match(api, /preprod_app_database_password/u);

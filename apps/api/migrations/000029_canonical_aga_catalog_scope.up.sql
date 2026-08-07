@@ -34,6 +34,7 @@ CREATE TABLE canonical_question_catalog_import_runs (
     failure_reason text,
     actor_subject_id text NOT NULL REFERENCES identity_references(subject_id),
     audit_event_id text REFERENCES audit_events(event_id),
+    expires_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now()
 );
 

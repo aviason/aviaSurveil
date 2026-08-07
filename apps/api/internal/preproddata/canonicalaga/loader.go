@@ -9,6 +9,7 @@ import (
 
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/preproddata/agacandidatedemo"
+	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/questioncatalog"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -25,7 +26,7 @@ type LoadResult struct {
 // method only creates immutable question_versions and reference-only catalog
 // membership/lineage rows.  Rerunning the same package is idempotent, while a
 // changed body or digest for an existing version fails closed.
-func LoadSealedCatalog(ctx context.Context, pool *database.Pool, pkg agacandidatedemo.AcceptedPackage, catalogVersion, actorSubjectID string, now time.Time) (LoadResult, error) {
+func LoadSealedCatalog(ctx context.Context, pool *database.Pool, pkg agacandidatedemo.AcceptedPackage, catalogVersion, actorSubjectID, providerScopeID, regulatedTargetID string, now time.Time) (LoadResult, error) {
 	if pool == nil {
 		return LoadResult{}, fmt.Errorf("canonical AGA catalog database is required")
 	}
@@ -36,12 +37,39 @@ func LoadSealedCatalog(ctx context.Context, pool *database.Pool, pkg agacandidat
 	if strings.TrimSpace(actorSubjectID) == "" {
 		return LoadResult{}, fmt.Errorf("canonical AGA catalog loader actor is required")
 	}
+	if strings.TrimSpace(providerScopeID) == "" || strings.TrimSpace(regulatedTargetID) == "" {
+		return LoadResult{}, fmt.Errorf("canonical AGA loader requires one explicit provider-scope/regulated-target applicability binding")
+	}
 	if now.IsZero() {
 		now = time.Now().UTC()
 	}
 	result := LoadResult{CatalogID: "catalog:" + catalogVersion, CatalogVersion: catalogVersion, QuestionCount: len(manifest.Rows), FormCount: 52, ImportDigest: manifest.ImportDigest}
 	err = database.WithinTransaction(ctx, pool, func(ctx context.Context, tx pgx.Tx) error {
 		catalogID := result.CatalogID
+		var compatible bool
+		if err := tx.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1
+				FROM organization_service_provider_scopes scope
+				JOIN regulated_targets target ON target.id = $2
+				WHERE scope.id = $1
+				  AND scope.status = 'ACTIVE'
+				  AND scope.effective_from <= CURRENT_DATE
+				  AND (scope.effective_to IS NULL OR scope.effective_to > CURRENT_DATE)
+				  AND (scope.primary_target_id = target.id OR EXISTS (
+					SELECT 1 FROM organization_service_provider_scope_targets linked
+					WHERE linked.organization_service_provider_scope_id = scope.id
+					  AND linked.regulated_target_id = target.id
+				  ))
+				  AND (target.organization_id IS NULL OR target.organization_id = scope.organization_id)
+				  AND (target.owner_organization_id IS NULL OR target.owner_organization_id = scope.organization_id)
+			)
+		`, providerScopeID, regulatedTargetID).Scan(&compatible); err != nil {
+			return err
+		}
+		if !compatible {
+			return fmt.Errorf("canonical AGA loader applicability binding is not an active compatible provider-scope/regulated-target pair")
+		}
 		var existingVersion, existingUsage, existingProfile, existingProfileVersion, existingRoot string
 		var existingQuestionCount, existingFormCount int
 		catalogErr := tx.QueryRow(ctx, `
@@ -108,6 +136,34 @@ func LoadSealedCatalog(ctx context.Context, pool *database.Pool, pkg agacandidat
 				return fmt.Errorf("question_versions immutable fields mismatch for %s", question.ID)
 			}
 		}
+		// Bind every imported immutable question version to the disposable
+		// exercise usage class only after the immutable question_versions row
+		// exists. The provenance FK is intentionally strict and prevents the
+		// same body/version identity from entering a governed candidate later.
+		for _, question := range manifest.QuestionVersions {
+			var existingUsage, existingCatalog string
+			provenanceErr := tx.QueryRow(ctx, `
+				SELECT usage_class, catalog_id
+				FROM canonical_question_version_provenance
+				WHERE question_version_id = $1
+			`, question.ID).Scan(&existingUsage, &existingCatalog)
+			switch {
+			case provenanceErr == nil:
+				if existingUsage != string(questioncatalog.UsageClassPreprodExercise) || existingCatalog != catalogID {
+					return fmt.Errorf("question version %s has a conflicting immutable provenance", question.ID)
+				}
+			case errors.Is(provenanceErr, pgx.ErrNoRows):
+				if _, err := tx.Exec(ctx, `
+					INSERT INTO canonical_question_version_provenance
+					(question_version_id, usage_class, catalog_id, recorded_at)
+					VALUES ($1, 'PREPROD_EXERCISE', $2, $3)
+				`, question.ID, catalogID, now.UTC()); err != nil {
+					return err
+				}
+			default:
+				return provenanceErr
+			}
+		}
 		for _, row := range manifest.Rows {
 			var existingFormCode, existingProposalID, existingSourceLocator, existingGap, existingDomain, existingTopic, existingRisk, existingDigest string
 			var existingOrdinal int
@@ -116,12 +172,9 @@ func LoadSealedCatalog(ctx context.Context, pool *database.Pool, pkg agacandidat
 				if existingFormCode != row.FormCode || existingProposalID != row.ProposalID || existingOrdinal != row.Ordinal || existingDigest != row.QuestionDigest || existingSourceLocator != findSourceLocator(manifest, row.QuestionVersionID) || existingGap != findSourceGap(manifest, row.QuestionVersionID) || existingDomain != findDomain(manifest, row.QuestionVersionID) || existingTopic != findTopic(manifest, row.QuestionVersionID) || existingRisk != findRiskBand(manifest, row.QuestionVersionID) {
 					return fmt.Errorf("canonical membership immutable fields mismatch for %s", row.QuestionVersionID)
 				}
-				continue
-			}
-			if !errors.Is(membershipErr, pgx.ErrNoRows) {
+			} else if !errors.Is(membershipErr, pgx.ErrNoRows) {
 				return membershipErr
-			}
-			if _, err := tx.Exec(ctx, `
+			} else if _, err := tx.Exec(ctx, `
 				INSERT INTO canonical_question_catalog_memberships
 				(catalog_id,question_version_id,usage_class,form_code,proposal_id,ordinal,question_digest,source_locator,source_gap_state,proposed_domain,proposed_topic,proposed_risk_band,created_at)
 				VALUES ($1,$2,'PREPROD_EXERCISE',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
@@ -129,6 +182,29 @@ func LoadSealedCatalog(ctx context.Context, pool *database.Pool, pkg agacandidat
 			`, catalogID, row.QuestionVersionID, row.FormCode, row.ProposalID, row.Ordinal, row.QuestionDigest, findSourceLocator(manifest, row.QuestionVersionID), findSourceGap(manifest, row.QuestionVersionID), findDomain(manifest, row.QuestionVersionID), findTopic(manifest, row.QuestionVersionID), findRiskBand(manifest, row.QuestionVersionID), now.UTC()); err != nil {
 				return err
 			}
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO canonical_question_catalog_membership_events
+				(event_id, catalog_id, question_version_id, status, reason, actor_subject_id, occurred_at)
+				VALUES ($1, $2, $3, 'AVAILABLE', 'sealed import membership', $4, $5)
+				ON CONFLICT (event_id) DO NOTHING
+			`, "catalog-membership:"+catalogID+":"+row.QuestionVersionID+":available", catalogID, row.QuestionVersionID, actorSubjectID, now.UTC()); err != nil {
+				return err
+			}
+		}
+		// Exercise eligibility is explicit too.  The disposable profile may
+		// expose the imported catalog only for currently active, compatible
+		// provider-scope/target pairs materialized in this database; the API
+		// never infers eligibility from a catalog cross join.
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO canonical_question_catalog_applicabilities
+			(catalog_id, question_version_id, provider_scope_id, regulated_target_id, status, reason, actor_subject_id, created_at)
+			SELECT $1, membership.question_version_id, $3, $4, 'ELIGIBLE',
+			       'disposable AGA exercise profile active-scope fixture', $2, $5
+			FROM canonical_question_catalog_memberships membership
+			WHERE membership.catalog_id=$1 AND membership.usage_class='PREPROD_EXERCISE'
+			ON CONFLICT DO NOTHING
+		`, catalogID, actorSubjectID, now.UTC(), providerScopeID, regulatedTargetID); err != nil {
+			return err
 		}
 		var existingImportDigest, existingZip, existingJSON string
 		var existingRows, existingForms int

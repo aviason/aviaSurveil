@@ -4,7 +4,11 @@ import { z } from "zod";
 
 import { useApplicationRuntime } from "../../app/providers";
 import type {
+  CanonicalAuditScopeOption,
   CanonicalQuestionCatalogPage,
+  CanonicalQuestionCatalogEntry,
+  CanonicalQuestionUsageClass,
+  CanonicalSelectionPreview,
   PlanningIntakeDraftValues,
   PlanningIntakeDraftView,
   PlanningIntakeInspectionCategory,
@@ -56,6 +60,10 @@ function pathForStep(step: number, draftId?: string): string {
 	return `/department-manager/new-audit/step-${step}${draftId ? `?draftId=${encodeURIComponent(draftId)}` : ""}`;
 }
 
+function operationId(prefix: string): string {
+  return `${prefix}-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`.toUpperCase();
+}
+
 function stepFromPath(pathname: string): number {
   const candidate = Number(pathname.match(/step-(\d)$/)?.[1] ?? 1);
   return Math.min(5, Math.max(1, candidate));
@@ -70,8 +78,8 @@ function noticeLabel(values: Pick<PlanningIntakeDraftValues, "noticePolicy">): s
 }
 
 async function selectionDigestFor(ids: readonly string[]): Promise<string> {
-  const canonical = [...new Set(ids)].sort().join("\n");
-  const bytes = new TextEncoder().encode(canonical ? `${canonical}\n` : "");
+  const canonical = [...new Set(ids)].map((id, index) => `${index}\u0000${id}\n`).join("");
+  const bytes = new TextEncoder().encode(canonical);
   const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
@@ -114,6 +122,24 @@ export function NewAuditWizardPage() {
   const [busy, setBusy] = useState(false);
   const [catalogPage, setCatalogPage] = useState<CanonicalQuestionCatalogPage | null>(null);
   const [catalogBusy, setCatalogBusy] = useState(false);
+  const [catalogSearch, setCatalogSearch] = useState("");
+  const [catalogFormCode, setCatalogFormCode] = useState("");
+  const [catalogDomain, setCatalogDomain] = useState("");
+  const [catalogTopic, setCatalogTopic] = useState("");
+  const [catalogRiskBand, setCatalogRiskBand] = useState("");
+  const [catalogSourceGapState, setCatalogSourceGapState] = useState("");
+  const [catalogSelectedFilter, setCatalogSelectedFilter] = useState<"all" | "selected" | "unselected">("all");
+  const [catalogCursor, setCatalogCursor] = useState<string | undefined>();
+  const [catalogPreviousCursors, setCatalogPreviousCursors] = useState<string[]>([]);
+  const [catalogPageNumber, setCatalogPageNumber] = useState(1);
+  const [catalogDetail, setCatalogDetail] = useState<CanonicalQuestionCatalogEntry | null>(null);
+  const [selectionPreview, setSelectionPreview] = useState<CanonicalSelectionPreview | null>(null);
+  const [scopeOptionLabel, setScopeOptionLabel] = useState<string | null>(null);
+  const [scopeOptions, setScopeOptions] = useState<CanonicalAuditScopeOption[]>([]);
+  // Catalog authority is returned by the server-owned scope selector. The
+  // normal API returns GOVERNED_OPERATIONAL; only the disposable local
+  // preprod profile may return PREPROD_EXERCISE.
+  const [auditUsageClass, setAuditUsageClass] = useState<CanonicalQuestionUsageClass>("GOVERNED_OPERATIONAL");
 
   useEffect(() => {
     let cancelled = false;
@@ -122,50 +148,122 @@ export function NewAuditWizardPage() {
       return () => { cancelled = true; };
     }
     const requestedDraftId = new URLSearchParams(location.search).get("draftId");
-    const operationId = `NEW-AUDIT-${requestedDraftId ?? Date.now()}`;
-    const load = requestedDraftId
-      ? backend.planningIntake.getDraft({ draftId: requestedDraftId })
-      : backend.planningIntake.createDraft({
-        operationId,
-        idempotencyKey: operationId,
-        expectedRevision: null,
-        values: {
-          organizationId: "ORG-FLY-NAMIBIA",
-          organizationName: "",
-          applicationType: "Continued Surveillance",
-          domain: "Cabin Safety",
-          inspectionCategory: "Routine / Announced",
-          noticePolicy: "ADVANCE",
-          purpose: "",
-          triggerType: "Department Manager initiated",
-          riskCategory: "",
-          plannedDate: "",
-          mode: "On-site",
-          location: "",
-          catalogVersion: "aga-preprod@1.0.0",
-          scopeDraftId: "",
-          selectionDigest: "",
-          selectedQuestionVersionIds: [],
-          requestedBudget: 0,
-          currency: "USD",
-        },
-      });
+    const load = (async () => {
+      if (!backend.canonicalQuestionReview) {
+        throw new Error("Server-authorized audit scope selection is unavailable in this build profile.");
+      }
+      const optionPages: CanonicalAuditScopeOption[] = [];
+      let cursor: string | undefined;
+      do {
+        const page = await backend.canonicalQuestionReview.listScopeOptions({ limit: 25, cursor });
+        optionPages.push(...page.items);
+        cursor = page.nextCursor ?? undefined;
+      } while (cursor && optionPages.length < 1000);
+      const options = { items: optionPages };
+      if (!cancelled) {
+        setScopeOptions(options.items);
+        setAuditUsageClass(options.items[0]?.usageClass ?? "GOVERNED_OPERATIONAL");
+      }
+      if (requestedDraftId) {
+        const loadedDraft = await backend.planningIntake.getDraft({ draftId: requestedDraftId });
+        if (!cancelled) {
+          const matchingOption = options.items.find((option) => option.catalogVersion === loadedDraft.catalogVersion);
+          if (matchingOption) setAuditUsageClass(matchingOption.usageClass);
+        }
+        return loadedDraft;
+      }
+      // A new audit remains an uncommitted setup until the manager explicitly
+      // chooses an authorized organization/provider scope/target.
+      return null;
+    })();
     void load.then((loaded) => {
       if (!cancelled) {
-        setDraft(loaded);
-        setValues(formValuesFor(loaded));
+        if (loaded) {
+          setDraft(loaded);
+          setValues(formValuesFor(loaded));
+          if (!scopeOptionLabel && loaded.organizationName) setScopeOptionLabel(loaded.organizationName);
+        }
       }
     }).catch((cause) => !cancelled && setError(errorMessage(cause)));
     return () => { cancelled = true; };
   }, [backend, location.search]);
 
+  async function changeScope(option: (typeof scopeOptions)[number]) {
+    if (!backend.planningIntake || (values && option.providerScopeId === values.providerScopeId && option.regulatedTargetId === values.regulatedTargetId)) return;
+    setAuditUsageClass(option.usageClass);
+    setBusy(true);
+    setError(null);
+    try {
+      const nextValues: PlanningIntakeDraftValues = {
+        ...(values ? commandValuesFor(values) : {
+          organizationId: "",
+          organizationName: "",
+          applicationType: "Continued Surveillance",
+          domain: "Cabin Safety",
+          inspectionCategory: "Routine / Announced" as const,
+          noticePolicy: "ADVANCE" as const,
+          purpose: "",
+          triggerType: "Department Manager initiated",
+          riskCategory: "",
+          plannedDate: "",
+          mode: "On-site" as const,
+          location: "",
+          catalogVersion: "",
+          scopeDraftId: "",
+          selectionDigest: "",
+          selectedQuestionVersionIds: [],
+          requestedBudget: 0,
+          currency: "USD",
+          providerScopeId: "",
+          regulatedTargetId: "",
+        }),
+        organizationId: option.organizationId,
+        organizationName: option.organizationName,
+        catalogVersion: option.catalogVersion,
+        providerScopeId: option.providerScopeId,
+        regulatedTargetId: option.regulatedTargetId,
+        scopeDraftId: "",
+        selectionDigest: "",
+        selectedQuestionVersionIds: [],
+      };
+      const operationIdValue = operationId("NEW-AUDIT-SCOPE");
+      const replacement = await backend.planningIntake.createDraft({
+        operationId: operationIdValue,
+        idempotencyKey: operationIdValue,
+        expectedRevision: null,
+        values: nextValues,
+      });
+      setDraft(replacement);
+      setValues(formValuesFor(replacement));
+      setScopeOptionLabel(`${option.organizationName} · ${option.providerTypeLabel} · ${option.targetLabel}`);
+      setStatus("A new server-owned draft was opened for the selected organization/provider scope/target.");
+      // Preserve the requested step after the explicit scope choice. A direct
+      // link to a later step still requires the same server-owned selection,
+      // then resumes at that step instead of silently resetting the user.
+      navigate(pathForStep(step, replacement.id), { replace: true });
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   useEffect(() => {
-    if (step !== 4 || !values || !backend.canonicalQuestionReview) return;
+    if (step !== 4 || !values || !values.catalogVersion || !backend.canonicalQuestionReview) return;
     const controller = new AbortController();
     setCatalogBusy(true);
     void backend.canonicalQuestionReview.listCatalog({
-      catalogVersion: values.catalogVersion || "aga-preprod@1.0.0",
-      usageClass: "PREPROD_EXERCISE",
+      catalogVersion: values.catalogVersion,
+      usageClass: auditUsageClass,
+      search: catalogSearch || undefined,
+      formCode: catalogFormCode || undefined,
+      domain: catalogDomain || undefined,
+      topic: catalogTopic || undefined,
+      riskBand: catalogRiskBand || undefined,
+      sourceGapState: catalogSourceGapState || undefined,
+      selected: catalogSelectedFilter,
+      scopeId: values.scopeDraftId || undefined,
+      cursor: catalogCursor,
       limit: 25,
     }, { signal: controller.signal }).then((page) => {
       if (!controller.signal.aborted) setCatalogPage(page);
@@ -175,7 +273,13 @@ export function NewAuditWizardPage() {
       if (!controller.signal.aborted) setCatalogBusy(false);
     });
     return () => controller.abort();
-  }, [backend, step, values?.catalogVersion]);
+  }, [auditUsageClass, backend, catalogCursor, catalogDomain, catalogFormCode, catalogRiskBand, catalogSearch, catalogSelectedFilter, catalogSourceGapState, catalogTopic, step, values?.catalogVersion, values?.scopeDraftId]);
+
+  function resetCatalogPage() {
+    setCatalogCursor(undefined);
+    setCatalogPreviousCursors([]);
+    setCatalogPageNumber(1);
+  }
 
   function update<K extends keyof PlanningIntakeFormValues>(key: K, value: PlanningIntakeFormValues[K]) {
     setValues((current) => current ? { ...current, [key]: value } : current);
@@ -191,20 +295,73 @@ export function NewAuditWizardPage() {
     setStatus(null);
   }
 
-async function toggleQuestion(questionVersionId: string) {
+  async function commitQuestionSelection(questionVersionIds: string[], operationKind: "ADD" | "REMOVE") {
+    if (busy || !values || !draft || !backend.canonicalQuestionReview) return;
+    if (!values.scopeDraftId) {
+      setError("The server did not return a canonical scope identity; reload this draft before selecting questions.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const expectedSelectionDigest = values.selectionDigest || await selectionDigestFor([]);
+      const previewOperationId = operationId(`SCOPE-${draft.id}-PREVIEW`);
+      const previewReceipt = await backend.canonicalQuestionReview.previewSelection({
+        scopeId: values.scopeDraftId,
+        operationId: previewOperationId,
+        idempotencyKey: previewOperationId,
+			 expectedSelectionDigest,
+			 questionVersionIds,
+			 operationKind,
+        usageClass: auditUsageClass,
+        filter: {},
+      });
+      setSelectionPreview(previewReceipt);
+      const operationIdValue = operationId(`SCOPE-${draft.id}-COMMIT`);
+      const receipt = await backend.canonicalQuestionReview.commitSelection({
+        scopeId: values.scopeDraftId,
+        operationId: operationIdValue,
+        previewOperationId,
+        idempotencyKey: operationIdValue,
+			 expectedSelectionDigest,
+				 questionVersionIds,
+			 operationKind,
+        usageClass: auditUsageClass,
+        filter: {},
+      });
+      setValues((current) => current ? {
+        ...current,
+        selectedQuestionVersionIds: receipt.selection.selectedQuestionVersionIds,
+        selectionDigest: receipt.selection.selectionDigest,
+      } : current);
+      setError(null);
+      setStatus(`Exact question selection committed · ${receipt.selection.selectedCount} selected · ${receipt.selection.selectionDigest}`);
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function toggleQuestion(questionVersionId: string) {
     if (!values) return;
-    const selected = new Set(values.selectedQuestionVersionIds ?? []);
-    if (selected.has(questionVersionId)) selected.delete(questionVersionId);
-    else selected.add(questionVersionId);
-    const ids = [...selected].sort();
-    const digest = await selectionDigestFor(ids);
-    setValues((current) => current ? {
-      ...current,
-      selectedQuestionVersionIds: ids,
-      selectionDigest: digest,
-      scopeDraftId: current.scopeDraftId || draft?.id || "",
-    } : current);
-    setStatus(`Exact question selection frozen locally · ${ids.length} selected · ${digest}`);
+    const selected = values.selectedQuestionVersionIds?.includes(questionVersionId) ?? false;
+    void commitQuestionSelection([questionVersionId], selected ? "REMOVE" : "ADD");
+  }
+
+  async function openCatalogDetail(question: CanonicalQuestionCatalogEntry) {
+    setCatalogDetail(question);
+    if (!values || !backend.canonicalQuestionReview) return;
+    try {
+      const detail = await backend.canonicalQuestionReview.getQuestion({
+        catalogVersion: values.catalogVersion ?? "",
+        usageClass: auditUsageClass,
+        questionVersionId: question.questionVersionId,
+        scopeId: values.scopeDraftId || undefined,
+      });
+      setCatalogDetail(detail);
+    } catch (cause) {
+      setError(errorMessage(cause));
+    }
   }
 
   async function saveDraft(nextValues = values): Promise<PlanningIntakeDraftView | null> {
@@ -297,11 +454,20 @@ async function toggleQuestion(questionVersionId: string) {
         {status ? <p className="planning-intake-status" role="status">{status}</p> : null}
         <section aria-label="Planning intake form" className="planning-intake-form">
           <header><span>Step {step} of 5</span><h2>Step {step} of 5 — {definition.title}</h2></header>
-          {!values ? <p>Loading Planning intake draft…</p> : null}
+          {!values ? <div className="planning-intake-fields">
+            <label>Organization, provider scope, and regulated target
+              <select aria-label="Organization, provider scope, and regulated target" disabled={busy || !scopeOptions.length} value="" onChange={(event) => { const option = scopeOptions.find((item) => `${item.providerScopeId}:${item.regulatedTargetId}` === event.target.value); if (option) void changeScope(option); }}>
+                <option value="">Choose an authorized scope…</option>
+                {scopeOptions.map((item) => <option key={`${item.providerScopeId}:${item.regulatedTargetId}`} value={`${item.providerScopeId}:${item.regulatedTargetId}`}>{item.organizationName} · {item.providerTypeLabel} · {item.targetLabel}</option>)}
+              </select>
+            </label>
+            <div className="planning-intake-notice" role="note"><b>Selection is required</b><span>The server will create the opaque Planning draft only after this explicit Department Manager scope choice.</span></div>
+          </div> : null}
           {values && step === 1 ? <div className="planning-intake-fields">
-            <label>Organization<select aria-label="Organization" value={values.organizationId} onChange={(event) => update("organizationId", event.target.value)}><option value="ORG-FLY-NAMIBIA">Fly Namibia</option></select></label>
-            <label>Application Type<select aria-label="Application Type" value={values.applicationType} onChange={(event) => update("applicationType", event.target.value)}><option value="Continued Surveillance">Continued Surveillance</option></select></label>
-            <label>Domain<select aria-label="Domain" value={values.domain} onChange={(event) => update("domain", event.target.value)}><option value="Cabin Safety">Cabin Safety</option></select></label>
+            <label>Organization<select aria-label="Organization" disabled={busy || !scopeOptions.length} value={`${values.providerScopeId}:${values.regulatedTargetId}`} onChange={(event) => { const option = scopeOptions.find((item) => `${item.providerScopeId}:${item.regulatedTargetId}` === event.target.value); if (option) void changeScope(option); }}><option value={`${values.providerScopeId}:${values.regulatedTargetId}`}>{values.organizationName || values.organizationId}</option>{scopeOptions.filter((item) => `${item.providerScopeId}:${item.regulatedTargetId}` !== `${values.providerScopeId}:${values.regulatedTargetId}`).map((item) => <option key={`${item.providerScopeId}:${item.regulatedTargetId}`} value={`${item.providerScopeId}:${item.regulatedTargetId}`}>{item.organizationName} · {item.providerTypeLabel} · {item.targetLabel}</option>)}</select></label>
+            <label>Application Type<input aria-label="Application Type" value={values.applicationType} onChange={(event) => update("applicationType", event.target.value)} /></label>
+            <label>Domain<input aria-label="Domain" value={values.domain} onChange={(event) => update("domain", event.target.value)} /></label>
+            <div className="planning-intake-notice" role="note"><b>Server-authorized scope</b><span>{scopeOptionLabel ?? `${values.organizationName || values.organizationId} · provider scope ${values.providerScopeId || "pending"} · target ${values.regulatedTargetId || "pending"}`}</span></div>
           </div> : null}
           {values && step === 2 ? <div className="planning-intake-fields">
             <label>Inspection Category<select aria-label="Inspection Category" value={values.inspectionCategory} onChange={(event) => updateCategory(event.target.value as PlanningIntakeInspectionCategory)}><option value="Routine / Announced">Routine / Announced</option><option value="Ad Hoc / Unannounced">Ad Hoc / Unannounced</option></select></label>
@@ -317,18 +483,33 @@ async function toggleQuestion(questionVersionId: string) {
           </div> : null}
           {values && step === 4 ? <div className="planning-intake-fields">
             <div className="planning-intake-catalog" aria-label="Question catalog selection">
-              <div className="planning-intake-catalog-header"><div><span className="eyebrow">Governed selection boundary</span><h3>Choose the exact question subset</h3><p>Only the selected immutable question versions are sent to Finance. No checklist template is selected here.</p></div><span className="planning-intake-catalog-count" aria-live="polite">{values.selectedQuestionVersionIds?.length ?? 0} selected</span></div>
+              <div className="planning-intake-catalog-header"><div><span className="eyebrow">{auditUsageClass === "PREPROD_EXERCISE" ? "Disposable preprod exercise boundary" : "Governed selection boundary"}</span><h3>Choose the exact question subset</h3><p>Only the selected immutable question versions are sent to Finance. No checklist template is selected here.</p></div><span className="planning-intake-catalog-count" aria-live="polite">{values.selectedQuestionVersionIds?.length ?? 0} selected</span></div>
+              <div className="planning-intake-catalog-filters" aria-label="New Audit question search and filters">
+                <label>Search<input aria-label="New Audit question search" value={catalogSearch} onChange={(event) => { setCatalogSearch(event.target.value); resetCatalogPage(); }} placeholder="Form, proposal, or question identity" /></label>
+                <label>Form<input aria-label="New Audit form filter" value={catalogFormCode} onChange={(event) => { setCatalogFormCode(event.target.value); resetCatalogPage(); }} /></label>
+                <label>Domain<input aria-label="New Audit domain filter" value={catalogDomain} onChange={(event) => { setCatalogDomain(event.target.value); resetCatalogPage(); }} /></label>
+                <label>Topic<input aria-label="New Audit topic filter" value={catalogTopic} onChange={(event) => { setCatalogTopic(event.target.value); resetCatalogPage(); }} /></label>
+                <label>Risk band<input aria-label="New Audit risk filter" value={catalogRiskBand} onChange={(event) => { setCatalogRiskBand(event.target.value); resetCatalogPage(); }} /></label>
+                <label>Source gap<input aria-label="New Audit source gap filter" value={catalogSourceGapState} onChange={(event) => { setCatalogSourceGapState(event.target.value); resetCatalogPage(); }} /></label>
+                <label>Selected state<select aria-label="New Audit selected filter" value={catalogSelectedFilter} onChange={(event) => { setCatalogSelectedFilter(event.target.value as typeof catalogSelectedFilter); resetCatalogPage(); }}><option value="all">All questions</option><option value="selected">Selected in scope</option><option value="unselected">Not selected</option></select></label>
+              </div>
               {catalogBusy ? <p role="status">Loading catalog page…</p> : null}
               {!catalogBusy && !catalogPage ? <p role="status">Catalog selection is unavailable in this build profile.</p> : null}
               {catalogPage ? <ul className="planning-intake-catalog-list">
                 {catalogPage.items.map((question) => {
                   const checked = values.selectedQuestionVersionIds?.includes(question.questionVersionId) ?? false;
-                  return <li key={question.questionVersionId}><label><input aria-label={`Select ${question.formCode} ${question.ordinal}`} checked={checked} onChange={() => void toggleQuestion(question.questionVersionId)} type="checkbox" /><span><b>{question.formCode} · item {question.ordinal}</b><small>{question.questionVersionId} · {question.proposedDomain ?? "Unclassified"}</small></span></label></li>;
+                  return <li key={question.questionVersionId}><label><input aria-label={`Select ${question.formCode} ${question.ordinal}`} checked={checked} disabled={busy || !question.canSelect} onChange={() => toggleQuestion(question.questionVersionId)} title={!question.canSelect ? "This question is not selectable in the current server-authorized scope." : undefined} type="checkbox" /><span><b>{question.formCode} · item {question.ordinal}</b><small>{question.questionVersionId} · {question.proposedDomain ?? "Unclassified"}</small></span></label><button className="planning-intake-question-detail" type="button" onClick={() => void openCatalogDetail(question)}>View dossier</button></li>;
                 })}
               </ul> : null}
-              {catalogPage?.nextCursor ? <p className="planning-intake-catalog-note">Showing the first governed page of {catalogPage.totalCount} available questions. Search and filters remain available in Checklist Management → Question Review.</p> : null}
+              <section aria-label="Selected question tray" className="planning-intake-selected-tray">
+                <header><h4>Selected question tray</h4><span>{values.selectedQuestionVersionIds?.length ?? 0} exact immutable versions</span></header>
+                {(values.selectedQuestionVersionIds ?? []).length ? <ul>{(values.selectedQuestionVersionIds ?? []).map((questionId) => <li key={questionId}><span>{questionId}</span><button type="button" disabled={busy} onClick={() => void commitQuestionSelection([questionId], "REMOVE")}>Remove</button></li>)}</ul> : <p>No questions selected. Select at least one version to continue.</p>}
+              </section>
+              {catalogDetail ? <aside aria-label="Selected question dossier" className="planning-intake-question-dossier"><header><h4>Question dossier</h4><button type="button" onClick={() => setCatalogDetail(null)}>Close</button></header><strong>{catalogDetail.formCode} · item {catalogDetail.ordinal}</strong><p>{catalogDetail.prompt ?? "Prompt unavailable in this profile."}</p><dl><div><dt>Question version</dt><dd>{catalogDetail.questionVersionId}</dd></div><div><dt>Source gap</dt><dd>{catalogDetail.sourceGapState}</dd></div><div><dt>Reference</dt><dd>{catalogDetail.configuredReference ?? "Not configured"}</dd></div><div><dt>Expected Evidence</dt><dd>{catalogDetail.expectedEvidence ?? "Not configured"}</dd></div></dl></aside> : null}
+              {selectionPreview ? <p className="planning-intake-selection-preview" role="status">Preview: {selectionPreview.preview.selectedCount} selected · {selectionPreview.valid ? "ready to commit" : selectionPreview.reason}</p> : null}
+              <div className="planning-intake-catalog-pagination" aria-label="New Audit question pagination"><button disabled={catalogBusy || !catalogPreviousCursors.length} onClick={() => { const history = [...catalogPreviousCursors]; setCatalogCursor(history.pop()); setCatalogPreviousCursors(history); setCatalogPageNumber((value) => Math.max(1, value - 1)); }} type="button">Previous questions</button><button disabled={catalogBusy || (!catalogSearch && !catalogFormCode && !catalogDomain && !catalogTopic && !catalogRiskBand && !catalogSourceGapState && catalogSelectedFilter === "all")} onClick={() => { setCatalogSearch(""); setCatalogFormCode(""); setCatalogDomain(""); setCatalogTopic(""); setCatalogRiskBand(""); setCatalogSourceGapState(""); setCatalogSelectedFilter("all"); resetCatalogPage(); }} type="button">Clear filters</button><span aria-live="polite">{catalogPage?.totalCount ?? 0} matching questions · page {catalogPageNumber}</span><button disabled={catalogBusy || !catalogPage?.nextCursor} onClick={() => { if (!catalogPage?.nextCursor) return; setCatalogPreviousCursors((history) => [...history, catalogCursor ?? ""]); setCatalogCursor(catalogPage.nextCursor ?? undefined); setCatalogPageNumber((value) => value + 1); }} type="button">Next questions</button></div>
             </div>
-            <label>Question Catalog Version<input aria-label="Question Catalog Version" readOnly value={values.catalogVersion ?? "aga-preprod@1.0.0"} /></label>
+            <label>Question Catalog Version<input aria-label="Question Catalog Version" readOnly value={values.catalogVersion ?? "Unavailable"} /></label>
             <label>Requested Budget<input aria-label="Requested Budget" min="0" type="number" value={values.requestedBudget} onChange={(event) => update("requestedBudget", event.target.value)} /></label>
             <label>Currency<select aria-label="Currency" value={values.currency} onChange={(event) => update("currency", event.target.value as PlanningIntakeDraftValues["currency"])}><option value="USD">USD</option><option value="EUR">EUR</option><option value="NAD">NAD</option></select></label>
             <div className="planning-intake-notice" role="note"><b>Finance Review is required even when the requested budget is zero.</b><span>The selection digest is retained with the Planning draft and cannot be replaced by a template identifier.</span></div>

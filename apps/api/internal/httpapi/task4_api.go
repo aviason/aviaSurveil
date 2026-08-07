@@ -3,9 +3,11 @@ package httpapi
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/application"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/assignments"
+	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/datafeed"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/httpapi/generated"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/inspections"
@@ -49,6 +51,10 @@ func (api *CanonicalAPI) savePlanningIntakeDraft(
 		request, input.IdempotencyKey, input.ExpectedRevision,
 	) {
 		api.respond(writer, nil, application.ErrInvalid)
+		return
+	}
+	if err := api.requireCatalogRuntimeProfile(request.Context(), optionalString(input.Values.CatalogVersion)); err != nil {
+		api.respond(writer, nil, err)
 		return
 	}
 	draft, err := api.planning.SaveIntakeDraft(
@@ -102,6 +108,10 @@ func (api *CanonicalAPI) submitPlanningIntake(
 		api.respond(writer, nil, application.ErrInvalid)
 		return
 	}
+	if err := api.requireDraftRuntimeProfile(request.Context(), draftID); err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
 	result, err := api.planning.SubmitIntake(
 		request.Context(), actor, planning.SubmitIntakeCommand{
 			OperationID: input.OperationId, IdempotencyKey: input.IdempotencyKey,
@@ -124,6 +134,10 @@ func (api *CanonicalAPI) getInspectionPackageDraft(
 	writer http.ResponseWriter,
 	request *http.Request,
 ) {
+	if api.preprodExerciseProfile {
+		api.respond(writer, nil, application.ErrNotFound)
+		return
+	}
 	actor, ok := requirePrincipal(writer, request)
 	if !ok {
 		return
@@ -143,6 +157,10 @@ func (api *CanonicalAPI) saveInspectionPackageDraft(
 	writer http.ResponseWriter,
 	request *http.Request,
 ) {
+	if api.preprodExerciseProfile {
+		api.respond(writer, nil, application.ErrNotFound)
+		return
+	}
 	actor, ok := requirePrincipal(writer, request)
 	if !ok {
 		return
@@ -252,6 +270,191 @@ func (api *CanonicalAPI) getAuditTeam(
 	api.respond(writer, inspectionTeamAuditView(item), err)
 }
 
+func (api *CanonicalAPI) prepareAudit(writer http.ResponseWriter, request *http.Request) {
+	actor, ok := requirePrincipal(writer, request)
+	if !ok {
+		return
+	}
+	var input generated.PrepareAuditInput
+	if !decodeJSON(writer, request, &input) {
+		return
+	}
+	planningItemID := chi.URLParam(request, "planningItemId")
+	if !validRevisionCommandHeaders(request, input.IdempotencyKey, &input.ExpectedPlanningRevision) {
+		api.respond(writer, nil, application.ErrInvalid)
+		return
+	}
+	item, err := api.assignments.Prepare(request.Context(), actor, assignments.PrepareCommand{
+		OperationID: input.OperationId, IdempotencyKey: input.IdempotencyKey,
+		PlanningItemID:           planningItemID,
+		ExpectedPlanningRevision: input.ExpectedPlanningRevision,
+	})
+	if err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
+	writer.Header().Set("ETag", strongRevisionETag(item.Revision))
+	api.respond(writer, generated.PreparationView{
+		AssignmentId: item.AssignmentID, PlanningItemId: item.PlanningItemID,
+		OrganizationId: item.OrganizationID, Status: string(item.Status), Revision: item.Revision,
+	}, nil)
+}
+
+func (api *CanonicalAPI) assignAuditLead(writer http.ResponseWriter, request *http.Request) {
+	actor, ok := requirePrincipal(writer, request)
+	if !ok {
+		return
+	}
+	var input generated.AssignLeadInput
+	if !decodeJSON(writer, request, &input) {
+		return
+	}
+	assignmentID := chi.URLParam(request, "assignmentId")
+	if !validRevisionCommandHeaders(request, input.IdempotencyKey, &input.ExpectedInspectionRevision) {
+		api.respond(writer, nil, application.ErrInvalid)
+		return
+	}
+	item, err := api.assignments.AssignLead(request.Context(), actor, assignments.AssignLeadCommand{
+		OperationID: input.OperationId, IdempotencyKey: input.IdempotencyKey,
+		AssignmentID:               assignmentID,
+		ExpectedInspectionRevision: input.ExpectedInspectionRevision, LeadSubjectID: input.LeadSubjectId,
+	})
+	if err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
+	writer.Header().Set("ETag", strongRevisionETag(item.Revision))
+	api.respond(writer, canonicalAssignmentView(item), nil)
+}
+
+func (api *CanonicalAPI) assignAuditTeam(writer http.ResponseWriter, request *http.Request) {
+	actor, ok := requirePrincipal(writer, request)
+	if !ok {
+		return
+	}
+	var input generated.AssignTeamInput
+	if !decodeJSON(writer, request, &input) {
+		return
+	}
+	assignmentID := chi.URLParam(request, "assignmentId")
+	if !validRevisionCommandHeaders(request, input.IdempotencyKey, &input.ExpectedRevision) {
+		api.respond(writer, nil, application.ErrInvalid)
+		return
+	}
+	item, err := api.assignments.AssignTeam(request.Context(), actor, assignments.AssignTeamCommand{
+		OperationID: input.OperationId, IdempotencyKey: input.IdempotencyKey,
+		AssignmentID: assignmentID, ExpectedRevision: input.ExpectedRevision,
+		MemberSubjectIDs: append([]string(nil), input.MemberSubjectIds...),
+	})
+	if err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
+	writer.Header().Set("ETag", strongRevisionETag(item.Revision))
+	api.respond(writer, canonicalAssignmentView(item), nil)
+}
+
+func (api *CanonicalAPI) assignAuditQuestionCoverage(writer http.ResponseWriter, request *http.Request) {
+	actor, ok := requirePrincipal(writer, request)
+	if !ok {
+		return
+	}
+	var input generated.AssignQuestionsInput
+	if !decodeJSON(writer, request, &input) {
+		return
+	}
+	assignmentID := chi.URLParam(request, "assignmentId")
+	if !validRevisionCommandHeaders(request, input.IdempotencyKey, &input.ExpectedRevision) {
+		api.respond(writer, nil, application.ErrInvalid)
+		return
+	}
+	questionAssignments := make([]assignments.QuestionAssignment, 0, len(input.QuestionAssignments))
+	for _, assignment := range input.QuestionAssignments {
+		questionAssignments = append(questionAssignments, assignments.QuestionAssignment{
+			QuestionID: assignment.QuestionId, SubjectID: assignment.SubjectId,
+		})
+	}
+	item, err := api.assignments.AssignQuestions(request.Context(), actor, assignments.AssignQuestionsCommand{
+		OperationID: input.OperationId, IdempotencyKey: input.IdempotencyKey,
+		AssignmentID: assignmentID, ExpectedRevision: input.ExpectedRevision,
+		QuestionAssignments: questionAssignments,
+	})
+	if err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
+	writer.Header().Set("ETag", strongRevisionETag(item.Revision))
+	api.respond(writer, canonicalAssignmentView(item), nil)
+}
+
+func (api *CanonicalAPI) confirmAuditPreparation(
+	writer http.ResponseWriter,
+	request *http.Request,
+) {
+	actor, ok := requirePrincipal(writer, request)
+	if !ok {
+		return
+	}
+	var input generated.ConfirmAuditPreparationInput
+	if !decodeJSON(writer, request, &input) {
+		return
+	}
+	assignmentID := chi.URLParam(request, "assignmentId")
+	if !validRevisionCommandHeaders(request, input.IdempotencyKey, &input.ExpectedAssignmentRevision) {
+		api.respond(writer, nil, application.ErrInvalid)
+		return
+	}
+	item, err := api.assignments.ConfirmPreparation(
+		request.Context(), actor, assignments.ConfirmPreparationCommand{
+			OperationID: input.OperationId, IdempotencyKey: input.IdempotencyKey,
+			AssignmentID: assignmentID, ExpectedAssignmentRevision: input.ExpectedAssignmentRevision,
+		},
+	)
+	if err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
+	writer.Header().Set("ETag", strongRevisionETag(item.Revision))
+	api.respond(writer, preparationConfirmationView(item), nil)
+}
+
+func (api *CanonicalAPI) materializeCanonicalAudit(
+	writer http.ResponseWriter,
+	request *http.Request,
+) {
+	actor, ok := requirePrincipal(writer, request)
+	if !ok {
+		return
+	}
+	var input generated.MaterializeCanonicalAuditInput
+	if !decodeJSON(writer, request, &input) {
+		return
+	}
+	assignmentID := chi.URLParam(request, "assignmentId")
+	if !validRevisionCommandHeaders(request, input.IdempotencyKey, &input.ExpectedAssignmentRevision) {
+		api.respond(writer, nil, application.ErrInvalid)
+		return
+	}
+	correlationID, err := datafeed.NewEventID()
+	if err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
+	item, err := api.application.MaterializeInspection(
+		request.Context(), actor, application.MaterializeInspectionCommand{
+			OperationID: input.OperationId, IdempotencyKey: input.IdempotencyKey,
+			CorrelationID: correlationID, AssignmentID: assignmentID,
+			ExpectedAssignmentRevision: input.ExpectedAssignmentRevision,
+		},
+	)
+	if err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
+	writer.Header().Set("ETag", strongRevisionETag(item.AssignmentRevision))
+	api.respond(writer, canonicalMaterializedAuditView(item), nil)
+}
+
 func (api *CanonicalAPI) listAuditeeCoordination(
 	writer http.ResponseWriter,
 	request *http.Request,
@@ -298,6 +501,39 @@ func (api *CanonicalAPI) respondAuditeeCoordination(
 			ExpectedRevision: *input.ExpectedRevision,
 			Decision:         assignments.CoordinationDecision(input.Decision),
 			AlternativeDate:  input.AlternativeDate,
+		},
+	)
+	if err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
+	writer.Header().Set("ETag", strongRevisionETag(item.Revision))
+	api.respond(writer, auditeeCoordinationView(item), nil)
+}
+
+func (api *CanonicalAPI) reviewAuditeeCoordination(
+	writer http.ResponseWriter,
+	request *http.Request,
+) {
+	actor, ok := requirePrincipal(writer, request)
+	if !ok {
+		return
+	}
+	var input generated.ReviewAuditeeCoordinationInput
+	if !decodeJSON(writer, request, &input) {
+		return
+	}
+	auditID := chi.URLParam(request, "auditId")
+	if auditID != input.AuditId || !validRevisionCommandHeaders(request, input.IdempotencyKey, &input.ExpectedRevision) {
+		api.respond(writer, nil, application.ErrInvalid)
+		return
+	}
+	item, err := api.assignments.ReviewAuditeeCoordination(
+		request.Context(), actor, assignments.ReviewCoordinationCommand{
+			OperationID: input.OperationId, IdempotencyKey: input.IdempotencyKey,
+			InspectionID: input.AuditId, OrganizationID: input.OrganizationId,
+			ExpectedRevision: input.ExpectedRevision,
+			Decision:         assignments.ReviewCoordinationDecision(input.Decision), Reason: input.Reason,
 		},
 	)
 	if err != nil {
@@ -414,5 +650,42 @@ func auditeeCoordinationView(
 		ScheduledStartDate: item.ScheduledStartDate, Status: string(item.Status),
 		AlternativeDate: item.AlternativeDate, NextAction: item.NextAction,
 		Revision: item.Revision,
+	}
+}
+
+func preparationConfirmationView(item assignments.Preparation) generated.PreparationConfirmationView {
+	return generated.PreparationConfirmationView{
+		PlanningItemId: item.PlanningItemID, InspectionId: item.InspectionID,
+		OrganizationId: item.OrganizationID, Status: string(item.Status),
+		Revision: item.Revision, PreparationId: item.PreparationID,
+		PreparationDigest:     item.PreparationDigest,
+		SelectedQuestionCount: int64(item.SelectedQuestionCount),
+		ConfirmedAt:           item.ConfirmedAt.UTC().Format(time.RFC3339Nano),
+	}
+}
+
+func canonicalAssignmentView(item assignments.Assignment) generated.CanonicalAssignmentView {
+	questionAssignments := make([]generated.QuestionCoverageInput, 0, len(item.QuestionAssignments))
+	for _, assignment := range item.QuestionAssignments {
+		questionAssignments = append(questionAssignments, generated.QuestionCoverageInput{
+			QuestionId: assignment.QuestionID, SubjectId: assignment.SubjectID,
+		})
+	}
+	return generated.CanonicalAssignmentView{
+		Id: item.ID, InspectionId: item.InspectionID, OrganizationId: item.OrganizationID,
+		LeadSubjectId: item.LeadSubjectID, MemberSubjectIds: append([]string(nil), item.MemberSubjectIDs...),
+		QuestionAssignments: questionAssignments, Status: string(item.Status),
+		ScheduledStartDate: item.ScheduledStartDate, ScheduledEndDate: item.ScheduledEndDate,
+		Revision: item.Revision,
+	}
+}
+
+func canonicalMaterializedAuditView(item assignments.MaterializedInspection) generated.CanonicalMaterializedAuditView {
+	return generated.CanonicalMaterializedAuditView{
+		InspectionId: item.InspectionID, AssignmentId: item.AssignmentID,
+		PackageId: item.PackageID, PackageVersion: item.PackageVersion,
+		PackageDigest: item.PackageDigest, Status: string(item.Status),
+		NoticeWithheld: item.NoticeWithheld, AssignmentRevision: item.AssignmentRevision,
+		ExpiresAt: item.ExpiresAt.UTC().Format(time.RFC3339Nano),
 	}
 }

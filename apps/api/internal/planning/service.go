@@ -3,6 +3,7 @@ package planning
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -41,26 +42,30 @@ const (
 )
 
 type Item struct {
-	ID               string        `json:"id"`
-	Title            string        `json:"title"`
-	PlanYear         int32         `json:"planYear"`
-	OrganizationID   string        `json:"organizationId"`
-	OrganizationName string        `json:"organizationName"`
-	InspectionType   string        `json:"inspectionType"`
-	ScheduledDate    string        `json:"scheduledDate"`
-	EstimatedBudget  float64       `json:"estimatedBudget"`
-	Status           Status        `json:"status"`
-	CurrentOwnerRole identity.Role `json:"currentOwnerRole"`
-	NextAction       string        `json:"nextAction"`
-	Revision         int64         `json:"revision"`
+	ID                       string        `json:"id"`
+	Title                    string        `json:"title"`
+	PlanYear                 int32         `json:"planYear"`
+	OrganizationID           string        `json:"organizationId"`
+	OrganizationName         string        `json:"organizationName"`
+	InspectionType           string        `json:"inspectionType"`
+	ScheduledDate            string        `json:"scheduledDate"`
+	EstimatedBudget          float64       `json:"estimatedBudget"`
+	Status                   Status        `json:"status"`
+	CurrentOwnerRole         identity.Role `json:"currentOwnerRole"`
+	NextAction               string        `json:"nextAction"`
+	Revision                 int64         `json:"revision"`
+	SubmittedScopeSnapshotID string        `json:"submittedScopeSnapshotId,omitempty"`
+	PlanningSnapshotDigest   string        `json:"planningSnapshotDigest,omitempty"`
 }
 
 type DecideCommand struct {
-	OperationID      string
-	PlanningItemID   string
-	ExpectedRevision int64
-	Decision         Decision
-	Reason           string
+	OperationID                      string
+	PlanningItemID                   string
+	ExpectedRevision                 int64
+	Decision                         Decision
+	Reason                           string
+	ExpectedSubmittedScopeSnapshotID string
+	ExpectedPlanningSnapshotDigest   string
 }
 
 type Dependencies struct {
@@ -104,21 +109,29 @@ func (service *Service) List(ctx context.Context, actor identity.Principal, limi
 	}
 	items := make([]Item, 0, len(records))
 	for _, record := range records {
-		items = append(items, itemFromList(record))
+		item := itemFromList(record)
+		item.SubmittedScopeSnapshotID, item.PlanningSnapshotDigest, err = service.submittedScopePin(ctx, service.pool, item.ID)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
 	}
 	return items, nil
 }
 
 func (service *Service) Decide(ctx context.Context, actor identity.Principal, command DecideCommand) (Item, error) {
-	if strings.TrimSpace(command.OperationID) == "" || strings.TrimSpace(command.PlanningItemID) == "" || strings.TrimSpace(command.Reason) == "" {
-		return Item{}, fmt.Errorf("%w: operation, planning item, and reason are required", application.ErrInvalid)
+	if strings.TrimSpace(command.OperationID) == "" || strings.TrimSpace(command.PlanningItemID) == "" || strings.TrimSpace(command.Reason) == "" ||
+		strings.TrimSpace(command.ExpectedSubmittedScopeSnapshotID) == "" || strings.TrimSpace(command.ExpectedPlanningSnapshotDigest) == "" {
+		return Item{}, fmt.Errorf("%w: operation, planning item, reason, submitted scope snapshot, and planning snapshot digest are required", application.ErrInvalid)
 	}
 	semanticHash, err := idempotency.SemanticHash(struct {
-		PlanningItemID   string   `json:"planningItemId"`
-		ExpectedRevision int64    `json:"expectedRevision"`
-		Decision         Decision `json:"decision"`
-		Reason           string   `json:"reason"`
-	}{command.PlanningItemID, command.ExpectedRevision, command.Decision, strings.TrimSpace(command.Reason)})
+		PlanningItemID                   string   `json:"planningItemId"`
+		ExpectedRevision                 int64    `json:"expectedRevision"`
+		Decision                         Decision `json:"decision"`
+		Reason                           string   `json:"reason"`
+		ExpectedSubmittedScopeSnapshotID string   `json:"expectedSubmittedScopeSnapshotId"`
+		ExpectedPlanningSnapshotDigest   string   `json:"expectedPlanningSnapshotDigest"`
+	}{command.PlanningItemID, command.ExpectedRevision, command.Decision, strings.TrimSpace(command.Reason), strings.TrimSpace(command.ExpectedSubmittedScopeSnapshotID), strings.TrimSpace(command.ExpectedPlanningSnapshotDigest)})
 	if err != nil {
 		return Item{}, err
 	}
@@ -152,6 +165,29 @@ func (service *Service) Decide(ctx context.Context, actor identity.Principal, co
 		if err != nil {
 			return err
 		}
+		var submittedScopeSnapshotID, planningSnapshotDigest, selectionDigest string
+		var submittedSnapshot []byte
+		if err := transaction.QueryRow(ctx, `
+			SELECT snapshot.id, snapshot.planning_snapshot_digest, snapshot.selection_digest, snapshot.snapshot
+			FROM canonical_audit_scope_snapshots snapshot
+			JOIN canonical_audit_scope_drafts scope ON scope.id = snapshot.scope_draft_id
+			JOIN planning_intake_drafts draft ON draft.id = scope.planning_intake_draft_id
+			WHERE draft.submitted_planning_item_id = $1
+			  AND snapshot.stage = 'SUBMITTED'
+			ORDER BY snapshot.revision DESC, snapshot.id DESC
+			LIMIT 1
+		`, command.PlanningItemID).Scan(&submittedScopeSnapshotID, &planningSnapshotDigest, &selectionDigest, &submittedSnapshot); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		if planningSnapshotDigest == "" && len(submittedSnapshot) > 0 {
+			planningSnapshotDigest = derivedPlanningSnapshotDigest(submittedSnapshot)
+		}
+		if submittedScopeSnapshotID == "" || planningSnapshotDigest == "" {
+			return fmt.Errorf("%w: submitted scope snapshot is required for every canonical planning decision", application.ErrConflict)
+		}
+		if command.ExpectedSubmittedScopeSnapshotID != submittedScopeSnapshotID || command.ExpectedPlanningSnapshotDigest != planningSnapshotDigest {
+			return fmt.Errorf("%w: expected immutable submitted scope snapshot pin does not match", application.ErrConflict)
+		}
 		if current.Revision != command.ExpectedRevision {
 			return fmt.Errorf("%w: Planning item revision conflict", application.ErrConflict)
 		}
@@ -170,17 +206,34 @@ func (service *Service) Decide(ctx context.Context, actor identity.Principal, co
 		if err != nil {
 			return err
 		}
+		if command.Decision == DecisionReleasePlan {
+			if err := releaseCanonicalScopeSnapshot(ctx, transaction, actor, current.ID, now); err != nil {
+				return err
+			}
+		}
 		output = Item{
 			ID: updated.ID, Title: updated.Title, PlanYear: updated.PlanYear,
 			OrganizationID: updated.OrganizationID, OrganizationName: current.LegalName,
 			InspectionType: updated.InspectionType, ScheduledDate: updated.ScheduledDate.Time.Format("2006-01-02"),
 			EstimatedBudget: updated.EstimatedBudget, Status: Status(updated.Status),
 			CurrentOwnerRole: identity.Role(updated.CurrentOwnerRole), NextAction: updated.NextAction,
-			Revision: updated.Revision,
+			Revision: updated.Revision, SubmittedScopeSnapshotID: submittedScopeSnapshotID,
+			PlanningSnapshotDigest: planningSnapshotDigest,
 		}
 		responseBody, err := json.Marshal(output)
 		if err != nil {
 			return err
+		}
+		details := []byte(`{}`)
+		if planningSnapshotDigest != "" {
+			details, err = json.Marshal(map[string]any{
+				"submittedScopeSnapshotId": submittedScopeSnapshotID,
+				"planningSnapshotDigest":   planningSnapshotDigest,
+				"selectionDigest":          selectionDigest,
+			})
+			if err != nil {
+				return err
+			}
 		}
 		actorRole := ""
 		if len(actor.Roles) > 0 {
@@ -193,10 +246,10 @@ func (service *Service) Decide(ctx context.Context, actor identity.Principal, co
 				event_id, occurred_at, actor_subject_id, actor_role, organization_id, action,
 				entity_type, entity_id, entity_version, before_status, after_status, reason,
 				operation_id, correlation_id, request_id, details
-			) VALUES ($1, $2, $3, $4, $5, $6, 'SURVEILLANCE_PLAN', $7, $8, $9, $10, $11, $12, $12, $12, '{}'::jsonb)
+			) VALUES ($1, $2, $3, $4, $5, $6, 'SURVEILLANCE_PLAN', $7, $8, $9, $10, $11, $12, $12, $12, $13)
 		`, auditID, now, actor.SubjectID, actorRole, current.OrganizationID,
 			auditAction, current.ID, updated.Revision, current.Status, updated.Status,
-			strings.TrimSpace(command.Reason), command.OperationID); err != nil {
+			strings.TrimSpace(command.Reason), command.OperationID, details); err != nil {
 			return err
 		}
 		var changeID int64
@@ -241,6 +294,79 @@ func (service *Service) Decide(ctx context.Context, actor identity.Principal, co
 		return nil
 	})
 	return output, err
+}
+
+// releaseCanonicalScopeSnapshot pins the exact question identities approved by
+// Finance/GM/Executive Director to the GM Release transition. Materialization
+// reads this immutable RELEASED snapshot; it never re-reads a mutable draft or
+// a checklist template.
+func releaseCanonicalScopeSnapshot(
+	ctx context.Context,
+	tx pgx.Tx,
+	actor identity.Principal,
+	planningItemID string,
+	now time.Time,
+) error {
+	var scopeID, submittedID, catalogID, usageClass, digest, planningSnapshotDigest string
+	var revision int64
+	var selectedCount int
+	var snapshot []byte
+	err := tx.QueryRow(ctx, `
+		SELECT scope.id, submitted.id, submitted.catalog_id, submitted.usage_class,
+		       submitted.revision, submitted.selection_digest, submitted.planning_snapshot_digest,
+		       submitted.selected_question_count, submitted.snapshot
+		FROM canonical_audit_scope_drafts scope
+		JOIN planning_intake_drafts draft ON draft.id = scope.planning_intake_draft_id
+		JOIN LATERAL (
+			SELECT snapshot.id, snapshot.catalog_id, snapshot.usage_class,
+			       snapshot.revision, snapshot.selection_digest,
+			       snapshot.planning_snapshot_digest, snapshot.selected_question_count, snapshot.snapshot
+			FROM canonical_audit_scope_snapshots snapshot
+			WHERE snapshot.scope_draft_id = scope.id AND snapshot.stage = 'SUBMITTED'
+			ORDER BY snapshot.revision DESC, snapshot.id DESC
+			LIMIT 1
+		) submitted ON true
+		WHERE draft.submitted_planning_item_id = $1
+		  AND scope.status IN ('SUBMITTED', 'DRAFT')
+		FOR UPDATE OF scope
+	`, planningItemID).Scan(&scopeID, &submittedID, &catalogID, &usageClass, &revision, &digest, &planningSnapshotDigest, &selectedCount, &snapshot)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return fmt.Errorf("%w: canonical submitted scope snapshot is required before release", application.ErrConflict)
+	}
+	if err != nil {
+		return err
+	}
+	if planningSnapshotDigest == "" && len(snapshot) > 0 {
+		planningSnapshotDigest = derivedPlanningSnapshotDigest(snapshot)
+	}
+	if selectedCount <= 0 || digest == "" || planningSnapshotDigest == "" || scopeID == "" || submittedID == "" {
+		return fmt.Errorf("%w: canonical scope release requires a non-empty submitted snapshot", application.ErrConflict)
+	}
+	releasedID := "scope-snapshot:" + scopeID + ":released:" + fmt.Sprint(revision)
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO canonical_audit_scope_snapshots (
+			id, scope_draft_id, revision, stage, catalog_id, usage_class,
+			selection_digest, planning_snapshot_digest, selected_question_count, snapshot,
+			created_by_subject_id, created_at
+		) VALUES ($1, $2, $3, 'RELEASED', $4, $5, $6, $7, $8, $9, $10, $11)
+	`, releasedID, scopeID, revision, catalogID, usageClass, digest, planningSnapshotDigest, selectedCount, snapshot, actor.SubjectID, now); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO canonical_audit_scope_snapshot_questions (snapshot_id, catalog_id, question_version_id, position)
+		SELECT $1, catalog_id, question_version_id, position
+		FROM canonical_audit_scope_snapshot_questions
+		WHERE snapshot_id = $2
+		ORDER BY position
+	`, releasedID, submittedID); err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `
+		UPDATE canonical_audit_scope_drafts
+		SET status = 'RELEASED', updated_at = $2
+		WHERE id = $1
+	`, scopeID, now)
+	return err
 }
 
 func decideTransition(actor identity.Principal, status Status, decision Decision) (Status, identity.Role, string, string, error) {
@@ -299,6 +425,34 @@ func itemFromList(record planningstore.ListSurveillancePlanItemsRow) Item {
 		CurrentOwnerRole: identity.Role(record.CurrentOwnerRole), NextAction: record.NextAction,
 		Revision: record.Revision,
 	}
+}
+
+func (service *Service) submittedScopePin(ctx context.Context, query interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}, planningItemID string) (string, string, error) {
+	var snapshotID, digest string
+	var snapshot []byte
+	err := query.QueryRow(ctx, `
+		SELECT snapshot.id, snapshot.planning_snapshot_digest, snapshot.snapshot
+		FROM canonical_audit_scope_snapshots snapshot
+		JOIN canonical_audit_scope_drafts scope ON scope.id = snapshot.scope_draft_id
+		JOIN planning_intake_drafts draft ON draft.id = scope.planning_intake_draft_id
+		WHERE draft.submitted_planning_item_id = $1 AND snapshot.stage = 'SUBMITTED'
+		ORDER BY snapshot.revision DESC, snapshot.id DESC
+		LIMIT 1
+	`, planningItemID).Scan(&snapshotID, &digest, &snapshot)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", "", nil
+	}
+	if digest == "" && len(snapshot) > 0 {
+		digest = derivedPlanningSnapshotDigest(snapshot)
+	}
+	return snapshotID, digest, err
+}
+
+func derivedPlanningSnapshotDigest(snapshot []byte) string {
+	digest := sha256.Sum256(snapshot)
+	return "sha256:" + hex.EncodeToString(digest[:])
 }
 
 func boundedLimit(limit int32) int32 {

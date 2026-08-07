@@ -170,7 +170,8 @@ func (api *CanonicalAPI) decidePlanningItem(writer http.ResponseWriter, request 
 	item, err := api.planning.Decide(request.Context(), actor, planning.DecideCommand{
 		OperationID: input.OperationId, PlanningItemID: input.PlanningItemId,
 		ExpectedRevision: input.ExpectedPlanningRevision, Decision: planning.Decision(input.Decision),
-		Reason: input.Reason,
+		Reason: input.Reason, ExpectedSubmittedScopeSnapshotID: input.ExpectedSubmittedScopeSnapshotId,
+		ExpectedPlanningSnapshotDigest: input.ExpectedPlanningSnapshotDigest,
 	})
 	api.respond(writer, planningView(item), err)
 }
@@ -780,7 +781,7 @@ func adminTemplateView(record configuration.AdminTemplate) generated.AdminTempla
 }
 
 func planningView(item planning.Item) generated.PlanningItemView {
-	return generated.PlanningItemView{
+	view := generated.PlanningItemView{
 		Id: item.ID, Title: item.Title, PlanYear: int64(item.PlanYear),
 		OrganizationId: item.OrganizationID, OrganizationName: item.OrganizationName,
 		InspectionType: item.InspectionType, ScheduledDate: item.ScheduledDate,
@@ -788,6 +789,13 @@ func planningView(item planning.Item) generated.PlanningItemView {
 		CurrentOwnerRole: generated.Role(item.CurrentOwnerRole), NextAction: item.NextAction,
 		Revision: item.Revision,
 	}
+	if item.SubmittedScopeSnapshotID != "" {
+		view.SubmittedScopeSnapshotId = &item.SubmittedScopeSnapshotID
+	}
+	if item.PlanningSnapshotDigest != "" {
+		view.PlanningSnapshotDigest = &item.PlanningSnapshotDigest
+	}
+	return view
 }
 
 func boundedPageLimit(limit *int64) int32 {

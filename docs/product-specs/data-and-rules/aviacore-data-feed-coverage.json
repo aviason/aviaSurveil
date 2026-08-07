@@ -107,12 +107,44 @@
       {
         "path": "apps/api/migrations/000022_aviasurveil_data_feed_outbox.up.sql",
         "sha256": "c27ceb784b5e8df68e31fd8391b56e6cee0ce532e917f11f926537fb6e84d4fd"
+      },
+      {
+        "path": "apps/api/migrations/000023_aviasurveil_data_feed_publisher.up.sql",
+        "sha256": "4b372aae77c4ea2d2c138a654d7566c3c45a636a9a62b5e5d859e7cd552c72f5"
+      },
+      {
+        "path": "apps/api/migrations/000024_aviasurveil_data_feed_replay_runs.up.sql",
+        "sha256": "9dda20e046ee28f9bfe7f77a2cb1f638a082155c565571a1cccd094d2ce96063"
+      },
+      {
+        "path": "apps/api/migrations/000025_regulatory_source_currentness_activation.up.sql",
+        "sha256": "6ee5bb60d4a8c1e01c89d2065330704e4e64e129aff5ab82bfc81fb362b5e904"
+      },
+      {
+        "path": "apps/api/migrations/000026_regulatory_source_currentness_no_reactivation.up.sql",
+        "sha256": "bb28bb7c251e25fe127da9f9998fc156bb254df5075e9aa253b72695e61f6620"
+      },
+      {
+        "path": "apps/api/migrations/000027_regulatory_source_impact_multi_candidate_links.up.sql",
+        "sha256": "f0feeeb8527b07b6f10f662b61f2d43fd2a3c0aaccb28335dc48076eb050a315"
+      },
+      {
+        "path": "apps/api/migrations/000028_governed_checklist_intake_and_authoring.up.sql",
+        "sha256": "3ba16c733f8b2bc5ee2a5ac2ab3523562bd56dc9f879cf5b73baab50f89d18d7"
+      },
+      {
+        "path": "apps/api/migrations/000029_canonical_aga_catalog_scope.up.sql",
+        "sha256": "54b91d19e1180714f5dd285bd48964d6540c11524f353324f397cef6a4b5d130"
+      },
+      {
+        "path": "apps/api/migrations/000030_canonical_audit_package_scope.up.sql",
+        "sha256": "03951b0b7f93f051d77d32fcf62ff3022311e3524beb15a987099d320788557d"
       }
     ],
     "openapi": [
       {
         "path": "api/openapi/source/openapi.json",
-        "sha256": "fa98eef7e1867486bad297133e764d1054918767aeb125cc67816f50e0da0585"
+        "sha256": "1cdfce0b1a00facab8c3d420c6eb612fe60192bf520a9893c6d6a47f65197994"
       },
       {
         "path": "api/openapi/source/paths/core.json",
@@ -120,19 +152,19 @@
       },
       {
         "path": "api/openapi/source/paths/platform.json",
-        "sha256": "9e13deea6bbb6433160b9da9b64967fcf681db078d4bda0092937d86e3aa92e4"
+        "sha256": "61ee061c19f89089f16549eff43a89187a43ea64f45295cc9aa4e96d11b51c17"
       },
       {
         "path": "api/openapi/source/paths/workflows.json",
-        "sha256": "cf9f79e4d788c4b590dbfabb5ff1cf237c7f86c0bfd62b9f52b02258534babab"
+        "sha256": "49f31c62424c2df7f0c6a2596d9916e359424b5db0bcdc5de6b37a90f8ed5c80"
       },
       {
         "path": "api/openapi/source/schemas/domain.json",
-        "sha256": "8971f9862979d865c064ab4d259e48c809eb7ab04edbdb1d08cc27b5bd89689d"
+        "sha256": "b019c783379912316383bdcbc805db98cad17656987dbaa15bcf80500ea3d759"
       },
       {
         "path": "api/openapi/source/schemas/platform.json",
-        "sha256": "146e25da758dc010305743e5114cc9e1034dcbee53698fd07c7345d5e532311f"
+        "sha256": "722b00e20f65efe0afedaee563406618727e8efae3ad8b0f160acb7d1ef66413"
       }
     ],
     "authoritative_commands": [
@@ -141,12 +173,16 @@
         "sha256": "d2a43c19202939d2cb20994c289e715200a8af919874c2d5538844411b6f6ac0"
       },
       {
+        "path": "apps/api/internal/application/canonical_scope.go",
+        "sha256": "3264ed2108bbc221ad487abd8c513978506845bf88781f95392d7b01898e92a3"
+      },
+      {
         "path": "apps/api/internal/application/canonical_transitions.go",
-        "sha256": "f461a6f5cd121309d6f6610e367057b9988c54f32aae4b5aeadd179616307039"
+        "sha256": "1625b43a8876f47b95d698d8a01360097251e8761eb329ccd4090bd2dd5dc0bf"
       },
       {
         "path": "apps/api/internal/application/clean_state_creation.go",
-        "sha256": "9cf149a4f17002f8a45d734582b81b42fec0cbb191340cbef018ae4e2dc01afd"
+        "sha256": "5b67da1fc20f73a0eb08c1db4069132bbbf3db1d9b6cbfa785e2b016e28fd505"
       },
       {
         "path": "apps/api/internal/application/communications_workflow.go",
@@ -154,11 +190,15 @@
       },
       {
         "path": "apps/api/internal/application/field_workflow.go",
-        "sha256": "d64c4f75d83945c8619f1fcb09101d939a829b4ae6ccab4a98e41e24a1a475e6"
+        "sha256": "2a2af4eebf1a6540903d6e85a84fa69df22e85a0764a27b3441893601c9bcb56"
+      },
+      {
+        "path": "apps/api/internal/application/inspection_start.go",
+        "sha256": "0123775a1dd9a6abe5fcbcae5386ad2a79d3c271b2a17149b955d2effb07f1f7"
       },
       {
         "path": "apps/api/internal/application/service.go",
-        "sha256": "55aaa6e0ee4f4fcc484f9a219dda34b711ce6547bef819c98256ae03dee10805"
+        "sha256": "e32f6cf85ce301a249319adcc91c77682ff39b51c7c9f142c09bf33b714cd492"
       },
       {
         "path": "apps/api/internal/application/template_workflow.go",
@@ -170,15 +210,23 @@
       },
       {
         "path": "apps/api/internal/checklistgovernance/applicability.go",
-        "sha256": "d4ddc331614610b4ac5f91649cae28f571520a56b16dd9094e9444ca5369e98f"
+        "sha256": "cad279ca9cb6fbf10da223b9c9075d6fd9506b6a1a7d18d24993a7d03b5af53f"
+      },
+      {
+        "path": "apps/api/internal/checklistgovernance/eligibility.go",
+        "sha256": "a226b6b6c395b982f525b9a1966abce3e9e1a8c93b353cf47b5853233de9835f"
+      },
+      {
+        "path": "apps/api/internal/checklistgovernance/question_review_contract.go",
+        "sha256": "adb00af7669c68f0e39d4d9e555c93c0ff6537094e2b75d8bda39548328e344a"
       },
       {
         "path": "apps/api/internal/checklistgovernance/service.go",
-        "sha256": "713955a9186fdb4d009cc7c908e9bd467208f72bf92a0589ef2d86a2f369b2c6"
+        "sha256": "a164f6401cc62a40346d2303de11061b326db18d7abe5139a06c48a4184e40ea"
       },
       {
         "path": "apps/api/internal/preproddata/profiles/profiles.go",
-        "sha256": "edb0604a1676914a8a729a0e7f731480015a5403ae3c802ac21891d4794cc530"
+        "sha256": "bf45ea4db906390d26f5e5577166f5e4d524bbe881c9936813a619ee7b22e27b"
       }
     ]
   },
@@ -537,6 +585,94 @@
         "event_headers": "locked v3 schema identifiers, timestamps, states, and hashes only",
         "payload": "AES-GCM ciphertext plus nonce/key reference; no plaintext duplicate",
         "delivery": "value-free outcome and receipt digest only"
+      }
+    },
+    {
+      "id": "canonical-aga-successor-candidate",
+      "disposition": "contract_extension_candidate",
+      "relations": [
+        "canonical_audit_preparation_questions",
+        "canonical_audit_preparation_snapshots",
+        "canonical_audit_scope_draft_questions",
+        "canonical_audit_scope_drafts",
+        "canonical_audit_scope_selection_operations",
+        "canonical_audit_scope_selection_preview_consumptions",
+        "canonical_audit_scope_selection_questions",
+        "canonical_audit_scope_snapshot_questions",
+        "canonical_audit_scope_snapshots",
+        "canonical_exercise_question_review_drafts",
+        "canonical_exercise_question_review_events",
+        "canonical_governed_question_review_events",
+        "canonical_question_catalog_applicabilities",
+        "canonical_question_catalog_forms",
+        "canonical_question_catalog_import_runs",
+        "canonical_question_catalog_membership_events",
+        "canonical_question_catalog_memberships",
+        "canonical_question_catalogs",
+        "canonical_question_version_provenance",
+        "checklist_import_attempt_events",
+        "checklist_import_attempts",
+        "checklist_import_batches",
+        "checklist_import_extraction_decision_sets",
+        "checklist_import_extraction_decisions",
+        "checklist_import_extraction_review_packets",
+        "checklist_import_extraction_review_proposals",
+        "checklist_import_files",
+        "checklist_import_identity_resolutions",
+        "checklist_import_object_intents",
+        "checklist_import_phase_receipts",
+        "checklist_register_entries",
+        "datafeed_replay_delivery_attempts",
+        "datafeed_replay_delivery_state",
+        "datafeed_replay_run_events",
+        "datafeed_replay_runs",
+        "existing_checklist_candidate_questions",
+        "existing_checklist_candidates",
+        "governed_candidate_source_binding_links",
+        "governed_candidate_source_binding_sets",
+        "governed_candidate_source_chain_links",
+        "governed_checklist_functional_assignments",
+        "governed_checklist_review_comments",
+        "governed_required_owner_resolution_facts",
+        "governed_reviewed_source_set_links",
+        "governed_reviewed_source_sets",
+        "governed_reviewer_recommendation_dispositions",
+        "governed_source_mapping_attestations",
+        "regulatory_generation_run_source_currentness_bindings",
+        "regulatory_source_authority_attestations",
+        "regulatory_source_currentness_events",
+        "regulatory_source_impact_candidate_links",
+        "regulatory_source_impact_review_drafts"
+      ],
+      "grain": "canonical AGA successor catalog, scope, preparation, import, review, and currentness lineage fact",
+      "entity_references": [
+        "catalog_id",
+        "scope_snapshot_id",
+        "question_version_id",
+        "operation_id"
+      ],
+      "source_authority": "AviaSurveil360 transactional PostgreSQL source of record",
+      "contract_family": "Task 2 owner-decision required; v1 event API remains immutable predecessor",
+      "tenant_binding": "authenticated platform tenant; never derived from organization payload",
+      "organization_binding": "organization and provider-scope identity bound by the canonical aggregate",
+      "actor_organization_binding": "actor organization is explicit or CAA-null by authority contract",
+      "visibility_purpose_scope": "candidate-only canonical AGA planning, import, review, and preparation lineage",
+      "effective_time": "explicit business effective time where present; otherwise not-applicable",
+      "known_time": "append-only created/recorded time",
+      "producer_revision_sequence": "immutable revision and operation identifiers",
+      "null_semantics": "missing, unknown, redacted, and not-applicable remain distinct",
+      "correction_supersession": "new immutable row or superseding revision only",
+      "pii_class": "P2 minimum; subject and organization fields remain restricted",
+      "minimization_rationale": "candidate-only lineage is retained to prove exact catalog, scope, authority, and import boundaries",
+      "retention_legal_hold_deletion": "indefinite immutable retention; no physical deletion of governed history",
+      "expected_volume": "bounded by the canonical local profile manifest",
+      "consumer": "canonical AGA successor candidate and local verification only",
+      "lineage": "migration relation to immutable canonical question/version and lifecycle authority",
+      "feature_label_eligibility": "not training eligible; explicit Task 2 approval remains required",
+      "field_policy": {
+        "candidate": "canonical successor fields remain candidate-only until separately approved",
+        "restricted": "identity, organization-private, and raw text fields are not transport payloads",
+        "immutable": "append-only event, digest, and revision fields are never overwritten"
       }
     }
   ],
@@ -6371,6 +6507,3678 @@
       "column": "recorded_by_role",
       "disposition": "operational_dq_only",
       "field_class": "operational"
+    },
+    {
+      "relation": "audit_assignments",
+      "column": "released_scope_snapshot_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_preparation_questions",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_preparation_questions",
+      "column": "position",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_preparation_questions",
+      "column": "preparation_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_preparation_questions",
+      "column": "question_version_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_preparation_questions",
+      "column": "released_scope_snapshot_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_preparation_questions",
+      "column": "subject_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_preparation_snapshots",
+      "column": "assignment_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_preparation_snapshots",
+      "column": "confirmed_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_preparation_snapshots",
+      "column": "confirmed_by_subject_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_preparation_snapshots",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_preparation_snapshots",
+      "column": "id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_preparation_snapshots",
+      "column": "lead_subject_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_preparation_snapshots",
+      "column": "preparation_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_preparation_snapshots",
+      "column": "released_scope_snapshot_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_preparation_snapshots",
+      "column": "revision",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_preparation_snapshots",
+      "column": "snapshot",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_preparation_snapshots",
+      "column": "status",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_draft_questions",
+      "column": "catalog_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_draft_questions",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_draft_questions",
+      "column": "position",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_draft_questions",
+      "column": "question_version_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_draft_questions",
+      "column": "revision",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_draft_questions",
+      "column": "scope_draft_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_draft_questions",
+      "column": "selection_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_drafts",
+      "column": "audit_type",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_drafts",
+      "column": "catalog_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_drafts",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_drafts",
+      "column": "created_by_subject_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_drafts",
+      "column": "id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_drafts",
+      "column": "notice_policy",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_drafts",
+      "column": "organization_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_drafts",
+      "column": "planning_intake_draft_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_drafts",
+      "column": "provider_scope_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_drafts",
+      "column": "regulated_target_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_drafts",
+      "column": "requested_budget",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_drafts",
+      "column": "revision",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_drafts",
+      "column": "selected_question_count",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_drafts",
+      "column": "selection_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_drafts",
+      "column": "status",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_drafts",
+      "column": "updated_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_drafts",
+      "column": "usage_class",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_selection_operations",
+      "column": "actor_subject_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_selection_operations",
+      "column": "affected_question_version_ids",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_selection_operations",
+      "column": "audit_event_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_selection_operations",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_selection_operations",
+      "column": "expected_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_selection_operations",
+      "column": "expires_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_selection_operations",
+      "column": "filter_payload",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_selection_operations",
+      "column": "id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_selection_operations",
+      "column": "idempotency_key",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_selection_operations",
+      "column": "operation_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_selection_operations",
+      "column": "operation_kind",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_selection_operations",
+      "column": "result_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_selection_operations",
+      "column": "scope_draft_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_selection_preview_consumptions",
+      "column": "actor_subject_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_selection_preview_consumptions",
+      "column": "commit_operation_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_selection_preview_consumptions",
+      "column": "consumed_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_selection_preview_consumptions",
+      "column": "preview_operation_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_selection_questions",
+      "column": "catalog_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_selection_questions",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_selection_questions",
+      "column": "operation_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_selection_questions",
+      "column": "position",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_selection_questions",
+      "column": "question_version_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_selection_questions",
+      "column": "selection_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_snapshot_questions",
+      "column": "catalog_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_snapshot_questions",
+      "column": "position",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_snapshot_questions",
+      "column": "question_version_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_snapshot_questions",
+      "column": "snapshot_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_snapshots",
+      "column": "catalog_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_snapshots",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_snapshots",
+      "column": "created_by_subject_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_snapshots",
+      "column": "id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_snapshots",
+      "column": "planning_snapshot_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_snapshots",
+      "column": "revision",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_snapshots",
+      "column": "scope_draft_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_snapshots",
+      "column": "selected_question_count",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_snapshots",
+      "column": "selection_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_snapshots",
+      "column": "snapshot",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_snapshots",
+      "column": "stage",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_audit_scope_snapshots",
+      "column": "usage_class",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_exercise_question_review_drafts",
+      "column": "actor_subject_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_exercise_question_review_drafts",
+      "column": "catalog_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_exercise_question_review_drafts",
+      "column": "controlled_reason",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_exercise_question_review_drafts",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_exercise_question_review_drafts",
+      "column": "disposition",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_exercise_question_review_drafts",
+      "column": "id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_exercise_question_review_drafts",
+      "column": "question_version_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_exercise_question_review_drafts",
+      "column": "reviewed_domain",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_exercise_question_review_drafts",
+      "column": "reviewed_topic",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_exercise_question_review_drafts",
+      "column": "revision",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_exercise_question_review_drafts",
+      "column": "usage_class",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_exercise_question_review_events",
+      "column": "action",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_exercise_question_review_events",
+      "column": "actor_subject_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_exercise_question_review_events",
+      "column": "audit_event_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_exercise_question_review_events",
+      "column": "draft_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_exercise_question_review_events",
+      "column": "event_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_exercise_question_review_events",
+      "column": "occurred_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_exercise_question_review_events",
+      "column": "payload",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_governed_question_review_events",
+      "column": "action",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_governed_question_review_events",
+      "column": "actor_subject_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_governed_question_review_events",
+      "column": "candidate_content_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_governed_question_review_events",
+      "column": "candidate_draft_version_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_governed_question_review_events",
+      "column": "candidate_revision",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_governed_question_review_events",
+      "column": "catalog_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_governed_question_review_events",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_governed_question_review_events",
+      "column": "event_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_governed_question_review_events",
+      "column": "idempotency_key",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_governed_question_review_events",
+      "column": "operation_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_governed_question_review_events",
+      "column": "question_version_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_governed_question_review_events",
+      "column": "reason",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_governed_question_review_events",
+      "column": "reviewed_domain",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_governed_question_review_events",
+      "column": "reviewed_topic",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_applicabilities",
+      "column": "actor_subject_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_applicabilities",
+      "column": "catalog_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_applicabilities",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_applicabilities",
+      "column": "provider_scope_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_applicabilities",
+      "column": "question_version_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_applicabilities",
+      "column": "reason",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_applicabilities",
+      "column": "regulated_target_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_applicabilities",
+      "column": "status",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_forms",
+      "column": "archive_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_forms",
+      "column": "catalog_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_forms",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_forms",
+      "column": "form_code",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_forms",
+      "column": "form_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_forms",
+      "column": "question_count",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_forms",
+      "column": "source_gap_state",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_import_runs",
+      "column": "actor_subject_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_import_runs",
+      "column": "audit_event_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_import_runs",
+      "column": "catalog_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_import_runs",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_import_runs",
+      "column": "expires_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_import_runs",
+      "column": "failure_reason",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_import_runs",
+      "column": "form_count",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_import_runs",
+      "column": "id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_import_runs",
+      "column": "idempotency_key",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_import_runs",
+      "column": "import_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_import_runs",
+      "column": "operation_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_import_runs",
+      "column": "package_json_sha256",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_import_runs",
+      "column": "package_zip_sha256",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_import_runs",
+      "column": "row_count",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_import_runs",
+      "column": "status",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_membership_events",
+      "column": "actor_subject_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_membership_events",
+      "column": "audit_event_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_membership_events",
+      "column": "catalog_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_membership_events",
+      "column": "event_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_membership_events",
+      "column": "occurred_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_membership_events",
+      "column": "question_version_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_membership_events",
+      "column": "reason",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_membership_events",
+      "column": "status",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_memberships",
+      "column": "catalog_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_memberships",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_memberships",
+      "column": "form_code",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_memberships",
+      "column": "ordinal",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_memberships",
+      "column": "proposal_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_memberships",
+      "column": "proposed_domain",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_memberships",
+      "column": "proposed_risk_band",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_memberships",
+      "column": "proposed_topic",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_memberships",
+      "column": "question_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_memberships",
+      "column": "question_version_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_memberships",
+      "column": "source_gap_state",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_memberships",
+      "column": "source_locator",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalog_memberships",
+      "column": "usage_class",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalogs",
+      "column": "catalog_version",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalogs",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalogs",
+      "column": "created_by_subject_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalogs",
+      "column": "form_count",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalogs",
+      "column": "governed_candidate_content_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalogs",
+      "column": "governed_candidate_draft_version_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalogs",
+      "column": "governed_candidate_revision",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalogs",
+      "column": "governed_publication_decision_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalogs",
+      "column": "id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalogs",
+      "column": "profile_name",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalogs",
+      "column": "profile_version",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalogs",
+      "column": "question_count",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalogs",
+      "column": "root_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalogs",
+      "column": "source_package_json_sha256",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalogs",
+      "column": "source_package_version",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalogs",
+      "column": "source_package_zip_sha256",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalogs",
+      "column": "status",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_catalogs",
+      "column": "usage_class",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_version_provenance",
+      "column": "catalog_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_version_provenance",
+      "column": "question_version_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_version_provenance",
+      "column": "recorded_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "canonical_question_version_provenance",
+      "column": "usage_class",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_attempt_events",
+      "column": "attempt_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_attempt_events",
+      "column": "completed_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_attempt_events",
+      "column": "error_code",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_attempt_events",
+      "column": "event_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_attempt_events",
+      "column": "fencing_token",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_attempt_events",
+      "column": "result_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_attempt_events",
+      "column": "state",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_attempts",
+      "column": "attempt_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_attempts",
+      "column": "attempt_root_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_attempts",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_attempts",
+      "column": "fencing_token",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_attempts",
+      "column": "import_batch_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_attempts",
+      "column": "import_file_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_attempts",
+      "column": "input_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_attempts",
+      "column": "lease_expires_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_attempts",
+      "column": "lease_owner",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_attempts",
+      "column": "ordinal",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_attempts",
+      "column": "phase",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_attempts",
+      "column": "policy_version",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_attempts",
+      "column": "predecessor_attempt_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_batches",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_batches",
+      "column": "created_by_subject_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_batches",
+      "column": "expected_archive_sha256",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_batches",
+      "column": "finalized_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_batches",
+      "column": "idempotency_key",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_batches",
+      "column": "import_batch_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_batches",
+      "column": "intake_safety_eligible",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_batches",
+      "column": "manifest_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_batches",
+      "column": "observed_archive_bytes",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_batches",
+      "column": "observed_archive_sha256",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_batches",
+      "column": "operation_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_batches",
+      "column": "reason",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_batches",
+      "column": "status",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_decision_sets",
+      "column": "actor_subject_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_decision_sets",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_decision_sets",
+      "column": "decision_set_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_decision_sets",
+      "column": "decision_set_root_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_decision_sets",
+      "column": "expected_prior_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_decision_sets",
+      "column": "expected_prior_leaf_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_decision_sets",
+      "column": "idempotency_key",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_decision_sets",
+      "column": "import_file_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_decision_sets",
+      "column": "operation_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_decision_sets",
+      "column": "packet_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_decision_sets",
+      "column": "parser_output_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_decision_sets",
+      "column": "reason",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_decision_sets",
+      "column": "revision",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_decision_sets",
+      "column": "semantic_payload_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_decision_sets",
+      "column": "supersedes_decision_set_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_decision_sets",
+      "column": "terminal_manifest_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_decisions",
+      "column": "consumed_proposal_digests",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_decisions",
+      "column": "consumed_proposal_ids",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_decisions",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_decisions",
+      "column": "decision_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_decisions",
+      "column": "decision_kind",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_decisions",
+      "column": "decision_ordinal",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_decisions",
+      "column": "decision_set_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_decisions",
+      "column": "output_payload",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_decisions",
+      "column": "output_seed_ids",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_decisions",
+      "column": "reason",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_review_packets",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_review_packets",
+      "column": "created_by_subject_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_review_packets",
+      "column": "failure_code",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_review_packets",
+      "column": "generator_policy_version",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_review_packets",
+      "column": "import_batch_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_review_packets",
+      "column": "import_file_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_review_packets",
+      "column": "outcome",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_review_packets",
+      "column": "packet_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_review_packets",
+      "column": "packet_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_review_packets",
+      "column": "parser_output_bytes",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_review_packets",
+      "column": "parser_output_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_review_packets",
+      "column": "parser_receipt_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_review_packets",
+      "column": "proposal_count",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_review_packets",
+      "column": "terminal_manifest_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_review_proposals",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_review_proposals",
+      "column": "original_text",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_review_proposals",
+      "column": "packet_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_review_proposals",
+      "column": "page",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_review_proposals",
+      "column": "parser_provenance",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_review_proposals",
+      "column": "proposal_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_review_proposals",
+      "column": "proposal_ordinal",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_review_proposals",
+      "column": "proposed_boundary_kind",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_review_proposals",
+      "column": "region_locator",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_review_proposals",
+      "column": "row_locator",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_review_proposals",
+      "column": "section",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_review_proposals",
+      "column": "text_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_extraction_review_proposals",
+      "column": "text_span",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_files",
+      "column": "byte_count",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_files",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_files",
+      "column": "import_batch_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_files",
+      "column": "import_file_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_files",
+      "column": "initial_candidate_import_state",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_files",
+      "column": "initial_identity_match_state",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_files",
+      "column": "media_type",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_files",
+      "column": "normalized_path",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_files",
+      "column": "ordinal",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_files",
+      "column": "original_path",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_files",
+      "column": "register_form_code",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_files",
+      "column": "register_title",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_files",
+      "column": "sha256",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_files",
+      "column": "terminal_manifest_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_files",
+      "column": "visible_title",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_identity_resolutions",
+      "column": "actor_membership_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_identity_resolutions",
+      "column": "actor_subject_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_identity_resolutions",
+      "column": "competing_values",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_identity_resolutions",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_identity_resolutions",
+      "column": "expected_file_sha256",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_identity_resolutions",
+      "column": "expected_manifest_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_identity_resolutions",
+      "column": "expected_prior_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_identity_resolutions",
+      "column": "expected_prior_leaf_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_identity_resolutions",
+      "column": "idempotency_key",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_identity_resolutions",
+      "column": "import_file_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_identity_resolutions",
+      "column": "operation_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_identity_resolutions",
+      "column": "reason",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_identity_resolutions",
+      "column": "resolution_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_identity_resolutions",
+      "column": "resolution_revision",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_identity_resolutions",
+      "column": "resolution_root_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_identity_resolutions",
+      "column": "selected_identity_source",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_identity_resolutions",
+      "column": "selected_identity_value",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_identity_resolutions",
+      "column": "semantic_payload_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_identity_resolutions",
+      "column": "supersedes_resolution_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_identity_resolutions",
+      "column": "transcription_reason",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_identity_resolutions",
+      "column": "transcription_receipt_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_object_intents",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_object_intents",
+      "column": "expected_bytes",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_object_intents",
+      "column": "expected_sha256",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_object_intents",
+      "column": "expires_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_object_intents",
+      "column": "import_batch_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_object_intents",
+      "column": "import_file_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_object_intents",
+      "column": "intent_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_object_intents",
+      "column": "object_key",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_object_intents",
+      "column": "object_version",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_object_intents",
+      "column": "observed_bytes",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_object_intents",
+      "column": "observed_sha256",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_object_intents",
+      "column": "purpose",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_object_intents",
+      "column": "state",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_phase_receipts",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_phase_receipts",
+      "column": "error_code",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_phase_receipts",
+      "column": "import_batch_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_phase_receipts",
+      "column": "import_file_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_phase_receipts",
+      "column": "input_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_phase_receipts",
+      "column": "outcome",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_phase_receipts",
+      "column": "payload",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_phase_receipts",
+      "column": "phase",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_phase_receipts",
+      "column": "policy_version",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_phase_receipts",
+      "column": "receipt_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_import_phase_receipts",
+      "column": "result_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_register_entries",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_register_entries",
+      "column": "form_code",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_register_entries",
+      "column": "import_batch_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_register_entries",
+      "column": "match_state",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_register_entries",
+      "column": "matched_import_file_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_register_entries",
+      "column": "ordinal",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_register_entries",
+      "column": "page",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_register_entries",
+      "column": "register_entry_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_register_entries",
+      "column": "register_file_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_register_entries",
+      "column": "row_number",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_register_entries",
+      "column": "status_text",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_register_entries",
+      "column": "title_text",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "checklist_register_entries",
+      "column": "version_text",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_delivery_state",
+      "column": "attempt_count",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_delivery_state",
+      "column": "next_attempt_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_delivery_state",
+      "column": "quarantine_owner_role",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_delivery_state",
+      "column": "quarantine_sla_due_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_delivery_attempts",
+      "column": "acknowledgement_receipt_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_delivery_attempts",
+      "column": "attempt_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_delivery_attempts",
+      "column": "diagnostic_code",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_delivery_attempts",
+      "column": "event_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_delivery_attempts",
+      "column": "lease_generation",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_delivery_attempts",
+      "column": "occurred_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_delivery_attempts",
+      "column": "outcome_code",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_delivery_attempts",
+      "column": "run_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_delivery_state",
+      "column": "acknowledged_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_delivery_state",
+      "column": "acknowledgement_receipt_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_delivery_state",
+      "column": "attempt_count",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_delivery_state",
+      "column": "event_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_delivery_state",
+      "column": "lease_expires_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_delivery_state",
+      "column": "lease_generation",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_delivery_state",
+      "column": "next_attempt_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_delivery_state",
+      "column": "quarantine_owner_role",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_delivery_state",
+      "column": "quarantine_sla_due_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_delivery_state",
+      "column": "run_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_delivery_state",
+      "column": "status",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_delivery_state",
+      "column": "terminal_outcome_code",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_delivery_state",
+      "column": "updated_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_run_events",
+      "column": "canonical_event_sha256",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_run_events",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_run_events",
+      "column": "effective_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_run_events",
+      "column": "event_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_run_events",
+      "column": "known_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_run_events",
+      "column": "occurred_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_run_events",
+      "column": "run_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_runs",
+      "column": "approval_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_runs",
+      "column": "contract_version",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_runs",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_runs",
+      "column": "cut_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_runs",
+      "column": "owning_organization_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_runs",
+      "column": "request_sha256",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_runs",
+      "column": "requested_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_runs",
+      "column": "run_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_runs",
+      "column": "run_kind",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_runs",
+      "column": "source_cut_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_runs",
+      "column": "source_manifest_sha256",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_runs",
+      "column": "source_system",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "datafeed_replay_runs",
+      "column": "tenant_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidate_questions",
+      "column": "applicability",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidate_questions",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidate_questions",
+      "column": "existing_candidate_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidate_questions",
+      "column": "expected_evidence",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidate_questions",
+      "column": "operational_intent",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidate_questions",
+      "column": "ordinal",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidate_questions",
+      "column": "provenance_state",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidate_questions",
+      "column": "question_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidate_questions",
+      "column": "result_history",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidate_questions",
+      "column": "scope_classification",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidate_questions",
+      "column": "source_locators",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidate_questions",
+      "column": "wording",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidates",
+      "column": "candidate_root_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidates",
+      "column": "content_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidates",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidates",
+      "column": "created_by_subject_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidates",
+      "column": "existing_candidate_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidates",
+      "column": "extraction_decision_set_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidates",
+      "column": "extraction_packet_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidates",
+      "column": "form_code",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidates",
+      "column": "identity_basis",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidates",
+      "column": "import_batch_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidates",
+      "column": "import_file_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidates",
+      "column": "origin",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidates",
+      "column": "question_count",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidates",
+      "column": "reason",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidates",
+      "column": "resolution_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidates",
+      "column": "revision",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidates",
+      "column": "schema_version",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidates",
+      "column": "source_file_sha256",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidates",
+      "column": "supersedes_existing_candidate_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "existing_checklist_candidates",
+      "column": "title",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_binding_links",
+      "column": "binding_set_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_binding_links",
+      "column": "chain_role",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_binding_links",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_binding_links",
+      "column": "currentness_event_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_binding_links",
+      "column": "ordinal",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_binding_links",
+      "column": "source_authority_attestation_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_binding_links",
+      "column": "source_class",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_binding_links",
+      "column": "source_hash",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_binding_links",
+      "column": "source_version_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_binding_sets",
+      "column": "binding_set_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_binding_sets",
+      "column": "candidate_content_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_binding_sets",
+      "column": "candidate_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_binding_sets",
+      "column": "candidate_revision",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_binding_sets",
+      "column": "candidate_root_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_binding_sets",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_binding_sets",
+      "column": "reviewed_source_set_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_binding_sets",
+      "column": "reviewed_source_set_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_binding_sets",
+      "column": "reviewed_source_set_version",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_binding_sets",
+      "column": "source_chain_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_chain_links",
+      "column": "binding_set_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_chain_links",
+      "column": "chain_role",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_chain_links",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_chain_links",
+      "column": "currentness_event_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_chain_links",
+      "column": "locator",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_chain_links",
+      "column": "ordinal",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_chain_links",
+      "column": "question_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_chain_links",
+      "column": "source_authority_attestation_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_chain_links",
+      "column": "source_hash",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_chain_links",
+      "column": "source_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_candidate_source_chain_links",
+      "column": "source_version_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_functional_assignments",
+      "column": "assignment_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_functional_assignments",
+      "column": "assignment_root_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_functional_assignments",
+      "column": "assignment_version",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_functional_assignments",
+      "column": "candidate_root_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_functional_assignments",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_functional_assignments",
+      "column": "created_by_subject_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_functional_assignments",
+      "column": "department_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_functional_assignments",
+      "column": "effective_from",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_functional_assignments",
+      "column": "effective_to",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_functional_assignments",
+      "column": "organizational_unit_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_functional_assignments",
+      "column": "permission",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_functional_assignments",
+      "column": "reason",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_functional_assignments",
+      "column": "reviewed_source_set_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_functional_assignments",
+      "column": "reviewed_source_set_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_functional_assignments",
+      "column": "reviewed_source_set_version",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_functional_assignments",
+      "column": "scope_kind",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_functional_assignments",
+      "column": "source_version_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_functional_assignments",
+      "column": "status",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_functional_assignments",
+      "column": "subject_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_functional_assignments",
+      "column": "supersedes_assignment_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_review_comments",
+      "column": "actor_membership_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_review_comments",
+      "column": "actor_subject_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_review_comments",
+      "column": "body",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_review_comments",
+      "column": "candidate_content_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_review_comments",
+      "column": "candidate_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_review_comments",
+      "column": "candidate_revision",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_review_comments",
+      "column": "comment_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_review_comments",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_review_comments",
+      "column": "field_path",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_review_comments",
+      "column": "idempotency_key",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_review_comments",
+      "column": "operation_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_review_comments",
+      "column": "question_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_review_comments",
+      "column": "recommendation",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_checklist_review_comments",
+      "column": "visibility",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_required_owner_resolution_facts",
+      "column": "blocker_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_required_owner_resolution_facts",
+      "column": "candidate_content_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_required_owner_resolution_facts",
+      "column": "candidate_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_required_owner_resolution_facts",
+      "column": "candidate_revision",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_required_owner_resolution_facts",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_required_owner_resolution_facts",
+      "column": "input_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_required_owner_resolution_facts",
+      "column": "inspection_type",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_required_owner_resolution_facts",
+      "column": "outcome",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_required_owner_resolution_facts",
+      "column": "owners",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_required_owner_resolution_facts",
+      "column": "provider_scope_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_required_owner_resolution_facts",
+      "column": "resolution_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_required_owner_resolution_facts",
+      "column": "target_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewed_source_set_links",
+      "column": "chain_role",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewed_source_set_links",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewed_source_set_links",
+      "column": "ordinal",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewed_source_set_links",
+      "column": "reviewed_source_set_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewed_source_set_links",
+      "column": "reviewed_source_set_version",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewed_source_set_links",
+      "column": "source_class",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewed_source_set_links",
+      "column": "source_hash",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewed_source_set_links",
+      "column": "source_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewed_source_set_links",
+      "column": "source_version_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewed_source_sets",
+      "column": "authority_evidence_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewed_source_sets",
+      "column": "canonical_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewed_source_sets",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewed_source_sets",
+      "column": "created_by_subject_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewed_source_sets",
+      "column": "provenance",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewed_source_sets",
+      "column": "reason",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewed_source_sets",
+      "column": "reviewed_source_set_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewed_source_sets",
+      "column": "root_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewed_source_sets",
+      "column": "schema_version",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewed_source_sets",
+      "column": "supersedes_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewed_source_sets",
+      "column": "supersedes_set_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewed_source_sets",
+      "column": "version",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewer_recommendation_dispositions",
+      "column": "actor_subject_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewer_recommendation_dispositions",
+      "column": "candidate_content_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewer_recommendation_dispositions",
+      "column": "candidate_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewer_recommendation_dispositions",
+      "column": "candidate_revision",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewer_recommendation_dispositions",
+      "column": "comment_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewer_recommendation_dispositions",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewer_recommendation_dispositions",
+      "column": "disposition",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewer_recommendation_dispositions",
+      "column": "disposition_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewer_recommendation_dispositions",
+      "column": "idempotency_key",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewer_recommendation_dispositions",
+      "column": "operation_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_reviewer_recommendation_dispositions",
+      "column": "reason",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_source_mapping_attestations",
+      "column": "actor_membership_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_source_mapping_attestations",
+      "column": "actor_subject_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_source_mapping_attestations",
+      "column": "assignment_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_source_mapping_attestations",
+      "column": "binding_set_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_source_mapping_attestations",
+      "column": "candidate_content_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_source_mapping_attestations",
+      "column": "candidate_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_source_mapping_attestations",
+      "column": "candidate_revision",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_source_mapping_attestations",
+      "column": "complete_chain_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_source_mapping_attestations",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_source_mapping_attestations",
+      "column": "decision_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_source_mapping_attestations",
+      "column": "decision_root_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_source_mapping_attestations",
+      "column": "decision_subject_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_source_mapping_attestations",
+      "column": "idempotency_key",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_source_mapping_attestations",
+      "column": "incomplete_proposal_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_source_mapping_attestations",
+      "column": "operation_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_source_mapping_attestations",
+      "column": "outcome",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_source_mapping_attestations",
+      "column": "reason",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "governed_source_mapping_attestations",
+      "column": "supersedes_decision_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "inspection_packages",
+      "column": "canonical_scope_snapshot_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_generation_run_source_currentness_bindings",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_generation_run_source_currentness_bindings",
+      "column": "current_source_hash",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_generation_run_source_currentness_bindings",
+      "column": "current_source_version_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_generation_run_source_currentness_bindings",
+      "column": "currentness_event_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_generation_run_source_currentness_bindings",
+      "column": "generation_run_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_generation_run_source_currentness_bindings",
+      "column": "impact_review_draft_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_generation_run_source_currentness_bindings",
+      "column": "previous_source_hash",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_generation_run_source_currentness_bindings",
+      "column": "previous_source_version_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_generation_run_source_currentness_bindings",
+      "column": "source_identity",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_authority_attestations",
+      "column": "actor_membership_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_authority_attestations",
+      "column": "actor_subject_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_authority_attestations",
+      "column": "assignment_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_authority_attestations",
+      "column": "chain_role",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_authority_attestations",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_authority_attestations",
+      "column": "currentness_event_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_authority_attestations",
+      "column": "decision_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_authority_attestations",
+      "column": "decision_root_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_authority_attestations",
+      "column": "decision_subject_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_authority_attestations",
+      "column": "idempotency_key",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_authority_attestations",
+      "column": "operation_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_authority_attestations",
+      "column": "outcome",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_authority_attestations",
+      "column": "reason",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_authority_attestations",
+      "column": "source_class",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_authority_attestations",
+      "column": "source_hash",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_authority_attestations",
+      "column": "source_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_authority_attestations",
+      "column": "source_version_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_authority_attestations",
+      "column": "supersedes_decision_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_currentness_events",
+      "column": "activated_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_currentness_events",
+      "column": "actor_subject_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_currentness_events",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_currentness_events",
+      "column": "current_source_hash",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_currentness_events",
+      "column": "current_source_version_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_currentness_events",
+      "column": "event_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_currentness_events",
+      "column": "idempotency_key",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_currentness_events",
+      "column": "operation_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_currentness_events",
+      "column": "previous_source_hash",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_currentness_events",
+      "column": "previous_source_version_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_currentness_events",
+      "column": "reason",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_currentness_events",
+      "column": "semantic_payload_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_currentness_events",
+      "column": "sequence_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_currentness_events",
+      "column": "source_identity",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_impact_candidate_links",
+      "column": "candidate_draft_version_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_impact_candidate_links",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_impact_candidate_links",
+      "column": "generation_run_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_impact_candidate_links",
+      "column": "id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_impact_candidate_links",
+      "column": "impact_review_draft_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_impact_review_drafts",
+      "column": "created_at",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_impact_review_drafts",
+      "column": "current_source_hash",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_impact_review_drafts",
+      "column": "current_source_version_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_impact_review_drafts",
+      "column": "currentness_event_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_impact_review_drafts",
+      "column": "id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_impact_review_drafts",
+      "column": "previous_source_hash",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_impact_review_drafts",
+      "column": "previous_source_version_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_impact_review_drafts",
+      "column": "source_identity",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "regulatory_source_impact_review_drafts",
+      "column": "status",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "template_draft_versions",
+      "column": "blocker_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "template_draft_versions",
+      "column": "creation_basis",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "template_draft_versions",
+      "column": "entry_path",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "template_draft_versions",
+      "column": "existing_candidate_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "template_draft_versions",
+      "column": "governed_source_binding_set_id",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "template_draft_versions",
+      "column": "legacy_authority_state",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "template_draft_versions",
+      "column": "lineage_kind",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
+    },
+    {
+      "relation": "template_draft_versions",
+      "column": "owner_resolution_digest",
+      "disposition": "contract_extension_candidate",
+      "field_class": "extension_candidate"
     }
   ],
   "authoritative_fact_mappings": {

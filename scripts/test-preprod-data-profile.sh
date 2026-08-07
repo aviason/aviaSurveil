@@ -188,5 +188,7 @@ export AVIA_TASK8_RUN_ID="$run_id"
 export AVIA_TASK8_EVIDENCE_DIRECTORY="$evidence_directory"
 export AVIA_TASK8_PROFILE_VERSION="$profile_version"
 export AVIA_PREPROD_PROFILE_QUALIFICATION="true"
+export AVIA_PREPROD_PROFILE="aga-preprod@1.0.0"
+export AVIA_PREPROD_IDENTITY_NAMESPACE="canonical-aga-preprod-exercise-v1"
 
 "$repository_root/scripts/test-preprod-connected-scenarios.sh" "$profile_name"

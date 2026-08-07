@@ -32,6 +32,7 @@ preprod_aga_demo_session_encryption_key
 preprod_keycloak_bootstrap_admin_password
 preprod_keycloak_database_password
 preprod_keycloak_service_client_secret
+preprod_session_encryption_key
 preprod_minio_api_access_key
 preprod_minio_api_secret_key
 preprod_minio_root_password
@@ -112,7 +113,7 @@ node "$realm_builder" \
   --realm-name aviasurveil360-local-preprod \
   --web-client-id aviasurveil360-local-preprod-web \
   --service-client-id aviasurveil360-local-preprod-lifecycle \
-  --public-origin "${AVIA_PREPROD_AGA_DEMO_WEB_ORIGIN:-http://127.0.0.1:4174}" \
+  --public-origin "${AVIA_PREPROD_WEB_ORIGIN:-${AVIA_PREPROD_AGA_DEMO_WEB_ORIGIN:-http://127.0.0.1:4174}}" \
   --smtp-host preprod-mailpit \
   --smtp-user aviasurveil360-preprod
 

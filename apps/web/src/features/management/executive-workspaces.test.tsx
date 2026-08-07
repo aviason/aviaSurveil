@@ -323,10 +323,10 @@ describe("General Manager and Executive Director workspaces", () => {
     expect(page).toHaveAttribute("data-planning-item-id", "PLAN-2026-CAB-001");
     expect(page).toHaveAttribute("data-planning-revision", "3");
     await user.type(within(page).getByLabelText("Executive Director plan decision reason"), "Final plan authority recorded for revision 3.");
-    await user.click(within(page).getByRole("button", { name: "Approve and mock-sign PLAN-2026-CAB-001" }));
+    await user.click(within(page).getByRole("button", { name: "Approve plan PLAN-2026-CAB-001" }));
     expect(await within(page).findByTestId("planning-status")).toHaveTextContent("GM_RELEASE");
     expect(page).toHaveTextContent("General Manager to release approved plan");
-    expect(page).toHaveTextContent("Mock approval mark — not a real e-signature");
+    expect(page).toHaveTextContent("Decision recorded without signature assertion");
   });
 
   it("issues Preliminary Reports only after Manager and GM review and keeps unsupported Executive return visibly disabled for version 1", async () => {

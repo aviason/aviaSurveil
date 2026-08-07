@@ -15,8 +15,8 @@ export interface PreliminaryReportDraft {
 }
 
 export interface SavedQuestionAssignment {
-  auditId: "AUD-2026-001";
-  packageId: "PKG-CAB-2026-001";
+  auditId: string;
+  packageId: string;
   questionId: string;
   inspectorSubjectId: string;
   dueDate: string;

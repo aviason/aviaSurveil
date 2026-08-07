@@ -102,6 +102,21 @@ func TestProductionSchedulerRuntimeRequiresOnlyItsDatabaseCapability(t *testing.
 	}
 }
 
+func TestLocalPreprodEnvironmentIsAcceptedForTheDedicatedDisposableProfile(t *testing.T) {
+	t.Parallel()
+
+	settings, err := config.LoadAPI(mapLookup(map[string]string{
+		"AVIA_ENVIRONMENT":  "local-preprod",
+		"AVIA_DATABASE_URL": "postgres://preprod.example/avia",
+	}))
+	if err != nil {
+		t.Fatalf("LoadAPI() rejected the dedicated local-preprod environment: %v", err)
+	}
+	if settings.Environment != "local-preprod" {
+		t.Fatalf("environment = %q, want local-preprod", settings.Environment)
+	}
+}
+
 func TestTelemetryEndpointIsOptionalAndMustBePrivateHTTP(t *testing.T) {
 	t.Parallel()
 

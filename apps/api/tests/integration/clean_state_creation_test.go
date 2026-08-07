@@ -113,7 +113,7 @@ func TestAuthorizedCleanStateCreationIsTransactionalAndIdempotent(t *testing.T) 
 		t.Fatalf("idempotent replay changed response: %#v != %#v", created, replayed)
 	}
 
-	draft, err := service.CreatePlanningIntakeDraft(
+	_, err = service.CreatePlanningIntakeDraft(
 		context.Background(),
 		manager,
 		application.CreatePlanningIntakeDraftCommand{
@@ -125,10 +125,14 @@ func TestAuthorizedCleanStateCreationIsTransactionalAndIdempotent(t *testing.T) 
 			},
 		},
 	)
-	if err != nil {
-		t.Fatalf("create planning draft: %v", err)
+	if !errors.Is(err, application.ErrInvalid) {
+		t.Fatalf("legacy planning draft creation error = %v, want canonical scope rejection", err)
 	}
-	if draft.ID != "DRAFT-001" || draft.Revision != 1 {
-		t.Fatalf("unexpected draft: %#v", draft)
+	var draftCount int
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM planning_intake_drafts WHERE id = 'DRAFT-001'`).Scan(&draftCount); err != nil {
+		t.Fatalf("read rejected draft: %v", err)
+	}
+	if draftCount != 0 {
+		t.Fatalf("legacy planning draft left %d rows", draftCount)
 	}
 }

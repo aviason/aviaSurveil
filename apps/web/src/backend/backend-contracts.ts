@@ -4,12 +4,13 @@ export type DemoCapabilityName =
   | "communications" | "calendar" | "profiles" | "teams" | "risk" | "documents"
   | "notifications" | "administration" | "assistantDrafts" | "planningIntake"
   | "packageDrafts" | "auditeeCoordination" | "auditeeReports" | "adminWorkspace"
-  | "governedChecklistReview" | "governedChecklistIntake" | "canonicalQuestionReview";
+  | "governedChecklistReview" | "governedChecklistIntake" | "canonicalQuestionReview"
+  | "canonicalAuditWorkflow";
 
 export const DEMO_CAPABILITY_PERMISSION_MATRIX: Readonly<Record<Role, readonly DemoCapabilityName[]>> = {
-  inspector: ["communications", "calendar", "profiles", "documents", "notifications", "administration", "assistantDrafts"],
-  leadInspector: ["communications", "calendar", "profiles", "documents", "notifications", "administration", "assistantDrafts"],
-  manager: ["communications", "calendar", "profiles", "teams", "risk", "documents", "notifications", "administration", "planningIntake", "packageDrafts", "governedChecklistReview", "canonicalQuestionReview"],
+  inspector: ["communications", "calendar", "profiles", "documents", "notifications", "administration", "assistantDrafts", "canonicalAuditWorkflow"],
+  leadInspector: ["communications", "calendar", "profiles", "documents", "notifications", "administration", "assistantDrafts", "canonicalAuditWorkflow"],
+  manager: ["communications", "calendar", "profiles", "teams", "risk", "documents", "notifications", "administration", "planningIntake", "packageDrafts", "governedChecklistReview", "canonicalQuestionReview", "canonicalAuditWorkflow"],
   finance: ["profiles", "notifications", "administration"],
   gm: ["profiles", "notifications", "administration"],
   executiveDirector: ["profiles", "notifications", "administration"],

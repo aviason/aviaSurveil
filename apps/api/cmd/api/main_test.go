@@ -68,6 +68,42 @@ func TestScannerReadinessIsRequiredOnlyForRealClamAVMode(t *testing.T) {
 	}
 }
 
+func TestCanonicalAGAExerciseProfileRequiresDedicatedLocalNamespace(t *testing.T) {
+	lookup := func(values map[string]string) func(string) (string, bool) {
+		return func(key string) (string, bool) { value, ok := values[key]; return value, ok }
+	}
+	base := map[string]string{
+		"AVIA_PREPROD_PROFILE":               "aga-preprod@1.0.0",
+		"AVIA_PREPROD_PROFILE_QUALIFICATION": "true",
+		"AVIA_PREPROD_IDENTITY_NAMESPACE":    "canonical-aga-preprod-exercise-v1",
+		"AVIA_PREPROD_DATABASE_NAME":         "aviasurveil360_local_preprod",
+		"AVIA_PREPROD_DATABASE_OWNER":        "aviasurveil360_preprod_loader",
+	}
+	if !canonicalAGAExerciseProfileEnabled("local-preprod", lookup(base)) {
+		t.Fatal("expected the exact local disposable profile to be enabled")
+	}
+	for _, mutate := range []func(map[string]string){
+		func(values map[string]string) {
+			values["AVIA_PREPROD_PROFILE"] = "aga-preprod@1.0.0"
+			values["AVIA_PREPROD_IDENTITY_NAMESPACE"] = "shared-preprod"
+		},
+		func(values map[string]string) { values["AVIA_PREPROD_PROFILE_QUALIFICATION"] = "false" },
+		func(values map[string]string) { values["AVIA_PREPROD_DATABASE_OWNER"] = "shared-preprod-owner" },
+	} {
+		values := map[string]string{}
+		for key, value := range base {
+			values[key] = value
+		}
+		mutate(values)
+		if canonicalAGAExerciseProfileEnabled("local-preprod", lookup(values)) {
+			t.Fatalf("exercise profile enabled for unsafe settings: %+v", values)
+		}
+	}
+	if canonicalAGAExerciseProfileEnabled("production", lookup(base)) {
+		t.Fatal("exercise profile enabled outside local-preprod")
+	}
+}
+
 func TestRuntimeReadinessKeepsConfiguredUnavailableDependenciesNamed(t *testing.T) {
 	t.Parallel()
 

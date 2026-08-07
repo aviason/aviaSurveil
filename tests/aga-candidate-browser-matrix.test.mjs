@@ -55,7 +55,7 @@ test("OIDC form discovery uses stable provider controls and stops on the first m
   assert.match(supportSource, /locator\("#kc-login"\)/u);
   assert.match(
     playwrightConfig,
-    /maxFailures: profile === "preprod-aga-demo" \? 1 : 0/u,
+    /maxFailures: profile === "preprod-aga-demo" \|\| profile === "preprod-aga-manager" \? 1 : 0/u,
   );
   assert.match(playwrightConfig, /actionTimeout: 30_000/u);
   assert.match(playwrightConfig, /navigationTimeout: 30_000/u);
@@ -173,7 +173,10 @@ test("browser failure classifies server session state without identity or token 
 });
 
 test("logout requires server revocation and inspects a controlled BFCache return", () => {
-  assert.match(supportSource, /if \(result\.status === 204\) return/u);
+  assert.match(
+    supportSource,
+    /if \(result\.status === 204\) \{[\s\S]*?clearCookies\(\)/u,
+  );
   assert.match(adminSource, /browserFetch\(page, `\$\{agaRoute\}\/capability`\)/u);
   assert.match(adminSource, /await page\.goto\("\/"\);\s*await page\.goBack\(\)/u);
   assert.doesNotMatch(adminSource, /await logout\(page\);\s*await page\.goBack\(\)/u);

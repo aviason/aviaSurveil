@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/preproddata/agacandidatedemo"
@@ -115,13 +116,33 @@ func BuildImportManifest(pkg agacandidatedemo.AcceptedPackage, catalogVersion st
 	if err := questioncatalog.ValidateImport(rows, questioncatalog.ImportPolicy{ExpectedRows: 1310}); err != nil {
 		return ImportManifest{}, err
 	}
-	return ImportManifest{
+	manifest := ImportManifest{
 		CatalogVersion: catalogVersion,
 		UsageClass:     questioncatalog.UsageClassPreprodExercise,
 		Forms:          forms,
 		Rows:           rows, QuestionVersions: versions,
-		ImportDigest: questioncatalog.ImportDigest(rows),
-	}, nil
+	}
+	// Bind the complete sealed package boundary, not only question membership
+	// rows. Form identities (including zero-question forms), archive/form
+	// digests, and package identities are part of the provenance root.
+	manifest.ImportDigest = canonicalImportDigest(pkg, manifest)
+	return manifest, nil
+}
+
+func canonicalImportDigest(pkg agacandidatedemo.AcceptedPackage, manifest ImportManifest) string {
+	forms := append([]CatalogFormImport(nil), manifest.Forms...)
+	sort.Slice(forms, func(i, j int) bool { return forms[i].FormCode < forms[j].FormCode })
+	rowDigest := questioncatalog.ImportDigest(manifest.Rows)
+	h := sha256.New()
+	fmt.Fprintf(h, "catalog=%s\x00usage=%s\x00package=%s\x00json=%s\x00zip=%s\x00rows=%s\n",
+		manifest.CatalogVersion, manifest.UsageClass, pkg.Identity.PackageVersion,
+		pkg.Identity.JSONSHA256, pkg.Identity.ZipSHA256, rowDigest)
+	for _, form := range forms {
+		fmt.Fprintf(h, "form=%s\x00%s\x00%s\x00%d\x00%s\n",
+			form.FormCode, form.FormDigest, form.ArchiveDigest,
+			form.QuestionCount, form.SourceGapState)
+	}
+	return "sha256:" + hex.EncodeToString(h.Sum(nil))
 }
 
 func digestText(value string) string {

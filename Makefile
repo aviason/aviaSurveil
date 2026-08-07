@@ -17,13 +17,19 @@ AGA_DEMO_OIDC_HOST ?= 127.0.0.1
 AGA_DEMO_WEB_ORIGIN ?= http://127.0.0.1:$(AGA_DEMO_WEB_PORT)
 AGA_DEMO_WEB_IMAGE ?= node:24.16.0-alpine3.23@sha256:2bdb65ed1dab192432bc31c95f94155ca5ad7fc1392fb7eb7526ab682fa5bf14
 
-.PHONY: help demo-up demo-down demo-status aga-demo-up aga-demo-down aga-demo-status
+CANONICAL_PREPROD_STATE_DIR ?= $(CURDIR)/.local/aviasurveil360-canonical-preprod
+CANONICAL_PREPROD_HTTPS_PORT ?= 8445
+
+.PHONY: help demo-up demo-down demo-status preprod-up preprod-down preprod-status aga-demo-up aga-demo-down aga-demo-status
 
 help:
 	@printf '%s\n' \
 		'demo-up      Start the local React demo at http://$(DEMO_HOST):$(DEMO_PORT)' \
 		'demo-down    Stop the demo process started by demo-up' \
 		'demo-status  Show whether the mock demo URL is responding' \
+		'preprod-up   Start the canonical disposable local-preprod stack' \
+		'preprod-down Stop the canonical disposable local-preprod stack and erase its state' \
+		'preprod-status Show canonical local-preprod health and runtime metadata' \
 		'aga-demo-up  Start API + PostgreSQL + Keycloak + HTTP UI with 1,310 questions' \
 		'aga-demo-down Stop the disposable API-backed AGA demo and its data' \
 		'aga-demo-status Show API/web health and the loaded question count'
@@ -75,6 +81,21 @@ demo-status:
 		echo "Demo is not responding at http://$(DEMO_HOST):$(DEMO_PORT)"; \
 		exit 1; \
 	fi
+
+preprod-up:
+	@AVIA_CANONICAL_PREPROD_STATE_DIR="$(CANONICAL_PREPROD_STATE_DIR)" \
+	AVIA_PREPROD_HTTPS_PORT="$(CANONICAL_PREPROD_HTTPS_PORT)" \
+		bash scripts/start-canonical-preprod.sh
+
+preprod-down:
+	@AVIA_CANONICAL_PREPROD_STATE_DIR="$(CANONICAL_PREPROD_STATE_DIR)" \
+	AVIA_PREPROD_HTTPS_PORT="$(CANONICAL_PREPROD_HTTPS_PORT)" \
+		bash scripts/stop-canonical-preprod.sh
+
+preprod-status:
+	@AVIA_CANONICAL_PREPROD_STATE_DIR="$(CANONICAL_PREPROD_STATE_DIR)" \
+	AVIA_PREPROD_HTTPS_PORT="$(CANONICAL_PREPROD_HTTPS_PORT)" \
+		bash scripts/status-canonical-preprod.sh
 
 aga-demo-up:
 	@DEMO_NODE="$(AGA_DEMO_NODE)" \

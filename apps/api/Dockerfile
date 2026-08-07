@@ -22,6 +22,7 @@ RUN mkdir -p /out \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/scheduler ./cmd/reminder-scheduler \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/migrate ./cmd/migrate \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-data-loader ./cmd/preprod-data-loader \
+    && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-canonical-aga-loader ./cmd/preprod-canonical-aga-loader \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-aga-candidate-demo-loader ./cmd/preprod-aga-candidate-demo-loader \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-aga-demo-role-provisioner ./cmd/preprod-aga-demo-role-provisioner
 RUN go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-aga-demo-oidc-fixture ./cmd/preprod-aga-demo-oidc-fixture
@@ -91,6 +92,10 @@ COPY --from=go-build --chown=10001:10001 /out/preprod-data-loader /app/preprod-d
 COPY --chown=10001:10001 apps/web/src/parity/legacy-screen-source.json /app/catalog/legacy-screen-source.json
 COPY --chown=10001:10001 tests/parity/behavior-ledger.json /app/catalog/behavior-ledger.json
 ENTRYPOINT ["/app/preprod-data-loader"]
+
+FROM runtime-base AS preprod-canonical-aga-loader
+COPY --from=go-build --chown=10001:10001 /out/preprod-canonical-aga-loader /app/preprod-canonical-aga-loader
+ENTRYPOINT ["/app/preprod-canonical-aga-loader"]
 
 FROM runtime-base AS preprod-aga-candidate-demo-loader
 COPY --from=go-build --chown=10001:10001 /out/preprod-aga-candidate-demo-loader /app/preprod-aga-candidate-demo-loader

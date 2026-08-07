@@ -101,7 +101,7 @@ export function FinanceReviewPage() {
     if (!reason.trim()) { setError("Finance decision reason is required."); return; }
     setBusy(true); setError(null);
     try {
-      const updated = await backend.planning.decide({ operationId: `FINANCE-${choice}-${selected.id}-${selected.revision}`, planningItemId: selected.id, expectedPlanningRevision: selected.revision, decision: choice, reason });
+      const updated = await backend.planning.decide({ operationId: `FINANCE-${choice}-${selected.id}-${selected.revision}`, planningItemId: selected.id, expectedPlanningRevision: selected.revision, decision: choice, reason, expectedSubmittedScopeSnapshotId: selected.submittedScopeSnapshotId, expectedPlanningSnapshotDigest: selected.planningSnapshotDigest });
       setSelected(updated); setItems((current) => current.map((item) => item.id === updated.id ? updated : item)); setChoice(null); setReason("");
     } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); }
   }
@@ -111,7 +111,7 @@ export function FinanceReviewPage() {
       <div className="authority-workspace finance-review-page">
         <header className="authority-page-head workbench-page-header"><h1>Finance Review</h1><p>Approve the requested budget for General Manager review or return it to Department Manager for revision.</p></header>
         <CommandError message={error} />
-        <div className="authority-guardrails"><span>Budget approval before GM Review</span><span>No plan signature or release</span><span>Frontend-only demo</span></div>
+        <div className="authority-guardrails"><span>Budget approval before GM Review</span><span>No plan signature or release</span><span>Server-recorded decision boundary</span></div>
         <section aria-label="Finance review summary" className="finance-summary-strip">
           <article><span>Pending Finance Review</span><b>{items.filter((item) => item.status === "FINANCE_REVIEW").length}</b></article>
           <article><span>Total Requested Budget</span><b>{money(items.reduce((sum, item) => sum + item.estimatedBudget, 0))}</b></article>
@@ -147,7 +147,7 @@ export function GeneralManagerDashboardPage() {
     if (!plan || !choice) return;
     if (!reason.trim()) { setError("General Manager decision reason is required."); return; }
     setBusy(true); setError(null);
-    try { const updated = await backend.planning.decide({ operationId: `GM-${choice}-${plan.id}-${plan.revision}`, planningItemId: plan.id, expectedPlanningRevision: plan.revision, decision: choice, reason }); setPlans([updated]); setChoice(null); setReason(""); } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); }
+    try { const updated = await backend.planning.decide({ operationId: `GM-${choice}-${plan.id}-${plan.revision}`, planningItemId: plan.id, expectedPlanningRevision: plan.revision, decision: choice, reason, expectedSubmittedScopeSnapshotId: plan.submittedScopeSnapshotId, expectedPlanningSnapshotDigest: plan.planningSnapshotDigest }); setPlans([updated]); setChoice(null); setReason(""); } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); }
   }
   const departments = ["Cabin Safety", "Security", "Airworthiness", "Ramp", "Unassigned", "Certification", "Licensing"];
   const highRisk = findings.filter((finding) => ["LEVEL_1_CRITICAL", "LEVEL_2_MAJOR"].includes(finding.severity)).length;
@@ -207,6 +207,8 @@ function PlanningGovernancePage({ role }: { role: "gm" | "executiveDirector" }) 
         expectedPlanningRevision: selected.revision,
         decision,
         reason,
+        expectedSubmittedScopeSnapshotId: selected.submittedScopeSnapshotId,
+        expectedPlanningSnapshotDigest: selected.planningSnapshotDigest,
       });
       setItems((current) => current.map((item) => item.id === updated.id ? updated : item));
       setReason("");
@@ -234,7 +236,7 @@ function PlanningGovernancePage({ role }: { role: "gm" | "executiveDirector" }) 
         <CommandError message={error} />
         <div className="authority-guardrails">
           <span>{isGm ? "General Manager operational review" : "Executive Director final plan approval"}</span>
-          <span>{isGm ? "No stage skipping" : "Mock approval mark — not a real e-signature"}</span>
+          <span>{isGm ? "No stage skipping" : "Decision recorded without signature assertion"}</span>
           <span>General Manager Release remains a separate next stage</span>
         </div>
         <section aria-label="Planning approval stages" className="executive-stage-grid">
@@ -263,7 +265,7 @@ function PlanningGovernancePage({ role }: { role: "gm" | "executiveDirector" }) 
                   <button disabled={busy} onClick={() => void decide(selected.status === "GM_RELEASE" ? "RELEASE_PLAN" : "FORWARD_FOR_FINAL_APPROVAL")} type="button">{selected.status === "GM_RELEASE" ? `Release ${selected.id} to Department Manager` : `Forward ${selected.id} to Executive Director`}</button>
                   <button disabled={busy} onClick={() => void decide("RETURN_FOR_REVISION")} type="button">Return {selected.id} for revision</button>
                 </> : <>
-                  <button disabled={busy} onClick={() => void decide("APPROVE_PLAN")} type="button">Approve and mock-sign {selected.id}</button>
+                  <button disabled={busy} onClick={() => void decide("APPROVE_PLAN")} type="button">Approve plan {selected.id}</button>
                   <button disabled={busy} onClick={() => void decide("RETURN_FOR_REVISION")} type="button">Return {selected.id} to General Manager</button>
                 </>}
               </> : <button aria-label={`Planning decision unavailable for ${selected.id}`} disabled title={`Planning item ${selected.id} is ${selected.status}; ${isGm ? "General Manager" : "Executive Director"} decision is unavailable at this stage.`} type="button">Decision unavailable</button>}
@@ -280,10 +282,19 @@ export function ExecutivePlanningPage() { return <PlanningGovernancePage role="e
 
 export function AuditPlanCalendarPage() {
   const backend = useBackendForRole("manager");
+  const workflow = backend.canonicalAuditWorkflow;
   const [searchParams] = useSearchParams();
   const [items, setItems] = useState<PlanningItemView[]>([]);
   const [selected, setSelected] = useState<PlanningItemView | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const [preparation, setPreparation] = useState<Awaited<ReturnType<NonNullable<typeof workflow>["prepare"]>> | null>(null);
+  const [assignment, setAssignment] = useState<Awaited<ReturnType<NonNullable<typeof workflow>["assignLead"]>> | null>(null);
+  const [materialized, setMaterialized] = useState<Awaited<ReturnType<NonNullable<typeof workflow>["materialize"]>> | null>(null);
+  const [leadSubjectId, setLeadSubjectId] = useState("");
+  const [memberSubjectIds, setMemberSubjectIds] = useState("");
+  const [questionCoverage, setQuestionCoverage] = useState("");
+  const [busy, setBusy] = useState(false);
   useEffect(() => {
     void backend.planning.list({ limit: 20 }).then((output) => {
       setItems(output.items);
@@ -291,6 +302,80 @@ export function AuditPlanCalendarPage() {
       setSelected(output.items.find((item) => item.id === requestedId) ?? output.items[0] ?? null);
     }).catch((cause) => setError(errorMessage(cause)));
   }, [backend, searchParams]);
+
+  async function beginPreparation(): Promise<void> {
+    if (!workflow || !selected) return;
+    setBusy(true); setError(null);
+    try {
+      const result = await workflow.prepare(selected.id, {
+        operationId: `PREPARE-${selected.id}-${selected.revision}`,
+        idempotencyKey: `PREPARE-${selected.id}-${selected.revision}`,
+        expectedPlanningRevision: selected.revision,
+      });
+      setPreparation(result);
+      setStatus(`Server-owned preparation ${result.assignmentId} created; no Inspection exists yet.`);
+    } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); }
+  }
+
+  async function assignLead(): Promise<void> {
+    if (!workflow || !preparation?.assignmentId || !leadSubjectId.trim()) return;
+    setBusy(true); setError(null);
+    try {
+      const result = await workflow.assignLead(preparation.assignmentId, {
+        operationId: `LEAD-${preparation.assignmentId}-${preparation.revision}`,
+        idempotencyKey: `LEAD-${preparation.assignmentId}-${preparation.revision}`,
+        expectedInspectionRevision: preparation.revision,
+        leadSubjectId: leadSubjectId.trim(),
+      });
+      setAssignment(result);
+      setStatus(`Lead ${result.leadSubjectId} assigned from the released Planning date.`);
+    } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); }
+  }
+
+  async function assignTeam(): Promise<void> {
+    if (!workflow || !assignment) return;
+    const members = memberSubjectIds.split(/[,\n]/).map((value) => value.trim()).filter(Boolean);
+    if (!members.length) { setError("Enter at least one Inspector subject ID."); return; }
+    setBusy(true); setError(null);
+    try {
+      const result = await workflow.assignTeam(assignment.id, { operationId: `TEAM-${assignment.id}-${assignment.revision}`, idempotencyKey: `TEAM-${assignment.id}-${assignment.revision}`, expectedRevision: assignment.revision, memberSubjectIds: members });
+      setAssignment(result); setStatus("Exact Inspector team saved; question coverage is still required.");
+    } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); }
+  }
+
+  async function assignCoverage(): Promise<void> {
+    if (!workflow || !assignment) return;
+    const rows = questionCoverage.split(/[,\n]/).map((value) => value.trim()).filter(Boolean).map((value) => {
+      const [questionId, subjectId] = value.split(":").map((part) => part.trim());
+      return { questionId, subjectId };
+    }).filter((row) => row.questionId && row.subjectId);
+    if (!rows.length) { setError("Enter coverage as questionVersionId:subjectId, one per line."); return; }
+    setBusy(true); setError(null);
+    try {
+      const result = await workflow.assignQuestionCoverage(assignment.id, { operationId: `COVERAGE-${assignment.id}-${assignment.revision}`, idempotencyKey: `COVERAGE-${assignment.id}-${assignment.revision}`, expectedRevision: assignment.revision, questionAssignments: rows });
+      setAssignment(result); setStatus("Per-question coverage saved with CAS.");
+    } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); }
+  }
+
+  async function confirmPreparation(): Promise<void> {
+    if (!workflow || !assignment) return;
+    setBusy(true); setError(null);
+    try {
+      await workflow.confirmPreparation(assignment.id, { operationId: `CONFIRM-${assignment.id}-${assignment.revision}`, idempotencyKey: `CONFIRM-${assignment.id}-${assignment.revision}`, expectedAssignmentRevision: assignment.revision });
+      setStatus("Department Manager preparation confirmed; materialization is now available.");
+      setAssignment({ ...assignment, status: "QUESTIONS_ASSIGNED", revision: assignment.revision + 1 });
+    } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); }
+  }
+
+  async function materializeAudit(): Promise<void> {
+    if (!workflow || !assignment) return;
+    setBusy(true); setError(null);
+    try {
+      const result = await workflow.materialize(assignment.id, { operationId: `MATERIALIZE-${assignment.id}-${assignment.revision}`, idempotencyKey: `MATERIALIZE-${assignment.id}-${assignment.revision}`, expectedAssignmentRevision: assignment.revision });
+      setMaterialized(result); setStatus(`Inspection ${result.inspectionId} and NOT_STARTED checklist created atomically.`);
+    } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); }
+  }
+
   return (
     <WorkspaceShell roleLabel="Department Manager" routeLabel="Department Planning">
       <div className="management-workspace planning-workspace">
@@ -303,8 +388,9 @@ export function AuditPlanCalendarPage() {
           </div>
         </header>
         <CommandError message={error} />
-        <div className="planning-boundaries" aria-label="Planning candidate boundaries">
-          <strong>Read-only plan</strong><span>Frontend-only demo</span><span>Mock approval history</span><span>No real authorization service</span>
+        {status ? <p className="planning-intake-status" role="status">{status}</p> : null}
+        <div className="planning-boundaries" aria-label="Planning command boundaries">
+          <strong>Server-authorized planning</strong><span>Append-only decisions</span><span>Canonical scope snapshot</span><span>Inspector start is a separate command</span>
         </div>
         {selected ? (
           <section className="planning-command-center management-panel" data-testid="planning-command-center">
@@ -345,6 +431,16 @@ export function AuditPlanCalendarPage() {
             </div>
           </section>
         ) : null}
+
+        {selected?.status === "RELEASED" ? <section aria-label="Canonical post-release preparation" className="planning-command-center management-panel" data-testid="canonical-preparation-actions">
+          <header className="planning-command-center__head"><div><span className="planning-command-center__eyebrow">Post-release canonical workflow</span><h2>Prepare → Assign → Confirm → Materialize → Start</h2><p>These controls call server-owned commands. No inspection, package, or checklist exists until materialization.</p></div><span className="planning-demo-badge is-info">{workflow ? "Connected command boundary" : "Unavailable in this build profile"}</span></header>
+          {!workflow ? <p role="note">Canonical preparation commands are unavailable in this build profile.</p> : <div className="planning-preparation-actions">
+            {!preparation ? <button disabled={busy} onClick={() => void beginPreparation()} type="button">Begin server-owned preparation</button> : <p role="status">Assignment {preparation.assignmentId} · {preparation.status} · revision {preparation.revision}</p>}
+            {preparation && !assignment ? <div><label>Lead Inspector subject ID<input aria-label="Lead Inspector subject ID" value={leadSubjectId} onChange={(event) => setLeadSubjectId(event.target.value)} placeholder="lead-subject" /></label><button disabled={busy || !leadSubjectId.trim()} onClick={() => void assignLead()} type="button">Assign Lead Inspector</button></div> : null}
+            {assignment ? <><p role="status">Assignment {assignment.id} · {assignment.status} · revision {assignment.revision}</p><label>Inspector subject IDs<input aria-label="Inspector subject IDs" value={memberSubjectIds} onChange={(event) => setMemberSubjectIds(event.target.value)} placeholder="inspector-a, inspector-b" /></label><button disabled={busy} onClick={() => void assignTeam()} type="button">Assign exact team</button><label>Question coverage<textarea aria-label="Question coverage" value={questionCoverage} onChange={(event) => setQuestionCoverage(event.target.value)} placeholder="questionVersionId:subjectId" /></label><button disabled={busy} onClick={() => void assignCoverage()} type="button">Save question coverage</button><button disabled={busy || assignment.status !== "QUESTIONS_ASSIGNED"} onClick={() => void confirmPreparation()} title={assignment.status !== "QUESTIONS_ASSIGNED" ? "Complete team and question coverage first." : undefined} type="button">Confirm preparation</button><button disabled={busy || assignment.status !== "QUESTIONS_ASSIGNED"} onClick={() => void materializeAudit()} title={assignment.status !== "QUESTIONS_ASSIGNED" ? "Confirm preparation before materialization." : undefined} type="button">Materialize canonical Audit</button></> : null}
+            {materialized ? <p role="status">Inspection {materialized.inspectionId} · {materialized.status} · package {materialized.packageId}. Inspector start is available from My Assignments after readiness.</p> : null}
+          </div>}
+        </section> : null}
 
         <section className="planning-queue management-panel">
           <div className="management-section-head"><div><span>Authorized register</span><h2>Planning Queue</h2></div><strong>{items.length} item</strong></div>

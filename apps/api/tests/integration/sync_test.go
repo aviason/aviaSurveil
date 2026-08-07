@@ -277,7 +277,7 @@ func TestFieldSyncCausalPotentialFindingAttachmentAndChecklistSubmission(t *test
 			"auditId": "audit-cabin-001", "questionId": "q-cabin-crew-training",
 			"checklistResponseId": "response-cabin-001", "expectedChecklistResponseRevision": 2,
 			"title": "Training record gap", "description": "Required crew record was unavailable.",
-			"requiredComment": "Provide the current training record.", "inspectionAttachmentIds": []string{"attachment-local-causal"},
+			"requiredComment": "Provide the current training record.",
 		},
 	})
 	pf, err := service.Push(context.Background(), actor, pfOperation)

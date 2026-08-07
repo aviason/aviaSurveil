@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/assignments"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/caps"
 	capstore "github.com/MarlonJD/aviaSurveil360/apps/api/internal/caps/store/postgres"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/evidence"
@@ -81,6 +82,22 @@ func (service *Service) SubmitCAP(ctx context.Context, actor identity.Principal,
 		organizationID := finding.OrganizationID
 		if !actor.BelongsTo(organizationID) {
 			return transition[SubmitCAPResult]{}, fmt.Errorf("%w: Finding is outside the Auditee organization", ErrForbidden)
+		}
+		var preliminaryIssued bool
+		if err := transaction.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1
+				FROM report_versions preliminary
+				JOIN report_approval_states approval ON approval.report_version_id = preliminary.id
+				WHERE preliminary.inspection_id = $1
+				  AND preliminary.snapshot->>'kind' = 'PRELIMINARY'
+				  AND approval.status IN ('ISSUED', 'LOCKED')
+			)
+		`, finding.InspectionID).Scan(&preliminaryIssued); err != nil {
+			return transition[SubmitCAPResult]{}, err
+		}
+		if !preliminaryIssued {
+			return transition[SubmitCAPResult]{}, fmt.Errorf("%w: Preliminary Report must be approved and issued before CAP", ErrConflict)
 		}
 		decision, err := caps.Submit(caps.SubmitInput{
 			Actor: actor, FindingOrganizationID: organizationID, FindingStatus: findings.Status(status),
@@ -159,6 +176,76 @@ type ReviewCAPResult struct {
 	FindingRevision int64           `json:"findingRevision"`
 }
 
+// requireFindingReviewAuthority binds every canonical Finding review to its
+// immutable Audit assignment. There is no role-only fallback: an assignment
+// is required before a Finding can enter the CAP/Evidence workflow.
+func requireFindingReviewAuthority(
+	ctx context.Context,
+	tx pgx.Tx,
+	actor identity.Principal,
+	inspectionID string,
+	allowDepartmentManager bool,
+) error {
+	var hasAssignment, assignedReviewer bool
+	if err := tx.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM audit_assignments
+			WHERE inspection_id = $1 AND tombstoned_at IS NULL
+		), EXISTS (
+			SELECT 1
+			FROM audit_assignments assignment
+			JOIN audit_team_members member ON member.assignment_id = assignment.id
+			WHERE assignment.inspection_id = $1
+			  AND assignment.tombstoned_at IS NULL
+			  AND member.subject_id = $2
+			  AND member.member_role IN ('INSPECTOR', 'LEAD_INSPECTOR')
+			  AND member.removed_at IS NULL
+		)`, inspectionID, actor.SubjectID).Scan(&hasAssignment, &assignedReviewer); err != nil {
+		return err
+	}
+	if !hasAssignment {
+		return fmt.Errorf("%w: Finding is not bound to a canonical Audit assignment", ErrForbidden)
+	}
+	if assignedReviewer {
+		return nil
+	}
+	if allowDepartmentManager && actor.HasRole(identity.RoleDepartmentManager) {
+		return assignments.RequireCurrentDepartmentScopeAuthority(ctx, tx, actor, "", inspectionID)
+	}
+	return fmt.Errorf("%w: reviewer is not assigned to this Audit", ErrForbidden)
+}
+
+func requireLeadInspectorAuthority(ctx context.Context, tx pgx.Tx, actor identity.Principal, inspectionID string) error {
+	if !actor.HasRole(identity.RoleLeadInspector) || strings.TrimSpace(actor.SubjectID) == "" {
+		return fmt.Errorf("%w: Lead Inspector role required", ErrForbidden)
+	}
+	var hasAssignment, isLead bool
+	if err := tx.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM audit_assignments
+			WHERE inspection_id = $1 AND tombstoned_at IS NULL
+		), EXISTS (
+			SELECT 1
+			FROM audit_assignments assignment
+			JOIN audit_team_members member ON member.assignment_id = assignment.id
+			WHERE assignment.inspection_id = $1
+			  AND assignment.tombstoned_at IS NULL
+			  AND assignment.lead_subject_id = $2
+			  AND member.subject_id = $2
+			  AND member.member_role = 'LEAD_INSPECTOR'
+			  AND member.removed_at IS NULL
+		)`, inspectionID, actor.SubjectID).Scan(&hasAssignment, &isLead); err != nil {
+		return err
+	}
+	if !hasAssignment {
+		return fmt.Errorf("%w: Audit has no assigned Lead Inspector", ErrForbidden)
+	}
+	if !isLead {
+		return fmt.Errorf("%w: Lead Inspector is not assigned to this Audit", ErrForbidden)
+	}
+	return nil
+}
+
 func (service *Service) ReviewCAP(ctx context.Context, actor identity.Principal, command ReviewCAPCommand) (ReviewCAPResult, error) {
 	semantic := struct {
 		CAPRevision      int64               `json:"capRevision"`
@@ -212,6 +299,9 @@ func (service *Service) ReviewCAP(ctx context.Context, actor identity.Principal,
 		}
 		if capRevisionRecord.OrganizationID != finding.OrganizationID {
 			return transition[ReviewCAPResult]{}, errors.New("CAP and Finding organization mismatch")
+		}
+		if err := requireFindingReviewAuthority(ctx, transaction, actor, finding.InspectionID, false); err != nil {
+			return transition[ReviewCAPResult]{}, err
 		}
 		capStatus := capRevisionRecord.Status
 		capRevision := int64(capRevisionRecord.Revision)
@@ -294,7 +384,7 @@ func (service *Service) ReviewEvidence(ctx context.Context, actor identity.Princ
 		OperationID: command.OperationID, CorrelationID: command.CorrelationID,
 		Kind: "review_evidence", EntityID: command.EvidenceVersionID, Semantic: semantic,
 	}, func(ctx context.Context, transaction pgx.Tx) (transition[ReviewEvidenceResult], error) {
-		if !actor.HasRole(identity.RoleInspector, identity.RoleLeadInspector, identity.RoleDepartmentManager) {
+		if !actor.HasRole(identity.RoleInspector, identity.RoleLeadInspector) {
 			return transition[ReviewEvidenceResult]{}, fmt.Errorf("%w: CAA Evidence review role required", ErrForbidden)
 		}
 		if semantic.CommentToAuditee == "" || semantic.InternalCAANote == "" {
@@ -322,6 +412,9 @@ func (service *Service) ReviewEvidence(ctx context.Context, actor identity.Princ
 		}
 		if evidenceVersion.OrganizationID != finding.OrganizationID {
 			return transition[ReviewEvidenceResult]{}, errors.New("Evidence and Finding organization mismatch")
+		}
+		if err := requireFindingReviewAuthority(ctx, transaction, actor, finding.InspectionID, false); err != nil {
+			return transition[ReviewEvidenceResult]{}, err
 		}
 		var latestEvidenceVersionID string
 		if err := transaction.QueryRow(ctx, `
@@ -455,6 +548,12 @@ func (service *Service) AuthorizedCloseFinding(ctx context.Context, actor identi
 			if errors.Is(err, pgx.ErrNoRows) {
 				return transition[AuthorizedCloseFindingResult]{}, ErrNotFound
 			}
+			return transition[AuthorizedCloseFindingResult]{}, err
+		}
+		// Authorized closure is still a CAA decision, but it is scoped to the
+		// exact released Audit/provider responsibility. A Department Manager
+		// from an unrelated department cannot close by opaque Finding ID.
+		if err := assignments.RequireCurrentDepartmentScopeAuthority(ctx, transaction, actor, "", finding.InspectionID); err != nil {
 			return transition[AuthorizedCloseFindingResult]{}, err
 		}
 		status := finding.Status

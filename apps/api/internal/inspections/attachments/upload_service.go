@@ -200,6 +200,93 @@ type CompleteUploadOutput struct {
 	ScanState              string `json:"scanState"`
 }
 
+type AttachmentView struct {
+	ID                  string `json:"id"`
+	InspectionID        string `json:"inspectionId"`
+	PackageID           string `json:"packageId"`
+	QuestionID          string `json:"questionId"`
+	ChecklistResponseID string `json:"checklistResponseId"`
+	FileName            string `json:"fileName"`
+	UploadState         string `json:"uploadState"`
+	ScanState           string `json:"scanState"`
+	Revision            int64  `json:"revision"`
+}
+
+func (service *UploadService) Get(ctx context.Context, actor identity.Principal, attachmentID string) (AttachmentView, error) {
+	if !canAccessAttachment(actor) || attachmentID == "" {
+		return AttachmentView{}, ErrAttachmentForbidden
+	}
+	var view AttachmentView
+	var memberSubject string
+	if err := service.pool.QueryRow(ctx, `
+		SELECT attachment.id, attachment.inspection_id, attachment.package_id,
+		       attachment.question_id, COALESCE(attachment.checklist_response_id, ''),
+		       attachment.file_name, attachment.upload_state, attachment.scan_state,
+		       attachment.revision, member.subject_id
+		FROM inspection_attachments attachment
+		JOIN audit_assignments assignment
+		  ON assignment.inspection_id = attachment.inspection_id
+		 AND assignment.tombstoned_at IS NULL
+		JOIN audit_team_members member
+		  ON member.assignment_id = assignment.id
+		 AND member.removed_at IS NULL
+		 AND member.member_role IN ('INSPECTOR', 'LEAD_INSPECTOR')
+		WHERE attachment.id = $1 AND member.subject_id = $2
+	`, attachmentID, actor.SubjectID).Scan(
+		&view.ID, &view.InspectionID, &view.PackageID, &view.QuestionID,
+		&view.ChecklistResponseID, &view.FileName, &view.UploadState,
+		&view.ScanState, &view.Revision, &memberSubject,
+	); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return AttachmentView{}, ErrAttachmentForbidden
+		}
+		return AttachmentView{}, err
+	}
+	return view, nil
+}
+
+func (service *UploadService) Download(ctx context.Context, actor identity.Principal, attachmentID string) (objectstore.GetInstruction, error) {
+	if !canAccessAttachment(actor) || attachmentID == "" {
+		return objectstore.GetInstruction{}, ErrAttachmentForbidden
+	}
+	var organizationID, bucket, key, fileName string
+	if err := service.pool.QueryRow(ctx, `
+		SELECT attachment.organization_id, metadata.bucket_name, metadata.object_key, metadata.filename
+		FROM inspection_attachments attachment
+		JOIN audit_assignments assignment
+		  ON assignment.inspection_id = attachment.inspection_id
+		 AND assignment.tombstoned_at IS NULL
+		JOIN audit_team_members member
+		  ON member.assignment_id = assignment.id
+		 AND member.subject_id = $2
+		 AND member.removed_at IS NULL
+		 AND member.member_role IN ('INSPECTOR', 'LEAD_INSPECTOR')
+		JOIN object_metadata metadata
+		  ON metadata.id = attachment.canonical_object_metadata_id
+		 AND metadata.scan_status = 'CLEAN'
+		 AND metadata.object_state = 'CANONICAL'
+		WHERE attachment.id = $1
+		  AND attachment.upload_state = 'UPLOADED'
+		  AND attachment.scan_state = 'CLEAN'
+	`, attachmentID, actor.SubjectID).Scan(&organizationID, &bucket, &key, &fileName); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return objectstore.GetInstruction{}, ErrAttachmentForbidden
+		}
+		return objectstore.GetInstruction{}, err
+	}
+	if organizationID == "" || bucket == "" || key == "" {
+		return objectstore.GetInstruction{}, ErrAttachmentForbidden
+	}
+	return service.objects.CreateGetInstruction(ctx, objectstore.GetRequest{
+		Bucket: bucket, Key: key, DownloadFileName: fileName,
+		ExpiresAt: service.clock().UTC().Add(5 * time.Minute),
+	})
+}
+
+func canAccessAttachment(actor identity.Principal) bool {
+	return actor.SubjectID != "" && (actor.HasRole(identity.RoleInspector) || actor.HasRole(identity.RoleLeadInspector))
+}
+
 func (service *UploadService) Complete(ctx context.Context, actor identity.Principal, input CompleteUploadInput) (CompleteUploadOutput, error) {
 	if !actor.HasRole(identity.RoleInspector) || actor.SubjectID == "" || input.OperationID == "" || input.UploadID == "" {
 		return CompleteUploadOutput{}, ErrAttachmentForbidden

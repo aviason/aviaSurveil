@@ -8,20 +8,27 @@ This ExecPlan is a living document. Keep `Progress`, `Decision Log`,
 
 ## Status
 
-- Plan status: `active` — implementation authorized; Gate 0 is in progress.
+- Plan status: `active` — Gate 0 is `verified locally`; Tasks 1–7 and 11 have
+  candidate implementation slices with focused/full local checks, while Tasks
+  8–9 and the final stakeholder handoff remain pending.
 - Planning authority: the user requested this successor plan on 2026-08-07.
-- Independent plan review: Sol Ultra final closure `ACCEPTED` on 2026-08-07;
-  Critical `0`, Important `0`.
+- Independent implementation review: Sol Ultra read-only review is
+  `NOT ACCEPTED` on 2026-08-07; remaining Critical/Important findings and
+  qualification evidence are tracked below and in the technical-debt tracker.
 - Implementation authority: granted by the user's 2026-08-07 execution request
   for Gate 0, Tasks 1–9, and Task 11 only. Task 10 remains separately
   unauthorized and `not run`.
-- Local full-system qualification: `not run`.
+- Local full-system qualification: `blocked` — the full Go suite, full React
+  suite/typecheck/builds, contract checks, and focused connected canonical
+  scenarios are `verified locally`; recursive root JS/MJS discovery remains
+  blocked by existing AGA/AviaCore/AWS fixture-contract families, and the
+  donor-disabled stakeholder qualification is `not run`.
 - External preprod deployment: `not run` and separately authorized.
 - Release: `release pending`.
 - Production readiness: `production-ready: not established`.
-- Immediate next gate: complete the recorded Gate 0 RED contract and
-  specification synchronization without changing branches, committing,
-  pushing, deploying, or mutating an external environment.
+- Immediate next gate: resolve the remaining Critical/Important review and
+  root fixture-contract blockers, then run donor-disabled connected
+  qualification before donor deletion or any external action.
 
 ## Objective
 
@@ -1387,10 +1394,10 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   executable legacy slices from the paused Aug-03 prompt, requires a full Go
   suite, and makes catalog/import tables reference rather than modify immutable
   `question_versions`.
-- [x] 2026-08-07: Sol Ultra final closure returned `ACCEPTED` with no Critical
-  or Important finding after exact announced/unannounced non-executable
-  materialization language was synchronized across Objective, acceptance,
-  Decision Log, Execution Prompt, and plan index.
+- [x] 2026-08-07: The independent implementation review was rerun after the
+  canonical patches and returned `NOT ACCEPTED`; the remaining Critical and
+  Important findings are preserved as open work rather than converted into a
+  completion claim.
 - [x] 2026-08-07: Gate 0 froze the canonical table/FK/aggregate/event
   boundaries, classified every dirty AGA change, mapped F-002/F-004/F-007/
   F-010/F-013/F-015/F-018/F-021, synchronized the product specifications,
@@ -1398,18 +1405,36 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   remain historical and this successor is the sole implementation direction.
 - [x] Gate 0: successor contract, dirty-diff disposition, RED tests, and
   predecessor reprioritization.
-- [ ] Task 1: canonical 1,310-question catalog and preprod data profile
-  (in progress).
-- [ ] Task 2: question discovery and scope-selection backend.
-- [ ] Task 3: canonical Question Review workspace and governance modes.
-- [ ] Task 4: primary New Audit workflow.
-- [ ] Task 5: approval binding, post-release preparation, and materialization.
-- [ ] Task 6: accepted canonical multi-role/report lifecycle.
-- [ ] Task 7: navigation cutover and donor disablement.
+- [x] Task 1: canonical 1,310-question catalog and preprod data profile — the
+  candidate implementation and focused/full contract/migration checks are
+  `verified locally`; stakeholder connected qualification is `not run`.
+- [x] Task 2: question discovery and scope-selection backend — candidate
+  implementation and focused/full checks are `verified locally`; stakeholder
+  connected qualification is `not run`.
+- [x] Task 3: canonical Question Review workspace and governance modes — the
+  retained interface, separate command boundaries, and requested responsive
+  DOM/overflow checks are `verified locally`; stakeholder qualification is
+  `not run`.
+- [x] Task 4: primary New Audit workflow — candidate implementation, focused
+  checks, and responsive New Audit DOM/overflow checks are `verified locally`;
+  stakeholder qualification is `not run`.
+- [x] Task 5: approval binding, post-release preparation, and materialization —
+  candidate implementation, migration/application checks, and connected
+  canonical scenario checks are `verified locally`; donor-disabled stakeholder
+  qualification is `not run`.
+- [x] Task 6: accepted canonical multi-role/report lifecycle — candidate
+  implementation and focused/full lifecycle checks are `verified locally`;
+  stakeholder connected qualification is `not run`.
+- [x] Task 7: navigation cutover and donor disablement — canonical routes and
+  donor runtime fail-closed behavior are `verified locally`; deletion remains
+  pending donor-disabled connected qualification and final review closure.
 - [ ] Task 8: local connected qualification with donor disabled.
 - [ ] Task 9: duplicate lifecycle removal and requalification.
 - [ ] Task 10: separately authorized external preprod release gate.
-- [ ] Task 11: aggregate evidence and stakeholder handoff.
+- [ ] Task 11: aggregate evidence and stakeholder handoff — candidate evidence
+  and the requested local visual/DOM matrix are `verified locally`; final
+  qualification, independent review closure, and stakeholder verification
+  remain `not run`.
 
 ## Decision Log
 
@@ -1496,8 +1521,30 @@ package-builder, and synthetic lifecycle changes are obsolete after their
 mechanics are adapted. Catalog/import tables reference immutable
 `question_versions` and usage class is immutable. The first RED tests now name
 the missing catalog, CAS selection, review-command, and OpenAPI capabilities;
-their initial failures are preserved as Gate 0 evidence. Task 1 is the next
-implementation step. Task 10 remains `not run`.
+their initial failures are preserved as Gate 0 evidence. Tasks 1–7 and 11 now
+have candidate implementation slices. The full Go suite, full React suite and
+typecheck/builds, generated contract checks, focused connected canonical
+scenarios, and requested local responsive/DOM checks are `verified locally`.
+Recursive root JS/MJS discovery is `blocked` by existing AGA/AviaCore/AWS
+fixture-contract families; donor-disabled stakeholder qualification and the
+remaining independent-review fixes are still pending. Task 10 remains
+`not run`.
+
+### 2026-08-07 — Verification checkpoint and truthful handoff state
+
+The local checkpoint records literal results rather than implying release
+readiness: `git diff --check`, generated contract checks, full Go
+`go -C apps/api test -count=1 ./...`, full React tests/typecheck, demo and HTTP
+builds plus artifact scans, focused connected canonical scenarios, and the
+Question Review/New Audit 1440x900, 1024x768, and 390x844 DOM/overflow/console
+checks are `verified locally`. The complete recursive root JS/MJS discovery is
+`blocked` by pre-existing AGA/AviaCore/AWS fixture-contract families. The
+donor-disabled connected lifecycle, external OIDC stakeholder qualification,
+MinIO/ClamAV/Gotenberg/Mailpit evidence matrix, backup/restore and final
+requalification remain `not run`. Sol Ultra's independent implementation
+review is `NOT ACCEPTED` until its remaining Critical/Important findings are
+resolved and affected verification is fresh. Task 10 external preprod remains
+explicitly `not run`.
 
 ## Discoveries
 
@@ -1569,10 +1616,11 @@ Planning outcome as of 2026-08-07:
 - The exact 1,310 questions remain truthful preprod exercise content; real
   regulatory authority and production readiness are not claimed.
 - Sol Ultra's initial `NOT ACCEPTED` findings and follow-up residuals are
-  incorporated. Final independent closure is `ACCEPTED` with Critical `0` and
-  Important `0`; this accepts the plan, not runtime implementation.
-- No runtime implementation, branch action, commit, push, deployment, or
-  external mutation was performed by this planning task.
+  incorporated. The final independent implementation review is currently
+  `NOT ACCEPTED`; plan closure remains open until the remaining findings and
+  required local/connected gates and evidence are fresh.
+- Candidate runtime changes are present on the current branch. No deployment,
+  push, or external mutation was performed; Task 10 remains `not run`.
 
 ## Execution Prompt
 

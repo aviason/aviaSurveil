@@ -266,27 +266,30 @@ func operationHash(input operation) (string, error) {
 }
 
 type grantAuthority struct {
-	GrantID            string
-	SubjectID          string
-	DeviceID           string
-	PackageID          string
-	InspectionID       string
-	OrganizationID     string
-	SessionID          string
-	AssignmentRevision int64
-	InspectionRevision int64
-	PackageVersion     int64
-	PackageDigest      string
-	QuestionIDs        []string
-	AllowedCommands    []string
-	GrantExpiresAt     time.Time
-	PackageExpiresAt   time.Time
-	SessionExpiresAt   time.Time
-	AbsoluteExpiresAt  *time.Time
-	GrantRevokedAt     *time.Time
-	PackageRevokedAt   *time.Time
-	SessionRevokedAt   *time.Time
-	AssignedSubjectID  string
+	GrantID               string
+	SubjectID             string
+	DeviceID              string
+	PackageID             string
+	InspectionID          string
+	OrganizationID        string
+	SessionID             string
+	AssignmentRevision    int64
+	InspectionRevision    int64
+	PackageVersion        int64
+	PackageDigest         string
+	QuestionIDs           []string
+	AllowedCommands       []string
+	GrantExpiresAt        time.Time
+	PackageExpiresAt      time.Time
+	SessionExpiresAt      time.Time
+	AbsoluteExpiresAt     *time.Time
+	GrantRevokedAt        *time.Time
+	PackageRevokedAt      *time.Time
+	SessionRevokedAt      *time.Time
+	AssignedSubjectID     string
+	InspectionStatus      string
+	ChecklistStatus       string
+	HasQuestionAssignment bool
 }
 
 func loadGrantAuthority(ctx context.Context, transaction pgx.Tx, actor identity.Principal, grantID, packageID, deviceID, command string, expectedPackageVersion int64, now time.Time, allowPackageRevoked bool) (grantAuthority, *PushResult, error) {
@@ -305,22 +308,38 @@ func loadGrantAuthority(ctx context.Context, transaction pgx.Tx, actor identity.
 		       grant_record.package_digest, grant_record.assignment_scope, grant_record.allowed_command_types,
 		       grant_record.expires_at, grant_record.revoked_at, package.expires_at, package.revoked_at,
 		       session.expires_at, session.absolute_expires_at, session.revoked_at,
-		       inspection.assigned_inspector_subject_id, package.package_version, package.package_digest
+		       inspection.assigned_inspector_subject_id, inspection.status, checklist.status,
+		       package.package_version, package.package_digest,
+		       EXISTS (
+			       SELECT 1 FROM inspection_question_assignments question_assignment
+			       JOIN audit_assignments audit_assignment
+			         ON audit_assignment.inspection_id = question_assignment.inspection_id
+			        AND audit_assignment.tombstoned_at IS NULL
+			       JOIN audit_team_members team_member
+			         ON team_member.assignment_id = audit_assignment.id
+			        AND team_member.subject_id = question_assignment.subject_id
+			        AND team_member.removed_at IS NULL
+			       WHERE question_assignment.inspection_id = grant_record.inspection_id
+			         AND question_assignment.subject_id = $2
+		       )
 		FROM offline_grants grant_record
 		JOIN inspections inspection ON inspection.id = grant_record.inspection_id
+		JOIN inspection_checklists checklist ON checklist.inspection_id = inspection.id
 		JOIN inspection_packages package ON package.id = grant_record.package_id
 		JOIN session_references session ON session.id = grant_record.session_id
 		WHERE grant_record.id = $1
+		  AND package.canonical_scope_snapshot_id IS NOT NULL
 		FOR UPDATE OF grant_record, inspection, package, session
-	`, grantID).Scan(
+	`, grantID, actor.SubjectID).Scan(
 		&authority.GrantID, &authority.SubjectID, &authority.DeviceID, &authority.PackageID,
 		&authority.InspectionID, &authority.OrganizationID, &authority.SessionID,
 		&authority.AssignmentRevision, &authority.InspectionRevision, &authority.PackageVersion,
 		&authority.PackageDigest, &assignmentScope, &authority.AllowedCommands,
 		&authority.GrantExpiresAt, &authority.GrantRevokedAt, &authority.PackageExpiresAt,
 		&authority.PackageRevokedAt, &authority.SessionExpiresAt, &authority.AbsoluteExpiresAt,
-		&authority.SessionRevokedAt, &authority.AssignedSubjectID,
-		&currentPackageVersion, &currentPackageDigest,
+		&authority.SessionRevokedAt, &authority.AssignedSubjectID, &authority.InspectionStatus,
+		&authority.ChecklistStatus,
+		&currentPackageVersion, &currentPackageDigest, &authority.HasQuestionAssignment,
 	)
 	if err != nil {
 		result := forbiddenResult("", ErrorGrantScope, now)
@@ -339,6 +358,11 @@ func loadGrantAuthority(ctx context.Context, transaction pgx.Tx, actor identity.
 		result := forbiddenResult("", ErrorGrantScope, now)
 		return grantAuthority{}, &result, nil
 	}
+	if authority.InspectionStatus != "IN_PROGRESS" || authority.ChecklistStatus != "IN_PROGRESS" {
+		changedAt := now.Format(time.RFC3339Nano)
+		result := conflictResult("", ConflictAssignmentChanged, authority.InspectionID, &authority.InspectionRevision, &authority.InspectionStatus, &changedAt, now)
+		return grantAuthority{}, &result, nil
+	}
 	if authority.GrantRevokedAt != nil {
 		result := forbiddenResult("", ErrorGrantRevoked, now)
 		return grantAuthority{}, &result, nil
@@ -352,7 +376,7 @@ func loadGrantAuthority(ctx context.Context, transaction pgx.Tx, actor identity.
 		result := forbiddenResult("", ErrorSessionRevoked, now)
 		return grantAuthority{}, &result, nil
 	}
-	if authority.AssignedSubjectID != actor.SubjectID || authority.InspectionRevision != authority.AssignmentRevision {
+	if !authority.HasQuestionAssignment || authority.InspectionRevision != authority.AssignmentRevision {
 		revision := authority.InspectionRevision
 		changedAt := now.Format(time.RFC3339Nano)
 		result := conflictResult("", ConflictAssignmentChanged, authority.InspectionID, &revision, nil, &changedAt, now)
@@ -596,6 +620,10 @@ func (service *OperationService) createPotentialFinding(ctx context.Context, tra
 		FROM checklist_responses response
 		JOIN inspection_question_assignments assignment
 		  ON assignment.inspection_id = response.inspection_id AND assignment.question_id = response.question_id AND assignment.subject_id = $4
+		JOIN audit_assignments audit_assignment
+		  ON audit_assignment.inspection_id = assignment.inspection_id AND audit_assignment.tombstoned_at IS NULL
+		JOIN audit_team_members team_member
+		  ON team_member.assignment_id = audit_assignment.id AND team_member.subject_id = assignment.subject_id AND team_member.removed_at IS NULL
 		WHERE response.id = $1 AND response.inspection_id = $2 AND response.question_id = $3
 		FOR UPDATE OF response
 	`, payload.ChecklistResponseID, authority.InspectionID, payload.QuestionID, actor.SubjectID).Scan(
@@ -613,11 +641,42 @@ func (service *OperationService) createPotentialFinding(ctx context.Context, tra
 	if answer != "NON_COMPLIANT" && answer != "OBSERVATION" {
 		return mutation{Result: invalidResult(input.OperationID, now)}, nil
 	}
+	// Offline commands must observe the same immutable object boundary as the
+	// connected Finding path. A declared filename or attachment id is not
+	// Evidence: every referenced attachment must already be uploaded, CLEAN,
+	// and bound to a canonical object before a Potential Finding can use it.
+	attachmentIDs := uniqueNonBlank(payload.InspectionAttachmentIDs)
+	if len(attachmentIDs) != len(payload.InspectionAttachmentIDs) {
+		return mutation{Result: invalidResult(input.OperationID, now)}, nil
+	}
+	if len(attachmentIDs) > 0 {
+		var cleanCount int
+		if err := transaction.QueryRow(ctx, `
+			SELECT COUNT(*)
+			FROM inspection_attachments
+			WHERE id = ANY($1::text[])
+			  AND inspection_id = $2
+			  AND organization_id = $3
+			  AND checklist_response_id = $4
+			  AND upload_state = 'UPLOADED'
+			  AND scan_state = 'CLEAN'
+			  AND canonical_object_metadata_id IS NOT NULL
+		`, attachmentIDs, authority.InspectionID, authority.OrganizationID, payload.ChecklistResponseID).Scan(&cleanCount); err != nil {
+			return mutation{}, err
+		}
+		if cleanCount != len(attachmentIDs) {
+			return mutation{Result: invalidResult(input.OperationID, now)}, nil
+		}
+	}
 	var existingID, existingStatus string
 	var existingRevision int64
-	err := transaction.QueryRow(ctx, `SELECT id, status, revision FROM potential_findings WHERE checklist_response_id = $1`, payload.ChecklistResponseID).Scan(&existingID, &existingStatus, &existingRevision)
+	var supersedesPotentialFindingID *string
+	err := transaction.QueryRow(ctx, `SELECT id, status, revision FROM potential_findings WHERE checklist_response_id = $1 ORDER BY revision DESC, id DESC LIMIT 1 FOR UPDATE`, payload.ChecklistResponseID).Scan(&existingID, &existingStatus, &existingRevision)
 	if err == nil {
-		return mutation{Result: conflictResult(input.OperationID, ConflictStaleRevision, existingID, &existingRevision, &existingStatus, nil, now)}, nil
+		if existingStatus != "RETURNED" {
+			return mutation{Result: conflictResult(input.OperationID, ConflictStaleRevision, existingID, &existingRevision, &existingStatus, nil, now)}, nil
+		}
+		supersedesPotentialFindingID = &existingID
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return mutation{}, err
@@ -627,11 +686,23 @@ func (service *OperationService) createPotentialFinding(ctx context.Context, tra
 		INSERT INTO potential_findings (
 			id, inspection_id, checklist_response_id, organization_id, status, finding_basis,
 			expected_evidence, comment_to_auditee, revision, created_at, updated_at,
-			question_id, title, description, created_by_subject_id
-		) VALUES ($1, $2, $3, $4, 'PENDING_LEAD_REVIEW', $5, '', $6, 1, $7, $7, $8, $9, $5, $10)
+			question_id, title, description, created_by_subject_id, supersedes_potential_finding_id
+		) VALUES ($1, $2, $3, $4, 'PENDING_LEAD_REVIEW', $5, '', $6, 1, $7, $7, $8, $9, $5, $10, $11)
 	`, potentialFindingID, authority.InspectionID, payload.ChecklistResponseID, authority.OrganizationID,
-		payload.Description, payload.RequiredComment, now, payload.QuestionID, payload.Title, actor.SubjectID); err != nil {
+		payload.Description, payload.RequiredComment, now, payload.QuestionID, payload.Title, actor.SubjectID, supersedesPotentialFindingID); err != nil {
 		return mutation{}, err
+	}
+	if len(attachmentIDs) > 0 {
+		if _, err := transaction.Exec(ctx, `
+			UPDATE inspection_attachments
+			SET potential_finding_id = $1, revision = revision + 1, updated_at = $2
+			WHERE id = ANY($3::text[])
+			  AND inspection_id = $4
+			  AND checklist_response_id = $5
+			  AND potential_finding_id IS NULL
+		`, potentialFindingID, now, attachmentIDs, authority.InspectionID, payload.ChecklistResponseID); err != nil {
+			return mutation{}, err
+		}
 	}
 	revision := int64(1)
 	result := PushResult{
@@ -668,19 +739,63 @@ func (service *OperationService) submitChecklist(ctx context.Context, transactio
 	if status != "IN_PROGRESS" || revision != *input.BaseRevision {
 		return mutation{Result: conflictResult(input.OperationID, ConflictStaleRevision, input.EntityID, &revision, &status, nil, now)}, nil
 	}
-	var assignedCount, responseCount int
-	if err := transaction.QueryRow(ctx, `SELECT count(*) FROM inspection_question_assignments WHERE inspection_id = $1 AND subject_id = $2`, authority.InspectionID, actor.SubjectID).Scan(&assignedCount); err != nil {
-		return mutation{}, err
-	}
+	var canonicalSnapshotID string
 	if err := transaction.QueryRow(ctx, `
-		SELECT count(*) FROM checklist_responses response
-		JOIN inspection_question_assignments assignment
-		  ON assignment.inspection_id = response.inspection_id AND assignment.question_id = response.question_id AND assignment.subject_id = $2
-		WHERE response.inspection_id = $1
-	`, authority.InspectionID, actor.SubjectID).Scan(&responseCount); err != nil {
+		SELECT canonical_scope_snapshot_id
+		FROM inspection_packages
+		WHERE id = $1 AND inspection_id = $2
+		  AND canonical_scope_snapshot_id IS NOT NULL
+		  AND checklist_template_version_id IS NULL
+		FOR SHARE
+	`, authority.PackageID, authority.InspectionID).Scan(&canonicalSnapshotID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return mutation{Result: invalidResult(input.OperationID, now)}, nil
+		}
 		return mutation{}, err
 	}
-	if assignedCount == 0 || responseCount == 0 {
+	if canonicalSnapshotID == "" {
+		return mutation{Result: invalidResult(input.OperationID, now)}, nil
+	}
+	var scopeCount, assignedCount, uncoveredCount, responseCount, missingRequiredCommentCount int
+	if err := transaction.QueryRow(ctx, `
+		SELECT
+			(SELECT COUNT(*)
+			 FROM canonical_audit_scope_snapshot_questions
+			 WHERE snapshot_id = $1),
+			(SELECT COUNT(DISTINCT question_id)
+			 FROM inspection_question_assignments
+			 WHERE inspection_id = $2),
+			(SELECT COUNT(*)
+			 FROM canonical_audit_scope_snapshot_questions scoped
+			 WHERE scoped.snapshot_id = $1
+			   AND NOT EXISTS (
+				   SELECT 1 FROM inspection_question_assignments assignment
+				   WHERE assignment.inspection_id = $2
+				     AND assignment.question_id = scoped.question_version_id
+			   )),
+			(SELECT COUNT(*)
+			 FROM canonical_audit_scope_snapshot_questions scoped
+			 WHERE scoped.snapshot_id = $1
+			   AND EXISTS (
+				   SELECT 1 FROM checklist_responses response
+				   WHERE response.inspection_id = $2
+				     AND response.question_id = scoped.question_version_id
+				     AND response.response_value <> ''
+			   )),
+			(SELECT COUNT(*)
+			 FROM canonical_audit_scope_snapshot_questions scoped
+			 WHERE scoped.snapshot_id = $1
+			   AND EXISTS (
+				   SELECT 1 FROM checklist_responses response
+				   WHERE response.inspection_id = $2
+				     AND response.question_id = scoped.question_version_id
+				     AND response.response_value IN ('NON_COMPLIANT', 'OBSERVATION')
+				     AND NULLIF(BTRIM(COALESCE(response.comment_to_auditee, '') || COALESCE(response.internal_caa_note, '')), '') IS NULL
+			   ))
+	`, canonicalSnapshotID, authority.InspectionID).Scan(&scopeCount, &assignedCount, &uncoveredCount, &responseCount, &missingRequiredCommentCount); err != nil {
+		return mutation{}, err
+	}
+	if scopeCount == 0 || assignedCount != scopeCount || uncoveredCount != 0 || responseCount != scopeCount || missingRequiredCommentCount != 0 {
 		return mutation{Result: invalidResult(input.OperationID, now)}, nil
 	}
 	revision++
@@ -720,6 +835,10 @@ func (service *OperationService) registerAttachment(ctx context.Context, transac
 		SELECT response.question_id FROM checklist_responses response
 		JOIN inspection_question_assignments assignment
 		  ON assignment.inspection_id = response.inspection_id AND assignment.question_id = response.question_id AND assignment.subject_id = $3
+		JOIN audit_assignments audit_assignment
+		  ON audit_assignment.inspection_id = assignment.inspection_id AND audit_assignment.tombstoned_at IS NULL
+		JOIN audit_team_members team_member
+		  ON team_member.assignment_id = audit_assignment.id AND team_member.subject_id = assignment.subject_id AND team_member.removed_at IS NULL
 		WHERE response.id = $1 AND response.inspection_id = $2
 	`, payload.ChecklistResponseID, authority.InspectionID, actor.SubjectID).Scan(&questionID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -1073,4 +1192,21 @@ func stringIn(values []string, expected string) bool {
 		}
 	}
 	return false
+}
+
+func uniqueNonBlank(values []string) []string {
+	seen := make(map[string]struct{}, len(values))
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
+	}
+	return result
 }

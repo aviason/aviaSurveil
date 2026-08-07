@@ -44,12 +44,14 @@ an orientation surface, not a production-readiness claim.
 7. Tests and visual fixtures prove boundaries; they do not authorize rewriting
    identity or authority to match stale oracle content.
 8. The AviaCore v3 producer outbox validates the local locked contract before
-   storing an AES-GCM payload envelope, keeps event/attempt history immutable,
-   and never reconstructs facts by table scraping. The authorized
-   `CreateAuditWorkspace` source transition emits only its causally linked
-   `audit.planned`/`audit.started` pair from the released-plan and newly
-   created-workspace facts in the same PostgreSQL transaction; every other
-   transition remains an explicit non-event until separately mapped.
+  storing an AES-GCM payload envelope, keeps event/attempt history immutable,
+  and never reconstructs facts by table scraping. Canonical materialization
+  emits `audit.planned` from the released planning identity and the
+  server-owned inspection revision, creates a non-executable `NOT_STARTED`
+  checklist, and a later atomic Inspector-start transition emits
+  `audit.started`. The legacy `CreateAuditWorkspace` path remains a
+  donor/deletion-gated surface and is not the canonical UI boundary; every
+  other transition remains an explicit non-event until separately mapped.
 
 ## High-Risk Invariants
 

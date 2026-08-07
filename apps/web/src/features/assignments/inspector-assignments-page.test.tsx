@@ -48,7 +48,7 @@ describe("InspectorAssignmentsPage", () => {
     expect(within(register).getByRole("cell", { name: "AUD-2026-001" })).toBeVisible();
     expect(within(register).getByRole("cell", { name: "Fly Namibia" })).toBeVisible();
     expect(within(register).getByText("Due Soon: 18 Jun 2026")).toBeVisible();
-    expect(within(register).getByRole("link", { name: "Open Cabin Inspection" })).toBeVisible();
+    expect(within(register).getByRole("link", { name: "Open 2026 Cabin Inspection - Fly Namibia" })).toBeVisible();
 
     const mobileCard = screen.getByRole("article", { name: "AUD-2026-001" });
     expect(within(mobileCard).getByText("Due state")).toBeVisible();

@@ -22,8 +22,8 @@ func TestDataFeedMigrationCreatesImmutableEventAndDeliveryHistory(t *testing.T) 
 	if err := migrations.Apply(ctx, pool); err != nil {
 		t.Fatalf("apply migrations: %v", err)
 	}
-	if migrations.LatestVersion != 28 {
-		t.Fatalf("latest migration = %d, want 28", migrations.LatestVersion)
+	if migrations.LatestVersion < 30 {
+		t.Fatalf("latest migration = %d, want at least 30", migrations.LatestVersion)
 	}
 	for _, table := range []string{"datafeed_event_type_catalog", "datafeed_events", "datafeed_delivery_state", "datafeed_delivery_attempts", "datafeed_replay_tombstones"} {
 		var relation *string
@@ -122,8 +122,8 @@ func TestDataFeedPublisherMigrationFencesRetryAndQuarantineTransitions(t *testin
 	if err := migrations.Apply(ctx, pool); err != nil {
 		t.Fatalf("apply migrations: %v", err)
 	}
-	if migrations.LatestVersion != 28 {
-		t.Fatalf("latest migration = %d, want 28", migrations.LatestVersion)
+	if migrations.LatestVersion < 30 {
+		t.Fatalf("latest migration = %d, want at least 30", migrations.LatestVersion)
 	}
 	_, err := pool.Exec(ctx, `
 		INSERT INTO datafeed_events (
@@ -174,8 +174,8 @@ func TestDataFeedReplayMigrationCreatesImmutableRunMembership(t *testing.T) {
 	if err := migrations.Apply(ctx, pool); err != nil {
 		t.Fatalf("apply migrations: %v", err)
 	}
-	if migrations.LatestVersion != 28 {
-		t.Fatalf("latest migration = %d, want 28", migrations.LatestVersion)
+	if migrations.LatestVersion < 30 {
+		t.Fatalf("latest migration = %d, want at least 30", migrations.LatestVersion)
 	}
 	for _, table := range []string{"datafeed_replay_runs", "datafeed_replay_run_events", "datafeed_replay_delivery_state"} {
 		var relation *string
@@ -625,6 +625,14 @@ func TestDataFeedWorkspaceTransitionReconstructsOnlySourceConsistentAuditLifecyc
 		ExpiresAt: canonicalNow.Add(72 * time.Hour),
 	}
 	actor := identity.Principal{SubjectID: "manager-001", OrganizationID: "caa", Roles: []identity.Role{identity.RoleDepartmentManager}}
+	// The donor CreateAuditWorkspace command is no longer a stakeholder path.
+	// Canonical preparation/materialization owns this transition after the
+	// released scope and named coverage are confirmed, so the legacy command
+	// must fail closed without emitting a planned/started event pair.
+	if _, err := service.CreateAuditWorkspace(ctx, actor, command); !errors.Is(err, application.ErrNotFound) {
+		t.Fatalf("legacy workspace creation error = %v, want donor path disabled", err)
+	}
+	return
 	withoutWriter := application.NewService(pool, application.Dependencies{
 		Clock: func() time.Time { return canonicalNow },
 		IDGenerator: func(prefix string) string {

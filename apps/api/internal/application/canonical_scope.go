@@ -72,7 +72,7 @@ func NormalizeCanonicalPlanningValues(values map[string]any, draftID string) map
 			copy[key] = stringValue(value)
 		}
 	}
-	if stringValue(copy["catalogVersion"]) != "" && stringValue(copy["scopeDraftId"]) == "" {
+	if stringValue(copy["catalogVersion"]) != "" && stringValue(copy["scopeDraftId"]) == "" && strings.TrimSpace(draftID) != "" {
 		copy["scopeDraftId"] = "scope-draft-" + strings.TrimSpace(draftID)
 	}
 	return copy
@@ -121,9 +121,16 @@ func ValidateCanonicalScopeMap(
 	var organizationID, targetOrganizationID, scopeStatus string
 	if err := tx.QueryRow(ctx, `
 		SELECT scope.organization_id, COALESCE(target.organization_id, target.owner_organization_id), scope.status
-		FROM organization_service_provider_scopes scope
+		FROM (
+			SELECT DISTINCT ON (root_id) *
+			FROM organization_service_provider_scopes
+			WHERE effective_from <= CURRENT_DATE
+			ORDER BY root_id, effective_from DESC, id DESC
+		) scope
 		JOIN regulated_targets target ON target.id = $2
 		WHERE scope.id = $1
+		  AND scope.effective_from <= CURRENT_DATE
+		  AND (scope.effective_to IS NULL OR scope.effective_to > CURRENT_DATE)
 		  AND (scope.primary_target_id = target.id OR EXISTS (
 			SELECT 1 FROM organization_service_provider_scope_targets linked
 			WHERE linked.organization_service_provider_scope_id = scope.id
@@ -144,16 +151,38 @@ func ValidateCanonicalScopeMap(
 	var departmentMatch bool
 	if err := tx.QueryRow(ctx, `
 		SELECT EXISTS (
-			SELECT 1 FROM caa_department_memberships membership
+			SELECT 1 FROM (
+				SELECT DISTINCT ON (root_id) *
+				FROM caa_department_memberships
+				WHERE subject_id = $1
+				  AND effective_from <= CURRENT_DATE
+				ORDER BY root_id, effective_from DESC, id DESC
+			) membership
 			JOIN service_provider_unit_responsibilities responsibility
 			  ON responsibility.organizational_unit_id = membership.organizational_unit_id
-			JOIN organization_service_provider_scopes scope
-			  ON scope.service_provider_type_id = responsibility.service_provider_type_id
-			WHERE membership.subject_id = $1 AND scope.id = $2
-			  AND membership.status = 'ACTIVE'
-			  AND membership.effective_from <= CURRENT_DATE
-			  AND (membership.effective_to IS NULL OR membership.effective_to > CURRENT_DATE)
-		)
+				JOIN organization_service_provider_scopes scope
+				  ON scope.service_provider_type_id = responsibility.service_provider_type_id
+				JOIN LATERAL (
+					SELECT status
+					FROM caa_department_status_facts
+					WHERE department_id = membership.department_id
+					  AND effective_from <= CURRENT_DATE
+					ORDER BY effective_from DESC, id DESC
+					LIMIT 1
+				) department_status ON department_status.status = 'ACTIVE'
+				JOIN LATERAL (
+					SELECT status
+					FROM caa_organizational_unit_status_facts
+					WHERE organizational_unit_id = membership.organizational_unit_id
+					  AND effective_from <= CURRENT_DATE
+					ORDER BY effective_from DESC, id DESC
+					LIMIT 1
+				) unit_status ON unit_status.status = 'ACTIVE'
+					WHERE membership.subject_id = $1 AND scope.id = $2
+				  AND membership.membership_role = 'DEPARTMENT_MANAGER'
+				  AND membership.status = 'ACTIVE'
+				  AND (membership.effective_to IS NULL OR membership.effective_to > CURRENT_DATE)
+			)
 	`, actor.SubjectID, providerScopeID).Scan(&departmentMatch); err != nil {
 		return CanonicalScopeFacts{}, err
 	}
@@ -170,9 +199,9 @@ func ValidateCanonicalScopeMap(
 	if complete && (facts.ScopeID == "" || stringValue(values["selectionDigest"]) == "" || len(ids) == 0) {
 		return CanonicalScopeFacts{}, fmt.Errorf("%w: exact question selection is required before Finance submission", ErrInvalid)
 	}
-	if len(ids) > 500 {
-		return CanonicalScopeFacts{}, fmt.Errorf("%w: question selection exceeds the bounded batch", ErrInvalid)
-	}
+	// The 500-item bound applies to each ADD/REMOVE preview/commit batch. The
+	// durable audit scope itself may contain the complete selected set (for
+	// example all 1,310 imported exercise questions).
 	if len(ids) > 0 {
 		seen := make(map[string]struct{}, len(ids))
 		for _, id := range ids {
@@ -185,13 +214,51 @@ func ValidateCanonicalScopeMap(
 			seen[id] = struct{}{}
 		}
 		if err := tx.QueryRow(ctx, `
-			SELECT COUNT(*) FROM canonical_question_catalog_memberships
-			WHERE catalog_id = $1 AND usage_class = $2 AND question_version_id = ANY($3::text[])
+			SELECT COUNT(*)
+			FROM canonical_question_catalog_memberships membership
+			WHERE membership.catalog_id = $1 AND membership.usage_class = $2
+			  AND membership.question_version_id = ANY($3::text[])
+			  AND COALESCE((SELECT status FROM canonical_question_catalog_membership_events event
+			                WHERE event.catalog_id=membership.catalog_id
+			                  AND event.question_version_id=membership.question_version_id
+			                ORDER BY occurred_at DESC,event_id DESC LIMIT 1),'AVAILABLE')='AVAILABLE'
 		`, facts.CatalogID, facts.UsageClass, ids).Scan(&facts.SelectedCount); err != nil {
 			return CanonicalScopeFacts{}, err
 		}
 		if facts.SelectedCount != len(ids) {
 			return CanonicalScopeFacts{}, fmt.Errorf("%w: selected question is outside the sealed catalog", ErrInvalid)
+		}
+		{
+			var applicableCount int
+			applicabilityQuery := `
+				SELECT COUNT(*)
+				FROM canonical_question_catalog_applicabilities applicability
+				JOIN canonical_question_catalogs catalog
+				  ON catalog.id = applicability.catalog_id
+				WHERE applicability.catalog_id = $1
+				  AND applicability.provider_scope_id = $2
+				  AND applicability.regulated_target_id = $3
+				  AND applicability.status = 'ELIGIBLE'
+				  AND applicability.question_version_id = ANY($4::text[])
+				  AND (catalog.usage_class = 'PREPROD_EXERCISE' OR EXISTS (
+					SELECT 1
+					FROM template_version_questions published_question
+					JOIN checklist_template_versions published_template
+					  ON published_template.id = published_question.template_version_id
+					WHERE published_question.question_version_id = applicability.question_version_id
+					  AND published_template.published_at IS NOT NULL
+					  AND published_template.candidate_draft_version_id = catalog.governed_candidate_draft_version_id
+					  AND published_template.candidate_revision = catalog.governed_candidate_revision
+					  AND published_template.candidate_content_digest = catalog.governed_candidate_content_digest
+					  AND published_template.publication_decision_id = catalog.governed_publication_decision_id
+				  ))
+			`
+			if err := tx.QueryRow(ctx, applicabilityQuery, facts.CatalogID, providerScopeID, regulatedTargetID, ids).Scan(&applicableCount); err != nil {
+				return CanonicalScopeFacts{}, err
+			}
+			if applicableCount != len(ids) {
+				return CanonicalScopeFacts{}, fmt.Errorf("%w: selection contains a question without provider-scope/target eligibility", ErrForbidden)
+			}
 		}
 		facts.SelectionDigest = questioncatalog.SelectionDigest(ids)
 		if supplied := stringValue(values["selectionDigest"]); supplied != "" && supplied != facts.SelectionDigest {
@@ -225,7 +292,9 @@ func ValidateCanonicalScopeDraft(ctx context.Context, tx canonicalQueryRow, draf
 	if catalogID != facts.CatalogID || version != facts.CatalogVersion || usage != facts.UsageClass || providerScopeID != facts.ProviderScopeID || targetID != facts.RegulatedTargetID {
 		return fmt.Errorf("%w: canonical scope identity changed", ErrConflict)
 	}
-	if facts.SelectedCount > 0 && (count != facts.SelectedCount || digest != facts.SelectionDigest) {
+	if count != facts.SelectedCount ||
+		(facts.SelectedCount > 0 && digest != facts.SelectionDigest) ||
+		(facts.SelectedCount == 0 && digest != "") {
 		return fmt.Errorf("%w: selection must be committed through the canonical scope CAS operation", ErrConflict)
 	}
 	return nil

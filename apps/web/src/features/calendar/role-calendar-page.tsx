@@ -52,19 +52,7 @@ export function RoleCalendarPage({ projection }: { projection: CalendarProjectio
           <p className="inspector-work-row__action"><span>Next Action</span>{item.nextAction ?? "Open assigned audit"}</p>
           <p className="inspector-work-row__due"><span>Due Date </span><span className="workbench-due-state">{calendarDueText(item)}</span></p>
           <div className="inspector-work-row__status"><StatusPill label={item.dueState === "OVERDUE" ? "In Progress" : "Scheduled"} tone={item.dueState === "OVERDUE" ? "warning" : "neutral"} /><StatusPill label={item.dueState === "OVERDUE" ? "Overdue" : "Due Soon"} tone={item.dueState === "OVERDUE" ? "danger" : "warning"} /></div>
-          {item.auditId === "AUD-2026-001" ? (
-            <Link aria-label={projection.role === "leadInspector" ? `Open assignment for ${item.auditId}` : undefined} className="inspector-secondary-button inspector-secondary-button--primary inspector-work-row__open" to={projection.role === "leadInspector" ? "/lead-inspector/audits/AUD-2026-001/assignment" : "/inspector/audits/AUD-2026-001/checklist"}><span>{projection.role === "leadInspector" ? "Open assignment" : "Continue checklist"}</span></Link>
-          ) : (
-            <button
-              aria-label={projection.role === "leadInspector" ? `Assignment unavailable for ${item.auditId}` : `Checklist unavailable for ${item.auditId}`}
-              className="inspector-secondary-button inspector-secondary-button--primary inspector-work-row__open"
-              disabled
-              title={projection.role === "leadInspector" ? `Audit ${item.auditId} has no declared Lead Inspector assignment route.` : `Audit ${item.auditId} has no declared Inspector checklist route.`}
-              type="button"
-            >
-              <span>{projection.role === "leadInspector" ? "Assignment unavailable" : "Checklist unavailable"}</span>
-            </button>
-          )}
+          <Link aria-label={projection.role === "leadInspector" ? `Open assignment for ${item.auditId}` : undefined} className="inspector-secondary-button inspector-secondary-button--primary inspector-work-row__open" to={projection.role === "leadInspector" ? `/lead-inspector/audits/${encodeURIComponent(item.auditId)}/assignment` : `/inspector/audits/${encodeURIComponent(item.auditId)}/checklist`}><span>{projection.role === "leadInspector" ? "Open assignment" : "Continue checklist"}</span></Link>
         </article>)}</> : <p className="inspector-empty-state">No completed audits in this deterministic projection.</p>}
       </section>
     </div>

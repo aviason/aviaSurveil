@@ -17,10 +17,12 @@ import type {
   GovernedAuditPackageEligibilityInput,
   CanonicalQuestionCatalogEntry,
   CanonicalQuestionCatalogPage,
+  CanonicalAuditScopeOptionPage,
   CanonicalQuestionReviewQueue,
   CanonicalQuestionReviewCommandOutput,
   CanonicalSelectionPreview,
   CanonicalSelectionReceipt,
+  CanonicalAuditWorkflowBackend,
 } from "./backend";
 import type { AGADemoWorkspaceBackend, AGADemoWorkspaceCommand, AGADemoWorkspaceQuery } from "./aga-demo-workspace";
 import { GovernedValidationError } from "./backend-contracts";
@@ -113,11 +115,22 @@ function mapCanonicalCatalogEntry(value: Schemas["CanonicalQuestionCatalogEntry"
     proposedRiskBand: value.proposedRiskBand ?? null,
     canSelect: value.canSelect,
     canPublish: value.canPublish,
+    governedCandidateId: value.governedCandidateId ?? null,
+    governedCandidateRevision: value.governedCandidateRevision ?? null,
+    governedCandidateContentDigest: value.governedCandidateContentDigest ?? null,
+    governedCandidateStatus: value.governedCandidateStatus ?? null,
+    reviewRevision: value.reviewRevision ?? 0,
+    reviewDisposition: value.reviewDisposition ?? null,
+    reviewDigest: value.reviewDigest ?? null,
   };
 }
 
 function mapCanonicalCatalogPage(value: Schemas["CanonicalQuestionCatalogPage"]): CanonicalQuestionCatalogPage {
   return { ...value, items: value.items.map(mapCanonicalCatalogEntry) };
+}
+
+function mapCanonicalScopeOptionPage(value: Schemas["CanonicalAuditScopeOptionPage"]): CanonicalAuditScopeOptionPage {
+  return value;
 }
 
 function mapCanonicalSelectionPreview(value: Schemas["CanonicalAuditScopeSelectionPreview"]): CanonicalSelectionPreview {
@@ -433,7 +446,14 @@ export function createHttpBackend(
       start: async (input, options) =>
         await request<Schemas["StartInspectionOutput"]>(
           `/v1/audits/${encodeURIComponent(input.auditId)}/start`,
-          { method: "POST", body: { operationId: input.operationId, expectedInspectionRevision: input.expectedInspectionRevision } },
+          {
+            method: "POST",
+            body: { operationId: input.operationId, expectedInspectionRevision: input.expectedInspectionRevision },
+            headers: revisionCommandHeaders({
+              idempotencyKey: input.operationId,
+              expectedRevision: input.expectedInspectionRevision,
+            }),
+          },
           options,
         ),
       getPackage: async ({ packageId }, options) =>
@@ -767,6 +787,8 @@ export function createHttpBackend(
       ),
     },
     canonicalQuestionReview: {
+      listScopeOptions: async (input, options) => mapCanonicalScopeOptionPage(await request<Schemas["CanonicalAuditScopeOptionPage"]>(
+        appendQuery("/v1/audit-scope-options", input ?? {}), {}, options)),
       listCatalog: async (input, options) => mapCanonicalCatalogPage(await request<Schemas["CanonicalQuestionCatalogPage"]>(
         appendQuery(`/v1/question-catalogs/${encodeURIComponent(input.catalogVersion)}/questions`, {
           usageClass: input.usageClass, search: input.search, formCode: input.formCode,
@@ -775,16 +797,59 @@ export function createHttpBackend(
           cursor: input.cursor, limit: input.limit,
         }), {}, options)),
       getQuestion: async (input, options) => mapCanonicalCatalogEntry(await request<Schemas["CanonicalQuestionCatalogEntry"]>(
-        appendQuery(`/v1/question-catalogs/${encodeURIComponent(input.catalogVersion)}/questions/${encodeURIComponent(input.questionVersionId)}`, { usageClass: input.usageClass }), {}, options)),
+        appendQuery(`/v1/question-catalogs/${encodeURIComponent(input.catalogVersion)}/questions/${encodeURIComponent(input.questionVersionId)}`, { usageClass: input.usageClass, scopeId: input.scopeId }), {}, options)),
       previewSelection: async (input, options) => mapCanonicalSelectionPreview(await request<Schemas["CanonicalAuditScopeSelectionPreview"]>(
         `/v1/audit-scopes/${encodeURIComponent(input.scopeId)}/preview`, { method: "POST", body: input }, options)),
       commitSelection: async (input, options) => mapCanonicalSelectionReceipt(await request<Schemas["CanonicalAuditScopeSelectionReceipt"]>(
         `/v1/audit-scopes/${encodeURIComponent(input.scopeId)}/selection`, { method: "PUT", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey ?? input.operationId, expectedRevision: null }) }, options)),
       reviewQueue: async (input, options) => mapCanonicalReviewQueue(await request<Schemas["QuestionReviewQueue"]>(
         appendQuery("/v1/department-manager/question-review", input), { cache: "no-store", suppressTelemetry: true }, options)),
-      command: async (input, options) => mapCanonicalReviewCommand(await request<Schemas["QuestionReviewCommandOutput"]>(
-        "/v1/department-manager/question-review/commands", { method: "POST", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey ?? input.operationId, expectedRevision: null }), cache: "no-store", suppressTelemetry: true }, options)),
+      command: async (input, options) => {
+        const { mode, ...commandBody } = input;
+        return mapCanonicalReviewCommand(await request<Schemas["QuestionReviewCommandOutput"]>(
+          mode === "PREPROD_EXERCISE"
+            ? "/v1/department-manager/question-review/exercise-commands"
+            : "/v1/department-manager/question-review/governed-commands",
+          { method: "POST", body: commandBody, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey ?? input.operationId, expectedRevision: null }), cache: "no-store", suppressTelemetry: true }, options));
+      },
     },
+    canonicalAuditWorkflow: {
+      prepare: async (planningItemId, input, options) => request<Schemas["PreparationView"]>(
+        `/v1/planning/items/${encodeURIComponent(planningItemId)}/preparations`,
+        { method: "POST", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey, expectedRevision: input.expectedPlanningRevision }) },
+        options,
+      ),
+      assignLead: async (assignmentId, input, options) => request<Schemas["CanonicalAssignmentView"]>(
+        `/v1/audit-assignments/${encodeURIComponent(assignmentId)}/lead`,
+        { method: "POST", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey, expectedRevision: input.expectedInspectionRevision }) },
+        options,
+      ),
+      assignTeam: async (assignmentId, input, options) => request<Schemas["CanonicalAssignmentView"]>(
+        `/v1/audit-assignments/${encodeURIComponent(assignmentId)}/team`,
+        { method: "POST", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey, expectedRevision: input.expectedRevision }) },
+        options,
+      ),
+      assignQuestionCoverage: async (assignmentId, input, options) => request<Schemas["CanonicalAssignmentView"]>(
+        `/v1/audit-assignments/${encodeURIComponent(assignmentId)}/question-coverage`,
+        { method: "POST", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey, expectedRevision: input.expectedRevision }) },
+        options,
+      ),
+      confirmPreparation: async (assignmentId, input, options) => request<Schemas["PreparationConfirmationView"]>(
+        `/v1/audit-assignments/${encodeURIComponent(assignmentId)}/preparation-confirmations`,
+        { method: "POST", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey, expectedRevision: input.expectedAssignmentRevision }) },
+        options,
+      ),
+      materialize: async (assignmentId, input, options) => request<Schemas["CanonicalMaterializedAuditView"]>(
+        `/v1/audit-assignments/${encodeURIComponent(assignmentId)}/materializations`,
+        { method: "POST", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey, expectedRevision: input.expectedAssignmentRevision }) },
+        options,
+      ),
+      start: async (auditId, input, options) => request<Schemas["StartInspectionOutput"]>(
+        `/v1/audits/${encodeURIComponent(auditId)}/start`,
+        { method: "POST", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.operationId, expectedRevision: input.expectedInspectionRevision }) },
+        options,
+      ),
+    } satisfies CanonicalAuditWorkflowBackend,
     packageDrafts: {
       get: async ({ packageDraftId }, options) =>
         mapInspectionPackageDraft(
@@ -956,6 +1021,18 @@ export function createHttpBackend(
               method: "POST",
               body: revisionCommandBody(input),
               headers: revisionCommandHeaders(input),
+            },
+            options,
+          ),
+        ),
+      review: async (input, options) =>
+        mapAuditeeCoordination(
+          await request<Schemas["AuditeeCoordinationView"]>(
+            `/v1/auditee/coordination/${encodeURIComponent(input.auditId)}/reviews`,
+            {
+              method: "POST",
+              body: input,
+              headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey, expectedRevision: input.expectedRevision }),
             },
             options,
           ),

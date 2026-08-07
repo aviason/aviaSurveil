@@ -143,6 +143,12 @@ func TestEvidenceVerifiedAndAuthorizedClosureRemainDistinctAuditedPaths(t *testi
 	t.Run("authorized closure", func(t *testing.T) {
 		pool := canonicalDatabase(t, "authorized_close")
 		seedFinding(t, pool, "finding-authorized", "OPS-2026-022", "airline-xyz")
+		if _, err := pool.Exec(context.Background(), `
+			UPDATE findings SET status = 'PENDING_CLOSURE', next_action = 'CAA verifies closure path'
+			WHERE id = 'finding-authorized'
+		`); err != nil {
+			t.Fatalf("seed pending closure state: %v", err)
+		}
 		service := testService(pool)
 		result, err := service.AuthorizedCloseFinding(context.Background(), principal("manager-001", "caa", "session-manager", identity.RoleDepartmentManager), application.AuthorizedCloseFindingCommand{
 			OperationID: "op-authorized-close", CorrelationID: "corr-authorized", FindingID: "finding-authorized",

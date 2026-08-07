@@ -82,7 +82,7 @@ describe("authorized role-entry inventory", () => {
     expect(screen.getAllByTestId("role-card-icon")).toHaveLength(8);
   });
 
-  it("lands an authenticated local-preprod Inspector on AGA without an implicit logout or normal assignments probe", async () => {
+  it("lands an authenticated local-preprod Inspector on the canonical assignments surface", async () => {
     const runtime = createMockBackendRuntime();
     const workspace: AGADemoWorkspaceBackend = {
       capability: vi.fn().mockResolvedValue({ available: true, projection: "INSPECTOR_ASSIGNED", classificationEnabled: false, recommendationEnabled: false, lifecycleEnabled: true, resetEnabled: false }),
@@ -130,12 +130,12 @@ describe("authorized role-entry inventory", () => {
       </StrictMode>,
     );
 
-    await waitFor(() => expect(workspace.capability).toHaveBeenCalled());
+    await waitFor(() => expect(assignmentsList).toHaveBeenCalled());
     expect(client.logout).not.toHaveBeenCalled();
-    expect(assignmentsList).not.toHaveBeenCalled();
+    expect(workspace.capability).not.toHaveBeenCalled();
   });
 
-  it("keeps canonical entry links on the connected AGA surface in the local-preprod profile", async () => {
+  it("does not fall back to the removed AGA donor from the canonical Inspector route", async () => {
     const runtime = createMockBackendRuntime();
     const workspace: AGADemoWorkspaceBackend = {
       capability: vi.fn().mockResolvedValue({ available: true, projection: "INSPECTOR_ASSIGNED", classificationEnabled: false, recommendationEnabled: false, lifecycleEnabled: true, resetEnabled: false }),
@@ -166,8 +166,9 @@ describe("authorized role-entry inventory", () => {
       </AppProviders>,
     );
 
-    expect(await screen.findByTestId("aga-demo-inspection-page")).toBeInTheDocument();
-    expect(assignmentsList).not.toHaveBeenCalled();
+    expect(await screen.findByRole("heading", { name: "My Assignments" })).toBeInTheDocument();
+    expect(assignmentsList).toHaveBeenCalled();
+    expect(workspace.capability).not.toHaveBeenCalled();
   });
 
   it("redirects an undeclared path to role selection without rendering a placeholder", async () => {

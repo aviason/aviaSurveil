@@ -449,12 +449,11 @@ func TestGovernedScopesAndMembershipsDoNotLeakIntoAuditeeWorkspace(t *testing.T)
 	pool := canonicalDatabase(t, "regulatory_governance_auditee")
 	if _, err := pool.Exec(context.Background(), `
 		INSERT INTO caa_department_memberships (id, subject_id, department_id, organizational_unit_id, membership_role, effective_from, status)
-		VALUES ('membership-internal', 'manager-001', 'FLIGHT_OPERATIONS_INSPECTORATE', 'FLIGHT_OPERATIONS_INSPECTORATE', 'DEPARTMENT_MANAGER', '2025-01-01', 'ACTIVE');
+		VALUES ('membership-internal', 'manager-001', 'AIRWORTHINESS_INSPECTORATE', 'AIRWORTHINESS_INSPECTORATE', 'DEPARTMENT_MANAGER', '2025-01-01', 'ACTIVE');
 		INSERT INTO regulated_targets (id, target_kind, organization_id) VALUES
-			('target-auditee-scope', 'ORGANIZATION', 'airline-xyz'),
 			('target-other-scope', 'ORGANIZATION', 'airline-other');
 		INSERT INTO organization_service_provider_scopes (id, organization_id, service_provider_type_id, authorization_identifier, status, effective_from, primary_target_id) VALUES
-			('scope-auditee', 'airline-xyz', 'AIR_OPERATOR', 'AOC-AUDITEE', 'ACTIVE', '2025-01-01', 'target-auditee-scope'),
+			('scope-auditee', 'airline-xyz', 'AIR_OPERATOR', 'AOC-AUDITEE', 'ACTIVE', '2025-01-01', 'target-airline-xyz'),
 			('scope-other', 'airline-other', 'CAMO', 'CAMO-OTHER', 'ACTIVE', '2025-01-01', 'target-other-scope');
 	`); err != nil {
 		t.Fatalf("seed governed internal records: %v", err)
@@ -469,7 +468,7 @@ func TestGovernedScopesAndMembershipsDoNotLeakIntoAuditeeWorkspace(t *testing.T)
 	if err != nil {
 		t.Fatalf("marshal auditee workspace: %v", err)
 	}
-	for _, forbidden := range []string{"scope-auditee", "scope-other", "membership-internal", "FLIGHT_OPERATIONS_INSPECTORATE"} {
+	for _, forbidden := range []string{"scope-auditee", "scope-other", "membership-internal", "AIRWORTHINESS_INSPECTORATE"} {
 		if string(encoded) != "" && contains(string(encoded), forbidden) {
 			t.Fatalf("Auditee workspace leaked internal governed fact %q: %s", forbidden, encoded)
 		}

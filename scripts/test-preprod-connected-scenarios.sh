@@ -222,6 +222,7 @@ build_services=(
   preprod-migration
   preprod-keycloak
   preprod-data-loader
+  preprod-canonical-aga-loader
 )
 if [[ "$task8_qualification" == "true" ]]; then
   build_services+=(preprod-api)

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -36,59 +37,62 @@ import (
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/risk"
 	fieldsync "github.com/MarlonJD/aviaSurveil360/apps/api/internal/sync"
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 )
 
 type CanonicalAPIDependencies struct {
-	Pool                   *database.Pool
-	Application            *application.Service
-	GrantService           *fieldsync.GrantService
-	SyncOperations         *fieldsync.OperationService
-	EvidenceUploads        *evidence.UploadService
-	AttachmentUploads      *attachments.UploadService
-	Planning               *planning.Service
-	Profiles               *identity.ProfileService
-	Assignments            *assignments.Service
-	PackageDrafts          *inspections.PackageDraftService
-	AdminWorkspace         *configuration.WorkspaceService
-	Risk                   *risk.Service
-	Administration         *administration.ProjectionService
-	DirectoryProvider      administration.AccessDirectoryProvider
-	Users                  *administration.UserService
-	Assistant              *assistant.Service
-	Communications         *application.CommunicationsWorkflow
-	Documents              *documents.Service
-	GovernedCandidates     *regulatory.AdminService
-	GovernedLifecycle      *checklistgovernance.Service
-	ChecklistIntake        *checklistintake.Service
-	AGACandidateDemo       *aga.Service
-	PreprodExerciseProfile bool
-	Clock                  func() time.Time
+	Pool                     *database.Pool
+	Application              *application.Service
+	GrantService             *fieldsync.GrantService
+	SyncOperations           *fieldsync.OperationService
+	EvidenceUploads          *evidence.UploadService
+	AttachmentUploads        *attachments.UploadService
+	Planning                 *planning.Service
+	Profiles                 *identity.ProfileService
+	Assignments              *assignments.Service
+	PackageDrafts            *inspections.PackageDraftService
+	AdminWorkspace           *configuration.WorkspaceService
+	Risk                     *risk.Service
+	Administration           *administration.ProjectionService
+	DirectoryProvider        administration.AccessDirectoryProvider
+	Users                    *administration.UserService
+	Assistant                *assistant.Service
+	Communications           *application.CommunicationsWorkflow
+	Documents                *documents.Service
+	GovernedCandidates       *regulatory.AdminService
+	GovernedLifecycle        *checklistgovernance.Service
+	ChecklistIntake          *checklistintake.Service
+	AGACandidateDemo         *aga.Service
+	PreprodExerciseProfile   bool
+	PreprodIdentityNamespace string
+	Clock                    func() time.Time
 }
 
 type CanonicalAPI struct {
-	pool                   *database.Pool
-	application            *application.Service
-	grants                 *fieldsync.GrantService
-	syncOperations         *fieldsync.OperationService
-	evidenceUploads        *evidence.UploadService
-	attachmentUploads      *attachments.UploadService
-	planning               *planning.Service
-	profiles               *identity.ProfileService
-	assignments            *assignments.Service
-	packageDrafts          *inspections.PackageDraftService
-	adminWorkspace         *configuration.WorkspaceService
-	risk                   *risk.Service
-	administration         *administration.ProjectionService
-	users                  *administration.UserService
-	assistant              *assistant.Service
-	communications         *application.CommunicationsWorkflow
-	documents              *documents.Service
-	governedCandidates     *regulatory.AdminService
-	governedLifecycle      *checklistgovernance.Service
-	checklistIntake        *checklistintake.Service
-	agaCandidateDemo       *aga.Service
-	preprodExerciseProfile bool
-	clock                  func() time.Time
+	pool                     *database.Pool
+	application              *application.Service
+	grants                   *fieldsync.GrantService
+	syncOperations           *fieldsync.OperationService
+	evidenceUploads          *evidence.UploadService
+	attachmentUploads        *attachments.UploadService
+	planning                 *planning.Service
+	profiles                 *identity.ProfileService
+	assignments              *assignments.Service
+	packageDrafts            *inspections.PackageDraftService
+	adminWorkspace           *configuration.WorkspaceService
+	risk                     *risk.Service
+	administration           *administration.ProjectionService
+	users                    *administration.UserService
+	assistant                *assistant.Service
+	communications           *application.CommunicationsWorkflow
+	documents                *documents.Service
+	governedCandidates       *regulatory.AdminService
+	governedLifecycle        *checklistgovernance.Service
+	checklistIntake          *checklistintake.Service
+	agaCandidateDemo         *aga.Service
+	preprodExerciseProfile   bool
+	preprodIdentityNamespace string
+	clock                    func() time.Time
 }
 
 func NewCanonicalAPI(dependencies CanonicalAPIDependencies) *CanonicalAPI {
@@ -182,26 +186,27 @@ func NewCanonicalAPI(dependencies CanonicalAPIDependencies) *CanonicalAPI {
 		pool: dependencies.Pool, application: dependencies.Application, grants: dependencies.GrantService,
 		syncOperations:  syncOperations,
 		evidenceUploads: dependencies.EvidenceUploads, attachmentUploads: dependencies.AttachmentUploads,
-		planning:               planningService,
-		profiles:               profileService,
-		assignments:            assignmentService,
-		packageDrafts:          packageDraftService,
-		adminWorkspace:         adminWorkspaceService,
-		risk:                   riskService,
-		administration:         administrationService,
-		users:                  userService,
-		assistant:              assistantService,
-		communications:         communicationsWorkflow,
-		documents:              dependencies.Documents,
-		governedCandidates:     governedCandidates,
-		governedLifecycle:      governedLifecycle,
-		checklistIntake:        checklistIntake,
-		agaCandidateDemo:       dependencies.AGACandidateDemo,
+		planning:           planningService,
+		profiles:           profileService,
+		assignments:        assignmentService,
+		packageDrafts:      packageDraftService,
+		adminWorkspace:     adminWorkspaceService,
+		risk:               riskService,
+		administration:     administrationService,
+		users:              userService,
+		assistant:          assistantService,
+		communications:     communicationsWorkflow,
+		documents:          dependencies.Documents,
+		governedCandidates: governedCandidates,
+		governedLifecycle:  governedLifecycle,
+		checklistIntake:    checklistIntake,
+		agaCandidateDemo:   dependencies.AGACandidateDemo,
 		// Exercise data is enabled only by the explicitly task-owned disposable
 		// profile dependency. A catalog/version query or ambient environment
 		// variable cannot turn it on in a normal API process.
-		preprodExerciseProfile: dependencies.PreprodExerciseProfile,
-		clock:                  clock,
+		preprodExerciseProfile:   dependencies.PreprodExerciseProfile && strings.TrimSpace(dependencies.PreprodIdentityNamespace) == "canonical-aga-preprod-exercise-v1",
+		preprodIdentityNamespace: strings.TrimSpace(dependencies.PreprodIdentityNamespace),
+		clock:                    clock,
 	}
 }
 
@@ -227,8 +232,11 @@ func (api *CanonicalAPI) Handler() http.Handler {
 	router.Post("/v1/caps/{capRevisionId}/reviews", api.reviewCAP)
 	router.Post("/v1/inspection-attachments/{id}/uploads", api.beginInspectionAttachmentUpload)
 	router.Post("/v1/inspection-attachments/uploads/{uploadId}/complete", api.completeInspectionAttachmentUpload)
+	router.Get("/v1/inspection-attachments/{id}", api.getInspectionAttachment)
+	router.Get("/v1/inspection-attachments/{id}/download", api.downloadInspectionAttachment)
 	router.Post("/v1/evidence/uploads", api.beginEvidenceUpload)
 	router.Post("/v1/evidence/uploads/{uploadId}/complete", api.completeEvidenceUpload)
+	router.Get("/v1/evidence/{evidenceVersionId}/download", api.downloadEvidence)
 	router.Post("/v1/evidence/{evidenceVersionId}/reviews", api.reviewEvidence)
 	router.Get("/v1/report-versions/{id}", api.getReportVersion)
 	router.Post("/v1/report-versions", api.createReportVersion)
@@ -244,7 +252,6 @@ func (api *CanonicalAPI) Handler() http.Handler {
 	router.Get("/v1/planning/items", api.listPlanningItems)
 	router.Post("/v1/planning/items/{id}/decisions", api.decidePlanningItem)
 	router.Post("/v1/planning/intake-drafts", api.createPlanningIntakeDraft)
-	router.Post("/v1/audit-workspaces", api.createAuditWorkspace)
 	router.Get("/v1/planning/intake-drafts/{draftId}", api.getPlanningIntakeDraft)
 	router.Put("/v1/planning/intake-drafts/{draftId}", api.savePlanningIntakeDraft)
 	router.Post("/v1/planning/intake-drafts/{draftId}/submissions", api.submitPlanningIntake)
@@ -254,8 +261,15 @@ func (api *CanonicalAPI) Handler() http.Handler {
 	router.Get("/v1/team-members/{subjectId}", api.getTeamMember)
 	router.Get("/v1/audit-teams", api.listAuditTeams)
 	router.Get("/v1/audit-teams/{auditId}", api.getAuditTeam)
+	router.Post("/v1/audit-assignments/{assignmentId}/preparation-confirmations", api.confirmAuditPreparation)
+	router.Post("/v1/audit-assignments/{assignmentId}/materializations", api.materializeCanonicalAudit)
+	router.Post("/v1/planning/items/{planningItemId}/preparations", api.prepareAudit)
+	router.Post("/v1/audit-assignments/{assignmentId}/lead", api.assignAuditLead)
+	router.Post("/v1/audit-assignments/{assignmentId}/team", api.assignAuditTeam)
+	router.Post("/v1/audit-assignments/{assignmentId}/question-coverage", api.assignAuditQuestionCoverage)
 	router.Get("/v1/auditee/coordination", api.listAuditeeCoordination)
 	router.Post("/v1/auditee/coordination/{auditId}/responses", api.respondAuditeeCoordination)
+	router.Post("/v1/auditee/coordination/{auditId}/reviews", api.reviewAuditeeCoordination)
 	router.Get("/v1/configuration/checklist-template-versions", api.listChecklistTemplateVersions)
 	router.Get("/v1/configuration/checklist-template-versions/{templateVersionId}", api.getChecklistTemplateVersion)
 	router.Get("/v1/configuration/reminder-rules", api.listReminderRules)
@@ -352,14 +366,61 @@ func (api *CanonicalAPI) Handler() http.Handler {
 	router.Post("/v1/assistant/drafts", api.createAssistantDraft)
 	router.Post("/v1/sync/operations", api.pushFieldOperation)
 	router.Get("/v1/sync/changes", api.pullSyncChanges)
+	router.Get("/v1/audit-scope-options", api.listCanonicalAuditScopeOptions)
 	router.Get("/v1/question-catalogs/{catalogVersion}/questions", api.listCanonicalQuestionCatalogEntries)
 	router.Get("/v1/question-catalogs/{catalogVersion}/questions/{questionVersionId}", api.getCanonicalQuestionCatalogEntry)
 	router.Post("/v1/audit-scopes/{scopeId}/preview", api.previewCanonicalAuditScopeSelection)
 	router.Put("/v1/audit-scopes/{scopeId}/selection", api.commitCanonicalAuditScopeSelection)
 	router.Get("/v1/department-manager/question-review", api.getCanonicalQuestionReviewQueue)
-	router.Post("/v1/department-manager/question-review/commands", api.commandCanonicalQuestionReview)
+	router.Post("/v1/department-manager/question-review/exercise-commands", api.commandCanonicalExerciseQuestionReview)
+	router.Post("/v1/department-manager/question-review/governed-commands", api.commandCanonicalGovernedQuestionReview)
 	router.Post("/v1/audits/{auditId}/start", api.startInspection)
 	return router
+}
+
+// requireCatalogRuntimeProfile keeps the PREPROD_EXERCISE usage class behind
+// the exact disposable API profile. Database presence alone must never turn a
+// production/default HTTP process into an exercise runtime.
+func (api *CanonicalAPI) requireCatalogRuntimeProfile(ctx context.Context, catalogVersion string) error {
+	if strings.TrimSpace(catalogVersion) == "" || api.pool == nil {
+		return nil
+	}
+	var usage string
+	if err := api.pool.QueryRow(ctx, `SELECT usage_class FROM canonical_question_catalogs WHERE catalog_version = $1`, strings.TrimSpace(catalogVersion)).Scan(&usage); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return application.ErrNotFound
+		}
+		return err
+	}
+	if usage == "PREPROD_EXERCISE" && !api.preprodExerciseProfile {
+		return fmt.Errorf("%w: PREPROD_EXERCISE requires the dedicated disposable preprod profile", application.ErrForbidden)
+	}
+	return nil
+}
+
+func (api *CanonicalAPI) requireDraftRuntimeProfile(ctx context.Context, draftID string) error {
+	if strings.TrimSpace(draftID) == "" || api.pool == nil {
+		return nil
+	}
+	var usage string
+	err := api.pool.QueryRow(ctx, `
+		SELECT scope.usage_class
+		FROM canonical_audit_scope_drafts scope
+		WHERE scope.planning_intake_draft_id = $1
+		  AND scope.status IN ('DRAFT', 'SUBMITTED', 'RELEASED')
+		ORDER BY scope.updated_at DESC
+		LIMIT 1
+	`, draftID).Scan(&usage)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if usage == "PREPROD_EXERCISE" && !api.preprodExerciseProfile {
+		return fmt.Errorf("%w: PREPROD_EXERCISE requires the dedicated disposable preprod profile", application.ErrForbidden)
+	}
+	return nil
 }
 
 func (api *CanonicalAPI) listAssignments(writer http.ResponseWriter, request *http.Request) {
@@ -762,6 +823,35 @@ func (api *CanonicalAPI) completeInspectionAttachmentUpload(writer http.Response
 	}, err)
 }
 
+func (api *CanonicalAPI) getInspectionAttachment(writer http.ResponseWriter, request *http.Request) {
+	actor, ok := requirePrincipal(writer, request)
+	if !ok {
+		return
+	}
+	if api.attachmentUploads == nil {
+		api.respond(writer, nil, application.ErrNotFound)
+		return
+	}
+	view, err := api.attachmentUploads.Get(request.Context(), actor, chi.URLParam(request, "id"))
+	api.respond(writer, view, err)
+}
+
+func (api *CanonicalAPI) downloadInspectionAttachment(writer http.ResponseWriter, request *http.Request) {
+	actor, ok := requirePrincipal(writer, request)
+	if !ok {
+		return
+	}
+	if api.attachmentUploads == nil {
+		api.respond(writer, nil, application.ErrNotFound)
+		return
+	}
+	instruction, err := api.attachmentUploads.Download(request.Context(), actor, chi.URLParam(request, "id"))
+	api.respond(writer, map[string]any{
+		"downloadUrl": instruction.URL,
+		"expiresAt":   instruction.ExpiresAt.UTC().Format(time.RFC3339Nano),
+	}, err)
+}
+
 func (api *CanonicalAPI) beginEvidenceUpload(writer http.ResponseWriter, request *http.Request) {
 	actor, ok := requirePrincipal(writer, request)
 	if !ok {
@@ -822,6 +912,26 @@ func (api *CanonicalAPI) listEvidenceVersions(writer http.ResponseWriter, reques
 		})
 	}
 	api.respond(writer, generated.ListEvidenceVersionsOutput{Items: items}, err)
+}
+
+func (api *CanonicalAPI) downloadEvidence(writer http.ResponseWriter, request *http.Request) {
+	actor, ok := requirePrincipal(writer, request)
+	if !ok {
+		return
+	}
+	if api.evidenceUploads == nil {
+		api.respond(writer, nil, application.ErrNotFound)
+		return
+	}
+	instruction, err := api.evidenceUploads.Download(request.Context(), actor, chi.URLParam(request, "evidenceVersionId"))
+	if err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
+	api.respond(writer, generated.EvidenceDownloadOutput{
+		DownloadUrl: instruction.URL,
+		ExpiresAt:   instruction.ExpiresAt.UTC().Format(time.RFC3339Nano),
+	}, nil)
 }
 
 func (api *CanonicalAPI) reviewEvidence(writer http.ResponseWriter, request *http.Request) {
@@ -1060,7 +1170,7 @@ func (api *CanonicalAPI) respond(writer http.ResponseWriter, output any, err err
 		status, code = http.StatusConflict, "MEMBERSHIP_REVISION_CONFLICT"
 	case errors.Is(err, application.ErrConflict), errors.Is(err, identity.ErrConflict),
 		errors.Is(err, assignments.ErrConflict), errors.Is(err, inspections.ErrPackageDraftConflict),
-		errors.Is(err, administration.ErrConflict),
+		errors.Is(err, administration.ErrConflict), errors.Is(err, evidence.ErrEvidenceNotReady),
 		errors.Is(err, idempotency.ErrOperationIDReuse):
 		status, code = http.StatusConflict, "CONFLICT"
 	case errors.Is(err, identity.ErrPrecondition):

@@ -137,9 +137,9 @@ func (service *UploadService) Begin(ctx context.Context, actor identity.Principa
 		if err != nil || replayed {
 			return err
 		}
-		var organizationID, status string
+		var organizationID, status, inspectionID string
 		var revision int64
-		if err := transaction.QueryRow(ctx, `SELECT organization_id, status, revision FROM findings WHERE id = $1 FOR UPDATE`, input.FindingID).Scan(&organizationID, &status, &revision); err != nil {
+		if err := transaction.QueryRow(ctx, `SELECT organization_id, inspection_id, status, revision FROM findings WHERE id = $1 FOR UPDATE`, input.FindingID).Scan(&organizationID, &inspectionID, &status, &revision); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return ErrEvidenceForbidden
 			}
@@ -150,6 +150,22 @@ func (service *UploadService) Begin(ctx context.Context, actor identity.Principa
 		}
 		if revision != input.ExpectedFindingRevision || (status != "EVIDENCE_REQUIRED" && status != "EVIDENCE_MORE_INFORMATION_REQUESTED") {
 			return fmt.Errorf("%w: Finding is not at an Evidence submission boundary", ErrInvalidUpload)
+		}
+		var preliminaryIssued bool
+		if err := transaction.QueryRow(ctx, `
+				SELECT EXISTS (
+					SELECT 1
+					FROM report_versions preliminary
+					JOIN report_approval_states approval ON approval.report_version_id = preliminary.id
+					WHERE preliminary.inspection_id = $1
+					  AND preliminary.snapshot->>'kind' = 'PRELIMINARY'
+					  AND approval.status IN ('ISSUED', 'LOCKED')
+				)
+			`, inspectionID).Scan(&preliminaryIssued); err != nil {
+			return err
+		}
+		if !preliminaryIssued {
+			return fmt.Errorf("%w: Preliminary Report must be approved and issued before Evidence", ErrInvalidUpload)
 		}
 		now := service.clock().UTC()
 		expiresAt := now.Add(service.instructionTTL)
@@ -276,13 +292,29 @@ func (service *UploadService) Complete(ctx context.Context, actor identity.Princ
 		if err != nil || info.Size != declaredSize || !uploadpolicy.MatchesDeclaration(observation, mediaType, declaredSHA, declaredSize) {
 			return ErrObjectMismatch
 		}
-		var findingStatus string
+		var findingStatus, inspectionID string
 		var findingRevision int64
-		if err := transaction.QueryRow(ctx, `SELECT status, revision FROM findings WHERE id = $1 AND organization_id = $2 FOR UPDATE`, findingID, organizationID).Scan(&findingStatus, &findingRevision); err != nil {
+		if err := transaction.QueryRow(ctx, `SELECT inspection_id, status, revision FROM findings WHERE id = $1 AND organization_id = $2 FOR UPDATE`, findingID, organizationID).Scan(&inspectionID, &findingStatus, &findingRevision); err != nil {
 			return ErrEvidenceForbidden
 		}
 		if findingRevision != expectedRevision || (findingStatus != "EVIDENCE_REQUIRED" && findingStatus != "EVIDENCE_MORE_INFORMATION_REQUESTED") {
 			return fmt.Errorf("%w: Finding changed after upload began", ErrInvalidUpload)
+		}
+		var preliminaryIssued bool
+		if err := transaction.QueryRow(ctx, `
+				SELECT EXISTS (
+					SELECT 1
+					FROM report_versions preliminary
+					JOIN report_approval_states approval ON approval.report_version_id = preliminary.id
+					WHERE preliminary.inspection_id = $1
+					  AND preliminary.snapshot->>'kind' = 'PRELIMINARY'
+					  AND approval.status IN ('ISSUED', 'LOCKED')
+				)
+			`, inspectionID).Scan(&preliminaryIssued); err != nil {
+			return err
+		}
+		if !preliminaryIssued {
+			return fmt.Errorf("%w: Preliminary Report must be approved and issued before Evidence", ErrInvalidUpload)
 		}
 		objectMetadataID := service.idGenerator("object")
 		if _, err := transaction.Exec(ctx, `
@@ -399,6 +431,9 @@ func (service *UploadService) ListVersions(ctx context.Context, actor identity.P
 	if err := authorizeEvidenceOrganization(actor, findingOrganizationID); err != nil {
 		return nil, err
 	}
+	if err := service.authorizeFindingScope(ctx, actor, findingID); err != nil {
+		return nil, err
+	}
 	rows, err := service.pool.Query(ctx, `
 		SELECT version.id, version.finding_id, version.organization_id, version.version, version.filename,
 		       version.submitted_at, state.upload_state, state.scan_state, state.review_state, state.revision
@@ -429,12 +464,12 @@ func (service *UploadService) Download(ctx context.Context, actor identity.Princ
 	if actor.SubjectID == "" {
 		return objectstore.GetInstruction{}, ErrEvidenceForbidden
 	}
-	var organizationID string
+	var organizationID, findingID string
 	if err := service.pool.QueryRow(
 		ctx,
-		"SELECT organization_id FROM evidence_versions WHERE id = $1",
+		"SELECT organization_id, finding_id FROM evidence_versions WHERE id = $1",
 		evidenceVersionID,
-	).Scan(&organizationID); err != nil {
+	).Scan(&organizationID, &findingID); err != nil {
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return objectstore.GetInstruction{}, err
 		}
@@ -444,6 +479,9 @@ func (service *UploadService) Download(ctx context.Context, actor identity.Princ
 		return objectstore.GetInstruction{}, ErrEvidenceNotReady
 	}
 	if err := authorizeEvidenceOrganization(actor, organizationID); err != nil {
+		return objectstore.GetInstruction{}, err
+	}
+	if err := service.authorizeFindingScope(ctx, actor, findingID); err != nil {
 		return objectstore.GetInstruction{}, err
 	}
 	var scanState, bucket, key string
@@ -470,6 +508,41 @@ func authorizeEvidenceOrganization(actor identity.Principal, organizationID stri
 		return nil
 	}
 	if !actor.IsCAA() {
+		return ErrEvidenceForbidden
+	}
+	return nil
+}
+
+// authorizeFindingScope prevents a CAA user with a broad role from reading
+// Evidence belonging to an unrelated Audit. Auditee organization privacy is
+// handled separately above; CAA access is limited to the active assigned
+// Inspector/Lead team for the Finding's inspection.
+func (service *UploadService) authorizeFindingScope(ctx context.Context, actor identity.Principal, findingID string) error {
+	if actor.HasRole(identity.RoleAuditee) {
+		return nil
+	}
+	if !actor.IsCAA() {
+		return ErrEvidenceForbidden
+	}
+	var assigned bool
+	if err := service.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM findings finding
+			JOIN audit_assignments assignment
+			  ON assignment.inspection_id = finding.inspection_id
+			 AND assignment.tombstoned_at IS NULL
+			LEFT JOIN audit_team_members member
+			  ON member.assignment_id = assignment.id
+			 AND member.subject_id = $2
+			 AND member.removed_at IS NULL
+			WHERE finding.id = $1
+			  AND (assignment.lead_subject_id = $2 OR member.subject_id IS NOT NULL)
+		)
+	`, findingID, actor.SubjectID).Scan(&assigned); err != nil {
+		return err
+	}
+	if !assigned {
 		return ErrEvidenceForbidden
 	}
 	return nil

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/assignments"
@@ -89,6 +90,7 @@ type transition[T any] struct {
 
 type MaterializeInspectionCommand struct {
 	OperationID                string
+	IdempotencyKey             string
 	CorrelationID              string
 	AssignmentID               string
 	ExpectedAssignmentRevision int64
@@ -117,7 +119,7 @@ func (service *Service) MaterializeInspection(
 		ExpiresAt:                  command.ExpiresAt.UTC(),
 	}
 	return executeTransition(ctx, service, actor, commandEnvelope{
-		OperationID: command.OperationID, CorrelationID: command.CorrelationID,
+		OperationID: command.OperationID, IdempotencyKey: command.IdempotencyKey, CorrelationID: command.CorrelationID,
 		Kind: "materialize_inspection", EntityID: command.AssignmentID,
 		Semantic: semantic,
 	}, func(ctx context.Context, transaction pgx.Tx) (transition[assignments.MaterializedInspection], error) {
@@ -125,20 +127,27 @@ func (service *Service) MaterializeInspection(
 			return transition[assignments.MaterializedInspection]{},
 				fmt.Errorf("%w: Department Manager authority is required", ErrForbidden)
 		}
-		if command.ExpectedAssignmentRevision <= 0 || command.TemplateVersionID == "" ||
-			command.PackageID == "" || command.PackageVersion <= 0 ||
-			command.ExpiresAt.IsZero() {
+		if command.ExpectedAssignmentRevision <= 0 {
 			return transition[assignments.MaterializedInspection]{}, ErrInvalid
 		}
-		var inspectionID, organizationID, status string
+		var inspectionID, organizationID, inspectionStatus, assignmentStatus, planningItemID string
+		var dueDate time.Time
+		var releasedScopeSnapshotID *string
 		var assignmentRevision int64
 		if err := transaction.QueryRow(ctx, `
-			SELECT inspection_id, organization_id, status, revision
-			FROM audit_assignments
-			WHERE id = $1 AND tombstoned_at IS NULL
-			FOR UPDATE
+			SELECT COALESCE(assignment.inspection_id, ''), assignment.organization_id,
+			       COALESCE(inspection.status, 'PREPARATION'), assignment.status, assignment.revision,
+			       COALESCE(inspection.due_date, assignment.scheduled_start_date, CURRENT_DATE),
+			       assignment.released_scope_snapshot_id, COALESCE(assignment.planning_item_id, '')
+			FROM audit_assignments assignment
+			LEFT JOIN inspections inspection ON inspection.id = assignment.inspection_id
+			WHERE assignment.id = $1
+			  AND assignment.tombstoned_at IS NULL
+			  AND (inspection.id IS NULL OR inspection.tombstoned_at IS NULL)
+			FOR UPDATE OF assignment
 		`, command.AssignmentID).Scan(
-			&inspectionID, &organizationID, &status, &assignmentRevision,
+			&inspectionID, &organizationID, &inspectionStatus, &assignmentStatus, &assignmentRevision, &dueDate,
+			&releasedScopeSnapshotID, &planningItemID,
 		); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return transition[assignments.MaterializedInspection]{}, ErrNotFound
@@ -146,24 +155,139 @@ func (service *Service) MaterializeInspection(
 			return transition[assignments.MaterializedInspection]{}, err
 		}
 		if assignmentRevision != command.ExpectedAssignmentRevision ||
-			assignments.Status(status) != assignments.StatusQuestionsAssigned {
+			assignments.Status(assignmentStatus) != assignments.StatusQuestionsAssigned {
 			return transition[assignments.MaterializedInspection]{}, ErrConflict
 		}
-		var noticePolicy, configuredTemplateVersionID string
+		if planningItemID == "" {
+			return transition[assignments.MaterializedInspection]{}, fmt.Errorf("%w: canonical materialization requires a planning-owned assignment", ErrConflict)
+		}
+		if err := assignments.RequireCurrentDepartmentScopeAuthority(ctx, transaction, actor, planningItemID, ""); err != nil {
+			return transition[assignments.MaterializedInspection]{}, err
+		}
+		var planningDraftID, noticePolicy, configuredTemplateVersionID, catalogVersion string
+		var draftValues []byte
 		if err := transaction.QueryRow(ctx, `
-			SELECT values->>'noticePolicy', values->>'templateVersionId'
+			SELECT id, COALESCE(values->>'noticePolicy','ADVANCE'),
+			       COALESCE(values->>'templateVersionId',''),
+			       COALESCE(values->>'catalogVersion',''), values
 			FROM planning_intake_drafts
-			WHERE values->>'preparedAuditId' = $1
+			WHERE submitted_planning_item_id = $1
 			  AND tombstoned_at IS NULL
 			FOR UPDATE
-		`, inspectionID).Scan(&noticePolicy, &configuredTemplateVersionID); err != nil {
+		`, planningItemID).Scan(&planningDraftID, &noticePolicy, &configuredTemplateVersionID, &catalogVersion, &draftValues); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return transition[assignments.MaterializedInspection]{}, ErrNotFound
 			}
 			return transition[assignments.MaterializedInspection]{}, err
 		}
+		var inspectionType, inspectionTitle string
+		if err := transaction.QueryRow(ctx, `
+			SELECT inspection_type, title, scheduled_date
+			FROM surveillance_plan_items
+			WHERE id = $1 AND status = 'RELEASED' AND tombstoned_at IS NULL
+			FOR UPDATE
+		`, planningItemID).Scan(&inspectionType, &inspectionTitle, &dueDate); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return transition[assignments.MaterializedInspection]{}, ErrConflict
+			}
+			return transition[assignments.MaterializedInspection]{}, err
+		}
+		// Inspection identity is server-owned and is created in this same
+		// transaction as the package, checklist, assignments, and audit.planned.
+		if inspectionID == "" {
+			inspectionID = "inspection:" + command.AssignmentID
+			now := service.clock().UTC()
+			if _, err := transaction.Exec(ctx, `
+				INSERT INTO inspections (
+					id, organization_id, assigned_inspector_subject_id, title,
+					inspection_type, status, due_date, revision, created_at, updated_at
+				) VALUES ($1, $2, NULL, $3, $4, 'PREPARATION', $5, 1, $6, $6)
+			`, inspectionID, organizationID, inspectionTitle, inspectionType, dueDate, now); err != nil {
+				return transition[assignments.MaterializedInspection]{}, err
+			}
+		}
+		canonicalRequested := strings.TrimSpace(catalogVersion) != "" || releasedScopeSnapshotID != nil && strings.TrimSpace(*releasedScopeSnapshotID) != ""
+		if canonicalRequested {
+			if strings.TrimSpace(catalogVersion) == "" || releasedScopeSnapshotID == nil || strings.TrimSpace(*releasedScopeSnapshotID) == "" {
+				return transition[assignments.MaterializedInspection]{}, fmt.Errorf("%w: canonical materialization requires a released scope snapshot", ErrConflict)
+			}
+			var draftMap map[string]any
+			if err := json.Unmarshal(draftValues, &draftMap); err != nil {
+				return transition[assignments.MaterializedInspection]{}, ErrInvalid
+			}
+			// The mutable planning JSON is only a view.  Selection commits are
+			// authoritative in the released scope snapshot, so hydrate the exact
+			// scope identity/digest before validating materialization.  This keeps a
+			// refresh between selection and preparation from losing the question set.
+			var canonicalScopeID, providerScopeID, regulatedTargetID, catalogVersion, selectionDigest string
+			var canonicalSnapshot []byte
+			if err := transaction.QueryRow(ctx, `
+				SELECT scope.id, scope.provider_scope_id, scope.regulated_target_id,
+				       catalog.catalog_version, snapshot.selection_digest, snapshot.snapshot
+				FROM canonical_audit_scope_snapshots snapshot
+				JOIN canonical_audit_scope_drafts scope ON scope.id = snapshot.scope_draft_id
+				JOIN canonical_question_catalogs catalog ON catalog.id = snapshot.catalog_id
+				WHERE snapshot.id = $1 AND snapshot.stage = 'RELEASED'
+			`, *releasedScopeSnapshotID).Scan(
+				&canonicalScopeID, &providerScopeID, &regulatedTargetID,
+				&catalogVersion, &selectionDigest, &canonicalSnapshot,
+			); err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					return transition[assignments.MaterializedInspection]{}, ErrConflict
+				}
+				return transition[assignments.MaterializedInspection]{}, err
+			}
+			var snapshotValues map[string]any
+			if err := json.Unmarshal(canonicalSnapshot, &snapshotValues); err != nil {
+				return transition[assignments.MaterializedInspection]{}, ErrInvalid
+			}
+			draftMap["scopeDraftId"] = canonicalScopeID
+			draftMap["providerScopeId"] = providerScopeID
+			draftMap["regulatedTargetId"] = regulatedTargetID
+			draftMap["catalogVersion"] = catalogVersion
+			draftMap["selectionDigest"] = selectionDigest
+			if selected, ok := snapshotValues["selectedQuestionVersionIds"]; ok {
+				draftMap["selectedQuestionVersionIds"] = selected
+			}
+			canonicalValues := NormalizeCanonicalPlanningValues(draftMap, planningDraftID)
+			if _, err := ValidateCanonicalScopeMap(ctx, transaction, actor, canonicalValues, true); err != nil {
+				return transition[assignments.MaterializedInspection]{}, err
+			}
+		}
+		// Package identity, version, and expiry are materialization-owned facts.
+		// The transport intentionally does not accept client-authored package
+		// fields; derive them while holding the assignment lock so a duplicate
+		// command cannot create a second executable package.
+		now := service.clock().UTC()
+		if err := transaction.QueryRow(ctx, `
+			SELECT COALESCE(MAX(package_version), 0) + 1
+			FROM inspection_packages
+			WHERE inspection_id = $1
+		`, inspectionID).Scan(&command.PackageVersion); err != nil {
+			return transition[assignments.MaterializedInspection]{}, err
+		}
+		command.PackageID = fmt.Sprintf("inspection-package:%s:%d", inspectionID, command.PackageVersion)
+		command.ExpiresAt = now.Add(7 * 24 * time.Hour)
+		if releasedScopeSnapshotID != nil && *releasedScopeSnapshotID != "" {
+			if command.TemplateVersionID != "" || configuredTemplateVersionID != "" {
+				return transition[assignments.MaterializedInspection]{}, fmt.Errorf("%w: canonical materialization cannot accept a checklist-template source", ErrConflict)
+			}
+			return service.materializeCanonicalInspection(ctx, transaction, actor, command, inspectionID, organizationID, planningItemID, inspectionType, dueDate, inspectionStatus, noticePolicy, assignmentRevision, *releasedScopeSnapshotID)
+		}
+		// The legacy template-backed materializer remains below as donor source
+		// until the post-qualification deletion gate, but it is unreachable from
+		// the canonical command boundary. There is no safe fallback when a
+		// released canonical scope is absent.
+		return transition[assignments.MaterializedInspection]{}, fmt.Errorf("%w: released canonical scope is required", ErrConflict)
+		if command.TemplateVersionID == "" && configuredTemplateVersionID == "" {
+			return transition[assignments.MaterializedInspection]{}, fmt.Errorf("%w: released canonical scope is required", ErrConflict)
+		}
 		if configuredTemplateVersionID != command.TemplateVersionID {
-			return transition[assignments.MaterializedInspection]{}, ErrConflict
+			if command.TemplateVersionID == "" {
+				command.TemplateVersionID = configuredTemplateVersionID
+			} else {
+				return transition[assignments.MaterializedInspection]{}, ErrConflict
+			}
 		}
 		var templateSnapshot []byte
 		if err := transaction.QueryRow(ctx, `
@@ -229,7 +353,7 @@ func (service *Service) MaterializeInspection(
 		}
 		digestBytes := sha256.Sum256(snapshotJSON)
 		packageDigest := "sha256:" + hex.EncodeToString(digestBytes[:])
-		now := service.clock().UTC()
+		now = service.clock().UTC()
 		if _, err := transaction.Exec(ctx, `
 			INSERT INTO inspection_packages (
 				id, inspection_id, checklist_template_version_id, package_version,
@@ -298,10 +422,294 @@ func (service *Service) MaterializeInspection(
 			Response: response, OrganizationID: organizationID,
 			Action: "inspection.materialized", EntityType: "inspection",
 			EntityID: inspectionID, EntityVersion: assignmentRevision + 1,
-			BeforeStatus: status, AfterStatus: string(nextStatus),
+			BeforeStatus: inspectionStatus, AfterStatus: string(nextStatus),
 			SyncKind: "inspection", OutboxTopic: "inspection.materialized",
 		}, nil
 	})
+}
+
+func (service *Service) materializeCanonicalInspection(
+	ctx context.Context,
+	tx pgx.Tx,
+	actor identity.Principal,
+	command MaterializeInspectionCommand,
+	inspectionID, organizationID, planningItemID, inspectionType string, dueDate time.Time, inspectionStatus, noticePolicy string,
+	assignmentRevision int64, releasedScopeSnapshotID string,
+) (transition[assignments.MaterializedInspection], error) {
+	var snapshotID, catalogID, usageClass, selectionDigest, planningSnapshotDigest string
+	var selectedCount int
+	var releasedSnapshotJSON []byte
+	if err := tx.QueryRow(ctx, `
+		SELECT snapshot.id, snapshot.catalog_id, snapshot.usage_class,
+		       snapshot.selection_digest, snapshot.planning_snapshot_digest,
+		       snapshot.selected_question_count, snapshot.snapshot
+		FROM canonical_audit_scope_snapshots snapshot
+		WHERE snapshot.id = $1 AND snapshot.stage = 'RELEASED'
+	`, releasedScopeSnapshotID).Scan(&snapshotID, &catalogID, &usageClass, &selectionDigest, &planningSnapshotDigest, &selectedCount, &releasedSnapshotJSON); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return transition[assignments.MaterializedInspection]{}, ErrConflict
+		}
+		return transition[assignments.MaterializedInspection]{}, err
+	}
+	if snapshotID == "" || catalogID == "" || usageClass == "" || selectionDigest == "" || planningSnapshotDigest == "" || selectedCount <= 0 {
+		return transition[assignments.MaterializedInspection]{}, ErrConflict
+	}
+	var canonicalAuditType string
+	if err := tx.QueryRow(ctx, `
+		SELECT scope.audit_type
+		FROM canonical_audit_scope_snapshots snapshot
+		JOIN canonical_audit_scope_drafts scope ON scope.id = snapshot.scope_draft_id
+		WHERE snapshot.id = $1
+	`, snapshotID).Scan(&canonicalAuditType); err != nil {
+		return transition[assignments.MaterializedInspection]{}, err
+	}
+	var releasedFacts struct {
+		NoticePolicy string `json:"noticePolicy"`
+	}
+	if err := json.Unmarshal(releasedSnapshotJSON, &releasedFacts); err != nil {
+		return transition[assignments.MaterializedInspection]{}, fmt.Errorf("%w: decode released scope snapshot", ErrInvalid)
+	}
+	noticePolicy = strings.TrimSpace(releasedFacts.NoticePolicy)
+	if noticePolicy != "ADVANCE" && noticePolicy != "WITHHELD" {
+		return transition[assignments.MaterializedInspection]{}, fmt.Errorf("%w: released scope snapshot notice policy is invalid", ErrConflict)
+	}
+	var confirmedPreparationCount int
+	if err := tx.QueryRow(ctx, `
+		SELECT COUNT(*)
+		FROM canonical_audit_preparation_snapshots
+		WHERE assignment_id = $1
+		  AND released_scope_snapshot_id = $2
+		  AND status = 'CONFIRMED'
+	`, command.AssignmentID, snapshotID).Scan(&confirmedPreparationCount); err != nil {
+		return transition[assignments.MaterializedInspection]{}, err
+	}
+	if confirmedPreparationCount != 1 {
+		return transition[assignments.MaterializedInspection]{}, fmt.Errorf("%w: exactly one confirmed preparation is required for this released scope", ErrConflict)
+	}
+	var preparationID, preparationDigest, preparationStatus string
+	var preparationRevision int64
+	if err := tx.QueryRow(ctx, `
+		SELECT id, preparation_digest, status, revision
+		FROM canonical_audit_preparation_snapshots
+		WHERE assignment_id = $1
+		  AND released_scope_snapshot_id = $2
+		  AND status = 'CONFIRMED'
+		FOR UPDATE
+	`, command.AssignmentID, snapshotID).Scan(&preparationID, &preparationDigest, &preparationStatus, &preparationRevision); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return transition[assignments.MaterializedInspection]{}, fmt.Errorf("%w: Department Manager preparation confirmation is required", ErrConflict)
+		}
+		return transition[assignments.MaterializedInspection]{}, err
+	}
+	if preparationID == "" || preparationDigest == "" || preparationStatus != "CONFIRMED" {
+		return transition[assignments.MaterializedInspection]{}, fmt.Errorf("%w: preparation is not confirmed", ErrConflict)
+	}
+	var preparationQuestionCount int
+	if err := tx.QueryRow(ctx, `
+		SELECT COUNT(DISTINCT question_version_id)
+		FROM canonical_audit_preparation_questions
+		WHERE preparation_id = $1 AND released_scope_snapshot_id = $2
+	`, preparationID, snapshotID).Scan(&preparationQuestionCount); err != nil {
+		return transition[assignments.MaterializedInspection]{}, err
+	}
+	if preparationQuestionCount != selectedCount {
+		return transition[assignments.MaterializedInspection]{}, fmt.Errorf("%w: confirmed preparation coverage does not match the released question scope", ErrConflict)
+	}
+	type canonicalQuestion struct {
+		ID        string   `json:"id"`
+		Section   string   `json:"sectionId"`
+		Prompt    string   `json:"prompt"`
+		Reference string   `json:"regulatoryReference"`
+		Evidence  string   `json:"expectedEvidence"`
+		Assigned  []string `json:"assignedInspectorUserIds"`
+	}
+	questions := make([]canonicalQuestion, 0, selectedCount)
+	rows, err := tx.Query(ctx, `
+		SELECT qv.id, membership.form_code, qv.prompt, qv.configured_reference,
+		       qv.expected_evidence, COALESCE(array_agg(preparation.subject_id ORDER BY preparation.subject_id)
+		       FILTER (WHERE preparation.subject_id IS NOT NULL), '{}')
+		FROM canonical_audit_scope_snapshot_questions selected
+		JOIN canonical_question_catalog_memberships membership
+		  ON membership.catalog_id = $1 AND membership.question_version_id = selected.question_version_id
+		JOIN question_versions qv ON qv.id = selected.question_version_id
+		LEFT JOIN canonical_audit_preparation_questions preparation
+		  ON preparation.preparation_id = $3
+		 AND preparation.released_scope_snapshot_id = selected.snapshot_id
+		 AND preparation.question_version_id = selected.question_version_id
+		WHERE selected.snapshot_id = $2
+		GROUP BY selected.position, qv.id, membership.form_code, qv.prompt,
+		         qv.configured_reference, qv.expected_evidence
+		ORDER BY selected.position
+	`, catalogID, snapshotID, preparationID)
+	if err != nil {
+		return transition[assignments.MaterializedInspection]{}, err
+	}
+	for rows.Next() {
+		var question canonicalQuestion
+		if err := rows.Scan(&question.ID, &question.Section, &question.Prompt, &question.Reference, &question.Evidence, &question.Assigned); err != nil {
+			rows.Close()
+			return transition[assignments.MaterializedInspection]{}, err
+		}
+		if question.ID == "" || len(question.Assigned) == 0 {
+			rows.Close()
+			return transition[assignments.MaterializedInspection]{}, ErrConflict
+		}
+		questions = append(questions, question)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return transition[assignments.MaterializedInspection]{}, err
+	}
+	rows.Close()
+	if len(questions) != selectedCount {
+		return transition[assignments.MaterializedInspection]{}, fmt.Errorf("%w: released canonical scope and assignment set differ", ErrConflict)
+	}
+	snapshot := struct {
+		SchemaVersion         int64               `json:"schemaVersion"`
+		ProtocolVersion       int64               `json:"protocolVersion"`
+		CatalogID             string              `json:"catalogId"`
+		UsageClass            string              `json:"usageClass"`
+		ReleasedScopeSnapshot string              `json:"releasedScopeSnapshotId"`
+		SelectionDigest       string              `json:"selectionDigest"`
+		PreparationID         string              `json:"preparationId"`
+		PreparationDigest     string              `json:"preparationDigest"`
+		Questions             []canonicalQuestion `json:"questions"`
+	}{
+		SchemaVersion: 1, ProtocolVersion: 1, CatalogID: catalogID,
+		UsageClass: usageClass, ReleasedScopeSnapshot: snapshotID,
+		SelectionDigest: selectionDigest, PreparationID: preparationID,
+		PreparationDigest: preparationDigest, Questions: questions,
+	}
+	snapshotJSON, err := json.Marshal(snapshot)
+	if err != nil {
+		return transition[assignments.MaterializedInspection]{}, err
+	}
+	digestBytes := sha256.Sum256(snapshotJSON)
+	packageDigest := "sha256:" + hex.EncodeToString(digestBytes[:])
+	now := service.clock().UTC()
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO inspection_packages (
+			id, inspection_id, checklist_template_version_id, canonical_scope_snapshot_id,
+			package_version, snapshot, expires_at, created_at, package_digest
+		) VALUES ($1, $2, NULL, $3, $4, $5, $6, $7, $8)
+	`, command.PackageID, inspectionID, snapshotID, command.PackageVersion, snapshotJSON, command.ExpiresAt.UTC(), now, packageDigest); err != nil {
+		return transition[assignments.MaterializedInspection]{}, err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO inspection_checklists (inspection_id, status, revision)
+		VALUES ($1, 'NOT_STARTED', 1)
+	`, inspectionID); err != nil {
+		return transition[assignments.MaterializedInspection]{}, err
+	}
+	for _, question := range questions {
+		for _, subjectID := range question.Assigned {
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO inspection_question_assignments (inspection_id, question_id, subject_id, assignment_revision)
+				VALUES ($1, $2, $3, $4)
+			`, inspectionID, question.ID, subjectID, assignmentRevision+1); err != nil {
+				return transition[assignments.MaterializedInspection]{}, err
+			}
+		}
+	}
+	nextStatus := assignments.StatusScheduled
+	noticeWithheld := noticePolicy == "WITHHELD"
+	if !noticeWithheld {
+		nextStatus = assignments.StatusAwaitingAuditeeConfirmation
+	}
+	updated, err := tx.Exec(ctx, `
+		UPDATE audit_assignments
+		SET inspection_id = $2, status = $3, revision = revision + 1, updated_at = $4
+		WHERE id = $1 AND revision = $5
+	`, command.AssignmentID, inspectionID, string(nextStatus), now, assignmentRevision)
+	if err != nil {
+		return transition[assignments.MaterializedInspection]{}, err
+	}
+	if updated.RowsAffected() != 1 {
+		return transition[assignments.MaterializedInspection]{}, ErrConflict
+	}
+	inspectionNextStatus := "SCHEDULED"
+	if !noticeWithheld {
+		inspectionNextStatus = "AWAITING_AUDITEE_CONFIRMATION"
+	}
+	var materializedInspectionRevision int64
+	if err := tx.QueryRow(ctx, `
+		UPDATE inspections
+		SET status = $2, revision = revision + 1, updated_at = $3
+		WHERE id = $1 AND status = 'PREPARATION'
+		RETURNING revision
+	`, inspectionID, inspectionNextStatus, now).Scan(&materializedInspectionRevision); err != nil {
+		return transition[assignments.MaterializedInspection]{}, err
+	}
+	if materializedInspectionRevision <= 1 {
+		return transition[assignments.MaterializedInspection]{}, ErrConflict
+	}
+	// Preparation snapshots are append-only. Materialization records the
+	// immutable status transition as a new snapshot revision and copies its
+	// immutable coverage rows; the CONFIRMED receipt remains auditable.
+	materializedPreparationID := preparationID + ":materialized"
+	if _, err := tx.Exec(ctx, `
+			INSERT INTO canonical_audit_preparation_snapshots (
+				id, assignment_id, released_scope_snapshot_id, lead_subject_id, revision, status,
+				preparation_digest, confirmed_by_subject_id, confirmed_at, snapshot, created_at
+			)
+			SELECT $1, assignment_id, released_scope_snapshot_id, lead_subject_id, $2, 'MATERIALIZED',
+			       preparation_digest, confirmed_by_subject_id, confirmed_at, snapshot, $3
+		FROM canonical_audit_preparation_snapshots
+		WHERE id = $4 AND status = 'CONFIRMED'
+	`, materializedPreparationID, preparationRevision+1, now, preparationID); err != nil {
+		return transition[assignments.MaterializedInspection]{}, err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO canonical_audit_preparation_questions (
+			preparation_id, released_scope_snapshot_id, question_version_id, subject_id, position
+		)
+		SELECT $1, released_scope_snapshot_id, question_version_id, subject_id, position
+		FROM canonical_audit_preparation_questions
+		WHERE preparation_id = $2
+	`, materializedPreparationID, preparationID); err != nil {
+		return transition[assignments.MaterializedInspection]{}, err
+	}
+	plannedEventID, err := datafeed.NewEventID()
+	if err != nil {
+		return transition[assignments.MaterializedInspection]{}, err
+	}
+	auditScopeCode, err := dataFeedAuditScopeCode(canonicalAuditType)
+	if err != nil {
+		return transition[assignments.MaterializedInspection]{}, err
+	}
+	plannedStart := time.Date(dueDate.UTC().Year(), dueDate.UTC().Month(), dueDate.UTC().Day(), 0, 0, 0, 0, time.UTC)
+	return transition[assignments.MaterializedInspection]{
+		Response: assignments.MaterializedInspection{
+			InspectionID: inspectionID, AssignmentID: command.AssignmentID,
+			PackageID: command.PackageID, TemplateVersionID: "",
+			PackageVersion: command.PackageVersion, PackageDigest: packageDigest,
+			Status: nextStatus, NoticeWithheld: noticeWithheld,
+			AssignmentRevision: assignmentRevision + 1, ExpiresAt: command.ExpiresAt.UTC(),
+		},
+		OrganizationID: organizationID, Action: "audit.planned",
+		EntityType: "inspection", EntityID: inspectionID,
+		// Data-feed aggregate revisions follow the inspection's returned
+		// immutable revision, never the assignment revision.
+		EntityVersion: materializedInspectionRevision, BeforeStatus: inspectionStatus,
+		AfterStatus: string(nextStatus), SyncKind: "inspection", OutboxTopic: "audit.planned",
+		DataFeedEvents: []datafeed.EventInput{{
+			EventID: plannedEventID, EventType: "audit.planned", OwningOrganizationID: organizationID,
+			ActorOrganizationID: actor.OrganizationID, CorrelationID: command.CorrelationID,
+			AggregateType: "audit", AggregateID: inspectionID, AggregateRevision: materializedInspectionRevision,
+			EffectiveAt: now, KnownAt: now, OccurredAt: now, EmittedAt: now,
+			VisibilityPurposeCode: "regulated_oversight", EntityRefs: map[string]any{"audit_id": inspectionID},
+			StateBefore: nil, StateAfter: "audit_planned",
+			Payload: map[string]any{
+				// AviaCore v3 owns a closed audit.planned payload. The exact
+				// released Planning identity is carried by audit_program_ref;
+				// scope/package implementation identifiers stay in canonical
+				// projections and must not leak into the feed contract.
+				"audit_program_ref": planningItemID,
+				"audit_scope_code":  auditScopeCode,
+				"planned_start_at":  plannedStart.Format(time.RFC3339Nano),
+			},
+		}},
+	}, nil
 }
 
 func executeTransition[T any](ctx context.Context, service *Service, actor identity.Principal, envelope commandEnvelope, handler func(context.Context, pgx.Tx) (transition[T], error)) (T, error) {
@@ -468,6 +876,68 @@ func (service *Service) ConvertPotentialFinding(ctx context.Context, actor ident
 		revision := record.Revision
 		inspectionID := record.InspectionID
 		organizationID := record.OrganizationID
+		// A Lead Inspector role is necessary but not sufficient. Every
+		// Potential Finding must be bound to the exact assigned Lead on the
+		// canonical Audit; assignment-less records fail closed.
+		var hasAssignment, isLead bool
+		if err := transaction.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM audit_assignments
+				WHERE inspection_id = $1 AND tombstoned_at IS NULL
+			), EXISTS (
+				SELECT 1
+				FROM audit_assignments assignment
+				JOIN audit_team_members member ON member.assignment_id = assignment.id
+				WHERE assignment.inspection_id = $1
+				  AND assignment.tombstoned_at IS NULL
+				  AND assignment.lead_subject_id = $2
+				  AND member.subject_id = $2
+				  AND member.member_role = 'LEAD_INSPECTOR'
+				  AND member.removed_at IS NULL
+			)
+		`, inspectionID, actor.SubjectID).Scan(&hasAssignment, &isLead); err != nil {
+			return transition[ConvertPotentialFindingResult]{}, err
+		}
+		if !hasAssignment {
+			return transition[ConvertPotentialFindingResult]{}, fmt.Errorf("%w: Potential Finding is not bound to a canonical Audit assignment", ErrForbidden)
+		}
+		if !isLead {
+			return transition[ConvertPotentialFindingResult]{}, fmt.Errorf("%w: Lead Inspector is not assigned to this Audit", ErrForbidden)
+		}
+		// A Finding becomes visible/actionable only after the Preliminary
+		// Report has been approved and issued. Conversion is therefore the
+		// issuance boundary; CAP/Evidence guards later in the lifecycle cannot
+		// repair a Finding that was exposed too early.
+		var preliminaryIssued bool
+		if err := transaction.QueryRow(ctx, `
+			WITH RECURSIVE lineage(id, supersedes_id) AS (
+				SELECT id, supersedes_potential_finding_id
+				FROM potential_findings
+				WHERE id = $2
+				UNION ALL
+				SELECT parent.id, parent.supersedes_potential_finding_id
+				FROM potential_findings parent
+				JOIN lineage child ON child.supersedes_id = parent.id
+			)
+			SELECT EXISTS (
+				SELECT 1
+				FROM report_versions preliminary
+				JOIN report_approval_states approval ON approval.report_version_id = preliminary.id
+				WHERE preliminary.inspection_id = $1
+				  AND preliminary.snapshot->>'kind' = 'PRELIMINARY'
+				  AND EXISTS (
+					SELECT 1
+					FROM jsonb_array_elements_text(COALESCE(preliminary.snapshot->'potentialFindingIds', '[]'::jsonb)) frozen(id)
+					JOIN lineage ON lineage.id = frozen.id
+				  )
+				  AND approval.status IN ('ISSUED', 'LOCKED')
+			)
+		`, inspectionID, command.PotentialFindingID).Scan(&preliminaryIssued); err != nil {
+			return transition[ConvertPotentialFindingResult]{}, err
+		}
+		if !preliminaryIssued {
+			return transition[ConvertPotentialFindingResult]{}, fmt.Errorf("%w: Preliminary Report must be approved and issued before Finding issuance", ErrConflict)
+		}
 		decision, err := potentialfindings.Decide(potentialfindings.DecideInput{
 			Actor: actor, Status: potentialfindings.Status(potentialStatus), Revision: revision, ExpectedRevision: command.ExpectedRevision,
 			Decision: potentialfindings.DecisionConvert, Severity: command.Severity,
@@ -684,6 +1154,11 @@ func (service *Service) DecideReport(ctx context.Context, actor identity.Princip
 		if err != nil {
 			return transition[DecideReportResult]{}, err
 		}
+		if actor.HasRole(identity.RoleDepartmentManager) {
+			if err := assignments.RequireCurrentDepartmentScopeAuthority(ctx, transaction, actor, "", version.InspectionID); err != nil {
+				return transition[DecideReportResult]{}, err
+			}
+		}
 		var mismatchedFamilyOrganizations int
 		if err := transaction.QueryRow(ctx, `
 			SELECT count(*)
@@ -717,6 +1192,50 @@ func (service *Service) DecideReport(ctx context.Context, actor identity.Princip
 					"%w: report Finding identities must belong to the exact Audit organization",
 					ErrConflict,
 				)
+			}
+		}
+		var auditFindingCount, linkedFindingCount int
+		if err := transaction.QueryRow(ctx, `
+			SELECT COUNT(*) FROM findings WHERE inspection_id = $1;
+		`, version.InspectionID).Scan(&auditFindingCount); err != nil {
+			return transition[DecideReportResult]{}, err
+		}
+		if err := transaction.QueryRow(ctx, `
+			SELECT COUNT(*) FROM findings
+			WHERE inspection_id = $1 AND id = ANY($2::text[])
+		`, version.InspectionID, reportSnapshot.FindingIDs).Scan(&linkedFindingCount); err != nil {
+			return transition[DecideReportResult]{}, err
+		}
+		if linkedFindingCount != auditFindingCount || linkedFindingCount != len(reportSnapshot.FindingIDs) {
+			return transition[DecideReportResult]{}, fmt.Errorf("%w: report must link the exact immutable Finding set for this Audit", ErrConflict)
+		}
+		if reportSnapshot.Kind == reports.KindFinal {
+			var preliminaryIssued bool
+			if err := transaction.QueryRow(ctx, `
+				SELECT EXISTS (
+					SELECT 1
+					FROM report_versions preliminary
+					JOIN report_approval_states approval
+					  ON approval.report_version_id = preliminary.id
+					WHERE preliminary.inspection_id = $1
+					  AND preliminary.snapshot->>'kind' = 'PRELIMINARY'
+					  AND approval.status IN ('ISSUED', 'LOCKED')
+				)
+			`, version.InspectionID).Scan(&preliminaryIssued); err != nil {
+				return transition[DecideReportResult]{}, err
+			}
+			if !preliminaryIssued {
+				return transition[DecideReportResult]{}, fmt.Errorf("%w: Preliminary Report must be approved and issued before Final Report", ErrConflict)
+			}
+			var openFindingCount int64
+			if err := transaction.QueryRow(ctx, `
+				SELECT COUNT(*) FROM findings
+				WHERE inspection_id = $1 AND status <> 'CLOSED'
+			`, version.InspectionID).Scan(&openFindingCount); err != nil {
+				return transition[DecideReportResult]{}, err
+			}
+			if openFindingCount != 0 {
+				return transition[DecideReportResult]{}, fmt.Errorf("%w: all Findings must complete CAP, Evidence, verification, and closure before Final Report", ErrConflict)
 			}
 		}
 		status := state.Status
