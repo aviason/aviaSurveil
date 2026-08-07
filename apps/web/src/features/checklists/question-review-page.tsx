@@ -99,7 +99,7 @@ export function QuestionReviewPage() {
     let cancelled = false;
     setCatalogVersion("");
     setCatalogLoading(true);
-    void client.listScopeOptions({ usageClass: mode, limit: 25 }).then((page) => {
+    void client.listScopeOptions({ usageClass: mode, limit: 25, forReview: mode === "GOVERNED_OPERATIONAL" }).then((page) => {
       if (cancelled) return;
       const available = page.items.find((item) => item.catalogVersion && item.usageClass === mode)?.catalogVersion;
       if (mode === "PREPROD_EXERCISE") setExerciseAvailable(Boolean(available));
@@ -167,8 +167,10 @@ export function QuestionReviewPage() {
         setError("PREPROD_EXERCISE review cannot invoke technical approval or publication.");
         return;
       }
-      const command = mode === "PREPROD_EXERCISE"
-        ? { ...operation, action: action as Exclude<CanonicalQuestionReviewAction, "TECHNICAL_APPROVE" | "PUBLISH">, mode: "PREPROD_EXERCISE" as const, expectedRevision: selected.reviewRevision, expectedReviewDigest: selected.reviewDigest ?? "" }
+	      const command = mode === "PREPROD_EXERCISE"
+	        ? scopeId
+	          ? { ...operation, scopeId, action: action as Exclude<CanonicalQuestionReviewAction, "TECHNICAL_APPROVE" | "PUBLISH">, mode: "PREPROD_EXERCISE" as const, expectedRevision: selected.reviewRevision, expectedReviewDigest: selected.reviewDigest ?? "" }
+	          : null
         : selected.governedCandidateId && selected.governedCandidateRevision && selected.governedCandidateContentDigest
           ? { ...operation, mode: "GOVERNED_OPERATIONAL" as const, candidateId: selected.governedCandidateId, expectedCandidateRevision: selected.governedCandidateRevision, expectedCandidateContentDigest: selected.governedCandidateContentDigest }
           : null;
@@ -178,7 +180,24 @@ export function QuestionReviewPage() {
       }
       const result = await client.command(command);
       setStatus(`${action} recorded${result.replayed ? " (idempotent replay)" : ""}.`);
-      await load();
+      if (result.currentCandidateId) {
+        // Governed dispositions are immutable candidate successors. Follow the
+        // server-returned leaf so a second decision operates on cumulative
+        // state instead of reloading the superseded virtual catalog.
+        const nextCatalogVersion = `candidate:${result.currentCandidateId}`;
+        const candidateIdentityUnchanged = nextCatalogVersion === catalogVersion;
+        setCatalogVersion(nextCatalogVersion);
+        setCursor(undefined);
+        setPreviousCursors([]);
+        setPageNumber(1);
+        // Technical approval keeps the candidate identity but changes its
+        // status. React state therefore cannot use the candidate URL as a
+        // change key; explicitly reload the same candidate so Publish becomes
+        // available in the same session.
+        if (candidateIdentityUnchanged) await load();
+      } else {
+        await load();
+      }
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -222,9 +241,9 @@ export function QuestionReviewPage() {
       : candidateStatus !== "TECHNICALLY_APPROVED"
         ? "Publication is available only after technical approval."
         : capabilities.disabledReason ?? "Publication authority is unavailable for this candidate.";
-  const dispositionAvailable = exercise || governedCandidateAvailable;
-  const dispositionReason = exercise
-    ? null
+	  const dispositionAvailable = (exercise && Boolean(scopeId)) || governedCandidateAvailable;
+	  const dispositionReason = exercise
+	    ? scopeId ? null : "PREPROD_EXERCISE review requires an authorized disposable scope draft ID before any command is enabled."
     : governedCandidateAvailable
       ? null
       : "Governed disposition and reclassification require a current candidate revision and digest; this row is read-only until the server supplies that binding.";

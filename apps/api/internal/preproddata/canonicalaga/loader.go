@@ -141,27 +141,25 @@ func LoadSealedCatalog(ctx context.Context, pool *database.Pool, pkg agacandidat
 		// exists. The provenance FK is intentionally strict and prevents the
 		// same body/version identity from entering a governed candidate later.
 		for _, question := range manifest.QuestionVersions {
-			var existingUsage, existingCatalog string
-			provenanceErr := tx.QueryRow(ctx, `
-				SELECT usage_class, catalog_id
-				FROM canonical_question_version_provenance
-				WHERE question_version_id = $1
-			`, question.ID).Scan(&existingUsage, &existingCatalog)
-			switch {
-			case provenanceErr == nil:
-				if existingUsage != string(questioncatalog.UsageClassPreprodExercise) || existingCatalog != catalogID {
-					return fmt.Errorf("question version %s has a conflicting immutable provenance", question.ID)
-				}
-			case errors.Is(provenanceErr, pgx.ErrNoRows):
-				if _, err := tx.Exec(ctx, `
-					INSERT INTO canonical_question_version_provenance
-					(question_version_id, usage_class, catalog_id, recorded_at)
-					VALUES ($1, 'PREPROD_EXERCISE', $2, $3)
-				`, question.ID, catalogID, now.UTC()); err != nil {
-					return err
-				}
-			default:
-				return provenanceErr
+			var governedUsage bool
+			if err := tx.QueryRow(ctx, `
+				SELECT EXISTS (
+					SELECT 1 FROM canonical_question_version_provenance
+					WHERE question_version_id = $1 AND usage_class = 'GOVERNED_OPERATIONAL'
+				)
+			`, question.ID).Scan(&governedUsage); err != nil {
+				return err
+			}
+			if governedUsage {
+				return fmt.Errorf("question version %s has a conflicting immutable provenance", question.ID)
+			}
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO canonical_question_version_provenance
+				(question_version_id, usage_class, catalog_id, recorded_at)
+				VALUES ($1, 'PREPROD_EXERCISE', $2, $3)
+				ON CONFLICT (question_version_id, usage_class, catalog_id) DO NOTHING
+			`, question.ID, catalogID, now.UTC()); err != nil {
+				return err
 			}
 		}
 		for _, row := range manifest.Rows {

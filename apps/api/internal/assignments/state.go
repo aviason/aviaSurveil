@@ -21,16 +21,17 @@ const (
 )
 
 type Preparation struct {
-	AssignmentID          string    `json:"assignmentId"`
-	PlanningItemID        string    `json:"planningItemId"`
-	InspectionID          string    `json:"inspectionId"`
-	OrganizationID        string    `json:"organizationId"`
-	Status                Status    `json:"status"`
-	Revision              int64     `json:"revision"`
-	PreparationID         string    `json:"preparationId,omitempty"`
-	PreparationDigest     string    `json:"preparationDigest,omitempty"`
-	SelectedQuestionCount int       `json:"selectedQuestionCount,omitempty"`
-	ConfirmedAt           time.Time `json:"confirmedAt,omitempty"`
+	AssignmentID                string    `json:"assignmentId"`
+	PlanningItemID              string    `json:"planningItemId"`
+	InspectionID                string    `json:"inspectionId"`
+	OrganizationID              string    `json:"organizationId"`
+	Status                      Status    `json:"status"`
+	Revision                    int64     `json:"revision"`
+	PreparationID               string    `json:"preparationId,omitempty"`
+	PreparationDigest           string    `json:"preparationDigest,omitempty"`
+	SelectedQuestionCount       int       `json:"selectedQuestionCount,omitempty"`
+	ConfirmedAt                 time.Time `json:"confirmedAt,omitempty"`
+	ConfirmedAssignmentRevision int64     `json:"confirmedAssignmentRevision,omitempty"`
 }
 
 type Assignment struct {
@@ -42,10 +43,22 @@ type Assignment struct {
 	LeadSubjectID           string               `json:"leadSubjectId"`
 	MemberSubjectIDs        []string             `json:"memberSubjectIds"`
 	QuestionAssignments     []QuestionAssignment `json:"questionAssignments"`
-	Status                  Status               `json:"status"`
-	ScheduledStartDate      string               `json:"scheduledStartDate"`
-	ScheduledEndDate        string               `json:"scheduledEndDate"`
-	Revision                int64                `json:"revision"`
+	// SelectedQuestionVersionIDs is the immutable released-scope question set.
+	// It is exposed to the pre-materialization Lead workspace so coverage can
+	// be assigned before an execution package exists.
+	SelectedQuestionVersionIDs []string `json:"selectedQuestionVersionIds,omitempty"`
+	Status                     Status   `json:"status"`
+	ScheduledStartDate         string   `json:"scheduledStartDate"`
+	ScheduledEndDate           string   `json:"scheduledEndDate"`
+	Revision                   int64    `json:"revision"`
+	// Preparation confirmation is an immutable receipt bound to the exact
+	// assignment revision that the Department Manager confirmed.  It is part
+	// of the restart-safe projection so materialization remains reachable after
+	// a browser/session restart without re-confirming or trusting local state.
+	PreparationID                          string     `json:"preparationId,omitempty"`
+	PreparationDigest                      string     `json:"preparationDigest,omitempty"`
+	PreparationConfirmedAt                 *time.Time `json:"preparationConfirmedAt,omitempty"`
+	PreparationConfirmedAssignmentRevision int64      `json:"preparationConfirmedAssignmentRevision,omitempty"`
 }
 
 type QuestionAssignment struct {

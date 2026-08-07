@@ -292,8 +292,7 @@ export function AuditPlanCalendarPage() {
   const [assignment, setAssignment] = useState<Awaited<ReturnType<NonNullable<typeof workflow>["assignLead"]>> | null>(null);
   const [materialized, setMaterialized] = useState<Awaited<ReturnType<NonNullable<typeof workflow>["materialize"]>> | null>(null);
   const [leadSubjectId, setLeadSubjectId] = useState("");
-  const [memberSubjectIds, setMemberSubjectIds] = useState("");
-  const [questionCoverage, setQuestionCoverage] = useState("");
+  const [preparationConfirmed, setPreparationConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     void backend.planning.list({ limit: 20 }).then((output) => {
@@ -302,6 +301,41 @@ export function AuditPlanCalendarPage() {
       setSelected(output.items.find((item) => item.id === requestedId) ?? output.items[0] ?? null);
     }).catch((cause) => setError(errorMessage(cause)));
   }, [backend, searchParams]);
+
+  useEffect(() => {
+    setPreparation(null);
+    setAssignment(null);
+    setMaterialized(null);
+    setPreparationConfirmed(false);
+    setLeadSubjectId("");
+    if (!selected || selected.status !== "RELEASED" || !workflow) return;
+    let cancelled = false;
+    void workflow.getPreparation({ planningItemId: selected.id }).then((current) => {
+      if (cancelled) return;
+      // PREPARATION has no Lead yet; keep the assignment projection in the
+      // preparation branch so the DM can resume Lead assignment after a
+      // browser/session restart. Later states render the assigned hand-off.
+      setAssignment(current.status === "PREPARATION" ? null : current);
+      setPreparation({
+        assignmentId: current.id,
+        planningItemId: selected.id,
+        organizationId: current.organizationId,
+        status: "PREPARATION",
+        revision: current.revision,
+      });
+      // Hydrate the append-only confirmation receipt.  The assignment
+      // revision pin is checked by the server, so a refresh can safely
+      // unlock materialization only for the exact confirmed projection.
+      setPreparationConfirmed(current.status === "QUESTIONS_ASSIGNED" &&
+        Boolean(current.preparationId && current.preparationDigest &&
+          current.preparationConfirmedAssignmentRevision === current.revision));
+      setStatus(`Resumed server-owned preparation ${current.id} at ${current.status}; revision ${current.revision}.`);
+    }).catch(() => {
+      // A released plan may not have a preparation yet. The Begin command is
+      // the explicit creation boundary and remains enabled in that case.
+    });
+    return () => { cancelled = true; };
+  }, [selected?.id, selected?.status, workflow]);
 
   async function beginPreparation(): Promise<void> {
     if (!workflow || !selected) return;
@@ -332,38 +366,19 @@ export function AuditPlanCalendarPage() {
     } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); }
   }
 
-  async function assignTeam(): Promise<void> {
-    if (!workflow || !assignment) return;
-    const members = memberSubjectIds.split(/[,\n]/).map((value) => value.trim()).filter(Boolean);
-    if (!members.length) { setError("Enter at least one Inspector subject ID."); return; }
-    setBusy(true); setError(null);
-    try {
-      const result = await workflow.assignTeam(assignment.id, { operationId: `TEAM-${assignment.id}-${assignment.revision}`, idempotencyKey: `TEAM-${assignment.id}-${assignment.revision}`, expectedRevision: assignment.revision, memberSubjectIds: members });
-      setAssignment(result); setStatus("Exact Inspector team saved; question coverage is still required.");
-    } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); }
-  }
-
-  async function assignCoverage(): Promise<void> {
-    if (!workflow || !assignment) return;
-    const rows = questionCoverage.split(/[,\n]/).map((value) => value.trim()).filter(Boolean).map((value) => {
-      const [questionId, subjectId] = value.split(":").map((part) => part.trim());
-      return { questionId, subjectId };
-    }).filter((row) => row.questionId && row.subjectId);
-    if (!rows.length) { setError("Enter coverage as questionVersionId:subjectId, one per line."); return; }
-    setBusy(true); setError(null);
-    try {
-      const result = await workflow.assignQuestionCoverage(assignment.id, { operationId: `COVERAGE-${assignment.id}-${assignment.revision}`, idempotencyKey: `COVERAGE-${assignment.id}-${assignment.revision}`, expectedRevision: assignment.revision, questionAssignments: rows });
-      setAssignment(result); setStatus("Per-question coverage saved with CAS.");
-    } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); }
-  }
-
   async function confirmPreparation(): Promise<void> {
     if (!workflow || !assignment) return;
     setBusy(true); setError(null);
     try {
-      await workflow.confirmPreparation(assignment.id, { operationId: `CONFIRM-${assignment.id}-${assignment.revision}`, idempotencyKey: `CONFIRM-${assignment.id}-${assignment.revision}`, expectedAssignmentRevision: assignment.revision });
+      const confirmation = await workflow.confirmPreparation(assignment.id, { operationId: `CONFIRM-${assignment.id}-${assignment.revision}`, idempotencyKey: `CONFIRM-${assignment.id}-${assignment.revision}`, expectedAssignmentRevision: assignment.revision });
       setStatus("Department Manager preparation confirmed; materialization is now available.");
-      setAssignment({ ...assignment, status: "QUESTIONS_ASSIGNED", revision: assignment.revision + 1 });
+      setPreparationConfirmed(true);
+      setAssignment({ ...assignment, status: "QUESTIONS_ASSIGNED", revision: confirmation.revision,
+        preparationId: confirmation.preparationId,
+        preparationDigest: confirmation.preparationDigest,
+        preparationConfirmedAt: confirmation.confirmedAt,
+        preparationConfirmedAssignmentRevision: confirmation.confirmedAssignmentRevision,
+      });
     } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); }
   }
 
@@ -437,7 +452,7 @@ export function AuditPlanCalendarPage() {
           {!workflow ? <p role="note">Canonical preparation commands are unavailable in this build profile.</p> : <div className="planning-preparation-actions">
             {!preparation ? <button disabled={busy} onClick={() => void beginPreparation()} type="button">Begin server-owned preparation</button> : <p role="status">Assignment {preparation.assignmentId} · {preparation.status} · revision {preparation.revision}</p>}
             {preparation && !assignment ? <div><label>Lead Inspector subject ID<input aria-label="Lead Inspector subject ID" value={leadSubjectId} onChange={(event) => setLeadSubjectId(event.target.value)} placeholder="lead-subject" /></label><button disabled={busy || !leadSubjectId.trim()} onClick={() => void assignLead()} type="button">Assign Lead Inspector</button></div> : null}
-            {assignment ? <><p role="status">Assignment {assignment.id} · {assignment.status} · revision {assignment.revision}</p><label>Inspector subject IDs<input aria-label="Inspector subject IDs" value={memberSubjectIds} onChange={(event) => setMemberSubjectIds(event.target.value)} placeholder="inspector-a, inspector-b" /></label><button disabled={busy} onClick={() => void assignTeam()} type="button">Assign exact team</button><label>Question coverage<textarea aria-label="Question coverage" value={questionCoverage} onChange={(event) => setQuestionCoverage(event.target.value)} placeholder="questionVersionId:subjectId" /></label><button disabled={busy} onClick={() => void assignCoverage()} type="button">Save question coverage</button><button disabled={busy || assignment.status !== "QUESTIONS_ASSIGNED"} onClick={() => void confirmPreparation()} title={assignment.status !== "QUESTIONS_ASSIGNED" ? "Complete team and question coverage first." : undefined} type="button">Confirm preparation</button><button disabled={busy || assignment.status !== "QUESTIONS_ASSIGNED"} onClick={() => void materializeAudit()} title={assignment.status !== "QUESTIONS_ASSIGNED" ? "Confirm preparation before materialization." : undefined} type="button">Materialize canonical Audit</button></> : null}
+            {assignment ? <><p role="status">Assignment {assignment.id} · {assignment.status} · revision {assignment.revision}</p><p role="note">The assigned Lead Inspector completes team membership and per-question coverage in the Lead preparation workspace.</p><Link to={`/lead-inspector/lead-review?assignmentId=${encodeURIComponent(assignment.id)}`}>Open Lead preparation workspace</Link><button disabled={busy || preparationConfirmed || assignment.status !== "QUESTIONS_ASSIGNED"} onClick={() => void confirmPreparation()} title={preparationConfirmed ? "Preparation is already confirmed for this assignment revision." : assignment.status !== "QUESTIONS_ASSIGNED" ? "The Lead Inspector must complete team and question coverage first." : undefined} type="button">Confirm preparation</button><button disabled={busy || !preparationConfirmed} onClick={() => void materializeAudit()} title={!preparationConfirmed ? "Confirm preparation before materialization." : undefined} type="button">Materialize canonical Audit</button></> : null}
             {materialized ? <p role="status">Inspection {materialized.inspectionId} · {materialized.status} · package {materialized.packageId}. Inspector start is available from My Assignments after readiness.</p> : null}
           </div>}
         </section> : null}

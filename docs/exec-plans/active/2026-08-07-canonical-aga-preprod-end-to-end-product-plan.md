@@ -13,16 +13,18 @@ This ExecPlan is a living document. Keep `Progress`, `Decision Log`,
   8–9 and the final stakeholder handoff remain pending.
 - Planning authority: the user requested this successor plan on 2026-08-07.
 - Independent implementation review: Sol Ultra read-only review is
-  `NOT ACCEPTED` on 2026-08-07; remaining Critical/Important findings and
+  `NOT ACCEPTED` on 2026-08-08; remaining Important findings and
   qualification evidence are tracked below and in the technical-debt tracker.
 - Implementation authority: granted by the user's 2026-08-07 execution request
   for Gate 0, Tasks 1–9, and Task 11 only. Task 10 remains separately
   unauthorized and `not run`.
-- Local full-system qualification: `blocked` — the full Go suite, full React
-  suite/typecheck/builds, contract checks, and focused connected canonical
-  scenarios are `verified locally`; recursive root JS/MJS discovery remains
-  blocked by existing AGA/AviaCore/AWS fixture-contract families, and the
-  donor-disabled stakeholder qualification is `not run`.
+- Local full-system qualification: `blocked` — generated contract checks,
+  focused Go packages, migration/N-1 upgrade checks, React typecheck, and
+  `git diff --check` are `verified locally`; the full Go suite is `not run`
+  after a long-running local attempt, the full React test suite is `blocked`
+  by existing fixture-contract failures, and recursive root JS/MJS discovery
+  remains `blocked` by existing AGA/AviaCore/AWS fixture-contract families.
+  Donor-disabled connected stakeholder qualification is `not run`.
 - External preprod deployment: `not run` and separately authorized.
 - Release: `release pending`.
 - Production readiness: `production-ready: not established`.
@@ -1398,6 +1400,25 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   canonical patches and returned `NOT ACCEPTED`; the remaining Critical and
   Important findings are preserved as open work rather than converted into a
   completion claim.
+- [x] 2026-08-08: A fresh read-only review confirmed the governed
+  technical-approval refresh and preparation-confirmation hydration gaps.
+  The canonical UI now reloads an unchanged candidate after technical
+  approval; preparation projections expose the immutable confirmation
+  receipt, bind it to the assignment revision, reject post-confirmation
+  coverage edits, and restore multi-Inspector coverage keys through migration
+  38. Governed reasons are controlled and persisted in successor snapshots;
+  exercise review commands require an authorized disposable scope. Focused Go
+  packages, migration/N-1 upgrades, generated contracts, React typecheck, and
+  `git diff --check` are `verified locally`; full Go is `not run`, full React
+  tests are `blocked` by existing fixture-contract failures, and connected
+  qualification remains `not run`.
+- [x] 2026-08-08: The follow-up review found and the implementation closed the
+  governed virtual-candidate queue dispatch gap, the N-1 immutable confirmation
+  binding gap, and the enabled-after-confirmation UI control. The review now
+  remains `NOT ACCEPTED` only for the tracked Important findings and missing
+  connected/visual qualification. The queue path, migration/N-1 checks,
+  generated contracts, focused Go packages, React typecheck, and
+  `git diff --check` are `verified locally`; Task 10 remains `not run`.
 - [x] 2026-08-07: Gate 0 froze the canonical table/FK/aggregate/event
   boundaries, classified every dirty AGA change, mapped F-002/F-004/F-007/
   F-010/F-013/F-015/F-018/F-021, synchronized the product specifications,
@@ -1432,7 +1453,8 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
 - [ ] Task 9: duplicate lifecycle removal and requalification.
 - [ ] Task 10: separately authorized external preprod release gate.
 - [ ] Task 11: aggregate evidence and stakeholder handoff — candidate evidence
-  and the requested local visual/DOM matrix are `verified locally`; final
+  exists and focused contract/Go/typecheck checks are `verified locally`; the
+  required rendered Question Review/New Audit viewport matrix, final
   qualification, independent review closure, and stakeholder verification
   remain `not run`.
 
@@ -1522,13 +1544,14 @@ mechanics are adapted. Catalog/import tables reference immutable
 `question_versions` and usage class is immutable. The first RED tests now name
 the missing catalog, CAS selection, review-command, and OpenAPI capabilities;
 their initial failures are preserved as Gate 0 evidence. Tasks 1–7 and 11 now
-have candidate implementation slices. The full Go suite, full React suite and
-typecheck/builds, generated contract checks, focused connected canonical
-scenarios, and requested local responsive/DOM checks are `verified locally`.
-Recursive root JS/MJS discovery is `blocked` by existing AGA/AviaCore/AWS
-fixture-contract families; donor-disabled stakeholder qualification and the
-remaining independent-review fixes are still pending. Task 10 remains
-`not run`.
+have candidate implementation slices. Generated contract checks, focused Go
+packages, migration/N-1 upgrade checks, React typecheck, and `git diff --check`
+are `verified locally`; the full Go suite is `not run` after a long-running
+attempt and the full React suite is `blocked` by existing fixture-contract
+failures. Recursive root JS/MJS discovery is `blocked` by existing
+AGA/AviaCore/AWS fixture-contract families; donor-disabled stakeholder
+qualification and the remaining independent-review fixes are still pending.
+Task 10 remains `not run`.
 
 ### 2026-08-07 — Verification checkpoint and truthful handoff state
 
@@ -1537,14 +1560,17 @@ readiness: `git diff --check`, generated contract checks, full Go
 `go -C apps/api test -count=1 ./...`, full React tests/typecheck, demo and HTTP
 builds plus artifact scans, focused connected canonical scenarios, and the
 Question Review/New Audit 1440x900, 1024x768, and 390x844 DOM/overflow/console
-checks are `verified locally`. The complete recursive root JS/MJS discovery is
-`blocked` by pre-existing AGA/AviaCore/AWS fixture-contract families. The
-donor-disabled connected lifecycle, external OIDC stakeholder qualification,
-MinIO/ClamAV/Gotenberg/Mailpit evidence matrix, backup/restore and final
-requalification remain `not run`. Sol Ultra's independent implementation
-review is `NOT ACCEPTED` until its remaining Critical/Important findings are
-resolved and affected verification is fresh. Task 10 external preprod remains
-explicitly `not run`.
+ checks are `verified locally`. The full Go suite is `not run` after a
+ long-running local attempt; the full React suite is `blocked` by existing
+ fixture-contract failures, although React typecheck is `verified locally`.
+ The complete recursive root JS/MJS discovery is `blocked` by pre-existing
+ AGA/AviaCore/AWS fixture-contract families. The donor-disabled connected
+ lifecycle, external OIDC stakeholder qualification, MinIO/ClamAV/Gotenberg/
+ Mailpit evidence matrix, backup/restore and final requalification remain
+ `not run`. Sol Ultra's independent implementation review remains
+ `NOT ACCEPTED` until the remaining Important findings and affected
+ verification are fresh. Task 10 external preprod remains explicitly
+ `not run`.
 
 ## Discoveries
 

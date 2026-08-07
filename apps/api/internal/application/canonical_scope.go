@@ -22,6 +22,18 @@ type CanonicalScopeFacts struct {
 	RegulatedTargetID string
 	SelectedCount     int
 	SelectionDigest   string
+	AuditType         string
+}
+
+var canonicalAuditTypes = map[string]struct{}{
+	"RAMP": {}, "CABIN": {}, "RAMP_INSPECTION": {}, "CABIN_INSPECTION": {},
+}
+
+func validateCanonicalAuditType(value string) error {
+	if _, ok := canonicalAuditTypes[strings.TrimSpace(value)]; !ok {
+		return fmt.Errorf("%w: unsupported exact inspection type %q", ErrInvalid, value)
+	}
+	return nil
 }
 
 type canonicalQueryRow interface {
@@ -97,6 +109,10 @@ func ValidateCanonicalScopeMap(
 	regulatedTargetID := stringValue(values["regulatedTargetId"])
 	if catalogVersion == "" || providerScopeID == "" || regulatedTargetID == "" {
 		return CanonicalScopeFacts{}, fmt.Errorf("%w: catalog, provider scope, and regulated target are required", ErrInvalid)
+	}
+	auditType := strings.TrimSpace(stringValue(values["applicationType"]))
+	if err := validateCanonicalAuditType(auditType); err != nil {
+		return CanonicalScopeFacts{}, err
 	}
 	var facts CanonicalScopeFacts
 	var profileName, status string
@@ -193,6 +209,7 @@ func ValidateCanonicalScopeMap(
 		return CanonicalScopeFacts{}, fmt.Errorf("%w: organization does not match the provider scope", ErrConflict)
 	}
 	facts.ScopeID = stringValue(values["scopeDraftId"])
+	facts.AuditType = auditType
 	facts.ProviderScopeID = providerScopeID
 	facts.RegulatedTargetID = regulatedTargetID
 	ids := selectedIDs(values["selectedQuestionVersionIds"])
@@ -274,22 +291,22 @@ func ValidateCanonicalScopeDraft(ctx context.Context, tx canonicalQueryRow, draf
 	if facts.ScopeID == "" {
 		return nil
 	}
-	var catalogID, version, usage, providerScopeID, targetID, digest string
+	var catalogID, version, usage, providerScopeID, targetID, digest, auditType string
 	var count int
 	if err := tx.QueryRow(ctx, `
 		SELECT scope.catalog_id, catalog.catalog_version, scope.usage_class,
 		       scope.provider_scope_id, scope.regulated_target_id,
-		       scope.selected_question_count, scope.selection_digest
+		       scope.selected_question_count, scope.selection_digest, scope.audit_type
 		FROM canonical_audit_scope_drafts scope
 		JOIN canonical_question_catalogs catalog ON catalog.id = scope.catalog_id
 		WHERE scope.id = $1 AND scope.planning_intake_draft_id = $2 FOR UPDATE
-	`, facts.ScopeID, draftID).Scan(&catalogID, &version, &usage, &providerScopeID, &targetID, &count, &digest); err != nil {
+	`, facts.ScopeID, draftID).Scan(&catalogID, &version, &usage, &providerScopeID, &targetID, &count, &digest, &auditType); err != nil {
 		if err == pgx.ErrNoRows {
 			return ErrConflict
 		}
 		return err
 	}
-	if catalogID != facts.CatalogID || version != facts.CatalogVersion || usage != facts.UsageClass || providerScopeID != facts.ProviderScopeID || targetID != facts.RegulatedTargetID {
+	if catalogID != facts.CatalogID || version != facts.CatalogVersion || usage != facts.UsageClass || providerScopeID != facts.ProviderScopeID || targetID != facts.RegulatedTargetID || auditType != facts.AuditType {
 		return fmt.Errorf("%w: canonical scope identity changed", ErrConflict)
 	}
 	if count != facts.SelectedCount ||

@@ -1090,6 +1090,14 @@ interface MockSourceCurrentnessCommand {
   view: GovernedSourceCurrentnessActivationView;
 }
 
+interface MockCanonicalReviewState {
+  revision: number;
+  disposition: CanonicalQuestionReviewCommandInput["action"] | null;
+  digest: string;
+  domain: string | null;
+  topic: string | null;
+}
+
 interface MockGovernedState {
   candidate: GovernedCandidateView;
   candidates: Map<string, GovernedCandidateView>;
@@ -1112,6 +1120,7 @@ export class MockBackendEngine implements DemoBackend {
   private readonly governedIntakeBatches = new Map<string, ChecklistImportBatchReceiptView>();
   private readonly canonicalSelections = new Map<string, { digest: string; ids: string[] }>();
   private readonly canonicalReviewOperations = new Map<string, string>();
+  private readonly canonicalReviewStates = new Map<string, MockCanonicalReviewState>();
 
   constructor(
     private readonly store: MemoryMockStore,
@@ -3077,6 +3086,7 @@ export class MockBackendEngine implements DemoBackend {
         targetLabel: "Fly Namibia regulated target",
         catalogVersion,
         usageClass,
+        inspectionTypes: ["RAMP_INSPECTION", "CABIN_INSPECTION", "RAMP", "CABIN"],
       };
       return { items: [option], nextCursor: null };
     },
@@ -3086,7 +3096,7 @@ export class MockBackendEngine implements DemoBackend {
       const limit = Math.min(25, Math.max(1, input.limit ?? 25));
       const offset = Number(input.cursor ?? 0) || 0;
       const selectedIds = input.scopeId ? new Set(this.canonicalSelections.get(input.scopeId)?.ids ?? []) : null;
-      const rows = this.syntheticCanonicalRows(input.usageClass, input.catalogVersion).filter((row) => {
+      const rows = this.syntheticCanonicalRows(input.usageClass, input.catalogVersion).map((row) => this.applyCanonicalReviewState(row)).filter((row) => {
         const needle = input.search?.trim().toLocaleLowerCase() ?? "";
         const selected = selectedIds?.has(row.questionVersionId) ?? false;
         return (!needle || `${row.formCode} ${row.proposalId} ${row.questionVersionId}`.toLocaleLowerCase().includes(needle))
@@ -3105,7 +3115,8 @@ export class MockBackendEngine implements DemoBackend {
       requireRole(this.principal, ["manager"], "Canonical catalog access is restricted to Department Managers.");
       const row = this.syntheticCanonicalRows(input.usageClass, input.catalogVersion).find((candidate) => candidate.questionVersionId === input.questionVersionId);
       if (!row) throw new BackendInvariantError(`Question version ${input.questionVersionId} was not found.`);
-      return { ...row, prompt: `Synthetic privacy-safe question ${row.formCode} item ${row.ordinal}.`, configuredReference: "Synthetic controlled reference", expectedEvidence: "Synthetic evidence record" };
+      const current = this.applyCanonicalReviewState(row);
+      return { ...current, prompt: `Synthetic privacy-safe question ${current.formCode} item ${current.ordinal}.`, configuredReference: "Synthetic controlled reference", expectedEvidence: "Synthetic evidence record" };
     },
     previewSelection: async (input) => {
       requireDemoCapability(this.principal, "canonicalQuestionReview");
@@ -3148,8 +3159,26 @@ export class MockBackendEngine implements DemoBackend {
       requireRole(this.principal, ["manager"], "Department Manager authority is required for Question Review.");
       requireNonEmpty(input.reason, "Controlled reason");
       const prior = this.canonicalReviewOperations.get(`review:${input.operationId}`);
+      const key = this.canonicalReviewStateKey(input.mode, input.catalogVersion, input.questionVersionId);
+      const current = this.canonicalReviewStates.get(key) ?? {
+        revision: 0,
+        disposition: null,
+        digest: "",
+        domain: "SYNTHETIC_DOMAIN",
+        topic: "SYNTHETIC_TOPIC",
+      };
       if (prior) return { operationId: input.operationId, mode: input.mode, questionVersionId: input.questionVersionId, action: input.action, replayed: true, canPublish: input.mode === "GOVERNED_OPERATIONAL" };
-      this.canonicalReviewOperations.set(`review:${input.operationId}`, await governedCanonicalSHA256({ mode: input.mode, questionVersionId: input.questionVersionId, action: input.action, reason: input.reason, domain: input.domain, topic: input.topic }));
+      if (input.mode === "PREPROD_EXERCISE") {
+        if (input.expectedRevision !== current.revision || (input.expectedReviewDigest ?? "") !== current.digest) {
+          throw new BackendConflictError("Question review state is stale.");
+        }
+      }
+      const nextDomain = input.action === "DOMAIN_RECLASSIFIED" ? (input.domain?.trim() || null) : current.domain;
+      const nextTopic = input.action === "TOPIC_RECLASSIFIED" ? (input.topic?.trim() || null) : current.topic;
+      if (input.action === "DOMAIN_RECLASSIFIED" && !nextDomain) throw new BackendInvariantError("A domain is required for reclassification.");
+      const digest = await governedCanonicalSHA256({ mode: input.mode, questionVersionId: input.questionVersionId, disposition: input.action, domain: nextDomain, topic: nextTopic, reason: input.reason });
+      this.canonicalReviewStates.set(key, { revision: current.revision + 1, disposition: input.action, digest, domain: nextDomain, topic: nextTopic });
+      this.canonicalReviewOperations.set(`review:${input.operationId}`, digest);
       return { operationId: input.operationId, mode: input.mode, questionVersionId: input.questionVersionId, action: input.action, replayed: false, canPublish: input.mode === "GOVERNED_OPERATIONAL" };
     },
   };
@@ -3161,6 +3190,29 @@ export class MockBackendEngine implements DemoBackend {
    * UI contract tests.
    */
   readonly canonicalAuditWorkflow: CanonicalAuditWorkflowBackend = {
+    getPreparation: async (input) => {
+      requireDemoCapability(this.principal, "canonicalAuditWorkflow");
+      requireRole(this.principal, ["leadInspector"], "Lead Inspector authority is required to view preparation.");
+      return this.store.read((state) => {
+        const assignment = state.assignments.find((candidate) => (!input?.assignmentId || `ASSIGN-${candidate.auditId}` === input.assignmentId) && (candidate.status === "LEAD_ASSIGNED" || candidate.status === "TEAM_ASSIGNED" || candidate.status === "QUESTIONS_ASSIGNED"));
+        if (!assignment) throw new BackendInvariantError("No pre-materialization canonical preparation is available.");
+        const packageView = Object.values(state.packages).find((candidate) => candidate.auditId === assignment.auditId);
+        const questionAssignments = packageView?.questions.flatMap((question) => question.assignedInspectorUserIds.map((subjectId) => ({ questionId: question.id, subjectId }))) ?? [];
+        return {
+          id: `ASSIGN-${assignment.auditId}`,
+          inspectionId: "",
+          organizationId: assignment.organizationId,
+          leadSubjectId: "USR-LEAD-CANER",
+          memberSubjectIds: [...new Set(questionAssignments.map((item) => item.subjectId))],
+          questionAssignments,
+          selectedQuestionVersionIds: packageView?.questions.map((question) => question.id) ?? [],
+          status: assignment.status,
+          scheduledStartDate: assignment.scheduledStartDate ?? assignment.dueDate ?? "2026-06-15",
+          scheduledEndDate: assignment.dueDate ?? "2026-06-15",
+          revision: assignment.revision ?? 1,
+        };
+      });
+    },
     prepare: async (planningItemId, input) => {
       requireDemoCapability(this.principal, "canonicalAuditWorkflow");
       requireRole(this.principal, ["manager"], "Department Manager authority is required for Audit preparation.");
@@ -3228,6 +3280,7 @@ export class MockBackendEngine implements DemoBackend {
           preparationDigest: `sha256:mock-preparation-${assignment.auditId}`,
           selectedQuestionCount: packageView.questions.length,
           confirmedAt: this.store.clock(),
+          confirmedAssignmentRevision: assignment.revision,
         };
       });
     },
@@ -3282,6 +3335,23 @@ export class MockBackendEngine implements DemoBackend {
       scheduledStartDate: assignment.scheduledStartDate ?? assignment.dueDate ?? "2026-06-15",
       scheduledEndDate: assignment.dueDate ?? "2026-06-15",
       revision: assignment.revision ?? 1,
+    };
+  }
+
+  private canonicalReviewStateKey(mode: CanonicalQuestionUsageClass, catalogVersion: string, questionVersionId: string): string {
+    return `${mode}:${catalogVersion}:${questionVersionId}`;
+  }
+
+  private applyCanonicalReviewState(row: CanonicalQuestionCatalogEntry): CanonicalQuestionCatalogEntry {
+    const state = this.canonicalReviewStates.get(this.canonicalReviewStateKey(row.usageClass, row.catalogVersion, row.questionVersionId));
+    if (!state) return row;
+    return {
+      ...row,
+      proposedDomain: state.domain,
+      proposedTopic: state.topic,
+      reviewRevision: state.revision,
+      reviewDisposition: state.disposition,
+      reviewDigest: state.digest,
     };
   }
 

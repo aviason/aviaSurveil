@@ -1551,6 +1551,7 @@ export interface CanonicalAuditScopeOption {
   targetLabel: string;
   catalogVersion: string;
   usageClass: CanonicalQuestionUsageClass;
+  inspectionTypes: Array<"RAMP" | "CABIN" | "RAMP_INSPECTION" | "CABIN_INSPECTION">;
 }
 
 export interface CanonicalAuditScopeOptionPage {
@@ -1630,6 +1631,7 @@ export interface CanonicalExerciseQuestionReviewCommandInput extends CommandMeta
   idempotencyKey?: string;
   mode: "PREPROD_EXERCISE";
   catalogVersion: string;
+  scopeId: string;
   questionVersionId: string;
   expectedRevision: number;
   expectedReviewDigest: string;
@@ -1664,10 +1666,13 @@ export interface CanonicalQuestionReviewCommandOutput {
   action: string;
   replayed: boolean;
   canPublish: boolean;
+  currentCandidateId?: string | null;
+  currentCandidateRevision?: number | null;
+  currentCandidateContentDigest?: string | null;
 }
 
 export interface CanonicalQuestionReviewBackend {
-  listScopeOptions(input?: { cursor?: string; limit?: number; catalogVersion?: string; usageClass?: CanonicalQuestionUsageClass }, options?: BackendRequestOptions): Promise<CanonicalAuditScopeOptionPage>;
+  listScopeOptions(input?: { cursor?: string; limit?: number; catalogVersion?: string; usageClass?: CanonicalQuestionUsageClass; forReview?: boolean }, options?: BackendRequestOptions): Promise<CanonicalAuditScopeOptionPage>;
   listCatalog(input: { catalogVersion: string; usageClass: CanonicalQuestionUsageClass; search?: string; formCode?: string; domain?: string; topic?: string; riskBand?: string; sourceGapState?: string; selected?: "all" | "selected" | "unselected"; scopeId?: string; cursor?: string; limit?: number }, options?: BackendRequestOptions): Promise<CanonicalQuestionCatalogPage>;
   getQuestion(input: { catalogVersion: string; usageClass: CanonicalQuestionUsageClass; questionVersionId: string; scopeId?: string }, options?: BackendRequestOptions): Promise<CanonicalQuestionCatalogEntry>;
   previewSelection(input: { scopeId: string; operationId: string; idempotencyKey?: string; expectedSelectionDigest: string; questionVersionIds: string[]; operationKind?: "ADD" | "REMOVE" | "REPLACE"; usageClass: CanonicalQuestionUsageClass; filter?: Record<string, never> }, options?: BackendRequestOptions): Promise<CanonicalSelectionPreview>;
@@ -1687,6 +1692,7 @@ export type CanonicalPreparationConfirmationView = GeneratedSchemas["Preparation
 export type CanonicalMaterializedAuditView = GeneratedSchemas["CanonicalMaterializedAuditView"];
 
 export interface CanonicalAuditWorkflowBackend {
+  getPreparation(input?: { assignmentId?: string; planningItemId?: string }, options?: BackendRequestOptions): Promise<CanonicalAssignmentView>;
   prepare(
     planningItemId: string,
     input: GeneratedSchemas["PrepareAuditInput"],

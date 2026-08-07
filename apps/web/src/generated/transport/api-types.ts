@@ -676,6 +676,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/audit-assignments/preparations/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getCanonicalAuditPreparation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/audit-assignments/{assignmentId}/materializations": {
         parameters: {
             query?: never;
@@ -5914,6 +5930,7 @@ export interface components {
             targetLabel: string;
             catalogVersion: string;
             usageClass: components["schemas"]["QuestionUsageClass"];
+            inspectionTypes: ("RAMP" | "CABIN" | "RAMP_INSPECTION" | "CABIN_INSPECTION")[];
         };
         CanonicalAuditScopeOptionPage: {
             items: components["schemas"]["CanonicalAuditScopeOption"][];
@@ -5985,6 +6002,7 @@ export interface components {
             operationId: string;
             idempotencyKey: string;
             catalogVersion: string;
+            scopeId: string;
             questionVersionId: string;
             expectedRevision: number;
             expectedReviewDigest: string;
@@ -6004,7 +6022,8 @@ export interface components {
             expectedCandidateContentDigest: string;
             /** @enum {string} */
             action: "RETAIN" | "INCLUDE" | "EXCLUDE" | "DEFER" | "DOMAIN_RECLASSIFIED" | "TOPIC_RECLASSIFIED" | "TECHNICAL_APPROVE" | "PUBLISH";
-            reason: string;
+            /** @enum {string} */
+            reason: "MANAGER_SCOPE_DECISION" | "SOURCE_MAPPING_REQUIRED" | "CLASSIFICATION_EXPERT_REVIEW" | "MANAGER_EXACT_RESOLUTION";
             domain?: string | null;
             topic?: string | null;
         };
@@ -6028,6 +6047,9 @@ export interface components {
             canPublish: boolean;
             reviewRevision?: number;
             reviewDigest?: string | null;
+            currentCandidateId?: string | null;
+            currentCandidateRevision?: number | null;
+            currentCandidateContentDigest?: string | null;
         };
         StartInspectionInput: {
             operationId: string;
@@ -6061,6 +6083,7 @@ export interface components {
             selectedQuestionCount: number;
             /** Format: date-time */
             confirmedAt: string;
+            confirmedAssignmentRevision: number;
         };
         MaterializeCanonicalAuditInput: {
             operationId: string;
@@ -6122,6 +6145,12 @@ export interface components {
             leadSubjectId: string;
             memberSubjectIds: string[];
             questionAssignments: components["schemas"]["QuestionCoverageInput"][];
+            selectedQuestionVersionIds?: string[];
+            preparationId?: string | null;
+            preparationDigest?: string | null;
+            /** Format: date-time */
+            preparationConfirmedAt?: string | null;
+            preparationConfirmedAssignmentRevision?: number | null;
             status: string;
             /** Format: date */
             scheduledStartDate: string;
@@ -7623,6 +7652,33 @@ export interface operations {
             409: components["responses"]["Problem"];
             412: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getCanonicalAuditPreparation: {
+        parameters: {
+            query?: {
+                assignmentId?: string;
+                planningItemId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current pre-materialization Lead or Department Manager preparation */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CanonicalAssignmentView"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };
@@ -10939,6 +10995,7 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 catalogVersion?: string;
                 usageClass?: components["schemas"]["QuestionUsageClass"];
+                review?: boolean;
             };
             header?: never;
             path?: never;

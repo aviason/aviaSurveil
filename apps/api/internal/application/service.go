@@ -487,15 +487,16 @@ func (service *Service) materializeCanonicalInspection(
 		return transition[assignments.MaterializedInspection]{}, fmt.Errorf("%w: exactly one confirmed preparation is required for this released scope", ErrConflict)
 	}
 	var preparationID, preparationDigest, preparationStatus string
-	var preparationRevision int64
+	var preparationRevision, confirmedAssignmentRevision int64
 	if err := tx.QueryRow(ctx, `
-		SELECT id, preparation_digest, status, revision
-		FROM canonical_audit_preparation_snapshots
-		WHERE assignment_id = $1
-		  AND released_scope_snapshot_id = $2
+			SELECT id, preparation_digest, status, revision,
+			       COALESCE(confirmed_assignment_revision, 0)
+			FROM canonical_audit_preparation_snapshots
+			WHERE assignment_id = $1
+			  AND released_scope_snapshot_id = $2
 		  AND status = 'CONFIRMED'
 		FOR UPDATE
-	`, command.AssignmentID, snapshotID).Scan(&preparationID, &preparationDigest, &preparationStatus, &preparationRevision); err != nil {
+		`, command.AssignmentID, snapshotID).Scan(&preparationID, &preparationDigest, &preparationStatus, &preparationRevision, &confirmedAssignmentRevision); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return transition[assignments.MaterializedInspection]{}, fmt.Errorf("%w: Department Manager preparation confirmation is required", ErrConflict)
 		}
@@ -503,6 +504,9 @@ func (service *Service) materializeCanonicalInspection(
 	}
 	if preparationID == "" || preparationDigest == "" || preparationStatus != "CONFIRMED" {
 		return transition[assignments.MaterializedInspection]{}, fmt.Errorf("%w: preparation is not confirmed", ErrConflict)
+	}
+	if confirmedAssignmentRevision <= 0 || confirmedAssignmentRevision != assignmentRevision {
+		return transition[assignments.MaterializedInspection]{}, fmt.Errorf("%w: confirmed preparation is not bound to the current assignment revision", ErrConflict)
 	}
 	var preparationQuestionCount int
 	if err := tx.QueryRow(ctx, `

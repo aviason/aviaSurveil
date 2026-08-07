@@ -300,6 +300,22 @@ func (api *CanonicalAPI) prepareAudit(writer http.ResponseWriter, request *http.
 	}, nil)
 }
 
+func (api *CanonicalAPI) getCanonicalAuditPreparation(writer http.ResponseWriter, request *http.Request) {
+	actor, ok := requirePrincipal(writer, request)
+	if !ok {
+		return
+	}
+	item, err := api.assignments.GetPreparationForLead(request.Context(), actor,
+		strings.TrimSpace(request.URL.Query().Get("assignmentId")),
+		strings.TrimSpace(request.URL.Query().Get("planningItemId")))
+	if err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
+	writer.Header().Set("ETag", strongRevisionETag(item.Revision))
+	api.respond(writer, canonicalAssignmentView(item), nil)
+}
+
 func (api *CanonicalAPI) assignAuditLead(writer http.ResponseWriter, request *http.Request) {
 	actor, ok := requirePrincipal(writer, request)
 	if !ok {
@@ -658,9 +674,10 @@ func preparationConfirmationView(item assignments.Preparation) generated.Prepara
 		PlanningItemId: item.PlanningItemID, InspectionId: item.InspectionID,
 		OrganizationId: item.OrganizationID, Status: string(item.Status),
 		Revision: item.Revision, PreparationId: item.PreparationID,
-		PreparationDigest:     item.PreparationDigest,
-		SelectedQuestionCount: int64(item.SelectedQuestionCount),
-		ConfirmedAt:           item.ConfirmedAt.UTC().Format(time.RFC3339Nano),
+		PreparationDigest:           item.PreparationDigest,
+		SelectedQuestionCount:       int64(item.SelectedQuestionCount),
+		ConfirmedAt:                 item.ConfirmedAt.UTC().Format(time.RFC3339Nano),
+		ConfirmedAssignmentRevision: item.ConfirmedAssignmentRevision,
 	}
 }
 
@@ -671,13 +688,24 @@ func canonicalAssignmentView(item assignments.Assignment) generated.CanonicalAss
 			QuestionId: assignment.QuestionID, SubjectId: assignment.SubjectID,
 		})
 	}
-	return generated.CanonicalAssignmentView{
+	view := generated.CanonicalAssignmentView{
 		Id: item.ID, InspectionId: item.InspectionID, OrganizationId: item.OrganizationID,
 		LeadSubjectId: item.LeadSubjectID, MemberSubjectIds: append([]string(nil), item.MemberSubjectIDs...),
 		QuestionAssignments: questionAssignments, Status: string(item.Status),
 		ScheduledStartDate: item.ScheduledStartDate, ScheduledEndDate: item.ScheduledEndDate,
-		Revision: item.Revision,
+		Revision: item.Revision, SelectedQuestionVersionIds: append([]string(nil), item.SelectedQuestionVersionIDs...),
 	}
+	if item.PreparationID != "" {
+		view.PreparationId = &item.PreparationID
+		view.PreparationDigest = &item.PreparationDigest
+		if item.PreparationConfirmedAt != nil {
+			confirmedAt := item.PreparationConfirmedAt.UTC().Format(time.RFC3339Nano)
+			view.PreparationConfirmedAt = &confirmedAt
+		}
+		revision := item.PreparationConfirmedAssignmentRevision
+		view.PreparationConfirmedAssignmentRevision = &revision
+	}
+	return view
 }
 
 func canonicalMaterializedAuditView(item assignments.MaterializedInspection) generated.CanonicalMaterializedAuditView {

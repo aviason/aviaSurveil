@@ -677,8 +677,7 @@ func (service *OperationService) createPotentialFinding(ctx context.Context, tra
 			return mutation{Result: conflictResult(input.OperationID, ConflictStaleRevision, existingID, &existingRevision, &existingStatus, nil, now)}, nil
 		}
 		supersedesPotentialFindingID = &existingID
-	}
-	if !errors.Is(err, pgx.ErrNoRows) {
+	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return mutation{}, err
 	}
 	potentialFindingID := service.idGenerator("potential-finding")
@@ -754,6 +753,22 @@ func (service *OperationService) submitChecklist(ctx context.Context, transactio
 		return mutation{}, err
 	}
 	if canonicalSnapshotID == "" {
+		return mutation{Result: invalidResult(input.OperationID, now)}, nil
+	}
+	var unclearedAttachments bool
+	if err := transaction.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM inspection_attachments
+			WHERE inspection_id = $1
+			  AND (upload_state <> 'UPLOADED'
+			       OR scan_state <> 'CLEAN'
+			       OR canonical_object_metadata_id IS NULL)
+		)
+	`, authority.InspectionID).Scan(&unclearedAttachments); err != nil {
+		return mutation{}, err
+	}
+	if unclearedAttachments {
 		return mutation{Result: invalidResult(input.OperationID, now)}, nil
 	}
 	var scopeCount, assignedCount, uncoveredCount, responseCount, missingRequiredCommentCount int

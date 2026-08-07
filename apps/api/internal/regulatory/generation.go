@@ -170,6 +170,20 @@ type ChecklistQuestion struct {
 	ScopeRecommendation ScopeRecommendation     `json:"scopeRecommendation"`
 	RegulatoryTrace     RegulatoryTrace         `json:"regulatoryTrace"`
 	Reconciliation      *QuestionReconciliation `json:"reconciliation"`
+	// Review classifications are immutable facts on a candidate successor.
+	// They are deliberately separate from the question_versions body/version
+	// authority and omitted until a governed review actually records them.
+	ReviewedDomain *string `json:"reviewedDomain,omitempty"`
+	ReviewedTopic  *string `json:"reviewedTopic,omitempty"`
+	// ReviewedDisposition is a candidate-review fact, not question-version
+	// authority. Keeping it on every immutable successor makes a later review
+	// cumulative and lets publication evaluate the current leaf rather than a
+	// transient event overlay.
+	ReviewedDisposition string `json:"reviewedDisposition,omitempty"`
+	ReviewedReason      string `json:"reviewedReason,omitempty"`
+	ReviewedBySubjectID string `json:"reviewedBySubjectId,omitempty"`
+	ReviewedAt          string `json:"reviewedAt,omitempty"`
+	ReviewedRevision    int64  `json:"reviewedRevision,omitempty"`
 }
 type InspectionChecklist struct {
 	ChecklistID string              `json:"checklistId"`

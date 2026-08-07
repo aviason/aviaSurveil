@@ -62,7 +62,7 @@ func TestCanonicalAuditPackageMigrationPinsReleasedScopeWithoutTemplateFallback(
 		"canonical_question_version_provenance",
 		"PREPROD_EXERCISE question versions cannot be published",
 		"planning_snapshot_digest text",
-		"governed_jsonb_sha256(snapshot)",
+		"read-time derivation",
 		"canonical_audit_scope_snapshot_planning_digest",
 		"assignment_id text REFERENCES audit_assignments(id)",
 		"canonical_question_catalog_publication_shape",
@@ -99,6 +99,62 @@ func TestCanonicalPreparationAssignmentBoundaryAllowsServerOwnedInspectionUntilM
 	} {
 		if !strings.Contains(sql, required) {
 			t.Fatalf("migration 31 missing %q", required)
+		}
+	}
+}
+
+func TestQuestionVersionProvenanceAllowsSameUsageCatalogReuse(t *testing.T) {
+	available, err := load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sql string
+	for _, migration := range available {
+		if migration.version == 37 {
+			sql = migration.sql
+			break
+		}
+	}
+	if sql == "" {
+		t.Fatal("question-version provenance migration 37 is not embedded")
+	}
+	for _, required := range []string{
+		"ADD PRIMARY KEY (question_version_id, usage_class, catalog_id)",
+		"usage_class <> NEW.usage_class",
+		"catalog_id = NEW.catalog_id",
+	} {
+		if !strings.Contains(sql, required) {
+			t.Fatalf("migration 37 missing %q", required)
+		}
+	}
+}
+
+func TestPreparationConfirmationPinsAssignmentRevisionAndSupportsMultiInspectorCoverage(t *testing.T) {
+	available, err := load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sql string
+	for _, migration := range available {
+		if migration.version == 38 {
+			sql = migration.sql
+			break
+		}
+	}
+	if sql == "" {
+		t.Fatal("preparation confirmation migration 38 is not embedded")
+	}
+	for _, required := range []string{
+		"confirmed_assignment_revision",
+		"canonical_preparation_confirmation_bindings",
+		"legacy-binding",
+		"cannot reconcile confirmed preparation without an exact audit assignment",
+		"canonical_audit_preparation_questions_pkey",
+		"PRIMARY KEY (preparation_id, question_version_id, subject_id)",
+		"canonical_audit_preparation_questions_position_subject_key",
+	} {
+		if !strings.Contains(sql, required) {
+			t.Fatalf("migration 38 missing %q", required)
 		}
 	}
 }

@@ -365,7 +365,8 @@
         { "$ref": "#/components/parameters/Cursor" },
         { "$ref": "#/components/parameters/Limit" },
         { "name": "catalogVersion", "in": "query", "schema": { "type": "string", "maxLength": 120 } },
-        { "name": "usageClass", "in": "query", "schema": { "$ref": "#/components/schemas/QuestionUsageClass" } }
+        { "name": "usageClass", "in": "query", "schema": { "$ref": "#/components/schemas/QuestionUsageClass" } },
+        { "name": "review", "in": "query", "schema": { "type": "boolean" } }
       ],
       "responses": { "200": { "description": "Department-authorized organization and provider scope options", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CanonicalAuditScopeOptionPage" } } } } }
     }

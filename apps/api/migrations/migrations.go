@@ -13,7 +13,7 @@ import (
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
 )
 
-const LatestVersion int64 = 35
+const LatestVersion int64 = 38
 const advisoryLockID int64 = 36020260721
 
 //go:embed *.up.sql
@@ -128,11 +128,6 @@ ALTER TABLE inspection_packages ADD CONSTRAINT inspection_packages_source_identi
 ALTER TABLE audit_assignments ADD COLUMN IF NOT EXISTS released_scope_snapshot_id text REFERENCES canonical_audit_scope_snapshots(id);
 ALTER TABLE audit_assignments ADD COLUMN IF NOT EXISTS planning_item_id text REFERENCES surveillance_plan_items(id);
 ALTER TABLE canonical_audit_scope_snapshots ADD COLUMN IF NOT EXISTS planning_snapshot_digest text NOT NULL DEFAULT '';
-ALTER TABLE canonical_audit_scope_snapshots DISABLE TRIGGER canonical_audit_scope_snapshots_append_only;
-UPDATE canonical_audit_scope_snapshots
-SET planning_snapshot_digest = governed_jsonb_sha256(snapshot)
-WHERE btrim(planning_snapshot_digest) = '';
-ALTER TABLE canonical_audit_scope_snapshots ENABLE TRIGGER canonical_audit_scope_snapshots_append_only;
 ALTER TABLE canonical_audit_scope_snapshots ALTER COLUMN planning_snapshot_digest DROP DEFAULT;
 DO $digest_constraint$
 BEGIN
@@ -141,13 +136,109 @@ BEGIN
         WHERE conrelid='canonical_audit_scope_snapshots'::regclass
           AND conname='canonical_audit_scope_snapshot_planning_digest'
     ) THEN
-        ALTER TABLE canonical_audit_scope_snapshots
+            ALTER TABLE canonical_audit_scope_snapshots
             ADD CONSTRAINT canonical_audit_scope_snapshot_planning_digest
-            CHECK (governed_sha256(planning_snapshot_digest));
+            CHECK (btrim(planning_snapshot_digest) = '' OR governed_sha256(planning_snapshot_digest));
     END IF;
 END
 $digest_constraint$;
 ALTER TABLE canonical_audit_preparation_snapshots ADD COLUMN IF NOT EXISTS assignment_id text REFERENCES audit_assignments(id);
+ALTER TABLE canonical_audit_preparation_snapshots ADD COLUMN IF NOT EXISTS confirmed_assignment_revision bigint;
+CREATE TEMP TABLE IF NOT EXISTS canonical_preparation_confirmation_bindings (
+    legacy_id text PRIMARY KEY,
+    successor_id text NOT NULL UNIQUE,
+    assignment_id text NOT NULL,
+    released_scope_snapshot_id text NOT NULL,
+    lead_subject_id text NOT NULL,
+    successor_revision bigint NOT NULL,
+    assignment_revision bigint NOT NULL
+) ON COMMIT DROP;
+INSERT INTO canonical_preparation_confirmation_bindings (
+    legacy_id, successor_id, assignment_id, released_scope_snapshot_id,
+    lead_subject_id, successor_revision, assignment_revision
+)
+SELECT legacy.id,
+       'preparation:legacy-binding:' || legacy.id,
+       assignment.id,
+       legacy.released_scope_snapshot_id,
+       legacy.lead_subject_id,
+       scope_revisions.max_revision + row_number() OVER (
+           PARTITION BY legacy.released_scope_snapshot_id
+           ORDER BY legacy.revision, legacy.id
+       ),
+       assignment.revision
+FROM canonical_audit_preparation_snapshots legacy
+JOIN LATERAL (
+    SELECT assignment.*
+    FROM audit_assignments assignment
+    WHERE (legacy.assignment_id IS NOT NULL AND assignment.id = legacy.assignment_id)
+       OR (legacy.assignment_id IS NULL AND assignment.released_scope_snapshot_id = legacy.released_scope_snapshot_id)
+    ORDER BY (assignment.id = legacy.assignment_id) DESC, assignment.updated_at DESC, assignment.id
+    LIMIT 1
+) assignment ON TRUE
+JOIN LATERAL (
+    SELECT COALESCE(MAX(existing.revision), 0) AS max_revision
+    FROM canonical_audit_preparation_snapshots existing
+    WHERE existing.released_scope_snapshot_id = legacy.released_scope_snapshot_id
+) scope_revisions ON TRUE
+WHERE legacy.status = 'CONFIRMED'
+  AND legacy.confirmed_assignment_revision IS NULL
+ON CONFLICT (legacy_id) DO NOTHING;
+INSERT INTO canonical_audit_preparation_snapshots (
+    id, assignment_id, released_scope_snapshot_id, lead_subject_id, revision,
+    status, preparation_digest, confirmed_by_subject_id, confirmed_at,
+    confirmed_assignment_revision, snapshot, created_at
+)
+SELECT binding.successor_id,
+       binding.assignment_id,
+       binding.released_scope_snapshot_id,
+       binding.lead_subject_id,
+       binding.successor_revision,
+       legacy.status,
+       legacy.preparation_digest,
+       legacy.confirmed_by_subject_id,
+       legacy.confirmed_at,
+       binding.assignment_revision,
+       legacy.snapshot,
+       now()
+FROM canonical_preparation_confirmation_bindings binding
+JOIN canonical_audit_preparation_snapshots legacy ON legacy.id = binding.legacy_id
+ON CONFLICT (id) DO NOTHING;
+INSERT INTO canonical_audit_preparation_questions (
+    preparation_id, released_scope_snapshot_id, question_version_id,
+    subject_id, position, created_at
+)
+SELECT binding.successor_id,
+       questions.released_scope_snapshot_id,
+       questions.question_version_id,
+       questions.subject_id,
+       questions.position,
+       questions.created_at
+FROM canonical_preparation_confirmation_bindings binding
+JOIN canonical_audit_preparation_questions questions ON questions.preparation_id = binding.legacy_id
+ON CONFLICT DO NOTHING;
+DO $binding_repair$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM canonical_audit_preparation_snapshots legacy
+        WHERE legacy.status = 'CONFIRMED' AND legacy.confirmed_assignment_revision IS NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM canonical_audit_preparation_snapshots successor
+              WHERE successor.id = 'preparation:legacy-binding:' || legacy.id
+                AND successor.confirmed_assignment_revision IS NOT NULL
+          )
+    ) THEN
+        RAISE EXCEPTION 'cannot reconcile confirmed preparation without an exact audit assignment: forward repair is fail-closed';
+    END IF;
+END
+$binding_repair$;
+DO $repair$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='canonical_audit_preparation_snapshots'::regclass AND conname='canonical_audit_preparation_confirmed_revision_shape') THEN
+        ALTER TABLE canonical_audit_preparation_snapshots ADD CONSTRAINT canonical_audit_preparation_confirmed_revision_shape CHECK ((status='CONFIRMED' AND confirmed_assignment_revision IS NOT NULL AND confirmed_assignment_revision > 0) OR status <> 'CONFIRMED') NOT VALID;
+    END IF;
+END
+$repair$;
 -- Migration 30 introduced assignment ownership after some candidate databases
 -- may already have preparation receipts. Those receipts are append-only and
 -- must not be rewritten during a forward repair. Legacy rows therefore remain
@@ -165,6 +256,10 @@ BEGIN
 END
 $repair$;
 CREATE UNIQUE INDEX IF NOT EXISTS canonical_audit_preparation_assignment_revision_idx ON canonical_audit_preparation_snapshots (assignment_id, revision);
+ALTER TABLE canonical_audit_preparation_questions DROP CONSTRAINT IF EXISTS canonical_audit_preparation_questions_pkey;
+ALTER TABLE canonical_audit_preparation_questions ADD PRIMARY KEY (preparation_id, question_version_id, subject_id);
+ALTER TABLE canonical_audit_preparation_questions DROP CONSTRAINT IF EXISTS canonical_audit_preparation_questions_preparation_id_position_key;
+CREATE UNIQUE INDEX IF NOT EXISTS canonical_audit_preparation_questions_position_subject_key ON canonical_audit_preparation_questions (preparation_id, position, subject_id);
 ALTER TABLE canonical_question_catalogs ADD COLUMN IF NOT EXISTS governed_publication_decision_id text;
 ALTER TABLE canonical_question_catalogs ADD COLUMN IF NOT EXISTS governed_candidate_draft_version_id text;
 ALTER TABLE canonical_question_catalogs ADD COLUMN IF NOT EXISTS governed_candidate_revision bigint;
@@ -207,10 +302,11 @@ DROP TRIGGER IF EXISTS canonical_audit_scope_selection_preview_consumptions_appe
 CREATE TRIGGER canonical_audit_scope_selection_preview_consumptions_append_only BEFORE UPDATE OR DELETE ON canonical_audit_scope_selection_preview_consumptions FOR EACH ROW EXECUTE FUNCTION reject_immutable_row_change();
 
 CREATE TABLE IF NOT EXISTS canonical_question_version_provenance (
-    question_version_id text PRIMARY KEY REFERENCES question_versions(id),
+    question_version_id text REFERENCES question_versions(id),
     usage_class text NOT NULL CHECK (usage_class IN ('GOVERNED_OPERATIONAL', 'PREPROD_EXERCISE')),
     catalog_id text NOT NULL REFERENCES canonical_question_catalogs(id),
-    recorded_at timestamptz NOT NULL DEFAULT now()
+    recorded_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (question_version_id, usage_class, catalog_id)
 );
 DO $repair$
 BEGIN
@@ -227,7 +323,6 @@ BEGIN
         FROM canonical_question_catalog_memberships membership
         GROUP BY membership.question_version_id
         HAVING COUNT(DISTINCT membership.usage_class) > 1
-            OR COUNT(DISTINCT membership.catalog_id) > 1
     ) THEN
         RAISE EXCEPTION 'existing question version has conflicting canonical provenance';
     END IF;
@@ -237,7 +332,7 @@ INSERT INTO canonical_question_version_provenance
     (question_version_id, usage_class, catalog_id, recorded_at)
 SELECT membership.question_version_id, membership.usage_class, membership.catalog_id, now()
 FROM canonical_question_catalog_memberships membership
-ON CONFLICT (question_version_id) DO NOTHING;
+ON CONFLICT (question_version_id, usage_class, catalog_id) DO NOTHING;
 DO $repair$
 BEGIN
     IF EXISTS (
@@ -264,13 +359,11 @@ BEGIN
 END
 $repair$;
 CREATE OR REPLACE FUNCTION reject_catalog_membership_provenance_mismatch() RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE recorded_usage text; recorded_catalog text;
 BEGIN
-    SELECT usage_class, catalog_id INTO recorded_usage, recorded_catalog
-    FROM canonical_question_version_provenance
-    WHERE question_version_id = NEW.question_version_id;
-    IF recorded_usage IS NULL OR recorded_usage <> NEW.usage_class OR recorded_catalog <> NEW.catalog_id THEN
-        RAISE EXCEPTION 'catalog membership must bind the exact immutable question provenance';
+    PERFORM pg_advisory_xact_lock(hashtextextended('qv-provenance:' || NEW.question_version_id, 0));
+    IF EXISTS (SELECT 1 FROM canonical_question_version_provenance WHERE question_version_id = NEW.question_version_id AND usage_class <> NEW.usage_class)
+       OR NOT EXISTS (SELECT 1 FROM canonical_question_version_provenance WHERE question_version_id = NEW.question_version_id AND usage_class = NEW.usage_class AND catalog_id = NEW.catalog_id) THEN
+        RAISE EXCEPTION 'catalog membership must bind the exact immutable question provenance and usage class';
     END IF;
     RETURN NEW;
 END;
@@ -322,6 +415,45 @@ DROP TRIGGER IF EXISTS canonical_scope_snapshot_question_usage_guard ON canonica
 CREATE TRIGGER canonical_scope_snapshot_question_usage_guard BEFORE INSERT ON canonical_audit_scope_snapshot_questions FOR EACH ROW EXECUTE FUNCTION reject_canonical_snapshot_usage_mismatch();
 DROP TRIGGER IF EXISTS canonical_question_version_provenance_append_only ON canonical_question_version_provenance;
 CREATE TRIGGER canonical_question_version_provenance_append_only BEFORE UPDATE OR DELETE ON canonical_question_version_provenance FOR EACH ROW EXECUTE FUNCTION reject_immutable_row_change();
+
+-- A question version may be reused by multiple catalogs in the same usage
+-- class, but never crosses from exercise into governed operational content.
+ALTER TABLE canonical_question_version_provenance DROP CONSTRAINT IF EXISTS canonical_question_version_provenance_pkey;
+DO $provenance_shape$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid='canonical_question_version_provenance'::regclass
+          AND conname='canonical_question_version_provenance_pkey'
+    ) THEN
+        ALTER TABLE canonical_question_version_provenance
+            ADD PRIMARY KEY (question_version_id, usage_class, catalog_id);
+    END IF;
+END
+$provenance_shape$;
+CREATE OR REPLACE FUNCTION reject_catalog_membership_provenance_mismatch() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    PERFORM pg_advisory_xact_lock(hashtextextended('qv-provenance:' || NEW.question_version_id, 0));
+    IF EXISTS (
+        SELECT 1 FROM canonical_question_version_provenance provenance
+        WHERE provenance.question_version_id = NEW.question_version_id
+          AND provenance.usage_class <> NEW.usage_class
+    ) THEN
+        RAISE EXCEPTION 'catalog membership usage class conflicts with immutable question provenance';
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM canonical_question_version_provenance provenance
+        WHERE provenance.question_version_id = NEW.question_version_id
+          AND provenance.usage_class = NEW.usage_class
+          AND provenance.catalog_id = NEW.catalog_id
+    ) THEN
+        RAISE EXCEPTION 'catalog membership must bind the exact immutable question provenance';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS canonical_catalog_membership_provenance_guard ON canonical_question_catalog_memberships;
+CREATE TRIGGER canonical_catalog_membership_provenance_guard BEFORE INSERT ON canonical_question_catalog_memberships FOR EACH ROW EXECUTE FUNCTION reject_catalog_membership_provenance_mismatch();
 
 CREATE TABLE IF NOT EXISTS canonical_governed_question_review_events (
     event_id text PRIMARY KEY,

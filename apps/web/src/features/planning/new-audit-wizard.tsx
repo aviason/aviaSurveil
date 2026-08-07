@@ -167,8 +167,19 @@ export function NewAuditWizardPage() {
       if (requestedDraftId) {
         const loadedDraft = await backend.planningIntake.getDraft({ draftId: requestedDraftId });
         if (!cancelled) {
-          const matchingOption = options.items.find((option) => option.catalogVersion === loadedDraft.catalogVersion);
-          if (matchingOption) setAuditUsageClass(matchingOption.usageClass);
+          // Catalog versions are globally unique, so the server-enumerated
+          // option is the authoritative usage-class pin for a saved draft.
+          // Do not trust or rewrite a client-side usage value while resuming.
+          const loadedUsageClass = options.items.find((option) => option.catalogVersion === loadedDraft.catalogVersion)?.usageClass;
+          const matchingOption = options.items.find((option) => option.catalogVersion === loadedDraft.catalogVersion &&
+            option.usageClass === loadedUsageClass &&
+            option.organizationId === loadedDraft.organizationId &&
+            option.providerScopeId === loadedDraft.providerScopeId &&
+            option.regulatedTargetId === loadedDraft.regulatedTargetId);
+          if (!matchingOption) {
+            throw new Error("The saved Planning draft no longer has an exact authorized catalog/scope/target option.");
+          }
+          setAuditUsageClass(matchingOption.usageClass);
         }
         return loadedDraft;
       }
@@ -198,7 +209,7 @@ export function NewAuditWizardPage() {
         ...(values ? commandValuesFor(values) : {
           organizationId: "",
           organizationName: "",
-          applicationType: "Continued Surveillance",
+          applicationType: option.inspectionTypes[0] ?? "CABIN_INSPECTION",
           domain: "Cabin Safety",
           inspectionCategory: "Routine / Announced" as const,
           noticePolicy: "ADVANCE" as const,
@@ -219,6 +230,7 @@ export function NewAuditWizardPage() {
         }),
         organizationId: option.organizationId,
         organizationName: option.organizationName,
+        applicationType: option.inspectionTypes[0] ?? "CABIN_INSPECTION",
         catalogVersion: option.catalogVersion,
         providerScopeId: option.providerScopeId,
         regulatedTargetId: option.regulatedTargetId,
@@ -465,7 +477,7 @@ export function NewAuditWizardPage() {
           </div> : null}
           {values && step === 1 ? <div className="planning-intake-fields">
             <label>Organization<select aria-label="Organization" disabled={busy || !scopeOptions.length} value={`${values.providerScopeId}:${values.regulatedTargetId}`} onChange={(event) => { const option = scopeOptions.find((item) => `${item.providerScopeId}:${item.regulatedTargetId}` === event.target.value); if (option) void changeScope(option); }}><option value={`${values.providerScopeId}:${values.regulatedTargetId}`}>{values.organizationName || values.organizationId}</option>{scopeOptions.filter((item) => `${item.providerScopeId}:${item.regulatedTargetId}` !== `${values.providerScopeId}:${values.regulatedTargetId}`).map((item) => <option key={`${item.providerScopeId}:${item.regulatedTargetId}`} value={`${item.providerScopeId}:${item.regulatedTargetId}`}>{item.organizationName} · {item.providerTypeLabel} · {item.targetLabel}</option>)}</select></label>
-            <label>Application Type<input aria-label="Application Type" value={values.applicationType} onChange={(event) => update("applicationType", event.target.value)} /></label>
+            <label>Application Type<select aria-label="Application Type" disabled={busy || (scopeOptions.find((item) => item.providerScopeId === values.providerScopeId && item.regulatedTargetId === values.regulatedTargetId)?.inspectionTypes.length ?? 0) <= 1} value={values.applicationType} onChange={(event) => update("applicationType", event.target.value)}>{(scopeOptions.find((item) => item.providerScopeId === values.providerScopeId && item.regulatedTargetId === values.regulatedTargetId)?.inspectionTypes ?? []).map((inspectionType) => <option key={inspectionType} value={inspectionType}>{inspectionType}</option>)}</select><small>Server-enumerated by provider scope; changing it requires a new scope selection.</small></label>
             <label>Domain<input aria-label="Domain" value={values.domain} onChange={(event) => update("domain", event.target.value)} /></label>
             <div className="planning-intake-notice" role="note"><b>Server-authorized scope</b><span>{scopeOptionLabel ?? `${values.organizationName || values.organizationId} · provider scope ${values.providerScopeId || "pending"} · target ${values.regulatedTargetId || "pending"}`}</span></div>
           </div> : null}

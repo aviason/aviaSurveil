@@ -141,6 +141,35 @@ func (service *UploadService) Begin(ctx context.Context, actor identity.Principa
 		if err != nil || replayed {
 			return err
 		}
+		var currentOrganizationID, currentPackageID, currentUploadState, inspectionStatus, checklistStatus string
+		if err := transaction.QueryRow(ctx, `
+			SELECT attachment.organization_id, attachment.package_id, attachment.upload_state,
+			       inspection.status, checklist.status
+			FROM inspection_attachments attachment
+			JOIN inspections inspection ON inspection.id = attachment.inspection_id
+			JOIN inspection_checklists checklist ON checklist.inspection_id = inspection.id
+			WHERE attachment.id = $1
+			FOR UPDATE OF attachment`, input.InspectionAttachmentID).Scan(
+			&currentOrganizationID, &currentPackageID, &currentUploadState,
+			&inspectionStatus, &checklistStatus); err != nil {
+			return ErrAttachmentForbidden
+		}
+		if currentOrganizationID != organizationID || currentPackageID != input.PackageID ||
+			currentUploadState != "PENDING" || inspectionStatus != "IN_PROGRESS" || checklistStatus != "IN_PROGRESS" {
+			return ErrAttachmentForbidden
+		}
+		var activeUpload bool
+		if err := transaction.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM upload_sessions
+				WHERE aggregate_id = $1 AND upload_kind = 'INSPECTION_ATTACHMENT'
+				  AND upload_state = 'PENDING' AND expires_at > $2
+			)`, input.InspectionAttachmentID, service.clock().UTC()).Scan(&activeUpload); err != nil {
+			return err
+		}
+		if activeUpload {
+			return ErrAttachmentForbidden
+		}
 		now := service.clock().UTC()
 		expiresAt := now.Add(service.instructionTTL)
 		uploadID := service.idGenerator("upload")
@@ -315,6 +344,30 @@ func (service *UploadService) Complete(ctx context.Context, actor identity.Princ
 		}
 		now := service.clock().UTC()
 		if initiatedBy != actor.SubjectID || state != "PENDING" || now.After(expiresAt) {
+			return ErrAttachmentForbidden
+		}
+		var currentPackageID, currentUploadState, inspectionStatus, checklistStatus string
+		if err := transaction.QueryRow(ctx, `
+			SELECT attachment.package_id, attachment.upload_state,
+			       inspection.status, checklist.status
+			FROM inspection_attachments attachment
+			JOIN inspections inspection ON inspection.id = attachment.inspection_id
+			JOIN inspection_checklists checklist ON checklist.inspection_id = inspection.id
+			JOIN audit_assignments assignment
+			  ON assignment.inspection_id = attachment.inspection_id
+			 AND assignment.tombstoned_at IS NULL
+			JOIN audit_team_members member
+			  ON member.assignment_id = assignment.id
+			 AND member.subject_id = $2
+			 AND member.member_role IN ('INSPECTOR', 'LEAD_INSPECTOR')
+			 AND member.removed_at IS NULL
+			WHERE attachment.id = $1
+			FOR UPDATE OF attachment`, attachmentID, actor.SubjectID).Scan(
+			&currentPackageID, &currentUploadState, &inspectionStatus, &checklistStatus); err != nil {
+			return ErrAttachmentForbidden
+		}
+		if currentPackageID == "" || currentUploadState != "PENDING" ||
+			inspectionStatus != "IN_PROGRESS" || checklistStatus != "IN_PROGRESS" {
 			return ErrAttachmentForbidden
 		}
 		if bucket != service.quarantineBucket ||

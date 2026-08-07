@@ -16,6 +16,9 @@
   "/v1/audit-assignments/{assignmentId}/preparation-confirmations": {
     "post": { "operationId": "confirmAuditPreparation", "parameters": [{ "name": "assignmentId", "in": "path", "required": true, "schema": { "type": "string" } }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ConfirmAuditPreparationInput" } } } }, "responses": { "200": { "description": "Confirmed immutable preparation snapshot", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PreparationConfirmationView" } } } }, "default": { "$ref": "#/components/responses/Problem" } } }
   },
+  "/v1/audit-assignments/preparations/current": {
+    "get": { "operationId": "getCanonicalAuditPreparation", "parameters": [{ "name": "assignmentId", "in": "query", "required": false, "schema": { "type": "string" } }, { "name": "planningItemId", "in": "query", "required": false, "schema": { "type": "string" } }], "responses": { "200": { "description": "Current pre-materialization Lead or Department Manager preparation", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CanonicalAssignmentView" } } } }, "default": { "$ref": "#/components/responses/Problem" } } }
+  },
   "/v1/audit-assignments/{assignmentId}/materializations": {
     "post": { "operationId": "materializeCanonicalAudit", "parameters": [{ "name": "assignmentId", "in": "path", "required": true, "schema": { "type": "string" } }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MaterializeCanonicalAuditInput" } } } }, "responses": { "201": { "description": "Materialized canonical non-executable Audit", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CanonicalMaterializedAuditView" } } } }, "default": { "$ref": "#/components/responses/Problem" } } }
   },

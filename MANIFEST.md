@@ -343,6 +343,7 @@ separate `apps/web/package.json` owns the React candidate commands.
 
 - `docs/demo-evidence/BUILD_SUMMARY.md` — canonical demo evidence, verification
   status, and known limitations.
+- `docs/demo-evidence/CANONICAL_AGA_IMPLEMENTATION_CHECKPOINT_2026-08-08.md` — current canonical AGA candidate implementation checkpoint; Task 10 remains `not run` and connected qualification is pending.
 - `docs/demo-evidence/GOVERNED_SERVICE_PROVIDER_CHECKLIST_2026-07-29.md` —
   governed-checklist local inventory, authority, browser, and recovery evidence
   with the synthetic-only claim boundary.

@@ -284,6 +284,37 @@ func TestFieldSyncCausalPotentialFindingAttachmentAndChecklistSubmission(t *test
 	if err != nil || pf.Status != fieldsync.PushAccepted || pf.AuthoritativeEntityID == nil || *pf.AuthoritativeEntityID == "pf-local-causal" {
 		t.Fatalf("Potential Finding acknowledgement = %+v, err = %v", pf, err)
 	}
+	if _, err := pool.Exec(context.Background(), `
+		UPDATE potential_findings
+		SET status = 'RETURNED', revision = revision + 1, updated_at = $2
+		WHERE id = $1
+	`, *pf.AuthoritativeEntityID, canonicalNow); err != nil {
+		t.Fatalf("mark Potential Finding returned: %v", err)
+	}
+	successorOperationID := "op-causal-pf-successor"
+	successor := fieldOperation(t, map[string]any{
+		"operationId": successorOperationID, "protocolVersion": 1, "offlineGrantId": grant.ID,
+		"packageId": grant.PackageID, "packageVersion": 1, "entityId": "pf-local-causal-successor",
+		"commandType": "CREATE_POTENTIAL_FINDING", "baseRevision": nil,
+		"deviceInstanceId": grant.DeviceInstanceID, "clientOccurredAt": canonicalNow.Format(time.RFC3339),
+		"payload": map[string]any{
+			"auditId": "audit-cabin-001", "questionId": "q-cabin-crew-training",
+			"checklistResponseId": "response-cabin-001", "expectedChecklistResponseRevision": 2,
+			"title": "Corrected training record gap", "description": "The returned finding was corrected.",
+			"requiredComment": "Provide the corrected current training record.",
+		},
+	})
+	successorResult, err := service.Push(context.Background(), actor, successor)
+	if err != nil || successorResult.Status != fieldsync.PushAccepted || successorResult.AuthoritativeEntityID == nil || *successorResult.AuthoritativeEntityID == *pf.AuthoritativeEntityID {
+		t.Fatalf("returned Potential Finding successor = %+v, err = %v", successorResult, err)
+	}
+	var supersedes string
+	if err := pool.QueryRow(context.Background(), `SELECT supersedes_potential_finding_id FROM potential_findings WHERE id = $1`, *successorResult.AuthoritativeEntityID).Scan(&supersedes); err != nil {
+		t.Fatalf("read Potential Finding successor lineage: %v", err)
+	}
+	if supersedes != *pf.AuthoritativeEntityID {
+		t.Fatalf("successor supersedes = %q, want %q", supersedes, *pf.AuthoritativeEntityID)
+	}
 	attachment := fieldOperation(t, map[string]any{
 		"operationId": "op-causal-attachment", "protocolVersion": 1, "offlineGrantId": grant.ID,
 		"packageId": grant.PackageID, "packageVersion": 1, "entityId": "attachment-local-causal",
@@ -291,7 +322,7 @@ func TestFieldSyncCausalPotentialFindingAttachmentAndChecklistSubmission(t *test
 		"deviceInstanceId": grant.DeviceInstanceID, "clientOccurredAt": canonicalNow.Format(time.RFC3339),
 		"payload": map[string]any{
 			"auditId": "audit-cabin-001", "checklistResponseId": "response-cabin-001",
-			"potentialFindingOperationId": "op-causal-pf", "fileName": "crew-record.pdf",
+			"potentialFindingOperationId": successorOperationID, "fileName": "crew-record.pdf",
 			"mediaType": "application/pdf", "byteSize": 4, "sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		},
 	})
@@ -303,19 +334,48 @@ func TestFieldSyncCausalPotentialFindingAttachmentAndChecklistSubmission(t *test
 	if err := pool.QueryRow(context.Background(), `SELECT potential_finding_id FROM inspection_attachments WHERE id = $1`, *registered.AuthoritativeEntityID).Scan(&linkedPotential); err != nil {
 		t.Fatalf("read attachment causal link: %v", err)
 	}
-	if linkedPotential != *pf.AuthoritativeEntityID {
-		t.Fatalf("attachment Potential Finding = %q, want %q", linkedPotential, *pf.AuthoritativeEntityID)
+	if linkedPotential != *successorResult.AuthoritativeEntityID {
+		t.Fatalf("attachment Potential Finding = %q, want %q", linkedPotential, *successorResult.AuthoritativeEntityID)
 	}
 
-	submitted, err := service.Push(context.Background(), actor, fieldOperation(t, map[string]any{
+	pendingAttachmentSubmission, err := service.Push(context.Background(), actor, fieldOperation(t, map[string]any{
 		"operationId": "op-causal-submit", "protocolVersion": 1, "offlineGrantId": grant.ID,
 		"packageId": grant.PackageID, "packageVersion": 1, "entityId": "audit-cabin-001",
 		"commandType": "SUBMIT_CHECKLIST", "baseRevision": 1,
 		"deviceInstanceId": grant.DeviceInstanceID, "clientOccurredAt": canonicalNow.Format(time.RFC3339),
 		"payload": map[string]any{"auditId": "audit-cabin-001"},
 	}))
+	if err != nil || pendingAttachmentSubmission.Status != fieldsync.PushInvalid {
+		t.Fatalf("pending attachment checklist submission = %+v, err = %v", pendingAttachmentSubmission, err)
+	}
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO object_metadata (
+			id, aggregate_type, aggregate_id, object_key, filename,
+			declared_media_type, sha256, size_bytes, scan_status
+		) VALUES ('metadata-causal', 'inspection_attachment', $1, 'canonical/metadata-causal',
+			'crew-record.pdf', 'application/pdf',
+			'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 4, 'CLEAN')
+	`, *registered.AuthoritativeEntityID); err != nil {
+		t.Fatalf("seed clean canonical object metadata: %v", err)
+	}
+	if _, err := pool.Exec(context.Background(), `
+		UPDATE inspection_attachments
+		SET upload_state = 'UPLOADED', scan_state = 'CLEAN',
+			object_metadata_id = 'metadata-causal', canonical_object_metadata_id = 'metadata-causal',
+			revision = revision + 1, updated_at = $2
+		WHERE id = $1
+	`, *registered.AuthoritativeEntityID, canonicalNow); err != nil {
+		t.Fatalf("mark attachment clean: %v", err)
+	}
+	submitted, err := service.Push(context.Background(), actor, fieldOperation(t, map[string]any{
+		"operationId": "op-causal-submit-clean", "protocolVersion": 1, "offlineGrantId": grant.ID,
+		"packageId": grant.PackageID, "packageVersion": 1, "entityId": "audit-cabin-001",
+		"commandType": "SUBMIT_CHECKLIST", "baseRevision": 1,
+		"deviceInstanceId": grant.DeviceInstanceID, "clientOccurredAt": canonicalNow.Format(time.RFC3339),
+		"payload": map[string]any{"auditId": "audit-cabin-001"},
+	}))
 	if err != nil || submitted.Status != fieldsync.PushAccepted || submitted.AuthoritativeRevision == nil || *submitted.AuthoritativeRevision != 2 {
-		t.Fatalf("checklist submission = %+v, err = %v", submitted, err)
+		t.Fatalf("clean attachment checklist submission = %+v, err = %v", submitted, err)
 	}
 }
 

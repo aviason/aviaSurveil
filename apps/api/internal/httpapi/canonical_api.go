@@ -263,6 +263,7 @@ func (api *CanonicalAPI) Handler() http.Handler {
 	router.Get("/v1/audit-teams/{auditId}", api.getAuditTeam)
 	router.Post("/v1/audit-assignments/{assignmentId}/preparation-confirmations", api.confirmAuditPreparation)
 	router.Post("/v1/audit-assignments/{assignmentId}/materializations", api.materializeCanonicalAudit)
+	router.Get("/v1/audit-assignments/preparations/current", api.getCanonicalAuditPreparation)
 	router.Post("/v1/planning/items/{planningItemId}/preparations", api.prepareAudit)
 	router.Post("/v1/audit-assignments/{assignmentId}/lead", api.assignAuditLead)
 	router.Post("/v1/audit-assignments/{assignmentId}/team", api.assignAuditTeam)

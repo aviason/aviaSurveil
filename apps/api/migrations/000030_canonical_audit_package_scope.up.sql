@@ -29,21 +29,14 @@ ALTER TABLE canonical_audit_scope_snapshots
     ADD COLUMN planning_snapshot_digest text NOT NULL DEFAULT '';
 
 -- N-1 databases already contain immutable scope snapshots created by
--- migration 29.  The one-time digest repair is performed with the append-only
--- trigger suspended by the table owner, then the default is removed and a
--- format check is installed.  Runtime code can never update this column.
-ALTER TABLE canonical_audit_scope_snapshots
-    DISABLE TRIGGER canonical_audit_scope_snapshots_append_only;
-UPDATE canonical_audit_scope_snapshots
-SET planning_snapshot_digest = governed_jsonb_sha256(snapshot)
-WHERE btrim(planning_snapshot_digest) = '';
-ALTER TABLE canonical_audit_scope_snapshots
-    ENABLE TRIGGER canonical_audit_scope_snapshots_append_only;
+-- migration 29.  Their new digest column remains an empty legacy marker until
+-- read-time derivation; the append-only snapshot row must never be rewritten
+-- by a migration. New snapshots always provide the digest explicitly.
 ALTER TABLE canonical_audit_scope_snapshots
     ALTER COLUMN planning_snapshot_digest DROP DEFAULT;
 ALTER TABLE canonical_audit_scope_snapshots
     ADD CONSTRAINT canonical_audit_scope_snapshot_planning_digest
-    CHECK (governed_sha256(planning_snapshot_digest));
+    CHECK (btrim(planning_snapshot_digest) = '' OR governed_sha256(planning_snapshot_digest));
 
 -- Preparation is an assignment-owned receipt, not a free-floating
 -- confirmation for the latest scope revision. Canonical materialization must
@@ -146,10 +139,11 @@ FOR EACH ROW EXECUTE FUNCTION validate_canonical_governed_catalog_membership();
 -- structurally exclusive. A PREPROD_EXERCISE question version can therefore
 -- never be reused by the governed candidate/publication tables.
 CREATE TABLE canonical_question_version_provenance (
-    question_version_id text PRIMARY KEY REFERENCES question_versions(id),
+    question_version_id text REFERENCES question_versions(id),
     usage_class text NOT NULL CHECK (usage_class IN ('GOVERNED_OPERATIONAL', 'PREPROD_EXERCISE')),
     catalog_id text NOT NULL REFERENCES canonical_question_catalogs(id),
-    recorded_at timestamptz NOT NULL DEFAULT now()
+    recorded_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (question_version_id, usage_class, catalog_id)
 );
 
 -- Migration 29 may already have sealed memberships. Backfill their immutable
@@ -170,7 +164,6 @@ BEGIN
         FROM canonical_question_catalog_memberships membership
         GROUP BY membership.question_version_id
         HAVING COUNT(DISTINCT membership.usage_class) > 1
-            OR COUNT(DISTINCT membership.catalog_id) > 1
     ) THEN
         RAISE EXCEPTION 'existing question version has conflicting canonical provenance';
     END IF;
@@ -181,7 +174,7 @@ INSERT INTO canonical_question_version_provenance
     (question_version_id, usage_class, catalog_id, recorded_at)
 SELECT membership.question_version_id, membership.usage_class, membership.catalog_id, now()
 FROM canonical_question_catalog_memberships membership
-ON CONFLICT (question_version_id) DO NOTHING;
+ON CONFLICT (question_version_id, usage_class, catalog_id) DO NOTHING;
 
 -- A legacy database may already contain a candidate or governed template that
 -- references a question now classified as PREPROD_EXERCISE. Do not install a
@@ -215,14 +208,19 @@ $migration$;
 
 CREATE OR REPLACE FUNCTION reject_catalog_membership_provenance_mismatch() RETURNS trigger
 LANGUAGE plpgsql AS $$
-DECLARE recorded_usage text;
-DECLARE recorded_catalog text;
 BEGIN
-    SELECT usage_class, catalog_id INTO recorded_usage, recorded_catalog
-    FROM canonical_question_version_provenance
-    WHERE question_version_id = NEW.question_version_id;
-    IF recorded_usage IS NULL OR recorded_usage <> NEW.usage_class OR recorded_catalog <> NEW.catalog_id THEN
-        RAISE EXCEPTION 'catalog membership must bind the exact immutable question provenance';
+    PERFORM pg_advisory_xact_lock(hashtextextended('qv-provenance:' || NEW.question_version_id, 0));
+    IF EXISTS (
+        SELECT 1 FROM canonical_question_version_provenance
+        WHERE question_version_id = NEW.question_version_id
+          AND usage_class <> NEW.usage_class
+    ) OR NOT EXISTS (
+        SELECT 1 FROM canonical_question_version_provenance
+        WHERE question_version_id = NEW.question_version_id
+          AND usage_class = NEW.usage_class
+          AND catalog_id = NEW.catalog_id
+    ) THEN
+        RAISE EXCEPTION 'catalog membership must bind the exact immutable question provenance and usage class';
     END IF;
     RETURN NEW;
 END;

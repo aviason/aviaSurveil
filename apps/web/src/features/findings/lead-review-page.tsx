@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 import type {
   FindingSeverity,
@@ -15,6 +15,7 @@ import {
   formatSeverity,
   WorkspaceShell,
 } from "../shared/workspace-shell";
+import { AuditAssignmentPage } from "../teams/audit-assignment-page";
 
 interface PotentialFindingRow extends Record<string, ReactNode> {
   id: ReactNode;
@@ -45,7 +46,17 @@ function statusTone(value: string): StatusPillTone {
   return "neutral";
 }
 
+/**
+ * The Lead preparation hand-off shares the role-owned Lead workspace route.
+ * Keeping the assignment identity in the query makes the route server-owned
+ * instead of embedding a fixture audit id in the manager's link.
+ */
 export function LeadReviewPage() {
+  const [searchParams] = useSearchParams();
+  return searchParams.get("assignmentId") ? <AuditAssignmentPage /> : <LeadReviewQueuePage />;
+}
+
+function LeadReviewQueuePage() {
   const runtime = useApplicationRuntime();
   const leadBackend = useMemo(
     () => runtime.backendForRole?.("leadInspector") ?? runtime.backend,

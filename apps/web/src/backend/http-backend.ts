@@ -130,7 +130,7 @@ function mapCanonicalCatalogPage(value: Schemas["CanonicalQuestionCatalogPage"])
 }
 
 function mapCanonicalScopeOptionPage(value: Schemas["CanonicalAuditScopeOptionPage"]): CanonicalAuditScopeOptionPage {
-  return value;
+  return { ...value, items: value.items.map((item) => ({ ...item, inspectionTypes: [...item.inspectionTypes] })) };
 }
 
 function mapCanonicalSelectionPreview(value: Schemas["CanonicalAuditScopeSelectionPreview"]): CanonicalSelectionPreview {
@@ -788,7 +788,13 @@ export function createHttpBackend(
     },
     canonicalQuestionReview: {
       listScopeOptions: async (input, options) => mapCanonicalScopeOptionPage(await request<Schemas["CanonicalAuditScopeOptionPage"]>(
-        appendQuery("/v1/audit-scope-options", input ?? {}), {}, options)),
+        appendQuery("/v1/audit-scope-options", {
+          cursor: input?.cursor,
+          limit: input?.limit,
+          catalogVersion: input?.catalogVersion,
+          usageClass: input?.usageClass,
+          review: input?.forReview ? "true" : undefined,
+        }), {}, options)),
       listCatalog: async (input, options) => mapCanonicalCatalogPage(await request<Schemas["CanonicalQuestionCatalogPage"]>(
         appendQuery(`/v1/question-catalogs/${encodeURIComponent(input.catalogVersion)}/questions`, {
           usageClass: input.usageClass, search: input.search, formCode: input.formCode,
@@ -814,6 +820,11 @@ export function createHttpBackend(
       },
     },
     canonicalAuditWorkflow: {
+      getPreparation: async (input, options) => request<Schemas["CanonicalAssignmentView"]>(
+        appendQuery("/v1/audit-assignments/preparations/current", { assignmentId: input?.assignmentId, planningItemId: input?.planningItemId }),
+        { cache: "no-store" },
+        options,
+      ),
       prepare: async (planningItemId, input, options) => request<Schemas["PreparationView"]>(
         `/v1/planning/items/${encodeURIComponent(planningItemId)}/preparations`,
         { method: "POST", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey, expectedRevision: input.expectedPlanningRevision }) },

@@ -460,10 +460,22 @@ func (service *Service) Publish(ctx context.Context, actor identity.Principal, c
 			return err
 		}
 		templateVersionID := "CTV-GOV-" + strings.TrimPrefix(semantic, "sha256:")[:20]
+		includedQuestions := make([]regulatory.ChecklistQuestion, 0, len(questions))
+		excludedQuestionIDs := make(map[string]struct{})
+		for _, question := range questions {
+			if questionDispositionSuppressesPublication(question.ReviewedDisposition) {
+				excludedQuestionIDs[question.QuestionID] = struct{}{}
+				continue
+			}
+			includedQuestions = append(includedQuestions, question)
+		}
+		if len(includedQuestions) == 0 {
+			return fmt.Errorf("%w: publication requires at least one included question", application.ErrConflict)
+		}
 		snapshot, err := json.Marshal(map[string]any{
 			"candidateId": command.CandidateID, "candidateRevision": revision,
 			"candidateContentDigest": digest, "complianceMappings": mappings,
-			"questions": questions,
+			"questions": includedQuestions,
 		})
 		if err != nil {
 			return err
@@ -478,18 +490,18 @@ func (service *Service) Publish(ctx context.Context, actor identity.Principal, c
 			command.CandidateID, revision, digest, decisionID); err != nil {
 			return err
 		}
-		rows, err := tx.Query(ctx, `SELECT question_version_id,ordinality-1 FROM template_draft_versions,unnest(question_version_ids) WITH ORDINALITY AS ordered(question_version_id,ordinality) WHERE id=$1 ORDER BY ordinality`, command.CandidateID)
+		rows, err := tx.Query(ctx, `SELECT ordered.question_version_id,version.question_id,ordered.ordinality-1 FROM template_draft_versions candidate CROSS JOIN unnest(candidate.question_version_ids) WITH ORDINALITY AS ordered(question_version_id,ordinality) JOIN question_versions version ON version.id=ordered.question_version_id WHERE candidate.id=$1 ORDER BY ordered.ordinality`, command.CandidateID)
 		if err != nil {
 			return err
 		}
 		type orderedQuestion struct {
-			id       string
-			position int
+			id, questionID string
+			position       int
 		}
 		orderedQuestions := []orderedQuestion{}
 		for rows.Next() {
 			var question orderedQuestion
-			if err := rows.Scan(&question.id, &question.position); err != nil {
+			if err := rows.Scan(&question.id, &question.questionID, &question.position); err != nil {
 				rows.Close()
 				return err
 			}
@@ -501,9 +513,15 @@ func (service *Service) Publish(ctx context.Context, actor identity.Principal, c
 		}
 		rows.Close()
 		for _, question := range orderedQuestions {
+			if _, excluded := excludedQuestionIDs[question.questionID]; excluded {
+				continue
+			}
 			if _, err := tx.Exec(ctx, `INSERT INTO template_version_questions (template_version_id,question_version_id,position) VALUES ($1,$2,$3)`, templateVersionID, question.id, question.position); err != nil {
 				return err
 			}
+		}
+		if err := projectGovernedOperationalCatalog(ctx, tx, candidate, decisionID, templateVersionID, actor, now); err != nil {
+			return fmt.Errorf("project governed operational catalog: %w", err)
 		}
 		if tag, err := tx.Exec(ctx, `UPDATE template_draft_versions SET status='PUBLISHED' WHERE id=$1 AND status='TECHNICALLY_APPROVED'`, command.CandidateID); err != nil {
 			return err
@@ -529,6 +547,157 @@ func (service *Service) Publish(ctx context.Context, actor identity.Principal, c
 		return nil
 	})
 	return output, err
+}
+
+// projectGovernedOperationalCatalog is the only runtime writer for a
+// GOVERNED_OPERATIONAL catalog. It runs in the same transaction as the
+// publication decision and published template links, so operational selection
+// can only observe the exact immutable candidate/template pair that was
+// separately technically approved. Question bodies remain in question_versions.
+func projectGovernedOperationalCatalog(ctx context.Context, tx pgx.Tx, candidate regulatory.CandidateView, publicationDecisionID, templateVersionID string, actor identity.Principal, now time.Time) error {
+	var providerScopeID, targetID string
+	if err := tx.QueryRow(ctx, `SELECT organization_service_provider_scope_id,regulated_target_id FROM regulatory_generation_run_scope_facts WHERE generation_run_id=$1 ORDER BY organization_service_provider_scope_id LIMIT 1`, candidate.GenerationRunID).Scan(&providerScopeID, &targetID); err != nil {
+		return fmt.Errorf("load published candidate scope fact: %w", err)
+	}
+	rows, err := tx.Query(ctx, `SELECT ordered.question_version_id,version.question_id,version.prompt,version.configured_reference,version.expected_evidence,ordered.ordinality FROM template_draft_versions draft CROSS JOIN unnest(draft.question_version_ids) WITH ORDINALITY AS ordered(question_version_id,ordinality) JOIN question_versions version ON version.id=ordered.question_version_id WHERE draft.id=$1 ORDER BY ordered.ordinality`, candidate.CandidateID)
+	if err != nil {
+		return err
+	}
+	type catalogQuestion struct {
+		versionID, questionID, prompt, configuredReference, expectedEvidence string
+		ordinal                                                              int
+	}
+	questions := make([]catalogQuestion, 0, len(candidate.Questions))
+	for rows.Next() {
+		var item catalogQuestion
+		if err := rows.Scan(&item.versionID, &item.questionID, &item.prompt, &item.configuredReference, &item.expectedEvidence, &item.ordinal); err != nil {
+			rows.Close()
+			return err
+		}
+		questions = append(questions, item)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	rows.Close()
+	if len(questions) == 0 || len(questions) != len(candidate.Questions) {
+		return fmt.Errorf("published candidate has no exact immutable question set")
+	}
+	questionByID := make(map[string]regulatory.ChecklistQuestion, len(candidate.Questions))
+	for _, question := range candidate.Questions {
+		questionByID[question.QuestionID] = question
+	}
+	activeQuestions := make([]catalogQuestion, 0, len(questions))
+	activeCandidateQuestions := make([]regulatory.ChecklistQuestion, 0, len(questions))
+	for _, question := range questions {
+		candidateQuestion, ok := questionByID[question.questionID]
+		if !ok {
+			return fmt.Errorf("published candidate question identity mismatch for %s", question.questionID)
+		}
+		// EXCLUDE is an immutable review fact. Keep the qv and successor
+		// lineage intact so a later INCLUDE can restore it, but omit it from
+		// the operational catalog projection.
+		if questionDispositionSuppressesPublication(candidateQuestion.ReviewedDisposition) {
+			continue
+		}
+		activeQuestions = append(activeQuestions, question)
+		activeCandidateQuestions = append(activeCandidateQuestions, candidateQuestion)
+	}
+	if len(activeQuestions) == 0 {
+		return fmt.Errorf("published candidate has no included questions")
+	}
+	orderedForDigest := make([]map[string]any, 0, len(questions))
+	for _, question := range activeQuestions {
+		promptDigest, err := regulatory.CanonicalSHA256(map[string]any{
+			"questionVersionId":   question.versionID,
+			"questionId":          question.questionID,
+			"prompt":              question.prompt,
+			"configuredReference": question.configuredReference,
+			"expectedEvidence":    question.expectedEvidence,
+		})
+		if err != nil {
+			return err
+		}
+		orderedForDigest = append(orderedForDigest, map[string]any{"questionVersionId": question.versionID, "questionDigest": promptDigest, "ordinal": question.ordinal})
+	}
+	rootDigest, err := regulatory.CanonicalSHA256(map[string]any{
+		"publicationDecisionId":  publicationDecisionID,
+		"candidateId":            candidate.CandidateID,
+		"candidateRevision":      candidate.Revision,
+		"candidateContentDigest": candidate.ContentDigest,
+		"questions":              orderedForDigest,
+	})
+	if err != nil {
+		return err
+	}
+	rootSuffix := strings.TrimPrefix(rootDigest, "sha256:")
+	if len(rootSuffix) > 24 {
+		rootSuffix = rootSuffix[:24]
+	}
+	catalogID := "CAT-GOV-" + rootSuffix
+	catalogVersion := "governed:" + rootSuffix
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO canonical_question_catalogs
+			(id,catalog_version,usage_class,profile_name,profile_version,status,
+			 source_package_version,source_package_json_sha256,source_package_zip_sha256,
+			 root_digest,question_count,form_count,created_by_subject_id,created_at,
+			 governed_publication_decision_id,governed_candidate_draft_version_id,
+			 governed_candidate_revision,governed_candidate_content_digest)
+		VALUES ($1,$2,'GOVERNED_OPERATIONAL','governed-operational','1.0.0','SEALED',
+			$3,$4,$4,$5,$6,1,$7,$8,$9,$10,$11,$12)`,
+		catalogID, catalogVersion, candidate.GenerationRunID, candidate.ContentDigest,
+		rootDigest, len(activeQuestions), actor.SubjectID, now, publicationDecisionID,
+		candidate.CandidateID, candidate.Revision, candidate.ContentDigest); err != nil {
+		return err
+	}
+	formCode := candidate.TemplateID
+	if _, err := tx.Exec(ctx, `INSERT INTO canonical_question_catalog_forms (catalog_id,form_code,form_digest,archive_digest,question_count,source_gap_state,created_at) VALUES ($1,$2,$3,NULL,$4,'NONE',$5)`, catalogID, formCode, candidate.ContentDigest, len(activeQuestions), now); err != nil {
+		return err
+	}
+	for index, question := range activeQuestions {
+		questionDigest := orderedForDigest[index]["questionDigest"].(string)
+		if _, err := tx.Exec(ctx, `INSERT INTO canonical_question_version_provenance (question_version_id,usage_class,catalog_id,recorded_at) VALUES ($1,'GOVERNED_OPERATIONAL',$2,$3) ON CONFLICT (question_version_id,usage_class,catalog_id) DO NOTHING`, question.versionID, catalogID, now); err != nil {
+			return err
+		}
+		var proposedDomain, proposedTopic, proposedRisk *string
+		if index < len(activeCandidateQuestions) {
+			proposedDomain = activeCandidateQuestions[index].ReviewedDomain
+			proposedTopic = activeCandidateQuestions[index].ReviewedTopic
+			if proposedRisk = stringsToOptional(activeCandidateQuestions[index].ScopeRecommendation.Classification); proposedRisk == nil {
+				proposedRisk = stringsToOptional(activeCandidateQuestions[index].RegulatoryTrace.Applicability)
+			}
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO canonical_question_catalog_memberships
+				(catalog_id,question_version_id,usage_class,form_code,proposal_id,ordinal,
+				 question_digest,source_locator,source_gap_state,proposed_domain,proposed_topic,proposed_risk_band,created_at)
+			VALUES ($1,$2,'GOVERNED_OPERATIONAL',$3,$4,$5,$6,NULL,'NONE',$7,$8,$9,$10)`,
+			catalogID, question.versionID, formCode, question.questionID, question.ordinal,
+			questionDigest, proposedDomain, proposedTopic, proposedRisk, now); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO canonical_question_catalog_membership_events (event_id,catalog_id,question_version_id,status,reason,actor_subject_id,occurred_at) VALUES ($1,$2,$3,'AVAILABLE','Published governed candidate question',$4,$5)`, "CATMEM-"+catalogID+"-"+question.versionID, catalogID, question.versionID, actor.SubjectID, now); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO canonical_question_catalog_applicabilities (catalog_id,question_version_id,provider_scope_id,regulated_target_id,status,reason,actor_subject_id,created_at) VALUES ($1,$2,$3,$4,'ELIGIBLE','Published candidate generation scope',$5,$6)`, catalogID, question.versionID, providerScopeID, targetID, actor.SubjectID, now); err != nil {
+			return err
+		}
+	}
+	_ = templateVersionID
+	return nil
+}
+
+func questionDispositionSuppressesPublication(disposition string) bool {
+	return disposition == string(QuestionReviewActionExclude) || disposition == string(QuestionReviewActionDefer)
+}
+
+func stringsToOptional(value string) *string {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	trimmed := strings.TrimSpace(value)
+	return &trimmed
 }
 
 func (service *Service) decide(ctx context.Context, actor identity.Principal, command ReviewCommand, decision string) (regulatory.CandidateView, error) {

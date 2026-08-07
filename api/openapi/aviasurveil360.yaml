@@ -3059,6 +3059,70 @@
         "x-organization-scope": "authorized-projection"
       }
     },
+    "/v1/audit-assignments/preparations/current": {
+      "get": {
+        "operationId": "getCanonicalAuditPreparation",
+        "parameters": [
+          {
+            "name": "assignmentId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "planningItemId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current pre-materialization Lead or Department Manager preparation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanonicalAssignmentView"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
     "/v1/audit-assignments/{assignmentId}/materializations": {
       "post": {
         "operationId": "materializeCanonicalAudit",
@@ -9909,6 +9973,13 @@
             "in": "query",
             "schema": {
               "$ref": "#/components/schemas/QuestionUsageClass"
+            }
+          },
+          {
+            "name": "review",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
             }
           }
         ],
@@ -25367,7 +25438,8 @@
           "scopeStatus",
           "targetLabel",
           "catalogVersion",
-          "usageClass"
+          "usageClass",
+          "inspectionTypes"
         ],
         "properties": {
           "organizationId": {
@@ -25400,6 +25472,19 @@
           },
           "usageClass": {
             "$ref": "#/components/schemas/QuestionUsageClass"
+          },
+          "inspectionTypes": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "enum": [
+                "RAMP",
+                "CABIN",
+                "RAMP_INSPECTION",
+                "CABIN_INSPECTION"
+              ]
+            }
           }
         }
       },
@@ -25724,6 +25809,7 @@
           "operationId",
           "idempotencyKey",
           "catalogVersion",
+          "scopeId",
           "questionVersionId",
           "expectedRevision",
           "expectedReviewDigest",
@@ -25739,6 +25825,10 @@
             "minLength": 1
           },
           "catalogVersion": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scopeId": {
             "type": "string",
             "minLength": 1
           },
@@ -25836,7 +25926,12 @@
           },
           "reason": {
             "type": "string",
-            "minLength": 1
+            "enum": [
+              "MANAGER_SCOPE_DECISION",
+              "SOURCE_MAPPING_REQUIRED",
+              "CLASSIFICATION_EXPERT_REVIEW",
+              "MANAGER_EXACT_RESOLUTION"
+            ]
           },
           "domain": {
             "type": [
@@ -25947,6 +26042,25 @@
               "string",
               "null"
             ]
+          },
+          "currentCandidateId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "currentCandidateRevision": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "currentCandidateContentDigest": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -26043,7 +26157,8 @@
           "preparationId",
           "preparationDigest",
           "selectedQuestionCount",
-          "confirmedAt"
+          "confirmedAt",
+          "confirmedAssignmentRevision"
         ],
         "properties": {
           "planningItemId": {
@@ -26075,6 +26190,10 @@
           "confirmedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "confirmedAssignmentRevision": {
+            "type": "integer",
+            "minimum": 1
           }
         }
       },
@@ -26349,6 +26468,38 @@
             "items": {
               "$ref": "#/components/schemas/QuestionCoverageInput"
             }
+          },
+          "selectedQuestionVersionIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preparationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "preparationDigest": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "preparationConfirmedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "preparationConfirmedAssignmentRevision": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
           },
           "status": {
             "type": "string"

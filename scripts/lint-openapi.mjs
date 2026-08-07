@@ -50,6 +50,7 @@ const expectedPaths = [
   "/v1/planning/intake-drafts/{draftId}/submissions",
   "/v1/inspection-package-drafts/{packageDraftId}",
   "/v1/audit-assignments/{assignmentId}/preparation-confirmations",
+  "/v1/audit-assignments/preparations/current",
   "/v1/audit-assignments/{assignmentId}/materializations",
   "/v1/planning/items/{planningItemId}/preparations",
   "/v1/audit-assignments/{assignmentId}/lead",

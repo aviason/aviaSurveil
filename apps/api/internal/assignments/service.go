@@ -224,10 +224,10 @@ func (service *Service) ConfirmPreparation(
 			if _, err := transaction.Exec(ctx, `
 					INSERT INTO canonical_audit_preparation_snapshots (
 						id, assignment_id, released_scope_snapshot_id, lead_subject_id, revision, status,
-						preparation_digest, confirmed_by_subject_id, confirmed_at, snapshot, created_at
-					) VALUES ($1, $2, $3, $4, $5, 'CONFIRMED', $6, $7, $8, $9, $8)
-				`, preparationID, command.AssignmentID, snapshotID, current.LeadSubjectID, revision,
-				preparationDigest, actor.SubjectID, now, payload); err != nil {
+						preparation_digest, confirmed_by_subject_id, confirmed_at, confirmed_assignment_revision, snapshot, created_at
+					) VALUES ($1, $2, $3, $4, $5, 'CONFIRMED', $6, $7, $8, $9, $10, $8)
+					`, preparationID, command.AssignmentID, snapshotID, current.LeadSubjectID, revision,
+				preparationDigest, actor.SubjectID, now, current.Revision+1, payload); err != nil {
 				return commandResult[Preparation]{}, err
 			}
 			for position, item := range coverageEntries {
@@ -263,7 +263,7 @@ func (service *Service) ConfirmPreparation(
 					OrganizationID: current.OrganizationID, Status: current.Status,
 					Revision: confirmedRevision, PreparationID: preparationID,
 					PreparationDigest: preparationDigest, SelectedQuestionCount: selectedCount,
-					ConfirmedAt: now,
+					ConfirmedAt: now, ConfirmedAssignmentRevision: confirmedRevision,
 				},
 				OrganizationID: current.OrganizationID, Action: "planning.preparation_confirmed",
 				EntityType: "audit_assignment", EntityID: command.AssignmentID,
@@ -569,8 +569,26 @@ func (service *Service) AssignQuestions(
 			if err := requireActiveRole(ctx, transaction, actor.SubjectID, identity.RoleLeadInspector); err != nil {
 				return commandResult[Assignment]{}, ErrForbidden
 			}
-			if current.Revision != command.ExpectedRevision || current.Status != StatusTeamAssigned {
+			if current.Revision != command.ExpectedRevision || (current.Status != StatusTeamAssigned && current.Status != StatusQuestionsAssigned) {
 				return commandResult[Assignment]{}, ErrConflict
+			}
+			// A confirmed preparation is an immutable receipt.  A Lead may
+			// correct coverage before confirmation, but edits after the receipt
+			// would leave materialization using a stale snapshot, so fail closed
+			// and require a new preparation revision through the normal workflow.
+			if current.Status == StatusQuestionsAssigned {
+				var confirmed bool
+				if err := transaction.QueryRow(ctx, `
+					SELECT EXISTS (
+						SELECT 1 FROM canonical_audit_preparation_snapshots
+						WHERE assignment_id = $1 AND status = 'CONFIRMED'
+					)
+				`, command.AssignmentID).Scan(&confirmed); err != nil {
+					return commandResult[Assignment]{}, err
+				}
+				if confirmed {
+					return commandResult[Assignment]{}, fmt.Errorf("%w: confirmed preparation is immutable; reopen preparation before changing coverage", ErrConflict)
+				}
 			}
 			allowedQuestions, err := templateQuestionIDs(ctx, transaction, current.InspectionID, current.PlanningItemID)
 			if err != nil {
@@ -631,6 +649,211 @@ func (service *Service) AssignQuestions(
 				BeforeStatus: string(current.Status), AfterStatus: string(updated.Status),
 			}, nil
 		})
+}
+
+// GetPreparationForLead is the read boundary for the pre-materialization
+// Lead workspace. It deliberately does not expose an execution package (or
+// require one): team and per-question coverage must be completed before the
+// Department Manager can confirm and materialize the Audit.
+func (service *Service) GetPreparationForLead(
+	ctx context.Context,
+	actor identity.Principal,
+	assignmentID string,
+	planningItemIDs ...string,
+) (Assignment, error) {
+	planningItemID := ""
+	if len(planningItemIDs) > 0 {
+		planningItemID = strings.TrimSpace(planningItemIDs[0])
+	}
+	if !actor.HasRole(identity.RoleLeadInspector) {
+		if actor.HasRole(identity.RoleDepartmentManager) {
+			return service.getPreparationForManager(ctx, actor, assignmentID, planningItemID)
+		}
+		return Assignment{}, ErrForbidden
+	}
+	var output Assignment
+	var start, end time.Time
+	assignmentID = strings.TrimSpace(assignmentID)
+	query := `
+		SELECT id, COALESCE(inspection_id, ''), COALESCE(planning_item_id, ''),
+		       COALESCE(released_scope_snapshot_id, ''), organization_id,
+		       COALESCE(lead_subject_id, ''), status,
+		       COALESCE(scheduled_start_date, CURRENT_DATE),
+		       COALESCE(scheduled_end_date, CURRENT_DATE), revision
+		FROM audit_assignments
+		WHERE lead_subject_id = $1
+		  AND tombstoned_at IS NULL
+		  AND status IN ('LEAD_ASSIGNED', 'TEAM_ASSIGNED', 'QUESTIONS_ASSIGNED')
+		  AND ($2 = '' OR id = $2)
+		  AND ($3 = '' OR planning_item_id = $3)
+		ORDER BY updated_at DESC, id DESC
+		LIMIT 1`
+	err := service.pool.QueryRow(ctx, query, actor.SubjectID, assignmentID, planningItemID).Scan(
+		&output.ID, &output.InspectionID, &output.PlanningItemID,
+		&output.ReleasedScopeSnapshotID, &output.OrganizationID,
+		&output.LeadSubjectID, &output.Status, &start, &end, &output.Revision,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Assignment{}, ErrNotFound
+	}
+	if err != nil {
+		return Assignment{}, err
+	}
+	output.ScheduledStartDate = start.Format("2006-01-02")
+	output.ScheduledEndDate = end.Format("2006-01-02")
+	output.MemberSubjectIDs, err = listMemberIDs(ctx, service.pool, output.ID)
+	if err != nil {
+		return Assignment{}, err
+	}
+	output.QuestionAssignments, err = listQuestionAssignments(ctx, service.pool, output.ID)
+	if err != nil {
+		return Assignment{}, err
+	}
+	if err := loadPreparationConfirmation(ctx, service.pool, output.ID, &output); err != nil {
+		return Assignment{}, err
+	}
+	if output.ReleasedScopeSnapshotID != "" {
+		rows, queryErr := service.pool.Query(ctx, `
+			SELECT question_version_id
+			FROM canonical_audit_scope_snapshot_questions
+			WHERE snapshot_id = $1
+			ORDER BY position
+		`, output.ReleasedScopeSnapshotID)
+		if queryErr != nil {
+			return Assignment{}, queryErr
+		}
+		for rows.Next() {
+			var questionID string
+			if scanErr := rows.Scan(&questionID); scanErr != nil {
+				rows.Close()
+				return Assignment{}, scanErr
+			}
+			output.SelectedQuestionVersionIDs = append(output.SelectedQuestionVersionIDs, questionID)
+		}
+		if rowsErr := rows.Err(); rowsErr != nil {
+			rows.Close()
+			return Assignment{}, rowsErr
+		}
+		rows.Close()
+	}
+	return output, nil
+}
+
+// getPreparationForManager is the restart-safe Department Manager projection
+// for the same pre-materialization assignment aggregate. It deliberately
+// rechecks current scope authority in the transaction instead of trusting the
+// original draft creator or a cached browser assignment ID.
+func (service *Service) getPreparationForManager(
+	ctx context.Context,
+	actor identity.Principal,
+	assignmentID string,
+	planningItemID string,
+) (Assignment, error) {
+	if assignmentID == "" && planningItemID == "" {
+		return Assignment{}, ErrInvalid
+	}
+	var output Assignment
+	err := database.WithinTransaction(ctx, service.pool, func(ctx context.Context, transaction pgx.Tx) error {
+		var start, end time.Time
+		err := transaction.QueryRow(ctx, `
+			SELECT id, COALESCE(inspection_id, ''), COALESCE(planning_item_id, ''),
+			       COALESCE(released_scope_snapshot_id, ''), organization_id,
+			       COALESCE(lead_subject_id, ''), status,
+			       COALESCE(scheduled_start_date, CURRENT_DATE),
+			       COALESCE(scheduled_end_date, CURRENT_DATE), revision
+			FROM audit_assignments
+			WHERE tombstoned_at IS NULL
+			  AND status IN ('PREPARATION', 'LEAD_ASSIGNED', 'TEAM_ASSIGNED', 'QUESTIONS_ASSIGNED')
+			  AND ($1 = '' OR id = $1)
+			  AND ($2 = '' OR planning_item_id = $2)
+			ORDER BY updated_at DESC, id DESC
+			LIMIT 1
+			FOR UPDATE`, assignmentID, planningItemID).Scan(
+			&output.ID, &output.InspectionID, &output.PlanningItemID,
+			&output.ReleasedScopeSnapshotID, &output.OrganizationID,
+			&output.LeadSubjectID, &output.Status, &start, &end, &output.Revision,
+		)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if err := requireCurrentDepartmentScopeAuthority(ctx, transaction, actor, output.PlanningItemID, ""); err != nil {
+			return err
+		}
+		output.ScheduledStartDate = start.Format("2006-01-02")
+		output.ScheduledEndDate = end.Format("2006-01-02")
+		var queryErr error
+		output.MemberSubjectIDs, queryErr = listMemberIDs(ctx, transaction, output.ID)
+		if queryErr != nil {
+			return queryErr
+		}
+		output.QuestionAssignments, queryErr = listQuestionAssignments(ctx, transaction, output.ID)
+		if queryErr != nil {
+			return queryErr
+		}
+		if queryErr = loadPreparationConfirmation(ctx, transaction, output.ID, &output); queryErr != nil {
+			return queryErr
+		}
+		if output.ReleasedScopeSnapshotID != "" {
+			rows, queryErr := transaction.Query(ctx, `
+				SELECT question_version_id
+				FROM canonical_audit_scope_snapshot_questions
+				WHERE snapshot_id = $1
+				ORDER BY position`, output.ReleasedScopeSnapshotID)
+			if queryErr != nil {
+				return queryErr
+			}
+			defer rows.Close()
+			for rows.Next() {
+				var questionID string
+				if queryErr = rows.Scan(&questionID); queryErr != nil {
+					return queryErr
+				}
+				output.SelectedQuestionVersionIDs = append(output.SelectedQuestionVersionIDs, questionID)
+			}
+			return rows.Err()
+		}
+		return nil
+	})
+	return output, err
+}
+
+type preparationConfirmationQueryer interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+func loadPreparationConfirmation(
+	ctx context.Context,
+	queryer preparationConfirmationQueryer,
+	assignmentID string,
+	output *Assignment,
+) error {
+	var confirmedAt time.Time
+	var confirmedAssignmentRevision int64
+	err := queryer.QueryRow(ctx, `
+		SELECT id, preparation_digest, confirmed_at, COALESCE(confirmed_assignment_revision, 0)
+		FROM canonical_audit_preparation_snapshots
+		WHERE assignment_id = $1 AND status = 'CONFIRMED'
+		ORDER BY revision DESC, id DESC
+		LIMIT 1
+	`, assignmentID).Scan(
+		&output.PreparationID, &output.PreparationDigest,
+		&confirmedAt, &confirmedAssignmentRevision,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if confirmedAssignmentRevision <= 0 {
+		return fmt.Errorf("%w: legacy preparation confirmation requires immutable assignment binding", ErrConflict)
+	}
+	output.PreparationConfirmedAssignmentRevision = confirmedAssignmentRevision
+	output.PreparationConfirmedAt = &confirmedAt
+	return nil
 }
 
 // recordPreparationEdit is the durable preview/confirm trail for mutable
@@ -1427,7 +1650,9 @@ func templateQuestionIDs(
 
 func listMemberIDs(
 	ctx context.Context,
-	transaction pgx.Tx,
+	transaction interface {
+		Query(context.Context, string, ...any) (pgx.Rows, error)
+	},
 	assignmentID string,
 ) ([]string, error) {
 	rows, err := transaction.Query(ctx, `
@@ -1447,6 +1672,34 @@ func listMemberIDs(
 			return nil, err
 		}
 		output = append(output, subjectID)
+	}
+	return output, rows.Err()
+}
+
+func listQuestionAssignments(
+	ctx context.Context,
+	queryer interface {
+		Query(context.Context, string, ...any) (pgx.Rows, error)
+	},
+	assignmentID string,
+) ([]QuestionAssignment, error) {
+	rows, err := queryer.Query(ctx, `
+		SELECT question_id, subject_id
+		FROM audit_question_assignments
+		WHERE assignment_id = $1
+		ORDER BY question_id, subject_id
+	`, assignmentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	output := []QuestionAssignment{}
+	for rows.Next() {
+		var item QuestionAssignment
+		if err := rows.Scan(&item.QuestionID, &item.SubjectID); err != nil {
+			return nil, err
+		}
+		output = append(output, item)
 	}
 	return output, rows.Err()
 }
