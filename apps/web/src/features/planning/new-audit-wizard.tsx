@@ -49,6 +49,7 @@ const stepSchemas = {
   2: z.object({
     inspectionCategory: z.enum(["Routine / Announced", "Ad Hoc / Unannounced"]),
     purpose: z.string().trim().min(1, "Purpose is required"),
+    riskCategory: z.string().trim().min(1, "Risk category is required"),
   }),
   3: z.object({
     plannedDate: z.string().min(1, "Planned date is required"),
@@ -110,13 +111,50 @@ function validationMessage(step: number, values: PlanningIntakeFormValues): stri
 }
 
 function formValuesFor(draft: PlanningIntakeDraftView): PlanningIntakeFormValues {
-  return { ...draft, selectedQuestionVersionIds: [...(draft.selectedQuestionVersionIds ?? [])], requestedBudget: String(draft.requestedBudget) };
+  return {
+    ...draft,
+    // The API requires a non-empty risk category at Finance submission. Keep
+    // older/local drafts resumable while making that server requirement
+    // visible and editable in the canonical wizard.
+    riskCategory: draft.riskCategory || "Configured inspection risk",
+    selectedQuestionVersionIds: [...(draft.selectedQuestionVersionIds ?? [])],
+    requestedBudget: String(draft.requestedBudget),
+  };
 }
 
 function commandValuesFor(values: PlanningIntakeFormValues): PlanningIntakeDraftValues {
   const result = requestedBudgetSchema.safeParse(values.requestedBudget);
   if (!result.success) throw new Error(result.error.issues[0]?.message ?? "Requested budget is invalid");
-  return { ...values, requestedBudget: result.data };
+  // PlanningIntakeDraftView extends the command values with server-owned
+  // identity/revision fields. Keep those fields out of strict JSON commands;
+  // the API deliberately rejects client-authored id/revision/updatedAt values.
+  return {
+    organizationId: values.organizationId,
+    organizationName: values.organizationName,
+    applicationType: values.applicationType,
+    domain: values.domain,
+    inspectionCategory: values.inspectionCategory,
+    noticePolicy: values.noticePolicy,
+    purpose: values.purpose,
+    triggerType: values.triggerType,
+    riskCategory: values.riskCategory,
+    plannedDate: values.plannedDate,
+    mode: values.mode,
+    location: values.location,
+    templateVersionId: values.templateVersionId,
+    scope: values.scope,
+    catalogVersion: values.catalogVersion,
+    scopeDraftId: values.scopeDraftId,
+    selectionDigest: values.selectionDigest,
+    selectedQuestionVersionIds: values.selectedQuestionVersionIds,
+    estimatedResourceRequirement: values.estimatedResourceRequirement,
+    formDistribution: values.formDistribution,
+    domainDistribution: values.domainDistribution,
+    providerScopeId: values.providerScopeId,
+    regulatedTargetId: values.regulatedTargetId,
+    requestedBudget: result.data,
+    currency: values.currency,
+  };
 }
 
 export function NewAuditWizardPage() {
@@ -248,7 +286,7 @@ export function NewAuditWizardPage() {
           noticePolicy: "ADVANCE" as const,
           purpose: "",
           triggerType: "Department Manager initiated",
-          riskCategory: "",
+          riskCategory: "Configured inspection risk",
           plannedDate: "",
           mode: "On-site" as const,
           location: "",

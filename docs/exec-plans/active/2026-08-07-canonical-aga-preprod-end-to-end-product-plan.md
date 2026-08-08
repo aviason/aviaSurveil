@@ -1454,10 +1454,24 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   without AWS or external infrastructure. Migration 41, the privacy-safe
   `aga-preprod@1.0.0` catalog (1,310 questions), API readiness, Keycloak’s
   nine role-mapped demo users, MinIO private buckets, ClamAV, Gotenberg, and
-  Mailpit dependency health are `verified locally`. The connected OIDC
-  multi-role lifecycle, full object/scan/render/mail matrix, user-owned
-  viewport review, stakeholder qualification, and donor deletion/re-
-  qualification remain `not run`; Task 10 remains `not run`.
+  Mailpit dependency health are `verified locally`. A connected OIDC session
+  smoke for all nine privacy-safe roles, the Manager New Audit selection →
+  Finance submission persistence path, and the exercise Question Review
+  Retain/history path are `verified locally`. Targeted MinIO put/get/delete,
+  ClamAV clean/EICAR rejection, Gotenberg HTML→PDF, and authenticated Mailpit
+  SMTP/API delivery checks are also `verified locally`; these are dependency
+  and boundary smokes, not the full connected lifecycle or evidence matrix.
+  The full connected OIDC lifecycle, full object/scan/render/mail matrix,
+  user-owned viewport review, stakeholder qualification, and donor deletion/
+  requalification remain `not run`; Task 10 remains `not run`.
+- [x] 2026-08-08: Local canonical browser qualification was rerun after the
+  HTTP/API fixes: the exact 1,310-question catalog loads, server-owned
+  selection preview/commit and Finance submission survive persistence, and
+  Question Review retains the `Find -> Compare -> Decide` shell with append-only
+  exercise history and governed technical-approval fail-closed behavior. The
+  isolated Chromium run passed and its task-owned browser residue was cleaned;
+  no screenshots or real AGA question bodies were retained. The required
+  rendered 1440x900/1024x768/390x844 review remains user-owned and `not run`.
 - [x] 2026-08-07: Gate 0 froze the canonical table/FK/aggregate/event
   boundaries, classified every dirty AGA change, mapped F-002/F-004/F-007/
   F-010/F-013/F-015/F-018/F-021, synchronized the product specifications,

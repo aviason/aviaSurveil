@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -272,7 +273,7 @@ func (api *CanonicalAPI) listCanonicalAuditScopeOptions(writer http.ResponseWrit
 			  AND published_template.candidate_revision = catalog.governed_candidate_revision
 			  AND published_template.candidate_content_digest = catalog.governed_candidate_content_digest
 			  AND published_template.publication_decision_id = catalog.governed_publication_decision_id
-			 ))
+			 )
 			 AND NOT EXISTS (
 			SELECT 1
 			FROM canonical_question_catalog_memberships catalog_membership
@@ -649,7 +650,11 @@ func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.Respons
 		api.respond(writer, nil, application.ErrNotFound)
 		return
 	}
-	catalogVersion := chi.URLParam(request, "catalogVersion")
+	catalogVersion, err := url.PathUnescape(chi.URLParam(request, "catalogVersion"))
+	if err != nil {
+		api.respond(writer, nil, fmt.Errorf("%w: invalid catalog version", application.ErrInvalid))
+		return
+	}
 	search := strings.TrimSpace(request.URL.Query().Get("search"))
 	formCode := strings.TrimSpace(request.URL.Query().Get("formCode"))
 	domain := strings.TrimSpace(request.URL.Query().Get("domain"))
@@ -709,7 +714,7 @@ func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.Respons
 			 ORDER BY revision DESC LIMIT 1
 		) exercise_review ON c.usage_class='PREPROD_EXERCISE'
 		LEFT JOIN LATERAL (
-		 SELECT COALESCE(successor.revision,event.candidate_revision), event.action, event.reason, event.reviewed_domain, event.reviewed_topic
+		 SELECT COALESCE(successor.revision,event.candidate_revision) AS candidate_revision, event.action, event.reason, event.reviewed_domain, event.reviewed_topic
 		 FROM canonical_governed_question_review_events event
 		 LEFT JOIN LATERAL (
 		   SELECT revision FROM template_draft_versions successor
@@ -783,7 +788,11 @@ func (api *CanonicalAPI) getCanonicalQuestionCatalogEntry(writer http.ResponseWr
 		api.respond(writer, nil, application.ErrNotFound)
 		return
 	}
-	catalogVersion := chi.URLParam(request, "catalogVersion")
+	catalogVersion, err := url.PathUnescape(chi.URLParam(request, "catalogVersion"))
+	if err != nil {
+		api.respond(writer, nil, fmt.Errorf("%w: invalid catalog version", application.ErrInvalid))
+		return
+	}
 	questionVersionID := chi.URLParam(request, "questionVersionId")
 	if usage == questioncatalog.UsageClassGovernedOperational && strings.HasPrefix(catalogVersion, "candidate:") {
 		items, _, _, err := api.queryGovernedReviewCandidateCatalog(request.Context(), actor.SubjectID, strings.TrimPrefix(catalogVersion, "candidate:"), questionVersionID, "", "", "", "", "", "", "", "", 25)
@@ -829,7 +838,7 @@ func (api *CanonicalAPI) getCanonicalQuestionCatalogEntry(writer http.ResponseWr
 		 ORDER BY revision DESC LIMIT 1
 		) exercise_review ON c.usage_class='PREPROD_EXERCISE'
 		LEFT JOIN LATERAL (
-		 SELECT COALESCE(successor.revision,event.candidate_revision), event.action, event.reason, event.reviewed_domain, event.reviewed_topic
+		 SELECT COALESCE(successor.revision,event.candidate_revision) AS candidate_revision, event.action, event.reason, event.reviewed_domain, event.reviewed_topic
 		 FROM canonical_governed_question_review_events event
 		 LEFT JOIN LATERAL (
 		   SELECT revision FROM template_draft_versions successor
@@ -888,6 +897,7 @@ type canonicalScopeState struct {
 	CatalogID                     string
 	CatalogVersion                string
 	UsageClass                    string
+	AuditType                     string
 	OrganizationID                string
 	ProviderScopeID               string
 	RegulatedTargetID             string
@@ -999,14 +1009,14 @@ func (api *CanonicalAPI) readCanonicalScopeState(ctx context.Context, scopeID st
 	}
 	var state canonicalScopeState
 	if err := api.pool.QueryRow(ctx, `
-		SELECT c.id,c.catalog_version,c.usage_class,s.organization_id,s.provider_scope_id,s.regulated_target_id,
+		SELECT c.id,c.catalog_version,c.usage_class,s.audit_type,s.organization_id,s.provider_scope_id,s.regulated_target_id,
 		       c.governed_publication_decision_id,c.governed_candidate_draft_version_id,
 		       c.governed_candidate_revision,c.governed_candidate_content_digest,
 		       s.selection_digest
 		FROM canonical_audit_scope_drafts s
 		JOIN canonical_question_catalogs c ON c.id=s.catalog_id
 		WHERE s.id=$1 AND s.status IN ('DRAFT','SUBMITTED','RELEASED')
-	`, scopeID).Scan(&state.CatalogID, &state.CatalogVersion, &state.UsageClass, &state.OrganizationID, &state.ProviderScopeID, &state.RegulatedTargetID,
+	`, scopeID).Scan(&state.CatalogID, &state.CatalogVersion, &state.UsageClass, &state.AuditType, &state.OrganizationID, &state.ProviderScopeID, &state.RegulatedTargetID,
 		&state.GovernedPublicationDecisionID, &state.GovernedCandidateID, &state.GovernedCandidateRevision,
 		&state.GovernedCandidateDigest, &state.CurrentDigest); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -1024,6 +1034,7 @@ func (api *CanonicalAPI) readCanonicalScopeState(ctx context.Context, scopeID st
 	if err := database.WithinTransaction(ctx, api.pool, func(ctx context.Context, tx pgx.Tx) error {
 		_, err := application.ValidateCanonicalScopeMap(ctx, tx, actor, map[string]any{
 			"organizationId":    state.OrganizationID,
+			"applicationType":   state.AuditType,
 			"catalogVersion":    state.CatalogVersion,
 			"scopeDraftId":      scopeID,
 			"selectionDigest":   state.CurrentDigest,
@@ -1293,6 +1304,7 @@ func (api *CanonicalAPI) previewCanonicalAuditScopeSelection(writer http.Respons
 			}
 			if _, err := application.ValidateCanonicalScopeMap(ctx, tx, actor, map[string]any{
 				"organizationId":    currentOrganizationID,
+				"applicationType":   state.AuditType,
 				"catalogVersion":    currentCatalogVersion,
 				"scopeDraftId":      chi.URLParam(request, "scopeId"),
 				"selectionDigest":   currentDigest,
@@ -1556,6 +1568,7 @@ func (api *CanonicalAPI) commitCanonicalAuditScopeSelection(writer http.Response
 		}
 		if _, err := application.ValidateCanonicalScopeMap(ctx, tx, actor, map[string]any{
 			"organizationId":    currentOrganizationID,
+			"applicationType":   state.AuditType,
 			"catalogVersion":    currentCatalogVersion,
 			"scopeDraftId":      chi.URLParam(request, "scopeId"),
 			"selectionDigest":   currentDigest,
@@ -1768,7 +1781,7 @@ func (api *CanonicalAPI) queryCanonicalCatalog(ctx context.Context, actorSubject
 			 ORDER BY revision DESC LIMIT 1
 		) exercise_review ON c.usage_class='PREPROD_EXERCISE'
 		LEFT JOIN LATERAL (
-		 SELECT COALESCE(successor.revision,event.candidate_revision), event.action, event.reason, event.reviewed_domain, event.reviewed_topic
+		 SELECT COALESCE(successor.revision,event.candidate_revision) AS candidate_revision, event.action, event.reason, event.reviewed_domain, event.reviewed_topic
 		 FROM canonical_governed_question_review_events event
 		 LEFT JOIN LATERAL (
 		   SELECT revision FROM template_draft_versions successor

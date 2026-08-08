@@ -121,6 +121,7 @@ function mapCanonicalCatalogEntry(value: Schemas["CanonicalQuestionCatalogEntry"
     reviewRevision: value.reviewRevision ?? 0,
     reviewDisposition: value.reviewDisposition ?? null,
     reviewDigest: value.reviewDigest ?? null,
+    reviewHistory: value.reviewHistory ?? [],
   };
 }
 
@@ -803,10 +804,16 @@ export function createHttpBackend(
         }), {}, options)),
       getQuestion: async (input, options) => mapCanonicalCatalogEntry(await request<Schemas["CanonicalQuestionCatalogEntry"]>(
         appendQuery(`/v1/question-catalogs/${encodeURIComponent(input.catalogVersion)}/questions/${encodeURIComponent(input.questionVersionId)}`, { usageClass: input.usageClass, scopeId: input.scopeId }), {}, options)),
-      previewSelection: async (input, options) => mapCanonicalSelectionPreview(await request<Schemas["CanonicalAuditScopeSelectionPreview"]>(
-        `/v1/audit-scopes/${encodeURIComponent(input.scopeId)}/preview`, { method: "POST", body: input }, options)),
-      commitSelection: async (input, options) => mapCanonicalSelectionReceipt(await request<Schemas["CanonicalAuditScopeSelectionReceipt"]>(
-        `/v1/audit-scopes/${encodeURIComponent(input.scopeId)}/selection`, { method: "PUT", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey ?? input.operationId, expectedRevision: null }) }, options)),
+      previewSelection: async (input, options) => {
+        const { scopeId, ...body } = input;
+        return mapCanonicalSelectionPreview(await request<Schemas["CanonicalAuditScopeSelectionPreview"]>(
+          `/v1/audit-scopes/${encodeURIComponent(scopeId)}/preview`, { method: "POST", body }, options));
+      },
+      commitSelection: async (input, options) => {
+        const { scopeId, ...body } = input;
+        return mapCanonicalSelectionReceipt(await request<Schemas["CanonicalAuditScopeSelectionReceipt"]>(
+          `/v1/audit-scopes/${encodeURIComponent(scopeId)}/selection`, { method: "PUT", body, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey ?? input.operationId, expectedRevision: null }) }, options));
+      },
       reviewQueue: async (input, options) => mapCanonicalReviewQueue(await request<Schemas["QuestionReviewQueue"]>(
         appendQuery("/v1/department-manager/question-review", input), { cache: "no-store", suppressTelemetry: true }, options)),
       command: async (input, options) => {
