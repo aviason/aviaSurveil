@@ -43,7 +43,7 @@ interface AppShellManifest {
 
 // Increment this whenever the app shell or its static asset graph changes so
 // an older service-worker cache cannot keep serving a previous UI indefinitely.
-const APP_SHELL_VERSION_MARKER = "AVIA_APP_SHELL_VERSION:000005";
+const APP_SHELL_VERSION_MARKER = "AVIA_APP_SHELL_VERSION:000006";
 const APP_SHELL_VERSION = Number(
   /^AVIA_APP_SHELL_VERSION:(\d{6})$/.exec(APP_SHELL_VERSION_MARKER)?.[1],
 );
@@ -60,14 +60,18 @@ async function installAppShell(): Promise<void> {
   if (manifest.appShellVersion !== APP_SHELL_VERSION || !Array.isArray(manifest.assets)) {
     throw new Error("App-shell manifest version is incompatible");
   }
-  const assets = [...new Set(["/", "/index.html", "/app-shell-assets.json", ...manifest.assets])];
+  // Keep the root response as the canonical navigation shell. The local
+  // server must not make navigations depend on a redirected /index.html
+  // response: WebKit rejects a service-worker navigation response whose URL
+  // was redirected, which breaks the OAuth callback return to "/".
+  const assets = [...new Set(["/", "/app-shell-assets.json", ...manifest.assets])];
   const cache = await caches.open(APP_SHELL_CACHE);
   await cache.addAll(assets);
 }
 
 async function serveAppShellNavigation(request: Request): Promise<Response> {
   const cache = await caches.open(APP_SHELL_CACHE);
-  return (await cache.match("/index.html")) ?? (await fetch(request));
+  return (await cache.match(request)) ?? (await cache.match("/")) ?? (await fetch(request));
 }
 
 async function serveVersionedAsset(request: Request): Promise<Response> {

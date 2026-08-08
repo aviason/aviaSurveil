@@ -1488,6 +1488,15 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   confirmation → announced coordination → Inspector start (`1 passed`). The
   canonical path decoder fix covers URL-encoded server-owned IDs such as
   `assignment:*`, `package:*`, report, Finding, CAP, and Evidence identities.
+- [x] 2026-08-08: Local Safari/WebKit app-shell navigation was repaired. The
+  local web server no longer lets `http.ServeFile` redirect `/index.html` to
+  `./`, and the service worker now installs app-shell version 6 from `/` and
+  serves that root response for navigations. The web-server regression test,
+  HTTP build/artifact scan, full React suite (91 files / 767 tests), contract
+  suite (16/16), `/index.html` 200/no-`Location` probe on `https://localhost:8445`,
+  and `git diff --check` are `verified locally`. Existing Safari site data may
+  still require a one-time localhost cache/service-worker clear; the user's
+  manual Safari login and the required viewport review remain `not run`.
   These are fresh local connected hero receipts; the full negative/fault,
   restart, backup/restore, dependency matrix, viewport review, Task 9 deletion/
   requalification, and stakeholder verification remain `not run`. Task 10

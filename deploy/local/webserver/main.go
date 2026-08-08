@@ -118,7 +118,25 @@ func serveFile(response http.ResponseWriter, request *http.Request, filename str
 	if contentType := mime.TypeByExtension(filepath.Ext(filename)); contentType != "" {
 		response.Header().Set("Content-Type", contentType)
 	}
-	http.ServeFile(response, request, filename)
+
+	// http.ServeFile applies its own directory/index redirect policy. In
+	// particular, a request for /index.html is redirected to ./ before the
+	// body is served. That redirect is harmless for a normal document request
+	// but WebKit rejects it when the response is returned by the app-shell
+	// service worker during an OAuth callback navigation. Serve the opened file
+	// directly so /index.html remains a 200 response with no Location header.
+	file, err := os.Open(filename)
+	if err != nil {
+		http.NotFound(response, request)
+		return
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil || info.IsDir() {
+		http.NotFound(response, request)
+		return
+	}
+	http.ServeContent(response, request, info.Name(), info.ModTime(), file)
 }
 
 func acceptsHTML(request *http.Request) bool {
