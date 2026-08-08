@@ -268,6 +268,9 @@ func (service *Service) Approve(ctx context.Context, actor identity.Principal, c
 			if replay.CandidateID != command.CandidateID {
 				return application.ErrConflict
 			}
+			if _, err := service.assignmentForCandidate(ctx, tx, actor, replay.CandidateID, replay.Revision, replay.ContentDigest); err != nil {
+				return err
+			}
 			output = replay
 			return nil
 		}
@@ -280,6 +283,9 @@ func (service *Service) Approve(ctx context.Context, actor identity.Principal, c
 		} else if ok {
 			if replay.CandidateID != command.CandidateID {
 				return application.ErrConflict
+			}
+			if _, err := service.assignmentForCandidate(ctx, tx, actor, replay.CandidateID, replay.Revision, replay.ContentDigest); err != nil {
+				return err
 			}
 			output = replay
 			return nil
@@ -387,6 +393,9 @@ func (service *Service) Publish(ctx context.Context, actor identity.Principal, c
 		if replay, ok, err := replayPublication(ctx, tx, reviewCommand, semantic); err != nil {
 			return err
 		} else if ok {
+			if _, err := service.assignmentForCandidate(ctx, tx, actor, replay.CandidateID, replay.CandidateRevision, replay.CandidateContentDigest); err != nil {
+				return err
+			}
 			output = replay
 			return nil
 		}
@@ -397,6 +406,9 @@ func (service *Service) Publish(ctx context.Context, actor identity.Principal, c
 		if replay, ok, err := replayPublication(ctx, tx, reviewCommand, semantic); err != nil {
 			return err
 		} else if ok {
+			if _, err := service.assignmentForCandidate(ctx, tx, actor, replay.CandidateID, replay.CandidateRevision, replay.CandidateContentDigest); err != nil {
+				return err
+			}
 			output = replay
 			return nil
 		}

@@ -64,6 +64,9 @@ async function progressToStepFive(user: ReturnType<typeof userEvent.setup>) {
   const [firstQuestion] = await screen.findAllByRole("checkbox", { name: /Select / });
   if (!firstQuestion) throw new Error("Expected at least one selectable question");
   await user.click(firstQuestion);
+  await user.click(screen.getByRole("button", { name: "Preview exact batch" }));
+  await screen.findByText(/Exact selection preview ready/);
+  await user.click(screen.getByRole("button", { name: "Confirm selection" }));
   await screen.findByText(/Exact question selection committed/);
   await user.clear(screen.getByLabelText("Requested Budget"));
   await user.type(screen.getByLabelText("Requested Budget"), "0");
@@ -118,6 +121,9 @@ describe("New Inspection Planning intake", () => {
     await screen.findByRole("heading", { level: 2, name: /Step 4 of 5/ });
     const budget = screen.getByLabelText("Requested Budget");
     await user.click((await screen.findAllByRole("checkbox", { name: /Select / }))[0]);
+    await user.click(screen.getByRole("button", { name: "Preview exact batch" }));
+    await screen.findByText(/Exact selection preview ready/);
+    await user.click(screen.getByRole("button", { name: "Confirm selection" }));
     await screen.findByText(/Exact question selection committed/);
 
     await user.clear(budget);

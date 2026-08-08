@@ -76,6 +76,8 @@ func (api *CanonicalAPI) savePlanningIntakeDraft(
 				SelectionDigest:              optionalString(input.Values.SelectionDigest),
 				SelectedQuestionVersionIDs:   append([]string(nil), input.Values.SelectedQuestionVersionIds...),
 				EstimatedResourceRequirement: optionalFloat(input.Values.EstimatedResourceRequirement),
+				FormDistribution:             input.Values.FormDistribution,
+				DomainDistribution:           input.Values.DomainDistribution,
 				ProviderScopeID:              optionalString(input.Values.ProviderScopeId), RegulatedTargetID: optionalString(input.Values.RegulatedTargetId),
 				RequestedBudget: input.Values.RequestedBudget, Currency: input.Values.Currency,
 			},
@@ -360,6 +362,7 @@ func (api *CanonicalAPI) assignAuditTeam(writer http.ResponseWriter, request *ht
 	item, err := api.assignments.AssignTeam(request.Context(), actor, assignments.AssignTeamCommand{
 		OperationID: input.OperationId, IdempotencyKey: input.IdempotencyKey,
 		AssignmentID: assignmentID, ExpectedRevision: input.ExpectedRevision,
+		PreviewID: input.PreviewId, PreviewDigest: input.PreviewDigest,
 		MemberSubjectIDs: append([]string(nil), input.MemberSubjectIds...),
 	})
 	if err != nil {
@@ -368,6 +371,33 @@ func (api *CanonicalAPI) assignAuditTeam(writer http.ResponseWriter, request *ht
 	}
 	writer.Header().Set("ETag", strongRevisionETag(item.Revision))
 	api.respond(writer, canonicalAssignmentView(item), nil)
+}
+
+func (api *CanonicalAPI) previewAuditTeam(writer http.ResponseWriter, request *http.Request) {
+	actor, ok := requirePrincipal(writer, request)
+	if !ok {
+		return
+	}
+	var input generated.PreviewAssignTeamInput
+	if !decodeJSON(writer, request, &input) {
+		return
+	}
+	assignmentID := chi.URLParam(request, "assignmentId")
+	if !validRevisionCommandHeaders(request, input.IdempotencyKey, &input.ExpectedRevision) {
+		api.respond(writer, nil, application.ErrInvalid)
+		return
+	}
+	item, err := api.assignments.PreviewTeam(request.Context(), actor, assignments.PreviewTeamCommand{
+		OperationID: input.OperationId, IdempotencyKey: input.IdempotencyKey,
+		AssignmentID: assignmentID, ExpectedRevision: input.ExpectedRevision,
+		MemberSubjectIDs: append([]string(nil), input.MemberSubjectIds...),
+	})
+	if err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
+	writer.Header().Set("ETag", strongRevisionETag(item.AssignmentRevision))
+	api.respond(writer, preparationEditPreviewView(item), nil)
 }
 
 func (api *CanonicalAPI) assignAuditQuestionCoverage(writer http.ResponseWriter, request *http.Request) {
@@ -393,6 +423,7 @@ func (api *CanonicalAPI) assignAuditQuestionCoverage(writer http.ResponseWriter,
 	item, err := api.assignments.AssignQuestions(request.Context(), actor, assignments.AssignQuestionsCommand{
 		OperationID: input.OperationId, IdempotencyKey: input.IdempotencyKey,
 		AssignmentID: assignmentID, ExpectedRevision: input.ExpectedRevision,
+		PreviewID: input.PreviewId, PreviewDigest: input.PreviewDigest,
 		QuestionAssignments: questionAssignments,
 	})
 	if err != nil {
@@ -401,6 +432,37 @@ func (api *CanonicalAPI) assignAuditQuestionCoverage(writer http.ResponseWriter,
 	}
 	writer.Header().Set("ETag", strongRevisionETag(item.Revision))
 	api.respond(writer, canonicalAssignmentView(item), nil)
+}
+
+func (api *CanonicalAPI) previewAuditQuestionCoverage(writer http.ResponseWriter, request *http.Request) {
+	actor, ok := requirePrincipal(writer, request)
+	if !ok {
+		return
+	}
+	var input generated.PreviewAssignQuestionsInput
+	if !decodeJSON(writer, request, &input) {
+		return
+	}
+	assignmentID := chi.URLParam(request, "assignmentId")
+	if !validRevisionCommandHeaders(request, input.IdempotencyKey, &input.ExpectedRevision) {
+		api.respond(writer, nil, application.ErrInvalid)
+		return
+	}
+	questionAssignments := make([]assignments.QuestionAssignment, 0, len(input.QuestionAssignments))
+	for _, assignment := range input.QuestionAssignments {
+		questionAssignments = append(questionAssignments, assignments.QuestionAssignment{QuestionID: assignment.QuestionId, SubjectID: assignment.SubjectId})
+	}
+	item, err := api.assignments.PreviewQuestions(request.Context(), actor, assignments.PreviewQuestionsCommand{
+		OperationID: input.OperationId, IdempotencyKey: input.IdempotencyKey,
+		AssignmentID: assignmentID, ExpectedRevision: input.ExpectedRevision,
+		QuestionAssignments: questionAssignments,
+	})
+	if err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
+	writer.Header().Set("ETag", strongRevisionETag(item.AssignmentRevision))
+	api.respond(writer, preparationEditPreviewView(item), nil)
 }
 
 func (api *CanonicalAPI) confirmAuditPreparation(
@@ -585,6 +647,8 @@ func planningIntakeDraftView(draft planning.IntakeDraft) generated.PlanningIntak
 		SelectionDigest:              optionalStringPointer(draft.SelectionDigest),
 		SelectedQuestionVersionIds:   append([]string(nil), draft.SelectedQuestionVersionIDs...),
 		EstimatedResourceRequirement: optionalFloatPointer(draft.EstimatedResourceRequirement),
+		FormDistribution:             draft.FormDistribution,
+		DomainDistribution:           draft.DomainDistribution,
 		ProviderScopeId:              optionalStringPointer(draft.ProviderScopeID), RegulatedTargetId: optionalStringPointer(draft.RegulatedTargetID),
 		RequestedBudget: draft.RequestedBudget, Currency: draft.Currency,
 		Revision: draft.Revision, SubmittedPlanningItemId: draft.SubmittedPlanningItemID,
@@ -678,6 +742,19 @@ func preparationConfirmationView(item assignments.Preparation) generated.Prepara
 		SelectedQuestionCount:       int64(item.SelectedQuestionCount),
 		ConfirmedAt:                 item.ConfirmedAt.UTC().Format(time.RFC3339Nano),
 		ConfirmedAssignmentRevision: item.ConfirmedAssignmentRevision,
+	}
+}
+
+func preparationEditPreviewView(item assignments.PreparationEditPreview) generated.PreparationEditPreviewView {
+	questionAssignments := make([]generated.QuestionCoverageInput, 0, len(item.QuestionAssignments))
+	for _, assignment := range item.QuestionAssignments {
+		questionAssignments = append(questionAssignments, generated.QuestionCoverageInput{QuestionId: assignment.QuestionID, SubjectId: assignment.SubjectID})
+	}
+	return generated.PreparationEditPreviewView{
+		PreviewId: item.PreviewID, AssignmentId: item.AssignmentID,
+		AssignmentRevision: item.AssignmentRevision, EditKind: item.EditKind,
+		Digest: item.Digest, ExpiresAt: item.ExpiresAt.UTC().Format(time.RFC3339Nano),
+		MemberSubjectIds: append([]string(nil), item.MemberSubjectIDs...), QuestionAssignments: questionAssignments,
 	}
 }
 

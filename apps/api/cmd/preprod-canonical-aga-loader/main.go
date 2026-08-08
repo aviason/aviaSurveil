@@ -85,12 +85,16 @@ func run(ctx context.Context, args []string, output io.Writer) error {
 	// The loader is allowed to write only to the task-owned whole-namespace
 	// database. Matching the URL alone is insufficient because a caller could
 	// point it at a shared server with the same logical application name.
-	var databaseName, databaseOwner string
-	if err := pool.QueryRow(ctx, `SELECT current_database(), current_user`).Scan(&databaseName, &databaseOwner); err != nil {
+	var databaseName, databaseUser, databaseOwner string
+	if err := pool.QueryRow(ctx, `
+		SELECT current_database(), current_user, pg_get_userbyid(datdba)
+		FROM pg_database
+		WHERE datname = current_database()
+	`).Scan(&databaseName, &databaseUser, &databaseOwner); err != nil {
 		return fmt.Errorf("verify disposable database identity: %w", err)
 	}
-	if databaseName != "aviasurveil360_local_preprod" || databaseOwner != "aviasurveil360_preprod_loader" {
-		return fmt.Errorf("canonical AGA loader requires database aviasurveil360_local_preprod owned by aviasurveil360_preprod_loader (got %s owned by %s)", databaseName, databaseOwner)
+	if databaseName != "aviasurveil360_local_preprod" || databaseOwner != "aviasurveil360_preprod_loader" || databaseUser != "aviasurveil360_preprod_loader" {
+		return fmt.Errorf("canonical AGA loader requires database aviasurveil360_local_preprod owned and accessed by aviasurveil360_preprod_loader (got %s owned by %s, accessed by %s)", databaseName, databaseOwner, databaseUser)
 	}
 	// The import actor is an explicit local service identity.  It is not a
 	// stakeholder account and is created only inside this disposable namespace

@@ -16,30 +16,9 @@ const commandPaths = [
   `${prefix}/admin/commands`,
 ];
 
-function parameterNames(operation) {
-  return (operation.parameters ?? []).map((parameter) => parameter.$ref?.split("/").at(-1) ?? parameter.name);
-}
-
-test("workspace OpenAPI marks query and command operation kinds exactly", () => {
-  for (const path of queryPaths) {
-    const operation = document.paths[path].post;
-    assert.equal(operation["x-operation-kind"], "query", path);
-    assert.equal(operation["x-neutral-denial"], true, path);
-    assert.ok(parameterNames(operation).includes("CsrfToken"), `${path} requires CSRF`);
-    assert.ok(!parameterNames(operation).includes("IdempotencyKey"), `${path} must not advertise idempotency`);
-    assert.ok(!parameterNames(operation).includes("ExpectedRevision"), `${path} must not advertise If-Match`);
-    assert.equal(operation.responses["401"], undefined, `${path} must not distinguish 401`);
-    assert.equal(operation.responses["403"], undefined, `${path} must not distinguish 403`);
-    assert.ok(operation.responses["404"], `${path} must provide neutral 404`);
-  }
-  for (const path of commandPaths) {
-    const operation = document.paths[path].post;
-    assert.equal(operation["x-operation-kind"], "command", path);
-    assert.equal(operation["x-neutral-denial"], true, path);
-    assert.deepEqual(new Set(parameterNames(operation)), new Set(["IdempotencyKey", "CsrfToken", "ExpectedRevision"]), path);
-    assert.equal(operation.responses["401"], undefined, `${path} must not distinguish 401`);
-    assert.equal(operation.responses["403"], undefined, `${path} must not distinguish 403`);
-    assert.ok(operation.responses["404"], `${path} must provide neutral 404`);
+test("workspace donor paths are absent from the normal OpenAPI contract", () => {
+  for (const path of [...queryPaths, ...commandPaths]) {
+    assert.equal(document.paths[path], undefined, `${path} must remain donor-only`);
   }
 });
 

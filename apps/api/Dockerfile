@@ -24,7 +24,8 @@ RUN mkdir -p /out \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-data-loader ./cmd/preprod-data-loader \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-canonical-aga-loader ./cmd/preprod-canonical-aga-loader \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-aga-candidate-demo-loader ./cmd/preprod-aga-candidate-demo-loader \
-    && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-aga-demo-role-provisioner ./cmd/preprod-aga-demo-role-provisioner
+    && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-aga-demo-role-provisioner ./cmd/preprod-aga-demo-role-provisioner \
+    && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-normal-runtime-role-provisioner ./cmd/preprod-normal-runtime-role-provisioner
 RUN go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-aga-demo-oidc-fixture ./cmd/preprod-aga-demo-oidc-fixture
 RUN go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-aga-demo-workspace-role-provisioner ./cmd/preprod-aga-demo-workspace-role-provisioner \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-aga-demo-workspace-fixture-exporter ./cmd/preprod-aga-demo-workspace-fixture-exporter \
@@ -104,6 +105,10 @@ ENTRYPOINT ["/app/preprod-aga-candidate-demo-loader"]
 FROM runtime-base AS preprod-aga-demo-role-provisioner
 COPY --from=go-build --chown=10001:10001 /out/preprod-aga-demo-role-provisioner /app/preprod-aga-demo-role-provisioner
 ENTRYPOINT ["/app/preprod-aga-demo-role-provisioner"]
+
+FROM runtime-base AS preprod-normal-runtime-role-provisioner
+COPY --from=go-build --chown=10001:10001 /out/preprod-normal-runtime-role-provisioner /app/preprod-normal-runtime-role-provisioner
+ENTRYPOINT ["/app/preprod-normal-runtime-role-provisioner"]
 
 FROM runtime-base AS preprod-aga-demo-oidc-fixture
 COPY --from=go-build --chown=10001:10001 /out/preprod-aga-demo-oidc-fixture /app/preprod-aga-demo-oidc-fixture

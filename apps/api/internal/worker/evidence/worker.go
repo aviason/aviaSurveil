@@ -192,16 +192,18 @@ func (worker *Worker) claimNext(ctx context.Context) (claim, bool, error) {
 }
 
 type objectRecord struct {
-	OrganizationID string
-	SubjectID      string
-	SourceMetadata string
-	SourceBucket   string
-	SourceKey      string
-	FileName       string
-	MediaType      string
-	SHA256         string
-	Size           int64
-	UploadID       *string
+	OrganizationID      string
+	SubjectID           string
+	SourceMetadata      string
+	SourceBucket        string
+	SourceKey           string
+	FileName            string
+	MediaType           string
+	SHA256              string
+	Size                int64
+	UploadID            *string
+	AttachmentVersionID string
+	AttachmentVersion   int64
 }
 
 func (worker *Worker) processEvidence(ctx context.Context, claimed claim) error {
@@ -379,16 +381,21 @@ func (worker *Worker) processAttachment(ctx context.Context, claimed claim) erro
 	if err := worker.pool.QueryRow(ctx, `
 		SELECT attachment.organization_id, attachment.created_by_subject_id, metadata.id, metadata.bucket_name,
 		       metadata.object_key, metadata.filename, metadata.declared_media_type, metadata.sha256,
-		       metadata.size_bytes, metadata.upload_id, attachment.scan_state
+		       metadata.size_bytes, metadata.upload_id, attachment.scan_state,
+		       version.id, version.version
 		FROM inspection_attachments attachment
 		JOIN object_metadata metadata ON metadata.id = attachment.object_metadata_id
+		JOIN inspection_attachment_versions version
+		  ON version.id = attachment.current_version_id
+		 AND version.inspection_attachment_id = attachment.id
+		 AND version.source_object_metadata_id = metadata.id
 		WHERE attachment.id = $1
 	`, claimed.AggregateID).Scan(
 		&record.OrganizationID, &record.SubjectID, &record.SourceMetadata, &record.SourceBucket,
 		&record.SourceKey, &record.FileName, &record.MediaType, &record.SHA256, &record.Size,
-		&record.UploadID, &scanState,
+		&record.UploadID, &scanState, &record.AttachmentVersionID, &record.AttachmentVersion,
 	); err != nil {
-		return err
+		return fmt.Errorf("load immutable Inspection Attachment version: %w", err)
 	}
 	if scanState == "CLEAN" || scanState == "QUARANTINED" {
 		return worker.markDelivered(ctx, claimed.ID)
@@ -419,6 +426,27 @@ func (worker *Worker) processAttachment(ctx context.Context, claimed claim) erro
 	}
 	now := worker.clock().UTC()
 	return database.WithinTransaction(ctx, worker.pool, func(ctx context.Context, transaction pgx.Tx) error {
+		var currentScan string
+		var attachmentRevision int64
+		if err := transaction.QueryRow(ctx, `
+			SELECT attachment.scan_state, attachment.revision
+			FROM inspection_attachments attachment
+			JOIN inspection_attachment_versions version
+			  ON version.id = attachment.current_version_id
+			 AND version.inspection_attachment_id = attachment.id
+			 AND version.source_object_metadata_id = attachment.object_metadata_id
+			WHERE attachment.id = $1
+			  AND version.id = $2
+			FOR UPDATE OF attachment
+		`, claimed.AggregateID, record.AttachmentVersionID).Scan(&currentScan, &attachmentRevision); err != nil {
+			return fmt.Errorf("lock immutable Inspection Attachment version: %w", err)
+		}
+		if currentScan == "CLEAN" || currentScan == "QUARANTINED" {
+			return markDeliveredTx(ctx, transaction, claimed.ID, worker.workerID, now)
+		}
+		if currentScan != "PENDING" {
+			return fmt.Errorf("Inspection Attachment scan is not pending: %s", currentScan)
+		}
 		state := "QUARANTINED"
 		var canonicalMetadataID *string
 		if result.Clean {
@@ -441,13 +469,17 @@ func (worker *Worker) processAttachment(ctx context.Context, claimed claim) erro
 			}
 			canonicalMetadataID = &canonicalID
 		}
-		if _, err := transaction.Exec(ctx, `
+		updated, err := transaction.Exec(ctx, `
 			UPDATE inspection_attachments
 			SET scan_state = $2, canonical_object_metadata_id = $3,
 			    revision = revision + 1, updated_at = $4
-			WHERE id = $1 AND scan_state = 'PENDING'
-		`, claimed.AggregateID, state, canonicalMetadataID, now); err != nil {
+			WHERE id = $1 AND scan_state = 'PENDING' AND current_version_id = $5
+		`, claimed.AggregateID, state, canonicalMetadataID, now, record.AttachmentVersionID)
+		if err != nil {
 			return err
+		}
+		if updated.RowsAffected() != 1 {
+			return errors.New("Inspection Attachment scan state changed before terminalization")
 		}
 		if _, err := transaction.Exec(ctx, `
 			UPDATE object_metadata
@@ -456,6 +488,50 @@ func (worker *Worker) processAttachment(ctx context.Context, claimed claim) erro
 			WHERE id = $1
 		`, record.SourceMetadata, state, result.EngineVersion, result.SignatureVersion, result.ScannedAt); err != nil {
 			return err
+		}
+		details, _ := json.Marshal(map[string]any{
+			"inspectionAttachmentId":        claimed.AggregateID,
+			"inspectionAttachmentVersionId": record.AttachmentVersionID,
+			"version":                       record.AttachmentVersion,
+			"scanState":                     state,
+		})
+		operationID := "scan:" + record.AttachmentVersionID
+		if _, err := transaction.Exec(ctx, `
+			INSERT INTO audit_events (
+				sequence_id, event_id, occurred_at, actor_subject_id, actor_role, organization_id, action,
+				entity_type, entity_id, entity_version, before_status, after_status, operation_id,
+				correlation_id, request_id, details
+			) VALUES (nextval(pg_get_serial_sequence('audit_events', 'sequence_id')), $1, $2, NULL, 'system', $3,
+				'inspection_attachment.scan_completed', 'inspection_attachment_version', $4, $5,
+				'PENDING', $6, $7, NULLIF($8, ''), NULLIF($8, ''), $9)
+		`, worker.nextID("worker-audit"), now, record.OrganizationID, record.AttachmentVersionID,
+			attachmentRevision+1, state, operationID, claimed.CorrelationID, details); err != nil {
+			return fmt.Errorf("append Inspection Attachment scan audit: %w", err)
+		}
+		projection, _ := json.Marshal(map[string]any{
+			"inspectionAttachmentId":        claimed.AggregateID,
+			"inspectionAttachmentVersionId": record.AttachmentVersionID,
+			"version":                       record.AttachmentVersion,
+			"scanState":                     state,
+		})
+		if _, err := transaction.Exec(ctx, `
+			INSERT INTO authorized_sync_changes (
+				subject_id, organization_id, kind, entity_id, entity_revision, payload, changed_at, operation_id, correlation_id
+			) VALUES ($1, $2, 'inspection_attachment_version', $3, $4, $5, $6, $7, NULLIF($8, ''))
+		`, record.SubjectID, record.OrganizationID, record.AttachmentVersionID, attachmentRevision+1,
+			projection, now, operationID, claimed.CorrelationID); err != nil {
+			return fmt.Errorf("append Inspection Attachment scan sync change: %w", err)
+		}
+		if _, err := transaction.Exec(ctx, `
+			INSERT INTO outbox_messages (
+				id, topic, aggregate_type, aggregate_id, payload, available_at, event_version,
+				idempotency_key, operation_id, correlation_id
+			) VALUES ($1, 'inspection_attachment.scan_completed', 'inspection_attachment_version', $2, $3, $4, 1,
+				$5, $6, NULLIF($7, ''))
+			ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING
+		`, worker.nextID("worker-outbox"), record.AttachmentVersionID, projection, now,
+			"inspection_attachment.scan_completed:"+record.AttachmentVersionID, operationID, claimed.CorrelationID); err != nil {
+			return fmt.Errorf("enqueue Inspection Attachment scan terminal event: %w", err)
 		}
 		return markDeliveredTx(ctx, transaction, claimed.ID, worker.workerID, now)
 	})
@@ -578,15 +654,19 @@ func (worker *Worker) recordAttachmentTerminalFailure(
 	processErr error,
 	now time.Time,
 ) error {
-	var organizationID, subjectID, metadataID, scanState string
+	var organizationID, subjectID, metadataID, attachmentVersionID, scanState string
 	var revision int64
 	if err := transaction.QueryRow(ctx, `
 		SELECT attachment.organization_id, attachment.created_by_subject_id, metadata.id,
-		       attachment.scan_state, attachment.revision
+		       version.id, attachment.scan_state, attachment.revision
 		FROM inspection_attachments attachment
 		JOIN object_metadata metadata ON metadata.id = attachment.object_metadata_id
-		WHERE attachment.id = $1 FOR UPDATE OF attachment, metadata
-	`, claimed.AggregateID).Scan(&organizationID, &subjectID, &metadataID, &scanState, &revision); err != nil {
+		JOIN inspection_attachment_versions version
+		  ON version.id = attachment.current_version_id
+		 AND version.inspection_attachment_id = attachment.id
+		 AND version.source_object_metadata_id = attachment.object_metadata_id
+		WHERE attachment.id = $1 FOR UPDATE OF attachment, metadata, version
+	`, claimed.AggregateID).Scan(&organizationID, &subjectID, &metadataID, &attachmentVersionID, &scanState, &revision); err != nil {
 		return err
 	}
 	if scanState != "PENDING" {
@@ -609,17 +689,31 @@ func (worker *Worker) recordAttachmentTerminalFailure(
 			entity_type, entity_id, entity_version, before_status, after_status, operation_id,
 			correlation_id, request_id, details
 		) VALUES (nextval(pg_get_serial_sequence('audit_events', 'sequence_id')), $1, $2, NULL, 'system', $3,
-			'inspection_attachment.scan_failed', 'inspection_attachment', $4, $5, 'PENDING', 'FAILED', $6, $6, $6, $7)
-	`, worker.nextID("worker-audit"), now, organizationID, claimed.AggregateID, revision+1, operationID, details); err != nil {
+			'inspection_attachment.scan_failed', 'inspection_attachment_version', $4, $5, 'PENDING', 'FAILED', $6, $6, $6, $7)
+		`, worker.nextID("worker-audit"), now, organizationID, attachmentVersionID, revision+1, operationID, details); err != nil {
 		return err
 	}
 	projection, _ := json.Marshal(map[string]any{
-		"inspectionAttachmentId": claimed.AggregateID, "scanState": "FAILED", "reason": processErr.Error(),
+		"inspectionAttachmentId": claimed.AggregateID, "inspectionAttachmentVersionId": attachmentVersionID,
+		"scanState": "FAILED", "reason": processErr.Error(),
 	})
+	if _, err := transaction.Exec(ctx, `
+		INSERT INTO authorized_sync_changes (
+			subject_id, organization_id, kind, entity_id, entity_revision, payload, changed_at,
+			operation_id
+		) VALUES ($1, $2, 'inspection_attachment_version', $3, $4, $5, $6, $7)
+	`, subjectID, organizationID, attachmentVersionID, revision+1, projection, now, operationID); err != nil {
+		return err
+	}
 	_, err := transaction.Exec(ctx, `
-		INSERT INTO authorized_sync_changes (subject_id, organization_id, kind, entity_id, entity_revision, payload, changed_at)
-		VALUES ($1, $2, 'inspection_attachment', $3, $4, $5, $6)
-	`, subjectID, organizationID, claimed.AggregateID, revision+1, projection, now)
+		INSERT INTO outbox_messages (
+			id, topic, aggregate_type, aggregate_id, payload, available_at, event_version,
+			idempotency_key, terminal_state, operation_id
+		) VALUES ($1, 'inspection_attachment.scan_failed', 'inspection_attachment_version', $2, $3, $4, 1,
+			$5, 'RECORDED', $6)
+		ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING
+	`, worker.nextID("worker-outbox"), attachmentVersionID, projection, now,
+		"inspection_attachment.scan_failed:"+attachmentVersionID, operationID)
 	return err
 }
 

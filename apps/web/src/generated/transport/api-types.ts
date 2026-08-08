@@ -756,6 +756,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/audit-assignments/{assignmentId}/team-previews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["previewAuditTeam"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/audit-assignments/{assignmentId}/question-coverage": {
         parameters: {
             query?: never;
@@ -766,6 +782,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["assignAuditQuestionCoverage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/audit-assignments/{assignmentId}/question-coverage-previews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["previewAuditQuestionCoverage"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2004,86 +2036,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/governed-checklist/aga-candidate-demo/capability": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getAGACandidateDemoCapability"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/governed-checklist/aga-candidate-demo/summary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getAGACandidateDemoSummary"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/governed-checklist/aga-candidate-demo/forms": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["listAGACandidateDemoForms"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/governed-checklist/aga-candidate-demo/forms/{formCode}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getAGACandidateDemoForm"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/governed-checklist/aga-candidate-demo/questions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["listAGACandidateDemoQuestions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/governed-checklist/published-versions/{publishedVersionId}/audit-package-eligibility-evaluations": {
         parameters: {
             query?: never;
@@ -2094,134 +2046,6 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["evaluateGovernedChecklistAuditPackageEligibility"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/preprod/aga-demo-workspace/capability": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getAGADemoWorkspaceCapability"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/preprod/aga-demo-workspace/classification/query": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["queryAGADemoWorkspaceClassification"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/preprod/aga-demo-workspace/classification/commands": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["commandAGADemoWorkspaceClassification"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/preprod/aga-demo-workspace/recommendations/commands": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["commandAGADemoWorkspaceRecommendation"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/preprod/aga-demo-workspace/recommendations/query": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["queryAGADemoWorkspaceRecommendation"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/preprod/aga-demo-workspace/lifecycle/query": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["queryAGADemoWorkspaceLifecycle"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/preprod/aga-demo-workspace/lifecycle/commands": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["commandAGADemoWorkspaceLifecycle"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/preprod/aga-demo-workspace/admin/commands": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["commandAGADemoWorkspaceAdmin"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2808,6 +2632,8 @@ export interface components {
         };
         CompleteInspectionAttachmentUploadOutput: {
             inspectionAttachmentId: string;
+            inspectionAttachmentVersionId: string;
+            version: number;
             /** @enum {string} */
             uploadState: "UPLOADED";
             /** @enum {string} */
@@ -3218,6 +3044,12 @@ export interface components {
             selectionDigest?: string;
             selectedQuestionVersionIds?: string[];
             estimatedResourceRequirement?: number;
+            formDistribution?: {
+                [key: string]: number;
+            };
+            domainDistribution?: {
+                [key: string]: number;
+            };
             providerScopeId?: string;
             regulatedTargetId?: string;
             requestedBudget: number;
@@ -3256,6 +3088,12 @@ export interface components {
             selectionDigest?: string;
             selectedQuestionVersionIds?: string[];
             estimatedResourceRequirement?: number;
+            formDistribution?: {
+                [key: string]: number;
+            };
+            domainDistribution?: {
+                [key: string]: number;
+            };
             providerScopeId?: string;
             regulatedTargetId?: string;
             requestedBudget: number;
@@ -3367,21 +3205,6 @@ export interface components {
             content: {
                 [key: string]: unknown;
             };
-        };
-        AGACandidateDemoForm: {
-            code: string;
-            title: string;
-            questionCount: number;
-            questionExtractionState: string;
-        };
-        AGACandidateDemoQuestion: {
-            proposalId: string;
-            formCode: string;
-            ordinal: number;
-            text: string;
-            textDigest: string;
-            sourceGapCategory: string;
-            riskBand: string;
         };
         CommunicationView: {
             id: string;
@@ -5936,6 +5759,18 @@ export interface components {
             items: components["schemas"]["CanonicalAuditScopeOption"][];
             nextCursor: string | null;
         };
+        QuestionReviewHistoryItem: {
+            action: string;
+            reason: string;
+            reviewedDomain: string | null;
+            reviewedTopic: string | null;
+            actorSubjectId: string;
+            /** Format: date-time */
+            occurredAt: string;
+            revision: number;
+            candidateContentDigest?: string | null;
+            reviewDigest: string;
+        };
         CanonicalQuestionCatalogEntry: {
             catalogVersion: string;
             usageClass: components["schemas"]["QuestionUsageClass"];
@@ -5961,6 +5796,7 @@ export interface components {
             reviewRevision?: number;
             reviewDisposition?: string | null;
             reviewDigest?: string | null;
+            reviewHistory?: components["schemas"]["QuestionReviewHistoryItem"][];
         };
         CanonicalQuestionCatalogPage: {
             items: components["schemas"]["CanonicalQuestionCatalogEntry"][];
@@ -5975,6 +5811,13 @@ export interface components {
             selectedCount: number;
             catalogVersion: string;
             usageClass: components["schemas"]["QuestionUsageClass"];
+            formDistribution: {
+                [key: string]: number;
+            };
+            domainDistribution: {
+                [key: string]: number;
+            };
+            estimatedResourceRequirement: number;
         };
         CanonicalAuditScopeSelectionInput: {
             operationId: string;
@@ -6122,21 +5965,49 @@ export interface components {
             expectedInspectionRevision: number;
             leadSubjectId: string;
         };
+        PreviewAssignTeamInput: {
+            operationId: string;
+            idempotencyKey: string;
+            expectedRevision: number;
+            memberSubjectIds: string[];
+        };
         AssignTeamInput: {
             operationId: string;
             idempotencyKey: string;
             expectedRevision: number;
+            previewId: string;
+            previewDigest: string;
             memberSubjectIds: string[];
         };
         QuestionCoverageInput: {
             questionId: string;
             subjectId: string;
         };
-        AssignQuestionsInput: {
+        PreviewAssignQuestionsInput: {
             operationId: string;
             idempotencyKey: string;
             expectedRevision: number;
             questionAssignments: components["schemas"]["QuestionCoverageInput"][];
+        };
+        AssignQuestionsInput: {
+            operationId: string;
+            idempotencyKey: string;
+            expectedRevision: number;
+            previewId: string;
+            previewDigest: string;
+            questionAssignments: components["schemas"]["QuestionCoverageInput"][];
+        };
+        PreparationEditPreviewView: {
+            previewId: string;
+            assignmentId: string;
+            assignmentRevision: number;
+            /** @enum {string} */
+            editKind: "TEAM" | "QUESTION_COVERAGE";
+            digest: string;
+            /** Format: date-time */
+            expiresAt: string;
+            memberSubjectIds?: string[];
+            questionAssignments?: components["schemas"]["QuestionCoverageInput"][];
         };
         CanonicalAssignmentView: {
             id: string;
@@ -6158,6 +6029,19 @@ export interface components {
             scheduledEndDate: string;
             revision: number;
         };
+        InspectionAttachmentVersionView: {
+            id: string;
+            version: number;
+            sourceObjectMetadataId: string;
+            fileName: string;
+            mediaType: string;
+            sha256: string;
+            sizeBytes: number;
+            submittedBySubjectId: string;
+            /** Format: date-time */
+            submittedAt: string;
+            current: boolean;
+        };
         InspectionAttachmentView: {
             id: string;
             inspectionId: string;
@@ -6168,6 +6052,9 @@ export interface components {
             uploadState: string;
             scanState: string;
             revision: number;
+            currentVersionId?: string | null;
+            currentVersion: number;
+            versions: components["schemas"]["InspectionAttachmentVersionView"][];
         };
         InspectionAttachmentDownloadOutput: {
             /** Format: uri */
@@ -7838,6 +7725,45 @@ export interface operations {
             default: components["responses"]["Problem"];
         };
     };
+    previewAuditTeam: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                assignmentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewAssignTeamInput"];
+            };
+        };
+        responses: {
+            /** @description Created bounded server-issued team preview */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreparationEditPreviewView"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
     assignAuditQuestionCoverage: {
         parameters: {
             query?: never;
@@ -7866,6 +7792,45 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CanonicalAssignmentView"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    previewAuditQuestionCoverage: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                assignmentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewAssignQuestionsInput"];
+            };
+        };
+        responses: {
+            /** @description Created bounded server-issued question coverage preview */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreparationEditPreviewView"];
                 };
             };
             400: components["responses"]["Problem"];
@@ -10461,147 +10426,6 @@ export interface operations {
             default: components["responses"]["Problem"];
         };
     };
-    getAGACandidateDemoCapability: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description CAA Admin-only sealed candidate demo capability */
-            200: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        available: boolean;
-                        labels: string[];
-                    };
-                };
-            };
-            401: components["responses"]["Problem"];
-            403: components["responses"]["Problem"];
-        };
-    };
-    getAGACandidateDemoSummary: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description CAA Admin-only sealed candidate demo summary */
-            200: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        packageDigest: string;
-                        formCount: number;
-                        questionCount: number;
-                        sourceRequirements: string[];
-                        labels: string[];
-                    };
-                };
-            };
-            401: components["responses"]["Problem"];
-            403: components["responses"]["Problem"];
-        };
-    };
-    listAGACandidateDemoForms: {
-        parameters: {
-            query?: {
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description CAA Admin-only sealed candidate demo forms */
-            200: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        items: components["schemas"]["AGACandidateDemoForm"][];
-                        nextCursor: string | null;
-                    };
-                };
-            };
-            401: components["responses"]["Problem"];
-            403: components["responses"]["Problem"];
-        };
-    };
-    getAGACandidateDemoForm: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                formCode: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description CAA Admin-only sealed candidate demo form */
-            200: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AGACandidateDemoForm"];
-                };
-            };
-            401: components["responses"]["Problem"];
-            403: components["responses"]["Problem"];
-        };
-    };
-    listAGACandidateDemoQuestions: {
-        parameters: {
-            query?: {
-                formCode?: string;
-                sourceGapCategory?: "PROPOSAL_PRESENT_REVIEW_REQUIRED" | "UNMAPPED_NO_QUESTION_LEVEL_SOURCE_PROPOSAL";
-                riskBand?: "PROPOSED_CONTROL_ASSURANCE" | "PROPOSED_HIGH_OPERATIONAL" | "PROPOSED_REVIEW_REQUIRED" | "PROPOSED_SAFETY_CRITICAL";
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description CAA Admin-only sealed candidate demo questions */
-            200: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        items: components["schemas"]["AGACandidateDemoQuestion"][];
-                        nextCursor: string | null;
-                    };
-                };
-            };
-            401: components["responses"]["Problem"];
-            403: components["responses"]["Problem"];
-        };
-    };
     evaluateGovernedChecklistAuditPackageEligibility: {
         parameters: {
             query?: never;
@@ -10641,316 +10465,6 @@ export interface operations {
             default: components["responses"]["Problem"];
         };
     };
-    getAGADemoWorkspaceCapability: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Role-scoped synthetic workspace capability */
-            200: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AGADemoWorkspaceCapability"];
-                };
-            };
-            /** @description Neutral capability denial */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AGADemoWorkspaceNotFound"];
-                };
-            };
-        };
-    };
-    queryAGADemoWorkspaceClassification: {
-        parameters: {
-            query?: never;
-            header: {
-                "X-CSRF-Token": components["parameters"]["CsrfToken"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AGADemoWorkspaceQuery"];
-            };
-        };
-        responses: {
-            /** @description Authorized classification workspace projection */
-            200: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AGADemoWorkspaceQueryResponse"];
-                };
-            };
-            /** @description Neutral classification denial */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AGADemoWorkspaceNotFound"];
-                };
-            };
-        };
-    };
-    commandAGADemoWorkspaceClassification: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-CSRF-Token": components["parameters"]["CsrfToken"];
-                /** @description Expected entity revision encoded as a strong ETag. */
-                "If-Match": components["parameters"]["ExpectedRevision"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AGADemoWorkspaceCommand"];
-            };
-        };
-        responses: {
-            /** @description Classification command result */
-            200: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AGADemoWorkspaceCommandResponse"];
-                };
-            };
-            400: components["responses"]["Problem"];
-            /** @description Neutral classification denial */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AGADemoWorkspaceNotFound"];
-                };
-            };
-            409: components["responses"]["Problem"];
-            412: components["responses"]["Problem"];
-            422: components["responses"]["Problem"];
-        };
-    };
-    commandAGADemoWorkspaceRecommendation: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-CSRF-Token": components["parameters"]["CsrfToken"];
-                /** @description Expected entity revision encoded as a strong ETag. */
-                "If-Match": components["parameters"]["ExpectedRevision"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AGADemoWorkspaceCommand"];
-            };
-        };
-        responses: {
-            /** @description Recommendation command result */
-            200: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AGADemoWorkspaceCommandResponse"];
-                };
-            };
-            400: components["responses"]["Problem"];
-            /** @description Neutral recommendation denial */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AGADemoWorkspaceNotFound"];
-                };
-            };
-            409: components["responses"]["Problem"];
-            412: components["responses"]["Problem"];
-            422: components["responses"]["Problem"];
-        };
-    };
-    queryAGADemoWorkspaceRecommendation: {
-        parameters: {
-            query?: never;
-            header: {
-                "X-CSRF-Token": components["parameters"]["CsrfToken"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AGADemoWorkspaceQuery"];
-            };
-        };
-        responses: {
-            /** @description Current synthetic recommendation snapshot */
-            200: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AGADemoWorkspaceQueryResponse"];
-                };
-            };
-            /** @description Neutral recommendation denial */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AGADemoWorkspaceNotFound"];
-                };
-            };
-        };
-    };
-    queryAGADemoWorkspaceLifecycle: {
-        parameters: {
-            query?: never;
-            header: {
-                "X-CSRF-Token": components["parameters"]["CsrfToken"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AGADemoWorkspaceQuery"];
-            };
-        };
-        responses: {
-            /** @description Authorized synthetic lifecycle projection */
-            200: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AGADemoWorkspaceQueryResponse"];
-                };
-            };
-            /** @description Neutral lifecycle denial */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AGADemoWorkspaceNotFound"];
-                };
-            };
-        };
-    };
-    commandAGADemoWorkspaceLifecycle: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-CSRF-Token": components["parameters"]["CsrfToken"];
-                /** @description Expected entity revision encoded as a strong ETag. */
-                "If-Match": components["parameters"]["ExpectedRevision"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AGADemoWorkspaceCommand"];
-            };
-        };
-        responses: {
-            /** @description Synthetic lifecycle command result */
-            200: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AGADemoWorkspaceCommandResponse"];
-                };
-            };
-            400: components["responses"]["Problem"];
-            /** @description Neutral lifecycle denial */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AGADemoWorkspaceNotFound"];
-                };
-            };
-            409: components["responses"]["Problem"];
-            412: components["responses"]["Problem"];
-            422: components["responses"]["Problem"];
-        };
-    };
-    commandAGADemoWorkspaceAdmin: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-CSRF-Token": components["parameters"]["CsrfToken"];
-                /** @description Expected entity revision encoded as a strong ETag. */
-                "If-Match": components["parameters"]["ExpectedRevision"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AGADemoWorkspaceCommand"];
-            };
-        };
-        responses: {
-            /** @description Synthetic workspace administrative command result */
-            200: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AGADemoWorkspaceCommandResponse"];
-                };
-            };
-            400: components["responses"]["Problem"];
-            /** @description Neutral administrative denial */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AGADemoWorkspaceNotFound"];
-                };
-            };
-            409: components["responses"]["Problem"];
-            412: components["responses"]["Problem"];
-            422: components["responses"]["Problem"];
-        };
-    };
     listCanonicalQuestionCatalogEntries: {
         parameters: {
             query: {
@@ -10961,6 +10475,7 @@ export interface operations {
                 riskBand?: string;
                 sourceGapState?: string;
                 selected?: "all" | "selected" | "unselected";
+                /** @description Required and owned by the current Department Manager for PREPROD_EXERCISE selection or review. */
                 scopeId?: string;
                 usageClass: components["schemas"]["QuestionUsageClass"];
                 cursor?: components["parameters"]["Cursor"];
@@ -11021,6 +10536,7 @@ export interface operations {
         parameters: {
             query: {
                 usageClass: components["schemas"]["QuestionUsageClass"];
+                /** @description Required and must be owned by the current Department Manager when usageClass is PREPROD_EXERCISE. */
                 scopeId?: string;
             };
             header?: never;

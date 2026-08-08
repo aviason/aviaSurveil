@@ -1,5 +1,4 @@
 import type { components as GeneratedComponents } from "../generated/transport/api-types";
-import type { AGACandidateDemoBackend } from "./aga-candidate-demo";
 import type { AGADemoWorkspaceBackend } from "./aga-demo-workspace";
 
 type GeneratedSchemas = GeneratedComponents["schemas"];
@@ -848,6 +847,8 @@ export interface PlanningIntakeDraftValues {
   selectionDigest?: string;
   selectedQuestionVersionIds?: readonly string[];
   estimatedResourceRequirement?: number;
+  formDistribution?: Readonly<Record<string, number>>;
+  domainDistribution?: Readonly<Record<string, number>>;
   providerScopeId?: string;
   regulatedTargetId?: string;
   requestedBudget: number;
@@ -1584,6 +1585,7 @@ export interface CanonicalQuestionCatalogEntry {
   reviewRevision: number;
   reviewDisposition: string | null;
   reviewDigest: string | null;
+  reviewHistory?: GeneratedSchemas["QuestionReviewHistoryItem"][];
 }
 
 export interface CanonicalQuestionCatalogPage {
@@ -1600,6 +1602,9 @@ export interface CanonicalSelectionDigest {
   selectedCount: number;
   catalogVersion: string;
   usageClass: CanonicalQuestionUsageClass;
+  formDistribution: Readonly<Record<string, number>>;
+  domainDistribution: Readonly<Record<string, number>>;
+  estimatedResourceRequirement: number;
 }
 
 export interface CanonicalSelectionPreview {
@@ -1690,6 +1695,7 @@ export type CanonicalPreparationView = GeneratedSchemas["PreparationView"];
 export type CanonicalAssignmentView = GeneratedSchemas["CanonicalAssignmentView"];
 export type CanonicalPreparationConfirmationView = GeneratedSchemas["PreparationConfirmationView"];
 export type CanonicalMaterializedAuditView = GeneratedSchemas["CanonicalMaterializedAuditView"];
+export type CanonicalPreparationEditPreviewView = GeneratedSchemas["PreparationEditPreviewView"];
 
 export interface CanonicalAuditWorkflowBackend {
   getPreparation(input?: { assignmentId?: string; planningItemId?: string }, options?: BackendRequestOptions): Promise<CanonicalAssignmentView>;
@@ -1703,11 +1709,21 @@ export interface CanonicalAuditWorkflowBackend {
     input: GeneratedSchemas["AssignLeadInput"],
     options?: BackendRequestOptions,
   ): Promise<CanonicalAssignmentView>;
+  previewTeam(
+    assignmentId: string,
+    input: GeneratedSchemas["PreviewAssignTeamInput"],
+    options?: BackendRequestOptions,
+  ): Promise<CanonicalPreparationEditPreviewView>;
   assignTeam(
     assignmentId: string,
     input: GeneratedSchemas["AssignTeamInput"],
     options?: BackendRequestOptions,
   ): Promise<CanonicalAssignmentView>;
+  previewQuestionCoverage(
+    assignmentId: string,
+    input: GeneratedSchemas["PreviewAssignQuestionsInput"],
+    options?: BackendRequestOptions,
+  ): Promise<CanonicalPreparationEditPreviewView>;
   assignQuestionCoverage(
     assignmentId: string,
     input: GeneratedSchemas["AssignQuestionsInput"],
@@ -1945,9 +1961,7 @@ export interface Backend {
   readonly auditeeCoordination: AuditeeCoordinationBackend;
   /** LOCKED-only Auditee report projection. */
   readonly auditeeReports: AuditeeReportsBackend;
-  /** Undefined outside the exact tagged preprod-demo capability. */
-  readonly agaCandidateDemo?: AGACandidateDemoBackend;
-  /** Defined only by the HTTP workspace capability boundary. */
+  /** Legacy donor surface retained only for isolated mock/test profiles; never supplied by HTTP. */
   readonly agaDemoWorkspace?: AGADemoWorkspaceBackend;
 }
 
@@ -1984,7 +1998,6 @@ export const BACKEND_CAPABILITY_REGISTRY = {
   packageDrafts: true,
   auditeeCoordination: true,
   auditeeReports: true,
-  agaCandidateDemo: true,
 } as const satisfies Record<Exclude<keyof Backend, "mode" | "agaDemoWorkspace">, true>;
 
 export const BACKEND_CAPABILITY_KEYS = Object.keys(

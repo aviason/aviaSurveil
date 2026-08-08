@@ -109,9 +109,16 @@ ALTER TABLE canonical_audit_preparation_snapshots
         OR status <> 'CONFIRMED'
     ) NOT VALID;
 
--- Coverage is per question and per assigned Inspector.  The former primary
+-- Coverage is per question and per assigned Inspector. The former primary
 -- key omitted subject_id, so a valid question covered by two Inspectors could
--- never be copied into the immutable confirmation receipt.
+-- never be copied into the immutable confirmation receipt. A coverage row
+-- must also carry the exact question/position pair from its released scope:
+-- the existing independent snapshot/question FK did not prevent question A
+-- from being written with question B's position.
+ALTER TABLE canonical_audit_scope_snapshot_questions
+    ADD CONSTRAINT canonical_scope_snapshot_question_position_key
+    UNIQUE (snapshot_id, question_version_id, position);
+
 ALTER TABLE canonical_audit_preparation_questions
     DROP CONSTRAINT IF EXISTS canonical_audit_preparation_questions_pkey;
 ALTER TABLE canonical_audit_preparation_questions
@@ -120,3 +127,9 @@ ALTER TABLE canonical_audit_preparation_questions
     DROP CONSTRAINT IF EXISTS canonical_audit_preparation_questions_preparation_id_position_key;
 CREATE UNIQUE INDEX canonical_audit_preparation_questions_position_subject_key
     ON canonical_audit_preparation_questions (preparation_id, position, subject_id);
+ALTER TABLE canonical_audit_preparation_questions
+    ADD CONSTRAINT canonical_preparation_question_scope_position_fkey
+    FOREIGN KEY (released_scope_snapshot_id, question_version_id, position)
+    REFERENCES canonical_audit_scope_snapshot_questions (
+        snapshot_id, question_version_id, position
+    );

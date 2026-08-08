@@ -612,6 +612,30 @@ services:
       - preprod-app-database
     restart: "no"
 
+  # This one-shot bootstrap receives the owner credential only long enough to
+  # create/update the dedicated non-owner runtime login. Long-lived services
+  # below receive only preprod_normal_api's secret.
+  preprod-normal-runtime-role-provisioner:
+    <<: *runtime-security
+    image: aviasurveil360/preprod-normal-runtime-role-provisioner:local
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      target: preprod-normal-runtime-role-provisioner
+    profiles: [local-preprod-loader]
+    user: "10001:10001"
+    depends_on:
+      preprod-migration:
+        condition: service_completed_successfully
+    secrets:
+      - preprod_app_database_password
+      - preprod_normal_api_database_password
+    tmpfs:
+      - /tmp:mode=1777
+    networks:
+      - preprod-app-database
+    restart: "no"
+
   preprod-api:
     <<: *runtime-security
     image: aviasurveil360/preprod-api:local
@@ -623,6 +647,8 @@ services:
     user: "10001:10001"
     depends_on:
       preprod-migration:
+        condition: service_completed_successfully
+      preprod-normal-runtime-role-provisioner:
         condition: service_completed_successfully
       preprod-canonical-aga-loader:
         condition: service_completed_successfully
@@ -659,8 +685,8 @@ services:
       AVIA_DATABASE_HOST: preprod-postgres
       AVIA_DATABASE_PORT: "5432"
       AVIA_DATABASE_NAME: aviasurveil360_local_preprod
-      AVIA_DATABASE_USER: aviasurveil360_preprod_loader
-      AVIA_DATABASE_PASSWORD_FILE: /run/secrets/preprod_app_database_password
+      AVIA_DATABASE_USER: preprod_normal_api
+      AVIA_DATABASE_PASSWORD_FILE: /run/secrets/preprod_normal_api_database_password
       AVIA_OBJECT_STORE_ENDPOINT: preprod-minio:9000
       AVIA_OBJECT_STORE_PUBLIC_ENDPOINT: "localhost:${AVIA_PREPROD_HTTPS_PORT:-8445}"
       AVIA_OBJECT_STORE_ACCESS_KEY_FILE: /run/secrets/preprod_minio_api_access_key
@@ -692,12 +718,12 @@ services:
     command:
       - >-
         database_password="$$(tr -d '\r\n'
-        </run/secrets/preprod_app_database_password)";
+        </run/secrets/preprod_normal_api_database_password)";
         oidc_secret="$$(tr -d '\r\n' </run/secrets/preprod_oidc_client_secret)";
         keycloak_secret="$$(tr -d '\r\n' </run/secrets/preprod_keycloak_service_client_secret)";
         session_key="$$(tr -d '\r\n' </run/secrets/preprod_session_encryption_key)";
         smtp_password="$$(tr -d '\r\n' </run/secrets/preprod_smtp_password)";
-        export AVIA_DATABASE_URL="postgres://aviasurveil360_preprod_loader:$${database_password}@preprod-postgres:5432/aviasurveil360_local_preprod?sslmode=disable";
+        export AVIA_DATABASE_URL="postgres://preprod_normal_api:$${database_password}@preprod-postgres:5432/aviasurveil360_local_preprod?sslmode=disable";
         export AVIA_OIDC_CLIENT_SECRET="$${oidc_secret}";
         export AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET="$${keycloak_secret}";
         export AVIA_SESSION_ENCRYPTION_KEY="$${session_key}";
@@ -705,7 +731,7 @@ services:
         unset database_password oidc_secret keycloak_secret session_key smtp_password;
         exec /app/api
     secrets:
-      - preprod_app_database_password
+      - preprod_normal_api_database_password
       - preprod_keycloak_service_client_secret
       - preprod_minio_api_access_key
       - preprod_minio_api_secret_key
@@ -740,6 +766,8 @@ services:
     depends_on:
       preprod-migration:
         condition: service_completed_successfully
+      preprod-normal-runtime-role-provisioner:
+        condition: service_completed_successfully
       preprod-keycloak:
         condition: service_healthy
       preprod-minio:
@@ -755,8 +783,8 @@ services:
       AVIA_DATABASE_HOST: preprod-postgres
       AVIA_DATABASE_PORT: "5432"
       AVIA_DATABASE_NAME: aviasurveil360_local_preprod
-      AVIA_DATABASE_USER: aviasurveil360_preprod_loader
-      AVIA_DATABASE_PASSWORD_FILE: /run/secrets/preprod_app_database_password
+      AVIA_DATABASE_USER: preprod_normal_api
+      AVIA_DATABASE_PASSWORD_FILE: /run/secrets/preprod_normal_api_database_password
       AVIA_OIDC_CLIENT_SECRET_FILE: /run/secrets/preprod_oidc_client_secret
       AVIA_SESSION_ENCRYPTION_KEY_FILE: /run/secrets/preprod_session_encryption_key
       AVIA_KEYCLOAK_ADMIN_URL: http://preprod-keycloak:8080/identity
@@ -791,7 +819,7 @@ services:
       AVIA_SMTP_PRIVATE_NETWORK: "true"
       AVIA_WORKER_INTERVAL_MS: "1000"
     secrets:
-      - preprod_app_database_password
+      - preprod_normal_api_database_password
       - preprod_keycloak_service_client_secret
       - preprod_minio_api_access_key
       - preprod_minio_api_secret_key
@@ -821,22 +849,24 @@ services:
     depends_on:
       preprod-migration:
         condition: service_completed_successfully
+      preprod-normal-runtime-role-provisioner:
+        condition: service_completed_successfully
     environment:
       AVIA_ENVIRONMENT: local-preprod
       AVIA_DATABASE_HOST: preprod-postgres
       AVIA_DATABASE_PORT: "5432"
       AVIA_DATABASE_NAME: aviasurveil360_local_preprod
-      AVIA_DATABASE_USER: aviasurveil360_preprod_loader
-      AVIA_DATABASE_PASSWORD_FILE: /run/secrets/preprod_app_database_password
+      AVIA_DATABASE_USER: preprod_normal_api
+      AVIA_DATABASE_PASSWORD_FILE: /run/secrets/preprod_normal_api_database_password
     entrypoint: [/bin/sh, -c]
     command:
       - >-
-        database_password="$$(tr -d '\r\n' </run/secrets/preprod_app_database_password)";
-        export AVIA_DATABASE_URL="postgres://aviasurveil360_preprod_loader:$${database_password}@preprod-postgres:5432/aviasurveil360_local_preprod?sslmode=disable";
+        database_password="$$(tr -d '\r\n' </run/secrets/preprod_normal_api_database_password)";
+        export AVIA_DATABASE_URL="postgres://preprod_normal_api:$${database_password}@preprod-postgres:5432/aviasurveil360_local_preprod?sslmode=disable";
         unset database_password;
         exec /app/entrypoint.sh
     secrets:
-      - preprod_app_database_password
+      - preprod_normal_api_database_password
     tmpfs:
       - /tmp:mode=1777
     networks:

@@ -461,7 +461,202 @@ type AssignTeamCommand struct {
 	IdempotencyKey   string
 	AssignmentID     string
 	ExpectedRevision int64
+	PreviewID        string
+	PreviewDigest    string
 	MemberSubjectIDs []string
+}
+
+type PreviewTeamCommand struct {
+	OperationID      string
+	IdempotencyKey   string
+	AssignmentID     string
+	ExpectedRevision int64
+	MemberSubjectIDs []string
+}
+
+type PreviewQuestionsCommand struct {
+	OperationID         string
+	IdempotencyKey      string
+	AssignmentID        string
+	ExpectedRevision    int64
+	QuestionAssignments []QuestionAssignment
+}
+
+const preparationPreviewTTL = 10 * time.Minute
+
+func (service *Service) PreviewTeam(
+	ctx context.Context,
+	actor identity.Principal,
+	command PreviewTeamCommand,
+) (PreparationEditPreview, error) {
+	if !actor.HasRole(identity.RoleLeadInspector) {
+		return PreparationEditPreview{}, ErrForbidden
+	}
+	members, err := normalizedIDs(command.MemberSubjectIDs)
+	if err != nil || blank(command.OperationID, command.IdempotencyKey, command.AssignmentID) || command.ExpectedRevision <= 0 {
+		return PreparationEditPreview{}, ErrInvalid
+	}
+	semantic := command
+	semantic.MemberSubjectIDs = members
+	return executeCommand(ctx, service, actor, "preview_assign_team", command.OperationID, command.IdempotencyKey, command.AssignmentID, semantic,
+		func(ctx context.Context, transaction pgx.Tx) (commandResult[PreparationEditPreview], error) {
+			current, err := getAssignmentForUpdate(ctx, transaction, command.AssignmentID)
+			if err != nil {
+				return commandResult[PreparationEditPreview]{}, err
+			}
+			if current.Revision != command.ExpectedRevision ||
+				(current.Status != StatusLeadAssigned && current.Status != StatusTeamAssigned && current.Status != StatusQuestionsAssigned) ||
+				!CanConfigureTeam(actor, current.LeadSubjectID) {
+				return commandResult[PreparationEditPreview]{}, ErrConflict
+			}
+			if current.Status == StatusQuestionsAssigned {
+				var confirmed bool
+				if err := transaction.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM canonical_audit_preparation_snapshots WHERE assignment_id=$1 AND status='CONFIRMED')`, command.AssignmentID).Scan(&confirmed); err != nil {
+					return commandResult[PreparationEditPreview]{}, err
+				}
+				if confirmed {
+					return commandResult[PreparationEditPreview]{}, fmt.Errorf("%w: confirmed preparation is immutable", ErrConflict)
+				}
+			}
+			if err := requireActiveRole(ctx, transaction, actor.SubjectID, identity.RoleLeadInspector); err != nil {
+				return commandResult[PreparationEditPreview]{}, ErrForbidden
+			}
+			for _, subjectID := range members {
+				if err := requireActiveRole(ctx, transaction, subjectID, identity.RoleInspector); err != nil {
+					return commandResult[PreparationEditPreview]{}, err
+				}
+			}
+			snapshot := map[string]any{"memberSubjectIds": members}
+			digest, err := idempotency.SemanticHash(snapshot)
+			if err != nil {
+				return commandResult[PreparationEditPreview]{}, err
+			}
+			previewID := fmt.Sprintf("preparation-preview:%s:TEAM:%s", command.AssignmentID, command.OperationID)
+			expiresAt := service.clock().UTC().Add(preparationPreviewTTL)
+			body, err := json.Marshal(snapshot)
+			if err != nil {
+				return commandResult[PreparationEditPreview]{}, err
+			}
+			if _, err := transaction.Exec(ctx, `
+				INSERT INTO canonical_audit_preparation_edit_previews
+					(id, assignment_id, assignment_revision, edit_kind, operation_id, idempotency_key,
+					 edit_digest, snapshot, actor_subject_id, expires_at)
+				VALUES ($1,$2,$3,'TEAM',$4,$5,$6,$7,$8,$9)
+				ON CONFLICT (assignment_id, edit_kind, operation_id) DO NOTHING
+			`, previewID, command.AssignmentID, command.ExpectedRevision, command.OperationID, command.IdempotencyKey, digest, body, actor.SubjectID, expiresAt); err != nil {
+				return commandResult[PreparationEditPreview]{}, err
+			}
+			var stored PreparationEditPreview
+			if err := transaction.QueryRow(ctx, `
+				SELECT id, assignment_id, assignment_revision, edit_kind, edit_digest, expires_at, snapshot
+				FROM canonical_audit_preparation_edit_previews
+				WHERE assignment_id=$1 AND edit_kind='TEAM' AND operation_id=$2
+			`, command.AssignmentID, command.OperationID).Scan(&stored.PreviewID, &stored.AssignmentID, &stored.AssignmentRevision, &stored.EditKind, &stored.Digest, &stored.ExpiresAt, &body); err != nil {
+				return commandResult[PreparationEditPreview]{}, err
+			}
+			var decoded struct {
+				MemberSubjectIDs []string `json:"memberSubjectIds"`
+			}
+			if err := json.Unmarshal(body, &decoded); err != nil {
+				return commandResult[PreparationEditPreview]{}, err
+			}
+			stored.MemberSubjectIDs = decoded.MemberSubjectIDs
+			return commandResult[PreparationEditPreview]{Response: stored, OrganizationID: current.OrganizationID,
+				Action: "assignment.team_previewed", EntityType: "audit_assignment", EntityID: current.ID, EntityVersion: current.Revision,
+				BeforeStatus: string(current.Status), AfterStatus: string(current.Status)}, nil
+		})
+}
+
+func (service *Service) PreviewQuestions(
+	ctx context.Context,
+	actor identity.Principal,
+	command PreviewQuestionsCommand,
+) (PreparationEditPreview, error) {
+	if !actor.HasRole(identity.RoleLeadInspector) {
+		return PreparationEditPreview{}, ErrForbidden
+	}
+	questionAssignments, err := normalizedQuestionAssignments(command.QuestionAssignments)
+	if err != nil || blank(command.OperationID, command.IdempotencyKey, command.AssignmentID) || command.ExpectedRevision <= 0 {
+		return PreparationEditPreview{}, ErrInvalid
+	}
+	semantic := command
+	semantic.QuestionAssignments = questionAssignments
+	return executeCommand(ctx, service, actor, "preview_assign_questions", command.OperationID, command.IdempotencyKey, command.AssignmentID, semantic,
+		func(ctx context.Context, transaction pgx.Tx) (commandResult[PreparationEditPreview], error) {
+			current, err := getAssignmentForUpdate(ctx, transaction, command.AssignmentID)
+			if err != nil {
+				return commandResult[PreparationEditPreview]{}, err
+			}
+			if current.Revision != command.ExpectedRevision || (current.Status != StatusTeamAssigned && current.Status != StatusQuestionsAssigned) || !CanConfigureTeam(actor, current.LeadSubjectID) {
+				return commandResult[PreparationEditPreview]{}, ErrConflict
+			}
+			if err := requireActiveRole(ctx, transaction, actor.SubjectID, identity.RoleLeadInspector); err != nil {
+				return commandResult[PreparationEditPreview]{}, ErrForbidden
+			}
+			if current.Status == StatusQuestionsAssigned {
+				var confirmed bool
+				if err := transaction.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM canonical_audit_preparation_snapshots WHERE assignment_id=$1 AND status='CONFIRMED')`, command.AssignmentID).Scan(&confirmed); err != nil {
+					return commandResult[PreparationEditPreview]{}, err
+				}
+				if confirmed {
+					return commandResult[PreparationEditPreview]{}, fmt.Errorf("%w: confirmed preparation is immutable", ErrConflict)
+				}
+			}
+			allowedQuestions, err := templateQuestionIDs(ctx, transaction, current.InspectionID, current.PlanningItemID)
+			if err != nil {
+				return commandResult[PreparationEditPreview]{}, err
+			}
+			for _, assignment := range questionAssignments {
+				if !allowedQuestions[assignment.QuestionID] {
+					return commandResult[PreparationEditPreview]{}, ErrInvalid
+				}
+				var exists bool
+				if err := transaction.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM audit_team_members WHERE assignment_id=$1 AND subject_id=$2 AND removed_at IS NULL)`, command.AssignmentID, assignment.SubjectID).Scan(&exists); err != nil {
+					return commandResult[PreparationEditPreview]{}, err
+				}
+				if !exists {
+					return commandResult[PreparationEditPreview]{}, ErrInvalid
+				}
+			}
+			snapshot := map[string]any{"questionAssignments": questionAssignments}
+			digest, err := idempotency.SemanticHash(snapshot)
+			if err != nil {
+				return commandResult[PreparationEditPreview]{}, err
+			}
+			previewID := fmt.Sprintf("preparation-preview:%s:QUESTION_COVERAGE:%s", command.AssignmentID, command.OperationID)
+			expiresAt := service.clock().UTC().Add(preparationPreviewTTL)
+			body, err := json.Marshal(snapshot)
+			if err != nil {
+				return commandResult[PreparationEditPreview]{}, err
+			}
+			if _, err := transaction.Exec(ctx, `
+				INSERT INTO canonical_audit_preparation_edit_previews
+					(id, assignment_id, assignment_revision, edit_kind, operation_id, idempotency_key,
+					 edit_digest, snapshot, actor_subject_id, expires_at)
+				VALUES ($1,$2,$3,'QUESTION_COVERAGE',$4,$5,$6,$7,$8,$9)
+				ON CONFLICT (assignment_id, edit_kind, operation_id) DO NOTHING
+			`, previewID, command.AssignmentID, command.ExpectedRevision, command.OperationID, command.IdempotencyKey, digest, body, actor.SubjectID, expiresAt); err != nil {
+				return commandResult[PreparationEditPreview]{}, err
+			}
+			var stored PreparationEditPreview
+			if err := transaction.QueryRow(ctx, `
+				SELECT id, assignment_id, assignment_revision, edit_kind, edit_digest, expires_at, snapshot
+				FROM canonical_audit_preparation_edit_previews
+				WHERE assignment_id=$1 AND edit_kind='QUESTION_COVERAGE' AND operation_id=$2
+			`, command.AssignmentID, command.OperationID).Scan(&stored.PreviewID, &stored.AssignmentID, &stored.AssignmentRevision, &stored.EditKind, &stored.Digest, &stored.ExpiresAt, &body); err != nil {
+				return commandResult[PreparationEditPreview]{}, err
+			}
+			var decoded struct {
+				QuestionAssignments []QuestionAssignment `json:"questionAssignments"`
+			}
+			if err := json.Unmarshal(body, &decoded); err != nil {
+				return commandResult[PreparationEditPreview]{}, err
+			}
+			stored.QuestionAssignments = decoded.QuestionAssignments
+			return commandResult[PreparationEditPreview]{Response: stored, OrganizationID: current.OrganizationID,
+				Action: "assignment.questions_previewed", EntityType: "audit_assignment", EntityID: current.ID, EntityVersion: current.Revision,
+				BeforeStatus: string(current.Status), AfterStatus: string(current.Status)}, nil
+		})
 }
 
 func (service *Service) AssignTeam(
@@ -492,8 +687,21 @@ func (service *Service) AssignTeam(
 			if err := requireActiveRole(ctx, transaction, actor.SubjectID, identity.RoleLeadInspector); err != nil {
 				return commandResult[Assignment]{}, ErrForbidden
 			}
-			if current.Revision != command.ExpectedRevision || current.Status != StatusLeadAssigned {
+			if current.Revision != command.ExpectedRevision ||
+				(current.Status != StatusLeadAssigned && current.Status != StatusTeamAssigned && current.Status != StatusQuestionsAssigned) {
 				return commandResult[Assignment]{}, ErrConflict
+			}
+			if current.Status == StatusQuestionsAssigned {
+				var confirmed bool
+				if err := transaction.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM canonical_audit_preparation_snapshots WHERE assignment_id=$1 AND status='CONFIRMED')`, command.AssignmentID).Scan(&confirmed); err != nil {
+					return commandResult[Assignment]{}, err
+				}
+				if confirmed {
+					return commandResult[Assignment]{}, fmt.Errorf("%w: confirmed preparation is immutable", ErrConflict)
+				}
+			}
+			if err := consumePreparationPreview(ctx, transaction, command.PreviewID, command.PreviewDigest, command.AssignmentID, command.ExpectedRevision, "TEAM", actor.SubjectID, map[string]any{"memberSubjectIds": members}, service.clock().UTC()); err != nil {
+				return commandResult[Assignment]{}, err
 			}
 			for _, subjectID := range members {
 				if err := requireActiveRole(ctx, transaction, subjectID, identity.RoleInspector); err != nil {
@@ -512,6 +720,14 @@ func (service *Service) AssignTeam(
 				`, command.AssignmentID, subjectID, now); err != nil {
 					return commandResult[Assignment]{}, err
 				}
+			}
+			if _, err := transaction.Exec(ctx, `
+				UPDATE audit_team_members
+				SET removed_at=$2, revision=revision+1
+				WHERE assignment_id=$1 AND member_role='INSPECTOR'
+				  AND removed_at IS NULL AND NOT (subject_id = ANY($3::text[]))
+			`, command.AssignmentID, now, members); err != nil {
+				return commandResult[Assignment]{}, err
 			}
 			updated, err := updateAssignmentStatus(ctx, transaction, current,
 				StatusTeamAssigned, now)
@@ -538,6 +754,8 @@ type AssignQuestionsCommand struct {
 	IdempotencyKey      string
 	AssignmentID        string
 	ExpectedRevision    int64
+	PreviewID           string
+	PreviewDigest       string
 	QuestionAssignments []QuestionAssignment
 }
 
@@ -571,6 +789,9 @@ func (service *Service) AssignQuestions(
 			}
 			if current.Revision != command.ExpectedRevision || (current.Status != StatusTeamAssigned && current.Status != StatusQuestionsAssigned) {
 				return commandResult[Assignment]{}, ErrConflict
+			}
+			if err := consumePreparationPreview(ctx, transaction, command.PreviewID, command.PreviewDigest, command.AssignmentID, command.ExpectedRevision, "QUESTION_COVERAGE", actor.SubjectID, map[string]any{"questionAssignments": questionAssignments}, service.clock().UTC()); err != nil {
+				return commandResult[Assignment]{}, err
 			}
 			// A confirmed preparation is an immutable receipt.  A Lead may
 			// correct coverage before confirmation, but edits after the receipt
@@ -884,6 +1105,52 @@ func recordPreparationEdit(
 		) VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`, fmt.Sprintf("preparation-edit:%s:%d:%s", assignmentID, assignmentRevision, strings.ToLower(editKind)), assignmentID, assignmentRevision, editKind, digest, body, actor.SubjectID)
 	return err
+}
+
+func consumePreparationPreview(
+	ctx context.Context,
+	transaction pgx.Tx,
+	previewID, previewDigest, assignmentID string,
+	assignmentRevision int64,
+	kind, actorSubjectID string,
+	snapshot any,
+	now time.Time,
+) error {
+	if blank(previewID, previewDigest) {
+		return fmt.Errorf("%w: a server-issued preparation preview is required", ErrInvalid)
+	}
+	var storedAssignment, storedKind, storedDigest, storedActor string
+	var storedRevision int64
+	var expiresAt time.Time
+	if err := transaction.QueryRow(ctx, `
+		SELECT assignment_id, assignment_revision, edit_kind, edit_digest, actor_subject_id, expires_at
+		FROM canonical_audit_preparation_edit_previews
+		WHERE id=$1
+		FOR UPDATE
+	`, previewID).Scan(&storedAssignment, &storedRevision, &storedKind, &storedDigest, &storedActor, &expiresAt); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("%w: preparation preview is not found", ErrConflict)
+		}
+		return err
+	}
+	digest, err := idempotency.SemanticHash(snapshot)
+	if err != nil {
+		return err
+	}
+	if storedAssignment != assignmentID || storedRevision != assignmentRevision || storedKind != kind || storedDigest != previewDigest || storedDigest != digest || storedActor != actorSubjectID || !expiresAt.After(now) {
+		return fmt.Errorf("%w: preparation preview is stale or does not match the command", ErrConflict)
+	}
+	if _, err := transaction.Exec(ctx, `
+		INSERT INTO canonical_audit_preparation_edit_preview_consumptions
+			(preview_id, consumed_by_subject_id, consumed_at)
+		VALUES ($1,$2,$3)
+	`, previewID, actorSubjectID, now); err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "duplicate key") {
+			return fmt.Errorf("%w: preparation preview has already been consumed", ErrConflict)
+		}
+		return err
+	}
+	return nil
 }
 
 func (service *Service) ListWorkload(
@@ -1705,6 +1972,9 @@ func listQuestionAssignments(
 }
 
 func normalizedIDs(values []string) ([]string, error) {
+	if len(values) == 0 || len(values) > 500 {
+		return nil, ErrInvalid
+	}
 	seen := map[string]bool{}
 	output := make([]string, 0, len(values))
 	for _, value := range values {
@@ -1722,6 +1992,9 @@ func normalizedIDs(values []string) ([]string, error) {
 func normalizedQuestionAssignments(
 	values []QuestionAssignment,
 ) ([]QuestionAssignment, error) {
+	if len(values) == 0 || len(values) > 500 {
+		return nil, ErrInvalid
+	}
 	seen := map[string]bool{}
 	output := make([]QuestionAssignment, 0, len(values))
 	for _, value := range values {

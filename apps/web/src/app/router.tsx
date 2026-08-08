@@ -2,11 +2,12 @@ import { Suspense, type ReactElement } from "react";
 import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 
 import { useApplicationRuntime } from "./providers";
-import { CANONICAL_QUESTION_REVIEW_PATH, REACT_ROUTE_CONTRACT_BY_ID, REACT_ROUTE_CONTRACTS, type BuildProfileAvailability, type ReactSurfaceId, type RouteContract } from "./route-contracts";
+import { CANONICAL_AUDIT_PREPARATION_PATH, CANONICAL_QUESTION_REVIEW_PATH, REACT_ROUTE_CONTRACT_BY_ID, REACT_ROUTE_CONTRACTS, type BuildProfileAvailability, type ReactSurfaceId, type RouteContract } from "./route-contracts";
 import { SCREEN_COMPONENT_REGISTRY } from "./screen-component-registry";
 import type { Role } from "../backend/backend";
 import { RoleGuard } from "../auth/role-guard";
 import { QuestionReviewPage } from "../features/checklists/question-review-page";
+import { AuditAssignmentPage } from "../features/teams/audit-assignment-page";
 import { useOptionalSession } from "../auth/session-provider";
 import { RoleSelectPage, ROLE_ENTRIES, createRoleEntryPath } from "../ui/role-select-page";
 
@@ -84,6 +85,7 @@ export function AppRouter() {
   return <Routes>
     <Route path="/" element={<RoleSelectRoute />} />
     <Route path={CANONICAL_QUESTION_REVIEW_PATH} element={<RoleGuard requiredRole="manager"><QuestionReviewPage /></RoleGuard>} />
+    <Route path={CANONICAL_AUDIT_PREPARATION_PATH} element={<RoleGuard requiredRole="leadInspector"><AuditAssignmentPage /></RoleGuard>} />
     {supplementalRouteElements ?? null}
     {REACT_ROUTE_CONTRACTS.filter((contract) => contract.id !== "role-select").map((contract) => <Route key={contract.id} path={contract.path} element={routeElement(contract)} />)}
     <Route path="*" element={<Navigate replace to="/" />} />

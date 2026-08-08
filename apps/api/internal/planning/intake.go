@@ -52,6 +52,8 @@ type IntakeDraftValues struct {
 	SelectionDigest              string             `json:"selectionDigest,omitempty"`
 	SelectedQuestionVersionIDs   []string           `json:"selectedQuestionVersionIds,omitempty"`
 	EstimatedResourceRequirement float64            `json:"estimatedResourceRequirement,omitempty"`
+	FormDistribution             map[string]any     `json:"formDistribution,omitempty"`
+	DomainDistribution           map[string]any     `json:"domainDistribution,omitempty"`
 	ProviderScopeID              string             `json:"providerScopeId,omitempty"`
 	RegulatedTargetID            string             `json:"regulatedTargetId,omitempty"`
 	RequestedBudget              float64            `json:"requestedBudget"`
@@ -184,6 +186,20 @@ func (service *Service) SaveIntakeDraft(
 				if err := application.ValidateCanonicalScopeDraft(ctx, transaction, command.DraftID, facts); err != nil {
 					return intakeCommandResult[IntakeDraft]{}, err
 				}
+				// The canonical scope aggregate is the authority for the exact
+				// selection and its server-derived summary. Never persist a client
+				// supplied resource estimate or distribution.
+				command.Values.CatalogVersion = facts.CatalogVersion
+				command.Values.ScopeDraftID = current.ScopeDraftID
+				command.Values.SelectionDigest = current.SelectionDigest
+				command.Values.SelectedQuestionVersionIDs = append([]string(nil), current.SelectedQuestionVersionIDs...)
+				formDistribution, domainDistribution, resourceRequirement, summaryErr := canonicalSelectionSummary(ctx, transaction, facts.CatalogVersion, current.SelectedQuestionVersionIDs)
+				if summaryErr != nil {
+					return intakeCommandResult[IntakeDraft]{}, summaryErr
+				}
+				command.Values.FormDistribution = formDistribution
+				command.Values.DomainDistribution = domainDistribution
+				command.Values.EstimatedResourceRequirement = resourceRequirement
 			}
 			var legalName string
 			if err := transaction.QueryRow(ctx, `
@@ -268,6 +284,27 @@ func (service *Service) SubmitIntake(
 			}
 			if facts.ScopeID != "" {
 				if err := application.ValidateCanonicalScopeDraft(ctx, transaction, command.DraftID, facts); err != nil {
+					return intakeCommandResult[SubmitIntakeResult]{}, err
+				}
+				formDistribution, domainDistribution, resourceRequirement, summaryErr := canonicalSelectionSummary(ctx, transaction, facts.CatalogVersion, draft.SelectedQuestionVersionIDs)
+				if summaryErr != nil {
+					return intakeCommandResult[SubmitIntakeResult]{}, summaryErr
+				}
+				draft.CatalogVersion = facts.CatalogVersion
+				draft.ScopeDraftID = facts.ScopeID
+				draft.SelectionDigest = facts.SelectionDigest
+				draft.FormDistribution = formDistribution
+				draft.DomainDistribution = domainDistribution
+				draft.EstimatedResourceRequirement = resourceRequirement
+				valuesJSON, marshalErr := json.Marshal(draft.IntakeDraftValues)
+				if marshalErr != nil {
+					return intakeCommandResult[SubmitIntakeResult]{}, marshalErr
+				}
+				if _, err := transaction.Exec(ctx, `
+					UPDATE planning_intake_drafts
+					SET values = $2, updated_at = $3
+					WHERE id = $1 AND revision = $4 AND tombstoned_at IS NULL
+				`, command.DraftID, valuesJSON, service.clock().UTC(), command.ExpectedRevision); err != nil {
 					return intakeCommandResult[SubmitIntakeResult]{}, err
 				}
 				if err := persistSubmittedCanonicalScope(ctx, transaction, actor, draft, facts, service.clock().UTC()); err != nil {
@@ -542,7 +579,7 @@ func getIntakeDraft(
 	var canonicalScopeID, canonicalDigest string
 	var selectedJSON []byte
 	if err := querier.QueryRow(ctx, `
-	SELECT scope.id, scope.selection_digest,
+		SELECT scope.id, scope.selection_digest, catalog.catalog_version,
 	       COALESCE((
 		   SELECT jsonb_agg(selected.question_version_id ORDER BY selected.position)
 		   FROM canonical_audit_scope_selection_operations latest
@@ -558,11 +595,12 @@ func getIntakeDraft(
 		   )
 	       ), '[]'::jsonb)
 		FROM canonical_audit_scope_drafts scope
+		JOIN canonical_question_catalogs catalog ON catalog.id = scope.catalog_id
 		WHERE scope.planning_intake_draft_id = $1
 		  AND scope.status IN ('DRAFT', 'SUBMITTED', 'RELEASED')
 		ORDER BY scope.updated_at DESC, scope.id DESC
 		LIMIT 1
-	`, draftID).Scan(&canonicalScopeID, &canonicalDigest, &selectedJSON); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+	`, draftID).Scan(&canonicalScopeID, &canonicalDigest, &output.CatalogVersion, &selectedJSON); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return IntakeDraft{}, err
 	} else if err == nil {
 		var selected []string
@@ -572,8 +610,82 @@ func getIntakeDraft(
 		output.SelectionDigest = strings.TrimSpace(canonicalDigest)
 		output.SelectedQuestionVersionIDs = selected
 		output.ScopeDraftID = strings.TrimSpace(canonicalScopeID)
+		if queryer, ok := querier.(interface {
+			Query(context.Context, string, ...any) (pgx.Rows, error)
+		}); ok {
+			forms, domains, resourceRequirement, summaryErr := canonicalSelectionSummary(ctx, queryer, output.CatalogVersion, selected)
+			if summaryErr != nil {
+				return IntakeDraft{}, summaryErr
+			}
+			output.FormDistribution = forms
+			output.DomainDistribution = domains
+			output.EstimatedResourceRequirement = resourceRequirement
+		}
 	}
 	return output, nil
+}
+
+// canonicalSelectionSummary derives the Planning selection receipt only from
+// immutable catalog memberships. It deliberately accepts arbitrary catalog
+// labels (including spaces) because labels are data, not identifiers.
+func canonicalSelectionSummary(
+	ctx context.Context,
+	querier interface {
+		Query(context.Context, string, ...any) (pgx.Rows, error)
+	},
+	catalogVersion string,
+	ids []string,
+) (map[string]any, map[string]any, float64, error) {
+	forms := make(map[string]any)
+	domains := make(map[string]any)
+	if len(ids) == 0 {
+		return forms, domains, 0, nil
+	}
+	rows, err := querier.Query(ctx, `
+		SELECT membership.form_code,
+		       COALESCE(NULLIF(membership.proposed_domain, ''), 'Unclassified')
+		FROM canonical_question_catalogs catalog
+		JOIN canonical_question_catalog_memberships membership
+		  ON membership.catalog_id = catalog.id
+		WHERE catalog.catalog_version = $1
+		  AND catalog.status = 'SEALED'
+		  AND membership.question_version_id = ANY($2::text[])
+		ORDER BY membership.ordinal, membership.question_version_id
+	`, catalogVersion, ids)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	defer rows.Close()
+	var count int
+	for rows.Next() {
+		var formCode, domain string
+		if err := rows.Scan(&formCode, &domain); err != nil {
+			return nil, nil, 0, err
+		}
+		forms[formCode] = int64MapValue(forms[formCode]) + 1
+		domains[domain] = int64MapValue(domains[domain]) + 1
+		count++
+	}
+	if err := rows.Err(); err != nil {
+		return nil, nil, 0, err
+	}
+	if count != len(ids) {
+		return nil, nil, 0, fmt.Errorf("%w: server selection summary did not resolve every immutable question", application.ErrConflict)
+	}
+	return forms, domains, float64(count), nil
+}
+
+func int64MapValue(value any) int64 {
+	switch typed := value.(type) {
+	case int64:
+		return typed
+	case int:
+		return int64(typed)
+	case float64:
+		return int64(typed)
+	default:
+		return 0
+	}
 }
 
 func normalizedIntakeValues(values IntakeDraftValues) IntakeDraftValues {
@@ -649,6 +761,8 @@ func persistSubmittedCanonicalScope(
 		"selectionDigest":              facts.SelectionDigest,
 		"selectedQuestionVersionIds":   ids,
 		"estimatedResourceRequirement": draft.EstimatedResourceRequirement,
+		"formDistribution":             draft.FormDistribution,
+		"domainDistribution":           draft.DomainDistribution,
 		"requestedBudget":              draft.RequestedBudget,
 		"currency":                     draft.Currency,
 		"noticePolicy":                 draft.NoticePolicy,

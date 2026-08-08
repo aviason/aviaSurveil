@@ -19,6 +19,8 @@ export type IconKey =
 
 /** Canonical successor routes that are deliberately outside the frozen 86-screen legacy parity set. */
 export const CANONICAL_QUESTION_REVIEW_PATH = "/department-manager/checklist-management/question-review";
+/** Server-owned post-release preparation route; assignment identity is carried by query. */
+export const CANONICAL_AUDIT_PREPARATION_PATH = "/lead-inspector/audit-preparation";
 
 interface RouteSeed {
   auditId: `ui-audit-${string}`;

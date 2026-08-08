@@ -152,13 +152,16 @@ func TestEvidenceScanWorkerMakesTerminalFailureAndTimeoutVisibleButNotReviewable
 
 func TestInspectionAttachmentScanNeverCreatesOfficialEvidence(t *testing.T) {
 	for _, testCase := range []struct {
-		name          string
-		scanner       evidenceworker.Scanner
-		maximum       int
-		expectedState string
-		expectError   bool
+		name                string
+		scanner             evidenceworker.Scanner
+		maximum             int
+		expectedState       string
+		expectError         bool
+		expectTerminalEvent bool
+		expectDownload      bool
 	}{
-		{name: "clean", scanner: evidenceworker.SignatureScanner{}, expectedState: "CLEAN"},
+		{name: "clean", scanner: evidenceworker.SignatureScanner{}, expectedState: "CLEAN", expectTerminalEvent: true, expectDownload: true},
+		{name: "quarantined", scanner: quarantinedScanner{}, expectedState: "QUARANTINED", expectTerminalEvent: true},
 		{name: "terminal failure", scanner: failingScanner{err: errors.New("scanner unavailable")}, maximum: 1, expectedState: "FAILED", expectError: true},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -181,7 +184,69 @@ func TestInspectionAttachmentScanNeverCreatesOfficialEvidence(t *testing.T) {
 			if err := pool.QueryRow(context.Background(), "SELECT count(*) FROM evidence_versions").Scan(&evidenceCount); err != nil || evidenceCount != 0 {
 				t.Fatalf("Inspection Attachment created %d Evidence versions, err = %v", evidenceCount, err)
 			}
+			if testCase.expectTerminalEvent {
+				assertInspectionAttachmentTerminalEvent(t, pool, attachmentID, testCase.expectedState)
+			}
+			uploads := attachments.NewUploadService(pool, objects, attachments.UploadServiceConfig{
+				QuarantineBucket: "avia-quarantine", MaximumByteSize: 25 * 1024 * 1024,
+				InstructionTTL: time.Minute, Clock: uploadClock, IDGenerator: deterministicIDs(),
+			})
+			download, downloadErr := uploads.Download(context.Background(), principal(
+				"inspector-cabin-001", "caa", "session-inspector", identity.RoleInspector,
+			), attachmentID)
+			if testCase.expectDownload {
+				if downloadErr != nil || !strings.HasPrefix(download.URL, "memory://download/avia-canonical/") {
+					t.Fatalf("clean Inspection Attachment download = %+v, err = %v", download, downloadErr)
+				}
+			} else if !errors.Is(downloadErr, attachments.ErrAttachmentForbidden) {
+				t.Fatalf("non-clean Inspection Attachment download error = %v", downloadErr)
+			}
 		})
+	}
+}
+
+func assertInspectionAttachmentTerminalEvent(t *testing.T, pool *database.Pool, attachmentID, expectedState string) {
+	t.Helper()
+	var versionID string
+	if err := pool.QueryRow(context.Background(), `
+		SELECT current_version_id FROM inspection_attachments WHERE id = $1
+	`, attachmentID).Scan(&versionID); err != nil || versionID == "" {
+		t.Fatalf("read immutable Inspection Attachment version = %q, err = %v", versionID, err)
+	}
+	terminalAction := "inspection_attachment.scan_completed"
+	if expectedState == "FAILED" {
+		terminalAction = "inspection_attachment.scan_failed"
+	}
+	var auditState string
+	if err := pool.QueryRow(context.Background(), `
+		SELECT after_status
+		FROM audit_events
+		WHERE action = $1
+		  AND entity_type = 'inspection_attachment_version'
+		  AND entity_id = $2
+	`, terminalAction, versionID).Scan(&auditState); err != nil || auditState != expectedState {
+		t.Fatalf("Inspection Attachment terminal audit = %q, err = %v", auditState, err)
+	}
+	var syncPayload string
+	if err := pool.QueryRow(context.Background(), `
+		SELECT payload::text
+		FROM authorized_sync_changes
+		WHERE kind = 'inspection_attachment_version' AND entity_id = $1
+		ORDER BY sequence_id DESC
+		LIMIT 1
+	`, versionID).Scan(&syncPayload); err != nil || !strings.Contains(syncPayload, `"scanState": "`+expectedState+`"`) {
+		t.Fatalf("Inspection Attachment terminal sync = %s, err = %v", syncPayload, err)
+	}
+	var aggregateType, idempotencyKey, outboxPayload string
+	if err := pool.QueryRow(context.Background(), `
+		SELECT aggregate_type, idempotency_key, payload::text
+		FROM outbox_messages
+		WHERE topic = $2 AND aggregate_id = $1
+	`, versionID, terminalAction).Scan(&aggregateType, &idempotencyKey, &outboxPayload); err != nil ||
+		aggregateType != "inspection_attachment_version" ||
+		idempotencyKey != terminalAction+":"+versionID ||
+		!strings.Contains(outboxPayload, `"scanState": "`+expectedState+`"`) {
+		t.Fatalf("Inspection Attachment terminal outbox = %q/%q/%s, err = %v", aggregateType, idempotencyKey, outboxPayload, err)
 	}
 }
 
@@ -189,6 +254,18 @@ type failingScanner struct{ err error }
 
 func (scanner failingScanner) Scan(context.Context, io.Reader) (evidenceworker.ScanResult, error) {
 	return evidenceworker.ScanResult{}, scanner.err
+}
+
+type quarantinedScanner struct{}
+
+func (quarantinedScanner) Scan(context.Context, io.Reader) (evidenceworker.ScanResult, error) {
+	return evidenceworker.ScanResult{
+		Clean:            false,
+		Reason:           "deterministic quarantine",
+		EngineVersion:    "test-engine",
+		SignatureVersion: "test-signatures",
+		ScannedAt:        canonicalNow,
+	}, nil
 }
 
 type blockingScanner struct{}

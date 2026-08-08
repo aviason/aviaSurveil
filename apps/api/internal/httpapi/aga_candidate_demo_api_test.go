@@ -1,3 +1,5 @@
+//go:build preproddemo
+
 package httpapi
 
 import (
@@ -13,22 +15,19 @@ import (
 
 func TestAGACandidateDemoDeniesBeforeQueryParsingOrReaderAccess(t *testing.T) {
 	reader := &agaHTTPReader{}
-	api := NewCanonicalAPI(CanonicalAPIDependencies{AGACandidateDemo: aga.NewService(reader)})
+	api := NewCanonicalAPI(CanonicalAPIDependencies{})
 	request := httptest.NewRequest(http.MethodGet, "/v1/admin/governed-checklist/aga-candidate-demo/forms?limit=not-a-number", nil)
 	request = request.WithContext(context.WithValue(request.Context(), principalContextKey{}, identity.Principal{OrganizationID: "OTHER", Roles: []identity.Role{identity.RoleAdmin}}))
 	response := httptest.NewRecorder()
 	api.Handler().ServeHTTP(response, request)
 	if response.Code != http.StatusNotFound || reader.calls != 0 {
-		t.Fatalf("denial must precede parsing and reader access: %d/%d", response.Code, reader.calls)
-	}
-	if response.Header().Get("Cache-Control") != "private, no-store" || response.Header().Get("Vary") != "Cookie" || response.Header().Get("Content-Length") != "21" {
-		t.Fatalf("missing no-store neutral response headers: %#v", response.Header())
+		t.Fatalf("canonical API must not mount candidate-demo routes: %d/%d", response.Code, reader.calls)
 	}
 }
 
 func TestAGACandidateDemoDenialMatrixIsByteAndHeaderNeutral(t *testing.T) {
 	reader := &agaHTTPReader{}
-	api := NewCanonicalAPI(CanonicalAPIDependencies{AGACandidateDemo: aga.NewService(reader)})
+	api := NewCanonicalAPI(CanonicalAPIDependencies{})
 	paths := []string{
 		"/v1/admin/governed-checklist/aga-candidate-demo/capability",
 		"/v1/admin/governed-checklist/aga-candidate-demo/summary",
@@ -78,11 +77,11 @@ func TestAGACandidateDemoDenialMatrixIsByteAndHeaderNeutral(t *testing.T) {
 
 func TestAGACandidateDemoAdminGetsSealedSummary(t *testing.T) {
 	reader := &agaHTTPReader{}
-	api := NewCanonicalAPI(CanonicalAPIDependencies{AGACandidateDemo: aga.NewService(reader)})
+	api := NewAGACandidateDemoHandler(aga.NewService(reader))
 	request := httptest.NewRequest(http.MethodGet, "/v1/admin/governed-checklist/aga-candidate-demo/summary", nil)
 	request = request.WithContext(context.WithValue(request.Context(), principalContextKey{}, identity.Principal{OrganizationID: "CAA", Roles: []identity.Role{identity.RoleAdmin}}))
 	response := httptest.NewRecorder()
-	api.Handler().ServeHTTP(response, request)
+	api.ServeHTTP(response, request)
 	if response.Code != http.StatusOK || reader.calls != 1 {
 		t.Fatalf("admin summary=%d calls=%d", response.Code, reader.calls)
 	}

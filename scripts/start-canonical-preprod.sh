@@ -74,6 +74,7 @@ trap cleanup EXIT HUP INT TERM
 
 compose build \
   preprod-migration \
+  preprod-normal-runtime-role-provisioner \
   preprod-canonical-aga-loader \
   preprod-clamav \
   preprod-gotenberg \
@@ -94,6 +95,7 @@ compose up --detach --wait --wait-timeout 300 \
   preprod-clamav \
   preprod-gotenberg \
   preprod-migration \
+  preprod-normal-runtime-role-provisioner \
   preprod-canonical-aga-loader \
   preprod-keycloak \
   preprod-api \

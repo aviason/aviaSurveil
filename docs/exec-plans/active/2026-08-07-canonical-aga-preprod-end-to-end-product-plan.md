@@ -12,19 +12,21 @@ This ExecPlan is a living document. Keep `Progress`, `Decision Log`,
   candidate implementation slices with focused/full local checks, while Tasks
   8–9 and the final stakeholder handoff remain pending.
 - Planning authority: the user requested this successor plan on 2026-08-07.
-- Independent implementation review: Sol Ultra read-only review is
-  `NOT ACCEPTED` on 2026-08-08; remaining Important findings and
-  qualification evidence are tracked below and in the technical-debt tracker.
+- Independent implementation review: the latest Sol Ultra packet remains
+  `NOT ACCEPTED` pending a fresh post-remediation reread; the final Sol XHigh
+  code-boundary reread is `ACCEPTED` with 0 Critical / 0 Important findings.
+  Connected, rendered, and stakeholder evidence remains separately pending.
 - Implementation authority: granted by the user's 2026-08-07 execution request
   for Gate 0, Tasks 1–9, and Task 11 only. Task 10 remains separately
   unauthorized and `not run`.
 - Local full-system qualification: `blocked` — generated contract checks,
-  focused Go packages, migration/N-1 upgrade checks, React typecheck, and
-  `git diff --check` are `verified locally`; the full Go suite is `not run`
-  after a long-running local attempt, the full React test suite is `blocked`
-  by existing fixture-contract failures, and recursive root JS/MJS discovery
-  remains `blocked` by existing AGA/AviaCore/AWS fixture-contract families.
-  Donor-disabled connected stakeholder qualification is `not run`.
+  focused Go packages, migration/N-1 upgrade checks, React typecheck, the full
+  React suite (91 files / 767 tests), normal Go artifact-boundary scans, and
+  `git diff --check` are `verified locally`; the full Go suite is `blocked` by
+  the unavailable disposable integration PostgreSQL endpoint, and recursive
+  root JS/MJS discovery remains `blocked` by existing AGA/AviaCore/AWS
+  fixture-contract families. Donor-disabled connected stakeholder
+  qualification is `blocked` by the existing execution-package fixture.
 - External preprod deployment: `not run` and separately authorized.
 - Release: `release pending`.
 - Production readiness: `production-ready: not established`.
@@ -1419,6 +1421,35 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   connected/visual qualification. The queue path, migration/N-1 checks,
   generated contracts, focused Go packages, React typecheck, and
   `git diff --check` are `verified locally`; Task 10 remains `not run`.
+- [x] 2026-08-08: The Sol XHigh Important-finding pass was addressed locally:
+  Question Review now exposes bounded append-only Draft history and exact
+  exercise scope binding; New Audit summaries are recomputed from immutable
+  catalog memberships; the Lead preparation handoff uses a canonical
+  pre-materialization route; donor workspace paths are absent from the normal
+  HTTP contract/client/artifact; and long-lived local-preprod services use a
+  provisioned non-owner runtime database role. Generated contracts, focused Go,
+  React typecheck, artifact-boundary tests, and `git diff --check` are
+  `verified locally`. The independent XHigh reread, rendered viewport matrix,
+  donor-disabled connected qualification, full suites, and stakeholder review
+  remain `not run`; plan status stays `active`, `candidate-only`, and
+  `release pending`. Task 10 remains literally `not run`.
+- [x] 2026-08-08: The final XHigh remediation pass removed the isolated
+  AGA candidate-demo routes, schemas, HTTP capability, and Admin panel from
+  the normal runtime graph while retaining the tagged source/tests as
+  deletion-gated provenance; the HTTP artifact scan now rejects both donor
+  families. Draft history now selects the newest bounded 50 events in SQL and
+  reorders that window chronologically for the Decision file. Focused Go,
+  generated contracts, full React (91 files/767 tests), artifact tests, and
+  `git diff --check` are `verified locally`; the canonical/OpenAPI/donor
+  boundary JS/MJS subset is 70/70 `verified locally`. Full Go is `blocked` on the
+  unavailable disposable integration PostgreSQL endpoint, root recursive JS/
+  MJS discovery is `blocked` by paused AGA/AviaCore/AWS fixture contracts, and
+  connected visible-action qualification is `blocked` by its existing
+  execution-package fixture. The final Sol XHigh reread accepted the local
+  code boundary with 0 Critical / 0 Important findings; connected, rendered,
+  and stakeholder evidence remain pending. The plan remains `active`,
+  `candidate-only`, and `release pending`; Task 10 remains literally
+  `not run`.
 - [x] 2026-08-07: Gate 0 froze the canonical table/FK/aggregate/event
   boundaries, classified every dirty AGA change, mapped F-002/F-004/F-007/
   F-010/F-013/F-015/F-018/F-021, synchronized the product specifications,
@@ -1433,12 +1464,12 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   implementation and focused/full checks are `verified locally`; stakeholder
   connected qualification is `not run`.
 - [x] Task 3: canonical Question Review workspace and governance modes — the
-  retained interface, separate command boundaries, and requested responsive
-  DOM/overflow checks are `verified locally`; stakeholder qualification is
-  `not run`.
-- [x] Task 4: primary New Audit workflow — candidate implementation, focused
-  checks, and responsive New Audit DOM/overflow checks are `verified locally`;
-  stakeholder qualification is `not run`.
+  retained interface, separate command boundaries, and candidate DOM/overflow
+  checks are `verified locally`; rendered 1440x900/1024x768/390x844 and
+  stakeholder qualification are `not run`.
+- [x] Task 4: primary New Audit workflow — candidate implementation and
+  focused checks are `verified locally`; responsive rendered evidence and
+  stakeholder qualification are `not run`.
 - [x] Task 5: approval binding, post-release preparation, and materialization —
   candidate implementation, migration/application checks, and connected
   canonical scenario checks are `verified locally`; donor-disabled stakeholder
@@ -1446,17 +1477,19 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
 - [x] Task 6: accepted canonical multi-role/report lifecycle — candidate
   implementation and focused/full lifecycle checks are `verified locally`;
   stakeholder connected qualification is `not run`.
-- [x] Task 7: navigation cutover and donor disablement — canonical routes and
-  donor runtime fail-closed behavior are `verified locally`; deletion remains
-  pending donor-disabled connected qualification and final review closure.
+- [x] Task 7: navigation cutover and donor disablement — canonical routes,
+  donor-free HTTP contract/artifact, and donor runtime fail-closed behavior
+  are `verified locally`; rendered/connected donor-disabled qualification and
+  deletion/requalification remain `not run`.
 - [ ] Task 8: local connected qualification with donor disabled.
 - [ ] Task 9: duplicate lifecycle removal and requalification.
 - [ ] Task 10: separately authorized external preprod release gate.
 - [ ] Task 11: aggregate evidence and stakeholder handoff — candidate evidence
-  exists and focused contract/Go/typecheck checks are `verified locally`; the
-  required rendered Question Review/New Audit viewport matrix, final
-  qualification, independent review closure, and stakeholder verification
-  remain `not run`.
+  exists and focused contract/Go/typecheck plus full React checks are
+  `verified locally`; full Go/root recursive and connected qualification are
+  `blocked` as recorded above, while the required rendered Question Review/
+  New Audit viewport matrix, independent review closure, and stakeholder
+  verification remain `not run`.
 
 ## Decision Log
 

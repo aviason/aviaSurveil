@@ -9,7 +9,6 @@ import (
 
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/preproddata/agacandidatedemo"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/questioncatalog"
 	"github.com/jackc/pgx/v5"
 )
 

@@ -43,6 +43,16 @@ The artifact is `candidate-only`, the local decision is `GO`, and release is
 identity federation, external storage, scanning, email, records operations,
 deployment, cutover, legacy removal, and a `production-ready` claim remain
 excluded or `blocked`.
+The active Canonical AGA Preprod End-To-End Product successor is separately
+`candidate-only`: its canonical Question Review history, immutable New Audit
+selection summary, pre-materialization Lead handoff, donor-free normal HTTP
+contract/artifact/binary, and non-owner local-preprod runtime role are
+`verified locally`; rendered stakeholder qualification, donor
+deletion/requalification, and full recursive gates remain `not run` or
+`blocked`. Sol XHigh accepted the implemented code boundary with 0
+Critical/0 Important; a fresh Sol Ultra reread and stakeholder acceptance
+remain pending. Task 10 external preprod remains unauthorized and literally
+`not run`.
 The root Vanilla demo remains intact.
 
 ## Root Files

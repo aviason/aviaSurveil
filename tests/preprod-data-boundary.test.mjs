@@ -212,6 +212,80 @@ test("preprod migration uses the supported database-only config mode", () => {
   );
 });
 
+test("long-lived local-preprod runtimes use the non-owner credential after one-shot provisioning", () => {
+  const dockerfile = read("apps/api/Dockerfile");
+  const compose = read("deploy/local/compose.yaml");
+  const canonicalStarter = read("scripts/start-canonical-preprod.sh");
+  const connectedScenarios = read("scripts/test-preprod-connected-scenarios.sh");
+  const provisioner = serviceBlock(compose, "preprod-normal-runtime-role-provisioner");
+
+  assert.match(
+    dockerfile,
+    /go build[^]*?-o \/out\/preprod-normal-runtime-role-provisioner \.\/cmd\/preprod-normal-runtime-role-provisioner/u,
+  );
+  assert.match(
+    dockerfile,
+    /FROM runtime-base AS preprod-normal-runtime-role-provisioner[^]*?\/out\/preprod-normal-runtime-role-provisioner/u,
+  );
+  assert.match(provisioner, /profiles:\s*\[local-preprod-loader\]/u);
+  assert.match(provisioner, /target:\s*preprod-normal-runtime-role-provisioner/u);
+  assert.match(
+    provisioner,
+    /preprod-migration:\s*\n\s+condition: service_completed_successfully/u,
+  );
+  assert.match(provisioner, /preprod_app_database_password/u);
+  assert.match(provisioner, /preprod_normal_api_database_password/u);
+  assert.match(provisioner, /preprod-app-database/u);
+  assert.doesNotMatch(
+    provisioner,
+    /keycloak|minio|mailpit|smtp|worker|scheduler|object|queue|lifecycle/iu,
+  );
+  assert.match(
+    canonicalStarter,
+    /compose build[^]*?preprod-normal-runtime-role-provisioner/u,
+  );
+  assert.match(
+    canonicalStarter,
+    /compose up[^]*?preprod-normal-runtime-role-provisioner/u,
+  );
+  assert.match(
+    connectedScenarios,
+    /build_services=\([^]*?preprod-normal-runtime-role-provisioner/u,
+  );
+  assert.match(
+    connectedScenarios,
+    /runtime_services=\([^]*?preprod-normal-runtime-role-provisioner/u,
+  );
+
+  for (const serviceName of [
+    "preprod-api",
+    "preprod-worker",
+    "preprod-scheduler",
+  ]) {
+    const service = serviceBlock(compose, serviceName);
+    assert.match(
+      service,
+      /preprod-normal-runtime-role-provisioner:\s*\n\s+condition: service_completed_successfully/u,
+      `${serviceName} must wait for the non-owner role provisioner`,
+    );
+    assert.match(
+      service,
+      /AVIA_DATABASE_USER:\s*preprod_normal_api/u,
+      `${serviceName} must log in as the non-owner role`,
+    );
+    assert.match(
+      service,
+      /AVIA_DATABASE_PASSWORD_FILE:\s*\/run\/secrets\/preprod_normal_api_database_password/u,
+      `${serviceName} must mount the non-owner secret`,
+    );
+    assert.doesNotMatch(
+      service,
+      /preprod_app_database_password/u,
+      `${serviceName} must not receive the bootstrap owner secret`,
+    );
+  }
+});
+
 test("loader source declares exact target, authorization, and append-only boundaries", () => {
   const loader = [
     read("apps/api/internal/preproddata/loader.go"),

@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import { useApplicationRuntime } from "../../app/providers";
 import type { AssignmentSummary, CanonicalAssignmentView, InspectionPackage } from "../../backend/backend";
+import type { CanonicalPreparationEditPreviewView } from "../../backend/backend";
 import { CommandError, errorMessage, WorkspaceShell } from "../shared/workspace-shell";
 
 const inspectorNames: Readonly<Record<string, string>> = {
@@ -19,6 +20,8 @@ export function AuditAssignmentPage() {
   const [preparation, setPreparation] = useState<CanonicalAssignmentView | null>(null);
   const [memberSubjectIds, setMemberSubjectIds] = useState("");
   const [questionCoverage, setQuestionCoverage] = useState("");
+  const [teamPreview, setTeamPreview] = useState<CanonicalPreparationEditPreviewView | null>(null);
+  const [coveragePreview, setCoveragePreview] = useState<CanonicalPreparationEditPreviewView | null>(null);
   const [busy, setBusy] = useState(false);
   const [showWorkload, setShowWorkload] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,23 +59,41 @@ export function AuditAssignmentPage() {
     return () => { cancelled = true; };
   }, [backend, searchParams]);
 
-  async function saveTeam(): Promise<void> {
+  async function previewTeamChange(): Promise<void> {
     if (!preparation || !backend.canonicalAuditWorkflow) return;
     const members = memberSubjectIds.split(/[,\n]/).map((value) => value.trim()).filter(Boolean);
     if (!members.length) { setError("Enter at least one Inspector subject ID."); return; }
     setBusy(true); setError(null);
     try {
-      const next = await backend.canonicalAuditWorkflow.assignTeam(preparation.id, {
-        operationId: `TEAM-${preparation.id}-${preparation.revision}`,
-        idempotencyKey: `TEAM-${preparation.id}-${preparation.revision}`,
+      const preview = await backend.canonicalAuditWorkflow.previewTeam(preparation.id, {
+        operationId: `TEAM-PREVIEW-${preparation.id}-${preparation.revision}`,
+        idempotencyKey: `TEAM-PREVIEW-${preparation.id}-${preparation.revision}`,
         expectedRevision: preparation.revision,
         memberSubjectIds: members,
       });
-      setPreparation(next);
+      setTeamPreview(preview);
     } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); }
   }
 
-  async function saveCoverage(): Promise<void> {
+  async function confirmTeamChange(): Promise<void> {
+    if (!preparation || !backend.canonicalAuditWorkflow || !teamPreview) return;
+    setBusy(true); setError(null);
+    try {
+      const operationId = `TEAM-${preparation.id}-${preparation.revision}`;
+      const next = await backend.canonicalAuditWorkflow.assignTeam(preparation.id, {
+        operationId,
+        idempotencyKey: operationId,
+        expectedRevision: preparation.revision,
+        previewId: teamPreview.previewId,
+        previewDigest: teamPreview.digest,
+        memberSubjectIds: teamPreview.memberSubjectIds ?? [],
+      });
+      setPreparation(next);
+      setTeamPreview(null);
+    } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); }
+  }
+
+  async function previewCoverageChange(): Promise<void> {
     if (!preparation || !backend.canonicalAuditWorkflow) return;
     const rows = questionCoverage.split(/[,\n]/).map((value) => value.trim()).filter(Boolean).map((value) => {
       const [questionId, subjectId] = value.split(":").map((part) => part.trim());
@@ -81,13 +102,31 @@ export function AuditAssignmentPage() {
     if (!rows.length) { setError("Enter coverage as questionVersionId:subjectId, one per line."); return; }
     setBusy(true); setError(null);
     try {
-      const next = await backend.canonicalAuditWorkflow.assignQuestionCoverage(preparation.id, {
-        operationId: `COVERAGE-${preparation.id}-${preparation.revision}`,
-        idempotencyKey: `COVERAGE-${preparation.id}-${preparation.revision}`,
+      const preview = await backend.canonicalAuditWorkflow.previewQuestionCoverage(preparation.id, {
+        operationId: `COVERAGE-PREVIEW-${preparation.id}-${preparation.revision}`,
+        idempotencyKey: `COVERAGE-PREVIEW-${preparation.id}-${preparation.revision}`,
         expectedRevision: preparation.revision,
         questionAssignments: rows,
       });
+      setCoveragePreview(preview);
+    } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); }
+  }
+
+  async function confirmCoverageChange(): Promise<void> {
+    if (!preparation || !backend.canonicalAuditWorkflow || !coveragePreview) return;
+    setBusy(true); setError(null);
+    try {
+      const operationId = `COVERAGE-${preparation.id}-${preparation.revision}`;
+      const next = await backend.canonicalAuditWorkflow.assignQuestionCoverage(preparation.id, {
+        operationId,
+        idempotencyKey: operationId,
+        expectedRevision: preparation.revision,
+        previewId: coveragePreview.previewId,
+        previewDigest: coveragePreview.digest,
+        questionAssignments: coveragePreview.questionAssignments ?? [],
+      });
       setPreparation(next);
+      setCoveragePreview(null);
     } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); }
   }
   const workload = useMemo(() => {
@@ -106,11 +145,13 @@ export function AuditAssignmentPage() {
           <h2>Pre-materialization preparation</h2>
           <p>Lead Inspector authority is required before the Department Manager can confirm and materialize this Audit. The execution package is intentionally unavailable until then.</p>
           <dl className="lead-detail-grid"><div><dt>Assignment</dt><dd>{preparation.id}</dd></div><div><dt>Status</dt><dd>{preparation.status}</dd></div><div><dt>Released questions</dt><dd>{preparation.selectedQuestionVersionIds?.length ?? 0}</dd></div><div><dt>Revision</dt><dd>{preparation.revision}</dd></div></dl>
-          <label>Inspector subject IDs<input aria-label="Inspector subject IDs" value={memberSubjectIds} onChange={(event) => setMemberSubjectIds(event.target.value)} placeholder="inspector-a, inspector-b" /></label>
-          <button className="lead-button lead-button--primary" disabled={busy || preparation.status !== "LEAD_ASSIGNED"} onClick={() => void saveTeam()} title={preparation.status !== "LEAD_ASSIGNED" ? "Team membership is already assigned or the preparation is no longer editable." : undefined} type="button">Assign exact team</button>
+          <label>Inspector subject IDs<input aria-label="Inspector subject IDs" value={memberSubjectIds} onChange={(event) => { setMemberSubjectIds(event.target.value); setTeamPreview(null); }} placeholder="inspector-a, inspector-b" /></label>
+          <button className="lead-button lead-button--primary" disabled={busy || preparation.status !== "LEAD_ASSIGNED"} onClick={() => void previewTeamChange()} title={preparation.status !== "LEAD_ASSIGNED" ? "Team membership is already assigned or the preparation is no longer editable." : undefined} type="button">Preview exact team</button>
+          {teamPreview ? <div className="lead-preview-receipt" aria-label="Team assignment preview"><p role="status">Preview ready · {(teamPreview.memberSubjectIds ?? []).join(", ")} · digest {teamPreview.digest}</p><button className="lead-button lead-button--primary" disabled={busy} onClick={() => void confirmTeamChange()} type="button">Confirm team assignment</button><button className="lead-button" disabled={busy} onClick={() => setTeamPreview(null)} type="button">Discard preview</button></div> : null}
           <p>Released question versions: {(preparation.selectedQuestionVersionIds ?? []).join(", ") || "none returned"}</p>
-          <label>Per-question coverage<textarea aria-label="Per-question coverage" value={questionCoverage} onChange={(event) => setQuestionCoverage(event.target.value)} placeholder="questionVersionId:subjectId" /></label>
-          <button className="lead-button lead-button--primary" disabled={busy || (preparation.status !== "TEAM_ASSIGNED" && preparation.status !== "QUESTIONS_ASSIGNED")} onClick={() => void saveCoverage()} title={preparation.status !== "TEAM_ASSIGNED" && preparation.status !== "QUESTIONS_ASSIGNED" ? "Assign the exact team before coverage." : undefined} type="button">Save question coverage</button>
+          <label>Per-question coverage<textarea aria-label="Per-question coverage" value={questionCoverage} onChange={(event) => { setQuestionCoverage(event.target.value); setCoveragePreview(null); }} placeholder="questionVersionId:subjectId" /></label>
+          <button className="lead-button lead-button--primary" disabled={busy || (preparation.status !== "TEAM_ASSIGNED" && preparation.status !== "QUESTIONS_ASSIGNED")} onClick={() => void previewCoverageChange()} title={preparation.status !== "TEAM_ASSIGNED" && preparation.status !== "QUESTIONS_ASSIGNED" ? "Assign the exact team before coverage." : undefined} type="button">Preview question coverage</button>
+          {coveragePreview ? <div className="lead-preview-receipt" aria-label="Question coverage preview"><p role="status">Preview ready · {(coveragePreview.questionAssignments ?? []).length} coverage rows · digest {coveragePreview.digest}</p><button className="lead-button lead-button--primary" disabled={busy} onClick={() => void confirmCoverageChange()} type="button">Confirm question coverage</button><button className="lead-button" disabled={busy} onClick={() => setCoveragePreview(null)} type="button">Discard preview</button></div> : null}
           <p role="status">After every released question has coverage, return to the Department Manager for preparation confirmation.</p>
         </section>
       </> : assignment && inspectionPackage ? <>

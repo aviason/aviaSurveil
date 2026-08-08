@@ -142,21 +142,39 @@ func TestRoutinePlanningReturnReentryAndAssignmentMaterialization(t *testing.T) 
 	}); !errors.Is(err, assignments.ErrConflict) {
 		t.Fatalf("stale team-assignment revision error = %v", err)
 	}
+	teamPreview, err := assignmentService.PreviewTeam(context.Background(), lead, assignments.PreviewTeamCommand{
+		OperationID: "op-routine-team-preview", IdempotencyKey: "idem-routine-team-preview",
+		AssignmentID: assignment.ID, ExpectedRevision: assignment.Revision,
+		MemberSubjectIDs: []string{"inspector-cabin-001", "inspector-other"},
+	})
+	if err != nil {
+		t.Fatalf("preview routine team: %v", err)
+	}
 	assignment, err = assignmentService.AssignTeam(context.Background(), lead, assignments.AssignTeamCommand{
 		OperationID: "op-routine-team", IdempotencyKey: "idem-routine-team",
 		AssignmentID: assignment.ID, ExpectedRevision: assignment.Revision,
+		PreviewID: teamPreview.PreviewID, PreviewDigest: teamPreview.Digest,
 		MemberSubjectIDs: []string{"inspector-cabin-001", "inspector-other"},
 	})
 	if err != nil {
 		t.Fatalf("assign routine team: %v", err)
 	}
+	questionAssignments := []assignments.QuestionAssignment{
+		{QuestionID: "q-cabin-crew-training", SubjectID: "inspector-cabin-001"},
+		{QuestionID: "q-cabin-crew-training", SubjectID: "inspector-other"},
+	}
+	coveragePreview, err := assignmentService.PreviewQuestions(context.Background(), lead, assignments.PreviewQuestionsCommand{
+		OperationID: "op-routine-questions-preview", IdempotencyKey: "idem-routine-questions-preview",
+		AssignmentID: assignment.ID, ExpectedRevision: assignment.Revision, QuestionAssignments: questionAssignments,
+	})
+	if err != nil {
+		t.Fatalf("preview routine questions: %v", err)
+	}
 	assignment, err = assignmentService.AssignQuestions(context.Background(), lead, assignments.AssignQuestionsCommand{
 		OperationID: "op-routine-questions", IdempotencyKey: "idem-routine-questions",
 		AssignmentID: assignment.ID, ExpectedRevision: assignment.Revision,
-		QuestionAssignments: []assignments.QuestionAssignment{
-			{QuestionID: "q-cabin-crew-training", SubjectID: "inspector-cabin-001"},
-			{QuestionID: "q-cabin-crew-training", SubjectID: "inspector-other"},
-		},
+		PreviewID: coveragePreview.PreviewID, PreviewDigest: coveragePreview.Digest,
+		QuestionAssignments: questionAssignments,
 	})
 	if err != nil {
 		t.Fatalf("assign routine questions: %v", err)
@@ -178,6 +196,7 @@ func TestRoutinePlanningReturnReentryAndAssignmentMaterialization(t *testing.T) 
 	if confirmed.Revision != assignment.Revision+1 {
 		t.Fatalf("confirmed routine preparation = %+v", confirmed)
 	}
+	seedLegacyPreparationPredecessor(t, pool, confirmed.PreparationID)
 
 	applicationService := testService(pool)
 	if _, err := applicationService.MaterializeInspection(
@@ -307,20 +326,36 @@ func TestAdHocPlanningWithholdsAuditeeNoticeAfterMaterialization(t *testing.T) {
 		t.Fatalf("assign Ad Hoc Lead Inspector: %v", err)
 	}
 	lead := principal("lead-001", "caa", "session-lead", identity.RoleLeadInspector)
+	teamPreview, err := service.PreviewTeam(context.Background(), lead, assignments.PreviewTeamCommand{
+		OperationID: "op-ad-hoc-team-preview", IdempotencyKey: "idem-ad-hoc-team-preview",
+		AssignmentID: assignment.ID, ExpectedRevision: assignment.Revision,
+		MemberSubjectIDs: []string{"inspector-cabin-001"},
+	})
+	if err != nil {
+		t.Fatalf("preview Ad Hoc team: %v", err)
+	}
 	assignment, err = service.AssignTeam(context.Background(), lead, assignments.AssignTeamCommand{
 		OperationID: "op-ad-hoc-team", IdempotencyKey: "idem-ad-hoc-team",
 		AssignmentID: assignment.ID, ExpectedRevision: assignment.Revision,
+		PreviewID: teamPreview.PreviewID, PreviewDigest: teamPreview.Digest,
 		MemberSubjectIDs: []string{"inspector-cabin-001"},
 	})
 	if err != nil {
 		t.Fatalf("assign Ad Hoc team: %v", err)
 	}
+	questionAssignments := []assignments.QuestionAssignment{{QuestionID: "q-cabin-crew-training", SubjectID: "inspector-cabin-001"}}
+	coveragePreview, err := service.PreviewQuestions(context.Background(), lead, assignments.PreviewQuestionsCommand{
+		OperationID: "op-ad-hoc-questions-preview", IdempotencyKey: "idem-ad-hoc-questions-preview",
+		AssignmentID: assignment.ID, ExpectedRevision: assignment.Revision, QuestionAssignments: questionAssignments,
+	})
+	if err != nil {
+		t.Fatalf("preview Ad Hoc questions: %v", err)
+	}
 	assignment, err = service.AssignQuestions(context.Background(), lead, assignments.AssignQuestionsCommand{
 		OperationID: "op-ad-hoc-questions", IdempotencyKey: "idem-ad-hoc-questions",
 		AssignmentID: assignment.ID, ExpectedRevision: assignment.Revision,
-		QuestionAssignments: []assignments.QuestionAssignment{
-			{QuestionID: "q-cabin-crew-training", SubjectID: "inspector-cabin-001"},
-		},
+		PreviewID: coveragePreview.PreviewID, PreviewDigest: coveragePreview.Digest,
+		QuestionAssignments: questionAssignments,
 	})
 	if err != nil {
 		t.Fatalf("assign Ad Hoc questions: %v", err)
@@ -350,6 +385,114 @@ func TestAdHocPlanningWithholdsAuditeeNoticeAfterMaterialization(t *testing.T) {
 	}
 	if len(coordination) != 0 {
 		t.Fatalf("Ad Hoc coordination leaked to Auditee: %+v", coordination)
+	}
+}
+
+func TestCanonicalPreparationCoveragePinsQuestionPositionToReleasedSnapshot(t *testing.T) {
+	pool := canonicalDatabase(t, "preparation_position")
+	ctx := context.Background()
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO question_versions (
+			id, question_id, version, prompt, configured_reference, expected_evidence, created_by_subject_id
+		) VALUES (
+			'q-preparation-position-other', 'q-preparation-position-other', 1,
+			'Synthetic position-bound question.', 'Fixture reference', 'Fixture evidence', 'manager-001'
+		)
+	`); err != nil {
+		t.Fatalf("seed second position-bound question: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO canonical_question_version_provenance (question_version_id, usage_class, catalog_id)
+		VALUES ('q-preparation-position-other', 'PREPROD_EXERCISE', 'catalog-cabin-fixture')
+	`); err != nil {
+		t.Fatalf("seed second question provenance: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO canonical_question_catalog_memberships (
+			catalog_id, question_version_id, usage_class, form_code, proposal_id, ordinal,
+			question_digest, source_gap_state
+		) VALUES (
+			'catalog-cabin-fixture', 'q-preparation-position-other', 'PREPROD_EXERCISE',
+			'CABIN', 'proposal-preparation-position-other', 2, 'sha256:position-other', 'NONE'
+		)
+	`); err != nil {
+		t.Fatalf("seed second catalog membership: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO planning_intake_drafts (id, organization_id, values, created_by_subject_id)
+		VALUES ('draft-preparation-position', 'airline-xyz', '{"fixture":"position"}'::jsonb, 'manager-001')
+	`); err != nil {
+		t.Fatalf("seed position planning draft: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO canonical_audit_scope_drafts (
+			id, planning_intake_draft_id, organization_id, provider_scope_id, regulated_target_id,
+			audit_type, catalog_id, usage_class, revision, status, selected_question_count,
+			selection_digest, notice_policy, created_by_subject_id
+		) VALUES (
+			'scope-draft-preparation-position', 'draft-preparation-position', 'airline-xyz',
+			'scope-airline-xyz-air-operator', 'target-airline-xyz', 'CABIN',
+			'catalog-cabin-fixture', 'PREPROD_EXERCISE', 1, 'RELEASED', 2,
+			'sha256:preparation-position-selection', 'ADVANCE', 'manager-001'
+		)
+	`); err != nil {
+		t.Fatalf("seed position released scope: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO canonical_audit_scope_snapshots (
+			id, scope_draft_id, revision, stage, catalog_id, usage_class, selection_digest,
+			planning_snapshot_digest, selected_question_count, snapshot, created_by_subject_id
+		) VALUES (
+			'scope-snapshot-preparation-position', 'scope-draft-preparation-position', 1,
+			'RELEASED', 'catalog-cabin-fixture', 'PREPROD_EXERCISE',
+			'sha256:preparation-position-selection', '', 2, '{}'::jsonb, 'manager-001'
+		)
+	`); err != nil {
+		t.Fatalf("seed position released snapshot: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO canonical_audit_scope_snapshot_questions (
+			snapshot_id, catalog_id, question_version_id, position
+		) VALUES
+			('scope-snapshot-preparation-position', 'catalog-cabin-fixture', 'q-cabin-crew-training', 0),
+			('scope-snapshot-preparation-position', 'catalog-cabin-fixture', 'q-preparation-position-other', 1)
+	`); err != nil {
+		t.Fatalf("seed position released questions: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO canonical_audit_preparation_snapshots (
+			id, assignment_id, released_scope_snapshot_id, lead_subject_id, revision, status,
+			preparation_digest, snapshot
+		) VALUES (
+			'preparation-position', 'assignment-cabin-001', 'scope-snapshot-preparation-position',
+			'lead-001', 1, 'DRAFT', 'sha256:preparation-position', '{}'::jsonb
+		)
+	`); err != nil {
+		t.Fatalf("seed position preparation: %v", err)
+	}
+
+	for _, subjectID := range []string{"inspector-cabin-001", "inspector-other"} {
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO canonical_audit_preparation_questions (
+				preparation_id, released_scope_snapshot_id, question_version_id, subject_id, position
+			) VALUES (
+				'preparation-position', 'scope-snapshot-preparation-position',
+				'q-cabin-crew-training', $1, 0
+			)
+		`, subjectID); err != nil {
+			t.Fatalf("assign multiple Inspectors to one released question: %v", err)
+		}
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO canonical_audit_preparation_questions (
+			preparation_id, released_scope_snapshot_id, question_version_id, subject_id, position
+		) VALUES (
+			'preparation-position', 'scope-snapshot-preparation-position',
+			'q-preparation-position-other', 'lead-001', 0
+		)
+	`); err == nil {
+		t.Fatal("coverage with another question at the released position unexpectedly succeeded")
 	}
 }
 
@@ -688,6 +831,59 @@ func seedPlanningDraft(t *testing.T, pool *database.Pool, draftID, organizationI
 		) VALUES ($1, 'catalog-cabin-fixture', 'q-cabin-crew-training', 0, $2)
 	`, selectionOperationID, values.SelectionDigest); err != nil {
 		t.Fatalf("seed canonical selected question: %v", err)
+	}
+}
+
+// seedLegacyPreparationPredecessor models the immutable pre-38 CONFIRMED
+// receipt that migration 38 retains alongside its revision-bound successor.
+// The current schema correctly rejects new unbound confirmations, so this
+// isolated test database removes that validation only while installing the
+// historical predecessor; the materializer must ignore it rather than count
+// both rows as current confirmation candidates.
+func seedLegacyPreparationPredecessor(t *testing.T, pool *database.Pool, successorID string) {
+	t.Helper()
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, `
+		ALTER TABLE canonical_audit_preparation_snapshots
+		DROP CONSTRAINT canonical_audit_preparation_confirmed_revision_shape
+	`); err != nil {
+		t.Fatalf("allow retained legacy confirmation fixture: %v", err)
+	}
+	legacyID := successorID + ":legacy-predecessor"
+	result, err := pool.Exec(ctx, `
+		INSERT INTO canonical_audit_preparation_snapshots (
+			id, assignment_id, released_scope_snapshot_id, lead_subject_id, revision, status,
+			preparation_digest, confirmed_by_subject_id, confirmed_at,
+			confirmed_assignment_revision, snapshot, created_at
+		)
+		SELECT $1, assignment_id, released_scope_snapshot_id, lead_subject_id, revision + 2,
+		       'CONFIRMED', preparation_digest, confirmed_by_subject_id, confirmed_at,
+		       NULL, snapshot, $2
+		FROM canonical_audit_preparation_snapshots
+		WHERE id = $3
+	`, legacyID, canonicalNow, successorID)
+	if err != nil {
+		t.Fatalf("seed retained legacy confirmation predecessor: %v", err)
+	}
+	if result.RowsAffected() != 1 {
+		t.Fatalf("seed retained legacy confirmation rows=%d", result.RowsAffected())
+	}
+	var confirmationCount, currentBoundCount int
+	if err := pool.QueryRow(ctx, `
+		SELECT COUNT(*), COUNT(*) FILTER (WHERE confirmed_assignment_revision IS NOT NULL)
+		FROM canonical_audit_preparation_snapshots
+		WHERE assignment_id = (
+			SELECT assignment_id FROM canonical_audit_preparation_snapshots WHERE id = $1
+		)
+		  AND released_scope_snapshot_id = (
+			SELECT released_scope_snapshot_id FROM canonical_audit_preparation_snapshots WHERE id = $1
+		)
+		  AND status = 'CONFIRMED'
+	`, successorID).Scan(&confirmationCount, &currentBoundCount); err != nil {
+		t.Fatalf("read legacy/current confirmation pair: %v", err)
+	}
+	if confirmationCount != 2 || currentBoundCount != 1 {
+		t.Fatalf("legacy/current confirmation pair count=%d currentBound=%d", confirmationCount, currentBoundCount)
 	}
 }
 

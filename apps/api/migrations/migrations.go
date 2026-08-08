@@ -13,7 +13,7 @@ import (
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
 )
 
-const LatestVersion int64 = 38
+const LatestVersion int64 = 41
 const advisoryLockID int64 = 36020260721
 
 //go:embed *.up.sql
@@ -260,6 +260,62 @@ ALTER TABLE canonical_audit_preparation_questions DROP CONSTRAINT IF EXISTS cano
 ALTER TABLE canonical_audit_preparation_questions ADD PRIMARY KEY (preparation_id, question_version_id, subject_id);
 ALTER TABLE canonical_audit_preparation_questions DROP CONSTRAINT IF EXISTS canonical_audit_preparation_questions_preparation_id_position_key;
 CREATE UNIQUE INDEX IF NOT EXISTS canonical_audit_preparation_questions_position_subject_key ON canonical_audit_preparation_questions (preparation_id, position, subject_id);
+DO $preparation_position_repair$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='canonical_audit_scope_snapshot_questions'::regclass AND conname='canonical_scope_snapshot_question_position_key') THEN
+        ALTER TABLE canonical_audit_scope_snapshot_questions
+            ADD CONSTRAINT canonical_scope_snapshot_question_position_key
+            UNIQUE (snapshot_id, question_version_id, position);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='canonical_audit_preparation_questions'::regclass AND conname='canonical_preparation_question_scope_position_fkey') THEN
+        ALTER TABLE canonical_audit_preparation_questions
+            ADD CONSTRAINT canonical_preparation_question_scope_position_fkey
+            FOREIGN KEY (released_scope_snapshot_id, question_version_id, position)
+            REFERENCES canonical_audit_scope_snapshot_questions (snapshot_id, question_version_id, position);
+    END IF;
+END
+$preparation_position_repair$;
+ALTER TABLE canonical_exercise_question_review_drafts ADD COLUMN IF NOT EXISTS scope_draft_id text REFERENCES canonical_audit_scope_drafts(id);
+ALTER TABLE canonical_exercise_question_review_events ADD COLUMN IF NOT EXISTS scope_draft_id text REFERENCES canonical_audit_scope_drafts(id);
+DO $exercise_scope_history_guard$
+BEGIN
+    IF EXISTS (SELECT 1 FROM canonical_exercise_question_review_drafts WHERE scope_draft_id IS NULL)
+       OR EXISTS (SELECT 1 FROM canonical_exercise_question_review_events WHERE scope_draft_id IS NULL) THEN
+        RAISE EXCEPTION 'migration 39 cannot infer canonical exercise review scope from legacy unscoped append-only history; export and replay each decision with an explicit scope before retrying';
+    END IF;
+END
+$exercise_scope_history_guard$;
+DO $drop_legacy_exercise_review_key$
+DECLARE constraint_name text;
+BEGIN
+    FOR constraint_name IN
+        SELECT pg_constraint.conname
+        FROM pg_constraint
+        WHERE pg_constraint.conrelid = 'canonical_exercise_question_review_drafts'::regclass
+          AND pg_constraint.contype = 'u'
+          AND pg_get_constraintdef(pg_constraint.oid) = 'UNIQUE (catalog_id, question_version_id, revision)'
+    LOOP
+        EXECUTE format('ALTER TABLE canonical_exercise_question_review_drafts DROP CONSTRAINT %I', constraint_name);
+    END LOOP;
+END
+$drop_legacy_exercise_review_key$;
+DO $exercise_scope_repair$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='canonical_exercise_question_review_drafts'::regclass AND conname='canonical_exercise_question_review_drafts_scope_revision_key') THEN
+        ALTER TABLE canonical_exercise_question_review_drafts ADD CONSTRAINT canonical_exercise_question_review_drafts_scope_revision_key UNIQUE (scope_draft_id, catalog_id, question_version_id, revision);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='canonical_exercise_question_review_drafts'::regclass AND conname='canonical_exercise_question_review_drafts_scope_required') THEN
+        ALTER TABLE canonical_exercise_question_review_drafts ADD CONSTRAINT canonical_exercise_question_review_drafts_scope_required CHECK (scope_draft_id IS NOT NULL) NOT VALID;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='canonical_exercise_question_review_events'::regclass AND conname='canonical_exercise_question_review_events_scope_required') THEN
+        ALTER TABLE canonical_exercise_question_review_events ADD CONSTRAINT canonical_exercise_question_review_events_scope_required CHECK (scope_draft_id IS NOT NULL) NOT VALID;
+    END IF;
+END
+$exercise_scope_repair$;
+ALTER TABLE canonical_exercise_question_review_drafts VALIDATE CONSTRAINT canonical_exercise_question_review_drafts_scope_required;
+ALTER TABLE canonical_exercise_question_review_events VALIDATE CONSTRAINT canonical_exercise_question_review_events_scope_required;
+CREATE INDEX IF NOT EXISTS canonical_exercise_question_review_drafts_scope_question_idx ON canonical_exercise_question_review_drafts (scope_draft_id, catalog_id, question_version_id, revision DESC);
+CREATE INDEX IF NOT EXISTS canonical_exercise_question_review_events_scope_question_idx ON canonical_exercise_question_review_events (scope_draft_id, occurred_at DESC, event_id DESC);
 ALTER TABLE canonical_question_catalogs ADD COLUMN IF NOT EXISTS governed_publication_decision_id text;
 ALTER TABLE canonical_question_catalogs ADD COLUMN IF NOT EXISTS governed_candidate_draft_version_id text;
 ALTER TABLE canonical_question_catalogs ADD COLUMN IF NOT EXISTS governed_candidate_revision bigint;
@@ -990,6 +1046,35 @@ DROP TRIGGER IF EXISTS governed_candidate_commands_append_only ON governed_candi
 CREATE TRIGGER governed_candidate_commands_append_only BEFORE UPDATE OR DELETE ON governed_candidate_commands FOR EACH ROW EXECUTE FUNCTION governed_append_only_guard();
 DROP TRIGGER IF EXISTS regulatory_source_gap_facts_append_only ON regulatory_source_gap_facts;
 CREATE TRIGGER regulatory_source_gap_facts_append_only BEFORE UPDATE OR DELETE ON regulatory_source_gap_facts FOR EACH ROW EXECUTE FUNCTION governed_append_only_guard();
+
+CREATE TABLE IF NOT EXISTS canonical_audit_preparation_edit_previews (
+    id text PRIMARY KEY,
+    assignment_id text NOT NULL REFERENCES audit_assignments(id),
+    assignment_revision bigint NOT NULL CHECK (assignment_revision > 0),
+    edit_kind text NOT NULL CHECK (edit_kind IN ('TEAM', 'QUESTION_COVERAGE')),
+    operation_id text NOT NULL,
+    idempotency_key text NOT NULL,
+    edit_digest text NOT NULL CHECK (btrim(edit_digest) <> ''),
+    snapshot jsonb NOT NULL CHECK (jsonb_typeof(snapshot) = 'object'),
+    actor_subject_id text NOT NULL REFERENCES identity_references(subject_id),
+    expires_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS canonical_preparation_edit_previews_operation_key
+    ON canonical_audit_preparation_edit_previews (assignment_id, edit_kind, operation_id);
+CREATE UNIQUE INDEX IF NOT EXISTS canonical_preparation_edit_previews_idempotency_key
+    ON canonical_audit_preparation_edit_previews (assignment_id, edit_kind, idempotency_key);
+CREATE TABLE IF NOT EXISTS canonical_audit_preparation_edit_preview_consumptions (
+    preview_id text PRIMARY KEY REFERENCES canonical_audit_preparation_edit_previews(id),
+    consumed_by_subject_id text NOT NULL REFERENCES identity_references(subject_id),
+    consumed_at timestamptz NOT NULL DEFAULT now()
+);
+DROP TRIGGER IF EXISTS canonical_preparation_edit_previews_append_only ON canonical_audit_preparation_edit_previews;
+CREATE TRIGGER canonical_preparation_edit_previews_append_only BEFORE UPDATE OR DELETE ON canonical_audit_preparation_edit_previews FOR EACH ROW EXECUTE FUNCTION reject_immutable_row_change();
+DROP TRIGGER IF EXISTS canonical_preparation_edit_preview_consumptions_append_only ON canonical_audit_preparation_edit_preview_consumptions;
+CREATE TRIGGER canonical_preparation_edit_preview_consumptions_append_only BEFORE UPDATE OR DELETE ON canonical_audit_preparation_edit_preview_consumptions FOR EACH ROW EXECUTE FUNCTION reject_immutable_row_change();
+CREATE INDEX IF NOT EXISTS canonical_audit_preparation_edit_previews_expiry_idx
+    ON canonical_audit_preparation_edit_previews (assignment_id, expires_at);
 `
 
 func normalizeIndexDefinition(definition string) string {

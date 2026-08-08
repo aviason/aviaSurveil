@@ -103,6 +103,12 @@ func (api *CanonicalAPI) createPlanningIntakeDraft(
 	if input.Values.EstimatedResourceRequirement != nil {
 		values["estimatedResourceRequirement"] = *input.Values.EstimatedResourceRequirement
 	}
+	if len(input.Values.FormDistribution) > 0 {
+		values["formDistribution"] = input.Values.FormDistribution
+	}
+	if len(input.Values.DomainDistribution) > 0 {
+		values["domainDistribution"] = input.Values.DomainDistribution
+	}
 	record, err := api.application.CreatePlanningIntakeDraft(
 		request.Context(),
 		actor,
@@ -134,6 +140,8 @@ func (api *CanonicalAPI) createPlanningIntakeDraft(
 		SelectionDigest:              draftStringValue(record.Values, "selectionDigest", input.Values.SelectionDigest),
 		SelectedQuestionVersionIds:   stringSliceValue(record.Values, "selectedQuestionVersionIds", input.Values.SelectedQuestionVersionIds),
 		EstimatedResourceRequirement: input.Values.EstimatedResourceRequirement,
+		FormDistribution:             mapValue(record.Values, "formDistribution", input.Values.FormDistribution),
+		DomainDistribution:           mapValue(record.Values, "domainDistribution", input.Values.DomainDistribution),
 		ProviderScopeId:              draftStringValue(record.Values, "providerScopeId", input.Values.ProviderScopeId), RegulatedTargetId: draftStringValue(record.Values, "regulatedTargetId", input.Values.RegulatedTargetId),
 		RequestedBudget: input.Values.RequestedBudget,
 		Currency:        input.Values.Currency, Revision: record.Revision,
@@ -182,6 +190,17 @@ func stringSliceValue(values map[string]any, key string, fallback []string) []st
 	default:
 		return append([]string(nil), fallback...)
 	}
+}
+
+func mapValue(values map[string]any, key string, fallback map[string]any) map[string]any {
+	raw, ok := values[key]
+	if !ok {
+		return fallback
+	}
+	if typed, ok := raw.(map[string]any); ok {
+		return typed
+	}
+	return fallback
 }
 
 func optionalFloat(value *float64) float64 {

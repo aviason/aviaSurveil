@@ -480,11 +480,12 @@ func (service *Service) materializeCanonicalInspection(
 		WHERE assignment_id = $1
 		  AND released_scope_snapshot_id = $2
 		  AND status = 'CONFIRMED'
-	`, command.AssignmentID, snapshotID).Scan(&confirmedPreparationCount); err != nil {
+		  AND confirmed_assignment_revision = $3
+	`, command.AssignmentID, snapshotID, assignmentRevision).Scan(&confirmedPreparationCount); err != nil {
 		return transition[assignments.MaterializedInspection]{}, err
 	}
 	if confirmedPreparationCount != 1 {
-		return transition[assignments.MaterializedInspection]{}, fmt.Errorf("%w: exactly one confirmed preparation is required for this released scope", ErrConflict)
+		return transition[assignments.MaterializedInspection]{}, fmt.Errorf("%w: exactly one current confirmed preparation is required for this released scope", ErrConflict)
 	}
 	var preparationID, preparationDigest, preparationStatus string
 	var preparationRevision, confirmedAssignmentRevision int64
@@ -495,8 +496,9 @@ func (service *Service) materializeCanonicalInspection(
 			WHERE assignment_id = $1
 			  AND released_scope_snapshot_id = $2
 		  AND status = 'CONFIRMED'
+		  AND confirmed_assignment_revision = $3
 		FOR UPDATE
-		`, command.AssignmentID, snapshotID).Scan(&preparationID, &preparationDigest, &preparationStatus, &preparationRevision, &confirmedAssignmentRevision); err != nil {
+		`, command.AssignmentID, snapshotID, assignmentRevision).Scan(&preparationID, &preparationDigest, &preparationStatus, &preparationRevision, &confirmedAssignmentRevision); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return transition[assignments.MaterializedInspection]{}, fmt.Errorf("%w: Department Manager preparation confirmation is required", ErrConflict)
 		}
@@ -510,9 +512,14 @@ func (service *Service) materializeCanonicalInspection(
 	}
 	var preparationQuestionCount int
 	if err := tx.QueryRow(ctx, `
-		SELECT COUNT(DISTINCT question_version_id)
-		FROM canonical_audit_preparation_questions
-		WHERE preparation_id = $1 AND released_scope_snapshot_id = $2
+		SELECT COUNT(DISTINCT preparation.question_version_id)
+		FROM canonical_audit_preparation_questions preparation
+		JOIN canonical_audit_scope_snapshot_questions selected
+		  ON selected.snapshot_id = preparation.released_scope_snapshot_id
+		 AND selected.question_version_id = preparation.question_version_id
+		 AND selected.position = preparation.position
+		WHERE preparation.preparation_id = $1
+		  AND preparation.released_scope_snapshot_id = $2
 	`, preparationID, snapshotID).Scan(&preparationQuestionCount); err != nil {
 		return transition[assignments.MaterializedInspection]{}, err
 	}
@@ -540,6 +547,7 @@ func (service *Service) materializeCanonicalInspection(
 		  ON preparation.preparation_id = $3
 		 AND preparation.released_scope_snapshot_id = selected.snapshot_id
 		 AND preparation.question_version_id = selected.question_version_id
+		 AND preparation.position = selected.position
 		WHERE selected.snapshot_id = $2
 		GROUP BY selected.position, qv.id, membership.form_code, qv.prompt,
 		         qv.configured_reference, qv.expected_evidence

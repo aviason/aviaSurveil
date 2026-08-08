@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 
-import { useApplicationRuntime, useBackendForRole } from "../../app/providers";
 import type { AdminProposedInspectionQuestionView, AdminRegulatoryMappingView, AdminTemplateVersionView, ChecklistImportBatchView, GovernedCandidateBundleInput, GovernedGenerationRunView, GovernedQuestionView, GovernedValidationIssue } from "../../backend/backend";
 import { GovernedValidationError } from "../../backend/backend-contracts";
 import {
@@ -11,7 +10,6 @@ import {
 } from "../../backend/governed-synthetic-profile";
 import { AdminError, AdminPage, DisabledAdminAction, useAdminLoad, useAdminWorkspace } from "./admin-workspace-shared";
 import { ChecklistIntakePanel } from "./checklist-intake-panel";
-import { AGACandidateDemoPanel } from "./aga-candidate-demo-panel";
 
 interface RegulatoryQuestionTrace {
   mapping: AdminRegulatoryMappingView;
@@ -19,48 +17,6 @@ interface RegulatoryQuestionTrace {
 }
 
 export function ChecklistBuilderRoute() {
-  const adminBackend = useBackendForRole("admin");
-  const { supplementalNavigation: SupplementalNavigation } = useApplicationRuntime();
-  const capability = adminBackend.agaCandidateDemo;
-  const [demoState, setDemoState] = useState<"checking" | "available" | "unavailable">(
-    capability ? "checking" : "unavailable",
-  );
-
-  useEffect(() => {
-    if (!capability) return;
-    const controller = new AbortController();
-    void capability.capability({}, { signal: controller.signal })
-      .then((result) => setDemoState(result.available ? "available" : "unavailable"))
-      .catch(() => {
-        if (!controller.signal.aborted) setDemoState("unavailable");
-      });
-    return () => controller.abort();
-  }, [capability]);
-
-  if (demoState === "available") {
-    return (
-      <AdminPage
-        testId="admin-checklist-builder-page"
-        routeLabel="Checklist Builder"
-        title="Checklist Builder"
-        description="Review the immutable local-preprod AGA candidate projection."
-      >
-        <AGACandidateDemoPanel capability={capability} supplementalLink={SupplementalNavigation ? <SupplementalNavigation activeRole="admin" /> : undefined} />
-      </AdminPage>
-    );
-  }
-  if (demoState === "checking") {
-    return (
-      <AdminPage
-        testId="admin-checklist-builder-page"
-        routeLabel="Checklist Builder"
-        title="Checklist Builder"
-        description="Checking the sealed local-preprod capability."
-      >
-        <p role="status">Checking candidate demo availability…</p>
-      </AdminPage>
-    );
-  }
   return <ChecklistBuilderPage />;
 }
 
@@ -131,8 +87,6 @@ function GovernedQuestionGovernance({ question }: { question: GovernedQuestionVi
 
 export function ChecklistBuilderPage() {
   const backend = useAdminWorkspace();
-  const adminBackend = useBackendForRole("admin");
-  const { supplementalNavigation: SupplementalNavigation } = useApplicationRuntime();
   const [selectedQuestionId, setSelectedQuestionId] = useState("");
   // A governed candidate is an explicit imported/retrieved immutable
   // artifact. Do not manufacture a default ID: on a clean HTTP profile that
@@ -342,7 +296,6 @@ export function ChecklistBuilderPage() {
         batch={intakeBatch}
         disabledReason="The supplied AGA archive is an external, read-only dependency; an Admin must receive it through the governed intake route before candidate review."
       />
-      <AGACandidateDemoPanel capability={adminBackend.agaCandidateDemo} supplementalLink={SupplementalNavigation ? <SupplementalNavigation activeRole="admin" /> : undefined} />
       <section className="admin-template-identity" aria-label="Template identity">
         <div><span>Template master</span><b>TPL-CABIN-2026</b></div><div><span>Immutable published version</span><b>CTV-CABIN-1</b></div><div><span>Published owner</span><b>Department Manager</b></div>
       </section>

@@ -24,7 +24,6 @@ import type {
   CanonicalSelectionReceipt,
   CanonicalAuditWorkflowBackend,
 } from "./backend";
-import type { AGADemoWorkspaceBackend, AGADemoWorkspaceCommand, AGADemoWorkspaceQuery } from "./aga-demo-workspace";
 import { GovernedValidationError } from "./backend-contracts";
 import {
   activeBrowserRequestHeaders,
@@ -835,8 +834,18 @@ export function createHttpBackend(
         { method: "POST", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey, expectedRevision: input.expectedInspectionRevision }) },
         options,
       ),
+      previewTeam: async (assignmentId, input, options) => request<Schemas["PreparationEditPreviewView"]>(
+        `/v1/audit-assignments/${encodeURIComponent(assignmentId)}/team-previews`,
+        { method: "POST", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey, expectedRevision: input.expectedRevision }) },
+        options,
+      ),
       assignTeam: async (assignmentId, input, options) => request<Schemas["CanonicalAssignmentView"]>(
         `/v1/audit-assignments/${encodeURIComponent(assignmentId)}/team`,
+        { method: "POST", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey, expectedRevision: input.expectedRevision }) },
+        options,
+      ),
+      previewQuestionCoverage: async (assignmentId, input, options) => request<Schemas["PreparationEditPreviewView"]>(
+        `/v1/audit-assignments/${encodeURIComponent(assignmentId)}/question-coverage-previews`,
         { method: "POST", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey, expectedRevision: input.expectedRevision }) },
         options,
       ),
@@ -1461,75 +1470,6 @@ export function createHttpBackend(
         );
       },
     },
-    agaCandidateDemo: {
-      capability: async (_input, options) => request(
-        "/v1/admin/governed-checklist/aga-candidate-demo/capability",
-        { cache: "no-store", suppressTelemetry: true },
-        options,
-      ),
-      summary: async (_input, options) => request(
-        "/v1/admin/governed-checklist/aga-candidate-demo/summary",
-        { cache: "no-store", suppressTelemetry: true },
-        options,
-      ),
-      listForms: async (input, options) => request(
-        appendQuery("/v1/admin/governed-checklist/aga-candidate-demo/forms", input),
-        { cache: "no-store", suppressTelemetry: true },
-        options,
-      ),
-      getForm: async ({ formCode }, options) => request(
-        `/v1/admin/governed-checklist/aga-candidate-demo/forms/${encodeURIComponent(formCode)}`,
-        { cache: "no-store", suppressTelemetry: true },
-        options,
-      ),
-      listQuestions: async (input, options) => request(
-        appendQuery("/v1/admin/governed-checklist/aga-candidate-demo/questions", input),
-        { cache: "no-store", suppressTelemetry: true },
-        options,
-      ),
-    },
-    agaDemoWorkspace: {
-      capability: async (options) => request<Schemas["AGADemoWorkspaceCapability"]>(
-        "/v1/preprod/aga-demo-workspace/capability",
-        { cache: "no-store", suppressTelemetry: true },
-        options,
-      ),
-      classificationQuery: async (input: AGADemoWorkspaceQuery, options) => request<Schemas["AGADemoWorkspaceQueryResponse"]>(
-        "/v1/preprod/aga-demo-workspace/classification/query",
-        { method: "POST", body: input, cache: "no-store", suppressTelemetry: true },
-        options,
-      ),
-      classificationCommand: async (input: AGADemoWorkspaceCommand, options) => request<Schemas["AGADemoWorkspaceCommandResponse"]>(
-        "/v1/preprod/aga-demo-workspace/classification/commands",
-        { method: "POST", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey, expectedRevision: input.expectedDraftRevision ?? null }), cache: "no-store", suppressTelemetry: true },
-        options,
-      ),
-      recommendationCommand: async (input: AGADemoWorkspaceCommand, options) => request<Schemas["AGADemoWorkspaceCommandResponse"]>(
-        "/v1/preprod/aga-demo-workspace/recommendations/commands",
-        { method: "POST", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey, expectedRevision: input.operationId === "CREATE_INSPECTION" ? input.expectedRecommendationRevision ?? null : input.expectedDraftRevision ?? null }), cache: "no-store", suppressTelemetry: true },
-        options,
-      ),
-      recommendationQuery: async (input: AGADemoWorkspaceQuery, options) => request<Schemas["AGADemoWorkspaceQueryResponse"]>(
-        "/v1/preprod/aga-demo-workspace/recommendations/query",
-        { method: "POST", body: input, cache: "no-store", suppressTelemetry: true },
-        options,
-      ),
-      lifecycleQuery: async (input: AGADemoWorkspaceQuery, options) => request<Schemas["AGADemoWorkspaceQueryResponse"]>(
-        "/v1/preprod/aga-demo-workspace/lifecycle/query",
-        { method: "POST", body: input, cache: "no-store", suppressTelemetry: true },
-        options,
-      ),
-      lifecycleCommand: async (input: AGADemoWorkspaceCommand, options) => request<Schemas["AGADemoWorkspaceCommandResponse"]>(
-        "/v1/preprod/aga-demo-workspace/lifecycle/commands",
-        { method: "POST", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey, expectedRevision: input.expectedLifecycleRevision ?? null }), cache: "no-store", suppressTelemetry: true },
-        options,
-      ),
-      adminCommand: async (input: AGADemoWorkspaceCommand, options) => request<Schemas["AGADemoWorkspaceCommandResponse"]>(
-        "/v1/preprod/aga-demo-workspace/admin/commands",
-        { method: "POST", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey, expectedRevision: input.expectedGenerationRevision ?? null }), cache: "no-store", suppressTelemetry: true },
-        options,
-      ),
-    } satisfies AGADemoWorkspaceBackend,
     sync: {
       pushOperation: async (input, options) =>
         mapPushResult(

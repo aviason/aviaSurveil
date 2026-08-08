@@ -83,53 +83,19 @@ describe("Lead Inspector assignment and secondary routes", () => {
     expect(within(page).queryByText("CAB-GALLEY-001")).toBeNull();
   });
 
-  it("preserves selected question IDs in the local assignment and never invokes report approval", async () => {
-    const user = userEvent.setup();
+  it("keeps materialized question views read-only and hands preparation to the canonical route", async () => {
     const runtime = createMockBackendRuntime();
     const decide = vi.spyOn(runtime.backendForRole("leadInspector").reports, "decide");
     renderLeadRoute("/lead-inspector/audits/AUD-2026-001/checklist-questions", runtime);
 
     const page = await screen.findByTestId("lead-question-assignment-page");
-    expect(within(page).getByRole("button", { name: "Assign Questions" })).toHaveAttribute(
-      "title",
-      "Select at least one question before assigning.",
+    expect(within(page).queryByRole("button", { name: "Assign Questions" })).toBeNull();
+    expect(within(page).getByRole("link", { name: "Open Lead preparation workspace" })).toHaveAttribute(
+      "href",
+      "/lead-inspector/audit-preparation?assignmentId=AUD-2026-001%3Aassignment",
     );
-    await user.click(within(page).getByLabelText("Select question CAB-GALLEY-001"));
-    await user.click(within(page).getByLabelText("Select question CAB-EMEQ-PBE-001"));
-    await user.selectOptions(within(page).getByLabelText("Assign To"), "USR-INSPECTOR-DAVID");
-    await user.clear(within(page).getByLabelText("Assignment Due Date"));
-    await user.type(within(page).getByLabelText("Assignment Due Date"), "2026-07-31");
-    await user.selectOptions(within(page).getByLabelText("Assignment Priority"), "CRITICAL");
-    await user.type(within(page).getByLabelText("Assignment Instructions"), "Verify exact emergency equipment records.");
-    await user.click(within(page).getByRole("button", { name: "Assign Questions" }));
-    const result = within(page).getByRole("status");
-    expect(result).toHaveTextContent("AUD-2026-001");
-    expect(result).toHaveTextContent("CAB-GALLEY-001, CAB-EMEQ-PBE-001");
-    expect(result).toHaveTextContent("USR-INSPECTOR-DAVID");
-    const saved = within(page).getByRole("region", { name: "Saved question assignments" });
-    expect(saved).toHaveTextContent("CAB-GALLEY-001");
-    expect(saved).toHaveTextContent("CAB-EMEQ-PBE-001");
-    expect(saved).toHaveTextContent("2026-07-31");
-    expect(saved).toHaveTextContent("Critical");
-    expect(saved).toHaveTextContent("Verify exact emergency equipment records.");
-    expect(within(page).getByRole("region", { name: "Inspector workload" })).toHaveTextContent("David Inspector");
+    expect(within(page).getByText(/question assignment cannot change report approval authority/i)).toBeVisible();
     expect(decide).not.toHaveBeenCalled();
-
-    cleanup();
-    renderLeadRoute("/lead-inspector/audits/AUD-2026-001/checklist-questions", runtime);
-    const remounted = await screen.findByTestId("lead-question-assignment-page");
-    const persisted = await within(remounted).findByRole("region", { name: "Saved question assignments" });
-    expect(persisted).toHaveTextContent("AUD-2026-001");
-    expect(persisted).toHaveTextContent("PKG-CAB-2026-001");
-    expect(persisted).toHaveTextContent("USR-INSPECTOR-DAVID");
-    await user.selectOptions(within(remounted).getByLabelText("Priority filter"), "CRITICAL");
-    const questionRegion = within(remounted).getByRole("region", { name: "Checklist questions" });
-    expect(within(questionRegion).getByText("CAB-GALLEY-001")).toBeVisible();
-    expect(within(questionRegion).queryByText("CAB-LAV-001")).toBeNull();
-    await user.selectOptions(within(remounted).getByLabelText("Status filter"), "SAVED");
-    expect(within(questionRegion).getByText("CAB-EMEQ-PBE-001")).toBeVisible();
-    expect(within(remounted).getByLabelText("Department filter")).toBeEnabled();
-    expect(within(remounted).getByLabelText("Risk filter")).toBeEnabled();
   });
 
   it("reuses role-safe Calendar and Messages with exact routes and separated visibility", async () => {

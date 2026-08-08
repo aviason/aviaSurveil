@@ -224,21 +224,39 @@ type CompleteUploadInput struct {
 }
 
 type CompleteUploadOutput struct {
-	InspectionAttachmentID string `json:"inspectionAttachmentId"`
-	UploadState            string `json:"uploadState"`
-	ScanState              string `json:"scanState"`
+	InspectionAttachmentID        string `json:"inspectionAttachmentId"`
+	InspectionAttachmentVersionID string `json:"inspectionAttachmentVersionId"`
+	Version                       int64  `json:"version"`
+	UploadState                   string `json:"uploadState"`
+	ScanState                     string `json:"scanState"`
 }
 
 type AttachmentView struct {
-	ID                  string `json:"id"`
-	InspectionID        string `json:"inspectionId"`
-	PackageID           string `json:"packageId"`
-	QuestionID          string `json:"questionId"`
-	ChecklistResponseID string `json:"checklistResponseId"`
-	FileName            string `json:"fileName"`
-	UploadState         string `json:"uploadState"`
-	ScanState           string `json:"scanState"`
-	Revision            int64  `json:"revision"`
+	ID                  string                  `json:"id"`
+	InspectionID        string                  `json:"inspectionId"`
+	PackageID           string                  `json:"packageId"`
+	QuestionID          string                  `json:"questionId"`
+	ChecklistResponseID string                  `json:"checklistResponseId"`
+	FileName            string                  `json:"fileName"`
+	UploadState         string                  `json:"uploadState"`
+	ScanState           string                  `json:"scanState"`
+	Revision            int64                   `json:"revision"`
+	CurrentVersionID    *string                 `json:"currentVersionId"`
+	CurrentVersion      int64                   `json:"currentVersion"`
+	Versions            []AttachmentVersionView `json:"versions"`
+}
+
+type AttachmentVersionView struct {
+	ID                     string    `json:"id"`
+	Version                int64     `json:"version"`
+	SourceObjectMetadataID string    `json:"sourceObjectMetadataId"`
+	FileName               string    `json:"fileName"`
+	MediaType              string    `json:"mediaType"`
+	SHA256                 string    `json:"sha256"`
+	SizeBytes              int64     `json:"sizeBytes"`
+	SubmittedBySubjectID   string    `json:"submittedBySubjectId"`
+	SubmittedAt            time.Time `json:"submittedAt"`
+	Current                bool      `json:"current"`
 }
 
 func (service *UploadService) Get(ctx context.Context, actor identity.Principal, attachmentID string) (AttachmentView, error) {
@@ -251,8 +269,12 @@ func (service *UploadService) Get(ctx context.Context, actor identity.Principal,
 		SELECT attachment.id, attachment.inspection_id, attachment.package_id,
 		       attachment.question_id, COALESCE(attachment.checklist_response_id, ''),
 		       attachment.file_name, attachment.upload_state, attachment.scan_state,
-		       attachment.revision, member.subject_id
+		       attachment.revision, attachment.current_version_id,
+		       COALESCE(current_version.version, 0), member.subject_id
 		FROM inspection_attachments attachment
+		LEFT JOIN inspection_attachment_versions current_version
+		  ON current_version.id = attachment.current_version_id
+		 AND current_version.inspection_attachment_id = attachment.id
 		JOIN audit_assignments assignment
 		  ON assignment.inspection_id = attachment.inspection_id
 		 AND assignment.tombstoned_at IS NULL
@@ -264,11 +286,38 @@ func (service *UploadService) Get(ctx context.Context, actor identity.Principal,
 	`, attachmentID, actor.SubjectID).Scan(
 		&view.ID, &view.InspectionID, &view.PackageID, &view.QuestionID,
 		&view.ChecklistResponseID, &view.FileName, &view.UploadState,
-		&view.ScanState, &view.Revision, &memberSubject,
+		&view.ScanState, &view.Revision, &view.CurrentVersionID, &view.CurrentVersion, &memberSubject,
 	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return AttachmentView{}, ErrAttachmentForbidden
 		}
+		return AttachmentView{}, err
+	}
+	rows, err := service.pool.Query(ctx, `
+		SELECT version.id, version.version, version.source_object_metadata_id,
+		       version.file_name, version.media_type, version.sha256, version.size_bytes,
+		       version.submitted_by_subject_id, version.submitted_at,
+		       (version.id = attachment.current_version_id)
+		FROM inspection_attachment_versions version
+		JOIN inspection_attachments attachment ON attachment.id = version.inspection_attachment_id
+		WHERE version.inspection_attachment_id = $1
+		ORDER BY version.version DESC
+	`, attachmentID)
+	if err != nil {
+		return AttachmentView{}, err
+	}
+	defer rows.Close()
+	view.Versions = make([]AttachmentVersionView, 0)
+	for rows.Next() {
+		var item AttachmentVersionView
+		if err := rows.Scan(&item.ID, &item.Version, &item.SourceObjectMetadataID, &item.FileName,
+			&item.MediaType, &item.SHA256, &item.SizeBytes, &item.SubmittedBySubjectID,
+			&item.SubmittedAt, &item.Current); err != nil {
+			return AttachmentView{}, err
+		}
+		view.Versions = append(view.Versions, item)
+	}
+	if err := rows.Err(); err != nil {
 		return AttachmentView{}, err
 	}
 	return view, nil
@@ -290,6 +339,9 @@ func (service *UploadService) Download(ctx context.Context, actor identity.Princ
 		 AND member.subject_id = $2
 		 AND member.removed_at IS NULL
 		 AND member.member_role IN ('INSPECTOR', 'LEAD_INSPECTOR')
+		JOIN inspection_attachment_versions version
+		  ON version.id = attachment.current_version_id
+		 AND version.inspection_attachment_id = attachment.id
 		JOIN object_metadata metadata
 		  ON metadata.id = attachment.canonical_object_metadata_id
 		 AND metadata.scan_status = 'CLEAN'
@@ -395,10 +447,30 @@ func (service *UploadService) Complete(ctx context.Context, actor identity.Princ
 		`, objectMetadataID, attachmentID, organizationID, bucket, key, fileName, mediaType, digest, size, input.UploadID, now); err != nil {
 			return err
 		}
+		var version int64
+		if err := transaction.QueryRow(ctx, `
+			SELECT COALESCE(MAX(version), 0) + 1
+			FROM inspection_attachment_versions
+			WHERE inspection_attachment_id = $1
+		`, attachmentID).Scan(&version); err != nil {
+			return err
+		}
+		attachmentVersionID := service.idGenerator("inspection-attachment-version")
+		if _, err := transaction.Exec(ctx, `
+			INSERT INTO inspection_attachment_versions (
+				id, inspection_attachment_id, version, organization_id,
+				source_object_metadata_id, upload_session_id, file_name, media_type,
+				sha256, size_bytes, submitted_by_subject_id, submitted_at
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		`, attachmentVersionID, attachmentID, version, organizationID,
+			objectMetadataID, input.UploadID, fileName, mediaType,
+			digest, size, actor.SubjectID, now); err != nil {
+			return fmt.Errorf("append immutable Inspection Attachment version: %w", err)
+		}
 		if _, err := transaction.Exec(ctx, `
 			UPDATE inspection_attachments SET object_metadata_id = $2, upload_state = 'UPLOADED',
-			       scan_state = 'PENDING', revision = revision + 1, updated_at = $3 WHERE id = $1
-		`, attachmentID, objectMetadataID, now); err != nil {
+			       scan_state = 'PENDING', current_version_id = $3, revision = revision + 1, updated_at = $4 WHERE id = $1
+		`, attachmentID, objectMetadataID, attachmentVersionID, now); err != nil {
 			return err
 		}
 		if _, err := transaction.Exec(ctx, `
@@ -406,7 +478,10 @@ func (service *UploadService) Complete(ctx context.Context, actor identity.Princ
 		`, input.UploadID, objectMetadataID, now); err != nil {
 			return err
 		}
-		output = CompleteUploadOutput{InspectionAttachmentID: attachmentID, UploadState: "UPLOADED", ScanState: "PENDING"}
+		output = CompleteUploadOutput{
+			InspectionAttachmentID: attachmentID, InspectionAttachmentVersionID: attachmentVersionID,
+			Version: version, UploadState: "UPLOADED", ScanState: "PENDING",
+		}
 		body, _ := json.Marshal(output)
 		if _, err := transaction.Exec(ctx, `
 			INSERT INTO outbox_messages (

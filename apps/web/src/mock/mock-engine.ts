@@ -65,6 +65,7 @@ import type {
   CanonicalAuditWorkflowBackend,
   CanonicalAuditScopeOptionPage,
   CanonicalQuestionCatalogEntry,
+  CanonicalSelectionDigest,
   CanonicalQuestionUsageClass,
   CanonicalQuestionReviewCommandInput,
 } from "../backend/backend";
@@ -3126,7 +3127,8 @@ export class MockBackendEngine implements DemoBackend {
       if (ids.length === 0 || ids.length > 500 || ids.length !== input.questionVersionIds.length) throw new BackendInvariantError("Selection must contain 1–500 unique question versions.");
       if (input.expectedSelectionDigest && input.expectedSelectionDigest !== state.digest) throw new BackendConflictError("Selection digest is stale.");
       const result = applyCanonicalSelectionOperation(state.ids, ids, input.operationKind);
-      return { preview: { selectionDigest: await canonicalSelectionDigest(result), selectedQuestionVersionIds: result, selectedCount: result.length, catalogVersion: input.usageClass === "PREPROD_EXERCISE" ? "aga-preprod@1.0.0" : "governed-operational@1.0.0", usageClass: input.usageClass }, affectedCount: ids.length, valid: true, reason: "Selection is ready to commit." };
+      const catalogVersion = input.usageClass === "PREPROD_EXERCISE" ? "aga-preprod@1.0.0" : "governed-operational@1.0.0";
+      return { preview: this.canonicalSelectionSummary(await canonicalSelectionDigest(result), result, catalogVersion, input.usageClass), affectedCount: ids.length, valid: true, reason: "Selection is ready to commit." };
     },
     commitSelection: async (input) => {
       requireDemoCapability(this.principal, "canonicalQuestionReview");
@@ -3140,13 +3142,15 @@ export class MockBackendEngine implements DemoBackend {
       const digest = await canonicalSelectionDigest(result);
       if (prior) {
         if (prior !== digest) throw new OperationIdReuseError(input.operationId);
-        return { operationId: input.operationId, replayed: true, selection: { selectionDigest: digest, selectedQuestionVersionIds: result, selectedCount: result.length, catalogVersion: input.usageClass === "PREPROD_EXERCISE" ? "aga-preprod@1.0.0" : "governed-operational@1.0.0", usageClass: input.usageClass } };
+        const catalogVersion = input.usageClass === "PREPROD_EXERCISE" ? "aga-preprod@1.0.0" : "governed-operational@1.0.0";
+        return { operationId: input.operationId, replayed: true, selection: this.canonicalSelectionSummary(digest, result, catalogVersion, input.usageClass) };
       }
       const expected = input.expectedSelectionDigest || await canonicalSelectionDigest([]);
       if (expected !== state.digest) throw new BackendConflictError("Selection digest is stale.");
       this.canonicalSelections.set(input.scopeId, { digest, ids: result });
       this.canonicalReviewOperations.set(`selection:${input.operationId}`, digest);
-      return { operationId: input.operationId, replayed: false, selection: { selectionDigest: digest, selectedQuestionVersionIds: result, selectedCount: result.length, catalogVersion: input.usageClass === "PREPROD_EXERCISE" ? "aga-preprod@1.0.0" : "governed-operational@1.0.0", usageClass: input.usageClass } };
+      const catalogVersion = input.usageClass === "PREPROD_EXERCISE" ? "aga-preprod@1.0.0" : "governed-operational@1.0.0";
+      return { operationId: input.operationId, replayed: false, selection: this.canonicalSelectionSummary(digest, result, catalogVersion, input.usageClass) };
     },
     reviewQueue: async (input) => {
       requireDemoCapability(this.principal, "canonicalQuestionReview");
@@ -3235,10 +3239,36 @@ export class MockBackendEngine implements DemoBackend {
       requireNonEmpty(input.leadSubjectId, "Lead Inspector subject");
       return this.store.execute(input.operationId, input, (state) => this.mockCanonicalAssignment(state, assignmentId, input.leadSubjectId, []));
     },
+    previewTeam: async (assignmentId, input) => {
+      requireDemoCapability(this.principal, "canonicalAuditWorkflow");
+      requireRole(this.principal, ["leadInspector"], "Lead Inspector authority is required to preview the Audit team.");
+      return {
+        previewId: `PREVIEW-TEAM-${input.operationId}`,
+        assignmentId,
+        assignmentRevision: input.expectedRevision,
+        editKind: "TEAM" as const,
+        digest: `sha256:mock-team-preview-${input.operationId}`,
+        expiresAt: new Date(Date.parse(this.store.clock()) + 10 * 60 * 1000).toISOString(),
+        memberSubjectIds: [...input.memberSubjectIds],
+      };
+    },
     assignTeam: async (assignmentId, input) => {
       requireDemoCapability(this.principal, "canonicalAuditWorkflow");
       requireRole(this.principal, ["leadInspector"], "Lead Inspector authority is required to assign the Audit team.");
       return this.store.execute(input.operationId, input, (state) => this.mockCanonicalAssignment(state, assignmentId, "USR-LEAD-CANER", input.memberSubjectIds));
+    },
+    previewQuestionCoverage: async (assignmentId, input) => {
+      requireDemoCapability(this.principal, "canonicalAuditWorkflow");
+      requireRole(this.principal, ["leadInspector"], "Lead Inspector authority is required to preview question coverage.");
+      return {
+        previewId: `PREVIEW-COVERAGE-${input.operationId}`,
+        assignmentId,
+        assignmentRevision: input.expectedRevision,
+        editKind: "QUESTION_COVERAGE" as const,
+        digest: `sha256:mock-coverage-preview-${input.operationId}`,
+        expiresAt: new Date(Date.parse(this.store.clock()) + 10 * 60 * 1000).toISOString(),
+        questionAssignments: [...input.questionAssignments],
+      };
     },
     assignQuestionCoverage: async (assignmentId, input) => {
       requireDemoCapability(this.principal, "canonicalAuditWorkflow");
@@ -3340,6 +3370,33 @@ export class MockBackendEngine implements DemoBackend {
 
   private canonicalReviewStateKey(mode: CanonicalQuestionUsageClass, catalogVersion: string, questionVersionId: string): string {
     return `${mode}:${catalogVersion}:${questionVersionId}`;
+  }
+
+  private canonicalSelectionSummary(
+    selectionDigest: string,
+    ids: string[],
+    catalogVersion: string,
+    usageClass: CanonicalQuestionUsageClass,
+  ): CanonicalSelectionDigest {
+    const selected = new Set(ids);
+    const formDistribution: Record<string, number> = {};
+    const domainDistribution: Record<string, number> = {};
+    for (const row of this.syntheticCanonicalRows(usageClass, catalogVersion)) {
+      if (!selected.has(row.questionVersionId)) continue;
+      formDistribution[row.formCode] = (formDistribution[row.formCode] ?? 0) + 1;
+      const domain = row.proposedDomain ?? "Unclassified";
+      domainDistribution[domain] = (domainDistribution[domain] ?? 0) + 1;
+    }
+    return {
+      selectionDigest,
+      selectedQuestionVersionIds: ids,
+      selectedCount: ids.length,
+      catalogVersion,
+      usageClass,
+      formDistribution,
+      domainDistribution,
+      estimatedResourceRequirement: ids.length,
+    };
   }
 
   private applyCanonicalReviewState(row: CanonicalQuestionCatalogEntry): CanonicalQuestionCatalogEntry {

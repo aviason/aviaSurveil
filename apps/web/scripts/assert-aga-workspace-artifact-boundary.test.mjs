@@ -33,28 +33,31 @@ test("rejects a demo artifact containing a supplemental workspace marker", () =>
   assert.throws(() => assertAgaWorkspaceArtifact("demo", root), /supplemental workspace/i);
 });
 
-test("requires the HTTP client and fixed supplemental route markers without embedded rows", () => {
+test("accepts a donor-free HTTP artifact without embedded rows", () => {
   const root = fixture({
-    "build-inputs.json": JSON.stringify({ profile: "http", inputs: ["src/entry/http.tsx", "src/backend/aga-demo-workspace.ts"] }),
+    "build-inputs.json": JSON.stringify({ profile: "http", inputs: ["src/entry/http.tsx"] }),
     "index.html": "<html></html>",
-    "assets/http.js": [
-      "\/v1\/preprod\/aga-demo-workspace\/capability",
-      "\/v1\/preprod\/aga-demo-workspace\/classification\/query",
-      "AGADemoWorkspaceBackend",
-      "classificationQuery",
-    ].join("\n"),
+    "assets/http.js": "const canonical = true;",
     "assets/http.js.map": JSON.stringify({ sources: ["assets/http.js"], sourcesContent: [null] }),
   });
   assert.doesNotThrow(() => assertAgaWorkspaceArtifact("http", root));
 });
 
-test("rejects HTTP artifacts with embedded classification rows or source-map bodies", () => {
+test("rejects HTTP artifacts with embedded donor rows or source-map bodies", () => {
   const root = fixture({
     "build-inputs.json": JSON.stringify({ profile: "http", inputs: ["src/entry/http.tsx"] }),
-    "assets/http.js": "\/v1\/preprod\/aga-demo-workspace\/capability \/v1\/preprod\/aga-demo-workspace\/classification\/query AGADemoWorkspaceBackend classificationQuery questionRef classificationRunId",
+    "assets/http.js": "AGADemoWorkspaceBackend classificationQuery questionRef classificationRunId",
     "assets/http.js.map": JSON.stringify({ sources: ["src/backend/aga-demo-workspace.ts"], sourcesContent: ["const body = 'embedded';"] }),
   });
-  assert.throws(() => assertAgaWorkspaceArtifact("http", root), /embed|source map/i);
+  assert.throws(() => assertAgaWorkspaceArtifact("http", root), /removed donor|embed|source map/i);
+});
+
+test("rejects HTTP artifacts with the isolated AGA candidate-demo surface", () => {
+  const root = fixture({
+    "build-inputs.json": JSON.stringify({ profile: "http", inputs: ["src/entry/http.tsx"] }),
+    "assets/http.js": "aga-candidate-demo AGACandidateDemo",
+  });
+  assert.throws(() => assertAgaWorkspaceArtifact("http", root), /removed donor|candidate-demo/i);
 });
 
 test("rejects demo artifacts with supplemental source-map bodies", () => {

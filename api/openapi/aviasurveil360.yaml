@@ -3471,6 +3471,93 @@
         "x-organization-scope": "authorized-projection"
       }
     },
+    "/v1/audit-assignments/{assignmentId}/team-previews": {
+      "post": {
+        "operationId": "previewAuditTeam",
+        "parameters": [
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/ExpectedRevision"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewAssignTeamInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created bounded server-issued team preview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreparationEditPreviewView"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "412": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
     "/v1/audit-assignments/{assignmentId}/question-coverage": {
       "post": {
         "operationId": "assignAuditQuestionCoverage",
@@ -3510,6 +3597,93 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CanonicalAssignmentView"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "412": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
+    "/v1/audit-assignments/{assignmentId}/question-coverage-previews": {
+      "post": {
+        "operationId": "previewAuditQuestionCoverage",
+        "parameters": [
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/ExpectedRevision"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewAssignQuestionsInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created bounded server-issued question coverage preview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreparationEditPreviewView"
                 }
               }
             },
@@ -8868,333 +9042,6 @@
         "x-organization-scope": "authorized-projection"
       }
     },
-    "/v1/admin/governed-checklist/aga-candidate-demo/capability": {
-      "get": {
-        "operationId": "getAGACandidateDemoCapability",
-        "responses": {
-          "200": {
-            "description": "CAA Admin-only sealed candidate demo capability",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "available",
-                    "labels"
-                  ],
-                  "properties": {
-                    "available": {
-                      "type": "boolean"
-                    },
-                    "labels": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    }
-                  }
-                }
-              }
-            },
-            "headers": {
-              "ETag": {
-                "$ref": "#/components/headers/ETag"
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "403": {
-            "$ref": "#/components/responses/Problem"
-          }
-        },
-        "security": [
-          {
-            "oidc": []
-          }
-        ],
-        "x-authorized-roles": [
-          "admin"
-        ],
-        "x-organization-scope": "authorized-projection"
-      }
-    },
-    "/v1/admin/governed-checklist/aga-candidate-demo/summary": {
-      "get": {
-        "operationId": "getAGACandidateDemoSummary",
-        "responses": {
-          "200": {
-            "description": "CAA Admin-only sealed candidate demo summary",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "packageDigest",
-                    "formCount",
-                    "questionCount",
-                    "sourceRequirements",
-                    "labels"
-                  ],
-                  "properties": {
-                    "packageDigest": {
-                      "type": "string"
-                    },
-                    "formCount": {
-                      "type": "integer"
-                    },
-                    "questionCount": {
-                      "type": "integer"
-                    },
-                    "sourceRequirements": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    },
-                    "labels": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    }
-                  }
-                }
-              }
-            },
-            "headers": {
-              "ETag": {
-                "$ref": "#/components/headers/ETag"
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "403": {
-            "$ref": "#/components/responses/Problem"
-          }
-        },
-        "security": [
-          {
-            "oidc": []
-          }
-        ],
-        "x-authorized-roles": [
-          "admin"
-        ],
-        "x-organization-scope": "authorized-projection"
-      }
-    },
-    "/v1/admin/governed-checklist/aga-candidate-demo/forms": {
-      "get": {
-        "operationId": "listAGACandidateDemoForms",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/Cursor"
-          },
-          {
-            "$ref": "#/components/parameters/Limit"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "CAA Admin-only sealed candidate demo forms",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "items",
-                    "nextCursor"
-                  ],
-                  "properties": {
-                    "items": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/AGACandidateDemoForm"
-                      }
-                    },
-                    "nextCursor": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    }
-                  }
-                }
-              }
-            },
-            "headers": {
-              "ETag": {
-                "$ref": "#/components/headers/ETag"
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "403": {
-            "$ref": "#/components/responses/Problem"
-          }
-        },
-        "security": [
-          {
-            "oidc": []
-          }
-        ],
-        "x-authorized-roles": [
-          "admin"
-        ],
-        "x-organization-scope": "authorized-projection"
-      }
-    },
-    "/v1/admin/governed-checklist/aga-candidate-demo/forms/{formCode}": {
-      "get": {
-        "operationId": "getAGACandidateDemoForm",
-        "parameters": [
-          {
-            "name": "formCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "CAA Admin-only sealed candidate demo form",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AGACandidateDemoForm"
-                }
-              }
-            },
-            "headers": {
-              "ETag": {
-                "$ref": "#/components/headers/ETag"
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "403": {
-            "$ref": "#/components/responses/Problem"
-          }
-        },
-        "security": [
-          {
-            "oidc": []
-          }
-        ],
-        "x-authorized-roles": [
-          "admin"
-        ],
-        "x-organization-scope": "authorized-projection"
-      }
-    },
-    "/v1/admin/governed-checklist/aga-candidate-demo/questions": {
-      "get": {
-        "operationId": "listAGACandidateDemoQuestions",
-        "parameters": [
-          {
-            "name": "formCode",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "sourceGapCategory",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "PROPOSAL_PRESENT_REVIEW_REQUIRED",
-                "UNMAPPED_NO_QUESTION_LEVEL_SOURCE_PROPOSAL"
-              ]
-            }
-          },
-          {
-            "name": "riskBand",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "PROPOSED_CONTROL_ASSURANCE",
-                "PROPOSED_HIGH_OPERATIONAL",
-                "PROPOSED_REVIEW_REQUIRED",
-                "PROPOSED_SAFETY_CRITICAL"
-              ]
-            }
-          },
-          {
-            "$ref": "#/components/parameters/Cursor"
-          },
-          {
-            "$ref": "#/components/parameters/Limit"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "CAA Admin-only sealed candidate demo questions",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "items",
-                    "nextCursor"
-                  ],
-                  "properties": {
-                    "items": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/AGACandidateDemoQuestion"
-                      }
-                    },
-                    "nextCursor": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    }
-                  }
-                }
-              }
-            },
-            "headers": {
-              "ETag": {
-                "$ref": "#/components/headers/ETag"
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "403": {
-            "$ref": "#/components/responses/Problem"
-          }
-        },
-        "security": [
-          {
-            "oidc": []
-          }
-        ],
-        "x-authorized-roles": [
-          "admin"
-        ],
-        "x-organization-scope": "authorized-projection"
-      }
-    },
     "/v1/governed-checklist/published-versions/{publishedVersionId}/audit-package-eligibility-evaluations": {
       "post": {
         "operationId": "evaluateGovernedChecklistAuditPackageEligibility",
@@ -9282,542 +9129,6 @@
         "x-organization-scope": "authorized-projection"
       }
     },
-    "/v1/preprod/aga-demo-workspace/capability": {
-      "get": {
-        "operationId": "getAGADemoWorkspaceCapability",
-        "x-operation-kind": "query",
-        "x-neutral-denial": true,
-        "x-authorized-roles": [
-          "admin",
-          "manager",
-          "inspector",
-          "leadInspector",
-          "auditee"
-        ],
-        "responses": {
-          "200": {
-            "description": "Role-scoped synthetic workspace capability",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AGADemoWorkspaceCapability"
-                }
-              }
-            },
-            "headers": {
-              "ETag": {
-                "$ref": "#/components/headers/ETag"
-              }
-            }
-          },
-          "404": {
-            "description": "Neutral capability denial",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AGADemoWorkspaceNotFound"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "oidc": []
-          }
-        ],
-        "x-organization-scope": "authorized-projection"
-      }
-    },
-    "/v1/preprod/aga-demo-workspace/classification/query": {
-      "post": {
-        "operationId": "queryAGADemoWorkspaceClassification",
-        "x-operation-kind": "query",
-        "x-neutral-denial": true,
-        "x-authorized-roles": [
-          "admin",
-          "manager"
-        ],
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/CsrfToken"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AGADemoWorkspaceQuery"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Authorized classification workspace projection",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AGADemoWorkspaceQueryResponse"
-                }
-              }
-            },
-            "headers": {
-              "ETag": {
-                "$ref": "#/components/headers/ETag"
-              }
-            }
-          },
-          "404": {
-            "description": "Neutral classification denial",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AGADemoWorkspaceNotFound"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "oidc": []
-          }
-        ],
-        "x-organization-scope": "authorized-projection"
-      }
-    },
-    "/v1/preprod/aga-demo-workspace/classification/commands": {
-      "post": {
-        "operationId": "commandAGADemoWorkspaceClassification",
-        "x-operation-kind": "command",
-        "x-neutral-denial": true,
-        "x-authorized-roles": [
-          "manager"
-        ],
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/IdempotencyKey"
-          },
-          {
-            "$ref": "#/components/parameters/CsrfToken"
-          },
-          {
-            "$ref": "#/components/parameters/ExpectedRevision"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AGADemoWorkspaceCommand"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Classification command result",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AGADemoWorkspaceCommandResponse"
-                }
-              }
-            },
-            "headers": {
-              "ETag": {
-                "$ref": "#/components/headers/ETag"
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "404": {
-            "description": "Neutral classification denial",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AGADemoWorkspaceNotFound"
-                }
-              }
-            }
-          },
-          "409": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "412": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "422": {
-            "$ref": "#/components/responses/Problem"
-          }
-        },
-        "security": [
-          {
-            "oidc": []
-          }
-        ],
-        "x-organization-scope": "authorized-projection"
-      }
-    },
-    "/v1/preprod/aga-demo-workspace/recommendations/commands": {
-      "post": {
-        "operationId": "commandAGADemoWorkspaceRecommendation",
-        "x-operation-kind": "command",
-        "x-neutral-denial": true,
-        "x-authorized-roles": [
-          "manager"
-        ],
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/IdempotencyKey"
-          },
-          {
-            "$ref": "#/components/parameters/CsrfToken"
-          },
-          {
-            "$ref": "#/components/parameters/ExpectedRevision"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AGADemoWorkspaceCommand"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Recommendation command result",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AGADemoWorkspaceCommandResponse"
-                }
-              }
-            },
-            "headers": {
-              "ETag": {
-                "$ref": "#/components/headers/ETag"
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "404": {
-            "description": "Neutral recommendation denial",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AGADemoWorkspaceNotFound"
-                }
-              }
-            }
-          },
-          "409": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "412": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "422": {
-            "$ref": "#/components/responses/Problem"
-          }
-        },
-        "security": [
-          {
-            "oidc": []
-          }
-        ],
-        "x-organization-scope": "authorized-projection"
-      }
-    },
-    "/v1/preprod/aga-demo-workspace/recommendations/query": {
-      "post": {
-        "operationId": "queryAGADemoWorkspaceRecommendation",
-        "x-operation-kind": "query",
-        "x-neutral-denial": true,
-        "x-authorized-roles": [
-          "manager"
-        ],
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/CsrfToken"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AGADemoWorkspaceQuery"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Current synthetic recommendation snapshot",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AGADemoWorkspaceQueryResponse"
-                }
-              }
-            },
-            "headers": {
-              "ETag": {
-                "$ref": "#/components/headers/ETag"
-              }
-            }
-          },
-          "404": {
-            "description": "Neutral recommendation denial",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AGADemoWorkspaceNotFound"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "oidc": []
-          }
-        ],
-        "x-organization-scope": "authorized-projection"
-      }
-    },
-    "/v1/preprod/aga-demo-workspace/lifecycle/query": {
-      "post": {
-        "operationId": "queryAGADemoWorkspaceLifecycle",
-        "x-operation-kind": "query",
-        "x-neutral-denial": true,
-        "x-authorized-roles": [
-          "admin",
-          "manager",
-          "inspector",
-          "leadInspector",
-          "auditee"
-        ],
-        "x-lifecycle-projection": "organization-scoped-public-or-CAA-projection",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/CsrfToken"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AGADemoWorkspaceQuery"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Authorized synthetic lifecycle projection",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AGADemoWorkspaceQueryResponse"
-                }
-              }
-            },
-            "headers": {
-              "ETag": {
-                "$ref": "#/components/headers/ETag"
-              }
-            }
-          },
-          "404": {
-            "description": "Neutral lifecycle denial",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AGADemoWorkspaceNotFound"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "oidc": []
-          }
-        ],
-        "x-organization-scope": "authorized-projection"
-      }
-    },
-    "/v1/preprod/aga-demo-workspace/lifecycle/commands": {
-      "post": {
-        "operationId": "commandAGADemoWorkspaceLifecycle",
-        "x-operation-kind": "command",
-        "x-neutral-denial": true,
-        "x-authorized-roles": [
-          "admin",
-          "manager",
-          "inspector",
-          "leadInspector",
-          "auditee"
-        ],
-        "x-lifecycle-cas": "expectedLifecycleRevision-and-expectedLifecycleDigest",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/IdempotencyKey"
-          },
-          {
-            "$ref": "#/components/parameters/CsrfToken"
-          },
-          {
-            "$ref": "#/components/parameters/ExpectedRevision"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AGADemoWorkspaceCommand"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Synthetic lifecycle command result",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AGADemoWorkspaceCommandResponse"
-                }
-              }
-            },
-            "headers": {
-              "ETag": {
-                "$ref": "#/components/headers/ETag"
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "404": {
-            "description": "Neutral lifecycle denial",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AGADemoWorkspaceNotFound"
-                }
-              }
-            }
-          },
-          "409": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "412": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "422": {
-            "$ref": "#/components/responses/Problem"
-          }
-        },
-        "security": [
-          {
-            "oidc": []
-          }
-        ],
-        "x-organization-scope": "authorized-projection"
-      }
-    },
-    "/v1/preprod/aga-demo-workspace/admin/commands": {
-      "post": {
-        "operationId": "commandAGADemoWorkspaceAdmin",
-        "x-operation-kind": "command",
-        "x-neutral-denial": true,
-        "x-authorized-roles": [
-          "admin"
-        ],
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/IdempotencyKey"
-          },
-          {
-            "$ref": "#/components/parameters/CsrfToken"
-          },
-          {
-            "$ref": "#/components/parameters/ExpectedRevision"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AGADemoWorkspaceCommand"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Synthetic workspace administrative command result",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AGADemoWorkspaceCommandResponse"
-                }
-              }
-            },
-            "headers": {
-              "ETag": {
-                "$ref": "#/components/headers/ETag"
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "404": {
-            "description": "Neutral administrative denial",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AGADemoWorkspaceNotFound"
-                }
-              }
-            }
-          },
-          "409": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "412": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "422": {
-            "$ref": "#/components/responses/Problem"
-          }
-        },
-        "security": [
-          {
-            "oidc": []
-          }
-        ],
-        "x-organization-scope": "authorized-projection"
-      }
-    },
     "/v1/question-catalogs/{catalogVersion}/questions": {
       "get": {
         "operationId": "listCanonicalQuestionCatalogEntries",
@@ -9890,6 +9201,7 @@
           {
             "name": "scopeId",
             "in": "query",
+            "description": "Required and owned by the current Department Manager for PREPROD_EXERCISE selection or review.",
             "schema": {
               "type": "string",
               "maxLength": 120
@@ -10054,6 +9366,7 @@
           {
             "name": "scopeId",
             "in": "query",
+            "description": "Required and must be owned by the current Department Manager when usageClass is PREPROD_EXERCISE.",
             "schema": {
               "type": "string"
             }
@@ -12517,12 +11830,21 @@
         "additionalProperties": false,
         "required": [
           "inspectionAttachmentId",
+          "inspectionAttachmentVersionId",
+          "version",
           "uploadState",
           "scanState"
         ],
         "properties": {
           "inspectionAttachmentId": {
             "type": "string"
+          },
+          "inspectionAttachmentVersionId": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
           },
           "uploadState": {
             "type": "string",
@@ -14199,6 +13521,20 @@
             "type": "number",
             "minimum": 0
           },
+          "formDistribution": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "domainDistribution": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
           "providerScopeId": {
             "type": "string"
           },
@@ -14344,6 +13680,20 @@
           },
           "estimatedResourceRequirement": {
             "type": "number"
+          },
+          "formDistribution": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "domainDistribution": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 0
+            }
           },
           "providerScopeId": {
             "type": "string"
@@ -14799,66 +14149,6 @@
           "content": {
             "type": "object",
             "additionalProperties": true
-          }
-        }
-      },
-      "AGACandidateDemoForm": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "code",
-          "title",
-          "questionCount",
-          "questionExtractionState"
-        ],
-        "properties": {
-          "code": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "questionCount": {
-            "type": "integer"
-          },
-          "questionExtractionState": {
-            "type": "string"
-          }
-        }
-      },
-      "AGACandidateDemoQuestion": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "proposalId",
-          "formCode",
-          "ordinal",
-          "text",
-          "textDigest",
-          "sourceGapCategory",
-          "riskBand"
-        ],
-        "properties": {
-          "proposalId": {
-            "type": "string"
-          },
-          "formCode": {
-            "type": "string"
-          },
-          "ordinal": {
-            "type": "integer"
-          },
-          "text": {
-            "type": "string"
-          },
-          "textDigest": {
-            "type": "string"
-          },
-          "sourceGapCategory": {
-            "type": "string"
-          },
-          "riskBand": {
-            "type": "string"
           }
         }
       },
@@ -25511,6 +24801,60 @@
           }
         }
       },
+      "QuestionReviewHistoryItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "action",
+          "reason",
+          "reviewedDomain",
+          "reviewedTopic",
+          "actorSubjectId",
+          "occurredAt",
+          "revision",
+          "reviewDigest"
+        ],
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "reviewedDomain": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reviewedTopic": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "actorSubjectId": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "candidateContentDigest": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reviewDigest": {
+            "type": "string"
+          }
+        }
+      },
       "CanonicalQuestionCatalogEntry": {
         "type": "object",
         "additionalProperties": false,
@@ -25640,6 +24984,13 @@
               "string",
               "null"
             ]
+          },
+          "reviewHistory": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+              "$ref": "#/components/schemas/QuestionReviewHistoryItem"
+            }
           }
         }
       },
@@ -25687,7 +25038,10 @@
           "selectedQuestionVersionIds",
           "selectedCount",
           "catalogVersion",
-          "usageClass"
+          "usageClass",
+          "formDistribution",
+          "domainDistribution",
+          "estimatedResourceRequirement"
         ],
         "properties": {
           "selectionDigest": {
@@ -25708,6 +25062,24 @@
           },
           "usageClass": {
             "$ref": "#/components/schemas/QuestionUsageClass"
+          },
+          "formDistribution": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "domainDistribution": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "estimatedResourceRequirement": {
+            "type": "integer",
+            "minimum": 0
           }
         }
       },
@@ -26349,7 +25721,7 @@
           }
         }
       },
-      "AssignTeamInput": {
+      "PreviewAssignTeamInput": {
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -26374,8 +25746,53 @@
           "memberSubjectIds": {
             "type": "array",
             "minItems": 1,
+            "maxItems": 500,
             "items": {
-              "type": "string"
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
+      "AssignTeamInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "idempotencyKey",
+          "expectedRevision",
+          "previewId",
+          "previewDigest",
+          "memberSubjectIds"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "previewId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "previewDigest": {
+            "type": "string",
+            "minLength": 1
+          },
+          "memberSubjectIds": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 500,
+            "items": {
+              "type": "string",
+              "minLength": 1
             }
           }
         }
@@ -26398,7 +25815,7 @@
           }
         }
       },
-      "AssignQuestionsInput": {
+      "PreviewAssignQuestionsInput": {
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -26423,6 +25840,100 @@
           "questionAssignments": {
             "type": "array",
             "minItems": 1,
+            "maxItems": 500,
+            "items": {
+              "$ref": "#/components/schemas/QuestionCoverageInput"
+            }
+          }
+        }
+      },
+      "AssignQuestionsInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "idempotencyKey",
+          "expectedRevision",
+          "previewId",
+          "previewDigest",
+          "questionAssignments"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "previewId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "previewDigest": {
+            "type": "string",
+            "minLength": 1
+          },
+          "questionAssignments": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 500,
+            "items": {
+              "$ref": "#/components/schemas/QuestionCoverageInput"
+            }
+          }
+        }
+      },
+      "PreparationEditPreviewView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "previewId",
+          "assignmentId",
+          "assignmentRevision",
+          "editKind",
+          "digest",
+          "expiresAt"
+        ],
+        "properties": {
+          "previewId": {
+            "type": "string"
+          },
+          "assignmentId": {
+            "type": "string"
+          },
+          "assignmentRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "editKind": {
+            "type": "string",
+            "enum": [
+              "TEAM",
+              "QUESTION_COVERAGE"
+            ]
+          },
+          "digest": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "memberSubjectIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "questionAssignments": {
+            "type": "array",
             "items": {
               "$ref": "#/components/schemas/QuestionCoverageInput"
             }
@@ -26517,6 +26028,57 @@
           }
         }
       },
+      "InspectionAttachmentVersionView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "version",
+          "sourceObjectMetadataId",
+          "fileName",
+          "mediaType",
+          "sha256",
+          "sizeBytes",
+          "submittedBySubjectId",
+          "submittedAt",
+          "current"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "sourceObjectMetadataId": {
+            "type": "string"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "mediaType": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "submittedBySubjectId": {
+            "type": "string"
+          },
+          "submittedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "current": {
+            "type": "boolean"
+          }
+        }
+      },
       "InspectionAttachmentView": {
         "type": "object",
         "additionalProperties": false,
@@ -26529,7 +26091,9 @@
           "fileName",
           "uploadState",
           "scanState",
-          "revision"
+          "revision",
+          "currentVersion",
+          "versions"
         ],
         "properties": {
           "id": {
@@ -26559,6 +26123,22 @@
           "revision": {
             "type": "integer",
             "minimum": 1
+          },
+          "currentVersionId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "currentVersion": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "versions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InspectionAttachmentVersionView"
+            }
           }
         }
       },

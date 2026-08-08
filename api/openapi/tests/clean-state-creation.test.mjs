@@ -9,7 +9,7 @@ const requiredMutations = new Map([
   ["/v1/admin/organizations", "createAdminOrganization"],
   ["/v1/admin/reminder-rules", "createReminderRule"],
   ["/v1/planning/intake-drafts", "createPlanningIntakeDraft"],
-  ["/v1/audit-workspaces", "createAuditWorkspace"],
+  ["/v1/planning/items/{planningItemId}/preparations", "prepareAudit"],
   ["/v1/report-versions", "createReportVersion"],
 ]);
 
@@ -38,7 +38,7 @@ test("clean-state request schemas require idempotency and expected-version bound
     "CreateAdminOrganizationInput",
     "CreateReminderRuleInput",
     "CreatePlanningIntakeDraftInput",
-    "CreateAuditWorkspaceInput",
+    "PrepareAuditInput",
     "CreateReportVersionInput",
   ];
   for (const name of schemaNames) {
@@ -49,7 +49,7 @@ test("clean-state request schemas require idempotency and expected-version bound
     assert.ok(schema.required.includes("idempotencyKey"));
   }
   assert.ok(
-    document.components.schemas.CreateAuditWorkspaceInput.required.includes(
+    document.components.schemas.PrepareAuditInput.required.includes(
       "expectedPlanningRevision",
     ),
   );

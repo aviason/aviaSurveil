@@ -35,6 +35,12 @@ for package in "${normal_packages[@]}"; do
   if grep -Fxq "$module_path/internal/preproddata/agacandidatedemo" <<<"$dependencies"; then
     fail "$package transitively links the AGA candidate demo loader"
   fi
+  if grep -Fxq "$module_path/internal/agacandidatedemo" <<<"$dependencies"; then
+    fail "$package transitively links the tagged AGA candidate demo handler"
+  fi
+  if grep -Fxq "$module_path/internal/agademoworkspace" <<<"$dependencies"; then
+    fail "$package transitively links the tagged AGA demo workspace handler"
+  fi
 done
 
 go -C "$api_root" build -trimpath -o "$temporary_root/api" ./cmd/api
@@ -44,8 +50,8 @@ go -C "$api_root" build -trimpath -o "$temporary_root/migrate" ./cmd/migrate
 
 for binary in api worker scheduler migrate; do
   if strings "$temporary_root/$binary" |
-    grep -Eq 'internal/testprofile|internal/preproddata|/__test/reset|Canonical test profile reset'; then
-    fail "$binary contains a test-profile, loader, or reset marker"
+    grep -Eiq 'internal/testprofile|internal/preproddata|internal/agacandidatedemo|internal/agademoworkspace|aga-candidate-demo|aga-demo-workspace|AGACandidateDemo|AGADemoWorkspace|/__test/reset|Canonical test profile reset'; then
+    fail "$binary contains a test-profile, loader, donor, or reset marker"
   fi
 done
 

@@ -89,9 +89,14 @@ func (api *CanonicalAPI) queryGovernedReviewCandidateCatalog(ctx context.Context
 			return nil, nil, 0, err
 		}
 		row.CatalogVersion = "candidate:" + candidateID
+		row.ScopeID = scopeID
 		row.UsageClass = string(questioncatalog.UsageClassGovernedOperational)
 		row.GovernedCandidateID = &candidateID
 		row.GovernedCandidateStatus = &candidateStatus
+		row.ReviewHistory, err = api.loadQuestionReviewHistory(ctx, row)
+		if err != nil {
+			return nil, nil, 0, err
+		}
 		items = append(items, canonicalCatalogEntry(row))
 	}
 	if err := rows.Err(); err != nil {

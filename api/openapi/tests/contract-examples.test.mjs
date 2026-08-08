@@ -219,7 +219,17 @@ function assertClosedResponseSchema(
     return;
   }
   if (declaredTypes.includes("object")) {
-    assert.equal(schema.additionalProperties, false, `${pointer} must reject unknown fields`);
+    // Distribution maps intentionally accept governed labels supplied by the
+    // catalog (for example, "Cabin Safety"). The map keys are data, while
+    // every value schema remains closed and typed.
+    if (schema.additionalProperties && typeof schema.additionalProperties === "object") {
+      assertClosedResponseSchema(document, schema.additionalProperties, `${pointer}.<value>`, seen, false);
+    } else {
+      assert.equal(schema.additionalProperties, false, `${pointer} must reject unknown fields`);
+    }
+    for (const pattern of Object.values(schema.patternProperties ?? {})) {
+      assertClosedResponseSchema(document, pattern, `${pointer}.<pattern>`, seen, false);
+    }
     for (const [name, property] of Object.entries(schema.properties ?? {})) {
       assertClosedResponseSchema(document, property, `${pointer}.${name}`, seen, false);
     }

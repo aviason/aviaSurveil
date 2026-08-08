@@ -597,6 +597,12 @@ func dataFeedAuditScopeCode(inspectionType string) (string, error) {
 		return "ramp_inspection", nil
 	case "CABIN_INSPECTION":
 		return "cabin_inspection", nil
+	case "Air Operator Certificate", "Air Operator Certificate · Cabin Safety":
+		// Older submitted Planning snapshots carry the governed display
+		// label rather than the compact source code.  Keep that immutable
+		// identity exact while mapping the known Cabin Safety variant to the
+		// canonical feed scope; do not accept arbitrary free-form labels.
+		return "cabin", nil
 	default:
 		return "", fmt.Errorf("%w: unsupported exact inspection type for datafeed: %q", ErrInvalid, inspectionType)
 	}

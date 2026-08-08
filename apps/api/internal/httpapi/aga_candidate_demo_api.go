@@ -1,3 +1,5 @@
+//go:build preproddemo
+
 package httpapi
 
 import (
@@ -14,7 +16,7 @@ import (
 // The preproddemo-tagged runtime uses this handler instead of the canonical
 // product API so no governed-domain mutation route is reachable.
 func NewAGACandidateDemoHandler(service *aga.Service) http.Handler {
-	api := &CanonicalAPI{agaCandidateDemo: service}
+	api := &candidateDemoAPI{service: service}
 	router := chi.NewRouter()
 	router.Get("/v1/admin/governed-checklist/aga-candidate-demo/capability", api.getAGACandidateDemoCapability)
 	router.Get("/v1/admin/governed-checklist/aga-candidate-demo/summary", api.getAGACandidateDemoSummary)
@@ -44,13 +46,17 @@ func ProtectAGACandidateDemo(boundary *AuthBoundary, next http.Handler) http.Han
 	return WithAGACandidateDemoNoStore(boundary.ProtectReadOnlyNeutral(next, agaDemoNotFound))
 }
 
-func (api *CanonicalAPI) getAGACandidateDemoCapability(writer http.ResponseWriter, request *http.Request) {
+type candidateDemoAPI struct {
+	service *aga.Service
+}
+
+func (api *candidateDemoAPI) getAGACandidateDemoCapability(writer http.ResponseWriter, request *http.Request) {
 	actor, ok := agaDemoActor(request)
-	if !ok || api.agaCandidateDemo == nil {
+	if !ok || api.service == nil {
 		agaDemoNotFound(writer)
 		return
 	}
-	output, err := api.agaCandidateDemo.Capability(request.Context(), actor)
+	output, err := api.service.Capability(request.Context(), actor)
 	if err != nil || !output.Available {
 		agaDemoNotFound(writer)
 		return
@@ -58,13 +64,13 @@ func (api *CanonicalAPI) getAGACandidateDemoCapability(writer http.ResponseWrite
 	agaDemoJSON(writer, output)
 }
 
-func (api *CanonicalAPI) getAGACandidateDemoSummary(writer http.ResponseWriter, request *http.Request) {
+func (api *candidateDemoAPI) getAGACandidateDemoSummary(writer http.ResponseWriter, request *http.Request) {
 	actor, ok := agaDemoActor(request)
-	if !ok || api.agaCandidateDemo == nil {
+	if !ok || api.service == nil {
 		agaDemoNotFound(writer)
 		return
 	}
-	output, err := api.agaCandidateDemo.Summary(request.Context(), actor)
+	output, err := api.service.Summary(request.Context(), actor)
 	if err != nil {
 		agaDemoNotFound(writer)
 		return
@@ -72,9 +78,9 @@ func (api *CanonicalAPI) getAGACandidateDemoSummary(writer http.ResponseWriter, 
 	agaDemoJSON(writer, output)
 }
 
-func (api *CanonicalAPI) listAGACandidateDemoForms(writer http.ResponseWriter, request *http.Request) {
+func (api *candidateDemoAPI) listAGACandidateDemoForms(writer http.ResponseWriter, request *http.Request) {
 	actor, ok := agaDemoActor(request)
-	if !ok || api.agaCandidateDemo == nil {
+	if !ok || api.service == nil {
 		agaDemoNotFound(writer)
 		return
 	}
@@ -87,7 +93,7 @@ func (api *CanonicalAPI) listAGACandidateDemoForms(writer http.ResponseWriter, r
 		}
 		limit = parsed
 	}
-	output, err := api.agaCandidateDemo.Forms(request.Context(), actor, request.URL.Query().Get("cursor"), limit)
+	output, err := api.service.Forms(request.Context(), actor, request.URL.Query().Get("cursor"), limit)
 	if err != nil {
 		agaDemoNotFound(writer)
 		return
@@ -95,13 +101,13 @@ func (api *CanonicalAPI) listAGACandidateDemoForms(writer http.ResponseWriter, r
 	agaDemoJSON(writer, output)
 }
 
-func (api *CanonicalAPI) getAGACandidateDemoForm(writer http.ResponseWriter, request *http.Request) {
+func (api *candidateDemoAPI) getAGACandidateDemoForm(writer http.ResponseWriter, request *http.Request) {
 	actor, ok := agaDemoActor(request)
-	if !ok || api.agaCandidateDemo == nil {
+	if !ok || api.service == nil {
 		agaDemoNotFound(writer)
 		return
 	}
-	output, err := api.agaCandidateDemo.Form(request.Context(), actor, chi.URLParam(request, "formCode"))
+	output, err := api.service.Form(request.Context(), actor, chi.URLParam(request, "formCode"))
 	if err != nil {
 		agaDemoNotFound(writer)
 		return
@@ -109,9 +115,9 @@ func (api *CanonicalAPI) getAGACandidateDemoForm(writer http.ResponseWriter, req
 	agaDemoJSON(writer, output)
 }
 
-func (api *CanonicalAPI) listAGACandidateDemoQuestions(writer http.ResponseWriter, request *http.Request) {
+func (api *candidateDemoAPI) listAGACandidateDemoQuestions(writer http.ResponseWriter, request *http.Request) {
 	actor, ok := agaDemoActor(request)
-	if !ok || api.agaCandidateDemo == nil {
+	if !ok || api.service == nil {
 		agaDemoNotFound(writer)
 		return
 	}
@@ -124,7 +130,7 @@ func (api *CanonicalAPI) listAGACandidateDemoQuestions(writer http.ResponseWrite
 		}
 		limit = parsed
 	}
-	output, err := api.agaCandidateDemo.Questions(request.Context(), actor, request.URL.Query().Get("cursor"), request.URL.Query().Get("formCode"), request.URL.Query().Get("sourceGapCategory"), request.URL.Query().Get("riskBand"), limit)
+	output, err := api.service.Questions(request.Context(), actor, request.URL.Query().Get("cursor"), request.URL.Query().Get("formCode"), request.URL.Query().Get("sourceGapCategory"), request.URL.Query().Get("riskBand"), limit)
 	if err != nil {
 		agaDemoNotFound(writer)
 		return

@@ -152,6 +152,10 @@ func TestPreparationConfirmationPinsAssignmentRevisionAndSupportsMultiInspectorC
 		"canonical_audit_preparation_questions_pkey",
 		"PRIMARY KEY (preparation_id, question_version_id, subject_id)",
 		"canonical_audit_preparation_questions_position_subject_key",
+		"canonical_scope_snapshot_question_position_key",
+		"UNIQUE (snapshot_id, question_version_id, position)",
+		"canonical_preparation_question_scope_position_fkey",
+		"FOREIGN KEY (released_scope_snapshot_id, question_version_id, position)",
 	} {
 		if !strings.Contains(sql, required) {
 			t.Fatalf("migration 38 missing %q", required)
@@ -237,6 +241,101 @@ func TestExerciseReviewEventsPinOperationAndIdempotencyKeys(t *testing.T) {
 	} {
 		if !strings.Contains(sql, required) {
 			t.Fatalf("migration 34 missing %q", required)
+		}
+	}
+}
+
+func TestExerciseReviewStateIsScopedToTheAuthorizedAudit(t *testing.T) {
+	available, err := load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sql string
+	for _, migration := range available {
+		if migration.version == 39 {
+			sql = migration.sql
+			break
+		}
+	}
+	if sql == "" {
+		t.Fatal("exercise review scope migration 39 is not embedded")
+	}
+	for _, required := range []string{
+		"scope_draft_id text REFERENCES canonical_audit_scope_drafts(id)",
+		"canonical_exercise_question_review_drafts_scope_revision_key",
+		"UNIQUE (scope_draft_id, catalog_id, question_version_id, revision)",
+		"canonical_exercise_question_review_drafts_scope_required",
+		"canonical_exercise_question_review_events_scope_required",
+		"cannot infer canonical exercise review scope",
+		"VALIDATE CONSTRAINT canonical_exercise_question_review_drafts_scope_required",
+		"VALIDATE CONSTRAINT canonical_exercise_question_review_events_scope_required",
+		"canonical_exercise_question_review_drafts_scope_question_idx",
+		"canonical_exercise_question_review_events_scope_question_idx",
+	} {
+		if !strings.Contains(sql, required) {
+			t.Fatalf("migration 39 missing %q", required)
+		}
+	}
+}
+
+func TestPreparationCoverageRequiresServerIssuedSingleUsePreview(t *testing.T) {
+	available, err := load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sql string
+	for _, migration := range available {
+		if migration.version == 41 {
+			sql = migration.sql
+			break
+		}
+	}
+	if sql == "" {
+		t.Fatal("preparation preview migration 41 is not embedded")
+	}
+	for _, required := range []string{
+		"canonical_audit_preparation_edit_previews",
+		"UNIQUE (assignment_id, edit_kind, operation_id)",
+		"UNIQUE (assignment_id, edit_kind, idempotency_key)",
+		"expires_at timestamptz NOT NULL",
+		"canonical_audit_preparation_edit_preview_consumptions",
+		"canonical_preparation_edit_preview_consumptions_append_only",
+	} {
+		if !strings.Contains(sql, required) {
+			t.Fatalf("migration 41 missing %q", required)
+		}
+	}
+}
+
+func TestInspectionAttachmentCompletionPinsImmutableVersionAndTerminalEventBoundary(t *testing.T) {
+	available, err := load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sql string
+	for _, migration := range available {
+		if migration.version == 40 {
+			sql = migration.sql
+			break
+		}
+	}
+	if sql == "" {
+		t.Fatal("inspection attachment version migration 40 is not embedded")
+	}
+	for _, required := range []string{
+		"CREATE TABLE inspection_attachment_versions",
+		"UNIQUE (inspection_attachment_id, version)",
+		"UNIQUE (id, source_object_metadata_id)",
+		"inspection_attachment_versions_append_only",
+		"inspection_attachment_versions_attachment_organization_fkey",
+		"current_version_id text",
+		"inspection_attachments_current_version_fkey",
+		"inspection_attachments_current_version_source_fkey",
+		"inspection_attachments_current_version_object_pair_check",
+		"inspection-attachment-version:legacy:",
+	} {
+		if !strings.Contains(sql, required) {
+			t.Fatalf("migration 40 missing %q", required)
 		}
 	}
 }

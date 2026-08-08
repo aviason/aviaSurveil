@@ -67,13 +67,49 @@ func TestInspectionAttachmentUploadRequiresCurrentGrantAndNeverCreatesOfficialEv
 	if completed.InspectionAttachmentID != "attachment-cabin-001" || completed.UploadState != "UPLOADED" || completed.ScanState != "PENDING" {
 		t.Fatalf("attachment completion = %+v", completed)
 	}
+	if completed.InspectionAttachmentVersionID == "" || completed.Version != 1 {
+		t.Fatalf("attachment immutable version identity = %+v", completed)
+	}
 	var evidenceCount int
 	if err := pool.QueryRow(context.Background(), "SELECT count(*) FROM evidence_versions").Scan(&evidenceCount); err != nil || evidenceCount != 0 {
 		t.Fatalf("Inspection Attachment implicitly created %d Evidence versions, err = %v", evidenceCount, err)
 	}
-	var objectMetadataID *string
-	if err := pool.QueryRow(context.Background(), "SELECT object_metadata_id FROM inspection_attachments WHERE id = 'attachment-cabin-001'").Scan(&objectMetadataID); err != nil || objectMetadataID == nil {
-		t.Fatalf("attachment object metadata = %v, err = %v", objectMetadataID, err)
+	var currentVersionID, objectMetadataID, versionAttachmentID, sourceObjectMetadataID string
+	var versionNumber int64
+	if err := pool.QueryRow(context.Background(), `
+		SELECT attachment.current_version_id, attachment.object_metadata_id,
+		       version.inspection_attachment_id, version.version, version.source_object_metadata_id
+		FROM inspection_attachments attachment
+		JOIN inspection_attachment_versions version
+		  ON version.id = attachment.current_version_id
+		 AND version.inspection_attachment_id = attachment.id
+		WHERE attachment.id = 'attachment-cabin-001'
+	`).Scan(&currentVersionID, &objectMetadataID, &versionAttachmentID, &versionNumber, &sourceObjectMetadataID); err != nil {
+		t.Fatalf("read immutable Inspection Attachment version: %v", err)
+	}
+	if currentVersionID != completed.InspectionAttachmentVersionID || versionAttachmentID != "attachment-cabin-001" ||
+		versionNumber != 1 || sourceObjectMetadataID != objectMetadataID {
+		t.Fatalf("immutable Inspection Attachment binding = version=%q attachment=%q number=%d source=%q object=%q",
+			currentVersionID, versionAttachmentID, versionNumber, sourceObjectMetadataID, objectMetadataID)
+	}
+	view, err := service.Get(context.Background(), inspector, "attachment-cabin-001")
+	if err != nil {
+		t.Fatalf("get immutable Inspection Attachment history: %v", err)
+	}
+	if view.CurrentVersionID == nil || *view.CurrentVersionID != completed.InspectionAttachmentVersionID ||
+		view.CurrentVersion != 1 || len(view.Versions) != 1 || !view.Versions[0].Current ||
+		view.Versions[0].SourceObjectMetadataID != objectMetadataID {
+		t.Fatalf("Inspection Attachment version projection = %+v", view)
+	}
+	if _, err := pool.Exec(context.Background(), `
+		UPDATE inspection_attachment_versions SET file_name = 'tampered.png' WHERE id = $1
+	`, completed.InspectionAttachmentVersionID); err == nil {
+		t.Fatal("immutable Inspection Attachment version accepted an update")
+	}
+	if _, err := pool.Exec(context.Background(), `
+		UPDATE inspection_attachments SET object_metadata_id = NULL WHERE id = 'attachment-cabin-001'
+	`); err == nil {
+		t.Fatal("completed Inspection Attachment detached its immutable version source object")
 	}
 }
 

@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/administration"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/agacandidatedemo"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/application"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/assistant"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/documents"
@@ -293,32 +292,17 @@ func run(ctx context.Context) error {
 								Bucket: settings.DocumentBucket, Clock: runtimeClock,
 							},
 						)
-						var agaDemoService any
-						if profile.agaDemoService != nil {
-							service, closeReader, readerErr := profile.agaDemoService(ctx, settings)
-							if readerErr != nil {
-								probe = unavailableReadiness{err: readerErr}
-								slog.Error("AGA demo reader unavailable; capability will fail closed", "error", readerErr)
-							} else {
-								defer closeReader()
-								agaDemoService = service
-							}
-						}
 						apiHandler := httpapi.NewCanonicalAPI(httpapi.CanonicalAPIDependencies{
 							Pool: pool, Application: applicationService, GrantService: grantService,
 							SyncOperations:  syncOperations,
 							EvidenceUploads: evidenceUploads, AttachmentUploads: attachmentUploads,
 							Planning: planningService,
 							Risk:     riskService, Administration: administrationService,
-							Assistant:         assistantService,
-							Communications:    communicationsWorkflow,
-							Documents:         documentAccess,
-							DirectoryProvider: directoryProvider,
-							Users:             userLifecycleService,
-							AGACandidateDemo: func() *agacandidatedemo.Service {
-								service, _ := agaDemoService.(*agacandidatedemo.Service)
-								return service
-							}(),
+							Assistant:              assistantService,
+							Communications:         communicationsWorkflow,
+							Documents:              documentAccess,
+							DirectoryProvider:      directoryProvider,
+							Users:                  userLifecycleService,
 							PreprodExerciseProfile: exerciseProfileEnabled,
 							PreprodIdentityNamespace: func() string {
 								value, _ := os.LookupEnv("AVIA_PREPROD_IDENTITY_NAMESPACE")

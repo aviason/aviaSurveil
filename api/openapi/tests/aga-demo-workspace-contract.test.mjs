@@ -5,39 +5,17 @@ import test from "node:test";
 const source = JSON.parse(readFileSync("api/openapi/source/paths/platform.json", "utf8"));
 const schemas = JSON.parse(readFileSync("api/openapi/source/schemas/platform.json", "utf8"));
 const prefix = "/v1/preprod/aga-demo-workspace";
-const expected = {
-  [`${prefix}/capability`]: ["get"],
-  [`${prefix}/classification/query`]: ["post"],
-  [`${prefix}/classification/commands`]: ["post"],
-  [`${prefix}/recommendations/commands`]: ["post"],
-  [`${prefix}/recommendations/query`]: ["post"],
-  [`${prefix}/lifecycle/query`]: ["post"],
-  [`${prefix}/lifecycle/commands`]: ["post"],
-  [`${prefix}/admin/commands`]: ["post"],
-};
-
-test("workspace source exposes the fixed route matrix and explicit role declarations", () => {
-  assert.deepEqual(Object.fromEntries(Object.entries(source).filter(([path]) => path.startsWith(prefix)).map(([path, item]) => [path, Object.keys(item)])), expected);
-  for (const [path, methods] of Object.entries(expected)) {
-    const operation = source[path][methods[0]];
-    assert.equal(operation["x-neutral-denial"], true, path);
-    assert.ok(Array.isArray(operation["x-authorized-roles"]), `${path} must declare roles`);
-    assert.ok(operation["x-authorized-roles"].length > 0, `${path} must not use an empty role declaration`);
-  }
+test("workspace source is absent from the normal contract after canonical cutover", () => {
+  assert.deepEqual(Object.fromEntries(Object.entries(source).filter(([path]) => path.startsWith(prefix)).map(([path, item]) => [path, Object.keys(item)])), {});
 });
 
-test("the frozen legacy AGA prefix remains five Admin-only reads", () => {
+test("the isolated candidate-demo prefix is absent from the normal contract", () => {
   const legacyPrefix = "/v1/admin/governed-checklist/aga-candidate-demo";
   const routes = Object.entries(source).filter(([path]) => path.startsWith(legacyPrefix));
-  assert.equal(routes.length, 5);
-  for (const [, item] of routes) assert.deepEqual(Object.keys(item), ["get"]);
+  assert.equal(routes.length, 0);
 });
 
 test("lifecycle routes and closed bodies expose the append-only contract", () => {
-  const lifecycleQuery = source[`${prefix}/lifecycle/query`].post;
-  const lifecycleCommands = source[`${prefix}/lifecycle/commands`].post;
-  assert.equal(lifecycleQuery["x-lifecycle-projection"], "organization-scoped-public-or-CAA-projection");
-  assert.equal(lifecycleCommands["x-lifecycle-cas"], "expectedLifecycleRevision-and-expectedLifecycleDigest");
   const query = schemas.AGADemoWorkspaceQuery;
   for (const property of ["inspectionId", "findingId", "capId", "evidenceId"]) assert.ok(query.properties[property], property);
   const command = schemas.AGADemoWorkspaceCommand;

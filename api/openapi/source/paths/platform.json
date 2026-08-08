@@ -232,111 +232,8 @@
   "/v1/governed-checklist/candidates/{candidateId}/source-mapping-attestations": {
     "post": { "operationId": "attestGovernedChecklistSourceMapping", "parameters": [{ "name": "candidateId", "in": "path", "required": true, "schema": { "type": "string" } }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GovernedSourceMappingAttestationInput" } } } }, "responses": { "201": { "description": "Immutable source-mapping attestation", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GovernedSourceMappingAttestationView" } } } }, "default": { "$ref": "#/components/responses/Problem" } } }
   },
-  "/v1/admin/governed-checklist/aga-candidate-demo/capability": {
-    "get": { "operationId": "getAGACandidateDemoCapability", "responses": { "200": { "description": "CAA Admin-only sealed candidate demo capability", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": false, "required": ["available", "labels"], "properties": { "available": { "type": "boolean" }, "labels": { "type": "array", "items": { "type": "string" } } } } } } } } }
-  },
-  "/v1/admin/governed-checklist/aga-candidate-demo/summary": {
-    "get": { "operationId": "getAGACandidateDemoSummary", "responses": { "200": { "description": "CAA Admin-only sealed candidate demo summary", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": false, "required": ["packageDigest", "formCount", "questionCount", "sourceRequirements", "labels"], "properties": { "packageDigest": { "type": "string" }, "formCount": { "type": "integer" }, "questionCount": { "type": "integer" }, "sourceRequirements": { "type": "array", "items": { "type": "string" } }, "labels": { "type": "array", "items": { "type": "string" } } } } } } } } }
-  },
-  "/v1/admin/governed-checklist/aga-candidate-demo/forms": {
-    "get": { "operationId": "listAGACandidateDemoForms", "parameters": [{ "$ref": "#/components/parameters/Cursor" }, { "$ref": "#/components/parameters/Limit" }], "responses": { "200": { "description": "CAA Admin-only sealed candidate demo forms", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": false, "required": ["items", "nextCursor"], "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/AGACandidateDemoForm" } }, "nextCursor": { "type": ["string", "null"] } } } } } } } }
-  },
-  "/v1/admin/governed-checklist/aga-candidate-demo/forms/{formCode}": {
-    "get": { "operationId": "getAGACandidateDemoForm", "parameters": [{ "name": "formCode", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "CAA Admin-only sealed candidate demo form", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGACandidateDemoForm" } } } } } }
-  },
-  "/v1/admin/governed-checklist/aga-candidate-demo/questions": {
-    "get": { "operationId": "listAGACandidateDemoQuestions", "parameters": [{ "name": "formCode", "in": "query", "schema": { "type": "string" } }, { "name": "sourceGapCategory", "in": "query", "schema": { "type": "string", "enum": ["PROPOSAL_PRESENT_REVIEW_REQUIRED", "UNMAPPED_NO_QUESTION_LEVEL_SOURCE_PROPOSAL"] } }, { "name": "riskBand", "in": "query", "schema": { "type": "string", "enum": ["PROPOSED_CONTROL_ASSURANCE", "PROPOSED_HIGH_OPERATIONAL", "PROPOSED_REVIEW_REQUIRED", "PROPOSED_SAFETY_CRITICAL"] } }, { "$ref": "#/components/parameters/Cursor" }, { "$ref": "#/components/parameters/Limit" }], "responses": { "200": { "description": "CAA Admin-only sealed candidate demo questions", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": false, "required": ["items", "nextCursor"], "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/AGACandidateDemoQuestion" } }, "nextCursor": { "type": ["string", "null"] } } } } } } } }
-  },
   "/v1/governed-checklist/published-versions/{publishedVersionId}/audit-package-eligibility-evaluations": {
     "post": { "operationId": "evaluateGovernedChecklistAuditPackageEligibility", "parameters": [{ "name": "publishedVersionId", "in": "path", "required": true, "schema": { "type": "string" } }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GovernedAuditPackageEligibilityInput" } } } }, "responses": { "200": { "description": "Computed package eligibility", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GovernedAuditPackageEligibilityView" } } } }, "default": { "$ref": "#/components/responses/Problem" } } }
-  },
-  "/v1/preprod/aga-demo-workspace/capability": {
-    "get": {
-      "operationId": "getAGADemoWorkspaceCapability",
-      "x-operation-kind": "query",
-      "x-neutral-denial": true,
-      "x-authorized-roles": ["admin", "manager", "inspector", "leadInspector", "auditee"],
-      "responses": { "200": { "description": "Role-scoped synthetic workspace capability", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceCapability" } } } }, "404": { "description": "Neutral capability denial", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceNotFound" } } } } }
-    }
-  },
-  "/v1/preprod/aga-demo-workspace/classification/query": {
-    "post": {
-      "operationId": "queryAGADemoWorkspaceClassification",
-      "x-operation-kind": "query",
-      "x-neutral-denial": true,
-      "x-authorized-roles": ["admin", "manager"],
-      "parameters": [{ "$ref": "#/components/parameters/CsrfToken" }],
-      "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceQuery" } } } },
-      "responses": { "200": { "description": "Authorized classification workspace projection", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceQueryResponse" } } } }, "404": { "description": "Neutral classification denial", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceNotFound" } } } } }
-    }
-  },
-  "/v1/preprod/aga-demo-workspace/classification/commands": {
-    "post": {
-      "operationId": "commandAGADemoWorkspaceClassification",
-      "x-operation-kind": "command",
-      "x-neutral-denial": true,
-      "x-authorized-roles": ["manager"],
-      "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }, { "$ref": "#/components/parameters/CsrfToken" }, { "$ref": "#/components/parameters/ExpectedRevision" }],
-      "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceCommand" } } } },
-      "responses": { "200": { "description": "Classification command result", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceCommandResponse" } } } }, "400": { "$ref": "#/components/responses/Problem" }, "409": { "$ref": "#/components/responses/Problem" }, "412": { "$ref": "#/components/responses/Problem" }, "404": { "description": "Neutral classification denial", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceNotFound" } } } } }
-    }
-  },
-  "/v1/preprod/aga-demo-workspace/recommendations/commands": {
-    "post": {
-      "operationId": "commandAGADemoWorkspaceRecommendation",
-      "x-operation-kind": "command",
-      "x-neutral-denial": true,
-      "x-authorized-roles": ["manager"],
-      "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }, { "$ref": "#/components/parameters/CsrfToken" }, { "$ref": "#/components/parameters/ExpectedRevision" }],
-      "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceCommand" } } } },
-      "responses": { "200": { "description": "Recommendation command result", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceCommandResponse" } } } }, "400": { "$ref": "#/components/responses/Problem" }, "409": { "$ref": "#/components/responses/Problem" }, "412": { "$ref": "#/components/responses/Problem" }, "404": { "description": "Neutral recommendation denial", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceNotFound" } } } } }
-    }
-  },
-  "/v1/preprod/aga-demo-workspace/recommendations/query": {
-    "post": {
-      "operationId": "queryAGADemoWorkspaceRecommendation",
-      "x-operation-kind": "query",
-      "x-neutral-denial": true,
-      "x-authorized-roles": ["manager"],
-      "parameters": [{ "$ref": "#/components/parameters/CsrfToken" }],
-      "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceQuery" } } } },
-      "responses": { "200": { "description": "Current synthetic recommendation snapshot", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceQueryResponse" } } } }, "404": { "description": "Neutral recommendation denial", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceNotFound" } } } } }
-    }
-  },
-  "/v1/preprod/aga-demo-workspace/lifecycle/query": {
-    "post": {
-      "operationId": "queryAGADemoWorkspaceLifecycle",
-      "x-operation-kind": "query",
-      "x-neutral-denial": true,
-      "x-authorized-roles": ["admin", "manager", "inspector", "leadInspector", "auditee"],
-      "x-lifecycle-projection": "organization-scoped-public-or-CAA-projection",
-      "parameters": [{ "$ref": "#/components/parameters/CsrfToken" }],
-      "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceQuery" } } } },
-      "responses": { "200": { "description": "Authorized synthetic lifecycle projection", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceQueryResponse" } } } }, "404": { "description": "Neutral lifecycle denial", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceNotFound" } } } } }
-    }
-  },
-  "/v1/preprod/aga-demo-workspace/lifecycle/commands": {
-    "post": {
-      "operationId": "commandAGADemoWorkspaceLifecycle",
-      "x-operation-kind": "command",
-      "x-neutral-denial": true,
-      "x-authorized-roles": ["admin", "manager", "inspector", "leadInspector", "auditee"],
-      "x-lifecycle-cas": "expectedLifecycleRevision-and-expectedLifecycleDigest",
-      "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }, { "$ref": "#/components/parameters/CsrfToken" }, { "$ref": "#/components/parameters/ExpectedRevision" }],
-      "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceCommand" } } } },
-      "responses": { "200": { "description": "Synthetic lifecycle command result", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceCommandResponse" } } } }, "400": { "$ref": "#/components/responses/Problem" }, "409": { "$ref": "#/components/responses/Problem" }, "412": { "$ref": "#/components/responses/Problem" }, "404": { "description": "Neutral lifecycle denial", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceNotFound" } } } } }
-    }
-  },
-  "/v1/preprod/aga-demo-workspace/admin/commands": {
-    "post": {
-      "operationId": "commandAGADemoWorkspaceAdmin",
-      "x-operation-kind": "command",
-      "x-neutral-denial": true,
-      "x-authorized-roles": ["admin"],
-      "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }, { "$ref": "#/components/parameters/CsrfToken" }, { "$ref": "#/components/parameters/ExpectedRevision" }],
-      "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceCommand" } } } },
-      "responses": { "200": { "description": "Synthetic workspace administrative command result", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceCommandResponse" } } } }, "400": { "$ref": "#/components/responses/Problem" }, "409": { "$ref": "#/components/responses/Problem" }, "412": { "$ref": "#/components/responses/Problem" }, "404": { "description": "Neutral administrative denial", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AGADemoWorkspaceNotFound" } } } } }
-    }
   },
   "/v1/question-catalogs/{catalogVersion}/questions": {
     "get": {
@@ -350,7 +247,7 @@
         { "name": "riskBand", "in": "query", "schema": { "type": "string", "maxLength": 80 } },
         { "name": "sourceGapState", "in": "query", "schema": { "type": "string", "maxLength": 80 } },
         { "name": "selected", "in": "query", "schema": { "type": "string", "enum": ["all", "selected", "unselected"] } },
-        { "name": "scopeId", "in": "query", "schema": { "type": "string", "maxLength": 120 } },
+        { "name": "scopeId", "in": "query", "description": "Required and owned by the current Department Manager for PREPROD_EXERCISE selection or review.", "schema": { "type": "string", "maxLength": 120 } },
         { "name": "usageClass", "in": "query", "required": true, "schema": { "$ref": "#/components/schemas/QuestionUsageClass" } },
         { "$ref": "#/components/parameters/Cursor" },
         { "$ref": "#/components/parameters/Limit" }
@@ -378,7 +275,7 @@
         { "name": "catalogVersion", "in": "path", "required": true, "schema": { "type": "string" } },
         { "name": "questionVersionId", "in": "path", "required": true, "schema": { "type": "string" } },
         { "name": "usageClass", "in": "query", "required": true, "schema": { "$ref": "#/components/schemas/QuestionUsageClass" } },
-        { "name": "scopeId", "in": "query", "schema": { "type": "string" } }
+        { "name": "scopeId", "in": "query", "description": "Required and must be owned by the current Department Manager when usageClass is PREPROD_EXERCISE.", "schema": { "type": "string" } }
       ],
       "responses": { "200": { "description": "Exact canonical catalog entry", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CanonicalQuestionCatalogEntry" } } } } }
     }

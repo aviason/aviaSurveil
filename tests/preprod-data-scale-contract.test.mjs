@@ -225,10 +225,12 @@ test("qualification uses an isolated normal API probe and loader-only interrupti
   assert.doesNotMatch(api, /ports:|testprofile|AVIA_TEST_/iu);
   assert.match(api, /entrypoint:\s*\[\/bin\/sh,\s*-c\]/u);
   assert.match(api, /exec \/app\/api/u);
-  assert.match(api, /preprod_app_database_password/u);
+  assert.match(api, /AVIA_DATABASE_USER:\s*preprod_normal_api/u);
+  assert.match(api, /preprod_normal_api_database_password/u);
+  assert.doesNotMatch(api, /preprod_app_database_password/u);
   assert.doesNotMatch(
     api,
-    /preprod_(?:oidc|session|keycloak_service|minio_api)/u,
+    /preprod_app_database_password|preprod_loader_database_password|preprod_aga_demo/iu,
   );
   assert.match(loader, /AVIA_PREPROD_PROFILE_QUALIFICATION/u);
   assert.match(

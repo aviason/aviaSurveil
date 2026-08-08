@@ -66,6 +66,21 @@ type QuestionAssignment struct {
 	SubjectID  string `json:"subjectId"`
 }
 
+// PreparationEditPreview is a short-lived, server-issued receipt for a
+// complete team or question-coverage set.  The receipt is consumed exactly
+// once by the matching command; the mutable assignment tables remain only a
+// projection of that immutable command snapshot.
+type PreparationEditPreview struct {
+	PreviewID           string               `json:"previewId"`
+	AssignmentID        string               `json:"assignmentId"`
+	AssignmentRevision  int64                `json:"assignmentRevision"`
+	EditKind            string               `json:"editKind"`
+	Digest              string               `json:"digest"`
+	ExpiresAt           time.Time            `json:"expiresAt"`
+	MemberSubjectIDs    []string             `json:"memberSubjectIds,omitempty"`
+	QuestionAssignments []QuestionAssignment `json:"questionAssignments,omitempty"`
+}
+
 type AuditeeCoordination struct {
 	InspectionID       string  `json:"auditId"`
 	OrganizationID     string  `json:"organizationId"`

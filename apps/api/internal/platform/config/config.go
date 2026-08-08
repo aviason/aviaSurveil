@@ -40,9 +40,6 @@ var (
 type Settings struct {
 	Environment                 string
 	DatabaseURL                 string
-	AGADemoDatabaseURL          string
-	AGADemoWorkspaceReaderURL   string
-	AGADemoWorkspaceCommandURL  string
 	HTTPAddress                 string
 	WorkerInterval              time.Duration
 	TestPrincipal               string
@@ -113,23 +110,20 @@ func LoadScheduler(lookup LookupEnv) (Settings, error) {
 func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) {
 	environment := valueOrDefault(lookup, "AVIA_ENVIRONMENT", "development")
 	settings := Settings{
-		Environment:                environment,
-		DatabaseURL:                value(lookup, "AVIA_DATABASE_URL"),
-		AGADemoDatabaseURL:         value(lookup, "AVIA_AGA_DEMO_DATABASE_URL"),
-		AGADemoWorkspaceReaderURL:  value(lookup, "AVIA_AGA_DEMO_WORKSPACE_READER_DATABASE_URL"),
-		AGADemoWorkspaceCommandURL: value(lookup, "AVIA_AGA_DEMO_WORKSPACE_COMMAND_DATABASE_URL"),
-		HTTPAddress:                valueOrDefault(lookup, "AVIA_HTTP_ADDRESS", ":8080"),
-		TestPrincipal:              value(lookup, "AVIA_TEST_PRINCIPAL"),
-		TestSession:                value(lookup, "AVIA_TEST_SESSION"),
-		DevSessionSecret:           value(lookup, "AVIA_DEV_SESSION_SECRET"),
-		OIDCIssuerURL:              value(lookup, "AVIA_OIDC_ISSUER_URL"),
-		OIDCDiscoveryURL:           value(lookup, "AVIA_OIDC_DISCOVERY_URL"),
-		OIDCClientID:               value(lookup, "AVIA_OIDC_CLIENT_ID"),
-		OIDCClientSecret:           value(lookup, "AVIA_OIDC_CLIENT_SECRET"),
-		OIDCRedirectURL:            value(lookup, "AVIA_OIDC_REDIRECT_URL"),
-		KeycloakAdminURL:           value(lookup, "AVIA_KEYCLOAK_ADMIN_URL"),
-		KeycloakRealm:              value(lookup, "AVIA_KEYCLOAK_REALM"),
-		KeycloakServiceClientID:    value(lookup, "AVIA_KEYCLOAK_SERVICE_CLIENT_ID"),
+		Environment:             environment,
+		DatabaseURL:             value(lookup, "AVIA_DATABASE_URL"),
+		HTTPAddress:             valueOrDefault(lookup, "AVIA_HTTP_ADDRESS", ":8080"),
+		TestPrincipal:           value(lookup, "AVIA_TEST_PRINCIPAL"),
+		TestSession:             value(lookup, "AVIA_TEST_SESSION"),
+		DevSessionSecret:        value(lookup, "AVIA_DEV_SESSION_SECRET"),
+		OIDCIssuerURL:           value(lookup, "AVIA_OIDC_ISSUER_URL"),
+		OIDCDiscoveryURL:        value(lookup, "AVIA_OIDC_DISCOVERY_URL"),
+		OIDCClientID:            value(lookup, "AVIA_OIDC_CLIENT_ID"),
+		OIDCClientSecret:        value(lookup, "AVIA_OIDC_CLIENT_SECRET"),
+		OIDCRedirectURL:         value(lookup, "AVIA_OIDC_REDIRECT_URL"),
+		KeycloakAdminURL:        value(lookup, "AVIA_KEYCLOAK_ADMIN_URL"),
+		KeycloakRealm:           value(lookup, "AVIA_KEYCLOAK_REALM"),
+		KeycloakServiceClientID: value(lookup, "AVIA_KEYCLOAK_SERVICE_CLIENT_ID"),
 		KeycloakServiceClientSecret: value(
 			lookup,
 			"AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET",

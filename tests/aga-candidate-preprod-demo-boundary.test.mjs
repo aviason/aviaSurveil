@@ -5,13 +5,10 @@ import { test } from "node:test";
 const read = (file) => readFileSync(file, "utf8");
 const routePrefix = "/v1/admin/governed-checklist/aga-candidate-demo";
 
-test("AGA candidate-demo transport is Admin-only, read-only, and label-bounded", () => {
+test("AGA candidate-demo source remains isolated and absent from the normal contract", () => {
   const paths = JSON.parse(read("api/openapi/source/paths/platform.json"));
   const candidatePaths = Object.entries(paths).filter(([path]) => path.startsWith(routePrefix));
-  assert.equal(candidatePaths.length, 5);
-  for (const [path, operations] of candidatePaths) {
-    assert.deepEqual(Object.keys(operations), ["get"], `${path} must not expose a command or export`);
-  }
+  assert.equal(candidatePaths.length, 0);
   const routeSource = read("apps/api/internal/httpapi/aga_candidate_demo_api.go");
   assert.match(routeSource, /actor, ok := agaDemoActor\(request\)/u);
   assert.match(routeSource, /StatusNotFound/u);
@@ -45,7 +42,7 @@ test("candidate reader and UI cannot reach loaders, real-domain commands, storag
   for (const prohibited of ["localStorage", "sessionStorage", "indexedDB", "caches", "serviceWorker", "telemetry", "fetch(", "createFinding", "createAudit", "capability.publish", "capability.approve", "capability.attest", "capability.assign"]) {
     assert.doesNotMatch(ui, new RegExp(prohibited.replace(/[()]/g, "\\$&"), "iu"));
   }
-  assert.match(adapter, /cache: "no-store", suppressTelemetry: true/u);
+  assert.doesNotMatch(adapter, new RegExp(routePrefix.replaceAll("/", "\\/"), "u"));
   for (const prohibited of ["internal/identity", "internal/objectstore", "internal/datafeed", "internal/checklistintake", "provider", "mailpit", "minio"]) {
     assert.doesNotMatch(loader, new RegExp(prohibited, "iu"));
   }
@@ -56,8 +53,8 @@ test("normal artifacts and the tagged API keep their distinct least-privilege de
   const tagged = read("apps/api/cmd/api/profile_preproddemo.go");
   const compose = read("deploy/local/compose.yaml");
   assert.doesNotMatch(normal, /agacandidatedemo|AVIA_AGA_DEMO_DATABASE_URL/u);
-  assert.match(tagged, /AGADemoDatabaseURL/u);
-  assert.match(tagged, /NewPostgresReader/u);
+  assert.match(tagged, /go:build preproddemo/u);
+  assert.doesNotMatch(tagged, /AGADemoDatabaseURL|NewPostgresReader/u);
   assert.match(tagged, /skipMigrations: true/u);
   assert.match(tagged, /agaDemoOnly: true/u);
   assert.match(compose, /AVIA_DATABASE_USER:\s*preprod_normal_api/u);

@@ -93,8 +93,14 @@ export function assertAgaWorkspaceArtifact(profile, suppliedPath = "dist") {
     // TypeScript interface names are erased by the production build. The
     // request method is the stable emitted client marker instead.
     "classificationQuery",
+    "aga-candidate-demo",
+    "AGACandidateDemo",
+    "agaCandidateDemo",
   ]) {
-    assert.match(source, new RegExp(marker.replaceAll("/", "\\/")), `HTTP artifact is missing workspace marker: ${marker}`);
+    assert.doesNotMatch(source, new RegExp(marker.replaceAll("/", "\\/")), `HTTP artifact still contains removed donor marker: ${marker}`);
+  }
+  for (const input of buildInputs.inputs ?? []) {
+    assert.doesNotMatch(input, /aga-demo-workspace|aga-candidate-demo|src\/backend\/(?:aga-demo-workspace|aga-candidate-demo)/i, `HTTP artifact imports removed donor input: ${input}`);
   }
   assert.doesNotMatch(source, /FSS-AGA-FORM-\d{3}|AGA_ALL_FORMS_SOURCE_RISK_DRAFT_V1|questionRef/i, "HTTP artifact embeds candidate/classification rows");
   assert.doesNotMatch(source, /AGADemoWorkspaceCapability[^\n]{0,240}available[^\n]{0,80}true/i, "HTTP artifact statically succeeds the workspace capability");

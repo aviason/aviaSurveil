@@ -1,8 +1,4 @@
-import type { components } from "../generated/transport/api-types";
-
 import type { BackendRequestOptions, PageOutput } from "./backend";
-
-type Schemas = components["schemas"];
 
 export interface AGACandidateDemoCapability {
   available: boolean;
@@ -17,8 +13,22 @@ export interface AGACandidateDemoSummary {
   labels: readonly string[];
 }
 
-export type AGACandidateDemoForm = Schemas["AGACandidateDemoForm"];
-export type AGACandidateDemoQuestion = Schemas["AGACandidateDemoQuestion"];
+export interface AGACandidateDemoForm {
+  code: string;
+  title: string;
+  questionCount: number;
+  questionExtractionState: string;
+}
+
+export interface AGACandidateDemoQuestion {
+  proposalId: string;
+  formCode: string;
+  ordinal: number;
+  text: string;
+  textDigest: string;
+  sourceGapCategory: "PROPOSAL_PRESENT_REVIEW_REQUIRED" | "UNMAPPED_NO_QUESTION_LEVEL_SOURCE_PROPOSAL";
+  riskBand: "PROPOSED_CONTROL_ASSURANCE" | "PROPOSED_HIGH_OPERATIONAL" | "PROPOSED_REVIEW_REQUIRED" | "PROPOSED_SAFETY_CRITICAL";
+}
 
 /**
  * Read-only boundary for the tagged, disposable preprod candidate projection.

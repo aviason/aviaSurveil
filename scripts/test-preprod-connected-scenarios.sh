@@ -220,6 +220,7 @@ node --test "$repository_root/tests/preprod-data-boundary.test.mjs"
 
 build_services=(
   preprod-migration
+  preprod-normal-runtime-role-provisioner
   preprod-keycloak
   preprod-data-loader
   preprod-canonical-aga-loader
@@ -235,6 +236,7 @@ runtime_services=(
   preprod-keycloak-postgres \
   preprod-mailpit \
   preprod-minio \
+  preprod-normal-runtime-role-provisioner \
   preprod-keycloak
 )
 if [[ "$task8_qualification" == "true" ]]; then

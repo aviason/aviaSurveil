@@ -1,3 +1,5 @@
+//go:build preproddemo
+
 package httpapi
 
 import (
