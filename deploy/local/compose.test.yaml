@@ -110,8 +110,12 @@ services:
           grep -q 'HTTP/1.1 200 OK' <&3
       interval: 2s
       timeout: 3s
-      retries: 60
-      start_period: 30s
+      # The patched Keycloak image performs a cold Quarkus/JPA startup and
+      # imports the disposable realm on the first boot.  On emulated local
+      # Docker this can take several minutes; keep the health gate fail-closed
+      # without killing a healthy service before it can report readiness.
+      retries: 150
+      start_period: 120s
     restart: "no"
 
   mailpit:

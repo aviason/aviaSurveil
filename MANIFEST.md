@@ -46,8 +46,9 @@ excluded or `blocked`.
 The active Canonical AGA Preprod End-To-End Product successor is separately
 `candidate-only`: its canonical Question Review history, immutable New Audit
 selection summary, pre-materialization Lead handoff, donor-free normal HTTP
-contract/artifact/binary, and non-owner local-preprod runtime role are
-`verified locally`; rendered stakeholder qualification, donor
+contract/artifact/binary, non-owner local-preprod runtime role, and connected
+OIDC hero lifecycle through Final Report issue are `verified locally`; rendered
+stakeholder qualification, the full negative/recovery/dependency matrix, donor
 deletion/requalification, and full recursive gates remain `not run` or
 `blocked`. Sol XHigh accepted the implemented code boundary with 0
 Critical/0 Important; a fresh Sol Ultra reread and stakeholder acceptance

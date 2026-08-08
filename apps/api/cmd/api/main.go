@@ -228,6 +228,11 @@ func run(ctx context.Context) error {
 					} else {
 						objectStoreHealth = objectStoreReadiness{store: objects}
 						scannerHealth = scannerProbe
+						dataFeedWriter, dataFeedErr := configuredDataFeedWriter()
+						if dataFeedErr != nil {
+							probe = unavailableReadiness{err: dataFeedErr}
+							slog.Error("data-feed event writer unavailable; readiness will fail closed", "error", dataFeedErr)
+						}
 						readinessProbes := combinedReadiness{
 							probe,
 							objectStoreHealth,
@@ -240,6 +245,7 @@ func run(ctx context.Context) error {
 							Clock:                     runtimeClock,
 							IDGenerator:               profile.idGenerator,
 							FindingReferenceGenerator: profile.findingReferenceGenerator,
+							DataFeedWriter:            dataFeedWriter,
 						}
 						if profile.seed != nil {
 							if resetErr := profile.seed(ctx, pool, runtimeClock()); resetErr != nil {

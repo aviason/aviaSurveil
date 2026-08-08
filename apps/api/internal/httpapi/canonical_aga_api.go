@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -650,11 +649,7 @@ func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.Respons
 		api.respond(writer, nil, application.ErrNotFound)
 		return
 	}
-	catalogVersion, err := url.PathUnescape(chi.URLParam(request, "catalogVersion"))
-	if err != nil {
-		api.respond(writer, nil, fmt.Errorf("%w: invalid catalog version", application.ErrInvalid))
-		return
-	}
+	catalogVersion := decodedCanonicalPathParam(request, "catalogVersion")
 	search := strings.TrimSpace(request.URL.Query().Get("search"))
 	formCode := strings.TrimSpace(request.URL.Query().Get("formCode"))
 	domain := strings.TrimSpace(request.URL.Query().Get("domain"))
@@ -788,12 +783,8 @@ func (api *CanonicalAPI) getCanonicalQuestionCatalogEntry(writer http.ResponseWr
 		api.respond(writer, nil, application.ErrNotFound)
 		return
 	}
-	catalogVersion, err := url.PathUnescape(chi.URLParam(request, "catalogVersion"))
-	if err != nil {
-		api.respond(writer, nil, fmt.Errorf("%w: invalid catalog version", application.ErrInvalid))
-		return
-	}
-	questionVersionID := chi.URLParam(request, "questionVersionId")
+	catalogVersion := decodedCanonicalPathParam(request, "catalogVersion")
+	questionVersionID := decodedCanonicalPathParam(request, "questionVersionId")
 	if usage == questioncatalog.UsageClassGovernedOperational && strings.HasPrefix(catalogVersion, "candidate:") {
 		items, _, _, err := api.queryGovernedReviewCandidateCatalog(request.Context(), actor.SubjectID, strings.TrimPrefix(catalogVersion, "candidate:"), questionVersionID, "", "", "", "", "", "", "", "", 25)
 		for _, item := range items {
@@ -882,7 +873,7 @@ func (api *CanonicalAPI) getCanonicalQuestionCatalogEntry(writer http.ResponseWr
 			  AND COALESCE((SELECT status FROM caa_department_status_facts WHERE department_id=membership.department_id AND effective_from <= CURRENT_DATE ORDER BY effective_from DESC,id DESC LIMIT 1),'INACTIVE')='ACTIVE'
 			  AND COALESCE((SELECT status FROM caa_organizational_unit_status_facts WHERE organizational_unit_id=membership.organizational_unit_id AND effective_from <= CURRENT_DATE ORDER BY effective_from DESC,id DESC LIMIT 1),'INACTIVE')='ACTIVE'
 		  ))
-	`, chi.URLParam(request, "catalogVersion"), string(usage), chi.URLParam(request, "questionVersionId"), strings.TrimSpace(request.URL.Query().Get("scopeId")), actor.SubjectID).Scan(&row.CatalogVersion, &row.UsageClass, &row.QuestionID, &row.FormCode, &row.ProposalID, &row.Ordinal, &row.Digest, &row.SourceLocator, &row.SourceGap, &row.Domain, &row.Topic, &row.RiskBand, &row.Prompt, &row.ConfiguredReference, &row.ExpectedEvidence, &row.GovernedCandidateID, &row.GovernedCandidateRevision, &row.GovernedCandidateContentDigest, &row.GovernedCandidateStatus, &row.ReviewRevision, &row.ReviewDisposition, &row.ReviewReason, &row.ReviewDomain, &row.ReviewTopic)
+	`, decodedCanonicalPathParam(request, "catalogVersion"), string(usage), decodedCanonicalPathParam(request, "questionVersionId"), strings.TrimSpace(request.URL.Query().Get("scopeId")), actor.SubjectID).Scan(&row.CatalogVersion, &row.UsageClass, &row.QuestionID, &row.FormCode, &row.ProposalID, &row.Ordinal, &row.Digest, &row.SourceLocator, &row.SourceGap, &row.Domain, &row.Topic, &row.RiskBand, &row.Prompt, &row.ConfiguredReference, &row.ExpectedEvidence, &row.GovernedCandidateID, &row.GovernedCandidateRevision, &row.GovernedCandidateContentDigest, &row.GovernedCandidateStatus, &row.ReviewRevision, &row.ReviewDisposition, &row.ReviewReason, &row.ReviewDomain, &row.ReviewTopic)
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = application.ErrNotFound
 	}

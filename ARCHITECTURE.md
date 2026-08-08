@@ -13,6 +13,7 @@ an orientation surface, not a production-readiness claim.
 | `apps/api/cmd/preprod-data-loader/` and `apps/api/internal/preproddata/scenarios/` | Isolated one-shot local-preprod data candidate | Immutable intent and one-time authorization feed a server-owned command boundary across disposable PostgreSQL, Keycloak, Mailpit, and MinIO; versioned local qualification retains complete catalogs, privacy, resume, resources, and cleanup while full-volume endurance stays separate; never linked into normal API/worker/scheduler/migration artifacts. |
 | `api/openapi/` | Transport contract | Source for checked request/response shapes and generated adapters. |
 | `deploy/local/` | Local verification services | Test/local profiles only; no production deployment authority. |
+| `scripts/start-canonical-preprod.sh`, `scripts/status-canonical-preprod.sh` | Canonical AGA disposable local-preprod operator boundary | Starts and reports the exact `aga-preprod@1.0.0` namespace with donor runtime disabled; connected OIDC hero receipts are local candidate evidence only and external preprod remains `not run`. |
 | `tests/` and `apps/web/tests/` | Contract, parity, browser, and regression evidence | Results are local evidence unless an external gate is explicitly exercised. |
 
 ## Knowledge Surfaces
@@ -65,6 +66,8 @@ an orientation surface, not a production-readiness claim.
 - Build-profile separation and absence of mock/seed inputs in HTTP artifacts.
 - Exact disposable-target binding, one-time loader authorization, provider
   subject retention, whole-namespace cleanup, and zero task-owned residue.
+- URL-encoded server-owned identifiers are decoded at canonical HTTP route
+  boundaries before authority, projection, and append-only transition checks.
 - Root-oracle and accepted-baseline integrity.
 - A real source-bound OPS/AOC request remains blocked with zero lifecycle
   effects; only the explicit synthetic internal test profile can prove a

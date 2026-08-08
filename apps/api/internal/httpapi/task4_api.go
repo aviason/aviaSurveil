@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -15,6 +16,15 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+func decodedCanonicalPathParam(request *http.Request, name string) string {
+	raw := chi.URLParam(request, name)
+	decoded, err := url.PathUnescape(raw)
+	if err != nil {
+		return raw
+	}
+	return decoded
+}
+
 func (api *CanonicalAPI) getPlanningIntakeDraft(
 	writer http.ResponseWriter,
 	request *http.Request,
@@ -24,7 +34,7 @@ func (api *CanonicalAPI) getPlanningIntakeDraft(
 		return
 	}
 	draft, err := api.planning.GetIntakeDraft(
-		request.Context(), actor, chi.URLParam(request, "draftId"),
+		request.Context(), actor, decodedCanonicalPathParam(request, "draftId"),
 	)
 	if err != nil {
 		api.respond(writer, nil, err)
@@ -46,7 +56,7 @@ func (api *CanonicalAPI) savePlanningIntakeDraft(
 	if !decodeJSON(writer, request, &input) {
 		return
 	}
-	draftID := chi.URLParam(request, "draftId")
+	draftID := decodedCanonicalPathParam(request, "draftId")
 	if draftID != input.DraftId || !validRevisionCommandHeaders(
 		request, input.IdempotencyKey, input.ExpectedRevision,
 	) {
@@ -103,7 +113,7 @@ func (api *CanonicalAPI) submitPlanningIntake(
 	if !decodeJSON(writer, request, &input) {
 		return
 	}
-	draftID := chi.URLParam(request, "draftId")
+	draftID := decodedCanonicalPathParam(request, "draftId")
 	if draftID != input.DraftId || !validRevisionCommandHeaders(
 		request, input.IdempotencyKey, input.ExpectedRevision,
 	) {
@@ -145,7 +155,7 @@ func (api *CanonicalAPI) getInspectionPackageDraft(
 		return
 	}
 	draft, err := api.packageDrafts.Get(
-		request.Context(), actor, chi.URLParam(request, "packageDraftId"),
+		request.Context(), actor, decodedCanonicalPathParam(request, "packageDraftId"),
 	)
 	if err != nil {
 		api.respond(writer, nil, err)
@@ -171,7 +181,7 @@ func (api *CanonicalAPI) saveInspectionPackageDraft(
 	if !decodeJSON(writer, request, &input) {
 		return
 	}
-	draftID := chi.URLParam(request, "packageDraftId")
+	draftID := decodedCanonicalPathParam(request, "packageDraftId")
 	if draftID != input.PackageDraftId || !validRevisionCommandHeaders(
 		request, input.IdempotencyKey, input.ExpectedRevision,
 	) {
@@ -230,7 +240,7 @@ func (api *CanonicalAPI) getTeamMember(
 		return
 	}
 	member, err := api.assignments.GetTeamMember(
-		request.Context(), actor, chi.URLParam(request, "subjectId"),
+		request.Context(), actor, decodedCanonicalPathParam(request, "subjectId"),
 	)
 	api.respond(writer, teamMemberView(member), err)
 }
@@ -267,7 +277,7 @@ func (api *CanonicalAPI) getAuditTeam(
 		return
 	}
 	item, err := api.assignments.GetAuditTeam(
-		request.Context(), actor, chi.URLParam(request, "auditId"),
+		request.Context(), actor, decodedCanonicalPathParam(request, "auditId"),
 	)
 	api.respond(writer, inspectionTeamAuditView(item), err)
 }
@@ -281,7 +291,7 @@ func (api *CanonicalAPI) prepareAudit(writer http.ResponseWriter, request *http.
 	if !decodeJSON(writer, request, &input) {
 		return
 	}
-	planningItemID := chi.URLParam(request, "planningItemId")
+	planningItemID := decodedCanonicalPathParam(request, "planningItemId")
 	if !validRevisionCommandHeaders(request, input.IdempotencyKey, &input.ExpectedPlanningRevision) {
 		api.respond(writer, nil, application.ErrInvalid)
 		return
@@ -327,7 +337,7 @@ func (api *CanonicalAPI) assignAuditLead(writer http.ResponseWriter, request *ht
 	if !decodeJSON(writer, request, &input) {
 		return
 	}
-	assignmentID := chi.URLParam(request, "assignmentId")
+	assignmentID := decodedCanonicalPathParam(request, "assignmentId")
 	if !validRevisionCommandHeaders(request, input.IdempotencyKey, &input.ExpectedInspectionRevision) {
 		api.respond(writer, nil, application.ErrInvalid)
 		return
@@ -354,7 +364,7 @@ func (api *CanonicalAPI) assignAuditTeam(writer http.ResponseWriter, request *ht
 	if !decodeJSON(writer, request, &input) {
 		return
 	}
-	assignmentID := chi.URLParam(request, "assignmentId")
+	assignmentID := decodedCanonicalPathParam(request, "assignmentId")
 	if !validRevisionCommandHeaders(request, input.IdempotencyKey, &input.ExpectedRevision) {
 		api.respond(writer, nil, application.ErrInvalid)
 		return
@@ -382,7 +392,7 @@ func (api *CanonicalAPI) previewAuditTeam(writer http.ResponseWriter, request *h
 	if !decodeJSON(writer, request, &input) {
 		return
 	}
-	assignmentID := chi.URLParam(request, "assignmentId")
+	assignmentID := decodedCanonicalPathParam(request, "assignmentId")
 	if !validRevisionCommandHeaders(request, input.IdempotencyKey, &input.ExpectedRevision) {
 		api.respond(writer, nil, application.ErrInvalid)
 		return
@@ -409,7 +419,7 @@ func (api *CanonicalAPI) assignAuditQuestionCoverage(writer http.ResponseWriter,
 	if !decodeJSON(writer, request, &input) {
 		return
 	}
-	assignmentID := chi.URLParam(request, "assignmentId")
+	assignmentID := decodedCanonicalPathParam(request, "assignmentId")
 	if !validRevisionCommandHeaders(request, input.IdempotencyKey, &input.ExpectedRevision) {
 		api.respond(writer, nil, application.ErrInvalid)
 		return
@@ -443,7 +453,7 @@ func (api *CanonicalAPI) previewAuditQuestionCoverage(writer http.ResponseWriter
 	if !decodeJSON(writer, request, &input) {
 		return
 	}
-	assignmentID := chi.URLParam(request, "assignmentId")
+	assignmentID := decodedCanonicalPathParam(request, "assignmentId")
 	if !validRevisionCommandHeaders(request, input.IdempotencyKey, &input.ExpectedRevision) {
 		api.respond(writer, nil, application.ErrInvalid)
 		return
@@ -477,7 +487,7 @@ func (api *CanonicalAPI) confirmAuditPreparation(
 	if !decodeJSON(writer, request, &input) {
 		return
 	}
-	assignmentID := chi.URLParam(request, "assignmentId")
+	assignmentID := decodedCanonicalPathParam(request, "assignmentId")
 	if !validRevisionCommandHeaders(request, input.IdempotencyKey, &input.ExpectedAssignmentRevision) {
 		api.respond(writer, nil, application.ErrInvalid)
 		return
@@ -508,7 +518,7 @@ func (api *CanonicalAPI) materializeCanonicalAudit(
 	if !decodeJSON(writer, request, &input) {
 		return
 	}
-	assignmentID := chi.URLParam(request, "assignmentId")
+	assignmentID := decodedCanonicalPathParam(request, "assignmentId")
 	if !validRevisionCommandHeaders(request, input.IdempotencyKey, &input.ExpectedAssignmentRevision) {
 		api.respond(writer, nil, application.ErrInvalid)
 		return
@@ -565,7 +575,7 @@ func (api *CanonicalAPI) respondAuditeeCoordination(
 	if !decodeJSON(writer, request, &input) {
 		return
 	}
-	auditID := chi.URLParam(request, "auditId")
+	auditID := decodedCanonicalPathParam(request, "auditId")
 	if auditID != input.AuditId || !validRevisionCommandHeaders(
 		request, input.IdempotencyKey, input.ExpectedRevision,
 	) {
@@ -601,7 +611,7 @@ func (api *CanonicalAPI) reviewAuditeeCoordination(
 	if !decodeJSON(writer, request, &input) {
 		return
 	}
-	auditID := chi.URLParam(request, "auditId")
+	auditID := decodedCanonicalPathParam(request, "auditId")
 	if auditID != input.AuditId || !validRevisionCommandHeaders(request, input.IdempotencyKey, &input.ExpectedRevision) {
 		api.respond(writer, nil, application.ErrInvalid)
 		return

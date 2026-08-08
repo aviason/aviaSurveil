@@ -12,12 +12,14 @@ production evidence. Task 10 external preprod deployment remains explicitly
 | OpenAPI bundle, generated Go/TypeScript contracts, and contract suite | `verified locally` — 16/16 checks passed |
 | Canonical/OpenAPI/donor-boundary JS/MJS subset | `verified locally` — 70/70 tests passed |
 | Focused Go packages (`internal/httpapi`, `internal/assignments`, `internal/application`, `migrations`) | `verified locally` |
+| Full non-race Go suite (`go -C apps/api test -count=1 ./...`) | `verified locally` — all packages passed on a task-owned disposable PostgreSQL/MinIO target |
 | Empty-database and retained N-1 migration upgrade, including populated 000029 fixture and migration 38 | `verified locally` |
 | React typecheck | `verified locally` |
 | Full React test suite | `verified locally` — 91 files / 767 tests passed |
 | Donor-free HTTP/Go artifact boundary and local-preprod runtime-role boundary | `verified locally` — normal API/worker/scheduler/migrate dependency and binary-marker scans, focused artifact/compose tests, and disposable PostgreSQL privilege probe |
 | Disposable canonical local-preprod stack and privacy-safe demo identity seed | `verified locally` — migration 41, `aga-preprod@1.0.0` catalog (1,310 questions), API readiness, Keycloak realm (9 role-mapped users), MinIO private buckets, ClamAV `PONG`, Gotenberg health, and Mailpit API health |
-| Connected canonical browser smoke | `verified locally` — nine-role OIDC session smoke, Manager New Audit exact selection/preview/commit and Finance persistence, and exercise Question Review Retain with append-only history; isolated Chromium residue cleaned |
+| Connected canonical OIDC lifecycle | `verified locally` — separate isolated runs passed Manager New Audit selection → Finance → GM → ED → GM Release → Lead/team/coverage → preparation → announced coordination → Inspector start, then checklist/Potential Finding → Preliminary Report issue → Finding → CAP acceptance → real MinIO Evidence upload/ClamAV `CLEAN` → Evidence closure → Final Report issue and Manager dashboard; `1 passed` for each run |
+| Official focused HTTP user-lifecycle E2E | `verified locally` — `1 passed`; outbox drain verified locally |
 | Dependency boundary smoke | `verified locally` — MinIO disposable put/get/delete, ClamAV clean acceptance plus EICAR rejection, Gotenberg synthetic HTML→PDF, and authenticated Mailpit SMTP/API delivery |
 | `git diff --check` | `verified locally` |
 
@@ -36,21 +38,18 @@ use a provisioned non-owner database role.
 
 ## Not run or blocked
 
-- Full `go -C apps/api test -count=1 ./...`: `blocked` — all non-integration
-  packages passed, but integration packages could not connect to the disposable
-  PostgreSQL endpoint at `127.0.0.1:55432` after the sandbox-authorized retry.
-- Recursive root JS/MJS discovery: `blocked` by existing AGA/AviaCore/AWS and
-  paused-donor fixture-contract families; canonical contract and harness smoke
-  subsets pass.
-- Connected HTTP/OIDC visible-action qualification: `blocked` by the existing
-  fixture path requiring a canonical execution package and a missing visible
-  action evidence row; its task-owned PostgreSQL/Keycloak/MinIO/Mailpit stack
-  was cleaned up.
-- Full donor-disabled OIDC business lifecycle, full object upload/scan/render/
-  mail delivery matrix (the dependency smoke above is not that matrix),
-  backup/restore, visual/browser viewport evidence, donor deletion/
-  requalification, and stakeholder review: `not run`. The local stack is
-  intentionally left running for the user-owned manual visual pass.
+- Full race Go harness: `blocked` — the official race profile reached the
+  existing `internal/agaapplicability` fixture test and timed out after ten
+  minutes; the non-race full suite above passed on a task-owned disposable
+  database target.
+- Root JS/MJS harness smoke (`tests/*.test.js` plus parity): `verified locally`
+  — 108 tests passed; broader recursive discovery remains blocked by existing
+  AGA/AviaCore/AWS and paused-donor fixture-contract families.
+- Full role/action/negative visible-action matrix, full object upload/scan/
+  render/mail matrix, backup/restore, visual/browser viewport evidence, donor
+  deletion/requalification, and stakeholder review: `not run`. The connected
+  canonical hero lifecycle is verified above; the local stack is intentionally
+  left running for the user-owned manual visual pass.
 - Full recursive root JS/MJS discovery: `blocked` — 110 discovered files,
   459 passed / 34 failed; the failures are existing paused AGA/AviaCore/AWS
   fixture-contract families and the pre-existing Gotenberg/preprod boundary

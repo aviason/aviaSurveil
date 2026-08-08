@@ -33,6 +33,7 @@ preprod_keycloak_bootstrap_admin_password
 preprod_keycloak_database_password
 preprod_keycloak_service_client_secret
 preprod_session_encryption_key
+preprod_data_feed_payload_key
 preprod_minio_api_access_key
 preprod_minio_api_secret_key
 preprod_minio_root_password
@@ -93,6 +94,9 @@ for filename in $secret_files; do
       ;;
     preprod_loader_seed)
       openssl rand -hex 32 >"$temporary_directory/$filename"
+      ;;
+    preprod_data_feed_payload_key)
+      openssl rand -hex 16 | tr -d '\r\n' >"$temporary_directory/$filename"
       ;;
     preprod_aga_demo_session_encryption_key | preprod_session_encryption_key)
       openssl rand -base64 32 >"$temporary_directory/$filename"

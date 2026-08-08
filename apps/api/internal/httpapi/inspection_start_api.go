@@ -6,7 +6,6 @@ import (
 
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/application"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/httpapi/generated"
-	"github.com/go-chi/chi/v5"
 )
 
 func (api *CanonicalAPI) startInspection(writer http.ResponseWriter, request *http.Request) {
@@ -18,7 +17,7 @@ func (api *CanonicalAPI) startInspection(writer http.ResponseWriter, request *ht
 	if !decodeJSON(writer, request, &input) {
 		return
 	}
-	auditID := chi.URLParam(request, "auditId")
+	auditID := decodedCanonicalPathParam(request, "auditId")
 	if auditID == "" {
 		api.respond(writer, nil, application.ErrInvalid)
 		return

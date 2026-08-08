@@ -8,31 +8,35 @@ This ExecPlan is a living document. Keep `Progress`, `Decision Log`,
 
 ## Status
 
-- Plan status: `active` — Gate 0 is `verified locally`; Tasks 1–7 and 11 have
-  candidate implementation slices with focused/full local checks, while Tasks
-  8–9 and the final stakeholder handoff remain pending.
+- Plan status: `active` — Gate 0 is `verified locally`; Tasks 1–7 and the
+  canonical connected hero slice of Task 8 have candidate implementation
+  evidence with fresh local checks. Task 9, the remaining Task 8 negative/
+  recovery/dependency matrix, and final stakeholder handoff remain pending.
 - Planning authority: the user requested this successor plan on 2026-08-07.
 - Independent implementation review: the latest Sol Ultra packet remains
   `NOT ACCEPTED` pending a fresh post-remediation reread; the final Sol XHigh
   code-boundary reread is `ACCEPTED` with 0 Critical / 0 Important findings.
-  Connected, rendered, and stakeholder evidence remains separately pending.
+  Connected hero evidence is now `verified locally`; rendered and stakeholder
+  evidence remains separately pending.
 - Implementation authority: granted by the user's 2026-08-07 execution request
   for Gate 0, Tasks 1–9, and Task 11 only. Task 10 remains separately
   unauthorized and `not run`.
-- Local full-system qualification: `blocked` — generated contract checks,
-  focused Go packages, migration/N-1 upgrade checks, React typecheck, the full
-  React suite (91 files / 767 tests), normal Go artifact-boundary scans, and
-  `git diff --check` are `verified locally`; the full Go suite is `blocked` by
-  the unavailable disposable integration PostgreSQL endpoint, and recursive
-  root JS/MJS discovery remains `blocked` by existing AGA/AviaCore/AWS
-  fixture-contract families. Donor-disabled connected stakeholder
-  qualification is `blocked` by the existing execution-package fixture.
+- Local full-system qualification: `candidate-only` — generated contract
+  checks, focused Go packages, the non-race full Go suite on a task-owned
+  disposable PostgreSQL/MinIO target, migration/N-1 upgrade checks, React
+  typecheck, the full React suite (91 files / 767 tests), normal Go
+  artifact-boundary scans, connected canonical OIDC hero lifecycle, and
+  `git diff --check` are `verified locally`. The full race harness remains
+  `blocked` by the existing `internal/agaapplicability` timeout; broader root
+  recursive fixture-contract discovery, backup/restore, full negative/fault
+  matrix, visual review, and donor deletion/requalification remain `not run`.
 - External preprod deployment: `not run` and separately authorized.
 - Release: `release pending`.
 - Production readiness: `production-ready: not established`.
-- Immediate next gate: resolve the remaining Critical/Important review and
-  root fixture-contract blockers, then run donor-disabled connected
-  qualification before donor deletion or any external action.
+- Immediate next gate: obtain the required fresh Sol Ultra reread, complete
+  the remaining Task 8 negative/recovery/dependency and visual checks, then
+  run donor-disabled requalification before Task 9 deletion or any external
+  action.
 
 ## Objective
 
@@ -1472,6 +1476,22 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   isolated Chromium run passed and its task-owned browser residue was cleaned;
   no screenshots or real AGA question bodies were retained. The required
   rendered 1440x900/1024x768/390x844 review remains user-owned and `not run`.
+- [x] 2026-08-08: The connected canonical OIDC lifecycle was continued on the
+  same disposable donor-disabled stack with distinct Manager, GM, Executive
+  Director, Lead Inspector, Inspector, and Auditee sessions. The isolated run
+  passed through checklist response/Potential Finding, Preliminary Report
+  Department Manager → GM → Executive Director issue, Finding conversion,
+  CAP submission/acceptance, real MinIO Evidence upload, ClamAV `CLEAN`,
+  immutable Evidence review/closure, Final Report issue, and Manager dashboard
+  projection (`1 passed`). A prior connected run passed Manager New Audit
+  selection → Finance → GM → ED → GM Release → Lead/team/coverage → preparation
+  confirmation → announced coordination → Inspector start (`1 passed`). The
+  canonical path decoder fix covers URL-encoded server-owned IDs such as
+  `assignment:*`, `package:*`, report, Finding, CAP, and Evidence identities.
+  These are fresh local connected hero receipts; the full negative/fault,
+  restart, backup/restore, dependency matrix, viewport review, Task 9 deletion/
+  requalification, and stakeholder verification remain `not run`. Task 10
+  remains literally `not run`.
 - [x] 2026-08-07: Gate 0 froze the canonical table/FK/aggregate/event
   boundaries, classified every dirty AGA change, mapped F-002/F-004/F-007/
   F-010/F-013/F-015/F-018/F-021, synchronized the product specifications,
@@ -1497,21 +1517,24 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   canonical scenario checks are `verified locally`; donor-disabled stakeholder
   qualification is `not run`.
 - [x] Task 6: accepted canonical multi-role/report lifecycle — candidate
-  implementation and focused/full lifecycle checks are `verified locally`;
-  stakeholder connected qualification is `not run`.
+  implementation, focused/full lifecycle checks, and the connected OIDC hero
+  path through CAP/Evidence closure and Final Report issue are `verified
+  locally`; full negative/fault and stakeholder qualification are `not run`.
 - [x] Task 7: navigation cutover and donor disablement — canonical routes,
   donor-free HTTP contract/artifact, and donor runtime fail-closed behavior
   are `verified locally`; rendered/connected donor-disabled qualification and
   deletion/requalification remain `not run`.
-- [ ] Task 8: local connected qualification with donor disabled.
+- [ ] Task 8: local connected qualification with donor disabled — the canonical
+  hero path is `verified locally` in two connected runs, while the full
+  acceptance matrix remains pending.
 - [ ] Task 9: duplicate lifecycle removal and requalification.
 - [ ] Task 10: separately authorized external preprod release gate.
 - [ ] Task 11: aggregate evidence and stakeholder handoff — candidate evidence
-  exists and focused contract/Go/typecheck plus full React checks are
-  `verified locally`; full Go/root recursive and connected qualification are
-  `blocked` as recorded above, while the required rendered Question Review/
-  New Audit viewport matrix, independent review closure, and stakeholder
-  verification remain `not run`.
+  exists and focused/generated contract checks, non-race full Go, full React,
+  connected canonical hero runs, and `git diff --check` are `verified locally`;
+  the full race/root recursive/deletion/requalification gates, required
+  rendered Question Review/New Audit viewport matrix, fresh Sol Ultra closure,
+  and stakeholder verification remain `not run` or `blocked` as recorded above.
 
 ## Decision Log
 

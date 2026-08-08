@@ -714,6 +714,9 @@ services:
       AVIA_SMTP_PRIVATE_NETWORK: "true"
       AVIA_SMTP_HEALTH_ADDRESS: preprod-mailpit:1025
       AVIA_RUNTIME_HEALTH_TIMEOUT: 1s
+      AVIA_DATA_FEED_TENANT_ID: tenant-local-preprod
+      AVIA_DATA_FEED_PAYLOAD_KEY_FILE: /run/secrets/preprod_data_feed_payload_key
+      AVIA_DATA_FEED_PAYLOAD_KEY_REF: local-preprod-disposable
     entrypoint: [/bin/sh, -c]
     command:
       - >-
@@ -741,6 +744,7 @@ services:
       - preprod_minio_api_secret_key
       - preprod_oidc_client_secret
       - preprod_session_encryption_key
+      - preprod_data_feed_payload_key
       - preprod_smtp_password
     tmpfs:
       - /tmp:mode=1777
@@ -1752,6 +1756,8 @@ secrets:
     file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_keycloak_service_client_secret
   preprod_session_encryption_key:
     file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_session_encryption_key
+  preprod_data_feed_payload_key:
+    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_data_feed_payload_key
   preprod_minio_api_access_key:
     file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_minio_api_access_key
   preprod_minio_api_secret_key:

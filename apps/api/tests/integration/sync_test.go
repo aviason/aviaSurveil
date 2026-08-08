@@ -359,9 +359,24 @@ func TestFieldSyncCausalPotentialFindingAttachmentAndChecklistSubmission(t *test
 		t.Fatalf("seed clean canonical object metadata: %v", err)
 	}
 	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO inspection_attachment_versions (
+			id, inspection_attachment_id, version, organization_id,
+			source_object_metadata_id, file_name, media_type, sha256, size_bytes,
+			submitted_by_subject_id, submitted_at
+		)
+		SELECT 'inspection-attachment-version:causal-clean', id, 1, organization_id,
+			'metadata-causal', file_name, declared_media_type, declared_sha256,
+			declared_size_bytes, created_by_subject_id, $2
+		FROM inspection_attachments
+		WHERE id = $1
+	`, *registered.AuthoritativeEntityID, canonicalNow); err != nil {
+		t.Fatalf("pin clean attachment version: %v", err)
+	}
+	if _, err := pool.Exec(context.Background(), `
 		UPDATE inspection_attachments
 		SET upload_state = 'UPLOADED', scan_state = 'CLEAN',
 			object_metadata_id = 'metadata-causal', canonical_object_metadata_id = 'metadata-causal',
+			current_version_id = 'inspection-attachment-version:causal-clean',
 			revision = revision + 1, updated_at = $2
 		WHERE id = $1
 	`, *registered.AuthoritativeEntityID, canonicalNow); err != nil {

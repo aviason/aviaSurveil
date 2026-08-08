@@ -431,7 +431,7 @@ func (api *CanonicalAPI) getInspectionPackage(writer http.ResponseWriter, reques
 	if !ok {
 		return
 	}
-	output, err := api.inspectionPackageProjection(request.Context(), actor, chi.URLParam(request, "id"))
+	output, err := api.inspectionPackageProjection(request.Context(), actor, decodedCanonicalPathParam(request, "id"))
 	api.respond(writer, output, err)
 }
 
@@ -444,7 +444,7 @@ func (api *CanonicalAPI) checkoutInspectionPackage(writer http.ResponseWriter, r
 	if !decodeJSON(writer, request, &input) {
 		return
 	}
-	if input.PackageId != chi.URLParam(request, "id") {
+	if input.PackageId != decodedCanonicalPathParam(request, "id") {
 		api.respond(writer, nil, fmt.Errorf("%w: package path and body must match", application.ErrInvalid))
 		return
 	}
@@ -486,7 +486,7 @@ func (api *CanonicalAPI) upsertChecklistResponse(writer http.ResponseWriter, req
 	if !decodeJSON(writer, request, &input) {
 		return
 	}
-	if input.ResponseId != chi.URLParam(request, "responseId") {
+	if input.ResponseId != decodedCanonicalPathParam(request, "responseId") {
 		api.respond(writer, nil, fmt.Errorf("%w: response path and body must match", application.ErrInvalid))
 		return
 	}
@@ -518,7 +518,7 @@ func (api *CanonicalAPI) submitChecklist(writer http.ResponseWriter, request *ht
 	if !decodeJSON(writer, request, &input) {
 		return
 	}
-	if input.AuditId != chi.URLParam(request, "auditId") {
+	if input.AuditId != decodedCanonicalPathParam(request, "auditId") {
 		api.respond(writer, nil, application.ErrInvalid)
 		return
 	}
@@ -559,7 +559,7 @@ func (api *CanonicalAPI) getPotentialFinding(writer http.ResponseWriter, request
 	if !ok {
 		return
 	}
-	output, err := api.authorizedPotentialFindingProjection(request.Context(), actor, chi.URLParam(request, "potentialFindingId"))
+	output, err := api.authorizedPotentialFindingProjection(request.Context(), actor, decodedCanonicalPathParam(request, "potentialFindingId"))
 	api.respond(writer, output, err)
 }
 
@@ -606,7 +606,7 @@ func (api *CanonicalAPI) decidePotentialFinding(writer http.ResponseWriter, requ
 		api.respond(writer, nil, application.ErrInvalid)
 		return
 	}
-	if discriminator.PotentialFindingID != chi.URLParam(request, "id") {
+	if discriminator.PotentialFindingID != decodedCanonicalPathParam(request, "id") {
 		api.respond(writer, nil, application.ErrInvalid)
 		return
 	}
@@ -675,7 +675,7 @@ func (api *CanonicalAPI) getFinding(writer http.ResponseWriter, request *http.Re
 	if !ok {
 		return
 	}
-	output, err := api.findingProjection(request.Context(), actor, chi.URLParam(request, "id"))
+	output, err := api.findingProjection(request.Context(), actor, decodedCanonicalPathParam(request, "id"))
 	api.respond(writer, output, err)
 }
 
@@ -688,7 +688,7 @@ func (api *CanonicalAPI) authorizedCloseFinding(writer http.ResponseWriter, requ
 	if !decodeJSON(writer, request, &input) {
 		return
 	}
-	if input.FindingId != chi.URLParam(request, "id") {
+	if input.FindingId != decodedCanonicalPathParam(request, "id") {
 		api.respond(writer, nil, application.ErrInvalid)
 		return
 	}
@@ -709,7 +709,7 @@ func (api *CanonicalAPI) listCapRevisions(writer http.ResponseWriter, request *h
 	if !ok {
 		return
 	}
-	output, err := api.capRevisionsProjection(request.Context(), actor, chi.URLParam(request, "findingId"))
+	output, err := api.capRevisionsProjection(request.Context(), actor, decodedCanonicalPathParam(request, "findingId"))
 	api.respond(writer, output, err)
 }
 
@@ -718,7 +718,7 @@ func (api *CanonicalAPI) getCapRevision(writer http.ResponseWriter, request *htt
 	if !ok {
 		return
 	}
-	output, err := api.capRevisionByIDProjection(request.Context(), actor, chi.URLParam(request, "capRevisionId"))
+	output, err := api.capRevisionByIDProjection(request.Context(), actor, decodedCanonicalPathParam(request, "capRevisionId"))
 	api.respond(writer, output, err)
 }
 
@@ -757,7 +757,7 @@ func (api *CanonicalAPI) reviewCAP(writer http.ResponseWriter, request *http.Req
 	if !decodeJSON(writer, request, &input) {
 		return
 	}
-	if input.CapRevisionId != chi.URLParam(request, "capRevisionId") {
+	if input.CapRevisionId != decodedCanonicalPathParam(request, "capRevisionId") {
 		api.respond(writer, nil, application.ErrInvalid)
 		return
 	}
@@ -827,7 +827,7 @@ func (api *CanonicalAPI) getInspectionAttachment(writer http.ResponseWriter, req
 		api.respond(writer, nil, application.ErrNotFound)
 		return
 	}
-	view, err := api.attachmentUploads.Get(request.Context(), actor, chi.URLParam(request, "id"))
+	view, err := api.attachmentUploads.Get(request.Context(), actor, decodedCanonicalPathParam(request, "id"))
 	api.respond(writer, view, err)
 }
 
@@ -840,7 +840,7 @@ func (api *CanonicalAPI) downloadInspectionAttachment(writer http.ResponseWriter
 		api.respond(writer, nil, application.ErrNotFound)
 		return
 	}
-	instruction, err := api.attachmentUploads.Download(request.Context(), actor, chi.URLParam(request, "id"))
+	instruction, err := api.attachmentUploads.Download(request.Context(), actor, decodedCanonicalPathParam(request, "id"))
 	api.respond(writer, map[string]any{
 		"downloadUrl": instruction.URL,
 		"expiresAt":   instruction.ExpiresAt.UTC().Format(time.RFC3339Nano),
@@ -896,7 +896,7 @@ func (api *CanonicalAPI) listEvidenceVersions(writer http.ResponseWriter, reques
 	if !ok {
 		return
 	}
-	versions, err := api.evidenceUploads.ListVersions(request.Context(), actor, chi.URLParam(request, "id"))
+	versions, err := api.evidenceUploads.ListVersions(request.Context(), actor, decodedCanonicalPathParam(request, "id"))
 	items := make([]generated.EvidenceVersionView, 0, len(versions))
 	for _, version := range versions {
 		items = append(items, generated.EvidenceVersionView{
@@ -918,7 +918,7 @@ func (api *CanonicalAPI) downloadEvidence(writer http.ResponseWriter, request *h
 		api.respond(writer, nil, application.ErrNotFound)
 		return
 	}
-	instruction, err := api.evidenceUploads.Download(request.Context(), actor, chi.URLParam(request, "evidenceVersionId"))
+	instruction, err := api.evidenceUploads.Download(request.Context(), actor, decodedCanonicalPathParam(request, "evidenceVersionId"))
 	if err != nil {
 		api.respond(writer, nil, err)
 		return
@@ -938,7 +938,7 @@ func (api *CanonicalAPI) reviewEvidence(writer http.ResponseWriter, request *htt
 	if !decodeJSON(writer, request, &input) {
 		return
 	}
-	if input.EvidenceVersionId != chi.URLParam(request, "evidenceVersionId") {
+	if input.EvidenceVersionId != decodedCanonicalPathParam(request, "evidenceVersionId") {
 		api.respond(writer, nil, application.ErrInvalid)
 		return
 	}
@@ -960,7 +960,7 @@ func (api *CanonicalAPI) getReportVersion(writer http.ResponseWriter, request *h
 	if !ok {
 		return
 	}
-	output, err := api.reportProjection(request.Context(), actor, chi.URLParam(request, "id"))
+	output, err := api.reportProjection(request.Context(), actor, decodedCanonicalPathParam(request, "id"))
 	api.respond(writer, output, err)
 }
 
@@ -973,7 +973,7 @@ func (api *CanonicalAPI) decideReport(writer http.ResponseWriter, request *http.
 	if !decodeJSON(writer, request, &input) {
 		return
 	}
-	if input.ReportVersionId != chi.URLParam(request, "id") {
+	if input.ReportVersionId != decodedCanonicalPathParam(request, "id") {
 		api.respond(writer, nil, application.ErrInvalid)
 		return
 	}
@@ -1010,7 +1010,7 @@ func (api *CanonicalAPI) getDocument(writer http.ResponseWriter, request *http.R
 		return
 	}
 	output, err := api.documentProjection(
-		request.Context(), actor, chi.URLParam(request, "documentId"), true,
+		request.Context(), actor, decodedCanonicalPathParam(request, "documentId"), true,
 	)
 	api.respond(writer, output, err)
 }
@@ -1032,7 +1032,7 @@ func (api *CanonicalAPI) getAuditeeReleasedReport(writer http.ResponseWriter, re
 		return
 	}
 	output, err := api.auditeeReleasedReportProjection(
-		request.Context(), actor, chi.URLParam(request, "reportVersionId"),
+		request.Context(), actor, decodedCanonicalPathParam(request, "reportVersionId"),
 	)
 	api.respond(writer, output, err)
 }

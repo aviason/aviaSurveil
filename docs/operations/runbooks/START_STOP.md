@@ -96,3 +96,23 @@ secret exposure to Security.
 
 Production start/stop, remote deployment, shared state removal, non-task-owned
 resource deletion, and AWS actions require new explicit authorization.
+
+## Canonical AGA Local-Preprod Qualification
+
+The canonical AGA successor uses a separately named disposable project and
+must not be started through the paused donor runbooks. From the repository
+root, the task-owned operator boundary is:
+
+```bash
+scripts/start-canonical-preprod.sh
+scripts/status-canonical-preprod.sh
+```
+
+The status record must report profile `aga-preprod@1.0.0`, identity namespace
+`canonical-aga-preprod-exercise-v1`, donor runtime `disabled`, and external
+preprod `not run`. Its local OIDC hero lifecycle is `verified locally` but
+remains `candidate-only` and `release pending`; user-owned Question Review and
+New Audit visual review at 1440x900, 1024x768, and 390x844, the remaining
+negative/recovery/dependency matrix, Task 9 donor deletion/requalification,
+stakeholder acceptance, and Task 10 external deployment are not implied by a
+healthy stack and must retain their literal evidence labels.
