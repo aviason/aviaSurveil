@@ -260,8 +260,9 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 	if err != nil {
 		return Settings{}, err
 	}
-	settings.AllowServerManagedCORS = settings.Environment == "test" &&
-		(settings.CanonicalSeed || serverManagedCORS)
+	settings.AllowServerManagedCORS = (settings.Environment == "test" &&
+		(settings.CanonicalSeed || serverManagedCORS)) ||
+		settings.Environment == "local-preprod"
 
 	if settings.Environment == "production" {
 		if !settings.CookieSecure {

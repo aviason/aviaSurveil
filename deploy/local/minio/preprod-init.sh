@@ -54,9 +54,16 @@ until mc alias set "$alias" http://127.0.0.1:9000 "$root_user" "$root_password" 
   sleep 1
 done
 
-mc mb --ignore-existing "$alias/$bucket"
-mc anonymous set none "$alias/$bucket"
-mc version enable "$alias/$bucket"
+for private_bucket in \
+  "$bucket" \
+  evidence-quarantine \
+  evidence-clean \
+  inspection-attachments \
+  generated-documents; do
+  mc mb --ignore-existing "$alias/$private_bucket"
+  mc anonymous set none "$alias/$private_bucket"
+  mc version enable "$alias/$private_bucket"
+done
 
 cat >/tmp/preprod-loader-policy.json <<'EOF'
 {
@@ -64,8 +71,25 @@ cat >/tmp/preprod-loader-policy.json <<'EOF'
   "Statement": [
     {
       "Effect": "Allow",
-      "Action": ["s3:GetBucketLocation"],
-      "Resource": ["arn:aws:s3:::aviasurveil360-local-preprod"]
+      "Action": ["s3:GetBucketLocation", "s3:ListBucket"],
+      "Resource": [
+        "arn:aws:s3:::aviasurveil360-local-preprod",
+        "arn:aws:s3:::evidence-quarantine",
+        "arn:aws:s3:::evidence-clean",
+        "arn:aws:s3:::inspection-attachments",
+        "arn:aws:s3:::generated-documents"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+      "Resource": [
+        "arn:aws:s3:::aviasurveil360-local-preprod/runs/*",
+        "arn:aws:s3:::evidence-quarantine/*",
+        "arn:aws:s3:::evidence-clean/*",
+        "arn:aws:s3:::inspection-attachments/*",
+        "arn:aws:s3:::generated-documents/*"
+      ]
     },
     {
       "Effect": "Allow",
@@ -76,11 +100,6 @@ cat >/tmp/preprod-loader-policy.json <<'EOF'
           "s3:prefix": ["runs/*"]
         }
       }
-    },
-    {
-      "Effect": "Allow",
-      "Action": ["s3:GetObject", "s3:PutObject"],
-      "Resource": ["arn:aws:s3:::aviasurveil360-local-preprod/runs/*"]
     }
   ]
 }

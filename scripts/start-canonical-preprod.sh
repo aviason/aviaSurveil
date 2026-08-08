@@ -94,14 +94,45 @@ compose up --detach --wait --wait-timeout 300 \
   preprod-minio \
   preprod-clamav \
   preprod-gotenberg \
-  preprod-migration \
+  preprod-web-http
+
+compose up --detach preprod-migration
+compose wait preprod-migration
+migration_container="$(compose ps -aq preprod-migration)"
+[[ -n "$migration_container" ]] || fail "preprod-migration container disappeared before completion"
+migration_exit_code="$(docker inspect --format '{{.State.ExitCode}}' "$migration_container")"
+[[ "$migration_exit_code" == "0" ]] ||
+  fail "preprod-migration exited with status $migration_exit_code"
+unset migration_container migration_exit_code
+
+# The canonical loader requires an explicit active scope/target applicability
+# pair.  This is a privacy-safe, task-owned foundation for the disposable
+# exercise namespace; it is never used by normal or external environments.
+compose exec --no-TTY preprod-postgres psql \
+  --username aviasurveil360_preprod_loader \
+  --dbname aviasurveil360_local_preprod \
+  --command "\
+    INSERT INTO organizations (id, legal_name, organization_type, status)\
+    VALUES ('ORG-FLY-NAMIBIA', 'Synthetic Fly Namibia Demo', 'OPERATOR', 'ACTIVE')\
+    ON CONFLICT (id) DO NOTHING;\
+    INSERT INTO regulated_targets (id, target_kind, organization_id)\
+    VALUES ('TARGET-OPS-AOC-SOURCE-BOUND', 'ORGANIZATION', 'ORG-FLY-NAMIBIA')\
+    ON CONFLICT (id) DO NOTHING;\
+    INSERT INTO organization_service_provider_scopes\
+      (id, organization_id, service_provider_type_id, authorization_identifier,\
+       status, effective_from, primary_target_id)\
+    VALUES ('SCOPE-OPS-AOC-SOURCE-BOUND', 'ORG-FLY-NAMIBIA', 'AIR_OPERATOR',\
+            'AOC-FLY-NAMIBIA-SOURCE-BOUND', 'ACTIVE', '2025-01-01',\
+            'TARGET-OPS-AOC-SOURCE-BOUND')\
+    ON CONFLICT (id) DO NOTHING;"
+
+compose up --detach --wait --wait-timeout 300 \
   preprod-normal-runtime-role-provisioner \
   preprod-canonical-aga-loader \
   preprod-keycloak \
   preprod-api \
   preprod-worker \
   preprod-scheduler \
-  preprod-web-http \
   preprod-gateway
 
 cat >"$metadata_file" <<EOF

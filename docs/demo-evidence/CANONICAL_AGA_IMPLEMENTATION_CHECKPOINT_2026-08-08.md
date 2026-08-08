@@ -16,6 +16,7 @@ production evidence. Task 10 external preprod deployment remains explicitly
 | React typecheck | `verified locally` |
 | Full React test suite | `verified locally` — 91 files / 767 tests passed |
 | Donor-free HTTP/Go artifact boundary and local-preprod runtime-role boundary | `verified locally` — normal API/worker/scheduler/migrate dependency and binary-marker scans, focused artifact/compose tests, and disposable PostgreSQL privilege probe |
+| Disposable canonical local-preprod stack and privacy-safe demo identity seed | `verified locally` — migration 41, `aga-preprod@1.0.0` catalog (1,310 questions), API readiness, Keycloak realm (9 role-mapped users), MinIO private buckets, ClamAV `PONG`, Gotenberg health, and Mailpit API health |
 | `git diff --check` | `verified locally` |
 
 The checkpoint includes the server-owned preparation confirmation revision pin,
@@ -43,10 +44,11 @@ use a provisioned non-owner database role.
   fixture path requiring a canonical execution package and a missing visible
   action evidence row; its task-owned PostgreSQL/Keycloak/MinIO/Mailpit stack
   was cleaned up.
-- Donor-disabled full OIDC multi-role qualification, real local
-  MinIO/ClamAV/Gotenberg/Mailpit matrix, backup/restore, visual/browser
-  viewport evidence, donor deletion/requalification, and stakeholder review:
-  `not run`.
+- Connected donor-disabled OIDC multi-role lifecycle, full object upload/scan/
+  render/mail delivery matrix (the dependency health smoke above is not that
+  matrix), backup/restore, visual/browser viewport evidence, donor
+  deletion/requalification, and stakeholder review: `not run`. The local
+  stack is intentionally left running for the user-owned manual visual pass.
 - External preprod deployment and all remote infrastructure actions: `not run`
   and unauthorized by this plan execution request.
 

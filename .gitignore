@@ -20,6 +20,7 @@ apps/web/.local/
 
 # Generated local credentials, runtime state, and AWS plan/evidence bundles
 .local/aviasurveil360/
+.local/aviasurveil360-canonical-preprod/
 
 # Terraform working directories and local state
 **/.terraform/

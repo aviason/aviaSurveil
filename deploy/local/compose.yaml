@@ -722,13 +722,17 @@ services:
         oidc_secret="$$(tr -d '\r\n' </run/secrets/preprod_oidc_client_secret)";
         keycloak_secret="$$(tr -d '\r\n' </run/secrets/preprod_keycloak_service_client_secret)";
         session_key="$$(tr -d '\r\n' </run/secrets/preprod_session_encryption_key)";
+        object_store_access_key="$$(tr -d '\r\n' </run/secrets/preprod_minio_api_access_key)";
+        object_store_secret_key="$$(tr -d '\r\n' </run/secrets/preprod_minio_api_secret_key)";
         smtp_password="$$(tr -d '\r\n' </run/secrets/preprod_smtp_password)";
         export AVIA_DATABASE_URL="postgres://preprod_normal_api:$${database_password}@preprod-postgres:5432/aviasurveil360_local_preprod?sslmode=disable";
         export AVIA_OIDC_CLIENT_SECRET="$${oidc_secret}";
         export AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET="$${keycloak_secret}";
         export AVIA_SESSION_ENCRYPTION_KEY="$${session_key}";
+        export AVIA_OBJECT_STORE_ACCESS_KEY="$${object_store_access_key}";
+        export AVIA_OBJECT_STORE_SECRET_KEY="$${object_store_secret_key}";
         export AVIA_SMTP_PASSWORD="$${smtp_password}";
-        unset database_password oidc_secret keycloak_secret session_key smtp_password;
+        unset database_password oidc_secret keycloak_secret session_key object_store_access_key object_store_secret_key smtp_password;
         exec /app/api
     secrets:
       - preprod_normal_api_database_password
@@ -802,6 +806,7 @@ services:
       AVIA_OBJECT_STORE_PUBLIC_TLS: "true"
       AVIA_OBJECT_STORE_PRIVATE_NETWORK: "true"
       AVIA_OBJECT_STORE_REGION: local
+      AVIA_OBJECT_STORE_CORS_ORIGINS: "https://localhost:${AVIA_PREPROD_HTTPS_PORT:-8445}"
       AVIA_OBJECT_STORE_QUARANTINE_BUCKET: evidence-quarantine
       AVIA_OBJECT_STORE_CANONICAL_BUCKET: evidence-clean
       AVIA_OBJECT_STORE_ATTACHMENT_BUCKET: inspection-attachments

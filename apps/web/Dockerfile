@@ -5,6 +5,7 @@ FROM ${NODE_BUILD_IMAGE} AS web-build
 WORKDIR /workspace/apps/web
 COPY apps/web/package.json apps/web/package-lock.json ./
 RUN npm ci --ignore-scripts --no-audit --no-fund
+COPY docs/regulatory-sources/ /workspace/docs/regulatory-sources/
 COPY apps/web/ ./
 COPY assets/ /workspace/assets/
 

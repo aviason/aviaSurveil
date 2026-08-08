@@ -94,7 +94,7 @@ for filename in $secret_files; do
     preprod_loader_seed)
       openssl rand -hex 32 >"$temporary_directory/$filename"
       ;;
-    preprod_aga_demo_session_encryption_key)
+    preprod_aga_demo_session_encryption_key | preprod_session_encryption_key)
       openssl rand -base64 32 >"$temporary_directory/$filename"
       ;;
     *)

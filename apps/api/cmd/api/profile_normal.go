@@ -17,5 +17,11 @@ func activeRuntimeProfile(settings config.Settings) (runtimeProfile, error) {
 			"normal API artifact rejects canonical seed, reset, and header authority",
 		)
 	}
-	return runtimeProfile{clock: time.Now}, nil
+	// The disposable local-preprod stack runs migrations in its owner-only
+	// one-shot service.  The long-lived normal API uses the provisioned
+	// runtime role and must not attempt DDL/forward repair on startup.
+	return runtimeProfile{
+		skipMigrations: settings.Environment == "local-preprod",
+		clock:          time.Now,
+	}, nil
 }

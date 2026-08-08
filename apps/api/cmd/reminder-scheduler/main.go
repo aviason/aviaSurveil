@@ -59,8 +59,10 @@ func run(ctx context.Context) error {
 		return err
 	}
 	defer pool.Close()
-	if err := migrations.Apply(ctx, pool); err != nil {
-		return err
+	if settings.Environment != "local-preprod" {
+		if err := migrations.Apply(ctx, pool); err != nil {
+			return err
+		}
 	}
 	jobContext, span := telemetryRuntime.StartJob(
 		ctx,

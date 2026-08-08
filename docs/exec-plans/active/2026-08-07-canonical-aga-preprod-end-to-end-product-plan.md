@@ -1450,6 +1450,14 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   and stakeholder evidence remain pending. The plan remains `active`,
   `candidate-only`, and `release pending`; Task 10 remains literally
   `not run`.
+- [x] 2026-08-08: The disposable canonical local-preprod stack was started
+  without AWS or external infrastructure. Migration 41, the privacy-safe
+  `aga-preprod@1.0.0` catalog (1,310 questions), API readiness, Keycloak’s
+  nine role-mapped demo users, MinIO private buckets, ClamAV, Gotenberg, and
+  Mailpit dependency health are `verified locally`. The connected OIDC
+  multi-role lifecycle, full object/scan/render/mail matrix, user-owned
+  viewport review, stakeholder qualification, and donor deletion/re-
+  qualification remain `not run`; Task 10 remains `not run`.
 - [x] 2026-08-07: Gate 0 froze the canonical table/FK/aggregate/event
   boundaries, classified every dirty AGA change, mapped F-002/F-004/F-007/
   F-010/F-013/F-015/F-018/F-021, synchronized the product specifications,
@@ -1678,8 +1686,9 @@ Planning outcome as of 2026-08-07:
   incorporated. The final independent implementation review is currently
   `NOT ACCEPTED`; plan closure remains open until the remaining findings and
   required local/connected gates and evidence are fresh.
-- Candidate runtime changes are present on the current branch. No deployment,
-  push, or external mutation was performed; Task 10 remains `not run`.
+- Candidate runtime changes and a task-owned disposable local-preprod stack
+  are present on the current branch. No AWS deployment or external mutation
+  was performed; Task 10 remains `not run`.
 
 ## Execution Prompt
 

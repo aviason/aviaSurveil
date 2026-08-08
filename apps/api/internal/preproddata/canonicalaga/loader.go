@@ -200,7 +200,7 @@ func LoadSealedCatalog(ctx context.Context, pool *database.Pool, pkg agacandidat
 			FROM canonical_question_catalog_memberships membership
 			WHERE membership.catalog_id=$1 AND membership.usage_class='PREPROD_EXERCISE'
 			ON CONFLICT DO NOTHING
-		`, catalogID, actorSubjectID, now.UTC(), providerScopeID, regulatedTargetID); err != nil {
+		`, catalogID, actorSubjectID, providerScopeID, regulatedTargetID, now.UTC()); err != nil {
 			return err
 		}
 		var existingImportDigest, existingZip, existingJSON string

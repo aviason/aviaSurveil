@@ -92,7 +92,13 @@ func (store *MinIOStore) EnsurePrivateBuckets(ctx context.Context, buckets []str
 		}})
 		if err := store.client.SetBucketCors(ctx, bucket, configuration); err != nil {
 			response := minio.ToErrorResponse(err)
-			if !store.allowServerManagedCORS || response.Code != "NotImplemented" {
+			// Some disposable MinIO releases reject the unsupported CORS
+			// action at the IAM layer as AccessDenied before returning the
+			// underlying NotImplemented response.  The local-preprod profile
+			// preconfigures no browser CORS because the server does not expose
+			// that API; it still exercises real bucket/object authorization.
+			if !store.allowServerManagedCORS ||
+				(response.Code != "NotImplemented" && response.Code != "AccessDenied") {
 				return fmt.Errorf("configure private bucket CORS %s: %w", bucket, err)
 			}
 		}
