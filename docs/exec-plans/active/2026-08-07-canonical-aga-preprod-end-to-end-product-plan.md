@@ -24,9 +24,17 @@ This ExecPlan is a living document. Keep `Progress`, `Decision Log`,
 - Local full-system qualification: `candidate-only` — generated contract
   checks, focused Go packages, the non-race full Go suite on a task-owned
   disposable PostgreSQL/MinIO target, migration/N-1 upgrade checks, React
-  typecheck, the full React suite (91 files / 767 tests), normal Go
+  typecheck, the full React suite (91 files / 769 tests), normal Go
   artifact-boundary scans, connected canonical OIDC hero lifecycle, and
-  `git diff --check` are `verified locally`. The full race harness remains
+  a disposable anonymous Cloudflare Quick Tunnel transport and nine-role
+  browser smoke, and `git diff --check` are `verified locally`. The Quick
+  Tunnel gate runs with the real app-shell Service Worker enabled and proves
+  worker-controlled public HTTPS readiness, visible Keycloak username/password
+  fields, exact public OIDC discovery, 9/9 browser callbacks, exact
+  role/organization sessions, observed Secure
+  `__Host-` cookies, every role home, Question Review, and a Department Manager
+  New Audit draft through 1,310-question selection and review over a
+  loopback-only HTTP origin. The full race harness remains
   `blocked` by the existing `internal/agaapplicability` timeout; broader root
   recursive fixture-contract discovery, backup/restore, full negative/fault
   matrix, visual review, and donor deletion/requalification remain `not run`.
@@ -1443,7 +1451,7 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   deletion-gated provenance; the HTTP artifact scan now rejects both donor
   families. Draft history now selects the newest bounded 50 events in SQL and
   reorders that window chronologically for the Decision file. Focused Go,
-  generated contracts, full React (91 files/767 tests), artifact tests, and
+  generated contracts, full React (91 files/769 tests), artifact tests, and
   `git diff --check` are `verified locally`; the canonical/OpenAPI/donor
   boundary JS/MJS subset is 70/70 `verified locally`. Full Go is `blocked` on the
   unavailable disposable integration PostgreSQL endpoint, root recursive JS/
@@ -1490,9 +1498,11 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   `assignment:*`, `package:*`, report, Finding, CAP, and Evidence identities.
 - [x] 2026-08-08: Local Safari/WebKit app-shell navigation was repaired. The
   local web server no longer lets `http.ServeFile` redirect `/index.html` to
-  `./`, and the service worker now installs app-shell version 6 from `/` and
-  serves that root response for navigations. The web-server regression test,
-  HTTP build/artifact scan, full React suite (91 files / 767 tests), contract
+  `./`. The follow-up public OIDC regression raised the app-shell to version 7:
+  it serves `/` only for application navigations and leaves `/identity`,
+  `/auth`, API, health, and private-object routes network-only. The web-server
+  regression test, focused Service Worker policy,
+  HTTP build/artifact scan, full React suite (91 files / 769 tests), contract
   suite (16/16), `/index.html` 200/no-`Location` probe on `https://localhost:8445`,
   and `git diff --check` are `verified locally`. Existing Safari site data may
   still require a one-time localhost cache/service-worker clear; the user's
@@ -1501,6 +1511,27 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   restart, backup/restore, dependency matrix, viewport review, Task 9 deletion/
   requalification, and stakeholder verification remain `not run`. Task 10
   remains literally `not run`.
+- [x] 2026-08-09: A task-owned anonymous Cloudflare Quick Tunnel profile was
+  added and exercised without a Cloudflare account, named tunnel, DNS change,
+  AWS action, or external-preprod deployment. `make preprod-cloudflare-link`
+  now starts or validates the disposable profile and prints its strict random
+  `https://*.trycloudflare.com` URL. The gateway remains loopback-only HTTP;
+  the public HTTPS origin drives Keycloak/OIDC issuer and callback URLs, API
+  CORS, object-signing origin, and Secure-cookie configuration. The current
+  public root, `/health/ready`, exact OIDC issuer/authorization/token endpoints,
+  and `/auth/login` public-host callback redirect are `verified locally`.
+  Shell/static contracts, rendered Compose wiring, exact task-owned lifecycle
+  cleanup guards, and `git diff --check` are also `verified locally`. After
+  the fresh privacy-safe nine-account identity seed was added,
+  `make preprod-cloudflare-test-panels` ran with Service Workers enabled,
+  proved each public page was worker-controlled and the Keycloak username and
+  password fields were visible, then passed 9/9 real Keycloak logins, exact
+  session roles/organizations, `Secure`/`HttpOnly`/`SameSite=Strict` session
+  cookie semantics, all role homes, Department Manager Question Review, and a
+  New Audit draft through the server-owned 1,310-question catalog, one-question
+  preview/confirm, and Step 5 review. The user-owned three-viewport visual
+  review remains `not run`. This is local disposable transport evidence only;
+  Task 10 remains literally `not run`.
 - [x] 2026-08-07: Gate 0 froze the canonical table/FK/aggregate/event
   boundaries, classified every dirty AGA change, mapped F-002/F-004/F-007/
   F-010/F-013/F-015/F-018/F-021, synchronized the product specifications,

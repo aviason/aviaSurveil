@@ -232,6 +232,24 @@ The root Vanilla demo remains intact.
   demo/HTTP artifacts, API/worker/scheduler, separate application and identity
   databases, Keycloak, MinIO, ClamAV, Gotenberg, and private Mailpit SMTP
   topology.
+- `deploy/local/compose.local-http.yaml`,
+  `deploy/local/gateway/Caddyfile.preprod.http`, and
+  `scripts/*canonical-preprod-cloudflare*` — separate loopback-only HTTP
+  gateway and ownership-validated disposable Quick Tunnel qualification path.
+  It carries one strict random public HTTPS origin into Keycloak/OIDC, Secure
+  cookies, private-object TLS, and exact CORS without modifying the canonical
+  HTTPS gateway or configuring named Cloudflare, DNS, Access, AWS, or external
+  preprod resources.
+- `tests/canonical-preprod-quick-tunnel.test.mjs` and
+  `scripts/canonical-preprod-quick-tunnel-url.mjs` — static anonymous-tunnel,
+  strict-origin, transport-separation, public-runtime-wiring, and cleanup
+  contracts for the optional disposable profile.
+- `apps/web/tests/e2e/canonical-quick-tunnel-panels.spec.ts`,
+  `scripts/test-canonical-preprod-cloudflare-panels.sh`, and
+  `scripts/show-canonical-preprod-cloudflare-users.sh` — isolated nine-account
+  public OIDC/Secure-cookie/role-panel qualification, Department Manager
+  Question Review and 1,310-question New Audit selection, plus the validated
+  task-owned credential handoff command.
 - `tests/local-compose-policy.test.mjs` — fail-closed local topology, image,
   secret, network, health, and Mailpit wiring contract.
 - `tests/local-runtime-contract.test.mjs` — liveness/readiness, migration,

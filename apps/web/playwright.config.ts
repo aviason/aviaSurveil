@@ -14,8 +14,10 @@ const profile =
     ? "http"
     : e2eProfile === "preprod-aga-demo"
       ? "preprod-aga-demo"
-    : e2eProfile === "preprod-aga-manager"
+      : e2eProfile === "preprod-aga-manager"
       ? "preprod-aga-manager"
+    : e2eProfile === "canonical-quick-tunnel"
+      ? "canonical-quick-tunnel"
     : e2eProfile === "oidc"
       ? "oidc"
       : e2eProfile === "offline"
@@ -35,6 +37,7 @@ const shouldStartWebServer =
   profile !== "offline" &&
   profile !== "preprod-aga-demo" &&
   profile !== "preprod-aga-manager" &&
+  profile !== "canonical-quick-tunnel" &&
   profile !== "local-demo" &&
   profile !== "local-full" &&
   profile !== "restored-platform" &&
@@ -173,6 +176,18 @@ export default defineConfig({
             `--host-resolver-rules=MAP ${process.env.AVIA_PREPROD_AGA_OIDC_HOST ?? "aga-preprod.test"} 127.0.0.1`,
           ],
         },
+      },
+    },
+    {
+      name: "canonical-quick-tunnel",
+      testMatch: ["e2e/canonical-quick-tunnel-panels.spec.ts"],
+      use: {
+        actionTimeout: 30_000,
+        navigationTimeout: 30_000,
+        serviceWorkers: "allow",
+        trace: "off",
+        screenshot: "off",
+        video: "off",
       },
     },
     {

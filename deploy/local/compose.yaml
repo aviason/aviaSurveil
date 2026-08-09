@@ -1330,6 +1330,44 @@ services:
       - preprod-app-database
     restart: "no"
 
+  preprod-canonical-demo-identity-loader:
+    <<: *runtime-security
+    image: aviasurveil360/preprod-canonical-demo-identity-loader:local
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      target: preprod-canonical-demo-identity-loader
+    profiles: [local-preprod-loader]
+    user: "10001:10001"
+    depends_on:
+      preprod-migration:
+        condition: service_completed_successfully
+      preprod-keycloak:
+        condition: service_healthy
+    environment:
+      AVIA_CANONICAL_DEMO_IDENTITIES_FILE: /run/input/canonical-preprod-demo-identities.json
+      AVIA_PREPROD_OIDC_ISSUER_URL: ${AVIA_PREPROD_WEB_ORIGIN:-https://localhost:8445}/identity/realms/aviasurveil360-local-preprod
+      AVIA_DATABASE_PASSWORD_FILE: /run/secrets/preprod_app_database_password
+      AVIA_KEYCLOAK_ADMIN_URL: http://preprod-keycloak:8080/identity
+      AVIA_KEYCLOAK_SERVICE_CLIENT_ID: aviasurveil360-local-preprod-lifecycle
+      AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET_FILE: /run/secrets/preprod_keycloak_service_client_secret
+      AVIA_DEMO_QUALIFICATION_PASSWORD_FILE: /run/secrets/preprod_aga_demo_oidc_qualification_password
+    secrets:
+      - preprod_app_database_password
+      - preprod_keycloak_service_client_secret
+      - preprod_aga_demo_oidc_qualification_password
+    volumes:
+      - type: bind
+        source: ./fixtures/canonical-preprod-demo-identities.json
+        target: /run/input/canonical-preprod-demo-identities.json
+        read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+    networks:
+      - preprod-app-database
+      - preprod-identity
+    restart: "no"
+
   fixture-init:
     <<: *runtime-security
     image: aviasurveil360/migration:local

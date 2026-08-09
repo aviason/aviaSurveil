@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "canonical-preprod-demo-identities/v1",
+  "users": [
+    {
+      "scenarioId": "synthetic-canonical-aga-admin",
+      "membershipId": "CANONICAL-DEMO-MEMBERSHIP-ADMIN",
+      "email": "aga-demo-admin@synthetic.invalid",
+      "displayName": "Administrator",
+      "organizationId": "CAA",
+      "role": "admin"
+    },
+    {
+      "scenarioId": "synthetic-canonical-aga-auditee-a",
+      "membershipId": "CANONICAL-DEMO-MEMBERSHIP-AUDITEE-A",
+      "email": "aga-demo-auditee-a@synthetic.invalid",
+      "displayName": "Auditee A",
+      "organizationId": "ORG-FLY-NAMIBIA",
+      "role": "auditee"
+    },
+    {
+      "scenarioId": "synthetic-canonical-aga-auditee-b",
+      "membershipId": "CANONICAL-DEMO-MEMBERSHIP-AUDITEE-B",
+      "email": "aga-demo-auditee-b@synthetic.invalid",
+      "displayName": "Auditee B",
+      "organizationId": "ORG-FLY-NAMIBIA",
+      "role": "auditee"
+    },
+    {
+      "scenarioId": "synthetic-canonical-aga-executive-director",
+      "membershipId": "CANONICAL-DEMO-MEMBERSHIP-EXECUTIVE-DIRECTOR",
+      "email": "aga-demo-executive-director@synthetic.invalid",
+      "displayName": "Executive Director",
+      "organizationId": "CAA",
+      "role": "executiveDirector"
+    },
+    {
+      "scenarioId": "synthetic-canonical-aga-finance",
+      "membershipId": "CANONICAL-DEMO-MEMBERSHIP-FINANCE",
+      "email": "aga-demo-finance@synthetic.invalid",
+      "displayName": "Finance",
+      "organizationId": "CAA",
+      "role": "finance"
+    },
+    {
+      "scenarioId": "synthetic-canonical-aga-gm",
+      "membershipId": "CANONICAL-DEMO-MEMBERSHIP-GM",
+      "email": "aga-demo-gm@synthetic.invalid",
+      "displayName": "General Manager",
+      "organizationId": "CAA",
+      "role": "gm"
+    },
+    {
+      "scenarioId": "synthetic-canonical-aga-inspector",
+      "membershipId": "CANONICAL-DEMO-MEMBERSHIP-INSPECTOR",
+      "email": "aga-demo-inspector@synthetic.invalid",
+      "displayName": "Inspector",
+      "organizationId": "CAA",
+      "role": "inspector"
+    },
+    {
+      "scenarioId": "synthetic-canonical-aga-lead-inspector",
+      "membershipId": "CANONICAL-DEMO-MEMBERSHIP-LEAD-INSPECTOR",
+      "email": "aga-demo-lead-inspector@synthetic.invalid",
+      "displayName": "Lead Inspector",
+      "organizationId": "CAA",
+      "role": "leadInspector"
+    },
+    {
+      "scenarioId": "synthetic-canonical-aga-manager",
+      "membershipId": "CANONICAL-DEMO-MEMBERSHIP-MANAGER",
+      "email": "aga-demo-manager@synthetic.invalid",
+      "displayName": "Department Manager",
+      "organizationId": "CAA",
+      "role": "manager",
+      "departmentMembership": {
+        "id": "CANONICAL-DEMO-DEPARTMENT-MANAGER",
+        "departmentId": "FLIGHT_OPERATIONS_INSPECTORATE",
+        "organizationalUnitId": "FLIGHT_OPERATIONS_INSPECTORATE"
+      }
+    }
+  ]
+}

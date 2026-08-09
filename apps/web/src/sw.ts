@@ -25,7 +25,11 @@ export function classifyAppShellRequest(
   if (request.method !== "GET") return "network-only";
   const url = new URL(request.url);
   if (url.origin !== origin) return "network-only";
-  if (/^\/(?:api|v1|auth|health|__test)(?:\/|$)/.test(url.pathname)) {
+  if (
+    /^\/(?:api|v1|auth|health|identity|__test|evidence-quarantine|evidence-clean|inspection-attachments|generated-documents)(?:\/|$)/.test(
+      url.pathname,
+    )
+  ) {
     return "network-only";
   }
   if (request.mode === "navigate") return "app-shell-navigation";
@@ -43,7 +47,7 @@ interface AppShellManifest {
 
 // Increment this whenever the app shell or its static asset graph changes so
 // an older service-worker cache cannot keep serving a previous UI indefinitely.
-const APP_SHELL_VERSION_MARKER = "AVIA_APP_SHELL_VERSION:000006";
+const APP_SHELL_VERSION_MARKER = "AVIA_APP_SHELL_VERSION:000007";
 const APP_SHELL_VERSION = Number(
   /^AVIA_APP_SHELL_VERSION:(\d{6})$/.exec(APP_SHELL_VERSION_MARKER)?.[1],
 );

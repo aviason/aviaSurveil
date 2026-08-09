@@ -124,6 +124,8 @@ export async function loginQualificationAccount(
   recordQualificationPhase("login-gate-visible");
   await page.getByRole("button", { name: "Sign in with organization identity" }).click();
   recordQualificationPhase("provider-page-open");
+  await expect(page.locator("#username")).toBeVisible();
+  await expect(page.locator("#password")).toBeVisible();
   await page.locator("#username").fill(username);
   recordQualificationPhase("provider-username-filled");
   await page.locator("#password").fill(

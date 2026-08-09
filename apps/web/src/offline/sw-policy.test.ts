@@ -29,9 +29,21 @@ describe("Service Worker request policy", () => {
     ["https://other.test/assets/index-abcd1234.js", "no-cors"],
     ["https://candidate.test/auth/login?returnTo=%2Fadmin", "navigate"],
     ["https://candidate.test/auth/callback?state=opaque&code=opaque", "navigate"],
+    [
+      "https://candidate.test/identity/realms/aviasurveil360-local-preprod/protocol/openid-connect/auth?client_id=web",
+      "navigate",
+    ],
+    [
+      "https://candidate.test/identity/realms/aviasurveil360-local-preprod/.well-known/openid-configuration",
+      "cors",
+    ],
     ["https://candidate.test/api/v1/admin", "navigate"],
     ["https://candidate.test/v1/findings", "navigate"],
     ["https://candidate.test/health/ready", "navigate"],
+    ["https://candidate.test/evidence-clean/object-version-1", "navigate"],
+    ["https://candidate.test/evidence-quarantine/object-version-1", "navigate"],
+    ["https://candidate.test/inspection-attachments/object-version-1", "navigate"],
+    ["https://candidate.test/generated-documents/final-report.pdf", "navigate"],
   ] as const)("never caches business, API, auth, health, test, or cross-origin request %s", (url, mode) => {
     expect(
       classifyAppShellRequest(

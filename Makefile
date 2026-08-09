@@ -19,8 +19,11 @@ AGA_DEMO_WEB_IMAGE ?= node:24.16.0-alpine3.23@sha256:2bdb65ed1dab192432bc31c95f9
 
 CANONICAL_PREPROD_STATE_DIR ?= $(CURDIR)/.local/aviasurveil360-canonical-preprod
 CANONICAL_PREPROD_HTTPS_PORT ?= 8445
+CANONICAL_PREPROD_CLOUDFLARE_STATE_DIR ?= $(CURDIR)/.local/aviasurveil360-canonical-preprod-cloudflare
+CANONICAL_PREPROD_CLOUDFLARE_RUNTIME_DIR ?= $(CURDIR)/.local/aviasurveil360-canonical-preprod-cloudflare-tunnel
+CANONICAL_PREPROD_HTTP_PORT ?= 8085
 
-.PHONY: help demo-up demo-down demo-status preprod-up preprod-down preprod-status aga-demo-up aga-demo-down aga-demo-status
+.PHONY: help demo-up demo-down demo-status preprod-up preprod-down preprod-status preprod-cloudflare-up preprod-cloudflare-link preprod-cloudflare-down preprod-cloudflare-status preprod-cloudflare-users preprod-cloudflare-test-panels aga-demo-up aga-demo-down aga-demo-status
 
 help:
 	@printf '%s\n' \
@@ -30,6 +33,12 @@ help:
 		'preprod-up   Start the canonical disposable local-preprod stack' \
 		'preprod-down Stop the canonical disposable local-preprod stack and erase its state' \
 		'preprod-status Show canonical local-preprod health and runtime metadata' \
+		'preprod-cloudflare-up Start an approved disposable anonymous Quick Tunnel profile' \
+		'preprod-cloudflare-link Print or start the disposable Quick Tunnel URL' \
+		'preprod-cloudflare-down Stop the Quick Tunnel profile and erase all task-owned state' \
+		'preprod-cloudflare-status Show Quick Tunnel profile health and ownership status' \
+		'preprod-cloudflare-users Print the live URL and privacy-safe demo login matrix' \
+		'preprod-cloudflare-test-panels Login as all nine demo users and verify their role panels' \
 		'aga-demo-up  Start API + PostgreSQL + Keycloak + HTTP UI with 1,310 questions' \
 		'aga-demo-down Stop the disposable API-backed AGA demo and its data' \
 		'aga-demo-status Show API/web health and the loaded question count'
@@ -96,6 +105,42 @@ preprod-status:
 	@AVIA_CANONICAL_PREPROD_STATE_DIR="$(CANONICAL_PREPROD_STATE_DIR)" \
 	AVIA_PREPROD_HTTPS_PORT="$(CANONICAL_PREPROD_HTTPS_PORT)" \
 		bash scripts/status-canonical-preprod.sh
+
+preprod-cloudflare-up:
+	@AVIA_CANONICAL_PREPROD_STATE_DIR="$(CANONICAL_PREPROD_CLOUDFLARE_STATE_DIR)" \
+	AVIA_CANONICAL_PREPROD_TUNNEL_RUNTIME_DIR="$(CANONICAL_PREPROD_CLOUDFLARE_RUNTIME_DIR)" \
+	AVIA_PREPROD_HTTP_PORT="$(CANONICAL_PREPROD_HTTP_PORT)" \
+		bash scripts/start-canonical-preprod-cloudflare.sh
+
+preprod-cloudflare-link:
+	@AVIA_CANONICAL_PREPROD_STATE_DIR="$(CANONICAL_PREPROD_CLOUDFLARE_STATE_DIR)" \
+	AVIA_CANONICAL_PREPROD_TUNNEL_RUNTIME_DIR="$(CANONICAL_PREPROD_CLOUDFLARE_RUNTIME_DIR)" \
+	AVIA_PREPROD_HTTP_PORT="$(CANONICAL_PREPROD_HTTP_PORT)" \
+		bash scripts/link-canonical-preprod-cloudflare.sh
+
+preprod-cloudflare-down:
+	@AVIA_CANONICAL_PREPROD_STATE_DIR="$(CANONICAL_PREPROD_CLOUDFLARE_STATE_DIR)" \
+	AVIA_CANONICAL_PREPROD_TUNNEL_RUNTIME_DIR="$(CANONICAL_PREPROD_CLOUDFLARE_RUNTIME_DIR)" \
+	AVIA_PREPROD_HTTP_PORT="$(CANONICAL_PREPROD_HTTP_PORT)" \
+		bash scripts/stop-canonical-preprod-cloudflare.sh
+
+preprod-cloudflare-status:
+	@AVIA_CANONICAL_PREPROD_STATE_DIR="$(CANONICAL_PREPROD_CLOUDFLARE_STATE_DIR)" \
+	AVIA_CANONICAL_PREPROD_TUNNEL_RUNTIME_DIR="$(CANONICAL_PREPROD_CLOUDFLARE_RUNTIME_DIR)" \
+	AVIA_PREPROD_HTTP_PORT="$(CANONICAL_PREPROD_HTTP_PORT)" \
+		bash scripts/status-canonical-preprod-cloudflare.sh
+
+preprod-cloudflare-users:
+	@AVIA_CANONICAL_PREPROD_STATE_DIR="$(CANONICAL_PREPROD_CLOUDFLARE_STATE_DIR)" \
+	AVIA_CANONICAL_PREPROD_TUNNEL_RUNTIME_DIR="$(CANONICAL_PREPROD_CLOUDFLARE_RUNTIME_DIR)" \
+	AVIA_PREPROD_HTTP_PORT="$(CANONICAL_PREPROD_HTTP_PORT)" \
+		bash scripts/show-canonical-preprod-cloudflare-users.sh
+
+preprod-cloudflare-test-panels:
+	@AVIA_CANONICAL_PREPROD_STATE_DIR="$(CANONICAL_PREPROD_CLOUDFLARE_STATE_DIR)" \
+	AVIA_CANONICAL_PREPROD_TUNNEL_RUNTIME_DIR="$(CANONICAL_PREPROD_CLOUDFLARE_RUNTIME_DIR)" \
+	AVIA_PREPROD_HTTP_PORT="$(CANONICAL_PREPROD_HTTP_PORT)" \
+		bash scripts/test-canonical-preprod-cloudflare-panels.sh
 
 aga-demo-up:
 	@DEMO_NODE="$(AGA_DEMO_NODE)" \

@@ -1,0 +1,58 @@
+services:
+  # This override is an explicitly disposable development profile. It keeps
+  # canonical HTTPS unchanged while allowing a separate local HTTP stack for
+  # browsers whose local trust store has not accepted the Caddy CA yet.
+  preprod-keycloak:
+    # The gateway is the sole local/public identity entry point. Do not inherit
+    # the canonical profile's direct 58082 publication into this profile.
+    ports: !override []
+    command:
+      - start
+      - --optimized
+      - --import-realm
+      - --http-enabled=true
+      - "--hostname=${AVIA_PREPROD_KEYCLOAK_PUBLIC_ORIGIN:-http://localhost:${AVIA_PREPROD_HTTP_PORT:-8085}}/identity"
+      - --proxy-headers=xforwarded
+      - --hostname-backchannel-dynamic=true
+
+  preprod-api:
+    environment:
+      AVIA_COOKIE_SECURE: "${AVIA_PREPROD_COOKIE_SECURE:-false}"
+      AVIA_OIDC_ISSUER_URL: "${AVIA_PREPROD_WEB_ORIGIN:-http://localhost:${AVIA_PREPROD_HTTP_PORT:-8085}}/identity/realms/aviasurveil360-local-preprod"
+      AVIA_OIDC_REDIRECT_URL: "${AVIA_PREPROD_WEB_ORIGIN:-http://localhost:${AVIA_PREPROD_HTTP_PORT:-8085}}/auth/callback"
+      AVIA_OBJECT_STORE_PUBLIC_ENDPOINT: "${AVIA_PREPROD_PUBLIC_HOST:-localhost:${AVIA_PREPROD_HTTP_PORT:-8085}}"
+      AVIA_OBJECT_STORE_PUBLIC_TLS: "${AVIA_PREPROD_PUBLIC_TLS:-false}"
+      AVIA_OBJECT_STORE_CORS_ORIGINS: "${AVIA_PREPROD_WEB_ORIGIN:-http://localhost:${AVIA_PREPROD_HTTP_PORT:-8085}}"
+
+  preprod-worker:
+    environment:
+      AVIA_OIDC_ISSUER_URL: "${AVIA_PREPROD_WEB_ORIGIN:-http://localhost:${AVIA_PREPROD_HTTP_PORT:-8085}}/identity/realms/aviasurveil360-local-preprod"
+      AVIA_OIDC_REDIRECT_URL: "${AVIA_PREPROD_WEB_ORIGIN:-http://localhost:${AVIA_PREPROD_HTTP_PORT:-8085}}/auth/callback"
+      AVIA_OBJECT_STORE_PUBLIC_ENDPOINT: "${AVIA_PREPROD_PUBLIC_HOST:-localhost:${AVIA_PREPROD_HTTP_PORT:-8085}}"
+      AVIA_OBJECT_STORE_PUBLIC_TLS: "${AVIA_PREPROD_PUBLIC_TLS:-false}"
+      AVIA_OBJECT_STORE_CORS_ORIGINS: "${AVIA_PREPROD_WEB_ORIGIN:-http://localhost:${AVIA_PREPROD_HTTP_PORT:-8085}}"
+
+  preprod-gateway:
+    environment:
+      # Cloudflare terminates public TLS before reaching this loopback HTTP
+      # gateway. Keep the upstream forwarded scheme equal to the configured
+      # browser origin rather than Caddy's local listener scheme.
+      AVIA_PREPROD_ORIGIN_SCHEME: "${AVIA_PREPROD_ORIGIN_SCHEME:-http}"
+    ports: !override
+      - target: 8085
+        published: "${AVIA_PREPROD_HTTP_PORT:-8085}"
+        host_ip: 127.0.0.1
+        protocol: tcp
+    volumes:
+      - preprod-caddy-data:/data
+      - preprod-caddy-config:/config
+      - type: bind
+        source: ./gateway/Caddyfile.preprod.http
+        target: /etc/caddy/Caddyfile
+        read_only: true
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+      test: [CMD, /healthcheck, http://localhost:8085/]

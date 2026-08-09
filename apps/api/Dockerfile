@@ -23,6 +23,7 @@ RUN mkdir -p /out \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/migrate ./cmd/migrate \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-data-loader ./cmd/preprod-data-loader \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-canonical-aga-loader ./cmd/preprod-canonical-aga-loader \
+    && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-canonical-demo-identity-loader ./cmd/preprod-canonical-demo-identity-loader \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-aga-candidate-demo-loader ./cmd/preprod-aga-candidate-demo-loader \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-aga-demo-role-provisioner ./cmd/preprod-aga-demo-role-provisioner \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-normal-runtime-role-provisioner ./cmd/preprod-normal-runtime-role-provisioner
@@ -97,6 +98,10 @@ ENTRYPOINT ["/app/preprod-data-loader"]
 FROM runtime-base AS preprod-canonical-aga-loader
 COPY --from=go-build --chown=10001:10001 /out/preprod-canonical-aga-loader /app/preprod-canonical-aga-loader
 ENTRYPOINT ["/app/preprod-canonical-aga-loader"]
+
+FROM runtime-base AS preprod-canonical-demo-identity-loader
+COPY --from=go-build --chown=10001:10001 /out/preprod-canonical-demo-identity-loader /app/preprod-canonical-demo-identity-loader
+ENTRYPOINT ["/app/preprod-canonical-demo-identity-loader"]
 
 FROM runtime-base AS preprod-aga-candidate-demo-loader
 COPY --from=go-build --chown=10001:10001 /out/preprod-aga-candidate-demo-loader /app/preprod-aga-candidate-demo-loader

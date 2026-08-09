@@ -30,7 +30,7 @@ export interface OfflineVersionVector {
 }
 
 export const CURRENT_OFFLINE_VERSIONS: Readonly<OfflineVersionVector> = {
-  appShellVersion: 6,
+  appShellVersion: 7,
   indexedDbSchemaVersion: CURRENT_FIELD_SCHEMA_VERSION,
   packageSchemaVersion: 1,
   syncProtocolVersion: 1,

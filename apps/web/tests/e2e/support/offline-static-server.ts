@@ -45,10 +45,11 @@ export class OfflineStaticServer {
         }
         let body = await readFile(filePath);
         if (requestURL.pathname === "/sw.js") {
-          const marker = "AVIA_APP_SHELL_VERSION:000006";
+          const marker = /AVIA_APP_SHELL_VERSION:\d{6}/gu;
           const replacement = `AVIA_APP_SHELL_VERSION:${String(this.servedShellVersion).padStart(6, "0")}`;
           const original = body.toString("utf8");
-          if (!original.includes(marker)) throw new Error("Built Service Worker version marker is missing");
+          if (!marker.test(original)) throw new Error("Built Service Worker version marker is missing");
+          marker.lastIndex = 0;
           const source = original.replaceAll(marker, replacement);
           body = Buffer.from(`${source}\n// offline-test-shell-${this.servedShellVersion}\n`);
         } else if (requestURL.pathname === "/app-shell-assets.json") {

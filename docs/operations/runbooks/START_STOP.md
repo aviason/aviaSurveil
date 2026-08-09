@@ -116,3 +116,55 @@ New Audit visual review at 1440x900, 1024x768, and 390x844, the remaining
 negative/recovery/dependency matrix, Task 9 donor deletion/requalification,
 stakeholder acceptance, and Task 10 external deployment are not implied by a
 healthy stack and must retain their literal evidence labels.
+
+### Disposable Cloudflare Quick Tunnel Profile
+
+The optional `preprod-cloudflare-*` profile is a separate, task-owned local
+qualification aid. It creates one anonymous, random `https://*.trycloudflare.com`
+URL to the loopback-only HTTP gateway so public-origin OIDC, Secure cookies,
+signed-object TLS, and exact CORS can be tested without changing the canonical
+HTTPS profile. It is `candidate-only`, is not an external preprod deployment,
+and Task 10 remains `not run`.
+
+Because this profile makes the local disposable catalog reachable through a
+public URL, obtain explicit current approval for that exposure before starting
+it. Never use it with real identities, real regulated-party data, or a named
+Cloudflare tunnel. It must not use Cloudflare login, tokens, DNS, Access,
+routes, account configuration, AWS, or any remote preprod infrastructure.
+
+```bash
+make preprod-cloudflare-up
+make preprod-cloudflare-link
+make preprod-cloudflare-status
+make preprod-cloudflare-users
+make preprod-cloudflare-test-panels
+make preprod-cloudflare-down
+```
+
+`preprod-cloudflare-link` first validates an already healthy, exact profile
+and prints only its random public origin. If neither task-owned root exists,
+it starts the same disposable profile and then prints that origin. It never
+reuses partial or stale roots; the same explicit public-exposure approval is
+required because it can start the profile.
+
+`preprod-cloudflare-users` validates the live profile before printing the
+random URL, the nine privacy-safe `@synthetic.invalid` usernames, and their
+task-owned disposable password. Never copy that password into documentation or
+reuse it outside this exact disposable namespace. `preprod-cloudflare-test-panels`
+runs isolated headless Chromium logins for all nine accounts with Service
+Workers enabled. Each context is reloaded under worker control before the test
+requires visible Keycloak username/password fields, verifies the public OIDC
+callback and `__Host-` Secure cookie pair, checks every role home,
+and exercises Department Manager Question Review plus New Audit through the
+1,310-question exact-selection review stage. It retains no screenshots, video,
+trace, browser profile, or password artifact.
+
+The start script creates new state/runtime roots only and refuses stale roots
+or Compose residue. Its detached task-owned launcher sanitizes the
+`cloudflared` environment, accepts exactly one bare HTTPS `trycloudflare.com`
+origin, and records metadata only after local/public readiness and exact OIDC
+discovery issuer checks pass. The stop script validates the project, roots,
+metadata, local origin, and recorded PID identity; it removes the public
+exposure first, then performs exact Compose cleanup with volumes and orphan
+removal. A PID identity mismatch is an escalation condition: do not use broad
+process-kill commands or manually retain the disposable state.

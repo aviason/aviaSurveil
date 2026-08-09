@@ -26,6 +26,7 @@ COPY --from=gateway-build --chown=1000:1000 /runtime/data /data
 COPY --from=gateway-build --chown=1000:1000 /runtime/config /config
 COPY deploy/local/gateway/Caddyfile /etc/caddy/Caddyfile
 COPY deploy/local/gateway/security-headers.caddy /etc/caddy/security-headers.caddy
+COPY deploy/local/gateway/security-headers-http.caddy /etc/caddy/security-headers-http.caddy
 USER 1000:1000
 EXPOSE 8443
 ENTRYPOINT ["/caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]

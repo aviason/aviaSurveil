@@ -14,6 +14,7 @@ an orientation surface, not a production-readiness claim.
 | `api/openapi/` | Transport contract | Source for checked request/response shapes and generated adapters. |
 | `deploy/local/` | Local verification services | Test/local profiles only; no production deployment authority. |
 | `scripts/start-canonical-preprod.sh`, `scripts/status-canonical-preprod.sh` | Canonical AGA disposable local-preprod operator boundary | Starts and reports the exact `aga-preprod@1.0.0` namespace with donor runtime disabled; connected OIDC hero receipts are local candidate evidence only and external preprod remains `not run`. |
+| `deploy/local/compose.local-http.yaml`, `scripts/*canonical-preprod-cloudflare*` | Optional disposable Quick Tunnel qualification boundary | Keeps the canonical HTTPS/8445 profile unchanged while a separate loopback HTTP gateway accepts the random host. It uses only an anonymous, sanitized `cloudflared tunnel --url http://127.0.0.1:<port>` process, validates public-origin OIDC/Secure-cookie/object/CORS wiring and the nine privacy-safe role panels in isolated Chromium, and removes verified task-owned state. It never configures named tunnels, Cloudflare account/DNS/Access resources, AWS, or external preprod. |
 | `tests/` and `apps/web/tests/` | Contract, parity, browser, and regression evidence | Results are local evidence unless an external gate is explicitly exercised. |
 
 ## Knowledge Surfaces
