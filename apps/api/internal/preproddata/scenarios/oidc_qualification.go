@@ -112,7 +112,7 @@ func ActivateQualificationAccounts(
 					created_at, updated_at
 				) VALUES ($1,$2,'UPDATE_ROLES',$3,$4,'SUCCEEDED',$5,$2,2,$6,$7,$8,3,$7,$7,$7)
 			`, requestID, account.SubjectID, qualificationRoles, qualificationOrganizationID,
-				"preprod-aga-demo-oidc-qualification:"+account.MembershipID,
+				"canonical-preprod-oidc-qualification:"+account.MembershipID,
 				"Separately authorized disposable OIDC qualification fixture.", now,
 				account.MembershipID); err != nil {
 				return fmt.Errorf("append OIDC qualification request: %w", err)

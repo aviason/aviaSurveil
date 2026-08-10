@@ -401,7 +401,6 @@ export function AuditPlanCalendarPage() {
           <p>Track planning approvals, release acceptance and department preparation in one panel.</p>
           <div className="planning-parent-actions">
             <Link to="/department-manager/new-audit/step-1">New Inspection planning intake</Link>
-            <Link to="/department-manager/inspection-package-builder">Open Inspection Package Builder</Link>
           </div>
         </header>
         <CommandError message={error} />

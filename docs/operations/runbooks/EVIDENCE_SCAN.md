@@ -69,11 +69,11 @@ Do not requeue terminal work or mutate scan state during this mitigation.
 ## Recovery Verification
 
 ```bash
-./scripts/test-local-full-profile.sh
+make preprod-test-fault-restart
 ```
 
-Require real ClamAV clean/infected proofs, deterministic state transitions,
-worker restart recovery, immutable versions, and zero residue before recording
+Require real MinIO/ClamAV clean and denial proofs, deterministic state
+transitions, worker restart recovery, immutable versions, and zero residue before recording
 `verified locally`.
 
 ## Evidence Capture

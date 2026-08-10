@@ -70,7 +70,7 @@ queue rows.
 ## Recovery Verification
 
 ```bash
-./scripts/test-local-full-profile.sh
+make preprod-test-fault-restart
 ```
 
 Require one accepted private email, one generated PDF with provenance, restart

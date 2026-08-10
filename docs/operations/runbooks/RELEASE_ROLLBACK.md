@@ -41,13 +41,13 @@ accepted running stack.
 
 ```bash
 ./scripts/check-local-image-evidence.sh full
-./scripts/test-local-full-profile.sh
+make preprod-test-fault-restart
 git diff --check
 ```
 
 ## Expected Output
 
-Every image digest matches accepted evidence; the clean full profile proves
+Every image digest matches accepted evidence; the canonical connected profile proves
 required local scenarios and zero task-owned residue. Any failed gate stops the
 candidate.
 

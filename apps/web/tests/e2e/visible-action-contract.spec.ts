@@ -897,9 +897,9 @@ async function prepareHttpSurfaceFixture(
   }
 }
 
-expect(VISUAL_SURFACES).toHaveLength(86);
+expect(VISUAL_SURFACES).toHaveLength(85);
 expect(VISUAL_VIEWPORTS).toHaveLength(3);
-expect(VISUAL_SURFACES.length * VISUAL_VIEWPORTS.length).toBe(258);
+expect(VISUAL_SURFACES.length * VISUAL_VIEWPORTS.length).toBe(255);
 
 const focusedViewport = process.env.AVIA_VISIBLE_ACTION_VIEWPORT;
 const inventoryViewports = focusedViewport
@@ -910,7 +910,7 @@ if (focusedViewport && inventoryViewports.length === 0) {
 }
 
 for (const viewport of inventoryViewports) {
-  test(`inventories all 86 visible-action surfaces at ${viewport.id}`, async ({ page }, testInfo) => {
+  test(`inventories all 85 visible-action surfaces at ${viewport.id}`, async ({ page }, testInfo) => {
     test.skip(
       process.env.AVIA_VISIBLE_ACTION_EXECUTION_ONLY === "1",
       "Focused command diagnosis excludes surface inventories.",
@@ -1015,7 +1015,7 @@ for (const viewport of inventoryViewports) {
       expect.soft(duplicateActions, `${surface.id}/${viewport.id} exposes duplicate route actions`).toEqual([]);
       expect.soft(consoleIssues, `${surface.id}/${viewport.id} has zero console errors`).toEqual([]);
     }
-    expect(actionInventories).toBe(86);
+    expect(actionInventories).toBe(85);
     const expectedEvidenceKeys = (ledger.actionEvidence ?? [])
       .filter((entry) =>
         entry.viewports.includes(viewport.id) &&

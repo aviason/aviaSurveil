@@ -427,22 +427,6 @@ async function adHocPlanningToAssignment(state: ScenarioState): Promise<void> {
       state.releasedPlan.currentOwnerRole === "manager",
   );
 
-  const packageDraft = await manager.packageDrafts.get({
-    packageDraftId: "PKG-AUD-2026-001-CABIN",
-  });
-  const preparedPackage = await manager.packageDrafts.save({
-    idempotencyKey: "IDEM-FULL-AD-HOC-PACKAGE-PREP",
-    expectedRevision: packageDraft.revision,
-    packageDraftId: packageDraft.id,
-    riskFocus: ["PBE serviceability", "Unannounced cabin sampling"],
-  });
-  prove(
-    state,
-    "lead-package-prepared",
-    preparedPackage.revision === packageDraft.revision + 1 &&
-      preparedPackage.questions.length > 0,
-  );
-
   const executable = await backendFor(state, PRINCIPALS.inspector).inspections.getPackage({
     packageId: "PKG-CAB-2026-001",
   });

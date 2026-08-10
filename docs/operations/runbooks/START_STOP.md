@@ -99,9 +99,9 @@ resource deletion, and AWS actions require new explicit authorization.
 
 ## Canonical AGA Local-Preprod Qualification
 
-The canonical AGA successor uses a separately named disposable project and
-must not be started through the paused donor runbooks. From the repository
-root, the task-owned operator boundary is:
+The canonical AGA successor uses a separately named disposable project. The
+obsolete donor runbooks and aliases were physically removed after Task 9
+qualification. From the repository root, the task-owned operator boundary is:
 
 ```bash
 scripts/start-canonical-preprod.sh
@@ -112,10 +112,29 @@ The status record must report profile `aga-preprod@1.0.0`, identity namespace
 `canonical-aga-preprod-exercise-v1`, donor runtime `disabled`, and external
 preprod `not run`. Its local OIDC hero lifecycle is `verified locally` but
 remains `candidate-only` and `release pending`; user-owned Question Review and
-New Audit visual review at 1440x900, 1024x768, and 390x844, the remaining
-negative/recovery/dependency matrix, Task 9 donor deletion/requalification,
-stakeholder acceptance, and Task 10 external deployment are not implied by a
-healthy stack and must retain their literal evidence labels.
+New Audit visual review at 1440x900, 1024x768, and 390x844 and stakeholder
+acceptance are not implied by a healthy stack and must retain their literal
+evidence labels. Task 9 physical donor deletion/requalification is separately
+`verified locally`. External preprod is outside this plan and remains `not run`
+in its separate paused ExecPlan.
+
+The destructive Task 8 local matrix uses two unique disposable projects and a
+random user-space HTTPS port. It does not reuse or stop the named public-demo
+profile:
+
+```bash
+make preprod-test-fault-restart
+```
+
+The runner verifies the selected real-PostgreSQL transaction/fault/concurrency
+suite, the full 1,310-question OIDC lifecycle, a stable complete-authoritative
+database fingerprint before and after a cold restart, all role panels after
+restart, required dependency loss as `503/not_ready`, optional dependency loss
+as `200/degraded`, worker crash recovery, donor/log denial, and exact cleanup.
+Record `verified locally` only after the runner prints its fingerprint and the
+exit trap leaves zero task-owned containers, volumes, networks, processes, and
+runtime directory. A failure must remain a failure; do not drain legitimate
+undelivered local AviaCore outbox rows merely to manufacture an empty queue.
 
 ### Disposable Cloudflare Quick Tunnel Profile
 

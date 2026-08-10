@@ -8,15 +8,6 @@ DEMO_LOG_FILE ?= $(DEMO_STATE_DIR)/vite.log
 DEMO_NODE ?= node
 DEMO_VITE_ENTRY ?= apps/web/node_modules/vite/bin/vite.js
 
-AGA_DEMO_STATE_DIR ?= /tmp/avia-surveil360-aga-demo
-AGA_DEMO_NODE ?= $(DEMO_NODE)
-AGA_DEMO_API_PORT ?= 58081
-AGA_DEMO_OIDC_PORT ?= 58082
-AGA_DEMO_WEB_PORT ?= 4174
-AGA_DEMO_OIDC_HOST ?= 127.0.0.1
-AGA_DEMO_WEB_ORIGIN ?= http://127.0.0.1:$(AGA_DEMO_WEB_PORT)
-AGA_DEMO_WEB_IMAGE ?= node:24.16.0-alpine3.23@sha256:2bdb65ed1dab192432bc31c95f94155ca5ad7fc1392fb7eb7526ab682fa5bf14
-
 CANONICAL_PREPROD_STATE_DIR ?= $(CURDIR)/.local/aviasurveil360-canonical-preprod
 CANONICAL_PREPROD_HTTPS_PORT ?= 8445
 CANONICAL_PREPROD_CLOUDFLARE_STATE_DIR ?= $(CURDIR)/.local/aviasurveil360-canonical-preprod-cloudflare
@@ -30,7 +21,7 @@ CLOUDFLARE_DEMO_HOSTNAME ?= demo.aviasurveil.com
 CLOUDFLARE_DEMO_KEYCHAIN_SERVICE ?= com.aviasurveil360.cloudflare-tunnel
 CLOUDFLARE_DEMO_KEYCHAIN_ACCOUNT ?= $(CLOUDFLARE_DEMO_HOSTNAME)
 
-.PHONY: help demo-up demo-down demo-status preprod-up preprod-down preprod-status preprod-cloudflare-up preprod-cloudflare-link preprod-cloudflare-down preprod-cloudflare-status preprod-cloudflare-users preprod-cloudflare-test-panels preprod-cloudflare-test-lifecycle preprod-cloudflare-demo-token preprod-cloudflare-demo-up preprod-cloudflare-demo-down preprod-cloudflare-demo-status preprod-cloudflare-demo-users aga-demo-up aga-demo-down aga-demo-status
+.PHONY: help demo-up demo-down demo-status preprod-up preprod-down preprod-status preprod-test-fault-restart preprod-cloudflare-up preprod-cloudflare-link preprod-cloudflare-down preprod-cloudflare-status preprod-cloudflare-users preprod-cloudflare-test-panels preprod-cloudflare-test-lifecycle preprod-cloudflare-demo-token preprod-cloudflare-demo-up preprod-cloudflare-demo-down preprod-cloudflare-demo-status preprod-cloudflare-demo-users
 
 help:
 	@printf '%s\n' \
@@ -40,6 +31,7 @@ help:
 		'preprod-up   Start the canonical disposable local-preprod stack' \
 		'preprod-down Stop the canonical disposable local-preprod stack and erase its state' \
 		'preprod-status Show canonical local-preprod health and runtime metadata' \
+		'preprod-test-fault-restart Run the disposable Task 8 negative/fault/restart matrix' \
 		'preprod-cloudflare-up Start an approved disposable anonymous Quick Tunnel profile' \
 		'preprod-cloudflare-link Print or start the disposable Quick Tunnel URL' \
 		'preprod-cloudflare-down Stop the Quick Tunnel profile and erase all task-owned state' \
@@ -51,10 +43,7 @@ help:
 		'preprod-cloudflare-demo-up Publish the local candidate at https://$(CLOUDFLARE_DEMO_HOSTNAME)' \
 		'preprod-cloudflare-demo-status Verify the named Tunnel and local candidate' \
 		'preprod-cloudflare-demo-users Print the named URL and privacy-safe demo login matrix' \
-		'preprod-cloudflare-demo-down Stop named exposure and erase disposable local state' \
-		'aga-demo-up  Start API + PostgreSQL + Keycloak + HTTP UI with 1,310 questions' \
-		'aga-demo-down Stop the disposable API-backed AGA demo and its data' \
-		'aga-demo-status Show API/web health and the loaded question count'
+		'preprod-cloudflare-demo-down Stop named exposure and erase disposable local state'
 
 demo-up:
 	@set -eu; \
@@ -118,6 +107,9 @@ preprod-status:
 	@AVIA_CANONICAL_PREPROD_STATE_DIR="$(CANONICAL_PREPROD_STATE_DIR)" \
 	AVIA_PREPROD_HTTPS_PORT="$(CANONICAL_PREPROD_HTTPS_PORT)" \
 		bash scripts/status-canonical-preprod.sh
+
+preprod-test-fault-restart:
+	@bash scripts/test-canonical-preprod-fault-restart.sh
 
 preprod-cloudflare-up:
 	@AVIA_CANONICAL_PREPROD_STATE_DIR="$(CANONICAL_PREPROD_CLOUDFLARE_STATE_DIR)" \
@@ -209,24 +201,3 @@ preprod-cloudflare-demo-down:
 	AVIA_CANONICAL_PREPROD_TUNNEL_RUNTIME_DIR="$(CANONICAL_PREPROD_CLOUDFLARE_DEMO_RUNTIME_DIR)" \
 	AVIA_PREPROD_HTTP_PORT="$(CANONICAL_PREPROD_CLOUDFLARE_DEMO_HTTP_PORT)" \
 		bash scripts/stop-canonical-preprod-cloudflare.sh
-
-aga-demo-up:
-	@DEMO_NODE="$(AGA_DEMO_NODE)" \
-	AVIA_AGA_DEMO_STATE_DIR="$(AGA_DEMO_STATE_DIR)" \
-	AVIA_PREPROD_AGA_API_PORT="$(AGA_DEMO_API_PORT)" \
-	AVIA_PREPROD_AGA_OIDC_PORT="$(AGA_DEMO_OIDC_PORT)" \
-	AVIA_PREPROD_AGA_WEB_PORT="$(AGA_DEMO_WEB_PORT)" \
-	AVIA_PREPROD_AGA_OIDC_HOST="$(AGA_DEMO_OIDC_HOST)" \
-	AVIA_PREPROD_AGA_WEB_IMAGE="$(AGA_DEMO_WEB_IMAGE)" \
-	AVIA_PREPROD_AGA_DEMO_WEB_ORIGIN="$(AGA_DEMO_WEB_ORIGIN)" \
-		bash scripts/start-aga-demo.sh
-
-aga-demo-down:
-	@DEMO_NODE="$(AGA_DEMO_NODE)" \
-	AVIA_AGA_DEMO_STATE_DIR="$(AGA_DEMO_STATE_DIR)" \
-		bash scripts/stop-aga-demo.sh
-
-aga-demo-status:
-	@DEMO_NODE="$(AGA_DEMO_NODE)" \
-	AVIA_AGA_DEMO_STATE_DIR="$(AGA_DEMO_STATE_DIR)" \
-		bash scripts/status-aga-demo.sh

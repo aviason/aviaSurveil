@@ -53,10 +53,12 @@ esac
   fail "refusing a broad disposable state directory"
 [[ ! -L "$state_root" ]] || fail "AVIA_CANONICAL_PREPROD_STATE_DIR must not be a symlink"
 command -v node >/dev/null 2>&1 || fail "node is required"
+[[ "$project_name" =~ ^aviasurveil360-(local-preprod(-[a-z0-9][a-z0-9-]*)?|task-[a-z0-9][a-z0-9-]*)$ ]] ||
+  fail "AVIA_CANONICAL_PREPROD_PROJECT must identify one exact AviaSurveil360 local-preprod project"
 case "$transport" in
   https)
-    [[ "$https_port" == "8445" ]] ||
-      fail "canonical HTTPS preprod currently requires AVIA_PREPROD_HTTPS_PORT=8445"
+    [[ "$https_port" =~ ^[0-9]+$ && "$https_port" -ge 1024 && "$https_port" -le 65535 ]] ||
+      fail "AVIA_PREPROD_HTTPS_PORT must be a user-space TCP port"
     [[ -z "$compose_override" ]] ||
       fail "canonical HTTPS transport does not accept a Compose override"
     web_origin="${AVIA_PREPROD_WEB_ORIGIN:-https://localhost:${https_port}}"

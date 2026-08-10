@@ -44,7 +44,10 @@ const defaultProductAuthority = ["AGENTS.md", "docs/product-specs/screen-specs/S
 const defaultSourceEvidence = ["docs/demo-evidence/UI_SCREEN_AUDIT_2026-07-19.md", "index.html", "css/styles.css", "js/app.js", "js/views.js"] as const;
 
 export const LEGACY_SCREEN_SOURCE: readonly LegacyScreenSourceTuple[] = sourceRows;
-export const LEGACY_SCREEN_MANIFEST: readonly LegacyScreenContract[] = sourceRows.map((row) => {
+const retiredRootOracleAuditIDs = new Set(["ui-audit-043"]);
+export const LEGACY_SCREEN_MANIFEST: readonly LegacyScreenContract[] = sourceRows
+  .filter((row) => !retiredRootOracleAuditIDs.has(row.auditId))
+  .map((row) => {
   const route = REACT_ROUTE_CONTRACT_BY_AUDIT_ID.get(row.auditId);
   if (!route) throw new Error(`Missing route contract for ${row.auditId}.`);
   return {
@@ -61,7 +64,7 @@ export const LEGACY_SCREEN_MANIFEST: readonly LegacyScreenContract[] = sourceRow
     referenceScreenshotIds: [row.auditId],
     reason: `The frozen React route contract owns this ${row.screenName} surface.`,
   };
-});
+  });
 
 export const PRODUCT_SCREEN_CROSSWALK: readonly ProductScreenCrosswalk[] = [
   { outcome: "Role switch / login", delivery: "react-parity", reactSurfaceIds: ["role-select"], sourceAuditIds: ["ui-audit-001"], disposition: "Delivered as the candidate session/role entry." },

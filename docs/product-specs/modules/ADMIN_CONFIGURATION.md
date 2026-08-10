@@ -53,13 +53,10 @@ The screen must show status, owner, due date and next action before secondary de
 - Auditee-visible and internal information stay separated.
 - The user can complete the primary task without leaving the screen.
 
-## AGA candidate demo overlay
+## Retired AGA candidate donor
 
-`aga-candidate-demo@1.1.0` is a separate, read-only, immutable, preprod-only,
-Admin-only operational projection, not an Admin product decision. It cannot
-satisfy Task 9, establish source authority, resolve a mapping, approve risk,
-create a Draft, publish, deliver, or create a Finding or Audit. A successful
-exact-CAA-Admin read may review the sealed candidate inventory and fixed
-provisional states only; loader authorization is not an Admin decision. The
-overlay is `candidate-only`, `release pending`, and
-`production-ready: not established`.
+The separate `aga-candidate-demo@1.1.0` Admin projection was physically removed
+after canonical Task 9 donor-free qualification and the user's explicit
+`delete` decision. Administration now uses only canonical governed intake,
+catalog provenance, and Question Review boundaries. Historical receipts remain
+candidate-only evidence and authorize no current route, decision, or runtime.

@@ -1,0 +1,289 @@
+{
+  "schemaVersion": "canonical-aga-manual-review-capture/v2",
+  "capturedAt": "2026-08-10T20:48:46.806Z",
+  "status": "candidate-only",
+  "stakeholderDisposition": "accepted",
+  "stakeholderDispositionAt": "2026-08-11",
+  "stakeholderDispositionEvidence": "../stakeholder/CANONICAL_AGA_STAKEHOLDER_DISPOSITION_2026-08-11.md",
+  "sourceProfile": "task-owned disposable local-preprod",
+  "syntheticIdentity": "aga-demo-manager@synthetic.invalid",
+  "selectedQuestionCount": 3,
+  "connectedExerciseQuestionCount": 1310,
+  "questionBodiesRetained": false,
+  "visualFixture": {
+    "kind": "privacy-safe connected presentation projection",
+    "connectedScopeAuthorityVerified": true,
+    "connectedQueueResponseVerified": true,
+    "inventedPrompt": true,
+    "inventedConfiguredReference": true,
+    "inventedExpectedEvidence": true,
+    "newAuditCatalogLabelsRedacted": true,
+    "exerciseDecisionRecorded": "RETAIN",
+    "controlledReason": "MANAGER_SCOPE_DECISION",
+    "serviceWorkerPolicy": "blocked for isolated screenshot capture"
+  },
+  "consoleErrors": [],
+  "httpErrors": [],
+  "pageErrors": [],
+  "requestFailures": [],
+  "captures": [
+    {
+      "surface": "new-audit",
+      "route": "/department-manager/new-audit/step-4",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "filename": "new-audit-1440x900.png",
+      "sha256": "1dc3c820636d12239663855e4989ae82bc4bbca6fa0043b5af16928cb030f01a",
+      "bytes": 115950,
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "scrollWidth": 1440,
+      "scrollY": 611,
+      "documentOverflow": false,
+      "visibleRegions": {
+        "catalog": {
+          "top": 88,
+          "right": 1359,
+          "bottom": 1429,
+          "left": 315,
+          "width": 1044,
+          "height": 1341
+        }
+      }
+    },
+    {
+      "surface": "new-audit",
+      "route": "/department-manager/new-audit/step-4",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "filename": "new-audit-1024x768.png",
+      "sha256": "227ac71b05e025bda94543d61974aae2b2102d16c9e37b7f882cc9a5457b532d",
+      "bytes": 90499,
+      "innerWidth": 1024,
+      "innerHeight": 768,
+      "scrollWidth": 1024,
+      "scrollY": 661,
+      "documentOverflow": false,
+      "visibleRegions": {
+        "catalog": {
+          "top": 88,
+          "right": 943,
+          "bottom": 1481,
+          "left": 315,
+          "width": 628,
+          "height": 1392
+        }
+      }
+    },
+    {
+      "surface": "new-audit",
+      "route": "/department-manager/new-audit/step-4",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "filename": "new-audit-390x844.png",
+      "sha256": "31f3b0a3eb68d46b82dc085e87cb41a72ff9728f2860df184d98bacf5bda7b7f",
+      "bytes": 45937,
+      "innerWidth": 390,
+      "innerHeight": 844,
+      "scrollWidth": 390,
+      "scrollY": 1129,
+      "documentOverflow": false,
+      "visibleRegions": {
+        "catalog": {
+          "top": 88,
+          "right": 347,
+          "bottom": 1699,
+          "left": 43,
+          "width": 304,
+          "height": 1611
+        }
+      }
+    },
+    {
+      "surface": "question-review",
+      "route": "/department-manager/checklist-management/question-review",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "filename": "question-review-1440x900.png",
+      "sha256": "547d1b6918ae66f0e1185347b3b122edc82ac5234db2fa873548303b1592390b",
+      "bytes": 146523,
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "scrollWidth": 1440,
+      "scrollY": 957,
+      "documentOverflow": false,
+      "visibleRegions": {
+        "queue": {
+          "top": 88,
+          "right": 934,
+          "bottom": 321,
+          "left": 305,
+          "width": 629,
+          "height": 233
+        },
+        "decisionFile": {
+          "top": 88,
+          "right": 1369,
+          "bottom": 1240,
+          "left": 950,
+          "width": 419,
+          "height": 1152
+        }
+      }
+    },
+    {
+      "surface": "question-review-decision",
+      "route": "/department-manager/checklist-management/question-review",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "filename": "question-review-decision-1440x900.png",
+      "sha256": "f5310b8daefde04922f0d3583bc5fb5cb4bea44bd9bd8399abb967eebdec4750",
+      "bytes": 110937,
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "scrollWidth": 1440,
+      "scrollY": 1421,
+      "documentOverflow": false,
+      "visibleRegions": {
+        "decisions": {
+          "top": 305,
+          "right": 1350,
+          "bottom": 757,
+          "left": 969,
+          "width": 381,
+          "height": 452
+        }
+      }
+    },
+    {
+      "surface": "question-review",
+      "route": "/department-manager/checklist-management/question-review",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "filename": "question-review-1024x768.png",
+      "sha256": "e1754e0e955146692e10ca9a0bed0635897a159608c08470574080f85c68c8f2",
+      "bytes": 108745,
+      "innerWidth": 1024,
+      "innerHeight": 768,
+      "scrollWidth": 1024,
+      "scrollY": 1043,
+      "documentOverflow": false,
+      "visibleRegions": {
+        "queue": {
+          "top": 88,
+          "right": 965,
+          "bottom": 321,
+          "left": 293,
+          "width": 673,
+          "height": 233
+        },
+        "decisionFile": {
+          "top": 337,
+          "right": 965,
+          "bottom": 1390,
+          "left": 293,
+          "width": 673,
+          "height": 1053
+        }
+      }
+    },
+    {
+      "surface": "question-review-decision",
+      "route": "/department-manager/checklist-management/question-review",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "filename": "question-review-decision-1024x768.png",
+      "sha256": "c1a956bbd82cc7176c8d519ac6c6849febe85f1b2d72065474ce1aa54d16a4ea",
+      "bytes": 98578,
+      "innerWidth": 1024,
+      "innerHeight": 768,
+      "scrollWidth": 1024,
+      "scrollY": 1789,
+      "documentOverflow": false,
+      "visibleRegions": {
+        "decisions": {
+          "top": 191,
+          "right": 946,
+          "bottom": 625,
+          "left": 312,
+          "width": 635,
+          "height": 434
+        }
+      }
+    },
+    {
+      "surface": "question-review",
+      "route": "/department-manager/checklist-management/question-review",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "filename": "question-review-390x844.png",
+      "sha256": "9d3e8538212140b6a646b03e6b32ad97d4bebf9a6fddd702c127d94ad230ae36",
+      "bytes": 56492,
+      "innerWidth": 390,
+      "innerHeight": 844,
+      "scrollWidth": 390,
+      "scrollY": 1677,
+      "documentOverflow": false,
+      "visibleRegions": {
+        "queue": {
+          "top": 88,
+          "right": 364,
+          "bottom": 396,
+          "left": 26,
+          "width": 338,
+          "height": 308
+        },
+        "decisionFile": {
+          "top": 412,
+          "right": 364,
+          "bottom": 1826,
+          "left": 26,
+          "width": 338,
+          "height": 1413
+        }
+      }
+    },
+    {
+      "surface": "question-review-decision",
+      "route": "/department-manager/checklist-management/question-review",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "filename": "question-review-decision-390x844.png",
+      "sha256": "d942a2fe28e910f2843b6688405688b4d0c2ebca25c0e024e0f8776a91d8ab0b",
+      "bytes": 47716,
+      "innerWidth": 390,
+      "innerHeight": 844,
+      "scrollWidth": 390,
+      "scrollY": 2769,
+      "documentOverflow": false,
+      "visibleRegions": {
+        "decisions": {
+          "top": 99,
+          "right": 345,
+          "bottom": 715,
+          "left": 45,
+          "width": 300,
+          "height": 615
+        }
+      }
+    }
+  ]
+}

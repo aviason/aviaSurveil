@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { createContext, type ComponentType, type PropsWithChildren, type ReactElement, useContext, useState } from "react";
+import { createContext, type PropsWithChildren, useContext, useState } from "react";
 
 import type { Backend, Role } from "../backend/backend";
 import type { IdentityMode, SessionClient } from "../auth/session-client";
@@ -20,16 +20,6 @@ export interface ApplicationRuntime {
   beforeSubjectChange?: (reason: "LOGOUT" | "USER_SWITCH") => Promise<void>;
   fieldRepositoryForSubject?: (subjectId: string) => IndexedDbFieldRepository;
   inspectionAttachmentStoreForSubject?: (subjectId: string) => InspectionAttachmentStore;
-  /** HTTP-only route extension; the memory-mock entry never imports it. */
-  supplementalRouteElements?: readonly ReactElement[];
-  /** HTTP-only capability-gated navigation extension. */
-  supplementalNavigation?: ComponentType<{ activeRole: Role; onNavigate?: () => void }>;
-  /**
-   * Exact local-preprod AGA route surface. This is deliberately separate from
-   * the normal HTTP runtime so an authenticated root never probes a normal
-   * role-home API when the tagged workspace is the supported entry point.
-   */
-  agaDemoWorkspaceSurfaceEnabled?: boolean;
 }
 
 const ApplicationRuntimeContext = createContext<ApplicationRuntime | null>(null);

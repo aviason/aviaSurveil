@@ -30,7 +30,7 @@ describe("HttpBackend", () => {
       { fetchImplementation: vi.fn<typeof fetch>() },
     );
 
-    expect(BACKEND_CAPABILITY_KEYS).toHaveLength(32);
+    expect(BACKEND_CAPABILITY_KEYS).toHaveLength(31);
     expect(BACKEND_CAPABILITY_KEYS.every((key) => backend[key] !== undefined)).toBe(true);
   });
 
@@ -555,7 +555,7 @@ describe("HttpBackend", () => {
     });
   });
 
-  it("maps the Task 4 planning, package, team, and Auditee notice capability slice", async () => {
+  it("maps the Task 4 planning, team, and Auditee notice capability slice", async () => {
     const draft = {
       id: "PLAN-DRAFT-2026-001",
       organizationId: "ORG-FLY-NAMIBIA",
@@ -576,26 +576,6 @@ describe("HttpBackend", () => {
       currency: "NAD" as const,
       revision: 1,
       submittedPlanningItemId: null,
-      updatedAt: "2026-07-23T09:00:00Z",
-    };
-    const packageDraft = {
-      id: "PKG-AUD-2026-001-CABIN",
-      sourceAuditId: "AUD-2026-001",
-      organizationId: "ORG-FLY-NAMIBIA",
-      organizationName: "Fly Namibia",
-      applicationType: "Air Operator Certificate",
-      domain: "Cabin Safety",
-      status: "DRAFT" as const,
-      packageVersion: 1,
-      revision: 1,
-      riskFocus: ["Emergency equipment"],
-      questions: [{
-        id: "CAB-EMEQ-PBE-001",
-        prompt: "Is the PBE serviceable?",
-        whyIncluded: "Configured Cabin safety risk focus",
-        expectedEvidence: ["PBE serviceability record"],
-        configuredReference: "Configured Cabin Inspection reference",
-      }],
       updatedAt: "2026-07-23T09:00:00Z",
     };
     const member = {
@@ -659,9 +639,6 @@ describe("HttpBackend", () => {
       if (url.includes("/v1/planning/intake-drafts/")) {
         return jsonResponse(init?.method === "PUT" ? { ...draft, revision: 2 } : draft);
       }
-      if (url.includes("/v1/inspection-package-drafts/")) {
-        return jsonResponse(init?.method === "PUT" ? { ...packageDraft, revision: 2 } : packageDraft);
-      }
       if (url === "/v1/team-members?role=leadInspector") {
         return jsonResponse({ items: [member], nextCursor: null });
       }
@@ -694,13 +671,6 @@ describe("HttpBackend", () => {
       draftId: savedDraft.id,
       planningItemId: "PLAN-2026-CAB-001",
     });
-    const loadedPackage = await backend.packageDrafts!.get({ packageDraftId: packageDraft.id });
-    const savedPackage = await backend.packageDrafts!.save({
-      idempotencyKey: "IDEM-TASK-4-PACKAGE",
-      expectedRevision: loadedPackage.revision,
-      packageDraftId: loadedPackage.id,
-      riskFocus: ["Emergency equipment"],
-    });
     const members = await backend.teams!.list({ role: "leadInspector" });
     const teams = await backend.teams!.listAuditTeams({ limit: 20 });
     const notices = await backend.auditeeCoordination!.list({});
@@ -717,7 +687,6 @@ describe("HttpBackend", () => {
       status: "FINANCE_REVIEW",
       estimatedBudget: 0,
     });
-    expect(savedPackage).toMatchObject({ packageVersion: 1, revision: 2 });
     expect(members.items).toEqual([member]);
     expect(teams.items[0]).toMatchObject({
       auditId: "AUD-2026-001",
@@ -733,13 +702,11 @@ describe("HttpBackend", () => {
     expect(mutationHeaders.map((headers) => headers.get("idempotency-key"))).toEqual([
       "IDEM-TASK-4-SAVE",
       "IDEM-TASK-4-SUBMIT",
-      "IDEM-TASK-4-PACKAGE",
       "IDEM-TASK-4-CONFIRM",
     ]);
     expect(mutationHeaders.map((headers) => headers.get("if-match"))).toEqual([
       '"rev-1"',
       '"rev-2"',
-      '"rev-1"',
       '"rev-4"',
     ]);
     expect(fetchImplementation.mock.calls
@@ -747,7 +714,6 @@ describe("HttpBackend", () => {
       .map(([, init]) => JSON.parse(String(init?.body)).operationId)).toEqual([
       "IDEM-TASK-4-SAVE",
       "IDEM-TASK-4-SUBMIT",
-      "IDEM-TASK-4-PACKAGE",
       "IDEM-TASK-4-CONFIRM",
     ]);
   });

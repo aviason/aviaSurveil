@@ -119,7 +119,7 @@ async function loginWithRestoredTotp(page: Page): Promise<ApplicationSession> {
   return applicationSession(page);
 }
 
-test("restored platform retains MFA scope and serves all 86 React routes", async ({
+test("restored platform retains MFA scope and serves all 85 active React routes", async ({
   page,
 }) => {
   test.setTimeout(900_000);
@@ -157,7 +157,7 @@ test("restored platform retains MFA scope and serves all 86 React routes", async
   const session = await loginWithRestoredTotp(page);
   expect(session.organizationId).toBe(expectedOrganization);
   expect([...session.roles].sort()).toEqual(expectedRoles);
-  expect(REACT_ROUTE_CONTRACTS).toHaveLength(86);
+  expect(REACT_ROUTE_CONTRACTS).toHaveLength(85);
   const loaded = new Set<string>();
   for (const route of REACT_ROUTE_CONTRACTS) {
     const response = await page.goto(route.path, {
@@ -168,13 +168,13 @@ test("restored platform retains MFA scope and serves all 86 React routes", async
     expect(new URL(page.url()).pathname).toBe(route.path);
     loaded.add(route.id);
   }
-  expect(loaded.size).toBe(86);
+  expect(loaded.size).toBe(85);
 
   await test.info().attach("restored-platform-summary", {
     body: JSON.stringify({
       status: "verified locally",
       artifactStatus: "candidate-only",
-      directLoads: 86,
+      directLoads: 85,
       totpLogin: true,
       organizationId: session.organizationId,
       roles: [...session.roles].sort(),

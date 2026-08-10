@@ -50,14 +50,6 @@ const canonicalSessionPathPatterns = [
   CANONICAL_INSPECTOR_AUDIT_PATH,
   CANONICAL_INSPECTOR_CHECKLIST_PATH,
 ] as const;
-const supplementalWorkspacePaths = [
-  "/admin/aga-demo-workspace",
-  "/department-manager/aga-demo-workspace",
-  "/inspector/aga-demo-workspace",
-  "/lead-inspector/aga-demo-workspace",
-  "/caa-reviewer/aga-demo-workspace",
-  "/auditee/aga-demo-workspace",
-] as const;
 const supportedRoles = new Set<Role>([
   "inspector",
   "leadInspector",
@@ -98,10 +90,7 @@ export function safeReturnTo(rawReturnTo: string, origin = window.location.origi
           : segment === pathSegments[index],
       );
     });
-    const isRegisteredPath = sessionPaths.has(parsed.pathname) || matchesCanonicalPath ||
-      supplementalWorkspacePaths.some(
-        (path) => parsed.pathname === path || parsed.pathname.startsWith(`${path}/`),
-      );
+    const isRegisteredPath = sessionPaths.has(parsed.pathname) || matchesCanonicalPath;
     if (!isRegisteredPath) return "/";
     return `${parsed.pathname}${parsed.search}`;
   } catch {

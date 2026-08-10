@@ -22,7 +22,7 @@ backendContract(async (): Promise<BackendContractHarness> => {
   };
 });
 
-describe("mock-only 86-screen capability boundary", () => {
+describe("mock-only 85-screen capability boundary", () => {
   it("exposes immutable composed demo capabilities without activating HTTP behavior", async () => {
     const store = MemoryMockStore.createCanonical({ clock: () => FIXED_NOW });
     const backend: DemoBackend = createMockBackend({ store, principal: PRINCIPALS.inspector });
@@ -40,10 +40,8 @@ describe("mock-only 86-screen capability boundary", () => {
     expect(backend).toHaveProperty("auditeeCoordination");
     expect(backend).toHaveProperty("auditeeReports");
     expect(backend).toHaveProperty("planningIntake");
-    expect(backend).toHaveProperty("packageDrafts");
     expect(backend.planningIntake).toHaveProperty("saveDraft");
     expect(backend.planningIntake).toHaveProperty("submit");
-    expect(backend.packageDrafts).toHaveProperty("save");
     expect(backend.assistantDrafts).toHaveProperty("createDraft");
     expect(backend.assistantDrafts).not.toHaveProperty("create");
     expect(backend.auditeeCoordination).toHaveProperty("list");

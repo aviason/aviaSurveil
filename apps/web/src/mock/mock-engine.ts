@@ -3473,38 +3473,6 @@ export class MockBackendEngine implements DemoBackend {
     });
   }
 
-  readonly packageDrafts: DemoBackend["packageDrafts"] = {
-    get: async ({ packageDraftId }) => {
-      requireDemoCapability(this.principal, "packageDrafts");
-      requireRole(this.principal, ["manager"], "Department Manager authority is required for Inspection Package drafts.");
-      return this.store.read((state) => {
-        const draft = state.inspectionPackageDrafts[packageDraftId];
-        if (!draft) throw new BackendInvariantError(`Inspection Package draft ${packageDraftId} was not found.`);
-        return draft;
-      });
-    },
-    save: async (input) => {
-      requireDemoCapability(this.principal, "packageDrafts");
-      requireRole(this.principal, ["manager"], "Department Manager authority is required for Inspection Package drafts.");
-      requireNonEmpty(input.idempotencyKey, "Idempotency key");
-      return this.store.execute(input.idempotencyKey, input, (state) => {
-        const draft = state.inspectionPackageDrafts[input.packageDraftId];
-        if (!draft) throw new BackendInvariantError(`Inspection Package draft ${input.packageDraftId} was not found.`);
-        requireRevision(draft.revision, input.expectedRevision, "Inspection Package draft");
-        const riskFocus = input.riskFocus.map((item) => item.trim()).filter(Boolean);
-        if (riskFocus.length === 0) throw new BackendInvariantError("Inspection Package risk focus is required.");
-        const saved = {
-          ...draft,
-          riskFocus,
-          revision: draft.revision + 1,
-          updatedAt: this.store.clock(),
-        };
-        state.inspectionPackageDrafts[input.packageDraftId] = saved;
-        return saved;
-      });
-    },
-  };
-
   readonly assignments: Backend["assignments"] = {
     list: async (input) => {
       if (this.principal.role === "auditee") {

@@ -1,5 +1,11 @@
 # Preprod-Only AGA Candidate Demo Intake Implementation Plan
 
+> **Status (2026-08-10):** `paused / retired by canonical successor`. The
+> historical evidence remains, but the overlay runtime, schema provisioners,
+> API/UI, commands, scripts, and tests were physically removed after the user
+> selected canonical Task 9 `delete` and post-deletion qualification passed.
+> Do not resume this duplicate product.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use
 > Execute this plan only after the user separately authorizes implementation.
 > The 2026-08-01 request authorizes this plan artifact only; do not

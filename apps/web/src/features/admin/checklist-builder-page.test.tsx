@@ -21,6 +21,5 @@ describe("Checklist Builder governed intake boundary", () => {
     expect(screen.getByTestId("checklist-intake-panel")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /receive candidate-only archive/i })).toBeDisabled();
     expect(screen.getByText(/external, read-only dependency/i)).toBeInTheDocument();
-    expect(screen.queryByTestId("aga-candidate-demo-panel")).not.toBeInTheDocument();
   });
 });

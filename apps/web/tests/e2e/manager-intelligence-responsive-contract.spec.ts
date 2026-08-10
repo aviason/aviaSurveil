@@ -13,7 +13,6 @@ const taskSevenRoutes = [
   ["/department-manager/ssp-nasp", "manager-ssp-nasp-page"],
   ["/department-manager/usoap-readiness", "manager-usoap-readiness-page"],
   ["/department-manager/cap-effectiveness", "manager-cap-effectiveness-page"],
-  ["/department-manager/inspection-package-builder", "inspection-package-builder-page"],
   ["/department-manager/new-audit/step-1", "new-audit-wizard-page"],
   ["/department-manager/new-audit/step-2", "new-audit-wizard-page"],
   ["/department-manager/new-audit/step-3", "new-audit-wizard-page"],
@@ -121,15 +120,5 @@ for (const viewport of viewports) {
     await expect(page).toHaveURL(/\/department-manager\/audit-plan\?planningItemId=PLAN-2026-INTAKE-001$/);
     await expect(page.getByTestId("planning-selected-record")).toContainText("PLAN-2026-INTAKE-001");
 
-    const packageLink = page.getByRole("link", { name: "Open Inspection Package Builder" });
-    await expectInsideViewport(page, packageLink);
-    await packageLink.click();
-    const packagePage = page.getByTestId("inspection-package-builder-page");
-    await expect(packagePage).toContainText("PKG-AUD-2026-001-CABIN");
-    await packagePage.getByLabel("Risk focus").fill("Emergency equipment serviceability, Repeat Finding monitoring");
-    const save = packagePage.getByRole("button", { name: "Save package draft" });
-    await expectInsideViewport(page, save);
-    await save.click();
-    await expect(packagePage.getByRole("status")).toContainText("Saved revision 2");
   });
 }

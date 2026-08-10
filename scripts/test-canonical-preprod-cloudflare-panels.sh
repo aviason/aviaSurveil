@@ -6,7 +6,7 @@ state_root="${AVIA_CANONICAL_PREPROD_STATE_DIR:-$repository_root/.local/aviasurv
 runtime_root="${AVIA_CANONICAL_PREPROD_TUNNEL_RUNTIME_DIR:-$repository_root/.local/aviasurveil360-canonical-preprod-cloudflare-tunnel}"
 status_script="$repository_root/scripts/status-canonical-preprod-cloudflare.sh"
 runtime_file="$runtime_root/runtime.json"
-password_file="$state_root/secrets/preprod_aga_demo_oidc_qualification_password"
+password_file="$state_root/secrets/preprod_canonical_demo_oidc_qualification_password"
 
 fail() {
   printf 'canonical-preprod-cloudflare-panels: %s\n' "$*" >&2
@@ -48,7 +48,7 @@ trap cleanup EXIT
   cd "$repository_root/apps/web"
   AVIA_E2E_PROFILE=canonical-quick-tunnel \
   AVIA_E2E_BASE_URL="$public_origin" \
-  AVIA_PREPROD_AGA_OIDC_HOST="$public_host" \
+  AVIA_PREPROD_OIDC_HOST="$public_host" \
   AVIA_AGA_OIDC_PASSWORD="$qualification_password" \
   AVIA_PLAYWRIGHT_OUTPUT_DIR="$output_root" \
     ./node_modules/.bin/playwright test \

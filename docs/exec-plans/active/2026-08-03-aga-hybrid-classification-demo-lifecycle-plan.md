@@ -5,6 +5,9 @@
 > 2026-08-07 canonical AGA preprod successor and treat this artifact as donor/
 > historical evidence. Do not commit, push, deploy, call an external system, or
 > change a real database without separate exact authorization.
+> On 2026-08-10 the user selected successor Task 9 `delete`; this duplicate
+> workspace runtime/schema/scripts/tests were physically removed and the
+> canonical boundary passed requalification. Retain this file only as history.
 
 **Goal:** Classify every one of the 1,310 immutable AGA candidate question
 identities with a controlled, versioned domain model; give CAA Admin and an
@@ -3769,7 +3772,7 @@ Use this prompt only after the user explicitly authorizes implementation:
 
 ```text
 Do not execute this paused plan independently. Execute
-docs/exec-plans/active/2026-08-07-canonical-aga-preprod-end-to-end-product-plan.md
+docs/exec-plans/completed/2026-08-07-canonical-aga-preprod-end-to-end-product-plan.md
 from Gate 0 after explicit implementation authorization and use this plan as
 read-only donor/historical evidence. Preserve its evidence and the current
 dirty worktree, but do not resume any A–E/F slice, synthetic lifecycle command,

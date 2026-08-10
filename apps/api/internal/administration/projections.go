@@ -882,9 +882,9 @@ func loadScreenDefinitions() []screenDefinition {
 	if err := json.Unmarshal(screenDefinitionsJSON, &encoded); err != nil {
 		panic(fmt.Sprintf("decode embedded Administration screen registry: %v", err))
 	}
-	if len(encoded) != 86 {
+	if len(encoded) != 85 {
 		panic(fmt.Sprintf(
-			"embedded Administration screen registry has %d screens; want 86",
+			"embedded Administration screen registry has %d screens; want 85",
 			len(encoded),
 		))
 	}
@@ -922,9 +922,9 @@ func loadScreenDefinitions() []screenDefinition {
 			State: ScreenReady, VisibleActions: item.VisibleActions,
 		})
 	}
-	if actionCount != 108 {
+	if actionCount != 107 {
 		panic(fmt.Sprintf(
-			"embedded Administration screen registry has %d actions; want 108",
+			"embedded Administration screen registry has %d actions; want 107",
 			actionCount,
 		))
 	}

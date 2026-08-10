@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/preproddata/agacandidatedemo"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -25,7 +24,7 @@ type LoadResult struct {
 // method only creates immutable question_versions and reference-only catalog
 // membership/lineage rows.  Rerunning the same package is idempotent, while a
 // changed body or digest for an existing version fails closed.
-func LoadSealedCatalog(ctx context.Context, pool *database.Pool, pkg agacandidatedemo.AcceptedPackage, catalogVersion, actorSubjectID, providerScopeID, regulatedTargetID string, now time.Time) (LoadResult, error) {
+func LoadSealedCatalog(ctx context.Context, pool *database.Pool, pkg AcceptedPackage, catalogVersion, actorSubjectID, providerScopeID, regulatedTargetID string, now time.Time) (LoadResult, error) {
 	if pool == nil {
 		return LoadResult{}, fmt.Errorf("canonical AGA catalog database is required")
 	}

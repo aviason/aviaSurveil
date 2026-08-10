@@ -17,7 +17,6 @@ import type {
   AuditEventView,
   CalendarItemView,
   CommunicationView,
-  InspectionPackageDraftView,
   InspectionTeamAuditView,
   CapRevisionView,
   ChecklistTemplateQuestionView,
@@ -297,19 +296,6 @@ export function mapSubmitPlanningIntake(
   return {
     draft: mapPlanningIntakeDraft(value.draft),
     planningItem: mapPlanningItem(value.planningItem),
-  };
-}
-
-export function mapInspectionPackageDraft(
-  value: Schemas["InspectionPackageDraftView"],
-): InspectionPackageDraftView {
-  return {
-    ...value,
-    riskFocus: [...value.riskFocus],
-    questions: value.questions.map((question) => ({
-      ...question,
-      expectedEvidence: [...question.expectedEvidence],
-    })),
   };
 }
 

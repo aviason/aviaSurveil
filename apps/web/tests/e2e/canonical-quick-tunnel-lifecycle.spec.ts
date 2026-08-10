@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createHash, randomUUID } from "node:crypto";
 
-import { loginQualificationAccount, logout, requiredEnvironment } from "./support/aga-candidate-demo";
+import { loginQualificationAccount, logout, requiredEnvironment } from "./support/canonical-preprod-session";
 
 const accounts = {
   auditeeA: "aga-demo-auditee-a@synthetic.invalid",
@@ -168,7 +168,7 @@ async function decideReport(
 test.describe("canonical Quick Tunnel 1,310-question lifecycle", () => {
   test.describe.configure({ mode: "serial" });
 
-  test("runs exact selection, approval, preparation, execution, CAP, Evidence, closure, and Final Report across real roles", async ({ page }) => {
+  test("runs exact selection, approval, preparation, execution, CAP, Evidence, closure, and Final Report across real roles", async ({ browser, page }) => {
     test.setTimeout(1_500_000);
 
     const leadSession = await signIn(page, accounts.lead, "/lead-inspector/lead-review");
@@ -180,6 +180,8 @@ test.describe("canonical Quick Tunnel 1,310-question lifecycle", () => {
     await logout(page);
 
     await signIn(page, accounts.manager, "/department-manager/new-audit/step-1");
+    const donorWorkspace = await apiRequest(page, "POST", "/api/v1/preprod/aga-demo-workspace/classification/query", {});
+    expect(donorWorkspace.status).toBe(404);
     const scopeSelector = page.getByLabel("Organization, provider scope, and regulated target");
     await expect(scopeSelector).toBeEnabled();
     await scopeSelector.selectOption({ index: 1 });
@@ -473,8 +475,8 @@ test.describe("canonical Quick Tunnel 1,310-question lifecycle", () => {
       const response = await fetch(url, { method: "PUT", headers, body: Uint8Array.from(bytes) });
       return { status: response.status, body: await response.text() };
     }, { url: upload.uploadUrl, headers: upload.requiredHeaders, bytes: [...evidenceBytes] });
-    expect(putResult.status).toBeGreaterThanOrEqual(200);
-    expect(putResult.status).toBeLessThan(300);
+    expect(putResult.status, putResult.body).toBeGreaterThanOrEqual(200);
+    expect(putResult.status, putResult.body).toBeLessThan(300);
     const completedEvidence = await requireAPI<{ evidenceVersionId: string; scanState: string }>(page, "POST", `/api/v1/evidence/uploads/${encodeURIComponent(upload.uploadId)}/complete`, {
       operationId: operation("EVIDENCE-COMPLETE"),
       uploadId: upload.uploadId,
@@ -551,6 +553,34 @@ test.describe("canonical Quick Tunnel 1,310-question lifecycle", () => {
     const auditeeReports = await requireAPI<{ items: unknown[] }>(page, "GET", "/api/v1/auditee/report-versions?kind=FINAL");
     expect(JSON.stringify({ auditeeFindings, auditeeReports })).not.toContain("internalCaaNote");
     expect(JSON.stringify(auditeeReports)).toContain(finalReport.reportVersionId);
+
+    const managerNotificationContext = await browser.newContext({
+      baseURL: requiredEnvironment("AVIA_E2E_BASE_URL"),
+      ignoreHTTPSErrors: true,
+    });
+    const managerNotificationPage = await managerNotificationContext.newPage();
+    try {
+      await signIn(managerNotificationPage, accounts.manager, "/department-manager/dashboard");
+      const deliverySubject = `Privacy-safe lifecycle delivery ${suffix}`;
+      await requireAPI(page, "POST", "/api/v1/communications", {
+        operationId: operation("AUDITEE-COMMUNICATION"),
+        expectedRevision: null,
+        idempotencyKey: operation("AUDITEE-COMMUNICATION-IDEMPOTENCY"),
+        organizationId: "ORG-FLY-NAMIBIA",
+        subject: deliverySubject,
+        body: "Synthetic final-report delivery verification for the disposable local qualification.",
+        audience: "CAA",
+      });
+      await expect.poll(async () => {
+        const notifications = await requireAPI<{
+          items: Array<{ body: string; emailDeliveryStatus: string }>;
+        }>(managerNotificationPage, "GET", "/api/v1/notifications?limit=100");
+        return notifications.items.find((item) => item.body.includes(deliverySubject))?.emailDeliveryStatus;
+      }, { timeout: 60_000, intervals: [1_000, 2_000, 5_000] }).toBe("DELIVERED");
+      await logout(managerNotificationPage);
+    } finally {
+      await managerNotificationContext.close();
+    }
     await logout(page);
 
     const anonymousDownload = await apiRequest(page, "GET", `/api/v1/evidence/${encodeURIComponent(evidenceVersion!.id)}/download`);

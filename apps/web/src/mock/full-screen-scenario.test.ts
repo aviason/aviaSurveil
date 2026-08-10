@@ -13,7 +13,7 @@ const EXPECTED_ACTION_IDS: Record<ReactSurfaceId, readonly string[]> = {
   "role-select": ["select-inspector", "select-lead-inspector", "select-manager", "select-finance", "select-gm", "select-executive", "select-auditee", "select-admin"],
   "inspector-home": ["open-assignment"], "inspector-findings": ["open-finding"], "inspector-messages": ["compose-message"], "inspector-calendar": ["open-calendar-item"], "inspector-reports": ["preview-report"], "audit-detail": ["start-checklist"], "checklist-runner": ["save-response", "submit-checklist"], "finding-detail": ["open-closure-report"], "closure-report-preview": ["download-closure-report"], "inspector-assistant": ["draft-advisory"], "inspector-profile": ["save-profile"],
   "lead-home": ["review-potential-finding"], "lead-preliminary-reports": ["open-preliminary-report"], "lead-preliminary-report-workflow": ["save-preliminary-draft"], "lead-final-reports": ["open-final-readiness"], "lead-final-report-readiness": ["prepare-final"], "lead-prepare-final-report": ["save-draft", "preview-report"], "lead-final-report-document": ["download-report"], "lead-audit-assignment": ["assign-inspector"], "lead-checklist-question-assignment": ["save-question-assignment"], "cap-review": ["accept-cap", "request-cap-information"], "lead-calendar": ["open-lead-calendar-item"], "lead-messages": ["compose-lead-message"], "lead-analytics-reports": ["download-analytics"], "lead-settings": ["save-lead-settings"],
-  "manager-home": ["open-overdue-finding"], "audit-plan": ["create-audit"], "manager-audits": ["open-manager-audit"], "report-preview": ["return-report", "forward-report"], "manager-risk-dashboard": ["open-risk-profile"], "manager-inspection-team": ["open-team-member"], "manager-findings-review": ["open-evidence-review"], "manager-cap-monitoring": ["open-cap-closure"], "manager-checklist-management": ["open-checklist-template"], "manager-safety-intelligence": ["open-safety-intelligence"], "organization-risk-profile": ["open-organization-finding"], "manager-ssp-nasp": ["open-ssp-nasp"], "manager-usoap-readiness": ["open-usoap-gap"], "manager-cap-effectiveness": ["review-effectiveness"], "organization-registry": ["open-organization"], "organization-detail": ["open-organization-history"], "inspection-package-builder": ["save-package"], "evidence-review": ["accept-evidence", "request-evidence-information"], "manager-preliminary-report-review": ["return-preliminary-report", "forward-preliminary-report"], "manager-cap-closure-review": ["authorize-closure"], "new-audit-wizard-1": ["wizard-next", "wizard-save-draft"], "new-audit-wizard-2": ["wizard-back", "wizard-next"], "new-audit-wizard-3": ["wizard-back", "wizard-next"], "new-audit-wizard-4": ["wizard-back", "wizard-next"], "new-audit-wizard-5": ["wizard-back", "wizard-preview", "wizard-submit"],
+  "manager-home": ["open-overdue-finding"], "audit-plan": ["create-audit"], "manager-audits": ["open-manager-audit"], "report-preview": ["return-report", "forward-report"], "manager-risk-dashboard": ["open-risk-profile"], "manager-inspection-team": ["open-team-member"], "manager-findings-review": ["open-evidence-review"], "manager-cap-monitoring": ["open-cap-closure"], "manager-checklist-management": ["open-checklist-template"], "manager-safety-intelligence": ["open-safety-intelligence"], "organization-risk-profile": ["open-organization-finding"], "manager-ssp-nasp": ["open-ssp-nasp"], "manager-usoap-readiness": ["open-usoap-gap"], "manager-cap-effectiveness": ["review-effectiveness"], "organization-registry": ["open-organization"], "organization-detail": ["open-organization-history"], "evidence-review": ["accept-evidence", "request-evidence-information"], "manager-preliminary-report-review": ["return-preliminary-report", "forward-preliminary-report"], "manager-cap-closure-review": ["authorize-closure"], "new-audit-wizard-1": ["wizard-next", "wizard-save-draft"], "new-audit-wizard-2": ["wizard-back", "wizard-next"], "new-audit-wizard-3": ["wizard-back", "wizard-next"], "new-audit-wizard-4": ["wizard-back", "wizard-next"], "new-audit-wizard-5": ["wizard-back", "wizard-preview", "wizard-submit"],
   "gm-home": ["open-department-summary"], "gm-planning": ["review-plan"], "gm-report-approvals": ["forward-report", "return-report"], "gm-departments": ["open-department"], "gm-risk-dashboard": ["open-summary-risk"], "gm-settings": ["save-gm-settings"], "finance-home": ["approve-budget", "return-budget"],
   "executive-home": ["open-executive-report"], "executive-planning": ["approve-plan", "return-plan"], "executive-preliminary-reports": ["issue-preliminary-report"], "executive-final-reports": ["issue-final-report"], "executive-report-preview": ["download-executive-report"], "executive-notifications": ["open-executive-notification"], "executive-settings": ["save-executive-settings"],
   "auditee-home": ["respond-to-cap"], "auditee-inspection-coordination": ["confirm-coordination"], "auditee-preliminary-reports": ["open-auditee-preliminary-report"], "auditee-final-reports": ["open-auditee-final-report"], "auditee-report-preview": ["download-auditee-report"], "auditee-messages": ["compose-auditee-message"], "auditee-documents": ["download-document"], "auditee-settings": ["save-auditee-settings"],
@@ -88,7 +88,7 @@ describe("full-screen deterministic demo scenario", () => {
       for (const report of Object.values(state.reportVersions).filter((item) => item.findingIds.includes(finding.id))) expect(report).toMatchObject({ auditId: finding.auditId, organizationId: finding.organizationId });
     });
   });
-  it("loads all 86 role-safe projections from one seed and exposes every declared visible command", async () => {
+  it("loads all 85 active role-safe projections from one seed and exposes every declared visible command", async () => {
     const store = MemoryMockStore.createFullScreenScenario({ clock: () => FIXED_NOW });
     const sessions = Object.fromEntries(
       Object.entries(DEMO_PRINCIPALS).map(([role, principal]) => [
@@ -105,7 +105,7 @@ describe("full-screen deterministic demo scenario", () => {
       ),
     );
 
-    expect(projections).toHaveLength(86);
+    expect(projections).toHaveLength(85);
     expect(projections.map((projection) => projection.screenId)).toEqual(
       REACT_ROUTE_CONTRACTS.map((route) => route.id),
     );
@@ -261,7 +261,6 @@ describe("full-screen deterministic demo scenario", () => {
         auditeeCoordination: () => backend.auditeeCoordination.list({}),
         auditeeReports: () => backend.auditeeReports.listReleased({}),
         planningIntake: () => backend.planningIntake.getDraft({ draftId: "PLAN-DRAFT-2026-001" }),
-        packageDrafts: () => backend.packageDrafts.get({ packageDraftId: "PKG-AUD-2026-001-CABIN" }),
       } as const;
       for (const [capability, query] of Object.entries(queries) as Array<[keyof typeof queries, () => Promise<unknown>]>) {
         if (DEMO_CAPABILITY_PERMISSION_MATRIX[role].includes(capability)) {

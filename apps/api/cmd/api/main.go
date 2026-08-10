@@ -196,13 +196,7 @@ func run(ctx context.Context) error {
 						}
 					}
 				}
-				if profile.agaDemoOnly {
-					// The tagged AGA donor is retained only as a deletion-gate
-					// source artifact. It is never mounted after the canonical
-					// cutover, so a stale profile fails readiness instead of
-					// silently falling back to synthetic stakeholder state.
-					probe = unavailableReadiness{err: errors.New("tagged AGA donor runtime is disabled after canonical cutover")}
-				} else if settings.ObjectStoreEndpoint != "" {
+				if settings.ObjectStoreEndpoint != "" {
 					objects, objectErr := objectstore.NewMinIOStore(objectstore.MinIOConfig{
 						Endpoint: settings.ObjectStoreEndpoint, PublicEndpoint: settings.ObjectStorePublicEndpoint,
 						AccessKey: settings.ObjectStoreAccessKey, SecretKey: settings.ObjectStoreSecretKey,

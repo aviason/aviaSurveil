@@ -33,7 +33,6 @@ func configuredDataFeedWriter() (*datafeed.Writer, error) {
 
 type runtimeProfile struct {
 	skipMigrations            bool
-	agaDemoOnly               bool
 	clock                     func() time.Time
 	idGenerator               func(string) string
 	findingReferenceGenerator func() string

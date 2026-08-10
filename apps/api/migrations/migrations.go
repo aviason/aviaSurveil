@@ -13,7 +13,7 @@ import (
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
 )
 
-const LatestVersion int64 = 41
+const LatestVersion int64 = 42
 const advisoryLockID int64 = 36020260721
 
 //go:embed *.up.sql
@@ -118,6 +118,8 @@ func RepairRegulatoryChecklistGovernance(ctx context.Context, pool *database.Poo
 }
 
 const task5ForwardRepairSQL = `
+-- Migration 42 physically removes the obsolete fixed-ID package-draft store.
+DROP TABLE IF EXISTS inspection_package_drafts;
 -- Canonical package source identity is XOR, never a legacy template plus a
 -- canonical scope at the same time. Keep this repair idempotent for databases
 -- that already recorded migration 30 before the successor constraint was

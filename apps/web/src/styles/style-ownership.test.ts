@@ -51,10 +51,7 @@ const expectedAppCss = `@layer reset, tokens, base, shell, primitives, features,
 @import "./features/executive-secondary.css" layer(features);
 @import "./features/admin.css" layer(features);
 @import "./features/admin-secondary.css" layer(features);
-@import "../features/checklists/aga-classification-workspace-page.css" layer(features);
 @import "../features/checklists/question-review-page.css" layer(features);
-@import "../features/inspections/aga-demo-lifecycle.css" layer(features);
-@import "../features/inspections/aga-demo-inspection-package.css" layer(features);
 @import "./utilities.css" layer(utilities);
 @import "./responsive.css" layer(responsive);
 `;
@@ -90,6 +87,29 @@ describe("CSS layer and ownership contract", () => {
     const leadSecondary = readStyle("features/lead-secondary.css");
     expect(leadSecondary).toMatch(/\.lead-back-link\s*\{[^}]*min-width:\s*44px;[^}]*min-height:\s*44px;/s);
     expect(leadSecondary).toMatch(/\.lead-analytics-page \.lead-secondary-header\s*\{[^}]*max-width:\s*calc\(100% - 220px\);/s);
+  });
+
+  it("keeps long New Audit identifiers inside the mobile viewport", () => {
+    const planningIntake = readStyle("features/planning-intake.css");
+    expect(planningIntake).toMatch(
+      /\.planning-intake-page > \*,[\s\S]*\.planning-intake-catalog-list span[\s\S]*\{[^}]*min-width:\s*0;[^}]*max-width:\s*100%;/,
+    );
+    expect(planningIntake).toMatch(
+      /\.planning-intake-status,[\s\S]*\.planning-intake-selection-preview[\s\S]*\{[^}]*overflow-wrap:\s*anywhere;/,
+    );
+  });
+
+  it("keeps Question Review history digests inside the Decision file", () => {
+    const questionReview = readFileSync(
+      resolve(styleRoot, "../features/checklists/question-review-page.css"),
+      "utf8",
+    );
+    expect(questionReview).toMatch(
+      /\.canonical-question-review__workspace,[\s\S]*\.canonical-question-review__history li[\s\S]*\{[^}]*min-width:\s*0;/,
+    );
+    expect(questionReview).toMatch(
+      /\.canonical-question-review__history code\s*\{[^}]*overflow-wrap:\s*anywhere;[^}]*white-space:\s*normal;/,
+    );
   });
 
   it("reserves the root demo ribbon offset only when a demo ribbon is rendered", () => {

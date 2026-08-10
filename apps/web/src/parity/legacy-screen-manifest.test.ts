@@ -61,13 +61,14 @@ describe("legacy screen manifest", () => {
       auditId,
       role,
       screenName,
-    }))).toEqual(expected);
+    }))).toEqual(expected.filter(({ auditId }) => auditId !== "ui-audit-043"));
     expect(LEGACY_SCREEN_MANIFEST.map(({ auditId }) => auditId)).toEqual(
-      Array.from({ length: 86 }, (_, index) => `ui-audit-${String(index + 1).padStart(3, "0")}`),
+      Array.from({ length: 86 }, (_, index) => `ui-audit-${String(index + 1).padStart(3, "0")}`)
+        .filter((auditId) => auditId !== "ui-audit-043"),
     );
   });
 
-  it("freezes all 86 audit rows as React-parity contracts", () => {
+  it("keeps the protected 86-row oracle while retiring the fixed-ID package builder from React", () => {
     const reactRows = LEGACY_SCREEN_MANIFEST.filter(
       ({ disposition }) => disposition === "react-parity",
     );
@@ -75,10 +76,10 @@ describe("legacy screen manifest", () => {
       ({ disposition }) => disposition !== "react-parity",
     );
 
-    expect(reactRows).toHaveLength(86);
+    expect(reactRows).toHaveLength(85);
     expect(legacyRows).toHaveLength(0);
     expect(reactRows.map(({ auditId }) => auditId)).toEqual(
-      LEGACY_SCREEN_SOURCE.map(({ auditId }) => auditId),
+      LEGACY_SCREEN_SOURCE.filter(({ auditId }) => auditId !== "ui-audit-043").map(({ auditId }) => auditId),
     );
   });
 
@@ -99,7 +100,7 @@ describe("legacy screen manifest", () => {
     }
   });
 
-  it("maps every repo-required screen outcome into the 86-route contract", () => {
+  it("maps every current repo-required screen outcome into the active route contract", () => {
     expect(PRODUCT_SCREEN_CROSSWALK.map(({ outcome }) => outcome)).toEqual([
       "Role switch / login",
       "Manager Dashboard",

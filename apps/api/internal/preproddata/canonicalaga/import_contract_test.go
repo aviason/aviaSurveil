@@ -3,19 +3,17 @@ package canonicalaga
 import (
 	"fmt"
 	"testing"
-
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/preproddata/agacandidatedemo"
 )
 
 func TestBuildImportManifestRejectsNonExactAGAInventory(t *testing.T) {
-	pkg := agacandidatedemo.AcceptedPackage{Forms: make([]agacandidatedemo.FormCandidate, 52)}
+	pkg := AcceptedPackage{Forms: make([]FormCandidate, 52)}
 	if _, err := BuildImportManifest(pkg, "aga-preprod@1.0.0"); err == nil {
 		t.Fatal("expected exact question inventory validation")
 	}
 }
 
 func TestBuildImportManifestRecomputesDigestsAndPreservesZeroFormBoundaries(t *testing.T) {
-	pkg := agacandidatedemo.AcceptedPackage{Forms: make([]agacandidatedemo.FormCandidate, 0, 52)}
+	pkg := AcceptedPackage{Forms: make([]FormCandidate, 0, 52)}
 	questionNumber := 0
 	for formNumber := 1; formNumber <= 52; formNumber++ {
 		count := 0
@@ -24,11 +22,11 @@ func TestBuildImportManifestRecomputesDigestsAndPreservesZeroFormBoundaries(t *t
 		} else if formNumber == 31 {
 			count = 50
 		}
-		form := agacandidatedemo.FormCandidate{FormCode: fmt.Sprintf("FORM-%02d", formNumber), FormSHA256: fmt.Sprintf("sha256:form-%02d", formNumber), SourceMappingState: "SOURCE_MAPPING_REQUIRED"}
+		form := FormCandidate{FormCode: fmt.Sprintf("FORM-%02d", formNumber), FormSHA256: fmt.Sprintf("sha256:form-%02d", formNumber), SourceMappingState: "SOURCE_MAPPING_REQUIRED"}
 		for ordinal := 1; ordinal <= count; ordinal++ {
 			questionNumber++
 			prompt := fmt.Sprintf("Invented privacy-safe question %d", questionNumber)
-			form.Questions = append(form.Questions, agacandidatedemo.QuestionCandidate{
+			form.Questions = append(form.Questions, QuestionCandidate{
 				ProposalID: fmt.Sprintf("P-%04d", questionNumber), Ordinal: ordinal,
 				OriginalText: prompt, TextDigest: digestText(prompt), SourceMappingState: "SOURCE_MAPPING_REQUIRED",
 			})
@@ -58,7 +56,7 @@ func TestBuildImportManifestRecomputesDigestsAndPreservesZeroFormBoundaries(t *t
 		t.Fatalf("aggregate digest is not a canonical SHA-256: %q", manifest.ImportDigest)
 	}
 	changedForm := pkg
-	changedForm.Forms = append([]agacandidatedemo.FormCandidate(nil), pkg.Forms...)
+	changedForm.Forms = append([]FormCandidate(nil), pkg.Forms...)
 	changedForm.Forms[0].FormSHA256 = "sha256:changed-form-lineage"
 	changedManifest, err := BuildImportManifest(changedForm, "aga-preprod@1.0.0")
 	if err != nil {

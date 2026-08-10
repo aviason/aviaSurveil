@@ -213,4 +213,14 @@ func assertFoundationSchema(t *testing.T, pool *database.Pool) {
 			t.Errorf("required table %s does not exist", table)
 		}
 	}
+	var retiredPackageDraftTable *string
+	if err := pool.QueryRow(
+		context.Background(),
+		"SELECT to_regclass('public.inspection_package_drafts')::text",
+	).Scan(&retiredPackageDraftTable); err != nil {
+		t.Fatalf("look up retired inspection_package_drafts table: %v", err)
+	}
+	if retiredPackageDraftTable != nil {
+		t.Errorf("retired inspection_package_drafts table still exists: %s", *retiredPackageDraftTable)
+	}
 }

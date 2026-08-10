@@ -538,6 +538,12 @@ silently left behind.
   `aws-ipv6-trial` Terragrunt graph, local backend fixture boundary, protected
   plan hooks, and an offline layout checker. HCL formatting passes; no remote
   state, lock, plan, apply, or provider call was run.
+- [x] (2026-08-10) The user selected a separate
+  [Single-AZ ARM64 private-pilot production target](2026-08-10-aws-single-az-arm64-private-pilot-production-plan.md)
+  using Cloudflare plus an origin-locked ALB, RDS, S3, managed malware
+  scanning, external SMTP, and a dedicated production Compose stack. That
+  decision does not expand or supersede this disposable Tunnel-based demo
+  trial.
 
 ## Decisions
 
@@ -548,6 +554,9 @@ silently left behind.
   administration path.
 - Keep the existing ALB/RDS AWS preprod plan paused and unchanged.
 - Treat the environment as disposable `candidate-only` trial infrastructure.
+- Do not evolve this trial in place into the accepted private-pilot production
+  architecture. The production target has a separate plan, environment,
+  topology, owner inputs, policy, evidence, and authorization boundary.
 
 ## Discoveries
 

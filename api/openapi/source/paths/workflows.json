@@ -9,10 +9,6 @@
   "/v1/planning/intake-drafts/{draftId}/submissions": {
     "post": { "operationId": "submitPlanningIntake", "parameters": [{ "name": "draftId", "in": "path", "required": true, "schema": { "type": "string" } }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SubmitPlanningIntakeInput" } } } }, "responses": { "200": { "description": "Submitted planning intake", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SubmitPlanningIntakeOutput" } } } } } }
   },
-  "/v1/inspection-package-drafts/{packageDraftId}": {
-    "get": { "operationId": "getInspectionPackageDraft", "parameters": [{ "name": "packageDraftId", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Inspection package draft", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/InspectionPackageDraftView" } } } } } },
-    "put": { "operationId": "saveInspectionPackageDraft", "parameters": [{ "name": "packageDraftId", "in": "path", "required": true, "schema": { "type": "string" } }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SaveInspectionPackageDraftInput" } } } }, "responses": { "200": { "description": "Saved inspection package draft", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/InspectionPackageDraftView" } } } } } }
-  },
   "/v1/audit-assignments/{assignmentId}/preparation-confirmations": {
     "post": { "operationId": "confirmAuditPreparation", "parameters": [{ "name": "assignmentId", "in": "path", "required": true, "schema": { "type": "string" } }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ConfirmAuditPreparationInput" } } } }, "responses": { "200": { "description": "Confirmed immutable preparation snapshot", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PreparationConfirmationView" } } } }, "default": { "$ref": "#/components/responses/Problem" } } }
   },

@@ -60,9 +60,10 @@ const legacyTask9 = [
   artifact("go", "apps/api/tests/integration/governed_checklist_task7_test.go", 1),
   artifact("go", "apps/api/tests/integration/governed_checklist_task8_test.go", 1),
   artifact("go", "apps/api/tests/integration/governed_checklist_task9_test.go", 1),
+  artifact("go", "apps/api/tests/integration/planning_assignment_scenario_test.go", 1),
   artifact("react", "apps/web/src/backend/governed-checklist-http-parity.test.ts", 1),
   artifact("react", "apps/web/src/features/checklists/checklist-management-page.test.tsx", 1),
-  artifact("react", "apps/web/src/features/inspections/inspection-package-builder-page.test.tsx", 1),
+  artifact("react", "apps/web/src/features/planning/new-audit-wizard.test.tsx", 1),
   artifact("playwright", "apps/web/tests/e2e/regulatory-checklist-governance.spec.ts", 1),
   artifact("playwright", "apps/web/tests/e2e/regulatory-checklist-governance.http.spec.ts", 1),
 ];

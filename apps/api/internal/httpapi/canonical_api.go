@@ -24,7 +24,6 @@ import (
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/findings"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/httpapi/generated"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/inspections"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/inspections/attachments"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/organizations"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/planning"
@@ -49,7 +48,6 @@ type CanonicalAPIDependencies struct {
 	Planning                 *planning.Service
 	Profiles                 *identity.ProfileService
 	Assignments              *assignments.Service
-	PackageDrafts            *inspections.PackageDraftService
 	AdminWorkspace           *configuration.WorkspaceService
 	Risk                     *risk.Service
 	Administration           *administration.ProjectionService
@@ -76,7 +74,6 @@ type CanonicalAPI struct {
 	planning                 *planning.Service
 	profiles                 *identity.ProfileService
 	assignments              *assignments.Service
-	packageDrafts            *inspections.PackageDraftService
 	adminWorkspace           *configuration.WorkspaceService
 	risk                     *risk.Service
 	administration           *administration.ProjectionService
@@ -112,13 +109,6 @@ func NewCanonicalAPI(dependencies CanonicalAPIDependencies) *CanonicalAPI {
 	assignmentService := dependencies.Assignments
 	if assignmentService == nil && dependencies.Pool != nil {
 		assignmentService = assignments.NewService(dependencies.Pool, assignments.Dependencies{Clock: clock})
-	}
-	packageDraftService := dependencies.PackageDrafts
-	if packageDraftService == nil && dependencies.Pool != nil {
-		packageDraftService = inspections.NewPackageDraftService(
-			dependencies.Pool,
-			inspections.PackageDraftDependencies{Clock: clock},
-		)
 	}
 	adminWorkspaceService := dependencies.AdminWorkspace
 	if adminWorkspaceService == nil && dependencies.Pool != nil {
@@ -186,7 +176,6 @@ func NewCanonicalAPI(dependencies CanonicalAPIDependencies) *CanonicalAPI {
 		planning:           planningService,
 		profiles:           profileService,
 		assignments:        assignmentService,
-		packageDrafts:      packageDraftService,
 		adminWorkspace:     adminWorkspaceService,
 		risk:               riskService,
 		administration:     administrationService,
@@ -251,8 +240,6 @@ func (api *CanonicalAPI) Handler() http.Handler {
 	router.Get("/v1/planning/intake-drafts/{draftId}", api.getPlanningIntakeDraft)
 	router.Put("/v1/planning/intake-drafts/{draftId}", api.savePlanningIntakeDraft)
 	router.Post("/v1/planning/intake-drafts/{draftId}/submissions", api.submitPlanningIntake)
-	router.Get("/v1/inspection-package-drafts/{packageDraftId}", api.getInspectionPackageDraft)
-	router.Put("/v1/inspection-package-drafts/{packageDraftId}", api.saveInspectionPackageDraft)
 	router.Get("/v1/team-members", api.listTeamMembers)
 	router.Get("/v1/team-members/{subjectId}", api.getTeamMember)
 	router.Get("/v1/audit-teams", api.listAuditTeams)
@@ -1148,7 +1135,7 @@ func (api *CanonicalAPI) respond(writer http.ResponseWriter, output any, err err
 		errors.Is(err, risk.ErrForbidden), errors.Is(err, administration.ErrForbidden),
 		errors.Is(err, assistant.ErrForbidden),
 		errors.Is(err, configuration.ErrWorkspaceForbidden),
-		errors.Is(err, assignments.ErrForbidden), errors.Is(err, inspections.ErrPackageDraftForbidden),
+		errors.Is(err, assignments.ErrForbidden),
 		errors.Is(err, attachments.ErrAttachmentForbidden), errors.Is(err, fieldsync.ErrGrantScope),
 		errors.Is(err, fieldsync.ErrGrantExpired), errors.Is(err, fieldsync.ErrGrantRevoked),
 		errors.Is(err, fieldsync.ErrAssignmentChanged), errors.Is(err, fieldsync.ErrPackageRevoked),
@@ -1158,13 +1145,12 @@ func (api *CanonicalAPI) respond(writer http.ResponseWriter, output any, err err
 		errors.Is(err, organizations.ErrNotFound), errors.Is(err, assignments.ErrNotFound),
 		errors.Is(err, risk.ErrNotFound), errors.Is(err, administration.ErrNotFound),
 		errors.Is(err, assistant.ErrNotFound),
-		errors.Is(err, configuration.ErrWorkspaceNotFound),
-		errors.Is(err, inspections.ErrPackageDraftNotFound):
+		errors.Is(err, configuration.ErrWorkspaceNotFound):
 		status, code = http.StatusNotFound, "NOT_FOUND"
 	case errors.Is(err, administration.ErrMembershipRevisionConflict):
 		status, code = http.StatusConflict, "MEMBERSHIP_REVISION_CONFLICT"
 	case errors.Is(err, application.ErrConflict), errors.Is(err, identity.ErrConflict),
-		errors.Is(err, assignments.ErrConflict), errors.Is(err, inspections.ErrPackageDraftConflict),
+		errors.Is(err, assignments.ErrConflict),
 		errors.Is(err, administration.ErrConflict), errors.Is(err, evidence.ErrEvidenceNotReady),
 		errors.Is(err, idempotency.ErrOperationIDReuse):
 		status, code = http.StatusConflict, "CONFLICT"
@@ -1175,7 +1161,7 @@ func (api *CanonicalAPI) respond(writer http.ResponseWriter, output any, err err
 		errors.Is(err, risk.ErrInvalid), errors.Is(err, assistant.ErrInvalid),
 		errors.Is(err, administration.ErrInvalid),
 		errors.Is(err, configuration.ErrWorkspaceInvalid),
-		errors.Is(err, assignments.ErrInvalid), errors.Is(err, inspections.ErrPackageDraftInvalid),
+		errors.Is(err, assignments.ErrInvalid),
 		errors.Is(err, attachments.ErrInvalidUpload), errors.Is(err, evidence.ErrObjectMismatch),
 		errors.Is(err, attachments.ErrObjectMismatch):
 		status, code = http.StatusUnprocessableEntity, "INVALID_COMMAND"

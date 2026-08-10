@@ -744,6 +744,11 @@ action; it consumes only already protected outputs.
 - Use synthetic acceptance data first; larger profiles require a separate
   capacity/cost approval.
 - Keep AviaCore as a separately owned runtime and contract authority.
+- The user-selected
+  [Single-AZ ARM64 private-pilot production target](2026-08-10-aws-single-az-arm64-private-pilot-production-plan.md)
+  is a separate successor architecture and does not resume, authorize, or
+  silently narrow this paused preprod plan. Preprod evidence and every remote
+  action remain separately gated.
 
 ## Discoveries
 

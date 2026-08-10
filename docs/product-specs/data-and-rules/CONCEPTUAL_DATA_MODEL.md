@@ -367,14 +367,11 @@ conditions have been met and recorded.
 - issued_at
 - closed_at
 
-## AGA candidate demo overlay (non-domain projection)
+## Retired AGA candidate donor projection
 
-`aga-candidate-demo@1.1.0` is a separate, read-only, immutable, preprod-only,
-Admin-only projection in `preprod_aga_demo`; it cannot satisfy Task 9. It is
-not a conceptual-domain entity and has no relation to `ChecklistImportBatch`,
-`ExistingChecklistCandidate`, Draft, source authority/mapping attestation,
-functional assignment, decision, publication, template, Finding, Audit,
-notification, outbox, or delivery records. Its final reconciled seal is an
-operational receipt only. Its forms and questions retain fixed
-non-authoritative, source-mapping-required, extraction-review, proposal-gap,
-and provisional-risk states without a domain transition.
+The former `aga-candidate-demo@1.1.0` `preprod_aga_demo` projection was never a
+conceptual-domain entity. Its runtime/schema provisioners were physically
+removed under canonical Task 9 after the user's explicit `delete` decision.
+Historical reconciliation receipts remain evidence only and create no current
+relationship to canonical import, Draft, authority, publication, Finding,
+Audit, notification, outbox, or delivery records.

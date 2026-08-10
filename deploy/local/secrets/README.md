@@ -15,16 +15,6 @@ Compose mounts these files as Docker secrets. Do not copy their values into
 Compose environment variables, application YAML, shell history, logs, browser
 bundles, or image layers.
 
-The local-preprod AGA workspace uses four additional one-shot/runtime files:
-`preprod_aga_demo_workspace_fixture_exporter_database_password`,
-`preprod_aga_demo_workspace_loader_database_password`,
-`preprod_aga_demo_workspace_reader_database_password`, and
-`preprod_aga_demo_workspace_command_database_password`. The exporter and
-loader files are mounted only for their one-shot services and are revoked or
-removed before the tagged API starts. The reader and command files are
-separate runtime credentials; the normal API and the preserved sealed AGA
-overlay reader never receive either workspace credential.
-
 `deploy/local/config/application.enc.yaml` is maintained with SOPS and age.
 The repository stores only its public age recipient in `.sops.yaml`; the
 matching private identity remains local and ignored. Set `SOPS_AGE_KEY_FILE`

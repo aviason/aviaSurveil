@@ -261,7 +261,6 @@ function backend(input: {
     governedChecklistIntake: {} as Backend["governedChecklistIntake"],
     assistantDrafts: {} as Backend["assistantDrafts"],
     planningIntake: {} as Backend["planningIntake"],
-    packageDrafts: {} as Backend["packageDrafts"],
     auditeeCoordination: {} as Backend["auditeeCoordination"],
     auditeeReports: {} as Backend["auditeeReports"],
     inspectionAttachments: {

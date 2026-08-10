@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { AppProviders } from "../../app/providers";
 import { AppRouter } from "../../app/router";
 import { ScenarioProvider } from "../../app/scenario-context";
-import type { DemoBackend, InspectionPackageDraftView } from "../../backend/backend";
+import type { DemoBackend } from "../../backend/backend";
 import { createMockBackendRuntime } from "../../mock/create-mock-backend";
 import { seedVisualRuntimeForPath } from "../../mock/seed-visual-runtime";
 
@@ -257,47 +257,5 @@ describe("Department Manager intelligence workspaces", () => {
     expect(filters.compareDocumentPosition(indicators) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(indicators.compareDocumentPosition(attention) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(within(page).getByLabelText("Risk Level")).toBeEnabled();
-  });
-});
-
-describe("Department Manager Inspection Package Builder", () => {
-  it("uses an explicit demo-only typed package draft command with deterministic revision", async () => {
-    const runtime = createMockBackendRuntime();
-    const manager = runtime.backendForRole("manager") as DemoBackend;
-    const immutableExecutionPackage = await manager.inspections.getPackage({ packageId: "PKG-CAB-2026-001" });
-
-    expect(manager.packageDrafts).toBeDefined();
-    const before = await manager.packageDrafts.get({ packageDraftId: "PKG-AUD-2026-001-CABIN" });
-    const saved = await manager.packageDrafts.save({
-      packageDraftId: before.id,
-      expectedRevision: before.revision,
-      idempotencyKey: "SAVE-PKG-AUD-2026-001-CABIN-R1",
-      riskFocus: [...before.riskFocus, "Repeat Finding monitoring"],
-    });
-    expect(saved).toMatchObject<Partial<InspectionPackageDraftView>>({
-      id: "PKG-AUD-2026-001-CABIN",
-      packageVersion: 1,
-      revision: 2,
-      status: "DRAFT",
-    });
-    expect((await manager.packageDrafts.get({ packageDraftId: before.id })).riskFocus).toContain("Repeat Finding monitoring");
-    expect(await manager.inspections.getPackage({ packageId: "PKG-CAB-2026-001" })).toEqual(immutableExecutionPackage);
-    await expect(runtime.backendForRole("auditee").packageDrafts.get({ packageDraftId: before.id })).rejects.toThrow(
-      /unavailable to this role|Department Manager/i,
-    );
-  });
-
-  it("renders and saves the exact package draft instead of a local toast-only action", async () => {
-    const user = userEvent.setup();
-    renderManagerRoute("/department-manager/inspection-package-builder");
-    const page = await screen.findByTestId("inspection-package-builder-page");
-
-    expect(within(page).getByRole("heading", { level: 1, name: "Dynamic Inspection Package Builder" })).toBeVisible();
-    expect(page).toHaveTextContent("PKG-AUD-2026-001-CABIN");
-    expect(page).toHaveTextContent("Package Draft");
-    expect(page).toHaveTextContent("version 1");
-    await user.type(within(page).getByLabelText("Risk focus"), ", Repeat Finding monitoring");
-    await user.click(within(page).getByRole("button", { name: "Save package draft" }));
-    expect(await within(page).findByRole("status")).toHaveTextContent("Saved revision 2");
   });
 });
