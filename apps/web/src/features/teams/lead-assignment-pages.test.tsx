@@ -98,6 +98,80 @@ describe("Lead Inspector assignment and secondary routes", () => {
     expect(decide).not.toHaveBeenCalled();
   });
 
+  it("assigns all 1,310 released questions through bounded cumulative coverage batches", async () => {
+    const runtime = createMockBackendRuntime();
+    const workflow = runtime.backendForRole("leadInspector").canonicalAuditWorkflow;
+    if (!workflow) throw new Error("Canonical Audit workflow is required for this test");
+    const selectedQuestionVersionIds = Array.from({ length: 1310 }, (_, index) => `qv:synthetic:${String(index + 1).padStart(4, "0")}`);
+    let revision = 2;
+    let currentCoverage: Array<{ questionId: string; subjectId: string }> = [];
+    vi.spyOn(workflow, "getPreparation").mockResolvedValue({
+      id: "assignment:1310",
+      inspectionId: "",
+      organizationId: "ORG-SYNTHETIC-E2E",
+      leadSubjectId: "USR-LEAD-CANER",
+      memberSubjectIds: ["USR-LEAD-CANER", "USR-INSPECTOR-AMINA"],
+      questionAssignments: [],
+      selectedQuestionVersionIds,
+      status: "TEAM_ASSIGNED",
+      scheduledStartDate: "2026-12-10",
+      scheduledEndDate: "2026-12-10",
+      revision,
+    });
+    const previewBatches: Array<{ count: number; kind: string }> = [];
+    vi.spyOn(workflow, "previewQuestionCoverage").mockImplementation(async (assignmentId, input) => {
+      previewBatches.push({ count: input.questionAssignments.length, kind: input.operationKind });
+      return {
+        previewId: `preview:${previewBatches.length}`,
+        assignmentId,
+        assignmentRevision: input.expectedRevision,
+        editKind: "QUESTION_COVERAGE",
+        digest: `digest:${previewBatches.length}`,
+        expiresAt: "2026-12-10T12:00:00Z",
+        questionAssignments: input.questionAssignments,
+      };
+    });
+    const commitBatches: Array<{ count: number; kind: string }> = [];
+    vi.spyOn(workflow, "assignQuestionCoverage").mockImplementation(async (_assignmentId, input) => {
+      commitBatches.push({ count: input.questionAssignments.length, kind: input.operationKind });
+      const additions = new Map(currentCoverage.map((row) => [`${row.questionId}\0${row.subjectId}`, row]));
+      if (input.operationKind === "REPLACE") additions.clear();
+      for (const row of input.questionAssignments) {
+        const key = `${row.questionId}\0${row.subjectId}`;
+        if (input.operationKind === "REMOVE") additions.delete(key); else additions.set(key, row);
+      }
+      currentCoverage = [...additions.values()];
+      revision += 1;
+      return {
+        id: "assignment:1310",
+        inspectionId: "",
+        organizationId: "ORG-SYNTHETIC-E2E",
+        leadSubjectId: "USR-LEAD-CANER",
+        memberSubjectIds: ["USR-LEAD-CANER", "USR-INSPECTOR-AMINA"],
+        questionAssignments: currentCoverage,
+        selectedQuestionVersionIds,
+        status: "QUESTIONS_ASSIGNED",
+        scheduledStartDate: "2026-12-10",
+        scheduledEndDate: "2026-12-10",
+        revision,
+      };
+    });
+
+    const user = userEvent.setup();
+    renderLeadRoute("/lead-inspector/audit-preparation?assignmentId=assignment%3A1310", runtime);
+    expect(await screen.findByText("1310")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Stage all released questions for Inspector" }));
+    expect(await screen.findByText(/1,310 released questions staged for exact coverage/)).toBeVisible();
+    for (let batch = 1; batch <= 3; batch += 1) {
+      await user.click(screen.getByRole("button", { name: "Preview next coverage batch" }));
+      await screen.findByRole("region", { name: "Question coverage preview" });
+      await user.click(screen.getByRole("button", { name: "Confirm question coverage batch" }));
+      await screen.findByText(new RegExp(batch === 3 ? "1,310 exact question assignments committed" : "coverage rows committed"));
+    }
+    expect(previewBatches).toEqual([{ count: 500, kind: "ADD" }, { count: 500, kind: "ADD" }, { count: 310, kind: "ADD" }]);
+    expect(commitBatches).toEqual(previewBatches);
+  });
+
   it("reuses role-safe Calendar and Messages with exact routes and separated visibility", async () => {
     const user = userEvent.setup();
     renderLeadRoute("/lead-inspector/calendar");

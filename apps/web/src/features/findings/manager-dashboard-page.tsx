@@ -7,7 +7,6 @@ import type {
   ManagerDashboardProjection,
   OrganizationSummary,
   PlanningItemView,
-  ReportVersionView,
 } from "../../backend/backend";
 import {
   CommandError,
@@ -22,7 +21,6 @@ interface ManagerWorkspaceState {
   findings: FindingView[];
   organizations: OrganizationSummary[];
   plans: PlanningItemView[];
-  report: ReportVersionView;
 }
 
 const taskLinks = [
@@ -98,15 +96,13 @@ export function ManagerDashboardPage() {
       backend.findings.list({ limit: 50 }),
       backend.organizations.list({ limit: 100 }),
       backend.planning.list({ limit: 20 }),
-      backend.reports.getVersion({ reportVersionId: "RPT-CAB-2026-001-V1" }),
-    ]).then(([dashboard, findings, organizations, plans, report]) => {
+    ]).then(([dashboard, findings, organizations, plans]) => {
       if (!cancelled) {
         setState({
           dashboard,
           findings: findings.items,
           organizations: organizations.items,
           plans: plans.items,
-          report,
         });
       }
     }).catch((cause) => {
@@ -155,7 +151,7 @@ export function ManagerDashboardPage() {
   const openFindings = state?.findings.filter((finding) => finding.status !== "CLOSED") ?? [];
   const indicators = [
     ["Total Audits", state?.plans.length ?? 0, `${state?.plans.filter((item) => item.status !== "RELEASED").length ?? 0} in planning`],
-    ["Reports Awaiting Approval", state?.report.status === "DEPARTMENT_REVIEW" ? 1 : 0, "Immutable report versions"],
+    ["Reports Awaiting Approval", dashboard?.pendingReportReviews ?? 0, "Immutable report versions"],
     ["Open Findings", dashboard?.openFindings ?? 0, "CAA review and auditee action"],
     ["CAPs In Progress", dashboard?.pendingCapReviews ?? 0, "CAP acceptance is not closure"],
     ["Overdue CAPs", dashboard?.overdueFindings ?? 0, "overdue management follow-up"],

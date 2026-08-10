@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AppProviders } from "../../app/providers";
 import { ScenarioProvider } from "../../app/scenario-context";
@@ -12,8 +12,7 @@ import { ManagerDashboardPage } from "./manager-dashboard-page";
 
 afterEach(cleanup);
 
-function renderPage() {
-  const runtime = createMockBackendRuntime();
+function renderPage(runtime = createMockBackendRuntime()) {
   render(
     <AppProviders
       runtime={{
@@ -94,5 +93,18 @@ describe("ManagerDashboardPage", () => {
       "Manager Risk Dashboard has no declared Task 6 route.",
     );
     expect(screen.queryByRole("button", { name: /automatic enforcement/i })).toBeNull();
+  });
+
+  it("loads a clean profile without requesting a synthetic fixed report version", async () => {
+    const runtime = createMockBackendRuntime();
+    const getVersion = vi.spyOn(runtime.backendForRole("manager").reports, "getVersion")
+      .mockRejectedValue(new Error("Not found."));
+
+    renderPage(runtime);
+
+    expect(await screen.findByRole("heading", { name: "Department Manager Dashboard" })).toBeVisible();
+    expect(await screen.findByText("Reports Awaiting Approval")).toBeVisible();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(getVersion).not.toHaveBeenCalled();
   });
 });

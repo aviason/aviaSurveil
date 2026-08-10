@@ -772,6 +772,7 @@ export interface ManagerDashboardProjection {
   overdueFindings: number;
   pendingCapReviews: number;
   pendingEvidenceReviews: number;
+  pendingReportReviews: number;
   recentFindingNumbers: string[];
 }
 

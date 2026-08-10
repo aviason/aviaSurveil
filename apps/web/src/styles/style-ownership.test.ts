@@ -92,6 +92,18 @@ describe("CSS layer and ownership contract", () => {
     expect(leadSecondary).toMatch(/\.lead-analytics-page \.lead-secondary-header\s*\{[^}]*max-width:\s*calc\(100% - 220px\);/s);
   });
 
+  it("reserves the root demo ribbon offset only when a demo ribbon is rendered", () => {
+    const admin = readStyle("features/admin.css");
+    expect(admin).toMatch(/\.workspace-shell--admin\s*\{[^}]*--admin-ribbon-height:\s*0px;[^}]*padding-top:\s*var\(--admin-ribbon-height\);/s);
+    expect(admin).toMatch(/\.workspace-shell--admin-demo\s*\{[^}]*--admin-ribbon-height:\s*39px;/s);
+    expect(admin).not.toMatch(/\.workspace-shell--admin\[data-active-role\]\s*\{[^}]*--admin-ribbon-height:\s*54px;/s);
+
+    const authority = readStyle("features/executive-review.css");
+    expect(authority).toMatch(/\.workspace-shell--authority\s*\{[^}]*--authority-ribbon-height:\s*0px;[^}]*padding-top:\s*var\(--authority-ribbon-height\);/s);
+    expect(authority).toMatch(/\.workspace-shell--authority-demo\s*\{[^}]*--authority-ribbon-height:\s*39px;/s);
+    expect(authority).not.toMatch(/\.workspace-shell--authority\[data-active-role\]\s*\{[^}]*--authority-ribbon-height:\s*54px;/s);
+  });
+
   it("keeps global document selectors owned only by base.css", () => {
     const forbiddenGlobalSelector = /(^|,\s*)(?:html|body|#root)(?:\s|,|\{|$)/;
     for (const fileName of styleFiles.filter((fileName) => fileName !== "base.css")) {

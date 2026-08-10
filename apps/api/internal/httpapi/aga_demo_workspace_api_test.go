@@ -38,7 +38,12 @@ func (sessions *workspaceSessionDouble) ValidateCSRF(context.Context, string, st
 	sessions.csrfCalls++
 	return nil
 }
-func (sessions *workspaceSessionDouble) Revoke(context.Context, string) error { return nil }
+func (sessions *workspaceSessionDouble) Revoke(context.Context, string) (string, error) {
+	return "", nil
+}
+func (sessions *workspaceSessionDouble) RedeemProviderLogout(context.Context, string) (string, error) {
+	return "", nil
+}
 
 type workspaceHTTPStore struct {
 	applyErr error

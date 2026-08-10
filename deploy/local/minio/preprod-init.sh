@@ -30,8 +30,10 @@ fi
 
 root_user=$(read_secret "${MINIO_ROOT_USER_FILE:-/run/secrets/preprod_minio_root_user}")
 root_password=$(read_secret "${MINIO_ROOT_PASSWORD_FILE:-/run/secrets/preprod_minio_root_password}")
-loader_access_key=$(read_secret "${MINIO_LOADER_ACCESS_KEY_FILE:-/run/secrets/preprod_minio_api_access_key}")
-loader_secret_key=$(read_secret "${MINIO_LOADER_SECRET_KEY_FILE:-/run/secrets/preprod_minio_api_secret_key}")
+runtime_access_key=$(read_secret "${MINIO_RUNTIME_ACCESS_KEY_FILE:-/run/secrets/preprod_minio_api_access_key}")
+runtime_secret_key=$(read_secret "${MINIO_RUNTIME_SECRET_KEY_FILE:-/run/secrets/preprod_minio_api_secret_key}")
+loader_access_key=$(read_secret "${MINIO_LOADER_ACCESS_KEY_FILE:-/run/secrets/preprod_minio_loader_access_key}")
+loader_secret_key=$(read_secret "${MINIO_LOADER_SECRET_KEY_FILE:-/run/secrets/preprod_minio_loader_secret_key}")
 
 export MINIO_ROOT_USER="$root_user"
 export MINIO_ROOT_PASSWORD="$root_password"
@@ -65,7 +67,7 @@ for private_bucket in \
   mc version enable "$alias/$private_bucket"
 done
 
-cat >/tmp/preprod-loader-policy.json <<'EOF'
+cat >/tmp/preprod-runtime-policy.json <<'EOF'
 {
   "Version": "2012-10-17",
   "Statement": [
@@ -73,7 +75,6 @@ cat >/tmp/preprod-loader-policy.json <<'EOF'
       "Effect": "Allow",
       "Action": ["s3:GetBucketLocation", "s3:ListBucket"],
       "Resource": [
-        "arn:aws:s3:::aviasurveil360-local-preprod",
         "arn:aws:s3:::evidence-quarantine",
         "arn:aws:s3:::evidence-clean",
         "arn:aws:s3:::inspection-attachments",
@@ -84,12 +85,29 @@ cat >/tmp/preprod-loader-policy.json <<'EOF'
       "Effect": "Allow",
       "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
       "Resource": [
-        "arn:aws:s3:::aviasurveil360-local-preprod/runs/*",
         "arn:aws:s3:::evidence-quarantine/*",
         "arn:aws:s3:::evidence-clean/*",
         "arn:aws:s3:::inspection-attachments/*",
         "arn:aws:s3:::generated-documents/*"
       ]
+    }
+  ]
+}
+EOF
+
+cat >/tmp/preprod-loader-policy.json <<'EOF'
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetBucketLocation"],
+      "Resource": ["arn:aws:s3:::aviasurveil360-local-preprod"]
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+      "Resource": ["arn:aws:s3:::aviasurveil360-local-preprod/runs/*"]
     },
     {
       "Effect": "Allow",
@@ -105,14 +123,19 @@ cat >/tmp/preprod-loader-policy.json <<'EOF'
 }
 EOF
 
+run_sensitive_mc mc admin user add "$alias" "$runtime_access_key" "$runtime_secret_key"
+mc admin policy create "$alias" aviasurveil360-local-preprod-runtime /tmp/preprod-runtime-policy.json
+run_sensitive_mc mc admin policy attach \
+  "$alias" aviasurveil360-local-preprod-runtime \
+  --user "$runtime_access_key"
 run_sensitive_mc mc admin user add "$alias" "$loader_access_key" "$loader_secret_key"
 mc admin policy create "$alias" aviasurveil360-local-preprod-loader /tmp/preprod-loader-policy.json
 run_sensitive_mc mc admin policy attach \
   "$alias" aviasurveil360-local-preprod-loader \
   --user "$loader_access_key"
 
-rm -f /tmp/preprod-loader-policy.json
+rm -f /tmp/preprod-loader-policy.json /tmp/preprod-runtime-policy.json
 touch /tmp/preprod-minio-initialized
-unset root_user root_password loader_access_key loader_secret_key
+unset root_user root_password runtime_access_key runtime_secret_key loader_access_key loader_secret_key
 
 wait "$server_pid"

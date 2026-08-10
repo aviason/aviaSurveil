@@ -226,7 +226,12 @@ func TestTask6FixRound1RepairsGenuinePreTask6DecisionActorDefinition(t *testing.
 	}
 	for _, file := range files {
 		name := filepath.Base(file)
-		if strings.HasPrefix(name, "000021_") {
+		versionText := strings.TrimLeft(strings.SplitN(name, "_", 2)[0], "0")
+		var version int
+		if _, err := fmt.Sscanf(versionText, "%d", &version); err != nil {
+			t.Fatalf("parse %s version: %v", name, err)
+		}
+		if version >= 21 {
 			continue
 		}
 		contents, err := os.ReadFile(file)
@@ -235,11 +240,6 @@ func TestTask6FixRound1RepairsGenuinePreTask6DecisionActorDefinition(t *testing.
 		}
 		if _, err := pool.Exec(ctx, string(contents)); err != nil {
 			t.Fatalf("apply %s: %v", name, err)
-		}
-		versionText := strings.TrimLeft(strings.SplitN(name, "_", 2)[0], "0")
-		var version int
-		if _, err := fmt.Sscanf(versionText, "%d", &version); err != nil {
-			t.Fatalf("parse %s version: %v", name, err)
 		}
 		if _, err := pool.Exec(ctx,
 			`INSERT INTO schema_migrations(version,name) VALUES ($1,$2)`,
@@ -361,8 +361,8 @@ func TestTask6FixRound1RepairsGenuinePreTask6DecisionActorDefinition(t *testing.
 		}
 	}
 	var version int64
-	if err := pool.QueryRow(ctx, `SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 21 {
-		t.Fatalf("repair changed migration ledger version=%d err=%v", version, err)
+	if err := pool.QueryRow(ctx, `SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != migrations.LatestVersion {
+		t.Fatalf("forward upgrade migration ledger version=%d want=%d err=%v", version, migrations.LatestVersion, err)
 	}
 
 	if err := testprofile.BootstrapSyntheticRegulatoryGenerationInputs(ctx, pool); err != nil {

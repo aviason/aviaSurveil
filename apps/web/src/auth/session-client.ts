@@ -1,4 +1,10 @@
-import { REACT_ROUTE_CONTRACTS } from "../app/route-contracts";
+import {
+  CANONICAL_AUDIT_PREPARATION_PATH,
+  CANONICAL_INSPECTOR_AUDIT_PATH,
+  CANONICAL_INSPECTOR_CHECKLIST_PATH,
+  CANONICAL_QUESTION_REVIEW_PATH,
+  REACT_ROUTE_CONTRACTS,
+} from "../app/route-contracts";
 import type { Role } from "../backend/backend";
 
 export type IdentityMode =
@@ -38,6 +44,12 @@ export class SessionClientError extends Error {
 }
 
 const sessionPaths = new Set(REACT_ROUTE_CONTRACTS.map((contract) => contract.path));
+const canonicalSessionPathPatterns = [
+  CANONICAL_QUESTION_REVIEW_PATH,
+  CANONICAL_AUDIT_PREPARATION_PATH,
+  CANONICAL_INSPECTOR_AUDIT_PATH,
+  CANONICAL_INSPECTOR_CHECKLIST_PATH,
+] as const;
 const supplementalWorkspacePaths = [
   "/admin/aga-demo-workspace",
   "/department-manager/aga-demo-workspace",
@@ -77,9 +89,19 @@ export function safeReturnTo(rawReturnTo: string, origin = window.location.origi
   try {
     const parsed = new URL(rawReturnTo || "/", origin);
     if (parsed.origin !== origin) return "/";
-    const isRegisteredPath = sessionPaths.has(parsed.pathname) || supplementalWorkspacePaths.some(
-      (path) => parsed.pathname === path || parsed.pathname.startsWith(`${path}/`),
-    );
+    const pathSegments = parsed.pathname.split("/");
+    const matchesCanonicalPath = canonicalSessionPathPatterns.some((pattern) => {
+      const patternSegments = pattern.split("/");
+      return patternSegments.length === pathSegments.length && patternSegments.every(
+        (segment, index) => segment.startsWith(":")
+          ? Boolean(pathSegments[index])
+          : segment === pathSegments[index],
+      );
+    });
+    const isRegisteredPath = sessionPaths.has(parsed.pathname) || matchesCanonicalPath ||
+      supplementalWorkspacePaths.some(
+        (path) => parsed.pathname === path || parsed.pathname.startsWith(`${path}/`),
+      );
     if (!isRegisteredPath) return "/";
     return `${parsed.pathname}${parsed.search}`;
   } catch {
@@ -88,7 +110,35 @@ export function safeReturnTo(rawReturnTo: string, origin = window.location.origi
 }
 
 function asTrimmedString(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
+	return typeof value === "string" ? value.trim() : "";
+}
+
+export function safeProviderLogoutURL(
+	rawLogoutURL: unknown,
+	origin = window.location.origin,
+): string {
+	const value = asTrimmedString(rawLogoutURL);
+	try {
+		const parsed = new URL(value, origin);
+		if (
+			!value ||
+			parsed.origin !== origin ||
+			parsed.pathname !== "/auth/provider-logout" ||
+			parsed.username ||
+			parsed.password ||
+			parsed.hash ||
+			!parsed.searchParams.get("ticket") ||
+			Array.from(parsed.searchParams.keys()).some((key) => key !== "ticket")
+		) {
+			throw new Error("unsafe provider logout URL");
+		}
+		return parsed.toString();
+	} catch {
+		throw new SessionClientError(
+			"LOGOUT_RESPONSE_INVALID",
+			"The identity provider logout response is invalid.",
+		);
+	}
 }
 
 function parseSessionProjection(value: unknown): SessionProjection {
@@ -144,16 +194,30 @@ export function createSessionClient({
       const headers = new Headers({ Accept: "application/json" });
       const token = parseCsrfCookie();
       if (token) headers.set("x-csrf-token", token);
-      const response = await fetchImplementation("/auth/logout", {
+		const response = await fetchImplementation("/auth/logout", {
         method: "POST",
         credentials: "same-origin",
         headers,
-      });
-      if (response.status === 401) return;
-      if (!response.ok && response.status !== 204) {
-        throw new SessionClientError("LOGOUT_FAILED", "Logout could not be completed.");
-      }
-    },
+		});
+		if (response.status === 401) return;
+		if (!response.ok) {
+			throw new SessionClientError("LOGOUT_FAILED", "Logout could not be completed.");
+		}
+		let payload: unknown;
+		try {
+			payload = await response.json();
+		} catch {
+			throw new SessionClientError(
+				"LOGOUT_RESPONSE_INVALID",
+				"The identity provider logout response is invalid.",
+			);
+		}
+		const logoutURL = safeProviderLogoutURL(
+			(payload as { logoutUrl?: unknown } | null)?.logoutUrl,
+			location.origin || window.location.origin,
+		);
+		location.assign(logoutURL);
+	},
     csrfToken: () => parseCsrfCookie(),
   };
 }

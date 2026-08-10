@@ -487,8 +487,16 @@ BEGIN
         ALTER TABLE template_draft_versions ADD COLUMN IF NOT EXISTS governed_source_binding_set_id text;
         ALTER TABLE template_draft_versions ADD COLUMN IF NOT EXISTS legacy_authority_state text;
         ALTER TABLE template_draft_versions ADD COLUMN IF NOT EXISTS creation_basis text;
+        -- Version 21 deliberately protects generated candidate rows from
+        -- ordinary mutation. This is a one-time schema backfill for the new
+        -- version-28 provenance columns, so suspend only that exact trigger
+        -- within this migration transaction and restore it immediately.
+        ALTER TABLE template_draft_versions
+            DISABLE TRIGGER template_draft_versions_generated_immutable;
         UPDATE template_draft_versions SET entry_path = 'GENERATION_RUN', lineage_kind = 'PRE_V28_UNATTESTED'
         WHERE generation_run_id IS NOT NULL AND entry_path IS NULL;
+        ALTER TABLE template_draft_versions
+            ENABLE TRIGGER template_draft_versions_generated_immutable;
         CREATE INDEX IF NOT EXISTS template_draft_versions_entry_path_queue_idx
             ON template_draft_versions (entry_path, status, id);
     END IF;

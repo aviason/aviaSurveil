@@ -272,4 +272,23 @@ describe("ApplicationShell", () => {
     expect(screen.getByRole("link", { name: "Templates" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("button", { name: "Role select" })).toBeEnabled();
   });
+
+  it("does not reserve demo ribbon chrome for an OIDC Administration session", () => {
+    render(
+      <MemoryRouter>
+        <ApplicationShell
+          identity={{ ...identity, mode: "oidc-session", activeRole: "admin", displayName: "System Admin", availableRoles: ["admin"] }}
+          activeRouteId="admin-question-bank"
+          onRoleRequest={() => undefined}
+          onLogout={() => undefined}
+          notificationState={{ kind: "local", unreadCount: 0, onOpen: () => undefined }}
+        ><h1>Question Bank</h1></ApplicationShell>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId("application-shell")).toHaveClass("workspace-shell--admin");
+    expect(screen.getByTestId("application-shell")).not.toHaveClass("workspace-shell--admin-demo");
+    expect(screen.queryByText("DEMO")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Logout" })).toBeEnabled();
+  });
 });

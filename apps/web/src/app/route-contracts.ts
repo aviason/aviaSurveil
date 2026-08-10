@@ -21,6 +21,9 @@ export type IconKey =
 export const CANONICAL_QUESTION_REVIEW_PATH = "/department-manager/checklist-management/question-review";
 /** Server-owned post-release preparation route; assignment identity is carried by query. */
 export const CANONICAL_AUDIT_PREPARATION_PATH = "/lead-inspector/audit-preparation";
+/** Server-owned inspection identity; unlike the frozen oracle route, the Audit ID is not a fixture. */
+export const CANONICAL_INSPECTOR_AUDIT_PATH = "/inspector/audits/:auditId";
+export const CANONICAL_INSPECTOR_CHECKLIST_PATH = "/inspector/audits/:auditId/checklist";
 
 interface RouteSeed {
   auditId: `ui-audit-${string}`;

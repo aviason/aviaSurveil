@@ -11,6 +11,48 @@ const inspectorNames: Readonly<Record<string, string>> = {
   "USR-INSPECTOR-DAVID": "David Inspector",
 };
 
+const coverageBatchLimit = 500;
+
+type CoverageRow = CanonicalAssignmentView["questionAssignments"][number];
+type CoverageOperationKind = "ADD" | "REMOVE" | "REPLACE";
+
+interface CoveragePreviewOperation {
+  operationKind: CoverageOperationKind;
+  questionAssignments: CoverageRow[];
+}
+
+function coverageKey(row: CoverageRow): string {
+  return `${row.questionId}\u0000${row.subjectId}`;
+}
+
+function nextCoverageBatch(current: readonly CoverageRow[], desired: readonly CoverageRow[]): CoveragePreviewOperation | null {
+  const currentKeys = new Set(current.map(coverageKey));
+  const desiredKeys = new Set(desired.map(coverageKey));
+  const removals = current.filter((row) => !desiredKeys.has(coverageKey(row)));
+  if (removals.length) return { operationKind: "REMOVE", questionAssignments: removals.slice(0, coverageBatchLimit) };
+  const additions = desired.filter((row) => !currentKeys.has(coverageKey(row)));
+  if (additions.length) return { operationKind: "ADD", questionAssignments: additions.slice(0, coverageBatchLimit) };
+  return null;
+}
+
+function parseCoverage(value: string): CoverageRow[] {
+  const seen = new Set<string>();
+  const rows: CoverageRow[] = [];
+  for (const raw of value.split(/[,\n]/)) {
+    const separator = raw.lastIndexOf(":");
+    const questionId = separator > 0 ? raw.slice(0, separator).trim() : "";
+    const subjectId = separator > 0 ? raw.slice(separator + 1).trim() : "";
+    if (!questionId || !subjectId) continue;
+    const row = { questionId, subjectId };
+    const key = coverageKey(row);
+    if (!seen.has(key)) {
+      seen.add(key);
+      rows.push(row);
+    }
+  }
+  return rows;
+}
+
 export function AuditAssignmentPage() {
   const runtime = useApplicationRuntime();
   const backend = useMemo(() => runtime.backendForRole?.("leadInspector") ?? runtime.backend, [runtime]);
@@ -20,8 +62,11 @@ export function AuditAssignmentPage() {
   const [preparation, setPreparation] = useState<CanonicalAssignmentView | null>(null);
   const [memberSubjectIds, setMemberSubjectIds] = useState("");
   const [questionCoverage, setQuestionCoverage] = useState("");
+  const [coverageInspectorId, setCoverageInspectorId] = useState("");
   const [teamPreview, setTeamPreview] = useState<CanonicalPreparationEditPreviewView | null>(null);
   const [coveragePreview, setCoveragePreview] = useState<CanonicalPreparationEditPreviewView | null>(null);
+  const [coveragePreviewOperation, setCoveragePreviewOperation] = useState<CoveragePreviewOperation | null>(null);
+  const [coverageStatus, setCoverageStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showWorkload, setShowWorkload] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +77,9 @@ export function AuditAssignmentPage() {
       void workflow.getPreparation({ assignmentId: searchParams.get("assignmentId") ?? undefined }).then((item) => {
         if (!cancelled) {
           setPreparation(item);
-          setMemberSubjectIds(item.memberSubjectIds.filter((subjectId) => subjectId !== item.leadSubjectId).join(", "));
+          const inspectors = item.memberSubjectIds.filter((subjectId) => subjectId !== item.leadSubjectId);
+          setMemberSubjectIds(inspectors.join(", "));
+          setCoverageInspectorId((current) => current || inspectors[0] || "");
           setQuestionCoverage(item.questionAssignments.map((row) => `${row.questionId}:${row.subjectId}`).join("\n"));
         }
       }).catch(() => {
@@ -89,31 +136,34 @@ export function AuditAssignmentPage() {
         memberSubjectIds: teamPreview.memberSubjectIds ?? [],
       });
       setPreparation(next);
+      const inspectors = next.memberSubjectIds.filter((subjectId) => subjectId !== next.leadSubjectId);
+      setCoverageInspectorId((current) => current || inspectors[0] || "");
       setTeamPreview(null);
     } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); }
   }
 
   async function previewCoverageChange(): Promise<void> {
     if (!preparation || !backend.canonicalAuditWorkflow) return;
-    const rows = questionCoverage.split(/[,\n]/).map((value) => value.trim()).filter(Boolean).map((value) => {
-      const [questionId, subjectId] = value.split(":").map((part) => part.trim());
-      return { questionId, subjectId };
-    }).filter((row) => row.questionId && row.subjectId);
-    if (!rows.length) { setError("Enter coverage as questionVersionId:subjectId, one per line."); return; }
+    const desiredRows = parseCoverage(questionCoverage);
+    const batch = nextCoverageBatch(preparation.questionAssignments, desiredRows);
+    if (!batch) { setCoverageStatus("The staged coverage already matches the server-owned exact coverage set."); return; }
     setBusy(true); setError(null);
     try {
       const preview = await backend.canonicalAuditWorkflow.previewQuestionCoverage(preparation.id, {
         operationId: `COVERAGE-PREVIEW-${preparation.id}-${preparation.revision}`,
         idempotencyKey: `COVERAGE-PREVIEW-${preparation.id}-${preparation.revision}`,
         expectedRevision: preparation.revision,
-        questionAssignments: rows,
+        operationKind: batch.operationKind,
+        questionAssignments: batch.questionAssignments,
       });
       setCoveragePreview(preview);
+      setCoveragePreviewOperation(batch);
+      setCoverageStatus(`Exact coverage preview ready · ${batch.operationKind} ${batch.questionAssignments.length} rows.`);
     } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); }
   }
 
   async function confirmCoverageChange(): Promise<void> {
-    if (!preparation || !backend.canonicalAuditWorkflow || !coveragePreview) return;
+    if (!preparation || !backend.canonicalAuditWorkflow || !coveragePreview || !coveragePreviewOperation) return;
     setBusy(true); setError(null);
     try {
       const operationId = `COVERAGE-${preparation.id}-${preparation.revision}`;
@@ -123,11 +173,38 @@ export function AuditAssignmentPage() {
         expectedRevision: preparation.revision,
         previewId: coveragePreview.previewId,
         previewDigest: coveragePreview.digest,
-        questionAssignments: coveragePreview.questionAssignments ?? [],
+        operationKind: coveragePreviewOperation.operationKind,
+        questionAssignments: coveragePreviewOperation.questionAssignments,
       });
       setPreparation(next);
       setCoveragePreview(null);
+      setCoveragePreviewOperation(null);
+      const desiredRows = parseCoverage(questionCoverage);
+      const remaining = nextCoverageBatch(next.questionAssignments, desiredRows);
+      if (remaining) {
+        setCoverageStatus(`${next.questionAssignments.length.toLocaleString("en-US")} coverage rows committed · ${Math.max(0, desiredRows.length - next.questionAssignments.length).toLocaleString("en-US")} remaining.`);
+      } else {
+        setQuestionCoverage(next.questionAssignments.map((row) => `${row.questionId}:${row.subjectId}`).join("\n"));
+        setCoverageStatus(`${next.questionAssignments.length.toLocaleString("en-US")} exact question assignments committed.`);
+      }
     } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); }
+  }
+
+  function stageAllReleasedCoverage(): void {
+    if (!preparation || !coverageInspectorId) {
+      setError("Choose an assigned Inspector before staging released-question coverage.");
+      return;
+    }
+    const rows = (preparation.selectedQuestionVersionIds ?? []).map((questionId) => ({ questionId, subjectId: coverageInspectorId }));
+    if (!rows.length) {
+      setError("The released Planning snapshot contains no question versions.");
+      return;
+    }
+    setQuestionCoverage(rows.map((row) => `${row.questionId}:${row.subjectId}`).join("\n"));
+    setCoveragePreview(null);
+    setCoveragePreviewOperation(null);
+    setCoverageStatus(`${rows.length.toLocaleString("en-US")} released questions staged for exact coverage; commits run in batches of at most ${coverageBatchLimit}.`);
+    setError(null);
   }
   const workload = useMemo(() => {
     const counts = new Map<string, number>();
@@ -148,10 +225,13 @@ export function AuditAssignmentPage() {
           <label>Inspector subject IDs<input aria-label="Inspector subject IDs" value={memberSubjectIds} onChange={(event) => { setMemberSubjectIds(event.target.value); setTeamPreview(null); }} placeholder="inspector-a, inspector-b" /></label>
           <button className="lead-button lead-button--primary" disabled={busy || preparation.status !== "LEAD_ASSIGNED"} onClick={() => void previewTeamChange()} title={preparation.status !== "LEAD_ASSIGNED" ? "Team membership is already assigned or the preparation is no longer editable." : undefined} type="button">Preview exact team</button>
           {teamPreview ? <div className="lead-preview-receipt" aria-label="Team assignment preview"><p role="status">Preview ready · {(teamPreview.memberSubjectIds ?? []).join(", ")} · digest {teamPreview.digest}</p><button className="lead-button lead-button--primary" disabled={busy} onClick={() => void confirmTeamChange()} type="button">Confirm team assignment</button><button className="lead-button" disabled={busy} onClick={() => setTeamPreview(null)} type="button">Discard preview</button></div> : null}
-          <p>Released question versions: {(preparation.selectedQuestionVersionIds ?? []).join(", ") || "none returned"}</p>
-          <label>Per-question coverage<textarea aria-label="Per-question coverage" value={questionCoverage} onChange={(event) => { setQuestionCoverage(event.target.value); setCoveragePreview(null); }} placeholder="questionVersionId:subjectId" /></label>
-          <button className="lead-button lead-button--primary" disabled={busy || (preparation.status !== "TEAM_ASSIGNED" && preparation.status !== "QUESTIONS_ASSIGNED")} onClick={() => void previewCoverageChange()} title={preparation.status !== "TEAM_ASSIGNED" && preparation.status !== "QUESTIONS_ASSIGNED" ? "Assign the exact team before coverage." : undefined} type="button">Preview question coverage</button>
-          {coveragePreview ? <div className="lead-preview-receipt" aria-label="Question coverage preview"><p role="status">Preview ready · {(coveragePreview.questionAssignments ?? []).length} coverage rows · digest {coveragePreview.digest}</p><button className="lead-button lead-button--primary" disabled={busy} onClick={() => void confirmCoverageChange()} type="button">Confirm question coverage</button><button className="lead-button" disabled={busy} onClick={() => setCoveragePreview(null)} type="button">Discard preview</button></div> : null}
+          <p>Released question versions: {(preparation.selectedQuestionVersionIds ?? []).slice(0, 50).join(", ") || "none returned"}{(preparation.selectedQuestionVersionIds?.length ?? 0) > 50 ? ` · and ${(preparation.selectedQuestionVersionIds?.length ?? 0) - 50} more exact identities` : ""}</p>
+          <label>Coverage Inspector<select aria-label="Coverage Inspector" disabled={busy || !preparation.memberSubjectIds.some((subjectId) => subjectId !== preparation.leadSubjectId)} value={coverageInspectorId} onChange={(event) => setCoverageInspectorId(event.target.value)}><option value="">Choose an assigned Inspector…</option>{preparation.memberSubjectIds.filter((subjectId) => subjectId !== preparation.leadSubjectId).map((subjectId) => <option key={subjectId} value={subjectId}>{inspectorNames[subjectId] ?? subjectId}</option>)}</select></label>
+          <button className="lead-button" disabled={busy || !coverageInspectorId || !(preparation.selectedQuestionVersionIds?.length)} onClick={stageAllReleasedCoverage} type="button">Stage all released questions for Inspector</button>
+          <label>Per-question coverage<textarea aria-label="Per-question coverage" value={questionCoverage} onChange={(event) => { setQuestionCoverage(event.target.value); setCoveragePreview(null); setCoveragePreviewOperation(null); setCoverageStatus("Coverage edits are staged locally; preview the next exact batch."); }} placeholder="questionVersionId:subjectId" /></label>
+          <button className="lead-button lead-button--primary" disabled={busy || (preparation.status !== "TEAM_ASSIGNED" && preparation.status !== "QUESTIONS_ASSIGNED")} onClick={() => void previewCoverageChange()} title={preparation.status !== "TEAM_ASSIGNED" && preparation.status !== "QUESTIONS_ASSIGNED" ? "Assign the exact team before coverage." : undefined} type="button">Preview next coverage batch</button>
+          {coveragePreview ? <div className="lead-preview-receipt" aria-label="Question coverage preview" role="region"><p role="status">Preview ready · {(coveragePreview.questionAssignments ?? []).length} coverage rows · digest {coveragePreview.digest}</p><button className="lead-button lead-button--primary" disabled={busy} onClick={() => void confirmCoverageChange()} type="button">Confirm question coverage batch</button><button className="lead-button" disabled={busy} onClick={() => { setCoveragePreview(null); setCoveragePreviewOperation(null); }} type="button">Discard preview</button></div> : null}
+          {coverageStatus ? <p role="status">{coverageStatus}</p> : null}
           <p role="status">After every released question has coverage, return to the Department Manager for preparation confirmation.</p>
         </section>
       </> : assignment && inspectionPackage ? <>

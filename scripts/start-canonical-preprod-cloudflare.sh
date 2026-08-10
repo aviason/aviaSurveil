@@ -8,10 +8,16 @@ http_port="${AVIA_PREPROD_HTTP_PORT:-8085}"
 project_name="${AVIA_CANONICAL_PREPROD_PROJECT:-aviasurveil360-local-preprod-cloudflare}"
 state_root="${AVIA_CANONICAL_PREPROD_STATE_DIR:-$repository_root/.local/aviasurveil360-canonical-preprod-cloudflare}"
 runtime_root="${AVIA_CANONICAL_PREPROD_TUNNEL_RUNTIME_DIR:-$repository_root/.local/aviasurveil360-canonical-preprod-cloudflare-tunnel}"
+tunnel_mode="${AVIA_PREPROD_CLOUDFLARE_MODE:-quick}"
+public_hostname="${AVIA_PREPROD_PUBLIC_HOSTNAME:-demo.aviasurveil.com}"
+keychain_service="${AVIA_CLOUDFLARE_TUNNEL_KEYCHAIN_SERVICE:-com.aviasurveil360.cloudflare-tunnel}"
+keychain_account="${AVIA_CLOUDFLARE_TUNNEL_KEYCHAIN_ACCOUNT:-$public_hostname}"
 compose_file="$repository_root/deploy/local/compose.yaml"
 compose_override="$repository_root/deploy/local/compose.local-http.yaml"
 quick_tunnel_parser="$repository_root/scripts/canonical-preprod-quick-tunnel-url.mjs"
 quick_tunnel_launcher="$repository_root/scripts/canonical-preprod-cloudflare-launcher.mjs"
+named_tunnel_launcher="$repository_root/scripts/canonical-preprod-cloudflare-named-launcher.mjs"
+tunnel_token_validator="$repository_root/scripts/validate-cloudflare-tunnel-token.mjs"
 local_origin="http://127.0.0.1:${http_port}"
 realm_path="/identity/realms/aviasurveil360-local-preprod"
 placeholder_log="$runtime_root/placeholder.log"
@@ -20,13 +26,19 @@ placeholder_pid_file="$runtime_root/placeholder.pid"
 tunnel_pid_file="$runtime_root/cloudflared.pid"
 runtime_file="$runtime_root/runtime.json"
 public_origin=""
+tunnel_label="Cloudflare Quick Tunnel"
 placeholder_command=""
 tunnel_command=""
+actual_tunnel_command=""
 cleanup_on_failure=true
 
 fail() {
   printf 'canonical-preprod-cloudflare-up: %s\n' "$*" >&2
   exit 1
+}
+
+progress() {
+  printf 'canonical-preprod-cloudflare-up: %s\n' "$*"
 }
 
 validate_disposable_path() {
@@ -87,6 +99,29 @@ capture_process_command() {
     sleep 0.05
   done
   return 1
+}
+
+print_sanitized_tunnel_log() {
+  [[ -s "$tunnel_log" ]] || return 0
+  node --input-type=module - "$tunnel_log" <<'NODE' || true
+import { readFileSync } from "node:fs";
+
+const [logPath] = process.argv.slice(2);
+let tail = readFileSync(logPath, "utf8").slice(-65536);
+tail = tail
+  .replace(/eyJ[A-Za-z0-9+/_=-]{16,}/gu, "[REDACTED_CONNECTOR_TOKEN]")
+  .replace(/(--token\s+)(\S+)/giu, "$1[REDACTED_CONNECTOR_TOKEN]");
+const lines = tail.split(/\r?\n/u).slice(-40).join("\n").trim();
+if (lines) {
+  process.stderr.write(`canonical-preprod-cloudflare-up: sanitized cloudflared log tail:\n${lines}\n`);
+}
+NODE
+}
+
+fail_with_tunnel_log() {
+  local message="$1"
+  print_sanitized_tunnel_log
+  fail "$message"
 }
 
 stop_owned_process() {
@@ -153,6 +188,40 @@ compose_down() {
       --profile local-preprod-loader down --volumes --remove-orphans
 }
 
+prebuild_images() {
+  local build_origin="https://prebuild.invalid"
+  AVIA_PREPROD_STATE_DIR="$state_root" \
+  AVIA_PREPROD_PROFILE="aga-preprod@1.0.0" \
+  AVIA_PREPROD_PROFILE_QUALIFICATION="true" \
+  AVIA_PREPROD_IDENTITY_NAMESPACE="canonical-aga-preprod-exercise-v1" \
+  AVIA_PREPROD_TRANSPORT=http \
+  AVIA_PREPROD_HTTP_PORT="$http_port" \
+  AVIA_PREPROD_WEB_ORIGIN="$build_origin" \
+  AVIA_PREPROD_KEYCLOAK_PUBLIC_ORIGIN="$build_origin" \
+  AVIA_PREPROD_PUBLIC_HOST="prebuild.invalid" \
+  AVIA_PREPROD_ORIGIN_SCHEME=https \
+  AVIA_PREPROD_PUBLIC_TLS=true \
+  AVIA_PREPROD_COOKIE_SECURE=true \
+    docker compose --project-name "$project_name" \
+      --file "$compose_file" \
+      --file "$compose_override" \
+      --profile local-preprod-loader build \
+        preprod-migration \
+        preprod-normal-runtime-role-provisioner \
+        preprod-canonical-aga-loader \
+        preprod-canonical-demo-identity-loader \
+        preprod-clamav \
+        preprod-gotenberg \
+        preprod-keycloak \
+        preprod-minio \
+        preprod-mailpit \
+        preprod-api \
+        preprod-worker \
+        preprod-scheduler \
+        preprod-web-http \
+        preprod-gateway
+}
+
 remove_owned_root() {
   local value="$1"
   [[ -e "$value" ]] || return 0
@@ -194,6 +263,38 @@ wait_for_http() {
   fail "$label did not become ready: $url"
 }
 
+wait_for_public_dns_publication() {
+  node --input-type=module - "$public_origin" <<'NODE'
+const [origin] = process.argv.slice(2);
+const hostname = new URL(origin).hostname;
+const endpoint = new URL("https://cloudflare-dns.com/dns-query");
+endpoint.searchParams.set("name", hostname);
+endpoint.searchParams.set("type", "A");
+const deadline = Date.now() + 120_000;
+
+while (Date.now() < deadline) {
+  try {
+    const response = await fetch(endpoint, {
+      headers: { Accept: "application/dns-json" },
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (response.ok) {
+      const payload = await response.json();
+      const answers = Array.isArray(payload.Answer) ? payload.Answer : [];
+      if (payload.Status === 0 && answers.some((answer) => [1, 28].includes(answer.type))) {
+        process.exit(0);
+      }
+    }
+  } catch {
+    // A new anonymous hostname may not be visible at the edge yet. Retry the
+    // read-only authoritative query without poisoning the OS resolver cache.
+  }
+  await new Promise((resolve) => setTimeout(resolve, 500));
+}
+process.exit(1);
+NODE
+}
+
 verify_public_discovery() {
   node --input-type=module - "$public_origin" "$realm_path" <<'NODE'
 const [origin, realmPath] = process.argv.slice(2);
@@ -216,15 +317,39 @@ wait_for_public_discovery() {
     fi
     sleep 0.5
   done
-  verify_public_discovery || fail "public OIDC discovery did not publish the exact Quick Tunnel issuer"
+  verify_public_discovery || fail "public OIDC discovery did not publish the exact configured issuer"
 }
 
 [[ "$http_port" =~ ^[0-9]+$ && "$http_port" -ge 1024 && "$http_port" -le 65535 ]] ||
   fail "AVIA_PREPROD_HTTP_PORT must be a user-space TCP port"
 [[ "$project_name" =~ ^aviasurveil360-local-preprod-cloudflare(-[a-z0-9][a-z0-9-]*)?$ ]] ||
   fail "AVIA_CANONICAL_PREPROD_PROJECT must be a task-owned Cloudflare disposable project"
-[[ -f "$compose_file" && -f "$compose_override" && -f "$quick_tunnel_parser" && -f "$quick_tunnel_launcher" ]] ||
-  fail "the local HTTP Quick Tunnel profile is incomplete"
+case "$tunnel_mode" in
+  quick)
+    [[ -f "$quick_tunnel_parser" && -f "$quick_tunnel_launcher" ]] ||
+      fail "the local HTTP Quick Tunnel profile is incomplete"
+    ;;
+  named)
+    tunnel_label="Cloudflare named Tunnel"
+    [[ "$public_hostname" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]] ||
+      fail "AVIA_PREPROD_PUBLIC_HOSTNAME must be a lowercase DNS hostname without a scheme, port, or path"
+    [[ "$keychain_service" =~ ^[A-Za-z0-9._:-]+$ ]] ||
+      fail "AVIA_CLOUDFLARE_TUNNEL_KEYCHAIN_SERVICE contains unsupported characters"
+    [[ "$keychain_account" =~ ^[A-Za-z0-9._:@-]+$ ]] ||
+      fail "AVIA_CLOUDFLARE_TUNNEL_KEYCHAIN_ACCOUNT contains unsupported characters"
+    [[ -f "$named_tunnel_launcher" ]] || fail "the named Tunnel launcher is missing"
+    [[ -f "$tunnel_token_validator" ]] || fail "the connector-token validator is missing"
+    [[ -x /usr/bin/security ]] || fail "macOS Keychain is required for the named Tunnel profile"
+    /usr/bin/security find-generic-password \
+      -a "$keychain_account" \
+      -s "$keychain_service" >/dev/null 2>&1 ||
+      fail "named Tunnel connector credential is missing; run make preprod-cloudflare-demo-token first"
+    public_origin="https://$public_hostname"
+    ;;
+  *) fail "AVIA_PREPROD_CLOUDFLARE_MODE must be quick or named" ;;
+esac
+[[ -f "$compose_file" && -f "$compose_override" ]] ||
+  fail "the local HTTP Cloudflare profile is incomplete"
 [[ ! -L "$repository_root/.local" ]] || fail "$repository_root/.local must not be a symlink"
 [[ ! -e "$repository_root/.local" || -d "$repository_root/.local" ]] ||
   fail "$repository_root/.local must be a directory when it exists"
@@ -240,15 +365,30 @@ command -v node >/dev/null 2>&1 || fail "node is required"
 command -v curl >/dev/null 2>&1 || fail "curl is required"
 cloudflared_binary="$(command -v cloudflared)"
 [[ -n "$cloudflared_binary" ]] || fail "cloudflared is required for the temporary HTTPS URL"
+if [[ "$tunnel_mode" == named ]]; then
+  if ! /usr/bin/security find-generic-password \
+    -a "$keychain_account" \
+    -s "$keychain_service" \
+    -w | node "$tunnel_token_validator"; then
+    fail "named Tunnel connector credential is malformed or truncated; run make preprod-cloudflare-demo-token and paste the complete eyJ... value"
+  fi
+fi
 docker info >/dev/null 2>&1 || fail "docker daemon is unavailable"
 assert_no_project_residue
+
+# Build every local image before creating the short-lived anonymous public
+# endpoint. The random URL is then spent only on startup and qualification,
+# never on compiling the current worktree.
+prebuild_images
+progress "local images are ready; starting the $tunnel_label connector and startup placeholder"
 
 mkdir -p "$runtime_root/cloudflared-home/.cloudflared" \
   "$runtime_root/xdg-config" \
   "$runtime_root/xdg-data" \
   "$runtime_root/tmp"
-# The task-owned .cloudflared directory deliberately stays empty: Quick Tunnel
-# mode must not discover a developer config file, token, or named tunnel.
+# The task-owned .cloudflared directory deliberately stays empty. Quick mode
+# must not discover developer state, and named mode is remotely configured and
+# receives its connector credential through a one-shot inherited pipe.
 chmod 0700 "$runtime_root" "$runtime_root/cloudflared-home" \
   "$runtime_root/cloudflared-home/.cloudflared" "$runtime_root/xdg-config" \
   "$runtime_root/xdg-data" "$runtime_root/tmp"
@@ -273,31 +413,55 @@ done
 curl --fail --silent --output /dev/null "$local_origin/__canonical_preprod_tunnel_placeholder_ready" ||
   fail "placeholder origin did not become ready on port $http_port"
 
-# No login, token, account, named tunnel, DNS, Access, or external-preprod
-# configuration is used: this is only an anonymous trycloudflare Quick Tunnel.
 # The launcher uses a new process group and detached stdio so closing this
-# controlling shell cannot terminate the task-owned Cloudflare process.
-if ! tunnel_pid="$(node "$quick_tunnel_launcher" "$cloudflared_binary" "$http_port" "$runtime_root")"; then
-  fail "cloudflared detached launcher could not start the temporary URL; see $tunnel_log"
+# controlling shell cannot terminate the task-owned Cloudflare process. Quick
+# mode remains anonymous; named mode retrieves only its tunnel-scoped connector
+# credential from Keychain and passes it through an inherited pipe.
+if [[ "$tunnel_mode" == quick ]]; then
+  tunnel_command="$cloudflared_binary tunnel --url $local_origin --protocol http2"
+  if ! tunnel_pid="$(node "$quick_tunnel_launcher" "$cloudflared_binary" "$http_port" "$runtime_root")"; then
+    fail_with_tunnel_log "cloudflared detached launcher could not start the temporary URL"
+  fi
+else
+  tunnel_command="$cloudflared_binary tunnel --no-autoupdate --protocol http2 run --token-file /dev/fd/3"
+  if ! tunnel_pid="$(node "$named_tunnel_launcher" \
+    "$cloudflared_binary" "$runtime_root" "$keychain_service" "$keychain_account")"; then
+    fail_with_tunnel_log "named Tunnel detached launcher could not start; verify the stored connector token and the dashboard Tunnel status"
+  fi
 fi
 [[ "$tunnel_pid" =~ ^[0-9]+$ ]] || fail "cloudflared detached launcher returned an invalid PID"
-if ! tunnel_command="$(capture_process_command "$tunnel_pid")"; then
-  fail "cloudflared process did not expose a verifiable identity"
+if ! actual_tunnel_command="$(capture_process_command "$tunnel_pid")"; then
+  fail_with_tunnel_log "cloudflared exited before its process identity could be verified"
+fi
+[[ "$actual_tunnel_command" == "$tunnel_command" ]] ||
+  fail "cloudflared process identity does not match the exact launcher command"
+tunnel_command="$actual_tunnel_command"
+progress "$tunnel_label connector is running; checking DNS and the public route"
+
+if [[ "$tunnel_mode" == quick ]]; then
+  for _ in {1..240}; do
+    if public_origin="$(node "$quick_tunnel_parser" --file "$tunnel_log" 2>/dev/null)"; then
+      break
+    fi
+    if ! kill -0 "$tunnel_pid" 2>/dev/null; then
+      fail_with_tunnel_log "cloudflared exited before publishing a temporary URL"
+    fi
+    sleep 0.5
+  done
+  [[ -n "$public_origin" ]] || {
+    node "$quick_tunnel_parser" --file "$tunnel_log" >&2 || true
+    fail "timed out waiting for exactly one Cloudflare Quick Tunnel URL; see $tunnel_log"
+  }
 fi
 
-for _ in {1..240}; do
-  if public_origin="$(node "$quick_tunnel_parser" --file "$tunnel_log" 2>/dev/null)"; then
-    break
-  fi
-  if ! kill -0 "$tunnel_pid" 2>/dev/null; then
-    fail "cloudflared exited before publishing a temporary URL; see $tunnel_log"
-  fi
-  sleep 0.5
-done
-[[ -n "$public_origin" ]] || {
-  node "$quick_tunnel_parser" --file "$tunnel_log" >&2 || true
-  fail "timed out waiting for exactly one Cloudflare Quick Tunnel URL; see $tunnel_log"
-}
+# Query Cloudflare DNS over HTTPS before the first system-resolver lookup. A
+# premature NXDOMAIN can otherwise remain cached locally after Cloudflare has
+# published the newly generated random hostname.
+wait_for_public_dns_publication ||
+  fail "Cloudflare did not publish authoritative DNS for the configured URL: $public_origin"
+wait_for_http "$public_origin/__canonical_preprod_tunnel_placeholder_ready" \
+  "public $tunnel_label placeholder readiness (verify the dashboard route targets $local_origin)"
+progress "public route is ready; replacing the startup placeholder with canonical local preprod"
 
 stop_owned_process "$placeholder_pid_file" "$placeholder_command" placeholder ||
   fail "placeholder process ownership could not be verified"
@@ -308,18 +472,20 @@ AVIA_PREPROD_HTTP_PORT="$http_port" \
 AVIA_PREPROD_WEB_ORIGIN="$public_origin" \
 AVIA_PREPROD_PUBLIC_TLS=true \
 AVIA_PREPROD_COOKIE_SECURE=true \
+AVIA_PREPROD_SKIP_BUILD=true \
 AVIA_CANONICAL_PREPROD_PROJECT="$project_name" \
 AVIA_CANONICAL_PREPROD_STATE_DIR="$state_root" \
   "$repository_root/scripts/start-canonical-preprod-http.sh"
 
 wait_for_http "$local_origin/health/ready" "local canonical API readiness"
-wait_for_http "$public_origin/health/ready" "public Quick Tunnel API readiness"
+wait_for_http "$public_origin/health/ready" "public $tunnel_label API readiness"
 wait_for_public_discovery
 
 node --input-type=module - \
   "$runtime_file" "$project_name" "$state_root" "$runtime_root" "$local_origin" \
   "$public_origin" "$tunnel_pid" "$tunnel_pid_file" "$tunnel_log" \
-  "http://127.0.0.1:${http_port}" "$tunnel_command" <<'NODE'
+  "http://127.0.0.1:${http_port}" "$tunnel_command" "$tunnel_mode" \
+  "$public_hostname" "$keychain_service" "$keychain_account" <<'NODE'
 import { writeFileSync } from "node:fs";
 const [
   runtimeFile,
@@ -333,7 +499,14 @@ const [
   logFile,
   localTunnelOrigin,
   processCommand,
+  tunnelMode,
+  publicHostname,
+  keychainService,
+  keychainAccount,
 ] = process.argv.slice(2);
+const credentialReference = tunnelMode === "named"
+  ? { kind: "macos-keychain", service: keychainService, account: keychainAccount }
+  : undefined;
 writeFileSync(
   runtimeFile,
   `${JSON.stringify({
@@ -345,11 +518,13 @@ writeFileSync(
     publicOrigin,
     cookieSecure: true,
     tunnel: {
+      mode: tunnelMode,
       pid: Number(pid),
       pidFile,
       logFile,
       localOrigin: localTunnelOrigin,
       processCommand,
+      ...(credentialReference ? { publicHostname, credentialReference } : {}),
     },
     donorRuntime: "disabled",
     externalPreprod: "not run",
@@ -359,6 +534,11 @@ writeFileSync(
 NODE
 chmod 0600 "$runtime_file"
 cleanup_on_failure=false
-printf 'Canonical local preprod is available through a disposable Cloudflare Quick Tunnel at %s\n' "$public_origin"
-printf 'Local origin: %s (the random public URL is the secure-cookie/OIDC origin)\n' "$local_origin"
+if [[ "$tunnel_mode" == quick ]]; then
+  printf 'Canonical local preprod is available through a disposable Cloudflare Quick Tunnel at %s\n' "$public_origin"
+  printf 'Local origin: %s (the random public URL is the secure-cookie/OIDC origin)\n' "$local_origin"
+else
+  printf 'Canonical local preprod is available through the named Cloudflare Tunnel at %s\n' "$public_origin"
+  printf 'Local origin: %s (the named public URL is the secure-cookie/OIDC origin)\n' "$local_origin"
+fi
 printf 'External preprod: not run\n'

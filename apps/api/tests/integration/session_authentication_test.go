@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -123,12 +124,28 @@ func TestBrowserSessionHashesOpaqueCredentialsEncryptsProviderTokensAndEnforcesP
 	second, err := manager.Create(context.Background(), session.CreateInput{
 		SubjectID: "oidc-inspector", Issuer: "https://identity.example/realms/avia", DisplayName: "OIDC Inspector",
 		OrganizationID: "CAA", Roles: []identity.Role{identity.RoleInspector},
+		ProviderTokens: identity.ProviderTokens{IDToken: "server-held-revocation-id-token"},
 	})
 	if err != nil {
 		t.Fatalf("create revocable session: %v", err)
 	}
-	if err := manager.Revoke(context.Background(), second.ID); err != nil {
+	providerLogoutTicket, err := manager.Revoke(context.Background(), second.ID)
+	if err != nil {
 		t.Fatalf("revoke session: %v", err)
+	}
+	if providerLogoutTicket == "" || providerLogoutTicket == "server-held-revocation-id-token" || strings.Contains(providerLogoutTicket, "server-held-revocation-id-token") {
+		t.Fatalf("provider logout ticket was not opaque")
+	}
+	providerIDToken, err := manager.RedeemProviderLogout(context.Background(), providerLogoutTicket)
+	if err != nil {
+		t.Fatalf("redeem provider logout: %v", err)
+	}
+	if providerIDToken != "server-held-revocation-id-token" {
+		t.Fatalf("revoke provider ID token = %q", providerIDToken)
+	}
+	now = canonicalNow.Add(providerLogoutExpiryForTest)
+	if _, err := manager.RedeemProviderLogout(context.Background(), providerLogoutTicket); !errors.Is(err, session.ErrUnauthenticated) {
+		t.Fatalf("expired provider logout ticket error = %v", err)
 	}
 	if _, err := manager.Authenticate(context.Background(), second.Token); !errors.Is(err, session.ErrUnauthenticated) {
 		t.Fatalf("revoked session error = %v", err)
@@ -162,6 +179,8 @@ func TestBrowserSessionHashesOpaqueCredentialsEncryptsProviderTokensAndEnforcesP
 		t.Fatalf("tombstoned profile session-create error = %v", err)
 	}
 }
+
+const providerLogoutExpiryForTest = 3 * time.Minute
 
 func TestSessionManagerInjectsOnlyCurrentEffectiveDepartmentAssignments(t *testing.T) {
 	pool := canonicalDatabase(t, "session_department_assignments")

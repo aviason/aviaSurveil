@@ -14,6 +14,7 @@ compose_override="${AVIA_PREPROD_COMPOSE_OVERRIDE:-}"
 metadata_file="$state_root/runtime.json"
 public_host=""
 public_tls="false"
+skip_build="${AVIA_PREPROD_SKIP_BUILD:-false}"
 
 fail() {
   printf 'canonical-preprod-up: %s\n' "$*" >&2
@@ -87,6 +88,10 @@ case "$cookie_secure" in
   true|false) ;;
   *) fail "AVIA_PREPROD_COOKIE_SECURE must be true or false" ;;
 esac
+case "$skip_build" in
+  true|false) ;;
+  *) fail "AVIA_PREPROD_SKIP_BUILD must be true or false" ;;
+esac
 [[ "$cookie_secure" == "$public_tls" ]] ||
   fail "AVIA_PREPROD_COOKIE_SECURE must match the public origin TLS mode"
 [[ -f "$compose_file" ]] || fail "Compose file is missing"
@@ -146,21 +151,23 @@ cleanup() {
 }
 trap cleanup EXIT HUP INT TERM
 
-compose build \
-  preprod-migration \
-  preprod-normal-runtime-role-provisioner \
-  preprod-canonical-aga-loader \
-  preprod-canonical-demo-identity-loader \
-  preprod-clamav \
-  preprod-gotenberg \
-  preprod-keycloak \
-  preprod-minio \
-  preprod-mailpit \
-  preprod-api \
-  preprod-worker \
-  preprod-scheduler \
-  preprod-web-http \
-  preprod-gateway
+if [[ "$skip_build" == false ]]; then
+  compose build \
+    preprod-migration \
+    preprod-normal-runtime-role-provisioner \
+    preprod-canonical-aga-loader \
+    preprod-canonical-demo-identity-loader \
+    preprod-clamav \
+    preprod-gotenberg \
+    preprod-keycloak \
+    preprod-minio \
+    preprod-mailpit \
+    preprod-api \
+    preprod-worker \
+    preprod-scheduler \
+    preprod-web-http \
+    preprod-gateway
+fi
 
 compose up --detach --wait --wait-timeout 300 \
   preprod-postgres \
@@ -201,7 +208,7 @@ compose exec --no-TTY preprod-postgres psql \
             'TARGET-OPS-AOC-SOURCE-BOUND')\
     ON CONFLICT (id) DO NOTHING;"
 
-compose up --detach --wait --wait-timeout 300 preprod-keycloak
+compose up --detach --wait --wait-timeout 600 preprod-keycloak
 compose up --detach preprod-canonical-demo-identity-loader
 compose wait preprod-canonical-demo-identity-loader
 identity_loader_container="$(compose ps -aq preprod-canonical-demo-identity-loader)"

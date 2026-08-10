@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { useApplicationRuntime } from "../../app/providers";
 import { useScenario } from "../../app/scenario-context";
@@ -78,6 +78,7 @@ export function ChecklistRunnerPage() {
   const runtime = useApplicationRuntime();
   const session = useOptionalSession();
   const location = useLocation();
+  const { auditId } = useParams<{ auditId: string }>();
   const navigate = useNavigate();
   const { projection, actions } = useScenario();
   const [selectedQuestionId, setSelectedQuestionId] = useState("CAB-EMEQ-PBE-001");
@@ -171,7 +172,7 @@ export function ChecklistRunnerPage() {
             <h1 aria-label="Cabin Inspection checklist">Checklist Runner — Cabin Inspection</h1>
             <p>Fly Namibia · 2026 Cabin Inspection - Fly Namibia · v1.0 (2026 demo)</p>
           </div>
-          <Link to="/inspector/audits/AUD-2026-001">Back to audit</Link>
+          <Link to={auditId ? `/inspector/audits/${encodeURIComponent(auditId)}` : "/inspector/inspector-assignments"}>Back to audit</Link>
         </header>
         <CommandError message={error} />
         <section className="checklist-progress-band" aria-label="Checklist progress">

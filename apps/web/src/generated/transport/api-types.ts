@@ -2741,6 +2741,7 @@ export interface components {
             overdueFindings: number;
             pendingCapReviews: number;
             pendingEvidenceReviews: number;
+            pendingReportReviews: number;
             recentFindingNumbers: string[];
         };
         OrganizationSummary: {
@@ -5987,6 +5988,8 @@ export interface components {
             operationId: string;
             idempotencyKey: string;
             expectedRevision: number;
+            /** @enum {string} */
+            operationKind: "ADD" | "REMOVE" | "REPLACE";
             questionAssignments: components["schemas"]["QuestionCoverageInput"][];
         };
         AssignQuestionsInput: {
@@ -5995,6 +5998,8 @@ export interface components {
             expectedRevision: number;
             previewId: string;
             previewDigest: string;
+            /** @enum {string} */
+            operationKind: "ADD" | "REMOVE" | "REPLACE";
             questionAssignments: components["schemas"]["QuestionCoverageInput"][];
         };
         PreparationEditPreviewView: {

@@ -646,6 +646,36 @@ describe("Admin secondary workspaces", () => {
     expect(JSON.stringify(await runtime.backendForRole("admin").configuration.getChecklistTemplateVersion({ templateVersionId: "CTV-CABIN-1" }))).toBe(publishedBefore);
   });
 
+  it("fails closed without an available template master instead of requesting a fixture-only ID", async () => {
+    const runtime = createMockBackendRuntime();
+    const capability = requireAdminWorkspace(runtime);
+    vi.spyOn(capability, "listTemplateMasters").mockResolvedValue({ items: [] });
+    const getTemplate = vi.spyOn(capability, "getTemplate");
+
+    renderAdminComponent(<ChecklistBuilderPage />, runtime);
+
+    const page = await screen.findByTestId("admin-checklist-builder-page");
+    expect(await within(page).findByText(/No checklist template master is available/i)).toBeVisible();
+    expect(within(page).queryByRole("alert")).not.toBeInTheDocument();
+    expect(getTemplate).not.toHaveBeenCalled();
+    expect(within(page).getByRole("button", { name: /Create working Draft unavailable/i })).toBeDisabled();
+  });
+
+  it("shows a truthful empty history when the route template identity is absent", async () => {
+    const runtime = createMockBackendRuntime();
+    const capability = requireAdminWorkspace(runtime);
+    vi.spyOn(capability, "listTemplateMasters").mockResolvedValue({ items: [] });
+    const getTemplate = vi.spyOn(capability, "getTemplate");
+
+    renderAdminRoute("/admin/templates/TPL-CABIN-2026/history", runtime);
+
+    const page = await screen.findByTestId("admin-version-history-page");
+    expect(await within(page).findByText(/No version history is available for TPL-CABIN-2026/i)).toBeVisible();
+    expect(within(page).queryByRole("alert")).not.toBeInTheDocument();
+    expect(getTemplate).not.toHaveBeenCalled();
+    expect(within(page).getByRole("button", { name: /Compare versions unavailable/i })).toBeDisabled();
+  });
+
   it("adds and reorders exact Draft questions without mutating a published array and records append-only history", async () => {
     const runtime = createMockBackendRuntime();
     const capability = requireAdminWorkspace(runtime);

@@ -4,7 +4,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppProviders } from "../../app/providers";
 import { AppRouter } from "../../app/router";
@@ -64,7 +64,7 @@ async function progressToStepFive(user: ReturnType<typeof userEvent.setup>) {
   const [firstQuestion] = await screen.findAllByRole("checkbox", { name: /Select / });
   if (!firstQuestion) throw new Error("Expected at least one selectable question");
   await user.click(firstQuestion);
-  await user.click(screen.getByRole("button", { name: "Preview exact batch" }));
+  await user.click(screen.getByRole("button", { name: "Preview next exact batch" }));
   await screen.findByText(/Exact selection preview ready/);
   await user.click(screen.getByRole("button", { name: "Confirm selection" }));
   await screen.findByText(/Exact question selection committed/);
@@ -121,7 +121,7 @@ describe("New Inspection Planning intake", () => {
     await screen.findByRole("heading", { level: 2, name: /Step 4 of 5/ });
     const budget = screen.getByLabelText("Requested Budget");
     await user.click((await screen.findAllByRole("checkbox", { name: /Select / }))[0]);
-    await user.click(screen.getByRole("button", { name: "Preview exact batch" }));
+    await user.click(screen.getByRole("button", { name: "Preview next exact batch" }));
     await screen.findByText(/Exact selection preview ready/);
     await user.click(screen.getByRole("button", { name: "Confirm selection" }));
     await screen.findByText(/Exact question selection committed/);
@@ -136,6 +136,57 @@ describe("New Inspection Planning intake", () => {
     await user.click(screen.getByRole("button", { name: "Next" }));
     expect(await screen.findByRole("heading", { level: 2, name: /Step 5 of 5/ })).toBeVisible();
     expect(await screen.findByTestId("new-audit-wizard-page")).toHaveTextContent("0 USD");
+  });
+
+  it("stages all 1,310 eligible versions and commits them through bounded digest-chained batches", async () => {
+    const runtime = createMockBackendRuntime();
+    const manager = runtime.backendForRole("manager");
+    const review = manager.canonicalQuestionReview;
+    if (!review) throw new Error("Canonical Question Review is required for this test");
+    const previewBatches: Array<{ count: number; kind: string | undefined; expectedDigest: string }> = [];
+    const commitBatches: Array<{ count: number; kind: string | undefined; expectedDigest: string }> = [];
+    const committedDigests: string[] = [];
+    const originalPreview = review.previewSelection.bind(review);
+    const originalCommit = review.commitSelection.bind(review);
+    const listCatalog = vi.spyOn(review, "listCatalog");
+    const previewSelection = vi.spyOn(review, "previewSelection").mockImplementation(async (input, options) => {
+      previewBatches.push({ count: input.questionVersionIds.length, kind: input.operationKind, expectedDigest: input.expectedSelectionDigest });
+      return originalPreview(input, options);
+    });
+    const commitSelection = vi.spyOn(review, "commitSelection").mockImplementation(async (input, options) => {
+      commitBatches.push({ count: input.questionVersionIds.length, kind: input.operationKind, expectedDigest: input.expectedSelectionDigest });
+      const receipt = await originalCommit(input, options);
+      committedDigests.push(receipt.selection.selectionDigest);
+      return receipt;
+    });
+    const user = userEvent.setup();
+    renderWizardRoute("/department-manager/new-audit/step-4", runtime);
+    await selectFirstAuthorizedScope(user);
+    await screen.findByRole("heading", { level: 2, name: /Step 4 of 5/ });
+
+    await user.click(await screen.findByRole("button", { name: "Stage all matching eligible questions" }));
+    await screen.findByText(/1,310 eligible questions staged locally/);
+    expect(screen.getByText(/1310 selected · staged/)).toBeVisible();
+    expect(listCatalog.mock.calls.some(([input]) => input.limit === 100)).toBe(true);
+
+    for (let batch = 1; batch <= 3; batch += 1) {
+      await user.click(screen.getByRole("button", { name: "Preview next exact batch" }));
+      await waitFor(() => expect(previewSelection).toHaveBeenCalledTimes(batch));
+      await user.click(screen.getByRole("button", { name: "Confirm selection" }));
+      await waitFor(() => expect(commitSelection).toHaveBeenCalledTimes(batch));
+      if (batch < 3) {
+        const selected = batch * 500;
+        expect(await screen.findByText(new RegExp(`Exact batch committed · ${selected.toLocaleString("en-US")} of 1,310 selected`, "u"))).toBeVisible();
+      }
+    }
+
+    expect(previewBatches.map(({ count }) => count)).toEqual([500, 500, 310]);
+    expect(commitBatches.map(({ count }) => count)).toEqual([500, 500, 310]);
+    expect(previewBatches.map(({ kind }) => kind)).toEqual(["ADD", "ADD", "ADD"]);
+    expect(commitBatches.map(({ kind }) => kind)).toEqual(["ADD", "ADD", "ADD"]);
+    expect(commitBatches[1]?.expectedDigest).toBe(committedDigests[0]);
+    expect(commitBatches[2]?.expectedDigest).toBe(committedDigests[1]);
+    expect(await screen.findByText(/Exact question selection committed · 1,310 selected/)).toBeVisible();
   });
 
   it("persists one exact draft across Back/Next, unmount, and runtime restart", async () => {

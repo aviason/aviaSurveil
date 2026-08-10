@@ -4,7 +4,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AppProviders } from "../../app/providers";
 import type { FindingView } from "../../backend/backend";
@@ -118,6 +118,20 @@ describe("ExecutiveDashboardPage", () => {
       "href",
       "/executive-director/final-reports",
     );
+  });
+
+  it("renders truthful empty report state when the connected catalog has no report versions", async () => {
+    const runtime = createMockBackendRuntime();
+    const executive = runtime.backendForRole("executiveDirector");
+    vi.spyOn(executive.documents, "list").mockResolvedValue({ items: [], nextCursor: null });
+    const getVersion = vi.spyOn(executive.reports, "getVersion").mockRejectedValue(new Error("Not found."));
+
+    renderPage(runtime);
+
+    expect(await screen.findByRole("heading", { name: "Executive Director Dashboard" })).toBeVisible();
+    expect(await screen.findByText("No Final Report versions are available yet.")).toBeVisible();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(getVersion).not.toHaveBeenCalled();
   });
 
   it("issues and locks the immutable unlinked report without closing a separately created Finding", async () => {

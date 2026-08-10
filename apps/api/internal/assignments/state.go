@@ -66,6 +66,14 @@ type QuestionAssignment struct {
 	SubjectID  string `json:"subjectId"`
 }
 
+type QuestionCoverageOperationKind string
+
+const (
+	QuestionCoverageAdd     QuestionCoverageOperationKind = "ADD"
+	QuestionCoverageRemove  QuestionCoverageOperationKind = "REMOVE"
+	QuestionCoverageReplace QuestionCoverageOperationKind = "REPLACE"
+)
+
 // PreparationEditPreview is a short-lived, server-issued receipt for a
 // complete team or question-coverage set.  The receipt is consumed exactly
 // once by the matching command; the mutable assignment tables remain only a

@@ -963,10 +963,11 @@ func (api *CanonicalAPI) managerProjection(ctx context.Context, actor identity.P
 			count(*) FILTER (WHERE status = 'CLOSED'),
 			count(*) FILTER (WHERE status <> 'CLOSED' AND due_date < $1::date),
 			count(*) FILTER (WHERE status = 'CAP_SUBMITTED'),
-			count(*) FILTER (WHERE status = 'PENDING_CAA_REVIEW')
+			count(*) FILTER (WHERE status = 'PENDING_CAA_REVIEW'),
+			(SELECT count(*) FROM report_versions WHERE status = 'DEPARTMENT_REVIEW')
 		FROM findings
 	`, api.clock().UTC().Format("2006-01-02")).Scan(&view.OpenFindings, &view.ClosedFindings, &view.OverdueFindings,
-		&view.PendingCapReviews, &view.PendingEvidenceReviews); err != nil {
+		&view.PendingCapReviews, &view.PendingEvidenceReviews, &view.PendingReportReviews); err != nil {
 		return generated.ManagerDashboardProjection{}, err
 	}
 	rows, err := api.pool.Query(ctx, `SELECT reference FROM findings ORDER BY updated_at DESC, reference LIMIT 5`)

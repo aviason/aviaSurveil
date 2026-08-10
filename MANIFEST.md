@@ -234,16 +234,34 @@ The root Vanilla demo remains intact.
   topology.
 - `deploy/local/compose.local-http.yaml`,
   `deploy/local/gateway/Caddyfile.preprod.http`, and
-  `scripts/*canonical-preprod-cloudflare*` — separate loopback-only HTTP
-  gateway and ownership-validated disposable Quick Tunnel qualification path.
-  It carries one strict random public HTTPS origin into Keycloak/OIDC, Secure
-  cookies, private-object TLS, and exact CORS without modifying the canonical
-  HTTPS gateway or configuring named Cloudflare, DNS, Access, AWS, or external
-  preprod resources.
+  the default Quick Tunnel mode in `scripts/*canonical-preprod-cloudflare*` —
+  separate loopback-only HTTP gateway and ownership-validated disposable
+  anonymous qualification path. It carries one strict random public HTTPS
+  origin into Keycloak/OIDC, Secure cookies, private-object TLS, and exact CORS
+  without modifying the canonical HTTPS gateway or configuring named
+  Cloudflare, DNS, Access, AWS, or external preprod resources.
+- `make preprod-cloudflare-demo-*`,
+  `scripts/store-canonical-preprod-cloudflare-token.sh`,
+  `scripts/store-cloudflare-tunnel-token-keychain.swift`,
+  `scripts/validate-cloudflare-tunnel-token.mjs`, and
+  `scripts/canonical-preprod-cloudflare-named-launcher.mjs` — explicit
+  `demo.aviasurveil.com` local-origin publication path. It uses separate local
+  state/project/port ownership, stores the tunnel-scoped connector credential
+  only in macOS Keychain through a hidden unbounded terminal read and a native
+  Security-framework write, validates its encoded connector structure before
+  image builds, and supplies it to `cloudflared` through an inherited
+  `/dev/fd/3` pipe rather than argv, environment, logs, or a token file. The
+  operator creates the remotely managed tunnel/public-hostname route in the
+  Cloudflare dashboard; repository code performs no account/DNS/Access
+  mutation and external preprod remains `not run`.
 - `tests/canonical-preprod-quick-tunnel.test.mjs` and
   `scripts/canonical-preprod-quick-tunnel-url.mjs` — static anonymous-tunnel,
   strict-origin, transport-separation, public-runtime-wiring, and cleanup
   contracts for the optional disposable profile.
+- `tests/canonical-preprod-named-tunnel.test.mjs` — Keychain hidden-prompt,
+  pipe-only connector delivery, exact named-host/runtime identity, separate
+  Make profile, and fail-closed cleanup contracts for the optional stable
+  hostname.
 - `apps/web/tests/e2e/canonical-quick-tunnel-panels.spec.ts`,
   `scripts/test-canonical-preprod-cloudflare-panels.sh`, and
   `scripts/show-canonical-preprod-cloudflare-users.sh` — isolated nine-account

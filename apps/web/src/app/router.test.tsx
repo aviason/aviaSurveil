@@ -171,6 +171,30 @@ describe("authorized role-entry inventory", () => {
     expect(workspace.capability).not.toHaveBeenCalled();
   });
 
+  it("routes a server-owned dynamic Audit identity to the canonical Inspector dossier", async () => {
+    const runtime = createMockBackendRuntime();
+    render(
+      <AppProviders
+        runtime={{
+          backend: runtime.backend,
+          backendForRole: runtime.backendForRole,
+          buildProfile: "demo",
+          environmentLabel: "Test",
+          subjectId: "USR-INSPECTOR-AMINA",
+        }}
+      >
+        <ScenarioProvider>
+          <MemoryRouter initialEntries={["/inspector/audits/AUD-SERVER-OWNED-42"]}>
+            <AppRouter />
+          </MemoryRouter>
+        </ScenarioProvider>
+      </AppProviders>,
+    );
+
+    expect(await screen.findByTestId("audit-dossier")).toBeInTheDocument();
+    expect(screen.queryByTestId("role-select-panel")).not.toBeInTheDocument();
+  });
+
   it("redirects an undeclared path to role selection without rendering a placeholder", async () => {
     const runtime = createMockBackendRuntime();
     render(

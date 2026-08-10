@@ -4,7 +4,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AppProviders } from "../../app/providers";
 import { ScenarioProvider } from "../../app/scenario-context";
@@ -15,9 +15,44 @@ import {
 import { createMockBackendRuntime } from "../../mock/create-mock-backend";
 import { ChecklistManagementPage } from "./checklist-management-page";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 describe("ChecklistManagementPage governed manager review", () => {
+  it("keeps synthetic blocked-generation and fixed package reads out of the HTTP product boundary", async () => {
+    const runtime = createMockBackendRuntime();
+    const manager = runtime.backendForRole("manager");
+    const getPackage = vi.spyOn(manager.inspections, "getPackage").mockRejectedValue(new Error("Not found."));
+    const validateBlockedGeneration = vi.spyOn(manager.governedChecklistReview, "validateBlockedGeneration").mockRejectedValue(new Error("Synthetic validation is unavailable."));
+    vi.spyOn(manager.governedChecklistReview, "listQueue").mockResolvedValue({ items: [] });
+    const httpManager = { ...manager, mode: "http" as const };
+
+    render(
+      <AppProviders runtime={{
+        backend: runtime.backend,
+        backendForRole: (role) => role === "manager" ? httpManager : runtime.backendForRole(role),
+        buildProfile: "http",
+        environmentLabel: "test",
+        identityMode: "oidc-session",
+        subjectId: "USR-MANAGER-NORA",
+      }}>
+        <ScenarioProvider>
+          <MemoryRouter initialEntries={["/department-manager/checklist-management"]}>
+            <ChecklistManagementPage />
+          </MemoryRouter>
+        </ScenarioProvider>
+      </AppProviders>,
+    );
+
+    const review = await screen.findByTestId("governed-checklist-review");
+    expect(within(review).getByRole("heading", { name: "No current governed candidates" })).toBeVisible();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(getPackage).not.toHaveBeenCalled();
+    expect(validateBlockedGeneration).not.toHaveBeenCalled();
+  });
+
   it("shows zero review actions for the exact blocked real controlled-procedure OPS/AOC profile", async () => {
     const runtime = createMockBackendRuntime();
     render(

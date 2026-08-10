@@ -4,9 +4,7 @@ import { Link } from "react-router-dom";
 import { useBackendForRole } from "../../app/providers";
 import type { AuditEventView, ReportVersionView } from "../../backend/backend";
 import { CommandError, errorMessage, WorkspaceShell } from "../shared/workspace-shell";
-
-const PRELIMINARY_VERSION_ID = "PR-2026-018-V1";
-const FINAL_VERSION_ID = "RPT-CAB-2026-001-V1";
+import { discoverCAAReportVersions, type ReportKind } from "./report-discovery";
 
 function pdfEscape(value: string): string {
   return value
@@ -60,7 +58,7 @@ function reportLabel(report: ReportVersionView): string {
   return `${report.reportId} · Version ${report.version}`;
 }
 
-function useReports(role: "gm" | "executiveDirector", reportVersionIds: readonly string[]) {
+function useReports(role: "gm" | "executiveDirector", kinds: readonly ReportKind[]) {
   const backend = useBackendForRole(role);
   const [reports, setReports] = useState<ReportVersionView[]>([]);
   const [events, setEvents] = useState<Record<string, AuditEventView[]>>({});
@@ -73,13 +71,13 @@ function useReports(role: "gm" | "executiveDirector", reportVersionIds: readonly
 
   useEffect(() => {
     let cancelled = false;
-    void Promise.all(reportVersionIds.map((reportVersionId) => backend.reports.getVersion({ reportVersionId }))).then(async (loaded) => {
+    void discoverCAAReportVersions(backend, kinds).then(async (loaded) => {
       if (cancelled) return;
       setReports(loaded);
       await Promise.all(loaded.map((report) => loadEvents(report.reportVersionId)));
     }).catch((cause) => !cancelled && setError(errorMessage(cause)));
     return () => { cancelled = true; };
-  // reportVersionIds are module constants at every call site.
+  // kinds are module constants at every call site.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [backend]);
 
@@ -92,7 +90,7 @@ function DecisionHistory({ events }: { events: readonly AuditEventView[] }) {
 }
 
 export function GeneralManagerReportApprovalsPage() {
-  const { backend, reports, setReports, events, loadEvents, error, setError } = useReports("gm", [PRELIMINARY_VERSION_ID, FINAL_VERSION_ID]);
+  const { backend, reports, setReports, events, loadEvents, error, setError } = useReports("gm", ["PRELIMINARY", "FINAL"]);
   const [selectedId, setSelectedId] = useState("");
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -134,8 +132,7 @@ export function GeneralManagerReportApprovalsPage() {
 }
 
 function ExecutiveReportReviewPage({ kind }: { kind: "preliminary" | "final" }) {
-  const reportVersionId = kind === "preliminary" ? PRELIMINARY_VERSION_ID : FINAL_VERSION_ID;
-  const { backend, reports, setReports, events, loadEvents, error, setError } = useReports("executiveDirector", [reportVersionId]);
+  const { backend, reports, setReports, events, loadEvents, error, setError } = useReports("executiveDirector", [kind === "preliminary" ? "PRELIMINARY" : "FINAL"]);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const report = reports[0] ?? null;
@@ -162,14 +159,14 @@ function ExecutiveReportReviewPage({ kind }: { kind: "preliminary" | "final" }) 
 
   const pageName = isPreliminary ? "Preliminary Reports" : "Final Reports";
   const pageTestId = isPreliminary ? "executive-preliminary-reports-page" : "executive-final-reports-page";
-  const selectedName = `Selected ${isPreliminary ? "Preliminary" : "Final"} Report ${reportVersionId}`;
+  const selectedName = `Selected ${isPreliminary ? "Preliminary" : "Final"} Report ${report?.reportVersionId ?? "unavailable"}`;
   return <WorkspaceShell roleLabel="Executive Director" routeLabel={pageName}>
     <div className={`executive-workspace-page ${isPreliminary ? "executive-preliminary-report-page" : "executive-final-report-page"}`} data-testid={pageTestId}>
       <header className="authority-page-head workbench-page-header"><h1>{pageName}</h1><p>Review exact immutable report versions forwarded through Department Manager and General Manager approval.</p></header>
       <CommandError message={error} />
       <div className="authority-guardrails"><span>Executive Director issue authority</span><span>{eligibleReport ? "Decision recorded without signature assertion" : "No decision is available until the exact report reaches Executive Director review"}</span><span>{isPreliminary ? "No enforcement action on Preliminary Reports" : "No automatic enforcement, CAP acceptance, or Finding closure"}</span></div>
       <section aria-label={`${pageName} status summary`} className="executive-report-summary"><article><span>Total</span><b>{eligibleReport ? 1 : 0}</b></article><article><span>Pending</span><b>{eligibleReport?.status === "EXECUTIVE_DIRECTOR_REVIEW" ? 1 : 0}</b></article><article><span>Issued / Locked</span><b>{eligibleReport?.status === "LOCKED" ? 1 : 0}</b></article><article><span>Returned</span><b>0</b></article></section>
-      {eligibleReport ? <section aria-label={selectedName} className="executive-report-review-layout" data-report-revision={eligibleReport.revision} data-report-version-id={eligibleReport.reportVersionId}><div className="executive-report-review-main"><section className="executive-plan-detail"><header><div><span>{selectedName}</span><h2>{reportLabel(eligibleReport)}</h2><p>{eligibleReport.auditId} · revision {eligibleReport.revision}</p></div><b data-testid="report-status">{eligibleReport.status}</b></header><dl className="executive-definition-grid"><div><dt>Report ID</dt><dd>{eligibleReport.reportId}</dd></div><div><dt>Version ID</dt><dd>{eligibleReport.reportVersionId}</dd></div><div><dt>Version</dt><dd>{eligibleReport.version}</dd></div><div><dt>Revision</dt><dd>{eligibleReport.revision}</dd></div><div><dt>Content hash</dt><dd>{eligibleReport.contentHash}</dd></div><div><dt>Finance report stage</dt><dd>Not applicable</dd></div></dl>{!eligibleReport.findingIds.length ? <p className="executive-report-boundary">No Findings linked — relationship unavailable for {eligibleReport.reportVersionId}</p> : <p>{eligibleReport.findingIds.length} linked Finding{eligibleReport.findingIds.length === 1 ? "" : "s"}</p>}<section><h3>Decision History</h3><DecisionHistory events={events[eligibleReport.reportVersionId] ?? []} /></section>{!isPreliminary ? <Link to="/executive-director/reports/RPT-CAB-2026-001" aria-label={`Preview ${eligibleReport.reportVersionId}`}>Preview Full Report</Link> : null}</section></div><aside><section className="executive-report-decision"><span>Executive Director decision</span><h2>{isPreliminary ? "Preliminary Report authority" : "Final Report authority"}</h2>{eligibleReport.status === "EXECUTIVE_DIRECTOR_REVIEW" ? <><label>Executive Director report decision reason<textarea onChange={(event) => setReason(event.target.value)} value={reason} /></label><button disabled={busy} onClick={() => void decide()} type="button">Issue and lock {eligibleReport.reportVersionId}</button><button aria-label={`Return ${eligibleReport.reportVersionId} unavailable`} disabled title={`Report version ${eligibleReport.reportVersionId} is at Executive Director Review; the typed Plan 1 command permits issue and lock only. Return authority is not declared for Executive Director.`} type="button">Return unavailable</button></> : <button aria-label={`Executive decision unavailable for ${eligibleReport.reportVersionId}`} disabled title={`Report version ${eligibleReport.reportVersionId} is ${eligibleReport.status}; no further Executive Director decision is available.`} type="button">Decision recorded</button>}<p>Report approval never closes a Finding and never applies enforcement.</p></section></aside></section> : <section className="executive-empty"><b>No report version is eligible for Executive Director review.</b><span>{report?.status === "DEPARTMENT_REVIEW" ? `${report.reportVersionId} is DEPARTMENT_REVIEW. Department Manager must forward the exact version, then General Manager must forward it before Executive Director review.` : report?.status === "GM_REVIEW" ? `${report.reportVersionId} is GM_REVIEW. General Manager must forward the exact version before Executive Director review.` : report ? `${report.reportVersionId} is ${report.status}; the current source stage must complete its next action before Executive Director review.` : "The exact report version is unavailable."}</span></section>}
+      {eligibleReport ? <section aria-label={selectedName} className="executive-report-review-layout" data-report-revision={eligibleReport.revision} data-report-version-id={eligibleReport.reportVersionId}><div className="executive-report-review-main"><section className="executive-plan-detail"><header><div><span>{selectedName}</span><h2>{reportLabel(eligibleReport)}</h2><p>{eligibleReport.auditId} · revision {eligibleReport.revision}</p></div><b data-testid="report-status">{eligibleReport.status}</b></header><dl className="executive-definition-grid"><div><dt>Report ID</dt><dd>{eligibleReport.reportId}</dd></div><div><dt>Version ID</dt><dd>{eligibleReport.reportVersionId}</dd></div><div><dt>Version</dt><dd>{eligibleReport.version}</dd></div><div><dt>Revision</dt><dd>{eligibleReport.revision}</dd></div><div><dt>Content hash</dt><dd>{eligibleReport.contentHash}</dd></div><div><dt>Finance report stage</dt><dd>Not applicable</dd></div></dl>{!eligibleReport.findingIds.length ? <p className="executive-report-boundary">No Findings linked — relationship unavailable for {eligibleReport.reportVersionId}</p> : <p>{eligibleReport.findingIds.length} linked Finding{eligibleReport.findingIds.length === 1 ? "" : "s"}</p>}<section><h3>Decision History</h3><DecisionHistory events={events[eligibleReport.reportVersionId] ?? []} /></section>{!isPreliminary ? <Link to="/executive-director/reports/RPT-CAB-2026-001" aria-label={`Preview ${eligibleReport.reportVersionId}`}>Preview Full Report</Link> : null}</section></div><aside><section className="executive-report-decision"><span>Executive Director decision</span><h2>{isPreliminary ? "Preliminary Report authority" : "Final Report authority"}</h2>{eligibleReport.status === "EXECUTIVE_DIRECTOR_REVIEW" ? <><label>Executive Director report decision reason<textarea onChange={(event) => setReason(event.target.value)} value={reason} /></label><button disabled={busy} onClick={() => void decide()} type="button">Issue and lock {eligibleReport.reportVersionId}</button><button aria-label={`Return ${eligibleReport.reportVersionId} unavailable`} disabled title={`Report version ${eligibleReport.reportVersionId} is at Executive Director Review; the typed Plan 1 command permits issue and lock only. Return authority is not declared for Executive Director.`} type="button">Return unavailable</button></> : <button aria-label={`Executive decision unavailable for ${eligibleReport.reportVersionId}`} disabled title={`Report version ${eligibleReport.reportVersionId} is ${eligibleReport.status}; no further Executive Director decision is available.`} type="button">Decision recorded</button>}<p>Report approval never closes a Finding and never applies enforcement.</p></section></aside></section> : <section className="executive-empty"><b>{report ? "No report version is eligible for Executive Director review." : `No ${isPreliminary ? "Preliminary" : "Final"} Report versions are available yet.`}</b><span>{report?.status === "DEPARTMENT_REVIEW" ? `${report.reportVersionId} is DEPARTMENT_REVIEW. Department Manager must forward the exact version, then General Manager must forward it before Executive Director review.` : report?.status === "GM_REVIEW" ? `${report.reportVersionId} is GM_REVIEW. General Manager must forward the exact version before Executive Director review.` : report ? `${report.reportVersionId} is ${report.status}; the current source stage must complete its next action before Executive Director review.` : "The queue will populate after an inspection completes the report lifecycle."}</span></section>}
     </div>
   </WorkspaceShell>;
 }
@@ -184,7 +181,7 @@ export function ExecutiveReportPreviewPage() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    void backend.reports.getVersion({ reportVersionId: FINAL_VERSION_ID }).then(setReport).catch((cause) => setError(errorMessage(cause)));
+    void discoverCAAReportVersions(backend, ["FINAL"]).then((reports) => setReport(reports[0] ?? null)).catch((cause) => setError(errorMessage(cause)));
   }, [backend]);
   const facts = useMemo(() => report ? [report.reportVersionId, report.reportId, report.auditId, `Version ${report.version}`, `Revision ${report.revision}`, report.contentHash] : [], [report]);
   function downloadReport(): void {
@@ -202,7 +199,7 @@ export function ExecutiveReportPreviewPage() {
   }
   return <WorkspaceShell roleLabel="Executive Director" routeLabel="Final Report Preview">
     <div className="executive-report-preview-page" data-report-version-id={report?.reportVersionId} data-testid="executive-report-preview-page">
-      <header className="executive-report-preview-head workbench-page-header"><div><Link to="/executive-director/final-reports">← Return to Final Report review</Link><span>Selected report · {report?.reportId ?? "Loading"}</span><h1>Final Report Preview</h1><p>State-backed browser preview · sample page 1</p></div><div className="executive-preview-actions"><div aria-label="Preview zoom" className="executive-zoom-control"><span>Zoom</span>{[75, 90, 100, 110].map((value) => <button aria-pressed={zoom === value} className={zoom === value ? "is-active" : ""} key={value} onClick={() => setZoom(value)} type="button">{value}%</button>)}</div><button aria-label={`Print ${FINAL_VERSION_ID} unavailable`} disabled title={`Printing ${FINAL_VERSION_ID} is unavailable in the frontend-only demo.`} type="button">Print unavailable</button><button disabled={!report} onClick={downloadReport} type="button">Download PDF</button></div></header>
+      <header className="executive-report-preview-head workbench-page-header"><div><Link to="/executive-director/final-reports">← Return to Final Report review</Link><span>Selected report · {report?.reportId ?? "Loading"}</span><h1>Final Report Preview</h1><p>State-backed browser preview · sample page 1</p></div><div className="executive-preview-actions"><div aria-label="Preview zoom" className="executive-zoom-control"><span>Zoom</span>{[75, 90, 100, 110].map((value) => <button aria-pressed={zoom === value} className={zoom === value ? "is-active" : ""} key={value} onClick={() => setZoom(value)} type="button">{value}%</button>)}</div><button aria-label={`Print ${report?.reportVersionId ?? "unavailable report"} unavailable`} disabled title={report ? `Printing ${report.reportVersionId} is unavailable in the frontend-only demo.` : "Printing is unavailable until a Final Report version exists."} type="button">Print unavailable</button><button disabled={!report} onClick={downloadReport} type="button">Download PDF</button></div></header>
       <CommandError message={error} />
       {status ? <p role="status">{status}</p> : null}
       {report ? <div className="executive-report-preview-layout"><aside className="executive-report-contents"><span>Contents</span><a href="#report-summary">1. Executive Summary</a><a href="#report-overview">2. Inspection Overview</a><a href="#report-findings">3. Findings Overview</a><div><b>Document facts</b>{facts.map((fact) => <small key={fact}>{fact}</small>)}</div></aside><div className="executive-report-canvas"><article className="executive-report-document" style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center" }}><header><span>AviaSurveil360</span><h2>Final Report</h2><p>{report.reportVersionId}</p></header><section id="report-summary"><h3>Executive Summary</h3><p>Immutable candidate report version prepared for Executive Director review.</p></section><section id="report-overview"><h3>Inspection Overview</h3><p>{report.auditId} · {report.organizationId}</p></section><section id="report-findings"><h3>Findings Overview</h3><p>{report.findingIds.length ? report.findingIds.join(", ") : `No Findings linked — relationship unavailable for ${report.reportVersionId}`}</p></section><footer><b>Status</b><span>{report.status}</span><b>Content hash</b><span>{report.contentHash}</span></footer></article></div></div> : null}

@@ -39,6 +39,48 @@ func canonicalDatabase(t *testing.T, label string) *database.Pool {
 			('manager-001', 'test', 'Department Manager', 'manager@example.test'),
 			('gm-001', 'test', 'General Manager', 'gm@example.test'),
 			('executive-001', 'test', 'Executive Director', 'executive@example.test')`},
+		{sql: `INSERT INTO user_lifecycle_requests (
+				id, subject_id, requested_action, requested_roles, requested_organization_id,
+				status, idempotency_key, requested_by_subject_id, requested_email,
+				requested_display_name, expected_membership_revision, reason,
+				membership_id, resulting_membership_revision, created_at, updated_at
+			) VALUES
+				('fixture-membership-lead-request', 'lead-001', 'PROVISION', ARRAY['leadInspector'], 'caa',
+				 'SUCCEEDED', 'fixture-membership-lead-request', 'manager-001', 'lead@example.test',
+				 'Lead Inspector', 0, 'Canonical active-role fixture', 'fixture-membership-lead', 1,
+				 '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z'),
+				('fixture-membership-inspector-request', 'inspector-cabin-001', 'PROVISION', ARRAY['inspector'], 'caa',
+				 'SUCCEEDED', 'fixture-membership-inspector-request', 'manager-001', 'inspector.cabin@example.test',
+				 'Cabin Inspector', 0, 'Canonical active-role fixture', 'fixture-membership-inspector', 1,
+				 '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z'),
+				('fixture-membership-inspector-other-request', 'inspector-other', 'PROVISION', ARRAY['inspector'], 'caa',
+				 'SUCCEEDED', 'fixture-membership-inspector-other-request', 'manager-001', 'inspector.other@example.test',
+				 'Other Inspector', 0, 'Canonical active-role fixture', 'fixture-membership-inspector-other', 1,
+				 '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')`},
+		{sql: `INSERT INTO desired_membership_versions (
+				membership_id, subject_id, revision, membership_state, organization_id, roles,
+				requested_by_subject_id, reason, source_request_id, requested_at, effective_at,
+				observed_provider_enabled, observed_organization_id, observed_roles, observed_at, drift_state
+			) VALUES
+				('fixture-membership-lead', 'lead-001', 1, 'ACTIVE', 'caa', ARRAY['leadInspector'],
+				 'manager-001', 'Canonical active-role fixture', 'fixture-membership-lead-request',
+				 '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', true, 'caa', ARRAY['leadInspector'],
+				 '2026-01-01T00:00:00Z', 'IN_SYNC'),
+				('fixture-membership-inspector', 'inspector-cabin-001', 1, 'ACTIVE', 'caa', ARRAY['inspector'],
+				 'manager-001', 'Canonical active-role fixture', 'fixture-membership-inspector-request',
+				 '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', true, 'caa', ARRAY['inspector'],
+				 '2026-01-01T00:00:00Z', 'IN_SYNC'),
+				('fixture-membership-inspector-other', 'inspector-other', 1, 'ACTIVE', 'caa', ARRAY['inspector'],
+				 'manager-001', 'Canonical active-role fixture', 'fixture-membership-inspector-other-request',
+				 '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', true, 'caa', ARRAY['inspector'],
+				 '2026-01-01T00:00:00Z', 'IN_SYNC')`},
+		{sql: `INSERT INTO desired_membership_sync (
+				membership_id, subject_id, desired_revision, observed_provider_enabled,
+				observed_organization_id, observed_roles, observed_at, drift_state
+			) VALUES
+				('fixture-membership-lead', 'lead-001', 1, true, 'caa', ARRAY['leadInspector'], '2026-01-01T00:00:00Z', 'IN_SYNC'),
+				('fixture-membership-inspector', 'inspector-cabin-001', 1, true, 'caa', ARRAY['inspector'], '2026-01-01T00:00:00Z', 'IN_SYNC'),
+				('fixture-membership-inspector-other', 'inspector-other', 1, true, 'caa', ARRAY['inspector'], '2026-01-01T00:00:00Z', 'IN_SYNC')`},
 		{sql: `INSERT INTO session_references (id, subject_id, organization_id, expires_at, last_seen_at, absolute_expires_at, roles) VALUES
 			('session-inspector', 'inspector-cabin-001', 'caa', $1, $2, $1, ARRAY['inspector']),
 			('session-lead', 'lead-001', 'caa', $1, $2, $1, ARRAY['leadInspector']),

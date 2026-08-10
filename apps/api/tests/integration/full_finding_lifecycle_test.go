@@ -421,6 +421,7 @@ func TestFullFindingLifecycleAuthority(t *testing.T) {
 		if err := testprofile.Reset(context.Background(), pool, canonicalNow); err != nil {
 			t.Fatalf("reset canonical lifecycle profile: %v", err)
 		}
+		seedCanonicalTestProfileAttachmentPackage(t, pool)
 		inspector, ok := testprofile.Principal(testprofile.CanonicalInspectorSubjectID)
 		if !ok {
 			t.Fatal("canonical Inspector principal is unavailable")
@@ -431,8 +432,8 @@ func TestFullFindingLifecycleAuthority(t *testing.T) {
 		}).Issue(context.Background(), inspector, fieldsync.CheckoutInput{
 			OperationID:            "OP-TASK6-ATTACHMENT-CHECKOUT",
 			CorrelationID:          "CORR-TASK6-ATTACHMENT-CHECKOUT",
-			PackageID:              "PKG-CAB-2026-001",
-			ExpectedPackageVersion: 1,
+			PackageID:              "PKG-TASK6-ATTACHMENT",
+			ExpectedPackageVersion: 2,
 			DeviceInstanceID:       "DEVICE-CANDIDATE-001",
 		})
 		if err != nil {
@@ -444,7 +445,7 @@ func TestFullFindingLifecycleAuthority(t *testing.T) {
 				assigned_inspector_subject_id, response_value,
 				comment_to_auditee, revision
 			) VALUES (
-				'RESP-TASK6-PBE-001', 'AUD-2026-001', 'PKG-CAB-2026-001',
+				'RESP-TASK6-PBE-001', 'AUD-2026-001', 'PKG-TASK6-ATTACHMENT',
 				'CAB-EMEQ-PBE-001', $1, 'NON_COMPLIANT',
 				'PBE serviceability record is unavailable.', 1
 			)
@@ -459,13 +460,42 @@ func TestFullFindingLifecycleAuthority(t *testing.T) {
 				declared_media_type, declared_size_bytes, declared_sha256,
 				upload_state, scan_state, revision
 			) VALUES (
-				'ATT-TASK6-PBE-001', 'AUD-2026-001', 'PKG-CAB-2026-001',
+				'ATT-TASK6-PBE-001', 'AUD-2026-001', 'PKG-TASK6-ATTACHMENT',
 				'CAB-EMEQ-PBE-001', 'RESP-TASK6-PBE-001',
 				'ORG-FLY-NAMIBIA', $1, $2, $3, 'pbe-position.png', 'image/png',
 				67, 'sha256:task6-pbe', 'UPLOADED', 'CLEAN', 1
 			)
 		`, testprofile.CanonicalInspectorSubjectID, grant.ID, grant.DeviceInstanceID); err != nil {
 			t.Fatalf("seed exact Potential Finding attachment: %v", err)
+		}
+		if _, err := pool.Exec(context.Background(), `
+			INSERT INTO object_metadata (
+				id, aggregate_type, aggregate_id, object_key, filename,
+				declared_media_type, detected_media_type, sha256, size_bytes,
+				scan_status, organization_id, bucket_name, object_state
+			) VALUES (
+				'OBJ-TASK6-PBE-001', 'INSPECTION_ATTACHMENT', 'ATT-TASK6-PBE-001',
+				'inspection-attachments/task6/pbe-position.png', 'pbe-position.png',
+				'image/png', 'image/png', 'sha256:task6-pbe', 67, 'CLEAN',
+				'ORG-FLY-NAMIBIA', 'inspection-attachments', 'CANONICAL'
+			);
+			INSERT INTO inspection_attachment_versions (
+				id, inspection_attachment_id, version, organization_id,
+				source_object_metadata_id, file_name, media_type, sha256,
+				size_bytes, submitted_by_subject_id, submitted_at
+			) VALUES (
+				'ATT-TASK6-PBE-001-V1', 'ATT-TASK6-PBE-001', 1,
+				'ORG-FLY-NAMIBIA', 'OBJ-TASK6-PBE-001', 'pbe-position.png',
+				'image/png', 'sha256:task6-pbe', 67,
+				'154ec5ac-6f97-4f55-916f-d2f142fc6211', '2026-07-21T12:00:00Z'
+			);
+			UPDATE inspection_attachments
+			SET object_metadata_id = 'OBJ-TASK6-PBE-001',
+			    canonical_object_metadata_id = 'OBJ-TASK6-PBE-001',
+			    current_version_id = 'ATT-TASK6-PBE-001-V1'
+			WHERE id = 'ATT-TASK6-PBE-001'
+		`); err != nil {
+			t.Fatalf("seed immutable canonical Inspection Attachment version: %v", err)
 		}
 		api := httpapi.NewCanonicalAPI(httpapi.CanonicalAPIDependencies{
 			Pool:        pool,
@@ -559,6 +589,13 @@ func TestFullFindingLifecycleAuthority(t *testing.T) {
 		pool := canonicalDatabase(t, "finding_lifecycle_cap_raw_wire")
 		if err := testprofile.Reset(context.Background(), pool, canonicalNow); err != nil {
 			t.Fatalf("reset canonical CAP raw-wire profile: %v", err)
+		}
+		if _, err := pool.Exec(context.Background(), `
+			UPDATE report_approval_states
+			SET status = 'LOCKED', revision = 4, issued_at = $1, updated_at = $1
+			WHERE report_version_id = 'PR-2026-018-V1'
+		`, canonicalNow); err != nil {
+			t.Fatalf("seed issued Preliminary Report before CAP: %v", err)
 		}
 		if _, err := pool.Exec(context.Background(), `
 			INSERT INTO findings (
@@ -1189,5 +1226,112 @@ func assertNoFindingReviewSideEffects(
 	}
 	if decisions != 0 {
 		t.Fatalf("Evidence review decisions = %d, want 0", decisions)
+	}
+}
+
+func seedCanonicalTestProfileAttachmentPackage(t *testing.T, pool *database.Pool) {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO canonical_question_catalogs (
+			id, catalog_version, usage_class, profile_name, profile_version,
+			status, source_package_version, source_package_json_sha256,
+			source_package_zip_sha256, root_digest, question_count, form_count,
+			created_by_subject_id
+		) VALUES (
+			'CAT-TASK6-ATTACHMENT', 'task6-attachment@1.0.0',
+			'PREPROD_EXERCISE', 'aga-preprod', '1.0.0', 'SEALED', '1.0.0',
+			'sha256:task6-attachment-json', 'sha256:task6-attachment-zip',
+			'sha256:task6-attachment-root', 1, 1, 'USR-MANAGER-NORA'
+		);
+
+		INSERT INTO canonical_question_catalog_forms (
+			catalog_id, form_code, form_digest, archive_digest,
+			question_count, source_gap_state
+		) VALUES (
+			'CAT-TASK6-ATTACHMENT', 'CABIN', 'sha256:task6-form',
+			'sha256:task6-archive', 1, 'SOURCE_MAPPING_REQUIRED'
+		);
+
+		INSERT INTO canonical_question_version_provenance (
+			question_version_id, usage_class, catalog_id
+		) VALUES (
+			'QV-CAB-EMEQ-PBE-001-V1', 'PREPROD_EXERCISE',
+			'CAT-TASK6-ATTACHMENT'
+		);
+
+		INSERT INTO canonical_question_catalog_memberships (
+			catalog_id, question_version_id, usage_class, form_code,
+			proposal_id, ordinal, question_digest, source_locator,
+			source_gap_state, proposed_domain, proposed_topic, proposed_risk_band
+		) VALUES (
+			'CAT-TASK6-ATTACHMENT', 'QV-CAB-EMEQ-PBE-001-V1',
+			'PREPROD_EXERCISE', 'CABIN', 'PBE-001', 1,
+			'sha256:task6-pbe-question', 'fixture://task6/pbe',
+			'SOURCE_MAPPING_REQUIRED', 'Cabin Safety', 'PBE', 'MEDIUM'
+		);
+
+		INSERT INTO canonical_question_catalog_applicabilities (
+			catalog_id, question_version_id, provider_scope_id,
+			regulated_target_id, status, reason, actor_subject_id
+		) VALUES (
+			'CAT-TASK6-ATTACHMENT', 'QV-CAB-EMEQ-PBE-001-V1',
+			'SCOPE-OPS-AOC-SOURCE-BOUND', 'TARGET-OPS-AOC-SOURCE-BOUND', 'ELIGIBLE',
+			'Exact task-owned attachment fixture eligibility.', 'USR-MANAGER-NORA'
+		);
+
+		INSERT INTO canonical_audit_scope_drafts (
+			id, planning_intake_draft_id, organization_id, provider_scope_id,
+			regulated_target_id, audit_type, catalog_id, usage_class, revision,
+			status, selected_question_count, selection_digest, requested_budget,
+			notice_policy, created_by_subject_id
+		) VALUES (
+			'SCOPE-DRAFT-TASK6-ATTACHMENT', 'PLAN-DRAFT-2026-001',
+			'ORG-FLY-NAMIBIA', 'SCOPE-OPS-AOC-SOURCE-BOUND',
+			'TARGET-OPS-AOC-SOURCE-BOUND', 'CABIN',
+			'CAT-TASK6-ATTACHMENT', 'PREPROD_EXERCISE', 1, 'RELEASED', 1,
+			'8bf3518c051416c444a9b441fe44a67f9e17fd1c54723a2ef5cf91e1a67833e0',
+			0, 'ADVANCE', 'USR-MANAGER-NORA'
+		);
+
+		INSERT INTO canonical_audit_scope_draft_questions (
+			scope_draft_id, revision, catalog_id, question_version_id,
+			position, selection_digest
+		) VALUES (
+			'SCOPE-DRAFT-TASK6-ATTACHMENT', 1, 'CAT-TASK6-ATTACHMENT',
+			'QV-CAB-EMEQ-PBE-001-V1', 0,
+			'8bf3518c051416c444a9b441fe44a67f9e17fd1c54723a2ef5cf91e1a67833e0'
+		);
+
+		INSERT INTO canonical_audit_scope_snapshots (
+			id, scope_draft_id, revision, stage, catalog_id, usage_class,
+			selection_digest, selected_question_count, snapshot,
+			planning_snapshot_digest, created_by_subject_id
+		) VALUES (
+			'SCOPE-SNAPSHOT-TASK6-ATTACHMENT', 'SCOPE-DRAFT-TASK6-ATTACHMENT',
+			1, 'RELEASED', 'CAT-TASK6-ATTACHMENT', 'PREPROD_EXERCISE',
+			'8bf3518c051416c444a9b441fe44a67f9e17fd1c54723a2ef5cf91e1a67833e0',
+			1, '{"catalogVersion":"task6-attachment@1.0.0","selectedQuestionVersionIds":["QV-CAB-EMEQ-PBE-001-V1"]}',
+			'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+			'USR-MANAGER-NORA'
+		);
+
+		INSERT INTO canonical_audit_scope_snapshot_questions (
+			snapshot_id, catalog_id, question_version_id, position
+		) VALUES (
+			'SCOPE-SNAPSHOT-TASK6-ATTACHMENT', 'CAT-TASK6-ATTACHMENT',
+			'QV-CAB-EMEQ-PBE-001-V1', 0
+		);
+
+		INSERT INTO inspection_packages (
+			id, inspection_id, canonical_scope_snapshot_id, package_version,
+			snapshot, expires_at, package_digest
+		) VALUES (
+			'PKG-TASK6-ATTACHMENT', 'AUD-2026-001',
+			'SCOPE-SNAPSHOT-TASK6-ATTACHMENT', 2,
+			'{"questionIds":["CAB-EMEQ-PBE-001"],"questionVersionIds":["QV-CAB-EMEQ-PBE-001-V1"]}',
+			'2026-08-01T00:00:00Z', 'sha256:task6-attachment-package'
+		)
+	`); err != nil {
+		t.Fatalf("seed canonical test-profile attachment package: %v", err)
 	}
 }

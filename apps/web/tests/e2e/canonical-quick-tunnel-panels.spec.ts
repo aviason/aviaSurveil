@@ -157,6 +157,35 @@ async function ensureAppShellServiceWorkerControlsPage(page: Page): Promise<void
   ).toBe(true);
 }
 
+async function crawlPrimaryRolePages(page: Page, account: DemoAccount, serverErrors: readonly string[]): Promise<void> {
+  const navigation = page.getByRole("navigation", { name: "Primary role navigation" });
+  const paths = await navigation.locator('a[href^="/"]').evaluateAll((links) => [
+    ...new Set(
+      links
+        .map((link) => link.getAttribute("href"))
+        .filter((href): href is string => Boolean(href && href !== "/")),
+    ),
+  ]);
+  expect(paths.length).toBeGreaterThan(0);
+  for (const path of paths) {
+    await page.goto(path);
+    await expect(
+      page.getByTestId("application-shell"),
+      `${account.displayName} route ${path} did not render its application shell; current URL: ${page.url()}`,
+    ).toHaveAttribute("data-active-role", account.role);
+    await expect(page.getByTestId("route-loading")).toHaveCount(0, { timeout: 15_000 });
+    await expect(page.getByText("Loading route...", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
+    const alertText = (await page.getByRole("alert").allTextContents())
+      .map((text) => text.trim())
+      .filter(Boolean);
+    expect(
+      alertText,
+      `${account.displayName} route ${path} rendered an alert; server errors: ${serverErrors.join(", ")}`,
+    ).toEqual([]);
+  }
+}
+
 async function assertAuthenticatedPanel(page: Page, account: DemoAccount): Promise<void> {
   const publicOrigin = new URL(requiredEnvironment("AVIA_E2E_BASE_URL")).origin;
 
@@ -209,6 +238,32 @@ async function assertAuthenticatedPanel(page: Page, account: DemoAccount): Promi
   expect(cookies.some((cookie) => cookie.name === "avia_session")).toBe(false);
   expect(cookies.some((cookie) => cookie.name === "avia_csrf")).toBe(false);
 
+  if (account.role === "admin") {
+    const shell = page.getByTestId("application-shell");
+    await expect(shell).not.toHaveClass(/workspace-shell--admin-demo/u);
+    await expect(page.getByText("DEMO", { exact: true })).toHaveCount(0);
+    expect(await shell.evaluate((element) => ({
+      paddingTop: getComputedStyle(element).paddingTop,
+      ribbonHeight: getComputedStyle(element).getPropertyValue("--admin-ribbon-height").trim(),
+      top: element.getBoundingClientRect().top,
+    }))).toEqual({ paddingTop: "0px", ribbonHeight: "0px", top: 0 });
+
+    await page.getByRole("link", { name: "Question Bank" }).click();
+    await expect(page).toHaveURL(/\/admin\/question-bank$/u);
+    await expect(page.getByRole("heading", { name: "Question Bank", level: 1 })).toBeVisible();
+    await expect(page.getByTestId("route-loading")).toHaveCount(0);
+
+    await page.getByRole("link", { name: "Regulatory Library" }).click();
+    await expect(page).toHaveURL(/\/admin\/regulatory-library$/u);
+    await expect(page.getByRole("heading", { name: "Regulatory Library", level: 1 })).toBeVisible();
+    await expect(page.getByTestId("route-loading")).toHaveCount(0);
+
+    await page.getByRole("link", { name: "Templates" }).click();
+    await expect(page).toHaveURL(/\/admin\/template-library$/u);
+    await expect(page.getByRole("heading", { name: /Checklist Templates|Template Preview/u, level: 1 })).toBeVisible();
+    await expect(page.getByTestId("route-loading")).toHaveCount(0);
+  }
+
   if (account.role === "manager") {
     await page.goto("/department-manager/checklist-management/question-review");
     await expect(page.getByRole("heading", { name: "Find → Compare → Decide", level: 1 })).toBeVisible();
@@ -237,7 +292,7 @@ async function assertAuthenticatedPanel(page: Page, account: DemoAccount): Promi
     const firstQuestion = page.getByRole("checkbox", { name: /^Select /u }).first();
     await expect(firstQuestion).toBeEnabled();
     await firstQuestion.check();
-    await page.getByRole("button", { name: "Preview exact batch" }).click();
+    await page.getByRole("button", { name: "Preview next exact batch" }).click();
     await expect(page.getByRole("status").filter({ hasText: "1 selected · ready to confirm" })).toBeVisible();
     await page.getByRole("button", { name: "Confirm selection" }).click();
     await expect(page.getByRole("status").filter({ hasText: "Exact question selection committed · 1 selected" })).toBeVisible();
@@ -245,6 +300,8 @@ async function assertAuthenticatedPanel(page: Page, account: DemoAccount): Promi
     await expect(page).toHaveURL(/\/department-manager\/new-audit\/step-5\?draftId=/u);
     await expect(page.getByText("1 exact question versions")).toBeVisible();
   }
+
+  await crawlPrimaryRolePages(page, account, failures.serverErrors);
 
   expect(failures.pageErrors).toEqual([]);
   expect(failures.serverErrors).toEqual([]);
@@ -266,4 +323,28 @@ test.describe("canonical Quick Tunnel role panels", () => {
       await assertAuthenticatedPanel(page, account);
     });
   }
+
+	test("logout ends provider SSO and forces credentials before switching accounts", async ({ page }) => {
+		test.setTimeout(180_000);
+		const admin = accounts.find((account) => account.role === "admin")!;
+		const manager = accounts.find((account) => account.role === "manager")!;
+
+		await ensureAppShellServiceWorkerControlsPage(page);
+		await loginQualificationAccount(page, admin.username, admin.homePath);
+		await expect(page.getByTestId("application-shell")).toHaveAttribute("data-active-role", "admin");
+
+		await logout(page);
+		await page.goto(manager.homePath);
+		await expect(page.getByRole("heading", { name: /Sign in to AviaSurveil360/i })).toBeVisible();
+		await page.getByRole("button", { name: "Sign in with organization identity" }).click();
+		await expect(page.locator("#username")).toBeVisible();
+		await expect(page.locator("#password")).toBeVisible();
+
+		await page.locator("#username").fill(manager.username);
+		await page.locator("#password").fill(requiredEnvironment("AVIA_AGA_OIDC_PASSWORD"));
+		await page.locator("#kc-login").click();
+		await expect(page).toHaveURL((url) => url.pathname === manager.homePath);
+		await expect(page.getByTestId("application-shell")).toHaveAttribute("data-active-role", "manager");
+		await expect(page.getByRole("heading", { name: manager.heading, level: 1 })).toBeVisible();
+	});
 });

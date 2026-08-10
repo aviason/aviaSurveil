@@ -169,6 +169,25 @@ func TestTask7MaterializedPublishedPackagePinsFullApplicabilityAndSurvivesLaterP
 	if replay, err := service.MaterializeApplicablePublishedPackage(ctx, manager, materializeCommand); err != nil || replay != result {
 		t.Fatalf("materialization replay=%+v err=%v, want exact original=%+v", replay, err, result)
 	}
+	if _, err := service.Pool.Exec(ctx, `
+		INSERT INTO identity_references (subject_id,issuer,display_name)
+		VALUES ('USR-TASK7-LEAD','task7-test','Task 7 Lead Inspector');
+		INSERT INTO audit_assignments (
+			id, inspection_id, organization_id, lead_subject_id, status,
+			scheduled_start_date, scheduled_end_date, revision
+		) VALUES (
+			'ASSIGN-TASK7', 'INSP-TASK7', 'ORG-SYNTHETIC-AOC',
+			'USR-TASK7-LEAD', 'IN_PROGRESS', '2026-07-29', '2026-08-29', 1
+		);
+		INSERT INTO audit_team_members (assignment_id, subject_id, member_role, revision)
+		VALUES
+			('ASSIGN-TASK7', 'USR-TASK7-LEAD', 'LEAD_INSPECTOR', 1),
+			('ASSIGN-TASK7', 'USR-TASK7-INSPECTOR', 'INSPECTOR', 1);
+		INSERT INTO audit_question_assignments (assignment_id, question_id, subject_id, revision)
+		VALUES ('ASSIGN-TASK7', 'Q-SYNTHETIC-OPS-AOC-001', 'USR-TASK7-INSPECTOR', 1)
+	`); err != nil {
+		t.Fatalf("seed exact canonical Task 7 execution assignment: %v", err)
+	}
 	changedReplay := materializeCommand
 	changedReplay.ExpiresAt = changedReplay.ExpiresAt.AddDate(0, 0, 1)
 	if _, err := service.MaterializeApplicablePublishedPackage(ctx, manager, changedReplay); !errors.Is(err, application.ErrConflict) {
@@ -218,21 +237,21 @@ func TestTask7MaterializedPublishedPackagePinsFullApplicabilityAndSurvivesLaterP
 	}); !errors.Is(err, application.ErrForbidden) {
 		t.Fatalf("unassigned Inspector answer accepted: %v", err)
 	}
-	response, err := runner.UpsertChecklistResponse(ctx, inspector, application.UpsertChecklistResponseCommand{
+	if response, err := runner.UpsertChecklistResponse(ctx, inspector, application.UpsertChecklistResponseCommand{
 		OperationID: "TASK7-ANSWER", CorrelationID: "TASK7-ANSWER", ResponseID: "RESP-TASK7", InspectionID: "INSP-TASK7", PackageID: "PKG-TASK7", QuestionID: "Q-SYNTHETIC-OPS-AOC-001", Answer: "NON_COMPLIANT", CommentToAuditee: "Synthetic discrepancy documented for the auditee.",
-	})
-	if err != nil || response.Revision != 1 {
-		t.Fatalf("record governed answer=%+v err=%v", response, err)
+	}); !errors.Is(err, application.ErrConflict) || response.Revision != 0 {
+		t.Fatalf("non-canonical published package entered execution: response=%+v err=%v", response, err)
 	}
-	potential, err := runner.CreatePotentialFinding(ctx, inspector, application.CreatePotentialFindingCommand{
-		OperationID: "TASK7-POTENTIAL", CorrelationID: "TASK7-POTENTIAL", InspectionID: "INSP-TASK7", QuestionID: "Q-SYNTHETIC-OPS-AOC-001", ChecklistResponseID: "RESP-TASK7", ExpectedChecklistResponseRevision: 1, Title: "Synthetic governed discrepancy", Description: "The governed answer is non-compliant.", CommentToAuditee: "Synthetic discrepancy documented for the auditee.", ExpectedEvidence: "Synthetic inspection observation\nSynthetic controlled record",
-	})
-	if err != nil || potential.ID == "" {
-		t.Fatalf("create eligible Potential Finding=%+v err=%v", potential, err)
+	var executionResponses, executionFindings int
+	if err := service.Pool.QueryRow(ctx, `
+		SELECT
+			(SELECT count(*) FROM checklist_responses WHERE inspection_id='INSP-TASK7'),
+			(SELECT count(*) FROM potential_findings WHERE inspection_id='INSP-TASK7')
+	`).Scan(&executionResponses, &executionFindings); err != nil {
+		t.Fatalf("read denied non-canonical execution effects: %v", err)
 	}
-	submittedChecklist, err := runner.SubmitChecklist(ctx, inspector, application.SubmitChecklistCommand{OperationID: "TASK7-SUBMIT", CorrelationID: "TASK7-SUBMIT", InspectionID: "INSP-TASK7", ExpectedChecklistRevision: 1})
-	if err != nil || submittedChecklist.Status != "SUBMITTED" || submittedChecklist.Revision != 2 {
-		t.Fatalf("submit governed checklist=%+v err=%v", submittedChecklist, err)
+	if executionResponses != 0 || executionFindings != 0 {
+		t.Fatalf("non-canonical execution effects = responses %d Potential Findings %d", executionResponses, executionFindings)
 	}
 	if _, err := service.Pool.Exec(ctx, `UPDATE inspection_packages SET snapshot='{}'::jsonb WHERE id='PKG-TASK7'`); err == nil {
 		t.Fatal("Inspector/package snapshot mutation unexpectedly succeeded")

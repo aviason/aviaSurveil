@@ -4,13 +4,16 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AppProviders } from "../../app/providers";
 import { createMockBackendRuntime } from "../../mock/create-mock-backend";
 import { GeneralManagerDashboardPage } from "./planning-workspaces";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 type MockRuntime = ReturnType<typeof createMockBackendRuntime>;
 
@@ -66,6 +69,19 @@ describe("GeneralManagerDashboardPage", () => {
     expect(screen.getByText(/General Manager review may return or forward/i)).toBeVisible();
     expect(screen.getByText(/cannot issue, sign, lock, or close/i)).toBeVisible();
     expect(screen.queryByRole("button", { name: /issue|sign|lock|close Finding/i })).toBeNull();
+  });
+
+  it("renders a truthful empty report queue when connected storage has no report versions", async () => {
+    const runtime = createMockBackendRuntime();
+    const gm = runtime.backendForRole("gm");
+    vi.spyOn(gm.documents, "list").mockResolvedValue({ items: [], nextCursor: null });
+    const getVersion = vi.spyOn(gm.reports, "getVersion").mockRejectedValue(new Error("Not found."));
+
+    renderPage(runtime);
+
+    expect(await screen.findByText("No report versions are available yet.")).toBeVisible();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(getVersion).not.toHaveBeenCalled();
   });
 
   it("forwards only a GM-owned planning revision and bounds the Executive Director handoff", async () => {

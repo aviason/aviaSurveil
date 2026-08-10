@@ -29,6 +29,17 @@ const stageDefinitions = [
   { number: 3, title: "Review and submit", description: "Confirm the Planning record for Finance" },
 ] as const;
 
+const selectionBatchLimit = 500;
+const selectedTrayRenderLimit = 100;
+
+type SelectionOperationKind = "ADD" | "REMOVE";
+
+interface SelectionPreviewOperation {
+  operationId: string;
+  operationKind: SelectionOperationKind;
+  questionVersionIds: string[];
+}
+
 type PlanningIntakeFormValues = Omit<PlanningIntakeDraftValues, "requestedBudget"> & {
   requestedBudget: string;
 };
@@ -94,6 +105,23 @@ async function selectionDigestFor(ids: readonly string[]): Promise<string> {
   const bytes = new TextEncoder().encode(canonical);
   const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function nextSelectionBatch(
+  current: readonly string[],
+  desired: readonly string[],
+): { operationKind: SelectionOperationKind; questionVersionIds: string[] } | null {
+  const currentSet = new Set(current);
+  const desiredSet = new Set(desired);
+  const removals = current.filter((id) => !desiredSet.has(id));
+  if (removals.length) {
+    return { operationKind: "REMOVE", questionVersionIds: removals.slice(0, selectionBatchLimit) };
+  }
+  const additions = desired.filter((id) => !currentSet.has(id));
+  if (additions.length) {
+    return { operationKind: "ADD", questionVersionIds: additions.slice(0, selectionBatchLimit) };
+  }
+  return null;
 }
 
 function validationMessage(step: number, values: PlanningIntakeFormValues): string | null {
@@ -182,9 +210,8 @@ export function NewAuditWizardPage() {
   const [catalogPreviousCursors, setCatalogPreviousCursors] = useState<string[]>([]);
   const [catalogPageNumber, setCatalogPageNumber] = useState(1);
   const [catalogDetail, setCatalogDetail] = useState<CanonicalQuestionCatalogEntry | null>(null);
-  const [selectedCatalogEntries, setSelectedCatalogEntries] = useState<CanonicalQuestionCatalogEntry[]>([]);
   const [selectionPreview, setSelectionPreview] = useState<CanonicalSelectionPreview | null>(null);
-  const [selectionPreviewOperationId, setSelectionPreviewOperationId] = useState<string | null>(null);
+  const [selectionPreviewOperation, setSelectionPreviewOperation] = useState<SelectionPreviewOperation | null>(null);
   const [serverSelectionSummary, setServerSelectionSummary] = useState<CanonicalSelectionPreview["preview"] | null>(null);
   const [pendingSelectionIds, setPendingSelectionIds] = useState<string[]>([]);
   const [selectionDirty, setSelectionDirty] = useState(false);
@@ -321,7 +348,7 @@ export function NewAuditWizardPage() {
       setPendingSelectionIds([]);
       setSelectionDirty(false);
       setSelectionPreview(null);
-      setSelectionPreviewOperationId(null);
+      setSelectionPreviewOperation(null);
       setServerSelectionSummary(null);
       setScopeOptionLabel(`${option.organizationName} · ${option.providerTypeLabel} · ${option.targetLabel}`);
       setStatus("A new server-owned draft was opened for the selected organization/provider scope/target.");
@@ -363,47 +390,8 @@ export function NewAuditWizardPage() {
     return () => controller.abort();
   }, [auditUsageClass, backend, catalogCursor, catalogDomain, catalogFormCode, catalogRiskBand, catalogSearch, catalogSelectedFilter, catalogSourceGapState, catalogTopic, step, values?.catalogVersion, values?.scopeDraftId]);
 
-  useEffect(() => {
-    if ((step !== 4 && step !== 5) || !values?.catalogVersion || !values.scopeDraftId || !backend.canonicalQuestionReview) {
-      setSelectedCatalogEntries([]);
-      return;
-    }
-    const controller = new AbortController();
-    const review = backend.canonicalQuestionReview;
-    const loadSelected = async () => {
-      const entries: CanonicalQuestionCatalogEntry[] = [];
-      let cursor: string | undefined;
-      do {
-        const page = await review.listCatalog({
-          catalogVersion: values.catalogVersion ?? "",
-          usageClass: auditUsageClass,
-          selected: "selected",
-          scopeId: values.scopeDraftId || undefined,
-          cursor,
-          limit: 25,
-        }, { signal: controller.signal });
-        entries.push(...page.items);
-        cursor = page.nextCursor ?? undefined;
-      } while (cursor && entries.length < 500);
-      if (!controller.signal.aborted) setSelectedCatalogEntries(entries);
-    };
-    void loadSelected().catch((cause) => {
-      if (!controller.signal.aborted) setError(errorMessage(cause));
-    });
-    return () => controller.abort();
-  }, [auditUsageClass, backend, step, values?.catalogVersion, values?.scopeDraftId, values?.selectionDigest]);
-
   const selectionSummary = useMemo(() => {
     const selected = new Set(pendingSelectionIds);
-    const formDistribution: Record<string, number> = {};
-    const domainDistribution: Record<string, number> = {};
-    for (const entry of selectedCatalogEntries) {
-      if (!selected.has(entry.questionVersionId)) continue;
-      formDistribution[entry.formCode] = (formDistribution[entry.formCode] ?? 0) + 1;
-      const domain = entry.proposedDomain || "Unclassified";
-      domainDistribution[domain] = (domainDistribution[domain] ?? 0) + 1;
-    }
-    const loadedSelectedCount = Object.values(formDistribution).reduce((sum, count) => sum + count, 0);
     const serverSummary = serverSelectionSummary && serverSelectionSummary.selectedQuestionVersionIds.length === selected.size &&
       serverSelectionSummary.selectedQuestionVersionIds.every((id) => selected.has(id)) ? serverSelectionSummary : null;
     return {
@@ -412,11 +400,10 @@ export function NewAuditWizardPage() {
       // incomplete or adversarial and are never treated as authoritative.
       formDistribution: serverSummary?.formDistribution ?? {},
       domainDistribution: serverSummary?.domainDistribution ?? {},
-      loadedSelectedCount,
-      complete: Boolean(serverSummary) && loadedSelectedCount === selected.size,
+      complete: Boolean(serverSummary),
       estimatedResourceRequirement: serverSummary?.estimatedResourceRequirement,
     };
-  }, [pendingSelectionIds, selectedCatalogEntries, serverSelectionSummary]);
+  }, [pendingSelectionIds, serverSelectionSummary]);
 
   function resetCatalogPage() {
     setCatalogCursor(undefined);
@@ -443,8 +430,55 @@ export function NewAuditWizardPage() {
     setPendingSelectionIds(normalized);
     setSelectionDirty(true);
     setSelectionPreview(null);
-    setSelectionPreviewOperationId(null);
+    setSelectionPreviewOperation(null);
     setStatus("Selection changes are staged locally. Preview and confirm the exact batch before continuing.");
+  }
+
+  async function stageAllMatchingQuestions() {
+    if (busy || !values?.catalogVersion || !backend.canonicalQuestionReview) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const ids: string[] = [];
+      const seenIds = new Set<string>();
+      const seenCursors = new Set<string>();
+      let cursor: string | undefined;
+      do {
+        const page = await backend.canonicalQuestionReview.listCatalog({
+          catalogVersion: values.catalogVersion,
+          usageClass: auditUsageClass,
+          search: catalogSearch || undefined,
+          formCode: catalogFormCode || undefined,
+          domain: catalogDomain || undefined,
+          topic: catalogTopic || undefined,
+          riskBand: catalogRiskBand || undefined,
+          sourceGapState: catalogSourceGapState || undefined,
+          selected: catalogSelectedFilter,
+          scopeId: values.scopeDraftId || undefined,
+          cursor,
+          limit: 100,
+        });
+        for (const entry of page.items) {
+          if (entry.canSelect && !seenIds.has(entry.questionVersionId)) {
+            seenIds.add(entry.questionVersionId);
+            ids.push(entry.questionVersionId);
+          }
+        }
+        const nextCursor = page.nextCursor ?? undefined;
+        if (nextCursor && seenCursors.has(nextCursor)) {
+          throw new Error("Catalog pagination repeated a cursor while staging the exact question set.");
+        }
+        if (nextCursor) seenCursors.add(nextCursor);
+        cursor = nextCursor;
+      } while (cursor);
+      if (!ids.length) throw new Error("No selectable questions match the current server-authorized filters.");
+      setPendingSelection(ids);
+      setStatus(`${ids.length.toLocaleString("en-US")} eligible questions staged locally; commits run in batches of at most ${selectionBatchLimit}.`);
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function previewQuestionSelection() {
@@ -453,12 +487,10 @@ export function NewAuditWizardPage() {
       setError("The server did not return a canonical scope identity; reload this draft before selecting questions.");
       return;
     }
-    if (!pendingSelectionIds.length) {
-      setError("Select at least one question before previewing the exact batch.");
-      return;
-    }
-    if (pendingSelectionIds.length > 500) {
-      setError("A single selection batch is limited to 500 immutable question versions.");
+    const batch = nextSelectionBatch(values.selectedQuestionVersionIds ?? [], pendingSelectionIds);
+    if (!batch) {
+      setSelectionDirty(false);
+      setStatus("The staged selection already matches the server-owned exact selection.");
       return;
     }
     setBusy(true);
@@ -470,16 +502,15 @@ export function NewAuditWizardPage() {
         operationId: previewOperationId,
         idempotencyKey: previewOperationId,
 			 expectedSelectionDigest,
-			 questionVersionIds: pendingSelectionIds,
-			 operationKind: "REPLACE",
+			 questionVersionIds: batch.questionVersionIds,
+			 operationKind: batch.operationKind,
         usageClass: auditUsageClass,
         filter: {},
       });
       setSelectionPreview(previewReceipt);
-      setSelectionPreviewOperationId(previewOperationId);
-      setServerSelectionSummary(previewReceipt.preview);
+      setSelectionPreviewOperation({ operationId: previewOperationId, ...batch });
       setError(null);
-      setStatus(`Exact selection preview ready · ${previewReceipt.preview.selectedCount} selected · confirm to persist.`);
+      setStatus(`Exact selection preview ready · ${batch.operationKind} ${batch.questionVersionIds.length} · ${previewReceipt.preview.selectedCount.toLocaleString("en-US")} of ${pendingSelectionIds.length.toLocaleString("en-US")} target questions after commit.`);
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -488,7 +519,7 @@ export function NewAuditWizardPage() {
   }
 
   async function confirmQuestionSelection() {
-    if (busy || !values || !draft || !backend.canonicalQuestionReview || !selectionPreview || !selectionPreviewOperationId) return;
+    if (busy || !values || !draft || !backend.canonicalQuestionReview || !selectionPreview || !selectionPreviewOperation) return;
     if (!values.scopeDraftId) {
       setError("The server did not return a canonical scope identity; reload this draft before selecting questions.");
       return;
@@ -500,11 +531,11 @@ export function NewAuditWizardPage() {
       const receipt = await backend.canonicalQuestionReview.commitSelection({
         scopeId: values.scopeDraftId,
         operationId: operationIdValue,
-        previewOperationId: selectionPreviewOperationId,
+        previewOperationId: selectionPreviewOperation.operationId,
         idempotencyKey: operationIdValue,
 			 expectedSelectionDigest,
-			 questionVersionIds: pendingSelectionIds,
-			 operationKind: "REPLACE",
+			 questionVersionIds: selectionPreviewOperation.questionVersionIds,
+			 operationKind: selectionPreviewOperation.operationKind,
         usageClass: auditUsageClass,
         filter: {},
       });
@@ -517,12 +548,19 @@ export function NewAuditWizardPage() {
         domainDistribution: receipt.selection.domainDistribution,
       } : current);
       setServerSelectionSummary(receipt.selection);
-      setPendingSelectionIds(receipt.selection.selectedQuestionVersionIds);
-      setSelectionDirty(false);
       setSelectionPreview(null);
-      setSelectionPreviewOperationId(null);
+      setSelectionPreviewOperation(null);
       setError(null);
-      setStatus(`Exact question selection committed · ${receipt.selection.selectedCount} selected · ${receipt.selection.selectionDigest}`);
+      const remainingBatch = nextSelectionBatch(receipt.selection.selectedQuestionVersionIds, pendingSelectionIds);
+      if (remainingBatch) {
+        setSelectionDirty(true);
+        const remaining = Math.max(0, pendingSelectionIds.length - receipt.selection.selectedCount);
+        setStatus(`Exact batch committed · ${receipt.selection.selectedCount.toLocaleString("en-US")} of ${pendingSelectionIds.length.toLocaleString("en-US")} selected · ${remaining.toLocaleString("en-US")} remaining.`);
+      } else {
+        setPendingSelectionIds(receipt.selection.selectedQuestionVersionIds);
+        setSelectionDirty(false);
+        setStatus(`Exact question selection committed · ${receipt.selection.selectedCount.toLocaleString("en-US")} selected · ${receipt.selection.selectionDigest}`);
+      }
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -697,11 +735,11 @@ export function NewAuditWizardPage() {
               </ul> : null}
               <section aria-label="Selected question tray" className="planning-intake-selected-tray">
                 <header><h4>Selected question tray</h4><span>{pendingSelectionIds.length} exact immutable versions</span></header>
-                {pendingSelectionIds.length ? <ul>{pendingSelectionIds.map((questionId) => <li key={questionId}><span>{questionId}</span><button type="button" disabled={busy} onClick={() => setPendingSelection(pendingSelectionIds.filter((id) => id !== questionId))}>Remove</button></li>)}</ul> : <p>No questions selected. Select at least one version to continue.</p>}
+                {pendingSelectionIds.length ? <><ul>{pendingSelectionIds.slice(0, selectedTrayRenderLimit).map((questionId) => <li key={questionId}><span>{questionId}</span><button type="button" disabled={busy} onClick={() => setPendingSelection(pendingSelectionIds.filter((id) => id !== questionId))}>Remove</button></li>)}</ul>{pendingSelectionIds.length > selectedTrayRenderLimit ? <p>{pendingSelectionIds.length - selectedTrayRenderLimit} additional exact identities remain staged; use the selected-state filter and pagination to inspect them without rendering all question bodies at once.</p> : null}</> : <p>No questions selected. Select at least one version to continue.</p>}
               </section>
               {catalogDetail ? <aside aria-label="Selected question dossier" className="planning-intake-question-dossier"><header><h4>Question dossier</h4><button type="button" onClick={() => setCatalogDetail(null)}>Close</button></header><strong>{catalogDetail.formCode} · item {catalogDetail.ordinal}</strong><p>{catalogDetail.prompt ?? "Prompt unavailable in this profile."}</p><dl><div><dt>Question version</dt><dd>{catalogDetail.questionVersionId}</dd></div><div><dt>Source gap</dt><dd>{catalogDetail.sourceGapState}</dd></div><div><dt>Reference</dt><dd>{catalogDetail.configuredReference ?? "Not configured"}</dd></div><div><dt>Expected Evidence</dt><dd>{catalogDetail.expectedEvidence ?? "Not configured"}</dd></div></dl></aside> : null}
               {selectionPreview ? <p className="planning-intake-selection-preview" role="status">Preview: {selectionPreview.preview.selectedCount} selected · {selectionPreview.valid ? "ready to confirm" : selectionPreview.reason}</p> : null}
-              <div className="planning-intake-selection-actions"><button type="button" disabled={busy || !selectionDirty || !pendingSelectionIds.length} onClick={() => void previewQuestionSelection()} title={!selectionDirty ? "Stage an Add, Remove, or tray change first." : undefined}>Preview exact batch</button><button type="button" disabled={busy || !selectionPreview?.valid || !selectionPreviewOperationId} onClick={() => void confirmQuestionSelection()} title={!selectionPreview?.valid ? "Preview the staged exact batch first." : undefined}>Confirm selection</button><button type="button" disabled={busy || !selectionDirty} onClick={() => { setPendingSelectionIds([...(values.selectedQuestionVersionIds ?? [])]); setSelectionDirty(false); setSelectionPreview(null); setSelectionPreviewOperationId(null); setStatus("Staged selection changes were discarded."); }} title={!selectionDirty ? "There are no staged selection changes." : undefined}>Undo staged changes</button></div>
+              <div className="planning-intake-selection-actions"><button type="button" disabled={busy || catalogBusy || !catalogPage} onClick={() => void stageAllMatchingQuestions()}>Stage all matching eligible questions</button><button type="button" disabled={busy || !selectionDirty} onClick={() => void previewQuestionSelection()} title={!selectionDirty ? "Stage an Add, Remove, or tray change first." : undefined}>Preview next exact batch</button><button type="button" disabled={busy || !selectionPreview?.valid || !selectionPreviewOperation} onClick={() => void confirmQuestionSelection()} title={!selectionPreview?.valid ? "Preview the staged exact batch first." : undefined}>Confirm selection</button><button type="button" disabled={busy || !selectionDirty} onClick={() => { setPendingSelectionIds([...(values.selectedQuestionVersionIds ?? [])]); setSelectionDirty(false); setSelectionPreview(null); setSelectionPreviewOperation(null); setStatus("Staged selection changes were discarded."); }} title={!selectionDirty ? "There are no staged selection changes." : undefined}>Undo staged changes</button></div>
               <div className="planning-intake-catalog-pagination" aria-label="New Audit question pagination"><button disabled={catalogBusy || !catalogPreviousCursors.length} onClick={() => { const history = [...catalogPreviousCursors]; setCatalogCursor(history.pop()); setCatalogPreviousCursors(history); setCatalogPageNumber((value) => Math.max(1, value - 1)); }} type="button">Previous questions</button><button disabled={catalogBusy || (!catalogSearch && !catalogFormCode && !catalogDomain && !catalogTopic && !catalogRiskBand && !catalogSourceGapState && catalogSelectedFilter === "all")} onClick={() => { setCatalogSearch(""); setCatalogFormCode(""); setCatalogDomain(""); setCatalogTopic(""); setCatalogRiskBand(""); setCatalogSourceGapState(""); setCatalogSelectedFilter("all"); resetCatalogPage(); }} type="button">Clear filters</button><span aria-live="polite">{catalogPage?.totalCount ?? 0} matching questions · page {catalogPageNumber}</span><button disabled={catalogBusy || !catalogPage?.nextCursor} onClick={() => { if (!catalogPage?.nextCursor) return; setCatalogPreviousCursors((history) => [...history, catalogCursor ?? ""]); setCatalogCursor(catalogPage.nextCursor ?? undefined); setCatalogPageNumber((value) => value + 1); }} type="button">Next questions</button></div>
             </div>
             <label>Question Catalog Version<input aria-label="Question Catalog Version" readOnly value={values.catalogVersion ?? "Unavailable"} /></label>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import { useApplicationRuntime } from "../../app/providers";
 import { useScenario } from "../../app/scenario-context";
@@ -17,6 +17,7 @@ const sections: readonly { id: string; label: string; note?: string }[] = [
 
 export function AuditDetailPage() {
   const runtime = useApplicationRuntime();
+  const { auditId: requestedAuditId } = useParams<{ auditId: string }>();
   const { projection, actions } = useScenario();
   const [assignment, setAssignment] = useState<{ auditId: string; packageId?: string | null; dueDate: string | null; currentOwnerDisplayName?: string | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -26,13 +27,13 @@ export function AuditDetailPage() {
   useEffect(() => {
     const backend = runtime.backendForRole?.("inspector") ?? runtime.backend;
     void backend.assignments.list({}).then(({ items }) => {
-      const current = items.find((item) => item.packageId);
+      const current = items.find((item) => item.auditId === requestedAuditId && item.packageId);
       if (!current?.packageId) throw new Error("No executable canonical Audit package is available for this Inspector.");
       setAssignment(current);
       return actions.loadPackage(current.packageId);
     }).catch((cause) => setError(errorMessage(cause)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [requestedAuditId]);
 
   const packageView = projection.packageView;
   const auditTitle = packageView?.title ?? "Audit package unavailable";
@@ -46,6 +47,9 @@ export function AuditDetailPage() {
   );
   const previousSection = sections[selectedSectionIndex - 1];
   const nextSection = sections[selectedSectionIndex + 1];
+  const checklistRunnerPath = packageView
+    ? `/inspector/audits/${encodeURIComponent(packageView.auditId)}/checklist?packageId=${encodeURIComponent(packageView.id)}`
+    : "/inspector/inspector-assignments";
 
   function downloadChecklist(): void {
     const body = [
@@ -100,7 +104,7 @@ export function AuditDetailPage() {
             <Link
               aria-label="Run Cabin checklist"
               className="inspection-submit-action"
-              to={packageView ? `/inspector/audits/${packageView.auditId}/checklist` : "/inspector/inspector-assignments"}
+              to={checklistRunnerPath}
             >
               ➤&nbsp; Submit to Lead Inspector
             </Link>
@@ -112,7 +116,7 @@ export function AuditDetailPage() {
           <div className="is-warn"><span>Next action</span><strong>Complete checklist sections</strong></div>
           <div><span>Due Date</span><strong>{formatLocalDate(assignment?.dueDate ?? null)}</strong></div>
           <div><span>Status</span><strong>{packageView?.checklistStatus ?? "Unavailable"}</strong></div>
-          <Link aria-label="Submit to Lead Inspector" to={packageView ? `/inspector/audits/${packageView.auditId}/checklist` : "/inspector/inspector-assignments"}>
+          <Link aria-label="Submit to Lead Inspector" to={checklistRunnerPath}>
             Submit to Lead Inspector
           </Link>
         </section>

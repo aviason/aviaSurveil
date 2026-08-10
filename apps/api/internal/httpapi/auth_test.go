@@ -24,6 +24,7 @@ type fakeOIDCProvider struct {
 	exchangeNonce          string
 	identity               identity.OIDCIdentity
 	exchangeErr            error
+	logoutIDToken          string
 }
 
 func (provider *fakeOIDCProvider) AuthorizationURL(state, nonce, challenge string) string {
@@ -40,21 +41,29 @@ func (provider *fakeOIDCProvider) Exchange(_ context.Context, code, verifier, no
 	return provider.identity, provider.exchangeErr
 }
 
+func (provider *fakeOIDCProvider) LogoutURL(idToken string) string {
+	provider.logoutIDToken = idToken
+	return "https://identity.example/logout?client_id=avia&id_token_hint=" + idToken
+}
+
 type fakeAuthSessions struct {
-	loginRequest       session.LoginRequest
-	loginState         session.LoginState
-	created            session.BrowserSession
-	createInput        session.CreateInput
-	principal          identity.Principal
-	newLoginReturnTo   string
-	consumedState      string
-	authenticatedToken string
-	csrfSessionID      string
-	csrfToken          string
-	revokedSessionID   string
-	createErr          error
-	authenticateErr    error
-	csrfErr            error
+	loginRequest         session.LoginRequest
+	loginState           session.LoginState
+	created              session.BrowserSession
+	createInput          session.CreateInput
+	principal            identity.Principal
+	newLoginReturnTo     string
+	consumedState        string
+	authenticatedToken   string
+	csrfSessionID        string
+	csrfToken            string
+	revokedSessionID     string
+	providerIDToken      string
+	providerLogoutTicket string
+	redeemedLogoutTicket string
+	createErr            error
+	authenticateErr      error
+	csrfErr              error
 }
 
 func (sessions *fakeAuthSessions) NewLoginState(_ context.Context, returnTo string) (session.LoginRequest, error) {
@@ -83,9 +92,14 @@ func (sessions *fakeAuthSessions) ValidateCSRF(_ context.Context, sessionID, raw
 	return sessions.csrfErr
 }
 
-func (sessions *fakeAuthSessions) Revoke(_ context.Context, sessionID string) error {
+func (sessions *fakeAuthSessions) Revoke(_ context.Context, sessionID string) (string, error) {
 	sessions.revokedSessionID = sessionID
-	return nil
+	return sessions.providerLogoutTicket, nil
+}
+
+func (sessions *fakeAuthSessions) RedeemProviderLogout(_ context.Context, ticket string) (string, error) {
+	sessions.redeemedLogoutTicket = ticket
+	return sessions.providerIDToken, nil
 }
 
 func TestOIDCLoginAndCallbackUseOneTimeStatePKCEAndSecureBrowserCookies(t *testing.T) {
@@ -195,7 +209,11 @@ func TestSessionProjectionNeverReturnsCredentialsAndLogoutRequiresCSRF(t *testin
 		Roles:       []identity.Role{identity.RoleAuditee},
 	}
 	provider := &fakeOIDCProvider{}
-	sessions := &fakeAuthSessions{principal: principal}
+	sessions := &fakeAuthSessions{
+		principal:            principal,
+		providerIDToken:      "signed-provider-id-token",
+		providerLogoutTicket: "opaque-provider-logout-ticket",
+	}
 	handler := httpapi.NewAuthHandler(provider, sessions)
 
 	request := httptest.NewRequest(http.MethodGet, "/auth/session", nil)
@@ -232,13 +250,31 @@ func TestSessionProjectionNeverReturnsCredentialsAndLogoutRequiresCSRF(t *testin
 	logout.Header.Set(httpapi.CSRFHeaderName, "raw-csrf-token")
 	logoutResponse := httptest.NewRecorder()
 	handler.ServeHTTP(logoutResponse, logout)
-	if logoutResponse.Code != http.StatusNoContent || sessions.revokedSessionID != principal.SessionID || sessions.csrfSessionID != principal.SessionID || sessions.csrfToken != "raw-csrf-token" {
+	if logoutResponse.Code != http.StatusOK || sessions.revokedSessionID != principal.SessionID || sessions.csrfSessionID != principal.SessionID || sessions.csrfToken != "raw-csrf-token" {
 		t.Fatalf("logout response = %d, sessions %+v", logoutResponse.Code, sessions)
+	}
+	var logoutProjection struct {
+		LogoutURL string `json:"logoutUrl"`
+	}
+	if err := json.Unmarshal(logoutResponse.Body.Bytes(), &logoutProjection); err != nil {
+		t.Fatalf("decode logout projection: %v", err)
+	}
+	if logoutProjection.LogoutURL != "/auth/provider-logout?ticket=opaque-provider-logout-ticket" || provider.logoutIDToken != "" || strings.Contains(logoutResponse.Body.String(), sessions.providerIDToken) {
+		t.Fatalf("provider logout projection = %+v, provider token = %q", logoutProjection, provider.logoutIDToken)
 	}
 	for _, cookie := range logoutResponse.Result().Cookies() {
 		if cookie.MaxAge >= 0 || !cookie.Expires.Before(time.Now()) {
 			t.Fatalf("logout cookie was not expired: %+v", cookie)
 		}
+	}
+	providerLogout := httptest.NewRequest(http.MethodGet, logoutProjection.LogoutURL, nil)
+	providerLogoutResponse := httptest.NewRecorder()
+	handler.ServeHTTP(providerLogoutResponse, providerLogout)
+	if providerLogoutResponse.Code != http.StatusSeeOther || sessions.redeemedLogoutTicket != sessions.providerLogoutTicket || provider.logoutIDToken != sessions.providerIDToken {
+		t.Fatalf("provider logout redirect = %d %q, sessions %+v", providerLogoutResponse.Code, providerLogoutResponse.Header().Get("Location"), sessions)
+	}
+	if !strings.Contains(providerLogoutResponse.Header().Get("Location"), "id_token_hint=signed-provider-id-token") {
+		t.Fatalf("provider logout location = %q", providerLogoutResponse.Header().Get("Location"))
 	}
 }
 

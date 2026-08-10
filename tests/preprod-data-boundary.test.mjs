@@ -106,6 +106,22 @@ test("disposable OIDC qualification is a separate predecessor fixture", () => {
   assert.doesNotMatch(loader, /keycloak|oidc|qualification|session_encryption/u);
 });
 
+test("normal preprod API waits for OIDC discovery after an unordered container-runtime restart", () => {
+  const compose = read("deploy/local/compose.yaml");
+  const service = serviceBlock(compose, "preprod-api");
+  assert.match(service, /oidc_wait_attempt=0/u);
+  assert.match(
+    service,
+    /until wget --quiet --output-document=\/dev\/null[^]*?AVIA_OIDC_DISCOVERY_URL[^]*?openid-configuration/u,
+  );
+  assert.match(service, /oidc_wait_attempt\}" -ge 120/u);
+  assert.match(service, /OIDC discovery did not become ready/u);
+  assert.ok(
+    service.indexOf("oidc_wait_attempt=0") < service.indexOf("exec /app/api"),
+    "the OIDC recovery wait must finish before the API process starts",
+  );
+});
+
 test("one-shot profile owns a complete isolated disposable namespace", () => {
   const compose = read("deploy/local/compose.yaml");
   const namespaceInitializer = read("scripts/init-local-preprod-namespace.sh");
@@ -166,7 +182,19 @@ test("one-shot profile owns a complete isolated disposable namespace", () => {
   assert.match(realmBuilder, /realm\.smtpServer\.user = smtpUser/u);
   assert.match(objectInitializer, /aviasurveil360-local-preprod/u);
   assert.match(objectInitializer, /runs\/\*/u);
-  assert.doesNotMatch(objectInitializer, /evidence-quarantine|evidence-clean/u);
+  for (const runtimeBucket of [
+    "evidence-quarantine",
+    "evidence-clean",
+    "inspection-attachments",
+    "generated-documents",
+  ]) {
+    assert.match(objectInitializer, new RegExp(runtimeBucket, "u"));
+  }
+  assert.match(objectInitializer, /aviasurveil360-local-preprod-runtime/u);
+  assert.match(objectInitializer, /aviasurveil360-local-preprod-loader/u);
+  assert.match(loaderService, /preprod_minio_loader_access_key/u);
+  assert.match(loaderService, /preprod_minio_loader_secret_key/u);
+  assert.doesNotMatch(loaderService, /preprod_minio_api_(?:access|secret)_key/u);
 });
 
 test("preprod object policy scopes only ListBucket with the run prefix", () => {
@@ -192,6 +220,16 @@ test("preprod object policy scopes only ListBucket with the run prefix", () => {
       "s3:prefix": ["runs/*"],
     },
   });
+  assert.deepEqual(location.Resource, ["arn:aws:s3:::aviasurveil360-local-preprod"]);
+  assert.deepEqual(list.Resource, ["arn:aws:s3:::aviasurveil360-local-preprod"]);
+  assert.ok(
+    statements.every((statement) =>
+      JSON.stringify(statement.Resource).includes("aviasurveil360-local-preprod") &&
+      !JSON.stringify(statement.Resource).includes("evidence-") &&
+      !JSON.stringify(statement.Resource).includes("inspection-attachments") &&
+      !JSON.stringify(statement.Resource).includes("generated-documents")),
+    "the one-shot loader policy must not reach canonical runtime buckets",
+  );
 });
 
 test("preprod migration uses the supported database-only config mode", () => {

@@ -816,10 +816,14 @@ describe("Task 6 manager governed-checklist backend parity", () => {
     const artifact = await manager.getPublishedVersion({
       templateVersionId: publication.templateVersionId,
     });
+    const immutableQuestions = structuredClone(submitted.questions);
+    for (const question of immutableQuestions) {
+      Reflect.deleteProperty(question.regulatoryTrace, "mappingReviewState");
+    }
     expect(artifact).toEqual({
       publication,
       mappings: submitted.mappings,
-      questions: submitted.questions,
+      questions: immutableQuestions,
     });
     const exactBytes = JSON.stringify({
       mappings: artifact.mappings,
@@ -827,7 +831,7 @@ describe("Task 6 manager governed-checklist backend parity", () => {
     });
     expect(exactBytes).toBe(JSON.stringify({
       mappings: submitted.mappings,
-      questions: submitted.questions,
+      questions: immutableQuestions,
     }));
     artifact.mappings[0]!.mappingId = "TAMPERED-CLONE";
     expect((await manager.getPublishedVersion({
@@ -842,7 +846,7 @@ describe("Task 6 manager governed-checklist backend parity", () => {
     })).resolves.toEqual({
       publication,
       mappings: submitted.mappings,
-      questions: submitted.questions,
+      questions: immutableQuestions,
     });
     expect("updatePublishedVersion" in manager).toBe(false);
     expect("deletePublishedVersion" in manager).toBe(false);

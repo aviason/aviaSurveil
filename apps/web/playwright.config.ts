@@ -180,7 +180,10 @@ export default defineConfig({
     },
     {
       name: "canonical-quick-tunnel",
-      testMatch: ["e2e/canonical-quick-tunnel-panels.spec.ts"],
+      testMatch: [
+        "e2e/canonical-quick-tunnel-panels.spec.ts",
+        "e2e/canonical-quick-tunnel-lifecycle.spec.ts",
+      ],
       use: {
         actionTimeout: 30_000,
         navigationTimeout: 30_000,

@@ -124,6 +124,14 @@ and reconciliation state. Earlier versions remain append-only.
 | Invitation resend | membership revision checked | New execute-actions delivery per owner policy; earlier delivery retained | No authority granted |
 | Start recovery | membership revision checked | Approved recovery execute-actions only; no application password/token | All sessions revoked before recovery |
 
+Interactive browser logout revokes the exact AviaSurveil session, clears its
+server-held provider tokens, and continues through the provider-discovered
+RP-initiated logout endpoint using the server-held ID-token hint. A subsequent
+interactive authorization request requires `prompt=login` and `max_age=0` so
+the browser must show credential entry and cannot silently inherit the prior
+Keycloak SSO identity. This requirement applies equally to local, Quick Tunnel,
+preprod, and production transports.
+
 ## Invitation And Provider Observation
 
 Provisioning uses authenticated local SMTP/Mailpit and Keycloak

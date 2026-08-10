@@ -223,29 +223,13 @@ func TestAdministrationProjectionsAndFiltersAreRoleScoped(t *testing.T) {
 		t.Fatalf("seed admin audit event: %v", err)
 	}
 	if _, err := pool.Exec(context.Background(), `
-			INSERT INTO user_lifecycle_requests (
-				id, subject_id, requested_action, requested_roles,
-				requested_organization_id, requested_email, requested_display_name,
-				status, idempotency_key, expected_membership_revision, reason,
-				requested_by_subject_id, created_at, updated_at
-			) VALUES (
-				'lifecycle-directory-invitation-001', 'inspector-cabin-001',
-				'PROVISION', ARRAY['inspector'], NULL,
-				'inspector.cabin@example.test', 'Cabin Inspector',
-				'SUCCEEDED', 'idem-directory-invitation-001', 0,
-				'Approved seeded invitation projection.', 'admin-001', $1, $1
-			)
-		`, canonicalNow); err != nil {
-		t.Fatalf("seed invitation lifecycle fact: %v", err)
-	}
-	if _, err := pool.Exec(context.Background(), `
 			INSERT INTO identity_action_facts (
 				id, request_id, fact_sequence, membership_id, subject_id,
 				action_kind, state, delivery_attempt, expires_at,
 				provider_acknowledged_at, reason, created_at
 			) VALUES (
 				'identity-action-directory-invitation-001',
-				'lifecycle-directory-invitation-001', 1, NULL,
+				'fixture-membership-inspector-request', 1, NULL,
 				'inspector-cabin-001', 'INVITATION',
 					'DELIVERY_ACCEPTED', 1,
 					$1::timestamptz + interval '24 hours', $1,
@@ -261,7 +245,7 @@ func TestAdministrationProjectionsAndFiltersAreRoleScoped(t *testing.T) {
 		) VALUES (
 			'notification-directory-invitation-001', 'inspector-cabin-001',
 			'Access invitation', 'Identity delivery fact.',
-			'USER_LIFECYCLE_INVITATION', 'lifecycle-directory-invitation-001',
+			'USER_LIFECYCLE_INVITATION', 'fixture-membership-inspector-request',
 			'directory-invitation-001', $1
 		)
 	`, canonicalNow); err != nil {

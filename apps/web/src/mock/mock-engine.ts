@@ -1113,6 +1113,19 @@ interface MockGovernedState {
   sourceImpactCandidateBindings: Map<string, string>;
 }
 
+function immutablePublishedQuestions(
+  questions: GovernedQuestionView[],
+): GovernedQuestionView[] {
+  return structuredClone(questions).map((question) => {
+    // mappingReviewState is a mutable server-side review projection, not part
+    // of the immutable submitted question snapshot published by the Go
+    // service. Keep the semantic mock byte-for-byte aligned with that
+    // artifact boundary.
+    Reflect.deleteProperty(question.regulatoryTrace, "mappingReviewState");
+    return question;
+  });
+}
+
 const governedStateByStore = new WeakMap<MemoryMockStore, MockGovernedState>();
 
 export class MockBackendEngine implements DemoBackend {
@@ -2353,7 +2366,7 @@ export class MockBackendEngine implements DemoBackend {
       this.governedState.publishedVersions.set(publication.templateVersionId, {
         publication: structuredClone(publication),
         mappings: structuredClone(candidate.mappings),
-        questions: structuredClone(candidate.questions),
+        questions: immutablePublishedQuestions(candidate.questions),
       });
       const command: MockGovernedCommand = {
         operationId: input.operationId,
@@ -3094,7 +3107,7 @@ export class MockBackendEngine implements DemoBackend {
     listCatalog: async (input) => {
       requireDemoCapability(this.principal, "canonicalQuestionReview");
       requireRole(this.principal, ["manager"], "Canonical catalog access is restricted to Department Managers.");
-      const limit = Math.min(25, Math.max(1, input.limit ?? 25));
+      const limit = Math.min(100, Math.max(1, input.limit ?? 25));
       const offset = Number(input.cursor ?? 0) || 0;
       const selectedIds = input.scopeId ? new Set(this.canonicalSelections.get(input.scopeId)?.ids ?? []) : null;
       const rows = this.syntheticCanonicalRows(input.usageClass, input.catalogVersion).map((row) => this.applyCanonicalReviewState(row)).filter((row) => {
@@ -3279,15 +3292,30 @@ export class MockBackendEngine implements DemoBackend {
         if (!assignment) throw new BackendInvariantError(`Audit assignment ${assignmentId} was not found.`);
         const packageView = Object.values(state.packages).find((candidate) => candidate.auditId === auditId);
         if (!packageView) throw new BackendInvariantError(`Audit package for ${auditId} was not found.`);
-        const subjectByQuestion = new Map(input.questionAssignments.map((item) => [item.questionId, item.subjectId]));
+        const coverage = new Map<string, { questionId: string; subjectId: string }>();
+        if (input.operationKind !== "REPLACE") {
+          for (const question of packageView.questions) {
+            for (const subjectId of question.assignedInspectorUserIds) {
+              coverage.set(`${question.id}\u0000${subjectId}`, { questionId: question.id, subjectId });
+            }
+          }
+        }
+        for (const item of input.questionAssignments) {
+          const key = `${item.questionId}\u0000${item.subjectId}`;
+          if (input.operationKind === "REMOVE") coverage.delete(key); else coverage.set(key, item);
+        }
+        const subjectsByQuestion = new Map<string, string[]>();
+        for (const item of coverage.values()) {
+          subjectsByQuestion.set(item.questionId, [...(subjectsByQuestion.get(item.questionId) ?? []), item.subjectId]);
+        }
         packageView.questions = packageView.questions.map((question) => {
-          const subjectId = subjectByQuestion.get(question.id);
-          return subjectId ? { ...question, assignedInspectorUserIds: [subjectId] } : question;
+          return { ...question, assignedInspectorUserIds: subjectsByQuestion.get(question.id) ?? [] };
         });
         assignment.revision = (assignment.revision ?? 1) + 1;
+        const completeCoverage = [...coverage.values()].sort((left, right) => `${left.questionId}\u0000${left.subjectId}`.localeCompare(`${right.questionId}\u0000${right.subjectId}`));
         return this.mockCanonicalAssignment(state, assignmentId, "USR-LEAD-CANER", [
           ...new Set(packageView.questions.flatMap((question) => question.assignedInspectorUserIds)),
-        ], input.questionAssignments);
+        ], completeCoverage);
       });
     },
     confirmPreparation: async (assignmentId, input) => {
@@ -3414,7 +3442,7 @@ export class MockBackendEngine implements DemoBackend {
 
   private syntheticCanonicalRows(usageClass: CanonicalQuestionUsageClass, catalogVersion: string): CanonicalQuestionCatalogEntry[] {
     return Array.from({ length: 1310 }, (_, index) => {
-      const ordinal = (index % 25) + 1;
+      const ordinal = index < 1275 ? (index % 25) + 1 : (index - 1275) + 1;
       const form = String(index < 1275 ? Math.floor(index / 25) + 1 : 52).padStart(3, "0");
       return {
         catalogVersion,
@@ -4365,6 +4393,9 @@ export class MockBackendEngine implements DemoBackend {
           pendingCapReviews: findings.filter((finding) => finding.status === "CAP_SUBMITTED").length,
           pendingEvidenceReviews: findings.filter(
             (finding) => finding.status === "PENDING_CAA_REVIEW",
+          ).length,
+          pendingReportReviews: Object.values(state.reportVersions).filter(
+            (report) => report.status === "DEPARTMENT_REVIEW",
           ).length,
           recentFindingNumbers: findings
             .slice()

@@ -79,7 +79,7 @@ const environment = {
 
 let child;
 try {
-  child = spawn(cloudflared, ["tunnel", "--url", localOrigin], {
+  child = spawn(cloudflared, ["tunnel", "--url", localOrigin, "--protocol", "http2"], {
     cwd: runtimeRoot,
     detached: true,
     env: environment,

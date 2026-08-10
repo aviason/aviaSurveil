@@ -12242,6 +12242,7 @@
           "overdueFindings",
           "pendingCapReviews",
           "pendingEvidenceReviews",
+          "pendingReportReviews",
           "recentFindingNumbers"
         ],
         "properties": {
@@ -12262,6 +12263,9 @@
             "type": "integer"
           },
           "pendingEvidenceReviews": {
+            "type": "integer"
+          },
+          "pendingReportReviews": {
             "type": "integer"
           },
           "recentFindingNumbers": {
@@ -25822,6 +25826,7 @@
           "operationId",
           "idempotencyKey",
           "expectedRevision",
+          "operationKind",
           "questionAssignments"
         ],
         "properties": {
@@ -25836,6 +25841,14 @@
           "expectedRevision": {
             "type": "integer",
             "minimum": 1
+          },
+          "operationKind": {
+            "type": "string",
+            "enum": [
+              "ADD",
+              "REMOVE",
+              "REPLACE"
+            ]
           },
           "questionAssignments": {
             "type": "array",
@@ -25856,6 +25869,7 @@
           "expectedRevision",
           "previewId",
           "previewDigest",
+          "operationKind",
           "questionAssignments"
         ],
         "properties": {
@@ -25878,6 +25892,14 @@
           "previewDigest": {
             "type": "string",
             "minLength": 1
+          },
+          "operationKind": {
+            "type": "string",
+            "enum": [
+              "ADD",
+              "REMOVE",
+              "REPLACE"
+            ]
           },
           "questionAssignments": {
             "type": "array",

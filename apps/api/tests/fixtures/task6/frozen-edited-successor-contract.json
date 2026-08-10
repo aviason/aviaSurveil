@@ -156,7 +156,7 @@
     "createdAt": "2026-01-04T00:00:00Z"
   },
   "audit": {
-    "sequenceId": 4,
+    "sequenceId": 5,
     "eventId": "AE-TASK6-FIX4-EDITED-APPROVE",
     "occurredAt": "2026-01-04T00:00:00Z",
     "actorSubjectId": "USR-TASK6-FIX2-FROZEN-MANAGER",

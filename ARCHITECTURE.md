@@ -14,7 +14,8 @@ an orientation surface, not a production-readiness claim.
 | `api/openapi/` | Transport contract | Source for checked request/response shapes and generated adapters. |
 | `deploy/local/` | Local verification services | Test/local profiles only; no production deployment authority. |
 | `scripts/start-canonical-preprod.sh`, `scripts/status-canonical-preprod.sh` | Canonical AGA disposable local-preprod operator boundary | Starts and reports the exact `aga-preprod@1.0.0` namespace with donor runtime disabled; connected OIDC hero receipts are local candidate evidence only and external preprod remains `not run`. |
-| `deploy/local/compose.local-http.yaml`, `scripts/*canonical-preprod-cloudflare*` | Optional disposable Quick Tunnel qualification boundary | Keeps the canonical HTTPS/8445 profile unchanged while a separate loopback HTTP gateway accepts the random host. It uses only an anonymous, sanitized `cloudflared tunnel --url http://127.0.0.1:<port>` process, validates public-origin OIDC/Secure-cookie/object/CORS wiring and the nine privacy-safe role panels in isolated Chromium, and removes verified task-owned state. It never configures named tunnels, Cloudflare account/DNS/Access resources, AWS, or external preprod. |
+| `deploy/local/compose.local-http.yaml`, the default `quick` mode of `scripts/start-canonical-preprod-cloudflare.sh`, and `scripts/canonical-preprod-{cloudflare-launcher,quick-tunnel-url}.mjs` | Optional disposable Quick Tunnel qualification boundary | Keeps the canonical HTTPS/8445 profile unchanged while a separate loopback HTTP gateway accepts the random host. It uses only an anonymous, sanitized `cloudflared tunnel --url http://127.0.0.1:<port>` process, validates public-origin OIDC/Secure-cookie/object/CORS wiring and the nine privacy-safe role panels in isolated Chromium, and removes verified task-owned state. Quick mode never configures named tunnels, Cloudflare account/DNS/Access resources, AWS, or external preprod. |
+| `make preprod-cloudflare-demo-*`, `scripts/store-canonical-preprod-cloudflare-token.sh`, `scripts/store-cloudflare-tunnel-token-keychain.swift`, `scripts/validate-cloudflare-tunnel-token.mjs`, `scripts/canonical-preprod-cloudflare-named-launcher.mjs`, and the explicit `named` lifecycle mode | Optional `demo.aviasurveil.com` local-origin publication boundary | Uses a separately created remotely managed Tunnel/public-hostname route and a tunnel-scoped connector token stored only in macOS Keychain. The hidden terminal reader and Security-framework writer carry the complete value through memory-only pipes without the `security -w` interactive prompt's 128-byte ceiling. Before building, the lifecycle validates the encoded connector payload without printing or persisting it. The launcher passes the in-memory value through `/dev/fd/3`, while runtime metadata stores only the Keychain reference and exact process identity. A separate loopback port, Compose project, and disposable state bind public HTTPS/OIDC/Secure-cookie/object/CORS behavior without exposing the origin directly. The repository does not create or mutate Cloudflare account, tunnel, DNS, or Access resources; this public candidate remains local-origin and external preprod is `not run`. |
 | `tests/` and `apps/web/tests/` | Contract, parity, browser, and regression evidence | Results are local evidence unless an external gate is explicitly exercised. |
 
 ## Knowledge Surfaces
@@ -61,6 +62,11 @@ an orientation surface, not a production-readiness claim.
 - Application sessions require the current desired-membership revision, fresh
   exact provider authority, and matching OIDC role/organization claims; a
   lifecycle mutation revokes old authority and requires a fresh login.
+- Interactive logout atomically revokes the application session, removes its
+  encrypted provider tokens, redirects through the discovery-bound OIDC
+  end-session endpoint, and forces credential entry on the next authorization
+  request; transport choice must not preserve or silently reuse the prior SSO
+  identity.
 - Append-only Evidence, configuration versions, and audit history.
 - Auditee organization isolation and Internal CAA Note exclusion.
 - Explicit review and closure authority.

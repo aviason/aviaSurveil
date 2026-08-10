@@ -1,6 +1,7 @@
-import { lazy, type ComponentType, type LazyExoticComponent } from "react";
+import { type ComponentType, type LazyExoticComponent } from "react";
 
 import { REACT_ROUTE_CONTRACTS, type ReactSurfaceId, type ScreenComponentKey } from "./route-contracts";
+import { lazyRoute as lazy } from "./route-loader";
 
 export type ScreenComponent = LazyExoticComponent<ComponentType>;
 export type ScreenComponentEntry =

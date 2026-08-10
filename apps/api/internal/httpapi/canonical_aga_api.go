@@ -23,7 +23,10 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-const canonicalCatalogPageSize = 25
+const (
+	canonicalCatalogPageSize        = 25
+	canonicalCatalogMaximumPageSize = 100
+)
 
 func validQuestionReviewReason(value string) bool {
 	switch strings.TrimSpace(value) {
@@ -639,8 +642,8 @@ func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.Respons
 	limit := canonicalCatalogPageSize
 	if raw := request.URL.Query().Get("limit"); raw != "" {
 		parsed, parseErr := strconv.Atoi(raw)
-		if parseErr != nil || parsed < 1 || parsed > canonicalCatalogPageSize {
-			api.respond(writer, nil, fmt.Errorf("%w: catalog limit must be between 1 and 25", application.ErrInvalid))
+		if parseErr != nil || parsed < 1 || parsed > canonicalCatalogMaximumPageSize {
+			api.respond(writer, nil, fmt.Errorf("%w: catalog limit must be between 1 and 100", application.ErrInvalid))
 			return
 		}
 		limit = parsed

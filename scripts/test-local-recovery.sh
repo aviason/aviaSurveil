@@ -62,7 +62,7 @@ export GOCACHE="${RUNTIME_DIRECTORY}/go-cache"
 export GOTMPDIR="${RUNTIME_DIRECTORY}/go-tmp"
 mkdir -p "${GOCACHE}" "${GOTMPDIR}"
 
-go -C "${REPOSITORY_ROOT}/apps/api" build -o "${RUNTIME_DIRECTORY}/api" ./cmd/api
+go -C "${REPOSITORY_ROOT}/apps/api" build -tags canonicaltest -o "${RUNTIME_DIRECTORY}/api" ./cmd/api
 (
   cd "${REPOSITORY_ROOT}/apps/api"
   exec "${RUNTIME_DIRECTORY}/api"

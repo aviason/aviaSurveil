@@ -736,6 +736,16 @@ services:
         export AVIA_OBJECT_STORE_SECRET_KEY="$${object_store_secret_key}";
         export AVIA_SMTP_PASSWORD="$${smtp_password}";
         unset database_password oidc_secret keycloak_secret session_key object_store_access_key object_store_secret_key smtp_password;
+        oidc_wait_attempt=0;
+        until wget --quiet --output-document=/dev/null
+        "$${AVIA_OIDC_DISCOVERY_URL}/.well-known/openid-configuration"; do
+          oidc_wait_attempt=$$((oidc_wait_attempt + 1));
+          if [ "$${oidc_wait_attempt}" -ge 120 ]; then
+            echo "OIDC discovery did not become ready before API startup" >&2;
+            exit 1;
+          fi;
+          sleep 5;
+        done;
         exec /app/api
     secrets:
       - preprod_normal_api_database_password
@@ -1180,8 +1190,10 @@ services:
       AVIA_PREPROD_OBJECT_BUCKET: aviasurveil360-local-preprod
       MINIO_ROOT_USER_FILE: /run/secrets/preprod_minio_root_user
       MINIO_ROOT_PASSWORD_FILE: /run/secrets/preprod_minio_root_password
-      MINIO_LOADER_ACCESS_KEY_FILE: /run/secrets/preprod_minio_api_access_key
-      MINIO_LOADER_SECRET_KEY_FILE: /run/secrets/preprod_minio_api_secret_key
+      MINIO_RUNTIME_ACCESS_KEY_FILE: /run/secrets/preprod_minio_api_access_key
+      MINIO_RUNTIME_SECRET_KEY_FILE: /run/secrets/preprod_minio_api_secret_key
+      MINIO_LOADER_ACCESS_KEY_FILE: /run/secrets/preprod_minio_loader_access_key
+      MINIO_LOADER_SECRET_KEY_FILE: /run/secrets/preprod_minio_loader_secret_key
     configs:
       - source: preprod_minio_init
         target: /opt/aviasurveil360/preprod-minio-init.sh
@@ -1191,6 +1203,8 @@ services:
     secrets:
       - preprod_minio_api_access_key
       - preprod_minio_api_secret_key
+      - preprod_minio_loader_access_key
+      - preprod_minio_loader_secret_key
       - preprod_minio_root_password
       - preprod_minio_root_user
     volumes:
@@ -1246,8 +1260,8 @@ services:
       AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET_FILE: /run/secrets/preprod_keycloak_service_client_secret
       AVIA_PREPROD_MAILPIT_HTTP_URL: http://preprod-mailpit:8025
       AVIA_OBJECT_STORE_ENDPOINT: preprod-minio:9000
-      AVIA_OBJECT_STORE_ACCESS_KEY_FILE: /run/secrets/preprod_minio_api_access_key
-      AVIA_OBJECT_STORE_SECRET_KEY_FILE: /run/secrets/preprod_minio_api_secret_key
+      AVIA_OBJECT_STORE_ACCESS_KEY_FILE: /run/secrets/preprod_minio_loader_access_key
+      AVIA_OBJECT_STORE_SECRET_KEY_FILE: /run/secrets/preprod_minio_loader_secret_key
       AVIA_SMTP_ADDRESS: preprod-mailpit:1025
       AVIA_SMTP_USERNAME: aviasurveil360-preprod
       AVIA_SMTP_PASSWORD_FILE: /run/secrets/preprod_smtp_password
@@ -1270,8 +1284,8 @@ services:
         mode: 0600
       - preprod_app_database_password
       - preprod_keycloak_service_client_secret
-      - preprod_minio_api_access_key
-      - preprod_minio_api_secret_key
+      - preprod_minio_loader_access_key
+      - preprod_minio_loader_secret_key
       - preprod_smtp_password
     volumes:
       - type: bind
@@ -1800,6 +1814,10 @@ secrets:
     file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_minio_api_access_key
   preprod_minio_api_secret_key:
     file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_minio_api_secret_key
+  preprod_minio_loader_access_key:
+    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_minio_loader_access_key
+  preprod_minio_loader_secret_key:
+    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_minio_loader_secret_key
   preprod_minio_root_password:
     file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_minio_root_password
   preprod_minio_root_user:

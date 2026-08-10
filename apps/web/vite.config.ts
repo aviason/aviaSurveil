@@ -39,7 +39,7 @@ function buildProfilePlugin(profile: BuildProfile, entryName: string, localDevel
       this.emitFile({
         type: "asset",
         fileName: "app-shell-assets.json",
-        source: `${JSON.stringify({ appShellVersion: 7, profile, assets }, null, 2)}\n`,
+        source: `${JSON.stringify({ appShellVersion: 8, profile, assets }, null, 2)}\n`,
       });
     },
   };

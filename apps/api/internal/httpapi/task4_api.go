@@ -434,6 +434,7 @@ func (api *CanonicalAPI) assignAuditQuestionCoverage(writer http.ResponseWriter,
 		OperationID: input.OperationId, IdempotencyKey: input.IdempotencyKey,
 		AssignmentID: assignmentID, ExpectedRevision: input.ExpectedRevision,
 		PreviewID: input.PreviewId, PreviewDigest: input.PreviewDigest,
+		OperationKind:       assignments.QuestionCoverageOperationKind(input.OperationKind),
 		QuestionAssignments: questionAssignments,
 	})
 	if err != nil {
@@ -465,6 +466,7 @@ func (api *CanonicalAPI) previewAuditQuestionCoverage(writer http.ResponseWriter
 	item, err := api.assignments.PreviewQuestions(request.Context(), actor, assignments.PreviewQuestionsCommand{
 		OperationID: input.OperationId, IdempotencyKey: input.IdempotencyKey,
 		AssignmentID: assignmentID, ExpectedRevision: input.ExpectedRevision,
+		OperationKind:       assignments.QuestionCoverageOperationKind(input.OperationKind),
 		QuestionAssignments: questionAssignments,
 	})
 	if err != nil {

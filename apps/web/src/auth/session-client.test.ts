@@ -62,6 +62,12 @@ describe("SessionClient", () => {
     expect(safeReturnTo("/inspector/inspector-assignments")).toBe(
       "/inspector/inspector-assignments",
     );
+    expect(safeReturnTo("/lead-inspector/audit-preparation?assignmentId=assignment%3Aplan-123")).toBe(
+      "/lead-inspector/audit-preparation?assignmentId=assignment%3Aplan-123",
+    );
+    expect(safeReturnTo("/inspector/audits/audit%3Aplan-123/checklist")).toBe(
+      "/inspector/audits/audit%3Aplan-123/checklist",
+    );
     expect(safeReturnTo("/department-manager/aga-demo-workspace/inspection")).toBe(
       "/department-manager/aga-demo-workspace/inspection",
     );
@@ -107,9 +113,13 @@ describe("SessionClient", () => {
       value: "__Host-avia_csrf=logout-csrf",
     });
     const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
-      new Response(null, { status: 204 }),
+	  jsonResponse({ logoutUrl: "/auth/provider-logout?ticket=opaque-ticket" }),
     );
-    const client = createSessionClient({ fetchImplementation });
+    const assign = vi.fn();
+    const client = createSessionClient({
+	  fetchImplementation,
+	  location: { assign, origin: "https://avia.example" } as unknown as Location,
+	});
 
     await client.logout();
 
@@ -118,5 +128,30 @@ describe("SessionClient", () => {
     expect(init?.method).toBe("POST");
     expect(init?.credentials).toBe("same-origin");
     expect(new Headers(init?.headers).get("x-csrf-token")).toBe("logout-csrf");
+	 expect(assign).toHaveBeenCalledWith("https://avia.example/auth/provider-logout?ticket=opaque-ticket");
   });
+
+	it("rejects a non-HTTP provider logout URL returned by the server", async () => {
+	  const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+		jsonResponse({ logoutUrl: "javascript:alert(1)" }),
+	  );
+	  const client = createSessionClient({
+		fetchImplementation,
+		location: { assign: vi.fn() } as unknown as Location,
+	  });
+
+	  await expect(client.logout()).rejects.toMatchObject({ code: "LOGOUT_RESPONSE_INVALID" });
+	});
+
+	it("rejects an absolute cross-origin provider logout URL", async () => {
+	  const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+		jsonResponse({ logoutUrl: "https://identity.example/realms/avia/logout" }),
+	  );
+	  const client = createSessionClient({
+		fetchImplementation,
+		location: { assign: vi.fn(), origin: "https://avia.example" } as unknown as Location,
+	  });
+
+	  await expect(client.logout()).rejects.toMatchObject({ code: "LOGOUT_RESPONSE_INVALID" });
+	});
 });

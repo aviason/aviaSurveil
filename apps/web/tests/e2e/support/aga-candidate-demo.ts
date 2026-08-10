@@ -11,6 +11,17 @@ export function requiredEnvironment(name: string): string {
   return value;
 }
 
+export function returnTargetMatches(
+  current: URL,
+  rawReturnTo: string,
+  webOrigin: string,
+): boolean {
+  const expected = new URL(rawReturnTo, webOrigin);
+  return current.origin === expected.origin &&
+    current.pathname === expected.pathname &&
+    current.search === expected.search;
+}
+
 const browserSessionCookieNames = new Set(["__Host-avia_session", "avia_session"]);
 const browserCSRFCookieNames = new Set(["__Host-avia_csrf", "avia_csrf"]);
 
@@ -167,7 +178,8 @@ export async function loginQualificationAccount(
   await page.locator("#kc-login").click();
   recordQualificationPhase("provider-submit-complete");
   try {
-    await expect(page).toHaveURL((url) => url.pathname === returnTo);
+    const webOrigin = new URL(requiredEnvironment("AVIA_E2E_BASE_URL")).origin;
+    await expect(page).toHaveURL((url) => returnTargetMatches(url, returnTo, webOrigin));
   } catch (error) {
     const current = new URL(page.url());
     const webOrigin = new URL(requiredEnvironment("AVIA_E2E_BASE_URL")).origin;
@@ -272,11 +284,17 @@ export async function logout(page: Page): Promise<void> {
       headers: csrf ? { "X-CSRF-Token": decodeURIComponent(csrf) } : {},
     });
     const body = await response.text();
-    if (response.status === 204) {
-      window.dispatchEvent(new CustomEvent("avia:authentication-lost"));
-    }
+    let logoutURL = "";
+    if (response.status === 200) {
+	  try {
+		logoutURL = String((JSON.parse(body) as { logoutUrl?: unknown }).logoutUrl ?? "");
+	  } catch {
+		logoutURL = "";
+	  }
+	}
     return {
       status: response.status,
+	  logoutURL,
       csrfPresent: Boolean(csrf),
       problem: body.includes("CSRF_INVALID")
         ? "csrf"
@@ -289,12 +307,22 @@ export async function logout(page: Page): Promise<void> {
     recordQualificationPhase("logout-csrf-cookie-missing");
     throw new Error("Logout revocation failed");
   }
-  if (result.status === 204) {
-    // The application session is revoked above, but the disposable Keycloak
-    // context can still retain its SSO cookie. Clear the whole browser cookie
-    // jar before the next qualification actor logs in so an actor switch can
-    // never silently inherit the previous provider identity.
-    await page.context().clearCookies();
+	if (result.status === 200 && result.logoutURL) {
+	  const publicOrigin = new URL(requiredEnvironment("AVIA_E2E_BASE_URL")).origin;
+	  const logoutURL = new URL(result.logoutURL, publicOrigin);
+	  const logoutTicket = logoutURL.searchParams.get("ticket") ?? "";
+	  if (
+		logoutURL.origin !== publicOrigin ||
+		logoutURL.pathname !== "/auth/provider-logout" ||
+		Array.from(logoutURL.searchParams.keys()).some((key) => key !== "ticket") ||
+		!/^[A-Za-z0-9_-]{40,}$/u.test(logoutTicket) ||
+		result.logoutURL.includes("id_token_hint")
+	  ) {
+		throw new Error("Logout response did not contain one same-origin opaque provider ticket");
+	  }
+	  await page.goto(logoutURL.toString());
+	  await expect(page).toHaveURL((url) => url.pathname === "/");
+	  await expect(page.getByRole("heading", { name: /Sign in to AviaSurveil360/i })).toBeVisible();
     captureAuthControlEvent("AFTER_LOGOUT");
     return;
   }

@@ -26,4 +26,5 @@ type OIDCIdentity struct {
 type OIDCProvider interface {
 	AuthorizationURL(state, nonce, pkceChallenge string) string
 	Exchange(context.Context, string, string, string) (OIDCIdentity, error)
+	LogoutURL(idTokenHint string) string
 }

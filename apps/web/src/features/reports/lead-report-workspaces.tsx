@@ -5,6 +5,7 @@ import { useApplicationRuntime } from "../../app/providers";
 import type { FindingView, ReportApprovalStatus, ReportVersionView } from "../../backend/backend";
 import { CommandError, errorMessage, WorkspaceShell } from "../shared/workspace-shell";
 import { readPreliminaryReportDraft, savePreliminaryReportDraft } from "../shared/lead-workspace-state";
+import { discoverCAAReportVersions } from "./report-discovery";
 
 const FINAL_REPORT_VERSION_ID = "RPT-CAB-2026-001-V1";
 const FINAL_REPORT_ID = "RPT-CAB-2026-001";
@@ -30,19 +31,24 @@ function reportStatusLabel(status: ReportApprovalStatus): string {
   return status.replaceAll("_", " ").toLowerCase().replace(/(^|\s)\S/g, (letter) => letter.toUpperCase());
 }
 
-function useLeadFinalReport(): { report: ReportVersionView | null; error: string | null } {
+function useLeadFinalReport(): { report: ReportVersionView | null; error: string | null; loaded: boolean } {
   const runtime = useApplicationRuntime();
   const backend = useMemo(() => runtime.backendForRole?.("leadInspector") ?? runtime.backend, [runtime]);
   const [report, setReport] = useState<ReportVersionView | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
   useEffect(() => {
     let cancelled = false;
-    void backend.reports.getVersion({ reportVersionId: FINAL_REPORT_VERSION_ID }).then((value) => {
-      if (!cancelled) setReport(value);
-    }).catch((cause) => !cancelled && setError(errorMessage(cause)));
+    void discoverCAAReportVersions(backend, ["FINAL"]).then((reports) => {
+      if (!cancelled) setReport(reports[0] ?? null);
+    }).catch((cause) => {
+      if (!cancelled) setError(errorMessage(cause));
+    }).finally(() => {
+      if (!cancelled) setLoaded(true);
+    });
     return () => { cancelled = true; };
   }, [backend]);
-  return { report, error };
+  return { report, error, loaded };
 }
 
 function LeadReportShell({ routeLabel, children }: { routeLabel: string; children: React.ReactNode }) {
@@ -141,8 +147,8 @@ export function LeadPreliminaryReportWorkflowPage() {
 }
 
 export function LeadFinalReportsPage() {
-  const { report, error } = useLeadFinalReport();
-  return <LeadReportShell routeLabel="Lead Final Reports"><div className="lead-secondary-page lead-final-list" data-testid="lead-final-reports-page"><header className="lead-secondary-header workbench-page-header"><div><h1>Final Reports</h1><p>View and manage final reports without changing approval authority.</p></div></header><CommandError message={error} />{report ? <><section className="lead-metric-grid" aria-label="Final Report summary"><article><span>All Reports</span><strong>1</strong></article><article><span>Ready for Preparation</span><strong>0</strong></article><article><span>Waiting Approval</span><strong>1</strong></article></section><article aria-label={`Final Report ${report.reportId}`} className="lead-report-row" data-report-id={report.reportId} data-report-version-id={report.reportVersionId}><div><small>Report ID</small><strong>{report.reportId}</strong><span>{report.auditId} · Version {report.version}</span></div><div><small>Organization</small><strong>Fly Namibia</strong></div><div><small>Status</small><strong>{reportStatusLabel(report.status)}</strong><span>Approval authority remains with the current stage owner.</span></div><div className="lead-record-actions"><Link className="lead-button" to={`/lead-inspector/final-reports/${report.reportId}/readiness`}>View {report.reportId} readiness</Link><Link className="lead-button" to={`/lead-inspector/final-reports/${report.reportId}/prepare`}>View immutable preparation snapshot</Link><Link className="lead-button" to={`/lead-inspector/final-reports/${report.reportId}/document`}>View Final Report document</Link></div></article></> : <p>Loading exact report version…</p>}</div></LeadReportShell>;
+  const { report, error, loaded } = useLeadFinalReport();
+  return <LeadReportShell routeLabel="Lead Final Reports"><div className="lead-secondary-page lead-final-list" data-testid="lead-final-reports-page"><header className="lead-secondary-header workbench-page-header"><div><h1>Final Reports</h1><p>View and manage final reports without changing approval authority.</p></div></header><CommandError message={error} />{report ? <><section className="lead-metric-grid" aria-label="Final Report summary"><article><span>All Reports</span><strong>1</strong></article><article><span>Ready for Preparation</span><strong>0</strong></article><article><span>Waiting Approval</span><strong>1</strong></article></section><article aria-label={`Final Report ${report.reportId}`} className="lead-report-row" data-report-id={report.reportId} data-report-version-id={report.reportVersionId}><div><small>Report ID</small><strong>{report.reportId}</strong><span>{report.auditId} · Version {report.version}</span></div><div><small>Organization</small><strong>{report.organizationId}</strong></div><div><small>Status</small><strong>{reportStatusLabel(report.status)}</strong><span>Approval authority remains with the current stage owner.</span></div><div className="lead-record-actions"><Link className="lead-button" to={`/lead-inspector/final-reports/${report.reportId}/readiness`}>View {report.reportId} readiness</Link><Link className="lead-button" to={`/lead-inspector/final-reports/${report.reportId}/prepare`}>View immutable preparation snapshot</Link><Link className="lead-button" to={`/lead-inspector/final-reports/${report.reportId}/document`}>View Final Report document</Link></div></article></> : loaded && !error ? <section className="lead-panel"><h2>No Final Report versions are available yet.</h2><p>The list will populate after the canonical report lifecycle creates an immutable Final Report version.</p><button disabled title="No immutable Final Report version exists for Lead Inspector review." type="button">Report unavailable</button></section> : !error ? <p>Loading Final Report versions…</p> : null}</div></LeadReportShell>;
 }
 
 export function LeadFinalReportReadinessPage() {

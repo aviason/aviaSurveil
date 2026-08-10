@@ -24,6 +24,8 @@ apps/web/.local/
 .local/aviasurveil360-canonical-preprod-http/
 .local/aviasurveil360-canonical-preprod-cloudflare/
 .local/aviasurveil360-canonical-preprod-cloudflare-tunnel/
+.local/aviasurveil360-canonical-preprod-cloudflare-demo/
+.local/aviasurveil360-canonical-preprod-cloudflare-demo-tunnel/
 
 # Terraform working directories and local state
 **/.terraform/

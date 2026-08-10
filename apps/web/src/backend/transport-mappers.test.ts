@@ -177,6 +177,7 @@ describe("transport mappers", () => {
       overdueFindings: 0,
       pendingCapReviews: 0,
       pendingEvidenceReviews: 0,
+      pendingReportReviews: 0,
       recentFindingNumbers: ["CAB-2026-001"],
     };
     expect(mapManagerDashboard(transportDashboard)).toEqual(transportDashboard);

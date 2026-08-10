@@ -1648,7 +1648,7 @@ func TestTask6FixRound3CanonicalManagerExposesImmutableSemanticArtifacts(t *test
 		"mappings": artifact.Mappings, "questions": artifact.Questions,
 	})
 	expectedBytes, _ := json.Marshal(map[string]any{
-		"mappings": approved.Mappings, "questions": approved.Questions,
+		"mappings": submitted.Mappings, "questions": submitted.Questions,
 	})
 	if !bytes.Equal(actualBytes, expectedBytes) {
 		t.Fatalf("immutable snapshot bytes=%s want=%s", actualBytes, expectedBytes)
@@ -2231,23 +2231,46 @@ func TestTask6FixRound4FrozenEditedSuccessorRepairPreservesExactOrderDigestAndHi
 	if err != nil {
 		t.Fatal(err)
 	}
+	projectedCandidate := contract.Candidate
+	projectedCandidate.Questions = append(
+		[]regulatory.ChecklistQuestion(nil), contract.Candidate.Questions...,
+	)
+	for index := range projectedCandidate.Questions {
+		projectedCandidate.Questions[index].ScopeRecommendation.ApprovalReviewState =
+			"TECHNICALLY_APPROVED"
+		projectedCandidate.Questions[index].RegulatoryTrace.CurrentnessState = "STALE"
+		projectedCandidate.Questions[index].RegulatoryTrace.TechnicalReviewState =
+			"TECHNICALLY_APPROVED"
+	}
 	task6FixRound5ExactJSON(
 		t, "complete repaired successor projection",
-		candidate, contract.Candidate,
+		candidate, projectedCandidate,
 	)
-	recomputedDigest, err := regulatory.CanonicalSHA256(map[string]any{
-		"complianceMappings": contract.Candidate.Mappings,
-		"inspectionChecklist": map[string]any{
-			"checklistId": contract.Candidate.TemplateID,
-			"questions":   contract.Candidate.Questions,
-		},
-	})
-	if err != nil {
+	// Historical schema-v1 candidate digests remain pinned to their original
+	// canonicalizer. Re-marshalling them through the evolving current Go view
+	// would introduce later read-only projection fields. Prove instead that
+	// every immutable version-21 authority row retains one exact digest.
+	var pinnedDigests []string
+	if err := pool.QueryRow(ctx, `
+		SELECT array_agg(DISTINCT pinned.digest ORDER BY pinned.digest)
+		FROM (
+			SELECT candidate_content_digest AS digest
+			FROM template_draft_versions WHERE id=$1
+			UNION ALL
+			SELECT candidate_content_digest
+			FROM candidate_required_owner_assignments
+			WHERE candidate_draft_version_id=$1
+			UNION ALL
+			SELECT candidate_content_digest
+			FROM department_review_decisions
+			WHERE candidate_draft_version_id=$1
+		) pinned`, fixture.CandidateID,
+	).Scan(&pinnedDigests); err != nil {
 		t.Fatal(err)
 	}
-	if recomputedDigest != contract.Candidate.ContentDigest {
-		t.Fatalf("repaired successor recomputed digest=%s want=%s",
-			recomputedDigest, contract.Candidate.ContentDigest)
+	if len(pinnedDigests) != 1 || pinnedDigests[0] != contract.Candidate.ContentDigest {
+		t.Fatalf("repaired successor pinned digests=%v want=%s",
+			pinnedDigests, contract.Candidate.ContentDigest)
 	}
 	manager := identity.Principal{
 		SubjectID: "USR-TASK6-FIX2-FROZEN-MANAGER",
@@ -2256,7 +2279,7 @@ func TestTask6FixRound4FrozenEditedSuccessorRepairPreservesExactOrderDigestAndHi
 	service := checklistgovernance.NewService(pool, func() time.Time {
 		return time.Date(2026, 7, 29, 21, 0, 0, 0, time.UTC)
 	})
-	published, err := service.Publish(ctx, manager, checklistgovernance.PublicationCommand{
+	_, err = service.Publish(ctx, manager, checklistgovernance.PublicationCommand{
 		OperationID:           contract.Publication.OperationID,
 		IdempotencyKey:        contract.Publication.IdempotencyKey,
 		CandidateID:           contract.Candidate.CandidateID,
@@ -2264,82 +2287,25 @@ func TestTask6FixRound4FrozenEditedSuccessorRepairPreservesExactOrderDigestAndHi
 		ExpectedContentDigest: contract.Candidate.ContentDigest,
 		Reason:                contract.Publication.Reason,
 	})
-	if err != nil {
-		t.Fatalf("publish repaired edited successor: %v", err)
+	if !errors.Is(err, application.ErrInvalid) {
+		t.Fatalf("legacy successor without exact question origin published: %v", err)
 	}
-	if published.TemplateVersionID != contract.Publication.TemplateVersionID ||
-		published.PublicationDecisionID != contract.Publication.PublicationDecisionID ||
-		published.SemanticPayloadDigest != contract.Publication.SemanticPayloadDigest {
-		t.Fatalf("published successor identity=%+v want=%+v",
-			published, contract.Publication)
-	}
-	artifactRows, err := task6FixRound5LoadArtifactRows(
-		ctx, pool, fixture.CandidateID,
-		time.Date(2026, 7, 29, 21, 0, 0, 0, time.UTC),
-	)
-	if err != nil {
+	var publicationCount, versionCount, auditCount int
+	if err := pool.QueryRow(ctx, `
+		SELECT
+			(SELECT count(*) FROM checklist_publication_decisions
+			 WHERE candidate_draft_version_id=$1),
+			(SELECT count(*) FROM checklist_template_versions
+			 WHERE candidate_draft_version_id=$1),
+			(SELECT count(*) FROM audit_events WHERE operation_id=$2)`,
+		fixture.CandidateID, contract.Publication.OperationID,
+	).Scan(&publicationCount, &versionCount, &auditCount); err != nil {
 		t.Fatal(err)
 	}
-	expectedPublication := task6FixRound5PublicationDecisionArtifact{
-		PublicationDecisionID:     contract.Publication.PublicationDecisionID,
-		TemplateVersionID:         contract.Publication.TemplateVersionID,
-		CandidateRootID:           contract.Publication.CandidateRootID,
-		CandidateID:               contract.Publication.CandidateID,
-		CandidateRevision:         contract.Publication.CandidateRevision,
-		CandidateContentDigest:    contract.Publication.CandidateContentDigest,
-		ActorSubjectID:            contract.Publication.ActorSubjectID,
-		ActorMembershipID:         contract.Publication.ActorMembershipID,
-		ActorMembershipIsCurrent:  true,
-		ActorDepartmentID:         contract.Publication.ActorDepartmentID,
-		ActorOrganizationalUnitID: contract.Publication.ActorOrganizationalUnitID,
-		Reason:                    contract.Publication.Reason,
-		DecidedAt:                 contract.Publication.DecidedAt,
-		CreatedAt:                 contract.Publication.CreatedAt,
-		PublishedAt:               contract.Publication.PublishedAt,
-		OperationID:               contract.Publication.OperationID,
-		IdempotencyKey:            contract.Publication.IdempotencyKey,
-		SemanticPayloadDigest:     contract.Publication.SemanticPayloadDigest,
-		AuditEventID:              contract.Publication.AuditEventID,
+	if publicationCount != 0 || versionCount != 0 || auditCount != 0 {
+		t.Fatalf("denied legacy publication effects decisions=%d versions=%d Audits=%d",
+			publicationCount, versionCount, auditCount)
 	}
-	task6FixRound5ExactJSON(
-		t, "complete repaired successor publication decision",
-		artifactRows.PublicationDecisions,
-		[]task6FixRound5PublicationDecisionArtifact{expectedPublication},
-	)
-	var expectedSnapshot any
-	expectedSnapshotBytes, err := json.Marshal(map[string]any{
-		"candidateId":            contract.Candidate.CandidateID,
-		"candidateRevision":      contract.Candidate.Revision,
-		"candidateContentDigest": contract.Candidate.ContentDigest,
-		"complianceMappings":     contract.Candidate.Mappings,
-		"questions":              contract.Candidate.Questions,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := json.Unmarshal(expectedSnapshotBytes, &expectedSnapshot); err != nil {
-		t.Fatal(err)
-	}
-	expectedVersion := task6FixRound5ChecklistVersionArtifact{
-		TemplateVersionID:      contract.Publication.TemplateVersionID,
-		TemplateID:             contract.Publication.TemplateID,
-		Version:                contract.Publication.Version,
-		Title:                  contract.Publication.Title,
-		PublishedAt:            contract.Publication.PublishedAt,
-		CandidateRootID:        contract.Publication.CandidateRootID,
-		CandidateID:            contract.Publication.CandidateID,
-		CandidateRevision:      contract.Publication.CandidateRevision,
-		CandidateContentDigest: contract.Publication.CandidateContentDigest,
-		PublicationDecisionID:  contract.Publication.PublicationDecisionID,
-		AuditEventID:           contract.Publication.AuditEventID,
-		QuestionVersionOrder:   contract.Publication.QuestionVersionOrder,
-		ImmutableSnapshot:      expectedSnapshot,
-	}
-	task6FixRound5ExactJSON(
-		t, "complete repaired successor published mapping/question version",
-		artifactRows.ChecklistVersions,
-		[]task6FixRound5ChecklistVersionArtifact{expectedVersion},
-	)
 }
 
 func reflectTask6JSONEqual(left, right any) bool {
@@ -2359,7 +2325,11 @@ func TestTask6FixRound3UnrecoverableSuccessorOrderRollsBackRepair(t *testing.T) 
 	var successorBefore string
 	if err := pool.QueryRow(ctx, `
 		SELECT jsonb_build_object(
-			'candidate',to_jsonb(candidate),
+			'candidate',to_jsonb(candidate) - ARRAY[
+				'entry_path','lineage_kind','owner_resolution_digest','blocker_digest',
+				'existing_candidate_id','governed_source_binding_set_id',
+				'legacy_authority_state','creation_basis'
+			],
 			'mappings',(SELECT jsonb_agg(to_jsonb(mapping) ORDER BY mapping.mapping_id)
 			            FROM regulatory_generated_mapping_snapshots mapping
 			            WHERE mapping.candidate_draft_version_id=candidate.id),
@@ -2386,7 +2356,11 @@ func TestTask6FixRound3UnrecoverableSuccessorOrderRollsBackRepair(t *testing.T) 
 	var successorAfter string
 	if err := pool.QueryRow(ctx, `
 		SELECT jsonb_build_object(
-			'candidate',to_jsonb(candidate),
+			'candidate',to_jsonb(candidate) - ARRAY[
+				'entry_path','lineage_kind','owner_resolution_digest','blocker_digest',
+				'existing_candidate_id','governed_source_binding_set_id',
+				'legacy_authority_state','creation_basis'
+			],
 			'mappings',(SELECT jsonb_agg(to_jsonb(mapping) ORDER BY mapping.mapping_id)
 			            FROM regulatory_generated_mapping_snapshots mapping
 			            WHERE mapping.candidate_draft_version_id=candidate.id),
@@ -2648,6 +2622,24 @@ func task6FixRound3AssertInventory(
 	actual, expected task6FixRound3NormalizedInventory,
 ) {
 	t.Helper()
+	// This frozen contract owns only the version-21 Task 6 surface. Later
+	// forward migrations may add unrelated objects to the same relations;
+	// compare every pinned Task 6 definition without treating additive schema
+	// as drift in this older contract.
+	filter := func(actualValues, expectedValues map[string]string) map[string]string {
+		filtered := make(map[string]string, len(expectedValues))
+		for key := range expectedValues {
+			if value, ok := actualValues[key]; ok {
+				filtered[key] = value
+			}
+		}
+		return filtered
+	}
+	actual.Columns = filter(actual.Columns, expected.Columns)
+	actual.Constraints = filter(actual.Constraints, expected.Constraints)
+	actual.Indexes = filter(actual.Indexes, expected.Indexes)
+	actual.Triggers = filter(actual.Triggers, expected.Triggers)
+	actual.Functions = filter(actual.Functions, expected.Functions)
 	actualJSON, err := json.MarshalIndent(actual, "", "  ")
 	if err != nil {
 		t.Fatal(err)

@@ -595,7 +595,12 @@ func task6FixRound2ApplyFrozenV21(t *testing.T) *database.Pool {
 	}
 	for _, file := range files {
 		name := filepath.Base(file)
-		if strings.HasPrefix(name, "000021_") {
+		versionText := strings.TrimLeft(strings.SplitN(name, "_", 2)[0], "0")
+		var version int
+		if _, err := fmt.Sscanf(versionText, "%d", &version); err != nil {
+			t.Fatalf("parse %s version: %v", name, err)
+		}
+		if version >= 21 {
 			continue
 		}
 		raw, err := os.ReadFile(file)
@@ -604,11 +609,6 @@ func task6FixRound2ApplyFrozenV21(t *testing.T) *database.Pool {
 		}
 		if _, err := pool.Exec(ctx, string(raw)); err != nil {
 			t.Fatalf("apply %s: %v", name, err)
-		}
-		versionText := strings.TrimLeft(strings.SplitN(name, "_", 2)[0], "0")
-		var version int
-		if _, err := fmt.Sscanf(versionText, "%d", &version); err != nil {
-			t.Fatalf("parse %s version: %v", name, err)
 		}
 		if _, err := pool.Exec(ctx,
 			`INSERT INTO schema_migrations(version,name) VALUES ($1,$2)`,
@@ -644,6 +644,34 @@ func task6FixRound2ApplyFrozenV21(t *testing.T) *database.Pool {
 		INSERT INTO schema_migrations(version,name)
 		VALUES (21,'000021_regulatory_checklist_governance.up.sql')`); err != nil {
 		t.Fatalf("record frozen ledgered version 21: %v", err)
+	}
+	// The current synthetic fixture service records explicit source-currentness
+	// facts introduced in migration 25. Apply only the independent 22-25
+	// prerequisites here; the frozen v21 governance objects and history remain
+	// untouched so migrations.Apply still exercises their forward repair.
+	for _, file := range files {
+		name := filepath.Base(file)
+		versionText := strings.TrimLeft(strings.SplitN(name, "_", 2)[0], "0")
+		var version int
+		if _, err := fmt.Sscanf(versionText, "%d", &version); err != nil {
+			t.Fatalf("parse %s version: %v", name, err)
+		}
+		if version < 22 || version > 25 {
+			continue
+		}
+		raw, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+		if _, err := pool.Exec(ctx, string(raw)); err != nil {
+			t.Fatalf("apply frozen-fixture prerequisite %s: %v", name, err)
+		}
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO schema_migrations(version,name) VALUES ($1,$2)`,
+			version, name,
+		); err != nil {
+			t.Fatalf("record frozen-fixture prerequisite %s: %v", name, err)
+		}
 	}
 	return pool
 }
@@ -919,7 +947,11 @@ func task6FixRound2HistorySnapshot(t *testing.T, pool *database.Pool, candidateI
 	queries := map[string]string{
 		"source": `SELECT to_jsonb(row)::text FROM regulatory_source_versions row
 			WHERE id='SOURCE-SYNTHETIC-OPS-AOC'`,
-		"candidate": `SELECT to_jsonb(row)::text FROM template_draft_versions row
+		"candidate": `SELECT (to_jsonb(row) - ARRAY[
+			'entry_path','lineage_kind','owner_resolution_digest','blocker_digest',
+			'existing_candidate_id','governed_source_binding_set_id',
+			'legacy_authority_state','creation_basis'
+		])::text FROM template_draft_versions row
 			WHERE id='CAND-TASK6-FIX2-FROZEN'`,
 		"review": `SELECT (to_jsonb(row)-'candidate_root_id')::text
 			FROM department_review_decisions row WHERE id='DRD-TASK6-FIX2-FROZEN'`,

@@ -4,7 +4,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AppProviders } from "../../app/providers";
 import { REACT_ROUTE_CONTRACT_BY_ID } from "../../app/route-contracts";
@@ -15,7 +15,10 @@ import { seedVisualRuntimeForPath } from "../../mock/seed-visual-runtime";
 
 type MockRuntime = ReturnType<typeof createMockBackendRuntime>;
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 function renderManagerRoute(path: string, runtime: MockRuntime = createMockBackendRuntime()) {
   render(
@@ -220,6 +223,20 @@ describe("Department Manager operational workspaces", () => {
       entityRevision: 2,
     });
     expect(await runtime.backendForRole("manager").reports.getVersion({ reportVersionId: "PR-2026-018-V1" })).toMatchObject({ revision: 2, version: 1 });
+  });
+
+  it("renders a truthful empty Preliminary Report review when connected storage has no versions", async () => {
+    const runtime = createMockBackendRuntime();
+    const manager = runtime.backendForRole("manager");
+    vi.spyOn(manager.documents, "list").mockResolvedValue({ items: [], nextCursor: null });
+    const getVersion = vi.spyOn(manager.reports, "getVersion").mockRejectedValue(new Error("Not found."));
+
+    renderManagerRoute("/department-manager/preliminary-reports/PR-2026-018", runtime);
+
+    const page = await screen.findByTestId("manager-preliminary-review-page");
+    expect(within(page).getByText("No Preliminary Report versions are available yet.")).toBeVisible();
+    expect(within(page).queryByRole("alert")).toBeNull();
+    expect(getVersion).not.toHaveBeenCalled();
   });
 
   it("records authorized closure separately with exact Finding identity, reason, actor, revision, and audit event", async () => {

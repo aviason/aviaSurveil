@@ -8,43 +8,61 @@ This ExecPlan is a living document. Keep `Progress`, `Decision Log`,
 
 ## Status
 
-- Plan status: `active` — Gate 0 is `verified locally`; Tasks 1–7 and the
-  canonical connected hero slice of Task 8 have candidate implementation
-  evidence with fresh local checks. Task 9, the remaining Task 8 negative/
-  recovery/dependency matrix, and final stakeholder handoff remain pending.
+- Plan status: `active` — Gate 0 and Tasks 1–7 are `verified locally`; the
+  canonical connected hero slice, backup/restore, dependency services, and
+  nine-role browser slice of Task 8 have fresh local evidence. Task 9, the
+  remaining Task 8 negative/fault/restart matrix, the stakeholder-owned visual
+  review, and final stakeholder handoff remain pending.
 - Planning authority: the user requested this successor plan on 2026-08-07.
-- Independent implementation review: the latest Sol Ultra packet remains
-  `NOT ACCEPTED` pending a fresh post-remediation reread; the final Sol XHigh
-  code-boundary reread is `ACCEPTED` with 0 Critical / 0 Important findings.
-  Connected hero evidence is now `verified locally`; rendered and stakeholder
-  evidence remains separately pending.
+- Independent implementation review: the final read-only Sol XHigh reread of
+  the latest migration, credential-isolation, connected-E2E, team-removal, and
+  named-Tunnel ownership changes is `ACCEPTED` with 0 Critical / 0 Important
+  findings. Connected hero evidence is `verified locally`; rendered and
+  stakeholder evidence remains separately pending.
 - Implementation authority: granted by the user's 2026-08-07 execution request
   for Gate 0, Tasks 1–9, and Task 11 only. Task 10 remains separately
-  unauthorized and `not run`.
+  unauthorized and `not run`. On 2026-08-10 the user separately authorized an
+  operator path that can publish this Mac's disposable local candidate at
+  `demo.aviasurveil.com` through a pre-created named Cloudflare Tunnel. That is
+  a Task 8 local-origin transport extension, not authorization for a remote
+  preprod environment or another Task 10 action.
 - Local full-system qualification: `candidate-only` — generated contract
   checks, focused Go packages, the non-race full Go suite on a task-owned
-  disposable PostgreSQL/MinIO target, migration/N-1 upgrade checks, React
-  typecheck, the full React suite (91 files / 769 tests), normal Go
-  artifact-boundary scans, connected canonical OIDC hero lifecycle, and
-  a disposable anonymous Cloudflare Quick Tunnel transport and nine-role
-  browser smoke, and `git diff --check` are `verified locally`. The Quick
-  Tunnel gate runs with the real app-shell Service Worker enabled and proves
-  worker-controlled public HTTPS readiness, visible Keycloak username/password
-  fields, exact public OIDC discovery, 9/9 browser callbacks, exact
-  role/organization sessions, observed Secure
-  `__Host-` cookies, every role home, Question Review, and a Department Manager
-  New Audit draft through 1,310-question selection and review over a
-  loopback-only HTTP origin. The full race harness remains
-  `blocked` by the existing `internal/agaapplicability` timeout; broader root
-  recursive fixture-contract discovery, backup/restore, full negative/fault
-  matrix, visual review, and donor deletion/requalification remain `not run`.
-- External preprod deployment: `not run` and separately authorized.
+  disposable PostgreSQL/MinIO target, migration/N-1 upgrade checks, PostgreSQL
+  dump/restore plus object-store exact-byte recovery, React typecheck, the full
+  React suite (95 files / 796 tests), normal Go artifact-boundary scans,
+  connected canonical OIDC hero lifecycle, a freshly regenerated disposable
+  anonymous Cloudflare Quick Tunnel, its nine-role browser smoke, and
+  current-source builds for all nine local runtime images, nine digest-bound
+  CycloneDX SBOMs, and `git diff --check` are `verified locally`. The fresh Quick Tunnel lifecycle
+  passed `1/1` in 5.0 minutes with all 1,310 exact question versions; the role
+  panel/logout matrix passed `10/10` in 1.6 minutes and forced credentials after
+  logout/account switching. The full race harness remains `blocked` by the
+  existing `internal/agaapplicability` timeout. The HIGH/CRITICAL image scan is
+  `blocked`: the sole Keycloak Java 21/Java 17 advisory-mismatch exception
+  expired on 2026-08-08; a fresh exception-free scan reproduced the one HIGH
+  mismatch with no fixed version, so no owner extension was inferred. Complete
+  recursive root JS/MJS discovery ran 94 files / 451 tests and produced 418
+  pass / 33 fail. The
+  exact split is 12 paused AGA donor failures; one active governed-intake
+  archive test blocked by absent `AGA_CHECKLIST_ARCHIVE`; seven AviaCore
+  failures comprising three missing external sibling/predecessor fixtures and
+  four local registry/decision synchronization drifts; and 13 AWS/OPA-family
+  failures comprising one stale local AWS fixture and 12 missing local OPA
+  executions. The four local AviaCore drifts remain separately governed and
+  blocked pending AviaCore owner authority; this plan records no owner
+  disposition for them. The full negative/fault/restart matrix, stakeholder visual
+  review, and donor deletion/requalification remain `not run`.
+- External preprod deployment: `not run` and not authorized by this plan. The
+  disposable Quick Tunnel is local-origin transport evidence only.
 - Release: `release pending`.
 - Production readiness: `production-ready: not established`.
-- Immediate next gate: obtain the required fresh Sol Ultra reread, complete
-  the remaining Task 8 negative/recovery/dependency and visual checks, then
-  run donor-disabled requalification before Task 9 deletion or any external
-  action.
+- Immediate next gate: obtain the owning Local Platform Security disposition or
+  a real upstream remediation for the expired Keycloak scan mismatch, complete
+  the remaining Task 8 negative/fault/restart checks, then enter Task 9
+  deletion and donor-disabled requalification. The 1440x900, 1024x768, and
+  390x844 visual review remains `not run / stakeholder pending` by user
+  direction.
 
 ## Objective
 
@@ -448,8 +466,9 @@ exercise boundary, catalog/scope selection, and pre-start fail-closed rules.
 
 Open Browser QA findings now have explicit successor ownership: F-002 and
 F-013 → Tasks 2–4 selection/review preview guards; F-004 → Task 8 connected
-OIDC/session verification (provider end-session remains `not run` unless
-locally proven); F-007 and F-021 → Tasks 5–6 exact scope/identity binding and
+OIDC/session verification (provider end-session, local-session revocation, and
+forced reauthentication are `verified locally`); F-007 and F-021 → Tasks 5–6
+exact scope/identity binding and
 Task 8 negative authorization; F-010 → Tasks 2, 4–6 transaction/idempotency
 and Task 8 fault/concurrency; F-015 → Tasks 3, 7, and 8 capability/mutation
 separation; F-018 → Tasks 6 and 8 Auditee projection/privacy. The historical
@@ -1454,8 +1473,10 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   generated contracts, full React (91 files/769 tests), artifact tests, and
   `git diff --check` are `verified locally`; the canonical/OpenAPI/donor
   boundary JS/MJS subset is 70/70 `verified locally`. Full Go is `blocked` on the
-  unavailable disposable integration PostgreSQL endpoint, root recursive JS/
-  MJS discovery is `blocked` by paused AGA/AviaCore/AWS fixture contracts, and
+  unavailable disposable integration PostgreSQL endpoint. Root recursive JS/
+  MJS discovery is `blocked` by the exact 12 paused AGA, one missing active
+  archive input, seven AviaCore, and 13 local AWS/OPA-family failures recorded
+  in the current status above, and
   connected visible-action qualification is `blocked` by its existing
   execution-package fixture. The final Sol XHigh reread accepted the local
   code boundary with 0 Critical / 0 Important findings; connected, rendered,
@@ -1525,13 +1546,123 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   the fresh privacy-safe nine-account identity seed was added,
   `make preprod-cloudflare-test-panels` ran with Service Workers enabled,
   proved each public page was worker-controlled and the Keycloak username and
-  password fields were visible, then passed 9/9 real Keycloak logins, exact
+  password fields were visible, then passed 9/9 role-panel cases, exact
   session roles/organizations, `Secure`/`HttpOnly`/`SameSite=Strict` session
   cookie semantics, all role homes, Department Manager Question Review, and a
   New Audit draft through the server-owned 1,310-question catalog, one-question
-  preview/confirm, and Step 5 review. The user-owned three-viewport visual
-  review remains `not run`. This is local disposable transport evidence only;
+  preview/confirm, and Step 5 review. A fresh cold-profile regeneration then
+  exposed and removed a synthetic fixed-report lookup from the Department
+  Manager dashboard; report-review counts now come from the server projection.
+  The regenerated public profile passed readiness/OIDC again, the Manager login
+  rendered without the prior `Not found.` alert or console errors, and the
+  nine-role browser matrix passed 9/9 again. A subsequent logout remediation
+  now decrypts the server-held ID token only inside the revocation transaction,
+  clears it, returns only a short-lived encrypted same-origin logout ticket,
+  redeems that ticket server-side into the discovery-bound Keycloak end-session
+  redirect, and sets
+  `prompt=login`/`max_age=0` on every new authorization request. The public
+  matrix passed 10/10: all nine role cases plus Admin logout → visible
+  username/password fields → Manager credential entry in the same browser
+  context. The full React suite passed 94 files / 783 tests and the literal
+  full non-race Go suite passed with task-owned PostgreSQL and MinIO. The
+  user-owned three-viewport visual review remains `not run`. This is local
+  disposable transport evidence only;
   Task 10 remains literally `not run`.
+- [x] 2026-08-10: Homebrew `cloudflared` was upgraded from `2026.5.2` to
+  `2026.7.3` and the installed binary/version are `verified locally`. A named
+  startup attempt proved that the updated connector authenticated, registered
+  four HTTP/2 connections, and received the exact
+  `demo.aviasurveil.com -> http://127.0.0.1:8086` dashboard route, but also
+  exposed a local launcher lifecycle defect: the completed FD3 token pipe kept
+  the launcher alive. The launcher now destroys/unrefs that parent pipe after
+  EOF, and startup records the exact expected process identity before the
+  interruptible launcher call so failure cleanup can remain ownership-safe.
+  Named plus Quick Tunnel contracts (15/15), boundary/docs smoke, and
+  `git diff --check` are `verified locally`. The incomplete named connector and
+  runtime were removed; the user elected to perform the next named start
+  manually, so post-fix public readiness/OIDC/browser qualification remain `not
+  run`. The separate pre-existing Quick Tunnel was intentionally retained.
+- [x] 2026-08-10: The first operator `preprod-cloudflare-demo-up` run reached
+  the connector boundary after the image build, but `cloudflared` exited before
+  exposing a process identity. Public DNS for `demo.aviasurveil.com` resolved
+  through Cloudflare and cleanup left no listener or retained public process. A
+  secret-safe Keychain structure check showed that the stored value began with
+  `eyJ` but did not decode to a complete connector payload; the token itself was
+  never printed. A second entry attempt established that the old interactive
+  `/usr/bin/security ... -w` prompt itself truncated the long value to exactly
+  128 bytes; this was not an operator copy error. The storage path now uses an
+  unbounded hidden Bash terminal read and pipes the value to a native
+  Security-framework writer. Only after full validation, it replaces the exact
+  legacy Keychain item through its already trusted `/usr/bin/security` reader.
+  Synthetic long-value Keychain add, read, validation, exact replacement-path
+  cleanup, and final cleanup are `verified locally`. The repository also
+  validates the complete encoded
+  connector payload before Docker image builds, waits briefly for early
+  `cloudflared` rejection, and prints only a token-redacted startup log tail.
+  Bash/Swift/Node syntax and the focused named-Tunnel contracts are `verified
+  locally`. Re-entering the real complete credential and completing named
+  public readiness/OIDC/browser qualification remain `not run`; Task 10
+  external preprod remains `not run`.
+- [x] 2026-08-10: The separately authorized stable-hostname operator path was
+  added without a Cloudflare account/API mutation or secret entering the
+  repository. `make preprod-cloudflare-demo-token` uses hidden terminal reads
+  and a native macOS Keychain writer for only the tunnel-scoped connector
+  credential;
+  `make preprod-cloudflare-demo-{up,status,users,down}` uses a distinct port,
+  Compose project, state root, and runtime root for
+  `https://demo.aviasurveil.com`. The detached launcher reads the Keychain item
+  into memory and passes it to `cloudflared --token-file /dev/fd/3`, never argv,
+  environment, logs, or disk. Startup proves authoritative DNS, exact
+  dashboard-origin routing through a loopback placeholder, public/local
+  readiness, and exact OIDC issuer before recording runtime metadata; shutdown
+  removes exposure before requiring Docker and preserves the Keychain item and
+  user-owned Cloudflare configuration. Bash/Node syntax, the named plus Quick
+  Tunnel focused contracts (14/14), a real `cloudflared 2026.5.2` fake-token
+  `/dev/fd/3` read/rejection probe, harness docs smoke, and `git diff --check`
+  are `verified locally`. Keychain secret entry, named connector startup,
+  public OIDC/browser qualification, and any Cloudflare dashboard/DNS mutation
+  are `not run`; the user must first create the exact remotely managed route
+  and enter its connector token. Task 10 external preprod remains `not run`.
+- [x] 2026-08-10: The donor-unavailable anonymous Quick Tunnel profile passed
+  a second clean-profile, consolidated 1,310-question lifecycle run after the
+  runtime/object-store credential split (`1 passed`, 5.0
+  minutes). Distinct OIDC sessions completed Department Manager New Audit with
+  all 1,310 exact governed/exercise question versions selected, Finance -> GM
+  -> ED -> GM Release, Department Manager Lead assignment, Lead team and exact
+  per-question coverage, Department Manager preparation confirmation and
+  materialization, pre-start execution-package denial, separate Inspector
+  start, all 1,310 checklist response writes, Potential Finding and checklist
+  submission, Preliminary Report DM -> GM -> ED issue/lock, post-issue Finding
+  conversion, Auditee CAP, Lead CAP acceptance without closure, real signed
+  MinIO Evidence upload, ClamAV `PENDING` -> `CLEAN`, Evidence-verified Finding
+  closure, Final Report DM -> GM -> ED issue/lock, and Gotenberg rendering with
+  immutable document/version SHA-256 projections. Auditee organization privacy,
+  absence of Internal CAA Notes, and anonymous Evidence-download denial were
+  also asserted. A separate browser run passed all nine role panels plus
+  same-browser logout/account switching (10/10, 1.6 minutes) with forced
+  credential entry. This is `verified locally`, `candidate-only`, and
+  `release pending`. A separate disposable recovery profile then verified a
+  PostgreSQL custom-format dump/restore with identical canonical fingerprints
+  and an object-store exact-byte restore; its containers, volumes, network, and
+  runtime directory were removed. These receipts do not complete Task 8's
+  remaining negative/fault/restart, deletion/requalification, or user-owned
+  visual gates. The required 1440x900, 1024x768, and 390x844 review is `not
+  run / stakeholder pending`; Task 10 remains literally `not run`.
+- [x] 2026-08-10: Removed Inspectors now lose their executable question
+  coverage atomically; preparation rejects any historical stale coverage, and
+  the AssignTeam write response reloads and reports the exact surviving
+  coverage in the same transaction. The focused real-PostgreSQL scenario and
+  the full non-race Go suite passed. The named-Tunnel launcher now records its
+  owned child before token delivery and removes it on interruption; its focused
+  suite passed 7/7. Nine current-source runtime images and nine digest-bound
+  CycloneDX SBOMs were produced. Recursive root discovery reran at 94 files /
+  451 tests with 418 pass / 33 fail and the unchanged exact 12 + 1 + 7 + 13
+  classification. The HIGH/CRITICAL image scan remains `blocked`, not passed:
+  the Keycloak Java 21/Java 17 advisory-mismatch exception expired on
+  2026-08-08, and a fresh exception-free scan reproduced the sole HIGH mapping
+  with no fixed version. No security-owner exception extension was inferred.
+  The final Sol XHigh reread accepted the latest local code boundary with 0
+  Critical / 0 Important findings. Task 10 remains literally `not run`.
 - [x] 2026-08-07: Gate 0 froze the canonical table/FK/aggregate/event
   boundaries, classified every dirty AGA change, mapped F-002/F-004/F-007/
   F-010/F-013/F-015/F-018/F-021, synchronized the product specifications,
@@ -1541,40 +1672,55 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   predecessor reprioritization.
 - [x] Task 1: canonical 1,310-question catalog and preprod data profile — the
   candidate implementation and focused/full contract/migration checks are
-  `verified locally`; stakeholder connected qualification is `not run`.
+  `verified locally`; the clean-profile connected run proved all 1,310 exact
+  versions in the disposable exercise catalog.
 - [x] Task 2: question discovery and scope-selection backend — candidate
-  implementation and focused/full checks are `verified locally`; stakeholder
-  connected qualification is `not run`.
+  implementation, focused/full checks, and the connected exact-subset selection
+  boundary are `verified locally`.
 - [x] Task 3: canonical Question Review workspace and governance modes — the
   retained interface, separate command boundaries, and candidate DOM/overflow
   checks are `verified locally`; rendered 1440x900/1024x768/390x844 and
   stakeholder qualification are `not run`.
 - [x] Task 4: primary New Audit workflow — candidate implementation and
-  focused checks are `verified locally`; responsive rendered evidence and
-  stakeholder qualification are `not run`.
+  focused checks plus the connected 1,310-question submission are `verified
+  locally`; responsive rendered evidence and stakeholder qualification are
+  `not run`.
 - [x] Task 5: approval binding, post-release preparation, and materialization —
-  candidate implementation, migration/application checks, and connected
-  canonical scenario checks are `verified locally`; donor-disabled stakeholder
-  qualification is `not run`.
+  candidate implementation, migration/application checks, and the consolidated
+  public-HTTPS connected path through release, exact 1,310-question coverage,
+  preparation confirmation, materialization, pre-start denial, and Inspector
+  start are `verified locally`; stakeholder visual acceptance is pending.
 - [x] Task 6: accepted canonical multi-role/report lifecycle — candidate
-  implementation, focused/full lifecycle checks, and the connected OIDC hero
-  path through CAP/Evidence closure and Final Report issue are `verified
-  locally`; full negative/fault and stakeholder qualification are `not run`.
+  implementation, focused/full lifecycle checks, and one consolidated connected
+  OIDC hero path through all 1,310 responses, Preliminary Report issue,
+  CAP acceptance without closure, real Evidence upload/scan, Evidence-verified
+  closure, Final Report issue, and Gotenberg document versioning are `verified
+  locally`; full negative/fault and stakeholder visual qualification are `not
+  run`.
 - [x] Task 7: navigation cutover and donor disablement — canonical routes,
   donor-free HTTP contract/artifact, and donor runtime fail-closed behavior
-  are `verified locally`; rendered/connected donor-disabled qualification and
-  deletion/requalification remain `not run`.
-- [ ] Task 8: local connected qualification with donor disabled — the canonical
-  hero path is `verified locally` in two connected runs, while the full
-  acceptance matrix remains pending.
+  plus donor-disabled connected qualification are `verified locally`; physical
+  deletion and post-deletion requalification remain `not run`.
+- [ ] Task 8: local connected qualification with donor disabled — the complete
+  canonical hero path is `verified locally` in one consolidated 1,310-question
+  run, the public role-panel/logout matrix is 10/10, and focused
+  PostgreSQL/object-store backup/restore is `verified locally`; the required
+  negative/fault/restart, final residue, and visual acceptance matrix remains
+  pending.
 - [ ] Task 9: duplicate lifecycle removal and requalification.
 - [ ] Task 10: separately authorized external preprod release gate.
 - [ ] Task 11: aggregate evidence and stakeholder handoff — candidate evidence
   exists and focused/generated contract checks, non-race full Go, full React,
-  connected canonical hero runs, and `git diff --check` are `verified locally`;
-  the full race/root recursive/deletion/requalification gates, required
-  rendered Question Review/New Audit viewport matrix, fresh Sol Ultra closure,
-  and stakeholder verification remain `not run` or `blocked` as recorded above.
+  backup/restore, connected canonical hero runs, current-source image builds,
+  nine digest-bound SBOMs, and `git diff --check` are `verified locally`.
+  Recursive root discovery completed at 418/451 and remains
+  `blocked` by the exact mixed local/external split recorded above; the four
+  local AviaCore synchronization drifts remain under their owning plan and no
+  owner disposition is inferred here. The image vulnerability gate is also
+  `blocked` by the expired owner exception recorded above. The full
+  race/deletion/requalification gates, required rendered Question Review/New
+  Audit viewport matrix, and stakeholder verification remain `not run` or
+  `blocked` as recorded above; the final independent reread is accepted.
 
 ## Decision Log
 
@@ -1666,8 +1812,8 @@ have candidate implementation slices. Generated contract checks, focused Go
 packages, migration/N-1 upgrade checks, React typecheck, and `git diff --check`
 are `verified locally`; the full Go suite is `not run` after a long-running
 attempt and the full React suite is `blocked` by existing fixture-contract
-failures. Recursive root JS/MJS discovery is `blocked` by existing
-AGA/AviaCore/AWS fixture-contract families; donor-disabled stakeholder
+failures. Recursive root JS/MJS discovery is `blocked` by the exact 33-failure
+split now recorded in the current status; donor-disabled stakeholder
 qualification and the remaining independent-review fixes are still pending.
 Task 10 remains `not run`.
 
@@ -1681,14 +1827,55 @@ Question Review/New Audit 1440x900, 1024x768, and 390x844 DOM/overflow/console
  checks are `verified locally`. The full Go suite is `not run` after a
  long-running local attempt; the full React suite is `blocked` by existing
  fixture-contract failures, although React typecheck is `verified locally`.
- The complete recursive root JS/MJS discovery is `blocked` by pre-existing
- AGA/AviaCore/AWS fixture-contract families. The donor-disabled connected
+ The complete recursive root JS/MJS discovery is `blocked` by the mixed
+ local/external 33-failure split recorded in the current status. The donor-disabled connected
  lifecycle, external OIDC stakeholder qualification, MinIO/ClamAV/Gotenberg/
  Mailpit evidence matrix, backup/restore and final requalification remain
  `not run`. Sol Ultra's independent implementation review remains
  `NOT ACCEPTED` until the remaining Important findings and affected
  verification are fresh. Task 10 external preprod remains explicitly
  `not run`.
+
+### 2026-08-09 — Treat logout as an application-plus-provider boundary
+
+The application logout command now locks and revokes the exact browser session,
+decrypts only its server-held provider-token envelope, clears that envelope,
+and returns a short-lived encrypted same-origin logout ticket. The API redeems
+the opaque ticket into the discovery-validated Keycloak RP-initiated logout
+redirect; provider tokens never enter the application JavaScript response. The
+browser completes provider logout before returning to the public root. New
+authorization requests carry `prompt=login` and `max_age=0`, so a stale SSO
+cookie cannot silently restore the previous identity. The same-browser Admin →
+logout → Manager credential flow passed over the disposable public HTTPS
+origin. This is `verified locally`; it is not external preprod evidence and
+Task 10 remains `not run`.
+
+### 2026-08-10 — Treat a stable named hostname as local-origin publication
+
+The named `demo.aviasurveil.com` profile reuses the canonical loopback HTTP
+gateway and disposable exercise namespace but owns a separate local project,
+port, state, and process identity. Cloudflare account configuration remains a
+user-owned dashboard prerequisite. Repository automation receives only a
+tunnel-scoped connector token through macOS Keychain and never receives an API
+token or account certificate. This makes stable public demo transport
+repeatable without converting the local candidate into external preprod
+evidence or granting repository code authority to create or delete the tunnel,
+DNS, or Access policy.
+
+### 2026-08-10 — Validate the connector payload before expensive local work
+
+An `eyJ` prefix and a plausible byte count do not prove that a connector token
+is complete. macOS `security add-generic-password -w` uses a bounded interactive
+password reader and cut the complete pasted connector value to exactly 128
+bytes. The storage path must therefore use an unbounded hidden terminal read
+and pass the validated value through memory-only pipes to the Security
+framework; it must never put the secret in argv or an environment variable.
+The named lifecycle must then decode the stored credential in memory, require
+the connector payload fields, and fail before Docker work. Any early connector
+diagnostics must redact token-shaped values before the task-owned runtime
+directory is removed. This validation does not authenticate against Cloudflare
+and is not live-tunnel evidence; a complete credential and public qualification
+are still required.
 
 ## Discoveries
 
@@ -1742,7 +1929,7 @@ events until atomic Inspector start.
 
 ## Outcome
 
-Planning outcome as of 2026-08-07:
+Implementation outcome as of 2026-08-10:
 
 - A self-contained canonical successor plan now replaces the idea of improving
   the separate complex AGA demo indefinitely.
@@ -1751,21 +1938,36 @@ Planning outcome as of 2026-08-07:
   Department Manager/Lead preparation, and canonical multi-role lifecycle
   through Preliminary Report, Evidence-verified closure, and Final Report.
 - Existing AGA work is explicitly treated as reusable donor code and import
-  provenance. Synthetic implementation plans are paused; the duplicate
-  stakeholder lifecycle is disabled, qualified unavailable, then removed and
-  requalified.
+  provenance. Synthetic implementation plans are paused and the duplicate
+  stakeholder runtime is absent from normal contracts, clients, dependencies,
+  and binary artifacts. Physical donor deletion and post-deletion
+  requalification remain the open Task 9 boundary.
 - The accepted `Find -> Compare -> Decide` Question Review interface remains a
   first-class Department Manager governance surface; only its AGA-only route
   and duplicate lifecycle ownership are replaced.
 - The exact 1,310 questions remain truthful preprod exercise content; real
   regulatory authority and production readiness are not claimed.
-- Sol Ultra's initial `NOT ACCEPTED` findings and follow-up residuals are
-  incorporated. The final independent implementation review is currently
-  `NOT ACCEPTED`; plan closure remains open until the remaining findings and
-  required local/connected gates and evidence are fresh.
-- Candidate runtime changes and a task-owned disposable local-preprod stack
-  are present on the current branch. No AWS deployment or external mutation
-  was performed; Task 10 remains `not run`.
+- Generated contracts, migration/N-1, the full non-race Go suite, the full
+  React suite, builds/artifact scans, PostgreSQL/object-store backup/restore,
+  and the clean-profile 1,310-question connected lifecycle are `verified
+  locally`. Nine current-source runtime images and their digest-bound SBOMs are
+  also `verified locally`; the HIGH/CRITICAL image scan is `blocked` by the
+  expired Keycloak advisory-mismatch exception and was not relabelled as a
+  pass. The nine-role/logout browser matrix is 10/10. Recursive root discovery
+  is truthfully `blocked` at 418/451 by 12 paused AGA donor failures,
+  one missing active-plan archive input, three external and four locally
+  drifting AviaCore checks, one stale local AWS fixture, and 12 missing local
+  OPA executions. The four local AviaCore drifts remain separately governed
+  pending owner authority.
+- The final Sol XHigh code-boundary reread accepted the latest changes with 0
+  Critical / 0 Important findings. Plan closure remains open for the blocked
+  image-security disposition, the remaining Task 8 negative/fault/restart
+  matrix, Task 9 deletion/requalification, and stakeholder review.
+- A task-owned disposable local-preprod stack is running on the current branch
+  for the user's manual visual pass. The required 1440x900, 1024x768, and
+  390x844 review is `not run / stakeholder pending`. No AWS deployment or
+  external-preprod mutation was performed; Task 10 remains literally `not
+  run`.
 
 ## Execution Prompt
 

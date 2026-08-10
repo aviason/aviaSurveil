@@ -250,7 +250,11 @@ func TestUserLifecycleRequestPersistsJobEnvelopeWithoutEarlySessionInvalidation(
 		t.Fatalf("non-admin lifecycle error = %v", err)
 	}
 	var beforeCount int
-	if err := pool.QueryRow(context.Background(), "SELECT COUNT(*) FROM user_lifecycle_requests").Scan(&beforeCount); err != nil {
+	if err := pool.QueryRow(context.Background(), `
+		SELECT COUNT(*)
+		FROM user_lifecycle_requests
+		WHERE id NOT LIKE 'fixture-membership-%'
+	`).Scan(&beforeCount); err != nil {
 		t.Fatalf("count unauthorized lifecycle requests: %v", err)
 	}
 	if beforeCount != 1 {
@@ -271,7 +275,8 @@ func TestUserLifecycleRequestPersistsJobEnvelopeWithoutEarlySessionInvalidation(
 	}
 	if err := pool.QueryRow(
 		context.Background(),
-		"SELECT COUNT(*) FROM user_lifecycle_requests",
+		`SELECT COUNT(*) FROM user_lifecycle_requests
+		 WHERE id NOT LIKE 'fixture-membership-%'`,
 	).Scan(&beforeCount); err != nil {
 		t.Fatalf("count wrong-organization lifecycle requests: %v", err)
 	}
@@ -314,7 +319,8 @@ func TestUserLifecycleRequestPersistsJobEnvelopeWithoutEarlySessionInvalidation(
 	}
 	if err := pool.QueryRow(
 		context.Background(),
-		"SELECT COUNT(*) FROM user_lifecycle_requests",
+		`SELECT COUNT(*) FROM user_lifecycle_requests
+		 WHERE id NOT LIKE 'fixture-membership-%'`,
 	).Scan(&beforeCount); err != nil {
 		t.Fatalf("count invalid role/organization lifecycle requests: %v", err)
 	}

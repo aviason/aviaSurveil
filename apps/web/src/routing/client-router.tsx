@@ -150,8 +150,20 @@ export function useNavigate() {
   );
 }
 
+function decodeRouteParameter(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 export function useParams<Params extends Record<string, string | undefined> = Record<string, string>>() {
-  return LegacyRouter.useParams() as Params;
+  const params = LegacyRouter.useParams() as Record<string, string | undefined>;
+  return Object.fromEntries(
+    Object.entries(params).map(([key, value]) => [key, decodeRouteParameter(value)]),
+  ) as Params;
 }
 
 function createSearchParams(init: SearchParamsInit = "") {

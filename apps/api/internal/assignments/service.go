@@ -142,19 +142,29 @@ func (service *Service) ConfirmPreparation(
 			}
 			coverageByQuestion := map[string][]string{}
 			rows, err := transaction.Query(ctx, `
-				SELECT question_id, subject_id
-				FROM audit_question_assignments
-				WHERE assignment_id = $1
-				ORDER BY question_id, subject_id
+				SELECT coverage.question_id, coverage.subject_id,
+				       team.subject_id IS NOT NULL AS active_team_member
+				FROM audit_question_assignments AS coverage
+				LEFT JOIN audit_team_members AS team
+				  ON team.assignment_id = coverage.assignment_id
+				 AND team.subject_id = coverage.subject_id
+				 AND team.removed_at IS NULL
+				WHERE coverage.assignment_id = $1
+				ORDER BY coverage.question_id, coverage.subject_id
 			`, command.AssignmentID)
 			if err != nil {
 				return commandResult[Preparation]{}, err
 			}
 			for rows.Next() {
 				var questionID, subjectID string
-				if err := rows.Scan(&questionID, &subjectID); err != nil {
+				var activeTeamMember bool
+				if err := rows.Scan(&questionID, &subjectID, &activeTeamMember); err != nil {
 					rows.Close()
 					return commandResult[Preparation]{}, err
+				}
+				if !activeTeamMember {
+					rows.Close()
+					return commandResult[Preparation]{}, fmt.Errorf("%w: question coverage includes a removed team member", ErrConflict)
 				}
 				coverageByQuestion[questionID] = append(coverageByQuestion[questionID], subjectID)
 			}
@@ -442,10 +452,17 @@ func (service *Service) AssignLead(
 			}
 			output := Assignment{
 				ID: command.AssignmentID, InspectionID: "", PlanningItemID: current.PlanningItemID,
-				OrganizationID: current.OrganizationID, LeadSubjectID: command.LeadSubjectID,
+				ReleasedScopeSnapshotID: current.ReleasedScopeSnapshotID,
+				OrganizationID:          current.OrganizationID, LeadSubjectID: command.LeadSubjectID,
 				MemberSubjectIDs: []string{command.LeadSubjectID}, Status: StatusLeadAssigned,
 				ScheduledStartDate: releasedPlannedDate.Format("2006-01-02"),
 				ScheduledEndDate:   releasedPlannedDate.Format("2006-01-02"), Revision: current.Revision + 1,
+			}
+			output.SelectedQuestionVersionIDs, err = listReleasedQuestionVersionIDs(
+				ctx, transaction, current.ReleasedScopeSnapshotID,
+			)
+			if err != nil {
+				return commandResult[Assignment]{}, err
 			}
 			return commandResult[Assignment]{
 				Response: output, OrganizationID: current.OrganizationID,
@@ -479,6 +496,7 @@ type PreviewQuestionsCommand struct {
 	IdempotencyKey      string
 	AssignmentID        string
 	ExpectedRevision    int64
+	OperationKind       QuestionCoverageOperationKind
 	QuestionAssignments []QuestionAssignment
 }
 
@@ -576,7 +594,7 @@ func (service *Service) PreviewQuestions(
 		return PreparationEditPreview{}, ErrForbidden
 	}
 	questionAssignments, err := normalizedQuestionAssignments(command.QuestionAssignments)
-	if err != nil || blank(command.OperationID, command.IdempotencyKey, command.AssignmentID) || command.ExpectedRevision <= 0 {
+	if err != nil || !validQuestionCoverageOperation(command.OperationKind) || blank(command.OperationID, command.IdempotencyKey, command.AssignmentID) || command.ExpectedRevision <= 0 {
 		return PreparationEditPreview{}, ErrInvalid
 	}
 	semantic := command
@@ -611,14 +629,28 @@ func (service *Service) PreviewQuestions(
 					return commandResult[PreparationEditPreview]{}, ErrInvalid
 				}
 				var exists bool
-				if err := transaction.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM audit_team_members WHERE assignment_id=$1 AND subject_id=$2 AND removed_at IS NULL)`, command.AssignmentID, assignment.SubjectID).Scan(&exists); err != nil {
+				membershipQuery := `SELECT EXISTS (
+					SELECT 1 FROM audit_team_members
+					WHERE assignment_id=$1 AND subject_id=$2 AND removed_at IS NULL
+				)`
+				if command.OperationKind == QuestionCoverageRemove {
+					membershipQuery = `SELECT EXISTS (
+						SELECT 1 FROM audit_question_assignments
+						WHERE assignment_id=$1 AND subject_id=$2 AND question_id=$3
+					)`
+				}
+				queryArgs := []any{command.AssignmentID, assignment.SubjectID}
+				if command.OperationKind == QuestionCoverageRemove {
+					queryArgs = append(queryArgs, assignment.QuestionID)
+				}
+				if err := transaction.QueryRow(ctx, membershipQuery, queryArgs...).Scan(&exists); err != nil {
 					return commandResult[PreparationEditPreview]{}, err
 				}
 				if !exists {
 					return commandResult[PreparationEditPreview]{}, ErrInvalid
 				}
 			}
-			snapshot := map[string]any{"questionAssignments": questionAssignments}
+			snapshot := map[string]any{"operationKind": command.OperationKind, "questionAssignments": questionAssignments}
 			digest, err := idempotency.SemanticHash(snapshot)
 			if err != nil {
 				return commandResult[PreparationEditPreview]{}, err
@@ -729,17 +761,38 @@ func (service *Service) AssignTeam(
 			`, command.AssignmentID, now, members); err != nil {
 				return commandResult[Assignment]{}, err
 			}
+			if _, err := transaction.Exec(ctx, `
+				DELETE FROM audit_question_assignments AS coverage
+				USING audit_team_members AS team
+				WHERE coverage.assignment_id=$1
+				  AND team.assignment_id=coverage.assignment_id
+				  AND team.subject_id=coverage.subject_id
+				  AND team.member_role='INSPECTOR'
+				  AND team.removed_at IS NOT NULL
+			`, command.AssignmentID); err != nil {
+				return commandResult[Assignment]{}, err
+			}
 			updated, err := updateAssignmentStatus(ctx, transaction, current,
 				StatusTeamAssigned, now)
 			if err != nil {
 				return commandResult[Assignment]{}, err
 			}
+			updated.MemberSubjectIDs = append([]string{updated.LeadSubjectID}, members...)
+			updated.SelectedQuestionVersionIDs, err = listReleasedQuestionVersionIDs(
+				ctx, transaction, updated.ReleasedScopeSnapshotID,
+			)
+			if err != nil {
+				return commandResult[Assignment]{}, err
+			}
+			updated.QuestionAssignments, err = listQuestionAssignments(ctx, transaction, command.AssignmentID)
+			if err != nil {
+				return commandResult[Assignment]{}, err
+			}
 			if err := recordPreparationEdit(ctx, transaction, command.AssignmentID, updated.Revision, "TEAM", actor, map[string]any{
-				"memberSubjectIds": members,
+				"memberSubjectIds": members, "resultingQuestionAssignments": updated.QuestionAssignments,
 			}); err != nil {
 				return commandResult[Assignment]{}, err
 			}
-			updated.MemberSubjectIDs = append([]string{updated.LeadSubjectID}, members...)
 			return commandResult[Assignment]{
 				Response: updated, OrganizationID: updated.OrganizationID,
 				Action: "assignment.team_assigned", EntityType: "audit_assignment",
@@ -756,6 +809,7 @@ type AssignQuestionsCommand struct {
 	ExpectedRevision    int64
 	PreviewID           string
 	PreviewDigest       string
+	OperationKind       QuestionCoverageOperationKind
 	QuestionAssignments []QuestionAssignment
 }
 
@@ -768,7 +822,7 @@ func (service *Service) AssignQuestions(
 		return Assignment{}, ErrForbidden
 	}
 	questionAssignments, err := normalizedQuestionAssignments(command.QuestionAssignments)
-	if err != nil || blank(command.OperationID, command.IdempotencyKey, command.AssignmentID) ||
+	if err != nil || !validQuestionCoverageOperation(command.OperationKind) || blank(command.OperationID, command.IdempotencyKey, command.AssignmentID) ||
 		command.ExpectedRevision <= 0 || len(questionAssignments) == 0 {
 		return Assignment{}, ErrInvalid
 	}
@@ -790,7 +844,7 @@ func (service *Service) AssignQuestions(
 			if current.Revision != command.ExpectedRevision || (current.Status != StatusTeamAssigned && current.Status != StatusQuestionsAssigned) {
 				return commandResult[Assignment]{}, ErrConflict
 			}
-			if err := consumePreparationPreview(ctx, transaction, command.PreviewID, command.PreviewDigest, command.AssignmentID, command.ExpectedRevision, "QUESTION_COVERAGE", actor.SubjectID, map[string]any{"questionAssignments": questionAssignments}, service.clock().UTC()); err != nil {
+			if err := consumePreparationPreview(ctx, transaction, command.PreviewID, command.PreviewDigest, command.AssignmentID, command.ExpectedRevision, "QUESTION_COVERAGE", actor.SubjectID, map[string]any{"operationKind": command.OperationKind, "questionAssignments": questionAssignments}, service.clock().UTC()); err != nil {
 				return commandResult[Assignment]{}, err
 			}
 			// A confirmed preparation is an immutable receipt.  A Lead may
@@ -819,6 +873,9 @@ func (service *Service) AssignQuestions(
 				if !allowedQuestions[assignment.QuestionID] {
 					return commandResult[Assignment]{}, ErrInvalid
 				}
+				if command.OperationKind == QuestionCoverageRemove {
+					continue
+				}
 				var exists bool
 				if err := transaction.QueryRow(ctx, `
 					SELECT EXISTS (
@@ -832,21 +889,31 @@ func (service *Service) AssignQuestions(
 					return commandResult[Assignment]{}, ErrInvalid
 				}
 			}
-			if _, err := transaction.Exec(ctx,
-				"DELETE FROM audit_question_assignments WHERE assignment_id = $1",
-				command.AssignmentID,
-			); err != nil {
-				return commandResult[Assignment]{}, err
-			}
 			now := service.clock().UTC()
+			if command.OperationKind == QuestionCoverageReplace {
+				if _, err := transaction.Exec(ctx, "DELETE FROM audit_question_assignments WHERE assignment_id = $1", command.AssignmentID); err != nil {
+					return commandResult[Assignment]{}, err
+				}
+			}
 			for _, assignment := range questionAssignments {
+				if command.OperationKind == QuestionCoverageRemove {
+					if _, err := transaction.Exec(ctx, `DELETE FROM audit_question_assignments WHERE assignment_id=$1 AND question_id=$2 AND subject_id=$3`, command.AssignmentID, assignment.QuestionID, assignment.SubjectID); err != nil {
+						return commandResult[Assignment]{}, err
+					}
+					continue
+				}
 				if _, err := transaction.Exec(ctx, `
 					INSERT INTO audit_question_assignments (
 						assignment_id, question_id, subject_id, revision, created_at
 					) VALUES ($1, $2, $3, 1, $4)
+					ON CONFLICT (assignment_id, question_id, subject_id) DO NOTHING
 				`, command.AssignmentID, assignment.QuestionID, assignment.SubjectID, now); err != nil {
 					return commandResult[Assignment]{}, err
 				}
+			}
+			resultingAssignments, err := listQuestionAssignments(ctx, transaction, command.AssignmentID)
+			if err != nil {
+				return commandResult[Assignment]{}, err
 			}
 			updated, err := updateAssignmentStatus(ctx, transaction, current,
 				StatusQuestionsAssigned, now)
@@ -854,12 +921,19 @@ func (service *Service) AssignQuestions(
 				return commandResult[Assignment]{}, err
 			}
 			if err := recordPreparationEdit(ctx, transaction, command.AssignmentID, updated.Revision, "QUESTION_COVERAGE", actor, map[string]any{
-				"questionAssignments": questionAssignments,
+				"operationKind": command.OperationKind, "affectedQuestionAssignments": questionAssignments,
+				"questionAssignments": resultingAssignments,
 			}); err != nil {
 				return commandResult[Assignment]{}, err
 			}
-			updated.QuestionAssignments = questionAssignments
+			updated.QuestionAssignments = resultingAssignments
 			updated.MemberSubjectIDs, err = listMemberIDs(ctx, transaction, command.AssignmentID)
+			if err != nil {
+				return commandResult[Assignment]{}, err
+			}
+			updated.SelectedQuestionVersionIDs, err = listReleasedQuestionVersionIDs(
+				ctx, transaction, updated.ReleasedScopeSnapshotID,
+			)
 			if err != nil {
 				return commandResult[Assignment]{}, err
 			}
@@ -1696,14 +1770,31 @@ func requireActiveRole(
 	if err := transaction.QueryRow(ctx, `
 		SELECT EXISTS (
 			SELECT 1
-			FROM identity_references identity
-			JOIN session_references session ON session.subject_id = identity.subject_id
-			WHERE identity.subject_id = $1
+			FROM desired_membership_versions membership
+			JOIN desired_membership_sync sync
+			  ON sync.membership_id = membership.membership_id
+			 AND sync.subject_id = membership.subject_id
+			JOIN identity_references identity
+			  ON identity.subject_id = membership.subject_id
+			WHERE membership.subject_id = $1
+			  AND membership.revision = (
+			      SELECT latest.revision
+			      FROM desired_membership_versions latest
+			      WHERE latest.subject_id = $1
+			      ORDER BY latest.revision DESC
+			      LIMIT 1
+			  )
 			  AND identity.tombstoned_at IS NULL
-			  AND session.revoked_at IS NULL
-			  AND session.expires_at > now()
-			  AND (session.absolute_expires_at IS NULL OR session.absolute_expires_at > now())
-			  AND $2 = ANY(session.roles)
+			  AND identity.deactivated_at IS NULL
+			  AND membership.membership_state = 'ACTIVE'
+			  AND membership.effective_at <= now()
+			  AND sync.desired_revision = membership.revision
+			  AND sync.observed_provider_enabled
+			  AND sync.drift_state = 'IN_SYNC'
+			  AND sync.observed_organization_id = membership.organization_id
+			  AND membership.roles <@ sync.observed_roles
+			  AND sync.observed_roles <@ membership.roles
+			  AND $2 = ANY(membership.roles)
 		)
 	`, subjectID, string(role)).Scan(&exists); err != nil {
 		return err
@@ -1943,6 +2034,37 @@ func listMemberIDs(
 	return output, rows.Err()
 }
 
+func listReleasedQuestionVersionIDs(
+	ctx context.Context,
+	queryer interface {
+		Query(context.Context, string, ...any) (pgx.Rows, error)
+	},
+	releasedScopeSnapshotID string,
+) ([]string, error) {
+	if strings.TrimSpace(releasedScopeSnapshotID) == "" {
+		return []string{}, nil
+	}
+	rows, err := queryer.Query(ctx, `
+		SELECT question_version_id
+		FROM canonical_audit_scope_snapshot_questions
+		WHERE snapshot_id = $1
+		ORDER BY position
+	`, releasedScopeSnapshotID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	output := []string{}
+	for rows.Next() {
+		var questionID string
+		if err := rows.Scan(&questionID); err != nil {
+			return nil, err
+		}
+		output = append(output, questionID)
+	}
+	return output, rows.Err()
+}
+
 func listQuestionAssignments(
 	ctx context.Context,
 	queryer interface {
@@ -2006,6 +2128,58 @@ func normalizedQuestionAssignments(
 		}
 		seen[key] = true
 		output = append(output, value)
+	}
+	sort.Slice(output, func(left, right int) bool {
+		if output[left].QuestionID == output[right].QuestionID {
+			return output[left].SubjectID < output[right].SubjectID
+		}
+		return output[left].QuestionID < output[right].QuestionID
+	})
+	return output, nil
+}
+
+func validQuestionCoverageOperation(value QuestionCoverageOperationKind) bool {
+	return value == QuestionCoverageAdd || value == QuestionCoverageRemove || value == QuestionCoverageReplace
+}
+
+func applyQuestionCoverageOperation(
+	current []QuestionAssignment,
+	affected []QuestionAssignment,
+	operationKind QuestionCoverageOperationKind,
+) ([]QuestionAssignment, error) {
+	if !validQuestionCoverageOperation(operationKind) {
+		return nil, ErrInvalid
+	}
+	normalizedAffected, err := normalizedQuestionAssignments(affected)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]QuestionAssignment, len(current)+len(normalizedAffected))
+	if operationKind != QuestionCoverageReplace {
+		for _, item := range current {
+			item.QuestionID = strings.TrimSpace(item.QuestionID)
+			item.SubjectID = strings.TrimSpace(item.SubjectID)
+			if item.QuestionID == "" || item.SubjectID == "" {
+				return nil, ErrInvalid
+			}
+			key := item.QuestionID + "\x00" + item.SubjectID
+			if _, duplicate := result[key]; duplicate {
+				return nil, ErrInvalid
+			}
+			result[key] = item
+		}
+	}
+	for _, item := range normalizedAffected {
+		key := item.QuestionID + "\x00" + item.SubjectID
+		if operationKind == QuestionCoverageRemove {
+			delete(result, key)
+		} else {
+			result[key] = item
+		}
+	}
+	output := make([]QuestionAssignment, 0, len(result))
+	for _, item := range result {
+		output = append(output, item)
 	}
 	sort.Slice(output, func(left, right int) bool {
 		if output[left].QuestionID == output[right].QuestionID {

@@ -101,7 +101,15 @@ export function ChecklistBuilderPage() {
   const [commandError, setCommandError] = useState<string | null>(null);
   const [sourceActivationReceipt, setSourceActivationReceipt] = useState<string | null>(null);
   const [intakeBatch] = useState<ChecklistImportBatchView | null>(null);
-  const templateLoad = useAdminLoad(() => backend.getTemplate({ templateId: "TPL-CABIN-2026" }), [backend]);
+  const templateMastersLoad = useAdminLoad(() => backend.listTemplateMasters({}), [backend]);
+  const templateMaster = templateMastersLoad.data?.items.find((item) => item.id === "TPL-CABIN-2026")
+    ?? templateMastersLoad.data?.items[0]
+    ?? null;
+  const templateId = templateMaster?.id ?? "";
+  const templateLoad = useAdminLoad(
+    () => templateId ? backend.getTemplate({ templateId }) : Promise.resolve(null),
+    [backend, templateId],
+  );
   const questionLoad = useAdminLoad(() => backend.listQuestions({}), [backend]);
   const regulatoryLoad = useAdminLoad(() => backend.listRegulatoryReferences({ status: "ACTIVE" }), [backend]);
   const governedLoad = useAdminLoad(
@@ -112,7 +120,7 @@ export function ChecklistBuilderPage() {
   );
   const template = templateLoad.data;
   const draft = template?.versions.find((version) => version.status === "DRAFT") ?? null;
-  const published = template?.versions.find((version) => version.id === "CTV-CABIN-1") ?? null;
+  const published = template?.versions.find((version) => version.id === template.publishedVersionId) ?? null;
   const questions = new Map(questionLoad.data?.items.map((question) => [question.id, question]) ?? []);
   const traceByQuestionId = new Map<string, RegulatoryQuestionTrace>();
   for (const reference of regulatoryLoad.data?.items ?? []) {
@@ -291,14 +299,27 @@ export function ChecklistBuilderPage() {
 
   return (
     <AdminPage testId="admin-checklist-builder-page" routeLabel="Checklist Builder" title="Checklist Builder" description="Configure one exact working Draft without changing the immutable published version.">
-      <AdminError message={templateLoad.error ?? questionLoad.error ?? commandError} />
+      <AdminError message={templateMastersLoad.error ?? templateLoad.error ?? questionLoad.error ?? commandError} />
       <ChecklistIntakePanel
         batch={intakeBatch}
         disabledReason="The supplied AGA archive is an external, read-only dependency; an Admin must receive it through the governed intake route before candidate review."
       />
-      <section className="admin-template-identity" aria-label="Template identity">
-        <div><span>Template master</span><b>TPL-CABIN-2026</b></div><div><span>Immutable published version</span><b>CTV-CABIN-1</b></div><div><span>Published owner</span><b>Department Manager</b></div>
-      </section>
+      {templateMaster ? (
+        <section className="admin-template-identity" aria-label="Template identity">
+          <div><span>Template master</span><b>{templateMaster.id}</b></div>
+          <div><span>Immutable published version</span><b>{templateMaster.publishedVersionId}</b></div>
+          <div><span>Published owner</span><b>{templateMaster.owner}</b></div>
+        </section>
+      ) : templateMastersLoad.data ? (
+        <section className="admin-record-card" aria-label="Template availability">
+          <h2>No checklist template master is available</h2>
+          <p>Create or publish a governed template master before opening a working Draft.</p>
+          <DisabledAdminAction
+            label="Create working Draft"
+            reason="No server-owned checklist template master is available in this environment."
+          />
+        </section>
+      ) : null}
       <AdminError message={regulatoryLoad.error} />
       <section className="admin-record-card" aria-label="Governed candidate editor">
         <h2>Governed checklist candidate</h2>
@@ -392,7 +413,7 @@ export function ChecklistBuilderPage() {
           </div>
         </section>
       ) : null}
-      {!draft && template ? <button onClick={() => void run(() => backend.createDraft({ templateId: template.id, expectedRevision: template.revision, idempotencyKey: "ADMIN-TPL-CABIN-2026-DRAFT-2", changeReason: "Create a browser-local working checklist Draft." }))} type="button">Create working Draft</button> : null}
+      {!draft && template ? <button onClick={() => void run(() => backend.createDraft({ templateId: template.id, expectedRevision: template.revision, idempotencyKey: `ADMIN-${template.id}-DRAFT-R${template.revision}`, changeReason: "Create a working checklist Draft." }))} type="button">Create working Draft</button> : null}
       {published ? (
         <section className="admin-record-card">
           <h2>Published / locked</h2>

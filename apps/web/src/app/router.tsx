@@ -1,13 +1,16 @@
 import { Suspense, type ReactElement } from "react";
-import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
 import { useApplicationRuntime } from "./providers";
-import { CANONICAL_AUDIT_PREPARATION_PATH, CANONICAL_QUESTION_REVIEW_PATH, REACT_ROUTE_CONTRACT_BY_ID, REACT_ROUTE_CONTRACTS, type BuildProfileAvailability, type ReactSurfaceId, type RouteContract } from "./route-contracts";
+import { CANONICAL_AUDIT_PREPARATION_PATH, CANONICAL_INSPECTOR_AUDIT_PATH, CANONICAL_INSPECTOR_CHECKLIST_PATH, CANONICAL_QUESTION_REVIEW_PATH, REACT_ROUTE_CONTRACT_BY_ID, REACT_ROUTE_CONTRACTS, type BuildProfileAvailability, type ReactSurfaceId, type RouteContract } from "./route-contracts";
 import { SCREEN_COMPONENT_REGISTRY } from "./screen-component-registry";
+import { RouteLoadBoundary, RouteLoadingState } from "./route-loader";
 import type { Role } from "../backend/backend";
 import { RoleGuard } from "../auth/role-guard";
 import { QuestionReviewPage } from "../features/checklists/question-review-page";
 import { AuditAssignmentPage } from "../features/teams/audit-assignment-page";
+import { AuditDetailPage } from "../features/inspections/audit-detail-page";
+import { ChecklistRunnerPage } from "../features/checklists/checklist-runner-page";
 import { useOptionalSession } from "../auth/session-provider";
 import { RoleSelectPage, ROLE_ENTRIES, createRoleEntryPath } from "../ui/role-select-page";
 
@@ -73,7 +76,7 @@ function ContractRoute({ contract }: { contract: RouteContract }) {
   const { buildProfile } = useApplicationRuntime();
   const entry = SCREEN_COMPONENT_REGISTRY[contract.componentKey];
   const isAvailable = contract.availableProfiles.includes(buildProfile);
-  return <RoleGuard requiredRole={contract.requiredRole}><Suspense fallback={<p data-testid="route-loading">Loading route...</p>}>{!isAvailable ? <BlockedProfileRoute contract={contract} /> : entry.status === "implemented" ? <entry.component /> : <PendingImplementationRoute contract={contract} />}</Suspense></RoleGuard>;
+  return <RoleGuard requiredRole={contract.requiredRole}>{!isAvailable ? <BlockedProfileRoute contract={contract} /> : entry.status === "implemented" ? <entry.component /> : <PendingImplementationRoute contract={contract} />}</RoleGuard>;
 }
 
 function routeElement(contract: RouteContract): ReactElement {
@@ -82,12 +85,22 @@ function routeElement(contract: RouteContract): ReactElement {
 
 export function AppRouter() {
   const { supplementalRouteElements } = useApplicationRuntime();
-  return <Routes>
-    <Route path="/" element={<RoleSelectRoute />} />
-    <Route path={CANONICAL_QUESTION_REVIEW_PATH} element={<RoleGuard requiredRole="manager"><QuestionReviewPage /></RoleGuard>} />
-    <Route path={CANONICAL_AUDIT_PREPARATION_PATH} element={<RoleGuard requiredRole="leadInspector"><AuditAssignmentPage /></RoleGuard>} />
-    {supplementalRouteElements ?? null}
-    {REACT_ROUTE_CONTRACTS.filter((contract) => contract.id !== "role-select").map((contract) => <Route key={contract.id} path={contract.path} element={routeElement(contract)} />)}
-    <Route path="*" element={<Navigate replace to="/" />} />
-  </Routes>;
+  const location = useLocation();
+  const resetKey = `${location.pathname}${location.search}${location.hash}`;
+  return (
+    <RouteLoadBoundary resetKey={resetKey}>
+      <Suspense fallback={<RouteLoadingState />}>
+        <Routes>
+          <Route path="/" element={<RoleSelectRoute />} />
+          <Route path={CANONICAL_QUESTION_REVIEW_PATH} element={<RoleGuard requiredRole="manager"><QuestionReviewPage /></RoleGuard>} />
+          <Route path={CANONICAL_AUDIT_PREPARATION_PATH} element={<RoleGuard requiredRole="leadInspector"><AuditAssignmentPage /></RoleGuard>} />
+          <Route path={CANONICAL_INSPECTOR_CHECKLIST_PATH} element={<RoleGuard requiredRole="inspector"><ChecklistRunnerPage /></RoleGuard>} />
+          <Route path={CANONICAL_INSPECTOR_AUDIT_PATH} element={<RoleGuard requiredRole="inspector"><AuditDetailPage /></RoleGuard>} />
+          {supplementalRouteElements ?? null}
+          {REACT_ROUTE_CONTRACTS.filter((contract) => contract.id !== "role-select").map((contract) => <Route key={contract.id} path={contract.path} element={routeElement(contract)} />)}
+          <Route path="*" element={<Navigate replace to="/" />} />
+        </Routes>
+      </Suspense>
+    </RouteLoadBoundary>
+  );
 }

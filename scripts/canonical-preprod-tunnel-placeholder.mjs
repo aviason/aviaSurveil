@@ -9,12 +9,31 @@ if (!Number.isInteger(port) || port < 1024 || port > 65535) {
 
 const server = http.createServer((request, response) => {
   if (request.url === "/__canonical_preprod_tunnel_placeholder_ready") {
-    response.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
+    response.writeHead(200, {
+      "cache-control": "no-store",
+      "content-type": "text/plain; charset=utf-8",
+    });
     response.end("ready\n");
     return;
   }
-  response.writeHead(503, { "content-type": "text/plain; charset=utf-8" });
-  response.end("canonical local preprod is starting\n");
+  response.writeHead(503, {
+    "cache-control": "no-store",
+    "content-type": "text/html; charset=utf-8",
+    "retry-after": "3",
+  });
+  response.end(`<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="refresh" content="3">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AviaSurveil360 is starting</title>
+  </head>
+  <body>
+    <p>canonical local preprod is starting</p>
+  </body>
+</html>
+`);
 });
 
 server.listen(port, "127.0.0.1", () => {

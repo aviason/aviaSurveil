@@ -33,6 +33,17 @@ export function ChecklistManagementPage() {
 
   useEffect(() => {
     let cancelled = false;
+    if (backend.mode === "http") {
+      void backend.governedChecklistReview.listQueue({}).then((queue) => {
+        if (cancelled) return;
+        const activeItems = activeReviewQueueItems(queue.items);
+        setReviewQueue(activeItems);
+        setReviewItem(activeItems[0] ?? null);
+      }).catch((cause) => {
+        if (!cancelled) setError(errorMessage(cause));
+      });
+      return () => { cancelled = true; };
+    }
     void Promise.all([
       backend.inspections.getPackage({ packageId: "PKG-CAB-2026-001" }),
       backend.governedChecklistReview.listQueue({}),

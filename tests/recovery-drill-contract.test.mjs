@@ -32,6 +32,14 @@ test("restore accepts only a named recovery point and unique isolated prefix", (
   assert.doesNotMatch(source, /rm\s+-rf\s+(?:\/|\$HOME|\.\.)/);
 });
 
+test("focused local backup/restore uses the explicit canonical test artifact", () => {
+  const source = readRequired("scripts/test-local-recovery.sh");
+
+  assert.match(source, /go -C .* build -tags canonicaltest -o .*\/api.*\.\/cmd\/api/u);
+  assert.match(source, /AVIA_ENABLE_CANONICAL_TEST_PROFILE="true"/u);
+  assert.match(source, /AVIA_CANONICAL_TEST_TOKEN=/u);
+});
+
 test("restore validates a complete checksum-bound recovery point before mutation", () => {
   const source = readRequired("scripts/restore-isolated-stack.sh");
 

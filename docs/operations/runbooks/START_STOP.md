@@ -168,3 +168,95 @@ metadata, local origin, and recorded PID identity; it removes the public
 exposure first, then performs exact Compose cleanup with volumes and orphan
 removal. A PID identity mismatch is an escalation condition: do not use broad
 process-kill commands or manually retain the disposable state.
+
+### Named Cloudflare Tunnel At `demo.aviasurveil.com`
+
+The optional `preprod-cloudflare-demo-*` profile publishes the same disposable
+local candidate through a remotely managed Cloudflare Tunnel whose public
+hostname is exactly `https://demo.aviasurveil.com`. The application and its
+data still run on this Mac; this is a public local-origin demo transport, not
+an external preprod deployment. It remains `candidate-only`, `release pending`,
+and Task 10 external preprod remains `not run`.
+
+This profile requires explicit current authorization because anyone on the
+Internet can reach the application login unless a separately designed
+Cloudflare Access policy is present. Use only the nine synthetic
+`@synthetic.invalid` identities and the disposable exercise catalog. Never run
+it with real identities, regulated-party data, or operational records.
+
+#### One-time Cloudflare dashboard setup
+
+1. In Cloudflare, open **Networking → Tunnels** and create a remotely managed
+   tunnel, for example `aviasurveil-demo-local`.
+2. Add a published application route with hostname
+   `demo.aviasurveil.com` and service `http://127.0.0.1:8086`. The hostname's
+   DNS record must point to that tunnel. If
+   `CANONICAL_PREPROD_CLOUDFLARE_DEMO_HTTP_PORT` is overridden, update the
+   dashboard service port to the same exact value.
+3. On the tunnel Overview page, choose **Add a replica** and copy only the
+   complete `eyJ...` connector token from the install command. Depending on the
+   displayed command, it is either the final argument to `service install` or
+   the value after `--token`. The dashboard may visually wrap this long value;
+   copy it as one uninterrupted value through its final character. Do not use
+   an account API token and do not paste the complete install command.
+
+The connector token can run that one remotely managed tunnel. It does not need
+the account-wide certificate produced by `cloudflared tunnel login`, and the
+repository helper never creates, edits, lists, or deletes Cloudflare account,
+DNS, Access, or tunnel resources.
+
+Cloudflare references: [create a remotely managed tunnel](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/get-started/create-remote-tunnel/),
+[publish an application hostname](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/routing-to-tunnel/),
+and [`--token-file` run parameters](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/run-parameters/).
+
+#### Store or rotate the connector token
+
+From zsh, run the Make target directly; it invokes the repository Bash helper:
+
+```bash
+make preprod-cloudflare-demo-token
+```
+
+Paste the connector token twice at the hidden terminal prompts. The helper
+accepts no secret argument or environment variable, so the token does not enter
+shell history. Its native Security-framework writer avoids the 128-byte ceiling
+of the interactive `security -w` prompt and writes one generic-password item
+with service
+`com.aviasurveil360.cloudflare-tunnel` and account
+`demo.aviasurveil.com`. Re-run the same target after refreshing/rotating the
+tunnel token in Cloudflare. The helper decodes and validates the connector
+payload without printing it; a copied command, partial value, or truncated
+value fails closed.
+
+At runtime, the detached launcher reads the item into memory and sends it to
+`cloudflared` through an inherited `/dev/fd/3` pipe using `--token-file`. The
+token is never written to the repository/runtime directories, command-line
+arguments, logs, or process environment. This requires `cloudflared` 2025.4.0
+or newer; install or update the Homebrew package before startup when needed.
+
+#### Start, verify, inspect users, and stop
+
+```bash
+make preprod-cloudflare-demo-up
+make preprod-cloudflare-demo-status
+make preprod-cloudflare-demo-users
+make preprod-cloudflare-demo-down
+```
+
+Startup first validates the Keychain connector token, before any image build,
+then builds the local images and opens the named connector against a small
+loopback placeholder. It refuses to start the application unless public
+DNS resolves and `https://demo.aviasurveil.com` reaches that exact placeholder;
+this detects a missing hostname route or a dashboard origin that does not match
+`http://127.0.0.1:8086`. It then starts the canonical stack with the named HTTPS
+origin bound consistently into Keycloak issuer/callback URLs, API CORS, Secure
+cookies, and signed-object URLs. Status verifies the exact hostname, Keychain
+reference, recorded process identity, local/public readiness, OIDC issuer, and
+nine synthetic identities.
+
+Stop validates ownership, disconnects the named connector before deleting the
+exact local Compose project/state, and does not delete the Keychain item or any
+Cloudflare dashboard/DNS configuration. The stable hostname will be unavailable
+until the profile is started again. Delete or rotate the Cloudflare credential
+from Cloudflare first if compromise is suspected; do not rely on stopping the
+local process alone.

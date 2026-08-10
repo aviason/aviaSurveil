@@ -14,7 +14,10 @@ import { seedVisualRuntimeForPath } from "../../mock/seed-visual-runtime";
 
 type MockRuntime = ReturnType<typeof createMockBackendRuntime>;
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 function renderLeadRoute(path: string, runtime: MockRuntime = createMockBackendRuntime()) {
   render(
@@ -121,6 +124,20 @@ describe("Lead Inspector report workspaces", () => {
       "href",
       "/lead-inspector/final-reports/RPT-CAB-2026-001/readiness",
     );
+  });
+
+  it("renders a truthful empty Final Report list without requesting an obsolete fixture", async () => {
+    const runtime = createMockBackendRuntime();
+    const lead = runtime.backendForRole("leadInspector");
+    vi.spyOn(lead.documents, "list").mockResolvedValue({ items: [], nextCursor: null });
+    const getVersion = vi.spyOn(lead.reports, "getVersion").mockRejectedValue(new Error("Not found."));
+
+    renderLeadRoute("/lead-inspector/final-reports", runtime);
+
+    const page = await screen.findByTestId("lead-final-reports-page");
+    expect(within(page).getByText("No Final Report versions are available yet.")).toBeVisible();
+    expect(within(page).queryByRole("alert")).toBeNull();
+    expect(getVersion).not.toHaveBeenCalled();
   });
 
   it("shows truthful readiness blockers and keeps approval authority outside Lead preparation", async () => {

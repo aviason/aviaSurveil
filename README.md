@@ -86,6 +86,31 @@ to check the API/web health and loaded question count, and `make aga-demo-down`
 to remove the disposable containers, volumes, and temporary credentials. This
 is `candidate-only`; it does not establish production readiness.
 
+For an explicitly authorized public demo backed by this Mac, the named
+Cloudflare Tunnel profile targets `https://demo.aviasurveil.com` while keeping
+the origin loopback-only. Create the remotely managed tunnel/public-hostname
+route in Cloudflare first, then store only its connector token in macOS
+Keychain and start the separate profile. Copy the complete raw `eyJ...` value
+from the install command—either its final argument or the value after
+`--token`—even when Cloudflare visually wraps the command:
+
+```bash
+make preprod-cloudflare-demo-token
+make preprod-cloudflare-demo-up
+make preprod-cloudflare-demo-status
+make preprod-cloudflare-demo-users
+make preprod-cloudflare-demo-down
+```
+
+The terminal prompt is hidden and its Security-framework writer supports the
+complete long connector value without the macOS `security -w` prompt's
+128-byte ceiling. The token is not stored in the repository, shell history,
+process arguments, logs, or runtime files. See the
+[start/stop runbook](docs/operations/runbooks/START_STOP.md#named-cloudflare-tunnel-at-demoaviasurveilcom)
+for the exact Cloudflare dashboard route, security boundary, rotation, and
+cleanup behavior. This remains a public `candidate-only` local-origin demo, not
+an external preprod deployment or production-readiness evidence.
+
 For the complete local HTTP candidate profile:
 
 ```bash

@@ -589,14 +589,11 @@ func TestCalendarIsProjectionOfAuthorizedAuditWork(t *testing.T) {
 			'{"preparedAuditId":"audit-cabin-001","noticePolicy":"ADVANCE"}',
 			1, 'manager-001'
 		);
-		INSERT INTO audit_assignments (
-			id, inspection_id, organization_id, lead_subject_id, status,
-			scheduled_start_date, scheduled_end_date, revision
-		) VALUES (
-			'assignment-cabin-001', 'audit-cabin-001', 'airline-xyz',
-			'lead-001', 'AWAITING_AUDITEE_CONFIRMATION',
-			'2026-07-20', '2026-08-01', 1
-		);
+		UPDATE audit_assignments
+		SET status = 'AWAITING_AUDITEE_CONFIRMATION',
+		    scheduled_start_date = '2026-07-20',
+		    scheduled_end_date = '2026-08-01'
+		WHERE id = 'assignment-cabin-001';
 		INSERT INTO inspections (
 			id, organization_id, assigned_inspector_subject_id, title,
 			inspection_type, status, due_date, revision

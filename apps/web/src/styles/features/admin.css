@@ -1,11 +1,13 @@
 .workspace-shell--admin {
-  --admin-ribbon-height: 39px;
+  --admin-ribbon-height: 0px;
   min-height: 100vh;
   padding-top: var(--admin-ribbon-height);
   color: #16202e;
   background: #f4f6fa;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
+
+.workspace-shell--admin-demo { --admin-ribbon-height: 39px; }
 
 .workspace-shell--admin .auditee-demo-ribbon {
   position: absolute;
@@ -137,7 +139,7 @@
 .admin-empty-state { padding: 28px; border: 1px solid #d8e0ec; border-radius: 10px; color: #536683; background: #fff; }
 
 @media (min-width: 901px) and (max-width: 1100px) {
-  .workspace-shell--admin[data-active-role] { --admin-ribbon-height: 54px; }
+  .workspace-shell--admin-demo[data-active-role] { --admin-ribbon-height: 54px; }
   .workspace-shell--admin[data-active-role] .auditee-demo-ribbon { height: 54px; }
   .workspace-shell--admin[data-active-role] .sidebar-footer { height: 90px; flex-basis: 90px; }
   .workspace-shell--admin[data-active-role] .admin-source-profile { margin-bottom: 16px; }

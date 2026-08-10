@@ -18,6 +18,11 @@ test("canonical HTTPS remains the default and HTTP is an explicit isolated overr
   assert.match(canonical, /AVIA_PREPROD_COOKIE_SECURE/u);
   assert.match(canonical, /origin_scheme="\$\{origin_scheme%:\}"/u);
   assert.match(canonical, /AVIA_PREPROD_ORIGIN_SCHEME="\$origin_scheme"/u);
+  assert.match(
+    canonical,
+    /compose up --detach --wait --wait-timeout 600 preprod-keycloak/u,
+    "Keycloak must keep its real readiness gate while allowing a cold optimized start",
+  );
   assert.doesNotMatch(canonical, /cloudflared|trycloudflare/u);
 
   assert.match(http, /export AVIA_PREPROD_TRANSPORT=http/u);
@@ -95,6 +100,7 @@ test("transport public-origin and cookie mode validation fail closed before Dock
 
 test("Quick Tunnel is anonymous, detached from developer Cloudflare state, and parses one strict HTTPS origin", async () => {
   const start = read("scripts/start-canonical-preprod-cloudflare.sh");
+  const canonical = read("scripts/start-canonical-preprod.sh");
   const placeholder = read("scripts/canonical-preprod-tunnel-placeholder.mjs");
   const launcher = read("scripts/canonical-preprod-cloudflare-launcher.mjs");
   const parserSource = read("scripts/canonical-preprod-quick-tunnel-url.mjs");
@@ -108,8 +114,20 @@ test("Quick Tunnel is anonymous, detached from developer Cloudflare state, and p
     start,
     /node "\$quick_tunnel_launcher" "\$cloudflared_binary" "\$http_port" "\$runtime_root"/u,
   );
+  assert.match(start, /prebuild_images/u);
+  assert.ok(
+    start.indexOf("\nprebuild_images\n") >= 0 &&
+      start.indexOf("\nprebuild_images\n") < start.indexOf('node "$quick_tunnel_launcher"'),
+    "all local images must be built before the short-lived anonymous tunnel is launched",
+  );
+  assert.match(start, /AVIA_PREPROD_SKIP_BUILD=true/u);
+  assert.match(canonical, /skip_build="\$\{AVIA_PREPROD_SKIP_BUILD:-false\}"/u);
   assert.doesNotMatch(start, /\bnohup\b/u);
-  assert.match(launcher, /spawn\(\s*cloudflared,\s*\["tunnel", "--url", localOrigin\]/u);
+  assert.match(
+    launcher,
+    /spawn\(\s*cloudflared,\s*\["tunnel", "--url", localOrigin, "--protocol", "http2"\]/u,
+    "Quick Tunnel must use TCP HTTP/2 because UDP/QUIC is not stable on the qualification network",
+  );
   assert.match(launcher, /detached:\s*true/u);
   assert.match(launcher, /stdio:\s*\["ignore", logFd, logFd\]/u);
   assert.match(launcher, /child\.unref\(\)/u);
@@ -121,7 +139,28 @@ test("Quick Tunnel is anonymous, detached from developer Cloudflare state, and p
   );
   assert.match(parserSource, /trycloudflare\.com/u);
   assert.match(placeholder, /127\.0\.0\.1/u);
-  assert.doesNotMatch(start, /cloudflared[^\n]*(?:login|create|route|dns|access|token)/iu);
+  assert.match(placeholder, /"cache-control": "no-store"/u);
+  assert.match(placeholder, /http-equiv="refresh" content="3"/u);
+  assert.match(
+    start,
+    /cloudflare-dns\.com\/dns-query/u,
+    "the wrapper must wait for authoritative Quick Tunnel DNS before touching the system resolver",
+  );
+  assert.match(start, /\[1, 28\]\.includes\(answer\.type\)/u);
+  assert.doesNotMatch(start, /\[1, 5, 28\]\.includes\(answer\.type\)/u);
+  assert.ok(
+    start.indexOf("wait_for_public_dns_publication") <
+      start.indexOf('wait_for_http "$public_origin/__canonical_preprod_tunnel_placeholder_ready"'),
+    "authoritative DNS publication must precede the first public placeholder probe",
+  );
+  const quickLaunchBranch = start.match(
+    /if \[\[ "\$tunnel_mode" == quick \]\]; then\n([\s\S]*?)\nelse\n/u,
+  )?.[1];
+  assert.ok(quickLaunchBranch, "the explicit Quick Tunnel launch branch must remain present");
+  assert.doesNotMatch(
+    quickLaunchBranch,
+    /cloudflared[^\n]*(?:login|create|route|dns|access|token)|--token|TUNNEL_TOKEN/iu,
+  );
   assert.doesNotMatch(start, /TUNNEL_TOKEN|api\.cloudflare|aws|AWS/u);
 
   assert.equal(

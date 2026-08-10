@@ -8,10 +8,15 @@ http_port="${AVIA_PREPROD_HTTP_PORT:-8085}"
 project_name="${AVIA_CANONICAL_PREPROD_PROJECT:-aviasurveil360-local-preprod-cloudflare}"
 state_root="${AVIA_CANONICAL_PREPROD_STATE_DIR:-$repository_root/.local/aviasurveil360-canonical-preprod-cloudflare}"
 runtime_root="${AVIA_CANONICAL_PREPROD_TUNNEL_RUNTIME_DIR:-$repository_root/.local/aviasurveil360-canonical-preprod-cloudflare-tunnel}"
+tunnel_mode="${AVIA_PREPROD_CLOUDFLARE_MODE:-quick}"
+public_hostname="${AVIA_PREPROD_PUBLIC_HOSTNAME:-demo.aviasurveil.com}"
+keychain_service="${AVIA_CLOUDFLARE_TUNNEL_KEYCHAIN_SERVICE:-com.aviasurveil360.cloudflare-tunnel}"
+keychain_account="${AVIA_CLOUDFLARE_TUNNEL_KEYCHAIN_ACCOUNT:-$public_hostname}"
 compose_file="$repository_root/deploy/local/compose.yaml"
 compose_override="$repository_root/deploy/local/compose.local-http.yaml"
 runtime_file="$runtime_root/runtime.json"
 local_origin="http://127.0.0.1:${http_port}"
+tunnel_label="Cloudflare Quick Tunnel"
 
 fail() {
   printf 'canonical-preprod-cloudflare-down: %s\n' "$*" >&2
@@ -65,17 +70,41 @@ NODE
 
 validate_runtime_metadata() {
   node --input-type=module - \
-    "$runtime_file" "$project_name" "$state_root" "$runtime_root" "$local_origin" <<'NODE'
+    "$runtime_file" "$project_name" "$state_root" "$runtime_root" "$local_origin" \
+    "$tunnel_mode" "$public_hostname" "$keychain_service" "$keychain_account" <<'NODE'
 import { readFileSync } from "node:fs";
-const [runtimeFile, project, stateDirectory, runtimeDirectory, localOrigin] = process.argv.slice(2);
+const [
+  runtimeFile,
+  project,
+  stateDirectory,
+  runtimeDirectory,
+  localOrigin,
+  expectedMode,
+  expectedHostname,
+  keychainService,
+  keychainAccount,
+] = process.argv.slice(2);
 const metadata = JSON.parse(readFileSync(runtimeFile, "utf8"));
-const hostname = /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\.trycloudflare\.com$/u;
+const quickHostname = /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\.trycloudflare\.com$/u;
 let publicOrigin;
 try {
   publicOrigin = new URL(metadata.publicOrigin);
 } catch {
-  throw new Error("Quick Tunnel runtime metadata has no valid public origin");
+  throw new Error("Cloudflare Tunnel runtime metadata has no valid public origin");
 }
+const runtimeMode = metadata.tunnel?.mode ?? "quick";
+const quickModeValid = expectedMode === "quick" &&
+  quickHostname.test(publicOrigin.hostname) &&
+  metadata.tunnel?.processCommand?.includes(`tunnel --url ${localOrigin}`);
+const namedModeValid = expectedMode === "named" &&
+  publicOrigin.hostname === expectedHostname &&
+  metadata.tunnel?.publicHostname === expectedHostname &&
+  metadata.tunnel?.credentialReference?.kind === "macos-keychain" &&
+  metadata.tunnel?.credentialReference?.service === keychainService &&
+  metadata.tunnel?.credentialReference?.account === keychainAccount &&
+  metadata.tunnel?.processCommand?.includes(
+    "tunnel --no-autoupdate --protocol http2 run --token-file /dev/fd/3",
+  );
 if (
   metadata.schemaVersion !== "canonical-preprod-cloudflare-runtime/v1" ||
   metadata.project !== project ||
@@ -90,16 +119,16 @@ if (
   publicOrigin.pathname !== "/" ||
   publicOrigin.search ||
   publicOrigin.hash ||
-  !hostname.test(publicOrigin.hostname) ||
+  runtimeMode !== expectedMode ||
+  !(quickModeValid || namedModeValid) ||
   !Number.isSafeInteger(metadata.tunnel?.pid) ||
   metadata.tunnel?.pidFile !== `${runtimeDirectory}/cloudflared.pid` ||
   metadata.tunnel?.logFile !== `${runtimeDirectory}/cloudflared.log` ||
   metadata.tunnel?.localOrigin !== localOrigin ||
   typeof metadata.tunnel?.processCommand !== "string" ||
-  !metadata.tunnel.processCommand.includes("cloudflared") ||
-  !metadata.tunnel.processCommand.includes(`tunnel --url ${localOrigin}`)
+  !metadata.tunnel.processCommand.includes("cloudflared")
 ) {
-  throw new Error("canonical Cloudflare Quick Tunnel runtime metadata is invalid");
+  throw new Error("canonical Cloudflare Tunnel runtime metadata is invalid");
 }
 NODE
 }
@@ -119,12 +148,12 @@ stop_verified_tunnel() {
   tunnel_pid="$(metadata_value tunnel.pid)"
   tunnel_pid_file="$(metadata_value tunnel.pidFile)"
   tunnel_command="$(metadata_value tunnel.processCommand)"
-  [[ "$tunnel_pid" =~ ^[0-9]+$ ]] || fail "Quick Tunnel PID is invalid"
-  [[ "$tunnel_pid_file" == "$runtime_root/cloudflared.pid" ]] || fail "Quick Tunnel PID file is invalid"
+  [[ "$tunnel_pid" =~ ^[0-9]+$ ]] || fail "$tunnel_label PID is invalid"
+  [[ "$tunnel_pid_file" == "$runtime_root/cloudflared.pid" ]] || fail "$tunnel_label PID file is invalid"
 
   if [[ -f "$tunnel_pid_file" ]]; then
     recorded_pid="$(tr -d '[:space:]' <"$tunnel_pid_file")"
-    [[ "$recorded_pid" == "$tunnel_pid" ]] || fail "Quick Tunnel PID file does not match runtime metadata"
+    [[ "$recorded_pid" == "$tunnel_pid" ]] || fail "$tunnel_label PID file does not match runtime metadata"
   fi
   if ! kill -0 "$tunnel_pid" 2>/dev/null; then
     rm -f -- "$tunnel_pid_file"
@@ -134,7 +163,7 @@ stop_verified_tunnel() {
   local actual_command
   actual_command="$(ps -p "$tunnel_pid" -o command= 2>/dev/null || true)"
   [[ "$actual_command" == "$tunnel_command" ]] ||
-    fail "refusing to stop a process whose Cloudflare Quick Tunnel identity changed"
+    fail "refusing to stop a process whose $tunnel_label identity changed"
 
   kill -TERM "$tunnel_pid"
   for _ in {1..40}; do
@@ -144,7 +173,7 @@ stop_verified_tunnel() {
   if kill -0 "$tunnel_pid" 2>/dev/null; then
     actual_command="$(ps -p "$tunnel_pid" -o command= 2>/dev/null || true)"
     [[ "$actual_command" == "$tunnel_command" ]] ||
-      fail "refusing to force-stop a replaced Cloudflare Quick Tunnel process"
+      fail "refusing to force-stop a replaced $tunnel_label process"
     kill -KILL "$tunnel_pid"
   fi
   rm -f -- "$tunnel_pid_file"
@@ -176,6 +205,19 @@ compose_down() {
   fail "AVIA_PREPROD_HTTP_PORT must be a user-space TCP port"
 [[ "$project_name" =~ ^aviasurveil360-local-preprod-cloudflare(-[a-z0-9][a-z0-9-]*)?$ ]] ||
   fail "AVIA_CANONICAL_PREPROD_PROJECT must be a task-owned Cloudflare disposable project"
+case "$tunnel_mode" in
+  quick) ;;
+  named)
+    tunnel_label="Cloudflare named Tunnel"
+    [[ "$public_hostname" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]] ||
+      fail "AVIA_PREPROD_PUBLIC_HOSTNAME must be a lowercase DNS hostname without a scheme, port, or path"
+    [[ "$keychain_service" =~ ^[A-Za-z0-9._:-]+$ ]] ||
+      fail "AVIA_CLOUDFLARE_TUNNEL_KEYCHAIN_SERVICE contains unsupported characters"
+    [[ "$keychain_account" =~ ^[A-Za-z0-9._:@-]+$ ]] ||
+      fail "AVIA_CLOUDFLARE_TUNNEL_KEYCHAIN_ACCOUNT contains unsupported characters"
+    ;;
+  *) fail "AVIA_PREPROD_CLOUDFLARE_MODE must be quick or named" ;;
+esac
 [[ ! -L "$repository_root/.local" ]] || fail "$repository_root/.local must not be a symlink"
 [[ ! -e "$repository_root/.local" || -d "$repository_root/.local" ]] ||
   fail "$repository_root/.local must be a directory when it exists"
@@ -185,16 +227,23 @@ validate_disposable_path "$runtime_root" "AVIA_CANONICAL_PREPROD_TUNNEL_RUNTIME_
 [[ -d "$state_root" && ! -L "$state_root" ]] || fail "state directory is missing: $state_root"
 [[ -d "$runtime_root" && ! -L "$runtime_root" ]] || fail "runtime directory is missing: $runtime_root"
 [[ -f "$runtime_file" && ! -L "$runtime_file" ]] || fail "runtime metadata is missing: $runtime_file"
-[[ -f "$compose_file" && -f "$compose_override" ]] || fail "the local HTTP Quick Tunnel profile is incomplete"
-command -v docker >/dev/null 2>&1 || fail "docker is required"
+[[ -f "$compose_file" && -f "$compose_override" ]] || fail "the local HTTP Cloudflare profile is incomplete"
 command -v node >/dev/null 2>&1 || fail "node is required"
-docker info >/dev/null 2>&1 || fail "docker daemon is unavailable"
 validate_runtime_metadata
 
 # Remove the public exposure before the local containers and their state.
 stop_verified_tunnel
+command -v docker >/dev/null 2>&1 ||
+  fail "public exposure stopped, but Docker is unavailable; exact local state was retained"
+docker info >/dev/null 2>&1 ||
+  fail "public exposure stopped, but the Docker daemon is unavailable; exact local state was retained"
 compose_down
 assert_no_project_residue
 rm -rf -- "$state_root"
 rm -rf -- "$runtime_root"
-printf 'Canonical Cloudflare Quick Tunnel stopped; disposable state, runtime, containers, volumes, and networks removed.\n'
+if [[ "$tunnel_mode" == quick ]]; then
+  printf 'Canonical Cloudflare Quick Tunnel stopped; disposable state, runtime, containers, volumes, and networks removed.\n'
+else
+  printf 'Canonical named Cloudflare Tunnel stopped; disposable state, runtime, containers, volumes, and networks removed.\n'
+  printf 'The macOS Keychain credential and Cloudflare dashboard tunnel/DNS configuration were retained.\n'
+fi

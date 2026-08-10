@@ -262,6 +262,20 @@ describe("General Manager and Executive Director workspaces", () => {
     expect(executivePage).not.toHaveTextContent("Decision recorded");
   });
 
+  it("renders connected report workspaces as empty without requesting obsolete fixture identities", async () => {
+    const runtime = createMockBackendRuntime();
+    const executive = runtime.backendForRole("executiveDirector");
+    vi.spyOn(executive.documents, "list").mockResolvedValue({ items: [], nextCursor: null });
+    const getVersion = vi.spyOn(executive.reports, "getVersion").mockRejectedValue(new Error("Not found."));
+
+    renderGovernanceRoute("/executive-director/final-reports", "executiveDirector", runtime);
+
+    const page = await screen.findByTestId("executive-final-reports-page");
+    expect(page).toHaveTextContent("No Final Report versions are available yet.");
+    expect(within(page).queryByRole("alert")).toBeNull();
+    expect(getVersion).not.toHaveBeenCalled();
+  });
+
   it("keeps a General Manager return reason visible and bound to the exact immutable report version and audit event", async () => {
     const runtime = createMockBackendRuntime();
     await advancePreliminaryReportTo(runtime, "GM_REVIEW");

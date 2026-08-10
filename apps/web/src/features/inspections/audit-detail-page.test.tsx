@@ -2,9 +2,9 @@
 import "@testing-library/jest-dom/vitest";
 import "fake-indexeddb/auto";
 
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AppProviders } from "../../app/providers";
 import { ScenarioProvider } from "../../app/scenario-context";
@@ -13,8 +13,10 @@ import { AuditDetailPage } from "./audit-detail-page";
 
 afterEach(cleanup);
 
-function renderPage() {
-  const runtime = createMockBackendRuntime();
+function renderPage(
+  runtime = createMockBackendRuntime(),
+  initialEntry = "/inspector/audits/AUD-2026-001",
+) {
   render(
     <AppProviders
       runtime={{
@@ -27,8 +29,10 @@ function renderPage() {
       }}
     >
       <ScenarioProvider>
-        <MemoryRouter initialEntries={["/inspector/audits/AUD-2026-001"]}>
-          <AuditDetailPage />
+        <MemoryRouter initialEntries={[initialEntry]}>
+          <Routes>
+            <Route path="/inspector/audits/:auditId" element={<AuditDetailPage />} />
+          </Routes>
         </MemoryRouter>
       </ScenarioProvider>
     </AppProviders>,
@@ -54,8 +58,36 @@ describe("AuditDetailPage", () => {
     }
     expect(within(dossier).getByRole("link", { name: "Run Cabin checklist" })).toHaveAttribute(
       "href",
-      "/inspector/audits/AUD-2026-001/checklist",
+      "/inspector/audits/AUD-2026-001/checklist?packageId=PKG-CAB-2026-001",
     );
     expect(await screen.findByTestId("offline-readiness-panel")).toBeVisible();
+  });
+
+  it("encodes server-owned Audit and package identities in the checklist runner link", async () => {
+    const runtime = createMockBackendRuntime();
+    const backend = runtime.backendForRole("inspector");
+    const baselineAssignments = await backend.assignments.list({});
+    const baselinePackage = await backend.inspections.getPackage({ packageId: "PKG-CAB-2026-001" });
+    const auditId = "inspection:assignment:plan-intake-42";
+    const packageId = "inspection-package:inspection:assignment:plan-intake-42:1";
+    vi.spyOn(backend.assignments, "list").mockResolvedValue({
+      ...baselineAssignments,
+      items: baselineAssignments.items.map((item, index) => index === 0
+        ? { ...item, auditId, packageId }
+        : item),
+    });
+    vi.spyOn(backend.inspections, "getPackage").mockResolvedValue({
+      ...baselinePackage,
+      id: packageId,
+      auditId,
+    });
+
+    renderPage(runtime, `/inspector/audits/${encodeURIComponent(auditId)}`);
+
+    expect(await screen.findByTestId("audit-id")).toHaveTextContent(auditId);
+    expect(screen.getByRole("link", { name: "Run Cabin checklist" })).toHaveAttribute(
+      "href",
+      `/inspector/audits/${encodeURIComponent(auditId)}/checklist?packageId=${encodeURIComponent(packageId)}`,
+    );
   });
 });

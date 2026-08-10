@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -29,7 +30,8 @@ type AuthSessionManager interface {
 	Create(context.Context, session.CreateInput) (session.BrowserSession, error)
 	Authenticate(context.Context, string) (identity.Principal, error)
 	ValidateCSRF(context.Context, string, string) error
-	Revoke(context.Context, string) error
+	Revoke(context.Context, string) (string, error)
+	RedeemProviderLogout(context.Context, string) (string, error)
 }
 
 type AuthBoundary struct {
@@ -63,6 +65,7 @@ func (boundary *AuthBoundary) Handler() http.Handler {
 	router.Get("/auth/callback", boundary.callback)
 	router.Get("/auth/session", boundary.sessionProjection)
 	router.Post("/auth/logout", boundary.logout)
+	router.Get("/auth/provider-logout", boundary.providerLogout)
 	return router
 }
 
@@ -190,12 +193,48 @@ func (boundary *AuthBoundary) logout(writer http.ResponseWriter, request *http.R
 	if !boundary.validateCSRF(writer, request, principal.SessionID) {
 		return
 	}
-	if err := boundary.sessions.Revoke(request.Context(), principal.SessionID); err != nil {
+	if boundary.provider == nil {
+		writeProblem(writer, http.StatusServiceUnavailable, "Logout failed", "OIDC provider logout is unavailable", "PROVIDER_LOGOUT_UNAVAILABLE")
+		return
+	}
+	providerLogoutTicket, err := boundary.sessions.Revoke(
+		request.Context(),
+		principal.SessionID,
+	)
+	if err != nil {
 		writeProblem(writer, http.StatusInternalServerError, "Logout failed", "session revocation could not be recorded", "SESSION_REVOKE_FAILED")
 		return
 	}
 	boundary.expireBrowserSessionCookies(writer)
-	writer.WriteHeader(http.StatusNoContent)
+	if strings.TrimSpace(providerLogoutTicket) == "" {
+		writeProblem(writer, http.StatusServiceUnavailable, "Logout failed", "OIDC provider logout is unavailable", "PROVIDER_LOGOUT_UNAVAILABLE")
+		return
+	}
+	writeJSON(writer, http.StatusOK, struct {
+		LogoutURL string `json:"logoutUrl"`
+	}{LogoutURL: "/auth/provider-logout?ticket=" + url.QueryEscape(providerLogoutTicket)})
+}
+
+func (boundary *AuthBoundary) providerLogout(writer http.ResponseWriter, request *http.Request) {
+	if boundary.provider == nil || boundary.sessions == nil {
+		writeProblem(writer, http.StatusServiceUnavailable, "Logout failed", "OIDC provider logout is unavailable", "PROVIDER_LOGOUT_UNAVAILABLE")
+		return
+	}
+	providerIDToken, err := boundary.sessions.RedeemProviderLogout(
+		request.Context(),
+		request.URL.Query().Get("ticket"),
+	)
+	if err != nil {
+		writeProblem(writer, http.StatusBadRequest, "Logout failed", "provider logout ticket is invalid or expired", "PROVIDER_LOGOUT_TICKET_INVALID")
+		return
+	}
+	logoutURL := strings.TrimSpace(boundary.provider.LogoutURL(providerIDToken))
+	if logoutURL == "" {
+		writeProblem(writer, http.StatusServiceUnavailable, "Logout failed", "OIDC provider logout is unavailable", "PROVIDER_LOGOUT_UNAVAILABLE")
+		return
+	}
+	writer.Header().Set("Cache-Control", "no-store")
+	http.Redirect(writer, request, logoutURL, http.StatusSeeOther)
 }
 
 func (boundary *AuthBoundary) authenticate(writer http.ResponseWriter, request *http.Request) (identity.Principal, bool) {

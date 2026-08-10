@@ -27,6 +27,7 @@ const (
 	idleDuration                  = 30 * time.Minute
 	absoluteDuration              = 8 * time.Hour
 	loginStateTTL                 = 10 * time.Minute
+	providerLogoutTicketTTL       = 2 * time.Minute
 	authorityObservationHeartbeat = 30 * time.Second
 	authorityObservationMaxAge    = 60 * time.Second
 	authorityDenialDeadline       = 120 * time.Second
@@ -1046,25 +1047,63 @@ func (manager *Manager) ValidateCSRF(ctx context.Context, sessionID, rawCSRF str
 	return nil
 }
 
-func (manager *Manager) Revoke(ctx context.Context, sessionID string) error {
+func (manager *Manager) Revoke(ctx context.Context, sessionID string) (string, error) {
 	if strings.TrimSpace(sessionID) == "" {
-		return ErrUnauthenticated
+		return "", ErrUnauthenticated
 	}
 	now := manager.clock().UTC()
-	return database.WithinTransaction(ctx, manager.pool, func(ctx context.Context, transaction pgx.Tx) error {
+	var providerLogoutTicket string
+	err := database.WithinTransaction(ctx, manager.pool, func(ctx context.Context, transaction pgx.Tx) error {
 		var subjectID string
 		var organizationID *string
 		var roles []string
+		var providerTokensCiphertext []byte
 		if err := transaction.QueryRow(ctx, `
-			UPDATE session_references
-			SET revoked_at = COALESCE(revoked_at, $2), provider_tokens_ciphertext = NULL
+			SELECT subject_id, organization_id, roles, provider_tokens_ciphertext
+			FROM session_references
 			WHERE id = $1
 			  AND revoked_at IS NULL
-			RETURNING subject_id, organization_id, roles
-		`, sessionID, now).Scan(&subjectID, &organizationID, &roles); errors.Is(err, pgx.ErrNoRows) {
+			FOR UPDATE
+		`, sessionID).Scan(
+			&subjectID,
+			&organizationID,
+			&roles,
+			&providerTokensCiphertext,
+		); errors.Is(err, pgx.ErrNoRows) {
 			return ErrUnauthenticated
 		} else if err != nil {
+			return fmt.Errorf("read browser session for revocation: %w", err)
+		}
+		providerIDToken := ""
+		if len(providerTokensCiphertext) > 0 {
+			providerTokens, err := manager.decryptProviderTokens(
+				providerTokensCiphertext,
+			)
+			if err != nil {
+				return err
+			}
+			providerIDToken = strings.TrimSpace(providerTokens.IDToken)
+		}
+		ticket, ticketErr := manager.encryptProviderLogoutTicket(
+			providerIDToken,
+			now.Add(providerLogoutTicketTTL),
+		)
+		if ticketErr != nil {
+			return ticketErr
+		}
+		providerLogoutTicket = ticket
+		result, err := transaction.Exec(ctx, `
+			UPDATE session_references
+			SET revoked_at = $2,
+			    provider_tokens_ciphertext = NULL
+			WHERE id = $1
+			  AND revoked_at IS NULL
+		`, sessionID, now)
+		if err != nil {
 			return fmt.Errorf("revoke browser session: %w", err)
+		}
+		if result.RowsAffected() != 1 {
+			return ErrUnauthenticated
 		}
 		actorRole := ""
 		if len(roles) > 0 {
@@ -1083,6 +1122,26 @@ func (manager *Manager) Revoke(ctx context.Context, sessionID string) error {
 		}
 		return nil
 	})
+	if err != nil {
+		return "", err
+	}
+	return providerLogoutTicket, nil
+}
+
+func (manager *Manager) RedeemProviderLogout(
+	ctx context.Context,
+	rawTicket string,
+) (string, error) {
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	default:
+	}
+	ticket, err := manager.decryptProviderLogoutTicket(rawTicket)
+	if err != nil || !manager.clock().UTC().Before(ticket.ExpiresAt) {
+		return "", ErrUnauthenticated
+	}
+	return strings.TrimSpace(ticket.IDToken), nil
 }
 
 type LoginRequest struct {
@@ -1157,6 +1216,94 @@ func (manager *Manager) encryptProviderTokens(tokens identity.ProviderTokens) ([
 		return nil, fmt.Errorf("provider-token nonce has invalid length")
 	}
 	return manager.aead.Seal(append([]byte(nil), nonce...), nonce, plaintext, nil), nil
+}
+
+func (manager *Manager) decryptProviderTokens(ciphertext []byte) (identity.ProviderTokens, error) {
+	nonceSize := manager.aead.NonceSize()
+	if len(ciphertext) < nonceSize+manager.aead.Overhead() {
+		return identity.ProviderTokens{}, fmt.Errorf("provider-token ciphertext has invalid length")
+	}
+	nonce := ciphertext[:nonceSize]
+	plaintext, err := manager.aead.Open(nil, nonce, ciphertext[nonceSize:], nil)
+	if err != nil {
+		return identity.ProviderTokens{}, fmt.Errorf("decrypt provider tokens: %w", err)
+	}
+	defer func() {
+		for index := range plaintext {
+			plaintext[index] = 0
+		}
+	}()
+	var tokens identity.ProviderTokens
+	if err := json.Unmarshal(plaintext, &tokens); err != nil {
+		return identity.ProviderTokens{}, fmt.Errorf("decode provider tokens: %w", err)
+	}
+	return tokens, nil
+}
+
+type providerLogoutTicket struct {
+	IDToken   string    `json:"idToken"`
+	ExpiresAt time.Time `json:"expiresAt"`
+}
+
+func (manager *Manager) encryptProviderLogoutTicket(
+	idToken string,
+	expiresAt time.Time,
+) (string, error) {
+	plaintext, err := json.Marshal(providerLogoutTicket{
+		IDToken:   idToken,
+		ExpiresAt: expiresAt.UTC(),
+	})
+	if err != nil {
+		return "", fmt.Errorf("encode provider logout ticket: %w", err)
+	}
+	defer func() {
+		for index := range plaintext {
+			plaintext[index] = 0
+		}
+	}()
+	nonce, err := manager.randomBytes(manager.aead.NonceSize())
+	if err != nil {
+		return "", fmt.Errorf("generate provider logout nonce: %w", err)
+	}
+	if len(nonce) != manager.aead.NonceSize() {
+		return "", fmt.Errorf("provider logout nonce has invalid length")
+	}
+	sealed := manager.aead.Seal(append([]byte(nil), nonce...), nonce, plaintext, nil)
+	return base64.RawURLEncoding.EncodeToString(sealed), nil
+}
+
+func (manager *Manager) decryptProviderLogoutTicket(
+	rawTicket string,
+) (providerLogoutTicket, error) {
+	ciphertext, err := base64.RawURLEncoding.DecodeString(
+		strings.TrimSpace(rawTicket),
+	)
+	if err != nil {
+		return providerLogoutTicket{}, ErrUnauthenticated
+	}
+	nonceSize := manager.aead.NonceSize()
+	if len(ciphertext) < nonceSize+manager.aead.Overhead() {
+		return providerLogoutTicket{}, ErrUnauthenticated
+	}
+	plaintext, err := manager.aead.Open(
+		nil,
+		ciphertext[:nonceSize],
+		ciphertext[nonceSize:],
+		nil,
+	)
+	if err != nil {
+		return providerLogoutTicket{}, ErrUnauthenticated
+	}
+	defer func() {
+		for index := range plaintext {
+			plaintext[index] = 0
+		}
+	}()
+	var ticket providerLogoutTicket
+	if err := json.Unmarshal(plaintext, &ticket); err != nil || ticket.ExpiresAt.IsZero() {
+		return providerLogoutTicket{}, ErrUnauthenticated
+	}
+	return ticket, nil
 }
 
 func (manager *Manager) opaqueToken(size int) (string, error) {

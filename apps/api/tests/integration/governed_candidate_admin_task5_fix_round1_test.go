@@ -352,7 +352,11 @@ func TestTask5FixRound1Version21ForwardRepairCorrectsPartialObjectsAndPreservesH
 	ctx := context.Background()
 	pool := createTestDatabase(t, "task5_complete_repair")
 	if err := migrations.Apply(ctx, pool); err != nil {
-		t.Fatalf("apply migration 21: %v", err)
+		t.Fatalf("apply retained migration set: %v", err)
+	}
+	var migrationVersionBeforeRepair int64
+	if err := pool.QueryRow(ctx, `SELECT MAX(version) FROM schema_migrations`).Scan(&migrationVersionBeforeRepair); err != nil {
+		t.Fatalf("read migration version before repair: %v", err)
 	}
 	if err := testprofile.BootstrapSyntheticRegulatoryGenerationInputs(ctx, pool); err != nil {
 		t.Fatalf("bootstrap synthetic inputs: %v", err)
@@ -432,8 +436,8 @@ func TestTask5FixRound1Version21ForwardRepairCorrectsPartialObjectsAndPreservesH
 		t.Fatalf("command guard was not repaired: %v definition=%q", err, commandGuard)
 	}
 	var version int64
-	if err := pool.QueryRow(ctx, `SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 21 {
-		t.Fatalf("repair changed migration version=%d err=%v", version, err)
+	if err := pool.QueryRow(ctx, `SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != migrationVersionBeforeRepair {
+		t.Fatalf("repair changed migration version=%d want=%d err=%v", version, migrationVersionBeforeRepair, err)
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -19,8 +20,10 @@ type RemoteOIDCConfig struct {
 }
 
 type RemoteOIDCProvider struct {
-	oauthConfig oauth2.Config
-	verifier    *oidc.IDTokenVerifier
+	oauthConfig        oauth2.Config
+	verifier           *oidc.IDTokenVerifier
+	logoutEndpoint     url.URL
+	postLogoutRedirect string
 }
 
 func NewRemoteOIDCProvider(ctx context.Context, config RemoteOIDCConfig) (*RemoteOIDCProvider, error) {
@@ -40,7 +43,8 @@ func NewRemoteOIDCProvider(ctx context.Context, config RemoteOIDCConfig) (*Remot
 		return nil, fmt.Errorf("discover OIDC provider: %w", err)
 	}
 	var discoveryMetadata struct {
-		Issuer string `json:"issuer"`
+		Issuer             string `json:"issuer"`
+		EndSessionEndpoint string `json:"end_session_endpoint"`
 	}
 	if err := provider.Claims(&discoveryMetadata); err != nil {
 		return nil, fmt.Errorf("decode OIDC discovery metadata: %w", err)
@@ -52,12 +56,25 @@ func NewRemoteOIDCProvider(ctx context.Context, config RemoteOIDCConfig) (*Remot
 			config.IssuerURL,
 		)
 	}
+	logoutEndpoint, err := validatedOIDCLogoutEndpoint(
+		discoveryMetadata.EndSessionEndpoint,
+		config.IssuerURL,
+	)
+	if err != nil {
+		return nil, err
+	}
+	postLogoutRedirect, err := oidcApplicationOrigin(config.RedirectURL)
+	if err != nil {
+		return nil, err
+	}
 	return &RemoteOIDCProvider{
 		oauthConfig: oauth2.Config{
 			ClientID: config.ClientID, ClientSecret: config.ClientSecret, Endpoint: provider.Endpoint(),
 			RedirectURL: config.RedirectURL, Scopes: []string{oidc.ScopeOpenID, "profile", "email"},
 		},
-		verifier: provider.Verifier(&oidc.Config{ClientID: config.ClientID}),
+		verifier:           provider.Verifier(&oidc.Config{ClientID: config.ClientID}),
+		logoutEndpoint:     logoutEndpoint,
+		postLogoutRedirect: postLogoutRedirect,
 	}, nil
 }
 
@@ -67,7 +84,47 @@ func (provider *RemoteOIDCProvider) AuthorizationURL(state, nonce, pkceChallenge
 		oidc.Nonce(nonce),
 		oauth2.SetAuthURLParam("code_challenge", pkceChallenge),
 		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
+		oauth2.SetAuthURLParam("prompt", "login"),
+		oauth2.SetAuthURLParam("max_age", "0"),
 	)
+}
+
+// LogoutURL returns the provider-discovered RP-initiated logout endpoint.
+// The endpoint and post-logout origin are validated when the provider is
+// constructed; only the server-held ID-token hint varies per browser session.
+func (provider *RemoteOIDCProvider) LogoutURL(idTokenHint string) string {
+	logout := provider.logoutEndpoint
+	query := logout.Query()
+	query.Set("client_id", provider.oauthConfig.ClientID)
+	query.Set("post_logout_redirect_uri", provider.postLogoutRedirect)
+	if idTokenHint = strings.TrimSpace(idTokenHint); idTokenHint != "" {
+		query.Set("id_token_hint", idTokenHint)
+	}
+	logout.RawQuery = query.Encode()
+	return logout.String()
+}
+
+func validatedOIDCLogoutEndpoint(rawEndpoint, rawIssuer string) (url.URL, error) {
+	endpoint, err := url.Parse(strings.TrimSpace(rawEndpoint))
+	if err != nil || !endpoint.IsAbs() || endpoint.User != nil || endpoint.Fragment != "" || endpoint.RawQuery != "" {
+		return url.URL{}, fmt.Errorf("OIDC discovery end_session_endpoint is invalid")
+	}
+	issuer, err := url.Parse(strings.TrimSpace(rawIssuer))
+	if err != nil || !issuer.IsAbs() || issuer.User != nil || issuer.Host == "" {
+		return url.URL{}, fmt.Errorf("configured OIDC issuer is invalid")
+	}
+	if endpoint.Scheme != issuer.Scheme || endpoint.Host != issuer.Host || (endpoint.Scheme != "https" && endpoint.Scheme != "http") {
+		return url.URL{}, fmt.Errorf("OIDC end_session_endpoint does not match configured issuer origin")
+	}
+	return *endpoint, nil
+}
+
+func oidcApplicationOrigin(rawRedirect string) (string, error) {
+	redirect, err := url.Parse(strings.TrimSpace(rawRedirect))
+	if err != nil || !redirect.IsAbs() || redirect.User != nil || redirect.Host == "" || redirect.Fragment != "" || (redirect.Scheme != "https" && redirect.Scheme != "http") {
+		return "", fmt.Errorf("OIDC redirect URL is invalid")
+	}
+	return (&url.URL{Scheme: redirect.Scheme, Host: redirect.Host, Path: "/"}).String(), nil
 }
 
 func (provider *RemoteOIDCProvider) Exchange(ctx context.Context, code, pkceVerifier, expectedNonce string) (OIDCIdentity, error) {

@@ -36,6 +36,7 @@ func TestRemoteOIDCProviderUsesDiscoveryAuthorizationCodePKCEAndVerifiedClaims(t
 		writeOIDCTestJSON(writer, map[string]any{
 			"issuer": server.URL, "authorization_endpoint": server.URL + "/authorize",
 			"token_endpoint": server.URL + "/token", "jwks_uri": server.URL + "/keys",
+			"end_session_endpoint":     server.URL + "/logout",
 			"response_types_supported": []string{"code"}, "subject_types_supported": []string{"public"},
 			"id_token_signing_alg_values_supported": []string{"RS256"},
 		})
@@ -89,9 +90,26 @@ func TestRemoteOIDCProviderUsesDiscoveryAuthorizationCodePKCEAndVerifiedClaims(t
 	for key, expected := range map[string]string{
 		"client_id": clientID, "redirect_uri": "https://avia.example/auth/callback", "response_type": "code",
 		"state": "state-value", "nonce": expectedNonce, "code_challenge": "pkce-challenge", "code_challenge_method": "S256",
+		"prompt": "login", "max_age": "0",
 	} {
 		if query.Get(key) != expected {
 			t.Errorf("authorization %s = %q, want %q", key, query.Get(key), expected)
+		}
+	}
+	logoutURL, err := url.Parse(provider.LogoutURL("signed-id-token"))
+	if err != nil {
+		t.Fatalf("parse provider logout URL: %v", err)
+	}
+	if logoutURL.Scheme != "http" || logoutURL.Host != strings.TrimPrefix(server.URL, "http://") || logoutURL.Path != "/logout" {
+		t.Fatalf("provider logout endpoint = %q", logoutURL.String())
+	}
+	for key, expected := range map[string]string{
+		"client_id":                clientID,
+		"id_token_hint":            "signed-id-token",
+		"post_logout_redirect_uri": "https://avia.example/",
+	} {
+		if logoutURL.Query().Get(key) != expected {
+			t.Errorf("logout %s = %q, want %q", key, logoutURL.Query().Get(key), expected)
 		}
 	}
 
@@ -130,6 +148,7 @@ func TestRemoteOIDCProviderUsesPrivateDiscoveryWithPublicIssuer(t *testing.T) {
 		writeOIDCTestJSON(writer, map[string]any{
 			"issuer":                                publicIssuer,
 			"authorization_endpoint":                publicIssuer + "/protocol/openid-connect/auth",
+			"end_session_endpoint":                  publicIssuer + "/protocol/openid-connect/logout",
 			"token_endpoint":                        server.URL + "/token",
 			"jwks_uri":                              server.URL + "/keys",
 			"response_types_supported":              []string{"code"},
@@ -159,6 +178,7 @@ func TestRemoteOIDCProviderUsesPrivateDiscoveryWithPublicIssuer(t *testing.T) {
 		writeOIDCTestJSON(writer, map[string]any{
 			"issuer":                                "https://attacker.invalid/realms/avia",
 			"authorization_endpoint":                publicIssuer + "/protocol/openid-connect/auth",
+			"end_session_endpoint":                  publicIssuer + "/protocol/openid-connect/logout",
 			"token_endpoint":                        server.URL + "/token",
 			"jwks_uri":                              server.URL + "/keys",
 			"response_types_supported":              []string{"code"},
@@ -198,6 +218,7 @@ func TestTask4RemoteOIDCProviderRefreshesRotatedSigningKeysAndEnforcesClockBound
 		writeOIDCTestJSON(writer, map[string]any{
 			"issuer": server.URL, "authorization_endpoint": server.URL + "/authorize",
 			"token_endpoint": server.URL + "/token", "jwks_uri": server.URL + "/keys",
+			"end_session_endpoint":     server.URL + "/logout",
 			"response_types_supported": []string{"code"}, "subject_types_supported": []string{"public"},
 			"id_token_signing_alg_values_supported": []string{"RS256"},
 		})

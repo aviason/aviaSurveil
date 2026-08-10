@@ -24,6 +24,13 @@ func TestReportIssueQueuesAndRendersOneImmutableAuthorizedDocument(t *testing.T)
 	pool := canonicalDatabase(t, "report_document_workflow")
 	seedFinding(t, pool, "finding-report-document", "OPS-2026-018", "airline-xyz")
 	if _, err := pool.Exec(context.Background(), `
+		UPDATE findings
+		SET status = 'CLOSED', next_action = 'Closed after accepted Evidence verification'
+		WHERE id = 'finding-report-document'
+	`); err != nil {
+		t.Fatalf("close Finding before Final Report: %v", err)
+	}
+	if _, err := pool.Exec(context.Background(), `
 		INSERT INTO report_versions (id, report_id, inspection_id, version, status, snapshot, created_at)
 		VALUES (
 			'report-final-v1', 'FR-2026-018', 'audit-cabin-001', 1,
@@ -85,8 +92,8 @@ func TestReportIssueQueuesAndRendersOneImmutableAuthorizedDocument(t *testing.T)
 	).Scan(&findingStatus); err != nil {
 		t.Fatalf("read Finding after report issue: %v", err)
 	}
-	if findingStatus == "CLOSED" {
-		t.Fatal("Final Report issue closed its Finding")
+	if findingStatus != "CLOSED" {
+		t.Fatalf("Final Report issue changed the already-closed Finding to %q", findingStatus)
 	}
 
 	objects := newMemoryObjectStore()
@@ -302,17 +309,11 @@ func TestReportDocumentHTTPUsesExactIdentityAndAuditeeSafeProjections(t *testing
 		t.Fatalf("reset canonical report HTTP profile: %v", err)
 	}
 	if _, err := pool.Exec(context.Background(), `
-		INSERT INTO findings (
-			id, reference, inspection_id, organization_id, severity, status,
-			next_action, revision, cap_required, evidence_required, issued_at,
-			created_at, updated_at
-		) VALUES (
-			'FND-CAB-2026-001', 'CAB-2026-001', 'AUD-2026-001',
-			'ORG-FLY-NAMIBIA', 'LEVEL_2_MAJOR', 'OPEN',
-			'Auditee responds to Finding', 1, true, true, $1, $1, $1
-		)
+		UPDATE report_approval_states
+		SET status = 'LOCKED', revision = 4, issued_at = $1, updated_at = $1
+		WHERE report_version_id = 'PR-2026-018-V1'
 	`, canonicalNow); err != nil {
-		t.Fatalf("seed canonical report Finding: %v", err)
+		t.Fatalf("seed issued Preliminary Report approval before Final Report flow: %v", err)
 	}
 	if _, err := pool.Exec(context.Background(), `
 		INSERT INTO report_versions (

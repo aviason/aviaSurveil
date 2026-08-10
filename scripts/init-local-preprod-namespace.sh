@@ -36,6 +36,8 @@ preprod_session_encryption_key
 preprod_data_feed_payload_key
 preprod_minio_api_access_key
 preprod_minio_api_secret_key
+preprod_minio_loader_access_key
+preprod_minio_loader_secret_key
 preprod_minio_root_password
 preprod_minio_root_user
 preprod_oidc_client_secret
@@ -89,7 +91,7 @@ for filename in $secret_files; do
       printf 'aviasurveil360-preprod:%s\n' "$smtp_password_value" >"$temporary_directory/$filename"
       unset smtp_password_value
       ;;
-    preprod_minio_root_user | preprod_minio_api_access_key)
+    preprod_minio_root_user | preprod_minio_api_access_key | preprod_minio_loader_access_key)
       openssl rand -hex 10 >"$temporary_directory/$filename"
       ;;
     preprod_loader_seed)

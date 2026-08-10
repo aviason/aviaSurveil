@@ -117,6 +117,13 @@ func TestRoutinePlanningReturnReentryAndAssignmentMaterialization(t *testing.T) 
 		t.Fatalf("routine preparation = %+v", preparation)
 	}
 	assertNoExecutableAudit(t, pool, "")
+	if _, err := pool.Exec(context.Background(), `
+		UPDATE session_references
+		SET revoked_at = $1
+		WHERE id = 'session-lead'
+	`, canonicalNow); err != nil {
+		t.Fatalf("revoke Lead browser session before assignment: %v", err)
+	}
 
 	assignment, err := assignmentService.AssignLead(context.Background(), manager, assignments.AssignLeadCommand{
 		OperationID: "op-routine-lead", IdempotencyKey: "idem-routine-lead",
@@ -159,13 +166,18 @@ func TestRoutinePlanningReturnReentryAndAssignmentMaterialization(t *testing.T) 
 	if err != nil {
 		t.Fatalf("assign routine team: %v", err)
 	}
+	if len(assignment.SelectedQuestionVersionIDs) != 1 ||
+		assignment.SelectedQuestionVersionIDs[0] != "q-cabin-crew-training" {
+		t.Fatalf("team assignment dropped released question identities: %+v", assignment.SelectedQuestionVersionIDs)
+	}
 	questionAssignments := []assignments.QuestionAssignment{
 		{QuestionID: "q-cabin-crew-training", SubjectID: "inspector-cabin-001"},
 		{QuestionID: "q-cabin-crew-training", SubjectID: "inspector-other"},
 	}
 	coveragePreview, err := assignmentService.PreviewQuestions(context.Background(), lead, assignments.PreviewQuestionsCommand{
 		OperationID: "op-routine-questions-preview", IdempotencyKey: "idem-routine-questions-preview",
-		AssignmentID: assignment.ID, ExpectedRevision: assignment.Revision, QuestionAssignments: questionAssignments,
+		AssignmentID: assignment.ID, ExpectedRevision: assignment.Revision,
+		OperationKind: assignments.QuestionCoverageReplace, QuestionAssignments: questionAssignments,
 	})
 	if err != nil {
 		t.Fatalf("preview routine questions: %v", err)
@@ -174,6 +186,7 @@ func TestRoutinePlanningReturnReentryAndAssignmentMaterialization(t *testing.T) 
 		OperationID: "op-routine-questions", IdempotencyKey: "idem-routine-questions",
 		AssignmentID: assignment.ID, ExpectedRevision: assignment.Revision,
 		PreviewID: coveragePreview.PreviewID, PreviewDigest: coveragePreview.Digest,
+		OperationKind:       assignments.QuestionCoverageReplace,
 		QuestionAssignments: questionAssignments,
 	})
 	if err != nil {
@@ -185,6 +198,84 @@ func TestRoutinePlanningReturnReentryAndAssignmentMaterialization(t *testing.T) 
 	}
 	if workload["inspector-cabin-001"] != 1 || workload["inspector-other"] != 1 {
 		t.Fatalf("routine workload = %#v", workload)
+	}
+	teamCorrectionPreview, err := assignmentService.PreviewTeam(context.Background(), lead, assignments.PreviewTeamCommand{
+		OperationID: "op-routine-team-correction-preview", IdempotencyKey: "idem-routine-team-correction-preview",
+		AssignmentID: assignment.ID, ExpectedRevision: assignment.Revision,
+		MemberSubjectIDs: []string{"inspector-cabin-001"},
+	})
+	if err != nil {
+		t.Fatalf("preview routine team correction: %v", err)
+	}
+	assignment, err = assignmentService.AssignTeam(context.Background(), lead, assignments.AssignTeamCommand{
+		OperationID: "op-routine-team-correction", IdempotencyKey: "idem-routine-team-correction",
+		AssignmentID: assignment.ID, ExpectedRevision: assignment.Revision,
+		PreviewID: teamCorrectionPreview.PreviewID, PreviewDigest: teamCorrectionPreview.Digest,
+		MemberSubjectIDs: []string{"inspector-cabin-001"},
+	})
+	if err != nil {
+		t.Fatalf("remove routine team member: %v", err)
+	}
+	activeCoverage := []assignments.QuestionAssignment{{QuestionID: "q-cabin-crew-training", SubjectID: "inspector-cabin-001"}}
+	if len(assignment.QuestionAssignments) != 1 || assignment.QuestionAssignments[0] != activeCoverage[0] {
+		t.Fatalf("team correction response coverage = %+v, want %+v", assignment.QuestionAssignments, activeCoverage)
+	}
+	var removedCoverageCount int
+	if err := pool.QueryRow(context.Background(), `
+		SELECT COUNT(*) FROM audit_question_assignments
+		WHERE assignment_id=$1 AND subject_id='inspector-other'
+	`, assignment.ID).Scan(&removedCoverageCount); err != nil {
+		t.Fatalf("count removed Inspector coverage: %v", err)
+	}
+	if removedCoverageCount != 0 {
+		t.Fatalf("removed Inspector retained %d question coverage rows", removedCoverageCount)
+	}
+	activeCoveragePreview, err := assignmentService.PreviewQuestions(context.Background(), lead, assignments.PreviewQuestionsCommand{
+		OperationID: "op-routine-active-coverage-preview", IdempotencyKey: "idem-routine-active-coverage-preview",
+		AssignmentID: assignment.ID, ExpectedRevision: assignment.Revision,
+		OperationKind: assignments.QuestionCoverageAdd, QuestionAssignments: activeCoverage,
+	})
+	if err != nil {
+		t.Fatalf("preview active routine coverage: %v", err)
+	}
+	assignment, err = assignmentService.AssignQuestions(context.Background(), lead, assignments.AssignQuestionsCommand{
+		OperationID: "op-routine-active-coverage", IdempotencyKey: "idem-routine-active-coverage",
+		AssignmentID: assignment.ID, ExpectedRevision: assignment.Revision,
+		PreviewID: activeCoveragePreview.PreviewID, PreviewDigest: activeCoveragePreview.Digest,
+		OperationKind: assignments.QuestionCoverageAdd, QuestionAssignments: activeCoverage,
+	})
+	if err != nil {
+		t.Fatalf("restore routine questions-assigned state: %v", err)
+	}
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO audit_question_assignments (assignment_id, question_id, subject_id, revision, created_at)
+		VALUES ($1, 'q-cabin-crew-training', 'inspector-other', 1, $2)
+	`, assignment.ID, canonicalNow); err != nil {
+		t.Fatalf("seed stale removed-Inspector coverage: %v", err)
+	}
+	if _, err := assignmentService.ConfirmPreparation(context.Background(), manager, assignments.ConfirmPreparationCommand{
+		OperationID: "op-routine-confirm-stale-member", IdempotencyKey: "idem-routine-confirm-stale-member",
+		AssignmentID: assignment.ID, ExpectedAssignmentRevision: assignment.Revision,
+	}); !errors.Is(err, assignments.ErrConflict) {
+		t.Fatalf("stale removed-Inspector confirmation error = %v", err)
+	}
+	staleCoverage := []assignments.QuestionAssignment{{QuestionID: "q-cabin-crew-training", SubjectID: "inspector-other"}}
+	staleRemovalPreview, err := assignmentService.PreviewQuestions(context.Background(), lead, assignments.PreviewQuestionsCommand{
+		OperationID: "op-routine-stale-removal-preview", IdempotencyKey: "idem-routine-stale-removal-preview",
+		AssignmentID: assignment.ID, ExpectedRevision: assignment.Revision,
+		OperationKind: assignments.QuestionCoverageRemove, QuestionAssignments: staleCoverage,
+	})
+	if err != nil {
+		t.Fatalf("preview stale removed-Inspector coverage cleanup: %v", err)
+	}
+	assignment, err = assignmentService.AssignQuestions(context.Background(), lead, assignments.AssignQuestionsCommand{
+		OperationID: "op-routine-stale-removal", IdempotencyKey: "idem-routine-stale-removal",
+		AssignmentID: assignment.ID, ExpectedRevision: assignment.Revision,
+		PreviewID: staleRemovalPreview.PreviewID, PreviewDigest: staleRemovalPreview.Digest,
+		OperationKind: assignments.QuestionCoverageRemove, QuestionAssignments: staleCoverage,
+	})
+	if err != nil {
+		t.Fatalf("remove stale removed-Inspector coverage: %v", err)
 	}
 	confirmed, err := assignmentService.ConfirmPreparation(context.Background(), manager, assignments.ConfirmPreparationCommand{
 		OperationID: "op-routine-confirm", IdempotencyKey: "idem-routine-confirm",
@@ -247,6 +338,19 @@ func TestRoutinePlanningReturnReentryAndAssignmentMaterialization(t *testing.T) 
 	if len(coordination) != 1 || coordination[0].InspectionID != materialized.InspectionID ||
 		coordination[0].Status != assignments.StatusAwaitingAuditeeConfirmation {
 		t.Fatalf("routine Auditee coordination = %+v", coordination)
+	}
+	confirmedCoordination, err := assignmentService.RespondAuditeeCoordination(
+		context.Background(),
+		auditee,
+		assignments.RespondCoordinationCommand{
+			OperationID: "op-routine-coordination-confirm", IdempotencyKey: "idem-routine-coordination-confirm",
+			InspectionID: materialized.InspectionID, OrganizationID: "airline-xyz",
+			ExpectedRevision: materialized.AssignmentRevision, Decision: assignments.CoordinationConfirm,
+		},
+	)
+	if err != nil || confirmedCoordination.Status != assignments.StatusConfirmed ||
+		confirmedCoordination.Revision != materialized.AssignmentRevision+1 {
+		t.Fatalf("confirm routine Auditee coordination = %+v, err = %v", confirmedCoordination, err)
 	}
 	if _, err := assignmentService.ListAuditeeCoordination(context.Background(),
 		principal("auditee-other", "airline-other", "session-auditee-other", identity.RoleAuditee),
@@ -346,7 +450,8 @@ func TestAdHocPlanningWithholdsAuditeeNoticeAfterMaterialization(t *testing.T) {
 	questionAssignments := []assignments.QuestionAssignment{{QuestionID: "q-cabin-crew-training", SubjectID: "inspector-cabin-001"}}
 	coveragePreview, err := service.PreviewQuestions(context.Background(), lead, assignments.PreviewQuestionsCommand{
 		OperationID: "op-ad-hoc-questions-preview", IdempotencyKey: "idem-ad-hoc-questions-preview",
-		AssignmentID: assignment.ID, ExpectedRevision: assignment.Revision, QuestionAssignments: questionAssignments,
+		AssignmentID: assignment.ID, ExpectedRevision: assignment.Revision,
+		OperationKind: assignments.QuestionCoverageReplace, QuestionAssignments: questionAssignments,
 	})
 	if err != nil {
 		t.Fatalf("preview Ad Hoc questions: %v", err)
@@ -355,6 +460,7 @@ func TestAdHocPlanningWithholdsAuditeeNoticeAfterMaterialization(t *testing.T) {
 		OperationID: "op-ad-hoc-questions", IdempotencyKey: "idem-ad-hoc-questions",
 		AssignmentID: assignment.ID, ExpectedRevision: assignment.Revision,
 		PreviewID: coveragePreview.PreviewID, PreviewDigest: coveragePreview.Digest,
+		OperationKind:       assignments.QuestionCoverageReplace,
 		QuestionAssignments: questionAssignments,
 	})
 	if err != nil {
@@ -504,12 +610,15 @@ func TestPlanningAssignmentHTTPContractsAndNoticePrivacy(t *testing.T) {
 	if err := testprofile.Reset(context.Background(), pool, canonicalNow); err != nil {
 		t.Fatalf("reset canonical HTTP profile: %v", err)
 	}
+	seedCanonicalPlanningHTTPDraft(t, pool)
 	assignmentService := assignments.NewService(pool, assignments.Dependencies{
 		Clock: func() time.Time { return canonicalNow },
 	})
 	api := httpapi.NewCanonicalAPI(httpapi.CanonicalAPIDependencies{
 		Pool: pool, Application: testService(pool), Assignments: assignmentService,
-		Clock: func() time.Time { return canonicalNow },
+		Clock:                    func() time.Time { return canonicalNow },
+		PreprodExerciseProfile:   true,
+		PreprodIdentityNamespace: "canonical-aga-preprod-exercise-v1",
 	})
 	handler := httpapi.NewCanonicalTestBoundary("task-4-token").Protect(api.Handler())
 
@@ -536,7 +645,7 @@ func TestPlanningAssignmentHTTPContractsAndNoticePrivacy(t *testing.T) {
 		"values":{
 			"organizationId":"ORG-FLY-NAMIBIA",
 			"organizationName":"Client cannot change this",
-			"applicationType":"Air Operator Certificate",
+			"applicationType":"CABIN",
 			"domain":"Cabin Safety",
 			"inspectionCategory":"Ad Hoc / Unannounced",
 			"noticePolicy":"ADVANCE",
@@ -546,8 +655,14 @@ func TestPlanningAssignmentHTTPContractsAndNoticePrivacy(t *testing.T) {
 			"plannedDate":"2026-07-18",
 			"mode":"On-site",
 			"location":"Windhoek",
-			"templateVersionId":"CTV-CABIN-1",
-			"scope":"Cabin safety",
+			"templateVersionId":"",
+			"scope":"",
+			"catalogVersion":"task4-planning@1.0.0",
+			"scopeDraftId":"SCOPE-DRAFT-TASK4-PLAN",
+			"selectionDigest":"8bf3518c051416c444a9b441fe44a67f9e17fd1c54723a2ef5cf91e1a67833e0",
+			"selectedQuestionVersionIds":["QV-CAB-EMEQ-PBE-001-V1"],
+			"providerScopeId":"SCOPE-OPS-AOC-SOURCE-BOUND",
+			"regulatedTargetId":"TARGET-OPS-AOC-SOURCE-BOUND",
 			"requestedBudget":0,
 			"currency":"NAD"
 		}
@@ -574,10 +689,7 @@ func TestPlanningAssignmentHTTPContractsAndNoticePrivacy(t *testing.T) {
 		subjectID string
 		required  string
 	}{
-		{"/v1/inspection-package-drafts/PKG-AUD-2026-001-CABIN", "USR-MANAGER-NORA", `"packageVersion":1`},
 		{"/v1/team-members?role=leadInspector", "USR-MANAGER-NORA", `"subjectId":"USR-LEAD-CANER"`},
-		{"/v1/audit-teams?limit=20", "USR-MANAGER-NORA", `"questionId":"CAB-EMEQ-PBE-001"`},
-		{"/v1/audit-teams/AUD-2026-001", "USR-MANAGER-NORA", `"leadInspector"`},
 		{"/v1/auditee/coordination", "USR-AUDITEE-FLY", `"auditId":"AUD-2026-001"`},
 	} {
 		request := task4Request(http.MethodGet, route.path, "", route.subjectID)
@@ -603,26 +715,22 @@ func TestPlanningAssignmentHTTPContractsAndNoticePrivacy(t *testing.T) {
 		}
 	}
 
-	savePackage := task4Request(
-		http.MethodPut,
-		"/v1/inspection-package-drafts/PKG-AUD-2026-001-CABIN",
-		`{
-			"operationId":"OP-HTTP-PACKAGE-SAVE",
-			"idempotencyKey":"IDEM-HTTP-PACKAGE-SAVE",
-			"expectedRevision":1,
-			"packageDraftId":"PKG-AUD-2026-001-CABIN",
-			"riskFocus":["PBE serviceability","Cabin inspection CAP follow-up"]
-		}`,
-		"USR-MANAGER-NORA",
-	)
-	savePackage.Header.Set("Idempotency-Key", "IDEM-HTTP-PACKAGE-SAVE")
-	savePackage.Header.Set("If-Match", `"rev-1"`)
-	savePackageResponse := httptest.NewRecorder()
-	handler.ServeHTTP(savePackageResponse, savePackage)
-	if savePackageResponse.Code != http.StatusOK ||
-		!strings.Contains(savePackageResponse.Body.String(), `"revision":2`) {
-		t.Fatalf("PUT Inspection Package draft status=%d body=%s",
-			savePackageResponse.Code, savePackageResponse.Body.String())
+	for _, legacy := range []struct {
+		path       string
+		statusCode int
+		required   string
+	}{
+		{"/v1/inspection-package-drafts/PKG-AUD-2026-001-CABIN", http.StatusNotFound, `"code":"NOT_FOUND"`},
+		{"/v1/audit-teams?limit=20", http.StatusOK, `"items":[]`},
+		{"/v1/audit-teams/AUD-2026-001", http.StatusNotFound, `"code":"NOT_FOUND"`},
+	} {
+		request := task4Request(http.MethodGet, legacy.path, "", "USR-MANAGER-NORA")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != legacy.statusCode || !strings.Contains(response.Body.String(), legacy.required) {
+			t.Fatalf("disabled legacy Planning path %s status=%d body=%s",
+				legacy.path, response.Code, response.Body.String())
+		}
 	}
 
 	respondCoordination := task4Request(
@@ -643,11 +751,119 @@ func TestPlanningAssignmentHTTPContractsAndNoticePrivacy(t *testing.T) {
 	respondCoordination.Header.Set("If-Match", `"rev-1"`)
 	respondCoordinationResponse := httptest.NewRecorder()
 	handler.ServeHTTP(respondCoordinationResponse, respondCoordination)
-	if respondCoordinationResponse.Code != http.StatusOK ||
-		!strings.Contains(respondCoordinationResponse.Body.String(), `"status":"CONFIRMED"`) ||
-		!strings.Contains(respondCoordinationResponse.Body.String(), `"revision":2`) {
+	if respondCoordinationResponse.Code != http.StatusConflict ||
+		!strings.Contains(respondCoordinationResponse.Body.String(), `"code":"CONFLICT"`) {
 		t.Fatalf("POST Auditee coordination response status=%d body=%s",
 			respondCoordinationResponse.Code, respondCoordinationResponse.Body.String())
+	}
+}
+
+func seedCanonicalPlanningHTTPDraft(t *testing.T, pool *database.Pool) {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO canonical_question_catalogs (
+			id, catalog_version, usage_class, profile_name, profile_version,
+			status, source_package_version, source_package_json_sha256,
+			source_package_zip_sha256, root_digest, question_count, form_count,
+			created_by_subject_id
+		) VALUES (
+			'CAT-TASK4-PLAN', 'task4-planning@1.0.0', 'PREPROD_EXERCISE',
+			'aga-preprod', '1.0.0', 'SEALED', '1.0.0',
+			'sha256:task4-planning-json', 'sha256:task4-planning-zip',
+			'sha256:task4-planning-root', 1, 1, 'USR-MANAGER-NORA'
+		);
+
+		INSERT INTO canonical_question_catalog_forms (
+			catalog_id, form_code, form_digest, archive_digest,
+			question_count, source_gap_state
+		) VALUES (
+			'CAT-TASK4-PLAN', 'CABIN', 'sha256:task4-form',
+			'sha256:task4-archive', 1, 'SOURCE_MAPPING_REQUIRED'
+		);
+
+		INSERT INTO canonical_question_version_provenance (
+			question_version_id, usage_class, catalog_id
+		) VALUES (
+			'QV-CAB-EMEQ-PBE-001-V1', 'PREPROD_EXERCISE', 'CAT-TASK4-PLAN'
+		);
+
+		INSERT INTO canonical_question_catalog_memberships (
+			catalog_id, question_version_id, usage_class, form_code,
+			proposal_id, ordinal, question_digest, source_locator,
+			source_gap_state, proposed_domain, proposed_topic, proposed_risk_band
+		) VALUES (
+			'CAT-TASK4-PLAN', 'QV-CAB-EMEQ-PBE-001-V1', 'PREPROD_EXERCISE',
+			'CABIN', 'PBE-001', 1, 'sha256:task4-pbe-question',
+			'fixture://task4/pbe', 'SOURCE_MAPPING_REQUIRED',
+			'Cabin Safety', 'PBE', 'MEDIUM'
+		);
+
+		INSERT INTO canonical_question_catalog_applicabilities (
+			catalog_id, question_version_id, provider_scope_id,
+			regulated_target_id, status, reason, actor_subject_id
+		) VALUES (
+			'CAT-TASK4-PLAN', 'QV-CAB-EMEQ-PBE-001-V1',
+			'SCOPE-OPS-AOC-SOURCE-BOUND', 'TARGET-OPS-AOC-SOURCE-BOUND', 'ELIGIBLE',
+			'Exact task-owned Planning fixture eligibility.', 'USR-MANAGER-NORA'
+		);
+
+		UPDATE planning_intake_drafts
+		SET values = values || '{
+			"applicationType":"CABIN",
+			"templateVersionId":"",
+			"scope":"",
+			"catalogVersion":"task4-planning@1.0.0",
+			"scopeDraftId":"SCOPE-DRAFT-TASK4-PLAN",
+			"selectionDigest":"8bf3518c051416c444a9b441fe44a67f9e17fd1c54723a2ef5cf91e1a67833e0",
+			"selectedQuestionVersionIds":["QV-CAB-EMEQ-PBE-001-V1"],
+			"providerScopeId":"SCOPE-OPS-AOC-SOURCE-BOUND",
+			"regulatedTargetId":"TARGET-OPS-AOC-SOURCE-BOUND"
+		}'::jsonb
+		WHERE id = 'PLAN-DRAFT-2026-001';
+
+		INSERT INTO canonical_audit_scope_drafts (
+			id, planning_intake_draft_id, organization_id, provider_scope_id,
+			regulated_target_id, audit_type, catalog_id, usage_class, revision,
+			status, selected_question_count, selection_digest, requested_budget,
+			notice_policy, created_by_subject_id
+		) VALUES (
+			'SCOPE-DRAFT-TASK4-PLAN', 'PLAN-DRAFT-2026-001',
+			'ORG-FLY-NAMIBIA', 'SCOPE-OPS-AOC-SOURCE-BOUND',
+			'TARGET-OPS-AOC-SOURCE-BOUND', 'CABIN',
+			'CAT-TASK4-PLAN', 'PREPROD_EXERCISE', 1, 'DRAFT', 1,
+			'8bf3518c051416c444a9b441fe44a67f9e17fd1c54723a2ef5cf91e1a67833e0',
+			0, 'ADVANCE', 'USR-MANAGER-NORA'
+		);
+
+		INSERT INTO canonical_audit_scope_selection_operations (
+			id, scope_draft_id, operation_id, idempotency_key, operation_kind,
+			expected_digest, result_digest, affected_question_version_ids,
+			filter_payload, actor_subject_id
+		) VALUES (
+			'SELECTION-TASK4-PLAN', 'SCOPE-DRAFT-TASK4-PLAN',
+			'OP-SELECTION-TASK4-PLAN', 'IDEM-SELECTION-TASK4-PLAN', 'ADD', '',
+			'8bf3518c051416c444a9b441fe44a67f9e17fd1c54723a2ef5cf91e1a67833e0',
+			'["QV-CAB-EMEQ-PBE-001-V1"]', '{}', 'USR-MANAGER-NORA'
+		);
+
+		INSERT INTO canonical_audit_scope_selection_questions (
+			operation_id, catalog_id, question_version_id, position, selection_digest
+		) VALUES (
+			'SELECTION-TASK4-PLAN', 'CAT-TASK4-PLAN',
+			'QV-CAB-EMEQ-PBE-001-V1', 0,
+			'8bf3518c051416c444a9b441fe44a67f9e17fd1c54723a2ef5cf91e1a67833e0'
+		);
+
+		INSERT INTO canonical_audit_scope_draft_questions (
+			scope_draft_id, revision, catalog_id, question_version_id,
+			position, selection_digest
+		) VALUES (
+			'SCOPE-DRAFT-TASK4-PLAN', 1, 'CAT-TASK4-PLAN',
+			'QV-CAB-EMEQ-PBE-001-V1', 0,
+			'8bf3518c051416c444a9b441fe44a67f9e17fd1c54723a2ef5cf91e1a67833e0'
+		)
+	`); err != nil {
+		t.Fatalf("seed canonical Planning HTTP draft: %v", err)
 	}
 }
 
@@ -739,7 +955,7 @@ func seedPlanningActors(t *testing.T, pool *database.Pool) {
 func routineIntakeValues(budget float64) planning.IntakeDraftValues {
 	return planning.IntakeDraftValues{
 		OrganizationID: "airline-xyz", OrganizationName: "Airline XYZ",
-		ApplicationType: "Air Operator Certificate", Domain: "Cabin Safety",
+		ApplicationType: "CABIN", Domain: "Cabin Safety",
 		InspectionCategory: planning.InspectionCategoryRoutine,
 		NoticePolicy:       planning.NoticePolicyAdvance,
 		Purpose:            "Annual routine oversight", TriggerType: "Annual Plan",
