@@ -9,7 +9,9 @@ private versioned MinIO storage, real ClamAV scanning, authenticated Mailpit
 SMTP, Gotenberg PDF rendering, complete normalized MockBackend/HttpBackend
 scenarios, PWA/readiness, atomic offline field/outbox persistence,
 manifest-first OPFS Inspection Attachment recovery, typed foreground sync, and
-all 86 React routes in demo and HTTP are `verified locally`. The Full React
+all 85 current React routes in demo and HTTP are `verified locally`; the
+retired fixed-ID package-builder route remains only in the historical
+86-screen baseline. The Full React
 migration's Task 10 correction and Tasks 11–12 evidence have clean independent
 acceptance; its full visual gate remains literally `not verified`. Plan 4 adds
 local telemetry and alerting, separate application/identity backup chains,
@@ -33,27 +35,29 @@ with status `not run`. Task 9's fresh full matrix passed with the exact
 owner-approved 19-second stress-duration exception recorded literally;
 Task 9 was published as `9d30576876406609577af4381718e8ac66e94e06`, and
 the exact `origin/main` revision was confirmed.
-The separate AGA candidate-demo overlay is also `verified locally` in one
-whole-namespace disposable local-preprod run: its provider-free loader,
-distinct least-privilege PostgreSQL roles, committed reconciliation seal,
-Admin-only tagged reader/API/UI, privacy matrix, replay rejection, and cleanup
-remain isolated from both frozen synthetic profiles and governed AGA records.
-The artifact is `candidate-only`, the local decision is `GO`, and release is
-`release pending`. It is not a deployed production application. Production
-identity federation, external storage, scanning, email, records operations,
-deployment, cutover, legacy removal, and a `production-ready` claim remain
-excluded or `blocked`.
+Historical AGA candidate-demo evidence is retained, but its duplicate tagged
+reader/API/UI, lifecycle stores, commands, operator scripts, and tests were
+physically removed after the canonical successor passed donor-disabled
+qualification and the user selected Task 9 `delete`. The sealed package reader
+needed by the canonical loader now lives under canonical import ownership; no
+candidate-demo stakeholder runtime remains in the package.
 The active Canonical AGA Preprod End-To-End Product successor is separately
 `candidate-only`: its canonical Question Review history, immutable New Audit
 selection summary, pre-materialization Lead handoff, donor-free normal HTTP
 contract/artifact/binary, non-owner local-preprod runtime role, and connected
 OIDC hero lifecycle through Final Report issue are `verified locally`; rendered
-stakeholder qualification, the full negative/recovery/dependency matrix, donor
-deletion/requalification, and full recursive gates remain `not run` or
-`blocked`. Sol XHigh accepted the implemented code boundary with 0
-Critical/0 Important; a fresh Sol Ultra reread and stakeholder acceptance
-remain pending. Task 10 external preprod remains unauthorized and literally
-`not run`.
+stakeholder qualification and full recursive gates remain `not run` or
+`blocked`. Its final Task 8 disposable
+matrix verified transaction/fault/concurrency, cold-restart fingerprint
+preservation, post-restart multi-role OIDC, dependency loss/recovery, worker
+crash restart, donor fail-closed behavior, secret-log denial, and zero residue.
+Sol XHigh accepted the implemented pre-deletion code boundary with 0
+Critical/0 Important. The user then selected Task 9 `delete`; 153 tracked donor
+files were removed and the full Go/React/build/artifact plus connected
+fault/restart matrix passed again with no donor fallback and zero residue. The
+remaining local sequence is the user-owned three-viewport review and
+stakeholder acceptance. External preprod is no longer part
+of that plan; it is `not run` in a separate paused follow-up ExecPlan.
 The root Vanilla demo remains intact.
 
 ## Root Files
@@ -209,15 +213,11 @@ The root Vanilla demo remains intact.
   `realistic@1.1.0`, and `stress@1.1.0`; the full-volume `1.0.0`
   realistic/stress endurance profiles remain retained and `not run`. These
   packages are excluded from normal runtime artifacts.
-- `apps/api/cmd/preprod-aga-candidate-demo-loader/`,
-  `apps/api/cmd/preprod-aga-demo-role-provisioner/`,
-  `apps/api/cmd/preprod-aga-demo-oidc-fixture/`,
-  `apps/api/internal/preproddata/agacandidatedemo/`, and
-  `apps/api/internal/agacandidatedemo/` — separate provider-free AGA overlay
-  loading, least-privilege role provisioning, disposable identity
-  qualification, immutable PostgreSQL projection/seal, and tagged sealed-view
-  reading. The overlay is Admin-only, `candidate-only`, and cannot create or
-  advance governed AGA lifecycle records.
+- `apps/api/cmd/preprod-canonical-aga-loader/` and
+  `apps/api/internal/preproddata/canonicalaga/` — canonical disposable exercise
+  catalog loader, immutable import/provenance boundary, and sealed package
+  reader extracted before physical donor deletion. These packages do not mount
+  a duplicate stakeholder lifecycle in normal runtime artifacts.
 - `apps/api/internal/httpapi/generated/` — checked generated Go OpenAPI types.
 - `apps/api/migrations/` — forward-only PostgreSQL foundation, authority, and
   Evidence upload migrations with retained N-1 verification.
@@ -232,6 +232,13 @@ The root Vanilla demo remains intact.
   demo/HTTP artifacts, API/worker/scheduler, separate application and identity
   databases, Keycloak, MinIO, ClamAV, Gotenberg, and private Mailpit SMTP
   topology.
+- `deploy/aws-private-pilot/` — production-only `linux/arm64` digest contract,
+  hardened gateway/web/API/worker/scheduler/data-feed/Keycloak/Gotenberg
+  Compose surface, bounded database/migration/realm jobs, loopback-only gateway,
+  separate digest-bound ARM64 Cloudflare Tunnel systemd supervisor and health
+  timer, release schema, IPv6 preflight, and reviewed RDS CA binding. No local
+  database, MinIO, Mailpit, ClamAV, fixture, loader, observability service, or
+  `cloudflared` role is present in production Compose.
 - `deploy/local/compose.local-http.yaml`,
   `deploy/local/gateway/Caddyfile.preprod.http`, and
   the default Quick Tunnel mode in `scripts/*canonical-preprod-cloudflare*` —
@@ -268,6 +275,12 @@ The root Vanilla demo remains intact.
   public OIDC/Secure-cookie/role-panel qualification, Department Manager
   Question Review and 1,310-question New Audit selection, plus the validated
   task-owned credential handoff command.
+- `scripts/test-canonical-preprod-fault-restart.sh` and
+  `tests/canonical-preprod-fault-restart.test.mjs` — exact disposable Task 8
+  local-HTTPS transaction/fault/concurrency, 1,310-question lifecycle, cold
+  restart fingerprint, post-restart multi-role OIDC, required/optional
+  dependency loss, worker crash recovery, donor/log denial, and zero-residue
+  qualification boundary.
 - `tests/local-compose-policy.test.mjs` — fail-closed local topology, image,
   secret, network, health, and Mailpit wiring contract.
 - `tests/local-runtime-contract.test.mjs` — liveness/readiness, migration,
@@ -283,12 +296,11 @@ The root Vanilla demo remains intact.
   provider-assigned subject binding, exact domain/privacy reconciliation,
   separately authorized networkless cleanup attestation, normal-artifact
   exclusion, and zero-residue gate.
-- `scripts/test-aga-candidate-demo-loader.sh`,
-  `scripts/test-aga-candidate-preprod-demo-connected.sh`, and
-  `tests/aga-candidate-preprod-demo-*.test.mjs` — exact accepted-package,
-  provider-isolation, role/privacy, committed-seal, browser, forbidden-delta,
-  replay, and whole-namespace cleanup gates for the immutable local-preprod AGA
-  candidate-demo overlay.
+- `scripts/test-canonical-preprod-fault-restart.sh` and
+  `tests/canonical-preprod-fault-restart.test.mjs` — exact disposable canonical
+  transaction/concurrency, 1,310-question OIDC lifecycle, cold-restart
+  fingerprint, dependency loss/recovery, worker restart, donor-denial, and
+  zero-residue gate used before and after physical donor deletion.
 - `scripts/test-local-recovery.sh` — isolated local PostgreSQL dump/restore and
   exact private object backup/restore drill with dedicated cleanup.
 - `scripts/plan1-visual-stakeholder-review.mjs` — local-only Plan 1 visual
@@ -308,13 +320,22 @@ The root Vanilla demo remains intact.
   and `scripts/test-rpo-rto-drill.sh` — isolated alert, catalog, exact restore,
   candidate RPO/RTO, and zero-residue verification profiles.
 - `docs/operations/` — candidate service objectives, telemetry/alert contracts,
-  ownership, ten operational runbooks, and gated AWS trial decisions.
+  ownership, operational runbooks, AWS private-pilot owner/runtime contracts,
+  and gated AWS trial decisions.
 - `infra/terraform/` — reusable AWS modules, bootstrap and secure local
-  fixtures, native tests, and version/provider locks.
+  fixtures, the isolated Single-AZ private-pilot module with outbound-only
+  Cloudflare Tunnel, private dual-stack EC2, egress-only IPv6, private RDS/S3,
+  and no ALB/NAT/public IPv4, native tests, and version/provider locks.
 - `infra/terragrunt/` — explicit-owner AWS trial component graph and
-  non-deployable validate/plan fixture.
+  isolated private-pilot graph with explicit `avia` operator profile plus
+  non-deployable validate/plan fixtures.
 - `infra/policies/aws-plan.rego` and `scripts/check-terragrunt.sh` — fail-closed
   fixture plan and policy gates that perform no AWS apply or destroy.
+- `infra/policies/aws-private-pilot*.rego`,
+  `scripts/*aws-private-pilot*`, and
+  `tests/aws-private-pilot-*.test.mjs` — offline decision, topology, Compose,
+  release, mutation, local MinIO/ClamAV/Mailpit, and remote-authorization
+  denial gates. They make no AWS, Cloudflare, or external SMTP call.
 
 ## Smoke Tests
 
@@ -374,6 +395,13 @@ separate `apps/web/package.json` owns the React candidate commands.
 - `docs/index.md` — canonical docs map for agent, plan, product, demo handoff,
   and demo evidence surfaces.
 - `docs/PLANS.md` — repository-native ExecPlan contract and lifecycle.
+- `docs/exec-plans/active/2026-08-07-canonical-aga-preprod-end-to-end-product-plan.md`
+  — current local canonical demo plan: Tasks 1–9 are `verified locally`, the
+  user-selected physical donor deletion passed requalification, and the manual
+  three-viewport stakeholder handoff is next.
+- `docs/exec-plans/active/2026-08-10-canonical-aga-external-preprod-release-plan.md`
+  — separate paused remote-preprod follow-up; every remote action remains
+  `not run` and it does not block local demo closeout.
 - `docs/agent-harness/index.md` — canonical harness entrypoint for future
   agents.
 - `docs/agent-harness/output-contract.md` — required status, evidence, and
@@ -390,7 +418,7 @@ separate `apps/web/package.json` owns the React candidate commands.
 
 - `docs/demo-evidence/BUILD_SUMMARY.md` — canonical demo evidence, verification
   status, and known limitations.
-- `docs/demo-evidence/CANONICAL_AGA_IMPLEMENTATION_CHECKPOINT_2026-08-08.md` — current canonical AGA candidate implementation checkpoint; Task 10 remains `not run` and connected qualification is pending.
+- `docs/demo-evidence/CANONICAL_AGA_IMPLEMENTATION_CHECKPOINT_2026-08-08.md` — current canonical AGA candidate implementation checkpoint; Tasks 8–9 are verified locally, while the manual-viewport sequence remains pending and external preprod is tracked separately.
 - `docs/demo-evidence/GOVERNED_SERVICE_PROVIDER_CHECKLIST_2026-07-29.md` —
   governed-checklist local inventory, authority, browser, and recovery evidence
   with the synthetic-only claim boundary.
@@ -459,6 +487,9 @@ separate `apps/web/package.json` owns the React candidate commands.
   Plan 4 local observability, alert, dual-database backup, exact restore,
   RPO/RTO, runbook, image/SBOM/scan, Terraform/Terragrunt, cleanup, and
   explicit AWS `not run` evidence.
+- `docs/demo-evidence/AWS_PRIVATE_PILOT_LOCAL_PREPARATION_2026-08-10.md` —
+  fresh Tasks 1–6 local preparation evidence, exact `avia` profile boundary,
+  blocked native capacity gate, and complete remote `not run` boundary.
 - `docs/demo-evidence/PLAN5_IDENTITY_DATA_FOUNDATION_2026-07-28.md` —
   Plan 5 Tasks 1–8 identity/data contract, verified local directory,
   revision-guarded invitation/recovery lifecycle, live OIDC/MFA, exact

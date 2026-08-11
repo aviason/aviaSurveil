@@ -292,6 +292,10 @@ func (service *UploadService) Complete(ctx context.Context, actor identity.Princ
 		if err != nil || info.Size != declaredSize || !uploadpolicy.MatchesDeclaration(observation, mediaType, declaredSHA, declaredSize) {
 			return ErrObjectMismatch
 		}
+		objectVersionID, objectETag, err := objectstore.ExactIdentityForPersistence(service.objects, info)
+		if err != nil {
+			return ErrObjectMismatch
+		}
 		var findingStatus, inspectionID string
 		var findingRevision int64
 		if err := transaction.QueryRow(ctx, `SELECT inspection_id, status, revision FROM findings WHERE id = $1 AND organization_id = $2 FOR UPDATE`, findingID, organizationID).Scan(&inspectionID, &findingStatus, &findingRevision); err != nil {
@@ -321,9 +325,10 @@ func (service *UploadService) Complete(ctx context.Context, actor identity.Princ
 			INSERT INTO object_metadata (
 				id, aggregate_type, aggregate_id, organization_id, bucket_name, object_key, filename,
 				declared_media_type, detected_media_type, sha256, size_bytes, scan_status, object_state,
-				upload_id, created_at
-			) VALUES ($1, 'evidence_upload', $2, $3, $4, $5, $6, $7, $7, $8, $9, 'PENDING', 'QUARANTINED', $10, $11)
-		`, objectMetadataID, findingID, organizationID, bucket, key, fileName, mediaType, declaredSHA, declaredSize, input.UploadID, now); err != nil {
+				upload_id, object_version_id, object_etag, created_at
+			) VALUES ($1, 'evidence_upload', $2, $3, $4, $5, $6, $7, $7, $8, $9, 'PENDING', 'QUARANTINED', $10, NULLIF($11, ''), NULLIF($12, ''), $13)
+		`, objectMetadataID, findingID, organizationID, bucket, key, fileName, mediaType, declaredSHA, declaredSize,
+			input.UploadID, objectVersionID, objectETag, now); err != nil {
 			return fmt.Errorf("record quarantined Evidence object: %w", err)
 		}
 		var evidenceID string

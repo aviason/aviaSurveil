@@ -9,6 +9,8 @@ var (
 	ErrForbidden = errors.New("document forbidden")
 	ErrNotFound  = errors.New("document not found")
 	ErrNotReady  = errors.New("document not ready")
+	ErrInvalid   = errors.New("document invalid")
+	ErrConflict  = errors.New("document conflict")
 )
 
 type JobStatus string
@@ -30,6 +32,10 @@ type RenderSnapshot struct {
 	ContentHash      string   `json:"contentHash"`
 	Version          int64    `json:"version"`
 	CreatedBySubject string   `json:"createdBySubject"`
+	// Source is the complete, immutable canonical narrative consumed by the
+	// renderer. Keeping it in the job snapshot prevents a later database read
+	// or mutable template from changing an already-decided report.
+	Source ReportRenderSource `json:"source"`
 }
 
 type Download struct {

@@ -1,0 +1,189 @@
+{
+  "documentType": "codex-security.findings",
+  "findings": [
+    {
+      "confidence": {
+        "level": "high",
+        "rationale": "Direct source trace from the logout input to token-version and refresh-state writes."
+      },
+      "findingId": "csf_097be9eadefb8eeb6a185574",
+      "fingerprints": {
+        "algorithm": "codex-security/v1",
+        "primary": "codex-security/v1:sha256:3221bfe52bce847181a94c6509f852898c972e949db2243c6cdd9148681758b9"
+      },
+      "identity": {
+        "anchor": "logout-user-id-prefix"
+      },
+      "locations": [
+        {
+          "endLine": 546,
+          "path": "kindred_server/internal/auth/service.go",
+          "role": "sink",
+          "startLine": 520
+        },
+        {
+          "endLine": 39,
+          "path": "kindred_server/internal/auth/handler.go",
+          "role": "entry_point",
+          "startLine": 32
+        }
+      ],
+      "occurrenceId": "occ_63f85094db27ac33f09d3c29",
+      "provenance": {
+        "source": "local_plugin"
+      },
+      "remediation": "Bind logout to authenticated subject and verify the complete refresh token hash before revocation.",
+      "ruleId": "authorization.logout-token-ownership",
+      "severity": {
+        "level": "high",
+        "score": 8.0,
+        "scoringSystem": "CVSS:3.1"
+      },
+      "summary": "Logout parses a user identifier from caller-controlled refresh-token text without verifying token ownership, enabling cross-account session invalidation.",
+      "taxonomy": {
+        "category": "broken-access-control",
+        "cwe": [
+          "CWE-639"
+        ]
+      },
+      "title": "Logout revokes a user selected by an unverified refresh-token prefix"
+    },
+    {
+      "confidence": {
+        "level": "high",
+        "rationale": "The repository update path lacks a prior-hash/version condition and no contention test exists."
+      },
+      "findingId": "csf_5ca2ed8527cee9a964db0700",
+      "fingerprints": {
+        "algorithm": "codex-security/v1",
+        "primary": "codex-security/v1:sha256:df89ba06a07c8d8b7be5e2a65be98b508b910f754d521cb7b2454b95ad0d4e8f"
+      },
+      "identity": {
+        "anchor": "refresh-read-then-unconditional-write"
+      },
+      "locations": [
+        {
+          "endLine": 517,
+          "path": "kindred_server/internal/auth/service.go",
+          "role": "source",
+          "startLine": 477
+        },
+        {
+          "endLine": 201,
+          "path": "kindred_server/internal/platform/storage/dynamodb.go",
+          "role": "sink",
+          "startLine": 187
+        }
+      ],
+      "occurrenceId": "occ_356e71cbf1951c9ab5a8178e",
+      "provenance": {
+        "source": "local_plugin"
+      },
+      "remediation": "Rotate with a conditional update on the prior hash/token version and test concurrent refresh/reuse.",
+      "ruleId": "session.refresh-rotation-race",
+      "severity": {
+        "level": "high",
+        "score": 7.5,
+        "scoringSystem": "CVSS:3.1"
+      },
+      "summary": "A refresh request reads the current hash and later writes a replacement through an unconditional full-row update, so concurrent reuse is not proven single-use.",
+      "taxonomy": {
+        "category": "concurrency",
+        "cwe": [
+          "CWE-362"
+        ]
+      },
+      "title": "Refresh-token rotation is not conditional"
+    },
+    {
+      "confidence": {
+        "level": "high",
+        "rationale": "Password reset closes sessions in a sibling path, while ChangePassword omits that operation."
+      },
+      "findingId": "csf_8642470f927f671e9547bf43",
+      "fingerprints": {
+        "algorithm": "codex-security/v1",
+        "primary": "codex-security/v1:sha256:ccd68db34f178f64ba7071ad547f9000ae29c16c3bbb28ecf77c08c1fe3be089"
+      },
+      "identity": {
+        "anchor": "password-hash-update-without-session-close"
+      },
+      "locations": [
+        {
+          "endLine": 723,
+          "path": "kindred_server/internal/auth/service.go",
+          "role": "sink",
+          "startLine": 701
+        }
+      ],
+      "occurrenceId": "occ_900e63e2d53c0340b946f535",
+      "provenance": {
+        "source": "local_plugin"
+      },
+      "remediation": "Close sessions and bump token version atomically on every password change; test old access and refresh tokens.",
+      "ruleId": "session.password-change-revocation",
+      "severity": {
+        "level": "high",
+        "score": 7.0,
+        "scoringSystem": "CVSS:3.1"
+      },
+      "summary": "The authenticated password-change path updates only the password hash and does not invalidate token version or refresh state.",
+      "taxonomy": {
+        "category": "session-management",
+        "cwe": [
+          "CWE-613"
+        ]
+      },
+      "title": "Password change leaves existing sessions valid"
+    },
+    {
+      "confidence": {
+        "level": "high",
+        "rationale": "Runtime wiring and schema/resolver paths show separate GraphQL execution without the limiter middleware."
+      },
+      "findingId": "csf_80cbc66022e085c63701bd0a",
+      "fingerprints": {
+        "algorithm": "codex-security/v1",
+        "primary": "codex-security/v1:sha256:18833a51419382c21fd2e0de5b30af6255412d18004411b70d5600e19c2747c8"
+      },
+      "identity": {
+        "anchor": "graphql-public-auth-without-limiter"
+      },
+      "locations": [
+        {
+          "endLine": 171,
+          "path": "kindred_server/internal/graphql/auth_resolvers.go",
+          "role": "entry_point",
+          "startLine": 106
+        },
+        {
+          "endLine": 178,
+          "path": "kindred_server/cmd/api/main.go",
+          "role": "root_control",
+          "startLine": 166
+        }
+      ],
+      "occurrenceId": "occ_b544ac051c1458579f7cae4b",
+      "provenance": {
+        "source": "local_plugin"
+      },
+      "remediation": "Apply distributed per-IP/account/device throttles to every public GraphQL auth mutation.",
+      "ruleId": "rate-limit.graphql-auth-bypass",
+      "severity": {
+        "level": "high",
+        "score": 7.0,
+        "scoringSystem": "CVSS:3.1"
+      },
+      "summary": "The configured auth limiter is wired to legacy REST routes, while AppSync public login, registration, refresh and reset mutations call the service directly.",
+      "taxonomy": {
+        "category": "missing-rate-limit",
+        "cwe": [
+          "CWE-307"
+        ]
+      },
+      "title": "Public GraphQL authentication mutations bypass the application limiter"
+    }
+  ],
+  "scanId": "projectkindred-standard-20260811",
+  "schemaVersion": "1.0"
+}

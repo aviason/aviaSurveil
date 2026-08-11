@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 import {
   loginQualificationAccount,
   logout,
-} from "./support/aga-candidate-demo";
+} from "./support/canonical-preprod-session";
 
 type DemoRole =
   | "admin"
@@ -148,8 +148,22 @@ async function ensureAppShellServiceWorkerControlsPage(page: Page): Promise<void
     if (!("serviceWorker" in navigator)) {
       throw new Error("Service Worker is unavailable in the qualification browser");
     }
-    await navigator.serviceWorker.ready;
   });
+  await expect.poll(
+    () => page.evaluate(async () => {
+      const registration = await navigator.serviceWorker.getRegistration("/");
+      const worker = registration?.active ?? registration?.waiting ?? registration?.installing;
+      return {
+        hasRegistration: Boolean(registration),
+        secureContext: window.isSecureContext,
+        state: worker?.state ?? null,
+      };
+    }),
+    {
+      message: "the real application Service Worker must install and activate",
+      timeout: 30_000,
+    },
+  ).toEqual({ hasRegistration: true, secureContext: true, state: "activated" });
   await page.reload();
   await expect.poll(
     () => page.evaluate(() => Boolean(navigator.serviceWorker.controller)),
@@ -239,6 +253,15 @@ async function assertAuthenticatedPanel(page: Page, account: DemoAccount): Promi
   expect(cookies.some((cookie) => cookie.name === "avia_csrf")).toBe(false);
 
   if (account.role === "admin") {
+    const donorCapabilityStatus = await page.evaluate(async () => (
+      await fetch("/api/v1/admin/governed-checklist/aga-candidate-demo/capability", {
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: { Accept: "application/json" },
+      })
+    ).status);
+    expect(donorCapabilityStatus).toBe(404);
+
     const shell = page.getByTestId("application-shell");
     await expect(shell).not.toHaveClass(/workspace-shell--admin-demo/u);
     await expect(page.getByText("DEMO", { exact: true })).toHaveCount(0);

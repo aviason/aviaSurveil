@@ -1,0 +1,339 @@
+name: aviasurveil360-private-pilot
+
+x-runtime: &runtime
+  platform: linux/arm64
+  init: true
+  read_only: true
+  user: "10001:10001"
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 128
+  stop_grace_period: 30s
+  restart: unless-stopped
+  pull_policy: always
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "3"
+  deploy:
+    resources:
+      limits:
+        cpus: "0.50"
+        memory: 192M
+        pids: 128
+
+x-health: &health
+  interval: 10s
+  timeout: 3s
+  retries: 6
+  start_period: 20s
+
+x-app-environment: &app-environment
+  AVIA_ENVIRONMENT: production
+  AVIA_RUNTIME_PROFILE: aws-private-pilot
+  AVIA_DATABASE_HOST: ${AVIA_DATABASE_HOST:?required external RDS hostname}
+  AVIA_DATABASE_PORT: "${AVIA_DATABASE_PORT:-5432}"
+  AVIA_DATABASE_NAME: aviasurveil360
+  AVIA_DATABASE_USER: aviasurveil360_runtime
+  AVIA_DATABASE_SSLMODE: verify-full
+  AVIA_DATABASE_SSLROOTCERT: /etc/ssl/certs/aws-rds-global-bundle.pem
+  AVIA_DATABASE_MAX_CONNECTIONS: "${AVIA_DATABASE_MAX_CONNECTIONS:-4}"
+  AVIA_OBJECT_STORE_MODE: aws-s3
+  AVIA_OBJECT_STORE_REGION: ${AVIA_AWS_REGION:?required AWS region}
+  AVIA_OBJECT_STORE_QUARANTINE_BUCKET: ${AVIA_QUARANTINE_BUCKET:?required private S3 quarantine bucket}
+  AVIA_OBJECT_STORE_CANONICAL_BUCKET: ${AVIA_CLEAN_BUCKET:?required private S3 clean bucket}
+  AVIA_OBJECT_STORE_ATTACHMENT_BUCKET: ${AVIA_ATTACHMENTS_BUCKET:?required private S3 attachment bucket}
+  AVIA_OBJECT_STORE_DOCUMENT_BUCKET: ${AVIA_DOCUMENTS_BUCKET:?required private S3 document bucket}
+  AVIA_OBJECT_STORE_PUBLIC_ORIGIN: ${AVIA_PUBLIC_ORIGIN:?required public HTTPS origin}
+  AVIA_SCANNER_MODE: guardduty-s3
+
+x-app-secrets: &app-secrets
+  - app_database_password
+  - oidc_client_secret
+  - session_encryption_key
+  - keycloak_service_client_secret
+
+services:
+  gateway:
+    <<: *runtime
+    image: ${AVIA_GATEWAY_IMAGE:?required linux/arm64 immutable gateway image digest}
+    build:
+      context: ../..
+      dockerfile: deploy/aws-private-pilot/gateway/Dockerfile
+      target: gateway
+    user: "1000:1000"
+    environment:
+      AVIA_PUBLIC_HOSTNAME: ${AVIA_PUBLIC_HOSTNAME:?required public hostname}
+    tmpfs:
+      - /config:uid=1000,gid=1000,mode=0700
+      - /tmp:uid=1000,gid=1000,mode=1777
+    ports:
+      - "127.0.0.1:8080:8080"
+    networks: [frontend, application, identity]
+    depends_on:
+      api: { condition: service_healthy }
+      keycloak: { condition: service_healthy }
+    healthcheck:
+      <<: *health
+      test: [CMD, /healthcheck, http://127.0.0.1:8080/_internal/tunnel-health]
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 96M, pids: 128 }
+
+  api:
+    <<: *runtime
+    image: ${AVIA_API_IMAGE:?required linux/arm64 immutable API image digest}
+    entrypoint: [/bin/sh, /opt/aviasurveil360/app-entrypoint.sh, api]
+    environment:
+      <<: *app-environment
+      AVIA_HTTP_ADDRESS: 0.0.0.0:8080
+      AVIA_OIDC_ISSUER_URL: ${AVIA_OIDC_ISSUER_URL:?required production OIDC issuer}
+      AVIA_OIDC_DISCOVERY_URL: http://keycloak:8080/identity/realms/${AVIA_KEYCLOAK_REALM:?required Keycloak realm}
+      AVIA_OIDC_DISCOVERY_PRIVATE_NETWORK: "true"
+      AVIA_OIDC_CLIENT_ID: ${AVIA_OIDC_CLIENT_ID:?required production OIDC client}
+      AVIA_OIDC_REDIRECT_URL: ${AVIA_PUBLIC_ORIGIN}/auth/callback
+      AVIA_KEYCLOAK_ADMIN_URL: http://keycloak:8080/identity
+      AVIA_KEYCLOAK_REALM: ${AVIA_KEYCLOAK_REALM:?required Keycloak realm}
+      AVIA_KEYCLOAK_SERVICE_CLIENT_ID: ${AVIA_KEYCLOAK_SERVICE_CLIENT_ID:?required Keycloak service client}
+      AVIA_CORS_ALLOWED_ORIGINS: ${AVIA_PUBLIC_ORIGIN}
+      AVIA_COOKIE_SECURE: "true"
+    configs:
+      - source: app_entrypoint
+        target: /opt/aviasurveil360/app-entrypoint.sh
+        uid: "10001"
+        gid: "10001"
+        mode: 0550
+      - source: rds_ca_bundle
+        target: /etc/ssl/certs/aws-rds-global-bundle.pem
+        mode: 0444
+    secrets: *app-secrets
+    tmpfs: [/tmp:uid=10001,gid=10001,mode=1777]
+    networks: [application, identity, egress]
+    healthcheck:
+      <<: *health
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8080/health/ready]
+    deploy:
+      resources:
+        limits: { cpus: "0.50", memory: 192M, pids: 128 }
+
+  worker:
+    <<: *runtime
+    image: ${AVIA_WORKER_IMAGE:?required linux/arm64 immutable worker image digest}
+    entrypoint: [/bin/sh, /opt/aviasurveil360/app-entrypoint.sh, worker]
+    environment:
+      <<: *app-environment
+      AVIA_OIDC_ISSUER_URL: ${AVIA_OIDC_ISSUER_URL}
+      AVIA_OIDC_DISCOVERY_URL: http://keycloak:8080/identity/realms/${AVIA_KEYCLOAK_REALM}
+      AVIA_OIDC_DISCOVERY_PRIVATE_NETWORK: "true"
+      AVIA_OIDC_CLIENT_ID: ${AVIA_OIDC_CLIENT_ID}
+      AVIA_KEYCLOAK_ADMIN_URL: http://keycloak:8080/identity
+      AVIA_KEYCLOAK_REALM: ${AVIA_KEYCLOAK_REALM}
+      AVIA_KEYCLOAK_SERVICE_CLIENT_ID: ${AVIA_KEYCLOAK_SERVICE_CLIENT_ID}
+      AVIA_SMTP_ADDRESS: ${AVIA_SMTP_HOSTNAME:?required external SMTP hostname}:${AVIA_SMTP_PORT:?required external SMTP port}
+      AVIA_SMTP_FROM: ${AVIA_SMTP_FROM:?required SMTP sender}
+      AVIA_SMTP_USERNAME: ${AVIA_SMTP_USERNAME:?required SMTP username}
+      AVIA_SMTP_TRANSPORT: ${AVIA_SMTP_TRANSPORT:?required implicit-tls or starttls}
+      AVIA_SMTP_TLS_SERVER_NAME: ${AVIA_SMTP_TLS_SERVER_NAME:?required SMTP TLS server name}
+      AVIA_DOCUMENT_RENDER_MAX_CONCURRENCY: "1"
+    configs:
+      - source: app_entrypoint
+        target: /opt/aviasurveil360/app-entrypoint.sh
+        uid: "10001"
+        gid: "10001"
+        mode: 0550
+      - source: rds_ca_bundle
+        target: /etc/ssl/certs/aws-rds-global-bundle.pem
+        mode: 0444
+    secrets:
+      - app_database_password
+      - oidc_client_secret
+      - session_encryption_key
+      - keycloak_service_client_secret
+      - app_smtp_password
+    tmpfs: [/tmp:uid=10001,gid=10001,mode=1777]
+    networks: [application, identity, egress]
+    depends_on:
+      api: { condition: service_healthy }
+      keycloak: { condition: service_healthy }
+    healthcheck:
+      <<: *health
+      test: [CMD, test, -r, /proc/1/status]
+    deploy:
+      resources:
+        limits: { cpus: "0.50", memory: 192M, pids: 128 }
+
+  keycloak:
+    <<: *runtime
+    image: ${AVIA_KEYCLOAK_IMAGE:?required reviewed linux/arm64 immutable Keycloak image digest}
+    user: "1000:0"
+    entrypoint: [/bin/sh, /opt/aviasurveil360/keycloak-entrypoint.sh]
+    command:
+      - start
+      - --optimized
+      - --http-enabled=true
+      - --hostname=${AVIA_PUBLIC_ORIGIN}/identity
+      - --hostname-backchannel-dynamic=true
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://${AVIA_DATABASE_HOST}:${AVIA_DATABASE_PORT:-5432}/keycloak?sslmode=verify-full&sslrootcert=/etc/ssl/certs/aws-rds-global-bundle.pem
+      KC_DB_USERNAME: keycloak_runtime
+      KC_DB_PASSWORD_FILE: /run/secrets/keycloak_database_password
+      KC_HTTP_RELATIVE_PATH: /identity
+      KC_HTTP_MANAGEMENT_RELATIVE_PATH: /identity
+      KC_PROXY_HEADERS: xforwarded
+      KC_HEALTH_ENABLED: "true"
+      KC_CACHE: local
+      KC_DB_POOL_INITIAL_SIZE: "1"
+      KC_DB_POOL_MIN_SIZE: "1"
+      KC_DB_POOL_MAX_SIZE: "8"
+      JAVA_OPTS_KC_HEAP: -XX:MaxRAMPercentage=65 -XX:InitialRAMPercentage=30
+      JAVA_OPTS_APPEND: >-
+        -Dmail.smtp.ssl.checkserveridentity=true
+        -Dmail.smtps.ssl.checkserveridentity=true
+        -Dmail.smtp.starttls.required=true
+        -Djdk.tls.client.protocols=TLSv1.2,TLSv1.3
+      KC_SMTP_PASSWORD_FILE: /run/secrets/keycloak_smtp_password
+    configs:
+      - source: keycloak_entrypoint
+        target: /opt/aviasurveil360/keycloak-entrypoint.sh
+        uid: "1000"
+        gid: "0"
+        mode: 0550
+      - source: rds_ca_bundle
+        target: /etc/ssl/certs/aws-rds-global-bundle.pem
+        mode: 0444
+    secrets: [keycloak_database_password, keycloak_smtp_password]
+    tmpfs:
+      - /tmp:uid=1000,gid=0,mode=1777
+      - /opt/keycloak/data/tmp:uid=1000,gid=0,mode=0770
+    networks: [identity, egress]
+    healthcheck:
+      <<: *health
+      start_period: 45s
+      test:
+        - CMD
+        - bash
+        - -c
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/9000;
+          printf 'GET /identity/health/ready HTTP/1.1\r\nHost: 127.0.0.1:9000\r\nConnection: close\r\n\r\n' >&3;
+          grep -q 'HTTP/1.1 200 OK' <&3
+    deploy:
+      resources:
+        limits: { cpus: "0.75", memory: 640M, pids: 128 }
+
+  database-bootstrap:
+    <<: *runtime
+    image: ${AVIA_DATABASE_BOOTSTRAP_IMAGE:?required linux/arm64 immutable database bootstrap image digest}
+    profiles: [bootstrap]
+    restart: "no"
+    entrypoint: [/bin/sh, /opt/aviasurveil360/database-bootstrap.sh]
+    environment:
+      PGHOST: ${AVIA_DATABASE_HOST}
+      PGPORT: "${AVIA_DATABASE_PORT:-5432}"
+      PGDATABASE: postgres
+      PGUSER: ${AVIA_DATABASE_BOOTSTRAP_USER:?required bounded database bootstrap user}
+      PGSSLMODE: verify-full
+      PGSSLROOTCERT: /etc/ssl/certs/aws-rds-global-bundle.pem
+    configs:
+      - source: database_bootstrap
+        target: /opt/aviasurveil360/database-bootstrap.sh
+        uid: "10001"
+        gid: "10001"
+        mode: 0550
+      - source: rds_ca_bundle
+        target: /etc/ssl/certs/aws-rds-global-bundle.pem
+        mode: 0444
+    secrets: [database_bootstrap_password, app_database_password, app_migration_password, keycloak_database_password]
+    tmpfs: [/tmp:uid=10001,gid=10001,mode=1777]
+    networks: [egress]
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 96M, pids: 128 }
+
+  migration:
+    <<: *runtime
+    image: ${AVIA_MIGRATION_IMAGE:?required linux/arm64 immutable migration image digest}
+    profiles: [migration]
+    restart: "no"
+    entrypoint: [/bin/sh, /opt/aviasurveil360/app-entrypoint.sh, migrate]
+    environment:
+      <<: *app-environment
+      AVIA_DATABASE_USER: aviasurveil360_migrator
+    configs:
+      - source: app_entrypoint
+        target: /opt/aviasurveil360/app-entrypoint.sh
+        uid: "10001"
+        gid: "10001"
+        mode: 0550
+      - source: rds_ca_bundle
+        target: /etc/ssl/certs/aws-rds-global-bundle.pem
+        mode: 0444
+    secrets: [app_migration_password]
+    tmpfs: [/tmp:uid=10001,gid=10001,mode=1777]
+    networks: [egress]
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 96M, pids: 128 }
+
+  keycloak-bootstrap:
+    <<: *runtime
+    image: ${AVIA_KEYCLOAK_IMAGE}
+    profiles: [bootstrap]
+    user: "1000:0"
+    restart: "no"
+    entrypoint: [/bin/sh, /opt/aviasurveil360/keycloak-entrypoint.sh]
+    command: [import, --file, /run/secrets/keycloak_realm]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://${AVIA_DATABASE_HOST}:${AVIA_DATABASE_PORT:-5432}/keycloak?sslmode=verify-full&sslrootcert=/etc/ssl/certs/aws-rds-global-bundle.pem
+      KC_DB_USERNAME: keycloak_runtime
+      KC_DB_PASSWORD_FILE: /run/secrets/keycloak_database_password
+      KC_SMTP_PASSWORD_FILE: /run/secrets/keycloak_smtp_password
+    configs:
+      - source: keycloak_entrypoint
+        target: /opt/aviasurveil360/keycloak-entrypoint.sh
+        uid: "1000"
+        gid: "0"
+        mode: 0550
+      - source: rds_ca_bundle
+        target: /etc/ssl/certs/aws-rds-global-bundle.pem
+        mode: 0444
+    secrets: [keycloak_database_password, keycloak_smtp_password, keycloak_realm]
+    tmpfs:
+      - /tmp:uid=1000,gid=0,mode=1777
+      - /opt/keycloak/data/tmp:uid=1000,gid=0,mode=0770
+    networks: [egress]
+    deploy:
+      resources:
+        limits: { cpus: "0.50", memory: 512M, pids: 128 }
+
+configs:
+  app_entrypoint: { file: ./runtime/app-entrypoint.sh }
+  database_bootstrap: { file: ./runtime/database-bootstrap.sh }
+  keycloak_entrypoint: { file: ./runtime/keycloak-entrypoint.sh }
+  rds_ca_bundle: { file: "${AVIA_RDS_CA_BUNDLE_FILE:?required reviewed AWS RDS CA bundle}" }
+
+secrets:
+  app_database_password: { file: "${AVIA_APP_DATABASE_PASSWORD_FILE:?required application DB password file}" }
+  app_migration_password: { file: "${AVIA_APP_MIGRATION_PASSWORD_FILE:?required bounded migration password file}" }
+  database_bootstrap_password: { file: "${AVIA_DATABASE_BOOTSTRAP_PASSWORD_FILE:?required bounded bootstrap password file}" }
+  keycloak_database_password: { file: "${AVIA_KEYCLOAK_DATABASE_PASSWORD_FILE:?required Keycloak DB password file}" }
+  oidc_client_secret: { file: "${AVIA_OIDC_CLIENT_SECRET_FILE:?required OIDC secret file}" }
+  session_encryption_key: { file: "${AVIA_SESSION_ENCRYPTION_KEY_FILE:?required session encryption key file}" }
+  keycloak_service_client_secret: { file: "${AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET_FILE:?required Keycloak service secret file}" }
+  app_smtp_password: { file: "${AVIA_APP_SMTP_PASSWORD_FILE:?required application SMTP password file}" }
+  keycloak_smtp_password: { file: "${AVIA_KEYCLOAK_SMTP_PASSWORD_FILE:?required Keycloak SMTP password file}" }
+  keycloak_realm: { file: "${AVIA_KEYCLOAK_REALM_FILE:?required reviewed Keycloak realm file}" }
+
+networks:
+  frontend: { internal: true }
+  application: { internal: true }
+  identity: { internal: true }
+  egress:
+    enable_ipv6: true
+    ipam:
+      config:
+        - subnet: 172.30.248.0/24
+        - subnet: fd36:6176:6961:360::/64

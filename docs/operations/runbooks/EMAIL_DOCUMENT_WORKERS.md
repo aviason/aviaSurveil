@@ -70,7 +70,7 @@ queue rows.
 ## Recovery Verification
 
 ```bash
-./scripts/test-local-full-profile.sh
+make preprod-test-fault-restart
 ```
 
 Require one accepted private email, one generated PDF with provenance, restart
@@ -94,3 +94,22 @@ retention or legal-hold questions.
 Manual requeue, dead-letter release, body or audience change, resend to any
 external recipient, document-version mutation, production SMTP/Gotenberg use,
 and retention changes require new explicit authorization.
+
+## AWS Private-Pilot Worker Boundary
+
+Production SMTP permits only verified implicit TLS or mandatory STARTTLS with
+TLS 1.2 or newer, hostname validation, bounded timeouts, and redacted failure
+codes. The selected relay must publish a reviewed AAAA result and pass the
+host's forced-IPv6 certificate preflight; its security-group destination is a
+reviewed IPv6 CIDR on only port 465 or 587. There is no IPv4/NAT, public
+plaintext, or Mailpit fallback. The private-pilot worker uses native Go PDF
+rendering with embedded fonts; no Gotenberg, Chromium, renderer URL, or
+renderer container is part of the production target. Notification and document
+outbox leases remain idempotent across outage, timeout, duplicate delivery,
+worker restart, and the post-external-effect crash window.
+
+The task-owned local integration gate continues to exercise authenticated
+Mailpit, outage/restart recovery, exact message metadata, and the local
+renderer contract. External SMTP delivery and production rendering are `not
+run`. Future operator-side AWS diagnostics must use profile `avia`; runtime
+containers still use no named AWS profile.

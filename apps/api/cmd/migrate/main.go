@@ -27,7 +27,7 @@ func main() {
 }
 
 func run(ctx context.Context) error {
-	settings, err := config.Load(os.LookupEnv)
+	settings, err := config.LoadDatabaseRuntime(os.LookupEnv)
 	if err != nil {
 		return fmt.Errorf("load configuration: %w", err)
 	}

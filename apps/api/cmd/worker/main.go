@@ -7,10 +7,12 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/administration"
+	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/application"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/documents"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/notifications"
@@ -67,10 +69,14 @@ func run(ctx context.Context) error {
 		return err
 	}
 	defer pool.Close()
-	if settings.Environment != "local-preprod" {
+	if settings.Environment != "local-preprod" && settings.RuntimeProfile != "aws-private-pilot" {
 		if err := migrations.Apply(ctx, pool); err != nil {
 			return err
 		}
+	}
+	readiness := database.Readiness{Pool: pool, RequiredMigrationVersion: migrations.LatestVersion}
+	if err := readiness.Ready(ctx); err != nil {
+		return fmt.Errorf("worker migration precondition: %w", err)
 	}
 	keycloakAdmin, err := newKeycloakAdminClient(settings)
 	if err != nil {
@@ -105,37 +111,58 @@ func run(ctx context.Context) error {
 		)
 	}
 
-	var objects *objectstore.MinIOStore
+	var objects objectstore.Store
 	var evidenceProcessor scanProcessor
 	var documentProcessor scanProcessor
-	if settings.ObjectStoreEndpoint != "" {
-		objects, err = objectstore.NewMinIOStore(objectstore.MinIOConfig{
-			Endpoint: settings.ObjectStoreEndpoint, PublicEndpoint: settings.ObjectStorePublicEndpoint,
-			AccessKey: settings.ObjectStoreAccessKey, SecretKey: settings.ObjectStoreSecretKey,
-			UseTLS: settings.ObjectStoreTLS, PublicUseTLS: settings.ObjectStorePublicTLS,
-			Region: settings.ObjectStoreRegion, AllowServerManagedCORS: settings.AllowServerManagedCORS,
-		})
+	if settings.ObjectStoreMode != "" || settings.ObjectStoreEndpoint != "" {
+		switch settings.ObjectStoreMode {
+		case "aws-s3":
+			objects, err = objectstore.NewAWSStore(objectstore.AWSConfig{
+				Region: settings.ObjectStoreRegion, HealthBucket: settings.QuarantineBucket,
+			})
+		case "", "minio":
+			var localObjects *objectstore.MinIOStore
+			localObjects, err = objectstore.NewMinIOStore(objectstore.MinIOConfig{
+				Endpoint: settings.ObjectStoreEndpoint, PublicEndpoint: settings.ObjectStorePublicEndpoint,
+				AccessKey: settings.ObjectStoreAccessKey, SecretKey: settings.ObjectStoreSecretKey,
+				UseTLS: settings.ObjectStoreTLS, PublicUseTLS: settings.ObjectStorePublicTLS,
+				Region: settings.ObjectStoreRegion, AllowServerManagedCORS: settings.AllowServerManagedCORS,
+			})
+			objects = localObjects
+			if err == nil && settings.Environment != "production" {
+				err = localObjects.EnsurePrivateBuckets(ctx, []string{
+					settings.QuarantineBucket,
+					settings.CanonicalBucket,
+					settings.AttachmentBucket,
+					settings.DocumentBucket,
+				}, settings.ObjectStoreCORSOrigins)
+			}
+		default:
+			err = fmt.Errorf("unsupported AVIA_OBJECT_STORE_MODE %q", settings.ObjectStoreMode)
+		}
 		if err != nil {
 			return err
-		}
-		if settings.Environment != "production" {
-			if err := objects.EnsurePrivateBuckets(ctx, []string{
-				settings.QuarantineBucket,
-				settings.CanonicalBucket,
-				settings.AttachmentBucket,
-				settings.DocumentBucket,
-			}, settings.ObjectStoreCORSOrigins); err != nil {
-				return err
-			}
 		}
 		contentScanner, scannerErr := newEvidenceScanner(settings)
 		if scannerErr != nil {
 			return scannerErr
 		}
-		if contentScanner != nil {
+		var managedResultProvider scanner.ManagedResultProvider
+		if settings.ScannerMode == "guardduty-s3" {
+			exactObjects, ok := objects.(objectstore.ExactVersionStore)
+			if !ok {
+				return errors.New("GuardDuty S3 scanning requires exact-version object storage")
+			}
+			managedResultProvider, err = scanner.NewGuardDutyS3ResultProvider(exactObjects, nil)
+			if err != nil {
+				return err
+			}
+		}
+		if contentScanner != nil || managedResultProvider != nil {
 			evidenceProcessor = evidenceworker.New(pool, objects, contentScanner, evidenceworker.Config{
 				WorkerID: "evidence-worker", CanonicalBucket: settings.CanonicalBucket,
 				AttachmentBucket: settings.AttachmentBucket, LeaseDuration: time.Minute,
+				ManagedResultProvider: managedResultProvider, ScanBackend: settings.ScannerMode,
 			})
 		}
 		documentRenderer, rendererErr := newDocumentRenderer(settings)
@@ -150,86 +177,75 @@ func run(ctx context.Context) error {
 		}
 	}
 
-	readiness := database.Readiness{Pool: pool, RequiredMigrationVersion: migrations.LatestVersion}
-	ticker := time.NewTicker(settings.WorkerInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-ticker.C:
-			if err := readiness.Ready(ctx); err != nil {
-				return fmt.Errorf("worker dependency check: %w", err)
-			}
-			if identityWorker != nil {
-				processed, err := processAvailableInstrumented(
-					ctx,
-					telemetryRuntime,
-					identityWorker,
-				)
-				if err != nil {
-					slog.Error(
-						"identity lifecycle work batch failed",
-						"processed",
-						processed,
-						"error",
-						err,
-					)
-				} else if processed > 0 {
-					slog.Info(
-						"identity lifecycle work batch completed",
-						"processed",
-						processed,
-					)
+	reminderWorkflow := application.NewCommunicationsWorkflow(
+		pool,
+		application.CommunicationsWorkflowDependencies{Clock: time.Now},
+	)
+	workerContext, cancelWorker := context.WithCancel(ctx)
+	defer cancelWorker()
+	var workerWaitGroup sync.WaitGroup
+	workerWaitGroup.Add(1)
+	go func() {
+		defer workerWaitGroup.Done()
+		runReminderController(workerContext, reminderControllerConfig{
+			Interval: time.Minute,
+			Deadline: 45 * time.Second,
+			Schedule: reminderWorkflow,
+		})
+	}()
+	processorErrors := make(chan error, 1)
+	workerWaitGroup.Add(1)
+	go func() {
+		defer workerWaitGroup.Done()
+		ticker := time.NewTicker(settings.WorkerInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-workerContext.Done():
+				return
+			case <-ticker.C:
+				if err := readiness.Ready(workerContext); err != nil {
+					processorErrors <- fmt.Errorf("worker dependency check: %w", err)
+					return
 				}
-			}
-			if notificationProcessor != nil {
-				processed, err := processAvailableInstrumented(
-					ctx,
-					telemetryRuntime,
-					notificationProcessor,
-				)
-				if err != nil {
-					slog.Error(
-						"notification delivery work batch failed",
-						"processed",
-						processed,
-						"errorCode",
-						notifications.DeliveryFailureCode(err),
-					)
-				} else if processed > 0 {
-					slog.Info(
-						"notification delivery work batch completed",
-						"processed",
-						processed,
-					)
+				if identityWorker != nil {
+					processed, err := processAvailableInstrumented(workerContext, telemetryRuntime, identityWorker)
+					if err != nil {
+						slog.Error("identity lifecycle work batch failed", "processed", processed, "error", err)
+					} else if processed > 0 {
+						slog.Info("identity lifecycle work batch completed", "processed", processed)
+					}
 				}
-			}
-			if objects != nil {
-				if err := objects.Check(ctx); err != nil {
-					return fmt.Errorf("worker object-store check: %w", err)
+				if notificationProcessor != nil {
+					processed, err := processAvailableInstrumented(workerContext, telemetryRuntime, notificationProcessor)
+					if err != nil {
+						slog.Error("notification delivery work batch failed", "processed", processed, "errorCode", notifications.DeliveryFailureCode(err))
+					} else if processed > 0 {
+						slog.Info("notification delivery work batch completed", "processed", processed)
+					}
+				}
+				if objects == nil {
+					continue
+				}
+				if err := objects.Check(workerContext); err != nil {
+					processorErrors <- fmt.Errorf("worker object-store check: %w", err)
+					return
 				}
 				processed := 0
 				if evidenceProcessor != nil {
-					processed, err = processAvailableInstrumented(
-						ctx,
-						telemetryRuntime,
-						evidenceProcessor,
-					)
-					if err != nil {
-						slog.Error("scan work batch failed", "processed", processed, "error", err)
+					var batchErr error
+					processed, batchErr = processAvailableInstrumented(workerContext, telemetryRuntime, evidenceProcessor)
+					if batchErr != nil {
+						slog.Error("scan work batch failed", "processed", processed, "error", batchErr)
 						continue
 					}
 				}
 				rendered := 0
 				if documentProcessor != nil {
-					rendered, err = processAvailableInstrumented(
-						ctx,
-						telemetryRuntime,
-						documentProcessor,
-					)
-					if err != nil {
-						slog.Error("document work batch failed", "processed", rendered, "error", err)
+					var batchErr error
+					rendered, batchErr = processAvailableInstrumented(workerContext, telemetryRuntime, documentProcessor)
+					if batchErr != nil {
+						slog.Error("document work batch failed", "processed", rendered, "error", batchErr)
 						continue
 					}
 				}
@@ -240,6 +256,20 @@ func run(ctx context.Context) error {
 					slog.Info("document work batch completed", "processed", rendered)
 				}
 			}
+		}
+	}()
+
+	var processorErr error
+	for {
+		select {
+		case <-ctx.Done():
+			cancelWorker()
+			workerWaitGroup.Wait()
+			return nil
+		case processorErr = <-processorErrors:
+			cancelWorker()
+			workerWaitGroup.Wait()
+			return processorErr
 		}
 	}
 }
@@ -262,6 +292,8 @@ func newNotificationSender(
 		Password:       settings.SMTPPassword,
 		Timeout:        settings.SMTPTimeout,
 		PrivateNetwork: settings.SMTPPrivateNetwork,
+		Transport:      settings.SMTPTransport,
+		TLSServerName:  settings.SMTPTLSServerName,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("configure SMTP notification delivery: %w", err)
@@ -270,30 +302,7 @@ func newNotificationSender(
 }
 
 func newDocumentRenderer(settings config.Settings) (documents.Renderer, error) {
-	if settings.ScannerMode == "deterministic-test" {
-		if settings.Environment == "production" {
-			return nil, errors.New(
-				"deterministic document renderer is forbidden in production",
-			)
-		}
-		return documents.DeterministicPDFRenderer{}, nil
-	}
-	if settings.GotenbergURL == "" {
-		if settings.Environment == "production" {
-			return nil, errors.New(
-				"Gotenberg document rendering is required by the production worker",
-			)
-		}
-		return nil, nil
-	}
-	renderer, err := documents.NewGotenbergRenderer(documents.GotenbergConfig{
-		BaseURL: settings.GotenbergURL, Timeout: settings.GotenbergTimeout,
-		RendererHash: settings.GotenbergRendererHash,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("configure Gotenberg document renderer: %w", err)
-	}
-	return renderer, nil
+	return documents.NewNativeRenderer()
 }
 
 func newEvidenceScanner(settings config.Settings) (evidenceworker.Scanner, error) {
@@ -310,6 +319,8 @@ func newEvidenceScanner(settings config.Settings) (evidenceworker.Scanner, error
 			Address:             settings.ClamAVAddress,
 			MaximumSignatureAge: settings.ClamAVMaximumSignatureAge,
 		})
+	case "guardduty-s3":
+		return nil, nil
 	default:
 		return nil, fmt.Errorf("unsupported AVIA_SCANNER_MODE %q", settings.ScannerMode)
 	}

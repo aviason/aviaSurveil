@@ -39,8 +39,12 @@ func NewMinIOStore(config MinIOConfig) (*MinIOStore, error) {
 	if strings.TrimSpace(config.Endpoint) == "" || config.AccessKey == "" || config.SecretKey == "" {
 		return nil, errors.New("object-store endpoint and credentials are required")
 	}
+	return newMinIOStore(config, credentials.NewStaticV4(config.AccessKey, config.SecretKey, ""))
+}
+
+func newMinIOStore(config MinIOConfig, provider *credentials.Credentials) (*MinIOStore, error) {
 	client, err := minio.New(config.Endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(config.AccessKey, config.SecretKey, ""),
+		Creds:  provider,
 		Secure: config.UseTLS, Region: config.Region,
 	})
 	if err != nil {
@@ -53,7 +57,7 @@ func NewMinIOStore(config MinIOConfig) (*MinIOStore, error) {
 		publicUseTLS = config.UseTLS
 	}
 	signer, err := minio.New(publicEndpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(config.AccessKey, config.SecretKey, ""),
+		Creds:  provider,
 		Secure: publicUseTLS,
 		Region: config.Region,
 	})
@@ -138,6 +142,7 @@ func (store *MinIOStore) Write(ctx context.Context, request WriteRequest) (Objec
 	}
 	return ObjectInfo{
 		Bucket: request.Bucket, Key: request.Key, Size: info.Size,
+		VersionID: info.VersionID, ETag: info.ETag, LastModified: info.LastModified,
 		ContentType: request.ContentType, Metadata: cloneHeaders(request.Metadata),
 	}, nil
 }
@@ -156,7 +161,76 @@ func (store *MinIOStore) Open(ctx context.Context, bucket, key string) (io.ReadC
 		metadata[strings.ToLower(key)] = value
 	}
 	return object, ObjectInfo{
-		Bucket: bucket, Key: key, Size: stat.Size, ContentType: stat.ContentType, Metadata: metadata,
+		Bucket: bucket, Key: key, VersionID: stat.VersionID, ETag: stat.ETag,
+		Size: stat.Size, ContentType: stat.ContentType, Metadata: metadata, LastModified: stat.LastModified,
+	}, nil
+}
+
+func (store *MinIOStore) OpenExact(ctx context.Context, expected ExactObject) (io.ReadCloser, ObjectInfo, error) {
+	if err := validateExactObject(expected); err != nil {
+		return nil, ObjectInfo{}, err
+	}
+	statOptions := minio.StatObjectOptions{VersionID: expected.VersionID}
+	stat, err := store.client.StatObject(ctx, expected.Bucket, expected.Key, statOptions)
+	if err != nil {
+		return nil, ObjectInfo{}, mapObjectError(err)
+	}
+	info := objectInfoFromStat(expected.Bucket, expected.Key, stat)
+	if err := matchExactObject(expected, info); err != nil {
+		return nil, ObjectInfo{}, err
+	}
+	getOptions := minio.GetObjectOptions{}
+	getOptions.VersionID = expected.VersionID
+	object, err := store.client.GetObject(ctx, expected.Bucket, expected.Key, getOptions)
+	if err != nil {
+		return nil, ObjectInfo{}, mapObjectError(err)
+	}
+	return object, info, nil
+}
+
+func (store *MinIOStore) ReadTagsExact(ctx context.Context, expected ExactObject) (map[string]string, ObjectInfo, error) {
+	if err := validateExactObject(expected); err != nil {
+		return nil, ObjectInfo{}, err
+	}
+	stat, err := store.client.StatObject(ctx, expected.Bucket, expected.Key, minio.StatObjectOptions{VersionID: expected.VersionID})
+	if err != nil {
+		return nil, ObjectInfo{}, mapObjectError(err)
+	}
+	info := objectInfoFromStat(expected.Bucket, expected.Key, stat)
+	if err := matchExactObject(expected, info); err != nil {
+		return nil, ObjectInfo{}, err
+	}
+	objectTags, err := store.client.GetObjectTagging(ctx, expected.Bucket, expected.Key, minio.GetObjectTaggingOptions{VersionID: expected.VersionID})
+	if err != nil {
+		return nil, ObjectInfo{}, fmt.Errorf("read exact-version object tags: %w", mapObjectError(err))
+	}
+	return objectTags.ToMap(), info, nil
+}
+
+func (store *MinIOStore) CopyExact(ctx context.Context, request ExactCopyRequest) (ObjectInfo, error) {
+	if strings.TrimSpace(request.DestinationBucket) == "" || strings.TrimSpace(request.DestinationKey) == "" {
+		return ObjectInfo{}, errors.New("exact copy destination is required")
+	}
+	reader, sourceInfo, err := store.OpenExact(ctx, request.Source)
+	if err != nil {
+		return ObjectInfo{}, err
+	}
+	options := minio.PutObjectOptions{
+		ContentType: sourceInfo.ContentType, UserMetadata: cloneHeaders(sourceInfo.Metadata), DisableMultipart: true,
+	}
+	options.SetMatchETagExcept("*")
+	written, writeErr := store.client.PutObject(ctx, request.DestinationBucket, request.DestinationKey, reader, sourceInfo.Size, options)
+	closeErr := reader.Close()
+	if writeErr != nil || closeErr != nil {
+		if writeErr != nil {
+			writeErr = mapObjectError(writeErr)
+		}
+		return ObjectInfo{}, errors.Join(writeErr, closeErr)
+	}
+	return ObjectInfo{
+		Bucket: request.DestinationBucket, Key: request.DestinationKey,
+		VersionID: written.VersionID, ETag: written.ETag, Size: written.Size,
+		ContentType: sourceInfo.ContentType, Metadata: cloneHeaders(sourceInfo.Metadata), LastModified: written.LastModified,
 	}, nil
 }
 
@@ -291,3 +365,38 @@ func cloneHeaders(values map[string]string) map[string]string {
 	}
 	return cloned
 }
+
+func objectInfoFromStat(bucket, key string, stat minio.ObjectInfo) ObjectInfo {
+	metadata := make(map[string]string, len(stat.UserMetadata))
+	for name, value := range stat.UserMetadata {
+		metadata[strings.ToLower(name)] = value
+	}
+	return ObjectInfo{
+		Bucket: bucket, Key: key, VersionID: stat.VersionID, ETag: stat.ETag,
+		Size: stat.Size, ContentType: stat.ContentType, Metadata: metadata, LastModified: stat.LastModified,
+	}
+}
+
+func validateExactObject(expected ExactObject) error {
+	if strings.TrimSpace(expected.Bucket) == "" || strings.TrimSpace(expected.Key) == "" ||
+		strings.TrimSpace(expected.VersionID) == "" || strings.TrimSpace(expected.ETag) == "" ||
+		strings.TrimSpace(expected.SHA256) == "" || expected.Size < 0 {
+		return errors.New("exact object identity is incomplete")
+	}
+	return nil
+}
+
+func matchExactObject(expected ExactObject, actual ObjectInfo) error {
+	actualHash := actual.Metadata["sha256"]
+	if actualHash == "" {
+		actualHash = actual.Metadata["x-amz-meta-sha256"]
+	}
+	if actual.Bucket != expected.Bucket || actual.Key != expected.Key ||
+		actual.VersionID != expected.VersionID || strings.Trim(actual.ETag, "\"") != strings.Trim(expected.ETag, "\"") ||
+		actual.Size != expected.Size || actualHash != expected.SHA256 {
+		return errors.New("exact object identity mismatch")
+	}
+	return nil
+}
+
+var _ ExactVersionStore = (*MinIOStore)(nil)

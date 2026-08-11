@@ -738,7 +738,7 @@ func TestManagementAdminAssistantExactHTTPAndRawWirePrivacy(t *testing.T) {
 			}
 		}
 	}
-	if len(uniqueScreens) != 86 || len(uniqueActions) != 108 {
+	if len(uniqueScreens) != 85 || len(uniqueActions) != 107 {
 		t.Fatalf(
 			"HTTP Administration registry screens=%d actions=%d",
 			len(uniqueScreens),

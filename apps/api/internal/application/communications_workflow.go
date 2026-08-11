@@ -805,66 +805,83 @@ type reminderCandidate struct {
 	DueDate            time.Time
 }
 
+const (
+	reminderBatchSize = 64
+	reminderMaxPages  = 16
+)
+
 func (workflow *CommunicationsWorkflow) ScheduleDueReminders(
 	ctx context.Context,
 ) (int, error) {
-	rows, err := workflow.pool.Query(ctx, `
-		SELECT rule.id, rule.offset_days, finding.id, finding.reference,
-		       finding.organization_id, finding.owner_subject_id,
-		       finding.due_date
-		FROM reminder_rules rule
-		CROSS JOIN findings finding
-		JOIN identity_references recipient
-		  ON recipient.subject_id = finding.owner_subject_id
-		WHERE rule.status = 'ACTIVE'
-		  AND finding.due_date IS NOT NULL
-		  AND finding.owner_subject_id IS NOT NULL
-		  AND finding.status <> 'CLOSED'
-		ORDER BY rule.id, finding.id
-	`)
-	if err != nil {
-		return 0, err
-	}
-	candidates := []reminderCandidate{}
 	now := workflow.service.clock().UTC()
-	for rows.Next() {
-		var candidate reminderCandidate
-		if err := rows.Scan(
-			&candidate.RuleID,
-			&candidate.OffsetDays,
-			&candidate.FindingID,
-			&candidate.FindingReference,
-			&candidate.OrganizationID,
-			&candidate.RecipientSubjectID,
-			&candidate.DueDate,
-		); err != nil {
-			rows.Close()
-			return 0, err
-		}
-		if notifications.RuleMatches(
-			candidate.OffsetDays,
-			candidate.DueDate,
-			now,
-		) {
-			candidates = append(candidates, candidate)
-		}
-	}
-	if err := rows.Err(); err != nil {
-		rows.Close()
-		return 0, err
-	}
-	rows.Close()
 	processed := 0
-	for _, candidate := range candidates {
-		created, err := workflow.scheduleReminder(ctx, candidate, now)
+	var failures []error
+	lastRuleID, lastFindingID := "", ""
+	for page := 0; page < reminderMaxPages; page++ {
+		rows, err := workflow.pool.Query(ctx, `
+			SELECT rule.id, rule.offset_days, finding.id, finding.reference,
+			       finding.organization_id, finding.owner_subject_id,
+			       finding.due_date
+			FROM reminder_rules rule
+			CROSS JOIN findings finding
+			JOIN identity_references recipient
+			  ON recipient.subject_id = finding.owner_subject_id
+			WHERE rule.status = 'ACTIVE'
+			  AND finding.due_date IS NOT NULL
+			  AND finding.owner_subject_id IS NOT NULL
+			  AND finding.status <> 'CLOSED'
+			  AND (rule.id, finding.id) > ($1, $2)
+			ORDER BY rule.id, finding.id
+			LIMIT $3
+		`, lastRuleID, lastFindingID, reminderBatchSize)
 		if err != nil {
-			return processed, err
+			return processed, joinReminderErrors(failures, err)
 		}
-		if created {
-			processed++
+		pageRows := 0
+		for rows.Next() {
+			pageRows++
+			var candidate reminderCandidate
+			if err := rows.Scan(
+				&candidate.RuleID,
+				&candidate.OffsetDays,
+				&candidate.FindingID,
+				&candidate.FindingReference,
+				&candidate.OrganizationID,
+				&candidate.RecipientSubjectID,
+				&candidate.DueDate,
+			); err != nil {
+				rows.Close()
+				return processed, joinReminderErrors(failures, err)
+			}
+			lastRuleID, lastFindingID = candidate.RuleID, candidate.FindingID
+			if !notifications.RuleMatches(candidate.OffsetDays, candidate.DueDate, now) {
+				continue
+			}
+			created, err := workflow.scheduleReminder(ctx, candidate, now)
+			if err != nil {
+				// A poison candidate must not prevent independent candidates or a
+				// later bounded tick from retrying it.
+				failures = append(failures, fmt.Errorf("reminder candidate failed: %w", err))
+				continue
+			}
+			if created {
+				processed++
+			}
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return processed, joinReminderErrors(failures, err)
+		}
+		rows.Close()
+		if pageRows < reminderBatchSize {
+			break
 		}
 	}
-	return processed, nil
+	return processed, errors.Join(failures...)
+}
+
+func joinReminderErrors(failures []error, current error) error {
+	return errors.Join(append(failures, current)...)
 }
 
 func (workflow *CommunicationsWorkflow) scheduleReminder(

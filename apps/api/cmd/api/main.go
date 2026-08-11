@@ -127,7 +127,7 @@ func run(ctx context.Context) error {
 	)
 	if databaseErr == nil {
 		var migrationErr error
-		if !profile.skipMigrations {
+		if !profile.skipMigrations && settings.RuntimeProfile != "aws-private-pilot" {
 			migrationErr = migrations.Apply(ctx, pool)
 		}
 		if migrationErr == nil {
@@ -196,27 +196,34 @@ func run(ctx context.Context) error {
 						}
 					}
 				}
-				if profile.agaDemoOnly {
-					// The tagged AGA donor is retained only as a deletion-gate
-					// source artifact. It is never mounted after the canonical
-					// cutover, so a stale profile fails readiness instead of
-					// silently falling back to synthetic stakeholder state.
-					probe = unavailableReadiness{err: errors.New("tagged AGA donor runtime is disabled after canonical cutover")}
-				} else if settings.ObjectStoreEndpoint != "" {
-					objects, objectErr := objectstore.NewMinIOStore(objectstore.MinIOConfig{
-						Endpoint: settings.ObjectStoreEndpoint, PublicEndpoint: settings.ObjectStorePublicEndpoint,
-						AccessKey: settings.ObjectStoreAccessKey, SecretKey: settings.ObjectStoreSecretKey,
-						UseTLS: settings.ObjectStoreTLS, PublicUseTLS: settings.ObjectStorePublicTLS,
-						Region: settings.ObjectStoreRegion, AllowServerManagedCORS: settings.AllowServerManagedCORS,
-						Clock: runtimeClock,
-					})
-					if objectErr == nil && settings.Environment != "production" {
-						objectErr = objects.EnsurePrivateBuckets(ctx, []string{
-							settings.QuarantineBucket,
-							settings.CanonicalBucket,
-							settings.AttachmentBucket,
-							settings.DocumentBucket,
-						}, settings.ObjectStoreCORSOrigins)
+				if settings.ObjectStoreMode != "" || settings.ObjectStoreEndpoint != "" {
+					var objects objectstore.Store
+					var objectErr error
+					switch settings.ObjectStoreMode {
+					case "aws-s3":
+						objects, objectErr = objectstore.NewAWSStore(objectstore.AWSConfig{
+							Region: settings.ObjectStoreRegion, HealthBucket: settings.QuarantineBucket, Clock: runtimeClock,
+						})
+					case "", "minio":
+						var localObjects *objectstore.MinIOStore
+						localObjects, objectErr = objectstore.NewMinIOStore(objectstore.MinIOConfig{
+							Endpoint: settings.ObjectStoreEndpoint, PublicEndpoint: settings.ObjectStorePublicEndpoint,
+							AccessKey: settings.ObjectStoreAccessKey, SecretKey: settings.ObjectStoreSecretKey,
+							UseTLS: settings.ObjectStoreTLS, PublicUseTLS: settings.ObjectStorePublicTLS,
+							Region: settings.ObjectStoreRegion, AllowServerManagedCORS: settings.AllowServerManagedCORS,
+							Clock: runtimeClock,
+						})
+						objects = localObjects
+						if objectErr == nil && settings.Environment != "production" {
+							objectErr = localObjects.EnsurePrivateBuckets(ctx, []string{
+								settings.QuarantineBucket,
+								settings.CanonicalBucket,
+								settings.AttachmentBucket,
+								settings.DocumentBucket,
+							}, settings.ObjectStoreCORSOrigins)
+						}
+					default:
+						objectErr = fmt.Errorf("unsupported AVIA_OBJECT_STORE_MODE %q", settings.ObjectStoreMode)
 					}
 					var scannerProbe httpapi.ReadinessProbe
 					if objectErr == nil {
@@ -227,11 +234,12 @@ func run(ctx context.Context) error {
 						slog.Error("object store unavailable; readiness will fail closed", "error", objectErr)
 					} else {
 						objectStoreHealth = objectStoreReadiness{store: objects}
-						scannerHealth = scannerProbe
-						dataFeedWriter, dataFeedErr := configuredDataFeedWriter()
-						if dataFeedErr != nil {
-							probe = unavailableReadiness{err: dataFeedErr}
-							slog.Error("data-feed event writer unavailable; readiness will fail closed", "error", dataFeedErr)
+						if settings.ScannerMode == "guardduty-s3" {
+							// GuardDuty result processing reads exact-version S3 object tags.
+							// The same scoped S3 probe therefore verifies both required paths.
+							scannerHealth = objectStoreHealth
+						} else {
+							scannerHealth = scannerProbe
 						}
 						readinessProbes := combinedReadiness{
 							probe,
@@ -245,7 +253,6 @@ func run(ctx context.Context) error {
 							Clock:                     runtimeClock,
 							IDGenerator:               profile.idGenerator,
 							FindingReferenceGenerator: profile.findingReferenceGenerator,
-							DataFeedWriter:            dataFeedWriter,
 						}
 						if profile.seed != nil {
 							if resetErr := profile.seed(ctx, pool, runtimeClock()); resetErr != nil {
@@ -488,9 +495,13 @@ func newRuntimeReadiness(
 			Timeout: settings.RuntimeHealthTimeout,
 		})
 	}
-	if settings.ObjectStoreEndpoint != "" {
+	if settings.ObjectStoreMode != "" || settings.ObjectStoreEndpoint != "" {
+		name := "minio"
+		if settings.ObjectStoreMode == "aws-s3" {
+			name = "s3"
+		}
 		dependencies = append(dependencies, platformhealth.Dependency{
-			Name: "minio", Required: true, Probe: namedProbe(objectStoreProbe, "MinIO"),
+			Name: name, Required: true, Probe: namedProbe(objectStoreProbe, name),
 			Timeout: settings.RuntimeHealthTimeout,
 		})
 	}
@@ -500,16 +511,9 @@ func newRuntimeReadiness(
 			Timeout: settings.RuntimeHealthTimeout,
 		})
 	}
-	if settings.GotenbergHealthURL != "" {
-		probe, err := platformhealth.NewHTTPProbe(
-			settings.GotenbergHealthURL,
-			settings.RuntimeHealthTimeout,
-		)
-		if err != nil {
-			return nil, err
-		}
+	if settings.ScannerMode == "guardduty-s3" {
 		dependencies = append(dependencies, platformhealth.Dependency{
-			Name: "gotenberg", Required: false, Probe: probe,
+			Name: "guardduty-s3-result", Required: true, Probe: namedProbe(scannerProbe, "GuardDuty S3 result"),
 			Timeout: settings.RuntimeHealthTimeout,
 		})
 	}
@@ -531,7 +535,7 @@ func newRuntimeReadiness(
 
 func newScannerReadiness(settings config.Settings) (httpapi.ReadinessProbe, error) {
 	switch settings.ScannerMode {
-	case "", "deterministic-test":
+	case "", "deterministic-test", "guardduty-s3":
 		return nil, nil
 	case "clamav":
 		return scanner.NewClamAV(scanner.ClamAVConfig{

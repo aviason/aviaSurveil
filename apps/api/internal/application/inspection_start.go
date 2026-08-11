@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/assignments"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/datafeed"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -41,28 +40,10 @@ func (service *Service) StartInspection(
 	if service.pool == nil {
 		return StartedInspection{}, ErrNotFound
 	}
-	var plannedEventID, plannedCorrelation string
-	if err := service.pool.QueryRow(ctx, `
-		SELECT event_id::text, correlation_id::text
-		FROM datafeed_events
-		WHERE event_type='audit.planned' AND aggregate_type='audit' AND aggregate_id=$1
-		ORDER BY aggregate_revision DESC, occurred_at DESC, event_id DESC
-		LIMIT 1
-	`, command.InspectionID).Scan(&plannedEventID, &plannedCorrelation); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return StartedInspection{}, fmt.Errorf("%w: audit.planned event is required before Inspector start", ErrConflict)
-		}
-		return StartedInspection{}, err
-	}
-	// Correlation is part of the command envelope and is validated before the
-	// transition transaction starts.  The HTTP command may omit it, but the
-	// event contract may never receive an empty or non-UUID value.
 	if command.CorrelationID == "" {
-		command.CorrelationID = plannedCorrelation
+		command.CorrelationID = uuid.NewString()
 	} else if _, err := uuid.Parse(command.CorrelationID); err != nil {
 		return StartedInspection{}, fmt.Errorf("%w: correlation ID must be a UUID", ErrInvalid)
-	} else if command.CorrelationID != plannedCorrelation {
-		return StartedInspection{}, fmt.Errorf("%w: Inspector start correlation must match audit.planned", ErrConflict)
 	}
 	return executeTransition(ctx, service, actor, commandEnvelope{
 		OperationID: command.OperationID, CorrelationID: command.CorrelationID,
@@ -162,11 +143,6 @@ func (service *Service) StartInspection(
 		if assignmentUpdate.RowsAffected() != 1 {
 			return transition[StartedInspection]{}, ErrConflict
 		}
-		eventID, err := datafeed.NewEventID()
-		if err != nil {
-			return transition[StartedInspection]{}, err
-		}
-		correlationID := command.CorrelationID
 		response := StartedInspection{
 			InspectionID: command.InspectionID, AssignmentID: assignmentID,
 			InspectionStatus: "IN_PROGRESS", AssignmentStatus: assignments.StatusReady,
@@ -179,16 +155,6 @@ func (service *Service) StartInspection(
 			EntityVersion: inspectionRevision + 1, BeforeStatus: inspectionStatus, AfterStatus: "IN_PROGRESS",
 			Reason:   "Inspector start opened the separately authorized execution window.",
 			SyncKind: "inspection", OutboxTopic: "inspection.started",
-			DataFeedEvents: []datafeed.EventInput{{
-				EventID: eventID, EventType: "audit.started", OwningOrganizationID: organizationID,
-				ActorOrganizationID: actor.OrganizationID, CorrelationID: correlationID,
-				CausationID:   plannedEventID,
-				AggregateType: "audit", AggregateID: command.InspectionID, AggregateRevision: inspectionRevision + 1,
-				EffectiveAt: now, KnownAt: now, OccurredAt: now, EmittedAt: now,
-				VisibilityPurposeCode: "regulated_oversight", EntityRefs: map[string]any{"audit_id": command.InspectionID},
-				StateBefore: "audit_planned", StateAfter: "audit_in_progress",
-				Payload: map[string]any{"started_at": now.Format(time.RFC3339Nano)},
-			}},
 		}, nil
 	})
 }

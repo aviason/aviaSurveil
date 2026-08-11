@@ -1,0 +1,12 @@
+[Unit]
+Description=Check AviaSurveil360 Cloudflare Tunnel health every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=5s
+RandomizedDelaySec=5s
+Unit=aviasurveil360-private-pilot-tunnel-health.service
+
+[Install]
+WantedBy=timers.target

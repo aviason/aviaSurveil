@@ -1,0 +1,183 @@
+{
+	admin off
+	auto_https off
+}
+
+:8080 {
+	root * /srv
+	encode zstd gzip
+
+	@tunnel_health {
+		path /_internal/tunnel-health
+		method GET HEAD
+		remote_ip 127.0.0.1 ::1
+		not host {$AVIA_PUBLIC_HOSTNAME}
+	}
+	respond @tunnel_health 200
+
+	@wrong_tunnel_health path /_internal/tunnel-health
+	respond @wrong_tunnel_health 404
+
+	@wrong_host not host {$AVIA_PUBLIC_HOSTNAME}
+	respond @wrong_host 421
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	@denied_internal path /otel/v1/traces /otel/v1/traces/* /otel/v1/metrics /otel/v1/metrics/* /otel/v1/logs /otel/v1/logs/* /operations /operations/* /evidence-quarantine/* /evidence-clean/* /inspection-attachments/* /generated-documents/* /__test*
+	respond @denied_internal 404
+
+	@api_allowed {
+		path /api /api/*
+		method GET HEAD POST PUT PATCH DELETE OPTIONS
+	}
+	handle @api_allowed {
+		uri strip_prefix /api
+		reverse_proxy api:8080 {
+			header_up traceparent {http.request.header.traceparent}
+			header_up tracestate {http.request.header.tracestate}
+			header_up X-Correlation-ID {http.request.header.X-Correlation-ID}
+		}
+	}
+	@api_any path /api /api/*
+	respond @api_any 405 {
+		Allow "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS"
+	}
+
+	@auth_allowed {
+		path /auth/*
+		method GET HEAD POST OPTIONS
+	}
+	handle @auth_allowed {
+		reverse_proxy api:8080
+	}
+	@auth_any path /auth/*
+	respond @auth_any 405 {
+		Allow "GET, HEAD, POST, OPTIONS"
+	}
+
+	@health_allowed {
+		path /health/live /health/ready
+		method GET HEAD
+	}
+	handle @health_allowed {
+		reverse_proxy api:8080
+	}
+	@health_any path /health/live /health/ready
+	respond @health_any 405 {
+		Allow "GET, HEAD"
+	}
+
+	@identity_management path /identity/admin* /identity/metrics* /identity/health*
+	respond @identity_management 404
+	@identity_public {
+		path /identity/realms/pilot /identity/realms/pilot/* /identity/resources/*
+		method GET HEAD POST OPTIONS
+	}
+	handle @identity_public {
+		reverse_proxy keycloak:8080
+	}
+	@identity_public_any path /identity/realms/pilot /identity/realms/pilot/* /identity/resources/*
+	respond @identity_public_any 405 {
+		Allow "GET, HEAD, POST, OPTIONS"
+	}
+	@identity_other path /identity/*
+	respond @identity_other 404
+
+	@sw {
+		path /sw.js
+		method GET HEAD
+	}
+	header @sw Cache-Control "no-store"
+	file_server @sw
+	@sw_any path /sw.js
+	respond @sw_any 405 {
+		Allow "GET, HEAD"
+	}
+
+	@runtime_config {
+		path /http-config.json
+		method GET HEAD
+	}
+	header @runtime_config Cache-Control "no-store"
+	file_server @runtime_config
+	@runtime_config_any path /http-config.json
+	respond @runtime_config_any 405 {
+		Allow "GET, HEAD"
+	}
+
+	@app_manifest {
+		path /app-shell-assets.json
+		method GET HEAD
+	}
+	header @app_manifest Cache-Control "no-store"
+	file_server @app_manifest
+	@app_manifest_any path /app-shell-assets.json
+	respond @app_manifest_any 405 {
+		Allow "GET, HEAD"
+	}
+
+	@fingerprinted_assets {
+		path_regexp fingerprinted ^/assets/[A-Za-z0-9_.-]+-[A-Za-z0-9_-]+\.(?:css|js|svg|png|jpg|jpeg|webp|ttf|woff|woff2)$
+		method GET HEAD
+	}
+	header @fingerprinted_assets Cache-Control "public, max-age=31536000, immutable"
+	file_server @fingerprinted_assets
+	@assets {
+		path /assets/*
+		method GET HEAD
+	}
+	respond @assets 404
+	@assets_any {
+		path /assets/*
+		not method GET HEAD
+	}
+	respond @assets_any 405 {
+		Allow "GET, HEAD"
+	}
+
+	@index {
+		path / /index.html
+		method GET HEAD
+	}
+	header @index Cache-Control "no-store"
+	file_server @index
+	@index_any path / /index.html
+	respond @index_any 405 {
+		Allow "GET, HEAD"
+	}
+
+	@navigation {
+		method GET HEAD
+		header Accept *text/html*
+	}
+	handle @navigation {
+		rewrite * /index.html
+		header Cache-Control "no-store"
+		file_server
+	}
+
+	@static_file {
+		method GET HEAD
+		file {
+			try_files {path}
+		}
+	}
+	header @static_file Cache-Control "no-store"
+	file_server @static_file
+
+	@static_any {
+		not method GET HEAD
+		path /*
+	}
+	respond @static_any 405 {
+		Allow "GET, HEAD"
+	}
+	respond 404
+}

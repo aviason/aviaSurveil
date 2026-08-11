@@ -130,13 +130,6 @@ func (runtime *Runtime) RecordJobAttempt(
 	)
 }
 
-func (runtime *Runtime) RecordDataFeedItems(ctx context.Context, count int, outcome string) {
-	if count < 0 {
-		return
-	}
-	runtime.dataFeedItems.Add(ctx, int64(count), metric.WithAttributes(attribute.String("outcome.class", boundedOutcome(outcome))))
-}
-
 func (runtime *Runtime) RecordOutboxReadyAge(
 	ctx context.Context,
 	jobKind string,
@@ -181,7 +174,7 @@ func RecordPersistedOutboxReadyAge(
 
 func boundedJobKind(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "scan", "email", "document", "identity", "reminder", "datafeed":
+	case "scan", "email", "document", "identity", "reminder":
 		return strings.ToLower(strings.TrimSpace(value))
 	default:
 		return "other"
@@ -190,7 +183,7 @@ func boundedJobKind(value string) string {
 
 func boundedAdapter(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "clamav", "mailpit", "gotenberg", "keycloak", "postgresql", "aviacore":
+	case "clamav", "mailpit", "native-pdf", "keycloak", "postgresql":
 		return strings.ToLower(strings.TrimSpace(value))
 	default:
 		return "other"
@@ -199,7 +192,7 @@ func boundedAdapter(value string) string {
 
 func boundedQueue(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "evidence", "attachment", "notification", "document", "identity", "reminder", "aviacore":
+	case "evidence", "attachment", "notification", "document", "identity", "reminder":
 		return strings.ToLower(strings.TrimSpace(value))
 	default:
 		return "other"

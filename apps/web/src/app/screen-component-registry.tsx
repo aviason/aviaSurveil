@@ -59,7 +59,6 @@ const implementedScreens: Partial<Record<ReactSurfaceId, ScreenComponent>> = {
   "manager-ssp-nasp": lazy(async () => ({ default: (await import("../features/risk/manager-risk-workspaces")).ManagerSspNaspPage })),
   "manager-usoap-readiness": lazy(async () => ({ default: (await import("../features/risk/manager-risk-workspaces")).ManagerUsoapReadinessPage })),
   "manager-cap-effectiveness": lazy(async () => ({ default: (await import("../features/risk/manager-risk-workspaces")).ManagerCapEffectivenessPage })),
-  "inspection-package-builder": lazy(async () => ({ default: (await import("../features/inspections/inspection-package-builder-page")).InspectionPackageBuilderPage })),
   "new-audit-wizard-1": lazy(async () => ({ default: (await import("../features/planning/new-audit-wizard")).NewAuditWizardPage })),
   "new-audit-wizard-2": lazy(async () => ({ default: (await import("../features/planning/new-audit-wizard")).NewAuditWizardPage })),
   "new-audit-wizard-3": lazy(async () => ({ default: (await import("../features/planning/new-audit-wizard")).NewAuditWizardPage })),

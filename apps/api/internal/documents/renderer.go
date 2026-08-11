@@ -4,9 +4,16 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"strings"
+)
+
+const (
+	maximumPDFResponseSize = 16 << 20
+	nativeRendererName     = "avia-native-gopdf"
+	nativeRendererVersion  = "gopdf@v0.38.0"
+	nativeLayoutVersion    = "a4-canonical-report-v1"
+	nativeTemplateVersion  = "report-content-v1"
+	nativeModuleChecksum   = "github.com/signintech/gopdf@v0.38.0"
 )
 
 type RenderedArtifact struct {
@@ -22,31 +29,32 @@ type Renderer interface {
 	Render(context.Context, RenderSnapshot) (RenderedArtifact, error)
 }
 
-// DeterministicPDFRenderer is a local candidate renderer. Plan 3 replaces this
-// adapter with Gotenberg; the service and immutable job boundary stay intact.
-type DeterministicPDFRenderer struct{}
+type NativeProvenance struct {
+	RendererHash   string
+	TemplateHash   string
+	FontHash       string
+	Renderer       string
+	ModuleChecksum string
+	Layout         string
+}
 
-func (DeterministicPDFRenderer) Render(_ context.Context, snapshot RenderSnapshot) (RenderedArtifact, error) {
-	if strings.TrimSpace(snapshot.ReportVersionID) == "" ||
-		strings.TrimSpace(snapshot.ReportID) == "" ||
-		strings.TrimSpace(snapshot.OrganizationID) == "" ||
-		snapshot.Version <= 0 {
-		return RenderedArtifact{}, fmt.Errorf("complete report render identity is required")
+func digest(value []byte) string {
+	sum := sha256.Sum256(value)
+	return "sha256:" + hex.EncodeToString(sum[:])
+}
+
+func validSHA256(value string) bool {
+	if len(value) != len("sha256:")+64 || value[:len("sha256:")] != "sha256:" {
+		return false
 	}
-	payload, err := json.Marshal(snapshot)
-	if err != nil {
-		return RenderedArtifact{}, fmt.Errorf("encode report render snapshot: %w", err)
-	}
-	body := []byte("%PDF-1.7\n% AviaSurveil360 deterministic candidate document\n")
-	body = append(body, payload...)
-	body = append(body, []byte("\n%%EOF\n")...)
-	sourceDigest := sha256.Sum256(payload)
-	return RenderedArtifact{
-		FileName:     snapshot.ReportID + ".pdf",
-		MediaType:    "application/pdf",
-		Body:         body,
-		RendererHash: digest([]byte("deterministic-test-renderer-v1")),
-		TemplateHash: digest([]byte("deterministic-test-template-v1")),
-		SourceHash:   "sha256:" + hex.EncodeToString(sourceDigest[:]),
-	}, nil
+	_, err := hex.DecodeString(value[len("sha256:"):])
+	return err == nil
+}
+
+func rendererProvenance(fontHash string) (rendererHash, templateHash string) {
+	rendererHash = digest([]byte(fmt.Sprintf("%s|%s|%s|%s|%s", nativeRendererName,
+		nativeRendererVersion, nativeLayoutVersion, nativeModuleChecksum, fontHash)))
+	templateHash = digest([]byte(fmt.Sprintf("%s|%s|%s", nativeTemplateVersion,
+		nativeLayoutVersion, ReportContentSchema)))
+	return rendererHash, templateHash
 }

@@ -126,6 +126,30 @@
       "sha256": "7e014c9b13defd9d254d4e5a5edd8ab6dde17533e1152f99699a6b28b2967a8a",
       "output": "io.netty.netty-transport-native-unix-common-4.1.136.Final.jar",
       "classpath": "io.netty.netty-transport-native-unix-common-4.1.135.Final.jar"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/io/micrometer/micrometer-commons/1.16.6/micrometer-commons-1.16.6.jar",
+      "sha256": "45aff76226830db257f4bc39a5bcff83d633e572fee9dc4e45cfa12af9a0a49a",
+      "output": "io.micrometer.micrometer-commons-1.16.6.jar",
+      "classpath": "io.micrometer.micrometer-commons-1.16.3.jar"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/io/micrometer/micrometer-core/1.16.6/micrometer-core-1.16.6.jar",
+      "sha256": "1957ef2deaffbc1fb98cebfd0f5b3109ecf19c994d7e5378598c20747ba8d68b",
+      "output": "io.micrometer.micrometer-core-1.16.6.jar",
+      "classpath": "io.micrometer.micrometer-core-1.16.3.jar"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/io/micrometer/micrometer-observation/1.16.6/micrometer-observation-1.16.6.jar",
+      "sha256": "4c0826d5e7c8522a8e111470b4e77f77b0a10f520eb5502ddd143fdbcedb2340",
+      "output": "io.micrometer.micrometer-observation-1.16.6.jar",
+      "classpath": "io.micrometer.micrometer-observation-1.16.3.jar"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/io/micrometer/micrometer-registry-prometheus-simpleclient/1.16.6/micrometer-registry-prometheus-simpleclient-1.16.6.jar",
+      "sha256": "5f665369724caa8ffbb3f83a492b02d1de17a1420758e4a55debcb6ee2bd5e2a",
+      "output": "io.micrometer.micrometer-registry-prometheus-simpleclient-1.16.6.jar",
+      "classpath": "io.micrometer.micrometer-registry-prometheus-simpleclient-1.16.3.jar"
     }
   ]
 }

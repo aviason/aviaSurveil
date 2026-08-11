@@ -1,0 +1,131 @@
+openapi: 3.0.3
+info:
+  title: Sanitized local authentication contract
+  version: source-boundary
+  description: >-
+    Auth-only contract distilled from the legacy local REST surface. This is
+    not an OIDC Provider contract and contains no production servers or
+    credentials.
+servers:
+  - url: http://localhost
+paths:
+  /auth/register:
+    post:
+      summary: Register with email/password
+      requestBody:
+        required: true
+        content:
+          application/json: {schema: {$ref: '#/components/schemas/RegisterRequest'}}
+      responses: {'201': {description: Auth payload}}
+  /auth/login:
+    post:
+      summary: Login with email/password
+      requestBody:
+        required: true
+        content:
+          application/json: {schema: {$ref: '#/components/schemas/LoginRequest'}}
+      responses: {'200': {description: Auth payload}}
+  /auth/refresh:
+    post:
+      summary: Rotate proprietary refresh token
+      requestBody:
+        required: true
+        content:
+          application/json: {schema: {$ref: '#/components/schemas/RefreshRequest'}}
+      responses: {'200': {description: Auth payload}}
+  /auth/logout:
+    post:
+      summary: Invalidate proprietary session
+      requestBody:
+        required: false
+        content:
+          application/json: {schema: {$ref: '#/components/schemas/LogoutRequest'}}
+      responses: {'200': {description: Session invalidated}}
+  /auth/verify-email:
+    post: {summary: Verify email token, responses: {'200': {description: Verified}}}
+  /auth/resend-verification:
+    post: {summary: Resend email verification, responses: {'202': {description: Accepted}}}
+  /auth/password/forgot:
+    post: {summary: Request password reset, responses: {'202': {description: Accepted}}}
+  /auth/password/reset:
+    post: {summary: Complete password reset, responses: {'200': {description: Reset}}}
+  /auth/password/change:
+    post:
+      security: [{bearerAuth: []}]
+      summary: Change password
+      responses: {'200': {description: Changed}}
+  /auth/reactivate:
+    post:
+      summary: Reactivate a deactivated account
+      responses: {'200': {description: Auth payload}}
+  /me/deactivation:
+    post:
+      security: [{bearerAuth: []}]
+      summary: Deactivate account
+      responses: {'204': {description: Deactivated}}
+  /me/phone/verification/start:
+    post:
+      security: [{bearerAuth: []}]
+      summary: Start phone verification
+      responses: {'202': {description: Started}}
+  /me/phone/verification/verify:
+    post:
+      security: [{bearerAuth: []}]
+      summary: Verify phone token
+      responses: {'200': {description: Verified}}
+  /me/phone/change/start:
+    post:
+      security: [{bearerAuth: []}]
+      summary: Start phone change
+      responses: {'202': {description: Started}}
+  /me/phone/change/verify:
+    post:
+      security: [{bearerAuth: []}]
+      summary: Verify phone change
+      responses: {'200': {description: Changed}}
+  /me:
+    delete:
+      security: [{bearerAuth: []}]
+      summary: Request account deletion
+      responses: {'202': {description: Deletion scheduled}}
+  /.well-known/openid-configuration:
+    get:
+      summary: Minimal metadata facade (not OIDC compliance)
+      responses: {'200': {description: Partial metadata}}
+  /.well-known/jwks.json:
+    get:
+      summary: One-key JWKS publication
+      responses: {'200': {description: RSA public key set}}
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: proprietary RS256 JWT
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: {type: string, format: email}
+        password: {type: string, format: password}
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: {type: string, format: email}
+        password: {type: string, format: password}
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken: {type: string}
+        deviceId: {type: string}
+    LogoutRequest:
+      type: object
+      properties:
+        refreshToken: {type: string}

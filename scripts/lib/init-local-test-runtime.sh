@@ -17,7 +17,11 @@ initialize_local_test_runtime() {
     keycloak_bootstrap_admin_password \
     keycloak_database_password \
     keycloak_service_client_secret \
+    minio_api_access_key \
+    minio_api_secret_key \
     minio_root_password \
+    minio_worker_access_key \
+    minio_worker_secret_key \
     oidc_client_secret \
     smtp_password
   do
@@ -25,9 +29,13 @@ initialize_local_test_runtime() {
     chmod 0600 "$secret_directory/$filename"
   done
   openssl rand -hex 10 >"$secret_directory/minio_root_user"
+  openssl rand -hex 10 >"$secret_directory/minio_api_access_key"
+  openssl rand -hex 10 >"$secret_directory/minio_worker_access_key"
   openssl rand -base64 32 >"$secret_directory/session_encryption_key"
   chmod 0600 \
     "$secret_directory/minio_root_user" \
+    "$secret_directory/minio_api_access_key" \
+    "$secret_directory/minio_worker_access_key" \
     "$secret_directory/session_encryption_key"
   smtp_password_value=$(tr -d '\r\n' <"$secret_directory/smtp_password")
   printf 'aviasurveil360:%s\n' "$smtp_password_value" \

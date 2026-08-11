@@ -41,15 +41,15 @@ accepted running stack.
 
 ```bash
 ./scripts/check-local-image-evidence.sh full
-./scripts/test-local-full-profile.sh
+make preprod-test-fault-restart
 git diff --check
 ```
 
 ## Expected Output
 
-Every image digest matches accepted evidence; the clean full profile proves
-required local scenarios and zero task-owned residue. Any failed gate stops the
-candidate.
+Every image digest matches accepted evidence; the canonical connected profile
+proves required local scenarios and zero task-owned residue. Any failed gate
+stops the candidate.
 
 ## Reversible Mitigation
 
@@ -94,3 +94,30 @@ authority.
 Commit, push, tag, registry publication, deployment, migration of shared data,
 production release or rollback, traffic change, legacy removal, and AWS action
 require new explicit authorization.
+
+## AWS Private-Pilot Release Contract
+
+The private-pilot manifest binds every `linux/arm64` image digest, including
+the separately supervised `cloudflared` subject, OCI config,
+SBOM, provenance, vulnerability result, migration set, Compose/gateway/systemd
+input, decision/policy input, Keycloak realm, and reviewed AWS RDS CA bundle.
+Its target must contain `awsProfile: "avia"`; `default` is invalid. Local
+validation and dry-run command rendering are available through
+`./scripts/test-aws-private-pilot-release.sh`. The `--execute` path deliberately
+returns `blocked` until a separate exact Task 7 authorization exists.
+
+Every image must use the target account's IPv6-capable
+`<account>.dkr-ecr.eu-central-1.on.aws/` registry. Start order is Compose health,
+then the Tunnel service and health timer, then four healthy Tunnel connections,
+then separately authorized traffic. Drain order removes Tunnel traffic before
+worker drain. The gateway remains loopback-only throughout; release or rollback
+must not add ALB, NAT, public IPv4, a gateway ingress rule, or a connector role
+to production Compose.
+
+Bootstrap creates separate `aviasurveil360` and `keycloak` databases/roles on
+one RDS instance. Each migration wave explicitly enables the bounded migrator,
+runs the exact migration subject, and returns the role to `NOLOGIN` on both
+success and failure handling before normal runtime. Binary rollback requires
+explicit N/N-1 evidence; otherwise use roll-forward or a separately authorized
+coordinated restore. AWS, migration against RDS, release, rollback, retain, and
+destroy evidence remains `not run`.

@@ -35,6 +35,7 @@ RUN rm -f \
     /opt/keycloak/lib/lib/main/org.postgresql.postgresql-42.7.11.jar \
     /opt/keycloak/lib/lib/main/com.fasterxml.jackson.core.jackson-core-2.21.2.jar \
     /opt/keycloak/lib/lib/main/com.fasterxml.jackson.core.jackson-databind-2.21.2.jar \
+    /opt/keycloak/lib/lib/main/io.micrometer.micrometer-*-1.16.3.jar \
     /opt/keycloak/lib/lib/main/io.netty.netty-*-4.1.135.Final*.jar
 
 COPY --from=keycloak-patches --chown=1000:0 /patches/ /opt/keycloak/lib/lib/main/
@@ -54,4 +55,5 @@ RUN rm -f \
     /opt/keycloak/lib/lib/main/org.postgresql.postgresql-42.7.11.jar \
     /opt/keycloak/lib/lib/main/com.fasterxml.jackson.core.jackson-core-2.21.2.jar \
     /opt/keycloak/lib/lib/main/com.fasterxml.jackson.core.jackson-databind-2.21.2.jar \
+    /opt/keycloak/lib/lib/main/io.micrometer.micrometer-*-1.16.3.jar \
     /opt/keycloak/lib/lib/main/io.netty.netty-*-4.1.135.Final*.jar

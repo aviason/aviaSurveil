@@ -436,15 +436,20 @@ func (service *UploadService) Complete(ctx context.Context, actor identity.Princ
 		if err != nil || info.Size != size || !uploadpolicy.MatchesDeclaration(observation, mediaType, digest, size) {
 			return ErrObjectMismatch
 		}
+		objectVersionID, objectETag, err := objectstore.ExactIdentityForPersistence(service.objects, info)
+		if err != nil {
+			return ErrObjectMismatch
+		}
 		objectMetadataID := service.idGenerator("object")
 		if _, err := transaction.Exec(ctx, `
 			INSERT INTO object_metadata (
 				id, aggregate_type, aggregate_id, organization_id, bucket_name, object_key, filename,
 				declared_media_type, detected_media_type, sha256, size_bytes, scan_status, object_state,
-				upload_id, created_at
+				upload_id, object_version_id, object_etag, created_at
 			) VALUES ($1, 'inspection_attachment', $2, $3, $4, $5, $6, $7, $7, $8, $9,
-				'PENDING', 'QUARANTINED', $10, $11)
-		`, objectMetadataID, attachmentID, organizationID, bucket, key, fileName, mediaType, digest, size, input.UploadID, now); err != nil {
+				'PENDING', 'QUARANTINED', $10, NULLIF($11, ''), NULLIF($12, ''), $13)
+		`, objectMetadataID, attachmentID, organizationID, bucket, key, fileName, mediaType, digest, size,
+			input.UploadID, objectVersionID, objectETag, now); err != nil {
 			return err
 		}
 		var version int64

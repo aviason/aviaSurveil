@@ -21,14 +21,7 @@ fi
 secret_files="
 preprod_app_database_password
 preprod_normal_api_database_password
-preprod_aga_demo_reader_database_password
-preprod_aga_demo_writer_database_password
-preprod_aga_demo_workspace_fixture_exporter_database_password
-preprod_aga_demo_workspace_loader_database_password
-preprod_aga_demo_workspace_reader_database_password
-preprod_aga_demo_workspace_command_database_password
-preprod_aga_demo_oidc_qualification_password
-preprod_aga_demo_session_encryption_key
+preprod_canonical_demo_oidc_qualification_password
 preprod_keycloak_bootstrap_admin_password
 preprod_keycloak_database_password
 preprod_keycloak_service_client_secret
@@ -100,7 +93,7 @@ for filename in $secret_files; do
     preprod_data_feed_payload_key)
       openssl rand -hex 16 | tr -d '\r\n' >"$temporary_directory/$filename"
       ;;
-    preprod_aga_demo_session_encryption_key | preprod_session_encryption_key)
+    preprod_session_encryption_key)
       openssl rand -base64 32 >"$temporary_directory/$filename"
       ;;
     *)
@@ -119,7 +112,7 @@ node "$realm_builder" \
   --realm-name aviasurveil360-local-preprod \
   --web-client-id aviasurveil360-local-preprod-web \
   --service-client-id aviasurveil360-local-preprod-lifecycle \
-  --public-origin "${AVIA_PREPROD_WEB_ORIGIN:-${AVIA_PREPROD_AGA_DEMO_WEB_ORIGIN:-http://127.0.0.1:4174}}" \
+  --public-origin "${AVIA_PREPROD_WEB_ORIGIN:-https://localhost:8445}" \
   --smtp-host preprod-mailpit \
   --smtp-user aviasurveil360-preprod
 

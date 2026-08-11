@@ -65,8 +65,6 @@ const frozenCapabilityOperationIds = {
   "planningIntake.getDraft": "getPlanningIntakeDraft",
   "planningIntake.saveDraft": "savePlanningIntakeDraft",
   "planningIntake.submit": "submitPlanningIntake",
-  "packageDrafts.get": "getInspectionPackageDraft",
-  "packageDrafts.save": "saveInspectionPackageDraft",
   "configuration.listChecklistTemplateVersions": "listChecklistTemplateVersions",
   "configuration.getChecklistTemplateVersion": "getChecklistTemplateVersion",
   "configuration.listReminderRules": "listReminderRules",
@@ -295,8 +293,8 @@ test("every frozen Plan 1 backend capability maps to a bundled operation ID", ()
 
   assert.equal(
     Object.keys(frozenCapabilityOperationIds).length,
-    80,
-    "The frozen Plan 1 capability inventory must remain explicit",
+    78,
+    "The active capability inventory must exclude the retired fixed-ID package draft",
   );
   assert.deepEqual(
     missing,

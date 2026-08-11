@@ -5,6 +5,9 @@
 > 2026-08-07 canonical AGA preprod successor and treat this artifact as donor/
 > historical evidence. Do not commit, push, deploy, call an external system, or
 > change a real database without separate exact authorization.
+> On 2026-08-10 the user selected successor Task 9 `delete`; this duplicate
+> workspace runtime/schema/scripts/tests were physically removed and the
+> canonical boundary passed requalification. Retain this file only as history.
 
 **Goal:** Classify every one of the 1,310 immutable AGA candidate question
 identities with a controlled, versioned domain model; give CAA Admin and an

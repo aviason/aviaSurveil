@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"crypto/tls"
 	"embed"
 	"errors"
 	"fmt"
@@ -177,15 +178,26 @@ type SMTPConfig struct {
 	Password       string
 	Timeout        time.Duration
 	PrivateNetwork bool
+	Transport      string
+	TLSServerName  string
+	TLSConfig      *tls.Config
 }
 
+const (
+	SMTPTransportPrivatePlaintext = "private-plaintext"
+	SMTPTransportStartTLS         = "starttls"
+	SMTPTransportImplicitTLS      = "implicit-tls"
+)
+
 type SMTPSender struct {
-	address  string
-	host     string
-	from     string
-	username string
-	password string
-	timeout  time.Duration
+	address   string
+	host      string
+	from      string
+	username  string
+	password  string
+	timeout   time.Duration
+	transport string
+	tlsConfig *tls.Config
 }
 
 func NewSMTPSender(config SMTPConfig) (*SMTPSender, error) {
@@ -205,15 +217,44 @@ func NewSMTPSender(config SMTPConfig) (*SMTPSender, error) {
 	if config.Timeout <= 0 || config.Timeout > time.Minute {
 		return nil, errors.New("SMTP timeout must be positive and no greater than one minute")
 	}
-	if !config.PrivateNetwork {
-		return nil, errors.New(
-			"plaintext SMTP credentials require an explicitly private network",
-		)
+	transport := strings.TrimSpace(config.Transport)
+	if transport == "" {
+		transport = SMTPTransportPrivatePlaintext
+	}
+	var tlsConfig *tls.Config
+	switch transport {
+	case SMTPTransportPrivatePlaintext:
+		if !config.PrivateNetwork {
+			return nil, errors.New("plaintext SMTP credentials require an explicitly private network")
+		}
+	case SMTPTransportStartTLS, SMTPTransportImplicitTLS:
+		if config.TLSConfig != nil {
+			tlsConfig = config.TLSConfig.Clone()
+		} else {
+			tlsConfig = &tls.Config{}
+		}
+		if tlsConfig.InsecureSkipVerify {
+			return nil, errors.New("SMTP TLS certificate verification cannot be disabled")
+		}
+		serverName := strings.TrimSpace(config.TLSServerName)
+		if serverName == "" {
+			serverName = host
+		}
+		if net.ParseIP(serverName) == nil && strings.ContainsAny(serverName, " /@") {
+			return nil, errors.New("SMTP TLS server name is invalid")
+		}
+		tlsConfig.ServerName = serverName
+		if tlsConfig.MinVersion == 0 || tlsConfig.MinVersion < tls.VersionTLS12 {
+			tlsConfig.MinVersion = tls.VersionTLS12
+		}
+	default:
+		return nil, errors.New("SMTP transport must be private-plaintext, starttls, or implicit-tls")
 	}
 	return &SMTPSender{
 		address: address, host: host, from: from.Address,
 		username: strings.TrimSpace(config.Username),
 		password: config.Password, timeout: config.Timeout,
+		transport: transport, tlsConfig: tlsConfig,
 	}, nil
 }
 
@@ -252,11 +293,26 @@ func (sender *SMTPSender) Deliver(
 	if err := connection.SetDeadline(deadline); err != nil {
 		return classifySMTPFailure("SMTP_UNAVAILABLE", err, false)
 	}
+	if sender.transport == SMTPTransportImplicitTLS {
+		secureConnection := tls.Client(connection, sender.tlsConfig.Clone())
+		if err := secureConnection.HandshakeContext(ctx); err != nil {
+			return classifySMTPFailure("SMTP_TLS_VERIFICATION_FAILED", err, true)
+		}
+		connection = secureConnection
+	}
 	client, err := smtp.NewClient(connection, sender.host)
 	if err != nil {
 		return classifySMTPFailure("SMTP_PROTOCOL_ERROR", err, false)
 	}
 	defer client.Close()
+	if sender.transport == SMTPTransportStartTLS {
+		if supported, _ := client.Extension("STARTTLS"); !supported {
+			return NewPermanentDeliveryFailure("SMTP_STARTTLS_REQUIRED")
+		}
+		if err := client.StartTLS(sender.tlsConfig.Clone()); err != nil {
+			return classifySMTPFailure("SMTP_TLS_VERIFICATION_FAILED", err, true)
+		}
+	}
 	if err := client.Auth(privatePlainAuth{
 		username: sender.username,
 		password: sender.password,

@@ -13,6 +13,7 @@ import (
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/inspections/attachments"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/objectstore"
+	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/scanner"
 	evidenceworker "github.com/MarlonJD/aviaSurveil360/apps/api/internal/worker/evidence"
 )
 
@@ -48,6 +49,96 @@ func TestEvidenceScanWorkerPromotesCleanExactVersionAndMakesItReviewable(t *test
 	var deliveredAt *time.Time
 	if err := pool.QueryRow(context.Background(), "SELECT delivered_at FROM outbox_messages WHERE topic = 'evidence.scan_requested'").Scan(&deliveredAt); err != nil || deliveredAt == nil {
 		t.Fatalf("scan request delivery = %v, err = %v", deliveredAt, err)
+	}
+}
+
+type managedMemoryObjectStore struct{ *memoryObjectStore }
+
+func (*managedMemoryObjectStore) RequiresExactVersionIdentity() bool { return true }
+
+func TestManagedEvidenceScanPersistsExactSourceAndCanonicalVersions(t *testing.T) {
+	pool := canonicalDatabase(t, "evidence_scan_managed_exact")
+	objects := &managedMemoryObjectStore{newMemoryObjectStore()}
+	body := validPDF("managed-exact")
+	versionID := completeEvidenceForScan(t, pool, objects, "finding-scan-managed-exact", "OPS-2026-054", body)
+
+	var sourceBucket, sourceKey, sourceVersion, sourceETag string
+	if err := pool.QueryRow(context.Background(), `
+		SELECT metadata.bucket_name, metadata.object_key, metadata.object_version_id, metadata.object_etag
+		FROM evidence_versions version
+		JOIN object_metadata metadata ON metadata.id = version.object_metadata_id
+		WHERE version.id = $1
+	`, versionID).Scan(&sourceBucket, &sourceKey, &sourceVersion, &sourceETag); err != nil {
+		t.Fatalf("read exact managed source identity: %v", err)
+	}
+	if sourceVersion == "" || sourceETag == "" {
+		t.Fatal("managed upload did not persist an exact source identity")
+	}
+	objects.SetTags(sourceBucket, sourceKey, map[string]string{
+		scanner.GuardDutyMalwareScanStatusTag: "NO_THREATS_FOUND",
+	})
+	provider, err := scanner.NewGuardDutyS3ResultProvider(objects, uploadClock)
+	if err != nil {
+		t.Fatalf("create managed result provider: %v", err)
+	}
+	worker := evidenceworker.New(pool, objects, nil, evidenceworker.Config{
+		WorkerID: "worker-managed-exact", CanonicalBucket: "avia-canonical", LeaseDuration: time.Minute,
+		Clock: uploadClock, IDGenerator: deterministicIDs(), ManagedResultProvider: provider, ScanBackend: "guardduty-s3",
+	})
+	if processed, err := worker.ProcessNext(context.Background()); err != nil || !processed {
+		t.Fatalf("process exact managed Evidence = %v, err = %v", processed, err)
+	}
+	assertEvidenceProcessingState(t, pool, versionID, "CLEAN", "PENDING_CAA_REVIEW")
+
+	var canonicalVersion, canonicalETag, canonicalHash string
+	if err := pool.QueryRow(context.Background(), `
+		SELECT object_version_id, object_etag, sha256
+		FROM object_metadata
+		WHERE aggregate_id = $1 AND object_state = 'CANONICAL'
+	`, versionID).Scan(&canonicalVersion, &canonicalETag, &canonicalHash); err != nil {
+		t.Fatalf("read exact canonical identity: %v", err)
+	}
+	if canonicalVersion == "" || canonicalETag == "" || canonicalHash != sha256Digest(body) {
+		t.Fatalf("canonical identity = %q/%q/%q", canonicalVersion, canonicalETag, canonicalHash)
+	}
+}
+
+func TestManagedEvidenceScanCrashRecoveryDoesNotDuplicateCanonicalVersion(t *testing.T) {
+	pool := canonicalDatabase(t, "evidence_scan_managed_recovery")
+	objects := &managedMemoryObjectStore{newMemoryObjectStore()}
+	versionID := completeEvidenceForScan(t, pool, objects, "finding-scan-managed-recovery", "OPS-2026-055", validPDF("managed-recovery"))
+	var sourceBucket, sourceKey string
+	if err := pool.QueryRow(context.Background(), `
+		SELECT metadata.bucket_name, metadata.object_key
+		FROM evidence_versions version JOIN object_metadata metadata ON metadata.id = version.object_metadata_id
+		WHERE version.id = $1
+	`, versionID).Scan(&sourceBucket, &sourceKey); err != nil {
+		t.Fatalf("read managed source: %v", err)
+	}
+	objects.SetTags(sourceBucket, sourceKey, map[string]string{scanner.GuardDutyMalwareScanStatusTag: "NO_THREATS_FOUND"})
+	provider, _ := scanner.NewGuardDutyS3ResultProvider(objects, uploadClock)
+	crash := errors.New("managed crash after exact copy")
+	worker := evidenceworker.New(pool, objects, nil, evidenceworker.Config{
+		WorkerID: "worker-managed-crash", CanonicalBucket: "avia-canonical", LeaseDuration: time.Minute,
+		Clock: uploadClock, IDGenerator: deterministicIDs(), ManagedResultProvider: provider, ScanBackend: "guardduty-s3",
+		AfterExternalEffect: func() error { return crash },
+	})
+	if processed, err := worker.ProcessNext(context.Background()); !processed || !errors.Is(err, crash) {
+		t.Fatalf("managed crash window = %v, err = %v", processed, err)
+	}
+	if _, err := pool.Exec(context.Background(), `UPDATE outbox_messages SET lease_expires_at = $1 WHERE topic = 'evidence.scan_requested'`, canonicalNow.Add(-time.Minute)); err != nil {
+		t.Fatalf("expire managed lease: %v", err)
+	}
+	recovery := evidenceworker.New(pool, objects, nil, evidenceworker.Config{
+		WorkerID: "worker-managed-recovery", CanonicalBucket: "avia-canonical", LeaseDuration: time.Minute,
+		Clock: uploadClock, IDGenerator: deterministicIDs(), ManagedResultProvider: provider, ScanBackend: "guardduty-s3",
+	})
+	if processed, err := recovery.ProcessNext(context.Background()); err != nil || !processed {
+		t.Fatalf("recover managed scan = %v, err = %v", processed, err)
+	}
+	var canonicalRows int
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM object_metadata WHERE aggregate_id = $1 AND object_state = 'CANONICAL'`, versionID).Scan(&canonicalRows); err != nil || canonicalRows != 1 {
+		t.Fatalf("managed canonical metadata rows = %d, err = %v", canonicalRows, err)
 	}
 }
 
@@ -325,7 +416,12 @@ func completeAttachmentForScan(t *testing.T, pool *database.Pool, objects *memor
 	return attachmentID
 }
 
-func completeEvidenceForScan(t *testing.T, pool *database.Pool, objects *memoryObjectStore, findingID, reference string, body []byte) string {
+type seedableObjectStore interface {
+	objectstore.Store
+	Seed(string, string, string, []byte, map[string]string)
+}
+
+func completeEvidenceForScan(t *testing.T, pool *database.Pool, objects seedableObjectStore, findingID, reference string, body []byte) string {
 	t.Helper()
 	seedFinding(t, pool, findingID, reference, "airline-xyz")
 	if _, err := pool.Exec(context.Background(), "UPDATE findings SET status = 'EVIDENCE_REQUIRED' WHERE id = $1", findingID); err != nil {

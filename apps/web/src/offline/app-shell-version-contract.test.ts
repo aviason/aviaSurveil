@@ -11,8 +11,8 @@ describe("app-shell version contract", () => {
     const offlineReadiness = readFileSync(resolve(sourceRoot, "offline/storage-readiness.ts"), "utf8");
     const viteConfig = readFileSync(resolve(sourceRoot, "../vite.config.ts"), "utf8");
 
-    expect(serviceWorker).toContain('AVIA_APP_SHELL_VERSION:000008');
-    expect(offlineReadiness).toMatch(/appShellVersion:\s*8,/);
-    expect(viteConfig).toMatch(/appShellVersion:\s*8,/);
+    expect(serviceWorker).toContain('AVIA_APP_SHELL_VERSION:000009');
+    expect(offlineReadiness).toMatch(/appShellVersion:\s*9,/);
+    expect(viteConfig).toMatch(/appShellVersion:\s*9,/);
   });
 });

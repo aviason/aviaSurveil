@@ -110,3 +110,11 @@ production retention and legal-hold decisions.
 A production or AWS drill, real dependency destruction, separate failure
 domain, remote account or region, budget, production identity, and retention
 change require new explicit authorization.
+
+## AWS Private-Pilot Boundary
+
+The accepted first topology is explicitly Single-AZ and shares one RDS failure
+domain between application and Keycloak databases. AWS Backup/PITR resources
+are locally modeled, but host/AZ loss, coordinated RDS/S3 recovery, support
+ownership, and measured RPO/RTO are `not run`. A future drill needs a separate
+exact scope and the operator profile `avia`; never substitute `default`.

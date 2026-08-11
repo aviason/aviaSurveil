@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -181,40 +182,6 @@ func TestNewEvidenceScannerKeepsDeterministicModeOutOfProduction(t *testing.T) {
 	}
 }
 
-func TestNewDocumentRendererRequiresGotenbergInProduction(t *testing.T) {
-	t.Parallel()
-
-	deterministic, err := newDocumentRenderer(config.Settings{
-		Environment: "test",
-		ScannerMode: "deterministic-test",
-	})
-	if err != nil || deterministic == nil {
-		t.Fatalf("test document renderer = %T, err = %v", deterministic, err)
-	}
-
-	renderer, err := newDocumentRenderer(config.Settings{
-		Environment:           "production",
-		GotenbergURL:          "http://gotenberg:3000",
-		GotenbergTimeout:      30 * time.Second,
-		GotenbergRendererHash: testGotenbergRendererHash,
-	})
-	if err != nil || renderer == nil {
-		t.Fatalf("production Gotenberg renderer = %T, err = %v", renderer, err)
-	}
-
-	if renderer, err := newDocumentRenderer(config.Settings{
-		Environment: "production",
-	}); err == nil || renderer != nil {
-		t.Fatalf("missing production Gotenberg renderer = %T, err = %v", renderer, err)
-	}
-
-	if renderer, err := newDocumentRenderer(config.Settings{
-		Environment: "development",
-	}); err != nil || renderer != nil {
-		t.Fatalf("optional development renderer = %T, err = %v", renderer, err)
-	}
-}
-
 func TestNewNotificationSenderRequiresSMTPInProduction(t *testing.T) {
 	t.Parallel()
 
@@ -243,4 +210,102 @@ func TestNewNotificationSenderRequiresSMTPInProduction(t *testing.T) {
 	}
 }
 
-const testGotenbergRendererHash = "sha256:56c47f7b913f3b978554115a0191c4a9dcc2558f9090f27f3f13f28a7c2f8329"
+type reminderControllerScheduler struct {
+	calls  atomic.Int32
+	active atomic.Int32
+	max    atomic.Int32
+	block  <-chan struct{}
+}
+
+func (scheduler *reminderControllerScheduler) ScheduleDueReminders(ctx context.Context) (int, error) {
+	active := scheduler.active.Add(1)
+	defer scheduler.active.Add(-1)
+	for {
+		current := scheduler.max.Load()
+		if active <= current || scheduler.max.CompareAndSwap(current, active) {
+			break
+		}
+	}
+	scheduler.calls.Add(1)
+	if scheduler.block != nil {
+		select {
+		case <-scheduler.block:
+		case <-ctx.Done():
+			return 0, ctx.Err()
+		}
+	}
+	return 1, nil
+}
+
+func TestReminderControllerRunsStartupAndInjectedTicksWithoutOverlap(t *testing.T) {
+	block := make(chan struct{})
+	scheduler := &reminderControllerScheduler{block: block}
+	ticks := make(chan time.Time, 2)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		runReminderController(ctx, reminderControllerConfig{
+			Interval: time.Minute, Deadline: time.Second, Ticks: ticks, Schedule: scheduler,
+		})
+		close(done)
+	}()
+	deadline := time.After(500 * time.Millisecond)
+	for scheduler.calls.Load() < 1 {
+		select {
+		case <-deadline:
+			t.Fatal("startup reminder cycle did not execute")
+		default:
+			time.Sleep(time.Millisecond)
+		}
+	}
+	ticks <- time.Now()
+	if scheduler.calls.Load() != 1 {
+		t.Fatal("tick overlapped the startup cycle")
+	}
+	close(block)
+	for scheduler.calls.Load() < 2 {
+		select {
+		case <-deadline:
+			t.Fatal("injected tick did not execute after startup cycle")
+		default:
+			time.Sleep(time.Millisecond)
+		}
+	}
+	if scheduler.max.Load() != 1 {
+		t.Fatalf("reminder cycles overlapped: max active %d", scheduler.max.Load())
+	}
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("reminder controller did not stop")
+	}
+}
+
+func TestReminderControllerBoundsHungCycleAndKeepsRunning(t *testing.T) {
+	scheduler := &reminderControllerScheduler{block: make(chan struct{})}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		runReminderController(ctx, reminderControllerConfig{
+			Interval: 20 * time.Millisecond, Deadline: 5 * time.Millisecond,
+			Ticks: make(chan time.Time), Schedule: scheduler,
+		})
+		close(done)
+	}()
+	select {
+	case <-time.After(time.Second):
+		t.Fatal("bounded reminder cycle did not reach its deadline")
+	default:
+	}
+	time.Sleep(20 * time.Millisecond)
+	if scheduler.calls.Load() != 1 {
+		t.Fatalf("hung cycle unexpectedly overlapped/repeated: %d calls", scheduler.calls.Load())
+	}
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("hung reminder controller did not shut down")
+	}
+}

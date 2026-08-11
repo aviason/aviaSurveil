@@ -98,8 +98,7 @@
 
 .planning-intake-fields input,
 .planning-intake-fields select,
-.planning-intake-fields textarea,
-.inspection-package-draft textarea {
+.planning-intake-fields textarea {
   width: 100%;
   min-height: 44px;
   border: 1px solid #aebfcc;
@@ -109,8 +108,7 @@
   color: #1f3d55;
 }
 
-.planning-intake-fields textarea,
-.inspection-package-draft textarea {
+.planning-intake-fields textarea {
   min-height: 96px;
   resize: vertical;
 }
@@ -173,7 +171,6 @@
 }
 
 .planning-intake-actions button,
-.inspection-package-draft button,
 .planning-parent-actions a {
   display: inline-flex;
   align-items: center;
@@ -291,71 +288,6 @@
   margin-top: 14px;
 }
 
-.inspection-package-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
-  gap: 18px;
-}
-
-.inspection-package-draft,
-.inspection-package-focus {
-  display: grid;
-  align-content: start;
-  gap: 18px;
-  border: 1px solid #d3dee7;
-  border-radius: 10px;
-  background: #fff;
-  padding: 20px;
-}
-
-.inspection-package-draft > header {
-  display: flex;
-  align-items: start;
-  justify-content: space-between;
-  gap: 14px;
-}
-
-.inspection-package-draft dl {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin: 0;
-}
-
-.inspection-package-draft dl div {
-  display: grid;
-  gap: 5px;
-  border-bottom: 1px solid #dfe7ed;
-  padding: 9px;
-}
-
-.inspection-package-draft dd {
-  margin: 0;
-  font-weight: 700;
-}
-
-.inspection-package-questions {
-  display: grid;
-  gap: 12px;
-}
-
-.inspection-package-questions article {
-  border: 1px solid #d8e1e8;
-  border-radius: 8px;
-  padding: 16px;
-}
-
-.inspection-package-focus span {
-  border-radius: 99px;
-  background: #eaf2f7;
-  padding: 8px 11px;
-  color: #32546d;
-}
-
-.inspection-package-focus button {
-  min-height: 44px;
-}
-
 @media (max-width: 900px) {
   .workspace-shell .planning-intake-steps {
     grid-template-columns: 1fr;
@@ -375,9 +307,6 @@
     border-left-color: #3b7c68;
   }
 
-  .workspace-shell .inspection-package-layout {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 640px) {
@@ -391,8 +320,7 @@
   }
 
   .workspace-shell .planning-intake-fields,
-  .workspace-shell .planning-intake-review dl,
-  .workspace-shell .inspection-package-draft dl {
+  .workspace-shell .planning-intake-review dl {
     grid-template-columns: 1fr;
   }
 
@@ -408,9 +336,5 @@
   .workspace-shell .planning-intake-actions {
     display: grid;
     grid-template-columns: 1fr;
-  }
-
-  .workspace-shell .inspection-package-draft > header {
-    display: grid;
   }
 }

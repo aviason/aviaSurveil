@@ -1,0 +1,76 @@
+package graph
+
+import (
+	"context"
+	"strings"
+	"time"
+
+	"emsi_go_api/internal/auth"
+	"emsi_go_api/internal/graph/model"
+)
+
+func currentAuthSessionUser(ctx context.Context) (auth.User, error) {
+	user, ok := auth.UserFromContext(ctx)
+	if !ok || user.ID <= 0 || strings.TrimSpace(user.SessionID) == "" {
+		return auth.User{}, graphError("unauthorized", "UNAUTHENTICATED")
+	}
+	return user, nil
+}
+
+func mapAuthPayload(response auth.AuthResponse) *model.AuthPayload {
+	return &model.AuthPayload{
+		AccessToken:  mapAuthTokenEnvelope(response.AccessToken),
+		RefreshToken: mapAuthTokenEnvelope(response.RefreshToken),
+		User:         mapAuthUser(response.User),
+	}
+}
+
+func mapAuthTokenEnvelope(envelope auth.TokenEnvelope) *model.AuthTokenEnvelope {
+	return &model.AuthTokenEnvelope{
+		Token:      envelope.Token,
+		Expiration: formatGraphTimePtr(envelope.Expiration),
+	}
+}
+
+func mapAuthUser(user auth.AuthUser) *model.AuthUser {
+	return &model.AuthUser{
+		ID:             stringID(user.ID),
+		Username:       user.Username,
+		FullName:       user.FullName,
+		Name:           optionalString(user.Name),
+		Surname:        optionalString(user.Surname),
+		Email:          optionalString(user.Email),
+		Phone:          optionalString(user.Phone),
+		City:           optionalString(user.City),
+		PictureURL:     optionalString(user.PictureURL),
+		Role:           user.Role,
+		Roles:          nonNilStrings(user.Roles),
+		AuthorityCodes: nonNilStrings(user.AuthorityCodes),
+	}
+}
+
+func mapAuthSessions(sessions []auth.SessionInfo) []*model.AuthSession {
+	result := make([]*model.AuthSession, 0, len(sessions))
+	for _, session := range sessions {
+		result = append(result, &model.AuthSession{
+			SessionID:         session.SessionID,
+			Current:           session.Current,
+			ClientID:          session.ClientID,
+			Platform:          optionalString(session.Platform),
+			AppVersion:        optionalString(session.AppVersion),
+			DeviceLabel:       session.DeviceLabel,
+			CreatedAt:         formatGraphTime(session.CreatedAt),
+			LastUsedAt:        formatGraphTime(session.LastUsedAt),
+			AuthTime:          formatGraphTime(session.AuthTime),
+			AbsoluteExpiresAt: formatGraphTime(session.AbsoluteExpiresAt),
+			IdleExpiresAt:     formatGraphTime(session.IdleExpiresAt),
+			LastStepUpAt:      formatGraphTimePtr(session.LastStepUpAt),
+			RevokedAt:         formatGraphTimePtr(session.RevokedAt),
+		})
+	}
+	return result
+}
+
+func zeroTime() time.Time {
+	return time.Time{}
+}

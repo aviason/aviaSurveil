@@ -240,12 +240,12 @@ async function primaryNavigation(page: Page): Promise<Locator> {
   return navigation;
 }
 
-expect(VISUAL_SURFACES).toHaveLength(86);
+expect(VISUAL_SURFACES).toHaveLength(85);
 expect(VISUAL_VIEWPORTS).toHaveLength(3);
-expect(VISUAL_SURFACES.length * VISUAL_VIEWPORTS.length).toBe(258);
+expect(VISUAL_SURFACES.length * VISUAL_VIEWPORTS.length).toBe(255);
 
 for (const viewport of VISUAL_VIEWPORTS) {
-  test(`checks all 86 responsive routes at ${viewport.id}`, async ({ page }, testInfo) => {
+  test(`checks all 85 responsive routes at ${viewport.id}`, async ({ page }, testInfo) => {
     test.setTimeout(300_000);
     await page.setViewportSize(viewport);
     const consoleIssues: string[] = [];
@@ -351,7 +351,7 @@ for (const viewport of VISUAL_VIEWPORTS) {
       });
     }
 
-    expect(responsiveRouteChecks).toBe(86);
+    expect(responsiveRouteChecks).toBe(85);
   });
 }
 

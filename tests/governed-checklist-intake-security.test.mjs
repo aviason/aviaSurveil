@@ -35,6 +35,9 @@ test("Gate 0 inventory supports only phased, fail-closed verification", async ()
   assert.match(inventory, /tests\/aga-checklist-archive-inventory\.test\.mjs/);
   assert.match(inventory, /tests\/governed-checklist-intake-plan-contract\.test\.mjs/);
   assert.match(inventory, /tests\/governed-checklist-intake-security\.test\.mjs/);
+  assert.match(inventory, /apps\/web\/src\/features\/planning\/new-audit-wizard\.test\.tsx/);
+  assert.match(inventory, /apps\/api\/tests\/integration\/planning_assignment_scenario_test\.go/);
+  assert.doesNotMatch(inventory, /inspection-package-builder-page\.test\.tsx/);
   assert.match(inventory, /task9[\s\S]*blocked/i);
   assert.match(inventory, /real[\s\S]*(?:Form 048|slice)[\s\S]*authorization/i);
 });

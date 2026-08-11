@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/preproddata/agacandidatedemo"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/preproddata/canonicalaga"
 	"github.com/jackc/pgx/v5"
 )
@@ -59,7 +58,7 @@ func run(ctx context.Context, args []string, output io.Writer) error {
 		return errors.New("--actor-subject-id cannot select a caller-supplied identity; use the fixed canonical-aga-preprod-loader service identity")
 	}
 	*actorSubjectID = loaderActorSubjectID
-	pkg, err := agacandidatedemo.NewPackageReader().ReadAndValidate(ctx, *packagePath, agacandidatedemo.ExactAcceptedPackage())
+	pkg, err := canonicalaga.NewPackageReader().ReadAndValidate(ctx, *packagePath, canonicalaga.ExactAcceptedPackage())
 	if err != nil {
 		return fmt.Errorf("validate sealed package: %w", err)
 	}

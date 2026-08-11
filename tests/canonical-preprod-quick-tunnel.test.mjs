@@ -11,7 +11,7 @@ test("canonical HTTPS remains the default and HTTP is an explicit isolated overr
 
   assert.match(canonical, /transport="\$\{AVIA_PREPROD_TRANSPORT:-https\}"/u);
   assert.match(canonical, /https_port="\$\{AVIA_PREPROD_HTTPS_PORT:-8445\}"/u);
-  assert.match(canonical, /canonical HTTPS preprod currently requires AVIA_PREPROD_HTTPS_PORT=8445/u);
+  assert.match(canonical, /AVIA_PREPROD_HTTPS_PORT must be a user-space TCP port/u);
   assert.match(canonical, /canonical HTTPS transport does not accept a Compose override/u);
   assert.match(canonical, /HTTP transport requires the task-owned deploy\/local\/compose\.local-http\.yaml override/u);
   assert.match(canonical, /AVIA_PREPROD_WEB_ORIGIN must be an absolute HTTP\(S\) origin without a path/u);
@@ -369,7 +369,7 @@ test("canonical Quick Tunnel provisions the exact privacy-safe multi-role login 
   assert.match(identityLoader, /desired_membership_sync/u);
   assert.match(identityLoader, /caa_department_memberships/u);
   assert.match(compose, /preprod-canonical-demo-identity-loader:/u);
-  assert.match(compose, /preprod_aga_demo_oidc_qualification_password/u);
+  assert.match(compose, /preprod_canonical_demo_oidc_qualification_password/u);
   assert.match(canonicalStart, /preprod-canonical-demo-identity-loader/u);
   assert.match(canonicalStart, /demo identity seed count mismatch/u);
   assert.match(status, /demo identity count mismatch/u);
@@ -386,7 +386,7 @@ test("Quick Tunnel exposes a repeatable browser qualification command for every 
   assert.match(makefile, /^preprod-cloudflare-users:$/mu);
   assert.match(makefile, /scripts\/test-canonical-preprod-cloudflare-panels\.sh/u);
   assert.match(runner, /status-canonical-preprod-cloudflare\.sh/u);
-  assert.match(runner, /preprod_aga_demo_oidc_qualification_password/u);
+  assert.match(runner, /preprod_canonical_demo_oidc_qualification_password/u);
   assert.match(runner, /AVIA_E2E_PROFILE=canonical-quick-tunnel/u);
   assert.match(runner, /canonical-quick-tunnel-panels/u);
   assert.match(users, /canonical-preprod-demo-identities\.json/u);
@@ -395,7 +395,9 @@ test("Quick Tunnel exposes a repeatable browser qualification command for every 
   assert.match(playwright, /canonical-quick-tunnel/u);
   assert.match(playwright, /serviceWorkers:\s*["']allow["']/u);
   assert.doesNotMatch(playwright, /name:\s*["']canonical-quick-tunnel["'][\s\S]{0,500}serviceWorkers:\s*["']block["']/u);
-  assert.match(spec, /navigator\.serviceWorker\.ready/u);
+  assert.match(spec, /navigator\.serviceWorker\.getRegistration/u);
+  assert.match(spec, /state: "activated"/u);
+  assert.doesNotMatch(spec, /await navigator\.serviceWorker\.ready;/u);
   assert.match(spec, /navigator\.serviceWorker\.controller/u);
   assert.match(spec, /__Host-avia_session/u);
   assert.match(spec, /__Host-avia_csrf/u);

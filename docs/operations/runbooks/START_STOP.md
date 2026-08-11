@@ -99,9 +99,9 @@ resource deletion, and AWS actions require new explicit authorization.
 
 ## Canonical AGA Local-Preprod Qualification
 
-The canonical AGA successor uses a separately named disposable project and
-must not be started through the paused donor runbooks. From the repository
-root, the task-owned operator boundary is:
+The canonical AGA successor uses a separately named disposable project. The
+obsolete donor runbooks and aliases were physically removed after Task 9
+qualification. From the repository root, the task-owned operator boundary is:
 
 ```bash
 scripts/start-canonical-preprod.sh
@@ -112,10 +112,29 @@ The status record must report profile `aga-preprod@1.0.0`, identity namespace
 `canonical-aga-preprod-exercise-v1`, donor runtime `disabled`, and external
 preprod `not run`. Its local OIDC hero lifecycle is `verified locally` but
 remains `candidate-only` and `release pending`; user-owned Question Review and
-New Audit visual review at 1440x900, 1024x768, and 390x844, the remaining
-negative/recovery/dependency matrix, Task 9 donor deletion/requalification,
-stakeholder acceptance, and Task 10 external deployment are not implied by a
-healthy stack and must retain their literal evidence labels.
+New Audit visual review at 1440x900, 1024x768, and 390x844 and stakeholder
+acceptance are not implied by a healthy stack and must retain their literal
+evidence labels. Task 9 physical donor deletion/requalification is separately
+`verified locally`. External preprod is outside this plan and remains `not run`
+in its separate paused ExecPlan.
+
+The destructive Task 8 local matrix uses two unique disposable projects and a
+random user-space HTTPS port. It does not reuse or stop the named public-demo
+profile:
+
+```bash
+make preprod-test-fault-restart
+```
+
+The runner verifies the selected real-PostgreSQL transaction/fault/concurrency
+suite, the full 1,310-question OIDC lifecycle, a stable complete-authoritative
+database fingerprint before and after a cold restart, all role panels after
+restart, required dependency loss as `503/not_ready`, optional dependency loss
+as `200/degraded`, worker crash recovery, donor/log denial, and exact cleanup.
+Record `verified locally` only after the runner prints its fingerprint and the
+exit trap leaves zero task-owned containers, volumes, networks, processes, and
+runtime directory. A failure must remain a failure; do not drain legitimate
+undelivered local AviaCore outbox rows merely to manufacture an empty queue.
 
 ### Disposable Cloudflare Quick Tunnel Profile
 
@@ -260,3 +279,38 @@ Cloudflare dashboard/DNS configuration. The stable hostname will be unavailable
 until the profile is started again. Delete or rotate the Cloudflare credential
 from Cloudflare first if compromise is suspected; do not rely on stopping the
 local process alone.
+
+## AWS Private-Pilot Production Candidate
+
+The dedicated `deploy/aws-private-pilot/compose.yaml` surface is not a local
+replacement for `deploy/local`. The Task 8 target contains exactly gateway,
+API, consolidated worker, and Keycloak plus bounded database-bootstrap,
+migration, and Keycloak-bootstrap jobs. React assets are embedded in the
+gateway, reminders are worker-owned, and PDF rendering is native Go. Run only
+its offline contracts during local preparation:
+
+```bash
+./scripts/test-aws-private-pilot-compose.sh static
+./scripts/check-aws-private-pilot-infrastructure.sh
+./scripts/test-aws-private-pilot-release.sh
+```
+
+Systemd owns production render/start/health/drain/stop after a separately
+authorized release installs a `0600` manifest, runtime environment, reviewed
+RDS CA bundle, and secret-file references. The Compose unit starts first. A
+separate connector unit materializes the exact SSM SecureString into a
+connector-UID `0400` file, rejects the Terraform placeholder, and then runs the
+digest-bound ARM64 `cloudflared` container with IPv6 edge mode. A timer
+publishes `CloudflaredTunnelHAConnections`; fewer than four or missing metrics
+fails health. Authorized shutdown stops the health timer and Tunnel before
+draining workers and stopping Compose so no new browser traffic arrives.
+
+The gateway is fixed to `127.0.0.1:8080`; the EC2 security group has zero
+ingress. `cloudflared` is not a Compose service and its host-network use is the
+only approved exception. Do not start any of these units from this runbook.
+Every future operator-side AWS command and Terragrunt provider must select
+`avia` explicitly in `eu-central-1`; `default` or an omitted profile fails
+closed. EC2 containers do not use a named AWS profile and retain
+instance-profile access only. The recorded AWS read-only Task 7 wave does not
+authorize provider planning, token population, deployment, traffic, or
+external health; those remain `not run`.

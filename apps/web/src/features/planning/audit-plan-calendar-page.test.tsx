@@ -52,6 +52,7 @@ describe("AuditPlanCalendarPage", () => {
     expect(open).toHaveAttribute("title", "PLAN-2026-CAB-001 is already open in the Planning command center.");
     expect(screen.getByTestId("planning-selected-record")).toHaveTextContent("PLAN-2026-CAB-001");
     expect(screen.getByRole("link", { name: "New Inspection planning intake" })).toHaveAttribute("href", "/department-manager/new-audit/step-1");
-    expect(screen.getByRole("link", { name: "Open Inspection Package Builder" })).toHaveAttribute("href", "/department-manager/inspection-package-builder");
+    expect(screen.queryByRole("link", { name: "Open Inspection Package Builder" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "New Inspection planning intake" })).toHaveAttribute("href", "/department-manager/new-audit/step-1");
   });
 });

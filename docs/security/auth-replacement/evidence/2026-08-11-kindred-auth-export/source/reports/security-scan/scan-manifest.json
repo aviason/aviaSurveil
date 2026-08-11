@@ -1,0 +1,58 @@
+{
+  "documentType": "codex-security.scan-manifest",
+  "scan": {
+    "artifacts": [
+      {
+        "mediaType": "application/json",
+        "path": "findings.json",
+        "sha256": "5b33be1b08d8264579f0b5190396d06617e08d34d704bb50a9dd4b0e765a7736"
+      },
+      {
+        "mediaType": "application/json",
+        "path": "coverage.json",
+        "sha256": "b2db00660fd8b39b93208856be57b9b855b0440293e38d43af534237e166b903"
+      }
+    ],
+    "completedAt": "2026-08-11T00:30:00Z",
+    "coverageRef": "coverage.json",
+    "findingsRef": "findings.json",
+    "id": "projectkindred-standard-20260811",
+    "producer": {
+      "name": "codex-security-plugin",
+      "version": "0.1.18"
+    },
+    "scope": {
+      "excludePaths": [
+        ".git/",
+        "**/.env*",
+        "**/infrastructure/*/env.yaml",
+        "**/seed.go",
+        "**/build/",
+        "**/.terraform/"
+      ],
+      "includePaths": [
+        "kindred_server/",
+        "kindred_mobile/kindred_swift/core/Services/",
+        "kindred_mobile/kindred_swift/core/Networking/",
+        "kindred_mobile/kindred_swift/core/Settings/"
+      ],
+      "limitations": [
+        "No live deployment, PostgreSQL system, DynamoDB Local service, fuzz run, or external identity provider."
+      ],
+      "runtimeStatus": "source-only; no application runtime or network access",
+      "summary": "Offline standard security review of the authentication, identity, token, session, GraphQL, WebSocket and deployment boundary.",
+      "validationMode": "independent baseline plus focused source review"
+    },
+    "sealedAt": "2026-08-11T00:30:00Z",
+    "startedAt": "2026-08-11T00:00:00Z",
+    "status": "completed",
+    "target": {
+      "displayName": "projectKindred",
+      "kind": "git_worktree",
+      "revision": "cfcf14a6de6a5e7c00ff116dd47e477dddc68c74",
+      "snapshotDigest": "codex-security-snapshot/v1:sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "targetId": "cfcf14a6de6a5e7c00ff116dd47e477dddc68c74"
+    }
+  },
+  "schemaVersion": "1.0"
+}

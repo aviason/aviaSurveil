@@ -1,0 +1,267 @@
+{
+  "schemaVersion": 1,
+  "inventoryId": "aws-private-pilot-runtime-final-target-2026-08-11",
+  "profile": "aws-private-pilot",
+  "mode": "target",
+  "immutable": true,
+  "architecture": "linux/arm64",
+  "longRunningComposeRoles": [
+    "api",
+    "gateway",
+    "keycloak",
+    "worker"
+  ],
+  "boundedJobs": [
+    "database-bootstrap",
+    "keycloak-bootstrap",
+    "migration"
+  ],
+  "systemdOwnedRoles": [
+    "cloudflared",
+    "private-pilot-compose"
+  ],
+  "executableCommands": [
+    "api",
+    "database-bootstrap",
+    "keycloak-bootstrap",
+    "migrate",
+    "worker"
+  ],
+  "dockerTargets": [
+    "api",
+    "database-bootstrap",
+    "gateway",
+    "keycloak",
+    "migration",
+    "worker"
+  ],
+  "composeRoles": [
+    "api",
+    "gateway",
+    "keycloak",
+    "worker",
+    "database-bootstrap",
+    "keycloak-bootstrap",
+    "migration"
+  ],
+  "supervisorRoles": [
+    "api",
+    "gateway",
+    "keycloak",
+    "worker"
+  ],
+  "healthChecks": [
+    "api",
+    "gateway",
+    "keycloak",
+    "worker"
+  ],
+  "releaseSubjects": [
+    "api",
+    "cloudflared",
+    "database-bootstrap",
+    "gateway",
+    "keycloak",
+    "migration",
+    "worker"
+  ],
+  "imageLocks": [
+    "api",
+    "cloudflared",
+    "database-bootstrap",
+    "gateway",
+    "keycloak",
+    "migration",
+    "worker"
+  ],
+  "ecrRepositories": [
+    "application",
+    "cloudflared",
+    "database-bootstrap",
+    "gateway",
+    "keycloak"
+  ],
+  "secretsManagerContainers": [
+    "app-database-password",
+    "app-migration-password",
+    "app-smtp-password",
+    "keycloak-database-password",
+    "keycloak-service-client-secret",
+    "keycloak-smtp-password",
+    "oidc-client-secret",
+    "session-encryption-key"
+  ],
+  "separateSecretIdentities": [
+    "database-bootstrap-rds-managed",
+    "cloudflare-tunnel-token-ssm"
+  ],
+  "iamGrants": [
+    "runtime-ecr",
+    "runtime-secrets",
+    "runtime-s3",
+    "runtime-logs"
+  ],
+  "ipv6EgressDestinations": [
+    "cloudflare",
+    "smtp",
+    "rds",
+    "ecr",
+    "ssm"
+  ],
+  "preflightDestinations": [
+    "cloudflare",
+    "smtp",
+    "rds",
+    "ecr",
+    "ssm"
+  ],
+  "logGroups": [
+    "api",
+    "cloudflared",
+    "gateway",
+    "host",
+    "keycloak",
+    "vpc-flow",
+    "worker"
+  ],
+  "costInputs": [
+    "api",
+    "cloudflared",
+    "gateway",
+    "keycloak",
+    "worker"
+  ],
+  "sourceFiles": [
+    {
+      "path": "apps/api/Dockerfile",
+      "sha256": "sha256:d250f3ce4ed07588bf233322a1556f9a2734dc064ec25f2be06bc4b0611412bb"
+    },
+    {
+      "path": "apps/api/internal/documents/fonts/SOURCE.txt",
+      "sha256": "sha256:f3d2bdf430603862b4c56681432b9b056f82bcef53f8e6d43faffb88be7b8a5a"
+    },
+    {
+      "path": "apps/api/internal/documents/native_renderer.go",
+      "sha256": "sha256:87b6038743158966b7f46f4e2a385e6512aeac2e7a968d63f572c636126abd8f"
+    },
+    {
+      "path": "apps/web/package-lock.json",
+      "sha256": "sha256:33d24f34664c27f864a49e334f5ce28100a94091054baaea049a938eea54801f"
+    },
+    {
+      "path": "apps/web/package.json",
+      "sha256": "sha256:c6613cd788695fde35d0e457e235f92fdf0d7b4f5ecf363a653c6c1a48d4ca15"
+    },
+    {
+      "path": "apps/web/src/sw.ts",
+      "sha256": "sha256:feb79f27c81c70bc6dec3b304ad729bed1ee484b144a74ecd05782da213271a1"
+    },
+    {
+      "path": "apps/web/vite.config.ts",
+      "sha256": "sha256:e79391813a1afd6acd3ee0b093b9cb1f75ec709d3bb89a2d9464ab6154cf9d30"
+    },
+    {
+      "path": "deploy/aws-private-pilot/compose.yaml",
+      "sha256": "sha256:8a1d83231328293d82ba0634eb98306d673cbb56ee3ea15bfa78bb632c7730a2"
+    },
+    {
+      "path": "deploy/aws-private-pilot/gateway/Caddyfile",
+      "sha256": "sha256:20f2f07a84e0b66e60fefaa6c43624c47c37c09bf3ab72c68b7c083428017b1d"
+    },
+    {
+      "path": "deploy/aws-private-pilot/gateway/Dockerfile",
+      "sha256": "sha256:2e03c86ae1a1539ba9b39c5ca88f2c6bffb57ed5915e68a4c2db9c7ce1c2b514"
+    },
+    {
+      "path": "deploy/aws-private-pilot/image-lock.json",
+      "sha256": "sha256:619e2bdecd0983a7c4abbf07e0c592299054a702ad146b7973c5354951e1ae06"
+    },
+    {
+      "path": "deploy/aws-private-pilot/release-manifest.schema.json",
+      "sha256": "sha256:2250226939be9e8a5e5de456d3e7b4d5561b804a58d998e1ad69017ccee29a0e"
+    },
+    {
+      "path": "deploy/aws-private-pilot/runtime/app-entrypoint.sh",
+      "sha256": "sha256:0da4f5a4acbb36213635813e1ddadf54272b6424b629bec71ac31f310b9aeea1"
+    },
+    {
+      "path": "deploy/aws-private-pilot/runtime/ipv6-preflight.sh",
+      "sha256": "sha256:a104fcbed6ae93a79522b36eb96d9ea4c2917892447acfddf167fcf938a29355"
+    },
+    {
+      "path": "deploy/aws-private-pilot/runtime/supervisor.sh",
+      "sha256": "sha256:f3fa67dbedf2aa738aa9f2696a70af902de0b4dc459f57bd2186cebfeb7251fd"
+    },
+    {
+      "path": "deploy/aws-private-pilot/systemd/aviasurveil360-private-pilot.service",
+      "sha256": "sha256:9dfb161888d97823cc5e91bbec0c08c89f1f805c2492b99a99b43f743dd3bfd6"
+    },
+    {
+      "path": "infra/terraform/modules/aws-private-pilot/network.tf",
+      "sha256": "sha256:7c9b3d354dd13b1db0e04a230fd96f2b144ec9e0ddb908a8e59152d368105235"
+    },
+    {
+      "path": "infra/terraform/modules/aws-private-pilot/operations.tf",
+      "sha256": "sha256:b484e54c099752a593db6ec17343901dddec7e2e464dd0e25f54c527cd59eedf"
+    },
+    {
+      "path": "infra/terraform/modules/aws-private-pilot/storage.tf",
+      "sha256": "sha256:2ea9db4827d208909d2fb9de460eee48fdaf0ecb0c920d8192deea230ba0e9b1"
+    }
+  ],
+  "layerDeltas": {
+    "8.1": {
+      "owner": "data-feed-runtime",
+      "removes": [
+        "data-feed-worker",
+        "data-feed-backfill",
+        "data-feed-replay",
+        "data-feed-reconcile",
+        "AVIA_DATA_FEED_*",
+        "data-feed-secrets",
+        "data-feed-egress"
+      ]
+    },
+    "8.2": {
+      "owner": "reminder-controller",
+      "removes": [
+        "scheduler",
+        "reminder-scheduler",
+        "scheduler-health-marker"
+      ]
+    },
+    "8.3": {
+      "owner": "gateway-static-artifact",
+      "removes": [
+        "web",
+        "web-server",
+        "AVIA_WEB_IMAGE",
+        "web-ecr",
+        "web-proxy-hop"
+      ]
+    },
+    "8.4": {
+      "owner": "native-pdf",
+      "removes": [
+        "gotenberg",
+        "gotenberg-chromium",
+        "Chromium",
+        "GotenbergRenderer",
+        "gotenberg-network"
+      ]
+    },
+    "8.5": {
+      "owner": "target-reconciliation",
+      "reduces": [
+        "long-running-role-count",
+        "release-subject-count",
+        "ecr-repository-count",
+        "runtime-secret-count",
+        "log-group-count",
+        "retired-surface"
+      ]
+    }
+  },
+  "generatedAt": "2026-08-11T00:00:00Z",
+  "canonicalAggregateSha256": "sha256:77ee4da38a9a5ca9260a7d90e554f41f05cb20c67ae54d30e43ca88d430605b9"
+}

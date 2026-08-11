@@ -64,7 +64,6 @@ import {
   mapFinding,
   mapFindings,
   mapInspectionPackage,
-  mapInspectionPackageDraft,
   mapInspectionTeamAudit,
   mapManagerDashboard,
   mapNotification,
@@ -877,28 +876,6 @@ export function createHttpBackend(
         options,
       ),
     } satisfies CanonicalAuditWorkflowBackend,
-    packageDrafts: {
-      get: async ({ packageDraftId }, options) =>
-        mapInspectionPackageDraft(
-          await request<Schemas["InspectionPackageDraftView"]>(
-            `/v1/inspection-package-drafts/${encodeURIComponent(packageDraftId)}`,
-            {},
-            options,
-          ),
-        ),
-      save: async (input, options) =>
-        mapInspectionPackageDraft(
-          await request<Schemas["InspectionPackageDraftView"]>(
-            `/v1/inspection-package-drafts/${encodeURIComponent(input.packageDraftId)}`,
-            {
-              method: "PUT",
-              body: revisionCommandBody(input),
-              headers: revisionCommandHeaders(input),
-            },
-            options,
-          ),
-        ),
-    },
     profiles: {
       getMine: async (_input, options) =>
         mapProfile(

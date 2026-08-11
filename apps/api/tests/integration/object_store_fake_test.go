@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -17,6 +18,9 @@ type memoryObject struct {
 	body        []byte
 	contentType string
 	metadata    map[string]string
+	versionID   string
+	etag        string
+	tags        map[string]string
 }
 
 type memoryObjectStore struct {
@@ -55,10 +59,12 @@ func (store *memoryObjectStore) Write(_ context.Context, request objectstore.Wri
 	}
 	store.objects[location] = memoryObject{
 		body: append([]byte(nil), body...), contentType: request.ContentType,
-		metadata: cloneStrings(request.Metadata),
+		metadata: cloneStrings(request.Metadata), versionID: fmt.Sprintf("version-%d", len(store.objects)+1),
+		etag: sha256Digest(body), tags: map[string]string{},
 	}
+	stored := store.objects[location]
 	return objectstore.ObjectInfo{
-		Bucket: request.Bucket, Key: request.Key, Size: request.Size,
+		Bucket: request.Bucket, Key: request.Key, Size: request.Size, VersionID: stored.versionID, ETag: stored.etag,
 		ContentType: request.ContentType, Metadata: cloneStrings(request.Metadata),
 	}, nil
 }
@@ -72,7 +78,7 @@ func (store *memoryObjectStore) Open(_ context.Context, bucket, key string) (io.
 	}
 	copyBody := append([]byte(nil), object.body...)
 	return io.NopCloser(bytes.NewReader(copyBody)), objectstore.ObjectInfo{
-		Bucket: bucket, Key: key, Size: int64(len(copyBody)), ContentType: object.contentType,
+		Bucket: bucket, Key: key, Size: int64(len(copyBody)), VersionID: object.versionID, ETag: object.etag, ContentType: object.contentType,
 		Metadata: cloneStrings(object.metadata),
 	}, nil
 }
@@ -90,7 +96,8 @@ func (store *memoryObjectStore) Copy(_ context.Context, request objectstore.Copy
 	}
 	store.objects[destination] = memoryObject{
 		body: append([]byte(nil), source.body...), contentType: source.contentType,
-		metadata: cloneStrings(source.metadata),
+		metadata: cloneStrings(source.metadata), versionID: fmt.Sprintf("version-%d", len(store.objects)+1),
+		etag: sha256Digest(source.body), tags: map[string]string{},
 	}
 	store.copies = append(store.copies, request)
 	return nil
@@ -114,7 +121,56 @@ func (store *memoryObjectStore) Seed(bucket, key, contentType string, body []byt
 	defer store.mu.Unlock()
 	store.objects[objectLocation(bucket, key)] = memoryObject{
 		body: append([]byte(nil), body...), contentType: contentType, metadata: cloneStrings(metadata),
+		versionID: fmt.Sprintf("version-%d", len(store.objects)+1), etag: sha256Digest(body), tags: map[string]string{},
 	}
+}
+
+func (store *memoryObjectStore) SetTags(bucket, key string, tags map[string]string) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	location := objectLocation(bucket, key)
+	object := store.objects[location]
+	object.tags = cloneStrings(tags)
+	store.objects[location] = object
+}
+
+func (store *memoryObjectStore) OpenExact(ctx context.Context, expected objectstore.ExactObject) (io.ReadCloser, objectstore.ObjectInfo, error) {
+	reader, info, err := store.Open(ctx, expected.Bucket, expected.Key)
+	if err != nil {
+		return nil, objectstore.ObjectInfo{}, err
+	}
+	if info.VersionID != expected.VersionID || info.ETag != expected.ETag || info.Size != expected.Size || info.Metadata["sha256"] != expected.SHA256 {
+		_ = reader.Close()
+		return nil, objectstore.ObjectInfo{}, errors.New("exact object identity mismatch")
+	}
+	return reader, info, nil
+}
+
+func (store *memoryObjectStore) ReadTagsExact(ctx context.Context, expected objectstore.ExactObject) (map[string]string, objectstore.ObjectInfo, error) {
+	reader, info, err := store.OpenExact(ctx, expected)
+	if err != nil {
+		return nil, objectstore.ObjectInfo{}, err
+	}
+	_ = reader.Close()
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	return cloneStrings(store.objects[objectLocation(expected.Bucket, expected.Key)].tags), info, nil
+}
+
+func (store *memoryObjectStore) CopyExact(ctx context.Context, request objectstore.ExactCopyRequest) (objectstore.ObjectInfo, error) {
+	reader, sourceInfo, err := store.OpenExact(ctx, request.Source)
+	if err != nil {
+		return objectstore.ObjectInfo{}, err
+	}
+	body, readErr := io.ReadAll(reader)
+	closeErr := reader.Close()
+	if readErr != nil || closeErr != nil {
+		return objectstore.ObjectInfo{}, errors.Join(readErr, closeErr)
+	}
+	return store.Write(ctx, objectstore.WriteRequest{
+		Bucket: request.DestinationBucket, Key: request.DestinationKey, ContentType: sourceInfo.ContentType,
+		Size: int64(len(body)), Metadata: sourceInfo.Metadata, Body: bytes.NewReader(body),
+	})
 }
 
 func (store *memoryObjectStore) Has(bucket, key string) bool {

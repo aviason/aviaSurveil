@@ -1,0 +1,8 @@
+flowchart LR
+    Browser["Browser"] --> Gateway["Gateway"]
+    Gateway --> API["Go API and BFF"]
+    Gateway --> Keycloak["Keycloak OIDC provider"]
+    API --> Keycloak
+    API --> AppDB["Application database\nsessions and memberships"]
+    Keycloak --> KeycloakDB["Keycloak database\ncredentials and MFA"]
+    Keycloak --> SMTP["Verified TLS SMTP"]

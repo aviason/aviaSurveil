@@ -772,7 +772,7 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
       ]);
     });
 
-    it("projects all 86 screen/action contracts and the same governed Task 9 transcript", async () => {
+    it("projects all 85 active screen/action contracts and the same governed Task 9 transcript", async () => {
       const harness = await createHarness();
       const uniqueScreens = new Set<string>();
       const uniqueActions = new Map<string, {
@@ -811,8 +811,8 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
           }
         }
       }
-      expect([...uniqueScreens]).toHaveLength(86);
-      expect([...uniqueActions]).toHaveLength(108);
+      expect([...uniqueScreens]).toHaveLength(85);
+      expect([...uniqueActions]).toHaveLength(107);
       for (const { backend, screenId, actionId, effect } of uniqueActions.values()) {
         const invoked = await backend.administration!.invokeVisibleAction({
           screenId,
@@ -1187,10 +1187,10 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
       expect(JSON.stringify(auditEvents)).not.toMatch(/internalCaaNote/i);
     });
 
-    it("produces the same normalized planning, package, team, and Auditee coordination transcript", async () => {
+    it("produces the same normalized planning, team, and Auditee coordination transcript", async () => {
       const harness = await createHarness();
       const manager = harness.backendFor(PRINCIPALS.manager);
-      if (!manager.planningIntake || !manager.packageDrafts || !manager.teams) {
+      if (!manager.planningIntake || !manager.teams) {
         throw new Error("Task 4 manager capabilities are unavailable.");
       }
       const auditee = harness.backendFor(PRINCIPALS.auditee);
@@ -1254,31 +1254,6 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
         requestedBudget: submitted.planningItem.estimatedBudget,
       });
 
-      const initialPackage = await manager.packageDrafts.get({
-        packageDraftId: "PKG-AUD-2026-001-CABIN",
-      });
-      transcript.push({
-        event: "package.draft.loaded",
-        id: initialPackage.id,
-        applicationType: initialPackage.applicationType,
-        domain: initialPackage.domain,
-        riskFocus: initialPackage.riskFocus,
-        questionIds: initialPackage.questions.map(({ id }) => id),
-        revision: initialPackage.revision,
-      });
-      const savedPackage = await manager.packageDrafts.save({
-        idempotencyKey: "IDEM-TASK4-CONTRACT-PACKAGE",
-        expectedRevision: initialPackage.revision,
-        packageDraftId: initialPackage.id,
-        riskFocus: ["PBE serviceability", "Cabin inspection CAP follow-up"],
-      });
-      transcript.push({
-        event: "package.draft.saved",
-        riskFocus: savedPackage.riskFocus,
-        questionIds: savedPackage.questions.map(({ id }) => id),
-        revision: savedPackage.revision,
-      });
-
       const leads = await manager.teams.list({ role: "leadInspector" });
       transcript.push({
         event: "team.leads.listed",
@@ -1338,25 +1313,6 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
           planningStatus: "FINANCE_REVIEW",
           ownerRole: "finance",
           requestedBudget: 0,
-        },
-        {
-          event: "package.draft.loaded",
-          id: "PKG-AUD-2026-001-CABIN",
-          applicationType: "Cabin Inspection",
-          domain: "Cabin Safety",
-          riskFocus: [
-            "Emergency equipment serviceability",
-            "PBE serviceability",
-            "Cabin inspection CAP follow-up",
-          ],
-          questionIds: ["PKG-Q-CAB-PBE", "PKG-Q-CAB-GALLEY"],
-          revision: 1,
-        },
-        {
-          event: "package.draft.saved",
-          riskFocus: ["PBE serviceability", "Cabin inspection CAP follow-up"],
-          questionIds: ["PKG-Q-CAB-PBE", "PKG-Q-CAB-GALLEY"],
-          revision: 2,
         },
         {
           event: "team.leads.listed",

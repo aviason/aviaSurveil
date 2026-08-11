@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/datafeed"
+	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/documents"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/reports"
 	"github.com/jackc/pgx/v5"
@@ -289,325 +289,6 @@ func (service *Service) CreateReminderRule(
 	})
 }
 
-type AuditWorkspaceQuestion struct {
-	QuestionID                  string   `json:"questionId"`
-	AssignedInspectorSubjectIDs []string `json:"assignedInspectorSubjectIds"`
-}
-
-type CreateAuditWorkspaceCommand struct {
-	OperationID              string
-	IdempotencyKey           string
-	PlanningItemID           string
-	ExpectedPlanningRevision int64
-	AuditID                  string
-	AssignmentID             string
-	PackageID                string
-	PackageDraftID           string
-	TemplateID               string
-	TemplateVersionID        string
-	LeadInspectorSubjectID   string
-	MemberSubjectIDs         []string
-	ScheduledStartDate       string
-	ScheduledEndDate         string
-	ExpiresAt                time.Time
-	Questions                []AuditWorkspaceQuestion
-}
-
-type AuditWorkspace struct {
-	AuditID           string `json:"auditId"`
-	AssignmentID      string `json:"assignmentId"`
-	PackageID         string `json:"packageId"`
-	PackageDraftID    string `json:"packageDraftId"`
-	TemplateVersionID string `json:"templateVersionId"`
-	PackageVersion    int64  `json:"packageVersion"`
-	Revision          int64  `json:"revision"`
-}
-
-func (service *Service) CreateAuditWorkspace(
-	ctx context.Context,
-	actor identity.Principal,
-	command CreateAuditWorkspaceCommand,
-) (AuditWorkspace, error) {
-	if !actor.HasRole(identity.RoleDepartmentManager) {
-		return AuditWorkspace{}, fmt.Errorf(
-			"%w: Department Manager authority is required",
-			ErrForbidden,
-		)
-	}
-	start, startErr := time.Parse("2006-01-02", command.ScheduledStartDate)
-	end, endErr := time.Parse("2006-01-02", command.ScheduledEndDate)
-	if command.OperationID == "" || command.IdempotencyKey == "" ||
-		command.PlanningItemID == "" || command.ExpectedPlanningRevision <= 0 ||
-		command.AuditID == "" || command.AssignmentID == "" ||
-		command.PackageID == "" || command.PackageDraftID == "" ||
-		command.TemplateID == "" || command.TemplateVersionID == "" ||
-		command.LeadInspectorSubjectID == "" ||
-		len(command.MemberSubjectIDs) == 0 || len(command.Questions) == 0 ||
-		command.ExpiresAt.IsZero() || startErr != nil || endErr != nil ||
-		end.Before(start) {
-		return AuditWorkspace{}, ErrInvalid
-	}
-	assignedQuestions := map[string][]string{}
-	for _, question := range command.Questions {
-		if question.QuestionID == "" || len(question.AssignedInspectorSubjectIDs) == 0 {
-			return AuditWorkspace{}, ErrInvalid
-		}
-		if _, exists := assignedQuestions[question.QuestionID]; exists {
-			return AuditWorkspace{}, ErrInvalid
-		}
-		assignedQuestions[question.QuestionID] = append(
-			[]string(nil),
-			question.AssignedInspectorSubjectIDs...,
-		)
-	}
-	return executeTransition(ctx, service, actor, commandEnvelope{
-		OperationID: command.OperationID, IdempotencyKey: command.IdempotencyKey,
-		CorrelationID: command.OperationID, Kind: "create_audit_workspace",
-		EntityID: command.AuditID, Semantic: command,
-	}, func(ctx context.Context, transaction pgx.Tx) (transition[AuditWorkspace], error) {
-		var organizationID, title, inspectionType, planStatus string
-		var planRevision int64
-		var dueDate time.Time
-		if err := transaction.QueryRow(ctx, `
-			SELECT organization_id, title, inspection_type, status, revision, scheduled_date
-			FROM surveillance_plan_items
-			WHERE id = $1 AND tombstoned_at IS NULL
-			FOR UPDATE
-		`, command.PlanningItemID).Scan(
-			&organizationID, &title, &inspectionType, &planStatus,
-			&planRevision, &dueDate,
-		); err != nil {
-			if err == pgx.ErrNoRows {
-				return transition[AuditWorkspace]{}, ErrNotFound
-			}
-			return transition[AuditWorkspace]{}, err
-		}
-		if planStatus != "RELEASED" || planRevision != command.ExpectedPlanningRevision {
-			return transition[AuditWorkspace]{}, ErrConflict
-		}
-		auditScopeCode, err := dataFeedAuditScopeCode(inspectionType)
-		if err != nil {
-			return transition[AuditWorkspace]{}, err
-		}
-		if service.dataFeedWriter == nil {
-			return transition[AuditWorkspace]{}, ErrDataFeedNotConfigured
-		}
-		var noticePolicy string
-		if err := transaction.QueryRow(ctx, `SELECT COALESCE(values->>'noticePolicy','ADVANCE') FROM planning_intake_drafts WHERE values->>'preparedAuditId'=$1 AND tombstoned_at IS NULL FOR UPDATE`, command.AuditID).Scan(&noticePolicy); err != nil {
-			if err == pgx.ErrNoRows {
-				return transition[AuditWorkspace]{}, ErrNotFound
-			}
-			return transition[AuditWorkspace]{}, err
-		}
-		var templateSnapshot []byte
-		var templateID string
-		if err := transaction.QueryRow(ctx, `
-			SELECT template_id, snapshot
-			FROM checklist_template_versions
-			WHERE id = $1
-		`, command.TemplateVersionID).Scan(&templateID, &templateSnapshot); err != nil {
-			if err == pgx.ErrNoRows {
-				return transition[AuditWorkspace]{}, ErrNotFound
-			}
-			return transition[AuditWorkspace]{}, err
-		}
-		if templateID != command.TemplateID {
-			return transition[AuditWorkspace]{}, ErrConflict
-		}
-		var snapshot struct {
-			SchemaVersion   int64            `json:"schemaVersion"`
-			ProtocolVersion int64            `json:"protocolVersion"`
-			Questions       []map[string]any `json:"questions"`
-		}
-		if err := json.Unmarshal(templateSnapshot, &snapshot); err != nil {
-			return transition[AuditWorkspace]{}, ErrInvalid
-		}
-		for _, question := range snapshot.Questions {
-			questionID, _ := question["id"].(string)
-			assigned, exists := assignedQuestions[questionID]
-			if !exists {
-				return transition[AuditWorkspace]{}, ErrConflict
-			}
-			question["assignedInspectorUserIds"] = assigned
-			delete(assignedQuestions, questionID)
-		}
-		if len(assignedQuestions) != 0 || len(snapshot.Questions) == 0 {
-			return transition[AuditWorkspace]{}, ErrConflict
-		}
-		packageSnapshot, err := json.Marshal(snapshot)
-		if err != nil {
-			return transition[AuditWorkspace]{}, err
-		}
-		digest := sha256.Sum256(packageSnapshot)
-		packageDigest := fmt.Sprintf("sha256:%x", digest[:])
-		now := service.clock().UTC()
-		firstAssigned := command.Questions[0].AssignedInspectorSubjectIDs[0]
-		if _, err := transaction.Exec(ctx, `
-			INSERT INTO inspections (
-				id, organization_id, assigned_inspector_subject_id, title,
-				inspection_type, status, due_date, revision, created_at, updated_at
-			) VALUES ($1, $2, $3, $4, $5, 'READY_TO_EXECUTE', $6, 1, $7, $7)
-		`, command.AuditID, organizationID, firstAssigned, title,
-			inspectionType, dueDate, now); err != nil {
-			return transition[AuditWorkspace]{}, mapCreateConflict(err)
-		}
-		if _, err := transaction.Exec(ctx, `
-			INSERT INTO audit_assignments (
-				id, inspection_id, organization_id, lead_subject_id, status,
-				scheduled_start_date, scheduled_end_date, revision, created_at, updated_at
-			) VALUES (
-				$1, $2, $3, $4, $5,
-				$6, $7, 1, $8, $8
-			)
-		`, command.AssignmentID, command.AuditID, organizationID,
-			command.LeadInspectorSubjectID, func() string {
-				if noticePolicy == "WITHHELD" {
-					return "SCHEDULED"
-				}
-				return "AWAITING_AUDITEE_CONFIRMATION"
-			}(), start, end, now); err != nil {
-			return transition[AuditWorkspace]{}, mapCreateConflict(err)
-		}
-		if _, err := transaction.Exec(ctx, `
-			INSERT INTO audit_team_members (
-				assignment_id, subject_id, member_role, revision, created_at
-			) VALUES ($1, $2, 'LEAD_INSPECTOR', 1, $3)
-		`, command.AssignmentID, command.LeadInspectorSubjectID, now); err != nil {
-			return transition[AuditWorkspace]{}, err
-		}
-		for _, subjectID := range command.MemberSubjectIDs {
-			if subjectID == command.LeadInspectorSubjectID {
-				continue
-			}
-			if _, err := transaction.Exec(ctx, `
-				INSERT INTO audit_team_members (
-					assignment_id, subject_id, member_role, revision, created_at
-				) VALUES ($1, $2, 'INSPECTOR', 1, $3)
-			`, command.AssignmentID, subjectID, now); err != nil {
-				return transition[AuditWorkspace]{}, err
-			}
-		}
-		for _, question := range command.Questions {
-			for _, subjectID := range question.AssignedInspectorSubjectIDs {
-				if _, err := transaction.Exec(ctx, `
-					INSERT INTO inspection_question_assignments (
-						inspection_id, question_id, subject_id, assignment_revision
-					) VALUES ($1, $2, $3, 1)
-				`, command.AuditID, question.QuestionID, subjectID); err != nil {
-					return transition[AuditWorkspace]{}, err
-				}
-				if _, err := transaction.Exec(ctx, `
-					INSERT INTO audit_question_assignments (
-						assignment_id, question_id, subject_id, revision, created_at
-					) VALUES ($1, $2, $3, 1, $4)
-				`, command.AssignmentID, question.QuestionID, subjectID, now); err != nil {
-					return transition[AuditWorkspace]{}, err
-				}
-			}
-		}
-		if _, err := transaction.Exec(ctx, `
-			INSERT INTO inspection_packages (
-				id, inspection_id, checklist_template_version_id, package_version,
-				snapshot, expires_at, created_at, package_digest
-			) VALUES ($1, $2, $3, 1, $4, $5, $6, $7)
-		`, command.PackageID, command.AuditID, command.TemplateVersionID,
-			packageSnapshot, command.ExpiresAt.UTC(), now, packageDigest); err != nil {
-			return transition[AuditWorkspace]{}, mapCreateConflict(err)
-		}
-		if _, err := transaction.Exec(ctx, `
-			INSERT INTO inspection_checklists (inspection_id, status, revision)
-			VALUES ($1, 'NOT_STARTED', 1)
-		`, command.AuditID); err != nil {
-			return transition[AuditWorkspace]{}, err
-		}
-		draftQuestions := make([]map[string]any, 0, len(snapshot.Questions))
-		for _, question := range snapshot.Questions {
-			expectedEvidence, _ := question["expectedEvidence"].(string)
-			draftQuestions = append(draftQuestions, map[string]any{
-				"id": question["id"], "prompt": question["prompt"],
-				"whyIncluded":         "Included by the authorized published checklist version.",
-				"expectedEvidence":    []string{expectedEvidence},
-				"configuredReference": question["regulatoryReference"],
-			})
-		}
-		draftQuestionJSON, _ := json.Marshal(draftQuestions)
-		riskFocusJSON, _ := json.Marshal([]string{"Authorized checklist scope"})
-		if _, err := transaction.Exec(ctx, `
-			INSERT INTO inspection_package_drafts (
-				id, source_inspection_id, organization_id, status, package_version,
-				risk_focus, question_snapshot, revision, created_by_subject_id,
-				created_at, updated_at
-			) VALUES ($1, $2, $3, 'DRAFT', 1, $4, $5, 1, $6, $7, $7)
-		`, command.PackageDraftID, command.AuditID, organizationID,
-			riskFocusJSON, draftQuestionJSON, actor.SubjectID, now); err != nil {
-			return transition[AuditWorkspace]{}, mapCreateConflict(err)
-		}
-		output := AuditWorkspace{
-			AuditID: command.AuditID, AssignmentID: command.AssignmentID,
-			PackageID: command.PackageID, PackageDraftID: command.PackageDraftID,
-			TemplateVersionID: command.TemplateVersionID,
-			PackageVersion:    1, Revision: 1,
-		}
-		correlationID, err := datafeed.NewEventID()
-		if err != nil {
-			return transition[AuditWorkspace]{}, fmt.Errorf("allocate datafeed correlation id: %w", err)
-		}
-		plannedEventID, err := datafeed.NewEventID()
-		if err != nil {
-			return transition[AuditWorkspace]{}, fmt.Errorf("allocate planned datafeed event id: %w", err)
-		}
-		plannedStart := time.Date(dueDate.Year(), dueDate.Month(), dueDate.Day(), 0, 0, 0, 0, time.UTC)
-		dataFeedEvents := []datafeed.EventInput{
-			{
-				EventID: plannedEventID, EventType: "audit.planned",
-				OwningOrganizationID: organizationID, ActorOrganizationID: actor.OrganizationID,
-				CorrelationID: correlationID, AggregateType: "audit", AggregateID: command.AuditID,
-				AggregateRevision: 1, EffectiveAt: now, KnownAt: now, OccurredAt: now, EmittedAt: now,
-				VisibilityPurposeCode: "regulated_oversight", EntityRefs: map[string]any{"audit_id": command.AuditID},
-				StateBefore: nil, StateAfter: "audit_planned",
-				Payload: map[string]any{
-					"audit_program_ref": command.PlanningItemID,
-					"audit_scope_code":  auditScopeCode,
-					"planned_start_at":  plannedStart.Format(time.RFC3339Nano),
-				},
-			},
-		}
-		return transition[AuditWorkspace]{
-			Response: output, OrganizationID: organizationID,
-			Action: "audit.workspace_created", EntityType: "inspection",
-			EntityID: command.AuditID, EntityVersion: 1,
-			AfterStatus: "READY_TO_EXECUTE",
-			Reason:      "Created audit workspace from a released plan and published checklist.",
-			SyncKind:    "inspection", OutboxTopic: "audit.workspace_created",
-			DataFeedEvents: dataFeedEvents,
-		}, nil
-	})
-}
-
-// dataFeedAuditScopeCode permits only source inspection-type values already
-// represented by this candidate. It intentionally does not normalize input:
-// an unknown type, including any ambiguous combined value, cannot be emitted.
-func dataFeedAuditScopeCode(inspectionType string) (string, error) {
-	switch inspectionType {
-	case "RAMP":
-		return "ramp", nil
-	case "CABIN":
-		return "cabin", nil
-	case "RAMP_INSPECTION":
-		return "ramp_inspection", nil
-	case "CABIN_INSPECTION":
-		return "cabin_inspection", nil
-	case "Air Operator Certificate", "Air Operator Certificate · Cabin Safety":
-		// Older submitted Planning snapshots carry the governed display
-		// label rather than the compact source code.  Keep that immutable
-		// identity exact while mapping the known Cabin Safety variant to the
-		// canonical feed scope; do not accept arbitrary free-form labels.
-		return "cabin", nil
-	default:
-		return "", fmt.Errorf("%w: unsupported exact inspection type for datafeed: %q", ErrInvalid, inspectionType)
-	}
-}
-
 type CreateReportVersionCommand struct {
 	OperationID     string
 	IdempotencyKey  string
@@ -766,17 +447,26 @@ func (service *Service) CreateReportVersion(
 		if err != nil {
 			return transition[CreatedReportVersion]{}, ErrInvalid
 		}
-		contentDigest := sha256.Sum256(contentBytes)
+		content, err := documents.DecodeReportContent(contentBytes)
+		if err != nil {
+			return transition[CreatedReportVersion]{}, fmt.Errorf("%w: canonical report content: %v", ErrInvalid, err)
+		}
+		canonicalContent, err := json.Marshal(content)
+		if err != nil {
+			return transition[CreatedReportVersion]{}, ErrInvalid
+		}
+		contentDigest := sha256.Sum256(canonicalContent)
 		contentHash := fmt.Sprintf("sha256:%x", contentDigest[:])
 		snapshot := map[string]any{
 			"kind": command.Kind, "ready": true,
 			"findingIds": command.FindingIDs, "contentHash": contentHash,
+			"createdBySubject": actor.SubjectID,
 			// Freeze the Potential Finding roots alongside the formal Finding
 			// set. A later conversion is valid only for a root explicitly present
 			// in this immutable Preliminary snapshot.
 			"potentialFindingIds": potentialFindingIDs,
 			"responseDueDate":     nil, "caaVisibleComment": nil,
-			"content": command.Content,
+			"content": content,
 		}
 		if _, err := reports.Prepare(reports.PrepareInput{
 			ReportID: command.ReportID, Kind: command.Kind,

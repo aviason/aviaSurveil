@@ -73,18 +73,32 @@ To manage the same local server in the background, use `make demo-up`,
 See `docs/demo-evidence/REACT_MOCK_SLICE_2026-07-20.md` for the exact verified
 scope, commands, transcript, and exclusions.
 
-For the disposable API-backed AGA demo (PostgreSQL, Keycloak, Go API, HTTP
-React shell, and the sealed 1,310-question workspace):
+For the disposable canonical API-backed preprod profile (PostgreSQL, Keycloak,
+Go API, HTTP React shell, and the 1,310-question exercise catalog):
 
 ```bash
-make aga-demo-up
+make preprod-up
 ```
 
 The command prints the local URL and synthetic login credentials. Startup
-builds a fresh target and can take several minutes. Use `make aga-demo-status`
-to check the API/web health and loaded question count, and `make aga-demo-down`
-to remove the disposable containers, volumes, and temporary credentials. This
-is `candidate-only`; it does not establish production readiness.
+builds a fresh target and can take several minutes. Use `make preprod-status`
+to check API/web health and the loaded catalog, and `make preprod-down` to
+remove the disposable containers, volumes, and temporary credentials. The
+obsolete AGA-only stakeholder runtime and its operator aliases were physically
+removed after donor-free qualification. This canonical profile remains
+`candidate-only`; it does not establish production readiness.
+
+For the separately gated AWS Single-AZ ARM64 private-pilot preparation, use
+only the offline contracts under `deploy/aws-private-pilot/` and
+`infra/terragrunt/environments/aws-private-pilot/`. Operator-side AWS tooling
+is fixed to the named profile `avia`; `default` is rejected, while EC2 runtime
+containers use only the instance profile. The active local target is an
+outbound-only IPv6 Cloudflare Tunnel to a loopback gateway on one private
+dual-stack `t4g.small`; it contains no ALB, NAT Gateway, public subnet, public
+IPv4, or runtime ingress rule. A recorded AWS read-only discovery wave does
+not authorize a provider-backed plan, AWS/Cloudflare mutation, deployment,
+release, or capacity claim. See
+`docs/operations/AWS_PRIVATE_PILOT_RUNTIME.md` and the active ExecPlan.
 
 For an explicitly authorized public demo backed by this Mac, the named
 Cloudflare Tunnel profile targets `https://demo.aviasurveil.com` while keeping

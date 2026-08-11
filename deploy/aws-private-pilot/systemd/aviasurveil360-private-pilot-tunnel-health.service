@@ -1,0 +1,23 @@
+[Unit]
+Description=Publish and enforce AviaSurveil360 Cloudflare Tunnel connection health
+After=network-online.target aviasurveil360-private-pilot-tunnel.service
+Requires=aviasurveil360-private-pilot-tunnel.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/aviasurveil360/private-pilot/runtime.env
+Environment=AWS_USE_DUALSTACK_ENDPOINT=true
+ExecStart=/opt/aviasurveil360/private-pilot/deploy/aws-private-pilot/runtime/supervisor.sh tunnel-health
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectSystem=strict
+ReadOnlyPaths=/opt/aviasurveil360/private-pilot /etc/aviasurveil360/private-pilot
+ReadWritePaths=/run/aviasurveil360-private-pilot
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+UMask=0077

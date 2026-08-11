@@ -1,5 +1,5 @@
 // Command preprod-normal-runtime-role-provisioner creates the disposable
-// local-preprod login used by the long-lived API, worker, and scheduler. It
+// local-preprod login used by the long-lived API and worker. It
 // deliberately runs with the bootstrap owner credential once, after the
 // schema migrations complete; the normal runtime containers never receive
 // that credential.

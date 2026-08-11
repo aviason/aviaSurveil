@@ -1,0 +1,8 @@
+# Opt-in overlay for hosts whose Docker default address pools are exhausted.
+# The caller must create and later remove one exact task-owned bridge network
+# with an explicit non-conflicting subnet. It is local-test infrastructure and
+# is never referenced by production Compose.
+networks:
+  default:
+    external: true
+    name: ${AVIA_TEST_EXTERNAL_NETWORK:?AVIA_TEST_EXTERNAL_NETWORK is required}

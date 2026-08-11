@@ -4,18 +4,12 @@ const e2eProfile = process.env.AVIA_E2E_PROFILE;
 const profile =
   e2eProfile === "local-demo"
     ? "local-demo"
-    : e2eProfile === "local-full"
-      ? "local-full"
-      : e2eProfile === "restored-platform"
+    : e2eProfile === "restored-platform"
       ? "restored-platform"
       : e2eProfile === "aws-trial"
         ? "aws-trial"
       : e2eProfile === "http"
     ? "http"
-    : e2eProfile === "preprod-aga-demo"
-      ? "preprod-aga-demo"
-      : e2eProfile === "preprod-aga-manager"
-      ? "preprod-aga-manager"
     : e2eProfile === "canonical-quick-tunnel"
       ? "canonical-quick-tunnel"
     : e2eProfile === "oidc"
@@ -35,11 +29,8 @@ const command =
     : "npm run dev:demo -- --host 127.0.0.1 --port 4174 --strictPort";
 const shouldStartWebServer =
   profile !== "offline" &&
-  profile !== "preprod-aga-demo" &&
-  profile !== "preprod-aga-manager" &&
   profile !== "canonical-quick-tunnel" &&
   profile !== "local-demo" &&
-  profile !== "local-full" &&
   profile !== "restored-platform" &&
   profile !== "aws-trial" &&
   process.env.AVIA_UPDATE_LEGACY_BASELINES !== "1";
@@ -64,7 +55,7 @@ export default defineConfig({
   workers: 1,
   forbidOnly: true,
   retries: 0,
-  maxFailures: profile === "preprod-aga-demo" || profile === "preprod-aga-manager" ? 1 : 0,
+  maxFailures: 0,
   reporter: [["line"]],
   use: {
     baseURL: process.env.AVIA_E2E_BASE_URL ?? "http://127.0.0.1:4174",
@@ -91,10 +82,6 @@ export default defineConfig({
     {
       name: "local-demo",
       testMatch: ["e2e/local-demo-platform.spec.ts"],
-    },
-    {
-      name: "local-full",
-      testMatch: ["e2e/local-full-platform.spec.ts"],
     },
     {
       name: "restored-platform",
@@ -141,44 +128,6 @@ export default defineConfig({
       ],
     },
     {
-      name: "preprod-aga-demo",
-      testMatch: [
-        "e2e/aga-candidate-demo-privacy.http.spec.ts",
-        "e2e/aga-candidate-demo-admin.http.spec.ts",
-        "e2e/aga-hybrid-classification-workspace.http.spec.ts",
-        "e2e/aga-synthetic-lifecycle.http.spec.ts",
-        "e2e/aga-hybrid-privacy.http.spec.ts",
-      ],
-      use: {
-        actionTimeout: 30_000,
-        navigationTimeout: 30_000,
-        trace: "off",
-        screenshot: "off",
-        video: "off",
-        launchOptions: {
-          args: [
-            `--host-resolver-rules=MAP ${process.env.AVIA_PREPROD_AGA_OIDC_HOST ?? "aga-preprod.test"} 127.0.0.1`,
-          ],
-        },
-      },
-    },
-    {
-      name: "preprod-aga-manager",
-      testMatch: ["e2e/aga-manager-multi-role-demo.http.spec.ts"],
-      use: {
-        actionTimeout: 30_000,
-        navigationTimeout: 30_000,
-        trace: "off",
-        screenshot: "off",
-        video: "off",
-        launchOptions: {
-          args: [
-            `--host-resolver-rules=MAP ${process.env.AVIA_PREPROD_AGA_OIDC_HOST ?? "aga-preprod.test"} 127.0.0.1`,
-          ],
-        },
-      },
-    },
-    {
       name: "canonical-quick-tunnel",
       testMatch: [
         "e2e/canonical-quick-tunnel-panels.spec.ts",
@@ -188,6 +137,11 @@ export default defineConfig({
         actionTimeout: 30_000,
         navigationTimeout: 30_000,
         serviceWorkers: "allow",
+        launchOptions: {
+          args: process.env.AVIA_E2E_IGNORE_HTTPS_ERRORS === "1"
+            ? ["--ignore-certificate-errors", "--allow-insecure-localhost"]
+            : [],
+        },
         trace: "off",
         screenshot: "off",
         video: "off",

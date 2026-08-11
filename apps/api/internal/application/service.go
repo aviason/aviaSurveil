@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/assignments"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/datafeed"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/documents"
 	findingstore "github.com/MarlonJD/aviaSurveil360/apps/api/internal/findings/store/postgres"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
@@ -31,16 +30,12 @@ var (
 	ErrConflict  = errors.New("conflict")
 	ErrInvalid   = errors.New("invalid command")
 	ErrNotFound  = errors.New("not found")
-	// ErrDataFeedNotConfigured prevents an authoritative mutation from silently
-	// claiming a governed feed fact when its required local writer is absent.
-	ErrDataFeedNotConfigured = errors.New("datafeed writer not configured")
 )
 
 type Dependencies struct {
 	Clock                     func() time.Time
 	IDGenerator               func(string) string
 	FindingReferenceGenerator func() string
-	DataFeedWriter            *datafeed.Writer
 }
 
 type Service struct {
@@ -48,7 +43,6 @@ type Service struct {
 	clock                     func() time.Time
 	idGenerator               func(string) string
 	findingReferenceGenerator func() string
-	dataFeedWriter            *datafeed.Writer
 }
 
 func NewService(pool *database.Pool, dependencies Dependencies) *Service {
@@ -60,7 +54,7 @@ func NewService(pool *database.Pool, dependencies Dependencies) *Service {
 	if idGenerator == nil {
 		idGenerator = randomID
 	}
-	return &Service{pool: pool, clock: clock, idGenerator: idGenerator, findingReferenceGenerator: dependencies.FindingReferenceGenerator, dataFeedWriter: dependencies.DataFeedWriter}
+	return &Service{pool: pool, clock: clock, idGenerator: idGenerator, findingReferenceGenerator: dependencies.FindingReferenceGenerator}
 }
 
 type commandEnvelope struct {
@@ -85,7 +79,6 @@ type transition[T any] struct {
 	ClosureBasis   string
 	SyncKind       string
 	OutboxTopic    string
-	DataFeedEvents []datafeed.EventInput
 }
 
 type MaterializeInspectionCommand struct {
@@ -681,15 +674,6 @@ func (service *Service) materializeCanonicalInspection(
 	`, materializedPreparationID, preparationID); err != nil {
 		return transition[assignments.MaterializedInspection]{}, err
 	}
-	plannedEventID, err := datafeed.NewEventID()
-	if err != nil {
-		return transition[assignments.MaterializedInspection]{}, err
-	}
-	auditScopeCode, err := dataFeedAuditScopeCode(canonicalAuditType)
-	if err != nil {
-		return transition[assignments.MaterializedInspection]{}, err
-	}
-	plannedStart := time.Date(dueDate.UTC().Year(), dueDate.UTC().Month(), dueDate.UTC().Day(), 0, 0, 0, 0, time.UTC)
 	return transition[assignments.MaterializedInspection]{
 		Response: assignments.MaterializedInspection{
 			InspectionID: inspectionID, AssignmentID: command.AssignmentID,
@@ -700,27 +684,9 @@ func (service *Service) materializeCanonicalInspection(
 		},
 		OrganizationID: organizationID, Action: "audit.planned",
 		EntityType: "inspection", EntityID: inspectionID,
-		// Data-feed aggregate revisions follow the inspection's returned
-		// immutable revision, never the assignment revision.
 		EntityVersion: materializedInspectionRevision, BeforeStatus: inspectionStatus,
 		AfterStatus: string(nextStatus), SyncKind: "inspection", OutboxTopic: "audit.planned",
-		DataFeedEvents: []datafeed.EventInput{{
-			EventID: plannedEventID, EventType: "audit.planned", OwningOrganizationID: organizationID,
-			ActorOrganizationID: actor.OrganizationID, CorrelationID: command.CorrelationID,
-			AggregateType: "audit", AggregateID: inspectionID, AggregateRevision: materializedInspectionRevision,
-			EffectiveAt: now, KnownAt: now, OccurredAt: now, EmittedAt: now,
-			VisibilityPurposeCode: "regulated_oversight", EntityRefs: map[string]any{"audit_id": inspectionID},
-			StateBefore: nil, StateAfter: "audit_planned",
-			Payload: map[string]any{
-				// AviaCore v3 owns a closed audit.planned payload. The exact
-				// released Planning identity is carried by audit_program_ref;
-				// scope/package implementation identifiers stay in canonical
-				// projections and must not leak into the feed contract.
-				"audit_program_ref": planningItemID,
-				"audit_scope_code":  auditScopeCode,
-				"planned_start_at":  plannedStart.Format(time.RFC3339Nano),
-			},
-		}},
+		Reason: "Inspection materialized from the immutable released scope snapshot; no external data-feed event is emitted.",
 	}, nil
 }
 
@@ -808,17 +774,6 @@ func executeTransition[T any](ctx context.Context, service *Service, actor ident
 			OccurredAt: now,
 		}); err != nil {
 			return err
-		}
-		if len(result.DataFeedEvents) == 0 {
-			return nil
-		}
-		if service.dataFeedWriter == nil {
-			return fmt.Errorf("datafeed event emission is configured for %s but no datafeed writer is available", envelope.Kind)
-		}
-		for _, event := range result.DataFeedEvents {
-			if _, err := service.dataFeedWriter.Append(ctx, transaction, envelope.OperationID, event); err != nil {
-				return fmt.Errorf("append datafeed event: %w", err)
-			}
 		}
 		return nil
 	})
@@ -1130,12 +1085,14 @@ func (service *Service) DecideReport(ctx context.Context, actor identity.Princip
 			)
 		}
 		var reportSnapshot struct {
-			Kind              reports.Kind `json:"kind"`
-			Ready             bool         `json:"ready"`
-			FindingIDs        []string     `json:"findingIds"`
-			ContentHash       string       `json:"contentHash"`
-			ResponseDueDate   *string      `json:"responseDueDate"`
-			CAAVisibleComment *string      `json:"caaVisibleComment"`
+			Kind              reports.Kind            `json:"kind"`
+			Ready             bool                    `json:"ready"`
+			FindingIDs        []string                `json:"findingIds"`
+			ContentHash       string                  `json:"contentHash"`
+			CreatedBySubject  string                  `json:"createdBySubject"`
+			Content           documents.ReportContent `json:"content"`
+			ResponseDueDate   *string                 `json:"responseDueDate"`
+			CAAVisibleComment *string                 `json:"caaVisibleComment"`
 		}
 		if err := json.Unmarshal(version.Snapshot, &reportSnapshot); err != nil {
 			return transition[DecideReportResult]{}, fmt.Errorf("%w: decode report snapshot", ErrInvalid)
@@ -1161,6 +1118,13 @@ func (service *Service) DecideReport(ctx context.Context, actor identity.Princip
 			ContentHash: reportSnapshot.ContentHash, Ready: reportSnapshot.Ready,
 		}); err != nil {
 			return transition[DecideReportResult]{}, fmt.Errorf("%w: %v", ErrConflict, err)
+		}
+		if err := documents.ValidateReportContent(&reportSnapshot.Content); err != nil {
+			return transition[DecideReportResult]{}, fmt.Errorf("%w: immutable report narrative is invalid: %v", ErrConflict, err)
+		}
+		canonicalContent, err := json.Marshal(reportSnapshot.Content)
+		if err != nil || documentsDigest(canonicalContent) != reportSnapshot.ContentHash {
+			return transition[DecideReportResult]{}, fmt.Errorf("%w: report content hash does not match the immutable narrative", ErrConflict)
 		}
 		inspection, err := inspectionstore.New(transaction).GetInspection(ctx, version.InspectionID)
 		if err != nil {
@@ -1301,12 +1265,26 @@ func (service *Service) DecideReport(ctx context.Context, actor identity.Princip
 					ErrConflict,
 				)
 			}
+			if strings.TrimSpace(reportSnapshot.CreatedBySubject) == "" {
+				return transition[DecideReportResult]{}, fmt.Errorf("%w: immutable report creator is required for rendering", ErrConflict)
+			}
+			source, _, sourceHash, err := documents.NewReportRenderSource(
+				command.ReportVersionID, version.ReportID, organizationID, version.InspectionID,
+				int64(version.Version), reportSnapshot.CreatedBySubject, reportSnapshot.Content,
+			)
+			if err != nil {
+				return transition[DecideReportResult]{}, fmt.Errorf("%w: bind immutable report render source: %v", ErrConflict, err)
+			}
+			provenance, err := documents.NativeRendererProvenance()
+			if err != nil {
+				return transition[DecideReportResult]{}, err
+			}
 			renderSnapshot := documents.RenderSnapshot{
 				ReportVersionID: command.ReportVersionID, ReportID: version.ReportID,
 				Kind: string(reportSnapshot.Kind), OrganizationID: organizationID,
 				AuditID: version.InspectionID, FindingIDs: append([]string(nil), reportSnapshot.FindingIDs...),
 				ContentHash: reportSnapshot.ContentHash, Version: int64(version.Version),
-				CreatedBySubject: actor.SubjectID,
+				CreatedBySubject: reportSnapshot.CreatedBySubject, Source: source,
 			}
 			encodedSnapshot, err := json.Marshal(renderSnapshot)
 			if err != nil {
@@ -1328,6 +1306,13 @@ func (service *Service) DecideReport(ctx context.Context, actor identity.Princip
 				"documentId":       documentID,
 				"renderJobId":      renderJobID,
 				"requestedVersion": version.Version,
+				"sourceHash":       sourceHash,
+				"rendererHash":     provenance.RendererHash,
+				"templateHash":     provenance.TemplateHash,
+				"fontHash":         provenance.FontHash,
+				"renderer":         provenance.Renderer,
+				"moduleChecksum":   provenance.ModuleChecksum,
+				"layout":           provenance.Layout,
 			})
 			if err != nil {
 				return transition[DecideReportResult]{}, err
@@ -1363,4 +1348,9 @@ func randomID(prefix string) string {
 		panic(fmt.Sprintf("generate random ID: %v", err))
 	}
 	return prefix + "-" + hex.EncodeToString(bytes)
+}
+
+func documentsDigest(payload []byte) string {
+	digestBytes := sha256.Sum256(payload)
+	return "sha256:" + hex.EncodeToString(digestBytes[:])
 }

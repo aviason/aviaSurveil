@@ -7,11 +7,9 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AppProviders } from "./providers";
-import { agaDemoWorkspaceRouteElements } from "./aga-demo-workspace-routes";
 import { ScenarioProvider } from "./scenario-context";
 import { AppRouter, createRoleEntryPath, ROLE_ENTRIES } from "./router";
 import { SessionProvider, type SessionClient } from "../auth/session-provider";
-import type { AGADemoWorkspaceBackend } from "../backend/aga-demo-workspace";
 import { createHttpBackend } from "../backend/http-backend";
 import { createMockBackendRuntime } from "../mock/create-mock-backend";
 import { seedVisualRuntimeForPath } from "../mock/seed-visual-runtime";
@@ -84,15 +82,6 @@ describe("authorized role-entry inventory", () => {
 
   it("lands an authenticated local-preprod Inspector on the canonical assignments surface", async () => {
     const runtime = createMockBackendRuntime();
-    const workspace: AGADemoWorkspaceBackend = {
-      capability: vi.fn().mockResolvedValue({ available: true, projection: "INSPECTOR_ASSIGNED", classificationEnabled: false, recommendationEnabled: false, lifecycleEnabled: true, resetEnabled: false }),
-      classificationQuery: vi.fn(),
-      classificationCommand: vi.fn(),
-      recommendationCommand: vi.fn(),
-      lifecycleQuery: vi.fn(),
-      lifecycleCommand: vi.fn(),
-      adminCommand: vi.fn(),
-    };
     const assignmentsList = vi.spyOn(runtime.backend.assignments, "list");
     const client: SessionClient = {
       get: vi.fn().mockResolvedValue({
@@ -109,14 +98,12 @@ describe("authorized role-entry inventory", () => {
       <StrictMode>
         <AppProviders
           runtime={{
-            backend: { ...runtime.backend, agaDemoWorkspace: workspace },
+            backend: runtime.backend,
             backendForRole: runtime.backendForRole,
             buildProfile: "http",
             environmentLabel: "Test",
             identityMode: "oidc-session",
             beforeSubjectChange: vi.fn().mockResolvedValue(undefined),
-            supplementalRouteElements: agaDemoWorkspaceRouteElements,
-            agaDemoWorkspaceSurfaceEnabled: true,
           }}
         >
           <SessionProvider client={client} identityMode="oidc-session">
@@ -132,43 +119,6 @@ describe("authorized role-entry inventory", () => {
 
     await waitFor(() => expect(assignmentsList).toHaveBeenCalled());
     expect(client.logout).not.toHaveBeenCalled();
-    expect(workspace.capability).not.toHaveBeenCalled();
-  });
-
-  it("does not fall back to the removed AGA donor from the canonical Inspector route", async () => {
-    const runtime = createMockBackendRuntime();
-    const workspace: AGADemoWorkspaceBackend = {
-      capability: vi.fn().mockResolvedValue({ available: true, projection: "INSPECTOR_ASSIGNED", classificationEnabled: false, recommendationEnabled: false, lifecycleEnabled: true, resetEnabled: false }),
-      classificationQuery: vi.fn(),
-      classificationCommand: vi.fn(),
-      recommendationCommand: vi.fn(),
-      lifecycleQuery: vi.fn().mockResolvedValue({ operation: "GET_CURRENT_INSPECTION", lifecycleAvailable: false }),
-      lifecycleCommand: vi.fn(),
-      adminCommand: vi.fn(),
-    };
-    const assignmentsList = vi.spyOn(runtime.backend.assignments, "list");
-    render(
-      <AppProviders
-        runtime={{
-          backend: { ...runtime.backend, agaDemoWorkspace: workspace },
-          backendForRole: runtime.backendForRole,
-          buildProfile: "http",
-          environmentLabel: "Test",
-          supplementalRouteElements: agaDemoWorkspaceRouteElements,
-          agaDemoWorkspaceSurfaceEnabled: true,
-        }}
-      >
-        <ScenarioProvider>
-          <MemoryRouter initialEntries={["/inspector/inspector-assignments"]}>
-            <AppRouter />
-          </MemoryRouter>
-        </ScenarioProvider>
-      </AppProviders>,
-    );
-
-    expect(await screen.findByRole("heading", { name: "My Assignments" })).toBeInTheDocument();
-    expect(assignmentsList).toHaveBeenCalled();
-    expect(workspace.capability).not.toHaveBeenCalled();
   });
 
   it("routes a server-owned dynamic Audit identity to the canonical Inspector dossier", async () => {

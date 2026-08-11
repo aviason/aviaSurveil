@@ -1,0 +1,14 @@
+Noto Sans embedded font provenance
+
+Source family: Noto Sans
+Source URL (official repository): https://github.com/notofonts/noto-fonts/raw/main/unhinted/ttf/NotoSans/NotoSans-Regular.ttf
+Bold source URL (official repository): https://github.com/notofonts/noto-fonts/raw/main/unhinted/ttf/NotoSans/NotoSans-Bold.ttf
+Retrieved: 2026-08-11
+Upstream commit lookup: not run (network unavailable in the local sandbox)
+
+The byte hashes below are the release pins and are verified again when the
+native renderer starts. The branch URL is provenance only; a release must
+carry these exact bytes and reject any digest change.
+
+NotoSans-Regular.ttf sha256=b85c38ecea8a7cfb39c24e395a4007474fa5a4fc864f6ee33309eb4948d232d5
+NotoSans-Bold.ttf sha256=c976e4b1b99edc88775377fcc21692ca4bfa46b6d6ca6522bfda505b28ff9d6a

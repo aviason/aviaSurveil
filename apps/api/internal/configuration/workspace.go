@@ -437,26 +437,17 @@ func (service *WorkspaceService) GetInspectionPackage(
 		return AdminInspectionPackage{}, ErrWorkspaceInvalid
 	}
 	var output AdminInspectionPackage
-	var snapshot, riskFocus []byte
+	var snapshot []byte
 	if err := service.pool.QueryRow(ctx, `
 		SELECT package.id, package.inspection_id, inspection.organization_id,
-			organization.legal_name, package.snapshot,
-			COALESCE(draft.risk_focus, '[]'::jsonb)
+			organization.legal_name, package.snapshot
 		FROM inspection_packages package
 		JOIN inspections inspection ON inspection.id = package.inspection_id
 		JOIN organizations organization ON organization.id = inspection.organization_id
-		LEFT JOIN LATERAL (
-			SELECT risk_focus
-			FROM inspection_package_drafts
-			WHERE source_inspection_id = package.inspection_id
-			  AND tombstoned_at IS NULL
-			ORDER BY updated_at DESC, id DESC
-			LIMIT 1
-		) draft ON true
 		WHERE package.id = $1
 	`, packageID).Scan(
 		&output.ID, &output.AuditID, &output.OrganizationID,
-		&output.OrganizationName, &snapshot, &riskFocus,
+		&output.OrganizationName, &snapshot,
 	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return AdminInspectionPackage{}, ErrWorkspaceNotFound
@@ -481,9 +472,7 @@ func (service *WorkspaceService) GetInspectionPackage(
 		)
 		output.ExpectedEvidence = append(output.ExpectedEvidence, question.ExpectedEvidence)
 	}
-	if err := json.Unmarshal(riskFocus, &output.RiskFocus); err != nil {
-		return AdminInspectionPackage{}, fmt.Errorf("decode package risk focus: %w", err)
-	}
+	output.RiskFocus = []string{}
 	return output, nil
 }
 

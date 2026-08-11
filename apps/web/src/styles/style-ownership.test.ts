@@ -51,10 +51,7 @@ const expectedAppCss = `@layer reset, tokens, base, shell, primitives, features,
 @import "./features/executive-secondary.css" layer(features);
 @import "./features/admin.css" layer(features);
 @import "./features/admin-secondary.css" layer(features);
-@import "../features/checklists/aga-classification-workspace-page.css" layer(features);
 @import "../features/checklists/question-review-page.css" layer(features);
-@import "../features/inspections/aga-demo-lifecycle.css" layer(features);
-@import "../features/inspections/aga-demo-inspection-package.css" layer(features);
 @import "./utilities.css" layer(utilities);
 @import "./responsive.css" layer(responsive);
 `;

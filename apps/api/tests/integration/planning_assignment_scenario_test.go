@@ -720,14 +720,15 @@ func TestPlanningAssignmentHTTPContractsAndNoticePrivacy(t *testing.T) {
 		statusCode int
 		required   string
 	}{
-		{"/v1/inspection-package-drafts/PKG-AUD-2026-001-CABIN", http.StatusNotFound, `"code":"NOT_FOUND"`},
+		{"/v1/inspection-package-drafts/PKG-AUD-2026-001-CABIN", http.StatusNotFound, ""},
 		{"/v1/audit-teams?limit=20", http.StatusOK, `"items":[]`},
 		{"/v1/audit-teams/AUD-2026-001", http.StatusNotFound, `"code":"NOT_FOUND"`},
 	} {
 		request := task4Request(http.MethodGet, legacy.path, "", "USR-MANAGER-NORA")
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, request)
-		if response.Code != legacy.statusCode || !strings.Contains(response.Body.String(), legacy.required) {
+		if response.Code != legacy.statusCode ||
+			(legacy.required != "" && !strings.Contains(response.Body.String(), legacy.required)) {
 			t.Fatalf("disabled legacy Planning path %s status=%d body=%s",
 				legacy.path, response.Code, response.Body.String())
 		}

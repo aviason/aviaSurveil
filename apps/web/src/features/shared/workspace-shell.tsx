@@ -184,7 +184,6 @@ const routeLabels: Record<string, ReactSurfaceId> = {
   "SSP / NASP": "manager-ssp-nasp",
   "USOAP Readiness": "manager-usoap-readiness",
   "CAP Effectiveness": "manager-cap-effectiveness",
-  "Inspection Package Builder": "inspection-package-builder",
   "New Audit Wizard 1": "new-audit-wizard-1",
   "New Audit Wizard 2": "new-audit-wizard-2",
   "New Audit Wizard 3": "new-audit-wizard-3",

@@ -60,13 +60,14 @@ export function assertAppShellArtifact(suppliedPath) {
   for (const asset of manifest.assets) {
     assert.match(
       asset,
-      /^\/(?:assets\/[A-Za-z0-9_.-]+\.(?:css|js|svg|png|jpg|jpeg|webp|ttf|woff|woff2)|demo-build\.json|http-config\.json)$/,
+      /^\/(?:assets\/[A-Za-z0-9_.-]+\.(?:css|js|svg|png|jpg|jpeg|webp|ttf|woff|woff2)|demo-build\.json)$/,
     );
     if (/\.(?:svg|png|jpg|jpeg|webp|ttf|woff|woff2)$/.test(asset)) {
       assert.match(asset, approvedBrandAsset, `App-shell contains an unapproved image/font asset: ${asset}`);
     }
     assert.ok(files.includes(asset.slice(1)), `App-shell manifest asset is missing: ${asset}`);
   }
+  assert.ok(!manifest.assets.includes("/http-config.json"), "Runtime config must not be service-worker precached");
   for (const required of requiredBrandAssets) {
     assert.ok(
       manifest.assets.some((asset) => required.test(asset)),
@@ -80,7 +81,6 @@ export function assertAppShellArtifact(suppliedPath) {
   for (const forbidden of [
     /skipWaiting/i,
     /clients\.claim/i,
-    /caches\.delete/i,
     /stale[-_ ]while[-_ ]revalidate/i,
     /["'`]\/v1(?:\/|["'`])/i,
     /["'`]\/auth(?:\/|["'`])/i,

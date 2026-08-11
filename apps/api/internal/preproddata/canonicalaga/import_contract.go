@@ -11,7 +11,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/preproddata/agacandidatedemo"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/questioncatalog"
 )
 
@@ -54,7 +53,7 @@ type CatalogFormImport struct {
 	SourceGapState string
 }
 
-func BuildImportManifest(pkg agacandidatedemo.AcceptedPackage, catalogVersion string) (ImportManifest, error) {
+func BuildImportManifest(pkg AcceptedPackage, catalogVersion string) (ImportManifest, error) {
 	if strings.TrimSpace(catalogVersion) == "" {
 		return ImportManifest{}, fmt.Errorf("catalog version is required")
 	}
@@ -129,7 +128,7 @@ func BuildImportManifest(pkg agacandidatedemo.AcceptedPackage, catalogVersion st
 	return manifest, nil
 }
 
-func canonicalImportDigest(pkg agacandidatedemo.AcceptedPackage, manifest ImportManifest) string {
+func canonicalImportDigest(pkg AcceptedPackage, manifest ImportManifest) string {
 	forms := append([]CatalogFormImport(nil), manifest.Forms...)
 	sort.Slice(forms, func(i, j int) bool { return forms[i].FormCode < forms[j].FormCode })
 	rowDigest := questioncatalog.ImportDigest(manifest.Rows)

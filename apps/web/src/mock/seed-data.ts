@@ -14,7 +14,6 @@ import type {
   OrganizationSummary,
   PlanningItemView,
   PlanningIntakeDraftView,
-  InspectionPackageDraftView,
   PotentialFindingView,
   ReportVersionView,
   ReminderRuleView,
@@ -168,7 +167,6 @@ export const SCREEN_VISIBLE_ACTIONS: Record<ReactSurfaceId, readonly import("../
   "manager-cap-effectiveness": [action("review-effectiveness", "Review CAP effectiveness", "modal", { type: "modal", dialog: "cap-effectiveness" })],
   "organization-registry": [action("open-organization", "Open organization", "navigation", { type: "navigation", target: "/department-manager/organizations/ORG-FLY-NAMIBIA" })],
   "organization-detail": [action("open-organization-history", "Open organization history", "localProjection", { type: "localProjection", projection: "organization-history" })],
-  "inspection-package-builder": [action("save-package", "Save inspection package", "capabilityDispatch", { type: "capabilityDispatch", capability: "packageDrafts.save" })],
   "evidence-review": [action("accept-evidence", "Accept Evidence", "modal", { type: "modal", dialog: "accept-evidence", confirmCommand: { owner: "evidence.review", requiresRevision: true, requiresIdempotency: false, requiresOperationMetadata: true } }), action("request-evidence-information", "Request more information", "modal", { type: "modal", dialog: "request-evidence-information", confirmCommand: { owner: "evidence.review", requiresRevision: true, requiresIdempotency: false, requiresOperationMetadata: true } })],
   "manager-preliminary-report-review": [action("return-preliminary-report", "Return preliminary report", "modal", { type: "modal", dialog: "return-preliminary-report", confirmCommand: { owner: "reports.decide", requiresRevision: true, requiresIdempotency: false, requiresOperationMetadata: true } }), action("forward-preliminary-report", "Forward preliminary report", "modal", { type: "modal", dialog: "forward-preliminary-report", confirmCommand: { owner: "reports.decide", requiresRevision: true, requiresIdempotency: false, requiresOperationMetadata: true } })],
   "manager-cap-closure-review": [action("authorize-closure", "Authorize closure", "modal", { type: "modal", dialog: "authorize-closure", confirmCommand: { owner: "findings.authorizedClose", requiresRevision: true, requiresIdempotency: false, requiresOperationMetadata: true } })],
@@ -230,7 +228,6 @@ export interface MockState {
   organizations: OrganizationSummary[];
   planningItems: Record<string, PlanningItemView>;
   planningIntakeDrafts: Record<string, PlanningIntakeDraftView>;
-  inspectionPackageDrafts: Record<string, InspectionPackageDraftView>;
   checklistTemplateVersions: ChecklistTemplateVersionView[];
   checklistTemplateVersionDetails: Record<string, ChecklistTemplateVersionDetailView>;
   reminderRules: ReminderRuleView[];
@@ -791,41 +788,6 @@ export function createCanonicalSeedState(now: string): MockState {
         currency: "USD",
         revision: 1,
         submittedPlanningItemId: null,
-        updatedAt: now,
-      },
-    },
-    inspectionPackageDrafts: {
-      "PKG-AUD-2026-001-CABIN": {
-        id: "PKG-AUD-2026-001-CABIN",
-        sourceAuditId: "AUD-2026-001",
-        organizationId: "ORG-FLY-NAMIBIA",
-        organizationName: "Fly Namibia",
-        applicationType: "Cabin Inspection",
-        domain: "Cabin Safety",
-        status: "DRAFT",
-        packageVersion: 1,
-        revision: 1,
-        riskFocus: [
-          "Emergency equipment serviceability",
-          "PBE serviceability",
-          "Cabin inspection CAP follow-up",
-        ],
-        questions: [
-          {
-            id: "PKG-Q-CAB-PBE",
-            prompt: "Is the PBE installed, serviceable, accessible, and in compliance with configured cabin emergency equipment requirements?",
-            whyIncluded: "The mock risk profile indicates emergency equipment serviceability needs focused sampling.",
-            expectedEvidence: ["PBE serviceability record", "Cabin position confirmation"],
-            configuredReference: "Configured Cabin Inspection reference — EM EQ / PBE",
-          },
-          {
-            id: "PKG-Q-CAB-GALLEY",
-            prompt: "Are galley restraints and stowage areas serviceable and secure?",
-            whyIncluded: "Galley equipment is a configured baseline Cabin Inspection check.",
-            expectedEvidence: ["Galley equipment serviceability record"],
-            configuredReference: "Configured Cabin Inspection reference — GALLEY",
-          },
-        ],
         updatedAt: now,
       },
     },

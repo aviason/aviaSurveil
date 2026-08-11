@@ -1,0 +1,9 @@
+flowchart LR
+    Browser["Browser"] --> Gateway["Gateway"]
+    Gateway --> API["Go API and BFF"]
+    Gateway --> Auth["First-party Go OIDC provider"]
+    API --> Auth
+    API --> AppDB["Application database\nsessions and memberships"]
+    Auth --> AuthDB["Identity database\ncredentials, factors and OIDC state"]
+    Auth --> Keys["Scoped signing and MFA secrets"]
+    Auth --> SMTP["Verified TLS SMTP"]

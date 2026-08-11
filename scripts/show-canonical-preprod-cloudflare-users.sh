@@ -10,7 +10,7 @@ keychain_service="${AVIA_CLOUDFLARE_TUNNEL_KEYCHAIN_SERVICE:-com.aviasurveil360.
 keychain_account="${AVIA_CLOUDFLARE_TUNNEL_KEYCHAIN_ACCOUNT:-$public_hostname}"
 runtime_file="$runtime_root/runtime.json"
 fixture_file="$repository_root/deploy/local/fixtures/canonical-preprod-demo-identities.json"
-password_file="$state_root/secrets/preprod_aga_demo_oidc_qualification_password"
+password_file="$state_root/secrets/preprod_canonical_demo_oidc_qualification_password"
 status_script="$repository_root/scripts/status-canonical-preprod-cloudflare.sh"
 
 fail() {

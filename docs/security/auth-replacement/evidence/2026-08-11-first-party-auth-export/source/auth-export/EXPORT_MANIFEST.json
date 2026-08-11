@@ -1,0 +1,185 @@
+{
+  "schemaVersion": "1.0.0",
+  "exportStatus": "candidate-only",
+  "sourceRepository": {
+    "identity": "https://github.com/MarlonJD/emsi_monorepo",
+    "sourcePath": "backend/go-api",
+    "revision": "60dbe494318106569f6d9dbea121d6b1c841ae95",
+    "dirtyTree": true,
+    "authSourceSubtreeDirty": false,
+    "dirtyTreeSummary": "The monorepo contained unrelated modified and untracked paths; backend/go-api was clean and no source-repository file was changed for this export."
+  },
+  "exportTimestamp": "2026-08-11T09:39:53Z",
+  "goVersion": "go1.26.4 darwin/arm64",
+  "hashAlgorithm": "SHA-256",
+  "manifestHashPolicy": "Every payload file uses SHA-256 of its exact bytes. EXPORT_MANIFEST.json uses SHA-256 of its exact UTF-8 bytes after replacing only its own files[].sha256 value with 64 ASCII zeroes; this normalization avoids an impossible self-referential byte digest. The final ZIP digest covers the exact manifest bytes.",
+  "exportedFileCount": 30,
+  "files": [
+    {
+      "path": "CAPABILITY_MATRIX.md",
+      "sha256": "0f875aa42986edb085dc333c4550643442d3d90df05d0db4aa0128c526d52b1d"
+    },
+    {
+      "path": "CONFIGURATION.md",
+      "sha256": "54c3b5c9cd4725e0ad3336112f28c4734b30c98225505147fb1d89cdcee3081c"
+    },
+    {
+      "path": "DATA_MODEL.md",
+      "sha256": "f38f76cadeb260ae91100a1e003974bd337d592993b9e7a552d7f27b65632f62"
+    },
+    {
+      "path": "DEPENDENCIES_AND_LICENSES.md",
+      "sha256": "e8ec5b2184eec54f8b1afc44cc1d37bc4b342c2763aae8cba153818e97d87bc4"
+    },
+    {
+      "path": "EXPORT_MANIFEST.json",
+      "sha256": "ab2e4a9a87297fa2e70e5b9a6e78b14276b3cc4c49ff8c33bc073ccb6715e4af",
+      "hashScope": "normalized-self-field"
+    },
+    {
+      "path": "HTTP_API.md",
+      "sha256": "828a8fe50a7e0e30c74c62c7bcbe47112b454be24c3c3a2ecd814cb77872d172"
+    },
+    {
+      "path": "INTEGRATION_GUIDE.md",
+      "sha256": "b1ae119e37038b9b75aba7e2bd3444070fa78471fd837210ec3fe96f3dca16af"
+    },
+    {
+      "path": "OIDC_COMPATIBILITY.md",
+      "sha256": "11194aad8da29f9ab2ac73113700ce7b5222c293e1adff8bee176ee653045c4b"
+    },
+    {
+      "path": "README.md",
+      "sha256": "d1017ef20045853786918d56cdacbb96b70bdaaf967e1d3ea4e2a2d3dc1ccb1b"
+    },
+    {
+      "path": "SECURITY_REVIEW.md",
+      "sha256": "157ef3dc2d0749b0d09c3857d9154daf7ffff6a31fd576e1a8ff5aaea6eda7c2"
+    },
+    {
+      "path": "auth/auth.go",
+      "sha256": "ace4d91e80edfd6c79fd5e2c7b1f32b8a93fd7938731420fb856778a5fd564a8"
+    },
+    {
+      "path": "auth/auth_test.go",
+      "sha256": "4d057cc00048c6065be645c69ad506f3f7d140bf6775b9e6400191e0ae539108"
+    },
+    {
+      "path": "auth/password.go",
+      "sha256": "38f0e5437a7c7fd152ffee16710785c683871cbccccb3651ea83b053fcbe3cf6"
+    },
+    {
+      "path": "auth/password_test.go",
+      "sha256": "30fe2a2a5d6c8fa71f5564468b7e12325df101d28328db30a8a9a7d98d6b4364"
+    },
+    {
+      "path": "auth/ports.go",
+      "sha256": "9383491c44e7ce925a987d6b5b58054ed20e9740bb6d61940ddcdfc55cd6c7e7"
+    },
+    {
+      "path": "auth/source_reference/auth.graphqls.txt",
+      "sha256": "73aa3fe244eed1e48138ee7db26dd5d123ee9689c6f2f0b7e3d4d995611e484f"
+    },
+    {
+      "path": "auth/source_reference/graphql_auth_mapping.go.txt",
+      "sha256": "071e3971bcd45b755f1b313f7f245d89ae8e798422d086d683dd3805338c203a"
+    },
+    {
+      "path": "auth/source_reference/legacy_handler.go.txt",
+      "sha256": "13b1fc532101e38786c802e62a62a7175c766ed72a4dcaee5ee749871395a7dd"
+    },
+    {
+      "path": "auth/store.go",
+      "sha256": "4c630fe067011e605fc5a1f4dc226e892897d132d70d88294143238e0677f55e"
+    },
+    {
+      "path": "auth/tokens.go",
+      "sha256": "efbf3e215e3ccc0daeebe44fd9d2a3bdf77b86bbf8264743529ba90a8b611d9d"
+    },
+    {
+      "path": "examples/chi_mount.go",
+      "sha256": "146ea9ade004312d3bcfb8113142099f692736237232048dcb6fc3d04e8d6777"
+    },
+    {
+      "path": "examples/source_database_adapter.go.txt",
+      "sha256": "a101d22e82b80d7cbf66ee18813b5e35cddfc5755d58388217d7422960b27ced"
+    },
+    {
+      "path": "fixtures/users.json",
+      "sha256": "feb17d977486657310b9678a3c932c384333416d349169ea626f55a7683a88ce"
+    },
+    {
+      "path": "go.mod",
+      "sha256": "b564505667598e9557b561f9cd986e3439bc5b4259776742be1127cb7b29a433"
+    },
+    {
+      "path": "go.sum",
+      "sha256": "fdc5b9a81e2ef312801c1f31f61fcc712f3279870c199a974d7b3f29ad12ee1e"
+    },
+    {
+      "path": "migrations/001_auth_identity.sql",
+      "sha256": "411de829bc5f434ea8bbdf52b15a313ac9c19b4214367a9ffe058dcd35d52925"
+    },
+    {
+      "path": "migrations/README.md",
+      "sha256": "624ef349f9b6eb28428f4139e212b17cea66b826c4d001292e5184dd077af6a1"
+    },
+    {
+      "path": "openapi/openapi.yaml",
+      "sha256": "0f0e98482431c39bdd9d4905f1b9df8aa27583fe511e06d1e3660734ae832f51"
+    },
+    {
+      "path": "tests/export_test.go",
+      "sha256": "953abbd6e8a2b99dd0774586a2ef56c3b17c0bba5158c8e9e313d9c372ecd8c5"
+    },
+    {
+      "path": "tests/postgres_integration_test.go",
+      "sha256": "3dcbbf0eb7ddd2be4d6fba1238c852b24157ae80818d4bafe1f9b2da5ca5b08f"
+    }
+  ],
+  "capabilitySummary": {
+    "classification": "native password/session authentication with proprietary JWT access-token issuance; neither OIDC relying party nor conforming OIDC/OAuth authorization server",
+    "keycloakReplacement": false,
+    "statusCounts": {
+      "implemented and verified locally": 5,
+      "implemented but not verified": 11,
+      "partial": 18,
+      "absent": 34,
+      "blocked": 0
+    }
+  },
+  "verificationSummary": {
+    "sourceGofmt": "passed",
+    "sourceAuthUnitTests": "passed",
+    "sourceAuthRaceTests": "passed",
+    "sourceAuthVet": "passed",
+    "sourceWholeModuleTests": "blocked by incomplete offline dependency cache",
+    "sourcePostgreSQLIntegration": "blocked because no task-owned test database was configured",
+    "sourceMigrationExecution": "blocked because no task-owned test database was configured",
+    "sourceOfflineSecurityScan": "passed with findings; no secret finding; vulnerable dependencies reported",
+    "exportGofmt": "passed",
+    "exportUnitTests": "passed with offline local-source dependency resolution",
+    "exportRaceTests": "passed with offline local-source dependency resolution",
+    "exportVet": "passed with offline local-source dependency resolution",
+    "exportPortableDependencyResolution": "blocked by incomplete offline module archive cache",
+    "exportPostgreSQLIntegration": "blocked because no task-owned test database or completed pgx adapter was configured",
+    "exportMigrationStructureTests": "passed",
+    "exportOfflineSecurityScan": "passed with findings; zero secret findings; 14 x/crypto advisories reported",
+    "exportForbiddenContentScan": "passed before and after manifest creation",
+    "candidateZipIntegrityAndManifestScan": "passed",
+    "candidateZipSecretAndForbiddenContentScan": "passed; zero secret findings"
+  },
+  "knownBlockers": [
+    "No conforming OIDC/OAuth authorization server; cannot replace Keycloak issuer, browser protocol, or service-client administration.",
+    "No TOTP, recovery codes, WebAuthn, password reset, email verification, SMTP delivery, or English/Turkish/French/Portuguese identity catalogs.",
+    "No organization membership or tenant isolation model.",
+    "No disabled, suspended, or locked account enforcement; deletion-pending is not checked by authentication.",
+    "No login/registration rate limits, constant-cost unknown-user path, password strength/history, or rehash policy.",
+    "Password change leaves the current pre-change refresh family usable.",
+    "Security audit coverage and failure handling are incomplete.",
+    "Source authorization includes applicant-gate, scoped-permission, and role-read defects.",
+    "PostgreSQL integration, migration execution, and refresh concurrency were not verified.",
+    "Dependency advisories remain because source versions were preserved for evaluation.",
+    "Source redistribution and integration licensing were not established."
+  ]
+}

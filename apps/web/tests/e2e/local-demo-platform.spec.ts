@@ -2,9 +2,9 @@ import { expect, test } from "@playwright/test";
 
 import { VISUAL_SURFACES } from "./support/legacy-parity-fixtures";
 
-test("clean Docker demo directly loads all 86 routes", async ({ page }) => {
+test("clean Docker demo directly loads all 85 active routes", async ({ page }) => {
   test.setTimeout(300_000);
-  expect(VISUAL_SURFACES).toHaveLength(86);
+  expect(VISUAL_SURFACES).toHaveLength(85);
   const loaded: string[] = [];
 
   for (const surface of VISUAL_SURFACES) {
@@ -17,6 +17,6 @@ test("clean Docker demo directly loads all 86 routes", async ({ page }) => {
     loaded.push(surface.id);
   }
 
-  expect(loaded).toHaveLength(86);
-  expect(new Set(loaded).size).toBe(86);
+  expect(loaded).toHaveLength(85);
+  expect(new Set(loaded).size).toBe(85);
 });

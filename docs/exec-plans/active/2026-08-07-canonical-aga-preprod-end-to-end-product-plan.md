@@ -8,11 +8,13 @@ This ExecPlan is a living document. Keep `Progress`, `Decision Log`,
 
 ## Status
 
-- Plan status: `active` — Gate 0 and Tasks 1–7 are `verified locally`; the
-  canonical connected hero slice, backup/restore, dependency services, and
-  nine-role browser slice of Task 8 have fresh local evidence. Task 9, the
-  remaining Task 8 negative/fault/restart matrix, the stakeholder-owned visual
-  review, and final stakeholder handoff remain pending.
+- Plan status: `active` — Gate 0 and Tasks 1–9 are `verified locally`. The
+  canonical connected hero, backup/restore, dependency services, cold restart,
+  negative/fault/concurrency, donor-disabled, cleanup, and nine-role browser
+  boundaries have fresh local evidence. The user selected `delete`; the
+  duplicate donor runtime was physically removed and the full selected-boundary
+  matrix passed again without fallback. The stakeholder-owned visual review
+  and final stakeholder handoff remain pending.
 - Planning authority: the user requested this successor plan on 2026-08-07.
 - Independent implementation review: the final read-only Sol XHigh reread of
   the latest migration, credential-isolation, connected-E2E, team-removal, and
@@ -20,49 +22,69 @@ This ExecPlan is a living document. Keep `Progress`, `Decision Log`,
   findings. Connected hero evidence is `verified locally`; rendered and
   stakeholder evidence remains separately pending.
 - Implementation authority: granted by the user's 2026-08-07 execution request
-  for Gate 0, Tasks 1–9, and Task 11 only. Task 10 remains separately
-  unauthorized and `not run`. On 2026-08-10 the user separately authorized an
-  operator path that can publish this Mac's disposable local candidate at
-  `demo.aviasurveil.com` through a pre-created named Cloudflare Tunnel. That is
-  a Task 8 local-origin transport extension, not authorization for a remote
-  preprod environment or another Task 10 action.
+  for local Gate 0, Tasks 1–9, and Task 11. On 2026-08-10 the user separately
+  authorized an operator path that publishes this Mac's disposable local
+  candidate at `demo.aviasurveil.com` through a pre-created named Cloudflare
+  Tunnel. That remains a Task 8 local-origin transport extension. External
+  preprod release work is no longer a task or closeout gate in this ExecPlan;
+  it is deliberately deferred to the separate paused
+  [Canonical AGA External Preprod Release And Handoff](2026-08-10-canonical-aga-external-preprod-release-plan.md)
+  plan.
 - Local full-system qualification: `candidate-only` — generated contract
   checks, focused Go packages, the non-race full Go suite on a task-owned
   disposable PostgreSQL/MinIO target, migration/N-1 upgrade checks, PostgreSQL
   dump/restore plus object-store exact-byte recovery, React typecheck, the full
-  React suite (95 files / 796 tests), normal Go artifact-boundary scans,
+  React suite before deletion and the fresh post-deletion suite (85 files /
+  745 tests), normal Go artifact-boundary scans,
   connected canonical OIDC hero lifecycle, a freshly regenerated disposable
   anonymous Cloudflare Quick Tunnel, its nine-role browser smoke, and
   current-source builds for all nine local runtime images, nine digest-bound
   CycloneDX SBOMs, and `git diff --check` are `verified locally`. The fresh Quick Tunnel lifecycle
   passed `1/1` in 5.0 minutes with all 1,310 exact question versions; the role
   panel/logout matrix passed `10/10` in 1.6 minutes and forced credentials after
-  logout/account switching. The full race harness remains `blocked` by the
+  logout/account switching. The final Task 8 disposable local-HTTPS matrix then
+  passed the selected real-PostgreSQL transaction/fault/concurrency suite,
+  repeated the full 1,310-question OIDC lifecycle (`1/1`, 4.8 minutes),
+  preserved the exact authoritative database SHA-256
+  `3c13f4999eba1d942a079117912af42f961c897046271ca37bc3fb3c0f6e333e`
+  across a cold full-stack restart, passed the post-restart role/logout matrix
+  (`10/10`, 1.3 minutes), and proved required PostgreSQL/Keycloak/MinIO/ClamAV
+  loss as `503/not_ready`, optional Gotenberg/Mailpit loss as `200/degraded`,
+  worker crash recovery, secret-log denial, donor unavailability, and zero
+  task-owned container/volume/network/process/runtime residue. After physical
+  donor deletion, the non-race full Go suite passed again on disposable
+  PostgreSQL/MinIO (integration package 212.490 seconds), the canonical
+  connected lifecycle passed `1/1` in 5.9 minutes with a real Auditee→CAA
+  notification reaching worker `DELIVERED` and Mailpit, the post-restart
+  role/logout matrix passed `10/10` in 1.4 minutes, and the complete dependency-loss/worker
+  recovery matrix ended with fingerprint
+  `6902377347b88cf11c6558af7af2a594f4542b0b81bda8491ce143cc696b1ddd`
+  and zero residue. The full race
+  harness remains `blocked` by the
   existing `internal/agaapplicability` timeout. The HIGH/CRITICAL image scan is
   `blocked`: the sole Keycloak Java 21/Java 17 advisory-mismatch exception
   expired on 2026-08-08; a fresh exception-free scan reproduced the one HIGH
   mismatch with no fixed version, so no owner extension was inferred. Complete
-  recursive root JS/MJS discovery ran 94 files / 451 tests and produced 418
-  pass / 33 fail. The
-  exact split is 12 paused AGA donor failures; one active governed-intake
-  archive test blocked by absent `AGA_CHECKLIST_ARCHIVE`; seven AviaCore
+  recursive root JS/MJS discovery after deletion ran 88 files / 392 tests and
+  produced 371 pass / 21 fail. The 12 paused donor failures are gone. The exact
+  remaining split is one active governed-intake archive test blocked by absent
+  `AGA_CHECKLIST_ARCHIVE`; seven AviaCore
   failures comprising three missing external sibling/predecessor fixtures and
   four local registry/decision synchronization drifts; and 13 AWS/OPA-family
   failures comprising one stale local AWS fixture and 12 missing local OPA
   executions. The four local AviaCore drifts remain separately governed and
   blocked pending AviaCore owner authority; this plan records no owner
-  disposition for them. The full negative/fault/restart matrix, stakeholder visual
-  review, and donor deletion/requalification remain `not run`.
-- External preprod deployment: `not run` and not authorized by this plan. The
-  disposable Quick Tunnel is local-origin transport evidence only.
+  disposition for them. The stakeholder visual review remains `not run /
+  stakeholder pending`.
+- External preprod deployment: out of scope. It is `not run`, unauthorized, and
+  tracked only by the separate paused external-preprod plan. The disposable
+  Quick Tunnel and `demo.aviasurveil.com` are local-origin transport evidence.
 - Release: `release pending`.
 - Production readiness: `production-ready: not established`.
-- Immediate next gate: obtain the owning Local Platform Security disposition or
-  a real upstream remediation for the expired Keycloak scan mismatch, complete
-  the remaining Task 8 negative/fault/restart checks, then enter Task 9
-  deletion and donor-disabled requalification. The 1440x900, 1024x768, and
-  390x844 visual review remains `not run / stakeholder pending` by user
-  direction.
+- Immediate next gate: keep the expired Keycloak scan mismatch truthfully
+  `blocked` and prepare privacy-safe Question Review and New Audit evidence at
+  1440x900, 1024x768, and 390x844 for manual stakeholder review. That visual
+  review remains `not run / stakeholder pending`; Task 9 no longer blocks it.
 
 ## Objective
 
@@ -1040,102 +1062,182 @@ Acceptance:
 - the result is labelled `canonical full-system local preprod candidate;
   verified locally`, `candidate-only`, and `release pending`.
 
-### Task 9 — Remove The Disabled Duplicate AGA Product And Requalify
+### Task 9 — Decide Donor Disposition, Then Requalify The Selected Boundary
 
-Objective: delete the obsolete stakeholder lifecycle only after connected
-canonical qualification, then prove deletion did not remove retained Question
-Review or import provenance.
+Objective: make physical donor deletion a separate user decision only after
+Task 8 is complete. Do not infer deletion authority from earlier implementation
+work. Requalify the exact retained or deleted boundary selected by the user,
+while preserving canonical Question Review and import provenance.
 
 Work:
 
-1. Require Task 8 connected qualification evidence as the entry gate. If it is
-   absent or red, do not delete donor source/schema/scripts.
-2. Remove AGA-only stakeholder routes, fixed handoff links, route guards,
-   transport operations, runtime wiring, lifecycle services/stores/schema,
-   scripts, Make targets, synthetic lifecycle tests, and duplicate docs.
-3. Retain or rename only the package reader/loader and immutable import lineage
-   that the canonical preprod profile actually uses; assert it is absent from
-   normal runtime artifacts.
-4. Re-run focused canonical Question Review/New Audit/lifecycle tests, full Go,
-   React, root, build/artifact, migration, connected hero/negative, visual/
-   accessibility, privacy, and cleanup gates after deletion.
-5. Update README, manifest, architecture, runbook, product specs, plan index,
+1. Require the completed Task 8 fault/restart and connected qualification
+   evidence as the entry gate. If that evidence regresses, do not change donor
+   source, schema, scripts, or documentation.
+2. Produce a read-only exact inventory of the disabled donor source/schema/
+   scripts/tests/docs, the canonical import/provenance subset, deletion impact,
+   and post-decision verification matrix.
+3. Stop and obtain an explicit user decision: `delete` or `retain disabled`.
+   No physical donor deletion is authorized until that decision is recorded.
+4. If the decision is `retain disabled`, preserve the physical files, prove the
+   donor remains unmounted/unreachable and absent from normal artifacts, record
+   the accepted deferred-removal boundary, and do not manufacture deletion
+   evidence.
+5. If the decision is `delete`, remove AGA-only stakeholder routes, fixed
+   handoff links, route guards, transport operations, runtime wiring, lifecycle
+   services/stores/schema, scripts, Make targets, synthetic lifecycle tests,
+   and duplicate docs. Retain or rename only the package reader/loader and
+   immutable import lineage actually used by the canonical preprod profile.
+6. Re-run focused canonical Question Review/New Audit/lifecycle tests, full Go,
+   React, root, build/artifact, migration, connected hero/negative, privacy,
+   and cleanup gates against the selected boundary.
+7. Update README, manifest, architecture, runbook, product specs, plan index,
    historical plan links, and technical debt without rewriting old evidence.
 
 Acceptance:
 
-- source, route, OpenAPI, capability, artifact, migration, script, Make-target,
-  and documentation scans find no callable duplicate stakeholder lifecycle;
+- the user's explicit `delete` or `retain disabled` decision is recorded before
+  any physical removal;
+- route, OpenAPI, capability, artifact, migration, script, Make-target, and
+  documentation scans find no callable duplicate stakeholder lifecycle;
 - canonical Question Review still preserves the accepted interface and both
   explicit governance modes;
-- the donor-disabled connected qualification passes again after deletion; and
-- only clearly named import/provenance code remains outside normal artifacts.
+- donor-disabled connected qualification passes again against the selected
+  boundary;
+- a `delete` decision leaves only clearly named import/provenance code outside
+  normal artifacts; and
+- a `retain disabled` decision records physical removal as deferred without
+  mislabelling it completed.
 
-### Task 10 — External Preprod Release Gate And Handoff
+Read-only decision inventory, 2026-08-10:
 
-Objective: make the locally qualified product available in an actual preprod
-environment without conflating local proof with deployment authorization.
+- the disabled donor runtime comprises 31 Go service/HTTP files under
+  `internal/agacandidatedemo`, `internal/agademoworkspace`, and the two tagged
+  donor handlers; 38 preprod data-store/package files under
+  `internal/preproddata/agacandidatedemo` and
+  `internal/preproddata/agademoworkspace`; and 12 obsolete donor command files;
+- the disabled browser donor comprises 22 React/backend/guard/route/lifecycle
+  source files, eight donor-only E2E/support files, 17 donor lifecycle/import
+  scripts, and eight donor contract/fixture files, plus the three `aga-demo-*`
+  Make targets, donor Dockerfile targets, and isolated Compose profiles;
+- the donor's `preprod_aga_demo` and `preprod_aga_demo_workspace` schemas are
+  created only by those isolated provisioners, not by the canonical forward
+  migration chain. No destructive canonical-database migration is part of the
+  decision;
+- the normal API dependency graph contains none of
+  `agacandidatedemo`, `agademoworkspace`, or `agaapplicability`; the normal web
+  and Go artifact scans reject donor markers; authenticated and unauthenticated
+  Task 8 probes fail closed. Physical retention therefore does not expose a
+  callable fallback;
+- the canonical one-shot loader still imports the accepted sealed-package
+  reader contract from `internal/preproddata/agacandidatedemo`. A `delete`
+  decision must first extract/rename that exact package-reader and immutable
+  manifest subset into the canonical import/provenance boundary, then remove
+  the obsolete demo stores and commands. It must retain
+  `internal/preproddata/canonicalaga`, `cmd/preprod-canonical-aga-loader`,
+  canonical migrations 29–41, canonical Question Review/New Audit/lifecycle
+  code, and immutable import lineage;
+- governed-intake/classification tools and historical deliverables, paused
+  plans, and evidence belong to separate plan/history boundaries. Task 9 may
+  remove duplicate live runbooks and obsolete executable tests, but it must not
+  erase historical receipts or silently disposition source-owner work; and
+- `retain disabled` is the lower-change path and keeps the already proven
+  runtime boundary, but retains dead source/profiles and the 12 paused-donor
+  recursive-test failures. `delete` removes that debt and old operator entry
+  points, but requires the package-reader extraction and the full post-deletion
+  qualification matrix before manual viewport review.
 
-Work:
+Selected-boundary result, 2026-08-10:
 
-1. Complete the applicable
-   [Local Preprod Release Candidate](2026-07-27-local-preprod-release-candidate-plan.md)
-   prerequisites using the new canonical flow.
-2. Freeze artifact digests, migration set, data-profile digest, rollback input,
-   OIDC/TLS configuration, backup/restore evidence, and operator runbook.
-3. Obtain separate explicit authorization for read-only cloud discovery and
-   each cost-bearing or mutating action.
-4. Execute the applicable
-   [AWS Preprod Validation](2026-07-27-aws-preprod-validation-plan.md) or another
-   explicitly selected environment plan; this ExecPlan does not choose or
-   authorize a remote provider by itself.
-5. Permit the exercise loader only in a dedicated, disposable environment or
-   tenant/database/schema whose complete exercise namespace can be destroyed
-   without selectively deleting append-only history. Reject shared or stable
-   preprod targets before upload.
-6. Freeze retention, backup, restore, rollback, and whole-namespace cleanup
-   procedures before loading the approved synthetic dataset. Run the remote
-   role/browser matrix, then record exact result and residue.
-7. Do not promote to production or use real users/data from this plan.
+- the user explicitly selected `delete` after Task 8 passed and after the
+  read-only inventory above was presented;
+- 153 tracked donor and obsolete compatibility files were physically removed:
+  84 API/runtime/data files, 37 React/browser files, 16 obsolete scripts, 12 root donor tests/fixtures,
+  two OpenAPI donor contract files, one isolated Compose fixture, and one
+  duplicate donor product-schema file. Historical plans and evidence remain;
+- the sealed ZIP/package reader and immutable package contract needed by the
+  canonical loader were extracted into
+  `internal/preproddata/canonicalaga`; canonical migrations 29–42,
+  `question_versions`, catalog/import provenance, Question Review, New Audit,
+  assignments, materialization, and lifecycle ownership remain canonical;
+- obsolete AGA-only routes, OpenAPI operations, client capabilities, role
+  navigation, tagged runtime composition, services/stores, commands, Make and
+  Docker targets, scripts, E2E suites, CSS, fixtures, and duplicate operator
+  documentation are absent. Migration 42 deliberately drops the obsolete
+  mutable `inspection_package_drafts` compatibility table; no donor-only
+  schema remains in the canonical runtime;
+- generated contract checks, normal artifact/dependency scans, focused Go,
+  React typecheck, demo/HTTP builds and scans, and `git diff --check` passed.
+  The full non-race Go suite passed on task-owned PostgreSQL/MinIO, with the
+  integration package completing in 212.490 seconds; the full React suite
+  passed 85 files / 745 tests;
+- complete recursive root JS/MJS discovery now finds 88 files / 392 tests and
+  reports 371 pass / 21 fail. All 12 paused donor failures disappeared; the
+  remaining exact 1 + 7 + 13 split is independently governed or blocked as
+  recorded above;
+- `make preprod-test-fault-restart` then passed again using the physically
+  donor-free source/images: selected PostgreSQL transaction/concurrency tests
+  passed in 47.484 seconds, the complete 1,310-question OIDC lifecycle passed
+  `1/1` in 5.9 minutes, a real Auditee→CAA notification reached worker
+  `DELIVERED` state and Mailpit, cold restart preserved fingerprint
+  `6902377347b88cf11c6558af7af2a594f4542b0b81bda8491ce143cc696b1ddd`,
+  and the role/logout matrix passed `10/10` in 1.4 minutes. PostgreSQL,
+  Keycloak, MinIO, ClamAV, Gotenberg, and Mailpit loss/recovery plus worker
+  crash restart passed, donor probes stayed fail-closed, and cleanup left zero
+  task-owned container, volume, network, process, or runtime residue;
+- an initial post-deletion Evidence PUT returned MinIO `507` because the local
+  Docker filesystem had only about 607 MB free against MinIO's hard reserve.
+  Only obsolete task-owned AviaSurveil360 images and disposable build caches
+  were removed; no live demo container/volume or unrelated project data was
+  touched. The exact skip-build rerun then passed the complete matrix; and
+- Task 9 is therefore `verified locally`. This does not establish stakeholder
+  visual acceptance, release, production readiness, or external preprod.
 
-Acceptance:
+### External Preprod — Transferred Out Of This ExecPlan
 
-- remote actions occur only under their exact authorization slices;
-- HTTPS/OIDC/role/privacy and the full hero lifecycle pass in the selected
-  preprod environment;
-- the target is proven dedicated/disposable and shared-preprod loading fails
-  closed before any write;
-- rollback and cleanup are proven against exact environment identity; and
-- the strongest possible claim is `preprod verified` if the external plan's
-  own gates pass. `Production-ready` remains unestablished.
+External deployment is not a numbered task, acceptance criterion, or closeout
+dependency here. On 2026-08-10 the user deferred it until after the local demo
+milestone. Its scope, authorization gates, and literal `not run` status now live
+only in the separate paused
+[Canonical AGA External Preprod Release And Handoff](2026-08-10-canonical-aga-external-preprod-release-plan.md)
+plan. Local success, the Quick Tunnel, and `demo.aviasurveil.com` do not resume
+or authorize that plan.
 
-### Task 11 — Aggregate Verification, Evidence, And Plan Closeout
+### Task 11 — Aggregate Verification, Manual Visual Review, And Plan Closeout
 
 Objective: synchronize implementation truth, evidence, and plan lifecycle.
 
 Work:
 
-1. Run focused tests first, then the complete required matrix once against a
-   fresh disposable target.
+1. Entry condition satisfied: Task 8 completed, the user selected Task 9
+   `delete`, and the selected-boundary requalification passed before viewport
+   preparation.
 2. Record exact discovered/passed counts, immutable catalog/scope/package
    digests, selected count, lifecycle IDs, privacy checks, and cleanup results.
-3. Update product specs, architecture, README, manifest, runbook, build summary,
+3. Prepare separate privacy-safe Question Review and New Audit evidence at
+   1440x900, 1024x768, and 390x844. Hand the screenshot folder and live
+   `demo.aviasurveil.com` routes to the user for manual stakeholder review only
+   after the Task 8 and Task 9 gates above finish.
+4. Record the user's manual visual disposition without converting automated
+   DOM/overflow checks into stakeholder acceptance.
+5. Update product specs, architecture, README, manifest, runbook, build summary,
    plan index, predecessor plan statuses, and technical debt.
-4. Preserve older synthetic evidence as historical; do not rewrite it as
+6. Preserve older synthetic evidence as historical; do not rewrite it as
    canonical evidence.
-5. Request stakeholder/user verification of the task flow before moving this
-   plan to `completed`. Tasks 1–9 plus local qualification and post-deletion
-   requalification define implementation completion for this ExecPlan. If Task
-   10 is not separately authorized, record it as `not run` and hand external
-   release to the selected environment plan; do not block truthful local
-   closeout or imply remote preprod evidence.
+7. Request stakeholder/user verification of the task flow before moving this
+   plan to `completed`. Tasks 1–9, the selected donor-boundary requalification,
+   and manual visual disposition define completion for this ExecPlan. The
+   separate paused external-preprod plan does not block truthful local closeout
+   and must not be presented as local or remote deployment evidence.
 
 Acceptance:
 
 - all requested behavior has fresh evidence;
 - plan, index, evidence, tracker, product docs, and runtime agree;
-- the old stakeholder AGA lifecycle is absent;
-- any external preprod step not authorized or not run is labelled literally;
+- the old stakeholder AGA lifecycle is unavailable and its physical retention
+  or deletion matches the explicit Task 9 decision;
+- the manual three-viewport stakeholder disposition is recorded literally;
+- external preprod remains outside this plan;
   and
 - no production-readiness claim is made.
 
@@ -1167,8 +1269,9 @@ whole-namespace cleanable.
 go -C apps/api test -count=1 ./...
 ```
 
-Expected: the full Go suite passes both before cutover and after Task 9 donor
-deletion, with nonzero discovery and no package relying on the removed runtime.
+Expected: the full Go suite passes before the Task 9 decision and again after
+the selected `delete` or `retain disabled` boundary, with nonzero discovery and
+no normal package relying on the donor runtime.
 
 ### Contracts and frontend
 
@@ -1244,8 +1347,8 @@ Gate 0 must bind these observations to repository-owned commands before Task 1:
   version, authorized download, denial, and cleanup;
 - Gotenberg renders Preliminary and Final report artifacts from exact versions;
   Mailpit receives only expected organization-scoped notifications; and
-- rerunning the connected matrix after Task 9 deletion proves there is no donor
-  fallback.
+- rerunning the connected matrix after the selected Task 9 boundary proves
+  there is no donor fallback.
 
 ### Documentation and hygiene
 
@@ -1260,9 +1363,10 @@ index/status language is synchronized.
 
 ### External preprod
 
-External commands are intentionally absent until an environment and exact
-authorization slices are selected. Record them as `not run` rather than
-inventing a deployment command.
+External commands are intentionally absent because deployment has been moved
+out of this ExecPlan. See the separate paused
+[Canonical AGA External Preprod Release And Handoff](2026-08-10-canonical-aga-external-preprod-release-plan.md)
+plan. Do not add provider commands here.
 
 ## Acceptance Criteria
 
@@ -1303,33 +1407,32 @@ The plan is ready for stakeholder verification only when fresh evidence proves:
     close open work.
 17. Dashboards and queues reflect the same canonical records.
 18. The primary role journey contains no fixed AGA route or fixture identity.
-19. The duplicate AGA stakeholder lifecycle is first disabled and qualified
-    unavailable, then removed only after connected canonical cutover passes.
+19. The duplicate AGA stakeholder lifecycle is disabled and qualified
+    unavailable. After Task 8 passes, physical deletion or continued disabled
+    retention follows only the user's explicit Task 9 decision.
 20. The HTTP artifact contains no mock/seed/import/runtime shadow capability.
 21. The full local connected run survives reload/restart, N-1 migration, backup/
-    restore, transaction faults/concurrency, and donor deletion; proves real
-    object upload/scan/version/download, report rendering, and notifications;
-    leaves zero residue; and uses an isolated browser profile.
-22. Any external preprod deployment remains separately authorized and has its
-    own literal result.
-23. Department Manager Question Review retains the accepted
+    restore, transaction faults/concurrency, and the selected Task 9 donor
+    boundary; proves real object upload/scan/version/download, report rendering,
+    and notifications; leaves zero residue; and uses an isolated browser
+    profile.
+22. Department Manager Question Review retains the accepted
     `Find -> Compare -> Decide` visual and interaction contract, including the
     bounded queue, Decision file, controlled Draft actions, reclassification,
     topic controls, progressive technical details, and responsive behavior.
-24. New Audit visibly reuses that interaction language while keeping Audit
+23. New Audit visibly reuses that interaction language while keeping Audit
     scope selection distinct from classification, technical approval, and
     publication.
-25. Exercise Question Review can persist disposition/domain/topic successor
+24. Exercise Question Review can persist disposition/domain/topic successor
     facts but cannot expose or invoke governed technical approval/publication;
     governed mode continues to use the existing authority chain.
-26. Canonical `question_versions` is the sole immutable body/version authority;
+25. Canonical `question_versions` is the sole immutable body/version authority;
     availability/deprecation is append-only catalog membership history and
     usage class cannot mutate or promote.
-27. Separate invented-fixture visual/DOM/accessibility tests cover Question
-    Review and New Audit at 1440x900, 1024x768, and 390x844 without retaining
-    any real AGA question body.
-28. External exercise loading rejects shared/stable preprod and is permitted
-    only for a dedicated whole-namespace-disposable target.
+26. After Task 8 and the explicit Task 9 decision/requalification, separate
+    invented-fixture visual/DOM/accessibility evidence covers Question Review
+    and New Audit at 1440x900, 1024x768, and 390x844 without retaining any real
+    AGA question body, and the user records the manual disposition.
 
 ## Risks And Mitigations
 
@@ -1346,13 +1449,11 @@ The plan is ready for stakeholder verification only when fresh evidence proves:
 | Batch selection hides unseen impact | Server-issued exact preview, 500-item cap, explicit confirmation, CAS, expiry. |
 | Client invents scope or authority | Server-returned opaque scope/target/question/team identities and transaction-time revalidation. |
 | Audit is started during creation | Create a scheduled inspection and `NOT_STARTED` checklist; deny every execution path until one atomic Inspector-start transaction. |
-| Duplicate lifecycle removal hides a missing dependency | Disable it first, qualify the connected canonical journey with no fallback, delete second, then rerun the full matrix. |
+| Duplicate lifecycle removal hides a missing dependency | Disable and qualify it first, then require a separate Task 9 user decision before deletion; rerun the selected boundary matrix. |
 | Preliminary/Final reports occur at the wrong lifecycle point | Lock the accepted report/CAP/Evidence order in state, history, and connected tests. |
 | Auditee sees question-bank or internal CAA data | Positive allowlist DTOs plus raw JSON/DOM cross-scope scans. |
 | CAP acceptance is displayed as closure | State-machine tests and visible lifecycle stepper require Evidence verification. |
 | Preprod loader leaks into normal artifacts | One-shot out-of-process loader and explicit artifact/link scans. |
-| Exercise data pollutes shared preprod append-only history | Reject shared/stable targets and load only into a dedicated whole-namespace-disposable exercise environment. |
-| Remote deployment is inferred from local success | Separate Task 10 authority gate and literal `not run`/`preprod verified` labels. |
 
 ## Dependencies
 
@@ -1365,7 +1466,6 @@ The plan is ready for stakeholder verification only when fresh evidence proves:
 - Local PostgreSQL, Keycloak, MinIO, ClamAV, Mailpit, Gotenberg, API/worker, and
   React HTTP stack.
 - Explicit implementation authorization before Gate 0 changes runtime code.
-- Explicit environment/action authorization before external preprod work.
 
 Real source-owner attestation and real Department Manager technical/publication
 decisions are not dependencies for the truthfully labelled preprod exercise.
@@ -1393,9 +1493,8 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
 - Local connected runs use a complete disposable namespace. Cleanup targets
   only exact task-owned resources and never selectively deletes append-only
   history.
-- External preprod recovery follows its environment plan's exact backup,
-  rollback, and residue contract; no broad destructive command is authorized by
-  this document.
+- External preprod recovery and authorization are outside this document and
+  live only in the separate paused external-preprod plan.
 
 ## Progress
 
@@ -1451,7 +1550,7 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   remains `NOT ACCEPTED` only for the tracked Important findings and missing
   connected/visual qualification. The queue path, migration/N-1 checks,
   generated contracts, focused Go packages, React typecheck, and
-  `git diff --check` are `verified locally`; Task 10 remains `not run`.
+  `git diff --check` are `verified locally`; external preprod was `not run`.
 - [x] 2026-08-08: The Sol XHigh Important-finding pass was addressed locally:
   Question Review now exposes bounded append-only Draft history and exact
   exercise scope binding; New Audit summaries are recomputed from immutable
@@ -1463,7 +1562,7 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   `verified locally`. The independent XHigh reread, rendered viewport matrix,
   donor-disabled connected qualification, full suites, and stakeholder review
   remain `not run`; plan status stays `active`, `candidate-only`, and
-  `release pending`. Task 10 remains literally `not run`.
+  `release pending`. External preprod was literally `not run`.
 - [x] 2026-08-08: The final XHigh remediation pass removed the isolated
   AGA candidate-demo routes, schemas, HTTP capability, and Admin panel from
   the normal runtime graph while retaining the tagged source/tests as
@@ -1481,7 +1580,7 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   execution-package fixture. The final Sol XHigh reread accepted the local
   code boundary with 0 Critical / 0 Important findings; connected, rendered,
   and stakeholder evidence remain pending. The plan remains `active`,
-  `candidate-only`, and `release pending`; Task 10 remains literally
+  `candidate-only`, and `release pending`; external preprod was literally
   `not run`.
 - [x] 2026-08-08: The disposable canonical local-preprod stack was started
   without AWS or external infrastructure. Migration 41, the privacy-safe
@@ -1496,7 +1595,7 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   and boundary smokes, not the full connected lifecycle or evidence matrix.
   The full connected OIDC lifecycle, full object/scan/render/mail matrix,
   user-owned viewport review, stakeholder qualification, and donor deletion/
-  requalification remain `not run`; Task 10 remains `not run`.
+  requalification remain `not run`; external preprod was `not run`.
 - [x] 2026-08-08: Local canonical browser qualification was rerun after the
   HTTP/API fixes: the exact 1,310-question catalog loads, server-owned
   selection preview/commit and Finance submission survive persistence, and
@@ -1530,8 +1629,8 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   manual Safari login and the required viewport review remain `not run`.
   These are fresh local connected hero receipts; the full negative/fault,
   restart, backup/restore, dependency matrix, viewport review, Task 9 deletion/
-  requalification, and stakeholder verification remain `not run`. Task 10
-  remains literally `not run`.
+  requalification, and stakeholder verification remain `not run`. External
+  preprod was literally `not run`.
 - [x] 2026-08-09: A task-owned anonymous Cloudflare Quick Tunnel profile was
   added and exercised without a Cloudflare account, named tunnel, DNS change,
   AWS action, or external-preprod deployment. `make preprod-cloudflare-link`
@@ -1566,8 +1665,8 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   context. The full React suite passed 94 files / 783 tests and the literal
   full non-race Go suite passed with task-owned PostgreSQL and MinIO. The
   user-owned three-viewport visual review remains `not run`. This is local
-  disposable transport evidence only;
-  Task 10 remains literally `not run`.
+  disposable transport evidence only; external preprod was literally `not
+  run`.
 - [x] 2026-08-10: Homebrew `cloudflared` was upgraded from `2026.5.2` to
   `2026.7.3` and the installed binary/version are `verified locally`. A named
   startup attempt proved that the updated connector authenticated, registered
@@ -1601,8 +1700,8 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   `cloudflared` rejection, and prints only a token-redacted startup log tail.
   Bash/Swift/Node syntax and the focused named-Tunnel contracts are `verified
   locally`. Re-entering the real complete credential and completing named
-  public readiness/OIDC/browser qualification remain `not run`; Task 10
-  external preprod remains `not run`.
+  public readiness/OIDC/browser qualification remain `not run`; external
+  preprod was `not run`.
 - [x] 2026-08-10: The separately authorized stable-hostname operator path was
   added without a Cloudflare account/API mutation or secret entering the
   repository. `make preprod-cloudflare-demo-token` uses hidden terminal reads
@@ -1622,7 +1721,7 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   are `verified locally`. Keychain secret entry, named connector startup,
   public OIDC/browser qualification, and any Cloudflare dashboard/DNS mutation
   are `not run`; the user must first create the exact remotely managed route
-  and enter its connector token. Task 10 external preprod remains `not run`.
+  and enter its connector token. External preprod was `not run`.
 - [x] 2026-08-10: The donor-unavailable anonymous Quick Tunnel profile passed
   a second clean-profile, consolidated 1,310-question lifecycle run after the
   runtime/object-store credential split (`1 passed`, 5.0
@@ -1644,10 +1743,30 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   `release pending`. A separate disposable recovery profile then verified a
   PostgreSQL custom-format dump/restore with identical canonical fingerprints
   and an object-store exact-byte restore; its containers, volumes, network, and
-  runtime directory were removed. These receipts do not complete Task 8's
-  remaining negative/fault/restart, deletion/requalification, or user-owned
-  visual gates. The required 1440x900, 1024x768, and 390x844 review is `not
-  run / stakeholder pending`; Task 10 remains literally `not run`.
+  runtime directory were removed. These receipts precede the complete Task 8
+  negative/fault/restart evidence recorded below; Task 9 requalification later
+  passed and the user-owned visual gates remain separate. The required 1440x900, 1024x768,
+  and 390x844 review is `not run / stakeholder pending`; external preprod was
+  literally `not run`.
+- [x] 2026-08-10: `make preprod-test-fault-restart` completed the remaining
+  Task 8 matrix in an exact disposable local-HTTPS profile while leaving the
+  live `demo.aviasurveil.com` profile untouched. The selected real-PostgreSQL
+  transaction/fault/concurrency suite passed in 37.846 seconds; the connected
+  1,310-question OIDC lifecycle passed `1/1` in 4.8 minutes; the exact
+  authoritative database fingerprint
+  `3c13f4999eba1d942a079117912af42f961c897046271ca37bc3fb3c0f6e333e`
+  remained identical across a cold full-stack restart; and the post-restart
+  nine-role plus forced-credential logout matrix passed `10/10` in 1.3 minutes.
+  Required PostgreSQL, Keycloak, MinIO, and ClamAV loss produced live
+  `200` plus ready `503/not_ready`; optional Gotenberg and Mailpit loss produced
+  ready `200/degraded`; every service recovered to `ready`; and an injected
+  worker crash incremented its restart count from 1 to 2. Pre-auth and
+  authenticated donor probes failed closed, generated secrets were absent from
+  runtime logs, the task-owned runtime root was removed, and exact Compose
+  label checks found zero containers, volumes, or networks. Local and public
+  `demo.aviasurveil.com` readiness remained green after cleanup. Task 8 is
+  `verified locally`, `candidate-only`, and `release pending`; it does not
+  decide Task 9 or establish stakeholder visual acceptance.
 - [x] 2026-08-10: Removed Inspectors now lose their executable question
   coverage atomically; preparation rejects any historical stale coverage, and
   the AssignTeam write response reloads and reports the exact surviving
@@ -1662,7 +1781,7 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   2026-08-08, and a fresh exception-free scan reproduced the sole HIGH mapping
   with no fixed version. No security-owner exception extension was inferred.
   The final Sol XHigh reread accepted the latest local code boundary with 0
-  Critical / 0 Important findings. Task 10 remains literally `not run`.
+  Critical / 0 Important findings. External preprod was literally `not run`.
 - [x] 2026-08-07: Gate 0 froze the canonical table/FK/aggregate/event
   boundaries, classified every dirty AGA change, mapped F-002/F-004/F-007/
   F-010/F-013/F-015/F-018/F-021, synchronized the product specifications,
@@ -1695,32 +1814,45 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   OIDC hero path through all 1,310 responses, Preliminary Report issue,
   CAP acceptance without closure, real Evidence upload/scan, Evidence-verified
   closure, Final Report issue, and Gotenberg document versioning are `verified
-  locally`; full negative/fault and stakeholder visual qualification are `not
-  run`.
+  locally`; the Task 8 negative/fault/restart boundary is also `verified
+  locally`, while stakeholder visual qualification is `not run`.
 - [x] Task 7: navigation cutover and donor disablement — canonical routes,
   donor-free HTTP contract/artifact, and donor runtime fail-closed behavior
-  plus donor-disabled connected qualification are `verified locally`; physical
-  deletion and post-deletion requalification remain `not run`.
-- [ ] Task 8: local connected qualification with donor disabled — the complete
+  plus donor-disabled connected qualification are `verified locally`; the
+  subsequent physical deletion and post-deletion requalification are recorded
+  under Task 9.
+- [x] Task 8: local connected qualification with donor disabled — the complete
   canonical hero path is `verified locally` in one consolidated 1,310-question
   run, the public role-panel/logout matrix is 10/10, and focused
-  PostgreSQL/object-store backup/restore is `verified locally`; the required
-  negative/fault/restart, final residue, and visual acceptance matrix remains
-  pending.
-- [ ] Task 9: duplicate lifecycle removal and requalification.
-- [ ] Task 10: separately authorized external preprod release gate.
-- [ ] Task 11: aggregate evidence and stakeholder handoff — candidate evidence
+  PostgreSQL/object-store backup/restore is `verified locally`. The final
+  disposable matrix also proves transaction/fault/concurrency, cold-restart
+  fingerprint preservation, post-restart multi-role OIDC, required and
+  optional dependency semantics, worker crash recovery, log-secret denial,
+  donor unavailability, and zero residue. Manual visual acceptance remains a
+  separate Task 11 stakeholder gate.
+- [x] Task 9: explicit donor disposition decision and selected-boundary
+  requalification — after Task 8 passed, the user selected `delete`; 153
+  tracked donor files were removed, the canonical sealed-package reader was
+  retained under canonical ownership, and the full post-deletion Go, React,
+  root-discovery, build/artifact, connected hero, fault/restart, role/logout,
+  dependency recovery, privacy, and zero-residue gates were rerun with the
+  literal results recorded above.
+- [ ] Task 11: aggregate evidence, manual three-viewport review, and stakeholder
+  handoff — candidate evidence
   exists and focused/generated contract checks, non-race full Go, full React,
   backup/restore, connected canonical hero runs, current-source image builds,
   nine digest-bound SBOMs, and `git diff --check` are `verified locally`.
-  Recursive root discovery completed at 418/451 and remains
-  `blocked` by the exact mixed local/external split recorded above; the four
+  Post-deletion recursive root discovery completed at 371/392 and remains
+  `blocked` by the exact 1 + 7 + 13 mixed local/external split recorded above;
+  all 12 donor failures are gone. The four
   local AviaCore synchronization drifts remain under their owning plan and no
   owner disposition is inferred here. The image vulnerability gate is also
   `blocked` by the expired owner exception recorded above. The full
-  race/deletion/requalification gates, required rendered Question Review/New
-  Audit viewport matrix, and stakeholder verification remain `not run` or
-  `blocked` as recorded above; the final independent reread is accepted.
+  race gate, required rendered Question Review/New Audit viewport matrix, and
+  stakeholder verification remain `not run` or
+  `blocked` as recorded above; the final independent reread is accepted. The
+  external-preprod release is tracked only by its separate paused ExecPlan and
+  is not a completion gate here.
 
 ## Decision Log
 
@@ -1794,9 +1926,9 @@ Preliminary and Final Reports are not both deferred until after closure.
 The requested product target includes an actual preprod environment, but this
 planning request does not authorize deployment. The complete canonical flow is
 qualified locally first, then handed to the existing external-preprod plan
-under separate action-by-action authority. Exercise data may be loaded remotely
-only into a dedicated whole-namespace-disposable target, never shared/stable
-preprod.
+under separate action-by-action authority. On 2026-08-10 that future work moved
+entirely to the separate paused external-preprod ExecPlan and stopped being a
+task or closeout gate here.
 
 ### 2026-08-07 — Gate 0 freeze and dirty-worktree disposition
 
@@ -1815,7 +1947,8 @@ attempt and the full React suite is `blocked` by existing fixture-contract
 failures. Recursive root JS/MJS discovery is `blocked` by the exact 33-failure
 split now recorded in the current status; donor-disabled stakeholder
 qualification and the remaining independent-review fixes are still pending.
-Task 10 remains `not run`.
+At this checkpoint external preprod was `not run`; it is now tracked only by
+the separate paused external-preprod ExecPlan.
 
 ### 2026-08-07 — Verification checkpoint and truthful handoff state
 
@@ -1833,8 +1966,8 @@ Question Review/New Audit 1440x900, 1024x768, and 390x844 DOM/overflow/console
  Mailpit evidence matrix, backup/restore and final requalification remain
  `not run`. Sol Ultra's independent implementation review remains
  `NOT ACCEPTED` until the remaining Important findings and affected
- verification are fresh. Task 10 external preprod remains explicitly
- `not run`.
+ verification are fresh. External preprod was explicitly `not run` and is now
+ outside this plan.
 
 ### 2026-08-09 — Treat logout as an application-plus-provider boundary
 
@@ -1847,8 +1980,7 @@ browser completes provider logout before returning to the public root. New
 authorization requests carry `prompt=login` and `max_age=0`, so a stale SSO
 cookie cannot silently restore the previous identity. The same-browser Admin →
 logout → Manager credential flow passed over the disposable public HTTPS
-origin. This is `verified locally`; it is not external preprod evidence and
-Task 10 remains `not run`.
+origin. This is `verified locally`; it is not external preprod evidence.
 
 ### 2026-08-10 — Treat a stable named hostname as local-origin publication
 
@@ -1861,6 +1993,37 @@ token or account certificate. This makes stable public demo transport
 repeatable without converting the local candidate into external preprod
 evidence or granting repository code authority to create or delete the tunnel,
 DNS, or Access policy.
+
+### 2026-08-10 — Finish Task 8, Decide Task 9, Then Review Three Viewports
+
+The user removed external preprod from this plan and deferred it to the separate
+paused external-preprod ExecPlan. Task 8's final fault/restart matrix has now
+passed. The remaining local sequence is strict: stop for an explicit `delete`
+or `retain disabled` Task 9 donor decision; execute and requalify that selected
+boundary; then prepare privacy-safe 1440x900, 1024x768, and 390x844 Question
+Review/New Audit evidence for the user's manual stakeholder review. Physical
+donor deletion and manual visual acceptance are not inferred.
+
+### 2026-08-10 — Delete the duplicate donor after qualification
+
+After Task 8 passed, the user explicitly selected `delete`. The implementation
+therefore extracted the sealed package-reader contract into canonical import
+ownership, physically removed the obsolete stakeholder runtime and its
+operator/test/schema surfaces, and reran the selected-boundary matrix. The
+post-deletion full Go/React/build/artifact and connected fault/restart gates
+passed without a donor fallback. Historical evidence and the separately owned
+governed-intake/classification tools remain intact. This decision authorizes no
+external preprod action and does not substitute for manual viewport review.
+
+### 2026-08-10 — Prove restart integrity with stable authoritative state
+
+The canonical local profile intentionally retains undelivered local AviaCore
+outbox messages because no external AviaCore consumer is part of this
+authorized local run. Restart evidence must therefore not manufacture an empty
+outbox. Task 8 fingerprints the complete authoritative row state, requires
+three consecutive stable samples and zero active outbox leases, then compares
+the exact SHA-256 after a cold restart. The resulting identical digest is the
+restart receipt; it does not claim external delivery.
 
 ### 2026-08-10 — Validate the connector payload before expensive local work
 
@@ -1940,8 +2103,9 @@ Implementation outcome as of 2026-08-10:
 - Existing AGA work is explicitly treated as reusable donor code and import
   provenance. Synthetic implementation plans are paused and the duplicate
   stakeholder runtime is absent from normal contracts, clients, dependencies,
-  and binary artifacts. Physical donor deletion and post-deletion
-  requalification remain the open Task 9 boundary.
+  and binary artifacts. The user selected `delete`; the obsolete donor was
+  physically removed and its selected-boundary requalification is `verified
+  locally` under Task 9.
 - The accepted `Find -> Compare -> Decide` Question Review interface remains a
   first-class Department Manager governance surface; only its AGA-only route
   and duplicate lifecycle ownership are replaced.
@@ -1954,20 +2118,22 @@ Implementation outcome as of 2026-08-10:
   also `verified locally`; the HIGH/CRITICAL image scan is `blocked` by the
   expired Keycloak advisory-mismatch exception and was not relabelled as a
   pass. The nine-role/logout browser matrix is 10/10. Recursive root discovery
-  is truthfully `blocked` at 418/451 by 12 paused AGA donor failures,
-  one missing active-plan archive input, three external and four locally
+  is truthfully `blocked` at 371/392. The 12 paused donor failures were removed;
+  the remaining failures are one missing active-plan archive input, three external and four locally
   drifting AviaCore checks, one stale local AWS fixture, and 12 missing local
   OPA executions. The four local AviaCore drifts remain separately governed
   pending owner authority.
 - The final Sol XHigh code-boundary reread accepted the latest changes with 0
-  Critical / 0 Important findings. Plan closure remains open for the blocked
-  image-security disposition, the remaining Task 8 negative/fault/restart
-  matrix, Task 9 deletion/requalification, and stakeholder review.
+  Critical / 0 Important findings. Task 8's remaining
+  negative/fault/restart matrix and Task 9 post-deletion requalification are
+  now `verified locally`. Plan closure remains open for the blocked
+  image-security disposition and stakeholder review.
 - A task-owned disposable local-preprod stack is running on the current branch
-  for the user's manual visual pass. The required 1440x900, 1024x768, and
-  390x844 review is `not run / stakeholder pending`. No AWS deployment or
-  external-preprod mutation was performed; Task 10 remains literally `not
-  run`.
+  at `demo.aviasurveil.com` for the current public demo. The required 1440x900,
+  1024x768, and 390x844 manual review is now the next gate; it is `not run /
+  stakeholder pending`. No AWS deployment or
+  external-preprod mutation was performed; that future work is outside this
+  plan and remains `not run` in its separate paused ExecPlan.
 
 ## Execution Prompt
 
@@ -1978,7 +2144,7 @@ Begin at Gate 0. Read this plan completely, then inspect the current working-tre
 
 Build one canonical product journey: Department Manager creates a dynamic Audit draft, selects an exact subset from the 1,310-question preprod exercise catalog, and submits the immutable scope/resource snapshot through Finance -> GM -> ED -> GM Release. After release, the Department Manager assigns the Lead Inspector; the Lead assigns the team and exact question coverage; and the Department Manager confirms preparation. Materialize announced work as AWAITING_AUDITEE_CONFIRMATION or unannounced work as SCHEDULED with notice withheld; create a NOT_STARTED checklist in both cases. Inspector start must be a separate atomic gate after applicable readiness. Complete Execution -> Preliminary Report approval/issue -> CAP -> Evidence -> verification/closure -> Final Report approval/issue across distinct role sessions.
 
-Reuse or adapt the existing AGA pagination, search, digest, batch-preview, loader, and UI patterns where they reduce risk, but do not preserve the AGA workspace as a second stakeholder lifecycle. Implement canonical Question Review before deleting its donor, with explicit governed and exercise aggregates behind the retained Find -> Compare -> Decide shell. Keep question_versions as the single immutable body/version authority. PREPROD_EXERCISE cannot mutate/promote or invoke governed publication and fails closed in production/default configuration. Disable the donor, qualify the complete connected journey without fallback, delete the donor, then rerun the matrix. Preserve Auditee privacy, append-only versions/history, Comment to Auditee/Internal CAA Note separation, CAP/closure separation, exact identity, and root-oracle integrity.
+Reuse or adapt the existing AGA pagination, search, digest, batch-preview, loader, and UI patterns where they reduce risk, but do not preserve the AGA workspace as a second stakeholder lifecycle. Implement canonical Question Review before any donor removal, with explicit governed and exercise aggregates behind the retained Find -> Compare -> Decide shell. Keep question_versions as the single immutable body/version authority. PREPROD_EXERCISE cannot mutate/promote or invoke governed publication and fails closed in production/default configuration. Keep the donor disabled, qualify the complete connected journey without fallback, then stop for the user's explicit Task 9 `delete` or `retain disabled` decision and rerun the selected-boundary matrix. Preserve Auditee privacy, append-only versions/history, Comment to Auditee/Internal CAA Note separation, CAP/closure separation, exact identity, and root-oracle integrity.
 
-Keep this plan and docs/exec-plans/index.md synchronized after every material gate. Use test-first contract changes, generated artifacts from source, isolated browser profiles, and exact task-owned cleanup. Do not change branches, commit, push, deploy, upload, or mutate remote infrastructure without separate explicit authorization. External preprod work begins only after local canonical qualification and its own action-by-action authorization.
+Keep this plan and docs/exec-plans/index.md synchronized after every material gate. Use test-first contract changes, generated artifacts from source, isolated browser profiles, and exact task-owned cleanup. Tasks 8 and 9 are complete locally: the user selected `delete`, the donor was physically removed, and the selected boundary passed requalification. Prepare the privacy-safe 1440x900/1024x768/390x844 manual-review handoff without converting automated evidence into stakeholder acceptance. Do not change branches, commit, push, deploy, upload, or mutate remote infrastructure without separate explicit authorization. External preprod is outside this plan and may resume only through docs/exec-plans/active/2026-08-10-canonical-aga-external-preprod-release-plan.md.
 ```

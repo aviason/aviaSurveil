@@ -363,7 +363,6 @@ const configuration = {
   behaviorLedgerFile: "/app/catalog/behavior-ledger.json",
   codeDigest: intent.codeDigest,
   contractDigest: intent.contractDigest,
-  overlaySchema: "preprod_aga_demo",
   target: intent.target,
 };
 writeFileSync(

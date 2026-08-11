@@ -10,7 +10,7 @@ describe("Service Worker request policy", () => {
     ["https://candidate.test/assets/aviasurveil360-mark-abcd1234.png", "no-cors", "versioned-static-asset"],
     ["https://candidate.test/assets/air-traffic-control-abcd1234.svg", "no-cors", "versioned-static-asset"],
     ["https://candidate.test/assets/DMSans-Variable-abcd1234.ttf", "cors", "versioned-static-asset"],
-    ["https://candidate.test/http-config.json", "cors", "versioned-static-asset"],
+    ["https://candidate.test/http-config.json", "cors", "network-only"],
   ] as const)("classifies %s as %s", (url, mode, expected) => {
     expect(
       classifyAppShellRequest(

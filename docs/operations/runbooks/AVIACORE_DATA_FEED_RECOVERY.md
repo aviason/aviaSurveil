@@ -6,6 +6,13 @@ PostgreSQL fixtures named below. It is not production-ready and does not
 establish AviaCore source-bound ingestion, a connected recovery drill, or a
 production recovery objective.
 
+Task 8 classifies this runbook and the underlying data-feed packages as
+dormant historical source. The private-pilot target has no data-feed command,
+worker, environment, secret, table prerequisite, health check, egress, or
+operator route. The local recovery commands below remain documented for their
+separate candidate/data-platform ownership and are not part of the private-
+pilot release.
+
 ## Scope And Owner
 
 Owner: Data Platform / Operations
@@ -104,3 +111,12 @@ Stop and escalate a missing/extra event, digest mismatch, receipt mismatch,
 certificate issue, source-cut mismatch, tombstone attempt, unexpected queue
 state, or missing AviaCore manifest. Records/Legal owns any legal-hold or
 retention decision; do not alter historical events to resolve it.
+
+## AWS Private-Pilot Boundary
+
+The Task 8 private-pilot target does not include this recovery surface. No
+AviaCore endpoint, data-feed worker, trust/key file, secret, preflight, egress,
+release subject, or capacity prerequisite is created for it. A connected
+AviaCore run and coordinated recovery remain `blocked`/`not run`; preserving
+the dormant package, migrations, triggers, and historical rows does not
+authorize runtime wiring or destructive data changes.

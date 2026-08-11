@@ -97,3 +97,11 @@ Records/Legal.
 Backup deletion, retention shortening, immutability change, remote store
 configuration, production credentials, production restore, and AWS resources
 require new explicit authorization.
+
+## AWS Private-Pilot Boundary
+
+The local contract models 14-day RDS PITR and 35-day AWS Backup coverage for
+the one RDS instance and versioned S3 buckets. It does not prove restore,
+cross-failure-domain durability, or the stated RPO/RTO. Those checks remain
+`not run` and require separate Task 7 authorization. Any future operator-side
+AWS command must select profile `avia`; `default` is forbidden.

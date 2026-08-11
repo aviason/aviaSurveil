@@ -85,6 +85,46 @@ func TestMigrationsApplyFromAnEmptyDatabase(t *testing.T) {
 	}
 }
 
+func TestExactObjectVersionIdentityRequiresACompleteNonEmptyPair(t *testing.T) {
+	pool := createTestDatabase(t, "exact_object_identity")
+	if err := migrations.Apply(context.Background(), pool); err != nil {
+		t.Fatalf("apply migrations: %v", err)
+	}
+	insert := func(id, key string, version, etag any) error {
+		_, err := pool.Exec(context.Background(), `
+			INSERT INTO object_metadata (
+				id, aggregate_type, aggregate_id, bucket_name, object_key, filename,
+				declared_media_type, sha256, size_bytes, scan_status,
+				object_version_id, object_etag
+			) VALUES ($1, 'fixture', $1, 'fixture-bucket', $2, 'fixture.pdf',
+				'application/pdf', 'sha256:fixture', 1, 'PENDING', $3, $4)
+		`, id, key, version, etag)
+		return err
+	}
+	for _, testCase := range []struct {
+		name    string
+		version any
+		etag    any
+	}{
+		{name: "version only", version: "version-1", etag: nil},
+		{name: "etag only", version: nil, etag: "etag-1"},
+		{name: "empty version", version: "", etag: "etag-1"},
+		{name: "empty etag", version: "version-1", etag: ""},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			if err := insert("invalid-"+strings.ReplaceAll(testCase.name, " ", "-"), "invalid/"+testCase.name, testCase.version, testCase.etag); err == nil {
+				t.Fatal("incomplete exact object identity was accepted")
+			}
+		})
+	}
+	if err := insert("legacy-null-pair", "legacy/null-pair", nil, nil); err != nil {
+		t.Fatalf("legacy local object identity pair: %v", err)
+	}
+	if err := insert("exact-pair", "exact/pair", "version-1", "etag-1"); err != nil {
+		t.Fatalf("complete exact object identity pair: %v", err)
+	}
+}
+
 func TestEveryRetainedNMinusOneFixtureUpgrades(t *testing.T) {
 	fixtures, err := filepath.Glob(filepath.Join(apiModuleRoot(t), "tests", "fixtures", "n-1", "*.sql"))
 	if err != nil {
@@ -212,5 +252,15 @@ func assertFoundationSchema(t *testing.T, pool *database.Pool) {
 		if relation == nil {
 			t.Errorf("required table %s does not exist", table)
 		}
+	}
+	var retiredPackageDraftTable *string
+	if err := pool.QueryRow(
+		context.Background(),
+		"SELECT to_regclass('public.inspection_package_drafts')::text",
+	).Scan(&retiredPackageDraftTable); err != nil {
+		t.Fatalf("look up retired inspection_package_drafts table: %v", err)
+	}
+	if retiredPackageDraftTable != nil {
+		t.Errorf("retired inspection_package_drafts table still exists: %s", *retiredPackageDraftTable)
 	}
 }

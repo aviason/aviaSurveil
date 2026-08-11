@@ -14,7 +14,6 @@ export interface AppShellRequestDescriptor {
 const STATIC_CONFIG_PATHS = new Set([
   "/app-shell-assets.json",
   "/demo-build.json",
-  "/http-config.json",
   "/index.html",
 ]);
 
@@ -32,6 +31,7 @@ export function classifyAppShellRequest(
   ) {
     return "network-only";
   }
+  if (url.pathname === "/http-config.json") return "network-only";
   if (request.mode === "navigate") return "app-shell-navigation";
   if (/^\/assets\/[A-Za-z0-9_.-]+\.(?:css|js|map|svg|png|jpg|jpeg|webp|ttf|woff2?)$/.test(url.pathname)) {
     return "versioned-static-asset";
@@ -47,7 +47,7 @@ interface AppShellManifest {
 
 // Increment this whenever the app shell or its static asset graph changes so
 // an older service-worker cache cannot keep serving a previous UI indefinitely.
-const APP_SHELL_VERSION_MARKER = "AVIA_APP_SHELL_VERSION:000008";
+const APP_SHELL_VERSION_MARKER = "AVIA_APP_SHELL_VERSION:000009";
 const APP_SHELL_VERSION = Number(
   /^AVIA_APP_SHELL_VERSION:(\d{6})$/.exec(APP_SHELL_VERSION_MARKER)?.[1],
 );
@@ -75,7 +75,7 @@ async function installAppShell(): Promise<void> {
 
 async function serveAppShellNavigation(request: Request): Promise<Response> {
   const cache = await caches.open(APP_SHELL_CACHE);
-  return (await cache.match(request)) ?? (await cache.match("/")) ?? (await fetch(request));
+  return (await cache.match(request)) ?? (await cache.match("/")) ?? (await fetch(request, { cache: "no-store" }));
 }
 
 async function serveVersionedAsset(request: Request): Promise<Response> {
@@ -92,9 +92,24 @@ if (
     event.waitUntil(installAppShell());
   });
 
+  serviceWorkerScope.addEventListener("activate", (event: ExtendableEvent) => {
+    event.waitUntil(
+      caches.keys().then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => key.startsWith("aviasurveil360-app-shell-") && key !== APP_SHELL_CACHE)
+            .map((key) => caches.delete(key)),
+        ),
+      ),
+    );
+  });
+
   serviceWorkerScope.addEventListener("fetch", (event: FetchEvent) => {
     const policy = classifyAppShellRequest(event.request, serviceWorkerScope.location.origin);
-    if (policy === "app-shell-navigation") {
+    const requestURL = new URL(event.request.url);
+    if (requestURL.pathname === "/http-config.json" || requestURL.pathname === "/app-shell-assets.json") {
+      event.respondWith(fetch(new Request(event.request, { cache: "no-store" })));
+    } else if (policy === "app-shell-navigation") {
       event.respondWith(serveAppShellNavigation(event.request));
     } else if (policy === "versioned-static-asset") {
       event.respondWith(serveVersionedAsset(event.request));

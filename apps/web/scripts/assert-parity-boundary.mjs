@@ -13,8 +13,8 @@ import { assertHttpArtifact } from "./assert-http-artifact.mjs";
 const scriptPath = fileURLToPath(import.meta.url);
 const defaultRepositoryRoot = path.resolve(path.dirname(scriptPath), "../../..");
 
-const EXPECTED_ROUTE_COUNT = 86;
-const EXPECTED_VISUAL_PAIR_COUNT = 258;
+const EXPECTED_ROUTE_COUNT = 85;
+const EXPECTED_VISUAL_PAIR_COUNT = 255;
 
 const HTTP_FORBIDDEN_INPUTS = [
   /[/\\]src[/\\]mock[/\\]/i,
@@ -299,13 +299,13 @@ function assertSourceBoundary(repositoryRoot, mutation) {
   assert.equal(
     declaredRoutePaths.length,
     EXPECTED_ROUTE_COUNT,
-    "React route registry must remain the exact ordered 86-surface set.",
+    "React route registry must remain the exact ordered 85-surface set.",
   );
   assert.equal(new Set(declaredRoutePaths).size, EXPECTED_ROUTE_COUNT, "React route registry contains duplicate paths.");
   assert.match(
     routeContracts,
     /availableProfiles:\s*\["demo",\s*"http"\]/,
-    "All 86 routes must be dual-profile.",
+    "All 85 routes must be dual-profile.",
   );
   assert.doesNotMatch(
     routeContracts,
@@ -401,13 +401,13 @@ export function assertVisualHarnessSource(source) {
     'await expect(page.locator(".workspace-content")).toBeVisible();',
     'await expect(page.locator(".workbench-page-header")).toBeVisible();',
     "const expectedVisualPairCount = VISUAL_SURFACES.length * VISUAL_VIEWPORTS.length;",
-    "expect(expectedVisualPairCount).toBe(258);",
+    "expect(expectedVisualPairCount).toBe(255);",
     "assertVisualPairAttachments(testInfo.attachments);",
   ]) {
     assert.ok(source.includes(required), `Visual parity harness is missing fail-closed contract: ${required}`);
   }
   for (const bypass of ["resolveVisualRegions", "shellOnly", "AVIA_VISUAL_REGIONS"]) {
-    assert.ok(!source.includes(bypass), `Visual parity harness can bypass the 258-pair matrix via ${bypass}.`);
+    assert.ok(!source.includes(bypass), `Visual parity harness can bypass the 255-pair matrix via ${bypass}.`);
   }
   assert.match(source, /for \(const comparison of comparisons\)[\s\S]*?comparison\.passed/, "Decoded region results are not asserted.");
 }

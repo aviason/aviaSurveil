@@ -84,21 +84,21 @@ func TestProductionAPIRuntimeDoesNotRequireWorkerOnlyAdapters(t *testing.T) {
 	}
 }
 
-func TestProductionSchedulerRuntimeRequiresOnlyItsDatabaseCapability(t *testing.T) {
+func TestProductionDatabaseRuntimeRequiresOnlyItsDatabaseCapability(t *testing.T) {
 	t.Parallel()
 
 	values := map[string]string{
 		"AVIA_ENVIRONMENT":  "production",
 		"AVIA_DATABASE_URL": "postgres://example.invalid/avia",
 	}
-	if _, err := config.LoadScheduler(mapLookup(values)); err != nil {
-		t.Fatalf("LoadScheduler() required unrelated adapters: %v", err)
+	if _, err := config.LoadDatabaseRuntime(mapLookup(values)); err != nil {
+		t.Fatalf("LoadDatabaseRuntime() required unrelated adapters: %v", err)
 	}
 
 	values["AVIA_ENABLE_CANONICAL_SEED"] = "true"
-	if _, err := config.LoadScheduler(mapLookup(values)); err == nil ||
+	if _, err := config.LoadDatabaseRuntime(mapLookup(values)); err == nil ||
 		!strings.Contains(err.Error(), "AVIA_ENABLE_CANONICAL_SEED") {
-		t.Fatalf("LoadScheduler() production bypass error = %v", err)
+		t.Fatalf("LoadDatabaseRuntime() production bypass error = %v", err)
 	}
 }
 
@@ -120,13 +120,13 @@ func TestLocalPreprodEnvironmentIsAcceptedForTheDedicatedDisposableProfile(t *te
 func TestTelemetryEndpointIsOptionalAndMustBePrivateHTTP(t *testing.T) {
 	t.Parallel()
 
-	settings, err := config.LoadScheduler(mapLookup(map[string]string{
+	settings, err := config.LoadDatabaseRuntime(mapLookup(map[string]string{
 		"AVIA_ENVIRONMENT":                 "development",
 		"AVIA_DATABASE_URL":                "postgres://127.0.0.1/avia",
 		"AVIA_OTEL_EXPORTER_OTLP_ENDPOINT": "http://otel-collector:4318",
 	}))
 	if err != nil {
-		t.Fatalf("LoadScheduler() telemetry config error = %v", err)
+		t.Fatalf("LoadDatabaseRuntime() telemetry config error = %v", err)
 	}
 	if settings.OTLPHTTPEndpoint != "http://otel-collector:4318" {
 		t.Fatalf("OTLP endpoint = %q", settings.OTLPHTTPEndpoint)
@@ -139,7 +139,7 @@ func TestTelemetryEndpointIsOptionalAndMustBePrivateHTTP(t *testing.T) {
 		"http://user:secret@otel-collector:4318",
 		"file:///private/telemetry",
 	} {
-		_, err := config.LoadScheduler(mapLookup(map[string]string{
+		_, err := config.LoadDatabaseRuntime(mapLookup(map[string]string{
 			"AVIA_ENVIRONMENT":                 "development",
 			"AVIA_DATABASE_URL":                "postgres://127.0.0.1/avia",
 			"AVIA_OTEL_EXPORTER_OTLP_ENDPOINT": endpoint,
@@ -297,9 +297,11 @@ func TestProductionRequiresCompleteHTTPSOIDCAndSessionConfiguration(t *testing.T
 		"AVIA_SCANNER_MODE":                 "clamav",
 		"AVIA_CLAMAV_ADDRESS":               "scanner.example:3310",
 		"AVIA_CLAMAV_MAX_SIGNATURE_AGE":     "48h",
-		"AVIA_GOTENBERG_URL":                "http://gotenberg:3000",
-		"AVIA_GOTENBERG_TIMEOUT":            "30s",
-		"AVIA_GOTENBERG_RENDERER_HASH":      "sha256:56c47f7b913f3b978554115a0191c4a9dcc2558f9090f27f3f13f28a7c2f8329",
+		"AVIA_SMTP_ADDRESS":                 "mailpit:1025",
+		"AVIA_SMTP_FROM":                    "no-reply@aviasurveil360.local",
+		"AVIA_SMTP_USERNAME":                "aviasurveil360",
+		"AVIA_SMTP_PASSWORD":                "smtp-secret",
+		"AVIA_SMTP_PRIVATE_NETWORK":         "true",
 	}
 	settings, err := config.Load(mapLookup(base))
 	if err != nil {
@@ -332,7 +334,7 @@ func TestProductionRequiresCompleteHTTPSOIDCAndSessionConfiguration(t *testing.T
 func TestCookieSecureOverrideIsAllowedOnlyOutsideProduction(t *testing.T) {
 	t.Parallel()
 
-	local, err := config.LoadScheduler(mapLookup(map[string]string{
+	local, err := config.LoadDatabaseRuntime(mapLookup(map[string]string{
 		"AVIA_ENVIRONMENT":   "development",
 		"AVIA_DATABASE_URL":  "postgres://127.0.0.1/avia",
 		"AVIA_COOKIE_SECURE": "false",
@@ -344,7 +346,7 @@ func TestCookieSecureOverrideIsAllowedOnlyOutsideProduction(t *testing.T) {
 		t.Fatal("local HTTP cookie override was ignored")
 	}
 
-	_, err = config.LoadScheduler(mapLookup(map[string]string{
+	_, err = config.LoadDatabaseRuntime(mapLookup(map[string]string{
 		"AVIA_ENVIRONMENT":   "production",
 		"AVIA_DATABASE_URL":  "postgres://127.0.0.1/avia",
 		"AVIA_COOKIE_SECURE": "false",
@@ -374,9 +376,11 @@ func TestProductionRejectsInsecureOIDCEndpointsAndInvalidEncryptionKey(t *testin
 		"AVIA_SCANNER_MODE":                 "clamav",
 		"AVIA_CLAMAV_ADDRESS":               "scanner.example:3310",
 		"AVIA_CLAMAV_MAX_SIGNATURE_AGE":     "48h",
-		"AVIA_GOTENBERG_URL":                "http://gotenberg:3000",
-		"AVIA_GOTENBERG_TIMEOUT":            "30s",
-		"AVIA_GOTENBERG_RENDERER_HASH":      "sha256:56c47f7b913f3b978554115a0191c4a9dcc2558f9090f27f3f13f28a7c2f8329",
+		"AVIA_SMTP_ADDRESS":                 "mailpit:1025",
+		"AVIA_SMTP_FROM":                    "no-reply@aviasurveil360.local",
+		"AVIA_SMTP_USERNAME":                "aviasurveil360",
+		"AVIA_SMTP_PASSWORD":                "smtp-secret",
+		"AVIA_SMTP_PRIVATE_NETWORK":         "true",
 	}
 	for name, mutation := range map[string]func(map[string]string){
 		"HTTP issuer":   func(values map[string]string) { values["AVIA_OIDC_ISSUER_URL"] = "http://identity.example/realms/avia" },
@@ -416,9 +420,11 @@ func TestProductionObjectStorageUsesPrivateTransportPublicHTTPSSigningAndRealCla
 		"AVIA_SCANNER_MODE":                 "clamav",
 		"AVIA_CLAMAV_ADDRESS":               "clamav:3310",
 		"AVIA_CLAMAV_MAX_SIGNATURE_AGE":     "48h",
-		"AVIA_GOTENBERG_URL":                "http://gotenberg:3000",
-		"AVIA_GOTENBERG_TIMEOUT":            "30s",
-		"AVIA_GOTENBERG_RENDERER_HASH":      "sha256:56c47f7b913f3b978554115a0191c4a9dcc2558f9090f27f3f13f28a7c2f8329",
+		"AVIA_SMTP_ADDRESS":                 "mailpit:1025",
+		"AVIA_SMTP_FROM":                    "no-reply@aviasurveil360.local",
+		"AVIA_SMTP_USERNAME":                "aviasurveil360",
+		"AVIA_SMTP_PASSWORD":                "smtp-secret",
+		"AVIA_SMTP_PRIVATE_NETWORK":         "true",
 	}
 	settings, err := config.Load(mapLookup(values))
 	if err != nil {
@@ -432,10 +438,7 @@ func TestProductionObjectStorageUsesPrivateTransportPublicHTTPSSigningAndRealCla
 		settings.AttachmentBucket != "inspection-attachments" ||
 		settings.DocumentBucket != "generated-documents" ||
 		settings.ClamAVAddress != "clamav:3310" ||
-		settings.ClamAVMaximumSignatureAge != 48*time.Hour ||
-		settings.GotenbergURL != "http://gotenberg:3000" ||
-		settings.GotenbergTimeout != 30*time.Second ||
-		settings.GotenbergRendererHash != values["AVIA_GOTENBERG_RENDERER_HASH"] {
+		settings.ClamAVMaximumSignatureAge != 48*time.Hour {
 		t.Fatalf("production object/scanner settings = %+v", settings)
 	}
 
@@ -454,15 +457,6 @@ func TestProductionObjectStorageUsesPrivateTransportPublicHTTPSSigningAndRealCla
 		},
 		"missing ClamAV endpoint": func(candidate map[string]string) {
 			delete(candidate, "AVIA_CLAMAV_ADDRESS")
-		},
-		"missing Gotenberg endpoint": func(candidate map[string]string) {
-			delete(candidate, "AVIA_GOTENBERG_URL")
-		},
-		"invalid Gotenberg renderer hash": func(candidate map[string]string) {
-			candidate["AVIA_GOTENBERG_RENDERER_HASH"] = "sha256:not-a-digest"
-		},
-		"unbounded Gotenberg timeout": func(candidate map[string]string) {
-			candidate["AVIA_GOTENBERG_TIMEOUT"] = "3m"
 		},
 		"duplicate clean and attachment buckets": func(candidate map[string]string) {
 			candidate["AVIA_OBJECT_STORE_ATTACHMENT_BUCKET"] = "evidence-clean"
@@ -584,13 +578,98 @@ func TestSMTPConfigurationRequiresCompleteBoundedPrivateTransport(t *testing.T) 
 	}
 }
 
+func TestAWSPrivatePilotProfileRequiresInstanceProfileS3ManagedScanAndEncryptedSMTP(t *testing.T) {
+	t.Parallel()
+	base := map[string]string{
+		"AVIA_ENVIRONMENT":                    "production",
+		"AVIA_RUNTIME_PROFILE":                "aws-private-pilot",
+		"AVIA_DATABASE_URL":                   "postgres://example.invalid/avia?sslmode=verify-full",
+		"AVIA_OIDC_ISSUER_URL":                "https://pilot.example.invalid/identity/realms/pilot",
+		"AVIA_OIDC_CLIENT_ID":                 "aviasurveil360",
+		"AVIA_OIDC_CLIENT_SECRET":             "provider-secret",
+		"AVIA_OIDC_REDIRECT_URL":              "https://pilot.example.invalid/auth/callback",
+		"AVIA_SESSION_ENCRYPTION_KEY":         base64.StdEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef")),
+		"AVIA_OBJECT_STORE_MODE":              "aws-s3",
+		"AVIA_OBJECT_STORE_REGION":            "eu-central-1",
+		"AVIA_OBJECT_STORE_QUARANTINE_BUCKET": "pilot-quarantine",
+		"AVIA_OBJECT_STORE_CANONICAL_BUCKET":  "pilot-clean",
+		"AVIA_OBJECT_STORE_ATTACHMENT_BUCKET": "pilot-attachments",
+		"AVIA_OBJECT_STORE_DOCUMENT_BUCKET":   "pilot-documents",
+		"AVIA_SCANNER_MODE":                   "guardduty-s3",
+		"AVIA_SMTP_ADDRESS":                   "smtp.example.invalid:587",
+		"AVIA_SMTP_FROM":                      "no-reply@example.invalid",
+		"AVIA_SMTP_USERNAME":                  "pilot",
+		"AVIA_SMTP_PASSWORD":                  "smtp-secret",
+		"AVIA_SMTP_TRANSPORT":                 "starttls",
+		"AVIA_SMTP_TLS_SERVER_NAME":           "smtp.example.invalid",
+	}
+	settings, err := config.Load(mapLookup(base))
+	if err != nil {
+		t.Fatalf("Load() AWS private-pilot profile: %v", err)
+	}
+	if settings.RuntimeProfile != "aws-private-pilot" || settings.ObjectStoreMode != "aws-s3" ||
+		settings.ScannerMode != "guardduty-s3" || settings.SMTPTransport != "starttls" ||
+		settings.SMTPTLSServerName != "smtp.example.invalid" || settings.SMTPPrivateNetwork {
+		t.Fatalf("AWS private-pilot settings = %+v", settings)
+	}
+
+	for name, mutate := range map[string]func(map[string]string){
+		"static access key":      func(values map[string]string) { values["AWS_ACCESS_KEY_ID"] = "fixture-static-key" },
+		"static application key": func(values map[string]string) { values["AVIA_OBJECT_STORE_ACCESS_KEY"] = "fixture-static-key" },
+		"default AWS profile":    func(values map[string]string) { values["AWS_PROFILE"] = "default" },
+		"named runtime profile":  func(values map[string]string) { values["AWS_PROFILE"] = "avia" },
+		"shared credential file": func(values map[string]string) { values["AWS_SHARED_CREDENTIALS_FILE"] = "/run/credentials" },
+		"web identity redirect":  func(values map[string]string) { values["AWS_WEB_IDENTITY_TOKEN_FILE"] = "/run/token" },
+		"container redirect": func(values map[string]string) {
+			values["AWS_CONTAINER_CREDENTIALS_FULL_URI"] = "http://127.0.0.1/credentials"
+		},
+		"metadata redirect": func(values map[string]string) {
+			values["AWS_EC2_METADATA_SERVICE_ENDPOINT"] = "http://127.0.0.1/credentials"
+		},
+		"S3 endpoint redirect": func(values map[string]string) { values["AWS_ENDPOINT_URL_S3"] = "https://fixture.invalid" },
+		"custom endpoint":      func(values map[string]string) { values["AVIA_OBJECT_STORE_ENDPOINT"] = "minio:9000" },
+		"MinIO mode":           func(values map[string]string) { values["AVIA_OBJECT_STORE_MODE"] = "minio" },
+		"missing region":       func(values map[string]string) { delete(values, "AVIA_OBJECT_STORE_REGION") },
+		"ClamAV scanner":       func(values map[string]string) { values["AVIA_SCANNER_MODE"] = "clamav" },
+		"ClamAV fallback":      func(values map[string]string) { values["AVIA_CLAMAV_ADDRESS"] = "clamav:3310" },
+		"plaintext SMTP": func(values map[string]string) {
+			values["AVIA_SMTP_TRANSPORT"] = "private-plaintext"
+			values["AVIA_SMTP_PRIVATE_NETWORK"] = "true"
+		},
+		"missing TLS name":           func(values map[string]string) { delete(values, "AVIA_SMTP_TLS_SERVER_NAME") },
+		"non-production environment": func(values map[string]string) { values["AVIA_ENVIRONMENT"] = "test" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			values := cloneValues(base)
+			mutate(values)
+			if _, err := config.Load(mapLookup(values)); err == nil {
+				t.Fatalf("AWS private-pilot profile accepted %s", name)
+			}
+		})
+	}
+}
+
+func TestAWSPrivatePilotDatabaseRuntimeLoadsOnlyDatabaseCapabilityButStillRejectsStaticKeys(t *testing.T) {
+	t.Parallel()
+	base := map[string]string{
+		"AVIA_ENVIRONMENT": "production", "AVIA_RUNTIME_PROFILE": "aws-private-pilot",
+		"AVIA_DATABASE_URL": "postgres://example.invalid/avia?sslmode=verify-full",
+	}
+	if _, err := config.LoadDatabaseRuntime(mapLookup(base)); err != nil {
+		t.Fatalf("LoadDatabaseRuntime() AWS private-pilot database-only profile: %v", err)
+	}
+	base["AWS_SECRET_ACCESS_KEY"] = "fixture-static-secret"
+	if _, err := config.LoadDatabaseRuntime(mapLookup(base)); err == nil || !strings.Contains(err.Error(), "AWS_SECRET_ACCESS_KEY") {
+		t.Fatalf("LoadDatabaseRuntime() static credential error = %v", err)
+	}
+}
+
 func TestRuntimeHealthEndpointsAreBoundedAndContainNoCredentials(t *testing.T) {
 	t.Parallel()
 
 	settings, err := config.Load(mapLookup(map[string]string{
 		"AVIA_DATABASE_URL":           "postgres://localhost/avia",
 		"AVIA_IDENTITY_HEALTH_URL":    "http://keycloak:8080/identity/realms/aviasurveil360/.well-known/openid-configuration",
-		"AVIA_GOTENBERG_HEALTH_URL":   "http://gotenberg:3000/health",
 		"AVIA_SMTP_HEALTH_ADDRESS":    "mailpit:1025",
 		"AVIA_RUNTIME_HEALTH_TIMEOUT": "750ms",
 	}))
@@ -598,16 +677,14 @@ func TestRuntimeHealthEndpointsAreBoundedAndContainNoCredentials(t *testing.T) {
 		t.Fatalf("Load() runtime health config: %v", err)
 	}
 	if settings.IdentityHealthURL == "" ||
-		settings.GotenbergHealthURL == "" ||
 		settings.SMTPHealthAddress != "mailpit:1025" ||
 		settings.RuntimeHealthTimeout != 750*time.Millisecond {
 		t.Fatalf("runtime health settings = %+v", settings)
 	}
 
 	for key, value := range map[string]string{
-		"AVIA_IDENTITY_HEALTH_URL":  "http://user:secret@keycloak/health",
-		"AVIA_GOTENBERG_HEALTH_URL": "file:///private/renderer",
-		"AVIA_SMTP_HEALTH_ADDRESS":  "mailpit",
+		"AVIA_IDENTITY_HEALTH_URL": "http://user:secret@keycloak/health",
+		"AVIA_SMTP_HEALTH_ADDRESS": "mailpit",
 	} {
 		_, err := config.Load(mapLookup(map[string]string{
 			"AVIA_DATABASE_URL": "postgres://localhost/avia",

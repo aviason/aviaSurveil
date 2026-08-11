@@ -19,16 +19,16 @@ type LookupEnv func(string) (string, bool)
 type runtimeRequirements struct {
 	objectStore bool
 	scanner     bool
-	renderer    bool
 	oidc        bool
+	smtp        bool
 }
 
 var (
 	allRuntimeRequirements = runtimeRequirements{
 		objectStore: true,
 		scanner:     true,
-		renderer:    true,
 		oidc:        true,
+		smtp:        true,
 	}
 	apiRuntimeRequirements = runtimeRequirements{
 		objectStore: true,
@@ -39,6 +39,7 @@ var (
 
 type Settings struct {
 	Environment                 string
+	RuntimeProfile              string
 	DatabaseURL                 string
 	HTTPAddress                 string
 	WorkerInterval              time.Duration
@@ -63,6 +64,7 @@ type Settings struct {
 	CanonicalTestProfile        bool
 	CanonicalTestToken          string
 	ObjectStoreEndpoint         string
+	ObjectStoreMode             string
 	ObjectStorePublicEndpoint   string
 	ObjectStoreAccessKey        string
 	ObjectStoreSecretKey        string
@@ -79,17 +81,15 @@ type Settings struct {
 	ScannerMode                 string
 	ClamAVAddress               string
 	ClamAVMaximumSignatureAge   time.Duration
-	GotenbergURL                string
-	GotenbergTimeout            time.Duration
-	GotenbergRendererHash       string
 	SMTPAddress                 string
 	SMTPFrom                    string
 	SMTPUsername                string
 	SMTPPassword                string
 	SMTPTimeout                 time.Duration
 	SMTPPrivateNetwork          bool
+	SMTPTransport               string
+	SMTPTLSServerName           string
 	IdentityHealthURL           string
-	GotenbergHealthURL          string
 	SMTPHealthAddress           string
 	RuntimeHealthTimeout        time.Duration
 	OTLPHTTPEndpoint            string
@@ -103,7 +103,7 @@ func LoadAPI(lookup LookupEnv) (Settings, error) {
 	return load(lookup, apiRuntimeRequirements)
 }
 
-func LoadScheduler(lookup LookupEnv) (Settings, error) {
+func LoadDatabaseRuntime(lookup LookupEnv) (Settings, error) {
 	return load(lookup, runtimeRequirements{})
 }
 
@@ -111,6 +111,7 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 	environment := valueOrDefault(lookup, "AVIA_ENVIRONMENT", "development")
 	settings := Settings{
 		Environment:             environment,
+		RuntimeProfile:          value(lookup, "AVIA_RUNTIME_PROFILE"),
 		DatabaseURL:             value(lookup, "AVIA_DATABASE_URL"),
 		HTTPAddress:             valueOrDefault(lookup, "AVIA_HTTP_ADDRESS", ":8080"),
 		TestPrincipal:           value(lookup, "AVIA_TEST_PRINCIPAL"),
@@ -133,6 +134,7 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 		CookieSecure:              true,
 		CanonicalTestToken:        value(lookup, "AVIA_CANONICAL_TEST_TOKEN"),
 		ObjectStoreEndpoint:       value(lookup, "AVIA_OBJECT_STORE_ENDPOINT"),
+		ObjectStoreMode:           value(lookup, "AVIA_OBJECT_STORE_MODE"),
 		ObjectStorePublicEndpoint: value(lookup, "AVIA_OBJECT_STORE_PUBLIC_ENDPOINT"),
 		ObjectStoreAccessKey:      value(lookup, "AVIA_OBJECT_STORE_ACCESS_KEY"),
 		ObjectStoreSecretKey:      value(lookup, "AVIA_OBJECT_STORE_SECRET_KEY"),
@@ -144,14 +146,13 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 		DocumentBucket:            valueOrDefault(lookup, "AVIA_OBJECT_STORE_DOCUMENT_BUCKET", "generated-documents"),
 		ScannerMode:               value(lookup, "AVIA_SCANNER_MODE"),
 		ClamAVAddress:             value(lookup, "AVIA_CLAMAV_ADDRESS"),
-		GotenbergURL:              value(lookup, "AVIA_GOTENBERG_URL"),
-		GotenbergRendererHash:     value(lookup, "AVIA_GOTENBERG_RENDERER_HASH"),
 		SMTPAddress:               value(lookup, "AVIA_SMTP_ADDRESS"),
 		SMTPFrom:                  value(lookup, "AVIA_SMTP_FROM"),
 		SMTPUsername:              value(lookup, "AVIA_SMTP_USERNAME"),
 		SMTPPassword:              value(lookup, "AVIA_SMTP_PASSWORD"),
+		SMTPTransport:             value(lookup, "AVIA_SMTP_TRANSPORT"),
+		SMTPTLSServerName:         value(lookup, "AVIA_SMTP_TLS_SERVER_NAME"),
 		IdentityHealthURL:         value(lookup, "AVIA_IDENTITY_HEALTH_URL"),
-		GotenbergHealthURL:        value(lookup, "AVIA_GOTENBERG_HEALTH_URL"),
 		SMTPHealthAddress:         value(lookup, "AVIA_SMTP_HEALTH_ADDRESS"),
 		OTLPHTTPEndpoint:          value(lookup, "AVIA_OTEL_EXPORTER_OTLP_ENDPOINT"),
 	}
@@ -206,15 +207,6 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 		return Settings{}, fmt.Errorf("AVIA_CLAMAV_MAX_SIGNATURE_AGE must be a positive duration")
 	}
 	settings.ClamAVMaximumSignatureAge = clamAVMaximumSignatureAge
-	gotenbergTimeout, err := time.ParseDuration(
-		valueOrDefault(lookup, "AVIA_GOTENBERG_TIMEOUT", "30s"),
-	)
-	if err != nil || gotenbergTimeout <= 0 || gotenbergTimeout > 2*time.Minute {
-		return Settings{}, fmt.Errorf(
-			"AVIA_GOTENBERG_TIMEOUT must be positive and no greater than two minutes",
-		)
-	}
-	settings.GotenbergTimeout = gotenbergTimeout
 	smtpTimeout, err := time.ParseDuration(
 		valueOrDefault(lookup, "AVIA_SMTP_TIMEOUT", "10s"),
 	)
@@ -233,6 +225,9 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 		return Settings{}, err
 	}
 	settings.SMTPPrivateNetwork = smtpPrivateNetwork
+	if settings.SMTPTransport == "" {
+		settings.SMTPTransport = "private-plaintext"
+	}
 	oidcDiscoveryPrivateNetwork, err := parseBoolean(
 		lookup,
 		"AVIA_OIDC_DISCOVERY_PRIVATE_NETWORK",
@@ -271,6 +266,29 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 		for _, key := range []string{"AVIA_TEST_PRINCIPAL", "AVIA_TEST_SESSION", "AVIA_DEV_SESSION_SECRET", "AVIA_ENABLE_CANONICAL_SEED", "AVIA_ENABLE_CANONICAL_TEST_PROFILE", "AVIA_CANONICAL_TEST_TOKEN", "AVIA_OBJECT_STORE_SERVER_MANAGED_CORS"} {
 			if value(lookup, key) != "" {
 				return Settings{}, fmt.Errorf("%s is forbidden in production", key)
+			}
+		}
+	}
+	awsPrivatePilot := settings.RuntimeProfile == "aws-private-pilot"
+	if settings.RuntimeProfile != "" && !awsPrivatePilot {
+		return Settings{}, fmt.Errorf("AVIA_RUNTIME_PROFILE is unsupported")
+	}
+	if awsPrivatePilot && settings.Environment != "production" {
+		return Settings{}, fmt.Errorf("AVIA_RUNTIME_PROFILE=aws-private-pilot requires AVIA_ENVIRONMENT=production")
+	}
+	if awsPrivatePilot {
+		for _, key := range []string{
+			"AWS_PROFILE", "AWS_DEFAULT_PROFILE", "AWS_SHARED_CREDENTIALS_FILE", "AWS_CONFIG_FILE",
+			"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN",
+			"AWS_WEB_IDENTITY_TOKEN_FILE", "AWS_ROLE_ARN", "AWS_ROLE_SESSION_NAME",
+			"AWS_CONTAINER_CREDENTIALS_RELATIVE_URI", "AWS_CONTAINER_CREDENTIALS_FULL_URI",
+			"AWS_CONTAINER_AUTHORIZATION_TOKEN", "AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE",
+			"AWS_EC2_METADATA_SERVICE_ENDPOINT", "AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE",
+			"AWS_ENDPOINT_URL", "AWS_ENDPOINT_URL_S3",
+			"AVIA_OBJECT_STORE_ACCESS_KEY", "AVIA_OBJECT_STORE_SECRET_KEY",
+		} {
+			if value(lookup, key) != "" {
+				return Settings{}, fmt.Errorf("%s is forbidden by the AWS private-pilot instance-profile contract", key)
 			}
 		}
 	}
@@ -321,7 +339,17 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 		settings.ObjectStoreAccessKey != "" ||
 		settings.ObjectStoreSecretKey != "" ||
 		len(settings.ObjectStoreCORSOrigins) > 0
-	if (settings.Environment == "production" && requirements.objectStore) ||
+	if awsPrivatePilot && requirements.objectStore {
+		if settings.ObjectStoreMode != "aws-s3" {
+			return Settings{}, fmt.Errorf("AVIA_OBJECT_STORE_MODE=aws-s3 is required by the AWS private-pilot profile")
+		}
+		if settings.ObjectStoreRegion == "" {
+			return Settings{}, fmt.Errorf("AVIA_OBJECT_STORE_REGION is required by the AWS private-pilot profile")
+		}
+		if settings.ObjectStoreEndpoint != "" || settings.ObjectStorePublicEndpoint != "" {
+			return Settings{}, fmt.Errorf("custom object-store endpoints are forbidden by the AWS private-pilot profile")
+		}
+	} else if (settings.Environment == "production" && requirements.objectStore) ||
 		settings.CanonicalSeed ||
 		objectStoreConfigured {
 		for _, entry := range []struct {
@@ -366,38 +394,38 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 			return Settings{}, fmt.Errorf("AVIA_OBJECT_STORE_PUBLIC_TLS=true is required in production")
 		}
 	}
-
-	if settings.Environment == "production" && requirements.scanner {
-		if settings.ScannerMode != "clamav" {
-			return Settings{}, fmt.Errorf("AVIA_SCANNER_MODE=clamav is required in production")
-		}
-		if settings.ClamAVAddress == "" {
-			return Settings{}, fmt.Errorf("AVIA_CLAMAV_ADDRESS is required in production")
+	if settings.ObjectStoreMode == "" && !awsPrivatePilot && objectStoreConfigured {
+		settings.ObjectStoreMode = "minio"
+	}
+	buckets := []string{settings.QuarantineBucket, settings.CanonicalBucket, settings.AttachmentBucket, settings.DocumentBucket}
+	if awsPrivatePilot && requirements.objectStore {
+		seenBuckets := make(map[string]struct{}, len(buckets))
+		for _, bucket := range buckets {
+			if strings.TrimSpace(bucket) == "" {
+				return Settings{}, fmt.Errorf("all AWS private-pilot object-store buckets are required")
+			}
+			if _, exists := seenBuckets[bucket]; exists {
+				return Settings{}, fmt.Errorf("all object-store buckets must be distinct")
+			}
+			seenBuckets[bucket] = struct{}{}
 		}
 	}
 
-	gotenbergConfigured := settings.GotenbergURL != "" ||
-		settings.GotenbergRendererHash != ""
-	if (settings.Environment == "production" && requirements.renderer) ||
-		gotenbergConfigured {
-		if settings.GotenbergURL == "" {
-			return Settings{}, fmt.Errorf(
-				"AVIA_GOTENBERG_URL is required when document rendering is enabled",
-			)
-		}
-		if !isSHA256(settings.GotenbergRendererHash) {
-			return Settings{}, fmt.Errorf(
-				"AVIA_GOTENBERG_RENDERER_HASH must be a sha256 digest",
-			)
-		}
-		rendererURL, err := url.Parse(settings.GotenbergURL)
-		if err != nil || rendererURL.Host == "" ||
-			(rendererURL.Scheme != "http" && rendererURL.Scheme != "https") ||
-			rendererURL.User != nil || rendererURL.RawQuery != "" ||
-			rendererURL.Fragment != "" {
-			return Settings{}, fmt.Errorf(
-				"AVIA_GOTENBERG_URL must be an absolute HTTP(S) URL without credentials, query, or fragment",
-			)
+	if settings.Environment == "production" && requirements.scanner {
+		if awsPrivatePilot {
+			if settings.ScannerMode != "guardduty-s3" {
+				return Settings{}, fmt.Errorf("AVIA_SCANNER_MODE=guardduty-s3 is required by the AWS private-pilot profile")
+			}
+			if settings.ClamAVAddress != "" {
+				return Settings{}, fmt.Errorf("AVIA_CLAMAV_ADDRESS is forbidden by the AWS private-pilot profile")
+			}
+		} else {
+			if settings.ScannerMode != "clamav" {
+				return Settings{}, fmt.Errorf("AVIA_SCANNER_MODE=clamav is required in production")
+			}
+			if settings.ClamAVAddress == "" {
+				return Settings{}, fmt.Errorf("AVIA_CLAMAV_ADDRESS is required in production")
+			}
 		}
 	}
 
@@ -416,6 +444,9 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 			smtpConfigured = true
 			break
 		}
+	}
+	if settings.Environment == "production" && requirements.smtp && !smtpConfigured {
+		return Settings{}, fmt.Errorf("encrypted SMTP delivery is required by the production worker")
 	}
 	if smtpConfigured {
 		for _, entry := range smtpKeys {
@@ -437,10 +468,25 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 				"AVIA_SMTP_FROM must be a valid email address",
 			)
 		}
-		if !settings.SMTPPrivateNetwork {
-			return Settings{}, fmt.Errorf(
-				"plaintext SMTP transport requires AVIA_SMTP_PRIVATE_NETWORK=true",
-			)
+		switch settings.SMTPTransport {
+		case "private-plaintext":
+			if !settings.SMTPPrivateNetwork {
+				return Settings{}, fmt.Errorf("plaintext SMTP transport requires AVIA_SMTP_PRIVATE_NETWORK=true")
+			}
+			if awsPrivatePilot {
+				return Settings{}, fmt.Errorf("public plaintext SMTP is forbidden by the AWS private-pilot profile")
+			}
+		case "starttls", "implicit-tls":
+			if settings.SMTPTLSServerName == "" {
+				return Settings{}, fmt.Errorf("AVIA_SMTP_TLS_SERVER_NAME is required for encrypted SMTP")
+			}
+		case "":
+			return Settings{}, fmt.Errorf("AVIA_SMTP_TRANSPORT is required when SMTP delivery is enabled")
+		default:
+			return Settings{}, fmt.Errorf("AVIA_SMTP_TRANSPORT must be private-plaintext, starttls, or implicit-tls")
+		}
+		if awsPrivatePilot && settings.SMTPPrivateNetwork {
+			return Settings{}, fmt.Errorf("AVIA_SMTP_PRIVATE_NETWORK must be false for the external AWS private-pilot relay")
 		}
 	}
 
@@ -542,7 +588,6 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 		value string
 	}{
 		{name: "AVIA_IDENTITY_HEALTH_URL", value: settings.IdentityHealthURL},
-		{name: "AVIA_GOTENBERG_HEALTH_URL", value: settings.GotenbergHealthURL},
 	} {
 		if entry.value == "" {
 			continue

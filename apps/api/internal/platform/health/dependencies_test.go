@@ -50,7 +50,7 @@ func TestOptionalFailureProducesDegradedReadyState(t *testing.T) {
 		Dependency{Name: "postgresql", Required: true, Probe: ProbeFunc(func(context.Context) error {
 			return nil
 		})},
-		Dependency{Name: "gotenberg", Required: false, Probe: ProbeFunc(func(context.Context) error {
+		Dependency{Name: "native-pdf", Required: false, Probe: ProbeFunc(func(context.Context) error {
 			return errors.New("renderer unavailable")
 		})},
 	)

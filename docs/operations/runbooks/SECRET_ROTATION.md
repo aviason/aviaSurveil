@@ -100,3 +100,19 @@ In-place persistent credential changes, encryption-key replacement, old-stack
 destruction, production secret access, external secret managers, user
 credential reset, and AWS secret operations require new explicit
 authorization.
+
+## AWS Private-Pilot Boundary
+
+The private-pilot contracts separate the Cloudflare connector token,
+application/Keycloak database credentials, OIDC/session credentials, SMTP
+credentials. Dormant data-feed key material is not mounted by the private-pilot
+runtime. There are no origin-auth header secrets. The connector lives in one
+KMS-encrypted Standard SSM SecureString;
+Terraform creates only the write-only non-runnable placeholder and must never
+read the real token into plan or state. Rotation requires a separately
+authorized SSM write, connector restart, four-connection health proof, and a
+rollback/revocation window. Runtime refuses the placeholder and exposes the
+token only as a connector-UID `0400` file without logging it. No production
+secret value is committed or populated by local preparation. Future AWS secret
+operations require profile `avia` in `eu-central-1` and separate exact
+authorization; EC2 runtime access remains instance-profile scoped.

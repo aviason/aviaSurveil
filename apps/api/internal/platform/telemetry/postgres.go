@@ -145,7 +145,7 @@ func boundedDatabaseOperation(operation string) string {
 
 func boundedModule(module string) string {
 	switch module {
-	case "application", "worker", "scheduler", "findings", "planning", "evidence", "reports", "notifications", "identity", "outbox":
+	case "application", "worker", "findings", "planning", "evidence", "reports", "notifications", "identity", "outbox":
 		return module
 	default:
 		return "other"

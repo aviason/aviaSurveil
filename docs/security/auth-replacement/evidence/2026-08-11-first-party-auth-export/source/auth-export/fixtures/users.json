@@ -1,0 +1,17 @@
+{
+  "users": [
+    {
+      "subject": "usr_synthetic_alice",
+      "username": "synthetic-alice",
+      "email": "alice@example.invalid",
+      "role": "applicant"
+    },
+    {
+      "subject": "usr_synthetic_bob",
+      "username": "synthetic-bob",
+      "email": "bob@example.invalid",
+      "role": "member"
+    }
+  ],
+  "note": "Identifiers are synthetic. Passwords and tokens are deliberately omitted."
+}

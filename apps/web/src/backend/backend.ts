@@ -1,5 +1,4 @@
 import type { components as GeneratedComponents } from "../generated/transport/api-types";
-import type { AGADemoWorkspaceBackend } from "./aga-demo-workspace";
 
 type GeneratedSchemas = GeneratedComponents["schemas"];
 
@@ -878,34 +877,6 @@ export interface SubmitPlanningIntakeOutput {
   planningItem: PlanningItemView;
 }
 
-export interface InspectionPackageDraftQuestionView {
-  id: string;
-  prompt: string;
-  whyIncluded: string;
-  expectedEvidence: readonly string[];
-  configuredReference: string;
-}
-
-export interface InspectionPackageDraftView {
-  id: string;
-  sourceAuditId: string;
-  organizationId: string;
-  organizationName: string;
-  applicationType: string;
-  domain: string;
-  status: "DRAFT";
-  packageVersion: number;
-  revision: number;
-  riskFocus: readonly string[];
-  questions: readonly InspectionPackageDraftQuestionView[];
-  updatedAt: Instant;
-}
-
-export interface SaveInspectionPackageDraftInput extends RevisionedCommandMeta {
-  packageDraftId: string;
-  riskFocus: readonly string[];
-}
-
 export interface ListPlanningItemsOutput {
   items: PlanningItemView[];
   nextCursor: string | null;
@@ -1747,17 +1718,6 @@ export interface CanonicalAuditWorkflowBackend {
   ): Promise<GeneratedSchemas["StartInspectionOutput"]>;
 }
 
-export interface InspectionPackageDraftsBackend {
-  get(
-    input: { packageDraftId: string },
-    options?: BackendRequestOptions,
-  ): Promise<InspectionPackageDraftView>;
-  save(
-    input: SaveInspectionPackageDraftInput,
-    options?: BackendRequestOptions,
-  ): Promise<InspectionPackageDraftView>;
-}
-
 export interface ConfigurationBackend {
   listChecklistTemplateVersions(
     input: { limit?: number },
@@ -1957,13 +1917,10 @@ export interface Backend {
   readonly planningIntake: PlanningIntakeBackend;
   readonly canonicalQuestionReview?: CanonicalQuestionReviewBackend;
   readonly canonicalAuditWorkflow?: CanonicalAuditWorkflowBackend;
-  readonly packageDrafts: InspectionPackageDraftsBackend;
   /** Fail-closed Auditee coordination projection and command boundary. */
   readonly auditeeCoordination: AuditeeCoordinationBackend;
   /** LOCKED-only Auditee report projection. */
   readonly auditeeReports: AuditeeReportsBackend;
-  /** Legacy donor surface retained only for isolated mock/test profiles; never supplied by HTTP. */
-  readonly agaDemoWorkspace?: AGADemoWorkspaceBackend;
 }
 
 export const BACKEND_CAPABILITY_REGISTRY = {
@@ -1996,10 +1953,9 @@ export const BACKEND_CAPABILITY_REGISTRY = {
   planningIntake: true,
   canonicalQuestionReview: true,
   canonicalAuditWorkflow: true,
-  packageDrafts: true,
   auditeeCoordination: true,
   auditeeReports: true,
-} as const satisfies Record<Exclude<keyof Backend, "mode" | "agaDemoWorkspace">, true>;
+} as const satisfies Record<Exclude<keyof Backend, "mode">, true>;
 
 export const BACKEND_CAPABILITY_KEYS = Object.keys(
   BACKEND_CAPABILITY_REGISTRY,

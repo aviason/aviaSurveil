@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/application"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/datafeed"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/migrations"
@@ -223,17 +222,8 @@ func canonicalDatabase(t *testing.T, label string) *database.Pool {
 
 func testService(pool *database.Pool) *application.Service {
 	counters := map[string]int{}
-	writer, err := datafeed.NewWriter(datafeed.WriterConfig{
-		TenantID:      "tenant-canonical-fixture",
-		PayloadKey:    []byte("0123456789abcdef0123456789abcdef"),
-		PayloadKeyRef: "canonical-fixture-key",
-	})
-	if err != nil {
-		panic(err)
-	}
 	return application.NewService(pool, application.Dependencies{
-		Clock:          func() time.Time { return canonicalNow },
-		DataFeedWriter: writer,
+		Clock: func() time.Time { return canonicalNow },
 		IDGenerator: func(prefix string) string {
 			counters[prefix]++
 			return fmt.Sprintf("%s-test-%03d", prefix, counters[prefix])

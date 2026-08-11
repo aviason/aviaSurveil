@@ -201,10 +201,11 @@ const expectedSurfaces = Object.fromEntries(
     },
   ]),
 );
-if (Object.keys(expectedSurfaces).length !== 86) {
-  fail(`Visual baseline verifier could not derive the exact 86-route contract; got ${Object.keys(expectedSurfaces).length}.`);
+if (Object.keys(expectedSurfaces).length !== 85) {
+  fail(`Visual baseline verifier could not derive the exact 85-route active contract; got ${Object.keys(expectedSurfaces).length}.`);
 }
 for (const source of auditSource) {
+  if (source.auditId === "ui-audit-043") continue;
   const surface = Object.values(expectedSurfaces).find((candidate) => candidate.auditId === source.auditId);
   if (!surface) fail(`Audit source ${source.auditId} has no React route contract.`);
   if (surface.requiredRole !== roleByAuditSource[source.role]) {

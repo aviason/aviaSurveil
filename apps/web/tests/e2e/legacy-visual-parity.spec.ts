@@ -49,8 +49,8 @@ const manifest = readManifest();
 const expectedVisualPairCount = VISUAL_SURFACES.length * VISUAL_VIEWPORTS.length;
 
 test.afterAll(() => {
-  expect(VISUAL_SURFACES).toHaveLength(86);
-  expect(expectedVisualPairCount).toBe(258);
+  expect(VISUAL_SURFACES).toHaveLength(85);
+  expect(expectedVisualPairCount).toBe(255);
 });
 
 const workbenchPrimitiveGallery = `

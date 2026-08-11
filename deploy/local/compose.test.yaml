@@ -122,7 +122,7 @@ services:
     image: axllent/mailpit:v1.27.8@sha256:6abc8e633df15eaf785cfcf38bae48e66f64beecdc03121e249d0f9ec15f0707
     read_only: true
     environment:
-      MP_DATABASE: /tmp/mailpit.db
+      MP_DATABASE: /data/mailpit.db
       MP_SMTP_AUTH_FILE: /run/secrets/smtp_auth_file
       MP_SMTP_AUTH_ALLOW_INSECURE: "true"
       MP_SMTP_REQUIRE_STARTTLS: "false"
@@ -130,7 +130,10 @@ services:
     secrets:
       - smtp_auth_file
     ports:
+      - "127.0.0.1:${AVIA_TEST_MAILPIT_SMTP_PORT:-58025}:1025"
       - "127.0.0.1:${AVIA_TEST_MAILPIT_HTTP_PORT:-58095}:8025"
+    volumes:
+      - mailpit-test-data:/data
     tmpfs:
       - /tmp:mode=1777
     healthcheck:
@@ -139,6 +142,47 @@ services:
       timeout: 3s
       retries: 30
       start_period: 5s
+    restart: "no"
+
+  clamav:
+    image: clamav/clamav:1.4.3@sha256:75fb5fd95fcbe1d7e6d240c369c1572b686ee2c95949d1042b5148de8eddebb4
+    platform: linux/amd64
+    user: "0:0"
+    read_only: true
+    init: false
+    entrypoint:
+      - /bin/sh
+      - /opt/aviasurveil360/clamav-entrypoint.sh
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
+    configs:
+      - source: clamav_entrypoint
+        target: /opt/aviasurveil360/clamav-entrypoint.sh
+        uid: "0"
+        gid: "0"
+        mode: 0550
+    ports:
+      - "127.0.0.1:${AVIA_TEST_CLAMAV_PORT:-53310}:3310"
+    volumes:
+      - clamav-test-signatures:/var/lib/clamav
+    tmpfs:
+      - /run/clamav:uid=0,gid=101,mode=0770
+      - /run/lock:mode=1777
+      - /var/log/clamav:uid=0,gid=101,mode=0770
+      - /tmp:mode=1777
+    healthcheck:
+      test: [CMD, clamdscan, --ping, "1"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 60s
     restart: "no"
 
   object-store-init:
@@ -154,17 +198,31 @@ services:
     image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
     user: "1000:1000"
     read_only: true
-    command: ["server", "/data", "--console-address", ":9001"]
+    entrypoint: [/bin/sh, /opt/aviasurveil360/minio-init.sh]
     depends_on:
       object-store-init:
         condition: service_completed_successfully
     environment:
       MINIO_ROOT_USER_FILE: /run/secrets/minio_root_user
       MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio_root_password
+      MINIO_API_ACCESS_KEY_FILE: /run/secrets/minio_api_access_key
+      MINIO_API_SECRET_KEY_FILE: /run/secrets/minio_api_secret_key
+      MINIO_WORKER_ACCESS_KEY_FILE: /run/secrets/minio_worker_access_key
+      MINIO_WORKER_SECRET_KEY_FILE: /run/secrets/minio_worker_secret_key
       MINIO_API_CORS_ALLOW_ORIGIN: http://127.0.0.1:4174
+    configs:
+      - source: minio_init
+        target: /opt/aviasurveil360/minio-init.sh
+        uid: "1000"
+        gid: "1000"
+        mode: 0550
     secrets:
+      - minio_api_access_key
+      - minio_api_secret_key
       - minio_root_password
       - minio_root_user
+      - minio_worker_access_key
+      - minio_worker_secret_key
     ports:
       - "127.0.0.1:${AVIA_TEST_OBJECT_STORE_PORT:-59001}:9000"
       - "127.0.0.1:${AVIA_TEST_OBJECT_STORE_CONSOLE_PORT:-59002}:9001"
@@ -173,7 +231,7 @@ services:
     tmpfs:
       - /tmp:mode=1777
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://127.0.0.1:9000/minio/health/live"]
+      test: ["CMD-SHELL", "test -f /tmp/minio-initialized && curl --fail http://127.0.0.1:9000/minio/health/live"]
       interval: 2s
       timeout: 3s
       retries: 30
@@ -183,6 +241,10 @@ services:
 configs:
   keycloak_entrypoint:
     file: ./keycloak/entrypoint.sh
+  clamav_entrypoint:
+    file: ./clamav/entrypoint.sh
+  minio_init:
+    file: ./minio/init.sh
 
 secrets:
   app_database_password:
@@ -197,6 +259,14 @@ secrets:
     file: ${AVIA_TEST_RUNTIME_DIR:?AVIA_TEST_RUNTIME_DIR is required}/secrets/minio_root_password
   minio_root_user:
     file: ${AVIA_TEST_RUNTIME_DIR:?AVIA_TEST_RUNTIME_DIR is required}/secrets/minio_root_user
+  minio_api_access_key:
+    file: ${AVIA_TEST_RUNTIME_DIR:?AVIA_TEST_RUNTIME_DIR is required}/secrets/minio_api_access_key
+  minio_api_secret_key:
+    file: ${AVIA_TEST_RUNTIME_DIR:?AVIA_TEST_RUNTIME_DIR is required}/secrets/minio_api_secret_key
+  minio_worker_access_key:
+    file: ${AVIA_TEST_RUNTIME_DIR:?AVIA_TEST_RUNTIME_DIR is required}/secrets/minio_worker_access_key
+  minio_worker_secret_key:
+    file: ${AVIA_TEST_RUNTIME_DIR:?AVIA_TEST_RUNTIME_DIR is required}/secrets/minio_worker_secret_key
   smtp_auth_file:
     file: ${AVIA_TEST_RUNTIME_DIR:?AVIA_TEST_RUNTIME_DIR is required}/secrets/smtp_auth_file
 
@@ -204,3 +274,5 @@ volumes:
   postgres-test-data:
   keycloak-postgres-test-data:
   object-store-test-data:
+  mailpit-test-data:
+  clamav-test-signatures:

@@ -32,8 +32,8 @@ exchange and application role enforcement.
 - Never replace one subject identity with another or reuse a TOTP seed.
 - Do not expose bootstrap credentials, client secrets, cookies, or TOTP values.
 - The one-shot bootstrap administrator is recovery material, not an
-  application Admin or normal runtime identity. API, worker, scheduler, and
-  loader runtime must not receive that credential.
+  application Admin or normal runtime identity. API, worker reminder
+  controller, and loader runtime must not receive that credential.
 - Break-glass is a separate, temporary provider authority with no AviaSurveil
   application membership. It must never be imported as a standing realm or
   application administrator.
@@ -131,3 +131,11 @@ Operations.
 MFA reset, role or organization reassignment, user lifecycle changes, realm
 import, credential rotation, production federation, and production account
 operations require new explicit authorization.
+
+## AWS Private-Pilot Boundary
+
+Production Keycloak is internal behind the gateway, uses its own logical
+database and runtime role on the single RDS instance, verifies RDS with the
+digest-bound CA bundle, and uses the selected encrypted SMTP mode. The realm
+and SMTP placeholder contract can be checked locally, but realm import,
+production federation, identity load, and login smoke remain `not run`.

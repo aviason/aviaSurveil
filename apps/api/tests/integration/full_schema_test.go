@@ -20,7 +20,6 @@ const fullPlatformSchemaVersion int64 = migrations.LatestVersion
 
 var fullPlatformTables = []string{
 	"planning_intake_drafts",
-	"inspection_package_drafts",
 	"audit_assignments",
 	"audit_team_members",
 	"audit_question_assignments",

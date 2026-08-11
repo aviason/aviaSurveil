@@ -62,10 +62,7 @@ function authorizedRoles(route) {
   ) {
     return ["manager", "admin"];
   }
-  if (
-    route.startsWith("/v1/planning/intake-drafts") ||
-    route.startsWith("/v1/inspection-package-drafts")
-  ) {
+  if (route.startsWith("/v1/planning/intake-drafts")) {
     return ["manager"];
   }
   return allRoles.filter((role) => role !== "auditee");

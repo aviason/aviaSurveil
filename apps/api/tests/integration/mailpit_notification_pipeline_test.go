@@ -370,10 +370,18 @@ func TestRealMailpitDeliveryFailureRestartAndExactMetadata(t *testing.T) {
 	passwordFile := strings.TrimSpace(
 		os.Getenv("AVIA_TEST_SMTP_PASSWORD_FILE"),
 	)
-	composeFile := strings.TrimSpace(os.Getenv("AVIA_TEST_COMPOSE_FILE"))
+	composeFilesValue := strings.TrimSpace(os.Getenv("AVIA_TEST_COMPOSE_FILES"))
+	if composeFilesValue == "" {
+		composeFilesValue = strings.TrimSpace(os.Getenv("AVIA_TEST_COMPOSE_FILE"))
+	}
+	composeFiles := strings.Fields(composeFilesValue)
 	composeProject := strings.TrimSpace(os.Getenv("AVIA_TEST_COMPOSE_PROJECT"))
+	composeService := strings.TrimSpace(os.Getenv("AVIA_TEST_MAILPIT_SERVICE"))
+	if composeService == "" {
+		composeService = "mailpit-tools"
+	}
 	if smtpAddress == "" || apiBaseURL == "" || passwordFile == "" ||
-		composeFile == "" || composeProject == "" {
+		len(composeFiles) == 0 || composeProject == "" {
 		t.Skip("real Mailpit integration environment is not configured")
 	}
 	passwordBytes, err := os.ReadFile(passwordFile)
@@ -394,7 +402,7 @@ func TestRealMailpitDeliveryFailureRestartAndExactMetadata(t *testing.T) {
 	t.Cleanup(func() {
 		_ = runMailpitCompose(
 			context.Background(),
-			composeFile,
+			composeFiles,
 			composeProject,
 			"down",
 			"--volumes",
@@ -518,10 +526,10 @@ func TestRealMailpitDeliveryFailureRestartAndExactMetadata(t *testing.T) {
 	}
 	if err := runMailpitCompose(
 		context.Background(),
-		composeFile,
+		composeFiles,
 		composeProject,
 		"stop",
-		"mailpit-tools",
+		composeService,
 	); err != nil {
 		t.Fatalf("stop task-owned Mailpit: %v", err)
 	}
@@ -555,14 +563,14 @@ func TestRealMailpitDeliveryFailureRestartAndExactMetadata(t *testing.T) {
 	}
 	if err := runMailpitCompose(
 		context.Background(),
-		composeFile,
+		composeFiles,
 		composeProject,
 		"--profile",
 		"tools",
 		"up",
 		"--detach",
 		"--wait",
-		"mailpit-tools",
+		composeService,
 	); err != nil {
 		t.Fatalf("restart task-owned Mailpit: %v", err)
 	}
@@ -594,17 +602,15 @@ func TestRealMailpitDeliveryFailureRestartAndExactMetadata(t *testing.T) {
 
 func runMailpitCompose(
 	ctx context.Context,
-	composeFile string,
+	composeFiles []string,
 	project string,
 	arguments ...string,
 ) error {
-	base := []string{
-		"compose",
-		"--file",
-		composeFile,
-		"--project-name",
-		project,
+	base := []string{"compose"}
+	for _, composeFile := range composeFiles {
+		base = append(base, "--file", composeFile)
 	}
+	base = append(base, "--project-name", project)
 	command := exec.CommandContext(
 		ctx,
 		"docker",

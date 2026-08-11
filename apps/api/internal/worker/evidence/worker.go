@@ -2,6 +2,8 @@ package evidenceworker
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,32 +22,36 @@ type Scanner = scanner.Scanner
 type SignatureScanner = scanner.SignatureScanner
 
 type Config struct {
-	WorkerID            string
-	CanonicalBucket     string
-	AttachmentBucket    string
-	LeaseDuration       time.Duration
-	RetryDelay          time.Duration
-	ScanTimeout         time.Duration
-	MaximumAttempts     int
-	Clock               func() time.Time
-	IDGenerator         func(string) string
-	AfterExternalEffect func() error
+	WorkerID              string
+	CanonicalBucket       string
+	AttachmentBucket      string
+	LeaseDuration         time.Duration
+	RetryDelay            time.Duration
+	ScanTimeout           time.Duration
+	MaximumAttempts       int
+	Clock                 func() time.Time
+	IDGenerator           func(string) string
+	AfterExternalEffect   func() error
+	ManagedResultProvider scanner.ManagedResultProvider
+	ScanBackend           string
 }
 
 type Worker struct {
-	pool                *database.Pool
-	objects             objectstore.Store
-	scanner             Scanner
-	workerID            string
-	canonicalBucket     string
-	attachmentBucket    string
-	leaseDuration       time.Duration
-	retryDelay          time.Duration
-	scanTimeout         time.Duration
-	maximumAttempts     int
-	clock               func() time.Time
-	idGenerator         func(string) string
-	afterExternalEffect func() error
+	pool                  *database.Pool
+	objects               objectstore.Store
+	scanner               Scanner
+	workerID              string
+	canonicalBucket       string
+	attachmentBucket      string
+	leaseDuration         time.Duration
+	retryDelay            time.Duration
+	scanTimeout           time.Duration
+	maximumAttempts       int
+	clock                 func() time.Time
+	idGenerator           func(string) string
+	afterExternalEffect   func() error
+	managedResultProvider scanner.ManagedResultProvider
+	scanBackend           string
 }
 
 func New(pool *database.Pool, objects objectstore.Store, scanner Scanner, config Config) *Worker {
@@ -73,12 +79,17 @@ func New(pool *database.Pool, objects objectstore.Store, scanner Scanner, config
 	if attachmentBucket == "" {
 		attachmentBucket = config.CanonicalBucket
 	}
+	scanBackend := config.ScanBackend
+	if scanBackend == "" {
+		scanBackend = "clamav"
+	}
 	return &Worker{
 		pool: pool, objects: objects, scanner: scanner, workerID: config.WorkerID,
 		canonicalBucket: config.CanonicalBucket, attachmentBucket: attachmentBucket,
 		leaseDuration: leaseDuration,
 		retryDelay:    retryDelay, scanTimeout: scanTimeout, maximumAttempts: maximumAttempts, clock: clock,
 		idGenerator: config.IDGenerator, afterExternalEffect: config.AfterExternalEffect,
+		managedResultProvider: config.ManagedResultProvider, scanBackend: scanBackend,
 	}
 }
 
@@ -104,7 +115,7 @@ func (worker *Worker) ProcessNext(
 		claimed.TraceParent,
 		claimed.CorrelationID,
 		"scan",
-		"clamav",
+		worker.scanBackend,
 	)
 	queue := "evidence"
 	if claimed.Topic == "inspection_attachment.scan_requested" {
@@ -122,7 +133,7 @@ func (worker *Worker) ProcessNext(
 			jobContext,
 			span,
 			"scan",
-			"clamav",
+			worker.scanBackend,
 			resultErr,
 		)
 	}()
@@ -204,6 +215,8 @@ type objectRecord struct {
 	UploadID            *string
 	AttachmentVersionID string
 	AttachmentVersion   int64
+	VersionID           string
+	ETag                string
 }
 
 func (worker *Worker) processEvidence(ctx context.Context, claimed claim) error {
@@ -212,7 +225,8 @@ func (worker *Worker) processEvidence(ctx context.Context, claimed claim) error 
 	if err := worker.pool.QueryRow(ctx, `
 		SELECT version.organization_id, version.submitted_by_subject_id, metadata.id, metadata.bucket_name,
 		       metadata.object_key, metadata.filename, metadata.declared_media_type, metadata.sha256,
-		       metadata.size_bytes, metadata.upload_id, state.scan_state
+		       metadata.size_bytes, metadata.upload_id, state.scan_state,
+		       COALESCE(metadata.object_version_id, ''), COALESCE(metadata.object_etag, '')
 		FROM evidence_versions version
 		JOIN object_metadata metadata ON metadata.id = version.object_metadata_id
 		JOIN evidence_version_states state ON state.evidence_version_id = version.id
@@ -220,29 +234,22 @@ func (worker *Worker) processEvidence(ctx context.Context, claimed claim) error 
 	`, claimed.AggregateID).Scan(
 		&record.OrganizationID, &record.SubjectID, &record.SourceMetadata, &record.SourceBucket,
 		&record.SourceKey, &record.FileName, &record.MediaType, &record.SHA256, &record.Size,
-		&record.UploadID, &currentScan,
+		&record.UploadID, &currentScan, &record.VersionID, &record.ETag,
 	); err != nil {
 		return fmt.Errorf("load Evidence scan input: %w", err)
 	}
 	if currentScan == "CLEAN" || currentScan == "QUARANTINED" {
 		return worker.markDelivered(ctx, claimed.ID)
 	}
-	reader, _, err := worker.objects.Open(ctx, record.SourceBucket, record.SourceKey)
+	result, err := worker.resolveScan(ctx, record)
 	if err != nil {
-		return fmt.Errorf("open quarantined Evidence: %w", err)
-	}
-	result, scanErr := worker.scan(ctx, reader)
-	closeErr := reader.Close()
-	if scanErr != nil || closeErr != nil {
-		return errors.Join(scanErr, closeErr)
+		return err
 	}
 	destinationKey := fmt.Sprintf("organizations/%s/canonical-evidence/%s", record.OrganizationID, claimed.AggregateID)
+	var promoted objectstore.ObjectInfo
 	if result.Clean {
-		err := worker.objects.Copy(ctx, objectstore.CopyRequest{
-			SourceBucket: record.SourceBucket, SourceKey: record.SourceKey,
-			DestinationBucket: worker.canonicalBucket, DestinationKey: destinationKey,
-		})
-		if err != nil && !errors.Is(err, objectstore.ErrObjectAlreadyExists) {
+		promoted, err = worker.promote(ctx, record, worker.canonicalBucket, destinationKey)
+		if err != nil {
 			return fmt.Errorf("promote clean Evidence object: %w", err)
 		}
 		if worker.afterExternalEffect != nil {
@@ -251,7 +258,7 @@ func (worker *Worker) processEvidence(ctx context.Context, claimed claim) error 
 			}
 		}
 	}
-	return worker.finalizeEvidence(ctx, claimed, record, destinationKey, result)
+	return worker.finalizeEvidence(ctx, claimed, record, destinationKey, promoted, result)
 }
 
 type afterExternalEffectError struct {
@@ -261,7 +268,7 @@ type afterExternalEffectError struct {
 func (failure afterExternalEffectError) Error() string { return failure.cause.Error() }
 func (failure afterExternalEffectError) Unwrap() error { return failure.cause }
 
-func (worker *Worker) finalizeEvidence(ctx context.Context, claimed claim, record objectRecord, destinationKey string, result ScanResult) error {
+func (worker *Worker) finalizeEvidence(ctx context.Context, claimed claim, record objectRecord, destinationKey string, promoted objectstore.ObjectInfo, result ScanResult) error {
 	now := worker.clock().UTC()
 	return database.WithinTransaction(ctx, worker.pool, func(ctx context.Context, transaction pgx.Tx) error {
 		var currentScan, findingID, findingStatus string
@@ -286,14 +293,17 @@ func (worker *Worker) finalizeEvidence(ctx context.Context, claimed claim, recor
 				INSERT INTO object_metadata (
 					id, aggregate_type, aggregate_id, organization_id, bucket_name, object_key, filename,
 					declared_media_type, detected_media_type, sha256, size_bytes, scan_status, object_state,
-					upload_id, scan_engine_version, scan_signature_version, scanned_at, created_at
+					upload_id, scan_engine_version, scan_signature_version, scanned_at,
+					object_version_id, object_etag, created_at
 				) VALUES ($1, 'evidence_version', $2, $3, $4, $5, $6, $7, $7, $8, $9, 'CLEAN', 'CANONICAL',
-					$10, $11, $12, $13, $14)
-				ON CONFLICT (object_key) DO UPDATE SET scan_status = 'CLEAN'
+					$10, $11, $12, $13, NULLIF($14, ''), NULLIF($15, ''), $16)
+				ON CONFLICT (object_key) DO UPDATE SET scan_status = object_metadata.scan_status
+				WHERE object_metadata.sha256 = EXCLUDED.sha256
+				  AND COALESCE(object_metadata.object_version_id, '') = COALESCE(EXCLUDED.object_version_id, '')
 				RETURNING id
 			`, canonicalMetadataID, claimed.AggregateID, record.OrganizationID, worker.canonicalBucket,
 				destinationKey, record.FileName, record.MediaType, record.SHA256, record.Size, record.UploadID,
-				result.EngineVersion, result.SignatureVersion, result.ScannedAt, now).Scan(&canonicalMetadataID); err != nil {
+				result.EngineVersion, result.SignatureVersion, result.ScannedAt, promoted.VersionID, promoted.ETag, now).Scan(&canonicalMetadataID); err != nil {
 				return fmt.Errorf("record canonical Evidence object: %w", err)
 			}
 			if _, err := transaction.Exec(ctx, `
@@ -382,7 +392,8 @@ func (worker *Worker) processAttachment(ctx context.Context, claimed claim) erro
 		SELECT attachment.organization_id, attachment.created_by_subject_id, metadata.id, metadata.bucket_name,
 		       metadata.object_key, metadata.filename, metadata.declared_media_type, metadata.sha256,
 		       metadata.size_bytes, metadata.upload_id, attachment.scan_state,
-		       version.id, version.version
+		       version.id, version.version,
+		       COALESCE(metadata.object_version_id, ''), COALESCE(metadata.object_etag, '')
 		FROM inspection_attachments attachment
 		JOIN object_metadata metadata ON metadata.id = attachment.object_metadata_id
 		JOIN inspection_attachment_versions version
@@ -394,28 +405,22 @@ func (worker *Worker) processAttachment(ctx context.Context, claimed claim) erro
 		&record.OrganizationID, &record.SubjectID, &record.SourceMetadata, &record.SourceBucket,
 		&record.SourceKey, &record.FileName, &record.MediaType, &record.SHA256, &record.Size,
 		&record.UploadID, &scanState, &record.AttachmentVersionID, &record.AttachmentVersion,
+		&record.VersionID, &record.ETag,
 	); err != nil {
 		return fmt.Errorf("load immutable Inspection Attachment version: %w", err)
 	}
 	if scanState == "CLEAN" || scanState == "QUARANTINED" {
 		return worker.markDelivered(ctx, claimed.ID)
 	}
-	reader, _, err := worker.objects.Open(ctx, record.SourceBucket, record.SourceKey)
+	result, err := worker.resolveScan(ctx, record)
 	if err != nil {
 		return err
 	}
-	result, scanErr := worker.scan(ctx, reader)
-	closeErr := reader.Close()
-	if scanErr != nil || closeErr != nil {
-		return errors.Join(scanErr, closeErr)
-	}
 	destinationKey := fmt.Sprintf("organizations/%s/inspection-attachments/%s", record.OrganizationID, claimed.AggregateID)
+	var promoted objectstore.ObjectInfo
 	if result.Clean {
-		err := worker.objects.Copy(ctx, objectstore.CopyRequest{
-			SourceBucket: record.SourceBucket, SourceKey: record.SourceKey,
-			DestinationBucket: worker.attachmentBucket, DestinationKey: destinationKey,
-		})
-		if err != nil && !errors.Is(err, objectstore.ErrObjectAlreadyExists) {
+		promoted, err = worker.promote(ctx, record, worker.attachmentBucket, destinationKey)
+		if err != nil {
 			return err
 		}
 		if worker.afterExternalEffect != nil {
@@ -456,14 +461,18 @@ func (worker *Worker) processAttachment(ctx context.Context, claimed claim) erro
 				INSERT INTO object_metadata (
 					id, aggregate_type, aggregate_id, organization_id, bucket_name, object_key, filename,
 					declared_media_type, detected_media_type, sha256, size_bytes, scan_status, object_state,
-					upload_id, scan_engine_version, scan_signature_version, scanned_at, created_at
+					upload_id, scan_engine_version, scan_signature_version, scanned_at,
+					object_version_id, object_etag, created_at
 				) VALUES ($1, 'inspection_attachment', $2, $3, $4, $5, $6, $7, $7, $8, $9,
-					'CLEAN', 'CANONICAL', $10, $11, $12, $13, $14)
-				ON CONFLICT (object_key) DO UPDATE SET scan_status = 'CLEAN'
+					'CLEAN', 'CANONICAL', $10, $11, $12, $13, NULLIF($14, ''), NULLIF($15, ''), $16)
+				ON CONFLICT (object_key) DO UPDATE SET scan_status = object_metadata.scan_status
+				WHERE object_metadata.sha256 = EXCLUDED.sha256
+				  AND COALESCE(object_metadata.object_version_id, '') = COALESCE(EXCLUDED.object_version_id, '')
 				RETURNING id
 			`, canonicalID, claimed.AggregateID, record.OrganizationID, worker.attachmentBucket,
 				destinationKey, record.FileName, record.MediaType, record.SHA256, record.Size,
-				record.UploadID, result.EngineVersion, result.SignatureVersion, result.ScannedAt, now,
+				record.UploadID, result.EngineVersion, result.SignatureVersion, result.ScannedAt,
+				promoted.VersionID, promoted.ETag, now,
 			).Scan(&canonicalID); err != nil {
 				return fmt.Errorf("record canonical Inspection Attachment object: %w", err)
 			}
@@ -564,10 +573,86 @@ func (worker *Worker) recordFailure(ctx context.Context, claimed claim, processE
 	return err
 }
 
-func (worker *Worker) scan(ctx context.Context, reader io.Reader) (ScanResult, error) {
+func (worker *Worker) resolveScan(ctx context.Context, record objectRecord) (ScanResult, error) {
 	scanContext, cancel := context.WithTimeout(ctx, worker.scanTimeout)
 	defer cancel()
-	return worker.scanner.Scan(scanContext, reader)
+	if worker.managedResultProvider != nil {
+		if record.VersionID == "" || record.ETag == "" {
+			return ScanResult{}, errors.New("managed scan requires captured exact object identity")
+		}
+		return worker.managedResultProvider.Resolve(scanContext, objectstore.ExactObject{
+			Bucket: record.SourceBucket, Key: record.SourceKey, VersionID: record.VersionID,
+			ETag: record.ETag, SHA256: record.SHA256, Size: record.Size,
+		})
+	}
+	if worker.scanner == nil {
+		return ScanResult{}, errors.New("Evidence scanner is unavailable")
+	}
+	reader, _, err := worker.objects.Open(scanContext, record.SourceBucket, record.SourceKey)
+	if err != nil {
+		return ScanResult{}, fmt.Errorf("open quarantined object: %w", err)
+	}
+	result, scanErr := worker.scanner.Scan(scanContext, reader)
+	closeErr := reader.Close()
+	return result, errors.Join(scanErr, closeErr)
+}
+
+func (worker *Worker) promote(ctx context.Context, record objectRecord, destinationBucket, destinationKey string) (objectstore.ObjectInfo, error) {
+	if worker.managedResultProvider != nil {
+		exactStore, ok := worker.objects.(objectstore.ExactVersionStore)
+		if !ok {
+			return objectstore.ObjectInfo{}, errors.New("managed scan promotion requires an exact-version object store")
+		}
+		info, err := exactStore.CopyExact(ctx, objectstore.ExactCopyRequest{
+			Source: objectstore.ExactObject{
+				Bucket: record.SourceBucket, Key: record.SourceKey, VersionID: record.VersionID,
+				ETag: record.ETag, SHA256: record.SHA256, Size: record.Size,
+			},
+			DestinationBucket: destinationBucket,
+			DestinationKey:    destinationKey,
+		})
+		if err == nil {
+			return info, nil
+		}
+		if !errors.Is(err, objectstore.ErrObjectAlreadyExists) {
+			return objectstore.ObjectInfo{}, err
+		}
+		return worker.existingPromotion(ctx, record, destinationBucket, destinationKey, true)
+	}
+	err := worker.objects.Copy(ctx, objectstore.CopyRequest{
+		SourceBucket: record.SourceBucket, SourceKey: record.SourceKey,
+		DestinationBucket: destinationBucket, DestinationKey: destinationKey,
+	})
+	if err == nil {
+		return objectstore.ObjectInfo{Bucket: destinationBucket, Key: destinationKey, Size: record.Size}, nil
+	}
+	if !errors.Is(err, objectstore.ErrObjectAlreadyExists) {
+		return objectstore.ObjectInfo{}, err
+	}
+	return worker.existingPromotion(ctx, record, destinationBucket, destinationKey, false)
+}
+
+func (worker *Worker) existingPromotion(ctx context.Context, record objectRecord, bucket, key string, requireVersion bool) (objectstore.ObjectInfo, error) {
+	reader, info, err := worker.objects.Open(ctx, bucket, key)
+	if err != nil {
+		return objectstore.ObjectInfo{}, err
+	}
+	digest := sha256.New()
+	_, readErr := io.Copy(digest, reader)
+	closeErr := reader.Close()
+	if readErr != nil || closeErr != nil {
+		return objectstore.ObjectInfo{}, errors.Join(readErr, closeErr)
+	}
+	hash := info.Metadata["sha256"]
+	if hash == "" {
+		hash = info.Metadata["x-amz-meta-sha256"]
+	}
+	actualHash := "sha256:" + hex.EncodeToString(digest.Sum(nil))
+	if info.Size != record.Size || hash != record.SHA256 || actualHash != record.SHA256 ||
+		(requireVersion && (info.VersionID == "" || info.ETag == "")) {
+		return objectstore.ObjectInfo{}, errors.New("existing canonical object does not match immutable promotion")
+	}
+	return info, nil
 }
 
 func (worker *Worker) recordEvidenceTerminalFailure(

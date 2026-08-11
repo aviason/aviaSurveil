@@ -1,5 +1,10 @@
 # Department Manager AGA Inspection Package And Multi-Role Demo ExecPlan
 
+> **Status (2026-08-10):** `paused / retired by canonical successor`. The
+> donor implementation was physically removed after the user selected
+> canonical Task 9 `delete` and post-deletion qualification passed. This plan
+> remains historical evidence and must not be resumed as a second lifecycle.
+
 This ExecPlan is a living document. Keep `Progress`, `Decision Log`,
 `Discoveries`, and `Outcome` synchronized with actual work. Follow
 [`docs/PLANS.md`](../../PLANS.md), the repository

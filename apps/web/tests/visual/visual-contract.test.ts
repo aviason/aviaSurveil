@@ -151,12 +151,12 @@ describe("visual parity contract", () => {
     });
   });
 
-  it("freezes the full 86-surface by three-viewport matrix with role-correct root fixtures", () => {
-    expect(VISUAL_SURFACES).toHaveLength(86);
+  it("freezes the 85 active surfaces by three viewports while retaining the root oracle separately", () => {
+    expect(VISUAL_SURFACES).toHaveLength(85);
     expect(VISUAL_VIEWPORTS).toHaveLength(3);
-    expect(VISUAL_SURFACES.length * VISUAL_VIEWPORTS.length).toBe(258);
-    expect(new Set(VISUAL_SURFACES.map((surface) => surface.id)).size).toBe(86);
-    expect(new Set(VISUAL_SURFACES.map((surface) => surface.auditId)).size).toBe(86);
+    expect(VISUAL_SURFACES.length * VISUAL_VIEWPORTS.length).toBe(255);
+    expect(new Set(VISUAL_SURFACES.map((surface) => surface.id)).size).toBe(85);
+    expect(new Set(VISUAL_SURFACES.map((surface) => surface.auditId)).size).toBe(85);
     expect(VISUAL_SURFACES.every((surface) => surface.expectedHeading.trim().length > 0)).toBe(true);
     expect(VISUAL_SURFACES.every((surface) => surface.expectedSemanticMarker?.trim().length)).toBe(true);
     expect(VISUAL_SURFACES.filter((surface) => surface.id !== "role-select").every((surface) => surface.legacy.role)).toBe(true);
@@ -226,8 +226,8 @@ describe("visual parity contract", () => {
     const repositoryRoot = join(process.cwd(), "../..");
     const script = join(repositoryRoot, "apps/web/scripts/assert-parity-boundary.mjs");
     const mutations = [
-      ["missing-route", /86-surface/],
-      ["remove-http-profile", /All 86 routes must be dual-profile/],
+      ["missing-route", /85-surface/],
+      ["remove-http-profile", /All 85 routes must be dual-profile/],
       ["restore-blocked-profile-reason", /must not retain a blocked profile reason/],
       ["skip-viewport", /VISUAL_VIEWPORTS/],
       ["remove-shell-assertion", /workspace-sidebar/],
@@ -293,11 +293,11 @@ describe("visual parity contract", () => {
     ).toThrow(/decoded-pixel|bypass/i);
   });
 
-  it("supports scoped visual execution while preserving the full 86 by 3 invariant", () => {
+  it("supports scoped visual execution while preserving the active 85 by 3 invariant", () => {
     const spec = readFileSync(join(process.cwd(), "tests/e2e/legacy-visual-parity.spec.ts"), "utf8");
     expect(spec).toContain("const surfaces = resolveFocusedSurfaces()");
     expect(spec).toContain("const expectedVisualPairCount = VISUAL_SURFACES.length * VISUAL_VIEWPORTS.length");
-    expect(spec).toContain("expect(expectedVisualPairCount).toBe(258)");
+    expect(spec).toContain("expect(expectedVisualPairCount).toBe(255)");
     expect(spec).toContain("assertVisualPairAttachments(testInfo.attachments)");
     expect(spec).not.toContain("reactCandidateAttachmentCount");
     expect(spec).not.toContain("decodedRegionResultAttachmentCount");

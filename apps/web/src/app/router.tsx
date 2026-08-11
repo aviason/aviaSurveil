@@ -84,7 +84,6 @@ function routeElement(contract: RouteContract): ReactElement {
 }
 
 export function AppRouter() {
-  const { supplementalRouteElements } = useApplicationRuntime();
   const location = useLocation();
   const resetKey = `${location.pathname}${location.search}${location.hash}`;
   return (
@@ -96,7 +95,6 @@ export function AppRouter() {
           <Route path={CANONICAL_AUDIT_PREPARATION_PATH} element={<RoleGuard requiredRole="leadInspector"><AuditAssignmentPage /></RoleGuard>} />
           <Route path={CANONICAL_INSPECTOR_CHECKLIST_PATH} element={<RoleGuard requiredRole="inspector"><ChecklistRunnerPage /></RoleGuard>} />
           <Route path={CANONICAL_INSPECTOR_AUDIT_PATH} element={<RoleGuard requiredRole="inspector"><AuditDetailPage /></RoleGuard>} />
-          {supplementalRouteElements ?? null}
           {REACT_ROUTE_CONTRACTS.filter((contract) => contract.id !== "role-select").map((contract) => <Route key={contract.id} path={contract.path} element={routeElement(contract)} />)}
           <Route path="*" element={<Navigate replace to="/" />} />
         </Routes>

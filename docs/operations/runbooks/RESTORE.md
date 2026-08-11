@@ -123,3 +123,11 @@ records-policy question goes to Records/Legal.
 Production restore, remote backup store, retention change, destructive source
 action, shared target, identity change, and AWS recovery require new explicit
 authorization.
+
+## AWS Private-Pilot Boundary
+
+An AWS restore must target an isolated RDS/S3 recovery destination, preserve
+exact object versions and separate application/Keycloak database identities,
+and obtain a new authorization before any replacement or traffic decision.
+No such restore was run. Operator AWS tooling must use profile `avia`; runtime
+instance-profile credentials are not an operator restore credential.

@@ -35,11 +35,11 @@ function buildProfilePlugin(profile: BuildProfile, entryName: string, localDevel
         )
         .map((fileName) => `/${fileName}`)
         .sort();
-      assets.push(profile === "http" ? "/http-config.json" : "/demo-build.json");
+      if (profile === "demo") assets.push("/demo-build.json");
       this.emitFile({
         type: "asset",
         fileName: "app-shell-assets.json",
-        source: `${JSON.stringify({ appShellVersion: 8, profile, assets }, null, 2)}\n`,
+        source: `${JSON.stringify({ appShellVersion: 9, profile, assets }, null, 2)}\n`,
       });
     },
   };

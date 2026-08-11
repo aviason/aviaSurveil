@@ -36,7 +36,6 @@ type runConfiguration struct {
 	BehaviorLedgerFile    string                        `json:"behaviorLedgerFile,omitempty"`
 	CodeDigest            string                        `json:"codeDigest,omitempty"`
 	ContractDigest        string                        `json:"contractDigest,omitempty"`
-	OverlaySchema         string                        `json:"overlaySchema,omitempty"`
 	Target                preproddata.TargetFingerprint `json:"target,omitempty"`
 }
 

@@ -8,12 +8,11 @@ import (
 
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/application"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/assignments"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/datafeed"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/httpapi/generated"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/inspections"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/planning"
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 )
 
 func decodedCanonicalPathParam(request *http.Request, name string) string {
@@ -140,67 +139,6 @@ func (api *CanonicalAPI) submitPlanningIntake(
 		Draft:        planningIntakeDraftView(result.Draft),
 		PlanningItem: planningView(result.PlanningItem),
 	}, nil)
-}
-
-func (api *CanonicalAPI) getInspectionPackageDraft(
-	writer http.ResponseWriter,
-	request *http.Request,
-) {
-	if api.preprodExerciseProfile {
-		api.respond(writer, nil, application.ErrNotFound)
-		return
-	}
-	actor, ok := requirePrincipal(writer, request)
-	if !ok {
-		return
-	}
-	draft, err := api.packageDrafts.Get(
-		request.Context(), actor, decodedCanonicalPathParam(request, "packageDraftId"),
-	)
-	if err != nil {
-		api.respond(writer, nil, err)
-		return
-	}
-	writer.Header().Set("ETag", strongRevisionETag(draft.Revision))
-	api.respond(writer, inspectionPackageDraftView(draft), nil)
-}
-
-func (api *CanonicalAPI) saveInspectionPackageDraft(
-	writer http.ResponseWriter,
-	request *http.Request,
-) {
-	if api.preprodExerciseProfile {
-		api.respond(writer, nil, application.ErrNotFound)
-		return
-	}
-	actor, ok := requirePrincipal(writer, request)
-	if !ok {
-		return
-	}
-	var input generated.SaveInspectionPackageDraftInput
-	if !decodeJSON(writer, request, &input) {
-		return
-	}
-	draftID := decodedCanonicalPathParam(request, "packageDraftId")
-	if draftID != input.PackageDraftId || !validRevisionCommandHeaders(
-		request, input.IdempotencyKey, input.ExpectedRevision,
-	) {
-		api.respond(writer, nil, application.ErrInvalid)
-		return
-	}
-	draft, err := api.packageDrafts.Save(
-		request.Context(), actor, inspections.SavePackageDraftCommand{
-			OperationID: input.OperationId, IdempotencyKey: input.IdempotencyKey,
-			PackageDraftID: input.PackageDraftId, ExpectedRevision: *input.ExpectedRevision,
-			RiskFocus: input.RiskFocus,
-		},
-	)
-	if err != nil {
-		api.respond(writer, nil, err)
-		return
-	}
-	writer.Header().Set("ETag", strongRevisionETag(draft.Revision))
-	api.respond(writer, inspectionPackageDraftView(draft), nil)
 }
 
 func (api *CanonicalAPI) listTeamMembers(
@@ -525,11 +463,7 @@ func (api *CanonicalAPI) materializeCanonicalAudit(
 		api.respond(writer, nil, application.ErrInvalid)
 		return
 	}
-	correlationID, err := datafeed.NewEventID()
-	if err != nil {
-		api.respond(writer, nil, err)
-		return
-	}
+	correlationID := uuid.NewString()
 	item, err := api.application.MaterializeInspection(
 		request.Context(), actor, application.MaterializeInspectionCommand{
 			OperationID: input.OperationId, IdempotencyKey: input.IdempotencyKey,
@@ -664,27 +598,6 @@ func planningIntakeDraftView(draft planning.IntakeDraft) generated.PlanningIntak
 		ProviderScopeId:              optionalStringPointer(draft.ProviderScopeID), RegulatedTargetId: optionalStringPointer(draft.RegulatedTargetID),
 		RequestedBudget: draft.RequestedBudget, Currency: draft.Currency,
 		Revision: draft.Revision, SubmittedPlanningItemId: draft.SubmittedPlanningItemID,
-		UpdatedAt: draft.UpdatedAt.UTC().Format("2006-01-02T15:04:05.999999999Z07:00"),
-	}
-}
-
-func inspectionPackageDraftView(
-	draft inspections.PackageDraft,
-) generated.InspectionPackageDraftView {
-	questions := make([]generated.InspectionPackageDraftQuestionView, 0, len(draft.Questions))
-	for _, question := range draft.Questions {
-		questions = append(questions, generated.InspectionPackageDraftQuestionView{
-			Id: question.ID, Prompt: question.Prompt, WhyIncluded: question.WhyIncluded,
-			ExpectedEvidence:    append([]string(nil), question.ExpectedEvidence...),
-			ConfiguredReference: question.ConfiguredReference,
-		})
-	}
-	return generated.InspectionPackageDraftView{
-		Id: draft.ID, SourceAuditId: draft.SourceAuditID,
-		OrganizationId: draft.OrganizationID, OrganizationName: draft.OrganizationName,
-		ApplicationType: draft.ApplicationType, Domain: draft.Domain, Status: draft.Status,
-		PackageVersion: draft.PackageVersion, Revision: draft.Revision,
-		RiskFocus: append([]string(nil), draft.RiskFocus...), Questions: questions,
 		UpdatedAt: draft.UpdatedAt.UTC().Format("2006-01-02T15:04:05.999999999Z07:00"),
 	}
 }

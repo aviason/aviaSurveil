@@ -2134,7 +2134,9 @@ evidence.
 - Harness-owner approval of the local production-application lane; remote CI remains separately authorized.
 - Engineering capacity for React parity, Go domain work, offline browser engineering, and dual-mode test automation.
 - Docker-compatible local integration environment for PostgreSQL and object storage verification.
-- A separately approved production release/operations plan before deployment, traffic routing, cutover, or `production-ready` claims.
+- The separately approved
+  [AWS Single-AZ ARM64 Private-Pilot Production Preparation Plan](2026-08-10-aws-single-az-arm64-private-pilot-production-plan.md)
+  before deployment, traffic routing, cutover, or `production-ready` claims.
 
 ## Ownership Boundaries
 
@@ -2170,7 +2172,8 @@ must not start; it does not block unrelated earlier slices.
 | Conflict policy | Product + CAA Operations | accepted | Candidate policy accepted 2026-07-21: no automatic merge; preserve the local draft, return an authorized typed conflict, and require explicit user re-entry/resolution against the authoritative revision. |
 | Retention/legal hold/disposition and audit tamper-evidence claim | Records + Legal + Security | accepted | Candidate policy accepted 2026-07-21: no automatic retention deletion or legal disposition; preserve submitted/superseded versions; describe audit storage only as append-only. Production retention, legal hold, and tamper-evidence controls remain external blockers. |
 | Hosting region, PostgreSQL/object storage/scanner, RPO/RTO, restore/DR, monitoring | Platform + Operations | accepted | Candidate policy accepted 2026-07-21: isolated pinned local Docker dependencies use PostgreSQL, private MinIO-compatible storage, and deterministic scanner/worker behavior with a local backup/restore rehearsal. Production providers, region, RPO/RTO, monitoring, and on-call remain external release blockers. |
-| Production release/cutover ownership and runbook | Product + Platform + Operations + QA | blocked | Requires a separately approved plan after the Local Release-Candidate Gate. |
+| AWS Single-AZ ARM64 private-pilot production topology | Current user / plan owner + Platform + Operations | accepted for local preparation | Decision dated 2026-08-10: use Cloudflare plus an origin-locked ALB; one private ARM64 EC2 `t4g.small` with a dedicated production Docker Compose stack; one private Single-AZ RDS `db.t4g.micro` with separate application/Keycloak databases and roles; private S3 plus standalone GuardDuty malware scanning; one workload-AZ NAT; one S3 Gateway Endpoint; external TLS SMTP; and internal Gotenberg Chromium. PostgreSQL, MinIO, Mailpit, ClamAV, AWS WAF, SES, interface-endpoint sprawl, native application installation, multi-AZ runtime, ECS, and EKS are excluded. See the [private-pilot production plan](2026-08-10-aws-single-az-arm64-private-pilot-production-plan.md). This accepts local implementation preparation only; AWS, deployment, release, and traffic actions remain unauthorized. |
+| Production release/cutover ownership and runbook | Product + Platform + Operations + QA | blocked | The [private-pilot production plan](2026-08-10-aws-single-az-arm64-private-pilot-production-plan.md) now owns the accepted target and local preparation. Remote discovery/apply, preprod disposition, capacity/recovery evidence, owner inputs, deployment, release, and traffic cutover remain separate blocked gates. |
 
 ## Plan Lifecycle
 

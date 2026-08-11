@@ -765,10 +765,9 @@ describe("Admin secondary workspaces", () => {
     expect(page).toHaveTextContent(/Department Manager owns publishing after approval/i);
   });
 
-  it("projects the exact Admin package without mutating the Manager package Draft or crossing into Inspector execution", async () => {
+  it("projects the exact immutable Admin package without crossing into Inspector execution", async () => {
     const runtime = createMockBackendRuntime();
     const capability = requireAdminWorkspace(runtime);
-    const managerBefore = await runtime.backendForRole("manager").packageDrafts.get({ packageDraftId: "PKG-AUD-2026-001-CABIN" });
     const projection = await capability.getInspectionPackage({ packageId: "PKG-CAB-2026-001" });
     expect(projection).toMatchObject({ id: "PKG-CAB-2026-001", auditId: "AUD-2026-001", organizationId: "ORG-FLY-NAMIBIA" });
     expect(projection.questionIds).toContain("CAB-EMEQ-PBE-001");
@@ -779,7 +778,6 @@ describe("Admin secondary workspaces", () => {
     const page = await screen.findByTestId("admin-inspection-package-page");
     expect(await within(page).findByRole("button", { name: /Run PKG-CAB-2026-001 unavailable/ })).toBeDisabled();
     expect(page).toHaveTextContent(/Admin configuration preview.*not Inspector execution/i);
-    expect(await runtime.backendForRole("manager").packageDrafts.get({ packageDraftId: "PKG-AUD-2026-001-CABIN" })).toEqual(managerBefore);
   });
 
   it("keeps Reports local-only, Users exact-scoped, and Plan 3 Keycloak provisioning visibly disabled", async () => {

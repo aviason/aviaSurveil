@@ -19,6 +19,8 @@ The final local matrix, exact hashes, recovery measurements, and explicit AWS
 | [AWS trial runbook](AWS_TRIAL_RUNBOOK.md) | Phase-scoped plan, apply, smoke, rollback, retention, and destroy procedure. |
 | [AWS IPv6 ARM64 trial decisions](AWS_IPV6_TRIAL_DECISIONS.md) | Separate owner-input contract for the disposable IPv6-only ARM64 trial. |
 | [AWS IPv6 ARM64 trial runbook](AWS_IPV6_TRIAL_RUNBOOK.md) | Local-only ARM64 runtime gates and exact remote authorization stop boundaries. |
+| [AWS private-pilot decisions](AWS_PRIVATE_PILOT_DECISIONS.md) | Fail-closed owner overlay and exact `avia` operator-profile boundary for the production pilot candidate. |
+| [AWS private-pilot runtime](AWS_PRIVATE_PILOT_RUNTIME.md) | Production-only ARM64 Compose, managed-service, security, release, and capacity contract. |
 
 ## Runbooks
 
@@ -32,7 +34,7 @@ The final local matrix, exact hashes, recovery measurements, and explicit AWS
 | [Backup](runbooks/BACKUP.md) | Create and verify same-host logical recovery points. |
 | [Restore](runbooks/RESTORE.md) | Restore one point into an isolated local target. |
 | [Disaster recovery](runbooks/DISASTER_RECOVERY.md) | Exercise two complete restore drills and fallback. |
-| [AviaCore feed recovery](runbooks/AVIACORE_DATA_FEED_RECOVERY.md) | Run approved replay/backfill lanes and fail-closed manifest reconciliation. |
+| [AviaCore feed recovery](runbooks/AVIACORE_DATA_FEED_RECOVERY.md) | Dormant candidate-only replay/backfill and fail-closed manifest reconciliation; not a private-pilot runtime surface. |
 | [Release and rollback](runbooks/RELEASE_ROLLBACK.md) | Gate a local candidate and abandon a failed candidate safely. |
 | [Secret rotation](runbooks/SECRET_ROTATION.md) | Replace local credentials through a parallel fresh stack. |
 

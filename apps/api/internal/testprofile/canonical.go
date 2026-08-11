@@ -370,33 +370,6 @@ func Reset(ctx context.Context, pool *database.Pool, now time.Time) error {
 	if err != nil {
 		return err
 	}
-	packageRiskFocus, err := json.Marshal([]string{
-		"Emergency equipment serviceability",
-		"PBE serviceability",
-		"Cabin inspection CAP follow-up",
-	})
-	if err != nil {
-		return err
-	}
-	packageDraftQuestions, err := json.Marshal([]map[string]any{
-		{
-			"id":                  "PKG-Q-CAB-PBE",
-			"prompt":              "Is the PBE installed, serviceable, accessible, and in compliance with configured cabin emergency equipment requirements?",
-			"whyIncluded":         "The mock risk profile indicates emergency equipment serviceability needs focused sampling.",
-			"expectedEvidence":    []string{"PBE serviceability record", "Cabin position confirmation"},
-			"configuredReference": "Configured Cabin Inspection reference — EM EQ / PBE",
-		},
-		{
-			"id":                  "PKG-Q-CAB-GALLEY",
-			"prompt":              "Are galley restraints and stowage areas serviceable and secure?",
-			"whyIncluded":         "Galley equipment is a configured baseline Cabin Inspection check.",
-			"expectedEvidence":    []string{"Galley equipment serviceability record"},
-			"configuredReference": "Configured Cabin Inspection reference — GALLEY",
-		},
-	})
-	if err != nil {
-		return err
-	}
 	emptyTemplateSnapshot, err := json.Marshal(map[string]any{
 		"schemaVersion": 1, "protocolVersion": 1,
 		"creatorSubjectId": "USR-MANAGER-NORA",
@@ -411,7 +384,7 @@ func Reset(ctx context.Context, pool *database.Pool, now time.Time) error {
 			if _, err := transaction.Exec(ctx, `
 			TRUNCATE TABLE
 				command_transaction_links, audit_question_assignments, audit_team_members,
-				audit_assignments, inspection_package_drafts, planning_intake_drafts,
+				audit_assignments, planning_intake_drafts,
 				template_draft_versions, template_version_questions, template_masters,
 				question_versions, regulatory_reference_versions,
 				reminder_rules, surveillance_plan_items,
@@ -629,18 +602,6 @@ func Reset(ctx context.Context, pool *database.Pool, now time.Time) error {
 				'sha256:candidate-cabin-package-v1')
 		`, snapshot, now.Add(72*time.Hour), now); err != nil {
 				return fmt.Errorf("seed canonical inspection package: %w", err)
-			}
-			if _, err := transaction.Exec(ctx, `
-			INSERT INTO inspection_package_drafts (
-				id, source_inspection_id, organization_id, status, package_version,
-				risk_focus, question_snapshot, revision, created_by_subject_id,
-				created_at, updated_at
-			) VALUES (
-				'PKG-AUD-2026-001-CABIN', 'AUD-2026-001', 'ORG-FLY-NAMIBIA',
-				'DRAFT', 1, $1, $2, 1, 'USR-MANAGER-NORA', $3, $3
-			)
-		`, packageRiskFocus, packageDraftQuestions, now); err != nil {
-				return fmt.Errorf("seed canonical Inspection Package draft: %w", err)
 			}
 			if _, err := transaction.Exec(ctx, `
 			INSERT INTO audit_assignments (

@@ -5,6 +5,8 @@ import (
 	"context"
 	"io"
 	"time"
+
+	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/objectstore"
 )
 
 type Result struct {
@@ -17,6 +19,12 @@ type Result struct {
 
 type Scanner interface {
 	Scan(context.Context, io.Reader) (Result, error)
+}
+
+// ManagedResultProvider resolves a provider-owned decision for one exact
+// immutable object version. It never accepts a bucket/key-only result.
+type ManagedResultProvider interface {
+	Resolve(context.Context, objectstore.ExactObject) (Result, error)
 }
 
 // SignatureScanner is deterministic and deliberately restricted to test

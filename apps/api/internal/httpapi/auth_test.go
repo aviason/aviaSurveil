@@ -175,7 +175,7 @@ func TestLocalHTTPLoginUsesNonHostCookiesThatSafariCanSend(t *testing.T) {
 		Email: "manager.one@example.test", OrganizationID: "CAA", Roles: []identity.Role{identity.RoleDepartmentManager},
 	}}
 	sessions := &fakeAuthSessions{
-		loginState: session.LoginState{Nonce: "nonce", PKCEVerifier: "verifier", ReturnTo: "/department-manager/aga-demo-workspace"},
+		loginState: session.LoginState{Nonce: "nonce", PKCEVerifier: "verifier", ReturnTo: "/department-manager/checklist-management/question-review"},
 		created:    session.BrowserSession{ID: "session-local", Token: "local-session", CSRFToken: "local-csrf"},
 	}
 	handler := httpapi.NewAuthBoundaryWithCookieSecure(provider, sessions, false).Handler()

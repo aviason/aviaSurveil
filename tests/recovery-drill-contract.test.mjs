@@ -156,7 +156,7 @@ test("drill seeds and proves one real notification delivery backlog item", () =>
   assert.match(restore, /restored worker backlog did not recover/);
 });
 
-test("restored browser smoke verifies retained MFA scope and all 86 routes without skips", () => {
+test("restored browser smoke verifies retained MFA scope and all 85 active routes without skips", () => {
   const source = readRequired(
     "apps/web/tests/e2e/restored-platform-smoke.spec.ts",
   );
@@ -166,8 +166,8 @@ test("restored browser smoke verifies retained MFA scope and all 86 routes witho
   assert.match(source, /AVIA_RESTORED_EXPECTED_ORGANIZATION_ID/);
   assert.match(source, /AVIA_RESTORED_EXPECTED_ROLES/);
   assert.match(source, /REACT_ROUTE_CONTRACTS/);
-  assert.match(source, /toHaveLength\(86\)/);
-  assert.match(source, /directLoads:\s*86/);
+  assert.match(source, /toHaveLength\(85\)/);
+  assert.match(source, /directLoads:\s*85/);
   assert.match(source, /totpLogin:\s*true/);
   assert.doesNotMatch(source, /test\.skip|\.skip\(/);
   assert.match(config, /restored-platform/);

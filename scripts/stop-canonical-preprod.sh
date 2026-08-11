@@ -6,9 +6,10 @@ umask 077
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 state_root="${AVIA_CANONICAL_PREPROD_STATE_DIR:-$repository_root/.local/aviasurveil360-canonical-preprod}"
 compose_file="$repository_root/deploy/local/compose.yaml"
-project_name="aviasurveil360-local-preprod"
+project_name="${AVIA_CANONICAL_PREPROD_PROJECT:-aviasurveil360-local-preprod}"
 https_port="${AVIA_PREPROD_HTTPS_PORT:-8445}"
 metadata_file="$state_root/runtime.json"
+web_origin="https://localhost:${https_port}"
 
 fail() {
   printf 'canonical-preprod-down: %s\n' "$*" >&2
@@ -19,15 +20,20 @@ fail() {
   printf 'Canonical local preprod is not running (no state at %s)\n' "$state_root"
   exit 0
 }
-[[ "$https_port" == "8445" ]] || fail "canonical preprod currently requires AVIA_PREPROD_HTTPS_PORT=8445"
+[[ "$https_port" =~ ^[0-9]+$ && "$https_port" -ge 1024 && "$https_port" -le 65535 ]] ||
+  fail "AVIA_PREPROD_HTTPS_PORT must be a user-space TCP port"
+[[ "$project_name" =~ ^aviasurveil360-(local-preprod(-[a-z0-9][a-z0-9-]*)?|task-[a-z0-9][a-z0-9-]*)$ ]] ||
+  fail "AVIA_CANONICAL_PREPROD_PROJECT must identify one exact AviaSurveil360 local-preprod project"
 command -v node >/dev/null 2>&1 || fail "node is required"
-node --input-type=module - "$metadata_file" "$state_root" <<'NODE'
+node --input-type=module - "$metadata_file" "$project_name" "$state_root" "$web_origin" <<'NODE'
 import { readFileSync } from "node:fs";
 const metadata = JSON.parse(readFileSync(process.argv[2], "utf8"));
+const [project, stateDirectory, webOrigin] = process.argv.slice(3);
 if (
   metadata.schemaVersion !== "canonical-preprod-runtime/v1" ||
-  metadata.project !== "aviasurveil360-local-preprod" ||
-  metadata.stateDirectory !== process.argv[3]
+  metadata.project !== project ||
+  metadata.stateDirectory !== stateDirectory ||
+  metadata.webOrigin !== webOrigin
 ) throw new Error("canonical local preprod metadata is invalid");
 NODE
 

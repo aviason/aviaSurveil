@@ -1,0 +1,38 @@
+[Unit]
+Description=AviaSurveil360 Cloudflare Tunnel IPv6 connector container
+Requires=docker.service aviasurveil360-private-pilot.service
+After=docker.service network-online.target aviasurveil360-private-pilot.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/aviasurveil360/private-pilot/runtime.env
+Environment=DOCKER_CONFIG=/etc/aviasurveil360/private-pilot/docker
+Environment=AWS_ECR_DISABLE_CACHE=true
+Environment=AWS_USE_DUALSTACK_ENDPOINT=true
+WorkingDirectory=/opt/aviasurveil360/private-pilot
+ExecStartPre=/opt/aviasurveil360/private-pilot/deploy/aws-private-pilot/runtime/supervisor.sh materialize-tunnel-token
+ExecStartPre=/opt/aviasurveil360/private-pilot/deploy/aws-private-pilot/runtime/supervisor.sh validate-tunnel
+ExecStart=/opt/aviasurveil360/private-pilot/deploy/aws-private-pilot/runtime/supervisor.sh run-tunnel
+ExecStop=/opt/aviasurveil360/private-pilot/deploy/aws-private-pilot/runtime/supervisor.sh stop-tunnel
+Restart=always
+RestartSec=5
+TimeoutStartSec=90
+TimeoutStopSec=45
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectSystem=strict
+ReadOnlyPaths=/opt/aviasurveil360/private-pilot /etc/aviasurveil360/private-pilot
+ReadWritePaths=/run/aviasurveil360-private-pilot
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

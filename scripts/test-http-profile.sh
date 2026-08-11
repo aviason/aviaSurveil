@@ -176,7 +176,8 @@ elif [[ "${FOCUSED_E2E}" == "user-lifecycle" ]]; then
   npm --prefix "${REPOSITORY_ROOT}/apps/web" run test:e2e:http -- \
     --grep "user lifecycle"
 elif [[ "${FOCUSED_E2E}" == "governed-checklist" ]]; then
-  npm --prefix "${REPOSITORY_ROOT}/apps/web" run test:contract:http
+  npm --prefix "${REPOSITORY_ROOT}/apps/web" run test:contract:http -- \
+    --run src/backend/governed-checklist-http-parity.test.ts
   go -C "${REPOSITORY_ROOT}/apps/api" test -tags canonicaltest ./tests/integration \
     -run '^TestTask9SyntheticPublicationAndBlockedRealPilotHaveSeparatePersistedEffects$' \
     -count=1

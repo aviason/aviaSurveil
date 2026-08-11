@@ -23,7 +23,8 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
 
     await page.goto("/department-manager/checklist-management");
     await expect(page.getByTestId("governed-checklist-review")).toBeVisible();
-    await expect(page.getByTestId("blocked-governed-generation")).toContainText("CONTROLLED_PROCEDURE");
+    await expect(page.getByRole("heading", { name: "No current governed candidates" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Question Review" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Technically approve" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Publish checklist version" })).toHaveCount(0);
 
@@ -33,6 +34,8 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     await expect(page.getByTestId("admin-checklist-builder-page")).toBeVisible();
     await page.getByRole("button", { name: "Import synthetic governed candidate" }).click();
     await expect(page.getByText("SYNTHETIC-OPS-AOC").first()).toBeVisible();
+    await page.getByRole("button", { name: "Inspect governed generation run" }).click();
+    await expect(page.getByRole("button", { name: "Submit exact candidate for department review" })).toBeEnabled();
     await page.getByRole("button", { name: "Submit exact candidate for department review" }).click();
     await expect(page.getByText("Submitted for department review. Admin has no technical approval or publication action.")).toBeVisible();
 

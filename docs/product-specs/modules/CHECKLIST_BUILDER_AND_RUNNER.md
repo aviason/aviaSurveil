@@ -76,16 +76,10 @@ The screen must show status, owner, due date and next action before secondary de
 - Auditee-visible and internal information stay separated.
 - The user can complete the primary task without leaving the screen.
 
-## AGA candidate demo overlay
+## Retired AGA candidate donor
 
-`aga-candidate-demo@1.1.0` is a separate, read-only, immutable, preprod-only,
-Admin-only Checklist Builder projection. It cannot satisfy Task 9, alter a
-frozen synthetic profile, or enter the governed lifecycle. When the exact CAA
-Admin capability is present, the panel shows sealed non-authoritative forms,
-the 21-form `QUESTION_EXTRACTION_REVIEW_REQUIRED` queue, the 1310-question
-`SOURCE_MAPPING_REQUIRED` review material, the explicit 1261/49 source-gap
-split, provisional risk distributions, and 14
-`EXPERT_RISK_REVIEW_REQUIRED` blockers. It has no import, approve, map,
-attest, assign, publish, deliver, Finding, or Audit action. Only successful
-Admin reads display `candidate-only`, `release pending`, and
-`production-ready: not established`.
+The separate `aga-candidate-demo@1.1.0` Checklist Builder projection and panel
+were physically removed after canonical Task 9 qualification and the user's
+explicit `delete` decision. Checklist Builder no longer exposes a duplicate
+sealed-candidate product. Historical overlay receipts remain evidence only;
+canonical catalog/import provenance and Question Review own current behavior.

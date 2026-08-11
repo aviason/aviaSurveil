@@ -12,6 +12,7 @@ This is the canonical docs map for AviaSurveil360. Use it after the root
 | `agent-harness/index.md` | Agent routing, output contracts, verification, registry, and cleanup rules. |
 | `../integrations/aviacore/contract-lock.json` | Task 3B exact local candidate mirror/provenance lock for the AviaCore v3 producer-facing contract; use the read-only checker before relying on it. |
 | `operations/index.md` | Candidate-only objectives, telemetry, alerts, ownership, operational runbooks, and drill evidence. |
+| `security/auth-replacement/README.md` | Two integrity-retained owner-provided auth inputs, their comparative security hardening, and the selected separate Go OIDC provider implementation handoff; Keycloak remains required until all cutover gates pass. |
 | `exec-plans/index.md` | Active execution-plan status and one next concrete todo per plan. |
 | `exec-plans/tech-debt-tracker.md` | Durable blockers, accepted risks, missing evidence, and technical debt. |
 | `product-specs/index.md` | Product source documents for domain, workflow, UX, data, analytics, scenarios, and references. |

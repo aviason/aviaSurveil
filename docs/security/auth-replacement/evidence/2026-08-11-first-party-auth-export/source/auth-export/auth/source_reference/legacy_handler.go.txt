@@ -1,0 +1,525 @@
+package auth
+
+import (
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+
+	"emsi_go_api/internal/metrics"
+)
+
+type Handler struct {
+	store    *Store
+	registry *metrics.Registry
+}
+
+func NewHandler(store *Store, registry *metrics.Registry) *Handler {
+	return &Handler{store: store, registry: registry}
+}
+
+func (h *Handler) Register(mux *http.ServeMux) {
+	mux.HandleFunc("GET /.well-known/openid-configuration", h.openIDConfiguration)
+	mux.HandleFunc("GET /oauth2/jwks", h.jwks)
+	mux.HandleFunc("POST /Auth/register", h.register)
+	mux.HandleFunc("POST /Auth/login", h.login)
+	mux.HandleFunc("POST /Auth/refresh", h.refresh)
+	mux.HandleFunc("POST /Auth/logout", h.logout)
+	mux.HandleFunc("POST /v2/auth/logout-all", h.logoutAll)
+	mux.HandleFunc("GET /v2/auth/sessions", h.sessions)
+	mux.HandleFunc("POST /v2/auth/sessions/{sessionID}/revoke", h.revokeSession)
+	mux.HandleFunc("POST /v2/auth/step-up", h.stepUp)
+	mux.HandleFunc("GET /User/get-user-info", h.userInfo)
+	mux.HandleFunc("GET /User/get-membership-status", h.membershipStatus)
+	mux.HandleFunc("POST /User/edit-profile", h.editProfile)
+	mux.HandleFunc("POST /User/change-password", h.changePassword)
+	mux.HandleFunc("GET /User/search-user", h.searchUsers)
+	mux.HandleFunc("POST /User/search-user", h.searchUsers)
+	mux.HandleFunc("GET /DM/users/search", h.searchUsers)
+	mux.HandleFunc("POST /DM/users/search", h.searchUsers)
+}
+
+func (h *Handler) RegisterMetadata(mux *http.ServeMux) {
+	mux.HandleFunc("GET /.well-known/openid-configuration", h.openIDConfiguration)
+	mux.HandleFunc("GET /oauth2/jwks", h.jwks)
+}
+
+type registerRequest struct {
+	Name            string `json:"name"`
+	Surname         string `json:"surname"`
+	Username        string `json:"username"`
+	AlternateUser   string `json:"userName"`
+	Email           string `json:"email"`
+	Phone           string `json:"phone"`
+	Password        string `json:"password"`
+	ConfirmPassword string `json:"confirmPassword"`
+	CityID          *int64 `json:"cityId"`
+}
+
+type loginRequest struct {
+	Username      string `json:"userName"`
+	AlternateUser string `json:"username"`
+	Password      string `json:"password"`
+	DeviceID      string `json:"deviceId"`
+	ClientID      string `json:"clientId"`
+	Platform      string `json:"platform"`
+	AppVersion    string `json:"appVersion"`
+}
+
+type refreshRequest struct {
+	RefreshToken string `json:"refreshToken"`
+	DeviceID     string `json:"deviceId"`
+	ClientID     string `json:"clientId"`
+}
+
+type logoutAllRequest struct {
+	IncludeCurrent bool `json:"includeCurrent"`
+}
+
+type stepUpRequest struct {
+	Password        string `json:"password"`
+	CurrentPassword string `json:"currentPassword"`
+}
+
+type changePasswordRequest struct {
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword"`
+}
+
+type editProfileRequest struct {
+	Name         *string    `json:"name"`
+	Surname      *string    `json:"surname"`
+	Username     *string    `json:"username"`
+	Email        *string    `json:"email"`
+	Phone        *string    `json:"phone"`
+	About        *string    `json:"about"`
+	BirthDay     *time.Time `json:"birthDay"`
+	ShowEvent    *bool      `json:"showEvent"`
+	VocationID   *int64     `json:"vocationId"`
+	CityID       *int64     `json:"cityId"`
+	ShowCity     *bool      `json:"showCity"`
+	ShowVocation *bool      `json:"showVocation"`
+	ShowBirthDay *bool      `json:"showBirthDay"`
+}
+
+type userSearchRequest struct {
+	SearchText string `json:"searchText"`
+	Search     string `json:"search"`
+	Query      string `json:"query"`
+	Keyword    string `json:"keyword"`
+	UserName   string `json:"userName"`
+	Username   string `json:"username"`
+}
+
+func (h *Handler) openIDConfiguration(w http.ResponseWriter, _ *http.Request) {
+	if h.store == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "auth_unavailable"})
+		return
+	}
+	issuer := h.store.TokenIssuer()
+	if issuer == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "auth_unavailable"})
+		return
+	}
+	writeJSON(w, http.StatusOK, issuer.OpenIDConfiguration())
+}
+
+func (h *Handler) jwks(w http.ResponseWriter, _ *http.Request) {
+	if h.store == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "auth_unavailable"})
+		return
+	}
+	issuer := h.store.TokenIssuer()
+	if issuer == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "auth_unavailable"})
+		return
+	}
+	writeJSON(w, http.StatusOK, issuer.JWKS())
+}
+
+func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
+	var req registerRequest
+	if err := decodeJSON(r, &req); err != nil {
+		h.recordFailure("register", "invalid_json")
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_json"})
+		return
+	}
+	username := firstNonEmpty(req.Username, req.AlternateUser, req.Email)
+	if req.Password == "" || (req.ConfirmPassword != "" && req.Password != req.ConfirmPassword) {
+		h.recordFailure("register", "invalid_password")
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_password"})
+		return
+	}
+	_, err := h.store.Register(r.Context(), RegisterInput{
+		Name:     req.Name,
+		Surname:  req.Surname,
+		Username: username,
+		Email:    req.Email,
+		Phone:    req.Phone,
+		Password: req.Password,
+		CityID:   req.CityID,
+	})
+	if err != nil {
+		h.writeAuthError(w, err, "register")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"result": true})
+}
+
+func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
+	var req loginRequest
+	if err := decodeJSON(r, &req); err != nil {
+		h.recordFailure("login", "invalid_json")
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_json"})
+		return
+	}
+	response, err := h.store.Login(r.Context(), LoginInput{
+		Username:   firstNonEmpty(req.Username, req.AlternateUser),
+		Password:   req.Password,
+		UserAgent:  r.UserAgent(),
+		DeviceID:   strings.TrimSpace(req.DeviceID),
+		ClientID:   strings.TrimSpace(req.ClientID),
+		Platform:   strings.TrimSpace(req.Platform),
+		AppVersion: strings.TrimSpace(req.AppVersion),
+	})
+	if err != nil {
+		h.writeAuthError(w, err, "login")
+		return
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
+func (h *Handler) refresh(w http.ResponseWriter, r *http.Request) {
+	var req refreshRequest
+	if err := decodeJSON(r, &req); err != nil {
+		h.recordFailure("refresh", "invalid_json")
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_json"})
+		return
+	}
+	response, err := h.store.Refresh(r.Context(), RefreshInput{
+		RefreshToken: strings.TrimSpace(req.RefreshToken),
+		DeviceID:     strings.TrimSpace(req.DeviceID),
+		ClientID:     strings.TrimSpace(req.ClientID),
+	})
+	if err != nil {
+		h.writeAuthError(w, err, "refresh")
+		return
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
+func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
+	var req refreshRequest
+	_ = decodeJSON(r, &req)
+	user, _ := UserFromContext(r.Context())
+	if err := h.store.Logout(r.Context(), user, strings.TrimSpace(req.RefreshToken)); err != nil {
+		h.writeAuthError(w, err, "logout")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) logoutAll(w http.ResponseWriter, r *http.Request) {
+	user, ok := UserFromContext(r.Context())
+	if !ok {
+		h.recordFailure("logout_all", "unauthorized")
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+	if !requireRecentStepUp(w, r) {
+		h.recordFailure("logout_all", "step_up_required")
+		return
+	}
+	var req logoutAllRequest
+	_ = decodeJSON(r, &req)
+	if err := h.store.LogoutAll(r.Context(), user, req.IncludeCurrent); err != nil {
+		h.writeAuthError(w, err, "logout_all")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) sessions(w http.ResponseWriter, r *http.Request) {
+	user, ok := UserFromContext(r.Context())
+	if !ok {
+		h.recordFailure("sessions", "unauthorized")
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+	sessions, err := h.store.ListSessions(r.Context(), user)
+	if err != nil {
+		h.writeAuthError(w, err, "sessions")
+		return
+	}
+	if sessions == nil {
+		sessions = []SessionInfo{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"sessions": sessions})
+}
+
+func (h *Handler) revokeSession(w http.ResponseWriter, r *http.Request) {
+	user, ok := UserFromContext(r.Context())
+	if !ok {
+		h.recordFailure("revoke_session", "unauthorized")
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+	if !requireRecentStepUp(w, r) {
+		h.recordFailure("revoke_session", "step_up_required")
+		return
+	}
+	if err := h.store.RevokeSession(r.Context(), user, r.PathValue("sessionID")); err != nil {
+		h.writeAuthError(w, err, "revoke_session")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) stepUp(w http.ResponseWriter, r *http.Request) {
+	user, ok := UserFromContext(r.Context())
+	if !ok {
+		h.recordFailure("step_up", "unauthorized")
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+	var req stepUpRequest
+	if err := decodeJSON(r, &req); err != nil {
+		h.recordFailure("step_up", "invalid_json")
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_json"})
+		return
+	}
+	validUntil, err := h.store.StepUp(r.Context(), user, firstNonEmpty(req.Password, req.CurrentPassword))
+	if err != nil {
+		h.writeAuthError(w, err, "step_up")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"validUntil": validUntil})
+}
+
+func (h *Handler) userInfo(w http.ResponseWriter, r *http.Request) {
+	user, ok := UserFromContext(r.Context())
+	if !ok {
+		h.recordFailure("user_info", "unauthorized")
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+	targetUserID, err := requestedUserID(r, user.ID)
+	if err != nil {
+		h.recordFailure("user_info", "invalid_user_id")
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_user_id"})
+		return
+	}
+	response, err := h.store.UserByID(r.Context(), targetUserID)
+	if err != nil {
+		h.writeAuthError(w, err, "user_info")
+		return
+	}
+	if targetUserID != user.ID {
+		response.AuthorityCodes = []string{}
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
+func (h *Handler) editProfile(w http.ResponseWriter, r *http.Request) {
+	user, ok := UserFromContext(r.Context())
+	if !ok {
+		h.recordFailure("edit_profile", "unauthorized")
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	var req editProfileRequest
+	if err := decodeJSON(r, &req); err != nil {
+		h.recordFailure("edit_profile", "invalid_json")
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_json"})
+		return
+	}
+	if (req.Email != nil || req.Phone != nil) && !requireRecentStepUp(w, r) {
+		h.recordFailure("edit_profile", "step_up_required")
+		return
+	}
+	_, err := h.store.UpdateProfile(r.Context(), user.ID, UpdateProfileInput{
+		Name:         req.Name,
+		Surname:      req.Surname,
+		Username:     req.Username,
+		Email:        req.Email,
+		Phone:        req.Phone,
+		About:        req.About,
+		BirthDay:     req.BirthDay,
+		CityID:       req.CityID,
+		ShowEvent:    req.ShowEvent,
+		VocationID:   req.VocationID,
+		ShowCity:     req.ShowCity,
+		ShowVocation: req.ShowVocation,
+		ShowBirthDay: req.ShowBirthDay,
+	})
+	if err != nil {
+		h.writeAuthError(w, err, "edit_profile")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) changePassword(w http.ResponseWriter, r *http.Request) {
+	user, ok := UserFromContext(r.Context())
+	if !ok {
+		h.recordFailure("change_password", "unauthorized")
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+	if !requireRecentStepUp(w, r) {
+		h.recordFailure("change_password", "step_up_required")
+		return
+	}
+	var req changePasswordRequest
+	if err := decodeJSON(r, &req); err != nil {
+		h.recordFailure("change_password", "invalid_json")
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_json"})
+		return
+	}
+	if err := h.store.ChangePassword(r.Context(), user, ChangePasswordInput{
+		CurrentPassword: req.CurrentPassword,
+		NewPassword:     req.NewPassword,
+	}); err != nil {
+		h.writeAuthError(w, err, "change_password")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) searchUsers(w http.ResponseWriter, r *http.Request) {
+	user, ok := UserFromContext(r.Context())
+	if !ok {
+		h.recordFailure("search_users", "unauthorized")
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+	searchText, err := searchTextFromRequest(r)
+	if err != nil {
+		h.recordFailure("search_users", "invalid_json")
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_json"})
+		return
+	}
+	if searchText == "" {
+		writeJSON(w, http.StatusOK, []AuthUser{})
+		return
+	}
+	users, err := h.store.SearchUsers(r.Context(), searchText, user.ID)
+	if err != nil {
+		h.writeAuthError(w, err, "search_users")
+		return
+	}
+	if users == nil {
+		users = []AuthUser{}
+	}
+	writeJSON(w, http.StatusOK, users)
+}
+
+func (h *Handler) membershipStatus(w http.ResponseWriter, r *http.Request) {
+	if _, ok := UserFromContext(r.Context()); !ok {
+		h.recordFailure("membership_status", "unauthorized")
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"isMembershipExpired": false,
+		"isGuestUser":         false,
+		"hasActiveDonation":   false,
+		"isDonationExempt":    false,
+		"statusMessage":       "Community member",
+	})
+}
+
+func decodeJSON(r *http.Request, dest any) error {
+	decoder := json.NewDecoder(io.LimitReader(r.Body, 1<<20))
+	decoder.DisallowUnknownFields()
+	return decoder.Decode(dest)
+}
+
+func (h *Handler) writeAuthError(w http.ResponseWriter, err error, action string) {
+	switch {
+	case errors.Is(err, ErrStepUpRequired):
+		h.recordFailure(action, "step_up_required")
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "step_up_required"})
+	case errors.Is(err, ErrConflict):
+		h.recordFailure(action, "account_exists")
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "account_exists"})
+	case errors.Is(err, ErrInvalidLogin):
+		h.recordFailure(action, "invalid_credentials")
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid_credentials"})
+	case errors.Is(err, ErrUnauthorized):
+		h.recordFailure(action, "unauthorized")
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+	case errors.Is(err, sql.ErrNoRows):
+		h.recordFailure(action, "not_found")
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "user_not_found"})
+	case errors.Is(err, ErrAuthUnavailable), errors.Is(err, sql.ErrConnDone):
+		h.recordFailure(action, "auth_unavailable")
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "auth_unavailable"})
+	default:
+		h.recordFailure(action, "auth_failed")
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "auth_failed"})
+	}
+}
+
+func requireRecentStepUp(w http.ResponseWriter, r *http.Request) bool {
+	if HasRecentStepUp(r.Context(), 10*time.Minute, time.Now().UTC()) {
+		return true
+	}
+	writeJSON(w, http.StatusForbidden, map[string]string{"error": "step_up_required"})
+	return false
+}
+
+func requestedUserID(r *http.Request, fallback int64) (int64, error) {
+	for _, key := range []string{"userId", "userid", "userID", "id"} {
+		value := strings.TrimSpace(r.URL.Query().Get(key))
+		if value == "" {
+			continue
+		}
+		parsed, err := strconv.ParseInt(value, 10, 64)
+		if err != nil || parsed <= 0 {
+			return 0, ErrUnauthorized
+		}
+		return parsed, nil
+	}
+	return fallback, nil
+}
+
+func searchTextFromRequest(r *http.Request) (string, error) {
+	for _, key := range []string{"searchText", "search", "query", "keyword", "userName", "username"} {
+		if value := strings.TrimSpace(r.URL.Query().Get(key)); value != "" {
+			return value, nil
+		}
+	}
+	if r.Method != http.MethodPost || r.Body == nil {
+		return "", nil
+	}
+	var req userSearchRequest
+	if err := decodeJSON(r, &req); err != nil {
+		if errors.Is(err, io.EOF) {
+			return "", nil
+		}
+		return "", err
+	}
+	return firstNonEmpty(req.SearchText, req.Search, req.Query, req.Keyword, req.UserName, req.Username), nil
+}
+
+func (h *Handler) recordFailure(action, reason string) {
+	h.registry.Inc("emsi_auth_failures_total", map[string]string{
+		"action": action,
+		"reason": reason,
+	})
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
+}

@@ -69,7 +69,7 @@ async function loginWithOidcMfa(page: Page): Promise<Session> {
   return response.json() as Promise<Session>;
 }
 
-test("AWS trial serves HTTPS security headers and all 86 authorized routes", async ({
+test("AWS trial serves HTTPS security headers and all 85 active authorized routes", async ({
   page,
 }) => {
   test.setTimeout(900_000);
@@ -80,7 +80,7 @@ test("AWS trial serves HTTPS security headers and all 86 authorized routes", asy
   const session = await loginWithOidcMfa(page);
   expect(session.subjectId).not.toBe("");
   expect(session.roles.length).toBeGreaterThan(0);
-  expect(REACT_ROUTE_CONTRACTS).toHaveLength(86);
+  expect(REACT_ROUTE_CONTRACTS).toHaveLength(85);
 
   const loaded = new Set<string>();
   for (const route of REACT_ROUTE_CONTRACTS) {
@@ -94,7 +94,7 @@ test("AWS trial serves HTTPS security headers and all 86 authorized routes", asy
     await expect(page.locator("main")).toHaveCount(1);
     loaded.add(route.id);
   }
-  expect(loaded.size).toBe(86);
+  expect(loaded.size).toBe(85);
 });
 
 test("AWS trial exposes bounded canonical and operational smoke receipts", async ({
