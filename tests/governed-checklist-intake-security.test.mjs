@@ -28,6 +28,8 @@ test("Gate 0 retains eight top-level roles and prevents authority/privacy bypass
 
 test("Gate 0 inventory supports only phased, fail-closed verification", async () => {
   const inventory = await readFile("scripts/verify-governed-checklist-test-inventory.mjs", "utf8");
+  const canonicalTestAdmin = await readFile("apps/api/internal/httpapi/canonical_test_admin.go", "utf8");
+  const governedHTTPBrowser = await readFile("apps/web/tests/e2e/regulatory-checklist-governance.http.spec.ts", "utf8");
   for (const phase of ["gate0", "task1", "task2", "task3", "task4", "task5", "task6", "task7", "task8", "task9", "final"]) {
     assert.match(inventory, new RegExp(`\\b${phase}\\b`));
   }
@@ -38,6 +40,8 @@ test("Gate 0 inventory supports only phased, fail-closed verification", async ()
   assert.match(inventory, /apps\/web\/src\/features\/planning\/new-audit-wizard\.test\.tsx/);
   assert.match(inventory, /apps\/api\/tests\/integration\/planning_assignment_scenario_test\.go/);
   assert.doesNotMatch(inventory, /inspection-package-builder-page\.test\.tsx/);
+  assert.doesNotMatch(canonicalTestAdmin, /materialize-synthetic|materializeSyntheticGovernedPackage/);
+  assert.doesNotMatch(governedHTTPBrowser, /__test\/governed-checklist\/materialize-synthetic/);
   assert.match(inventory, /task9[\s\S]*blocked/i);
   assert.match(inventory, /real[\s\S]*(?:Form 048|slice)[\s\S]*authorization/i);
 });

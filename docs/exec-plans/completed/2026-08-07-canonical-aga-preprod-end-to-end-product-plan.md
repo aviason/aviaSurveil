@@ -8,19 +8,24 @@ This ExecPlan is a living document. Keep `Progress`, `Decision Log`,
 
 ## Status
 
-- Plan status: `active` — Gate 0 and Tasks 1–9 are `verified locally`. The
+- Plan status: `completed` — Gate 0 and Tasks 1–9 and 11 are `verified locally`.
+  The user accepted the manual three-viewport local demo review on 2026-08-11.
+  The
   canonical connected hero, backup/restore, dependency services, cold restart,
   negative/fault/concurrency, donor-disabled, cleanup, and nine-role browser
   boundaries have fresh local evidence. The user selected `delete`; the
   duplicate donor runtime was physically removed and the full selected-boundary
-  matrix passed again without fallback. The stakeholder-owned visual review
-  and final stakeholder handoff remain pending.
+  matrix passed again without fallback. The privacy-safe nine-image viewport
+  handoff was prepared from the current disposable local-preprod build and its
+  stakeholder disposition is `accepted` for the local `candidate-only`
+  milestone.
 - Planning authority: the user requested this successor plan on 2026-08-07.
 - Independent implementation review: the final read-only Sol XHigh reread of
-  the latest migration, credential-isolation, connected-E2E, team-removal, and
-  named-Tunnel ownership changes is `ACCEPTED` with 0 Critical / 0 Important
-  findings. Connected hero evidence is `verified locally`; rendered and
-  stakeholder evidence remains separately pending.
+  the post-deletion migration, credential-isolation, connected-E2E,
+  publication-boundary, team-removal, and named-Tunnel ownership changes is
+  `ACCEPTED` with 0 Critical / 0 Important findings. Connected hero evidence is
+  `verified locally`; the rendered capture package is `verified locally` and
+  its manual stakeholder review is accepted.
 - Implementation authority: granted by the user's 2026-08-07 execution request
   for local Gate 0, Tasks 1–9, and Task 11. On 2026-08-10 the user separately
   authorized an operator path that publishes this Mac's disposable local
@@ -28,14 +33,14 @@ This ExecPlan is a living document. Keep `Progress`, `Decision Log`,
   Tunnel. That remains a Task 8 local-origin transport extension. External
   preprod release work is no longer a task or closeout gate in this ExecPlan;
   it is deliberately deferred to the separate paused
-  [Canonical AGA External Preprod Release And Handoff](2026-08-10-canonical-aga-external-preprod-release-plan.md)
+  [Canonical AGA External Preprod Release And Handoff](../active/2026-08-10-canonical-aga-external-preprod-release-plan.md)
   plan.
 - Local full-system qualification: `candidate-only` — generated contract
   checks, focused Go packages, the non-race full Go suite on a task-owned
   disposable PostgreSQL/MinIO target, migration/N-1 upgrade checks, PostgreSQL
   dump/restore plus object-store exact-byte recovery, React typecheck, the full
   React suite before deletion and the fresh post-deletion suite (85 files /
-  745 tests), normal Go artifact-boundary scans,
+  748 tests), normal Go artifact-boundary scans,
   connected canonical OIDC hero lifecycle, a freshly regenerated disposable
   anonymous Cloudflare Quick Tunnel, its nine-role browser smoke, and
   current-source builds for all nine local runtime images, nine digest-bound
@@ -65,8 +70,8 @@ This ExecPlan is a living document. Keep `Progress`, `Decision Log`,
   `blocked`: the sole Keycloak Java 21/Java 17 advisory-mismatch exception
   expired on 2026-08-08; a fresh exception-free scan reproduced the one HIGH
   mismatch with no fixed version, so no owner extension was inferred. Complete
-  recursive root JS/MJS discovery after deletion ran 88 files / 392 tests and
-  produced 371 pass / 21 fail. The 12 paused donor failures are gone. The exact
+  recursive root JS/MJS discovery after deletion ran 88 files / 394 tests and
+  produced 373 pass / 21 fail. The 12 paused donor failures are gone. The exact
   remaining split is one active governed-intake archive test blocked by absent
   `AGA_CHECKLIST_ARCHIVE`; seven AviaCore
   failures comprising three missing external sibling/predecessor fixtures and
@@ -74,17 +79,19 @@ This ExecPlan is a living document. Keep `Progress`, `Decision Log`,
   failures comprising one stale local AWS fixture and 12 missing local OPA
   executions. The four local AviaCore drifts remain separately governed and
   blocked pending AviaCore owner authority; this plan records no owner
-  disposition for them. The stakeholder visual review remains `not run /
-  stakeholder pending`.
+  disposition for them. The nine-image automated viewport capture is `verified
+  locally`; the stakeholder visual disposition is `accepted` as recorded in
+  the 2026-08-11 stakeholder disposition. The blocked root/race/image-security
+  facts remain tracked and are not relabelled as passes.
 - External preprod deployment: out of scope. It is `not run`, unauthorized, and
   tracked only by the separate paused external-preprod plan. The disposable
   Quick Tunnel and `demo.aviasurveil.com` are local-origin transport evidence.
 - Release: `release pending`.
 - Production readiness: `production-ready: not established`.
-- Immediate next gate: keep the expired Keycloak scan mismatch truthfully
-  `blocked` and prepare privacy-safe Question Review and New Audit evidence at
-  1440x900, 1024x768, and 390x844 for manual stakeholder review. That visual
-  review remains `not run / stakeholder pending`; Task 9 no longer blocks it.
+- Immediate next gate: none in this completed local plan. Keep the expired
+  Keycloak scan mismatch and the root/race results at their literal tracked
+  states. External preprod remains separately paused and requires explicit
+  resumption plus action-by-action authority.
 
 ## Objective
 
@@ -1170,9 +1177,17 @@ Selected-boundary result, 2026-08-10:
   React typecheck, demo/HTTP builds and scans, and `git diff --check` passed.
   The full non-race Go suite passed on task-owned PostgreSQL/MinIO, with the
   integration package completing in 212.490 seconds; the full React suite
-  passed 85 files / 745 tests;
-- complete recursive root JS/MJS discovery now finds 88 files / 392 tests and
-  reports 371 pass / 21 fail. All 12 paused donor failures disappeared; the
+  passed 85 files / 748 tests;
+- a final isolated HTTP publication-boundary qualification passed React
+  typecheck, the focused transport contract `3/3`, the Task 9 Go integration
+  package, and real Admin import → candidate inspection → submission →
+  Department Manager technical approval → separate publication browser checks
+  at 1440x900 and 390x844 (`2/2`). This run also verified the Admin capability
+  identity no longer causes a render/request loop, removed the non-canonical
+  test-only synthetic materialization bypass, and left zero task-owned
+  container, volume, network, browser, or Vite residue;
+- complete recursive root JS/MJS discovery now finds 88 files / 394 tests and
+  reports 373 pass / 21 fail. All 12 paused donor failures disappeared; the
   remaining exact 1 + 7 + 13 split is independently governed or blocked as
   recorded above;
 - `make preprod-test-fault-restart` then passed again using the physically
@@ -1199,7 +1214,7 @@ External deployment is not a numbered task, acceptance criterion, or closeout
 dependency here. On 2026-08-10 the user deferred it until after the local demo
 milestone. Its scope, authorization gates, and literal `not run` status now live
 only in the separate paused
-[Canonical AGA External Preprod Release And Handoff](2026-08-10-canonical-aga-external-preprod-release-plan.md)
+[Canonical AGA External Preprod Release And Handoff](../active/2026-08-10-canonical-aga-external-preprod-release-plan.md)
 plan. Local success, the Quick Tunnel, and `demo.aviasurveil.com` do not resume
 or authorize that plan.
 
@@ -1215,9 +1230,10 @@ Work:
 2. Record exact discovered/passed counts, immutable catalog/scope/package
    digests, selected count, lifecycle IDs, privacy checks, and cleanup results.
 3. Prepare separate privacy-safe Question Review and New Audit evidence at
-   1440x900, 1024x768, and 390x844. Hand the screenshot folder and live
-   `demo.aviasurveil.com` routes to the user for manual stakeholder review only
-   after the Task 8 and Task 9 gates above finish.
+   1440x900, 1024x768, and 390x844. Hand the screenshot folder captured from
+   the current disposable local-preprod build to the user for manual
+   stakeholder review only after the Task 8 and Task 9 gates above finish. Do
+   not substitute a stale named-demo build for current-worktree evidence.
 4. Record the user's manual visual disposition without converting automated
    DOM/overflow checks into stakeholder acceptance.
 5. Update product specs, architecture, README, manifest, runbook, build summary,
@@ -1365,7 +1381,7 @@ index/status language is synchronized.
 
 External commands are intentionally absent because deployment has been moved
 out of this ExecPlan. See the separate paused
-[Canonical AGA External Preprod Release And Handoff](2026-08-10-canonical-aga-external-preprod-release-plan.md)
+[Canonical AGA External Preprod Release And Handoff](../active/2026-08-10-canonical-aga-external-preprod-release-plan.md)
 plan. Do not add provider commands here.
 
 ## Acceptance Criteria
@@ -1782,6 +1798,11 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   with no fixed version. No security-owner exception extension was inferred.
   The final Sol XHigh reread accepted the latest local code boundary with 0
   Critical / 0 Important findings. External preprod was literally `not run`.
+- [x] 2026-08-11: The user explicitly accepted the nine-image manual viewport
+  review for the local `candidate-only` demo milestone. The disposition closes
+  Task 11 without changing the blocked root/race/image-security results,
+  `release pending`, `production-ready: not established`, or the separate
+  external-preprod plan's `paused` / `not run` state.
 - [x] 2026-08-07: Gate 0 froze the canonical table/FK/aggregate/event
   boundaries, classified every dirty AGA change, mapped F-002/F-004/F-007/
   F-010/F-013/F-015/F-018/F-021, synchronized the product specifications,
@@ -1798,24 +1819,25 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   boundary are `verified locally`.
 - [x] Task 3: canonical Question Review workspace and governance modes — the
   retained interface, separate command boundaries, and candidate DOM/overflow
-  checks are `verified locally`; rendered 1440x900/1024x768/390x844 and
-  stakeholder qualification are `not run`.
+  checks plus rendered 1440x900/1024x768/390x844 evidence are `verified
+  locally`; the manual stakeholder review is accepted.
 - [x] Task 4: primary New Audit workflow — candidate implementation and
   focused checks plus the connected 1,310-question submission are `verified
-  locally`; responsive rendered evidence and stakeholder qualification are
-  `not run`.
+  locally`; responsive rendered evidence is `verified locally` and the manual
+  stakeholder review is accepted.
 - [x] Task 5: approval binding, post-release preparation, and materialization —
   candidate implementation, migration/application checks, and the consolidated
   public-HTTPS connected path through release, exact 1,310-question coverage,
   preparation confirmation, materialization, pre-start denial, and Inspector
-  start are `verified locally`; stakeholder visual acceptance is pending.
+  start are `verified locally`; stakeholder visual acceptance is recorded.
 - [x] Task 6: accepted canonical multi-role/report lifecycle — candidate
   implementation, focused/full lifecycle checks, and one consolidated connected
   OIDC hero path through all 1,310 responses, Preliminary Report issue,
   CAP acceptance without closure, real Evidence upload/scan, Evidence-verified
   closure, Final Report issue, and Gotenberg document versioning are `verified
   locally`; the Task 8 negative/fault/restart boundary is also `verified
-  locally`, while stakeholder visual qualification is `not run`.
+  locally`; stakeholder visual qualification is accepted for the local demo
+  milestone.
 - [x] Task 7: navigation cutover and donor disablement — canonical routes,
   donor-free HTTP contract/artifact, and donor runtime fail-closed behavior
   plus donor-disabled connected qualification are `verified locally`; the
@@ -1828,8 +1850,8 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   disposable matrix also proves transaction/fault/concurrency, cold-restart
   fingerprint preservation, post-restart multi-role OIDC, required and
   optional dependency semantics, worker crash recovery, log-secret denial,
-  donor unavailability, and zero residue. Manual visual acceptance remains a
-  separate Task 11 stakeholder gate.
+  donor unavailability, and zero residue. Manual visual acceptance was
+  subsequently recorded under Task 11.
 - [x] Task 9: explicit donor disposition decision and selected-boundary
   requalification — after Task 8 passed, the user selected `delete`; 153
   tracked donor files were removed, the canonical sealed-package reader was
@@ -1837,20 +1859,27 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   root-discovery, build/artifact, connected hero, fault/restart, role/logout,
   dependency recovery, privacy, and zero-residue gates were rerun with the
   literal results recorded above.
-- [ ] Task 11: aggregate evidence, manual three-viewport review, and stakeholder
+- [x] Task 11: aggregate evidence, manual three-viewport review, and stakeholder
   handoff — candidate evidence
   exists and focused/generated contract checks, non-race full Go, full React,
   backup/restore, connected canonical hero runs, current-source image builds,
   nine digest-bound SBOMs, and `git diff --check` are `verified locally`.
-  Post-deletion recursive root discovery completed at 371/392 and remains
+  Post-deletion recursive root discovery completed at 373/394 and remains
   `blocked` by the exact 1 + 7 + 13 mixed local/external split recorded above;
   all 12 donor failures are gone. The four
   local AviaCore synchronization drifts remain under their owning plan and no
   owner disposition is inferred here. The image vulnerability gate is also
   `blocked` by the expired owner exception recorded above. The full
-  race gate, required rendered Question Review/New Audit viewport matrix, and
-  stakeholder verification remain `not run` or
-  `blocked` as recorded above; the final independent reread is accepted. The
+  race gate remains `blocked` as recorded above. The required rendered
+  Question Review/New Audit viewport matrix is now `verified locally`: nine
+  privacy-safe current-worktree screenshots show New Audit selection, the
+  queue + populated Decision file, and the history/decision controls at exact
+  1440x900, 1024x768, and 390x844 dimensions, with zero document overflow,
+  zero product HTTP/console/page/request errors, and no retained real question
+  body or visible catalog label. The user accepted the manual review on
+  2026-08-11 in the
+  [stakeholder disposition](../../demo-evidence/stakeholder/CANONICAL_AGA_STAKEHOLDER_DISPOSITION_2026-08-11.md);
+  the final independent reread is accepted. The
   external-preprod release is tracked only by its separate paused ExecPlan and
   is not a completion gate here.
 
@@ -2040,6 +2069,14 @@ directory is removed. This validation does not authenticate against Cloudflare
 and is not live-tunnel evidence; a complete credential and public qualification
 are still required.
 
+### 2026-08-11 — Accept The Local Manual Viewport Milestone
+
+The user explicitly accepted the nine-image 1440x900, 1024x768, and 390x844
+manual review. This closes Task 11 and the local canonical AGA ExecPlan as a
+`candidate-only` milestone. It does not authorize or imply release,
+production readiness, external preprod, provider work, or a pass for the
+tracked root-discovery, full-race, or image-security blockers.
+
 ## Discoveries
 
 ### 2026-08-07 — Most of the real lifecycle already exists
@@ -2092,7 +2129,7 @@ events until atomic Inspector start.
 
 ## Outcome
 
-Implementation outcome as of 2026-08-10:
+Implementation outcome as of 2026-08-11:
 
 - A self-contained canonical successor plan now replaces the idea of improving
   the separate complex AGA demo indefinitely.
@@ -2118,7 +2155,7 @@ Implementation outcome as of 2026-08-10:
   also `verified locally`; the HIGH/CRITICAL image scan is `blocked` by the
   expired Keycloak advisory-mismatch exception and was not relabelled as a
   pass. The nine-role/logout browser matrix is 10/10. Recursive root discovery
-  is truthfully `blocked` at 371/392. The 12 paused donor failures were removed;
+  is truthfully `blocked` at 373/394. The 12 paused donor failures were removed;
   the remaining failures are one missing active-plan archive input, three external and four locally
   drifting AviaCore checks, one stale local AWS fixture, and 12 missing local
   OPA executions. The four local AviaCore drifts remain separately governed
@@ -2126,19 +2163,22 @@ Implementation outcome as of 2026-08-10:
 - The final Sol XHigh code-boundary reread accepted the latest changes with 0
   Critical / 0 Important findings. Task 8's remaining
   negative/fault/restart matrix and Task 9 post-deletion requalification are
-  now `verified locally`. Plan closure remains open for the blocked
-  image-security disposition and stakeholder review.
-- A task-owned disposable local-preprod stack is running on the current branch
-  at `demo.aviasurveil.com` for the current public demo. The required 1440x900,
-  1024x768, and 390x844 manual review is now the next gate; it is `not run /
-  stakeholder pending`. No AWS deployment or
+  `verified locally`. The user accepted the manual review; the blocked
+  image-security, root-discovery, and full-race facts remain in the tracker
+  without preventing closure of this local milestone.
+- A task-owned disposable local-preprod build produced the privacy-safe
+  nine-image viewport handoff at
+  `docs/demo-evidence/canonical-aga-manual-review-2026-08-10/`. The automated
+  1440x900, 1024x768, and 390x844 capture is `verified locally`; the user's
+  manual disposition is `accepted`. No AWS deployment or
   external-preprod mutation was performed; that future work is outside this
   plan and remains `not run` in its separate paused ExecPlan.
 
 ## Execution Prompt
 
 ```text
-Execute docs/exec-plans/active/2026-08-07-canonical-aga-preprod-end-to-end-product-plan.md in order after the user explicitly authorizes implementation.
+This plan is completed. Do not re-execute it. The historical implementation
+prompt below is retained only as a record of the accepted scope.
 
 Begin at Gate 0. Read this plan completely, then inspect the current working-tree diff and the complete paused AGA browser-remediation plan before editing. Preserve every unrelated or user-owned change. Classify the in-progress AGA changes as reusable canonical foundation, import-only donor work, or synthetic-only work; do not reset or discard them.
 
@@ -2146,5 +2186,5 @@ Build one canonical product journey: Department Manager creates a dynamic Audit 
 
 Reuse or adapt the existing AGA pagination, search, digest, batch-preview, loader, and UI patterns where they reduce risk, but do not preserve the AGA workspace as a second stakeholder lifecycle. Implement canonical Question Review before any donor removal, with explicit governed and exercise aggregates behind the retained Find -> Compare -> Decide shell. Keep question_versions as the single immutable body/version authority. PREPROD_EXERCISE cannot mutate/promote or invoke governed publication and fails closed in production/default configuration. Keep the donor disabled, qualify the complete connected journey without fallback, then stop for the user's explicit Task 9 `delete` or `retain disabled` decision and rerun the selected-boundary matrix. Preserve Auditee privacy, append-only versions/history, Comment to Auditee/Internal CAA Note separation, CAP/closure separation, exact identity, and root-oracle integrity.
 
-Keep this plan and docs/exec-plans/index.md synchronized after every material gate. Use test-first contract changes, generated artifacts from source, isolated browser profiles, and exact task-owned cleanup. Tasks 8 and 9 are complete locally: the user selected `delete`, the donor was physically removed, and the selected boundary passed requalification. Prepare the privacy-safe 1440x900/1024x768/390x844 manual-review handoff without converting automated evidence into stakeholder acceptance. Do not change branches, commit, push, deploy, upload, or mutate remote infrastructure without separate explicit authorization. External preprod is outside this plan and may resume only through docs/exec-plans/active/2026-08-10-canonical-aga-external-preprod-release-plan.md.
+Keep the completed plan, indexes, and evidence synchronized. Tasks 8 and 9 are complete locally: the user selected `delete`, the donor was physically removed, and the selected boundary passed requalification. The privacy-safe 1440x900/1024x768/390x844 manual-review handoff and automated overflow/error checks are verified locally, and the user accepted the manual review on 2026-08-11. Do not change branches, commit, push, deploy, upload, or mutate remote infrastructure without separate explicit authorization. External preprod is outside this plan and may resume only through docs/exec-plans/active/2026-08-10-canonical-aga-external-preprod-release-plan.md.
 ```

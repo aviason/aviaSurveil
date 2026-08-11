@@ -64,6 +64,25 @@ test("preprod loader is a separate one-shot artifact with no normal runtime surf
   assert.doesNotMatch(normalProfile, /preproddata|preprod-data-loader/iu);
 });
 
+test("canonical preprod disables browser OTLP when no collector is provisioned", () => {
+  const dockerfile = read("apps/web/Dockerfile");
+  const compose = read("deploy/local/compose.yaml");
+  const preprodWeb = serviceBlock(compose, "preprod-web-http");
+  const preprodGateway = read("deploy/local/gateway/Caddyfile.preprod");
+  const observableGateway = read("deploy/local/gateway/Caddyfile");
+
+  assert.match(
+    dockerfile,
+    /FROM web-build AS http-build\nARG VITE_AVIA_DISABLE_BROWSER_TELEMETRY=0\nRUN VITE_AVIA_DISABLE_BROWSER_TELEMETRY="\$\{VITE_AVIA_DISABLE_BROWSER_TELEMETRY\}" npm run build:http/u,
+  );
+  assert.match(
+    preprodWeb,
+    /args:\s*\n\s+VITE_AVIA_DISABLE_BROWSER_TELEMETRY:\s*"1"/u,
+  );
+  assert.doesNotMatch(preprodGateway, /handle \/otel\/\*/u);
+  assert.match(observableGateway, /handle \/otel\/\*/u);
+});
+
 test("normal preprod API waits for OIDC discovery after an unordered container-runtime restart", () => {
   const compose = read("deploy/local/compose.yaml");
   const service = serviceBlock(compose, "preprod-api");

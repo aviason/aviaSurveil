@@ -5,7 +5,11 @@ import type { AdminWorkspaceBackend } from "../../backend/backend";
 import { WorkspaceShell } from "../shared/workspace-shell";
 
 export function useAdminWorkspace(): AdminWorkspaceBackend {
-  const capability = useBackendForRole("admin").adminWorkspace;
+  const currentCapability = useBackendForRole("admin").adminWorkspace;
+  // Session and subject changes remount the protected workspace. Within that
+  // boundary, keep one capability identity so a freshly wrapped role adapter
+  // cannot turn every successful load into another request.
+  const [capability] = useState(() => currentCapability);
   if (!capability) throw new Error("Admin workspace capability is unavailable until Plan 2 activates this route.");
   return capability;
 }

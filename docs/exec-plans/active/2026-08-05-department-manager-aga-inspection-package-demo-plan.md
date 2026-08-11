@@ -1236,7 +1236,7 @@ Execution outcome as of 2026-08-05:
 
 Do not execute this plan independently while it is `paused`. After the user
 explicitly authorizes canonical successor implementation, execute
-`2026-08-07-canonical-aga-preprod-end-to-end-product-plan.md` from Gate 0 on the
+`../completed/2026-08-07-canonical-aga-preprod-end-to-end-product-plan.md` from Gate 0 on the
 current branch and use this document as donor/historical evidence. Read the
 predecessor plan and every
 authority named in `Repository Orientation` before changing runtime code. Keep

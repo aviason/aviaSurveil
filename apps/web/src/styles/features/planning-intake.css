@@ -199,6 +199,25 @@
   font-weight: 700;
 }
 
+.planning-intake-page > *,
+.planning-intake-form > *,
+.planning-intake-fields > *,
+.planning-intake-catalog > *,
+.planning-intake-catalog-list li,
+.planning-intake-catalog-list label,
+.planning-intake-catalog-list span {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.planning-intake-status,
+.planning-intake-catalog-list small,
+.planning-intake-selected-tray,
+.planning-intake-question-dossier dd,
+.planning-intake-selection-preview {
+  overflow-wrap: anywhere;
+}
+
 .planning-intake-catalog {
   display: grid;
   grid-column: 1 / -1;

@@ -15,7 +15,8 @@ RUN npm run build:demo \
     && node scripts/assert-app-shell-artifact.mjs dist/demo
 
 FROM web-build AS http-build
-RUN npm run build:http \
+ARG VITE_AVIA_DISABLE_BROWSER_TELEMETRY=0
+RUN VITE_AVIA_DISABLE_BROWSER_TELEMETRY="${VITE_AVIA_DISABLE_BROWSER_TELEMETRY}" npm run build:http \
     && find dist/http -type f -name '*.map' -delete \
     && node scripts/assert-app-shell-artifact.mjs dist/http \
     && ! grep -E '/src/(mock|entry/http-test)(/|\\.tsx?$)|seed-(data|visual-runtime)|test-?profile' dist/http/build-inputs.json

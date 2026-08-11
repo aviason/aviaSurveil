@@ -672,6 +672,8 @@ services:
       context: ../..
       dockerfile: apps/web/Dockerfile
       target: http
+      args:
+        VITE_AVIA_DISABLE_BROWSER_TELEMETRY: "1"
     profiles: [local-preprod-loader]
     user: "10001:10001"
     tmpfs:

@@ -13,8 +13,8 @@ This ExecPlan is a living document. Keep `Progress`, `Decision Log`,
   upload, DNS, identity, cost-bearing, or other remote mutation is authorized.
 - Current result: `not run`.
 - Dependency: local Tasks 8–9 are complete, including user-selected donor
-  deletion and post-deletion requalification. The stakeholder-owned
-  1440x900, 1024x768, and 390x844 review remains pending.
+  deletion and post-deletion requalification. The user accepted the
+  stakeholder-owned 1440x900, 1024x768, and 390x844 review on 2026-08-11.
 - Current public demo: `https://demo.aviasurveil.com` is a local-origin named
   Cloudflare Tunnel publication. It is sufficient for the current demo and
   stakeholder review, but it is not external-preprod evidence because the
@@ -66,12 +66,12 @@ result is `preprod verified`; this plan cannot establish `production-ready`.
 
 ## Entry Gates
 
-1. Satisfied: the [Canonical AGA Preprod End-To-End Product](2026-08-07-canonical-aga-preprod-end-to-end-product-plan.md)
+1. Satisfied: the [Canonical AGA Preprod End-To-End Product](../completed/2026-08-07-canonical-aga-preprod-end-to-end-product-plan.md)
    records the passed Task 8 fault/restart matrix.
 2. Satisfied: the user selected Task 9 `delete`, physical removal completed,
    and the post-deletion matrix passed.
-3. The user completes the 1440x900, 1024x768, and 390x844 manual review or
-   explicitly records a different stakeholder disposition.
+3. Satisfied: the user accepted the 1440x900, 1024x768, and 390x844 manual
+   review on 2026-08-11.
 4. The local release candidate artifacts, migrations, rollback inputs,
    backup/restore evidence, OIDC/TLS settings, and runbook are internally
    consistent.

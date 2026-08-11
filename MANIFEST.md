@@ -45,9 +45,9 @@ The active Canonical AGA Preprod End-To-End Product successor is separately
 `candidate-only`: its canonical Question Review history, immutable New Audit
 selection summary, pre-materialization Lead handoff, donor-free normal HTTP
 contract/artifact/binary, non-owner local-preprod runtime role, and connected
-OIDC hero lifecycle through Final Report issue are `verified locally`; rendered
-stakeholder qualification and full recursive gates remain `not run` or
-`blocked`. Its final Task 8 disposable
+OIDC hero lifecycle through Final Report issue are `verified locally`; the
+privacy-safe manual viewport qualification is recorded as accepted, while full
+recursive gates remain `not run` or `blocked`. Its final Task 8 disposable
 matrix verified transaction/fault/concurrency, cold-restart fingerprint
 preservation, post-restart multi-role OIDC, dependency loss/recovery, worker
 crash restart, donor fail-closed behavior, secret-log denial, and zero residue.
@@ -55,8 +55,7 @@ Sol XHigh accepted the implemented pre-deletion code boundary with 0
 Critical/0 Important. The user then selected Task 9 `delete`; 153 tracked donor
 files were removed and the full Go/React/build/artifact plus connected
 fault/restart matrix passed again with no donor fallback and zero residue. The
-remaining local sequence is the user-owned three-viewport review and
-stakeholder acceptance. External preprod is no longer part
+manual three-viewport review was accepted on 2026-08-11. External preprod is no longer part
 of that plan; it is `not run` in a separate paused follow-up ExecPlan.
 The root Vanilla demo remains intact.
 
@@ -395,10 +394,10 @@ separate `apps/web/package.json` owns the React candidate commands.
 - `docs/index.md` — canonical docs map for agent, plan, product, demo handoff,
   and demo evidence surfaces.
 - `docs/PLANS.md` — repository-native ExecPlan contract and lifecycle.
-- `docs/exec-plans/active/2026-08-07-canonical-aga-preprod-end-to-end-product-plan.md`
-  — current local canonical demo plan: Tasks 1–9 are `verified locally`, the
-  user-selected physical donor deletion passed requalification, and the manual
-  three-viewport stakeholder handoff is next.
+- `docs/exec-plans/completed/2026-08-07-canonical-aga-preprod-end-to-end-product-plan.md`
+  — completed local canonical demo plan: Tasks 1–9 and 11 are `verified
+  locally`, the user-selected physical donor deletion passed requalification,
+  and the manual three-viewport stakeholder review was accepted on 2026-08-11.
 - `docs/exec-plans/active/2026-08-10-canonical-aga-external-preprod-release-plan.md`
   — separate paused remote-preprod follow-up; every remote action remains
   `not run` and it does not block local demo closeout.
@@ -418,7 +417,9 @@ separate `apps/web/package.json` owns the React candidate commands.
 
 - `docs/demo-evidence/BUILD_SUMMARY.md` — canonical demo evidence, verification
   status, and known limitations.
-- `docs/demo-evidence/CANONICAL_AGA_IMPLEMENTATION_CHECKPOINT_2026-08-08.md` — current canonical AGA candidate implementation checkpoint; Tasks 8–9 are verified locally, while the manual-viewport sequence remains pending and external preprod is tracked separately.
+- `docs/demo-evidence/CANONICAL_AGA_IMPLEMENTATION_CHECKPOINT_2026-08-08.md` — current canonical AGA candidate implementation checkpoint; Tasks 8–9 and the accepted manual viewport milestone are recorded while external preprod is tracked separately.
+- `docs/demo-evidence/canonical-aga-manual-review-2026-08-10/` — privacy-safe New Audit and Question Review stakeholder handoff with nine exact viewport images and its digest-bound capture receipt.
+- `docs/demo-evidence/stakeholder/CANONICAL_AGA_STAKEHOLDER_DISPOSITION_2026-08-11.md` — accepted local manual-review disposition with release and production exclusions preserved.
 - `docs/demo-evidence/GOVERNED_SERVICE_PROVIDER_CHECKLIST_2026-07-29.md` —
   governed-checklist local inventory, authority, browser, and recovery evidence
   with the synthetic-only claim boundary.

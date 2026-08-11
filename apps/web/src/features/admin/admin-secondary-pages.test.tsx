@@ -23,6 +23,7 @@ import {
 import type { MockState } from "../../mock/seed-data";
 import { ChecklistBuilderPage } from "./checklist-builder-page";
 import { QuestionBankPage } from "./question-bank-page";
+import { useAdminLoad, useAdminWorkspace } from "./admin-workspace-shared";
 
 type MockRuntime = ReturnType<typeof createMockBackendRuntime>;
 
@@ -102,6 +103,12 @@ function renderAdminComponent(component: ReactNode, runtime: MockRuntime) {
   );
 }
 
+function AdminCapabilityStabilityProbe() {
+  const backend = useAdminWorkspace();
+  const result = useAdminLoad(() => backend.listTemplateMasters({}), [backend]);
+  return <p>{result.data ? "ready" : "loading"}</p>;
+}
+
 beforeEach(() => localStorage.clear());
 afterEach(() => {
   cleanup();
@@ -109,6 +116,36 @@ afterEach(() => {
 });
 
 describe("Admin secondary workspaces", () => {
+  it("keeps one Admin capability across runtime-wrapper rerenders", async () => {
+    const runtime = createMockBackendRuntime();
+    const admin = requireAdminWorkspace(runtime);
+    const listTemplateMasters = vi.spyOn(admin, "listTemplateMasters");
+    listTemplateMasters.mockResolvedValueOnce({ items: [] });
+    listTemplateMasters.mockImplementation(() => new Promise(() => undefined));
+    const backendForRole: MockRuntime["backendForRole"] = (role) => {
+      const backend = runtime.backendForRole(role);
+      if (role !== "admin" || !backend.adminWorkspace) return backend;
+      return { ...backend, adminWorkspace: { ...backend.adminWorkspace } };
+    };
+
+    render(
+      <AppProviders runtime={{
+        backend: runtime.backend,
+        backendForRole,
+        buildProfile: "demo",
+        environmentLabel: "test",
+        identityMode: "demo-role-switch",
+        subjectId: "USR-ADMIN-ADA",
+      }}>
+        <MemoryRouter><AdminCapabilityStabilityProbe /></MemoryRouter>
+      </AppProviders>,
+    );
+
+    expect(await screen.findByText("ready")).toBeVisible();
+    await act(async () => Promise.resolve());
+    expect(listTemplateMasters).toHaveBeenCalledTimes(1);
+  });
+
   it("direct-loads all 13 Admin routes with complete shell navigation, contextual active mapping, and route-specific breadcrumbs", async () => {
     const routes = [
       ["/admin/regulatory-library", "admin-regulatory-library-page", "Regulatory Library", "Regulatory Library"],

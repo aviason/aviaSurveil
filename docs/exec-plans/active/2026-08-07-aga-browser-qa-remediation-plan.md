@@ -653,7 +653,7 @@ and `production-ready: not established`.
 ## Execution Prompt
 
 Do not resume this plan independently while it is `paused`. Execute
-docs/exec-plans/active/2026-08-07-canonical-aga-preprod-end-to-end-product-plan.md
+docs/exec-plans/completed/2026-08-07-canonical-aga-preprod-end-to-end-product-plan.md
 from Gate 0 after explicit implementation authorization, using this plan as
 dirty-diff, open-finding, and donor evidence.
 Read it completely, then read AGENTS.md, ARCHITECTURE.md, docs/PLANS.md,

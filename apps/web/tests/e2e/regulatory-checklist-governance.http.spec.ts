@@ -4,14 +4,15 @@ const apiURL = process.env.AVIA_HTTP_API_URL ?? "http://127.0.0.1:58081";
 const testToken = process.env.AVIA_CANONICAL_TEST_TOKEN ?? "";
 
 for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
-  test(`HTTP governed checklist synthetic lifecycle is accessible and overflow-free at ${viewport.width}x${viewport.height}`, async ({ page, request }) => {
+  test(`HTTP governed checklist publication boundary is accessible and overflow-free at ${viewport.width}x${viewport.height}`, async ({ page, request }) => {
     const issues: string[] = [];
     const commands: string[] = [];
     page.on("console", (message) => { if (["error", "warning"].includes(message.type())) issues.push(message.text()); });
     page.on("pageerror", (error) => issues.push(error.message));
     page.on("request", (outgoing) => {
-      if (outgoing.method() === "POST" && outgoing.url().includes("/v1/")) {
-        commands.push(new URL(outgoing.url()).pathname.replace(/^\/api(?=\/v1\/)/, ""));
+      const pathname = new URL(outgoing.url()).pathname;
+      if (outgoing.method() === "POST" && pathname.startsWith("/api/v1/")) {
+        commands.push(pathname.replace(/^\/api(?=\/v1\/)/, ""));
       }
     });
     await page.setViewportSize(viewport);
@@ -52,43 +53,12 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     await expect(review).toContainText("PUBLISHED");
     await expect(review.getByText(/Published as immutable Checklist Template Version/i)).toBeVisible();
 
-    const materialized = await request.post(`${apiURL}/__test/governed-checklist/materialize-synthetic`, {
-      headers: { "x-avia-test-token": testToken },
-    });
-    expect(materialized.status()).toBe(201);
-    await expect(materialized.json()).resolves.toMatchObject({
-      inspectionId: "AUD-SYNTHETIC-OPS-AOC-001", packageId: "PKG-SYNTHETIC-OPS-AOC-001",
-      templateVersionId: expect.any(String), packageDigest: expect.stringMatching(/^sha256:/),
-    });
-
-    await page.getByRole("combobox", { name: "Experience" }).selectOption("inspector");
-    await page.evaluate(() => {
-      window.history.pushState({}, "", "/inspector/audits/AUD-2026-001/checklist?packageId=PKG-SYNTHETIC-OPS-AOC-001");
-      window.dispatchEvent(new PopStateEvent("popstate"));
-    });
-    await page.getByTestId("question-Q-SYNTHETIC-OPS-AOC-001").click();
-    await page.getByLabel("Checklist answer").selectOption("NON_COMPLIANT");
-    await page.getByLabel("Inspector comment").fill("Synthetic test-profile evidence could not be reconciled.");
-    await page.getByRole("button", { name: "Save response" }).click();
-    await expect(page.getByTestId("response-status")).toContainText("NON COMPLIANT");
-    await page.getByLabel("Attachment file").setInputFiles({
-      name: "synthetic-controlled-record.pdf", mimeType: "application/pdf",
-      buffer: Buffer.from("%PDF-1.4\nsynthetic governed evidence\n%%EOF\n"),
-    });
-    await page.getByRole("button", { name: "Upload Inspection Attachment" }).click();
-    await expect(page.getByTestId("inspection-attachment-uploaded")).toContainText("synthetic-controlled-record.pdf");
-    await page.getByRole("button", { name: "Create Potential Finding" }).click();
-    await expect(page.getByTestId("potential-finding-status")).toHaveText("PENDING_LEAD_REVIEW");
-    await page.getByRole("button", { name: "Submit checklist to Lead Inspector" }).click();
-    await expect(page.getByTestId("checklist-status")).toHaveText("SUBMITTED");
-
-    expect(commands).toEqual(expect.arrayContaining([
+    expect(commands).toEqual([
       "/v1/admin/governed-checklist/generation-runs",
       "/v1/admin/governed-checklist/candidates/CAND-SYNTHETIC-OPS-AOC-0001/submissions",
       "/v1/department-manager/governed-checklist/candidates/CAND-SYNTHETIC-OPS-AOC-0001/technical-approvals",
       "/v1/department-manager/governed-checklist/candidates/CAND-SYNTHETIC-OPS-AOC-0001/publications",
-    ]));
-    expect(commands.some((path) => path.startsWith("/v1/inspection-attachments/"))).toBe(true);
+    ]);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     expect(issues).toEqual([]);
   });

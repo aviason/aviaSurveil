@@ -200,6 +200,16 @@ and return to seed data.
 
 ## Latest UI evidence
 
+The current canonical AGA successor has a separate privacy-safe
+[manual viewport handoff](canonical-aga-manual-review-2026-08-10/README.md).
+It contains nine New Audit and Question Review captures at 1440x900, 1024x768,
+and 390x844 from a current-worktree disposable local-preprod profile: exact
+subset selection, queue + populated Decision file, and decision controls with
+append-only history. Automated capture verified zero document overflow, zero
+product HTTP/console/page/request errors, and no retained real question body or
+visible catalog label. The result is `candidate-only`; the user accepted the
+manual viewport review on 2026-08-11.
+
 The 23 July 2026 Full React handoff, updated after acceptance review, records
 exactly 86 React routes, 258/258 responsive route checks, 258/258
 visible-action inventories, 613 exact per-action evidence records, and

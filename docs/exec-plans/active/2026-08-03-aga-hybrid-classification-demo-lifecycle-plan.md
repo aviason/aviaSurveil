@@ -3772,7 +3772,7 @@ Use this prompt only after the user explicitly authorizes implementation:
 
 ```text
 Do not execute this paused plan independently. Execute
-docs/exec-plans/active/2026-08-07-canonical-aga-preprod-end-to-end-product-plan.md
+docs/exec-plans/completed/2026-08-07-canonical-aga-preprod-end-to-end-product-plan.md
 from Gate 0 after explicit implementation authorization and use this plan as
 read-only donor/historical evidence. Preserve its evidence and the current
 dirty worktree, but do not resume any A–E/F slice, synthetic lifecycle command,
