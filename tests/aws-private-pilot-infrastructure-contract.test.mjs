@@ -186,6 +186,10 @@ test("Terragrunt remains input-only, backend-disabled, and non-deployable by def
 
   assert.match(rootConfig, /AVIA_AWS_PRIVATE_PILOT_TG_INPUTS_FILE/u);
   assert.match(rootConfig, /AVIA_TG_DISABLE_BACKEND", "true"/u);
+  assert.match(rootConfig, /AVIA_AWS_PRIVATE_PILOT_FAST_READ_ONLY_PLAN/u);
+  assert.match(rootConfig, /hook_commands/u);
+  assert.match(rootConfig, /\["plan", "apply", "destroy"\]/u);
+  assert.match(rootConfig, /\["apply", "destroy"\]/u);
   assert.match(rootConfig, /remote-hook/u);
   assert.match(rootConfig, /aws_profile\s*=\s*"avia"/u);
   assert.match(rootConfig, /profile\s*=\s*local\.aws_profile/u);

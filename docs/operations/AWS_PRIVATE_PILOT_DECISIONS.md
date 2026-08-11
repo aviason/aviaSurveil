@@ -161,8 +161,22 @@ owners, budget recipients, and the exact accepted topology.
 ./scripts/check-aws-private-pilot-decisions.sh /absolute/private/decision.json
 ```
 
+For provider-backed diagnostics while the overlay is still being assembled,
+Terragrunt supports an explicit plan-only fast path:
+
+```bash
+AVIA_AWS_PRIVATE_PILOT_FAST_READ_ONLY_PLAN=true terragrunt plan
+```
+
+The fast path omits the decision and remote-authority hooks for `plan` only.
+It does not provide any `apply` or `destroy` authority; those commands keep the
+normal hooks and still require the complete owner contract. Missing Terraform
+variables, provider credentials, or remote dependencies can still make the
+read-only plan fail.
+
 Missing, stale, contradictory, secret-bearing, over-budget, IPv4-only,
-remotely authorizing, or world-readable input fails closed. Until a current
-overlay passes, owner input is `blocked`, external execution is `not run`, the
-artifact is `candidate-only`, release is `release pending`, and
+remotely authorizing, or world-readable input fails closed in the normal
+workflow. The fast switch does not change the owner-input state or grant
+mutation authority: until a current overlay passes, apply/destroy remain
+`blocked`, the artifact is `candidate-only`, release is `release pending`, and
 `production-ready: not established`.

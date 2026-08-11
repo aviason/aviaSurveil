@@ -9,14 +9,18 @@ This ExecPlan is a living document. Keep `Progress`, `Decision Log`,
 ## Status
 
 - Plan status: `active`
-- Current result: Task 0 intake of both source collections and architecture
-  selection are `verified locally`; implementation is `not run`.
+- Current result: Tasks 0–10 are `verified locally` for their isolated,
+  candidate-only implementation and local gates; Task 10 records `NO-GO` for
+  release because independent review and full capacity/recovery evidence are
+  absent. Option A (`zitadel/oidc` v3.47.5, `fb9fbfe`) was authorized on
+  2026-08-11.
 - Current provider: Keycloak remains required and must not be removed or
   weakened during development.
 - Product status: `candidate-only`; release is `release pending`;
   `production-ready: not established`.
-- Next concrete todo: execute Task 1's bounded OIDC library/interoperability
-  spike and freeze the provider-neutral contracts before creating `apps/auth`.
+- Next concrete todo: retain Keycloak and prepare a separately authorized Task
+  11 cutover/review decision. No production or external-state action is
+  authorized by this plan.
 
 ## Objective
 
@@ -108,6 +112,10 @@ This plan owns:
   `5de123c9bd8a711889e85b1876329540dee49423f64568c0a4bade4b5a4ff79b`
 - Source selection matrix:
   [`source-comparison.md`](../../security/auth-replacement/hardening/source-comparison.md)
+- Task 1 OIDC comparison and disposable evidence:
+  [`RESULTS.md`](../../security/auth-replacement/evidence/2026-08-11-oidc-library-spike/RESULTS.md)
+- Task 1 provider-neutral contracts:
+  [`CONTRACTS.md`](../../security/auth-replacement/evidence/2026-08-11-oidc-library-spike/CONTRACTS.md)
 - Imported security review:
   [`SECURITY_REVIEW.md`](../../security/auth-replacement/evidence/2026-08-11-first-party-auth-export/source/auth-export/SECURITY_REVIEW.md)
 - Hardening portfolio:
@@ -192,7 +200,8 @@ bytes match the inspected trees; no imported runtime is enabled.
 
 ### Task 1 — Freeze Protocol And Provider-Neutral Contracts
 
-Status: `not run`.
+Status: `verified locally`; Option A (`zitadel/oidc` v3.47.5, `fb9fbfe`) was
+authorized by the owner on 2026-08-11.
 
 - Compare maintained Go authorization-server libraries using primary source,
   current maintenance, license, protocol ownership, testability, dependency,
@@ -214,9 +223,16 @@ Acceptance: one maintained library is selected with evidence; the current API
 can consume the spike without insecure issuer handling; the contract review has
 no unresolved High design blocker.
 
+Task 1 evidence gate (2026-08-11): the comparison, disposable spikes, and
+provider-neutral contracts are `verified locally`. The owner authorized Option
+A (`zitadel/oidc` v3.47.5, `fb9fbfe`) on 2026-08-11, so the one-library
+selection acceptance is recorded. Only that option may be used for Task 2 and
+later implementation; Keycloak remains active and no production authority is
+implied.
+
 ### Task 2 — Scaffold The Isolated Provider
 
-Status: `not run`.
+Status: `verified locally`.
 
 - Create `apps/auth/` as a separate Go module or repository-consistent module
   surface after checking current module conventions.
@@ -235,7 +251,7 @@ normal profile.
 
 ### Task 3 — Identity, Password, Account-State, And Abuse Controls
 
-Status: `not run`.
+Status: `verified locally`.
 
 - Implement immutable opaque subjects and one canonical type-aware identifier
   table with verified email state and cross-field uniqueness.
@@ -258,7 +274,7 @@ registration, identifier, account-state, throttling, and authorization defects.
 
 ### Task 4 — Provider Sessions And Refresh Families
 
-Status: `not run`.
+Status: `verified locally`.
 
 - Implement cryptographically random provider sessions and refresh families,
   hashes at rest, row-lock rotation, reuse detection, absolute and idle expiry,
@@ -279,7 +295,8 @@ tests.
 
 ### Task 5 — Standards-Conforming OIDC Provider
 
-Status: `not run`.
+Status: `verified locally` for the isolated candidate protocol harness; full
+durable provider/runtime integration remains `not run`.
 
 - Implement discovery, exact client and redirect registry, Authorization Code
   plus PKCE, state/nonce binding, ID/access/refresh tokens, userinfo only when
@@ -299,7 +316,8 @@ the current API OIDC client; no dual issuer or algorithm fallback exists.
 
 ### Task 6 — MFA, Recovery, Verification, Mail, And Localization
 
-Status: `not run`.
+Status: `verified locally` for bounded local components; Mailpit delivery and
+real SMTP integration remain `not run`.
 
 - Implement TOTP enrollment/challenge with encrypted secrets and replay-window
   consumption, plus random hashed single-use recovery codes.
@@ -317,7 +335,8 @@ rendering pass focused and Mailpit integration tests.
 
 ### Task 7 — Security Audit And Provider Administration
 
-Status: `not run`.
+Status: `verified locally` for bounded audit/admin components and the neutral
+API boundary; authenticated provider-admin HTTP handlers remain `not run`.
 
 - Implement an append-only redacted event schema for registration denial,
   invite, verification, login success/failure, refresh/reuse, logout, password,
@@ -334,7 +353,9 @@ contract states; credentials and unbounded attacker input never enter events.
 
 ### Task 8 — Adapt AviaSurveil360 Without Weakening Authorization
 
-Status: `not run`.
+Status: `verified locally` for the provider-neutral API boundary, existing BFF
+contract, and web refresh coordinator; full replacement-provider E2E wiring is
+`not run`.
 
 - Replace `KeycloakAdminClient` ownership with provider-neutral interfaces and
   implementations while Keycloak remains supported only as the active
@@ -356,7 +377,8 @@ pass against both explicit profiles, never through fallback.
 
 ### Task 9 — Isolated Local Qualification And Synthetic Migration
 
-Status: `not run`.
+Status: `verified locally` for the deterministic synthetic qualification
+harness; full browser/restart/backup/rollback scenarios remain `not run`.
 
 - Add a distinct local profile with a different issuer, client, database, keys,
   cookies, ports, and synthetic identities. Keep the normal Keycloak profile
@@ -374,7 +396,9 @@ state is removed, and Keycloak remains a tested rollback provider.
 
 ### Task 10 — Security, Dependency, Recovery, And ARM64 Gates
 
-Status: `not run`.
+Status: `verified locally` for local code/image/dependency gates; release is
+literal `NO-GO` because independent security, complete recovery, and native
+ARM64 workload evidence are `not run`.
 
 - Run formatting, vet, unit, PostgreSQL integration, race, fuzz, protocol,
   browser, accessibility, contract, migration, backup/restore, and failure
@@ -488,8 +512,37 @@ passing placeholders.
   lifecycle, distributed-limit, and client refresh-serialization concepts;
   direct DynamoDB/runtime reuse was rejected and twelve regression contracts
   were added.
-- [ ] Task 1 — OIDC library/interoperability and provider-neutral contracts.
-- [ ] Tasks 2–10 — Local implementation and qualification.
+- [x] 2026-08-11 — Task 1 primary-source comparison, ARM64 disposable spikes,
+  AS360-OIDC-WEB-1 core/negative checks, provider-neutral contracts, and the
+  `AS360-AUTH-001` through `AS360-AUTH-030` map are recorded in the [spike
+  results](../../security/auth-replacement/evidence/2026-08-11-oidc-library-spike/RESULTS.md)
+  and [contracts](../../security/auth-replacement/evidence/2026-08-11-oidc-library-spike/CONTRACTS.md).
+  ZITADEL, Fosite, and Authelia core checks passed locally; Hydra's current
+  server smoke is blocked by unavailable SQL/daemon; framework-owned
+  discovery/JWKS/logout and key overlap remain `not run` where stated.
+- [x] 2026-08-11 — Task 2 isolated `apps/auth` scaffold is `verified locally`:
+  typed fail-closed configuration, secret-file and database/SMTP separation,
+  liveness/readiness boundary, redacted telemetry, selected-library pin,
+  non-root ARM64 image, opt-in hardened Compose profile, focused unit/race/vet,
+  static ARM64 build, Compose syntax, and local ARM64 image inspection are
+  recorded in [Task 2 evidence](../../security/auth-replacement/evidence/2026-08-11-oidc-library-spike/TASK2_SCAFFOLD.md).
+  Direct host-process listener smoke is `blocked` by sandbox TCP-bind
+  permission; provider storage and OIDC routes remain intentionally absent.
+- [x] 2026-08-11 — Task 3 identity, password, account-state, and abuse
+  controls are `verified locally`: opaque subjects, canonical identifiers,
+  revisioned lifecycle, Argon2id bounds/dummy path/history, fail-closed
+  trusted-proxy throttling, forward-only identity schema, and disposable
+  PostgreSQL lifecycle/constraint tests are recorded in [Task 3 evidence](../../security/auth-replacement/evidence/2026-08-11-oidc-library-spike/TASK3_IDENTITY.md).
+- [x] 2026-08-11 — Task 4 provider sessions and refresh families are
+  `verified locally`: bounded opaque sessions, durable row-lock rotation,
+  reuse/revocation, lifecycle callbacks, race tests, and disposable
+  PostgreSQL evidence are recorded in [Task 4 evidence](../../security/auth-replacement/evidence/2026-08-11-oidc-library-spike/TASK4_SESSIONS.md).
+- [x] 2026-08-11 — Tasks 5–9 are `verified locally` within their scoped
+  candidate boundaries: [Task 5](../../security/auth-replacement/evidence/2026-08-11-oidc-library-spike/TASK5_OIDC_PROVIDER.md), [Task 6](../../security/auth-replacement/evidence/2026-08-11-oidc-library-spike/TASK6_MFA_RECOVERY.md), [Task 7](../../security/auth-replacement/evidence/2026-08-11-oidc-library-spike/TASK7_AUDIT_ADMIN.md), [Task 8](../../security/auth-replacement/evidence/2026-08-11-oidc-library-spike/TASK8_API_WEB_ADAPTATION.md), and [Task 9](../../security/auth-replacement/evidence/2026-08-11-oidc-library-spike/TASK9_QUALIFICATION.md).
+- [x] 2026-08-11 — Task 10 local security/dependency/image/build gates are
+  `verified locally`; release is literal `NO-GO` pending independent review,
+  complete recovery/browser qualification, and native ARM64 workload
+  evidence.
 - [ ] Task 11 — Separately authorized cutover and retirement.
 
 ## Decision Log
@@ -509,6 +562,15 @@ passing placeholders.
   security, recovery, rollback, and ARM64 gates pass.
 - 2026-08-11: TOTP and recovery codes are mandatory; WebAuthn remains an open
   product decision.
+- 2026-08-11: Task 1 evidence is complete and locally verified. The owner
+  authorized Option A (`zitadel/oidc` v3.47.5, `fb9fbfe`) with “tamamdır olur
+  kabul” and “tamam evet”; this dated decision authorizes only local Task 2–10
+  implementation with that library. No production, deployment, identity,
+  migration, traffic, or Keycloak-retirement action is authorized.
+- 2026-08-11: Tasks 4–10 were completed sequentially as isolated local
+  candidate work using only Option A. Keycloak remains the serving/rollback
+  baseline; Task 10 is a local-gate `NO-GO` for release, and Task 11 still
+  requires separate exact authorization.
 
 ## Discoveries
 
@@ -533,16 +595,51 @@ passing placeholders.
   legacy-HMAC, OTP-attempt, and body-size regression targets. Its Swift refresh
   actor is useful client-behavior evidence but does not change the BFF rule that
   browser JavaScript never holds provider refresh tokens.
+- `zitadel/oidc` exposes an OP-capable library surface; Fosite and
+  `authelia.com/provider/oauth2` expose protocol frameworks and require a
+  reviewed host adapter for discovery, JWKS/key rotation, login/consent, and
+  logout. They must not be described as standalone providers.
+- Ory Hydra is a current standalone server rather than an importable current
+  `/v2` module: its `v26.2.0` tag cannot be selected as a valid `/v2` semver.
+  The compatibility schema compiled on ARM64, but the current SQL plus
+  login/consent server smoke was blocked by unavailable Docker/OrbStack.
+- The ARM64 package checks passed in isolated disposable modules. No result is
+  a production RSS/CPU/capacity claim; key overlap, restart, mixed workload,
+  and independent security gates remain `not run`.
+- Task 2's provider scaffold is intentionally liveness-only: the selected
+  library dependency is pinned, but no OIDC endpoint, identity storage,
+  migration, database connection, SMTP delivery, or normal Compose route is
+  enabled before its later contract task.
+- Task 3 now has both an in-memory domain adapter for deterministic unit/race
+  tests and a PostgreSQL adapter backed by the separate `auth_identity`
+  schema. Public registration remains disabled; invitation/verification/
+  activation and all security-state mutations use opaque subjects and expected
+  revisions. OIDC/session/MFA routes still do not consume this adapter.
+- Task 4 durable refresh families and lifecycle revocation now share auth
+  revision checks; concurrent predecessor presentation cannot mint two
+  successors.
+- Task 5's provider candidate is a library-owned protocol harness with a
+  narrow AS360 S256-PKCE boundary; durable storage, browser UI, and key-ring
+  operations remain host-owned and candidate-only.
+- Task 8 keeps browser refresh credentials server-side. Only a single
+  same-origin refresh promise is shared in React, and terminal rejection
+  clears the local session.
+- Task 10's first image scan exposed CVE-2026-56852 in `golang.org/x/text`
+  v0.37.0; the dependency was upgraded to v0.39.0, the ARM64 image rebuilt,
+  and the HIGH/CRITICAL scan then passed with zero findings.
 
 ## Outcome
 
-Task 0 is `verified locally`: both source collections are preserved,
-integrity-bound, classified, compared, and linked to a selected architecture
-and implementation plan. No
-runtime code, dependency, migration, Compose service, identity, or external
-system was changed by this plan yet. Implementation remains `not run`. The
-result is `candidate-only`, release is `release pending`, and
-`production-ready: not established`.
+Tasks 0–10 are `verified locally` for isolated candidate implementation and
+local evidence: both source collections are preserved, integrity-bound,
+classified, compared, and linked to the selected separate-provider
+architecture; the Task 1 library evidence and contracts are retained in the
+security package. Option A (`zitadel/oidc` v3.47.5, `fb9fbfe`) was authorized on
+2026-08-11. Task 10 records a release `NO-GO` because independent security,
+full recovery/browser, and native ARM64 workload gates remain `not run`.
+Production, deployment, identity migration, traffic, and Keycloak retirement
+remain unauthorized. The result is `candidate-only`, release is `release
+pending`, and `production-ready: not established`.
 
 ## Execution Prompt
 
@@ -557,12 +654,13 @@ Keycloak administration, session/BFF, React auth, identity profile, MFA
 runbook, Compose, gateway, SMTP, migration, recovery, and AWS private-pilot
 runtime sources before editing. Preserve all unrelated dirty-tree changes.
 
-Start with Task 1 only: compare maintained Go authorization-server libraries
-using primary evidence, implement a disposable standards spike, and freeze the
-provider-neutral contracts and `AS360-AUTH-001` through `AS360-AUTH-030` test
-map. Do not bulk-copy either imported store or apply the evaluation migration.
-Keep Keycloak active and do not enable dual-issuer fallback. Use `apply_patch` for manual
-edits, run focused tests, and update plan/index/tracker evidence literally.
+Tasks 0–10 have been executed sequentially. Preserve the recorded evidence,
+refresh any stale command/result rows only when a fresh check is actually run,
+and do not begin Task 11 without separate exact authorization. Do not
+bulk-copy either imported store or apply the evaluation migration. Keep
+Keycloak active and do not enable dual-issuer fallback. Use `apply_patch` for
+manual edits, run focused tests, and update plan/index/tracker evidence
+literally.
 
 Do not stage, commit, push, deploy, publish, mutate AWS/Cloudflare/SMTP, touch
 production/customer identity or data, migrate RDS, change DNS/certificates or

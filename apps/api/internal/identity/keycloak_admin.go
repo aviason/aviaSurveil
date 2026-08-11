@@ -92,13 +92,10 @@ type KeycloakAdminConfig struct {
 	HTTPClient   *http.Client
 }
 
-type KeycloakUser struct {
-	Email          string
-	FirstName      string
-	LastName       string
-	OrganizationID string
-	Roles          []Role
-}
+// These aliases retain the current Keycloak baseline adapter's test surface
+// while making the shared lifecycle contract provider-neutral. New provider
+// implementations should use ProviderUser and ProviderDirectory* directly.
+type KeycloakUser = ProviderUser
 
 type KeycloakAdminClient struct {
 	baseURL      *url.URL
@@ -134,28 +131,9 @@ func NewKeycloakAdminClient(config KeycloakAdminConfig) (*KeycloakAdminClient, e
 	}, nil
 }
 
-type KeycloakDirectoryQuery struct {
-	First  int
-	Limit  int
-	Search string
-}
-
-type KeycloakDirectoryUser struct {
-	SubjectID       string
-	Email           string
-	DisplayName     string
-	OrganizationID  string
-	Enabled         bool
-	TOTPConfigured  bool
-	RequiredActions []string
-	Roles           []Role
-}
-
-type KeycloakDirectoryPage struct {
-	Users         []KeycloakDirectoryUser
-	NextFirst     int
-	ProviderCalls int
-}
+type KeycloakDirectoryQuery = ProviderDirectoryQuery
+type KeycloakDirectoryUser = ProviderDirectoryUser
+type KeycloakDirectoryPage = ProviderDirectoryPage
 
 func (client *KeycloakAdminClient) ListDirectory(
 	ctx context.Context,

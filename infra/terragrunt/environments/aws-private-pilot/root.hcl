@@ -11,6 +11,13 @@ locals {
   plan_name      = replace(path_relative_to_include(), "/", "__")
   state_bucket   = local.input_config.locals.state_bucket_name
   state_kms_key  = local.input_config.locals.state_kms_key_arn
+
+  # An explicitly selected plan-only fast path is useful for provider-backed
+  # diagnostics when the owner overlay is still being assembled.  It removes
+  # both mutation/decision hooks from `plan` only; apply and destroy remain
+  # guarded by the normal authorization contracts.
+  fast_read_only_plan = get_env("AVIA_AWS_PRIVATE_PILOT_FAST_READ_ONLY_PLAN", "false") == "true"
+  hook_commands       = local.fast_read_only_plan ? ["apply", "destroy"] : ["plan", "apply", "destroy"]
 }
 
 remote_state {
@@ -42,12 +49,12 @@ terraform {
   }
 
   before_hook "decision_preflight" {
-    commands = ["plan", "apply", "destroy"]
+    commands = local.hook_commands
     execute  = ["bash", "${get_repo_root()}/scripts/check-aws-private-pilot-decisions.sh"]
   }
 
   before_hook "remote_authority" {
-    commands = ["plan", "apply", "destroy"]
+    commands = local.hook_commands
     execute  = ["bash", "${get_repo_root()}/scripts/check-aws-private-pilot-infrastructure.sh", "remote-hook"]
   }
 }

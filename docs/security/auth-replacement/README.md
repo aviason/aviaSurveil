@@ -8,6 +8,13 @@ and implementation planning.
 - [`evidence/2026-08-11-kindred-auth-export/IMPORT_RECEIPT.md`](evidence/2026-08-11-kindred-auth-export/IMPORT_RECEIPT.md)
   records integrity, classification, and the use boundary for the second
   owner-provided auth/JWT/session export.
+- [`evidence/2026-08-11-oidc-library-spike/RESULTS.md`](evidence/2026-08-11-oidc-library-spike/RESULTS.md)
+  records the primary-source Task 1 comparison, ARM64 disposable spikes, and
+  the dated owner authorization of Option A (`zitadel/oidc` v3.47.5,
+  `fb9fbfe`). Tasks 2–10 candidate evidence is retained beside it.
+- [`evidence/2026-08-11-oidc-library-spike/CONTRACTS.md`](evidence/2026-08-11-oidc-library-spike/CONTRACTS.md)
+  freezes provider-neutral boundaries and the `AS360-AUTH-001` through
+  `AS360-AUTH-030` test map without selecting a library.
 - [`hardening/source-comparison.md`](hardening/source-comparison.md) selects the
   reusable concepts and adds source-derived regression contracts without
   importing either candidate runtime.

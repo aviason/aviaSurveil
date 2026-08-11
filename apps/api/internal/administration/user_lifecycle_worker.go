@@ -16,11 +16,8 @@ import (
 )
 
 type UserLifecycleIdentityProvider interface {
-	ProvisionUser(context.Context, identity.KeycloakUser) (string, error)
-	ReconcileProvisionedUser(
-		context.Context,
-		identity.KeycloakUser,
-	) (string, bool, error)
+	ProvisionUser(context.Context, identity.ProviderUser) (string, error)
+	ReconcileProvisionedUser(context.Context, identity.ProviderUser) (string, bool, error)
 	UpdateUserAuthority(context.Context, string, string, []identity.Role) error
 	DisableUser(context.Context, string) error
 	EnableUser(context.Context, string) error
@@ -551,7 +548,7 @@ func (worker *UserLifecycleWorker) applyProviderAction(
 	switch claimed.Action {
 	case UserLifecycleProvision:
 		firstName, lastName := splitDisplayName(claimed.DisplayName)
-		user := identity.KeycloakUser{
+		user := identity.ProviderUser{
 			Email: claimed.Email, FirstName: firstName, LastName: lastName,
 			OrganizationID: claimed.OrganizationID,
 			Roles:          append([]identity.Role(nil), claimed.Roles...),

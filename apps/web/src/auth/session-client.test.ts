@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createSessionClient,
+  RefreshCoordinator,
+  SessionClientError,
   parseCsrfCookie,
   safeReturnTo,
   type SessionProjection,
@@ -151,5 +153,51 @@ describe("SessionClient", () => {
 	  });
 
 	  await expect(client.logout()).rejects.toMatchObject({ code: "LOGOUT_RESPONSE_INVALID" });
+	});
+
+	it("shares one in-flight refresh operation across concurrent callers", async () => {
+	  let resolveOperation!: (value: string) => void;
+	  let operationCalls = 0;
+	  const operation = vi.fn(() => {
+	    operationCalls += 1;
+	    if (operationCalls === 1) {
+	      return new Promise<string>((resolve) => {
+	        resolveOperation = resolve;
+	      });
+	    }
+	    return Promise.resolve("rotated-session");
+	  });
+	  const coordinator = new RefreshCoordinator();
+
+	  const first = coordinator.run(operation);
+	  const second = coordinator.run(operation);
+
+	  expect(second).toBe(first);
+	  await Promise.resolve();
+	  expect(operation).toHaveBeenCalledTimes(1);
+	  resolveOperation("rotated-session");
+	  await expect(Promise.all([first, second])).resolves.toEqual(["rotated-session", "rotated-session"]);
+
+	  await expect(coordinator.run(operation)).resolves.toBe("rotated-session");
+	  expect(operation).toHaveBeenCalledTimes(2);
+	});
+
+	it("clears the complete local session after a terminal refresh rejection", async () => {
+	  const clearSession = vi.fn();
+	  const coordinator = new RefreshCoordinator(clearSession);
+	  const failure = new SessionClientError("REFRESH_REUSE", "refresh family was reused");
+
+	  await expect(coordinator.run(async () => { throw failure; })).rejects.toBe(failure);
+	  expect(clearSession).toHaveBeenCalledTimes(1);
+	});
+
+	it("does not clear local state for a retryable refresh failure and allows a later retry", async () => {
+	  const clearSession = vi.fn();
+	  const coordinator = new RefreshCoordinator(clearSession);
+	  const failure = new SessionClientError("PROVIDER_UNAVAILABLE", "provider unavailable");
+
+	  await expect(coordinator.run(async () => { throw failure; })).rejects.toBe(failure);
+	  expect(clearSession).not.toHaveBeenCalled();
+	  await expect(coordinator.run(async () => "retry-success")).resolves.toBe("retry-success");
 	});
 });

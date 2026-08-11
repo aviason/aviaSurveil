@@ -43,6 +43,38 @@ export class SessionClientError extends Error {
   }
 }
 
+const terminalRefreshCodes = new Set(["REFRESH_REUSE", "SESSION_REVOKED", "AUTH_REVISION_STALE", "UNAUTHENTICATED"]);
+
+export function isTerminalRefreshError(error: unknown): boolean {
+  if (error instanceof SessionClientError) return terminalRefreshCodes.has(error.code);
+  if (!error || typeof error !== "object") return false;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" && terminalRefreshCodes.has(code);
+}
+
+/** Serializes one browser-side refresh attempt and clears local state after a terminal rejection. */
+export class RefreshCoordinator {
+  private pending: Promise<unknown> | null = null;
+
+  constructor(private readonly clearSession: () => void = () => undefined) {}
+
+  run<T>(operation: () => Promise<T>): Promise<T> {
+    if (this.pending) return this.pending as Promise<T>;
+    let current: Promise<T>;
+    current = Promise.resolve()
+      .then(operation)
+      .catch((error: unknown) => {
+        if (isTerminalRefreshError(error)) this.clearSession();
+        throw error;
+      })
+      .finally(() => {
+        if (this.pending === current) this.pending = null;
+      });
+    this.pending = current;
+    return current;
+  }
+}
+
 const sessionPaths = new Set(REACT_ROUTE_CONTRACTS.map((contract) => contract.path));
 const canonicalSessionPathPatterns = [
   CANONICAL_QUESTION_REVIEW_PATH,

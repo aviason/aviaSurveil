@@ -14,6 +14,34 @@ Keycloak remains the active provider until the replacement passes every gate.
 No implementation phase authorizes AWS, Cloudflare, SMTP, production identity,
 DNS, secret, migration, deployment, or traffic mutation.
 
+## Task 1 Library Authorization Gate
+
+The Task 1 comparison and disposable evidence are recorded in the
+[OIDC library spike results](../../evidence/2026-08-11-oidc-library-spike/RESULTS.md)
+and the [provider-neutral contracts](../../evidence/2026-08-11-oidc-library-spike/CONTRACTS.md).
+As of 2026-08-11 the evidence is `verified locally`. The owner authorized
+**Option A — `zitadel/oidc` v3.47.5 (`fb9fbfe`)** on 2026-08-11 with the
+messages “tamamdır olur kabul” and “tamam evet”, accepting the previously
+documented recommendation. This is the selected-library field for the
+implementation. Task 2 may create `apps/auth/`, but only with this library.
+No production, deployment, identity, secret, migration, traffic, or
+Keycloak-retirement authority is implied.
+
+The following exact authorization question was answered on 2026-08-11:
+
+> Which option authorizes Task 2: (A) zitadel/oidc; (B) ory/fosite;
+> (C) authelia.com/provider/oauth2; (D) Ory Hydra; (E) another
+> evidence-backed option; (F) low-level JOSE/OAuth2 after explicit
+> contract amendment; (G) libraryless/manual after explicit
+> contract amendment and independent security review; or (H) stop/rework?
+
+**Recorded answer:** A — `zitadel/oidc` v3.47.5 (`fb9fbfe`), authorized
+2026-08-11.
+
+Only the selected option proceeds. The comparison and disposable evidence for
+the other options remain retained for audit and are not implementation
+authorization.
+
 ## Source Revision And Drift Check
 
 - Evidence archive SHA-256:
@@ -173,7 +201,9 @@ and `production-ready: not established`.
 
 ## Open Decisions
 
-- Exact maintained OIDC authorization-server library.
+- The maintained authorization-server library is no longer open: Option A,
+  `zitadel/oidc` v3.47.5 (`fb9fbfe`), was authorized on 2026-08-11. Any
+  change requires a new evidence comparison and owner decision.
 - Initial WebAuthn/passkey requirement.
 - Provider database name and long-term backup/retention policy.
 - Whether any non-synthetic identity migration is needed.

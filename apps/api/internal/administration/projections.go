@@ -126,8 +126,8 @@ type AccessDirectoryPage struct {
 type AccessDirectoryProvider interface {
 	ListDirectory(
 		context.Context,
-		identity.KeycloakDirectoryQuery,
-	) (identity.KeycloakDirectoryPage, error)
+		identity.ProviderDirectoryQuery,
+	) (identity.ProviderDirectoryPage, error)
 }
 
 type OrganizationProjection struct {
@@ -352,7 +352,7 @@ func (service *ProjectionService) ListAccessDirectory(
 	}
 	providerPage, err := service.directoryProvider.ListDirectory(
 		ctx,
-		identity.KeycloakDirectoryQuery{
+		identity.ProviderDirectoryQuery{
 			First:  first,
 			Limit:  limit,
 			Search: strings.TrimSpace(filters.Search),
@@ -520,7 +520,7 @@ func containsRole(roles []identity.Role, expected identity.Role) bool {
 
 func calculateMembershipDrift(
 	local accessDirectoryLocalState,
-	provider identity.KeycloakDirectoryUser,
+	provider identity.ProviderDirectoryUser,
 ) string {
 	if local.MembershipRevision == 0 {
 		return "untracked"
@@ -540,7 +540,7 @@ func calculateMembershipDrift(
 	return "in-sync"
 }
 
-func providerMFAState(user identity.KeycloakDirectoryUser) string {
+func providerMFAState(user identity.ProviderDirectoryUser) string {
 	if user.TOTPConfigured {
 		return "enrolled"
 	}

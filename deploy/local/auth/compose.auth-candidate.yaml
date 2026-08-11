@@ -1,0 +1,83 @@
+name: aviasurveil360-auth-candidate
+
+x-runtime-security: &runtime-security
+  init: true
+  read_only: true
+  stop_grace_period: 15s
+  pids_limit: 128
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  tmpfs:
+    - /tmp:mode=1777
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "3"
+
+services:
+  auth-candidate:
+    <<: *runtime-security
+    image: aviasurveil360/auth-candidate:local
+    build:
+      context: ../../..
+      dockerfile: apps/auth/Dockerfile
+      target: runtime
+    profiles: [auth-candidate]
+    user: "10001:10001"
+    environment:
+      AVIA_AUTH_ENVIRONMENT: local-candidate
+      AVIA_AUTH_PROFILE: isolated-candidate
+      AVIA_AUTH_HTTP_ADDRESS: 0.0.0.0:8080
+      AVIA_AUTH_ISSUER_URL: https://auth.local.invalid/
+      AVIA_AUTH_DATABASE_URL_FILE: /run/secrets/auth_database_url
+      AVIA_AUTH_DATABASE_ROLE: auth_owner
+      AVIA_AUTH_DATABASE_SCHEMA: auth_identity
+      AVIA_AUTH_SIGNING_KEY_FILE: /run/secrets/auth_signing_key
+      AVIA_AUTH_SIGNING_KEY_ID: as360-auth-candidate
+      AVIA_AUTH_SIGNING_ALGORITHM: RS256
+      AVIA_AUTH_DATA_ENCRYPTION_KEY_FILE: /run/secrets/auth_data_encryption_key
+      AVIA_AUTH_MFA_KEY_FILE: /run/secrets/auth_mfa_key
+      AVIA_AUTH_SMTP_ADDRESS: mailpit:1025
+      AVIA_AUTH_SMTP_FROM: identity@aviasurveil360.local
+      AVIA_AUTH_SMTP_TLS_MODE: starttls
+      AVIA_AUTH_SMTP_PASSWORD_FILE: /run/secrets/auth_smtp_password
+    secrets:
+      - auth_database_url
+      - auth_signing_key
+      - auth_data_encryption_key
+      - auth_mfa_key
+      - auth_smtp_password
+    expose:
+      - "8080"
+    networks:
+      - auth-internal
+    healthcheck:
+      test: [CMD, wget, --quiet, --output-document=/dev/null, http://127.0.0.1:8080/health/live]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+
+networks:
+  auth-internal:
+    internal: true
+
+secrets:
+  auth_database_url:
+    external: true
+  auth_signing_key:
+    external: true
+  auth_data_encryption_key:
+    external: true
+  auth_mfa_key:
+    external: true
+  auth_smtp_password:
+    external: true
