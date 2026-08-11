@@ -1,6 +1,8 @@
 package httpserver
 
 import (
+	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -59,5 +61,28 @@ func TestTask2ReadinessCanOnlyBeOpenedExplicitly(t *testing.T) {
 	server.httpServer.Handler.ServeHTTP(recording, httptest.NewRequest(http.MethodGet, "/health/ready", nil))
 	if recording.Code != http.StatusOK {
 		t.Fatalf("explicit readiness = %d, want 200", recording.Code)
+	}
+}
+
+func TestRuntimeReadinessFailsClosedWhenDependencyCheckFails(t *testing.T) {
+	settings := config.Settings{HTTPAddress: "127.0.0.1:18083", ReadHeaderTimeout: 5, ReadTimeout: 15, WriteTimeout: 15, IdleTimeout: 60, MaxHeaderBytes: 32 << 10}
+	available := true
+	server := NewWithRuntimeReadiness(settings, slog.New(slog.NewTextHandler(io.Discard, nil)), http.NotFoundHandler(), func(context.Context) error {
+		if !available {
+			return errors.New("dependency unavailable")
+		}
+		return nil
+	})
+	server.Ready()
+	recording := httptest.NewRecorder()
+	server.httpServer.Handler.ServeHTTP(recording, httptest.NewRequest(http.MethodGet, "/health/ready", nil))
+	if recording.Code != http.StatusOK {
+		t.Fatalf("available readiness = %d", recording.Code)
+	}
+	available = false
+	recording = httptest.NewRecorder()
+	server.httpServer.Handler.ServeHTTP(recording, httptest.NewRequest(http.MethodGet, "/health/ready", nil))
+	if recording.Code != http.StatusServiceUnavailable || !strings.Contains(recording.Body.String(), dependencyUnavailableReason) {
+		t.Fatalf("dependency-loss readiness = %d %s", recording.Code, recording.Body.String())
 	}
 }

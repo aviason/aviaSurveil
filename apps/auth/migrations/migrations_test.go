@@ -59,6 +59,50 @@ func TestProviderAdminAuditMigrationContainsAppendOnlyBoundaries(t *testing.T) {
 	}
 }
 
+func TestMFAMigrationContainsDurableProtectionBoundaries(t *testing.T) {
+	for _, required := range []string{
+		"mfa_factors",
+		"secret_ciphertext bytea NOT NULL",
+		"last_used_counter bigint NOT NULL DEFAULT -1",
+		"mfa_recovery_codes",
+		"code_hash bytea NOT NULL",
+		"raw recovery codes are never persisted",
+	} {
+		if !strings.Contains(mfaSchema, required) {
+			t.Errorf("MFA schema missing %q", required)
+		}
+	}
+}
+
+func TestChallengeMigrationContainsDurableProtectionBoundaries(t *testing.T) {
+	for _, required := range []string{
+		"identity_challenges",
+		"token_hash bytea PRIMARY KEY",
+		"'email-verification', 'password-reset', 'mfa-recovery', 'admin-recovery'",
+		"attempt_count integer NOT NULL DEFAULT 0",
+		"Consume and rejection paths lock rows",
+	} {
+		if !strings.Contains(challengesSchema, required) {
+			t.Errorf("challenge schema missing %q", required)
+		}
+	}
+}
+
+func TestOIDCRuntimeMigrationContainsDurableProtectionBoundaries(t *testing.T) {
+	for _, required := range []string{
+		"oidc_auth_requests",
+		"oidc_authorization_codes",
+		"code_hash bytea PRIMARY KEY",
+		"oidc_access_tokens",
+		"oidc_refresh_tokens",
+		"raw refresh credentials are never persisted",
+	} {
+		if !strings.Contains(oidcRuntimeSchema, required) {
+			t.Errorf("OIDC runtime schema missing %q", required)
+		}
+	}
+}
+
 func TestPostgreSQLIdentityMigration(t *testing.T) {
 	databaseURL := strings.TrimSpace(os.Getenv("AVIA_AUTH_TEST_DATABASE_URL"))
 	if databaseURL == "" {

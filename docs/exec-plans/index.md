@@ -29,6 +29,63 @@ the sequence remains useful for successor dependency context:
    GO; every remote/cost-bearing action then needs its own explicit
    authorization.
 
+2026-08-12 continuation — the First-Party Go OIDC Authentication Replacement
+has a `verified locally`, `candidate-only` disposable runtime topology: the
+dedicated PostgreSQL, authenticated STARTTLS Mailpit, and mounted auth runtime
+reached liveness/readiness/discovery. Provider-owned recovery, reset, and the
+narrow logout entry point are `verified locally` in the durable PostgreSQL
+suite. The isolated browser qualification is `verified locally`: OIDC
+Authorization Code with S256 PKCE and standard `form_post`, provider-owned
+password login, TOTP MFA, generic recovery initiation, password reset, MFA
+reset, post-reset password login without MFA, and explicit logout completed in
+a task-owned ephemeral browser context. Keycloak remains the serving and
+rollback baseline; release remains `release pending` and literal `NO-GO`.
+
+The same disposable runtime runner is `verified locally` for Mailpit
+dependency-loss and auth-container restart: readiness changed to HTTP 503 when
+authenticated STARTTLS Mailpit was stopped, then recovered after its return and
+again after auth restart against durable PostgreSQL state. This remains
+`candidate-only`; the browser qualification is `verified locally` and release
+remains `release pending`.
+
+The task-owned backup/restore runner is `verified locally`: it dumped,
+removed, and restored only the disposable privileged auth schema, then proved
+runtime readiness and synthetic-account presence after restart. This remains
+`candidate-only`; the browser qualification is `verified locally` and release
+remains `release pending`.
+
+The bounded native ARM64 auth-only mixed-load runner is `verified locally`: it
+preserved the configured two-operation Argon2id ceiling while completing two
+successful OIDC password logins, two rejected unknown-account attempts, four
+recovery/Mailpit deliveries, and readiness/discovery probes in a disposable
+topology. This is `candidate-only`, not the full gateway/API/worker/PDF capacity
+gate, which remains `not run`; release remains `release pending`.
+
+The isolated browser provider-form semantic accessibility check is `verified
+locally`: language, main landmark, level-one heading, submit control, and form
+label/control semantics passed for login, MFA, recovery, password reset, and
+MFA reset. Complete product accessibility remains `not run`; this stays
+`candidate-only` and release remains `release pending`.
+
+The durable candidate signing-key rotation check is `verified locally`: a new
+encrypted RSA key became active, the old key remained in finite JWKS overlap,
+and elapsed overlap retirement removed it. Key custody and release provenance
+remain `not run`; Keycloak remains serving/rollback baseline and release remains
+`release pending`.
+
+Fresh auth/API module verification and web typecheck/testing are `verified
+locally` (web: 85 files / 751 tests). The local SBOM/vulnerability tools remain
+unavailable, so fresh SBOM/license/vulnerability evidence is `not run`;
+Keycloak remains serving/rollback baseline and release remains `release pending`.
+
+The local/disposable closure audit records all technically solvable candidate
+gates `verified locally`. Provider administration/BFF E2E and organization
+denial require the separate application authority/profile; rollback traffic,
+complete system capacity/accessibility, unavailable supply-chain tooling, and
+external review/release gates remain `not run` or `blocked`. Keycloak remains
+serving/rollback baseline; the result is `candidate-only`, `release pending`,
+and literal `NO-GO`.
+
 | Plan | Status | Next Todo |
 |---|---|---|
 | [Governed Service Provider Checklist Generation And Publication](completed/2026-07-29-governed-service-provider-checklist-generation-plan.md) | completed | Gate 0 and Tasks 1–9 are independently accepted and final local verification is recorded. The result is `candidate-only`, `release pending`, and `production-ready: not established`; the real OPS/AOC request remains `blocked` with zero lifecycle effects. **Next:** retain external NCAA/source-owner and responsible Department Manager confirmations as tracker-managed dependencies. |
@@ -45,7 +102,7 @@ the sequence remains useful for successor dependency context:
 | [Cost-Optimized IPv6 ARM64 EC2 And Cloudflare Trial](active/2026-08-05-cost-optimized-ipv6-arm64-ec2-cloudflare-trial-plan.md) | active — Tasks 1–4 local contracts `verified locally`; owner inputs, native capacity, and provider/tool gates `not run` | The separate disposable `candidate-only` trial now has a fail-closed owner decision contract, exactly three-service ARM64 Compose/runtime contracts, focused IPv6 network/compute/edge/budget modules, and an independent five-component `aws-ipv6-trial` Terragrunt graph. Local Node contract suites, Terraform formatting, Terragrunt formatting, shell syntax, and offline boundaries pass. The owner overlay is intentionally absent (`missing-owner-input`); native ARM64 build/30-minute capacity, provider initialization, OPA/TFLint/Trivy, AWS/Cloudflare discovery, remote state/locks, plans, applies, publication, tunnel/DNS/Access, smoke, retain/destroy, and residue queries are `not run`. The environment remains separate from `aws-trial` and paused preprod, `candidate-only`, release `release pending`, and `production-ready: not established`. **Next:** obtain the exact owner overlay and a separately authorized native ARM64 local capacity run; no remote action is authorized by this plan. |
 | [AWS Single-AZ ARM64 Private-Pilot Production Preparation](active/2026-08-10-aws-single-az-arm64-private-pilot-production-plan.md) | active — Task 8 Layers 8.0–8.5 available local implementation/focused gates `verified locally`; sandbox integration and native capacity `blocked`/`not run` | The accepted amendment retires data-feed runtime and lifecycle coupling, the separate reminder scheduler, separate web container, and Gotenberg/Chromium. The target is gateway-with-React, API, a consolidated worker with isolated reminders and provenance-bound/fenced native PDFs, and retained Keycloak. It fixes exact final cardinalities at four long-running roles, seven release subjects, five ECR repositories, eight runtime Secrets Manager containers plus separate RDS/SSM identities, and seven log groups. Historical Tasks 1–6/Task 7 evidence remains immutable predecessor evidence; fresh Layer 8 evidence is recorded in [Task 8 runtime-simplification evidence](../demo-evidence/AWS_PRIVATE_PILOT_TASK8_RUNTIME_SIMPLIFICATION_2026-08-11.md). Full-stack provider planning, native ARM64 capacity, SMTP/deployment/recovery/release, and remote actions remain `blocked`/`not run`; no old pass is inherited. The result remains `candidate-only`, `release pending`, and `production-ready: not established`. **Next:** obtain separately authorized prerequisites for release/capacity only after the local target is accepted; keep application DNS untouched. |
 | [AWS Private-Pilot Fast Read-Only Plan Mode](active/2026-08-11-private-pilot-fast-read-only-plan-mode-plan.md) | active — fast-path contract `verified locally`; provider plan `blocked` on missing owner inputs | An explicit `AVIA_AWS_PRIVATE_PILOT_FAST_READ_ONLY_PLAN=true` switch removes decision and remote-authority hooks from `plan` only; `apply` and `destroy` remain guarded. The provider-backed plan reached Terraform validation and confirmed the blank CIDR, Cloudflare, storage, release, SMTP, bucket, budget, and tag inputs. **Next:** fill those non-secret owner inputs before repeating read-only plan; no mutation is authorized. |
-| [First-Party Go OIDC Authentication Replacement](active/2026-08-11-first-party-go-oidc-auth-replacement-plan.md) | active — Tasks 0–10 `verified locally`; Option A authorized 2026-08-11; Task 10 release `NO-GO` | Exact ZIP SHA-256 values `7fa982300440cb3e79d28bc0f7f22ebb59124bc9c125dededb22dea306fc7fb7` and `5de123c9bd8a711889e85b1876329540dee49423f64568c0a4bade4b5a4ff79b`, their byte-identical extractions, and source-specific receipts remain immutable candidate evidence outside runtime builds. Neither export is a conforming OIDC provider. Task 1's primary-source library comparison, ARM64 disposable spikes, AS360-OIDC-WEB-1 core/negative checks, provider-neutral contracts, and `AS360-AUTH-001`–`030` map are recorded in the [OIDC spike results](../security/auth-replacement/evidence/2026-08-11-oidc-library-spike/RESULTS.md). Tasks 2–10 are implemented as isolated candidate work with linked scaffold, identity, sessions, OIDC, MFA/recovery, audit/admin, API/web, qualification, and gate evidence in the same directory. The owner authorized Option A — `zitadel/oidc` v3.47.5 (`fb9fbfe`) — on 2026-08-11; only this library may be used. Keycloak remains required as serving/rollback baseline because independent security review, complete recovery/browser qualification, and native ARM64 workload evidence are `not run`. **Next:** retain Keycloak and obtain separate authorization before Task 11 cutover/retirement work. |
+| [First-Party Go OIDC Authentication Replacement](active/2026-08-11-first-party-go-oidc-auth-replacement-plan.md) | active — isolated Tasks 0–10 and browser qualification `verified locally`; Task 10 release `NO-GO` | Exact ZIP SHA-256 values `7fa982300440cb3e79d28bc0f7f22ebb59124bc9c125dededb22dea306fc7fb7` and `5de123c9bd8a711889e85b1876329540dee49423f64568c0a4bade4b5a4ff79b`, their byte-identical extractions, and source-specific receipts remain immutable candidate evidence outside runtime builds. Neither export is a conforming OIDC provider. Option A — `zitadel/oidc` v3.47.5 (`fb9fbfe`) — is the only authorized library. Fresh auth unit/race/protocol, vet, auth/API module-integrity, ARM64 build/image, Compose-policy, encrypted PostgreSQL outbox, durable encrypted PostgreSQL MFA/challenge state, durable selected-library OIDC storage, authenticated TLS/STARTTLS Mailpit retry checks, mounted disposable runtime topology, dependency-loss/restart, backup/restore, and browser OIDC/MFA/recovery/password-reset/MFA-reset/logout qualification are `verified locally`. Rollback traffic, native ARM64 mixed-load capacity, and fresh SBOM/license/vulnerability/provenance evidence are `not run`. Keycloak remains required as serving/rollback baseline; independent security review remains `not run`; the result is `candidate-only` and `release pending`. **Next:** retain Keycloak; complete only separately authorized later qualification gates before any Task 11 cutover/retirement authorization. |
 | [AWS Preprod Validation](active/2026-07-27-aws-preprod-validation-plan.md) | paused | Independent review retained eight work packages but made each remote/cost-bearing action a separate authorization slice. The current single-container/one-database candidate, dependency-invalid broad planning, unbound rollback/destroy input, and Docker-config/ECR-manifest mismatch are blocking architecture gates. This plan can issue only `preprod verified` and `qualified for production deployment planning`, never `production-ready`. Every AWS action remains `not run`. **Next:** resume only after exact local GO; separately authorize read-only discovery, then close the local runtime/topological-wave architecture gate before any remote plan. |
 | [React Vite PWA And Go Offline-First Production](active/2026-07-20-react-vite-pwa-go-offline-first-production-plan.md) | active | Tasks 2-13 remain [verified locally](../demo-evidence/LOCAL_RELEASE_CANDIDATE_2026-07-21.md), `candidate-only`, and `release pending`. The 17-route parity remediation is `ready-for-verification`; the four follow-up plans passed independent plan review with corrections incorporated. **Next:** execute Full React 86-Screen Migration Task 1 in the new Codex task; production deployment/cutover remains `blocked`. |
 | [React Legacy UI Parity And Backend Integration](active/2026-07-21-react-legacy-ui-parity-and-backend-integration-plan.md) | ready-for-verification | Tasks 1-16 are implemented and `verified locally`. The exact boundary is 17 React routes / 69 legacy-only rows; React 282/282, root 107/107, mock 8/8, HTTP 10/10, OIDC 1/1, offline 7/7, visible actions 3/3 × 17 surfaces, and decoded-pixel visual parity 52/52 pass. Manual review accepts all 51 viewport pairs as recognizably the root demo; see [Task 16 evidence](../demo-evidence/REACT_LEGACY_UI_PARITY_2026-07-22.md). **Next:** explicit stakeholder review/sign-off before moving the plan to `completed`; release remains `release pending`. |

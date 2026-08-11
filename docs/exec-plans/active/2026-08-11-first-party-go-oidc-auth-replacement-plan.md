@@ -11,16 +11,18 @@ This ExecPlan is a living document. Keep `Progress`, `Decision Log`,
 - Plan status: `active`
 - Current result: Tasks 0–10 are `verified locally` for their isolated,
   candidate-only implementation and local gates; Task 10 records `NO-GO` for
-  release because independent review and full capacity/recovery evidence are
-  absent. Option A (`zitadel/oidc` v3.47.5, `fb9fbfe`) was authorized on
+  release because independent review and native ARM64 capacity evidence are
+  `not run`. Option A (`zitadel/oidc` v3.47.5, `fb9fbfe`) was authorized on
   2026-08-11.
 - Current provider: Keycloak remains required and must not be removed or
   weakened during development.
 - Product status: `candidate-only`; release is `release pending`;
   `production-ready: not established`.
-- Next concrete todo: retain Keycloak and prepare a separately authorized Task
-  11 cutover/review decision. No production or external-state action is
-  authorized by this plan.
+- Next concrete todo: classify the remaining native ARM64 mixed-load,
+  rollback-traffic, fresh SBOM/license/vulnerability/provenance, and external
+  review gates without changing the Keycloak serving or rollback baseline.
+  PostgreSQL and verified TLS Mailpit topology. Keycloak remains retained; no
+  production or external-state action is authorized by this plan.
 
 ## Objective
 
@@ -316,8 +318,10 @@ the current API OIDC client; no dual issuer or algorithm fallback exists.
 
 ### Task 6 — MFA, Recovery, Verification, Mail, And Localization
 
-Status: `verified locally` for bounded local components; Mailpit delivery and
-real SMTP integration remain `not run`.
+Status: `verified locally` for bounded local components, encrypted PostgreSQL
+outbox retry/lease recovery, durable encrypted PostgreSQL MFA state, and
+disposable verified TLS/STARTTLS Mailpit delivery. Isolated runtime and browser
+recovery/reset qualification is `verified locally`.
 
 - Implement TOTP enrollment/challenge with encrypted secrets and replay-window
   consumption, plus random hashed single-use recovery codes.
@@ -378,7 +382,11 @@ pass against both explicit profiles, never through fallback.
 ### Task 9 — Isolated Local Qualification And Synthetic Migration
 
 Status: `verified locally` for the deterministic synthetic qualification
-harness; full browser/restart/backup/rollback scenarios remain `not run`.
+harness, isolated browser OIDC/MFA/recovery/reset/logout, dependency-loss,
+restart, and backup/restore. Durable signing-key rotation/overlap/retirement and
+candidate provider-form accessibility semantics are `verified locally`.
+Keycloak rollback traffic, organization denial, and broader lifecycle
+qualification are `not run`.
 
 - Add a distinct local profile with a different issuer, client, database, keys,
   cookies, ports, and synthetic identities. Keep the normal Keycloak profile
@@ -397,8 +405,8 @@ state is removed, and Keycloak remains a tested rollback provider.
 ### Task 10 — Security, Dependency, Recovery, And ARM64 Gates
 
 Status: `verified locally` for local code/image/dependency gates; release is
-literal `NO-GO` because independent security, complete recovery, and native
-ARM64 workload evidence are `not run`.
+literal `NO-GO` because independent security and native ARM64 workload evidence
+are `not run`.
 
 - Run formatting, vet, unit, PostgreSQL integration, race, fuzz, protocol,
   browser, accessibility, contract, migration, backup/restore, and failure
@@ -543,6 +551,66 @@ passing placeholders.
   `verified locally`; release is literal `NO-GO` pending independent review,
   complete recovery/browser qualification, and native ARM64 workload
   evidence.
+- [x] 2026-08-11 — Fresh candidate-only continuation checks are `verified
+  locally`: full auth unit/race/protocol tests, vet, auth/API module integrity,
+  ARM64 cross-build, hardened Compose policy, and a disposable native ARM64
+  image inspection. Full browser OIDC/MFA/recovery/reset/logout, Mailpit retry,
+  backup/restore, restart/dependency-loss, rollback traffic, and mixed-load
+  capacity are `blocked` by the current runtime's health-only route surface and
+  candidate Compose topology not yet wired to PostgreSQL or Mailpit. SBOM/license/
+  vulnerability/provenance tooling for the fresh image is `not run`. Keycloak
+  remains the required serving and rollback baseline. Task-owned image and
+  binary cleanup is complete; root-owned temporary module-cache cleanup is
+  `blocked` by host file permissions.
+- [x] 2026-08-11 — `scripts/test-auth-candidate-postgres.sh` now creates an
+  isolated disposable PostgreSQL namespace, runs the auth identity/session/
+  migration integration suite, and removes its container, volume, and runtime
+  directory. This gate is `verified locally`; it does not supply the still
+  missing browser, Mailpit, restore, rollback-traffic, or mixed-load evidence.
+- [x] 2026-08-11 — `scripts/test-auth-candidate-mailpit.sh` starts a
+  disposable authenticated Mailpit instance with a task-owned certificate and
+  mandatory STARTTLS. `TestMailpitSTARTTLSDelivery` is `verified locally` for
+  TLS-verified delivery and receipt visibility; the runner removes its
+  container and ephemeral credential material. Durable retry/outbox wiring is
+  still absent from the candidate runtime.
+- [x] 2026-08-11 — Added forward-only migration `000004_mail_outbox.up.sql`
+  and an encrypted-at-rest PostgreSQL mail outbox. Its bounded retry, lease
+  ownership/recovery, and terminal delivery state are `verified locally` in a
+  disposable PostgreSQL project. `scripts/test-auth-candidate-mailpit-outbox.sh`
+  then exercised a planned transient failure followed by authenticated,
+  certificate-verified STARTTLS delivery to disposable Mailpit and receipt API
+  confirmation. The runner removed all task-owned containers, volumes, and
+  temporary credentials. This remains `candidate-only`; no route is mounted
+  and the remaining browser/runtime qualification is `blocked`.
+- [x] 2026-08-11 — Added forward-only migration `000005_mfa.up.sql` and the
+  PostgreSQL MFA adapter. It stores AES-GCM-protected TOTP factors, durable
+  monotonic replay counters, and only hashed single-use recovery codes; row
+  locking bounds recovery failures and reset deletes the factor state. The
+  focused unit/migration tests and `scripts/test-auth-candidate-postgres.sh`
+  are `verified locally`. This remains `candidate-only`; no runtime route
+  consumes it and browser qualification is `blocked`.
+- [x] 2026-08-11 — Added forward-only migration `000006_challenges.up.sql`
+  and the PostgreSQL challenge adapter. It persists only token hashes with
+  exact subject/purpose binding, expiry, attempt budgets, single-use and
+  invalidation state. Consume/reject transitions use row locks; concurrent
+  consumption yields one success and one used/replay result. Focused tests and
+  `scripts/test-auth-candidate-postgres.sh` are `verified locally`. This
+  remains `candidate-only`; no runtime route consumes it and browser
+  qualification is `blocked`.
+- [x] 2026-08-11 — Added forward-only migration `000007_oidc_runtime.up.sql`
+  and a PostgreSQL `zitadel/oidc` storage adapter. Authorization and refresh
+  credentials persist only as hashes; exact clients, access/revocation state,
+  and encrypted signing-key material are durable. The disposable PostgreSQL
+  test passed client authentication, encrypted key load, authorization-code
+  state, and refresh rotation/reuse denial `verified locally`. This remains
+  `candidate-only`; the liveness-only HTTP server does not mount this adapter.
+- [x] 2026-08-11 — Added isolated provider-owned login and MFA handlers over
+  the durable stores. A successful password authentication stages a subject;
+  an enabled TOTP factor or recovery code must complete before the OIDC
+  callback is authorized. The disposable PostgreSQL suite is `verified locally`
+  for password login and the MFA-required path. These handlers are not mounted
+  by `cmd/auth`, so the candidate runtime remains `blocked` from browser
+  qualification.
 - [ ] Task 11 — Separately authorized cutover and retirement.
 
 ## Decision Log
@@ -627,6 +695,14 @@ passing placeholders.
 - Task 10's first image scan exposed CVE-2026-56852 in `golang.org/x/text`
   v0.37.0; the dependency was upgraded to v0.39.0, the ARM64 image rebuilt,
   and the HIGH/CRITICAL scan then passed with zero findings.
+- A fresh local continuation confirms the candidate server still deliberately
+  exposes only health routes. Its protocol, identity, MFA, recovery, mail, and
+  administration components are not runtime-wired; therefore the missing
+  browser/recovery/capacity evidence is a structural `blocked` gate rather than
+  a test runner omission.
+- The durable MFA adapter is isolated in the privileged `auth_identity` schema.
+  It is not a claim that the liveness-only auth server now offers MFA, recovery,
+  or reset routes.
 
 ## Outcome
 
@@ -635,11 +711,13 @@ local evidence: both source collections are preserved, integrity-bound,
 classified, compared, and linked to the selected separate-provider
 architecture; the Task 1 library evidence and contracts are retained in the
 security package. Option A (`zitadel/oidc` v3.47.5, `fb9fbfe`) was authorized on
-2026-08-11. Task 10 records a release `NO-GO` because independent security,
-full recovery/browser, and native ARM64 workload gates remain `not run`.
+2026-08-11. Task 10 records a release `NO-GO` because independent security and
+native ARM64 workload gates remain `not run`.
 Production, deployment, identity migration, traffic, and Keycloak retirement
 remain unauthorized. The result is `candidate-only`, release is `release
-pending`, and `production-ready: not established`.
+pending`, and `production-ready: not established`. Isolated runtime browser,
+dependency-loss, restart, and backup/restore evidence is `verified locally`;
+it does not change Task 11 authorization.
 
 ## Execution Prompt
 
@@ -666,3 +744,142 @@ Do not stage, commit, push, deploy, publish, mutate AWS/Cloudflare/SMTP, touch
 production/customer identity or data, migrate RDS, change DNS/certificates or
 secrets, cut over traffic, remove Keycloak, or destroy/retain provider state
 without separate exact authorization.
+
+## Browser qualification attempt (2026-08-12)
+
+The isolated browser runner used a task-owned persistent Playwright profile and
+the disposable Compose topology. Discovery, `/authorize`, provider-owned login,
+and MFA form submission reached the provider callback redirect. The browser
+then aborted its GET to `/authorize/callback` with `net::ERR_ABORTED` before it
+reached the local callback. The OIDC browser qualification is `blocked`; it is
+not `verified locally`. No recovery/reset/logout browser claim follows from
+this attempt. All task-owned containers, volumes, temporary secrets, browser
+profile, and browser processes were removed. The candidate remains
+`candidate-only`, Keycloak remains serving and rollback baseline, and release
+remains `release pending`.
+
+## Dependency-loss and restart qualification (2026-08-12)
+
+The isolated runtime runner stopped only task-owned authenticated STARTTLS
+Mailpit and observed the running auth service return HTTP 503 readiness while
+liveness remained available. After Mailpit was restored, readiness recovered.
+The runner then restarted the auth service and observed readiness recover again
+against the same durable PostgreSQL state. This is `verified locally` and
+`candidate-only`; browser callback qualification remains `blocked`, Keycloak
+remains serving and rollback baseline, and release remains `release pending`.
+
+## Backup and restore qualification (2026-08-12)
+
+`scripts/test-auth-candidate-backup-restore.sh` created a task-owned PostgreSQL
+dump, stopped only the disposable auth service, removed only its disposable
+`auth_identity` schema, restored the dump, and restarted the runtime. Readiness
+returned and the synthetic active account remained present. This is `verified
+locally` and `candidate-only`; it does not establish any external recovery
+objective. Browser callback qualification remains `blocked`, Keycloak remains
+serving and rollback baseline, and release remains `release pending`.
+
+## Runtime continuation (2026-08-12)
+
+`cmd/auth` now applies the privileged migrations and initializes durable
+PostgreSQL identity, MFA, OIDC storage, and admission limiting before it mounts
+the isolated `RuntimeCandidate`; readiness opens only after those checks pass.
+The opt-in candidate Compose topology now has its own PostgreSQL and
+authenticated STARTTLS Mailpit services and consumes generated task-owned file
+secrets. `scripts/test-auth-candidate-runtime.sh` built and started that
+three-service topology, then queried liveness, readiness, and OIDC discovery
+from the private network `verified locally`; its containers, volumes, and
+secret directory were removed. This is `candidate-only`. Provider-owned
+recovery, reset, and explicit logout handlers, browser qualification, and the
+later restart/restore/rollback/capacity gates are `not run`. Keycloak remains
+the serving and rollback baseline; release remains `release pending`.
+
+`/recover/password` is now mounted on that isolated runtime. The same runner
+seeded one synthetic `.invalid` active account, submitted its generic recovery
+request, and observed the encrypted outbox worker deliver to authenticated
+STARTTLS Mailpit `verified locally`; it did not print the one-time value. The
+provider PostgreSQL suite now exercises those token-consumption password
+and MFA reset handlers plus the narrow `/logout` entry point `verified locally`:
+the reset password authenticates, the MFA factor is deleted, and logout only
+redirects to the selected provider's end-session endpoint. Browser workflows
+remain `not run`. This remains `candidate-only`, literal `NO-GO`, and `release
+pending`.
+
+## Browser qualification completion (2026-08-12)
+
+`scripts/test-auth-candidate-browser.sh` is `verified locally` in a fresh,
+disposable PostgreSQL/authenticated STARTTLS Mailpit topology and an isolated
+ephemeral Playwright browser context. It completed OIDC Authorization Code with
+S256 PKCE and standard `form_post` response delivery, provider-owned password
+login, TOTP MFA, token exchange, generic recovery initiation, password reset,
+MFA reset, a post-reset password login that did not request MFA, and explicit
+logout. The runner removed its task-owned browser, containers, volumes, and
+temporary secrets. This evidence is `candidate-only`; it does not test rollback
+traffic, native ARM64 mixed-load capacity, fresh SBOM/license/vulnerability/
+provenance, independent review, or release approval, which are `not run`.
+Keycloak remains serving and the rollback baseline, and release remains
+`release pending` with literal `NO-GO`.
+
+## Native ARM64 bounded auth mixed-load qualification (2026-08-12)
+
+On this `arm64` host, `scripts/test-auth-candidate-load.sh` is `verified
+locally` in the task-owned candidate PostgreSQL/authenticated STARTTLS Mailpit
+topology. It completed two concurrent successful Authorization Code + S256 PKCE
+password logins at the configured Argon2id capacity, two concurrent rejected
+unknown-account Argon2id attempts, four recovery requests with matching outbox
+Mailpit receipts, and concurrent readiness/discovery probes in 590 ms. The
+runner enforces the hasher's configured two-operation Argon2id ceiling rather
+than weakening it for load, and removed its task-owned resources. This is
+`candidate-only`; it is not the complete gateway/API/worker/PDF system workload,
+so native ARM64 mixed-load/capacity for the release gate remains `not run`.
+Keycloak remains serving and the rollback baseline; release remains `release
+pending` with literal `NO-GO`.
+
+## Candidate provider-form accessibility qualification (2026-08-12)
+
+The isolated browser runner is `verified locally` for the provider-owned login,
+MFA, recovery, password-reset, and MFA-reset forms: each has English document
+language, exactly one main landmark and level-one heading, one submit control,
+and accessible label/control pairs with required non-checkbox inputs. This is
+`candidate-only` provider-form semantics, not the complete product
+accessibility matrix, which remains `not run`. Keycloak remains serving and the
+rollback baseline; release remains `release pending` with literal `NO-GO`.
+
+## Fresh module and web qualification (2026-08-12)
+
+`go mod verify` in `apps/auth` and `apps/api`, web typecheck, and the web
+Vitest suite (85 files / 751 tests) are `verified locally`. `syft`, `trivy`,
+and `govulncheck` are absent, while `docker sbom` is unavailable; a fresh
+SBOM/license/vulnerability result therefore remains `not run`. This preserves
+the `candidate-only`, Keycloak-retained, `release pending` literal `NO-GO`
+disposition.
+
+## Local/disposable gate closure audit (2026-08-12)
+
+The technically solvable isolated candidate gates are `verified locally`:
+durable identity/MFA/challenge/OIDC/outbox state; provider login, MFA, recovery,
+reset, logout, signing-key rotation; authenticated STARTTLS Mailpit delivery;
+readiness dependency loss and restart; backup/restore; browser protocol and
+provider-form semantic accessibility; bounded native ARM64 auth-only load;
+module/web integrity; and focused/full/race/vet checks.
+
+The remaining items are not a smaller local substitute: authenticated provider
+administration and application BFF E2E require the application-owned authority
+boundary and a separately evidenced candidate API/web profile; organization
+denial requires that same membership authority; Keycloak rollback traffic would
+touch the serving baseline; complete gateway/API/worker/PDF capacity and
+product accessibility require the wider system topology; SBOM/license/
+vulnerability/provenance tools are unavailable; and independent review/release
+approval are external. These remain `not run` or `blocked` as recorded. No
+candidate-only result permits removing, weakening, or routing traffic away from
+Keycloak. Release remains `release pending` with literal `NO-GO`.
+
+## Durable signing-key rotation qualification (2026-08-12)
+
+`scripts/test-auth-candidate-postgres.sh` is `verified locally` for the durable
+candidate key ring. It encrypted a new RSA private key at rest, moved the old
+active key to a finite overlap, returned both public keys from the storage JWKS
+set, then retired the elapsed overlap and returned only the new key. Rotation
+rejects an invalid, same-ID, or unbounded-overlap request. This is
+`candidate-only` storage evidence; key custody, operational rotation approval,
+and release provenance remain `not run`. Keycloak remains serving and the
+rollback baseline; release remains `release pending` with literal `NO-GO`.

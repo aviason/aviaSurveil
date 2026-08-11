@@ -4,13 +4,12 @@ x-runtime-security: &runtime-security
   init: true
   read_only: true
   stop_grace_period: 15s
-  pids_limit: 128
   cap_drop:
     - ALL
   security_opt:
     - no-new-privileges:true
   tmpfs:
-    - /tmp:mode=1777
+    - "/tmp:mode=1777"
   logging:
     driver: json-file
     options:
@@ -18,6 +17,45 @@ x-runtime-security: &runtime-security
       max-file: "3"
 
 services:
+  auth-postgres:
+    <<: *runtime-security
+    image: postgres:17.6-alpine3.22@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94
+    profiles: [auth-candidate]
+    user: "70:70"
+    environment:
+      POSTGRES_DB: auth_candidate
+      POSTGRES_USER: auth_owner
+      POSTGRES_PASSWORD_FILE: /run/secrets/auth_database_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    secrets: [auth_database_password]
+    volumes: [auth-postgres-data:/var/lib/postgresql/data]
+    tmpfs: ["/run/postgresql:uid=70,gid=70,mode=0770", "/tmp:mode=1777"]
+    networks: [auth-internal]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U auth_owner -d auth_candidate]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+  auth-mailpit:
+    <<: *runtime-security
+    image: axllent/mailpit:v1.27.8@sha256:6abc8e633df15eaf785cfcf38bae48e66f64beecdc03121e249d0f9ec15f0707
+    profiles: [auth-candidate]
+    environment:
+      MP_DATABASE: /data/mailpit.db
+      MP_SMTP_AUTH_FILE: /run/secrets/auth_smtp_auth
+      MP_SMTP_REQUIRE_STARTTLS: "true"
+      MP_SMTP_TLS_CERT: /run/secrets/auth_mailpit_cert
+      MP_SMTP_TLS_KEY: /run/secrets/auth_mailpit_key
+    secrets: [auth_smtp_auth, auth_mailpit_cert, auth_mailpit_key]
+    volumes: [auth-mailpit-data:/data]
+    networks: [auth-internal]
+    healthcheck:
+      test: [CMD, /mailpit, readyz]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
   auth-candidate:
     <<: *runtime-security
     image: aviasurveil360/auth-candidate:local
@@ -31,7 +69,7 @@ services:
       AVIA_AUTH_ENVIRONMENT: local-candidate
       AVIA_AUTH_PROFILE: isolated-candidate
       AVIA_AUTH_HTTP_ADDRESS: 0.0.0.0:8080
-      AVIA_AUTH_ISSUER_URL: https://auth.local.invalid/
+      AVIA_AUTH_ISSUER_URL: http://127.0.0.1:${AVIA_AUTH_CANDIDATE_PORT:-18081}/
       AVIA_AUTH_DATABASE_URL_FILE: /run/secrets/auth_database_url
       AVIA_AUTH_DATABASE_ROLE: auth_owner
       AVIA_AUTH_DATABASE_SCHEMA: auth_identity
@@ -40,20 +78,34 @@ services:
       AVIA_AUTH_SIGNING_ALGORITHM: RS256
       AVIA_AUTH_DATA_ENCRYPTION_KEY_FILE: /run/secrets/auth_data_encryption_key
       AVIA_AUTH_MFA_KEY_FILE: /run/secrets/auth_mfa_key
-      AVIA_AUTH_SMTP_ADDRESS: mailpit:1025
+      AVIA_AUTH_OIDC_CLIENT_ID: as360-local-candidate-web
+      AVIA_AUTH_OIDC_REDIRECT_URI: http://127.0.0.1:${AVIA_AUTH_CANDIDATE_CALLBACK_PORT:-18082}/callback
+      AVIA_AUTH_OIDC_POST_LOGOUT_REDIRECT_URI: http://127.0.0.1:${AVIA_AUTH_CANDIDATE_CALLBACK_PORT:-18082}/logout
+      AVIA_AUTH_OIDC_CLIENT_SECRET_FILE: /run/secrets/auth_oidc_client_secret
+      AVIA_AUTH_SMTP_ADDRESS: auth-mailpit:1025
       AVIA_AUTH_SMTP_FROM: identity@aviasurveil360.local
+      AVIA_AUTH_SMTP_USERNAME: aviasurveil360
       AVIA_AUTH_SMTP_TLS_MODE: starttls
       AVIA_AUTH_SMTP_PASSWORD_FILE: /run/secrets/auth_smtp_password
+      AVIA_AUTH_SMTP_CA_FILE: /run/secrets/auth_mailpit_ca
     secrets:
       - auth_database_url
       - auth_signing_key
       - auth_data_encryption_key
       - auth_mfa_key
+      - auth_oidc_client_secret
       - auth_smtp_password
+      - auth_mailpit_ca
+    ports:
+      - "127.0.0.1:${AVIA_AUTH_CANDIDATE_PORT:-18081}:8080"
     expose:
       - "8080"
     networks:
       - auth-internal
+      - auth-loopback
+    depends_on:
+      auth-postgres: { condition: service_healthy }
+      auth-mailpit: { condition: service_healthy }
     healthcheck:
       test: [CMD, wget, --quiet, --output-document=/dev/null, http://127.0.0.1:8080/health/live]
       interval: 5s
@@ -65,19 +117,45 @@ services:
         limits:
           cpus: "1"
           memory: 512M
+          pids: 128
 
 networks:
   auth-internal:
     internal: true
+  # Browser qualification reaches only the provider through a host-loopback
+  # published port. PostgreSQL and Mailpit never join this edge network; NAT
+  # and inter-container forwarding are disabled to avoid a general egress path.
+  auth-loopback:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_ip_masquerade: "false"
+      com.docker.network.bridge.enable_icc: "false"
+      com.docker.network.bridge.host_binding_ipv4: "127.0.0.1"
 
 secrets:
   auth_database_url:
-    external: true
+    file: ${AVIA_AUTH_CANDIDATE_SECRETS_DIR:?set AVIA_AUTH_CANDIDATE_SECRETS_DIR to a task-owned secret directory}/auth_database_url
   auth_signing_key:
-    external: true
+    file: ${AVIA_AUTH_CANDIDATE_SECRETS_DIR:?set AVIA_AUTH_CANDIDATE_SECRETS_DIR to a task-owned secret directory}/auth_signing_key
   auth_data_encryption_key:
-    external: true
+    file: ${AVIA_AUTH_CANDIDATE_SECRETS_DIR:?set AVIA_AUTH_CANDIDATE_SECRETS_DIR to a task-owned secret directory}/auth_data_encryption_key
   auth_mfa_key:
-    external: true
+    file: ${AVIA_AUTH_CANDIDATE_SECRETS_DIR:?set AVIA_AUTH_CANDIDATE_SECRETS_DIR to a task-owned secret directory}/auth_mfa_key
+  auth_oidc_client_secret:
+    file: ${AVIA_AUTH_CANDIDATE_SECRETS_DIR:?set AVIA_AUTH_CANDIDATE_SECRETS_DIR to a task-owned secret directory}/auth_oidc_client_secret
   auth_smtp_password:
-    external: true
+    file: ${AVIA_AUTH_CANDIDATE_SECRETS_DIR:?set AVIA_AUTH_CANDIDATE_SECRETS_DIR to a task-owned secret directory}/auth_smtp_password
+  auth_database_password:
+    file: ${AVIA_AUTH_CANDIDATE_SECRETS_DIR:?set AVIA_AUTH_CANDIDATE_SECRETS_DIR to a task-owned secret directory}/auth_database_password
+  auth_smtp_auth:
+    file: ${AVIA_AUTH_CANDIDATE_SECRETS_DIR:?set AVIA_AUTH_CANDIDATE_SECRETS_DIR to a task-owned secret directory}/auth_smtp_auth
+  auth_mailpit_cert:
+    file: ${AVIA_AUTH_CANDIDATE_SECRETS_DIR:?set AVIA_AUTH_CANDIDATE_SECRETS_DIR to a task-owned secret directory}/auth_mailpit_cert
+  auth_mailpit_key:
+    file: ${AVIA_AUTH_CANDIDATE_SECRETS_DIR:?set AVIA_AUTH_CANDIDATE_SECRETS_DIR to a task-owned secret directory}/auth_mailpit_key
+  auth_mailpit_ca:
+    file: ${AVIA_AUTH_CANDIDATE_SECRETS_DIR:?set AVIA_AUTH_CANDIDATE_SECRETS_DIR to a task-owned secret directory}/auth_mailpit_ca
+
+volumes:
+  auth-postgres-data:
+  auth-mailpit-data:

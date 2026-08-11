@@ -105,7 +105,17 @@ func NewCandidate(configuration CandidateConfig) (*Candidate, error) {
 }
 
 func validateCandidateConfig(configuration CandidateConfig) error {
-	if strings.TrimSpace(configuration.Issuer) == "" || configuration.CryptoKeyID == "" || configuration.SigningKeyID == "" || configuration.ClientID == "" || configuration.RedirectURI == "" || configuration.PostLogoutRedirectURI == "" || configuration.SubjectID == "" || configuration.Email == "" {
+	if err := validateProviderConfig(configuration); err != nil {
+		return err
+	}
+	if configuration.SubjectID == "" || configuration.Email == "" {
+		return ErrProviderInvalid
+	}
+	return nil
+}
+
+func validateProviderConfig(configuration CandidateConfig) error {
+	if strings.TrimSpace(configuration.Issuer) == "" || configuration.CryptoKeyID == "" || configuration.SigningKeyID == "" || configuration.ClientID == "" || configuration.RedirectURI == "" || configuration.PostLogoutRedirectURI == "" || strings.TrimSpace(configuration.ClientSecret) == "" {
 		return ErrProviderInvalid
 	}
 	if configuration.SigningKey == nil || configuration.SigningKey.N == nil || configuration.SigningKey.N.BitLen() < 2048 {

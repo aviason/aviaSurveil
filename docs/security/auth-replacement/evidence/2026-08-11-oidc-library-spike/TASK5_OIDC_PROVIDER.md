@@ -34,6 +34,47 @@ wired to the normal API or Keycloak route.
 
 Wrong redirect and missing-PKCE requests return a client error without an
 attacker-controlled redirect. Unknown/retired key, full browser/real SMTP,
-durable provider storage, key-ring overlap through the OP, and independent
-security review are `not run` or belong to later release gates; no production
-OIDC or dual-issuer fallback is claimed.
+key-ring overlap through the OP, and independent security review are `not run`
+or belong to later release gates; no production OIDC or dual-issuer fallback is
+claimed.
+
+## Fresh durable storage continuation (2026-08-11)
+
+`internal/provider.PostgresStorage` now implements the selected
+`zitadel/oidc` storage contract against the privileged `auth_identity` schema.
+Forward-only `000007_oidc_runtime.up.sql` stores authorization and refresh
+credentials only as SHA-256 hashes, keeps access/revocation state durable, and
+uses encrypted signing-key material with exact persisted client records.
+`scripts/test-auth-candidate-postgres.sh` is `verified locally` for client
+secret rejection, encrypted key retrieval, authorization-code state, and
+refresh rotation/reuse denial. It remains `candidate-only`: no OIDC, login,
+MFA, recovery, reset, or logout HTTP route is mounted.
+
+The isolated `RuntimeCandidate` now owns `/login` and `/mfa` against the
+durable adapters. Its password path stages, but does not authorize, the OIDC
+request when MFA is enabled; TOTP or a hashed recovery code must complete
+before the library callback. The disposable PostgreSQL suite is `verified
+locally` for both no-factor login and MFA-required login. `cmd/auth` still
+mounts only health routes, so no browser/runtime qualification is implied.
+
+## Runtime continuation (2026-08-12)
+
+`cmd/auth` now initializes the durable PostgreSQL identity, MFA, OIDC storage,
+and admission limiter before mounting `RuntimeCandidate`; readiness is opened
+only after that initialization. `scripts/test-auth-candidate-runtime.sh` is
+`verified locally` for an isolated PostgreSQL, authenticated STARTTLS Mailpit,
+and auth topology plus private-network liveness/readiness/discovery checks.
+The runner removed all task-owned containers, volumes, and secret material.
+This remains `candidate-only`: provider-owned recovery, reset, and explicit
+logout handlers and browser qualification are `not run`; Keycloak remains the
+serving provider and rollback baseline and release remains `release pending`.
+
+## Durable signing-key rotation qualification (2026-08-12)
+
+`scripts/test-auth-candidate-postgres.sh` is `verified locally` for the
+PostgreSQL signing-key ring: a newly encrypted RSA key becomes active, the old
+key stays in finite JWKS overlap, and an elapsed overlap is retired. Invalid,
+same-ID, and unbounded-overlap rotation requests are rejected. This remains
+`candidate-only`; runtime key-custody operations and release evidence are `not
+run`. Keycloak remains serving and the rollback baseline; release remains
+`release pending`.

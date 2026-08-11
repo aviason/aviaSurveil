@@ -2,6 +2,7 @@ package config
 
 import (
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -54,6 +55,9 @@ type Settings struct {
 	DatabaseSchema string
 
 	SigningKeyID      string
+	OIDCClientID      string
+	OIDCRedirectURI   string
+	OIDCLogoutURI     string
 	MaxRequestBytes   int64
 	MaxHeaderBytes    int
 	ReadHeaderTimeout time.Duration
@@ -61,14 +65,17 @@ type Settings struct {
 	WriteTimeout      time.Duration
 	IdleTimeout       time.Duration
 
-	SMTPAddress string
-	SMTPFrom    string
-	SMTPTLSMode string
+	SMTPAddress  string
+	SMTPFrom     string
+	SMTPUsername string
+	SMTPTLSMode  string
 
 	signingKey        *rsa.PrivateKey
 	dataEncryptionKey [32]byte
 	mfaKey            [32]byte
+	oidcClientSecret  []byte
 	smtpPassword      []byte
+	smtpTLSConfig     *tls.Config
 }
 
 // Load validates the isolated provider contract. It intentionally accepts
@@ -197,6 +204,32 @@ func Load(lookup LookupEnv, readFile ReadFile) (Settings, error) {
 	if err != nil {
 		return Settings{}, invalid("AVIA_AUTH_MFA_KEY_FILE", err.Error())
 	}
+	oidcClientID, err := required(lookup, "AVIA_AUTH_OIDC_CLIENT_ID")
+	if err != nil {
+		return Settings{}, err
+	}
+	oidcRedirectURI, err := required(lookup, "AVIA_AUTH_OIDC_REDIRECT_URI")
+	if err != nil {
+		return Settings{}, err
+	}
+	oidcLogoutURI, err := required(lookup, "AVIA_AUTH_OIDC_POST_LOGOUT_REDIRECT_URI")
+	if err != nil {
+		return Settings{}, err
+	}
+	if err := validateOIDCURIs(oidcRedirectURI, oidcLogoutURI); err != nil {
+		return Settings{}, invalid("AVIA_AUTH_OIDC_REDIRECT_URI", err.Error())
+	}
+	oidcClientSecretPath, err := required(lookup, "AVIA_AUTH_OIDC_CLIENT_SECRET_FILE")
+	if err != nil {
+		return Settings{}, err
+	}
+	oidcClientSecret, err := readSecretFile(readFile, oidcClientSecretPath, "AVIA_AUTH_OIDC_CLIENT_SECRET_FILE", minSecretBytes, maxSMTPPasswordBytes)
+	if err != nil {
+		return Settings{}, err
+	}
+	if containsPlaceholder(string(oidcClientSecret)) {
+		return Settings{}, invalid("AVIA_AUTH_OIDC_CLIENT_SECRET_FILE", "placeholder secret is forbidden")
+	}
 
 	smtpAddress, err := required(lookup, "AVIA_AUTH_SMTP_ADDRESS")
 	if err != nil {
@@ -211,6 +244,10 @@ func Load(lookup LookupEnv, readFile ReadFile) (Settings, error) {
 	}
 	if err := validateMailFrom(smtpFrom); err != nil {
 		return Settings{}, invalid("AVIA_AUTH_SMTP_FROM", err.Error())
+	}
+	smtpUsername, err := required(lookup, "AVIA_AUTH_SMTP_USERNAME")
+	if err != nil {
+		return Settings{}, err
 	}
 	smtpTLSMode, err := required(lookup, "AVIA_AUTH_SMTP_TLS_MODE")
 	if err != nil {
@@ -229,6 +266,18 @@ func Load(lookup LookupEnv, readFile ReadFile) (Settings, error) {
 	}
 	if containsPlaceholder(string(smtpPassword)) {
 		return Settings{}, invalid("AVIA_AUTH_SMTP_PASSWORD_FILE", "placeholder secret is forbidden")
+	}
+	smtpCAPath, err := required(lookup, "AVIA_AUTH_SMTP_CA_FILE")
+	if err != nil {
+		return Settings{}, err
+	}
+	smtpCA, err := readSecretFile(readFile, smtpCAPath, "AVIA_AUTH_SMTP_CA_FILE", minSecretBytes, 64<<10)
+	if err != nil {
+		return Settings{}, err
+	}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(smtpCA) {
+		return Settings{}, invalid("AVIA_AUTH_SMTP_CA_FILE", "must contain at least one PEM certificate")
 	}
 
 	maxRequestBytes, err := optionalInt64(lookup, "AVIA_AUTH_MAX_REQUEST_BYTES", defaultMaxRequestBytes, 1<<10, 16<<20)
@@ -265,6 +314,9 @@ func Load(lookup LookupEnv, readFile ReadFile) (Settings, error) {
 		DatabaseRole:      databaseRole,
 		DatabaseSchema:    databaseSchema,
 		SigningKeyID:      signingKeyID,
+		OIDCClientID:      oidcClientID,
+		OIDCRedirectURI:   oidcRedirectURI,
+		OIDCLogoutURI:     oidcLogoutURI,
 		MaxRequestBytes:   maxRequestBytes,
 		MaxHeaderBytes:    maxHeaderBytes,
 		ReadHeaderTimeout: readHeaderTimeout,
@@ -273,12 +325,43 @@ func Load(lookup LookupEnv, readFile ReadFile) (Settings, error) {
 		IdleTimeout:       idleTimeout,
 		SMTPAddress:       smtpAddress,
 		SMTPFrom:          smtpFrom,
+		SMTPUsername:      smtpUsername,
 		SMTPTLSMode:       smtpTLSMode,
 		signingKey:        signingKey,
 		dataEncryptionKey: dataKey,
 		mfaKey:            mfaKey,
+		oidcClientSecret:  append([]byte(nil), oidcClientSecret...),
 		smtpPassword:      smtpPassword,
+		smtpTLSConfig:     &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12},
 	}, nil
+}
+
+// SigningKey returns a private-key copy for the isolated provider bootstrap.
+func (settings Settings) SigningKey() *rsa.PrivateKey {
+	if settings.signingKey == nil {
+		return nil
+	}
+	copyKey, err := x509.ParsePKCS1PrivateKey(x509.MarshalPKCS1PrivateKey(settings.signingKey))
+	if err != nil {
+		return nil
+	}
+	return copyKey
+}
+
+func (settings Settings) DataEncryptionKey() [32]byte { return settings.dataEncryptionKey }
+func (settings Settings) MFAKey() [32]byte            { return settings.mfaKey }
+func (settings Settings) OIDCClientSecret() string {
+	return strings.TrimSpace(string(settings.oidcClientSecret))
+}
+func (settings Settings) SMTPPassword() string {
+	return strings.TrimSpace(string(settings.smtpPassword))
+}
+
+func (settings Settings) SMTPTLSConfig() *tls.Config {
+	if settings.smtpTLSConfig == nil {
+		return nil
+	}
+	return settings.smtpTLSConfig.Clone()
 }
 
 func invalid(field, reason string) error {
@@ -355,6 +438,16 @@ func validateIssuer(environment, issuer string) error {
 		}
 	} else if parsed.Scheme != "https" {
 		return errors.New("issuer must use HTTPS")
+	}
+	return nil
+}
+
+func validateOIDCURIs(redirectURI, logoutURI string) error {
+	for _, raw := range []string{redirectURI, logoutURI} {
+		parsed, err := url.Parse(raw)
+		if err != nil || !parsed.IsAbs() || parsed.User != nil || parsed.Fragment != "" || parsed.RawQuery != "" || (parsed.Scheme != "https" && parsed.Scheme != "http") {
+			return errors.New("OIDC redirect URIs must be absolute HTTP(S) URLs without credentials, query, or fragment")
+		}
 	}
 	return nil
 }
