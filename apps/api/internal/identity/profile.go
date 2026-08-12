@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	identitystore "github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity/store/postgres"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/idempotency"
+	identitystore "github.com/aviason/aviaSurveil/internal/identity/store/postgres"
+	"github.com/aviason/aviaSurveil/internal/platform/database"
+	"github.com/aviason/aviaSurveil/internal/platform/idempotency"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )

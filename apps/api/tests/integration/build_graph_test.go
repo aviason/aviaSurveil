@@ -19,7 +19,7 @@ func TestAPIModuleBuildGraph(t *testing.T) {
 		t.Fatalf("go list commands: %v\n%s", err, output)
 	}
 	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
-		if !strings.HasPrefix(line, "github.com/MarlonJD/aviaSurveil360/apps/api|") {
+		if !strings.HasPrefix(line, "github.com/aviason/aviaSurveil|") {
 			t.Fatalf("command escaped the API module: %q", line)
 		}
 	}

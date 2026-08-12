@@ -3,8 +3,8 @@ package reports_test
 import (
 	"testing"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/reports"
+	"github.com/aviason/aviaSurveil/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/reports"
 )
 
 func TestReportApprovalBindsExactVersionAndRoleStage(t *testing.T) {

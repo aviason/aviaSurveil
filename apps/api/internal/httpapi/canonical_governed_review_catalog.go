@@ -3,8 +3,8 @@ package httpapi
 import (
 	"context"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/httpapi/generated"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/questioncatalog"
+	"github.com/aviason/aviaSurveil/internal/httpapi/generated"
+	"github.com/aviason/aviaSurveil/internal/questioncatalog"
 )
 
 // queryGovernedReviewCandidateCatalog projects the current candidate leaf

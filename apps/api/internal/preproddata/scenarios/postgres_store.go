@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/preproddata"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/preproddata/profiles"
+	"github.com/aviason/aviaSurveil/internal/platform/database"
+	"github.com/aviason/aviaSurveil/internal/preproddata"
+	"github.com/aviason/aviaSurveil/internal/preproddata/profiles"
 	"github.com/jackc/pgx/v5"
 )
 

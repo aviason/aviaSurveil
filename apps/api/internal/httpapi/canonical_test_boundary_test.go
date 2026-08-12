@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/httpapi"
+	"github.com/aviason/aviaSurveil/internal/httpapi"
 )
 
 func TestCanonicalTestBoundaryUsesOnlyServerOwnedPrincipalMapping(t *testing.T) {

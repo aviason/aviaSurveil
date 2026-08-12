@@ -2,7 +2,7 @@ package profiles_test
 
 import "testing"
 
-import "github.com/MarlonJD/aviaSurveil360/apps/api/internal/preproddata/profiles"
+import "github.com/aviason/aviaSurveil/internal/preproddata/profiles"
 
 func TestCanonicalAGAExerciseProfileIsDedicatedAndExact(t *testing.T) {
 	profile, err := profiles.Lookup("aga-preprod", "1.0.0")

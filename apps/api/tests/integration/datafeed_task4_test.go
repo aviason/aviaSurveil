@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/datafeed"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/migrations"
+	"github.com/aviason/aviaSurveil/internal/datafeed"
+	"github.com/aviason/aviaSurveil/internal/platform/database"
+	"github.com/aviason/aviaSurveil/migrations"
 	"github.com/jackc/pgx/v5"
 )
 

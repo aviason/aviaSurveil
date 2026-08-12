@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/objectstore"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/preproddata/scenarios"
+	"github.com/aviason/aviaSurveil/internal/platform/objectstore"
+	"github.com/aviason/aviaSurveil/internal/preproddata/scenarios"
 )
 
 func TestMinIOObjectBackendPersistsAndReconcilesExactScenarioJSON(

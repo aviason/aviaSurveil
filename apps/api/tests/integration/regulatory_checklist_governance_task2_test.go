@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/organizations"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/migrations"
+	"github.com/aviason/aviaSurveil/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/organizations"
+	"github.com/aviason/aviaSurveil/migrations"
 )
 
 func TestRegulatoryChecklistGovernanceSchemaInventory(t *testing.T) {

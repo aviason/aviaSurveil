@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	administrationstore "github.com/MarlonJD/aviaSurveil360/apps/api/internal/administration/store/postgres"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/notifications"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/idempotency"
+	administrationstore "github.com/aviason/aviaSurveil/internal/administration/store/postgres"
+	"github.com/aviason/aviaSurveil/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/notifications"
+	"github.com/aviason/aviaSurveil/internal/platform/database"
+	"github.com/aviason/aviaSurveil/internal/platform/idempotency"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )

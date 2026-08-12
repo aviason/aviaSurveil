@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/testprofile"
+	"github.com/aviason/aviaSurveil/internal/testprofile"
 )
 
 const (

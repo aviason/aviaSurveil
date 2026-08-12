@@ -9,10 +9,10 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/regulatory"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/testprofile"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/migrations"
+	"github.com/aviason/aviaSurveil/internal/platform/database"
+	"github.com/aviason/aviaSurveil/internal/regulatory"
+	"github.com/aviason/aviaSurveil/internal/testprofile"
+	"github.com/aviason/aviaSurveil/migrations"
 )
 
 func main() {

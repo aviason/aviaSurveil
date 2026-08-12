@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	feedstore "github.com/MarlonJD/aviaSurveil360/apps/api/internal/datafeed/store/postgres"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
+	feedstore "github.com/aviason/aviaSurveil/internal/datafeed/store/postgres"
+	"github.com/aviason/aviaSurveil/internal/platform/database"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"

@@ -2,11 +2,13 @@ package config_test
 
 import (
 	"encoding/base64"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/config"
+	"github.com/aviason/aviaSurveil/internal/platform/config"
 )
 
 func TestProductionRejectsTestAndDevelopmentBypasses(t *testing.T) {
@@ -514,6 +516,63 @@ func TestKeycloakAdminConfigurationRequiresACompleteInternalEndpointAndServiceCr
 	if _, err := config.Load(mapLookup(insecure)); err == nil ||
 		!strings.Contains(err.Error(), "AVIA_KEYCLOAK_ADMIN_URL") {
 		t.Fatalf("invalid Keycloak admin URL error = %v", err)
+	}
+}
+
+func TestFileBackedRuntimeConfigurationUsesProviderNeutralInputs(t *testing.T) {
+	t.Parallel()
+
+	secretFile := func(t *testing.T, name, contents string) string {
+		t.Helper()
+		path := filepath.Join(t.TempDir(), name)
+		if err := os.WriteFile(path, []byte(contents+"\n"), 0o600); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+		return path
+	}
+
+	sessionKey := base64.StdEncoding.EncodeToString(make([]byte, 32))
+	values := map[string]string{
+		"AVIA_ENVIRONMENT":                 "development",
+		"AVIA_DATABASE_URL_FILE":           secretFile(t, "database-url", "postgres://auth.example.invalid/avia"),
+		"AVIA_OIDC_ISSUER_URL":             "https://identity.example.invalid",
+		"AVIA_OIDC_CLIENT_ID":              "avia-surveil-web",
+		"AVIA_OIDC_CLIENT_SECRET_FILE":     secretFile(t, "oidc-secret", "oidc-client-secret"),
+		"AVIA_OIDC_REDIRECT_URL":           "https://surveil.example.invalid/auth/callback",
+		"AVIA_SESSION_ENCRYPTION_KEY_FILE": secretFile(t, "session-key", sessionKey),
+		"AVIA_AUTH_ADMIN_URL":              "http://auth:8080/private/admin",
+		"AVIA_AUTH_ADMIN_API_KEY_FILE":     secretFile(t, "admin-key", "admin-api-key"),
+		"AVIA_AUTH_ADMIN_API_SECRET_FILE":  secretFile(t, "admin-secret", "admin-api-secret"),
+		"AVIA_AUTH_ACCOUNT_ID":             "candidate-account",
+	}
+	settings, err := config.Load(mapLookup(values))
+	if err != nil {
+		t.Fatalf("Load() file-backed provider-neutral config: %v", err)
+	}
+	if settings.DatabaseURL != "postgres://auth.example.invalid/avia" ||
+		settings.OIDCClientSecret != "oidc-client-secret" ||
+		len(settings.SessionEncryptionKey) != 32 ||
+		settings.AuthAdminURL != values["AVIA_AUTH_ADMIN_URL"] ||
+		settings.AuthAdminAPIKey != "admin-api-key" ||
+		settings.AuthAdminAPISecret != "admin-api-secret" ||
+		settings.AuthAccountID != "candidate-account" {
+		t.Fatalf("file-backed settings = %+v", settings)
+	}
+}
+
+func TestFileBackedConfigurationRejectsInlineAndFileDuplicates(t *testing.T) {
+	t.Parallel()
+
+	databasePath := filepath.Join(t.TempDir(), "database-url")
+	if err := os.WriteFile(databasePath, []byte("postgres://example.invalid/avia\n"), 0o600); err != nil {
+		t.Fatalf("write database URL: %v", err)
+	}
+	_, err := config.Load(mapLookup(map[string]string{
+		"AVIA_DATABASE_URL":      "postgres://inline.example.invalid/avia",
+		"AVIA_DATABASE_URL_FILE": databasePath,
+	}))
+	if err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Fatalf("duplicate database URL sources error = %v", err)
 	}
 }
 

@@ -16,9 +16,9 @@ import (
 	"testing"
 
 	"archive/zip"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/checklistintake"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
+	"github.com/aviason/aviaSurveil/internal/checklistintake"
+	"github.com/aviason/aviaSurveil/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/platform/database"
 )
 
 func TestCanonicalAPIDefaultIntakeUsesPostgresStoreWhenPoolIsConfigured(t *testing.T) {

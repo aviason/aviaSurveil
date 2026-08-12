@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/scanner"
+	"github.com/aviason/aviaSurveil/internal/platform/scanner"
 )
 
 func TestClamAVScansTheExactByteStreamAndRecordsVersions(t *testing.T) {

@@ -682,11 +682,18 @@ test("the full profile imports only the generated realm and reads Keycloak crede
   assert.equal("AVIA_KEYCLOAK_ADMIN_USERNAME" in worker.environment, false);
   assert.equal("AVIA_KEYCLOAK_ADMIN_PASSWORD_FILE" in worker.environment, false);
   const workerEntrypoint = readFileSync(workerEntrypointPath, "utf8");
-  assert.match(
-    workerEntrypoint,
-    /AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET_FILE/u,
+  const runtimeConfig = readFileSync(
+    path.join(
+      repositoryRoot,
+      "apps/api/internal/platform/config/config.go",
+    ),
+    "utf8",
   );
   assert.match(
+    runtimeConfig,
+    /valueOrFile\(\s*lookup,\s*"AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET"/u,
+  );
+  assert.doesNotMatch(
     workerEntrypoint,
     /export AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET/u,
   );

@@ -3,7 +3,7 @@ package idempotency_test
 import (
 	"testing"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/idempotency"
+	"github.com/aviason/aviaSurveil/internal/platform/idempotency"
 )
 
 func TestSemanticHashIsStableForEquivalentJSONObjects(t *testing.T) {

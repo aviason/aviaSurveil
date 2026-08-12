@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/httpapi/generated"
+	"github.com/aviason/aviaSurveil/internal/httpapi/generated"
 )
 
 func TestGovernedChecklistTransportMappingKeepsStrictTraceVariants(t *testing.T) {

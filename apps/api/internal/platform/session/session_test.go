@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/session"
+	"github.com/aviason/aviaSurveil/internal/platform/session"
 )
 
 func TestReferenceIsActiveOnlyBeforeExpiryAndWithoutRevocation(t *testing.T) {

@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/application"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/httpapi/generated"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/regulatory"
+	"github.com/aviason/aviaSurveil/internal/application"
+	"github.com/aviason/aviaSurveil/internal/httpapi/generated"
+	"github.com/aviason/aviaSurveil/internal/regulatory"
 	"github.com/go-chi/chi/v5"
 )
 

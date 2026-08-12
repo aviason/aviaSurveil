@@ -11,7 +11,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/questioncatalog"
+	"github.com/aviason/aviaSurveil/internal/questioncatalog"
 )
 
 type QuestionVersionImport struct {

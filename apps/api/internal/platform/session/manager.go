@@ -16,9 +16,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
-	identitystore "github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity/store/postgres"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
+	"github.com/aviason/aviaSurveil/internal/identity"
+	identitystore "github.com/aviason/aviaSurveil/internal/identity/store/postgres"
+	"github.com/aviason/aviaSurveil/internal/platform/database"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )

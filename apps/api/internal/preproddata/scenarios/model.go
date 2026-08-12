@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/preproddata"
+	"github.com/aviason/aviaSurveil/internal/preproddata"
 )
 
 const batchSchemaVersion = "preprod-connected-scenario-batch/v1"

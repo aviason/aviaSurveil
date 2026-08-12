@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
-	organizationstore "github.com/MarlonJD/aviaSurveil360/apps/api/internal/organizations/store/postgres"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
+	"github.com/aviason/aviaSurveil/internal/identity"
+	organizationstore "github.com/aviason/aviaSurveil/internal/organizations/store/postgres"
+	"github.com/aviason/aviaSurveil/internal/platform/database"
 	"github.com/jackc/pgx/v5"
 )
 

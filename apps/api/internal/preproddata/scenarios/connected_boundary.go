@@ -9,8 +9,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/preproddata"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/preproddata/profiles"
+	"github.com/aviason/aviaSurveil/internal/preproddata"
+	"github.com/aviason/aviaSurveil/internal/preproddata/profiles"
 )
 
 type ProviderAccount struct {

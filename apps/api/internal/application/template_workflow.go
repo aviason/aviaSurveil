@@ -7,8 +7,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/configuration"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/configuration"
+	"github.com/aviason/aviaSurveil/internal/identity"
 	"github.com/jackc/pgx/v5"
 )
 

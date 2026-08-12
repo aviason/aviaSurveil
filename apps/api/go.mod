@@ -1,4 +1,4 @@
-module github.com/MarlonJD/aviaSurveil360/apps/api
+module github.com/aviason/aviaSurveil
 
 go 1.26.0
 

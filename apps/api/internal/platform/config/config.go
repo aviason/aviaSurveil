@@ -7,11 +7,12 @@ import (
 	"net"
 	"net/mail"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/netpolicy"
+	"github.com/aviason/aviaSurveil/internal/platform/netpolicy"
 )
 
 type LookupEnv func(string) (string, bool)
@@ -52,6 +53,10 @@ type Settings struct {
 	OIDCClientID                string
 	OIDCClientSecret            string
 	OIDCRedirectURL             string
+	AuthAdminURL                string
+	AuthAdminAPIKey             string
+	AuthAdminAPISecret          string
+	AuthAccountID               string
 	KeycloakAdminURL            string
 	KeycloakRealm               string
 	KeycloakServiceClientID     string
@@ -109,52 +114,92 @@ func LoadDatabaseRuntime(lookup LookupEnv) (Settings, error) {
 
 func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) {
 	environment := valueOrDefault(lookup, "AVIA_ENVIRONMENT", "development")
+	databaseURL, err := valueOrFile(lookup, "AVIA_DATABASE_URL")
+	if err != nil {
+		return Settings{}, err
+	}
+	oidcClientSecret, err := valueOrFile(lookup, "AVIA_OIDC_CLIENT_SECRET")
+	if err != nil {
+		return Settings{}, err
+	}
+	sessionEncryptionKey, err := valueOrFile(lookup, "AVIA_SESSION_ENCRYPTION_KEY")
+	if err != nil {
+		return Settings{}, err
+	}
+	objectStoreAccessKey, err := valueOrFile(lookup, "AVIA_OBJECT_STORE_ACCESS_KEY")
+	if err != nil {
+		return Settings{}, err
+	}
+	objectStoreSecretKey, err := valueOrFile(lookup, "AVIA_OBJECT_STORE_SECRET_KEY")
+	if err != nil {
+		return Settings{}, err
+	}
+	smtpPassword, err := valueOrFile(lookup, "AVIA_SMTP_PASSWORD")
+	if err != nil {
+		return Settings{}, err
+	}
+	authAdminAPIKey, err := valueOrFile(lookup, "AVIA_AUTH_ADMIN_API_KEY")
+	if err != nil {
+		return Settings{}, err
+	}
+	authAdminAPISecret, err := valueOrFile(lookup, "AVIA_AUTH_ADMIN_API_SECRET")
+	if err != nil {
+		return Settings{}, err
+	}
+	keycloakServiceClientSecret, err := valueOrFile(
+		lookup,
+		"AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET",
+	)
+	if err != nil {
+		return Settings{}, err
+	}
 	settings := Settings{
-		Environment:             environment,
-		RuntimeProfile:          value(lookup, "AVIA_RUNTIME_PROFILE"),
-		DatabaseURL:             value(lookup, "AVIA_DATABASE_URL"),
-		HTTPAddress:             valueOrDefault(lookup, "AVIA_HTTP_ADDRESS", ":8080"),
-		TestPrincipal:           value(lookup, "AVIA_TEST_PRINCIPAL"),
-		TestSession:             value(lookup, "AVIA_TEST_SESSION"),
-		DevSessionSecret:        value(lookup, "AVIA_DEV_SESSION_SECRET"),
-		OIDCIssuerURL:           value(lookup, "AVIA_OIDC_ISSUER_URL"),
-		OIDCDiscoveryURL:        value(lookup, "AVIA_OIDC_DISCOVERY_URL"),
-		OIDCClientID:            value(lookup, "AVIA_OIDC_CLIENT_ID"),
-		OIDCClientSecret:        value(lookup, "AVIA_OIDC_CLIENT_SECRET"),
-		OIDCRedirectURL:         value(lookup, "AVIA_OIDC_REDIRECT_URL"),
-		KeycloakAdminURL:        value(lookup, "AVIA_KEYCLOAK_ADMIN_URL"),
-		KeycloakRealm:           value(lookup, "AVIA_KEYCLOAK_REALM"),
-		KeycloakServiceClientID: value(lookup, "AVIA_KEYCLOAK_SERVICE_CLIENT_ID"),
-		KeycloakServiceClientSecret: value(
-			lookup,
-			"AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET",
-		),
-		SessionIdleDuration:       30 * time.Minute,
-		SessionAbsoluteDuration:   8 * time.Hour,
-		CookieSecure:              true,
-		CanonicalTestToken:        value(lookup, "AVIA_CANONICAL_TEST_TOKEN"),
-		ObjectStoreEndpoint:       value(lookup, "AVIA_OBJECT_STORE_ENDPOINT"),
-		ObjectStoreMode:           value(lookup, "AVIA_OBJECT_STORE_MODE"),
-		ObjectStorePublicEndpoint: value(lookup, "AVIA_OBJECT_STORE_PUBLIC_ENDPOINT"),
-		ObjectStoreAccessKey:      value(lookup, "AVIA_OBJECT_STORE_ACCESS_KEY"),
-		ObjectStoreSecretKey:      value(lookup, "AVIA_OBJECT_STORE_SECRET_KEY"),
-		ObjectStoreRegion:         value(lookup, "AVIA_OBJECT_STORE_REGION"),
-		ObjectStoreCORSOrigins:    commaValues(value(lookup, "AVIA_OBJECT_STORE_CORS_ORIGINS")),
-		QuarantineBucket:          valueOrDefault(lookup, "AVIA_OBJECT_STORE_QUARANTINE_BUCKET", "evidence-quarantine"),
-		CanonicalBucket:           valueOrDefault(lookup, "AVIA_OBJECT_STORE_CANONICAL_BUCKET", "evidence-clean"),
-		AttachmentBucket:          valueOrDefault(lookup, "AVIA_OBJECT_STORE_ATTACHMENT_BUCKET", "inspection-attachments"),
-		DocumentBucket:            valueOrDefault(lookup, "AVIA_OBJECT_STORE_DOCUMENT_BUCKET", "generated-documents"),
-		ScannerMode:               value(lookup, "AVIA_SCANNER_MODE"),
-		ClamAVAddress:             value(lookup, "AVIA_CLAMAV_ADDRESS"),
-		SMTPAddress:               value(lookup, "AVIA_SMTP_ADDRESS"),
-		SMTPFrom:                  value(lookup, "AVIA_SMTP_FROM"),
-		SMTPUsername:              value(lookup, "AVIA_SMTP_USERNAME"),
-		SMTPPassword:              value(lookup, "AVIA_SMTP_PASSWORD"),
-		SMTPTransport:             value(lookup, "AVIA_SMTP_TRANSPORT"),
-		SMTPTLSServerName:         value(lookup, "AVIA_SMTP_TLS_SERVER_NAME"),
-		IdentityHealthURL:         value(lookup, "AVIA_IDENTITY_HEALTH_URL"),
-		SMTPHealthAddress:         value(lookup, "AVIA_SMTP_HEALTH_ADDRESS"),
-		OTLPHTTPEndpoint:          value(lookup, "AVIA_OTEL_EXPORTER_OTLP_ENDPOINT"),
+		Environment:                 environment,
+		RuntimeProfile:              value(lookup, "AVIA_RUNTIME_PROFILE"),
+		DatabaseURL:                 databaseURL,
+		HTTPAddress:                 valueOrDefault(lookup, "AVIA_HTTP_ADDRESS", ":8080"),
+		TestPrincipal:               value(lookup, "AVIA_TEST_PRINCIPAL"),
+		TestSession:                 value(lookup, "AVIA_TEST_SESSION"),
+		DevSessionSecret:            value(lookup, "AVIA_DEV_SESSION_SECRET"),
+		OIDCIssuerURL:               value(lookup, "AVIA_OIDC_ISSUER_URL"),
+		OIDCDiscoveryURL:            value(lookup, "AVIA_OIDC_DISCOVERY_URL"),
+		OIDCClientID:                value(lookup, "AVIA_OIDC_CLIENT_ID"),
+		OIDCClientSecret:            oidcClientSecret,
+		OIDCRedirectURL:             value(lookup, "AVIA_OIDC_REDIRECT_URL"),
+		AuthAdminURL:                value(lookup, "AVIA_AUTH_ADMIN_URL"),
+		AuthAdminAPIKey:             authAdminAPIKey,
+		AuthAdminAPISecret:          authAdminAPISecret,
+		AuthAccountID:               value(lookup, "AVIA_AUTH_ACCOUNT_ID"),
+		KeycloakAdminURL:            value(lookup, "AVIA_KEYCLOAK_ADMIN_URL"),
+		KeycloakRealm:               value(lookup, "AVIA_KEYCLOAK_REALM"),
+		KeycloakServiceClientID:     value(lookup, "AVIA_KEYCLOAK_SERVICE_CLIENT_ID"),
+		KeycloakServiceClientSecret: keycloakServiceClientSecret,
+		SessionIdleDuration:         30 * time.Minute,
+		SessionAbsoluteDuration:     8 * time.Hour,
+		CookieSecure:                true,
+		CanonicalTestToken:          value(lookup, "AVIA_CANONICAL_TEST_TOKEN"),
+		ObjectStoreEndpoint:         value(lookup, "AVIA_OBJECT_STORE_ENDPOINT"),
+		ObjectStoreMode:             value(lookup, "AVIA_OBJECT_STORE_MODE"),
+		ObjectStorePublicEndpoint:   value(lookup, "AVIA_OBJECT_STORE_PUBLIC_ENDPOINT"),
+		ObjectStoreAccessKey:        objectStoreAccessKey,
+		ObjectStoreSecretKey:        objectStoreSecretKey,
+		ObjectStoreRegion:           value(lookup, "AVIA_OBJECT_STORE_REGION"),
+		ObjectStoreCORSOrigins:      commaValues(value(lookup, "AVIA_OBJECT_STORE_CORS_ORIGINS")),
+		QuarantineBucket:            valueOrDefault(lookup, "AVIA_OBJECT_STORE_QUARANTINE_BUCKET", "evidence-quarantine"),
+		CanonicalBucket:             valueOrDefault(lookup, "AVIA_OBJECT_STORE_CANONICAL_BUCKET", "evidence-clean"),
+		AttachmentBucket:            valueOrDefault(lookup, "AVIA_OBJECT_STORE_ATTACHMENT_BUCKET", "inspection-attachments"),
+		DocumentBucket:              valueOrDefault(lookup, "AVIA_OBJECT_STORE_DOCUMENT_BUCKET", "generated-documents"),
+		ScannerMode:                 value(lookup, "AVIA_SCANNER_MODE"),
+		ClamAVAddress:               value(lookup, "AVIA_CLAMAV_ADDRESS"),
+		SMTPAddress:                 value(lookup, "AVIA_SMTP_ADDRESS"),
+		SMTPFrom:                    value(lookup, "AVIA_SMTP_FROM"),
+		SMTPUsername:                value(lookup, "AVIA_SMTP_USERNAME"),
+		SMTPPassword:                smtpPassword,
+		SMTPTransport:               value(lookup, "AVIA_SMTP_TRANSPORT"),
+		SMTPTLSServerName:           value(lookup, "AVIA_SMTP_TLS_SERVER_NAME"),
+		IdentityHealthURL:           value(lookup, "AVIA_IDENTITY_HEALTH_URL"),
+		SMTPHealthAddress:           value(lookup, "AVIA_SMTP_HEALTH_ADDRESS"),
+		OTLPHTTPEndpoint:            value(lookup, "AVIA_OTEL_EXPORTER_OTLP_ENDPOINT"),
 	}
 	cookieSecure, err := parseBoolean(lookup, "AVIA_COOKIE_SECURE", true)
 	if err != nil {
@@ -498,7 +543,7 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 		{name: "AVIA_OIDC_CLIENT_ID", value: settings.OIDCClientID},
 		{name: "AVIA_OIDC_CLIENT_SECRET", value: settings.OIDCClientSecret},
 		{name: "AVIA_OIDC_REDIRECT_URL", value: settings.OIDCRedirectURL},
-		{name: "AVIA_SESSION_ENCRYPTION_KEY", value: value(lookup, "AVIA_SESSION_ENCRYPTION_KEY")},
+		{name: "AVIA_SESSION_ENCRYPTION_KEY", value: sessionEncryptionKey},
 	}
 	oidcConfigured := false
 	for _, entry := range oidcKeys {
@@ -514,7 +559,7 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 				return Settings{}, fmt.Errorf("%s is required when OIDC authentication is enabled", entry.name)
 			}
 		}
-		key, err := base64.StdEncoding.DecodeString(value(lookup, "AVIA_SESSION_ENCRYPTION_KEY"))
+		key, err := base64.StdEncoding.DecodeString(sessionEncryptionKey)
 		if err != nil || len(key) != 32 {
 			return Settings{}, fmt.Errorf("AVIA_SESSION_ENCRYPTION_KEY must be base64 for exactly 32 bytes")
 		}
@@ -544,6 +589,31 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 			!settings.OIDCDiscoveryPrivateNetwork {
 			return Settings{}, fmt.Errorf(
 				"plaintext OIDC discovery requires AVIA_OIDC_DISCOVERY_PRIVATE_NETWORK=true",
+			)
+		}
+	}
+
+	authAdminConfigured := settings.AuthAdminURL != "" ||
+		settings.AuthAdminAPIKey != "" ||
+		settings.AuthAdminAPISecret != "" ||
+		settings.AuthAccountID != ""
+	if authAdminConfigured {
+		if settings.AuthAdminURL == "" {
+			return Settings{}, fmt.Errorf(
+				"AVIA_AUTH_ADMIN_URL is required when AviaAuth administration is configured",
+			)
+		}
+		adminURL, err := url.Parse(settings.AuthAdminURL)
+		if err != nil || adminURL.Host == "" ||
+			(adminURL.Scheme != "http" && adminURL.Scheme != "https") ||
+			adminURL.User != nil || adminURL.RawQuery != "" || adminURL.Fragment != "" {
+			return Settings{}, fmt.Errorf(
+				"AVIA_AUTH_ADMIN_URL must be an absolute HTTP(S) URL without credentials, query, or fragment",
+			)
+		}
+		if (settings.AuthAdminAPIKey == "") != (settings.AuthAdminAPISecret == "") {
+			return Settings{}, fmt.Errorf(
+				"AVIA_AUTH_ADMIN_API_KEY and AVIA_AUTH_ADMIN_API_SECRET must be configured together",
 			)
 		}
 	}
@@ -636,6 +706,27 @@ func value(lookup LookupEnv, key string) string {
 		return strings.TrimSpace(raw)
 	}
 	return ""
+}
+
+func valueOrFile(lookup LookupEnv, name string) (string, error) {
+	inline := value(lookup, name)
+	fileName := name + "_FILE"
+	filePath := value(lookup, fileName)
+	if inline != "" && filePath != "" {
+		return "", fmt.Errorf("%s and %s are mutually exclusive", name, fileName)
+	}
+	if filePath == "" {
+		return inline, nil
+	}
+	contents, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", fmt.Errorf("%s could not be read", fileName)
+	}
+	resolved := strings.TrimSpace(string(contents))
+	if resolved == "" {
+		return "", fmt.Errorf("%s must contain a non-empty value", fileName)
+	}
+	return resolved, nil
 }
 
 func valueOrDefault(lookup LookupEnv, key, fallback string) string {

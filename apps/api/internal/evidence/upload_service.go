@@ -9,11 +9,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/idempotency"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/objectstore"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/uploadpolicy"
+	"github.com/aviason/aviaSurveil/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/platform/database"
+	"github.com/aviason/aviaSurveil/internal/platform/idempotency"
+	"github.com/aviason/aviaSurveil/internal/platform/objectstore"
+	"github.com/aviason/aviaSurveil/internal/platform/uploadpolicy"
 	"github.com/jackc/pgx/v5"
 )
 

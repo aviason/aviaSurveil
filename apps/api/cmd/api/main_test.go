@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/config"
-	platformhealth "github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/health"
+	"github.com/aviason/aviaSurveil/internal/platform/config"
+	platformhealth "github.com/aviason/aviaSurveil/internal/platform/health"
 )
 
 func TestUploadServiceConfigsUseInjectedScenarioClock(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	feedstore "github.com/MarlonJD/aviaSurveil360/apps/api/internal/datafeed/store/postgres"
+	feedstore "github.com/aviason/aviaSurveil/internal/datafeed/store/postgres"
 )
 
 func TestReconstructPersistedEventRevalidatesItsImmutableCanonicalDigest(t *testing.T) {

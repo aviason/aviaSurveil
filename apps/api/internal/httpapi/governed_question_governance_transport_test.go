@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/httpapi/generated"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/regulatory"
+	"github.com/aviason/aviaSurveil/internal/httpapi/generated"
+	"github.com/aviason/aviaSurveil/internal/regulatory"
 )
 
 // Break caught: generated HTTP transport could alter the literal legacy

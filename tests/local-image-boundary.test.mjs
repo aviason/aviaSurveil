@@ -85,11 +85,12 @@ test("the existing HTTP artifact contains no mock, seed, or test-profile input",
   assert.doesNotMatch(inputs, /testprofile|test-profile/iu);
 });
 
-test("Go Dockerfile has reproducible api, worker, scheduler, and migration targets", () => {
+test("Go Dockerfile has reproducible active runtime targets and no retired scheduler target", () => {
   const dockerfile = read("apps/api/Dockerfile");
-  for (const target of ["api", "worker", "scheduler", "migration"]) {
+  for (const target of ["api", "worker", "migration"]) {
     assert.match(dockerfile, new RegExp(`^FROM .+ AS ${target}$`, "mu"));
   }
+  assert.doesNotMatch(dockerfile, /^FROM .+ AS scheduler$/mu);
   assert.match(dockerfile, /CGO_ENABLED=0/u);
   assert.match(dockerfile, /-trimpath/u);
   assert.match(dockerfile, /-buildvcs=false/u);

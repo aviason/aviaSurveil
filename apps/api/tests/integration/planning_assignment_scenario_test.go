@@ -13,15 +13,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/application"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/assignments"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/httpapi"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/planning"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/questioncatalog"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/testprofile"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/migrations"
+	"github.com/aviason/aviaSurveil/internal/application"
+	"github.com/aviason/aviaSurveil/internal/assignments"
+	"github.com/aviason/aviaSurveil/internal/httpapi"
+	"github.com/aviason/aviaSurveil/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/planning"
+	"github.com/aviason/aviaSurveil/internal/platform/database"
+	"github.com/aviason/aviaSurveil/internal/questioncatalog"
+	"github.com/aviason/aviaSurveil/internal/testprofile"
+	"github.com/aviason/aviaSurveil/migrations"
 )
 
 func TestRoutinePlanningReturnReentryAndAssignmentMaterialization(t *testing.T) {

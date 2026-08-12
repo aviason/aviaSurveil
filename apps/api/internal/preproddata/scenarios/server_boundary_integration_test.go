@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/preproddata/profiles"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/preproddata/scenarios"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/migrations"
+	"github.com/aviason/aviaSurveil/internal/platform/database"
+	"github.com/aviason/aviaSurveil/internal/preproddata/profiles"
+	"github.com/aviason/aviaSurveil/internal/preproddata/scenarios"
+	"github.com/aviason/aviaSurveil/migrations"
 )
 
 func TestPostgresStoreMaterializesTheCompleteSmokeDomainAndReconciles(

@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/evidence"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/idempotency"
+	"github.com/aviason/aviaSurveil/internal/evidence"
+	"github.com/aviason/aviaSurveil/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/platform/idempotency"
 )
 
 func TestOfficialEvidenceUploadIsBoundedIdempotentVersionedAndDownloadGated(t *testing.T) {

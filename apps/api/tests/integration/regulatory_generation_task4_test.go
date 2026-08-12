@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/regulatory"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/testprofile"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/migrations"
+	"github.com/aviason/aviaSurveil/internal/regulatory"
+	"github.com/aviason/aviaSurveil/internal/testprofile"
+	"github.com/aviason/aviaSurveil/migrations"
 )
 
 func TestTask4SyntheticImportPersistsCompleteLineageAndReplaysExactly(t *testing.T) {

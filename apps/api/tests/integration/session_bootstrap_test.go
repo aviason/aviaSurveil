@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/config"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/session"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/migrations"
+	"github.com/aviason/aviaSurveil/internal/platform/config"
+	"github.com/aviason/aviaSurveil/internal/platform/session"
+	"github.com/aviason/aviaSurveil/migrations"
 )
 
 func TestExplicitTestSessionBootstrapIsDeterministicAndIdempotent(t *testing.T) {

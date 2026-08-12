@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
+	"github.com/aviason/aviaSurveil/internal/platform/database"
 )
 
 const LatestVersion int64 = 44

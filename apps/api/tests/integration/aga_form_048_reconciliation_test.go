@@ -5,7 +5,7 @@ package integration
 import (
 	"testing"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/regulatory"
+	"github.com/aviason/aviaSurveil/internal/regulatory"
 )
 
 func TestAGAForm048Reconciliation(t *testing.T) {

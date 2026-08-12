@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/identity"
 )
 
 func TestRemoteOIDCProviderUsesDiscoveryAuthorizationCodePKCEAndVerifiedClaims(t *testing.T) {

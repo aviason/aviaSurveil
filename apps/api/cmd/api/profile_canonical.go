@@ -8,12 +8,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/httpapi"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/config"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/objectstore"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/session"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/testprofile"
+	"github.com/aviason/aviaSurveil/internal/httpapi"
+	"github.com/aviason/aviaSurveil/internal/platform/config"
+	"github.com/aviason/aviaSurveil/internal/platform/database"
+	"github.com/aviason/aviaSurveil/internal/platform/objectstore"
+	"github.com/aviason/aviaSurveil/internal/platform/session"
+	"github.com/aviason/aviaSurveil/internal/testprofile"
 )
 
 func activeRuntimeProfile(settings config.Settings) (runtimeProfile, error) {

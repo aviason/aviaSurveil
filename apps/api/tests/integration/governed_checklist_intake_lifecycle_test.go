@@ -5,7 +5,7 @@ package integration
 import (
 	"testing"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/checklistintake"
+	"github.com/aviason/aviaSurveil/internal/checklistintake"
 )
 
 func TestGovernedChecklistIntakeLifecycle(t *testing.T) {

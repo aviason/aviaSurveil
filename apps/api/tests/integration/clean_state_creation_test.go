@@ -5,10 +5,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/application"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/session"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/migrations"
+	"github.com/aviason/aviaSurveil/internal/application"
+	"github.com/aviason/aviaSurveil/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/platform/session"
+	"github.com/aviason/aviaSurveil/migrations"
 )
 
 func TestBootstrapAdministratorCannotCreateApplicationAuthorityByLogin(t *testing.T) {

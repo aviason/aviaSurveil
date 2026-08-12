@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/application"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/httpapi/generated"
+	"github.com/aviason/aviaSurveil/internal/application"
+	"github.com/aviason/aviaSurveil/internal/httpapi/generated"
 )
 
 func (api *CanonicalAPI) startInspection(writer http.ResponseWriter, request *http.Request) {
