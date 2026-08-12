@@ -302,7 +302,8 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 	}
 	settings.AllowServerManagedCORS = (settings.Environment == "test" &&
 		(settings.CanonicalSeed || serverManagedCORS)) ||
-		settings.Environment == "local-preprod"
+		settings.Environment == "local-preprod" ||
+		(settings.Environment == "development" && serverManagedCORS)
 
 	if settings.Environment == "production" {
 		if !settings.CookieSecure {
@@ -337,9 +338,9 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 			}
 		}
 	}
-	if serverManagedCORS && settings.Environment != "test" {
+	if serverManagedCORS && settings.Environment != "test" && settings.Environment != "development" {
 		return Settings{}, fmt.Errorf(
-			"AVIA_OBJECT_STORE_SERVER_MANAGED_CORS requires AVIA_ENVIRONMENT=test",
+			"AVIA_OBJECT_STORE_SERVER_MANAGED_CORS requires AVIA_ENVIRONMENT=test or development",
 		)
 	}
 	if settings.CanonicalSeed && settings.Environment != "test" {

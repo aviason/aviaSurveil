@@ -258,6 +258,32 @@ func TestOIDCProfileExplicitlyAllowsTestOnlyServerManagedObjectStoreCORS(t *test
 	}
 }
 
+func TestDevelopmentProfileAllowsExplicitServerManagedObjectStoreCORS(t *testing.T) {
+	t.Parallel()
+	values := map[string]string{
+		"AVIA_ENVIRONMENT":                      "development",
+		"AVIA_DATABASE_URL":                     "postgres://127.0.0.1/avia",
+		"AVIA_OBJECT_STORE_ENDPOINT":            "127.0.0.1:59001",
+		"AVIA_OBJECT_STORE_ACCESS_KEY":          "local-access",
+		"AVIA_OBJECT_STORE_SECRET_KEY":          "local-secret",
+		"AVIA_OBJECT_STORE_CORS_ORIGINS":        "https://localhost:8443",
+		"AVIA_OBJECT_STORE_SERVER_MANAGED_CORS": "true",
+	}
+	settings, err := config.Load(mapLookup(values))
+	if err != nil {
+		t.Fatalf("Load() development object-store profile: %v", err)
+	}
+	if !settings.AllowServerManagedCORS {
+		t.Fatalf("development object-store CORS settings = %+v", settings)
+	}
+
+	values["AVIA_ENVIRONMENT"] = "production"
+	if _, err := config.Load(mapLookup(values)); err == nil ||
+		!strings.Contains(err.Error(), "AVIA_OBJECT_STORE_SERVER_MANAGED_CORS") {
+		t.Fatalf("production server-managed CORS error = %v", err)
+	}
+}
+
 func TestExplicitTestProfileLoadsDeterministicPrincipal(t *testing.T) {
 	t.Parallel()
 
