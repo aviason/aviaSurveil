@@ -5,8 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"net"
-	"net/netip"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -15,14 +14,28 @@ import (
 var (
 	ErrRateLimited        = errors.New("authentication rate limit exceeded")
 	ErrLimiterUnavailable = errors.New("authentication rate limiter unavailable")
-	ErrUntrustedForwarded = errors.New("forwarded client identity is not trusted")
 )
 
 type Clock func() time.Time
 
+type Limiter interface {
+	Allow(context.Context, ...Rule) error
+}
+
+// Rule is one operation-specific admission bucket. Key must already be a
+// domain-separated, namespaced hash; raw attacker input must never be stored
+// in the durable bucket table.
+type Rule struct {
+	Key    string
+	Window time.Duration
+	Limit  int
+	Global bool
+}
+
 type bucket struct {
 	started time.Time
 	count   int
+	window  time.Duration
 }
 
 // MemoryLimiter is a deterministic local admission limiter. The provider will
@@ -31,8 +44,6 @@ type bucket struct {
 type MemoryLimiter struct {
 	mu          sync.Mutex
 	clock       Clock
-	window      time.Duration
-	limit       int
 	buckets     map[string]bucket
 	unavailable bool
 }
@@ -44,13 +55,13 @@ func NewMemoryLimiter(window time.Duration, limit int, clock Clock) (*MemoryLimi
 	if clock == nil {
 		clock = time.Now
 	}
-	return &MemoryLimiter{clock: clock, window: window, limit: limit, buckets: make(map[string]bucket)}, nil
+	return &MemoryLimiter{clock: clock, buckets: make(map[string]bucket)}, nil
 }
 
-func (limiter *MemoryLimiter) Allow(_ context.Context, keys ...string) error {
-	cleanKeys := uniqueKeys(keys)
-	if len(cleanKeys) == 0 {
-		return ErrLimiterUnavailable
+func (limiter *MemoryLimiter) Allow(_ context.Context, rules ...Rule) error {
+	ordered, err := normalizeRules(rules)
+	if err != nil {
+		return err
 	}
 	now := limiter.clock()
 	limiter.mu.Lock()
@@ -58,24 +69,47 @@ func (limiter *MemoryLimiter) Allow(_ context.Context, keys ...string) error {
 	if limiter.unavailable {
 		return ErrLimiterUnavailable
 	}
-	for _, key := range cleanKeys {
-		state := limiter.buckets[key]
-		if state.started.IsZero() || now.Sub(state.started) >= limiter.window {
-			continue
-		}
-		if state.count >= limiter.limit {
+	for _, rule := range ordered {
+		state := limiter.buckets[rule.Key]
+		if !state.started.IsZero() && now.Sub(state.started) < rule.Window && state.count >= rule.Limit {
 			return ErrRateLimited
 		}
 	}
-	for _, key := range cleanKeys {
-		state := limiter.buckets[key]
-		if state.started.IsZero() || now.Sub(state.started) >= limiter.window {
-			state = bucket{started: now}
+	for _, rule := range ordered {
+		state := limiter.buckets[rule.Key]
+		if state.started.IsZero() || now.Sub(state.started) >= rule.Window {
+			state = bucket{started: now, window: rule.Window}
+		} else {
+			state.window = rule.Window
 		}
 		state.count++
-		limiter.buckets[key] = state
+		limiter.buckets[rule.Key] = state
 	}
 	return nil
+}
+
+// Cleanup removes no more than limit stale buckets. It is intentionally
+// separate from Allow so admission never performs an unbounded scan.
+func (limiter *MemoryLimiter) Cleanup(at time.Time, limit int) (int, error) {
+	if limit < 1 {
+		return 0, ErrLimiterUnavailable
+	}
+	limiter.mu.Lock()
+	defer limiter.mu.Unlock()
+	keys := make([]string, 0, len(limiter.buckets))
+	for key, state := range limiter.buckets {
+		if !state.started.IsZero() && !at.Before(state.started.Add(state.window)) {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+	if len(keys) > limit {
+		keys = keys[:limit]
+	}
+	for _, key := range keys {
+		delete(limiter.buckets, key)
+	}
+	return len(keys), nil
 }
 
 func (limiter *MemoryLimiter) SetUnavailable(value bool) {
@@ -95,76 +129,31 @@ func Key(namespace, value string) string {
 	return namespace + ":" + hex.EncodeToString(digest[:])
 }
 
-type ForwardedHeaders struct {
-	RemoteAddr    string
-	ForwardedFor  string
-	XForwardedFor string
-	XRealIP       string
-}
-
-// ResolveClientIP trusts forwarded identity only when the immediate peer is
-// inside a configured gateway prefix. Untrusted peers cannot spoof a client
-// address by sending X-Forwarded-For; malformed trusted headers fail closed.
-func ResolveClientIP(headers ForwardedHeaders, trusted []netip.Prefix) (netip.Addr, error) {
-	remote, err := parseRemoteAddr(headers.RemoteAddr)
-	if err != nil {
-		return netip.Addr{}, ErrUntrustedForwarded
+func normalizeRules(rules []Rule) ([]Rule, error) {
+	if len(rules) == 0 || len(rules) > 8 {
+		return nil, ErrLimiterUnavailable
 	}
-	if !containsPrefix(trusted, remote) {
-		return remote, nil
-	}
-	forwarded := strings.TrimSpace(headers.XForwardedFor)
-	if forwarded == "" {
-		forwarded = strings.TrimSpace(headers.ForwardedFor)
-	}
-	if forwarded == "" {
-		forwarded = strings.TrimSpace(headers.XRealIP)
-	}
-	if forwarded == "" {
-		return netip.Addr{}, ErrUntrustedForwarded
-	}
-	parts := strings.Split(forwarded, ",")
-	for index := range parts {
-		parts[index] = strings.TrimSpace(parts[index])
-		if parts[index] == "" {
-			return netip.Addr{}, ErrUntrustedForwarded
+	ordered := make([]Rule, 0, len(rules))
+	seen := make(map[string]Rule, len(rules))
+	for _, rule := range rules {
+		rule.Key = strings.TrimSpace(rule.Key)
+		if rule.Key == "" || len(rule.Key) > 256 || rule.Window <= 0 || rule.Limit <= 0 {
+			return nil, ErrLimiterUnavailable
 		}
-		if _, err := netip.ParseAddr(parts[index]); err != nil {
-			return netip.Addr{}, ErrUntrustedForwarded
-		}
-	}
-	return netip.ParseAddr(parts[0])
-}
-
-func parseRemoteAddr(raw string) (netip.Addr, error) {
-	if host, _, err := net.SplitHostPort(strings.TrimSpace(raw)); err == nil {
-		return netip.ParseAddr(host)
-	}
-	return netip.ParseAddr(strings.TrimSpace(raw))
-}
-
-func containsPrefix(prefixes []netip.Prefix, address netip.Addr) bool {
-	for _, prefix := range prefixes {
-		if prefix.Contains(address) {
-			return true
-		}
-	}
-	return false
-}
-
-func uniqueKeys(keys []string) []string {
-	seen := make(map[string]struct{}, len(keys))
-	result := make([]string, 0, len(keys))
-	for _, key := range keys {
-		key = strings.TrimSpace(key)
-		if key == "" {
+		if previous, exists := seen[rule.Key]; exists {
+			if previous.Window != rule.Window || previous.Limit != rule.Limit || previous.Global != rule.Global {
+				return nil, ErrLimiterUnavailable
+			}
 			continue
 		}
-		if _, exists := seen[key]; exists {
-			continue
-		}
-		seen[key] = struct{}{}
-		result = append(result, key)
+		seen[rule.Key] = rule
+		ordered = append(ordered, rule)
 	}
-	return result
+	sort.SliceStable(ordered, func(left, right int) bool {
+		if ordered[left].Global != ordered[right].Global {
+			return ordered[left].Global
+		}
+		return ordered[left].Key < ordered[right].Key
+	})
+	return ordered, nil
 }

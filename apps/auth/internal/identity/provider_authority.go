@@ -238,6 +238,9 @@ func (store *PostgresStore) SetProviderAuthorityState(ctx context.Context, subje
 // password, account state, authority state, and auth revision in one
 // transaction. A consumed invitation is never replayable.
 func (store *PostgresStore) ActivateWithInvitation(ctx context.Context, subjectID, token string, newPassword []byte) (AccountSnapshot, error) {
+	if err := store.prevalidateInvitation(ctx, subjectID, token); err != nil {
+		return AccountSnapshot{}, err
+	}
 	current, err := loadAccount(ctx, store.pool, subjectID, false)
 	if err != nil {
 		return AccountSnapshot{}, mapAccountReadError(err)
@@ -311,9 +314,37 @@ func (store *PostgresStore) ActivateWithInvitation(ctx context.Context, subjectI
 	return updated.snapshot(), nil
 }
 
+// prevalidateInvitation is the cheap invitation-owned boundary. It performs
+// no password policy or Argon2 work and never authorizes the later mutation.
+func (store *PostgresStore) prevalidateInvitation(ctx context.Context, subjectID, token string) error {
+	var tokenHash []byte
+	var state string
+	var expiresAt time.Time
+	var consumedAt *time.Time
+	err := store.pool.QueryRow(ctx, `SELECT token_hash, state, expires_at, consumed_at FROM auth_identity.invitations WHERE subject_id = $1 ORDER BY issued_at DESC, invitation_id DESC LIMIT 1`, subjectID).Scan(&tokenHash, &state, &expiresAt, &consumedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrInvitationNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("prevalidate provider invitation: %w", err)
+	}
+	provided := DigestSecret(token)
+	if len(tokenHash) != len(provided) || subtle.ConstantTimeCompare(tokenHash, provided[:]) != 1 || state != "issued" || consumedAt != nil {
+		return ErrInvitationNotFound
+	}
+	if !store.clock().UTC().Before(expiresAt) {
+		return ErrInvitationExpired
+	}
+	return nil
+}
+
 // ResetPasswordWithChallenge consumes the subject-bound recovery challenge and
 // changes the password under one database transaction.
 func (store *PostgresStore) ResetPasswordWithChallenge(ctx context.Context, subjectID, purpose, token string, newPassword []byte) (AccountSnapshot, error) {
+	purposeValue := challenge.Purpose(purpose)
+	if _, err := store.challenges.Prevalidate(ctx, subjectID, purposeValue, token); err != nil {
+		return AccountSnapshot{}, ErrInvalidRecovery
+	}
 	current, err := loadAccount(ctx, store.pool, subjectID, false)
 	if err != nil {
 		return AccountSnapshot{}, mapAccountReadError(err)
@@ -329,47 +360,33 @@ func (store *PostgresStore) ResetPasswordWithChallenge(ctx context.Context, subj
 	if err != nil {
 		return AccountSnapshot{}, err
 	}
-	tx, err := store.pool.Begin(ctx)
-	if err != nil {
-		return AccountSnapshot{}, fmt.Errorf("begin transactional password recovery: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	hash := challenge.DigestToken(token)
-	var state string
-	var attempts, maxAttempts int
-	var expiresAt time.Time
-	var storedHash []byte
-	if err := tx.QueryRow(ctx, `SELECT token_hash, state, attempt_count, max_attempts, expires_at FROM auth_identity.identity_challenges WHERE token_hash = $1 AND subject_id = $2 AND purpose = $3 FOR UPDATE`, hash[:], subjectID, purpose).Scan(&storedHash, &state, &attempts, &maxAttempts, &expiresAt); errors.Is(err, pgx.ErrNoRows) {
+	var updated dbAccount
+	err = store.challenges.WithMutation(ctx, subjectID, purposeValue, token, func(ctx context.Context, tx pgx.Tx, handle challenge.MutationHandle) error {
+		locked, err := loadAccount(ctx, tx, subjectID, true)
+		if err != nil {
+			return mapAccountReadError(err)
+		}
+		if locked.authRevision != current.authRevision || locked.state != AccountActive {
+			return ErrRevisionConflict
+		}
+		now := store.clock().UTC()
+		if err := handle.Consume(ctx); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO auth_identity.password_history(subject_id, history_revision, password_hash, created_at) VALUES ($1, $2, $3, $4)`, subjectID, current.authRevision, current.passwordHash, now); err != nil {
+			return fmt.Errorf("record transactional password history: %w", err)
+		}
+		if _, err := tx.Exec(ctx, `UPDATE auth_identity.accounts SET password_hash = $2, auth_revision = auth_revision + 1, failed_login_count = 0, locked_until = NULL, updated_at = $3 WHERE subject_id = $1 AND auth_revision = $4`, subjectID, newHash, now, current.authRevision); err != nil {
+			return fmt.Errorf("apply transactional password recovery: %w", err)
+		}
+		updated, err = loadAccount(ctx, tx, subjectID, true)
+		return err
+	})
+	if errors.Is(err, challenge.ErrInvalidChallenge) || errors.Is(err, challenge.ErrChallengeExpired) || errors.Is(err, challenge.ErrChallengeUsed) || errors.Is(err, challenge.ErrChallengeLocked) {
 		return AccountSnapshot{}, ErrInvalidRecovery
-	} else if err != nil {
-		return AccountSnapshot{}, fmt.Errorf("lock password recovery challenge: %w", err)
 	}
-	if len(storedHash) != len(hash) || subtle.ConstantTimeCompare(storedHash, hash[:]) != 1 || state != "active" || attempts >= maxAttempts || !store.clock().UTC().Before(expiresAt) {
-		return AccountSnapshot{}, ErrInvalidRecovery
-	}
-	locked, err := loadAccount(ctx, tx, subjectID, true)
-	if err != nil {
-		return AccountSnapshot{}, mapAccountReadError(err)
-	}
-	if locked.authRevision != current.authRevision || locked.state != AccountActive {
-		return AccountSnapshot{}, ErrRevisionConflict
-	}
-	now := store.clock().UTC()
-	if _, err := tx.Exec(ctx, `UPDATE auth_identity.identity_challenges SET state = 'consumed', consumed_at = $2, updated_at = $2 WHERE token_hash = $1`, hash[:], now); err != nil {
-		return AccountSnapshot{}, fmt.Errorf("consume password recovery challenge: %w", err)
-	}
-	if _, err := tx.Exec(ctx, `INSERT INTO auth_identity.password_history(subject_id, history_revision, password_hash, created_at) VALUES ($1, $2, $3, $4)`, subjectID, current.authRevision, current.passwordHash, now); err != nil {
-		return AccountSnapshot{}, fmt.Errorf("record transactional password history: %w", err)
-	}
-	if _, err := tx.Exec(ctx, `UPDATE auth_identity.accounts SET password_hash = $2, auth_revision = auth_revision + 1, failed_login_count = 0, locked_until = NULL, updated_at = $3 WHERE subject_id = $1 AND auth_revision = $4`, subjectID, newHash, now, current.authRevision); err != nil {
-		return AccountSnapshot{}, fmt.Errorf("apply transactional password recovery: %w", err)
-	}
-	updated, err := loadAccount(ctx, tx, subjectID, true)
 	if err != nil {
 		return AccountSnapshot{}, err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return AccountSnapshot{}, fmt.Errorf("commit transactional password recovery: %w", err)
 	}
 	if err := store.revokeSessions(ctx, subjectID); err != nil {
 		return AccountSnapshot{}, err

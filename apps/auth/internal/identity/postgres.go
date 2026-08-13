@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/netip"
 	"strings"
 	"time"
 
+	"github.com/MarlonJD/aviaSurveil360/apps/auth/internal/challenge"
 	"github.com/MarlonJD/aviaSurveil360/apps/auth/internal/password"
 	"github.com/MarlonJD/aviaSurveil360/apps/auth/internal/throttle"
 	"github.com/jackc/pgx/v5"
@@ -19,10 +19,11 @@ type PostgresStore struct {
 	pool           *pgxpool.Pool
 	hasher         *password.Hasher
 	passwordPolicy password.Policy
-	limiter        Limiter
+	limiter        throttle.Limiter
 	sessionRevoker SessionRevoker
-	trustedProxies []netip.Prefix
+	authPolicy     AuthenticationPolicy
 	clock          Clock
+	challenges     *challenge.PostgresStore
 }
 
 // SetSessionRevoker wires provider credential/session revocation after both
@@ -42,14 +43,25 @@ func NewPostgresStore(pool *pgxpool.Pool, configuration Config) (*PostgresStore,
 	if configuration.Clock == nil {
 		configuration.Clock = time.Now
 	}
+	if configuration.AuthenticationPolicy.Window <= 0 {
+		configuration.AuthenticationPolicy = DefaultAuthenticationPolicy()
+	}
+	if configuration.AuthenticationPolicy.GlobalLimit < 1 || configuration.AuthenticationPolicy.IdentifierLimit < 1 || configuration.AuthenticationPolicy.BrowserLimit < 1 || configuration.AuthenticationPolicy.ClientLimit < 1 || configuration.AuthenticationPolicy.SubjectLimit < 1 {
+		return nil, errors.New("PostgreSQL identity authentication admission policy is invalid")
+	}
+	challenges, err := challenge.NewPostgresStore(pool, challenge.Config{Clock: challenge.Clock(configuration.Clock)})
+	if err != nil {
+		return nil, err
+	}
 	return &PostgresStore{
 		pool:           pool,
 		hasher:         configuration.Hasher,
 		passwordPolicy: configuration.PasswordPolicy,
 		limiter:        configuration.Limiter,
 		sessionRevoker: configuration.SessionRevoker,
-		trustedProxies: append([]netip.Prefix(nil), configuration.TrustedProxies...),
+		authPolicy:     configuration.AuthenticationPolicy,
 		clock:          configuration.Clock,
+		challenges:     challenges,
 	}, nil
 }
 
@@ -226,24 +238,37 @@ func (store *PostgresStore) Activate(ctx context.Context, subjectID string, expe
 
 func (store *PostgresStore) Authenticate(ctx context.Context, request AuthenticationRequest) (AuthenticationResult, error) {
 	identifier, identifierErr := DetectIdentifier(request.Identifier)
-	clientIP, ipErr := throttle.ResolveClientIP(request.Source, store.trustedProxies)
-	if ipErr != nil {
-		return AuthenticationResult{}, ErrAuthenticationUnavailable
-	}
-	keys := []string{throttle.Key("ip", clientIP.String()), throttle.Key("identifier", request.Identifier)}
-	if strings.TrimSpace(request.DeviceKey) != "" {
-		keys = append(keys, throttle.Key("device", request.DeviceKey))
-	}
-	if err := store.limiter.Allow(ctx, keys...); err != nil {
-		if errors.Is(err, throttle.ErrRateLimited) {
-			return AuthenticationResult{}, ErrAuthenticationRateLimited
-		}
-		return AuthenticationResult{}, ErrAuthenticationUnavailable
-	}
 	var current dbAccount
 	lookupErr := ErrAccountNotFound
 	if identifierErr == nil {
 		current, lookupErr = loadAccountByIdentifier(ctx, store.pool, identifier.Normalized)
+	}
+	identifierValue := request.Identifier
+	if identifierErr == nil {
+		identifierValue = identifier.Normalized
+	}
+	browserBinding := strings.TrimSpace(request.BrowserBinding)
+	if browserBinding == "" {
+		browserBinding = "missing"
+	}
+	clientKey := strings.TrimSpace(request.DeviceKey)
+	if clientKey == "" {
+		clientKey = "missing"
+	}
+	rules := []throttle.Rule{
+		{Key: throttle.Key("auth:global", "password"), Window: store.authPolicy.Window, Limit: store.authPolicy.GlobalLimit, Global: true},
+		{Key: throttle.Key("auth:identifier", identifierValue), Window: store.authPolicy.Window, Limit: store.authPolicy.IdentifierLimit},
+		{Key: throttle.Key("auth:browser", browserBinding), Window: store.authPolicy.Window, Limit: store.authPolicy.BrowserLimit},
+		{Key: throttle.Key("auth:client", clientKey), Window: store.authPolicy.Window, Limit: store.authPolicy.ClientLimit},
+	}
+	if lookupErr == nil {
+		rules = append(rules, throttle.Rule{Key: throttle.Key("auth:subject", current.subjectID), Window: store.authPolicy.Window, Limit: store.authPolicy.SubjectLimit})
+	}
+	if err := store.limiter.Allow(ctx, rules...); err != nil {
+		if errors.Is(err, throttle.ErrRateLimited) {
+			return AuthenticationResult{}, ErrAuthenticationRateLimited
+		}
+		return AuthenticationResult{}, ErrAuthenticationUnavailable
 	}
 	encodedHash := store.hasher.DummyHash()
 	if lookupErr == nil {
@@ -266,22 +291,18 @@ func (store *PostgresStore) Authenticate(ctx context.Context, request Authentica
 		return AuthenticationResult{}, ErrAuthenticationUnavailable
 	}
 	if locked.authRevision != current.authRevision || locked.passwordHash != current.passwordHash || !verified || !canLoginAt(locked, store.clock()) {
-		willLock := locked.state == AccountActive && locked.failedAttempts+1 >= 5
-		if err := recordPostgresFailure(ctx, transaction, locked, store.clock()); err != nil {
-			return AuthenticationResult{}, ErrAuthenticationUnavailable
+		if !verified && locked.authRevision == current.authRevision && locked.passwordHash == current.passwordHash {
+			if err := recordPostgresFailure(ctx, transaction, locked, store.clock()); err != nil {
+				return AuthenticationResult{}, ErrAuthenticationUnavailable
+			}
 		}
 		if err := transaction.Commit(ctx); err != nil {
 			return AuthenticationResult{}, ErrAuthenticationUnavailable
 		}
-		if willLock && store.sessionRevoker != nil {
-			if err := store.sessionRevoker.RevokeAllSessions(ctx, locked.subjectID); err != nil {
-				return AuthenticationResult{}, ErrAuthenticationUnavailable
-			}
-		}
 		return AuthenticationResult{}, ErrAuthenticationFailed
 	}
 	if locked.state == AccountLocked {
-		if _, err := transaction.Exec(ctx, `UPDATE auth_identity.accounts SET state = 'active', auth_revision = auth_revision + 1, failed_login_count = 0, locked_until = NULL, updated_at = $2 WHERE subject_id = $1`, locked.subjectID, store.clock()); err != nil {
+		if _, err := transaction.Exec(ctx, `UPDATE auth_identity.accounts SET state = 'active', failed_login_count = 0, locked_until = NULL, updated_at = $2 WHERE subject_id = $1`, locked.subjectID, store.clock()); err != nil {
 			return AuthenticationResult{}, ErrAuthenticationUnavailable
 		}
 	} else if _, err := transaction.Exec(ctx, `UPDATE auth_identity.accounts SET failed_login_count = 0, locked_until = NULL, updated_at = $2 WHERE subject_id = $1`, locked.subjectID, store.clock()); err != nil {
@@ -361,6 +382,18 @@ func (store *PostgresStore) LookupEmail(ctx context.Context, email string) (Acco
 		return AccountSnapshot{}, ErrAccountNotFound
 	}
 	current, err := loadAccountByIdentifier(ctx, store.pool, identifier.Normalized)
+	if err != nil {
+		return AccountSnapshot{}, mapAccountReadError(err)
+	}
+	return current.snapshot(), nil
+}
+
+func (store *PostgresStore) LookupEmailTx(ctx context.Context, tx pgx.Tx, email string) (AccountSnapshot, error) {
+	identifier, err := NormalizeIdentifier(IdentifierEmail, email)
+	if err != nil {
+		return AccountSnapshot{}, ErrAccountNotFound
+	}
+	current, err := loadAccountByIdentifier(ctx, tx, identifier.Normalized)
 	if err != nil {
 		return AccountSnapshot{}, mapAccountReadError(err)
 	}
@@ -540,12 +573,21 @@ func loadPasswordHistory(ctx context.Context, queryer rowQuerier, subjectID stri
 }
 
 func recordPostgresFailure(ctx context.Context, transaction pgx.Tx, record dbAccount, now time.Time) error {
-	nextCount := record.failedAttempts + 1
-	if record.state == AccountActive && nextCount >= 5 {
-		_, err := transaction.Exec(ctx, `UPDATE auth_identity.accounts SET state = 'locked', failed_login_count = $2, locked_until = $3, auth_revision = auth_revision + 1, updated_at = $4 WHERE subject_id = $1`, record.subjectID, nextCount, now.Add(15*time.Minute), now)
-		return err
+	if record.state != AccountActive || !record.emailVerified {
+		return nil
 	}
-	_, err := transaction.Exec(ctx, `UPDATE auth_identity.accounts SET failed_login_count = $2, updated_at = $3 WHERE subject_id = $1`, record.subjectID, nextCount, now)
+	if !record.lockedUntil.IsZero() && now.Before(record.lockedUntil) {
+		return nil
+	}
+	nextCount := record.failedAttempts + 1
+	if !record.lockedUntil.IsZero() {
+		nextCount = 1
+	}
+	var lockedUntil any
+	if nextCount >= 5 {
+		lockedUntil = now.Add(15 * time.Minute)
+	}
+	_, err := transaction.Exec(ctx, `UPDATE auth_identity.accounts SET failed_login_count = $2, locked_until = $3, updated_at = $4 WHERE subject_id = $1`, record.subjectID, nextCount, lockedUntil, now)
 	return err
 }
 

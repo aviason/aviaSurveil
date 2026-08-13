@@ -1,9 +1,14 @@
 package provider
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"html/template"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -13,7 +18,6 @@ import (
 	"github.com/MarlonJD/aviaSurveil360/apps/auth/internal/identity"
 	"github.com/MarlonJD/aviaSurveil360/apps/auth/internal/mail"
 	"github.com/MarlonJD/aviaSurveil360/apps/auth/internal/mfa"
-	"github.com/MarlonJD/aviaSurveil360/apps/auth/internal/throttle"
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 	"github.com/zitadel/oidc/v3/pkg/op"
 )
@@ -31,6 +35,7 @@ type RuntimeDependencies struct {
 	MFA        *mfa.PostgresStore
 	Challenges *challenge.PostgresStore
 	Outbox     *mail.Outbox
+	Logger     *slog.Logger
 }
 
 func NewRuntimeCandidate(configuration CandidateConfig, storage *PostgresStorage, dependencies RuntimeDependencies) (*RuntimeCandidate, error) {
@@ -49,14 +54,18 @@ func NewRuntimeCandidate(configuration CandidateConfig, storage *PostgresStorage
 	if err != nil {
 		return nil, fmt.Errorf("initialize durable OIDC provider: %w", err)
 	}
-	runtime := &runtimeLogin{storage: storage, identity: dependencies.Identity, mfa: dependencies.MFA, challenges: dependencies.Challenges, outbox: dependencies.Outbox, provider: provider, issuer: strings.TrimRight(configuration.Issuer, "/")}
+	logger := dependencies.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
+	runtime := &runtimeLogin{storage: storage, identity: dependencies.Identity, mfa: dependencies.MFA, challenges: dependencies.Challenges, outbox: dependencies.Outbox, logger: logger, provider: provider, issuer: strings.TrimRight(configuration.Issuer, "/"), clientSecret: configuration.ClientSecret}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/authorize", func(writer http.ResponseWriter, request *http.Request) {
 		if request.URL.Query().Get("response_type") == string(oidc.ResponseTypeCode) && (request.URL.Query().Get("code_challenge") == "" || request.URL.Query().Get("code_challenge_method") != "S256") {
 			http.Error(writer, "PKCE S256 is required", http.StatusBadRequest)
 			return
 		}
-		provider.ServeHTTP(writer, request)
+		provider.ServeHTTP(writer, request.WithContext(WithBrowserBinding(request.Context(), browserBinding(request, configuration.ClientSecret))))
 	})
 	// zitadel/oidc completes a provider-owned browser authorization request at
 	// this callback path. Register it explicitly so it cannot be shadowed by
@@ -75,13 +84,47 @@ func NewRuntimeCandidate(configuration CandidateConfig, storage *PostgresStorage
 }
 
 type runtimeLogin struct {
-	storage    *PostgresStorage
-	identity   *identity.PostgresStore
-	mfa        *mfa.PostgresStore
-	challenges *challenge.PostgresStore
-	outbox     *mail.Outbox
-	provider   *op.Provider
-	issuer     string
+	storage      *PostgresStorage
+	identity     *identity.PostgresStore
+	mfa          *mfa.PostgresStore
+	challenges   *challenge.PostgresStore
+	outbox       *mail.Outbox
+	logger       *slog.Logger
+	provider     *op.Provider
+	issuer       string
+	clientSecret string
+}
+
+func browserBinding(request *http.Request, clientSecret string) string {
+	for _, name := range []string{"__Host-avia_login", "avia_login"} {
+		cookie, err := request.Cookie(name)
+		if err == nil && validateBrowserBinding(cookie.Value, clientSecret) {
+			return cookie.Value
+		}
+	}
+	return ""
+}
+
+func validateBrowserBinding(raw, clientSecret string) bool {
+	parts := strings.Split(strings.TrimSpace(raw), ".")
+	if len(parts) != 2 {
+		return false
+	}
+	value, err := base64.RawURLEncoding.DecodeString(parts[0])
+	if err != nil || len(value) != 32 {
+		return false
+	}
+	signature, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil || len(signature) != sha256.Size {
+		return false
+	}
+	keyHash := sha256.New()
+	_, _ = keyHash.Write([]byte("as360-oidc-login-binding-key-v1\x00"))
+	_, _ = keyHash.Write([]byte(clientSecret))
+	mac := hmac.New(sha256.New, keyHash.Sum(nil))
+	_, _ = mac.Write([]byte("as360-oidc-login-binding-v1\x00"))
+	_, _ = mac.Write(value)
+	return subtle.ConstantTimeCompare(signature, mac.Sum(nil)) == 1
 }
 
 func (runtime *runtimeLogin) passwordRecovery(writer http.ResponseWriter, request *http.Request) {
@@ -121,20 +164,74 @@ func (runtime *runtimeLogin) issueRecovery(writer http.ResponseWriter, request *
 	// Always return the same no-store response, including for malformed and
 	// unknown emails, so this route does not become an account oracle.
 	defer recoveryAccepted(writer)
-	account, err := runtime.identity.LookupEmail(request.Context(), strings.TrimSpace(email))
-	if err != nil || account.State != identity.AccountActive || !account.EmailVerified {
+	if err := runtime.storage.AdmitRecovery(request.Context(), string(purpose), email); err != nil {
+		runtime.logAdmission(string(purpose), err)
 		return
 	}
-	issued, err := runtime.challenges.Issue(request.Context(), account.SubjectID, purpose, 15*time.Minute, 5)
+	tx, err := runtime.storage.pool.Begin(request.Context())
 	if err != nil {
 		return
 	}
-	path := "/recover/password"
-	if purpose == challenge.PurposeMFARecovery {
-		path = "/recover/mfa"
+	defer func() { _ = tx.Rollback(request.Context()) }()
+	account, err := runtime.identity.LookupEmailTx(request.Context(), tx, strings.TrimSpace(email))
+	if err != nil || account.State != identity.AccountActive || !account.EmailVerified {
+		return
 	}
-	link := runtime.issuer + path + "?" + url.Values{"subject": {account.SubjectID}, "token": {issued.Token}}.Encode()
-	_, _ = runtime.outbox.Enqueue(request.Context(), mail.Delivery{Recipient: account.Email, Subject: "AviaSurveil360 account recovery", Body: "Use this one-time recovery link within 15 minutes: " + link})
+	lockKey := "recovery:" + account.SubjectID + ":" + string(purpose)
+	if _, err := tx.Exec(request.Context(), `SELECT pg_advisory_xact_lock(hashtext($1))`, lockKey); err != nil {
+		return
+	}
+	now := runtime.storage.clock().UTC()
+	dedupeKey := recoveryDedupeKey(account.SubjectID, purpose)
+	var pending bool
+	if err := tx.QueryRow(request.Context(), `SELECT EXISTS (SELECT 1 FROM auth_identity.mail_deliveries WHERE dedupe_key = $1 AND state IN ('queued', 'leased', 'retryable'))`, dedupeKey).Scan(&pending); err != nil {
+		return
+	}
+	activeChallenge, err := runtime.challenges.ActiveTx(request.Context(), tx, account.SubjectID, purpose, now)
+	if err != nil {
+		return
+	}
+	var delivered bool
+	if err := tx.QueryRow(request.Context(), `SELECT EXISTS (SELECT 1 FROM auth_identity.mail_deliveries WHERE dedupe_key = $1 AND state = 'delivered')`, dedupeKey).Scan(&delivered); err != nil {
+		return
+	}
+	// A delivered message coalesces only while its challenge remains usable. A
+	// retained delivered row must not suppress a fresh recovery after the
+	// original 15-minute challenge has expired.
+	if pending || (delivered && activeChallenge) {
+		if runtime.logger != nil {
+			runtime.logger.Info("recovery request coalesced", slog.String("operation_class", string(purpose)), slog.String("reason", "existing_delivery_or_challenge"))
+		}
+		if err := tx.Commit(request.Context()); err != nil {
+			return
+		}
+		return
+	}
+	// Invalidate every active row, including an already-expired row, before the
+	// replacement insert. This keeps the partial unique active-challenge index
+	// aligned with the expiry check above.
+	if _, err := runtime.challenges.InvalidateTx(request.Context(), tx, account.SubjectID, purpose, now); err != nil {
+		return
+	}
+	issued, err := runtime.challenges.IssueTx(request.Context(), tx, account.SubjectID, purpose, 15*time.Minute, 5)
+	if err != nil {
+		return
+	}
+	path := "recover/password"
+	if purpose == challenge.PurposeMFARecovery {
+		path = "recover/mfa"
+	}
+	link := providerAbsoluteEndpoint(runtime.issuer, path) + "?" + url.Values{"subject": {account.SubjectID}, "token": {issued.Token}}.Encode()
+	if _, err := runtime.outbox.EnqueueTx(request.Context(), tx, mail.Delivery{Recipient: account.Email, Subject: "AviaSurveil360 account recovery", Body: "Use this one-time recovery link within 15 minutes: " + link, DedupeKey: dedupeKey}); err != nil {
+		return
+	}
+	if err := tx.Commit(request.Context()); err != nil {
+		return
+	}
+}
+
+func recoveryDedupeKey(subjectID string, purpose challenge.Purpose) string {
+	return fmt.Sprintf("recovery:%x", sha256.Sum256([]byte("as360-recovery-mail-v1\x00"+subjectID+"\x00"+string(purpose))))
 }
 
 func (runtime *runtimeLogin) passwordReset(writer http.ResponseWriter, request *http.Request) {
@@ -236,13 +333,14 @@ func (runtime *runtimeLogin) login(writer http.ResponseWriter, request *http.Req
 		http.Error(writer, "invalid login request", http.StatusBadRequest)
 		return
 	}
-	result, err := runtime.identity.Authenticate(request.Context(), identity.AuthenticationRequest{Identifier: username, Password: []byte(password), Source: throttle.ForwardedHeaders{RemoteAddr: request.RemoteAddr, ForwardedFor: request.Header.Get("Forwarded"), XForwardedFor: request.Header.Get("X-Forwarded-For"), XRealIP: request.Header.Get("X-Real-IP")}, DeviceKey: request.UserAgent()})
+	result, err := runtime.identity.Authenticate(request.Context(), identity.AuthenticationRequest{Identifier: username, Password: []byte(password), BrowserBinding: browserBinding(request, runtime.clientSecret), DeviceKey: request.UserAgent()})
 	if err != nil {
 		if errors.Is(err, identity.ErrAuthenticationUnavailable) {
 			http.Error(writer, "authentication unavailable", http.StatusServiceUnavailable)
 			return
 		}
 		if errors.Is(err, identity.ErrAuthenticationRateLimited) {
+			runtime.logAdmission("password", err)
 			http.Error(writer, "too many login attempts", http.StatusTooManyRequests)
 			return
 		}
@@ -254,12 +352,12 @@ func (runtime *runtimeLogin) login(writer http.ResponseWriter, request *http.Req
 		http.Error(writer, "MFA unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	if err == nil && factor.Enabled {
-		if err := runtime.storage.StageAuthenticatedSubject(request.Context(), id, result.Account.SubjectID); err != nil {
-			http.Error(writer, "authentication unavailable", http.StatusServiceUnavailable)
-			return
-		}
-		http.Redirect(writer, request, "/mfa?id="+id, http.StatusFound)
+	if err := runtime.storage.StageAuthenticatedSubject(request.Context(), id, result.Account.SubjectID, result.Account.AuthRevision); err != nil {
+		http.Error(writer, "authentication unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	if factor.Enabled {
+		http.Redirect(writer, request, runtime.mfaPath(id), http.StatusFound)
 		return
 	}
 	runtime.complete(writer, request, id, result.Account.SubjectID, []string{"pwd"})
@@ -287,6 +385,25 @@ func (runtime *runtimeLogin) mfaChallenge(writer http.ResponseWriter, request *h
 		return
 	}
 	amr := []string{"pwd", "otp"}
+	if err := runtime.storage.AdmitMFA(request.Context(), id, auth.GetSubject()); err != nil {
+		if errors.Is(err, ErrProviderRateLimited) {
+			runtime.logAdmission("mfa", err)
+			http.Error(writer, "too many MFA attempts", http.StatusTooManyRequests)
+			return
+		}
+		http.Error(writer, "authentication unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	reservation, err := runtime.storage.ReserveMFAAttempt(request.Context(), id, auth.GetSubject())
+	if err != nil {
+		if errors.Is(err, ErrProviderRateLimited) {
+			runtime.logAdmission("mfa", err)
+			http.Error(writer, "too many MFA attempts", http.StatusTooManyRequests)
+			return
+		}
+		runtime.mfaForm(writer, request, "invalid MFA code")
+		return
+	}
 	if request.Form.Get("recovery") == "1" {
 		err = runtime.mfa.ConsumeRecoveryCode(request.Context(), auth.GetSubject(), code)
 		amr = []string{"pwd", "mfa"}
@@ -294,6 +411,10 @@ func (runtime *runtimeLogin) mfaChallenge(writer http.ResponseWriter, request *h
 		err = runtime.mfa.Verify(request.Context(), auth.GetSubject(), code)
 	}
 	if err != nil {
+		if reservation.Final {
+			runtime.logger.Warn("MFA attempt budget exhausted", slog.String("operation_class", "mfa"), slog.String("reason", "verification_failed"))
+			_ = runtime.storage.RejectMFAAttempt(request.Context(), reservation)
+		}
 		runtime.mfaForm(writer, request, "invalid MFA code")
 		return
 	}
@@ -308,11 +429,23 @@ func (runtime *runtimeLogin) complete(writer http.ResponseWriter, request *http.
 		}
 	}
 	if err := runtime.storage.Authorize(request.Context(), id, subject); err != nil {
+		runtime.logger.Warn("authorization transition rejected", slog.String("operation_class", "authorize"), slog.String("reason", "revision_or_state_mismatch"))
 		http.Error(writer, "authentication unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	callback := runtime.authCallbackURL(id)
 	http.Redirect(writer, request, callback, http.StatusFound)
+}
+
+func (runtime *runtimeLogin) logAdmission(operation string, err error) {
+	if runtime.logger == nil {
+		return
+	}
+	reason := "unavailable"
+	if errors.Is(err, ErrProviderRateLimited) || errors.Is(err, identity.ErrAuthenticationRateLimited) {
+		reason = "rate_limited"
+	}
+	runtime.logger.Warn("authentication admission denied", slog.String("operation_class", operation), slog.String("reason", reason))
 }
 
 func (runtime *runtimeLogin) loginForm(writer http.ResponseWriter, request *http.Request, message string) {
@@ -321,6 +454,10 @@ func (runtime *runtimeLogin) loginForm(writer http.ResponseWriter, request *http
 
 func (runtime *runtimeLogin) loginPath() string {
 	return providerEndpoint(runtime.issuer, "login")
+}
+
+func (runtime *runtimeLogin) mfaPath(id string) string {
+	return providerEndpoint(runtime.issuer, "mfa") + "?id=" + url.QueryEscape(id)
 }
 
 func (runtime *runtimeLogin) authCallbackURL(id string) string {

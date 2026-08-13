@@ -54,6 +54,8 @@ type fakeAuthSessions struct {
 	principal            identity.Principal
 	newLoginReturnTo     string
 	consumedState        string
+	newLoginBinding      string
+	consumedBinding      string
 	authenticatedToken   string
 	csrfSessionID        string
 	csrfToken            string
@@ -66,13 +68,15 @@ type fakeAuthSessions struct {
 	csrfErr              error
 }
 
-func (sessions *fakeAuthSessions) NewLoginState(_ context.Context, returnTo string) (session.LoginRequest, error) {
+func (sessions *fakeAuthSessions) NewLoginState(_ context.Context, returnTo, binding string) (session.LoginRequest, error) {
 	sessions.newLoginReturnTo = returnTo
+	sessions.newLoginBinding = binding
 	return sessions.loginRequest, nil
 }
 
-func (sessions *fakeAuthSessions) ConsumeLoginState(_ context.Context, rawState string) (session.LoginState, error) {
+func (sessions *fakeAuthSessions) ConsumeLoginState(_ context.Context, rawState, binding string) (session.LoginState, error) {
 	sessions.consumedState = rawState
+	sessions.consumedBinding = binding
 	return sessions.loginState, nil
 }
 
@@ -112,7 +116,7 @@ func TestOIDCLoginAndCallbackUseOneTimeStatePKCEAndSecureBrowserCookies(t *testi
 		Tokens: identity.ProviderTokens{AccessToken: "server-only-access"},
 	}}
 	sessions := &fakeAuthSessions{
-		loginRequest: session.LoginRequest{State: "raw-state", Nonce: "raw-nonce", PKCEChallenge: "pkce-challenge", ReturnTo: "/findings"},
+		loginRequest: session.LoginRequest{State: "raw-state", Nonce: "raw-nonce", PKCEChallenge: "pkce-challenge", ReturnTo: "/findings", BrowserBinding: "browser-binding"},
 		loginState:   session.LoginState{Nonce: "raw-nonce", PKCEVerifier: "pkce-verifier", ReturnTo: "/findings"},
 		created: session.BrowserSession{
 			ID: "session-001", Token: "opaque-session-token", CSRFToken: "opaque-csrf-token",
@@ -129,14 +133,23 @@ func TestOIDCLoginAndCallbackUseOneTimeStatePKCEAndSecureBrowserCookies(t *testi
 	if sessions.newLoginReturnTo != "/findings" || provider.authorizationState != "raw-state" || provider.authorizationNonce != "raw-nonce" || provider.authorizationChallenge != "pkce-challenge" {
 		t.Fatalf("login authority = sessions %q provider %+v", sessions.newLoginReturnTo, provider)
 	}
+	if sessions.newLoginBinding != "" {
+		t.Fatalf("unexpected existing login binding = %q", sessions.newLoginBinding)
+	}
+	loginCookies := login.Result().Cookies()
+	if len(loginCookies) != 1 || loginCookies[0].Name != httpapi.LoginCookieName || loginCookies[0].Value != "browser-binding" || !loginCookies[0].Secure || !loginCookies[0].HttpOnly || loginCookies[0].SameSite != http.SameSiteLaxMode || loginCookies[0].Path != "/" {
+		t.Fatalf("login binding cookie = %+v", loginCookies)
+	}
 
 	callback := httptest.NewRecorder()
-	handler.ServeHTTP(callback, httptest.NewRequest(http.MethodGet, "/auth/callback?state=raw-state&code=authorization-code", nil))
+	callbackRequest := httptest.NewRequest(http.MethodGet, "/auth/callback?state=raw-state&code=authorization-code", nil)
+	callbackRequest.AddCookie(&http.Cookie{Name: httpapi.LoginCookieName, Value: "browser-binding"})
+	handler.ServeHTTP(callback, callbackRequest)
 	if callback.Code != http.StatusFound || callback.Header().Get("Location") != "/findings" {
 		t.Fatalf("callback response = %d, location %q, body %s", callback.Code, callback.Header().Get("Location"), callback.Body.String())
 	}
-	if sessions.consumedState != "raw-state" || provider.exchangeCode != "authorization-code" || provider.exchangeVerifier != "pkce-verifier" || provider.exchangeNonce != "raw-nonce" {
-		t.Fatalf("callback exchange = provider %+v, consumed %q", provider, sessions.consumedState)
+	if sessions.consumedState != "raw-state" || sessions.consumedBinding != "browser-binding" || provider.exchangeCode != "authorization-code" || provider.exchangeVerifier != "pkce-verifier" || provider.exchangeNonce != "raw-nonce" {
+		t.Fatalf("callback exchange = provider %+v, consumed %q/%q", provider, sessions.consumedState, sessions.consumedBinding)
 	}
 	if sessions.createInput.ProviderTokens.AccessToken != "server-only-access" ||
 		sessions.createInput.SubjectID != "inspector-001" ||

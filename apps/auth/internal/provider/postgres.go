@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/MarlonJD/aviaSurveil360/apps/auth/internal/throttle"
 	jose "github.com/go-jose/go-jose/v4"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -28,16 +29,20 @@ type PostgresStorage struct {
 	candidate     CandidateConfig
 	encryptionKey []byte
 	clock         func() time.Time
+	limiter       throttle.Limiter
+	admission     AdmissionPolicy
 }
 
 type PostgresStorageConfig struct {
-	Candidate     CandidateConfig
-	EncryptionKey []byte
-	Clock         func() time.Time
+	Candidate       CandidateConfig
+	EncryptionKey   []byte
+	Clock           func() time.Time
+	Limiter         throttle.Limiter
+	AdmissionPolicy AdmissionPolicy
 }
 
 func NewPostgresStorage(pool *pgxpool.Pool, configuration PostgresStorageConfig) (*PostgresStorage, error) {
-	if pool == nil || len(configuration.EncryptionKey) != 32 {
+	if pool == nil || len(configuration.EncryptionKey) != 32 || configuration.Limiter == nil {
 		return nil, ErrProviderInvalid
 	}
 	if err := validateProviderConfig(configuration.Candidate); err != nil {
@@ -46,7 +51,11 @@ func NewPostgresStorage(pool *pgxpool.Pool, configuration PostgresStorageConfig)
 	if configuration.Clock == nil {
 		configuration.Clock = time.Now
 	}
-	return &PostgresStorage{pool: pool, candidate: configuration.Candidate, encryptionKey: append([]byte(nil), configuration.EncryptionKey...), clock: configuration.Clock}, nil
+	policy, err := normalizeAdmissionPolicy(configuration.AdmissionPolicy)
+	if err != nil {
+		return nil, err
+	}
+	return &PostgresStorage{pool: pool, candidate: configuration.Candidate, encryptionKey: append([]byte(nil), configuration.EncryptionKey...), clock: configuration.Clock, limiter: configuration.Limiter, admission: policy}, nil
 }
 
 // Bootstrap persists the exact client and encrypted active signing key for a
@@ -139,6 +148,9 @@ func (storage *PostgresStorage) CreateAuthRequest(ctx context.Context, request *
 	if len(request.Prompt) == 1 && request.Prompt[0] == oidc.PromptNone {
 		return nil, oidc.ErrLoginRequired()
 	}
+	if err := admitProviderRequest(ctx, storage.limiter, storage.admission, request, userID); err != nil {
+		return nil, err
+	}
 	id, err := randomProviderID("req_")
 	if err != nil {
 		return nil, err
@@ -148,25 +160,53 @@ func (storage *PostgresStorage) CreateAuthRequest(ctx context.Context, request *
 	if request.CodeChallenge != "" {
 		challenge, method = request.CodeChallenge, request.CodeChallengeMethod
 	}
-	if _, err := storage.pool.Exec(ctx, `INSERT INTO auth_identity.oidc_auth_requests(request_id, client_id, redirect_uri, state_value, nonce_value, response_type, response_mode, scopes, code_challenge, code_challenge_method, subject_id, done, auth_time, amr, expires_at, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NULLIF($11,''),$12,$13,ARRAY['pwd']::text[],$14,$13)`, id, request.ClientID, request.RedirectURI, request.State, request.Nonce, request.ResponseType, request.ResponseMode, []string(request.Scopes), challenge, method, userID, userID != "", now, now.Add(10*time.Minute)); err != nil {
+	bootstrap := browserBindingFromContext(ctx) == "missing"
+	tx, err := storage.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin auth request admission: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('auth_identity.oidc_auth_requests:outstanding'))`); err != nil {
+		return nil, fmt.Errorf("lock outstanding auth request cap: %w", err)
+	}
+	var outstanding int
+	if err := tx.QueryRow(ctx, `SELECT COUNT(*) FROM auth_identity.oidc_auth_requests WHERE done = false AND invalidated_at IS NULL AND expires_at > $1`, now).Scan(&outstanding); err != nil {
+		return nil, fmt.Errorf("count outstanding auth requests: %w", err)
+	}
+	if outstanding >= storage.admission.OutstandingLimit {
+		return nil, ErrProviderRateLimited
+	}
+	if bootstrap {
+		var bootstrapOutstanding int
+		if err := tx.QueryRow(ctx, `SELECT COUNT(*) FROM auth_identity.oidc_auth_requests WHERE done = false AND invalidated_at IS NULL AND browser_binding_bootstrap = true AND expires_at > $1`, now).Scan(&bootstrapOutstanding); err != nil {
+			return nil, fmt.Errorf("count anonymous outstanding auth requests: %w", err)
+		}
+		if bootstrapOutstanding >= storage.admission.AnonymousOutstandingLimit {
+			return nil, ErrProviderRateLimited
+		}
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO auth_identity.oidc_auth_requests(request_id, client_id, redirect_uri, state_value, nonce_value, response_type, response_mode, scopes, code_challenge, code_challenge_method, subject_id, done, auth_time, amr, expires_at, created_at, browser_binding_bootstrap) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NULLIF($11,''),$12,$13,ARRAY['pwd']::text[],$14,$13,$15)`, id, request.ClientID, request.RedirectURI, request.State, request.Nonce, request.ResponseType, request.ResponseMode, []string(request.Scopes), challenge, method, userID, userID != "", now, now.Add(10*time.Minute), bootstrap); err != nil {
 		return nil, fmt.Errorf("store auth request: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit auth request: %w", err)
 	}
 	return storage.AuthRequestByID(ctx, id)
 }
 
 func (storage *PostgresStorage) AuthRequestByID(ctx context.Context, id string) (op.AuthRequest, error) {
-	return storage.authRequest(ctx, `SELECT request_id, client_id, redirect_uri, state_value, nonce_value, response_type, response_mode, scopes, code_challenge, code_challenge_method, COALESCE(subject_id, ''), done, auth_time, amr FROM auth_identity.oidc_auth_requests WHERE request_id = $1 AND expires_at > $2`, id, storage.clock().UTC())
+	return storage.authRequest(ctx, `SELECT r.request_id, r.client_id, r.redirect_uri, r.state_value, r.nonce_value, r.response_type, r.response_mode, r.scopes, r.code_challenge, r.code_challenge_method, COALESCE(r.subject_id, ''), r.done, r.auth_time, r.amr, COALESCE(r.authenticating_auth_revision, 0), r.mfa_attempt_count, r.mfa_attempt_limit FROM auth_identity.oidc_auth_requests r LEFT JOIN auth_identity.accounts a ON a.subject_id = r.subject_id WHERE r.request_id = $1 AND r.expires_at > $2 AND r.invalidated_at IS NULL AND (r.subject_id IS NULL OR (r.authenticating_auth_revision IS NOT NULL AND a.state = 'active' AND a.email_verified = true AND a.auth_revision = r.authenticating_auth_revision))`, id, storage.clock().UTC())
 }
 
 func (storage *PostgresStorage) AuthRequestByCode(ctx context.Context, code string) (op.AuthRequest, error) {
 	hash := sha256.Sum256([]byte(code))
-	return storage.authRequest(ctx, `SELECT r.request_id, r.client_id, r.redirect_uri, r.state_value, r.nonce_value, r.response_type, r.response_mode, r.scopes, r.code_challenge, r.code_challenge_method, COALESCE(r.subject_id, ''), r.done, r.auth_time, r.amr FROM auth_identity.oidc_authorization_codes c JOIN auth_identity.oidc_auth_requests r ON r.request_id = c.request_id WHERE c.code_hash = $1 AND c.expires_at > $2 AND r.expires_at > $2`, hash[:], storage.clock().UTC())
+	return storage.authRequest(ctx, `SELECT r.request_id, r.client_id, r.redirect_uri, r.state_value, r.nonce_value, r.response_type, r.response_mode, r.scopes, r.code_challenge, r.code_challenge_method, COALESCE(r.subject_id, ''), r.done, r.auth_time, r.amr, COALESCE(r.authenticating_auth_revision, 0), r.mfa_attempt_count, r.mfa_attempt_limit FROM auth_identity.oidc_authorization_codes c JOIN auth_identity.oidc_auth_requests r ON r.request_id = c.request_id LEFT JOIN auth_identity.accounts a ON a.subject_id = r.subject_id WHERE c.code_hash = $1 AND c.expires_at > $2 AND r.expires_at > $2 AND r.invalidated_at IS NULL AND r.subject_id IS NOT NULL AND r.authenticating_auth_revision IS NOT NULL AND a.state = 'active' AND a.email_verified = true AND a.auth_revision = r.authenticating_auth_revision`, hash[:], storage.clock().UTC())
 }
 
 func (storage *PostgresStorage) authRequest(ctx context.Context, query string, arguments ...any) (op.AuthRequest, error) {
 	var request memoryAuthRequest
 	var challenge, method *string
-	err := storage.pool.QueryRow(ctx, query, arguments...).Scan(&request.id, &request.clientID, &request.redirectURI, &request.state, &request.nonce, &request.responseType, &request.responseMode, &request.scopes, &challenge, &method, &request.subject, &request.done, &request.authTime, &request.amr)
+	err := storage.pool.QueryRow(ctx, query, arguments...).Scan(&request.id, &request.clientID, &request.redirectURI, &request.state, &request.nonce, &request.responseType, &request.responseMode, &request.scopes, &challenge, &method, &request.subject, &request.done, &request.authTime, &request.amr, &request.authRevision, &request.mfaAttempts, &request.mfaLimit)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrProviderNotFound
 	}
@@ -185,7 +225,7 @@ func (storage *PostgresStorage) SaveAuthCode(ctx context.Context, requestID, cod
 	}
 	hash := sha256.Sum256([]byte(code))
 	now := storage.clock().UTC()
-	command, err := storage.pool.Exec(ctx, `INSERT INTO auth_identity.oidc_authorization_codes(code_hash, request_id, expires_at, created_at) SELECT $1, request_id, LEAST(expires_at, $3), $4 FROM auth_identity.oidc_auth_requests WHERE request_id = $2 AND done = true ON CONFLICT DO NOTHING`, hash[:], requestID, now.Add(60*time.Second), now)
+	command, err := storage.pool.Exec(ctx, `INSERT INTO auth_identity.oidc_authorization_codes(code_hash, request_id, expires_at, created_at) SELECT $1, r.request_id, LEAST(r.expires_at, $3), $4 FROM auth_identity.oidc_auth_requests r JOIN auth_identity.accounts a ON a.subject_id = r.subject_id AND a.state = 'active' AND a.email_verified = true AND a.auth_revision = r.authenticating_auth_revision WHERE r.request_id = $2 AND r.done = true AND r.invalidated_at IS NULL AND r.authenticating_auth_revision IS NOT NULL ON CONFLICT DO NOTHING`, hash[:], requestID, now.Add(60*time.Second), now)
 	if err != nil {
 		return fmt.Errorf("store authorization code: %w", err)
 	}
@@ -241,13 +281,21 @@ func (storage *PostgresStorage) CreateAccessAndRefreshTokens(ctx context.Context
 }
 
 func (storage *PostgresStorage) createAccess(ctx context.Context, request op.TokenRequest) (string, time.Time, error) {
+	authRevision := tokenAuthRevision(request)
+	if authRevision < 1 || strings.TrimSpace(request.GetSubject()) == "" {
+		return "", time.Time{}, oidc.ErrInvalidGrant()
+	}
 	id, err := randomProviderID("at_")
 	if err != nil {
 		return "", time.Time{}, err
 	}
 	expires := storage.clock().UTC().Add(time.Hour)
-	if _, err := storage.pool.Exec(ctx, `INSERT INTO auth_identity.oidc_access_tokens(token_id, client_id, subject_id, audience, scopes, expires_at, state, created_at) VALUES ($1,$2,$3,$4,$5,$6,'active',$7)`, id, tokenClientID(request), request.GetSubject(), request.GetAudience(), request.GetScopes(), expires, storage.clock().UTC()); err != nil {
+	command, err := storage.pool.Exec(ctx, `INSERT INTO auth_identity.oidc_access_tokens(token_id, client_id, subject_id, audience, scopes, expires_at, state, created_at) SELECT $1,$2,a.subject_id,$4,$5,$6,'active',$7 FROM auth_identity.accounts a WHERE a.subject_id=$3 AND a.state='active' AND a.email_verified=true AND a.auth_revision=$8`, id, tokenClientID(request), request.GetSubject(), request.GetAudience(), request.GetScopes(), expires, storage.clock().UTC(), authRevision)
+	if err != nil {
 		return "", time.Time{}, fmt.Errorf("store access token: %w", err)
+	}
+	if command.RowsAffected() != 1 {
+		return "", time.Time{}, oidc.ErrInvalidGrant()
 	}
 	return id, expires, nil
 }
@@ -257,6 +305,13 @@ func tokenClientID(request op.TokenRequest) string {
 		return value.GetClientID()
 	}
 	return ""
+}
+
+func tokenAuthRevision(request op.TokenRequest) uint64 {
+	if value, ok := request.(interface{ GetAuthRevision() uint64 }); ok {
+		return value.GetAuthRevision()
+	}
+	return 0
 }
 
 func (storage *PostgresStorage) TokenRequestByRefreshToken(ctx context.Context, raw string) (op.RefreshTokenRequest, error) {
@@ -521,7 +576,7 @@ func (storage *PostgresStorage) ValidateJWTProfileScopes(context.Context, string
 }
 
 func (storage *PostgresStorage) Authorize(ctx context.Context, requestID, subject string) error {
-	command, err := storage.pool.Exec(ctx, `UPDATE auth_identity.oidc_auth_requests SET subject_id=$2, done=true, amr=CASE WHEN cardinality(amr) = 0 THEN ARRAY['pwd']::text[] ELSE amr END WHERE request_id=$1 AND done=false AND expires_at > $3`, requestID, subject, storage.clock().UTC())
+	command, err := storage.pool.Exec(ctx, `UPDATE auth_identity.oidc_auth_requests r SET subject_id=$2, done=true, amr=CASE WHEN cardinality(r.amr) = 0 THEN ARRAY['pwd']::text[] ELSE r.amr END FROM auth_identity.accounts a WHERE r.request_id=$1 AND r.subject_id=$2 AND r.done=false AND r.invalidated_at IS NULL AND r.authenticating_auth_revision IS NOT NULL AND a.subject_id=r.subject_id AND a.state='active' AND a.email_verified=true AND a.auth_revision=r.authenticating_auth_revision AND r.expires_at > $3`, requestID, subject, storage.clock().UTC())
 	if err != nil {
 		return err
 	}
@@ -533,8 +588,11 @@ func (storage *PostgresStorage) Authorize(ctx context.Context, requestID, subjec
 
 // StageAuthenticatedSubject records a successful primary authentication while
 // deliberately leaving the request unfinished until MFA is completed.
-func (storage *PostgresStorage) StageAuthenticatedSubject(ctx context.Context, requestID, subject string) error {
-	command, err := storage.pool.Exec(ctx, `UPDATE auth_identity.oidc_auth_requests SET subject_id = $2, amr = ARRAY['pwd']::text[] WHERE request_id = $1 AND done = false AND expires_at > $3`, requestID, subject, storage.clock().UTC())
+func (storage *PostgresStorage) StageAuthenticatedSubject(ctx context.Context, requestID, subject string, authRevision uint64) error {
+	if authRevision < 1 {
+		return ErrProviderInvalid
+	}
+	command, err := storage.pool.Exec(ctx, `UPDATE auth_identity.oidc_auth_requests r SET subject_id = $2, authenticating_auth_revision = $3, amr = ARRAY['pwd']::text[] FROM auth_identity.accounts a WHERE r.request_id = $1 AND r.done = false AND r.invalidated_at IS NULL AND r.expires_at > $4 AND a.subject_id = $2 AND a.state = 'active' AND a.email_verified = true AND a.auth_revision = $3`, requestID, subject, authRevision, storage.clock().UTC())
 	if err != nil {
 		return fmt.Errorf("stage authenticated subject: %w", err)
 	}
@@ -548,13 +606,113 @@ func (storage *PostgresStorage) SetAuthenticatedAMR(ctx context.Context, request
 	if requestID == "" || len(amr) == 0 || len(amr) > 4 {
 		return ErrProviderInvalid
 	}
-	command, err := storage.pool.Exec(ctx, `UPDATE auth_identity.oidc_auth_requests SET amr = $2 WHERE request_id = $1 AND done = false AND expires_at > $3`, requestID, amr, storage.clock().UTC())
+	command, err := storage.pool.Exec(ctx, `UPDATE auth_identity.oidc_auth_requests r SET amr = $2 FROM auth_identity.accounts a WHERE r.request_id = $1 AND r.done = false AND r.invalidated_at IS NULL AND r.expires_at > $3 AND r.subject_id = a.subject_id AND r.authenticating_auth_revision IS NOT NULL AND a.state = 'active' AND a.email_verified = true AND a.auth_revision = r.authenticating_auth_revision`, requestID, amr, storage.clock().UTC())
 	if err != nil {
 		return fmt.Errorf("store authorization AMR: %w", err)
 	}
 	if command.RowsAffected() != 1 {
 		return ErrProviderNotFound
 	}
+	return nil
+}
+
+type MFAAttemptReservation struct {
+	RequestID string
+	Subject   string
+	Revision  uint64
+	Final     bool
+}
+
+func (storage *PostgresStorage) AdmitMFA(ctx context.Context, requestID, subject string) error {
+	rules := []throttle.Rule{
+		{Key: throttle.Key("provider:mfa:global", "verify"), Window: storage.admission.Window, Limit: storage.admission.GlobalLimit, Global: true},
+		{Key: throttle.Key("provider:mfa:subject", subject), Window: storage.admission.Window, Limit: storage.admission.BrowserLimit},
+		{Key: throttle.Key("provider:mfa:request", requestID), Window: storage.admission.Window, Limit: storage.admission.RequestLimit},
+	}
+	if err := storage.limiter.Allow(ctx, rules...); err != nil {
+		if errors.Is(err, throttle.ErrRateLimited) {
+			return ErrProviderRateLimited
+		}
+		return ErrProviderUnavailable
+	}
+	return nil
+}
+
+func (storage *PostgresStorage) AdmitRecovery(ctx context.Context, purpose, email string) error {
+	rules := []throttle.Rule{
+		{Key: throttle.Key("provider:recovery:global", purpose), Window: storage.admission.Window, Limit: storage.admission.GlobalLimit, Global: true},
+		{Key: throttle.Key("provider:recovery:identifier", strings.ToLower(strings.TrimSpace(email))), Window: storage.admission.Window, Limit: storage.admission.ClientLimit},
+	}
+	if err := storage.limiter.Allow(ctx, rules...); err != nil {
+		if errors.Is(err, throttle.ErrRateLimited) {
+			return ErrProviderRateLimited
+		}
+		return ErrProviderUnavailable
+	}
+	return nil
+}
+
+func (storage *PostgresStorage) ReserveMFAAttempt(ctx context.Context, requestID, subject string) (MFAAttemptReservation, error) {
+	tx, err := storage.pool.Begin(ctx)
+	if err != nil {
+		return MFAAttemptReservation{}, fmt.Errorf("begin MFA attempt reservation: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var storedSubject string
+	var done bool
+	var revisionValue *int64
+	var attempts, limit int
+	var expiresAt, invalidatedAt *time.Time
+	if err := tx.QueryRow(ctx, `SELECT subject_id, done, authenticating_auth_revision, mfa_attempt_count, mfa_attempt_limit, expires_at, invalidated_at FROM auth_identity.oidc_auth_requests WHERE request_id = $1 FOR UPDATE`, requestID).Scan(&storedSubject, &done, &revisionValue, &attempts, &limit, &expiresAt, &invalidatedAt); errors.Is(err, pgx.ErrNoRows) {
+		return MFAAttemptReservation{}, ErrProviderNotFound
+	} else if err != nil {
+		return MFAAttemptReservation{}, fmt.Errorf("lock MFA authorization request: %w", err)
+	}
+	now := storage.clock().UTC()
+	if storedSubject != subject || done || revisionValue == nil || *revisionValue < 1 || invalidatedAt != nil || expiresAt == nil || !now.Before(*expiresAt) {
+		return MFAAttemptReservation{}, ErrProviderNotFound
+	}
+	revision := uint64(*revisionValue)
+	var currentRevision uint64
+	var state string
+	var verified bool
+	if err := tx.QueryRow(ctx, `SELECT auth_revision, state, email_verified FROM auth_identity.accounts WHERE subject_id = $1 FOR KEY SHARE`, subject).Scan(&currentRevision, &state, &verified); errors.Is(err, pgx.ErrNoRows) {
+		return MFAAttemptReservation{}, ErrProviderNotFound
+	} else if err != nil {
+		return MFAAttemptReservation{}, fmt.Errorf("read MFA authorization subject: %w", err)
+	}
+	if currentRevision != revision || state != "active" || !verified {
+		if _, updateErr := tx.Exec(ctx, `UPDATE auth_identity.oidc_auth_requests SET invalidated_at = $2, invalidation_reason = 'revision-mismatch' WHERE request_id = $1 AND invalidated_at IS NULL`, requestID, now); updateErr != nil {
+			return MFAAttemptReservation{}, fmt.Errorf("invalidate stale MFA authorization request: %w", updateErr)
+		}
+		return MFAAttemptReservation{}, ErrProviderNotFound
+	}
+	if attempts >= limit {
+		if _, updateErr := tx.Exec(ctx, `UPDATE auth_identity.oidc_auth_requests SET invalidated_at = $2, invalidation_reason = 'mfa-attempts-exhausted' WHERE request_id = $1 AND invalidated_at IS NULL`, requestID, now); updateErr != nil {
+			return MFAAttemptReservation{}, fmt.Errorf("invalidate exhausted MFA authorization request: %w", updateErr)
+		}
+		return MFAAttemptReservation{}, ErrProviderRateLimited
+	}
+	attempts++
+	if _, err := tx.Exec(ctx, `UPDATE auth_identity.oidc_auth_requests SET mfa_attempt_count = $2 WHERE request_id = $1`, requestID, attempts); err != nil {
+		return MFAAttemptReservation{}, fmt.Errorf("reserve MFA attempt: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return MFAAttemptReservation{}, fmt.Errorf("commit MFA attempt reservation: %w", err)
+	}
+	return MFAAttemptReservation{RequestID: requestID, Subject: subject, Revision: revision, Final: attempts == limit}, nil
+}
+
+func (storage *PostgresStorage) RejectMFAAttempt(ctx context.Context, reservation MFAAttemptReservation) error {
+	if reservation.RequestID == "" || reservation.Subject == "" || reservation.Revision < 1 {
+		return ErrProviderInvalid
+	}
+	now := storage.clock().UTC()
+	command, err := storage.pool.Exec(ctx, `UPDATE auth_identity.oidc_auth_requests SET invalidated_at = $2, invalidation_reason = 'mfa-attempts-exhausted' WHERE request_id = $1 AND subject_id = $3 AND authenticating_auth_revision = $4 AND done = false AND invalidated_at IS NULL AND mfa_attempt_count >= mfa_attempt_limit`, reservation.RequestID, now, reservation.Subject, reservation.Revision)
+	if err != nil {
+		return fmt.Errorf("invalidate failed MFA authorization request: %w", err)
+	}
+	_ = command
 	return nil
 }
 
@@ -580,6 +738,12 @@ func (storage *PostgresStorage) RevokeAllSessions(ctx context.Context, subjectID
 	if _, err := tx.Exec(ctx, `UPDATE auth_identity.refresh_families SET state = 'revoked', revoked_at = $2 WHERE session_id IN (SELECT session_id FROM auth_identity.provider_sessions WHERE subject_id = $1) AND state = 'active'`, subjectID, now); err != nil {
 		return fmt.Errorf("revoke provider refresh families: %w", err)
 	}
+	if _, err := tx.Exec(ctx, `UPDATE auth_identity.oidc_auth_requests SET invalidated_at = $2, invalidation_reason = 'subject-revoked' WHERE subject_id = $1 AND done = false AND invalidated_at IS NULL`, subjectID, now); err != nil {
+		return fmt.Errorf("invalidate pending provider authorization requests: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM auth_identity.oidc_authorization_codes code USING auth_identity.oidc_auth_requests request WHERE code.request_id = request.request_id AND request.subject_id = $1`, subjectID); err != nil {
+		return fmt.Errorf("delete revoked provider authorization codes: %w", err)
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit provider credential revocation: %w", err)
 	}
@@ -587,20 +751,37 @@ func (storage *PostgresStorage) RevokeAllSessions(ctx context.Context, subjectID
 }
 
 // CleanupExpired removes only a bounded number of expired authorization
-// requests/codes so cleanup cannot monopolize the provider database.
+// codes and requests so cleanup cannot monopolize the provider database.
 func (storage *PostgresStorage) CleanupExpired(ctx context.Context, limit int) (int64, error) {
 	if limit < 1 || limit > 1000 {
 		return 0, ErrProviderInvalid
 	}
 	var removed int64
+	now := storage.clock().UTC()
 	for removed < int64(limit) {
+		remaining := limit - int(removed)
 		command, err := storage.pool.Exec(ctx, `
 			WITH expired AS (
+				SELECT code_hash FROM auth_identity.oidc_authorization_codes
+				WHERE expires_at <= $1 ORDER BY expires_at, code_hash LIMIT $2
+			)
+			DELETE FROM auth_identity.oidc_authorization_codes code USING expired
+			WHERE code.code_hash = expired.code_hash`, now, remaining)
+		if err != nil {
+			return removed, fmt.Errorf("cleanup expired OIDC authorization codes: %w", err)
+		}
+		removed += command.RowsAffected()
+		if removed >= int64(limit) {
+			break
+		}
+		remaining = limit - int(removed)
+		command, err = storage.pool.Exec(ctx, `
+			WITH expired AS (
 				SELECT request_id FROM auth_identity.oidc_auth_requests
-				WHERE expires_at <= $1 ORDER BY expires_at LIMIT $2
+				WHERE expires_at <= $1 ORDER BY expires_at, request_id LIMIT $2
 			)
 			DELETE FROM auth_identity.oidc_auth_requests r USING expired
-			WHERE r.request_id = expired.request_id`, storage.clock().UTC(), limit-int(removed))
+			WHERE r.request_id = expired.request_id`, now, remaining)
 		if err != nil {
 			return removed, fmt.Errorf("cleanup expired OIDC state: %w", err)
 		}

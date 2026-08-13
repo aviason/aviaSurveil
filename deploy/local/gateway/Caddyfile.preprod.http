@@ -18,6 +18,11 @@ import /etc/caddy/security-headers-http.caddy
 	handle /api/* {
 		uri strip_prefix /api
 		reverse_proxy preprod-api:8080 {
+			header_up -X-Forwarded-For
+			header_up -X-Forwarded-Host
+			header_up -X-Forwarded-Proto
+			header_up X-Forwarded-For {http.request.remote.host}
+			header_up X-Forwarded-Host {http.request.host}
 			header_up X-Forwarded-Proto {$AVIA_PREPROD_ORIGIN_SCHEME}
 			header_up traceparent {http.request.header.traceparent}
 			header_up tracestate {http.request.header.tracestate}
@@ -27,18 +32,33 @@ import /etc/caddy/security-headers-http.caddy
 
 	handle /auth/* {
 		reverse_proxy preprod-api:8080 {
+			header_up -X-Forwarded-For
+			header_up -X-Forwarded-Host
+			header_up -X-Forwarded-Proto
+			header_up X-Forwarded-For {http.request.remote.host}
+			header_up X-Forwarded-Host {http.request.host}
 			header_up X-Forwarded-Proto {$AVIA_PREPROD_ORIGIN_SCHEME}
 		}
 	}
 
 	handle /health/* {
 		reverse_proxy preprod-api:8080 {
+			header_up -X-Forwarded-For
+			header_up -X-Forwarded-Host
+			header_up -X-Forwarded-Proto
+			header_up X-Forwarded-For {http.request.remote.host}
+			header_up X-Forwarded-Host {http.request.host}
 			header_up X-Forwarded-Proto {$AVIA_PREPROD_ORIGIN_SCHEME}
 		}
 	}
 
 	handle_path /identity/* {
 		reverse_proxy preprod-auth:8080 {
+			header_up -X-Forwarded-For
+			header_up -X-Forwarded-Host
+			header_up -X-Forwarded-Proto
+			header_up X-Forwarded-For {http.request.remote.host}
+			header_up X-Forwarded-Host {http.request.host}
 			header_up X-Forwarded-Proto {$AVIA_PREPROD_ORIGIN_SCHEME}
 		}
 	}

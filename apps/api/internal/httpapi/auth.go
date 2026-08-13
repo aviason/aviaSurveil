@@ -22,11 +22,14 @@ const (
 
 	localSessionCookieName = "avia_session"
 	localCSRFCookieName    = "avia_csrf"
+	LoginCookieName        = "__Host-avia_login"
+	localLoginCookieName   = "avia_login"
+	loginCookieTTL         = 10 * time.Minute
 )
 
 type AuthSessionManager interface {
-	NewLoginState(context.Context, string) (session.LoginRequest, error)
-	ConsumeLoginState(context.Context, string) (session.LoginState, error)
+	NewLoginState(context.Context, string, string) (session.LoginRequest, error)
+	ConsumeLoginState(context.Context, string, string) (session.LoginState, error)
 	Create(context.Context, session.CreateInput) (session.BrowserSession, error)
 	Authenticate(context.Context, string) (identity.Principal, error)
 	ValidateCSRF(context.Context, string, string) error
@@ -124,11 +127,17 @@ func (boundary *AuthBoundary) login(writer http.ResponseWriter, request *http.Re
 		writeProblem(writer, http.StatusServiceUnavailable, "Authentication unavailable", "OIDC authentication is not configured", "AUTH_UNAVAILABLE")
 		return
 	}
-	login, err := boundary.sessions.NewLoginState(request.Context(), request.URL.Query().Get("returnTo"))
+	login, err := boundary.sessions.NewLoginState(request.Context(), request.URL.Query().Get("returnTo"), boundary.loginBindingCookie(request))
 	if err != nil {
+		if errors.Is(err, session.ErrLoginRateLimited) {
+			writer.Header().Set("Retry-After", "60")
+			writeProblem(writer, http.StatusTooManyRequests, "Too many requests", "login admission limit reached", "RATE_LIMITED")
+			return
+		}
 		writeProblem(writer, http.StatusServiceUnavailable, "Authentication unavailable", "login state could not be created", "AUTH_UNAVAILABLE")
 		return
 	}
+	boundary.setLoginBindingCookie(writer, login.BrowserBinding)
 	location := boundary.provider.AuthorizationURL(login.State, login.Nonce, login.PKCEChallenge)
 	http.Redirect(writer, request, location, http.StatusFound)
 }
@@ -144,7 +153,7 @@ func (boundary *AuthBoundary) callback(writer http.ResponseWriter, request *http
 		writeProblem(writer, http.StatusBadRequest, "Invalid authentication response", "state and authorization code are required", "INVALID_OIDC_CALLBACK")
 		return
 	}
-	loginState, err := boundary.sessions.ConsumeLoginState(request.Context(), stateValue)
+	loginState, err := boundary.sessions.ConsumeLoginState(request.Context(), stateValue, boundary.loginBindingCookie(request))
 	if err != nil {
 		writeProblem(writer, http.StatusUnauthorized, "Authentication failed", "OIDC state is invalid or expired", "INVALID_OIDC_STATE")
 		return
@@ -299,13 +308,29 @@ func (boundary *AuthBoundary) validateCSRF(writer http.ResponseWriter, request *
 type browserCookieNames struct {
 	session string
 	csrf    string
+	login   string
 }
 
 func (boundary *AuthBoundary) cookieNames() browserCookieNames {
 	if boundary.cookieSecure {
-		return browserCookieNames{session: SessionCookieName, csrf: CSRFCookieName}
+		return browserCookieNames{session: SessionCookieName, csrf: CSRFCookieName, login: LoginCookieName}
 	}
-	return browserCookieNames{session: localSessionCookieName, csrf: localCSRFCookieName}
+	return browserCookieNames{session: localSessionCookieName, csrf: localCSRFCookieName, login: localLoginCookieName}
+}
+
+func (boundary *AuthBoundary) loginBindingCookie(request *http.Request) string {
+	cookie, err := request.Cookie(boundary.cookieNames().login)
+	if err != nil {
+		return ""
+	}
+	return cookie.Value
+}
+
+func (boundary *AuthBoundary) setLoginBindingCookie(writer http.ResponseWriter, value string) {
+	http.SetCookie(writer, &http.Cookie{
+		Name: boundary.cookieNames().login, Value: value, Path: "/", Secure: boundary.cookieSecure,
+		HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: int(loginCookieTTL / time.Second),
+	})
 }
 
 func (boundary *AuthBoundary) setBrowserSessionCookies(writer http.ResponseWriter, browserSession session.BrowserSession) {

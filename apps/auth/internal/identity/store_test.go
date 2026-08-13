@@ -3,7 +3,6 @@ package identity
 import (
 	"context"
 	"errors"
-	"net/netip"
 	"sync"
 	"testing"
 	"time"
@@ -32,7 +31,6 @@ func newTestStore(t *testing.T) testStoreFixture {
 		Hasher:         hasher,
 		PasswordPolicy: password.DefaultPolicy(),
 		Limiter:        limiter,
-		TrustedProxies: []netip.Prefix{netip.MustParsePrefix("198.51.100.0/24")},
 		Clock:          func() time.Time { return now },
 	})
 	if err != nil {
@@ -63,7 +61,6 @@ func authRequest(identifier, passwordValue string) AuthenticationRequest {
 	return AuthenticationRequest{
 		Identifier: identifier,
 		Password:   []byte(passwordValue),
-		Source:     throttle.ForwardedHeaders{RemoteAddr: "203.0.113.9:443"},
 		DeviceKey:  "device-a",
 	}
 }
@@ -156,7 +153,7 @@ func TestAuthenticationUsesDummyHashAndChecksEmailAndAccountState(t *testing.T) 
 	}
 }
 
-func TestFailedLoginsLockAccountWithoutPermanentAttackerLockout(t *testing.T) {
+func TestFailedLoginsBackoffWithoutLifecycleOrPermanentAttackerLockout(t *testing.T) {
 	fixture := newTestStore(t)
 	account := activateTestAccount(t, fixture)
 	for attempt := 0; attempt < 5; attempt++ {
@@ -166,8 +163,8 @@ func TestFailedLoginsLockAccountWithoutPermanentAttackerLockout(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if snapshot.State != AccountLocked || snapshot.LockedUntil.IsZero() {
-		t.Fatalf("lockout snapshot = %+v", snapshot)
+	if snapshot.State != AccountActive || snapshot.LockedUntil.IsZero() || snapshot.AuthRevision != account.AuthRevision {
+		t.Fatalf("backoff snapshot = %+v", snapshot)
 	}
 	*fixture.now = snapshot.LockedUntil.Add(time.Second)
 	result, err := fixture.store.Authenticate(context.Background(), authRequest(account.Email, "correct horse battery staple"))

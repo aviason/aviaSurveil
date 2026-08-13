@@ -3,7 +3,6 @@ package throttle
 import (
 	"context"
 	"errors"
-	"net/netip"
 	"testing"
 	"time"
 )
@@ -14,18 +13,18 @@ func TestMemoryLimiterAppliesIPIdentifierAndDeviceKeysAtomically(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	keys := []string{Key("ip", "192.0.2.1"), Key("identifier", "alice@example.invalid"), Key("device", "device-a")}
-	if err := limiter.Allow(context.Background(), keys...); err != nil {
+	rules := []Rule{{Key: Key("global", "login"), Window: time.Minute, Limit: 2, Global: true}, {Key: Key("identifier", "alice@example.invalid"), Window: time.Minute, Limit: 2}, {Key: Key("device", "device-a"), Window: time.Minute, Limit: 2}}
+	if err := limiter.Allow(context.Background(), rules...); err != nil {
 		t.Fatal(err)
 	}
-	if err := limiter.Allow(context.Background(), keys...); err != nil {
+	if err := limiter.Allow(context.Background(), rules...); err != nil {
 		t.Fatal(err)
 	}
-	if !errors.Is(limiter.Allow(context.Background(), keys...), ErrRateLimited) {
+	if !errors.Is(limiter.Allow(context.Background(), rules...), ErrRateLimited) {
 		t.Fatal("third request was not rate limited")
 	}
 	clockValue = clockValue.Add(time.Minute)
-	if err := limiter.Allow(context.Background(), keys...); err != nil {
+	if err := limiter.Allow(context.Background(), rules...); err != nil {
 		t.Fatalf("expired bucket was not reset: %v", err)
 	}
 }
@@ -36,28 +35,32 @@ func TestLimiterFailureIsFailClosed(t *testing.T) {
 		t.Fatal(err)
 	}
 	limiter.SetUnavailable(true)
-	if !errors.Is(limiter.Allow(context.Background(), Key("ip", "192.0.2.1")), ErrLimiterUnavailable) {
+	if !errors.Is(limiter.Allow(context.Background(), Rule{Key: Key("global", "login"), Window: time.Minute, Limit: 2, Global: true}), ErrLimiterUnavailable) {
 		t.Fatal("limiter failure was not fail-closed")
 	}
 }
 
-func TestForwardedClientIdentityRequiresTrustedGateway(t *testing.T) {
-	trusted := []netip.Prefix{netip.MustParsePrefix("198.51.100.0/24")}
-	remote, err := ResolveClientIP(ForwardedHeaders{
-		RemoteAddr:    "203.0.113.9:443",
-		XForwardedFor: "192.0.2.4",
-	}, trusted)
-	if err != nil || remote.String() != "203.0.113.9" {
-		t.Fatalf("untrusted forwarded address = %s/%v", remote, err)
+func TestGlobalDenialDoesNotCreateVariableBucket(t *testing.T) {
+	clockValue := time.Unix(200, 0)
+	limiter, err := NewMemoryLimiter(time.Minute, 1, func() time.Time { return clockValue })
+	if err != nil {
+		t.Fatal(err)
 	}
-	forwarded, err := ResolveClientIP(ForwardedHeaders{
-		RemoteAddr:    "198.51.100.9:443",
-		XForwardedFor: "192.0.2.4, 198.51.100.8",
-	}, trusted)
-	if err != nil || forwarded.String() != "192.0.2.4" {
-		t.Fatalf("trusted forwarded address = %s/%v", forwarded, err)
+	global := Rule{Key: Key("global", "login"), Window: time.Minute, Limit: 1, Global: true}
+	if err := limiter.Allow(context.Background(), global, Rule{Key: Key("browser", "first"), Window: time.Minute, Limit: 5}); err != nil {
+		t.Fatal(err)
 	}
-	if _, err := ResolveClientIP(ForwardedHeaders{RemoteAddr: "198.51.100.9:443", XForwardedFor: "not-an-ip"}, trusted); !errors.Is(err, ErrUntrustedForwarded) {
-		t.Fatalf("malformed trusted header error = %v", err)
+	if !errors.Is(limiter.Allow(context.Background(), global, Rule{Key: Key("browser", "second"), Window: time.Minute, Limit: 5}), ErrRateLimited) {
+		t.Fatal("global rule did not deny the second request")
+	}
+	limiter.mu.Lock()
+	_, secondExists := limiter.buckets[Key("browser", "second")]
+	limiter.mu.Unlock()
+	if secondExists {
+		t.Fatal("global denial created the variable bucket before the request was admitted")
+	}
+	clockValue = clockValue.Add(time.Minute)
+	if err := limiter.Allow(context.Background(), global, Rule{Key: Key("browser", "second"), Window: time.Minute, Limit: 5}); err != nil {
+		t.Fatalf("global window did not expire: %v", err)
 	}
 }

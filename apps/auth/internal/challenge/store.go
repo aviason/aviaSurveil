@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -136,25 +137,29 @@ func (store *Store) Invalidate(subject string, purpose Purpose) int {
 	return count
 }
 
-func (store *Store) Cleanup(at time.Time) int {
+func (store *Store) Cleanup(at time.Time, limit int) int {
+	if limit < 1 {
+		return 0
+	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
-	removed := 0
+	keys := make([][32]byte, 0, len(store.challenges))
 	for hash, challenge := range store.challenges {
 		if !at.Before(challenge.expires) || challenge.used {
-			delete(store.challenges, hash)
-			removed++
+			keys = append(keys, hash)
 		}
 	}
+	sort.Slice(keys, func(left, right int) bool { return string(keys[left][:]) < string(keys[right][:]) })
+	if len(keys) > limit {
+		keys = keys[:limit]
+	}
+	for _, hash := range keys {
+		delete(store.challenges, hash)
+	}
+	removed := len(keys)
 	return removed
 }
 
 func hashToken(token string) [32]byte {
-	return DigestToken(token)
-}
-
-// DigestToken is shared with transactional consume-and-mutate operations so
-// every challenge lookup uses the same domain-separated digest.
-func DigestToken(token string) [32]byte {
 	return sha256.Sum256([]byte("as360-challenge-v1\x00" + strings.TrimSpace(token)))
 }

@@ -33,7 +33,10 @@ var oidcRuntimeSchema string
 //go:embed 000008_local_preprod_authority_admin.up.sql
 var localPreprodAuthorityAdminSchema string
 
-const latestVersion int64 = 8
+//go:embed 000009_first_party_auth_security_hardening.up.sql
+var firstPartyAuthSecurityHardeningSchema string
+
+const latestVersion int64 = 9
 
 func LatestVersion() int64 {
 	return latestVersion
@@ -67,6 +70,7 @@ func Apply(ctx context.Context, pool *pgxpool.Pool) error {
 		{version: 6, schema: challengesSchema, name: "challenges"},
 		{version: 7, schema: oidcRuntimeSchema, name: "oidc-runtime"},
 		{version: 8, schema: localPreprodAuthorityAdminSchema, name: "local-preprod-authority-admin"},
+		{version: 9, schema: firstPartyAuthSecurityHardeningSchema, name: "first-party-auth-security-hardening"},
 	}
 	for _, migration := range migrations {
 		var applied bool

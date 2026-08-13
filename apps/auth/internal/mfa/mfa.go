@@ -39,32 +39,38 @@ type SessionRevoker interface {
 }
 
 type Config struct {
-	EncryptionKey       []byte
-	SessionRevoker      SessionRevoker
-	Clock               Clock
-	Period              time.Duration
-	Window              int
-	Digits              int
-	MaxRecoveryFailures int
+	EncryptionKey         []byte
+	SessionRevoker        SessionRevoker
+	Clock                 Clock
+	Period                time.Duration
+	Window                int
+	Digits                int
+	MaxRecoveryFailures   int
+	RecoveryFailureWindow time.Duration
+	RecoveryLockDuration  time.Duration
 }
 
 type Store struct {
-	mu                  sync.Mutex
-	key                 []byte
-	clock               Clock
-	period              time.Duration
-	window              int
-	digits              int
-	maxRecoveryFailures int
-	factors             map[string]*factor
+	mu                    sync.Mutex
+	key                   []byte
+	clock                 Clock
+	period                time.Duration
+	window                int
+	digits                int
+	maxRecoveryFailures   int
+	recoveryFailureWindow time.Duration
+	recoveryLockDuration  time.Duration
+	factors               map[string]*factor
 }
 
 type factor struct {
-	secretCiphertext []byte
-	enabled          bool
-	lastCounter      int64
-	recoveryHashes   map[[32]byte]struct{}
-	recoveryFailures int
+	secretCiphertext      []byte
+	enabled               bool
+	lastCounter           int64
+	recoveryHashes        map[[32]byte]struct{}
+	recoveryFailures      int
+	recoveryWindowStarted time.Time
+	recoveryLockedUntil   time.Time
 }
 
 type Enrollment struct {
@@ -93,7 +99,13 @@ func NewStore(configuration Config) (*Store, error) {
 	if configuration.MaxRecoveryFailures == 0 {
 		configuration.MaxRecoveryFailures = 5
 	}
-	if configuration.Period < 15*time.Second || configuration.Period > 5*time.Minute || configuration.Window < 0 || configuration.Window > 2 || (configuration.Digits != 0 && configuration.Digits != 6 && configuration.Digits != 8) || configuration.MaxRecoveryFailures < 1 || configuration.MaxRecoveryFailures > 20 {
+	if configuration.RecoveryFailureWindow == 0 {
+		configuration.RecoveryFailureWindow = 15 * time.Minute
+	}
+	if configuration.RecoveryLockDuration == 0 {
+		configuration.RecoveryLockDuration = 15 * time.Minute
+	}
+	if configuration.Period < 15*time.Second || configuration.Period > 5*time.Minute || configuration.Window < 0 || configuration.Window > 2 || (configuration.Digits != 0 && configuration.Digits != 6 && configuration.Digits != 8) || configuration.MaxRecoveryFailures < 1 || configuration.MaxRecoveryFailures > 20 || configuration.RecoveryFailureWindow < time.Minute || configuration.RecoveryFailureWindow > 24*time.Hour || configuration.RecoveryLockDuration < time.Minute || configuration.RecoveryLockDuration > 24*time.Hour {
 		return nil, errors.New("MFA timing or recovery policy is invalid")
 	}
 	if configuration.Digits == 0 {
@@ -102,7 +114,7 @@ func NewStore(configuration Config) (*Store, error) {
 	return &Store{
 		key: append([]byte(nil), configuration.EncryptionKey...), clock: configuration.Clock,
 		period: configuration.Period, window: configuration.Window, digits: configuration.Digits,
-		maxRecoveryFailures: configuration.MaxRecoveryFailures, factors: make(map[string]*factor),
+		maxRecoveryFailures: configuration.MaxRecoveryFailures, recoveryFailureWindow: configuration.RecoveryFailureWindow, recoveryLockDuration: configuration.RecoveryLockDuration, factors: make(map[string]*factor),
 	}, nil
 }
 
@@ -198,6 +210,8 @@ func (store *Store) GenerateRecoveryCodes(subjectID string, count int) ([]string
 		codes = append(codes, code)
 	}
 	factorRecord.recoveryFailures = 0
+	factorRecord.recoveryWindowStarted = time.Time{}
+	factorRecord.recoveryLockedUntil = time.Time{}
 	return codes, nil
 }
 
@@ -208,19 +222,31 @@ func (store *Store) ConsumeRecoveryCode(subjectID, code string) error {
 	if factorRecord == nil || !factorRecord.enabled {
 		return ErrFactorDisabled
 	}
-	if factorRecord.recoveryFailures >= store.maxRecoveryFailures {
+	now := store.clock().UTC()
+	if !factorRecord.recoveryLockedUntil.IsZero() && now.Before(factorRecord.recoveryLockedUntil) {
 		return ErrRecoveryLocked
+	}
+	if (!factorRecord.recoveryLockedUntil.IsZero() && !now.Before(factorRecord.recoveryLockedUntil)) || (!factorRecord.recoveryWindowStarted.IsZero() && !now.Before(factorRecord.recoveryWindowStarted.Add(store.recoveryFailureWindow))) {
+		factorRecord.recoveryFailures = 0
+		factorRecord.recoveryWindowStarted = time.Time{}
+		factorRecord.recoveryLockedUntil = time.Time{}
 	}
 	hash := hashRecoveryCode(code)
 	if _, exists := factorRecord.recoveryHashes[hash]; !exists {
+		if factorRecord.recoveryWindowStarted.IsZero() {
+			factorRecord.recoveryWindowStarted = now
+		}
 		factorRecord.recoveryFailures++
 		if factorRecord.recoveryFailures >= store.maxRecoveryFailures {
+			factorRecord.recoveryLockedUntil = now.Add(store.recoveryLockDuration)
 			return ErrRecoveryLocked
 		}
 		return ErrRecoveryInvalid
 	}
 	delete(factorRecord.recoveryHashes, hash)
 	factorRecord.recoveryFailures = 0
+	factorRecord.recoveryWindowStarted = time.Time{}
+	factorRecord.recoveryLockedUntil = time.Time{}
 	return nil
 }
 

@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/MarlonJD/aviaSurveil360/apps/auth/internal/throttle"
 	jose "github.com/go-jose/go-jose/v4"
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 	"github.com/zitadel/oidc/v3/pkg/op"
@@ -43,6 +44,8 @@ type CandidateConfig struct {
 	SubjectID             string
 	Email                 string
 	DisplayName           string
+	Limiter               throttle.Limiter
+	AdmissionPolicy       AdmissionPolicy
 }
 
 type Candidate struct {
@@ -55,6 +58,17 @@ func NewCandidate(configuration CandidateConfig) (*Candidate, error) {
 	if err := validateCandidateConfig(configuration); err != nil {
 		return nil, err
 	}
+	policy, err := normalizeAdmissionPolicy(configuration.AdmissionPolicy)
+	if err != nil {
+		return nil, err
+	}
+	if configuration.Limiter == nil {
+		configuration.Limiter, err = throttle.NewMemoryLimiter(policy.Window, policy.GlobalLimit, time.Now)
+		if err != nil {
+			return nil, err
+		}
+	}
+	configuration.AdmissionPolicy = policy
 	storage := NewMemoryStorage(configuration)
 	providerConfig := &op.Config{
 		CryptoKey:                configuration.CryptoKey,
@@ -87,7 +101,7 @@ func NewCandidate(configuration CandidateConfig) (*Candidate, error) {
 				return
 			}
 		}
-		provider.ServeHTTP(writer, request)
+		provider.ServeHTTP(writer, request.WithContext(WithBrowserBinding(request.Context(), browserBinding(request, configuration.ClientSecret))))
 	})
 	// The login endpoint represents the provider-owned identity UI boundary in
 	// this disposable harness. It marks the preconfigured synthetic subject and
@@ -150,6 +164,9 @@ type MemoryStorage struct {
 	accessTokens  map[string]*memoryAccessToken
 	refreshTokens map[[32]byte]*memoryRefreshToken
 	signingKey    memorySigningKey
+	limiter       throttle.Limiter
+	admission     AdmissionPolicy
+	clock         func() time.Time
 }
 
 type memorySigningKey struct {
@@ -209,19 +226,26 @@ func (client memoryClient) IDTokenUserinfoClaimsAssertion() bool { return true }
 func (client memoryClient) ClockSkew() time.Duration             { return 30 * time.Second }
 
 type memoryAuthRequest struct {
-	id            string
-	clientID      string
-	redirectURI   string
-	state         string
-	nonce         string
-	responseType  oidc.ResponseType
-	responseMode  oidc.ResponseMode
-	scopes        []string
-	codeChallenge *oidc.CodeChallenge
-	subject       string
-	done          bool
-	authTime      time.Time
-	amr           []string
+	id                string
+	clientID          string
+	redirectURI       string
+	state             string
+	nonce             string
+	responseType      oidc.ResponseType
+	responseMode      oidc.ResponseMode
+	scopes            []string
+	codeChallenge     *oidc.CodeChallenge
+	subject           string
+	done              bool
+	authTime          time.Time
+	expiresAt         time.Time
+	authRevision      uint64
+	mfaAttempts       int
+	mfaLimit          int
+	invalidatedAt     time.Time
+	authorizationCode string
+	amr               []string
+	bootstrap         bool
 }
 
 func (request *memoryAuthRequest) GetID() string          { return request.id }
@@ -240,9 +264,10 @@ func (request *memoryAuthRequest) GetResponseMode() oidc.ResponseMode { return r
 func (request *memoryAuthRequest) GetScopes() []string {
 	return append([]string(nil), request.scopes...)
 }
-func (request *memoryAuthRequest) GetState() string   { return request.state }
-func (request *memoryAuthRequest) GetSubject() string { return request.subject }
-func (request *memoryAuthRequest) Done() bool         { return request.done }
+func (request *memoryAuthRequest) GetState() string        { return request.state }
+func (request *memoryAuthRequest) GetSubject() string      { return request.subject }
+func (request *memoryAuthRequest) GetAuthRevision() uint64 { return request.authRevision }
+func (request *memoryAuthRequest) Done() bool              { return request.done }
 
 type memoryRefreshRequest struct{ *memoryRefreshToken }
 
@@ -281,6 +306,11 @@ type memoryRefreshToken struct {
 }
 
 func NewMemoryStorage(configuration CandidateConfig) *MemoryStorage {
+	policy, _ := normalizeAdmissionPolicy(configuration.AdmissionPolicy)
+	limiter := configuration.Limiter
+	if limiter == nil {
+		limiter, _ = throttle.NewMemoryLimiter(policy.Window, policy.GlobalLimit, time.Now)
+	}
 	client := &memoryClient{
 		id: configuration.ClientID, secret: configuration.ClientSecret,
 		redirectURI: configuration.RedirectURI, postLogoutRedirect: configuration.PostLogoutRedirectURI,
@@ -294,6 +324,7 @@ func NewMemoryStorage(configuration CandidateConfig) *MemoryStorage {
 		accessTokens:  make(map[string]*memoryAccessToken),
 		refreshTokens: make(map[[32]byte]*memoryRefreshToken),
 		signingKey:    memorySigningKey{id: configuration.SigningKeyID, algorithm: jose.RS256, private: configuration.SigningKey},
+		limiter:       limiter, admission: policy, clock: time.Now,
 	}
 }
 
@@ -305,31 +336,69 @@ func providerEndpoint(issuer, endpoint string) string {
 	return path.Join("/", parsed.Path, endpoint)
 }
 
+func providerAbsoluteEndpoint(issuer, endpoint string) string {
+	parsed, err := url.Parse(issuer)
+	if err != nil || !parsed.IsAbs() || parsed.Host == "" {
+		return providerEndpoint(issuer, endpoint)
+	}
+	parsed.Path = path.Join("/", parsed.Path, endpoint)
+	parsed.RawPath = ""
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+	return parsed.String()
+}
+
 func (storage *MemoryStorage) Health(context.Context) error { return nil }
 
-func (storage *MemoryStorage) CreateAuthRequest(_ context.Context, request *oidc.AuthRequest, _ string) (op.AuthRequest, error) {
+func (storage *MemoryStorage) CreateAuthRequest(ctx context.Context, request *oidc.AuthRequest, userID string) (op.AuthRequest, error) {
 	if request == nil || request.ClientID == "" || request.RedirectURI == "" {
 		return nil, ErrProviderInvalid
 	}
 	if len(request.Prompt) == 1 && request.Prompt[0] == oidc.PromptNone {
 		return nil, oidc.ErrLoginRequired()
 	}
+	if err := admitProviderRequest(ctx, storage.limiter, storage.admission, request, userID); err != nil {
+		return nil, err
+	}
 	requestID, err := randomProviderID("req_")
 	if err != nil {
 		return nil, err
 	}
+	now := storage.clock().UTC()
 	copyRequest := &memoryAuthRequest{
 		id: requestID, clientID: request.ClientID, redirectURI: request.RedirectURI,
 		state: request.State, nonce: request.Nonce, responseType: request.ResponseType,
 		responseMode: request.ResponseMode, scopes: append([]string(nil), request.Scopes...),
-		subject: storage.configuration.SubjectID, authTime: time.Now().UTC(), amr: []string{"pwd"},
+		subject: storage.configuration.SubjectID, authTime: now, expiresAt: now.Add(10 * time.Minute), authRevision: 1, mfaLimit: 5, amr: []string{"pwd"},
+		bootstrap: browserBindingFromContext(ctx) == "missing",
 	}
 	if request.CodeChallenge != "" {
 		copyRequest.codeChallenge = &oidc.CodeChallenge{Challenge: request.CodeChallenge, Method: request.CodeChallengeMethod}
 	}
 	storage.mu.Lock()
+	defer storage.mu.Unlock()
+	for id, existing := range storage.authRequests {
+		if !now.Before(existing.expiresAt) {
+			storage.deleteAuthRequestLocked(id)
+		}
+	}
+	outstanding := 0
+	bootstrapOutstanding := 0
+	for _, existing := range storage.authRequests {
+		if !existing.done && now.Before(existing.expiresAt) {
+			outstanding++
+			if existing.bootstrap {
+				bootstrapOutstanding++
+			}
+		}
+	}
+	if outstanding >= storage.admission.OutstandingLimit {
+		return nil, ErrProviderRateLimited
+	}
+	if copyRequest.bootstrap && bootstrapOutstanding >= storage.admission.AnonymousOutstandingLimit {
+		return nil, ErrProviderRateLimited
+	}
 	storage.authRequests[requestID] = copyRequest
-	storage.mu.Unlock()
 	return copyRequest, nil
 }
 
@@ -337,7 +406,10 @@ func (storage *MemoryStorage) AuthRequestByID(_ context.Context, id string) (op.
 	storage.mu.Lock()
 	defer storage.mu.Unlock()
 	request, ok := storage.authRequests[id]
-	if !ok {
+	if !ok || !storage.clock().Before(request.expiresAt) || !request.invalidatedAt.IsZero() {
+		if ok {
+			storage.deleteAuthRequestLocked(id)
+		}
 		return nil, ErrProviderNotFound
 	}
 	return request, nil
@@ -358,6 +430,16 @@ func (storage *MemoryStorage) SaveAuthCode(_ context.Context, requestID, code st
 		return ErrProviderInvalid
 	}
 	storage.mu.Lock()
+	request, ok := storage.authRequests[requestID]
+	if !ok || !request.done || !request.invalidatedAt.IsZero() || !storage.clock().Before(request.expiresAt) || request.authRevision < 1 {
+		storage.mu.Unlock()
+		return ErrProviderNotFound
+	}
+	if request.authorizationCode != "" {
+		storage.mu.Unlock()
+		return ErrProviderInvalid
+	}
+	request.authorizationCode = code
 	storage.codes[code] = requestID
 	storage.mu.Unlock()
 	return nil
@@ -366,21 +448,21 @@ func (storage *MemoryStorage) SaveAuthCode(_ context.Context, requestID, code st
 func (storage *MemoryStorage) DeleteAuthRequest(_ context.Context, requestID string) error {
 	storage.mu.Lock()
 	defer storage.mu.Unlock()
+	storage.deleteAuthRequestLocked(requestID)
+	return nil
+}
+
+func (storage *MemoryStorage) deleteAuthRequestLocked(requestID string) {
 	delete(storage.authRequests, requestID)
 	for code, id := range storage.codes {
 		if id == requestID {
 			delete(storage.codes, code)
 		}
 	}
-	return nil
 }
 
 func (storage *MemoryStorage) CreateAccessToken(_ context.Context, request op.TokenRequest) (string, time.Time, error) {
-	clientID := ""
-	if clientRequest, ok := request.(interface{ GetClientID() string }); ok {
-		clientID = clientRequest.GetClientID()
-	}
-	return storage.createAccessToken(request.GetSubject(), request.GetAudience(), request.GetScopes(), clientID)
+	return storage.createAccessToken(request)
 }
 
 func (storage *MemoryStorage) CreateAccessAndRefreshTokens(_ context.Context, request op.TokenRequest, currentRefreshToken string) (string, string, time.Time, error) {
@@ -572,24 +654,34 @@ func (storage *MemoryStorage) Authorize(requestID string) error {
 	storage.mu.Lock()
 	defer storage.mu.Unlock()
 	request, ok := storage.authRequests[requestID]
-	if !ok {
+	if !ok || !storage.clock().Before(request.expiresAt) || !request.invalidatedAt.IsZero() {
 		return ErrProviderNotFound
 	}
 	request.subject = storage.configuration.SubjectID
+	request.authRevision = 1
 	request.done = true
 	return nil
 }
 
-func (storage *MemoryStorage) createAccessToken(subject string, audience, scopes []string, clientID string) (string, time.Time, error) {
+func (storage *MemoryStorage) createAccessToken(request op.TokenRequest) (string, time.Time, error) {
+	if request == nil || request.GetSubject() == "" {
+		return "", time.Time{}, oidc.ErrInvalidGrant()
+	}
+	if revisionRequest, ok := request.(interface{ GetAuthRevision() uint64 }); !ok || revisionRequest.GetAuthRevision() < 1 {
+		return "", time.Time{}, oidc.ErrInvalidGrant()
+	}
 	id, err := randomProviderID("at_")
 	if err != nil {
 		return "", time.Time{}, err
 	}
 	expiresAt := time.Now().UTC().Add(time.Hour)
 	storage.mu.Lock()
-	storage.accessTokens[id] = &memoryAccessToken{id: id, clientID: clientID, subject: subject, scopes: append([]string(nil), scopes...), expiresAt: expiresAt}
+	clientID := ""
+	if clientRequest, ok := request.(interface{ GetClientID() string }); ok {
+		clientID = clientRequest.GetClientID()
+	}
+	storage.accessTokens[id] = &memoryAccessToken{id: id, clientID: clientID, subject: request.GetSubject(), scopes: append([]string(nil), request.GetScopes()...), expiresAt: expiresAt}
 	storage.mu.Unlock()
-	_ = audience
 	return id, expiresAt, nil
 }
 

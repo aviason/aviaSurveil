@@ -28,6 +28,12 @@ https://localhost:8443 {
 	handle /api/* {
 		uri strip_prefix /api
 		reverse_proxy api:8080 {
+			header_up -X-Forwarded-For
+			header_up -X-Forwarded-Host
+			header_up -X-Forwarded-Proto
+			header_up X-Forwarded-For {http.request.remote.host}
+			header_up X-Forwarded-Host {http.request.host}
+			header_up X-Forwarded-Proto https
 			header_up traceparent {http.request.header.traceparent}
 			header_up tracestate {http.request.header.tracestate}
 			header_up X-Correlation-ID {http.request.header.X-Correlation-ID}
@@ -35,15 +41,36 @@ https://localhost:8443 {
 	}
 
 	handle /auth/* {
-		reverse_proxy api:8080
+		reverse_proxy api:8080 {
+			header_up -X-Forwarded-For
+			header_up -X-Forwarded-Host
+			header_up -X-Forwarded-Proto
+			header_up X-Forwarded-For {http.request.remote.host}
+			header_up X-Forwarded-Host {http.request.host}
+			header_up X-Forwarded-Proto https
+		}
 	}
 
 	handle /health/* {
-		reverse_proxy api:8080
+		reverse_proxy api:8080 {
+			header_up -X-Forwarded-For
+			header_up -X-Forwarded-Host
+			header_up -X-Forwarded-Proto
+			header_up X-Forwarded-For {http.request.remote.host}
+			header_up X-Forwarded-Host {http.request.host}
+			header_up X-Forwarded-Proto https
+		}
 	}
 
 	handle_path /identity/* {
-		reverse_proxy preprod-auth:8080
+		reverse_proxy preprod-auth:8080 {
+			header_up -X-Forwarded-For
+			header_up -X-Forwarded-Host
+			header_up -X-Forwarded-Proto
+			header_up X-Forwarded-For {http.request.remote.host}
+			header_up X-Forwarded-Host {http.request.host}
+			header_up X-Forwarded-Proto https
+		}
 	}
 
 	@private_objects path /evidence-quarantine/* /evidence-clean/* /inspection-attachments/* /generated-documents/*

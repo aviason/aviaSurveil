@@ -52,7 +52,6 @@ func TestApplicationRateLimitIsBoundedByClassAndUntrustedRemoteAddress(t *testin
 		applicationSecurityOptions{
 			clock:                     func() time.Time { return now },
 			window:                    time.Minute,
-			authRequestsPerWindow:     2,
 			mutationRequestsPerWindow: 2,
 		},
 	)
@@ -95,9 +94,10 @@ func TestApplicationRateLimitIsBoundedByClassAndUntrustedRemoteAddress(t *testin
 	assertAllowed(http.MethodGet, "/v1/findings")
 	assertAllowed(http.MethodGet, "/v1/findings")
 
+	// Login admission is durable and browser-bound; the application limiter does
+	// not key it by the shared gateway socket peer.
 	assertAllowed(http.MethodGet, "/auth/login")
 	assertAllowed(http.MethodGet, "/auth/login")
-	assertLimited(http.MethodGet, "/auth/login")
 
 	// The limiter keys the socket peer and never trusts spoofable forwarding headers.
 	request := httptest.NewRequest(http.MethodPost, "/v1/findings/FND-004/authorized-closure", strings.NewReader("{}"))

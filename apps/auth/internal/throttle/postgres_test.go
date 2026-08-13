@@ -30,22 +30,22 @@ func TestPostgreSQLLimiterPersistsAtomicBuckets(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := time.Unix(1_725_000_000, 0).UTC()
-	limiter, err := NewPostgresLimiter(pool, time.Minute, 2, func() time.Time { return now })
+	limiter, err := NewPostgresLimiter(pool, func() time.Time { return now })
 	if err != nil {
 		t.Fatal(err)
 	}
-	keys := []string{Key("ip", "192.0.2.5"), Key("identifier", "operator@example.invalid")}
-	if err := limiter.Allow(ctx, keys...); err != nil {
+	rules := []Rule{{Key: Key("global", "login"), Window: time.Minute, Limit: 2, Global: true}, {Key: Key("identifier", "operator@example.invalid"), Window: time.Minute, Limit: 2}}
+	if err := limiter.Allow(ctx, rules...); err != nil {
 		t.Fatal(err)
 	}
-	if err := limiter.Allow(ctx, keys...); err != nil {
+	if err := limiter.Allow(ctx, rules...); err != nil {
 		t.Fatal(err)
 	}
-	if !errors.Is(limiter.Allow(ctx, keys...), ErrRateLimited) {
+	if !errors.Is(limiter.Allow(ctx, rules...), ErrRateLimited) {
 		t.Fatal("third durable attempt was not rate limited")
 	}
 	now = now.Add(time.Minute)
-	if err := limiter.Allow(ctx, keys...); err != nil {
+	if err := limiter.Allow(ctx, rules...); err != nil {
 		t.Fatalf("expired durable bucket was not reset: %v", err)
 	}
 }

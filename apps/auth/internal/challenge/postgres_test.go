@@ -122,7 +122,7 @@ func TestPostgreSQLStorePersistsBoundedChallenges(t *testing.T) {
 	if err := store.Consume(ctx, subjectID, issued.Purpose, issued.Token); !errors.Is(err, ErrChallengeExpired) {
 		t.Fatalf("expired challenge consumption = %v", err)
 	}
-	if removed, err := store.Cleanup(ctx, now); err != nil || removed < 5 {
+	if removed, err := store.Cleanup(ctx, now, 5); err != nil || removed < 1 || removed > 5 {
 		t.Fatalf("cleanup challenges = %d/%v", removed, err)
 	}
 }

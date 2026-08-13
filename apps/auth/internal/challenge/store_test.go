@@ -42,7 +42,7 @@ func TestChallengesAreSingleUseExpiringAndAttemptBounded(t *testing.T) {
 	if err := store.Consume(issued.Subject, issued.Purpose, issued.Token); !errors.Is(err, ErrChallengeExpired) {
 		t.Fatalf("expired challenge = %v", err)
 	}
-	if removed := store.Cleanup(now); removed < 2 {
+	if removed := store.Cleanup(now, 10); removed < 2 {
 		t.Fatalf("cleanup removed %d challenges, want at least 2", removed)
 	}
 }

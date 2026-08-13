@@ -4,8 +4,10 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -48,7 +50,11 @@ func TestPostgreSQLStoragePersistsOIDCState(t *testing.T) {
 	now := time.Date(2026, 8, 11, 18, 0, 0, 0, time.UTC)
 	currentTime := now
 	configuration := CandidateConfig{Issuer: "http://auth.candidate.invalid", AllowInsecure: true, CryptoKey: [32]byte{1}, CryptoKeyID: "candidate-crypto-key", SigningKey: key, SigningKeyID: "candidate-signing-key", ClientID: "candidate-web", ClientSecret: "candidate-test-secret", RedirectURI: "http://app.candidate.invalid/callback", PostLogoutRedirectURI: "http://app.candidate.invalid/logout", SubjectID: "usr_" + strings.Repeat("P", 22), Email: "provider@example.invalid", DisplayName: "Provider Test"}
-	store, err := NewPostgresStorage(pool, PostgresStorageConfig{Candidate: configuration, EncryptionKey: []byte("01234567890123456789012345678901"), Clock: func() time.Time { return currentTime }})
+	durableLimiter, err := throttle.NewPostgresLimiter(pool, func() time.Time { return currentTime })
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := NewPostgresStorage(pool, PostgresStorageConfig{Candidate: configuration, EncryptionKey: []byte("01234567890123456789012345678901"), Clock: func() time.Time { return currentTime }, Limiter: durableLimiter})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,6 +93,9 @@ func TestPostgreSQLStoragePersistsOIDCState(t *testing.T) {
 	}
 	request, err := store.CreateAuthRequest(ctx, &oidc.AuthRequest{ClientID: configuration.ClientID, RedirectURI: configuration.RedirectURI, ResponseType: oidc.ResponseTypeCode, ResponseMode: oidc.ResponseModeQuery, Scopes: []string{oidc.ScopeOpenID, oidc.ScopeEmail}, State: "state", Nonce: "nonce", CodeChallenge: "challenge", CodeChallengeMethod: oidc.CodeChallengeMethodS256}, "")
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.StageAuthenticatedSubject(ctx, request.GetID(), configuration.SubjectID, 1); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.Authorize(ctx, request.GetID(), configuration.SubjectID); err != nil {
@@ -275,7 +284,7 @@ func TestPostgreSQLStoragePersistsOIDCState(t *testing.T) {
 	if recorder.Code != http.StatusSeeOther || recorder.Header().Get("Location") != "/login" {
 		t.Fatalf("password recovery reset = %d %q", recorder.Code, recorder.Header().Get("Location"))
 	}
-	if _, err := identities.Authenticate(ctx, identity.AuthenticationRequest{Identifier: configuration.Email, Password: []byte("reset correct password 4"), Source: throttle.ForwardedHeaders{RemoteAddr: "203.0.113.23:443"}, DeviceKey: "reset-device"}); err != nil {
+	if _, err := identities.Authenticate(ctx, identity.AuthenticationRequest{Identifier: configuration.Email, Password: []byte("reset correct password 4"), DeviceKey: "reset-device"}); err != nil {
 		t.Fatalf("authenticate reset password = %v", err)
 	}
 	mfaChallenge, err := challenges.Issue(ctx, configuration.SubjectID, challenge.PurposeMFARecovery, time.Minute, 3)
@@ -304,5 +313,134 @@ func TestPostgreSQLStoragePersistsOIDCState(t *testing.T) {
 	runtime.Handler.ServeHTTP(recorder, endSession)
 	if recorder.Code != http.StatusFound || recorder.Header().Get("Location") != configuration.PostLogoutRedirectURI {
 		t.Fatalf("durable end session = %d %q", recorder.Code, recorder.Header().Get("Location"))
+	}
+
+	// A delivered recovery message is retained for audit/retention purposes,
+	// but it must not suppress a fresh challenge after its original challenge
+	// expires.
+	now = currentTime
+	recoveryForm := url.Values{"email": {configuration.Email}}
+	firstRecovery := httptest.NewRequest(http.MethodPost, "/recover/password", strings.NewReader(recoveryForm.Encode()))
+	firstRecovery.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	recoveryResponse := httptest.NewRecorder()
+	runtime.Handler.ServeHTTP(recoveryResponse, firstRecovery)
+	if recoveryResponse.Code != http.StatusAccepted {
+		t.Fatalf("first recovery initiation = %d %q", recoveryResponse.Code, recoveryResponse.Body.String())
+	}
+	dedupeKey := recoveryDedupeKey(configuration.SubjectID, challenge.PurposePasswordReset)
+	if _, err := pool.Exec(ctx, `
+		UPDATE auth_identity.mail_deliveries
+		SET state = 'delivered', delivered_at = $2, updated_at = $2
+		WHERE dedupe_key = $1 AND state = 'queued'`, dedupeKey, now); err != nil {
+		t.Fatalf("mark recovery delivery delivered: %v", err)
+	}
+	currentTime = currentTime.Add(16 * time.Minute)
+	now = currentTime
+	secondRecovery := httptest.NewRequest(http.MethodPost, "/recover/password", strings.NewReader(recoveryForm.Encode()))
+	secondRecovery.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	recoveryResponse = httptest.NewRecorder()
+	runtime.Handler.ServeHTTP(recoveryResponse, secondRecovery)
+	if recoveryResponse.Code != http.StatusAccepted {
+		t.Fatalf("replacement recovery initiation = %d %q", recoveryResponse.Code, recoveryResponse.Body.String())
+	}
+	var activeChallenges, deliveredDeliveries, queuedDeliveries int
+	if err := pool.QueryRow(ctx, `
+		SELECT COUNT(*) FILTER (WHERE state = 'active'),
+		       (SELECT COUNT(*) FROM auth_identity.mail_deliveries WHERE dedupe_key = $1 AND state = 'delivered'),
+		       (SELECT COUNT(*) FROM auth_identity.mail_deliveries WHERE dedupe_key = $1 AND state = 'queued')
+		FROM auth_identity.identity_challenges
+		WHERE subject_id = $2 AND purpose = $3`, dedupeKey, configuration.SubjectID, challenge.PurposePasswordReset).Scan(&activeChallenges, &deliveredDeliveries, &queuedDeliveries); err != nil {
+		t.Fatalf("read replacement recovery state: %v", err)
+	}
+	if activeChallenges != 1 || deliveredDeliveries != 1 || queuedDeliveries != 1 {
+		t.Fatalf("replacement recovery state = active:%d delivered:%d queued:%d", activeChallenges, deliveredDeliveries, queuedDeliveries)
+	}
+}
+
+func TestPostgreSQLProviderAdmissionReservesBoundCapacityAtConfiguredBurstAndReleasesDeletedState(t *testing.T) {
+	databaseURL := strings.TrimSpace(os.Getenv("AVIA_AUTH_TEST_DATABASE_URL"))
+	if databaseURL == "" {
+		t.Skip("not run: AVIA_AUTH_TEST_DATABASE_URL is not configured")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	pool, err := pgxpool.New(ctx, databaseURL)
+	if err != nil {
+		t.Fatalf("open disposable PostgreSQL: %v", err)
+	}
+	defer pool.Close()
+	if err := migrations.Apply(ctx, pool); err != nil {
+		t.Fatalf("apply auth migrations: %v", err)
+	}
+	// The auth connected harness intentionally reuses one disposable database
+	// for the package. Remove only provider-owned ephemeral rows/buckets so this
+	// fairness proof cannot inherit the previous provider lifecycle test's
+	// bootstrap request.
+	if _, err := pool.Exec(ctx, `
+		DELETE FROM auth_identity.oidc_auth_requests;
+		DELETE FROM auth_identity.throttle_buckets WHERE bucket_key LIKE 'provider:%'`); err != nil {
+		t.Fatalf("reset provider admission fixtures: %v", err)
+	}
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 8, 11, 19, 0, 0, 0, time.UTC)
+	configuration := CandidateConfig{
+		Issuer: "http://auth.fairness.invalid", AllowInsecure: true, CryptoKey: [32]byte{2}, CryptoKeyID: "fairness-crypto-key",
+		SigningKey: key, SigningKeyID: "fairness-signing-key", ClientID: "candidate-fairness", ClientSecret: "fairness-client-secret",
+		RedirectURI: "http://app.fairness.invalid/callback", PostLogoutRedirectURI: "http://app.fairness.invalid/logout",
+	}
+	secretHash := sha256.Sum256([]byte(configuration.ClientSecret))
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO auth_identity.provider_clients(client_id, secret_hash, redirect_uris, post_logout_redirect_uris, scopes, state, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, 'active', $6, $6)
+		ON CONFLICT (client_id) DO UPDATE SET secret_hash = EXCLUDED.secret_hash, redirect_uris = EXCLUDED.redirect_uris,
+		post_logout_redirect_uris = EXCLUDED.post_logout_redirect_uris, scopes = EXCLUDED.scopes, state = 'active', updated_at = EXCLUDED.updated_at
+	`, configuration.ClientID, secretHash[:], []string{configuration.RedirectURI}, []string{configuration.PostLogoutRedirectURI}, []string{oidc.ScopeOpenID}, now); err != nil {
+		t.Fatalf("seed fairness provider client: %v", err)
+	}
+	defer func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM auth_identity.provider_clients WHERE client_id = $1`, configuration.ClientID)
+	}()
+	limiter, err := throttle.NewPostgresLimiter(pool, func() time.Time { return now })
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := NewPostgresStorage(pool, PostgresStorageConfig{
+		Candidate: configuration, EncryptionKey: []byte("01234567890123456789012345678901"), Clock: func() time.Time { return now }, Limiter: limiter,
+		AdmissionPolicy: AdmissionPolicy{Window: time.Minute, GlobalLimit: 600, ClientLimit: 120, BrowserLimit: 100, RequestLimit: 100, OutstandingLimit: 100, AnonymousOutstandingLimit: 20},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := func(state string) *oidc.AuthRequest {
+		return &oidc.AuthRequest{ClientID: configuration.ClientID, RedirectURI: configuration.RedirectURI, ResponseType: oidc.ResponseTypeCode, ResponseMode: oidc.ResponseModeQuery, Scopes: []string{oidc.ScopeOpenID}, State: state, Nonce: "nonce-" + state}
+	}
+	for index := 0; index < store.admission.AnonymousOutstandingLimit; index++ {
+		if _, err := store.CreateAuthRequest(ctx, request(fmt.Sprintf("anonymous-%d", index)), ""); err != nil {
+			t.Fatalf("anonymous burst %d: %v", index+1, err)
+		}
+	}
+	if _, err := store.CreateAuthRequest(ctx, request("anonymous-over-cap"), ""); !errors.Is(err, ErrProviderRateLimited) {
+		t.Fatalf("anonymous burst over bootstrap partition = %v", err)
+	}
+	bound, err := store.CreateAuthRequest(WithBrowserBinding(ctx, "browser-fairness"), request("bound-one"), "")
+	if err != nil {
+		t.Fatalf("bound request was not admitted from reserved capacity: %v", err)
+	}
+	for index := 0; index < store.admission.OutstandingLimit-store.admission.AnonymousOutstandingLimit-1; index++ {
+		if _, err := store.CreateAuthRequest(WithBrowserBinding(ctx, "browser-fairness"), request(fmt.Sprintf("bound-%d", index+2)), ""); err != nil {
+			t.Fatalf("bound burst %d: %v", index+2, err)
+		}
+	}
+	if _, err := store.CreateAuthRequest(WithBrowserBinding(ctx, "browser-fairness"), request("bound-over-cap"), ""); !errors.Is(err, ErrProviderRateLimited) {
+		t.Fatalf("101st outstanding request = %v", err)
+	}
+	if err := store.DeleteAuthRequest(ctx, bound.GetID()); err != nil {
+		t.Fatalf("delete bound request: %v", err)
+	}
+	if _, err := store.CreateAuthRequest(WithBrowserBinding(ctx, "browser-fairness"), request("bound-three"), ""); err != nil {
+		t.Fatalf("capacity was not released after deleting bound request: %v", err)
 	}
 }

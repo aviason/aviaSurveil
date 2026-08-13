@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/MarlonJD/aviaSurveil360/apps/auth/internal/challenge"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -19,14 +20,17 @@ import (
 // application database. Each mutation locks the factor row so a TOTP counter
 // or recovery code cannot be consumed concurrently more than once.
 type PostgresStore struct {
-	pool                *pgxpool.Pool
-	key                 []byte
-	sessionRevoker      SessionRevoker
-	clock               Clock
-	period              time.Duration
-	window              int
-	digits              int
-	maxRecoveryFailures int
+	pool                  *pgxpool.Pool
+	key                   []byte
+	sessionRevoker        SessionRevoker
+	clock                 Clock
+	period                time.Duration
+	window                int
+	digits                int
+	maxRecoveryFailures   int
+	recoveryFailureWindow time.Duration
+	recoveryLockDuration  time.Duration
+	challenges            *challenge.PostgresStore
 }
 
 func NewPostgresStore(pool *pgxpool.Pool, configuration Config) (*PostgresStore, error) {
@@ -36,10 +40,14 @@ func NewPostgresStore(pool *pgxpool.Pool, configuration Config) (*PostgresStore,
 	if err := validateConfig(&configuration); err != nil {
 		return nil, err
 	}
+	challenges, err := challenge.NewPostgresStore(pool, challenge.Config{Clock: challenge.Clock(configuration.Clock)})
+	if err != nil {
+		return nil, err
+	}
 	return &PostgresStore{
 		pool: pool, key: append([]byte(nil), configuration.EncryptionKey...), sessionRevoker: configuration.SessionRevoker, clock: configuration.Clock,
 		period: configuration.Period, window: configuration.Window, digits: configuration.Digits,
-		maxRecoveryFailures: configuration.MaxRecoveryFailures,
+		maxRecoveryFailures: configuration.MaxRecoveryFailures, recoveryFailureWindow: configuration.RecoveryFailureWindow, recoveryLockDuration: configuration.RecoveryLockDuration, challenges: challenges,
 	}, nil
 }
 
@@ -183,7 +191,7 @@ func (store *PostgresStore) GenerateRecoveryCodes(ctx context.Context, subjectID
 			codes = append(codes, code)
 		}
 	}
-	if _, err := tx.Exec(ctx, `UPDATE auth_identity.mfa_factors SET recovery_failures = 0, updated_at = $2 WHERE subject_id = $1`, subjectID, store.clock().UTC()); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE auth_identity.mfa_factors SET recovery_failures = 0, recovery_failure_window_started_at = NULL, recovery_locked_until = NULL, updated_at = $2 WHERE subject_id = $1`, subjectID, store.clock().UTC()); err != nil {
 		return nil, fmt.Errorf("reset MFA recovery failures: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -200,7 +208,8 @@ func (store *PostgresStore) ConsumeRecoveryCode(ctx context.Context, subjectID, 
 	defer func() { _ = tx.Rollback(ctx) }()
 	var enabled bool
 	var failures int
-	err = tx.QueryRow(ctx, `SELECT enabled, recovery_failures FROM auth_identity.mfa_factors WHERE subject_id = $1 FOR UPDATE`, subjectID).Scan(&enabled, &failures)
+	var windowStarted, lockedUntil *time.Time
+	err = tx.QueryRow(ctx, `SELECT enabled, recovery_failures, recovery_failure_window_started_at, recovery_locked_until FROM auth_identity.mfa_factors WHERE subject_id = $1 FOR UPDATE`, subjectID).Scan(&enabled, &failures, &windowStarted, &lockedUntil)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrFactorDisabled
 	}
@@ -210,8 +219,14 @@ func (store *PostgresStore) ConsumeRecoveryCode(ctx context.Context, subjectID, 
 	if !enabled {
 		return ErrFactorDisabled
 	}
-	if failures >= store.maxRecoveryFailures {
+	now := store.clock().UTC()
+	if lockedUntil != nil && now.Before(*lockedUntil) {
 		return ErrRecoveryLocked
+	}
+	if (lockedUntil != nil && !now.Before(*lockedUntil)) || (windowStarted != nil && !now.Before(windowStarted.Add(store.recoveryFailureWindow))) {
+		failures = 0
+		windowStarted = nil
+		lockedUntil = nil
 	}
 	hash := hashRecoveryCode(code)
 	command, err := tx.Exec(ctx, `DELETE FROM auth_identity.mfa_recovery_codes WHERE subject_id = $1 AND code_hash = $2`, subjectID, hash[:])
@@ -219,19 +234,27 @@ func (store *PostgresStore) ConsumeRecoveryCode(ctx context.Context, subjectID, 
 		return fmt.Errorf("consume MFA recovery code: %w", err)
 	}
 	if command.RowsAffected() != 1 {
+		if windowStarted == nil {
+			started := now
+			windowStarted = &started
+		}
 		failures++
-		if _, err := tx.Exec(ctx, `UPDATE auth_identity.mfa_factors SET recovery_failures = $2, updated_at = $3 WHERE subject_id = $1`, subjectID, failures, store.clock().UTC()); err != nil {
+		if failures >= store.maxRecoveryFailures {
+			locked := now.Add(store.recoveryLockDuration)
+			lockedUntil = &locked
+		}
+		if _, err := tx.Exec(ctx, `UPDATE auth_identity.mfa_factors SET recovery_failures = $2, recovery_failure_window_started_at = $3, recovery_locked_until = $4, updated_at = $5 WHERE subject_id = $1`, subjectID, failures, windowStarted, lockedUntil, now); err != nil {
 			return fmt.Errorf("record MFA recovery failure: %w", err)
 		}
 		if err := tx.Commit(ctx); err != nil {
 			return fmt.Errorf("commit MFA recovery failure: %w", err)
 		}
-		if failures >= store.maxRecoveryFailures {
+		if lockedUntil != nil {
 			return ErrRecoveryLocked
 		}
 		return ErrRecoveryInvalid
 	}
-	if _, err := tx.Exec(ctx, `UPDATE auth_identity.mfa_factors SET recovery_failures = 0, updated_at = $2 WHERE subject_id = $1`, subjectID, store.clock().UTC()); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE auth_identity.mfa_factors SET recovery_failures = 0, recovery_failure_window_started_at = NULL, recovery_locked_until = NULL, updated_at = $2 WHERE subject_id = $1`, subjectID, now); err != nil {
 		return fmt.Errorf("reset MFA recovery failures: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -395,7 +418,13 @@ func validateConfig(configuration *Config) error {
 	if configuration.MaxRecoveryFailures == 0 {
 		configuration.MaxRecoveryFailures = 5
 	}
-	if configuration.Period < 15*time.Second || configuration.Period > 5*time.Minute || configuration.Window < 0 || configuration.Window > 2 || (configuration.Digits != 0 && configuration.Digits != 6 && configuration.Digits != 8) || configuration.MaxRecoveryFailures < 1 || configuration.MaxRecoveryFailures > 20 {
+	if configuration.RecoveryFailureWindow == 0 {
+		configuration.RecoveryFailureWindow = 15 * time.Minute
+	}
+	if configuration.RecoveryLockDuration == 0 {
+		configuration.RecoveryLockDuration = 15 * time.Minute
+	}
+	if configuration.Period < 15*time.Second || configuration.Period > 5*time.Minute || configuration.Window < 0 || configuration.Window > 2 || (configuration.Digits != 0 && configuration.Digits != 6 && configuration.Digits != 8) || configuration.MaxRecoveryFailures < 1 || configuration.MaxRecoveryFailures > 20 || configuration.RecoveryFailureWindow < time.Minute || configuration.RecoveryFailureWindow > 24*time.Hour || configuration.RecoveryLockDuration < time.Minute || configuration.RecoveryLockDuration > 24*time.Hour {
 		return errors.New("MFA timing or recovery policy is invalid")
 	}
 	if configuration.Digits == 0 {

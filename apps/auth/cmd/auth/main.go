@@ -30,6 +30,17 @@ import (
 
 var version = "candidate"
 
+const (
+	throttleCleanupBatch   = 10000
+	throttleCleanupPasses  = 2
+	challengeCleanupBatch  = 1000
+	challengeCleanupPasses = 2
+	deliveryCleanupBatch   = 1000
+	deliveryCleanupPasses  = 2
+	providerCleanupBatch   = 1000
+	providerCleanupPasses  = 2
+)
+
 func main() {
 	logger := telemetry.NewRedactedLogger(os.Stderr)
 	slog.SetDefault(logger)
@@ -61,15 +72,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("initialize password hasher: %w", err)
 	}
-	loginLimit := 10
-	if settings.Profile == "first-party-local-preprod" {
-		// The disposable qualification lifecycle intentionally signs the nine
-		// synthetic accounts in and out repeatedly. Keep normal profiles at the
-		// production-shaped limit while giving this isolated namespace enough
-		// room for its bounded, task-owned browser matrix.
-		loginLimit = 100
-	}
-	limiter, err := throttle.NewPostgresLimiter(pool, time.Minute, loginLimit, time.Now)
+	limiter, err := throttle.NewPostgresLimiter(pool, time.Now)
 	if err != nil {
 		return fmt.Errorf("initialize durable login limiter: %w", err)
 	}
@@ -100,7 +103,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		return fmt.Errorf("initialize verified SMTP sender: %w", err)
 	}
 	candidateConfig := provider.CandidateConfig{Issuer: settings.IssuerURL, AllowInsecure: issuerAllowsHTTP(settings.IssuerURL), CryptoKey: dataKey, CryptoKeyID: settings.SigningKeyID, SigningKey: settings.SigningKey(), SigningKeyID: settings.SigningKeyID, ClientID: settings.OIDCClientID, ClientSecret: settings.OIDCClientSecret(), RedirectURI: settings.OIDCRedirectURI, PostLogoutRedirectURI: settings.OIDCLogoutURI}
-	storage, err := provider.NewPostgresStorage(pool, provider.PostgresStorageConfig{Candidate: candidateConfig, EncryptionKey: dataKey[:]})
+	storage, err := provider.NewPostgresStorage(pool, provider.PostgresStorageConfig{Candidate: candidateConfig, EncryptionKey: dataKey[:], Limiter: limiter})
 	if err != nil {
 		return fmt.Errorf("initialize durable OIDC storage: %w", err)
 	}
@@ -109,7 +112,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	}
 	identities.SetSessionRevoker(storage)
 	mfaStore.SetSessionRevoker(storage)
-	runtime, err := provider.NewRuntimeCandidate(candidateConfig, storage, provider.RuntimeDependencies{Identity: identities, MFA: mfaStore, Challenges: challenges, Outbox: outbox})
+	runtime, err := provider.NewRuntimeCandidate(candidateConfig, storage, provider.RuntimeDependencies{Identity: identities, MFA: mfaStore, Challenges: challenges, Outbox: outbox, Logger: logger})
 	if err != nil {
 		return fmt.Errorf("initialize isolated OIDC runtime: %w", err)
 	}
@@ -140,7 +143,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		adminServer.Ready()
 	}
 	go deliverOutbox(ctx, outbox, sender, logger)
-	go maintainProvider(ctx, storage, logger)
+	go maintainProvider(ctx, storage, challenges, limiter, outbox, logger)
 	logger.Info("isolated auth candidate starting",
 		slog.String("service", "auth"),
 		slog.String("version", version),
@@ -183,7 +186,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	}
 }
 
-func maintainProvider(ctx context.Context, storage *provider.PostgresStorage, logger *slog.Logger) {
+func maintainProvider(ctx context.Context, storage *provider.PostgresStorage, challenges *challenge.PostgresStore, limiter *throttle.PostgresLimiter, outbox *mail.Outbox, logger *slog.Logger) {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 	for {
@@ -192,8 +195,70 @@ func maintainProvider(ctx context.Context, storage *provider.PostgresStorage, lo
 			return
 		case <-ticker.C:
 			cleanupContext, cancel := context.WithTimeout(ctx, 5*time.Second)
-			if _, err := storage.CleanupExpired(cleanupContext, 100); err != nil {
-				logger.Warn("provider authorization cleanup deferred", slog.String("error_class", "provider_cleanup_failure"))
+			// Provider authorization admission allows up to 600 requests per
+			// minute. Drain two bounded batches so expired codes and requests do
+			// not outgrow retention while cleanup remains bounded per tick.
+			for pass := 0; pass < providerCleanupPasses; pass++ {
+				removed, err := storage.CleanupExpired(cleanupContext, providerCleanupBatch)
+				if err != nil {
+					logger.Warn("provider authorization cleanup deferred", slog.String("error_class", "provider_cleanup_failure"))
+					break
+				}
+				if removed > 0 {
+					logger.Info("auth cleanup completed", slog.String("cleanup_class", "provider_authorization"), slog.Int64("removed_count", removed))
+				}
+				if removed < providerCleanupBatch {
+					break
+				}
+			}
+			// Recovery admission allows up to 600 requests per minute for each
+			// public recovery purpose. Drain two bounded batches so challenge
+			// retention stays ahead of that aggregate ceiling without an unbounded
+			// delete.
+			for pass := 0; pass < challengeCleanupPasses; pass++ {
+				removed, err := challenges.Cleanup(cleanupContext, time.Now().UTC(), challengeCleanupBatch)
+				if err != nil {
+					logger.Warn("identity challenge cleanup deferred", slog.String("error_class", "challenge_cleanup_failure"))
+					break
+				}
+				if removed > 0 {
+					logger.Info("auth cleanup completed", slog.String("cleanup_class", "identity_challenge"), slog.Int("removed_count", removed))
+				}
+				if removed < challengeCleanupBatch {
+					break
+				}
+			}
+			// Attacker-variable buckets are admitted behind a global rule. Drain
+			// enough bounded batches each minute to keep cleanup ahead of the
+			// maximum configured admission rate without an unbounded delete.
+			for pass := 0; pass < throttleCleanupPasses; pass++ {
+				removed, err := limiter.Cleanup(cleanupContext, time.Now().UTC(), throttleCleanupBatch)
+				if err != nil {
+					logger.Warn("authentication throttle cleanup deferred", slog.String("error_class", "throttle_cleanup_failure"))
+					break
+				}
+				if removed > 0 {
+					logger.Info("auth cleanup completed", slog.String("cleanup_class", "throttle_bucket"), slog.Int64("removed_count", removed))
+				}
+				if removed < throttleCleanupBatch {
+					break
+				}
+			}
+			// Recovery admission permits up to 600 requests per minute for each
+			// public recovery purpose. Keep retained delivered/terminal rows from
+			// becoming the next durable backlog while retaining bounded deletes.
+			for pass := 0; pass < deliveryCleanupPasses; pass++ {
+				removed, err := outbox.CleanupRetention(cleanupContext, time.Now().UTC(), deliveryCleanupBatch)
+				if err != nil {
+					logger.Warn("mail retention cleanup deferred", slog.String("error_class", "mail_retention_cleanup_failure"))
+					break
+				}
+				if removed > 0 {
+					logger.Info("auth cleanup completed", slog.String("cleanup_class", "mail_retention"), slog.Int64("removed_count", removed))
+				}
+				if removed < deliveryCleanupBatch {
+					break
+				}
 			}
 			cancel()
 		}

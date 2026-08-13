@@ -3,7 +3,6 @@ package identity
 import (
 	"context"
 	"errors"
-	"net/netip"
 	"os"
 	"strings"
 	"testing"
@@ -42,7 +41,6 @@ func TestPostgreSQLStoreLifecycle(t *testing.T) {
 		Hasher:         hasher,
 		PasswordPolicy: password.DefaultPolicy(),
 		Limiter:        limiter,
-		TrustedProxies: []netip.Prefix{netip.MustParsePrefix("198.51.100.0/24")},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -60,7 +58,7 @@ func TestPostgreSQLStoreLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := store.Authenticate(ctx, AuthenticationRequest{Identifier: email, Password: []byte("correct horse battery staple"), Source: throttle.ForwardedHeaders{RemoteAddr: "203.0.113.9:443"}, DeviceKey: "pg-device"})
+	result, err := store.Authenticate(ctx, AuthenticationRequest{Identifier: email, Password: []byte("correct horse battery staple"), DeviceKey: "pg-device"})
 	if err != nil || result.Account.SubjectID != account.SubjectID {
 		t.Fatalf("PostgreSQL authentication = %+v/%v", result, err)
 	}
@@ -71,7 +69,7 @@ func TestPostgreSQLStoreLifecycle(t *testing.T) {
 	if _, err := store.ChangePassword(ctx, account.SubjectID, account.AuthRevision, []byte("new correct password 2"), []byte("another correct password 3")); !errors.Is(err, ErrRevisionConflict) {
 		t.Fatalf("stale PostgreSQL password change = %v", err)
 	}
-	if _, err := store.Authenticate(ctx, AuthenticationRequest{Identifier: email, Password: []byte("new correct password 2"), Source: throttle.ForwardedHeaders{RemoteAddr: "203.0.113.9:443"}, DeviceKey: "pg-device"}); err != nil {
+	if _, err := store.Authenticate(ctx, AuthenticationRequest{Identifier: email, Password: []byte("new correct password 2"), DeviceKey: "pg-device"}); err != nil {
 		t.Fatalf("authentication after password change = %v", err)
 	}
 	reset, err := store.ResetPassword(ctx, account.SubjectID, changed.AuthRevision, []byte("reset correct password 3"))
@@ -81,7 +79,7 @@ func TestPostgreSQLStoreLifecycle(t *testing.T) {
 	if reset.AuthRevision <= changed.AuthRevision {
 		t.Fatalf("password reset revision = %d, want advance from %d", reset.AuthRevision, changed.AuthRevision)
 	}
-	if _, err := store.Authenticate(ctx, AuthenticationRequest{Identifier: email, Password: []byte("reset correct password 3"), Source: throttle.ForwardedHeaders{RemoteAddr: "203.0.113.9:443"}, DeviceKey: "pg-device"}); err != nil {
+	if _, err := store.Authenticate(ctx, AuthenticationRequest{Identifier: email, Password: []byte("reset correct password 3"), DeviceKey: "pg-device"}); err != nil {
 		t.Fatalf("authentication after password reset = %v", err)
 	}
 	if _, err := store.Transition(ctx, account.SubjectID, reset.AuthRevision, AccountSuspended); err != nil {

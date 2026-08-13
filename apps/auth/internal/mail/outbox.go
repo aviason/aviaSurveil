@@ -24,6 +24,7 @@ var (
 const (
 	defaultLeaseTTL    = 30 * time.Second
 	defaultMaxAttempts = 5
+	defaultRetention   = 7 * 24 * time.Hour
 	maxRetryDelay      = 15 * time.Minute
 )
 
@@ -39,6 +40,7 @@ type OutboxConfig struct {
 	Clock         Clock
 	LeaseTTL      time.Duration
 	MaxAttempts   int
+	Retention     time.Duration
 }
 
 type Outbox struct {
@@ -47,12 +49,14 @@ type Outbox struct {
 	clock       Clock
 	leaseTTL    time.Duration
 	maxAttempts int
+	retention   time.Duration
 }
 
 type Delivery struct {
 	Recipient string
 	Subject   string
 	Body      string
+	DedupeKey string
 }
 
 type ClaimedDelivery struct {
@@ -107,13 +111,42 @@ func NewOutbox(configuration OutboxConfig) (*Outbox, error) {
 	if configuration.MaxAttempts < 1 || configuration.MaxAttempts > 12 {
 		return nil, errors.New("mail outbox attempt limit is invalid")
 	}
+	if configuration.Retention == 0 {
+		configuration.Retention = defaultRetention
+	}
+	if configuration.Retention < 24*time.Hour || configuration.Retention > 365*24*time.Hour {
+		return nil, errors.New("mail outbox retention is invalid")
+	}
 	return &Outbox{
 		pool: configuration.Pool, key: append([]byte(nil), configuration.EncryptionKey...),
 		clock: configuration.Clock, leaseTTL: configuration.LeaseTTL, maxAttempts: configuration.MaxAttempts,
+		retention: configuration.Retention,
 	}, nil
 }
 
 func (outbox *Outbox) Enqueue(ctx context.Context, delivery Delivery) (string, error) {
+	tx, err := outbox.pool.Begin(ctx)
+	if err != nil {
+		return "", fmt.Errorf("begin mail enqueue: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	id, err := outbox.EnqueueTx(ctx, tx, delivery)
+	if err != nil {
+		return "", err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return "", fmt.Errorf("commit mail enqueue: %w", err)
+	}
+	return id, nil
+}
+
+// EnqueueTx prepares one encrypted delivery in a caller-owned transaction.
+// DedupeKey is a caller-provided non-PII hash; a pending delivery wins the
+// race and its ID is returned to all coalesced callers.
+func (outbox *Outbox) EnqueueTx(ctx context.Context, tx pgx.Tx, delivery Delivery) (string, error) {
+	if tx == nil {
+		return "", errors.New("mail enqueue transaction is required")
+	}
 	if err := validateDelivery(delivery); err != nil {
 		return "", err
 	}
@@ -134,14 +167,24 @@ func (outbox *Outbox) Enqueue(ctx context.Context, delivery Delivery) (string, e
 		return "", err
 	}
 	now := outbox.clock().UTC()
-	if _, err := outbox.pool.Exec(ctx, `
+	var storedID string
+	err = tx.QueryRow(ctx, `
 		INSERT INTO auth_identity.mail_deliveries(
 			delivery_id, recipient_ciphertext, subject_ciphertext, body_ciphertext,
-			state, attempt_count, available_at, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, 'queued', 0, $5, $5, $5)`, id, recipient, subject, body, now); err != nil {
+			state, attempt_count, available_at, created_at, updated_at, dedupe_key
+		) VALUES ($1, $2, $3, $4, 'queued', 0, $5, $5, $5, NULLIF($6, ''))
+		ON CONFLICT (dedupe_key) WHERE dedupe_key IS NOT NULL AND state IN ('queued', 'leased', 'retryable') DO NOTHING
+		RETURNING delivery_id`, id, recipient, subject, body, now, strings.TrimSpace(delivery.DedupeKey)).Scan(&storedID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		if err := tx.QueryRow(ctx, `SELECT delivery_id FROM auth_identity.mail_deliveries WHERE dedupe_key = $1 AND state IN ('queued', 'leased', 'retryable') ORDER BY created_at, delivery_id LIMIT 1`, strings.TrimSpace(delivery.DedupeKey)).Scan(&storedID); err != nil {
+			return "", fmt.Errorf("load coalesced mail delivery: %w", err)
+		}
+		return storedID, nil
+	}
+	if err != nil {
 		return "", fmt.Errorf("enqueue mail delivery: %w", err)
 	}
-	return id, nil
+	return storedID, nil
 }
 
 // Claim atomically recovers expired leases and claims one due delivery. The
@@ -321,6 +364,31 @@ func (outbox *Outbox) Snapshot(ctx context.Context, id string) (Snapshot, error)
 	return snapshot, nil
 }
 
+// CleanupRetention removes only delivered and terminal rows older than the
+// configured retention period. The bounded delete is safe to repeat after a
+// restart and never touches queued, leased, or retryable deliveries.
+func (outbox *Outbox) CleanupRetention(ctx context.Context, at time.Time, limit int) (int64, error) {
+	if limit < 1 || limit > 1000 {
+		return 0, errors.New("mail retention cleanup limit is invalid")
+	}
+	cutoff := at.UTC().Add(-outbox.retention)
+	command, err := outbox.pool.Exec(ctx, `
+		WITH retained AS (
+			SELECT delivery_id FROM auth_identity.mail_deliveries
+			WHERE state IN ('delivered', 'terminal-failure')
+			  AND updated_at <= $1
+			ORDER BY updated_at, delivery_id
+			LIMIT $2
+		)
+		DELETE FROM auth_identity.mail_deliveries delivery
+		USING retained
+		WHERE delivery.delivery_id = retained.delivery_id`, cutoff, limit)
+	if err != nil {
+		return 0, fmt.Errorf("cleanup retained mail deliveries: %w", err)
+	}
+	return command.RowsAffected(), nil
+}
+
 func (outbox *Outbox) leaseOrDeliveryError(ctx context.Context, id string) error {
 	var exists bool
 	if err := outbox.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM auth_identity.mail_deliveries WHERE delivery_id = $1)`, id).Scan(&exists); err != nil {
@@ -369,7 +437,7 @@ func outboxAAD(id, field string) []byte {
 }
 
 func validateDelivery(delivery Delivery) error {
-	if strings.TrimSpace(delivery.Recipient) == "" || strings.TrimSpace(delivery.Subject) == "" || strings.ContainsAny(delivery.Recipient, "\r\n") || strings.ContainsAny(delivery.Subject, "\r\n") || strings.Contains(delivery.Body, "\x00") {
+	if strings.TrimSpace(delivery.Recipient) == "" || strings.TrimSpace(delivery.Subject) == "" || strings.ContainsAny(delivery.Recipient, "\r\n") || strings.ContainsAny(delivery.Subject, "\r\n") || strings.Contains(delivery.Body, "\x00") || len(strings.TrimSpace(delivery.DedupeKey)) > 160 {
 		return errors.New("mail delivery is invalid")
 	}
 	return nil

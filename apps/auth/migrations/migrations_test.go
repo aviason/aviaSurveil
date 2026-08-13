@@ -88,6 +88,27 @@ func TestChallengeMigrationContainsDurableProtectionBoundaries(t *testing.T) {
 	}
 }
 
+func TestFirstPartySecurityMigrationContainsBoundedStateBoundaries(t *testing.T) {
+	for _, required := range []string{
+		"authenticating_auth_revision bigint",
+		"mfa_attempt_count integer NOT NULL DEFAULT 0",
+		"mfa_attempt_limit integer NOT NULL DEFAULT 5",
+		"invalidated_at timestamptz",
+		"recovery_failure_window_started_at timestamptz",
+		"recovery_locked_until timestamptz",
+		"auth_identity_identity_challenges_one_active_idx",
+		"dedupe_key text",
+		"auth_identity_mail_deliveries_pending_dedupe_idx",
+		"window_ends_at timestamptz",
+		"throttle_buckets_window_bounds_check",
+		"auth_identity_throttle_buckets_window_cleanup_idx",
+	} {
+		if !strings.Contains(firstPartyAuthSecurityHardeningSchema, required) {
+			t.Errorf("first-party security migration missing %q", required)
+		}
+	}
+}
+
 func TestOIDCRuntimeMigrationContainsDurableProtectionBoundaries(t *testing.T) {
 	for _, required := range []string{
 		"oidc_auth_requests",

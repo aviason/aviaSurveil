@@ -15,7 +15,6 @@ const apiContentSecurityPolicy = "default-src 'none'; base-uri 'none'; frame-anc
 type applicationSecurityOptions struct {
 	clock                     func() time.Time
 	window                    time.Duration
-	authRequestsPerWindow     int
 	mutationRequestsPerWindow int
 }
 
@@ -28,7 +27,6 @@ type applicationRateLimiter struct {
 	mutex    sync.Mutex
 	clock    func() time.Time
 	window   time.Duration
-	auth     int
 	mutation int
 	buckets  map[string]rateBucket
 }
@@ -42,16 +40,12 @@ func newApplicationRateLimiter(options applicationSecurityOptions) *applicationR
 	if window <= 0 {
 		window = time.Minute
 	}
-	auth := options.authRequestsPerWindow
-	if auth <= 0 {
-		auth = 30
-	}
 	mutation := options.mutationRequestsPerWindow
 	if mutation <= 0 {
 		mutation = 300
 	}
 	return &applicationRateLimiter{
-		clock: clock, window: window, auth: auth, mutation: mutation,
+		clock: clock, window: window, mutation: mutation,
 		buckets: make(map[string]rateBucket),
 	}
 }
@@ -86,9 +80,6 @@ func (limiter *applicationRateLimiter) protect(next http.Handler) http.Handler {
 }
 
 func (limiter *applicationRateLimiter) classify(request *http.Request) (string, int, bool) {
-	if request.URL.Path == "/auth/login" {
-		return "auth", limiter.auth, true
-	}
 	if strings.HasPrefix(request.URL.Path, "/v1/") && isMutation(request.Method) {
 		return "mutation", limiter.mutation, true
 	}

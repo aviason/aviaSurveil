@@ -1,19 +1,149 @@
 package provider
 
 import (
+	"context"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/MarlonJD/aviaSurveil360/apps/auth/internal/throttle"
 	jose "github.com/go-jose/go-jose/v4"
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 )
+
+func TestBrowserBindingRejectsForgedCookieAndAcceptsServerSignature(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "https://identity.example.invalid/authorize", nil)
+	forged := base64.RawURLEncoding.EncodeToString(make([]byte, 32)) + "." + base64.RawURLEncoding.EncodeToString(make([]byte, sha256.Size))
+	request.AddCookie(&http.Cookie{Name: "__Host-avia_login", Value: forged})
+	if got := browserBinding(request, "client-secret"); got != "" {
+		t.Fatalf("forged browser binding accepted: %q", got)
+	}
+
+	raw := []byte("01234567890123456789012345678901")
+	keyHash := sha256.New()
+	_, _ = keyHash.Write([]byte("as360-oidc-login-binding-key-v1\x00"))
+	_, _ = keyHash.Write([]byte("client-secret"))
+	mac := hmac.New(sha256.New, keyHash.Sum(nil))
+	_, _ = mac.Write([]byte("as360-oidc-login-binding-v1\x00"))
+	_, _ = mac.Write(raw)
+	valid := base64.RawURLEncoding.EncodeToString(raw) + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+	request = httptest.NewRequest(http.MethodGet, "https://identity.example.invalid/authorize", nil)
+	request.AddCookie(&http.Cookie{Name: "__Host-avia_login", Value: valid})
+	if got := browserBinding(request, "client-secret"); got != valid {
+		t.Fatalf("server-signed browser binding = %q, want %q", got, valid)
+	}
+}
+
+func TestMemoryProviderAdmissionSeparatesBrowserBindingsAndCapsOutstanding(t *testing.T) {
+	limiter, err := throttle.NewMemoryLimiter(time.Minute, 100, time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	storage := NewMemoryStorage(CandidateConfig{
+		ClientID: "candidate-web",
+		AdmissionPolicy: AdmissionPolicy{
+			Window: time.Minute, GlobalLimit: 100, ClientLimit: 100, BrowserLimit: 1, RequestLimit: 100, OutstandingLimit: 2,
+		},
+		Limiter: limiter,
+	})
+	request := func(state string) *oidc.AuthRequest {
+		return &oidc.AuthRequest{ClientID: "candidate-web", RedirectURI: "https://app.example.invalid/callback", ResponseType: oidc.ResponseTypeCode, ResponseMode: oidc.ResponseModeQuery, Scopes: []string{oidc.ScopeOpenID}, State: state, Nonce: "nonce-" + state}
+	}
+	if _, err := storage.CreateAuthRequest(WithBrowserBinding(context.Background(), "browser-a"), request("one"), ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := storage.CreateAuthRequest(WithBrowserBinding(context.Background(), "browser-a"), request("two"), ""); !errors.Is(err, ErrProviderRateLimited) {
+		t.Fatalf("same browser admission = %v", err)
+	}
+	if _, err := storage.CreateAuthRequest(WithBrowserBinding(context.Background(), "browser-b"), request("three"), ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := storage.CreateAuthRequest(WithBrowserBinding(context.Background(), "browser-c"), request("four"), ""); !errors.Is(err, ErrProviderRateLimited) {
+		t.Fatalf("outstanding cap admission = %v", err)
+	}
+}
+
+func TestMemoryProviderAdmissionReservesAnonymousOutstandingCapacity(t *testing.T) {
+	limiter, err := throttle.NewMemoryLimiter(time.Minute, 100, time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	storage := NewMemoryStorage(CandidateConfig{
+		ClientID: "candidate-web",
+		AdmissionPolicy: AdmissionPolicy{
+			Window: time.Minute, GlobalLimit: 100, ClientLimit: 100, BrowserLimit: 100, RequestLimit: 100,
+			OutstandingLimit: 2, AnonymousOutstandingLimit: 1,
+		},
+		Limiter: limiter,
+	})
+	request := func(state string) *oidc.AuthRequest {
+		return &oidc.AuthRequest{ClientID: "candidate-web", RedirectURI: "https://app.example.invalid/callback", ResponseType: oidc.ResponseTypeCode, ResponseMode: oidc.ResponseModeQuery, Scopes: []string{oidc.ScopeOpenID}, State: state, Nonce: "nonce-" + state}
+	}
+	if _, err := storage.CreateAuthRequest(context.Background(), request("anonymous-one"), ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := storage.CreateAuthRequest(context.Background(), request("anonymous-two"), ""); !errors.Is(err, ErrProviderRateLimited) {
+		t.Fatalf("anonymous bootstrap cap admission = %v", err)
+	}
+	bound, err := storage.CreateAuthRequest(WithBrowserBinding(context.Background(), "browser-bound"), request("bound-one"), "")
+	if err != nil {
+		t.Fatalf("bound capacity was not reserved = %v", err)
+	}
+	if _, err := storage.CreateAuthRequest(WithBrowserBinding(context.Background(), "browser-bound"), request("bound-two"), ""); !errors.Is(err, ErrProviderRateLimited) {
+		t.Fatalf("outstanding cap after anonymous and bound state = %v", err)
+	}
+	if err := storage.DeleteAuthRequest(context.Background(), bound.GetID()); err != nil {
+		t.Fatalf("delete bound request: %v", err)
+	}
+	if _, err := storage.CreateAuthRequest(WithBrowserBinding(context.Background(), "browser-bound"), request("bound-three"), ""); err != nil {
+		t.Fatalf("capacity was not released after deleting bound request: %v", err)
+	}
+}
+
+func TestMFARedirectRetainsIssuerPath(t *testing.T) {
+	runtime := &runtimeLogin{issuer: "https://identity.example.invalid/identity"}
+	if got := runtime.mfaPath("req_123"); got != "/identity/mfa?id=req_123" {
+		t.Fatalf("issuer-prefixed MFA path = %q", got)
+	}
+	if got := (&runtimeLogin{issuer: "https://identity.example.invalid"}).mfaPath("req_123"); got != "/mfa?id=req_123" {
+		t.Fatalf("root MFA path = %q", got)
+	}
+}
+
+func TestRecoveryEndpointRetainsIssuerURL(t *testing.T) {
+	if got := providerAbsoluteEndpoint("https://identity.example.invalid/identity", "recover/password"); got != "https://identity.example.invalid/identity/recover/password" {
+		t.Fatalf("absolute recovery endpoint = %q", got)
+	}
+}
+
+func TestMemoryStorageStoresOnlyOneAuthorizationCodePerRequest(t *testing.T) {
+	storage := NewMemoryStorage(CandidateConfig{SubjectID: "subject", AdmissionPolicy: DefaultAdmissionPolicy()})
+	request := &oidc.AuthRequest{ClientID: "client", RedirectURI: "https://app.example.invalid/callback", ResponseType: oidc.ResponseTypeCode, ResponseMode: oidc.ResponseModeQuery, Scopes: []string{oidc.ScopeOpenID}, State: "state", Nonce: "nonce"}
+	authRequest, err := storage.CreateAuthRequest(context.Background(), request, "subject")
+	if err != nil {
+		t.Fatalf("create auth request: %v", err)
+	}
+	if err := storage.Authorize(authRequest.GetID()); err != nil {
+		t.Fatalf("authorize request: %v", err)
+	}
+	if err := storage.SaveAuthCode(context.Background(), authRequest.GetID(), "code-one"); err != nil {
+		t.Fatalf("save first authorization code: %v", err)
+	}
+	if err := storage.SaveAuthCode(context.Background(), authRequest.GetID(), "code-two"); !errors.Is(err, ErrProviderInvalid) {
+		t.Fatalf("second authorization code error = %v", err)
+	}
+}
 
 type providerTestServer struct {
 	server    *httptest.Server

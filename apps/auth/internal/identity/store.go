@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"net/netip"
 	"strings"
 	"sync"
 	"time"
@@ -17,10 +16,6 @@ import (
 )
 
 type Clock func() time.Time
-
-type Limiter interface {
-	Allow(context.Context, ...string) error
-}
 
 // SessionRevoker is implemented by the provider-session adapter. Identity
 // security-state changes must invalidate every prior provider family.
@@ -35,9 +30,9 @@ type Store struct {
 	invitations    map[string]*invitation
 	hasher         *password.Hasher
 	passwordPolicy password.Policy
-	limiter        Limiter
+	limiter        throttle.Limiter
 	sessionRevoker SessionRevoker
-	trustedProxies []netip.Prefix
+	authPolicy     AuthenticationPolicy
 	clock          Clock
 }
 
@@ -67,12 +62,32 @@ type invitation struct {
 }
 
 type Config struct {
-	Hasher         *password.Hasher
-	PasswordPolicy password.Policy
-	Limiter        Limiter
-	SessionRevoker SessionRevoker
-	TrustedProxies []netip.Prefix
-	Clock          Clock
+	Hasher               *password.Hasher
+	PasswordPolicy       password.Policy
+	Limiter              throttle.Limiter
+	SessionRevoker       SessionRevoker
+	AuthenticationPolicy AuthenticationPolicy
+	Clock                Clock
+}
+
+type AuthenticationPolicy struct {
+	Window          time.Duration
+	GlobalLimit     int
+	IdentifierLimit int
+	BrowserLimit    int
+	ClientLimit     int
+	SubjectLimit    int
+}
+
+func DefaultAuthenticationPolicy() AuthenticationPolicy {
+	return AuthenticationPolicy{
+		Window:          time.Minute,
+		GlobalLimit:     600,
+		IdentifierLimit: 30,
+		BrowserLimit:    60,
+		ClientLimit:     120,
+		SubjectLimit:    20,
+	}
 }
 
 func NewStore(configuration Config) (*Store, error) {
@@ -85,6 +100,12 @@ func NewStore(configuration Config) (*Store, error) {
 	if configuration.Clock == nil {
 		configuration.Clock = time.Now
 	}
+	if configuration.AuthenticationPolicy.Window <= 0 {
+		configuration.AuthenticationPolicy = DefaultAuthenticationPolicy()
+	}
+	if configuration.AuthenticationPolicy.GlobalLimit < 1 || configuration.AuthenticationPolicy.IdentifierLimit < 1 || configuration.AuthenticationPolicy.BrowserLimit < 1 || configuration.AuthenticationPolicy.ClientLimit < 1 || configuration.AuthenticationPolicy.SubjectLimit < 1 {
+		return nil, errors.New("identity authentication admission policy is invalid")
+	}
 	return &Store{
 		accounts:       make(map[string]*account),
 		identifiers:    make(map[string]string),
@@ -93,7 +114,7 @@ func NewStore(configuration Config) (*Store, error) {
 		passwordPolicy: configuration.PasswordPolicy,
 		limiter:        configuration.Limiter,
 		sessionRevoker: configuration.SessionRevoker,
-		trustedProxies: append([]netip.Prefix(nil), configuration.TrustedProxies...),
+		authPolicy:     configuration.AuthenticationPolicy,
 		clock:          configuration.Clock,
 	}, nil
 }
@@ -227,10 +248,10 @@ func (store *Store) Activate(ctx context.Context, subjectID string, expectedRevi
 }
 
 type AuthenticationRequest struct {
-	Identifier string
-	Password   []byte
-	Source     throttle.ForwardedHeaders
-	DeviceKey  string
+	Identifier     string
+	Password       []byte
+	BrowserBinding string
+	DeviceKey      string
 }
 
 type AuthenticationResult struct {
@@ -239,22 +260,6 @@ type AuthenticationResult struct {
 
 func (store *Store) Authenticate(ctx context.Context, request AuthenticationRequest) (AuthenticationResult, error) {
 	identifier, identifierErr := DetectIdentifier(request.Identifier)
-	identifierKey := throttle.Key("identifier", request.Identifier)
-	clientIP, ipErr := throttle.ResolveClientIP(request.Source, store.trustedProxies)
-	if ipErr != nil {
-		return AuthenticationResult{}, ErrAuthenticationUnavailable
-	}
-	keys := []string{throttle.Key("ip", clientIP.String()), identifierKey}
-	if strings.TrimSpace(request.DeviceKey) != "" {
-		keys = append(keys, throttle.Key("device", request.DeviceKey))
-	}
-	if err := store.limiter.Allow(ctx, keys...); err != nil {
-		if errors.Is(err, throttle.ErrRateLimited) {
-			return AuthenticationResult{}, ErrAuthenticationRateLimited
-		}
-		return AuthenticationResult{}, ErrAuthenticationUnavailable
-	}
-
 	store.mu.RLock()
 	var record *account
 	if identifierErr == nil {
@@ -267,10 +272,39 @@ func (store *Store) Authenticate(ctx context.Context, request AuthenticationRequ
 	if record != nil {
 		subjectID, encodedHash, revision = record.subjectID, record.passwordHash, record.authRevision
 	}
+	store.mu.RUnlock()
+
+	identifierValue := request.Identifier
+	if identifierErr == nil {
+		identifierValue = identifier.Normalized
+	}
+	browserBinding := strings.TrimSpace(request.BrowserBinding)
+	if browserBinding == "" {
+		browserBinding = "missing"
+	}
+	clientKey := strings.TrimSpace(request.DeviceKey)
+	if clientKey == "" {
+		clientKey = "missing"
+	}
+	rules := []throttle.Rule{
+		{Key: throttle.Key("auth:global", "password"), Window: store.authPolicy.Window, Limit: store.authPolicy.GlobalLimit, Global: true},
+		{Key: throttle.Key("auth:identifier", identifierValue), Window: store.authPolicy.Window, Limit: store.authPolicy.IdentifierLimit},
+		{Key: throttle.Key("auth:browser", browserBinding), Window: store.authPolicy.Window, Limit: store.authPolicy.BrowserLimit},
+		{Key: throttle.Key("auth:client", clientKey), Window: store.authPolicy.Window, Limit: store.authPolicy.ClientLimit},
+	}
+	if subjectID != "" {
+		rules = append(rules, throttle.Rule{Key: throttle.Key("auth:subject", subjectID), Window: store.authPolicy.Window, Limit: store.authPolicy.SubjectLimit})
+	}
+	if err := store.limiter.Allow(ctx, rules...); err != nil {
+		if errors.Is(err, throttle.ErrRateLimited) {
+			return AuthenticationResult{}, ErrAuthenticationRateLimited
+		}
+		return AuthenticationResult{}, ErrAuthenticationUnavailable
+	}
+
 	if encodedHash == "" {
 		encodedHash = store.hasher.DummyHash()
 	}
-	store.mu.RUnlock()
 	verified, verifyErr := store.hasher.Verify(encodedHash, request.Password)
 	if verifyErr != nil {
 		return AuthenticationResult{}, ErrAuthenticationFailed
@@ -283,23 +317,14 @@ func (store *Store) Authenticate(ctx context.Context, request AuthenticationRequ
 	}
 	record = store.accounts[subjectID]
 	if record == nil || record.authRevision != revision || record.passwordHash != encodedHash || !verified || !store.loginAllowedLocked(record) {
-		wasActive := record != nil && record.state == AccountActive
-		store.recordFailureLocked(record)
-		lockedSubject := ""
-		if wasActive && record != nil && record.state == AccountLocked {
-			lockedSubject = record.subjectID
+		if record != nil && record.authRevision == revision && record.passwordHash == encodedHash && !verified {
+			store.recordFailureLocked(record)
 		}
 		store.mu.Unlock()
-		if lockedSubject != "" && store.sessionRevoker != nil {
-			if err := store.sessionRevoker.RevokeAllSessions(ctx, lockedSubject); err != nil {
-				return AuthenticationResult{}, ErrAuthenticationUnavailable
-			}
-		}
 		return AuthenticationResult{}, ErrAuthenticationFailed
 	}
 	if record.state == AccountLocked {
 		record.state = AccountActive
-		record.authRevision++
 	}
 	record.failedAttempts = 0
 	record.lockedUntil = time.Time{}
@@ -418,16 +443,22 @@ func (store *Store) loginAllowedLocked(record *account) bool {
 }
 
 func (store *Store) recordFailureLocked(record *account) {
-	if record == nil {
+	if record == nil || !record.emailVerified || record.state != AccountActive {
 		return
 	}
-	record.failedAttempts++
-	if record.failedAttempts >= 5 && record.state == AccountActive {
-		record.state = AccountLocked
-		record.lockedUntil = store.clock().Add(15 * time.Minute)
-		record.authRevision++
+	now := store.clock()
+	if !record.lockedUntil.IsZero() {
+		if now.Before(record.lockedUntil) {
+			return
+		}
+		record.failedAttempts = 0
+		record.lockedUntil = time.Time{}
 	}
-	record.updatedAt = store.clock()
+	record.failedAttempts++
+	if record.failedAttempts >= 5 {
+		record.lockedUntil = now.Add(15 * time.Minute)
+	}
+	record.updatedAt = now
 }
 
 func allowedTransition(current, target AccountState) bool {

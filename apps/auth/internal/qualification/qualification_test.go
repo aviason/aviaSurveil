@@ -5,7 +5,6 @@ import (
 	_ "embed"
 	"encoding/json"
 	"errors"
-	"net/netip"
 	"strings"
 	"sync"
 	"testing"
@@ -122,7 +121,7 @@ func TestSyntheticCandidateQualificationKeepsMembershipOutsideIdentityAuthority(
 	var revoker revokerBridge
 	identities, err := identity.NewStore(identity.Config{
 		Hasher: hasher, PasswordPolicy: password.Policy{MinBytes: 12, MaxBytes: 1024},
-		Limiter: limiter, SessionRevoker: &revoker, TrustedProxies: []netip.Prefix{},
+		Limiter: limiter, SessionRevoker: &revoker,
 	})
 	if err != nil {
 		t.Fatalf("new identity store: %v", err)

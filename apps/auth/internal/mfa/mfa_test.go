@@ -70,10 +70,22 @@ func TestRecoveryCodesAreHashedSingleUseAndBounded(t *testing.T) {
 	if err := store.ConsumeRecoveryCode(enrollment.SubjectID, "wrong-code-2"); !errors.Is(err, ErrRecoveryLocked) {
 		t.Fatalf("third recovery failure = %v, want lock", err)
 	}
+	lockedUntil := store.factors[enrollment.SubjectID].recoveryLockedUntil
+	if lockedUntil.IsZero() {
+		t.Fatal("recovery lock has no expiry")
+	}
+	*now = now.Add(store.recoveryLockDuration / 2)
 	if err := store.ConsumeRecoveryCode(enrollment.SubjectID, codes[1]); !errors.Is(err, ErrRecoveryLocked) {
 		t.Fatalf("locked recovery code = %v", err)
 	}
-	if snapshot, snapshotErr := store.Snapshot(enrollment.SubjectID); snapshotErr != nil || snapshot.RecoveryCount != 2 {
+	if got := store.factors[enrollment.SubjectID].recoveryLockedUntil; !got.Equal(lockedUntil) {
+		t.Fatalf("active recovery lock moved from %v to %v", lockedUntil, got)
+	}
+	*now = lockedUntil.Add(time.Second)
+	if err := store.ConsumeRecoveryCode(enrollment.SubjectID, codes[1]); err != nil {
+		t.Fatalf("valid recovery code after lock expiry = %v", err)
+	}
+	if snapshot, snapshotErr := store.Snapshot(enrollment.SubjectID); snapshotErr != nil || snapshot.RecoveryCount != 1 {
 		t.Fatalf("recovery snapshot = %+v/%v", snapshot, snapshotErr)
 	}
 }
