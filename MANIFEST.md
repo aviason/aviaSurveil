@@ -4,9 +4,10 @@ This repository is a planning pack plus an intact **frontend-only static
 clickable demo** and a separate `candidate-only` React/Go application. It is
 not a production system.
 
-Candidate boundary: a local Go/PostgreSQL API/worker, pinned local Keycloak,
-private versioned MinIO storage, real ClamAV scanning, authenticated Mailpit
-SMTP, Gotenberg PDF rendering, complete normalized MockBackend/HttpBackend
+Candidate boundary: a local Go/PostgreSQL API/worker, a separate first-party
+Go OIDC service with dedicated auth PostgreSQL and authenticated STARTTLS
+Mailpit, private versioned MinIO storage, real ClamAV scanning, application
+Mailpit SMTP, Gotenberg PDF rendering, complete normalized MockBackend/HttpBackend
 scenarios, PWA/readiness, atomic offline field/outbox persistence,
 manifest-first OPFS Inspection Attachment recovery, typed foreground sync, and
 all 85 current React routes in demo and HTTP are `verified locally`; the
@@ -24,23 +25,11 @@ UI-audit metadata drift, while a read-only content check verifies all 258/258
 baseline PNG hashes; the accepted manifest was not changed.
 Plans 1–4 are completed local `candidate-only` milestones. AWS Task 10 is
 optional, unauthorized, and literally `not run`.
-Plan 5 Tasks 1–9 are `verified locally`; Task 8 qualifies the isolated
-one-shot connected data candidate across disposable PostgreSQL, Keycloak,
-Mailpit, and MinIO using `smoke@1.0.0`, `acceptance@1.0.0`,
-`realistic@1.1.0`, and `stress@1.1.0`, with exact relationship/privacy
-reconciliation, interruption/resume, positive resource evidence, bounded
-duration, and zero-residue cleanup. Full-volume `realistic@1.0.0` and
-`stress@1.0.0` are preserved as deferred release-readiness endurance evidence
-with status `not run`. Task 9's fresh full matrix passed with the exact
-owner-approved 19-second stress-duration exception recorded literally;
-Task 9 was published as `9d30576876406609577af4381718e8ac66e94e06`, and
-the exact `origin/main` revision was confirmed.
-Historical AGA candidate-demo evidence is retained, but its duplicate tagged
-reader/API/UI, lifecycle stores, commands, operator scripts, and tests were
-physically removed after the canonical successor passed donor-disabled
-qualification and the user selected Task 9 `delete`. The sealed package reader
-needed by the canonical loader now lives under canonical import ownership; no
-candidate-demo stakeholder runtime remains in the package.
+The old connected identity/data loader and its disposable evidence were
+retired after the canonical successor and first-party identity loader became
+the maintained local-preprod path. The sealed package reader needed by the
+canonical AGA loader remains under canonical import ownership; no duplicate
+stakeholder runtime remains in the package.
 The active Canonical AGA Preprod End-To-End Product successor is separately
 `candidate-only`: its canonical Question Review history, immutable New Audit
 selection summary, pre-materialization Lead handoff, donor-free normal HTTP
@@ -177,8 +166,6 @@ The root Vanilla demo remains intact.
 - `apps/web/tests/e2e/visible-action-contract.spec.ts` — accessible visible
   action inventory across all 86 surfaces at desktop, tablet, and mobile plus
   durable-outcome execution for every active route command.
-- `apps/web/tests/e2e/oidc-session.spec.ts` — normal same-origin Keycloak
-  login/session/CSRF/expiry/logout browser path.
 - `apps/web/tests/e2e/brand-app-shell-restart.spec.ts` — stopped-origin accepted
   brand/app-shell asset recovery.
 - `apps/web/tests/e2e/offline-readiness-denials.spec.ts` — real-browser
@@ -203,15 +190,12 @@ The root Vanilla demo remains intact.
   adapter, Evidence and Inspection Attachment upload services, real local
   ClamAV/Gotenberg/Mailpit adapters, deterministic test scanner, and
   fail-closed local test profile.
-- `apps/api/cmd/preprod-data-loader/` and
-  `apps/api/internal/preproddata/scenarios/` — isolated one-shot
-  local-preprod intent/authorization runner plus deterministic 40-family,
-  86-route, 306-action, eight-role scenario catalog and connected
-  PostgreSQL/Keycloak/Mailpit/MinIO reconciliation boundary. The active local
-  qualification set is `smoke@1.0.0`, `acceptance@1.0.0`,
-  `realistic@1.1.0`, and `stress@1.1.0`; the full-volume `1.0.0`
-  realistic/stress endurance profiles remain retained and `not run`. These
-  packages are excluded from normal runtime artifacts.
+- `apps/auth/` — first-party public OIDC/UI, private provider administration,
+  credentials, MFA, recovery, signing keys, provider sessions, authority
+  mirrors, idempotency receipts, redacted audit, and forward-only migrations.
+- `apps/api/cmd/preprod-canonical-demo-identity-loader/` — resumable
+  nine-user first-party bootstrap with fresh opaque subjects and exact
+  cross-database identity/membership/assignment reconciliation.
 - `apps/api/cmd/preprod-canonical-aga-loader/` and
   `apps/api/internal/preproddata/canonicalaga/` — canonical disposable exercise
   catalog loader, immutable import/provenance boundary, and sealed package
@@ -222,28 +206,21 @@ The root Vanilla demo remains intact.
   Evidence upload migrations with retained N-1 verification.
 - `apps/api/sqlc.yaml` and module-owned `queries.sql` / generated store output —
   checked SQLC source and drift-controlled persistence boundaries.
-- `apps/api/tests/integration/` — live PostgreSQL, Keycloak, MinIO, authority,
+- `apps/api/tests/integration/` — live PostgreSQL, MinIO, authority,
   upload, worker recovery/failure/timeout, migration, generation, and cleanup
   tests.
 - `deploy/local/compose.test.yaml` — digest-pinned, isolated local PostgreSQL,
-  Keycloak, and MinIO verification services.
+  Mailpit, ClamAV, and MinIO verification services.
 - `deploy/local/compose.yaml` — profile-scoped local HTTPS gateway, React
-  demo/HTTP artifacts, API/worker/scheduler, separate application and identity
-  databases, Keycloak, MinIO, ClamAV, Gotenberg, and private Mailpit SMTP
-  topology.
-- `deploy/aws-private-pilot/` — production-only `linux/arm64` digest contract,
-  hardened gateway/web/API/worker/scheduler/data-feed/Keycloak/Gotenberg
-  Compose surface, bounded database/migration/realm jobs, loopback-only gateway,
-  separate digest-bound ARM64 Cloudflare Tunnel systemd supervisor and health
-  timer, release schema, IPv6 preflight, and reviewed RDS CA binding. No local
-  database, MinIO, Mailpit, ClamAV, fixture, loader, observability service, or
-  `cloudflared` role is present in production Compose.
+  demo/HTTP artifacts, API/worker, first-party auth, separate application and
+  auth databases, separate application and privileged auth Mailpit services,
+  MinIO, ClamAV, and Gotenberg topology.
 - `deploy/local/compose.local-http.yaml`,
   `deploy/local/gateway/Caddyfile.preprod.http`, and
   the default Quick Tunnel mode in `scripts/*canonical-preprod-cloudflare*` —
   separate loopback-only HTTP gateway and ownership-validated disposable
   anonymous qualification path. It carries one strict random public HTTPS
-  origin into Keycloak/OIDC, Secure cookies, private-object TLS, and exact CORS
+  origin into first-party OIDC, Secure cookies, private-object TLS, and exact CORS
   without modifying the canonical HTTPS gateway or configuring named
   Cloudflare, DNS, Access, AWS, or external preprod resources.
 - `make preprod-cloudflare-demo-*`,
@@ -309,32 +286,23 @@ The root Vanilla demo remains intact.
   170-record triage and local contact-sheet generators.
 - `deploy/observability/` — candidate-only OpenTelemetry Collector,
   Prometheus, Grafana, Loki, Tempo, Alertmanager, dashboards, and alert rules.
-- `deploy/recovery/` — separate encrypted application/identity pgBackRest
-  topology, logically isolated backup object store, recovery image, and drill
-  scenario catalog.
+- `deploy/recovery/` — separate encrypted application/first-party-auth
+  pgBackRest topology, logically isolated backup object store, and recovery
+  image.
 - `apps/api/cmd/object-backup/` and `apps/api/cmd/recovery-fingerprint/` —
   deterministic object manifest and authoritative application recovery
   fingerprint commands.
-- `scripts/test-observability-profile.sh`, `scripts/verify-backup-catalog.sh`,
-  and `scripts/test-rpo-rto-drill.sh` — isolated alert, catalog, exact restore,
-  candidate RPO/RTO, and zero-residue verification profiles.
+- `scripts/test-observability-profile.sh` and
+  `scripts/verify-backup-catalog.sh` — isolated alert and recovery-catalog
+  verification profiles.
 - `docs/operations/` — candidate service objectives, telemetry/alert contracts,
-  ownership, operational runbooks, AWS private-pilot owner/runtime contracts,
-  and gated AWS trial decisions.
+  ownership, operational runbooks, and gated AWS trial decisions.
 - `infra/terraform/` — reusable AWS modules, bootstrap and secure local
-  fixtures, the isolated Single-AZ private-pilot module with outbound-only
-  Cloudflare Tunnel, private dual-stack EC2, egress-only IPv6, private RDS/S3,
-  and no ALB/NAT/public IPv4, native tests, and version/provider locks.
+  fixtures, native tests, and version/provider locks.
 - `infra/terragrunt/` — explicit-owner AWS trial component graph and
-  isolated private-pilot graph with explicit `avia` operator profile plus
   non-deployable validate/plan fixtures.
 - `infra/policies/aws-plan.rego` and `scripts/check-terragrunt.sh` — fail-closed
   fixture plan and policy gates that perform no AWS apply or destroy.
-- `infra/policies/aws-private-pilot*.rego`,
-  `scripts/*aws-private-pilot*`, and
-  `tests/aws-private-pilot-*.test.mjs` — offline decision, topology, Compose,
-  release, mutation, local MinIO/ClamAV/Mailpit, and remote-authorization
-  denial gates. They make no AWS, Cloudflare, or external SMTP call.
 
 ## Smoke Tests
 
@@ -473,34 +441,10 @@ separate `apps/web/package.json` owns the React candidate commands.
   aggregate authorization, individual decisions, all 10 Fix implementations
   verified locally, 170/170 resolved dispositions, and zero manual decisions
   remaining.
-- `docs/demo-evidence/stakeholder/PLANS2_4_STAKEHOLDER_DISPOSITION_2026-07-28.md` —
-  combined local milestone acceptance for Plans 2–4, preserved historical
-  verification boundaries, owner-deferred risks, explicit AWS/release/
-  deployment/production exclusions, and the separate Plan 5 Task 2 gate.
 - `docs/demo-evidence/FULL_BACKEND_SCENARIO_PARITY_2026-07-22.md` —
   Full Backend Tasks 1–12 exact contract/persistence/capability coverage,
   86 dual-profile routes, 10 scenario families, 45 proofs, final matrix,
   review verdicts, and preserved Plan 1 gaps.
-- `docs/demo-evidence/LOCAL_PRODUCTION_LIKE_SERVICES_2026-07-22.md` —
-  Plan 3 scanned-image, clean-profile, real-service, failure/restart, and
-  zero-residue evidence.
-- `docs/demo-evidence/LOCAL_RELIABILITY_AND_DR_2026-07-22.md` —
-  Plan 4 local observability, alert, dual-database backup, exact restore,
-  RPO/RTO, runbook, image/SBOM/scan, Terraform/Terragrunt, cleanup, and
-  explicit AWS `not run` evidence.
-- `docs/demo-evidence/AWS_PRIVATE_PILOT_LOCAL_PREPARATION_2026-08-10.md` —
-  fresh Tasks 1–6 local preparation evidence, exact `avia` profile boundary,
-  blocked native capacity gate, and complete remote `not run` boundary.
-- `docs/demo-evidence/PLAN5_IDENTITY_DATA_FOUNDATION_2026-07-28.md` —
-  Plan 5 Tasks 1–8 identity/data contract, verified local directory,
-  revision-guarded invitation/recovery lifecycle, live OIDC/MFA, exact
-  session-authority, complete reason-confirmed Admin experience, isolated
-  loader, and real connected PostgreSQL/Keycloak/Mailpit/MinIO scenario
-  evidence.
-- `docs/demo-evidence/PREPROD_IDENTITY_AND_DATA_FOUNDATION_2026-07-27.md` —
-  Plan 5 Task 9 final contract, identity, lifecycle, normal-artifact,
-  all-eight-role, local-full/OIDC, four-profile, resource/privacy/resume,
-  owner-exception, review, and zero-residue evidence.
 - `docs/demo-handoff/ACCEPTANCE_CRITERIA_AND_FEEDBACK.md`
 - `docs/demo-handoff/AGENT_HARNESS_RUNBOOK.md`
 - `docs/demo-handoff/CODEX_DEMO_ONLY_PROMPT.md`
@@ -542,9 +486,6 @@ in user-facing handoffs rather than duplicate companion files.
 - `docs/exec-plans/completed/2026-06-29-governance-browser-qa-mobile-blocker.md`
 - `docs/exec-plans/completed/2026-07-22-full-react-86-screen-migration-plan.md`
 - `docs/exec-plans/completed/2026-07-22-full-backend-scenario-parity-plan.md`
-- `docs/exec-plans/completed/2026-07-22-local-production-like-services-plan.md`
-- `docs/exec-plans/completed/2026-07-22-reliability-dr-and-aws-terraform-terragrunt-plan.md`
-- `docs/exec-plans/completed/2026-07-27-identity-and-realistic-data-foundation-plan.md`
 - `docs/exec-plans/tech-debt-tracker.md` — durable blocker, handoff,
   accepted-risk, missing-evidence, and technical-debt tracker.
 

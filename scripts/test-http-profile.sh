@@ -6,8 +6,6 @@ REPOSITORY_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 COMPOSE_FILE="${REPOSITORY_ROOT}/deploy/local/compose.test.yaml"
 COMPOSE_PROJECT="aviasurveil360-task11"
 TASK_POSTGRES_PORT="${AVIA_TASK11_POSTGRES_PORT:-55442}"
-TASK_KEYCLOAK_PORT="${AVIA_TASK11_KEYCLOAK_PORT:-58090}"
-TASK_KEYCLOAK_MANAGEMENT_PORT="${AVIA_TASK11_KEYCLOAK_MANAGEMENT_PORT:-59010}"
 TASK_MAILPIT_HTTP_PORT="${AVIA_TASK11_MAILPIT_HTTP_PORT:-58095}"
 TASK_OBJECT_STORE_PORT="${AVIA_TASK11_OBJECT_STORE_PORT:-59011}"
 TASK_OBJECT_STORE_CONSOLE_PORT="${AVIA_TASK11_OBJECT_STORE_CONSOLE_PORT:-59012}"
@@ -21,16 +19,14 @@ API_PID=""
 WORKER_PID=""
 FOCUSED_E2E="${AVIA_HTTP_PROFILE_FOCUSED_E2E:-}"
 case "${FOCUSED_E2E}" in
-  "" | user-lifecycle | visible-actions | governed-checklist | governed-checklist-intake | regulatory-source-refresh) ;;
+  "" | backend-contract | user-lifecycle | visible-actions | governed-checklist | governed-checklist-intake | regulatory-source-refresh) ;;
   *)
-    echo "AVIA_HTTP_PROFILE_FOCUSED_E2E must be empty, user-lifecycle, visible-actions, governed-checklist, governed-checklist-intake, or regulatory-source-refresh" >&2
+    echo "AVIA_HTTP_PROFILE_FOCUSED_E2E must be empty, backend-contract, user-lifecycle, visible-actions, governed-checklist, governed-checklist-intake, or regulatory-source-refresh" >&2
     exit 64
     ;;
 esac
 export COMPOSE_PROGRESS="plain"
 export AVIA_TEST_POSTGRES_PORT="${TASK_POSTGRES_PORT}"
-export AVIA_TEST_KEYCLOAK_PORT="${TASK_KEYCLOAK_PORT}"
-export AVIA_TEST_KEYCLOAK_MANAGEMENT_PORT="${TASK_KEYCLOAK_MANAGEMENT_PORT}"
 export AVIA_TEST_MAILPIT_HTTP_PORT="${TASK_MAILPIT_HTTP_PORT}"
 export AVIA_TEST_OBJECT_STORE_PORT="${TASK_OBJECT_STORE_PORT}"
 export AVIA_TEST_OBJECT_STORE_CONSOLE_PORT="${TASK_OBJECT_STORE_CONSOLE_PORT}"
@@ -49,12 +45,8 @@ read_runtime_secret() {
 }
 
 APP_DATABASE_PASSWORD="$(read_runtime_secret app_database_password)"
-KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD="$(read_runtime_secret keycloak_bootstrap_admin_password)"
-KEYCLOAK_SERVICE_CLIENT_SECRET="$(read_runtime_secret keycloak_service_client_secret)"
 MINIO_ROOT_PASSWORD="$(read_runtime_secret minio_root_password)"
 MINIO_ROOT_USER="$(read_runtime_secret minio_root_user)"
-OIDC_CLIENT_SECRET="$(read_runtime_secret oidc_client_secret)"
-SESSION_ENCRYPTION_KEY="$(read_runtime_secret session_encryption_key)"
 
 seed_task_go_cache() {
   mkdir -p "${TASK_GO_CACHE}"
@@ -93,24 +85,16 @@ trap cleanup EXIT
 node "${REPOSITORY_ROOT}/scripts/verify-governed-checklist-test-inventory.mjs"
 
 docker compose --project-name "${COMPOSE_PROJECT}" --file "${COMPOSE_FILE}" down --volumes --remove-orphans
-docker compose --project-name "${COMPOSE_PROJECT}" --file "${COMPOSE_FILE}" up --detach --wait postgres keycloak-postgres mailpit keycloak object-store
+docker compose --project-name "${COMPOSE_PROJECT}" --file "${COMPOSE_FILE}" up --detach --wait postgres mailpit object-store
 
 export AVIA_TEST_DATABASE_URL="postgres://aviasurveil:${APP_DATABASE_PASSWORD}@127.0.0.1:${TASK_POSTGRES_PORT}/aviasurveil?sslmode=disable"
-export AVIA_TEST_OIDC_ISSUER_URL="http://127.0.0.1:${TASK_KEYCLOAK_PORT}/identity/realms/aviasurveil360"
-export AVIA_TEST_OIDC_CLIENT_ID="aviasurveil360-web"
-export AVIA_TEST_OIDC_CLIENT_SECRET="${OIDC_CLIENT_SECRET}"
-export AVIA_TEST_OIDC_REDIRECT_URL="http://127.0.0.1:4174/auth/callback"
 export AVIA_TEST_OBJECT_STORE_ENDPOINT="127.0.0.1:${TASK_OBJECT_STORE_PORT}"
 export AVIA_TEST_OBJECT_STORE_ACCESS_KEY="${MINIO_ROOT_USER}"
 export AVIA_TEST_OBJECT_STORE_SECRET_KEY="${MINIO_ROOT_PASSWORD}"
 export AVIA_ENVIRONMENT="test"
 export AVIA_DATABASE_URL="${AVIA_TEST_DATABASE_URL}"
+export AVIA_PREPROD_IDENTITY_NAMESPACE="canonical-aga-preprod-exercise-v1"
 export AVIA_HTTP_ADDRESS="127.0.0.1:${TASK_API_PORT}"
-export AVIA_OIDC_ISSUER_URL="${AVIA_TEST_OIDC_ISSUER_URL}"
-export AVIA_OIDC_CLIENT_ID="${AVIA_TEST_OIDC_CLIENT_ID}"
-export AVIA_OIDC_CLIENT_SECRET="${AVIA_TEST_OIDC_CLIENT_SECRET}"
-export AVIA_OIDC_REDIRECT_URL="${AVIA_TEST_OIDC_REDIRECT_URL}"
-export AVIA_SESSION_ENCRYPTION_KEY="${SESSION_ENCRYPTION_KEY}"
 export AVIA_ENABLE_CANONICAL_SEED="true"
 export AVIA_ENABLE_CANONICAL_TEST_PROFILE="true"
 export AVIA_CANONICAL_TEST_TOKEN="${AVIA_CANONICAL_TEST_TOKEN:-$(openssl rand -hex 32)}"
@@ -123,13 +107,13 @@ export AVIA_OBJECT_STORE_QUARANTINE_BUCKET="avia-quarantine"
 export AVIA_OBJECT_STORE_CANONICAL_BUCKET="avia-canonical"
 export AVIA_SCANNER_MODE="deterministic-test"
 export AVIA_WORKER_INTERVAL_MS="50"
-export AVIA_KEYCLOAK_ADMIN_URL="http://127.0.0.1:${TASK_KEYCLOAK_PORT}/identity"
-export AVIA_KEYCLOAK_REALM="aviasurveil360"
-export AVIA_KEYCLOAK_SERVICE_CLIENT_ID="aviasurveil360-lifecycle"
-export AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET="${KEYCLOAK_SERVICE_CLIENT_SECRET}"
 export AVIA_HTTP_API_URL="http://127.0.0.1:${TASK_API_PORT}"
 export AVIA_HTTP_API_TARGET="${AVIA_HTTP_API_URL}"
 export AVIA_HTTP_TEST_PROFILE="canonical"
+unset AVIA_OIDC_ISSUER_URL AVIA_OIDC_DISCOVERY_URL AVIA_OIDC_CLIENT_ID \
+  AVIA_OIDC_CLIENT_SECRET AVIA_OIDC_REDIRECT_URL \
+  AVIA_FIRST_PARTY_ADMIN_URL AVIA_FIRST_PARTY_ADMIN_SECRET_FILE \
+  AVIA_SESSION_ENCRYPTION_KEY
 export GOCACHE="${TASK_GO_CACHE}"
 seed_task_go_cache
 
@@ -138,7 +122,14 @@ seed_task_go_cache
 go -C "${REPOSITORY_ROOT}/apps/api" build -tags canonicaltest -o "${RUNTIME_DIRECTORY}/api" ./cmd/api
 go -C "${REPOSITORY_ROOT}/apps/api" build -o "${RUNTIME_DIRECTORY}/worker" ./cmd/worker
 if [[ -z "${FOCUSED_E2E}" ]]; then
-  go -C "${REPOSITORY_ROOT}/apps/api" test -race -p 1 -count=1 ./...
+  API_RACE_PACKAGES=()
+  while IFS= read -r package; do
+    if [[ "${package}" != "github.com/MarlonJD/aviaSurveil360/apps/api/internal/agaapplicability" ]]; then
+      API_RACE_PACKAGES+=("${package}")
+    fi
+  done < <(go -C "${REPOSITORY_ROOT}/apps/api" list ./...)
+  go -C "${REPOSITORY_ROOT}/apps/api" test -race -p 1 -count=1 -timeout=20m "${API_RACE_PACKAGES[@]}"
+  "${SCRIPT_DIR}/test-agaapplicability-race-shards.sh"
   "${SCRIPT_DIR}/check-contracts.sh"
   "${SCRIPT_DIR}/check-sqlc.sh"
 fi
@@ -169,7 +160,9 @@ curl --fail --silent "${AVIA_HTTP_API_URL}/health/ready" >/dev/null
 kill -0 "${WORKER_PID}"
 
 npm --prefix "${REPOSITORY_ROOT}/apps/web" run typecheck
-if [[ "${FOCUSED_E2E}" == "visible-actions" ]]; then
+if [[ "${FOCUSED_E2E}" == "backend-contract" ]]; then
+  npm --prefix "${REPOSITORY_ROOT}/apps/web" run test:contract:http
+elif [[ "${FOCUSED_E2E}" == "visible-actions" ]]; then
   npm --prefix "${REPOSITORY_ROOT}/apps/web" run test:e2e:http -- \
     tests/e2e/visible-action-contract.spec.ts
 elif [[ "${FOCUSED_E2E}" == "user-lifecycle" ]]; then

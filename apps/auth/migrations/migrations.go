@@ -30,7 +30,10 @@ var challengesSchema string
 //go:embed 000007_oidc_runtime.up.sql
 var oidcRuntimeSchema string
 
-const latestVersion int64 = 7
+//go:embed 000008_local_preprod_authority_admin.up.sql
+var localPreprodAuthorityAdminSchema string
+
+const latestVersion int64 = 8
 
 func LatestVersion() int64 {
 	return latestVersion
@@ -63,6 +66,7 @@ func Apply(ctx context.Context, pool *pgxpool.Pool) error {
 		{version: 5, schema: mfaSchema, name: "mfa"},
 		{version: 6, schema: challengesSchema, name: "challenges"},
 		{version: 7, schema: oidcRuntimeSchema, name: "oidc-runtime"},
+		{version: 8, schema: localPreprodAuthorityAdminSchema, name: "local-preprod-authority-admin"},
 	}
 	for _, migration := range migrations {
 		var applied bool

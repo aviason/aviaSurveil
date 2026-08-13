@@ -13,7 +13,7 @@
 
 Task 11 implements and verifies bounded attachment/Evidence bytes, deterministic
 local scanning, and the first real HTTP canonical scenario. It uses pinned local
-PostgreSQL, Keycloak, and S3-compatible object storage. The deterministic scan
+PostgreSQL, the then-current local OIDC provider, and S3-compatible object storage. The deterministic scan
 adapter and local object-storage profile are test infrastructure, not a
 production malware scanner or production records repository. The root Vanilla
 JavaScript demo remains intact as the behavioral reference.
@@ -96,7 +96,7 @@ It completed with exit code `0` and proved:
 
 - API and worker production-command builds: pass
 - Full fresh Go race suite and live integration tests: pass
-- PostgreSQL migrations, pinned local Keycloak OIDC+PKCE, and private local
+- PostgreSQL migrations, then-current pinned local OIDC+PKCE, and private local
   object-storage integration: pass
 - Evidence expiry/retry, hash/type/size enforcement, immutable versions,
   scanner clean/quarantine/failure/timeout, and crash recovery: pass

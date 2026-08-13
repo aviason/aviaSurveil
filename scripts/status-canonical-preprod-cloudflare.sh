@@ -137,7 +137,7 @@ verify_public_discovery() {
   local public_origin="$1"
   node --input-type=module - "$public_origin" <<'NODE'
 const origin = process.argv[2];
-const issuer = `${origin}/identity/realms/aviasurveil360-local-preprod`;
+const issuer = `${origin}/identity`;
 const response = await fetch(`${issuer}/.well-known/openid-configuration`, {
   signal: AbortSignal.timeout(5000),
 });
@@ -207,7 +207,6 @@ compose_environment=(
   AVIA_PREPROD_TRANSPORT=http
   AVIA_PREPROD_HTTP_PORT="$http_port"
   AVIA_PREPROD_WEB_ORIGIN="$public_origin"
-  AVIA_PREPROD_KEYCLOAK_PUBLIC_ORIGIN="$public_origin"
   AVIA_PREPROD_PUBLIC_HOST="${public_origin#*://}"
   AVIA_PREPROD_ORIGIN_SCHEME=https
   AVIA_PREPROD_PUBLIC_TLS=true

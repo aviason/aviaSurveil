@@ -20,7 +20,6 @@ fail() {
 normal_packages=(
   "./cmd/api"
   "./cmd/worker"
-  "./cmd/reminder-scheduler"
   "./cmd/migrate"
 )
 
@@ -45,10 +44,9 @@ done
 
 go -C "$api_root" build -trimpath -o "$temporary_root/api" ./cmd/api
 go -C "$api_root" build -trimpath -o "$temporary_root/worker" ./cmd/worker
-go -C "$api_root" build -trimpath -o "$temporary_root/scheduler" ./cmd/reminder-scheduler
 go -C "$api_root" build -trimpath -o "$temporary_root/migrate" ./cmd/migrate
 
-for binary in api worker scheduler migrate; do
+for binary in api worker migrate; do
   if strings "$temporary_root/$binary" |
     grep -Eiq 'internal/testprofile|internal/preproddata|internal/agacandidatedemo|internal/agademoworkspace|aga-candidate-demo|aga-demo-workspace|AGACandidateDemo|AGADemoWorkspace|/__test/reset|Canonical test profile reset'; then
     fail "$binary contains a test-profile, loader, donor, or reset marker"
@@ -64,14 +62,6 @@ fi
 go -C "$api_root" build -trimpath -tags canonicaltest \
   -o "$temporary_root/canonical-test-api" \
   ./cmd/api
-
-loader_dependencies="$(go -C "$api_root" list -deps ./cmd/preprod-data-loader)"
-if ! grep -Fxq "$module_path/internal/preproddata" <<<"$loader_dependencies"; then
-  fail "preprod-data-loader does not positively link internal/preproddata"
-fi
-go -C "$api_root" build -trimpath \
-  -o "$temporary_root/preprod-data-loader" \
-  ./cmd/preprod-data-loader
 
 aga_loader_dependencies="$(go -C "$api_root" list -deps ./cmd/preprod-canonical-aga-loader)"
 if ! grep -Fxq "$module_path/internal/preproddata/canonicalaga" <<<"$aga_loader_dependencies"; then

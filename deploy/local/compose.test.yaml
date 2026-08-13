@@ -25,99 +25,6 @@ services:
       start_period: 5s
     restart: "no"
 
-  keycloak-postgres:
-    image: postgres:17.6-alpine3.22@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94
-    user: "70:70"
-    read_only: true
-    environment:
-      POSTGRES_DB: keycloak
-      POSTGRES_USER: keycloak
-      POSTGRES_PASSWORD_FILE: /run/secrets/keycloak_database_password
-      PGDATA: /var/lib/postgresql/data/pgdata
-    secrets:
-      - keycloak_database_password
-    volumes:
-      - keycloak-postgres-test-data:/var/lib/postgresql/data
-    tmpfs:
-      - /run/postgresql:uid=70,gid=70,mode=0770
-      - /tmp:mode=1777
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
-      interval: 2s
-      timeout: 3s
-      retries: 30
-      start_period: 5s
-    restart: "no"
-
-  keycloak:
-    image: aviasurveil360/keycloak:local
-    build:
-      context: ../..
-      dockerfile: deploy/local/keycloak/Dockerfile
-      target: keycloak
-    user: "1000:0"
-    read_only: true
-    entrypoint:
-      - /bin/sh
-      - /opt/aviasurveil360/keycloak-entrypoint.sh
-    command:
-      - start
-      - --optimized
-      - --import-realm
-      - --http-enabled=true
-      - --hostname=http://127.0.0.1:${AVIA_TEST_KEYCLOAK_PORT:-58080}/identity
-    environment:
-      KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://keycloak-postgres:5432/keycloak
-      KC_DB_USERNAME: keycloak
-      KC_DB_PASSWORD_FILE: /run/secrets/keycloak_database_password
-      KC_BOOTSTRAP_ADMIN_USERNAME: local-bootstrap-admin
-      KC_BOOTSTRAP_ADMIN_PASSWORD_FILE: /run/secrets/keycloak_bootstrap_admin_password
-      KC_HTTP_RELATIVE_PATH: /identity
-    depends_on:
-      keycloak-postgres:
-        condition: service_healthy
-      mailpit:
-        condition: service_healthy
-    configs:
-      - source: keycloak_entrypoint
-        target: /opt/aviasurveil360/keycloak-entrypoint.sh
-        uid: "1000"
-        gid: "0"
-        mode: 0550
-    secrets:
-      - keycloak_bootstrap_admin_password
-      - keycloak_database_password
-      - source: keycloak_realm
-        target: /opt/keycloak/data/import/realm.json
-        uid: "1000"
-        gid: "0"
-        mode: 0400
-    ports:
-      - "127.0.0.1:${AVIA_TEST_KEYCLOAK_PORT:-58080}:8080"
-      - "127.0.0.1:${AVIA_TEST_KEYCLOAK_MANAGEMENT_PORT:-59000}:9000"
-    tmpfs:
-      - /tmp:mode=1777
-      - /opt/keycloak/data/tmp:uid=1000,gid=0,mode=0770
-    healthcheck:
-      test:
-        - CMD
-        - bash
-        - -c
-        - >-
-          exec 3<>/dev/tcp/127.0.0.1/9000;
-          printf 'GET /identity/health/ready HTTP/1.1\r\nHost: 127.0.0.1:9000\r\nConnection: close\r\n\r\n' >&3;
-          grep -q 'HTTP/1.1 200 OK' <&3
-      interval: 2s
-      timeout: 3s
-      # The patched Keycloak image performs a cold Quarkus/JPA startup and
-      # imports the disposable realm on the first boot.  On emulated local
-      # Docker this can take several minutes; keep the health gate fail-closed
-      # without killing a healthy service before it can report readiness.
-      retries: 150
-      start_period: 120s
-    restart: "no"
-
   mailpit:
     image: axllent/mailpit:v1.27.8@sha256:6abc8e633df15eaf785cfcf38bae48e66f64beecdc03121e249d0f9ec15f0707
     read_only: true
@@ -239,8 +146,6 @@ services:
     restart: "no"
 
 configs:
-  keycloak_entrypoint:
-    file: ./keycloak/entrypoint.sh
   clamav_entrypoint:
     file: ./clamav/entrypoint.sh
   minio_init:
@@ -249,12 +154,6 @@ configs:
 secrets:
   app_database_password:
     file: ${AVIA_TEST_RUNTIME_DIR:?AVIA_TEST_RUNTIME_DIR is required}/secrets/app_database_password
-  keycloak_bootstrap_admin_password:
-    file: ${AVIA_TEST_RUNTIME_DIR:?AVIA_TEST_RUNTIME_DIR is required}/secrets/keycloak_bootstrap_admin_password
-  keycloak_database_password:
-    file: ${AVIA_TEST_RUNTIME_DIR:?AVIA_TEST_RUNTIME_DIR is required}/secrets/keycloak_database_password
-  keycloak_realm:
-    file: ${AVIA_TEST_RUNTIME_DIR:?AVIA_TEST_RUNTIME_DIR is required}/keycloak/realm.json
   minio_root_password:
     file: ${AVIA_TEST_RUNTIME_DIR:?AVIA_TEST_RUNTIME_DIR is required}/secrets/minio_root_password
   minio_root_user:
@@ -272,7 +171,6 @@ secrets:
 
 volumes:
   postgres-test-data:
-  keycloak-postgres-test-data:
   object-store-test-data:
   mailpit-test-data:
   clamav-test-signatures:

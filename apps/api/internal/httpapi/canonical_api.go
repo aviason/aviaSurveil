@@ -1128,7 +1128,7 @@ func (api *CanonicalAPI) respond(writer http.ResponseWriter, output any, err err
 	status := http.StatusInternalServerError
 	code := "INTERNAL_ERROR"
 	switch {
-	case errors.Is(err, identity.ErrKeycloakUnavailable):
+	case errors.Is(err, identity.ErrProviderUnavailable):
 		status, code = http.StatusServiceUnavailable, "PROVIDER_UNAVAILABLE"
 	case errors.Is(err, application.ErrForbidden), errors.Is(err, evidence.ErrEvidenceForbidden),
 		errors.Is(err, organizations.ErrForbidden),

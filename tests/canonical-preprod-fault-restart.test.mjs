@@ -40,7 +40,7 @@ test("Task 8 fault/restart runner owns the complete disposable lifecycle", () =>
   assert.match(script, /canonical-quick-tunnel-panels\.spec\.ts/u);
   assert.match(script, /AVIA_E2E_IGNORE_HTTPS_ERRORS=1/u);
 
-  for (const required of ["preprod-postgres", "preprod-keycloak", "preprod-minio", "preprod-clamav"]) {
+  for (const required of ["preprod-postgres", "preprod-auth", "preprod-minio", "preprod-clamav"]) {
     assert.match(script, new RegExp(required, "u"));
   }
   for (const optional of ["preprod-gotenberg", "preprod-mailpit"]) {

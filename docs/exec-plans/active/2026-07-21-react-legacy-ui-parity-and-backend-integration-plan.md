@@ -5,7 +5,7 @@
 
 **Architecture:** Keep the root Vanilla application intact as the visual and behavioral oracle. Freeze an independently checkable 86-row source inventory and a typed 17-route registry before implementation. Complete the Potential Finding, immutable CAP-revision, and checklist-template-detail read verticals before the pages that consume them. Use one layered React visual system, a session-aware shell, subject-scoped offline repositories, and two intentionally separate HTTP lanes: deterministic canonical-header testing and real local OIDC session testing. The 17 routes are `react-parity` surfaces; they are not all backend-complete at plan start. The other 69 accepted audit rows remain reachable only in the root demo until Product approves a complete route-family slice.
 
-**Tech Stack:** React 19, TypeScript 5.9, Vite 8, React Router 7, TanStack Query, React Hook Form, Zod, Dexie/IndexedDB, OPFS, Service Worker/Cache Storage, Playwright 1.61, Vitest/React Testing Library, Go 1.26 modular monolith, `chi`, PostgreSQL, Keycloak OIDC, MinIO-compatible object storage, OpenAPI, and the existing root HTML/CSS/Vanilla JavaScript reference.
+**Tech Stack:** React 19, TypeScript 5.9, Vite 8, React Router 7, TanStack Query, React Hook Form, Zod, Dexie/IndexedDB, OPFS, Service Worker/Cache Storage, Playwright 1.61, Vitest/React Testing Library, Go 1.26 modular monolith, `chi`, PostgreSQL, OIDC, MinIO-compatible object storage, OpenAPI, and the existing root HTML/CSS/Vanilla JavaScript reference.
 
 **Status:** `ready-for-verification` — Tasks 1-16 are implemented and `verified locally`; Tasks 1-15 are committed and pushed through `c026830`. Task 16 passed the complete clean-install, generated-contract, Go race/integration, React, root, mock, canonical HTTP, normal OIDC, offline/recovery, dependency, cleanup, and reviewer matrix. The exact boundary remains 17 routed React surfaces / 69 legacy-only audit rows. React passes 47 files / 282 tests; root/parity passes 107/107; mock passes 8/8; HTTP passes 10/10; normal OIDC passes 1/1; offline passes 7/7; and the visual gate passes the primitive gallery plus all 51 route/viewport pairs (52/52) with zero masks. Manual review confirms all 51 pairs are recognizably the accepted root demo. Explicit stakeholder acceptance is the next todo. No deployment, traffic cutover, legacy removal, stakeholder acceptance, or `production-ready` claim has occurred; release remains `release pending`.
 
@@ -235,7 +235,7 @@ Visual copying never overrides authority, privacy, lifecycle, immutable history,
 - Current root demo and audited source files remain unchanged.
 - Existing OpenAPI generation and `scripts/check-contracts.sh` remain authoritative.
 - Existing canonical test script remains green while normal OIDC receives a new independent script.
-- Keycloak local realm import supports the pinned test user and disabled registration.
+- The then-current local OIDC fixture supports the pinned test user and disabled registration.
 - Baselines are generated with the Playwright-bundled Chromium from the committed lockfile on the recorded platform; cross-platform comparisons fail closed.
 - Task 1 must pass before route/scope consumers. Tasks 2-3 must pass before Lead/Auditee/Admin feature tasks. Task 4 must produce the initial red React comparison before visual implementation. Tasks 5-8 must pass before feature migration.
 
@@ -1108,7 +1108,6 @@ git push origin HEAD
 - Modify `apps/web/package.json`
 - Create `scripts/test-http-oidc-profile.sh`
 - Modify `scripts/test-http-profile.sh`
-- Modify `deploy/local/keycloak/realm.json`
 - Modify `apps/api/cmd/api/main.go`
 - Modify `apps/api/internal/platform/config/config.go`
 - Modify `apps/api/internal/platform/config/config_test.go`
@@ -1119,7 +1118,6 @@ git push origin HEAD
 - Modify `apps/api/internal/platform/session/session_test.go`
 - Modify `apps/api/internal/httpapi/auth.go`
 - Modify `apps/api/internal/httpapi/auth_test.go`
-- Modify `apps/api/tests/integration/oidc_keycloak_test.go`
 - Modify this plan
 - Modify `docs/exec-plans/index.md`
 - Modify `docs/exec-plans/tech-debt-tracker.md`
@@ -1189,7 +1187,7 @@ export interface HttpBackendDependencies {
   - no canonical token/header;
   - callback `http://127.0.0.1:4174/auth/callback` through the Vite `/auth` proxy;
   - normal `src/entry/http.tsx`;
-  - Keycloak UI login and Secure session/CSRF cookies.
+  - External-provider UI login and Secure session/CSRF cookies.
 - Add exact package script:
 
   ```json
@@ -1199,8 +1197,8 @@ export interface HttpBackendDependencies {
   `scripts/test-http-oidc-profile.sh` invokes this script only after its API/worker/dependency readiness checks pass.
 - `AVIA_ENABLE_CANONICAL_SEED` is test-only and forbidden in production. Canonical seed reset/IDs are no longer conditional on enabling canonical-header authentication.
 - Configuration validation requires the seed flag to run only in `test`, requires canonical-header mode to enable the seed explicitly, keeps the canonical token conditional on canonical-header mode, and permits deterministic scanner/server-managed local object-store CORS only in these test lanes. Every seed/test flag remains forbidden in production.
-- Pin `testprofile.CanonicalInspectorSubjectID` to UUID `154ec5ac-6f97-4f55-916f-d2f142fc6211`. Use that exact ID in the seed, canonical Inspector header fixture, Keycloak imported user `id`, inspection/question assignment, session reference, and offline grant. Set the Keycloak organization claim to exact `CAA`. The browser test asserts `/auth/session` returns the same subject and a nonempty Inspector assignment.
-- Keycloak retains `registrationAllowed: false`, `resetPasswordAllowed: false`, direct grants disabled, PKCE S256, and exact local callback/post-logout allowlists for `127.0.0.1:4174`. Do not add wildcards outside that local origin.
+- Pin `testprofile.CanonicalInspectorSubjectID` to UUID `154ec5ac-6f97-4f55-916f-d2f142fc6211`. Use that exact ID in the seed, canonical Inspector header fixture, then-current provider user, inspection/question assignment, session reference, and offline grant. Set the provider organization claim to exact `CAA`. The browser test asserts `/auth/session` returns the same subject and a nonempty Inspector assignment.
+- The then-current provider retains disabled registration and reset, disabled direct grants, PKCE S256, and exact local callback/post-logout allowlists for `127.0.0.1:4174`. Do not add wildcards outside that local origin.
 - Keep Secure/HttpOnly/SameSite cookies. Do not weaken cookie flags to make the local lane pass.
 
 **Red/green cycle**
@@ -1211,7 +1209,7 @@ export interface HttpBackendDependencies {
 - [x] Add the OIDC browser spec:
   1. unauthenticated normal HTTP shows branded sign-in and no protected content;
   2. click organization sign-in;
-  3. authenticate `inspector.local` through the local Keycloak form;
+  3. authenticate `inspector.local` through the local provider form;
   4. callback to `4174` and assert safe `/auth/session`;
   5. render only Inspector primary navigation;
   6. direct-load a disallowed Lead route and prove no Lead fetch/content;
@@ -1253,12 +1251,11 @@ export interface HttpBackendDependencies {
 
   Expected green: canonical and real OIDC lanes both pass independently; no normal-session role switch or stale subject data appears.
 
-  Result 2026-07-21: red tests first failed on missing auth/session modules and subject-bound offline/runtime assumptions; the Go red gate failed on absent `CanonicalSeed` and `DisplayName` support. The implemented slice adds the session client/provider, auth gate, login page, route guards, role handoff, centralized auth-loss handling, subject remount/lock boundaries, server-side display-name projection, canonical seed/header separation, pinned UUID alignment across canonical seed and Keycloak, and separate canonical-header versus real OIDC HTTP scripts. Fresh green gates passed: focused React/Vitest 69/69; TypeScript; focused Go race for `httpapi`, `session`, `identity`, `config`, and `testprofile`; canonical HTTP profile with full Go sweep, integration, OpenAPI/sqlc, full React/Vitest 224/224, builds, HTTP artifact scan, HTTP contract tests 14/14, mock Playwright 5/5, HTTP Playwright 7/7, and worker/outbox observability; normal OIDC profile with TypeScript plus Keycloak-backed Playwright 1/1 proving sign-in, `/auth/session`, role guard denial, subject-bound offline checkout, logout, and no registration/reset links. Post-browser process scan found only the scan command itself, and the pre-existing showcase containers were restarted. Task 8 is next.
+  Result 2026-07-21: red tests first failed on missing auth/session modules and subject-bound offline/runtime assumptions; the Go red gate failed on absent `CanonicalSeed` and `DisplayName` support. The implemented slice adds the session client/provider, auth gate, login page, route guards, role handoff, centralized auth-loss handling, subject remount/lock boundaries, server-side display-name projection, canonical seed/header separation, pinned UUID alignment across canonical seed and the then-current provider, and separate canonical-header versus real OIDC HTTP scripts. Fresh green gates passed: focused React/Vitest 69/69; TypeScript; focused Go race for `httpapi`, `session`, `identity`, `config`, and `testprofile`; canonical HTTP profile with full Go sweep, integration, OpenAPI/sqlc, full React/Vitest 224/224, builds, HTTP artifact scan, HTTP contract tests 14/14, mock Playwright 5/5, HTTP Playwright 7/7, and worker/outbox observability; normal OIDC profile with TypeScript plus provider-backed Playwright 1/1 proving sign-in, `/auth/session`, role guard denial, subject-bound offline checkout, logout, and no registration/reset links. Post-browser process scan found only the scan command itself, and the pre-existing showcase containers were restarted. Task 8 is next.
 
 **Task 7 staging allowlist and commit**
 
 ```bash
-git add -- apps/web/src/auth/session-client.ts apps/web/src/auth/session-client.test.ts apps/web/src/auth/session-provider.tsx apps/web/src/auth/session-provider.test.tsx apps/web/src/auth/http-auth-gate.tsx apps/web/src/auth/login-page.tsx apps/web/src/auth/role-guard.tsx apps/web/src/auth/role-handoff.tsx apps/web/src/auth/role-authorization.test.tsx apps/web/src/auth/offline-subject-boundary.test.tsx apps/web/src/ui/application-shell.tsx apps/web/src/ui/role-navigation.tsx apps/web/src/features/shared/workspace-shell.tsx apps/web/src/app/providers.tsx apps/web/src/app/bootstrap.tsx apps/web/src/app/router.tsx apps/web/src/app/router.test.tsx apps/web/src/app/scenario-context.tsx apps/web/src/app/scenario-context.offline.test.tsx apps/web/src/features/inspections/audit-detail-page.tsx apps/web/src/features/checklists/checklist-runner-page.tsx apps/web/src/entry/demo.tsx apps/web/src/entry/http-test.tsx apps/web/src/entry/http.tsx apps/web/src/backend/http-backend.ts apps/web/src/backend/http-backend.test.ts apps/web/src/offline/field-repository.ts apps/web/tests/offline/field-repository.test.ts apps/web/tests/e2e/oidc-session.spec.ts apps/web/tests/e2e/offline-sync.http.spec.ts apps/web/tests/contract/http-backend-live.test.ts apps/web/playwright.config.ts apps/web/package.json scripts/test-http-oidc-profile.sh scripts/test-http-profile.sh deploy/local/keycloak/realm.json apps/api/cmd/api/main.go apps/api/internal/platform/config/config.go apps/api/internal/platform/config/config_test.go apps/api/internal/testprofile/canonical.go apps/api/internal/identity/principal.go apps/api/internal/identity/principal_test.go apps/api/internal/platform/session/manager.go apps/api/internal/platform/session/session_test.go apps/api/internal/httpapi/auth.go apps/api/internal/httpapi/auth_test.go apps/api/tests/integration/oidc_keycloak_test.go docs/exec-plans/active/2026-07-21-react-legacy-ui-parity-and-backend-integration-plan.md docs/exec-plans/index.md docs/exec-plans/tech-debt-tracker.md
 git commit -m "feat(auth): integrate normal oidc session"
 git push origin HEAD
 ```
@@ -1533,7 +1530,7 @@ git push origin HEAD
 - The first fail-closed recovery runs rejected the unrelated shared/Inspector composition. During recovery, Audit Detail mobile content was `0.11535`; Checklist Runner content was `0.10130` desktop, `0.12489` tablet, and `0.16627` mobile, while shell/sidebar checks also rejected incorrect active navigation. No mask or threshold was broadened. The accepted 230 px shell, root navigation/topbar, role selector, Inspector assignment register, Audit dossier, Checklist question dossier, Lead queue, Finding dossier, CAP review, and Evidence review compositions were restored against the root oracle.
 - The final selected visual run passes 25/25 tests: the primitive gallery plus 24 surface/viewport pairs for `role-select`, `inspector-home`, `audit-detail`, `checklist-runner`, `lead-home`, `finding-detail`, `cap-review`, and `evidence-review`. Every pair enforces shell `<= 0.03` and content `<= 0.08`; touch targets are at least 44 px and no compressed-byte bypass remains.
 - The expanded focused gate passes 10 files / 19 tests and typecheck. Mock Playwright passes 5/5 after restoring the canonical Audit ID, checklist accessible-name, assignment, and `NON COMPLIANT` status contracts disturbed by the visual rewrite.
-- The fresh complete HTTP profile passes Go race/unit/integration, OpenAPI lint/examples/code generation, sqlc, React 244/244, demo and HTTP builds, HTTP artifact scan, contract 14/14, mock Playwright 5/5, HTTP Playwright 7/7, and worker/outbox observability. Its temporary Postgres, Keycloak, object-store, network, and volumes were removed by the script trap.
+- The fresh complete HTTP profile passes Go race/unit/integration, OpenAPI lint/examples/code generation, sqlc, React 244/244, demo and HTTP builds, HTTP artifact scan, contract 14/14, mock Playwright 5/5, HTTP Playwright 7/7, and worker/outbox observability. Its temporary PostgreSQL, OIDC provider, object-store, network, and volumes were removed by the script trap.
 - The post-browser process scan found no leftover Playwright, webdriver, headless Chrome, or remote-debugging Chrome process. Task 10 implementation and verification are complete; the exact commit/push boundary below is next, followed by Task 11.
 
 **Task 10 staging allowlist and commit**
@@ -1711,7 +1708,7 @@ git push origin HEAD
 - Red evidence: all 8 Manager route tests failed before migration. The initial focused visual run rejected all 12 route/viewport pairs. Desktop shell/content differences included Manager sidebar `0.17127`, topbar `0.72975`, and content-header `0.63853`; tablet shell/content differences reached `0.88571`; mobile topbar was `0.76548`. Thresholds, channel delta, masks, and tracked baselines were not changed.
 - The first implementation still used an approximate Planning hierarchy and remained red at tablet/mobile. Task 12 was corrected by porting the root Planning `identity` / `state` / `facts` / `action` / `path` DOM and bounded CSS composition instead of tuning a generic React card. Reports Approval likewise restored the root desktop queue filter/count geometry. Unsupported New Inspection intake and report issue/sign/close controls remain absent or explicitly disabled; Backend values and authority stay truthful.
 - The focused green suite passes 8 files / 26 tests and typecheck passes. Mock Playwright passes 5/5 after restoring the canonical closed-Finding count contract, report-preview heading, and removing the off-screen desktop navigation from the compact accessibility tree. The Auditee transport recorder now keys privacy evidence to the actual `USR-AUDITEE-FLY` HTTP subject so Manager-owned requests cannot contaminate Auditee evidence.
-- The complete HTTP profile passes Go race/unit/integration, OpenAPI lint/examples/code generation, sqlc, React 43 files / 261 tests, demo and HTTP builds, HTTP artifact scan, contract 14/14, mock Playwright 5/5, HTTP Playwright 7/7, and worker/outbox observability. Its temporary PostgreSQL, Keycloak, object-store, network, and volumes were removed by the script trap.
+- The complete HTTP profile passes Go race/unit/integration, OpenAPI lint/examples/code generation, sqlc, React 43 files / 261 tests, demo and HTTP builds, HTTP artifact scan, contract 14/14, mock Playwright 5/5, HTTP Playwright 7/7, and worker/outbox observability. Its temporary PostgreSQL, OIDC provider, object-store, network, and volumes were removed by the script trap.
 - The final focused decoded-pixel run passes 13/13: the shared primitive gallery plus all four Manager surfaces at desktop/tablet/mobile. Every pair uses the unchanged channel delta `40`, shell threshold `0.03`, content threshold `0.08`, no added masks, and no baseline regeneration. Task 12 is `verified locally`; the exact commit/push boundary below is next, followed by Task 13.
 
 **Task 12 staging allowlist and commit**
@@ -1802,7 +1799,7 @@ React component and Backend boundaries may differ, but these exact role-specific
 - Red evidence: the initial role-focused Vitest run failed all three files with 9 failed / 1 passed tests. The scoped visual run kept the shared primitive gallery green and rejected all 9 route/viewport pairs. Thresholds remained shell `0.03`, content `0.08`, maximum channel delta `40`; no mask or tracked baseline was changed.
 - Finance now retains the root guardrail, three-cell summary, Review Queue, selected plan tabs, Approval Flow, and reason-required decision hierarchy. General Manager retains its five authority KPIs, department table, risk heat map, and Report Review Queue without issue/closure authority. Executive Director retains separate Planning and Final Report queues plus the lower management context; report issue locks the immutable version and does not close Findings. Cross-role continuation uses the existing `RoleHandoff` boundary.
 - The first complete HTTP profile correctly failed because the pre-existing router test assumed the selected plan title appeared only once; the source-faithful root composition intentionally repeats it in queue context and the dossier heading. Task 13 therefore adds `apps/web/src/app/router.test.tsx` to its reviewed allowlist and scopes that assertion to the dossier heading. The focused router suite then passed 4/4.
-- Final focused Task 13 plus router verification passes 5 files / 19 tests and typecheck passes. The complete HTTP profile passes Go race/unit/integration, OpenAPI lint/examples/code generation, sqlc, React 46 files / 271 tests, demo and HTTP builds, HTTP artifact scan, HTTP contract 14/14, mock Playwright 5/5, HTTP Playwright 7/7, and worker/outbox observability. Its PostgreSQL, Keycloak, object-store, network, and volumes were removed by the script trap.
+- Final focused Task 13 plus router verification passes 5 files / 19 tests and typecheck passes. The complete HTTP profile passes Go race/unit/integration, OpenAPI lint/examples/code generation, sqlc, React 46 files / 271 tests, demo and HTTP builds, HTTP artifact scan, HTTP contract 14/14, mock Playwright 5/5, HTTP Playwright 7/7, and worker/outbox observability. Its PostgreSQL, OIDC provider, object-store, network, and volumes were removed by the script trap.
 - The final fail-closed decoded-pixel run passes 10/10: the shared primitive gallery plus Finance, General Manager, and Executive Director at desktop, tablet, and mobile. Candidate screenshots were inspected beside all nine baselines; first-viewport hierarchy, density, typography, and action placement are recognizably the accepted demo. Thresholds, masks, comparator logic, and baseline files remain unchanged.
 
 **Task 13 staging allowlist and commit**
@@ -1887,7 +1884,7 @@ The Backend version ID/title and question wording may differ from the root seed,
 - The route now lists published versions through `listChecklistTemplateVersions`, direct-loads the selected exact version through `getChecklistTemplateVersion`, shows Backend question/reference/Evidence/answer/comment facts, and provides a functional read-only `Back to templates` register. Non-Admin direct access remains guarded before configuration fetch; edit, publish, delete, user, role, draft, and configuration controls remain absent.
 - The visible composition now uses the accepted Administration demo ribbon, grouped sidebar, `Templates › Template Preview` topbar, System Admin identity, source page-head, six-item metaline, exact source-profile callout, and dense five-column ops table. Desktop, tablet, and mobile candidate screenshots were inspected beside their tracked baselines and are recognizably the same accepted demo rather than a newly designed React dashboard.
 - The first complete HTTP profile correctly failed 3/7 HTTP Playwright tests because the HTTP role-scoped Backend object is recreated across renders and the Admin load effect depended on that object, repeatedly detaching the version-register action. The mount-scoped read was corrected to run once for the routed page; the focused 5-file suite then passed 26/26 and typecheck passed.
-- Final canonical HTTP verification passes Go race/unit/integration, OpenAPI lint/examples/code generation, sqlc, React 47 files / 279 tests, demo and HTTP builds, HTTP artifact scan, HTTP contract 14/14, mock Playwright 5/5, HTTP Playwright 7/7, and worker/outbox observability. PostgreSQL, Keycloak, object-store, network, and volumes were removed by the script trap.
+- Final canonical HTTP verification passes Go race/unit/integration, OpenAPI lint/examples/code generation, sqlc, React 47 files / 279 tests, demo and HTTP builds, HTTP artifact scan, HTTP contract 14/14, mock Playwright 5/5, HTTP Playwright 7/7, and worker/outbox observability. PostgreSQL, OIDC provider, object-store, network, and volumes were removed by the script trap.
 - Final fail-closed decoded-pixel verification passes 52/52: the shared primitive gallery plus all 17 surfaces at desktop, tablet, and mobile. Shell threshold `0.03`, content threshold `0.08`, maximum channel delta `40`, masks, comparator logic, and baseline files remain unchanged. No Playwright, Vite, webdriver, remote-debugging Chrome, or headless browser process remained after the run.
 
 **Task 14 staging allowlist and commit**
@@ -1990,7 +1987,7 @@ Add exact package script:
 - Focused registry/mutation tests pass 5 files / 17 tests; the parity ledger passes 4/4; typecheck passes; the full React suite passes 47 files / 282 tests. Demo/HTTP builds, app-shell scans (24 files / 16 assets each), HTTP artifact scan (24 files / 109 inputs), and the parity boundary scan (17 routes / 2 profiles) pass.
 - Mock visible actions pass 3/3 viewport tests, each covering all 17 surfaces. The decoded-pixel visual gate passes 52/52 with all 51 candidate PNG and 51 machine-readable region-result attachments; thresholds, masks, comparator, and tracked baselines are unchanged.
 - The first complete HTTP attempt was interrupted at sqlc by an operating-system `signal: killed`; the immediate isolated rerun passed `sqlc-check: ok`. Subsequent complete attempts exposed and corrected only test-harness duration/reset isolation: the 17-route viewport tests now declare 120 seconds and reset canonical state once per viewport, not between read-only surfaces.
-- Final canonical HTTP verification passes Go race/unit/integration, OpenAPI lint/examples/code generation, sqlc, React 282/282, demo/HTTP builds, HTTP artifact scan, HTTP contract 14/14, mock Playwright 8/8, HTTP Playwright 10/10, and worker/outbox observability. PostgreSQL, Keycloak, object-store, network, and volumes were removed by the script trap.
+- Final canonical HTTP verification passes Go race/unit/integration, OpenAPI lint/examples/code generation, sqlc, React 282/282, demo/HTTP builds, HTTP artifact scan, HTTP contract 14/14, mock Playwright 8/8, HTTP Playwright 10/10, and worker/outbox observability. PostgreSQL, OIDC provider, object-store, network, and volumes were removed by the script trap.
 
 **Task 15 staging allowlist and commit**
 
@@ -2041,7 +2038,7 @@ The evidence filenames use the reviewed actual execution date, `2026-07-22`. If 
 
   The authoritative green run is this exact race command inside
   `scripts/test-http-profile.sh`, after the script starts its required pinned
-  PostgreSQL, Keycloak, and MinIO services. Direct preflight attempts without
+  PostgreSQL, the then-current OIDC provider, and MinIO services. Direct preflight attempts without
   that orchestration hit the sandbox port boundary and then failed closed on
   absent services; those attempts are not green evidence.
 
@@ -2114,7 +2111,7 @@ The evidence filenames use the reviewed actual execution date, `2026-07-22`. If 
 
 - [x] **Cleanup**
 
-  Confirm task-owned scripts stopped their own API, worker, Vite, static server, Keycloak/PostgreSQL/object-store containers, and Playwright/Chromium processes. Do not stop unrelated user processes. Record cleanup evidence and any externally owned residue as `blocked`.
+  Confirm task-owned scripts stopped their own API, worker, Vite, static server, OIDC-provider/PostgreSQL/object-store containers, and Playwright/Chromium processes. Do not stop unrelated user processes. Record cleanup evidence and any externally owned residue as `blocked`.
 
 **Task 16 execution result — 2026-07-22**
 
@@ -2174,7 +2171,7 @@ Expected: evidence is pushed only if authorized; no deployment, branch, PR, GitH
 | Scope truth | Exact ordered 86 audit rows; 17 `react-parity`; 69 null-path legacy rows; required Product screen crosswalk; New Inspection Planning Intake explicit |
 | Read completeness | Potential Finding list/get, CAP revision list/get, Admin template detail, mock/HTTP parity, fresh direct loads |
 | Route authority | All 16 protected routes allowed/disallowed/direct URL; root by identity mode; no pre-guard fetch or stale DOM |
-| Normal identity | Safe session projection, stable local subject, real Keycloak UI login, session roles only, CSRF mutation, expiry, logout `401` |
+| Normal identity | Safe session projection, stable local subject, real provider UI login, session roles only, CSRF mutation, expiry, logout `401` |
 | Canonical identity | Existing deterministic header lane remains isolated and green |
 | Privacy | Auditee org isolation and structural Internal CAA Note omission; no workload/risk/enforcement leakage |
 | Lifecycle | Lead-only Potential Finding decision; CAP not closure; immutable CAP/Evidence; Evidence/verification/authorized closure; report authority |
@@ -2214,7 +2211,7 @@ The shared router, OpenAPI/generated files, canonical scenario, `app.css`, and v
 | Read APIs leak internal/other-org data | Privacy breach | Role-shaped CAP union, structural omission, authorize before projection, other-org tests |
 | UI still relies on scenario mutation history | Refresh/direct URL fails | Complete read verticals first; fresh-provider/direct-load tests |
 | Canonical lane is mistaken for OIDC | False identity evidence | Separate flags, scripts, entries, browser tests, and evidence sections |
-| OIDC fixture does not align with assignments | Empty/false test | One pinned UUID across Keycloak, seed, header fixture, assignment, session, and offline grant; assert it |
+| OIDC fixture does not align with assignments | Empty/false test | One pinned UUID across provider, seed, header fixture, assignment, session, and offline grant; assert it |
 | Expiry leaves stale protected data | Cross-user exposure | Central auth-loss callback, abort, Query clear, keyed provider remount, route guard tests |
 | Logout erases or exposes offline work | Data loss/privacy | Await `lockSubject`; never delete; subject-B invisibility and subject-A recovery tests |
 | Masks/thresholds hide visual failure | False parity | Tracked hashes, mask selector denylist, 5% cap, integrity perturbations, plan revision for increases |

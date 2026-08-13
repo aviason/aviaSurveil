@@ -127,6 +127,75 @@ func TestTask4SessionBindsExactDesiredProviderAndTokenAuthority(t *testing.T) {
 	}
 }
 
+func TestTask4FirstPartySessionRequiresExactProviderRevisions(t *testing.T) {
+	pool := canonicalDatabase(t, "task4_first_party_session_revisions")
+	now := canonicalNow
+	subjectID := "task4-first-party-inspector"
+	membershipID := "membership-task4-first-party"
+	seedTask4Membership(
+		t,
+		pool,
+		subjectID,
+		membershipID,
+		1,
+		"ACTIVE",
+		"CAA",
+		[]string{"inspector"},
+		now,
+	)
+	observer := &task4AuthorityObserver{
+		observation: identity.AuthorityObservation{
+			SubjectID: subjectID, Enabled: true, OrganizationID: "CAA",
+			Roles:        []identity.Role{identity.RoleInspector},
+			MembershipID: membershipID, MembershipRevision: 1,
+			AuthRevision: 3, ObservedAt: now,
+		},
+	}
+	sequence := byte(0)
+	manager, err := session.NewManager(
+		pool,
+		[]byte("0123456789abcdef0123456789abcdef"),
+		session.ManagerDependencies{
+			Clock: func() time.Time { return now },
+			IDGenerator: func(prefix string) string {
+				sequence++
+				return fmt.Sprintf("%s-first-party-%d", prefix, sequence)
+			},
+			RandomBytes: func(size int) ([]byte, error) {
+				sequence++
+				return bytes.Repeat([]byte{sequence}, size), nil
+			},
+			AuthorityObserver:                 observer,
+			RequireProviderAuthorityRevisions: true,
+		},
+	)
+	if err != nil {
+		t.Fatalf("new first-party session manager: %v", err)
+	}
+	input := session.CreateInput{
+		SubjectID: subjectID, Issuer: "https://identity.example/realms/avia",
+		DisplayName: "First-Party Inspector", OrganizationID: "CAA",
+		Roles: []identity.Role{identity.RoleInspector},
+	}
+	if _, err := manager.Create(context.Background(), input); !errors.Is(err, session.ErrUnauthenticated) {
+		t.Fatalf("missing first-party revision claims error = %v", err)
+	}
+	input.MembershipID = membershipID
+	input.MembershipRevision = 1
+	input.AuthRevision = 3
+	created, err := manager.Create(context.Background(), input)
+	if err != nil {
+		t.Fatalf("create exact first-party revision session: %v", err)
+	}
+	observer.observation.MembershipRevision = 2
+	if _, err := manager.Authenticate(
+		session.RequireFreshAuthorityObservation(context.Background()),
+		created.Token,
+	); !errors.Is(err, session.ErrUnauthenticated) {
+		t.Fatalf("drifted first-party membership revision error = %v", err)
+	}
+}
+
 func TestTask4SessionRejectsProviderDriftUnavailableAndNoMembershipAuthorities(
 	t *testing.T,
 ) {
@@ -172,7 +241,7 @@ func TestTask4SessionRejectsProviderDriftUnavailableAndNoMembershipAuthorities(
 			name:          "provider unavailable",
 			subjectID:     subjectID,
 			observation:   exact,
-			observerError: identity.ErrKeycloakUnavailable,
+			observerError: identity.ErrProviderUnavailable,
 		},
 		{
 			name:      "provider disabled",
@@ -334,7 +403,7 @@ func TestTask4SessionHeartbeatAndProviderLossMeetFrozenDenialDeadline(
 		t.Fatalf("session authority observation = %s, want %s", observedAt, now)
 	}
 
-	observer.err = identity.ErrKeycloakUnavailable
+	observer.err = identity.ErrProviderUnavailable
 	now = canonicalNow.Add(62 * time.Second)
 	if _, err := manager.Authenticate(
 		context.Background(),

@@ -141,7 +141,7 @@ test("object backup identity can apply retention only within its two backup buck
 test("both PostgreSQL clusters use the reviewed pgBackRest runtime and separate stanzas", () => {
   const compose = composeConfig();
   const application = compose.services.postgres;
-  const identity = compose.services["keycloak-postgres"];
+  const identity = compose.services["preprod-auth-postgres"];
 
   assert.equal(
     application.image,
@@ -214,11 +214,11 @@ test("recovery runtime participates in the digest-bound image evidence gate", ()
     /build_image postgres-recovery aviasurveil360\/postgres-recovery:local deploy\/recovery\/Dockerfile postgres-recovery/,
   );
   assert.match(buildScript, /POSTGRES_IMAGE=\$postgres_image/);
-  assert.match(buildScript, /Built 9 local runtime images/);
-  assert.match(sbomScript, /Generated 9 digest-bound CycloneDX SBOMs/);
+  assert.match(buildScript, /Built 8 local runtime images/);
+  assert.match(sbomScript, /Generated 8 digest-bound CycloneDX SBOMs/);
   assert.match(
     scanScript,
-    /All 9 local image digests passed the HIGH\/CRITICAL vulnerability gate/,
+    /All 8 local image digests passed the HIGH\/CRITICAL vulnerability gate/,
   );
   assert.match(
     evidenceCheck,
@@ -243,8 +243,8 @@ test("pgBackRest stanzas use encrypted, retained, distinct S3 repositories witho
       "identity",
       "/var/lib/postgresql/data/pgdata",
       "identity-database-backups",
-      "keycloak",
-      "keycloak",
+      "auth_preprod",
+      "auth_local_preprod",
     ],
   ];
 
@@ -408,16 +408,16 @@ test("application and identity fingerprints cover authoritative and MFA state", 
 
   const identity = readScript("identity-recovery-fingerprint.sh");
   for (const table of [
-    "user_entity",
-    "keycloak_role",
-    "user_role_mapping",
-    "credential",
-    "user_required_action",
+    "auth_identity.accounts",
+    "auth_identity.identifiers",
+    "auth_identity.application_authorities",
+    "auth_identity.mfa_factors",
+    "auth_identity.provider_sessions",
   ]) {
     assert.match(identity, new RegExp(table));
   }
-  assert.match(identity, /totp/i);
-  assert.match(identity, /provision/i);
+  assert.match(identity, /mfaFactors/u);
+  assert.match(identity, /adminReceipts/u);
   assert.match(identity, /sha256/);
 });
 

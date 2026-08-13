@@ -25,6 +25,13 @@ type PostgresStore struct {
 	clock          Clock
 }
 
+// SetSessionRevoker wires provider credential/session revocation after both
+// durable stores have been initialized. Security-state mutations fail closed
+// when this boundary reports an unavailable provider session store.
+func (store *PostgresStore) SetSessionRevoker(revoker SessionRevoker) {
+	store.sessionRevoker = revoker
+}
+
 func NewPostgresStore(pool *pgxpool.Pool, configuration Config) (*PostgresStore, error) {
 	if pool == nil || configuration.Hasher == nil || configuration.Limiter == nil {
 		return nil, errors.New("PostgreSQL identity store requires pool, hasher, and limiter")
@@ -159,7 +166,11 @@ func (store *PostgresStore) SetEmailVerified(ctx context.Context, subjectID stri
 	if err := transaction.Commit(ctx); err != nil {
 		return AccountSnapshot{}, fmt.Errorf("commit email verification: %w", err)
 	}
-	return updated.snapshot(), nil
+	snapshot := updated.snapshot()
+	if err := store.revokeSessions(ctx, subjectID); err != nil {
+		return snapshot, err
+	}
+	return snapshot, nil
 }
 
 func (store *PostgresStore) Activate(ctx context.Context, subjectID string, expectedRevision uint64, newPassword []byte) (AccountSnapshot, error) {
@@ -206,7 +217,11 @@ func (store *PostgresStore) Activate(ctx context.Context, subjectID string, expe
 	if err := transaction.Commit(ctx); err != nil {
 		return AccountSnapshot{}, fmt.Errorf("commit account activation: %w", err)
 	}
-	return updated.snapshot(), nil
+	snapshot := updated.snapshot()
+	if err := store.revokeSessions(ctx, subjectID); err != nil {
+		return snapshot, err
+	}
+	return snapshot, nil
 }
 
 func (store *PostgresStore) Authenticate(ctx context.Context, request AuthenticationRequest) (AuthenticationResult, error) {

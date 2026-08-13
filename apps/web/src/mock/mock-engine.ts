@@ -17,6 +17,7 @@ import type {
   EvidenceReviewState,
   FindingStatus,
   FindingView,
+  ReportVersionView,
   InspectionPackage,
   InspectionTeamAuditView,
   PlanningIntakeDraftView,
@@ -2011,6 +2012,8 @@ export class MockBackendEngine implements DemoBackend {
               downloadFileName: version.fileName,
             } : {}),
           }));
+        reports.sort((left, right) =>
+          right.createdAt.localeCompare(left.createdAt) || right.id.localeCompare(left.id));
         return { items: [...reports, ...evidence], nextCursor: null };
       });
     },
@@ -2045,6 +2048,8 @@ export class MockBackendEngine implements DemoBackend {
             } : {}),
           })),
         ];
+        documents.sort((left, right) =>
+          right.createdAt.localeCompare(left.createdAt) || right.id.localeCompare(left.id));
         const document = documents.find((candidate) => candidate.id === documentId);
         if (!document || (organizationId && document.organizationId !== organizationId)) throw new BackendAuthorizationInvariantError("Document is unavailable to this principal.");
         return document;
@@ -2861,14 +2866,14 @@ export class MockBackendEngine implements DemoBackend {
       requireDemoCapability(this.principal, "adminWorkspace");
       requireRole(this.principal, ["admin"], "Admin Preview authority is required for Administration workspace data.");
       throw new BackendInvariantError(
-        "Keycloak user lifecycle commands are unavailable in the browser-local demo profile.",
+        "Provider user lifecycle commands are unavailable in the browser-local demo profile.",
       );
     },
     getUserLifecycleRequest: async () => {
       requireDemoCapability(this.principal, "adminWorkspace");
       requireRole(this.principal, ["admin"], "Admin Preview authority is required for Administration workspace data.");
       throw new BackendInvariantError(
-        "Keycloak user lifecycle status is unavailable in the browser-local demo profile.",
+        "Provider user lifecycle status is unavailable in the browser-local demo profile.",
       );
     },
     listOrganizations: async ({ search = "", organizationType = "", status = "", scope = "" }) => {
@@ -3676,6 +3681,11 @@ export class MockBackendEngine implements DemoBackend {
         if (packageView.checklistStatus !== "SUBMITTED") {
           throw new BackendInvariantError("Only a submitted checklist can be reopened.");
         }
+        if (Object.values(state.reportVersions).some((report) => report.auditId === packageView.auditId)) {
+          throw new BackendInvariantError(
+            "Checklist cannot be reopened after report, Finding, CAP, or Evidence history exists.",
+          );
+        }
         packageView.checklistStatus = "IN_PROGRESS";
         packageView.checklistRevision += 1;
         return {
@@ -4278,6 +4288,39 @@ export class MockBackendEngine implements DemoBackend {
   };
 
   readonly reports: Backend["reports"] = {
+    create: async (input) => {
+      requireRole(this.principal, ["leadInspector"], "Lead Inspector authority is required to create a report version.");
+      return this.store.execute(input.operationId, input, (state) => {
+        if (input.expectedRevision !== null || !input.idempotencyKey || input.version <= 0 ||
+          !input.reportVersionId || !input.reportId || !input.auditId) {
+          throw new BackendInvariantError("Report version creation input is invalid.");
+        }
+        if (state.reportVersions[input.reportVersionId]) {
+          throw new BackendConflictError("Report version already exists.");
+        }
+        const packageView = Object.values(state.packages).find((candidate) => candidate.auditId === input.auditId);
+        if (!packageView) throw new BackendInvariantError("Audit was not found.");
+        const report: ReportVersionView = {
+          reportVersionId: input.reportVersionId,
+          reportId: input.reportId,
+          organizationId: packageView.organizationId,
+          auditId: input.auditId,
+          findingIds: [...input.findingIds],
+          contentHash: "sha256:mock-report-content",
+          version: input.version,
+          status: input.status,
+          revision: 1,
+          issuedAt: null,
+        };
+        state.reportVersions[report.reportVersionId] = report;
+        state.reportPublicMetadata[report.reportVersionId] = {
+          kind: input.kind,
+          responseDueDate: null,
+          caaVisibleComment: null,
+        };
+        return report;
+      });
+    },
     getVersion: async ({ reportVersionId }) => {
       if (this.principal.role === "auditee") {
         throw new BackendAuthorizationInvariantError(

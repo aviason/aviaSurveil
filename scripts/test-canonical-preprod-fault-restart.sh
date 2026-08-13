@@ -37,15 +37,14 @@ NODE
 }
 
 https_port="${AVIA_TASK8_HTTPS_PORT:-$(choose_loopback_port)}"
-oidc_port="${AVIA_TASK8_OIDC_PORT:-$(choose_loopback_port)}"
 integration_port="${AVIA_TASK8_POSTGRES_PORT:-$(choose_loopback_port)}"
 web_origin="https://localhost:${https_port}"
 
-for value in "$https_port" "$oidc_port" "$integration_port"; do
+for value in "$https_port" "$integration_port"; do
   [[ "$value" =~ ^[0-9]+$ && "$value" -ge 1024 && "$value" -le 65535 ]] ||
     fail "all task-owned ports must be user-space TCP ports"
 done
-[[ "$https_port" != "$oidc_port" && "$https_port" != "$integration_port" && "$oidc_port" != "$integration_port" ]] ||
+[[ "$https_port" != "$integration_port" ]] ||
   fail "task-owned ports must be distinct"
 case "$skip_build" in
   true|false) ;;
@@ -60,9 +59,7 @@ compose() {
   AVIA_PREPROD_IDENTITY_NAMESPACE="canonical-aga-preprod-exercise-v1" \
   AVIA_PREPROD_TRANSPORT=https \
   AVIA_PREPROD_HTTPS_PORT="$https_port" \
-  AVIA_PREPROD_OIDC_PORT="$oidc_port" \
   AVIA_PREPROD_WEB_ORIGIN="$web_origin" \
-  AVIA_PREPROD_KEYCLOAK_PUBLIC_ORIGIN="$web_origin" \
   AVIA_PREPROD_PUBLIC_HOST="localhost:${https_port}" \
   AVIA_PREPROD_ORIGIN_SCHEME=https \
   AVIA_PREPROD_PUBLIC_TLS=true \
@@ -291,13 +288,23 @@ GET|/api/v1/admin/governed-checklist/aga-candidate-demo/capability
 EOF
 }
 
+assert_public_provider_admin_unavailable() {
+  local path status
+  for path in /identity/v1/directory /identity/admin/v1/directory; do
+    status="$(curl --insecure --silent --show-error --output /dev/null --write-out '%{http_code}' \
+      "$web_origin$path")"
+    [[ "$status" == 404 ]] ||
+      fail "public provider-admin route was exposed: $path returned $status"
+  done
+}
+
 assert_runtime_log_secrets_absent() {
   local secret_path secret_value
   compose logs --no-color >"$artifact_root/compose.log"
   for secret_path in "$state_root"/secrets/*; do
     [[ -f "$secret_path" ]] || continue
-    secret_value="$(tr -d '\r\n' <"$secret_path")"
-    if [[ -n "$secret_value" ]] && rg --fixed-strings --quiet -- "$secret_value" "$artifact_root/compose.log"; then
+    secret_value="$(LC_ALL=C tr -d '\r\n' <"$secret_path")"
+    if [[ -n "$secret_value" ]] && LC_ALL=C grep -aFq -- "$secret_value" "$artifact_root/compose.log"; then
       fail "generated secret appeared in runtime logs: ${secret_path##*/}"
     fi
   done
@@ -332,7 +339,6 @@ run_playwright_file() {
     AVIA_E2E_PROFILE=canonical-quick-tunnel \
     AVIA_E2E_BASE_URL="$web_origin" \
     AVIA_E2E_IGNORE_HTTPS_ERRORS=1 \
-    AVIA_PREPROD_OIDC_HOST="localhost:${https_port}" \
     AVIA_AGA_OIDC_PASSWORD="$(tr -d '\r\n' <"$state_root/secrets/preprod_canonical_demo_oidc_qualification_password")" \
     AVIA_PLAYWRIGHT_OUTPUT_DIR="$output" \
       ./node_modules/.bin/playwright test "$file" --project=canonical-quick-tunnel
@@ -361,7 +367,6 @@ run_negative_transaction_matrix
 AVIA_CANONICAL_PREPROD_STATE_DIR="$state_root" \
 AVIA_CANONICAL_PREPROD_PROJECT="$project_name" \
 AVIA_PREPROD_HTTPS_PORT="$https_port" \
-AVIA_PREPROD_OIDC_PORT="$oidc_port" \
 AVIA_PREPROD_WEB_ORIGIN="$web_origin" \
 AVIA_PREPROD_SKIP_BUILD="$skip_build" \
   bash "$repository_root/scripts/start-canonical-preprod.sh"
@@ -370,44 +375,50 @@ stack_started=true
 wait_for_readiness 200 ready
 assert_liveness
 assert_donor_unavailable
+assert_public_provider_admin_unavailable
 
 run_playwright_file tests/e2e/canonical-quick-tunnel-lifecycle.spec.ts "$artifact_root/lifecycle"
 assert_mailpit_delivery
 before_fingerprint="$(wait_for_database_quiescence "$artifact_root/fingerprint-before.txt")"
 
 compose stop --timeout 30 \
-  preprod-gateway preprod-api preprod-worker preprod-scheduler preprod-keycloak \
+  preprod-gateway preprod-api preprod-worker preprod-auth \
   preprod-web-http preprod-gotenberg preprod-clamav preprod-minio preprod-mailpit \
-  preprod-postgres preprod-keycloak-postgres
+  preprod-postgres preprod-auth-postgres preprod-auth-mailpit
 compose start \
-  preprod-postgres preprod-keycloak-postgres preprod-mailpit preprod-minio \
+  preprod-postgres preprod-auth-postgres preprod-auth-mailpit preprod-mailpit preprod-minio \
   preprod-clamav preprod-gotenberg preprod-web-http
-for service in preprod-postgres preprod-keycloak-postgres preprod-mailpit preprod-minio preprod-clamav preprod-gotenberg preprod-web-http; do
+for service in preprod-postgres preprod-auth-postgres preprod-auth-mailpit preprod-mailpit preprod-minio preprod-clamav preprod-gotenberg preprod-web-http; do
   wait_for_service_health "$service"
 done
-compose start preprod-keycloak
-wait_for_service_health preprod-keycloak
-compose start preprod-api preprod-worker preprod-scheduler preprod-gateway
-for service in preprod-api preprod-worker preprod-scheduler preprod-gateway; do
+compose start preprod-auth
+wait_for_service_health preprod-auth
+compose start preprod-api preprod-worker preprod-gateway
+for service in preprod-api preprod-worker preprod-gateway; do
   wait_for_service_health "$service"
 done
 wait_for_readiness 200 ready
 assert_donor_unavailable
+assert_public_provider_admin_unavailable
 after_fingerprint="$(wait_for_database_quiescence "$artifact_root/fingerprint-after.txt")"
 [[ "$after_fingerprint" == "$before_fingerprint" ]] ||
   fail "fingerprint changed across cold restart: $before_fingerprint != $after_fingerprint"
 
 run_playwright_file tests/e2e/canonical-quick-tunnel-panels.spec.ts "$artifact_root/panels-after-restart"
 
-for service in preprod-postgres preprod-keycloak preprod-minio preprod-clamav; do
+for service in preprod-postgres preprod-auth-postgres preprod-auth-mailpit preprod-auth preprod-minio preprod-clamav; do
   inject_dependency_failure "$service" not_ready 503
 done
-for service in preprod-gotenberg preprod-mailpit; do
+# Gotenberg is still part of the disposable service graph, but the current
+# native renderer does not make it an API readiness dependency. Mailpit is the
+# only intentionally optional readiness dependency in this profile.
+for service in preprod-mailpit; do
   inject_dependency_failure "$service" degraded 200
 done
 assert_worker_restart
 assert_runtime_log_secrets_absent
 assert_donor_unavailable
+assert_public_provider_admin_unavailable
 wait_for_readiness 200 ready
 
 printf 'Task 8 canonical negative/fault/restart matrix verified locally; fingerprint=%s; donor disabled; cleanup will assert zero residue.\n' "$after_fingerprint"

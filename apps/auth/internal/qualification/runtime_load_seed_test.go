@@ -56,15 +56,16 @@ func TestRuntimeLoadSeed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, _, err := identities.ProvisionInvitation(ctx, identity.InvitationInput{Email: "load-candidate@example.invalid", Username: "loadcandidate"})
+	account, invitation, err := identities.ProvisionProviderInvitation(
+		ctx,
+		identity.InvitationInput{Email: "load-candidate@example.invalid", Username: "loadcandidate"},
+		identity.ProviderProfileInput{DisplayName: "Load Candidate", GivenName: "Load", FamilyName: "Candidate"},
+		identity.ProviderAuthorityInput{MembershipID: "membership-load-candidate", OrganizationID: "CAA", Role: "inspector", ExpectedRevision: 0, ResultingRevision: 1},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err = identities.SetEmailVerified(ctx, account.SubjectID, account.AuthRevision)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := identities.Activate(ctx, account.SubjectID, account.AuthRevision, []byte(strings.TrimSpace(string(accountPassword)))); err != nil {
+	if _, err := identities.ActivateWithInvitation(ctx, account.SubjectID, invitation.Token, []byte(strings.TrimSpace(string(accountPassword)))); err != nil {
 		t.Fatal(err)
 	}
 }

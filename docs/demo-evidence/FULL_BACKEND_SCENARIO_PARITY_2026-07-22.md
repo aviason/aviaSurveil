@@ -115,7 +115,7 @@ Only the final fresh green runs below count.
 | `git diff --check` | passed |
 
 The full HTTP profile's accepted fresh run also completed its integration
-package in 50.615s and removed its scoped PostgreSQL, Keycloak, MinIO, volumes,
+package in 50.615s and removed its scoped PostgreSQL, local OIDC provider, MinIO, volumes,
 and network.
 
 ## Transient And Corrected Failures

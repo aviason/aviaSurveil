@@ -639,6 +639,18 @@ export function createHttpBackend(
         ),
     },
     reports: {
+      create: async (input, options) =>
+        mapReportVersion(
+          await request<Schemas["ReportVersionView"]>(
+            "/v1/report-versions",
+            {
+              method: "POST",
+              body: input,
+              headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey, expectedRevision: null }),
+            },
+            options,
+          ),
+        ),
       getVersion: async ({ reportVersionId }, options) =>
         mapReportVersion(
           await request<Schemas["ReportVersionView"]>(

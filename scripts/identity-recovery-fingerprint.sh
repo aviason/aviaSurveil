@@ -11,83 +11,85 @@ if [ -z "${AVIA_RECOVERY_POINT_ID:-}" ]; then
   exit 1
 fi
 
-password=$(tr -d '\r\n' </run/secrets/keycloak_database_password)
+password=$(tr -d '\r\n' </run/secrets/preprod_auth_database_password)
 export PGPASSWORD="$password"
 unset password
 
 identity_json=$(
   psql \
-    --host keycloak-postgres \
-    --username keycloak \
-    --dbname keycloak \
+    --host preprod-auth-postgres \
+    --username auth_preprod \
+    --dbname auth_local_preprod \
     --tuples-only \
     --no-align \
     --set ON_ERROR_STOP=1 <<'SQL'
 SELECT jsonb_build_object(
-  'users', COALESCE((
+  'accounts', COALESCE((
     SELECT jsonb_agg(
       jsonb_build_object(
-        'id', id,
-        'realmId', realm_id,
-        'username', username,
+        'subjectId', subject_id,
+        'state', state,
+        'emailVerified', email_verified,
+        'authRevision', auth_revision,
+        'failedLoginCount', failed_login_count,
+        'lockedUntil', locked_until
+      ) ORDER BY subject_id
+    ) FROM auth_identity.accounts
+  ), '[]'::jsonb),
+  'identifiers', COALESCE((
+    SELECT jsonb_agg(
+      jsonb_build_object(
+        'subjectId', subject_id,
+        'type', identifier_type,
+        'normalizedValue', normalized_value,
+        'verifiedAt', verified_at
+      ) ORDER BY subject_id, identifier_type
+    ) FROM auth_identity.identifiers
+  ), '[]'::jsonb),
+  'authorities', COALESCE((
+    SELECT jsonb_agg(
+      jsonb_build_object(
+        'subjectId', subject_id,
+        'membershipId', membership_id,
+        'organizationId', organization_id,
+        'role', role,
+        'state', state,
+        'membershipRevision', membership_revision
+      ) ORDER BY subject_id
+    ) FROM auth_identity.application_authorities
+  ), '[]'::jsonb),
+  'mfaFactors', COALESCE((
+    SELECT jsonb_agg(
+      jsonb_build_object(
+        'subjectId', subject_id,
         'enabled', enabled,
-        'emailVerified', email_verified
-      )
-      ORDER BY id
-    )
-    FROM user_entity
+        'lastUsedCounter', last_used_counter,
+        'recoveryFailures', recovery_failures,
+        'secretFingerprint', md5(secret_ciphertext::text)
+      ) ORDER BY subject_id
+    ) FROM auth_identity.mfa_factors
   ), '[]'::jsonb),
-  'roles', COALESCE((
+  'sessions', COALESCE((
     SELECT jsonb_agg(
       jsonb_build_object(
-        'id', id,
-        'realmId', realm_id,
-        'client', client_realm_constraint,
-        'name', name
-      )
-      ORDER BY id
-    )
-    FROM keycloak_role
+        'sessionId', session_id,
+        'subjectId', subject_id,
+        'state', state,
+        'authRevision', auth_revision,
+        'issuedAt', issued_at,
+        'revokedAt', revoked_at
+      ) ORDER BY session_id
+    ) FROM auth_identity.provider_sessions
   ), '[]'::jsonb),
-  'roleMappings', COALESCE((
-    SELECT jsonb_agg(
-      jsonb_build_object('userId', user_id, 'roleId', role_id)
-      ORDER BY user_id, role_id
-    )
-    FROM user_role_mapping
-  ), '[]'::jsonb),
-  'credentials', COALESCE((
+  'adminReceipts', COALESCE((
     SELECT jsonb_agg(
       jsonb_build_object(
-        'id', id,
-        'userId', user_id,
-        'type', type,
-        'priority', priority,
-        'createdDate', created_date,
-        'secretFingerprint', md5(COALESCE(secret_data, '')),
-        'credentialFingerprint', md5(COALESCE(credential_data, ''))
-      )
-      ORDER BY user_id, type, id
-    )
-    FROM credential
-  ), '[]'::jsonb),
-  'totpEnrollmentCount', (
-    SELECT COUNT(*) FROM credential WHERE lower(type) = 'otp'
-  ),
-  'requiredActions', COALESCE((
-    SELECT jsonb_agg(
-      jsonb_build_object('userId', user_id, 'action', required_action)
-      ORDER BY user_id, required_action
-    )
-    FROM user_required_action
-  ), '[]'::jsonb),
-  'provisionedUsers', COALESCE((
-    SELECT jsonb_agg(
-      jsonb_build_object('id', id, 'username', username)
-      ORDER BY id
-    )
-    FROM user_entity
-    WHERE service_account_client_link IS NULL
+        'operationId', operation_id,
+        'operationKind', operation_kind,
+        'state', state,
+        'responseStatus', response_status
+      ) ORDER BY operation_id
+    ) FROM auth_identity.provider_admin_operation_receipts
   ), '[]'::jsonb)
 )::text;
 SQL
@@ -109,13 +111,12 @@ jq -cn \
       recoveryPointId: $recoveryPointId,
       generatedAt: $generatedAt,
       sha256: $sha256,
-      users: ($state.users | length),
-      roles: ($state.roles | length),
-      roleMappings: ($state.roleMappings | length),
-      credentials: ($state.credentials | length),
-      totpEnrollmentCount: $state.totpEnrollmentCount,
-      requiredActions: ($state.requiredActions | length),
-      provisionedUsers: ($state.provisionedUsers | length),
+      accounts: ($state.accounts | length),
+      identifiers: ($state.identifiers | length),
+      authorities: ($state.authorities | length),
+      mfaFactors: ($state.mfaFactors | length),
+      sessions: ($state.sessions | length),
+      adminReceipts: ($state.adminReceipts | length),
       state: $state
     }
   }'

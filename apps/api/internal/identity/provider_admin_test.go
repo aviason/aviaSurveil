@@ -3,9 +3,9 @@ package identity
 import "testing"
 
 func TestProviderAdminBoundaryIsProviderNeutral(t *testing.T) {
-	var client ProviderAdmin = (*KeycloakAdminClient)(nil)
+	var client ProviderAdmin = (*FirstPartyAdminClient)(nil)
 	if client == nil {
-		t.Fatal("Keycloak baseline adapter must satisfy the provider-neutral boundary")
+		t.Fatal("first-party adapter must satisfy the provider-neutral boundary")
 	}
-	var _ ProviderAdmin = (*KeycloakAdminClient)(nil)
+	var _ ProviderAdmin = (*FirstPartyAdminClient)(nil)
 }

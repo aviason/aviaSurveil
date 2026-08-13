@@ -817,7 +817,7 @@ describe("Admin secondary workspaces", () => {
     expect(page).toHaveTextContent(/Admin configuration preview.*not Inspector execution/i);
   });
 
-  it("keeps Reports local-only, Users exact-scoped, and Plan 3 Keycloak provisioning visibly disabled", async () => {
+  it("keeps Reports local-only, Users exact-scoped, and provider provisioning visibly disabled", async () => {
     const runtime = createMockBackendRuntime();
     const capability = requireAdminWorkspace(runtime);
     expect((await capability.listReportDefinitions({ search: "package" })).items).toEqual([expect.objectContaining({ id: "ADMIN-RPT-PACKAGE-001", packageFields: expect.arrayContaining(["packageId", "auditId", "organizationId"]) })]);
@@ -828,7 +828,7 @@ describe("Admin secondary workspaces", () => {
     const disabled = within(page).getAllByRole("button", { name: /unavailable/ });
     expect(disabled.length).toBeGreaterThan(0);
     expect(disabled.every((button) => button.hasAttribute("disabled"))).toBe(true);
-    expect(page).toHaveTextContent(/Plan 3 Keycloak administration/);
+    expect(page).toHaveTextContent(/configured identity-provider administration/);
   });
 
   it("separates demo Configurations from production integrations and keeps advisory-only lifecycle language", async () => {

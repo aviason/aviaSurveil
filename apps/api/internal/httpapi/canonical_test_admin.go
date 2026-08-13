@@ -55,7 +55,26 @@ func (admin *CanonicalTestAdmin) reset(
 			return
 		}
 	}
-	if err := testprofile.Reset(
+	fixture := request.URL.Query().Get("fixture")
+	if fixture == "" {
+		fixture = "canonical"
+	}
+	reset := testprofile.Reset
+	switch fixture {
+	case "canonical":
+	case "coordination":
+		reset = testprofile.ResetCoordination
+	default:
+		writeProblem(
+			writer,
+			http.StatusBadRequest,
+			"Invalid test fixture",
+			"fixture must be canonical or coordination",
+			"INVALID_TEST_FIXTURE",
+		)
+		return
+	}
+	if err := reset(
 		request.Context(),
 		admin.pool,
 		admin.clock().UTC(),

@@ -58,9 +58,9 @@ Alternatives considered:
    rejected.** It would couple security/platform lifecycles to domain code and
    prevent independent failure/restart/resource boundaries.
 3. **Modular Go monolith plus external platform services — selected.** It keeps
-   domain transactions and authorization coherent while allowing Keycloak,
-   ClamAV, SMTP, Gotenberg, object storage, and telemetry to operate through
-   replaceable adapters and separate processes.
+   domain transactions and authorization coherent while allowing first-party
+   OIDC, ClamAV, SMTP, Gotenberg, object storage, and telemetry to operate
+   through separate process boundaries.
 
 ### Application components
 
@@ -73,7 +73,7 @@ Alternatives considered:
 | API | Go 1.26 modular monolith, `chi`, generated OpenAPI types | Authentication boundary, authorization, validation, projections, commands, idempotency, and audit events |
 | Persistence | PostgreSQL 17, `pgx`, `sqlc`, forward-only migrations | Authoritative transactional state, append-only audit records, idempotency, change feed, and outbox |
 | Workers | Go commands from the same module | Outbox delivery, Evidence scanning, notifications, documents, and scheduled reminder work |
-| Identity | Keycloak with application-managed provisioning and TOTP MFA | Local production-like OIDC, roles, user lifecycle, session revocation, and MFA |
+| Identity | First-party Go OIDC with private administration and TOTP MFA | Local OIDC, exact authority revisions, user lifecycle, session revocation, recovery, and MFA |
 | Object storage | Private MinIO buckets | Immutable Evidence, Inspection Attachment delivery, generated report versions, quarantine, and backup artifacts |
 | Malware scanning | ClamAV `clamd` plus `freshclam` | Real local signature-based scan; fail closed before Evidence review or download |
 | Email | SMTP adapter with Mailpit locally | Observable local delivery of notification and reminder messages without an external provider |
@@ -81,7 +81,7 @@ Alternatives considered:
 | Local gateway | Caddy | Local HTTPS, static HTTP artifact, same-origin `/api` and `/auth` routing, security headers, and service isolation |
 | Secrets | Docker secrets for local runtime; SOPS + age for encrypted configuration; AWS Secrets Manager/SSM later | No committed plaintext runtime credentials |
 | Telemetry | OpenTelemetry Collector, Prometheus, Grafana, Loki, Tempo, Alertmanager | Metrics, logs, traces, dashboards, alert routing, and local operational exercises |
-| PostgreSQL backup | pgBackRest | Separate application and Keycloak database full/differential/incremental backups, identity/application fingerprints, retention, restore verification, and candidate RPO/RTO evidence |
+| PostgreSQL backup | pgBackRest | Separate application and first-party auth database full/differential/incremental backups, identity/application fingerprints, retention, and restore verification |
 | Object backup | MinIO versioning/object lock plus verified mirror to a logically isolated local backup store | Exact object/version recovery without treating versioning as the only backup; local same-host evidence is not host-loss recovery |
 | Local orchestration | Docker Compose profiles | `demo`, `full`, `test`, `observability`, and `recovery` execution lanes |
 | Future AWS trial | Terraform resource modules composed by Terragrunt | Repeatable VPC, load balancer, EC2 application runtime, RDS PostgreSQL, S3, ECR, KMS, Secrets Manager, telemetry, and backup resources after local acceptance; Terraform owns resources while Terragrunt owns environment composition and generated backend wiring |
@@ -104,7 +104,7 @@ the same audited draft interface and requires a separate governance decision.
 ### Request and event flow
 
 1. Caddy terminates local HTTPS and serves the HTTP React artifact.
-2. Keycloak completes OIDC; the Go BFF stores provider tokens server-side and
+2. The first-party provider completes OIDC; the Go BFF stores provider tokens server-side and
    issues the Secure, HttpOnly, SameSite application session.
 3. React calls only same-origin `/api` and `/auth` routes through `HttpBackend`.
 4. The API authorizes object and field scope before loading or mutating domain
@@ -124,7 +124,7 @@ The local system is accepted only when all 86 screens work in both demo and
 HTTP profiles, every visible action has a real mock and HTTP outcome, all
 required multi-role scenarios replay against PostgreSQL, the complete Compose
 stack starts from a clean machine, normal OIDC with MFA works, scan/email/PDF
-workers are observable, application and Keycloak database plus object
+workers are observable, application and first-party auth database plus object
 backup/restore and RPO/RTO drills pass, normal full mode exposes no test reset
 route, and no task-owned process or container is left behind.
 
@@ -144,5 +144,4 @@ separate owner approval gates.
 
 1. `docs/exec-plans/completed/2026-07-22-full-react-86-screen-migration-plan.md`
 2. `docs/exec-plans/completed/2026-07-22-full-backend-scenario-parity-plan.md`
-3. `docs/exec-plans/completed/2026-07-22-local-production-like-services-plan.md`
-4. `docs/exec-plans/completed/2026-07-22-reliability-dr-and-aws-terraform-terragrunt-plan.md`
+3. `docs/exec-plans/active/2026-08-11-first-party-go-oidc-auth-replacement-plan.md`

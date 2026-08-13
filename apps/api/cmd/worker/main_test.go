@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -129,27 +131,28 @@ func TestProcessAvailableInstrumentedLinksEachPersistedJob(t *testing.T) {
 	}
 }
 
-func TestNewKeycloakAdminClientRequiresProductionWorkerConfiguration(t *testing.T) {
-	t.Parallel()
-	if client, err := newKeycloakAdminClient(config.Settings{
+func TestNewIdentityAdminClientRequiresProductionWorkerConfiguration(t *testing.T) {
+	if client, err := newIdentityAdminClient(config.Settings{
 		Environment: "test",
 	}); err != nil || client != nil {
-		t.Fatalf("test worker Keycloak client = %v, err = %v", client, err)
+		t.Fatalf("test worker identity client = %v, err = %v", client, err)
 	}
-	if _, err := newKeycloakAdminClient(config.Settings{
+	if _, err := newIdentityAdminClient(config.Settings{
 		Environment: "production",
-	}); err == nil || !strings.Contains(err.Error(), "Keycloak") {
-		t.Fatalf("missing production Keycloak config error = %v", err)
+	}); err == nil || !strings.Contains(err.Error(), "first-party") {
+		t.Fatalf("missing production first-party config error = %v", err)
 	}
-	client, err := newKeycloakAdminClient(config.Settings{
-		Environment:                 "production",
-		KeycloakAdminURL:            "http://keycloak:8080/identity",
-		KeycloakRealm:               "aviasurveil360",
-		KeycloakServiceClientID:     "aviasurveil360-lifecycle",
-		KeycloakServiceClientSecret: "lifecycle-client-secret",
+	secretFile := filepath.Join(t.TempDir(), "admin-secret")
+	if err := os.WriteFile(secretFile, []byte("0123456789abcdef0123456789abcdef"), 0o400); err != nil {
+		t.Fatalf("write first-party admin secret: %v", err)
+	}
+	client, err := newIdentityAdminClient(config.Settings{
+		Environment:               "production",
+		FirstPartyAdminURL:        "http://auth:8081",
+		FirstPartyAdminSecretFile: secretFile,
 	})
 	if err != nil || client == nil {
-		t.Fatalf("production Keycloak client = %v, err = %v", client, err)
+		t.Fatalf("production first-party client = %v, err = %v", client, err)
 	}
 }
 

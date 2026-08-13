@@ -35,9 +35,10 @@ type AuthSessionManager interface {
 }
 
 type AuthBoundary struct {
-	provider     identity.OIDCProvider
-	sessions     AuthSessionManager
-	cookieSecure bool
+	provider             identity.OIDCProvider
+	sessions             AuthSessionManager
+	cookieSecure         bool
+	alwaysFreshAuthority bool
 }
 
 func NewAuthBoundary(provider identity.OIDCProvider, sessions AuthSessionManager) *AuthBoundary {
@@ -53,6 +54,13 @@ func NewAuthBoundaryWithCookieSecure(
 	cookieSecure bool,
 ) *AuthBoundary {
 	return &AuthBoundary{provider: provider, sessions: sessions, cookieSecure: cookieSecure}
+}
+
+// RequireFreshAuthorityOnEveryRequest is enabled only by the disposable
+// canonical first-party demo. It makes lifecycle changes observable on every
+// protected request instead of waiting for the normal heartbeat.
+func (boundary *AuthBoundary) RequireFreshAuthorityOnEveryRequest() {
+	boundary.alwaysFreshAuthority = true
 }
 
 func NewAuthHandler(provider identity.OIDCProvider, sessions AuthSessionManager) http.Handler {
@@ -152,6 +160,8 @@ func (boundary *AuthBoundary) callback(writer http.ResponseWriter, request *http
 		Email:          authenticated.Email,
 		OrganizationID: authenticated.OrganizationID, Roles: authenticated.Roles,
 		ProviderSessionID: authenticated.ProviderSessionID, ProviderTokens: authenticated.Tokens,
+		MembershipID: authenticated.MembershipID, MembershipRevision: authenticated.MembershipRevision,
+		AuthRevision: authenticated.AuthRevision,
 	})
 	if err != nil {
 		if errors.Is(err, session.ErrUnauthenticated) {
@@ -248,7 +258,7 @@ func (boundary *AuthBoundary) authenticate(writer http.ResponseWriter, request *
 		return identity.Principal{}, false
 	}
 	authenticationContext := request.Context()
-	if isMutation(request.Method) {
+	if isMutation(request.Method) || boundary.alwaysFreshAuthority {
 		authenticationContext = session.RequireFreshAuthorityObservation(
 			authenticationContext,
 		)

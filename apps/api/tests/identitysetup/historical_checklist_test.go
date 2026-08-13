@@ -5,6 +5,8 @@ package identitysetup_test
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -131,4 +133,13 @@ func TestGate0BootstrapHistoricalChecklistForFullProfile(t *testing.T) {
 	if approvalEvents != 0 {
 		t.Fatalf("historical checklist synthesized %d approval events", approvalEvents)
 	}
+}
+
+func requiredEnvironment(t *testing.T, name string) string {
+	t.Helper()
+	value := strings.TrimSpace(os.Getenv(name))
+	if value == "" {
+		t.Fatalf("%s is required", name)
+	}
+	return value
 }

@@ -155,26 +155,33 @@ func (store *Store) RegisterPublic(context.Context, InvitationInput) error {
 	return ErrPublicRegistrationDisabled
 }
 
-func (store *Store) SetEmailVerified(_ context.Context, subjectID string, expectedRevision uint64) (AccountSnapshot, error) {
+func (store *Store) SetEmailVerified(ctx context.Context, subjectID string, expectedRevision uint64) (AccountSnapshot, error) {
 	store.mu.Lock()
-	defer store.mu.Unlock()
 	record, ok := store.accounts[subjectID]
 	if !ok {
+		store.mu.Unlock()
 		return AccountSnapshot{}, ErrAccountNotFound
 	}
 	if record.authRevision != expectedRevision {
+		store.mu.Unlock()
 		return AccountSnapshot{}, ErrRevisionConflict
 	}
 	if record.state == AccountDeleted || record.state == AccountDeletionPending {
+		store.mu.Unlock()
 		return AccountSnapshot{}, ErrInvalidTransition
 	}
 	record.emailVerified = true
 	record.authRevision++
 	record.updatedAt = store.clock()
-	return record.snapshot(), nil
+	snapshot := record.snapshot()
+	store.mu.Unlock()
+	if err := store.revokeSessions(ctx, subjectID); err != nil {
+		return snapshot, err
+	}
+	return snapshot, nil
 }
 
-func (store *Store) Activate(_ context.Context, subjectID string, expectedRevision uint64, newPassword []byte) (AccountSnapshot, error) {
+func (store *Store) Activate(ctx context.Context, subjectID string, expectedRevision uint64, newPassword []byte) (AccountSnapshot, error) {
 	store.mu.Lock()
 	record, ok := store.accounts[subjectID]
 	if !ok {
@@ -200,7 +207,6 @@ func (store *Store) Activate(_ context.Context, subjectID string, expectedRevisi
 		return AccountSnapshot{}, err
 	}
 	store.mu.Lock()
-	defer store.mu.Unlock()
 	record, ok = store.accounts[subjectID]
 	if !ok {
 		return AccountSnapshot{}, ErrAccountNotFound
@@ -212,7 +218,12 @@ func (store *Store) Activate(_ context.Context, subjectID string, expectedRevisi
 	record.state = AccountActive
 	record.authRevision++
 	record.updatedAt = store.clock()
-	return record.snapshot(), nil
+	snapshot := record.snapshot()
+	store.mu.Unlock()
+	if err := store.revokeSessions(ctx, subjectID); err != nil {
+		return snapshot, err
+	}
+	return snapshot, nil
 }
 
 type AuthenticationRequest struct {

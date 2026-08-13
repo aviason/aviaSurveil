@@ -18,9 +18,8 @@ import (
 	"github.com/zitadel/oidc/v3/pkg/op"
 )
 
-// RuntimeCandidate is an isolated, durable provider surface. It is not wired
-// into cmd/auth until the candidate Compose topology provides its dedicated
-// PostgreSQL and Mailpit dependencies.
+// RuntimeCandidate is the isolated, durable provider surface used by the
+// canonical local-preprod topology.
 type RuntimeCandidate struct {
 	Handler  http.Handler
 	Provider *op.Provider
@@ -41,7 +40,7 @@ func NewRuntimeCandidate(configuration CandidateConfig, storage *PostgresStorage
 	if err := validateProviderConfig(configuration); err != nil {
 		return nil, err
 	}
-	providerConfig := &op.Config{CryptoKey: configuration.CryptoKey, CryptoKeyId: configuration.CryptoKeyID, DefaultLogoutRedirectURI: configuration.PostLogoutRedirectURI, CodeMethodS256: true, AuthMethodPost: false, AuthMethodPrivateKeyJWT: false, GrantTypeRefreshToken: true, RequestObjectSupported: false, SupportedScopes: []string{oidc.ScopeOpenID, oidc.ScopeProfile, oidc.ScopeEmail, oidc.ScopeOfflineAccess}}
+	providerConfig := &op.Config{CryptoKey: configuration.CryptoKey, CryptoKeyId: configuration.CryptoKeyID, DefaultLogoutRedirectURI: configuration.PostLogoutRedirectURI, CodeMethodS256: true, AuthMethodPost: false, AuthMethodPrivateKeyJWT: false, GrantTypeRefreshToken: false, RequestObjectSupported: false, SupportedScopes: []string{oidc.ScopeOpenID, oidc.ScopeProfile, oidc.ScopeEmail}}
 	options := []op.Option{}
 	if configuration.AllowInsecure {
 		options = append(options, op.WithAllowInsecure())
@@ -65,6 +64,7 @@ func NewRuntimeCandidate(configuration CandidateConfig, storage *PostgresStorage
 	mux.Handle("/authorize/callback", provider)
 	mux.HandleFunc("/login", runtime.login)
 	mux.HandleFunc("/mfa", runtime.mfaChallenge)
+	mux.HandleFunc("/activate", runtime.activate)
 	mux.HandleFunc("/recover/password", runtime.passwordRecovery)
 	mux.HandleFunc("/recover/mfa", runtime.mfaRecovery)
 	// The selected provider owns `/end_session`; this alias makes the local UI
@@ -94,7 +94,7 @@ func (runtime *runtimeLogin) mfaRecovery(writer http.ResponseWriter, request *ht
 
 func (runtime *runtimeLogin) recovery(writer http.ResponseWriter, request *http.Request, purpose challenge.Purpose) {
 	if request.Method == http.MethodGet && request.URL.Query().Get("token") == "" {
-		renderForm(writer, "Recover access", "", "email", "email", "", false, false)
+		renderForm(writer, "Recover access", "", "Email", "email", "", false, false)
 		return
 	}
 	if request.Method == http.MethodPost && request.URL.Query().Get("token") == "" {
@@ -139,7 +139,7 @@ func (runtime *runtimeLogin) issueRecovery(writer http.ResponseWriter, request *
 
 func (runtime *runtimeLogin) passwordReset(writer http.ResponseWriter, request *http.Request) {
 	if request.Method == http.MethodGet {
-		renderResetForm(writer, request, "Set a new password", "password")
+		renderResetForm(writer, request, "Set a new password", "New password")
 		return
 	}
 	if request.Method != http.MethodPost {
@@ -153,16 +153,34 @@ func (runtime *runtimeLogin) passwordReset(writer http.ResponseWriter, request *
 		return
 	}
 	subject, token, newPassword := strings.TrimSpace(request.Form.Get("subject")), strings.TrimSpace(request.Form.Get("token")), []byte(request.Form.Get("password"))
-	account, err := runtime.identity.Snapshot(request.Context(), subject)
-	if err != nil || runtime.challenges.Consume(request.Context(), subject, challenge.PurposePasswordReset, token) != nil {
-		http.Error(writer, "invalid recovery request", http.StatusBadRequest)
-		return
-	}
-	if _, err := runtime.identity.ResetPassword(request.Context(), subject, account.AuthRevision, newPassword); err != nil {
+	if _, err := runtime.identity.ResetPasswordWithChallenge(request.Context(), subject, string(challenge.PurposePasswordReset), token, newPassword); err != nil {
 		http.Error(writer, "password reset failed", http.StatusBadRequest)
 		return
 	}
-	http.Redirect(writer, request, "/login", http.StatusSeeOther)
+	http.Redirect(writer, request, runtime.loginPath(), http.StatusSeeOther)
+}
+
+func (runtime *runtimeLogin) activate(writer http.ResponseWriter, request *http.Request) {
+	if request.Method == http.MethodGet {
+		renderResetForm(writer, request, "Activate account", "New password")
+		return
+	}
+	if request.Method != http.MethodPost {
+		writer.Header().Set("Allow", "GET, POST")
+		http.Error(writer, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	request.Body = http.MaxBytesReader(writer, request.Body, 4<<10)
+	if err := request.ParseForm(); err != nil {
+		http.Error(writer, "invalid activation request", http.StatusBadRequest)
+		return
+	}
+	subject, token, newPassword := strings.TrimSpace(request.Form.Get("subject")), strings.TrimSpace(request.Form.Get("token")), []byte(request.Form.Get("password"))
+	if _, err := runtime.identity.ActivateWithInvitation(request.Context(), subject, token, newPassword); err != nil {
+		http.Error(writer, "activation failed", http.StatusBadRequest)
+		return
+	}
+	http.Redirect(writer, request, runtime.loginPath(), http.StatusSeeOther)
 }
 
 func (runtime *runtimeLogin) resetMFA(writer http.ResponseWriter, request *http.Request) {
@@ -181,11 +199,11 @@ func (runtime *runtimeLogin) resetMFA(writer http.ResponseWriter, request *http.
 		return
 	}
 	subject, token := strings.TrimSpace(request.Form.Get("subject")), strings.TrimSpace(request.Form.Get("token"))
-	if runtime.challenges.Consume(request.Context(), subject, challenge.PurposeMFARecovery, token) != nil || runtime.mfa.Reset(request.Context(), subject) != nil {
+	if runtime.mfa.ResetWithChallenge(request.Context(), subject, string(challenge.PurposeMFARecovery), token) != nil {
 		http.Error(writer, "invalid recovery request", http.StatusBadRequest)
 		return
 	}
-	http.Redirect(writer, request, "/login", http.StatusSeeOther)
+	http.Redirect(writer, request, runtime.loginPath(), http.StatusSeeOther)
 }
 
 func (runtime *runtimeLogin) logout(writer http.ResponseWriter, request *http.Request) {
@@ -194,7 +212,7 @@ func (runtime *runtimeLogin) logout(writer http.ResponseWriter, request *http.Re
 		http.Error(writer, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	http.Redirect(writer, request, "/end_session?"+request.URL.Query().Encode(), http.StatusFound)
+	http.Redirect(writer, request, providerEndpoint(runtime.issuer, "end_session")+"?"+request.URL.Query().Encode(), http.StatusFound)
 }
 
 func (runtime *runtimeLogin) login(writer http.ResponseWriter, request *http.Request) {
@@ -244,7 +262,7 @@ func (runtime *runtimeLogin) login(writer http.ResponseWriter, request *http.Req
 		http.Redirect(writer, request, "/mfa?id="+id, http.StatusFound)
 		return
 	}
-	runtime.complete(writer, request, id, result.Account.SubjectID)
+	runtime.complete(writer, request, id, result.Account.SubjectID, []string{"pwd"})
 }
 
 func (runtime *runtimeLogin) mfaChallenge(writer http.ResponseWriter, request *http.Request) {
@@ -268,8 +286,10 @@ func (runtime *runtimeLogin) mfaChallenge(writer http.ResponseWriter, request *h
 		http.Error(writer, "invalid MFA request", http.StatusBadRequest)
 		return
 	}
+	amr := []string{"pwd", "otp"}
 	if request.Form.Get("recovery") == "1" {
 		err = runtime.mfa.ConsumeRecoveryCode(request.Context(), auth.GetSubject(), code)
+		amr = []string{"pwd", "mfa"}
 	} else {
 		err = runtime.mfa.Verify(request.Context(), auth.GetSubject(), code)
 	}
@@ -277,32 +297,46 @@ func (runtime *runtimeLogin) mfaChallenge(writer http.ResponseWriter, request *h
 		runtime.mfaForm(writer, request, "invalid MFA code")
 		return
 	}
-	runtime.complete(writer, request, id, auth.GetSubject())
+	runtime.complete(writer, request, id, auth.GetSubject(), amr)
 }
 
-func (runtime *runtimeLogin) complete(writer http.ResponseWriter, request *http.Request, id, subject string) {
+func (runtime *runtimeLogin) complete(writer http.ResponseWriter, request *http.Request, id, subject string, amr []string) {
+	if len(amr) > 0 {
+		if err := runtime.storage.SetAuthenticatedAMR(request.Context(), id, amr); err != nil {
+			http.Error(writer, "authentication unavailable", http.StatusServiceUnavailable)
+			return
+		}
+	}
 	if err := runtime.storage.Authorize(request.Context(), id, subject); err != nil {
 		http.Error(writer, "authentication unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	callback := op.AuthCallbackURL(runtime.provider)(request.Context(), id)
+	callback := runtime.authCallbackURL(id)
 	http.Redirect(writer, request, callback, http.StatusFound)
 }
 
 func (runtime *runtimeLogin) loginForm(writer http.ResponseWriter, request *http.Request, message string) {
-	renderForm(writer, "Sign in", request.URL.Query().Get("id"), "identifier", "identifier", message, false, true)
+	renderForm(writer, "Sign in", request.URL.Query().Get("id"), "Username or email", "identifier", message, false, true)
+}
+
+func (runtime *runtimeLogin) loginPath() string {
+	return providerEndpoint(runtime.issuer, "login")
+}
+
+func (runtime *runtimeLogin) authCallbackURL(id string) string {
+	return providerEndpoint(runtime.issuer, "authorize/callback") + "?id=" + url.QueryEscape(id)
 }
 func (runtime *runtimeLogin) mfaForm(writer http.ResponseWriter, request *http.Request, message string) {
 	id := request.URL.Query().Get("id")
 	if id == "" {
 		id = request.Form.Get("id")
 	}
-	renderForm(writer, "Verify MFA", id, "code", "code", message, true, false)
+	renderForm(writer, "Verify MFA", id, "One-time code", "code", message, true, false)
 }
 
-var formTemplate = template.Must(template.New("form").Parse(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>{{.Title}}</title></head><body><main aria-labelledby="page-title"><h1 id="page-title">{{.Title}}</h1>{{if .Message}}<p role="alert">{{.Message}}</p>{{end}}<form method="post" autocomplete="off"><input type="hidden" name="id" value="{{.ID}}"><label>{{.Field}}<input name="{{.Name}}" required></label>{{if .Password}}<label>Password<input name="password" type="password" required></label>{{end}}{{if .MFA}}<label><input type="checkbox" name="recovery" value="1">Use recovery code</label>{{end}}<button type="submit">Continue</button></form></main></body></html>`))
+var formTemplate = template.Must(template.New("form").Parse(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>{{.Title}}</title></head><body><main aria-labelledby="page-title"><h1 id="page-title">{{.Title}}</h1>{{if .Message}}<p role="alert">{{.Message}}</p>{{end}}<form method="post" autocomplete="off"><input type="hidden" name="id" value="{{.ID}}"><label for="{{.Name}}">{{.Field}}</label><input id="{{.Name}}" name="{{.Name}}" required>{{if .Password}}<label for="password">Password</label><input id="password" name="password" type="password" required>{{end}}{{if .MFA}}<label for="recovery"><input id="recovery" type="checkbox" name="recovery" value="1">Use recovery code</label>{{end}}<button type="submit">Continue</button></form></main></body></html>`))
 
-var resetTemplate = template.Must(template.New("reset").Parse(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>{{.Title}}</title></head><body><main aria-labelledby="page-title"><h1 id="page-title">{{.Title}}</h1><form method="post" autocomplete="off"><input type="hidden" name="subject" value="{{.Subject}}"><input type="hidden" name="token" value="{{.Token}}">{{if .Field}}<label>{{.Field}}<input name="password" type="password" required></label>{{end}}<button type="submit">Continue</button></form></main></body></html>`))
+var resetTemplate = template.Must(template.New("reset").Parse(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>{{.Title}}</title></head><body><main aria-labelledby="page-title"><h1 id="page-title">{{.Title}}</h1><form method="post" autocomplete="off"><input type="hidden" name="subject" value="{{.Subject}}"><input type="hidden" name="token" value="{{.Token}}">{{if .Field}}<label for="password">{{.Field}}</label><input id="password" name="password" type="password" required>{{end}}<button type="submit">Continue</button></form></main></body></html>`))
 
 func renderForm(writer http.ResponseWriter, title, id, field, name, message string, isMFA, includePassword bool) {
 	writer.Header().Set("Content-Type", "text/html; charset=utf-8")

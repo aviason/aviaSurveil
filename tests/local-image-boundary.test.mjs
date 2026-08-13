@@ -14,12 +14,12 @@ const requiredFiles = [
   "apps/web/Dockerfile",
   "deploy/local/webserver/main.go",
   "apps/api/Dockerfile",
+  "apps/auth/Dockerfile",
   "deploy/local/gateway/Dockerfile",
   "deploy/local/gateway/Caddyfile",
   "deploy/local/gateway/security-headers.caddy",
   "deploy/local/api/entrypoint.sh",
   "deploy/local/worker/entrypoint.sh",
-  "deploy/local/scheduler/entrypoint.sh",
   "scripts/build-local-images.sh",
   "scripts/generate-image-sboms.sh",
   "scripts/scan-local-images.sh",
@@ -85,9 +85,9 @@ test("the existing HTTP artifact contains no mock, seed, or test-profile input",
   assert.doesNotMatch(inputs, /testprofile|test-profile/iu);
 });
 
-test("Go Dockerfile has reproducible api, worker, scheduler, and migration targets", () => {
+test("Go Dockerfile has reproducible api, worker, and migration targets", () => {
   const dockerfile = read("apps/api/Dockerfile");
-  for (const target of ["api", "worker", "scheduler", "migration"]) {
+  for (const target of ["api", "worker", "migration"]) {
     assert.match(dockerfile, new RegExp(`^FROM .+ AS ${target}$`, "mu"));
   }
   assert.match(dockerfile, /CGO_ENABLED=0/u);
@@ -107,7 +107,6 @@ test("runtime entrypoints read secret files without printing values and exec the
   for (const relativePath of [
     "deploy/local/api/entrypoint.sh",
     "deploy/local/worker/entrypoint.sh",
-    "deploy/local/scheduler/entrypoint.sh",
   ]) {
     const entrypoint = read(relativePath);
     assert.match(entrypoint, /^#!\/bin\/sh$/mu);
@@ -137,7 +136,8 @@ test("Caddy owns one HTTPS origin and exact same-origin upstream routes", () => 
   assert.match(caddyfile, /handle @test_routes/u);
   assert.match(caddyfile, /\brespond 404\b/u);
   assert.match(caddyfile, /\breverse_proxy api:8080\b/u);
-  assert.match(caddyfile, /\breverse_proxy keycloak:8080\b/u);
+  assert.match(caddyfile, /\bhandle_path \/identity\/\*/u);
+  assert.match(caddyfile, /\breverse_proxy preprod-auth:8080\b/u);
   assert.match(caddyfile, /\breverse_proxy web:8080\b/u);
   assert.doesNotMatch(caddyfile, /\brewrite @spa\b/u);
 
@@ -187,7 +187,6 @@ test("Compose maps each local runtime service to its reviewed build target", () 
     "web-http": "http",
     api: "api",
     worker: "worker",
-    scheduler: "scheduler",
     "fixture-init": "migration",
   };
   for (const [serviceName, expectedTarget] of Object.entries(targets)) {
@@ -238,7 +237,7 @@ test("every full-profile Go process uses production configuration without test b
     ),
   );
 
-  for (const serviceName of ["api", "worker", "scheduler"]) {
+  for (const serviceName of ["api", "worker"]) {
     const service = rendered.services[serviceName];
     assert.equal(
       service.environment.AVIA_ENVIRONMENT,

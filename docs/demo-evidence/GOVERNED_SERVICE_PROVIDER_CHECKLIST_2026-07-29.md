@@ -27,7 +27,7 @@ effects.
   manager technical-approval/publication commands, with console and document
   overflow failures treated as test failures.
 - The disposable local HTTP profile repeats the Task 9 canonical proof and the
-  same browser flow against PostgreSQL, Keycloak, and MinIO; current task-owned
+  same browser flow against PostgreSQL, the then-current local OIDC provider, and MinIO; current task-owned
   containers, Vite, Playwright, Chrome, and runtime directory were removed.
 - Migration recovery evidence remains in the version-20-to-21 integration
   suite: pre-data rollback is allowed, post-data rollback is refused, and

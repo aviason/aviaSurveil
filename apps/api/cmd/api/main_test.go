@@ -104,6 +104,26 @@ func TestCanonicalAGAExerciseProfileRequiresDedicatedLocalNamespace(t *testing.T
 	}
 }
 
+func TestCanonicalTestExerciseProfileRequiresExplicitDisposableFlags(t *testing.T) {
+	if !canonicalTestExerciseProfileEnabled(config.Settings{
+		Environment:          "test",
+		CanonicalSeed:        true,
+		CanonicalTestProfile: true,
+	}) {
+		t.Fatal("expected the explicit canonical test exercise profile to be enabled")
+	}
+	for _, settings := range []config.Settings{
+		{Environment: "test", CanonicalTestProfile: true},
+		{Environment: "test", CanonicalSeed: true},
+		{Environment: "local-preprod", CanonicalSeed: true, CanonicalTestProfile: true},
+		{Environment: "production", CanonicalSeed: true, CanonicalTestProfile: true},
+	} {
+		if canonicalTestExerciseProfileEnabled(settings) {
+			t.Fatalf("canonical test exercise profile enabled for unsafe settings: %+v", settings)
+		}
+	}
+}
+
 func TestRuntimeReadinessKeepsConfiguredUnavailableDependenciesNamed(t *testing.T) {
 	t.Parallel()
 

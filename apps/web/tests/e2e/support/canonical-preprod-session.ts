@@ -133,11 +133,13 @@ export async function loginQualificationAccount(
   recordQualificationPhase("login-gate-visible");
   await page.getByRole("button", { name: "Sign in with organization identity" }).click();
   recordQualificationPhase("provider-page-open");
-  await expect(page.locator("#username")).toBeVisible();
-  await expect(page.locator("#password")).toBeVisible();
-  await page.locator("#username").fill(username);
+  const identifier = page.getByLabel(/username or email/i);
+  const password = page.getByLabel(/^password$/i);
+  await expect(identifier).toBeVisible();
+  await expect(password).toBeVisible();
+  await identifier.fill(username);
   recordQualificationPhase("provider-username-filled");
-  await page.locator("#password").fill(
+  await password.fill(
     requiredEnvironment("AVIA_AGA_OIDC_PASSWORD"),
   );
   recordQualificationPhase("provider-password-filled");
@@ -173,7 +175,7 @@ export async function loginQualificationAccount(
     },
     { timeout: 10_000 },
   ).catch(() => undefined);
-  await page.locator("#kc-login").click();
+  await page.getByRole("button", { name: "Continue" }).click();
   recordQualificationPhase("provider-submit-complete");
   try {
     const webOrigin = new URL(requiredEnvironment("AVIA_E2E_BASE_URL")).origin;
@@ -181,8 +183,8 @@ export async function loginQualificationAccount(
   } catch (error) {
     const current = new URL(page.url());
     const webOrigin = new URL(requiredEnvironment("AVIA_E2E_BASE_URL")).origin;
-    if (current.hostname === requiredEnvironment("AVIA_PREPROD_OIDC_HOST")) {
-      const providerRejected = await page.locator(".alert-error, #input-error").count() > 0;
+    if (current.origin === webOrigin && current.pathname.startsWith("/identity/")) {
+      const providerRejected = await page.getByRole("alert").count() > 0;
       if (providerRejected) {
         recordQualificationPhase("oidc-provider-error");
       } else {

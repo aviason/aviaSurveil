@@ -28,4 +28,4 @@ unset database_password
 
 cd "$repository_root/apps/auth"
 GOTOOLCHAIN=local GOCACHE=/private/tmp/avia-auth-go-cache GOMODCACHE=/private/tmp/avia-auth-outbox-mod-cache \
-go test ./internal/identity ./internal/session ./internal/mail ./internal/mfa ./internal/challenge ./internal/provider ./migrations -run 'Test(PostgreSQL|IdentityMigration)' -count=1 -v
+go test -p 1 ./internal/identity ./internal/session ./internal/mail ./internal/mfa ./internal/challenge ./internal/provider ./migrations -run 'Test(PostgreSQL|IdentityMigration)' -count=1 -v

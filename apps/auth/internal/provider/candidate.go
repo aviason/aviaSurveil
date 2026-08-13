@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 	"sync"
 	"time"
@@ -25,9 +26,9 @@ var (
 	ErrProviderUnavailable = errors.New("provider storage unavailable")
 )
 
-// CandidateConfig is deliberately explicit. It is used by the isolated
-// protocol qualification harness; production wiring will supply the durable
-// identity/session adapters after the remaining tasks are complete.
+// CandidateConfig is deliberately explicit. The isolated protocol harness
+// and the canonical local-preprod runtime share the selected OIDC contract;
+// only the latter wires durable identity and session adapters.
 type CandidateConfig struct {
 	Issuer                string
 	AllowInsecure         bool
@@ -62,9 +63,9 @@ func NewCandidate(configuration CandidateConfig) (*Candidate, error) {
 		CodeMethodS256:           true,
 		AuthMethodPost:           false,
 		AuthMethodPrivateKeyJWT:  false,
-		GrantTypeRefreshToken:    true,
+		GrantTypeRefreshToken:    false,
 		RequestObjectSupported:   false,
-		SupportedScopes:          []string{oidc.ScopeOpenID, oidc.ScopeProfile, oidc.ScopeEmail, oidc.ScopeOfflineAccess},
+		SupportedScopes:          []string{oidc.ScopeOpenID, oidc.ScopeProfile, oidc.ScopeEmail},
 	}
 	options := []op.Option{}
 	if configuration.AllowInsecure {
@@ -187,7 +188,7 @@ func (client memoryClient) ResponseTypes() []oidc.ResponseType {
 	return []oidc.ResponseType{oidc.ResponseTypeCode}
 }
 func (client memoryClient) GrantTypes() []oidc.GrantType {
-	return []oidc.GrantType{oidc.GrantTypeCode, oidc.GrantTypeRefreshToken}
+	return []oidc.GrantType{oidc.GrantTypeCode}
 }
 func (client memoryClient) LoginURL(id string) string {
 	return client.loginURL + "?id=" + url.QueryEscape(id)
@@ -202,7 +203,7 @@ func (client memoryClient) RestrictAdditionalAccessTokenScopes() func([]string) 
 	return func(scopes []string) []string { return scopes }
 }
 func (client memoryClient) IsScopeAllowed(scope string) bool {
-	return scope == oidc.ScopeOpenID || scope == oidc.ScopeProfile || scope == oidc.ScopeEmail || scope == oidc.ScopeOfflineAccess
+	return scope == oidc.ScopeOpenID || scope == oidc.ScopeProfile || scope == oidc.ScopeEmail
 }
 func (client memoryClient) IDTokenUserinfoClaimsAssertion() bool { return true }
 func (client memoryClient) ClockSkew() time.Duration             { return 30 * time.Second }
@@ -220,11 +221,12 @@ type memoryAuthRequest struct {
 	subject       string
 	done          bool
 	authTime      time.Time
+	amr           []string
 }
 
 func (request *memoryAuthRequest) GetID() string          { return request.id }
 func (request *memoryAuthRequest) GetACR() string         { return "" }
-func (request *memoryAuthRequest) GetAMR() []string       { return []string{"pwd"} }
+func (request *memoryAuthRequest) GetAMR() []string       { return append([]string(nil), request.amr...) }
 func (request *memoryAuthRequest) GetAudience() []string  { return []string{request.clientID} }
 func (request *memoryAuthRequest) GetAuthTime() time.Time { return request.authTime }
 func (request *memoryAuthRequest) GetClientID() string    { return request.clientID }
@@ -282,7 +284,7 @@ func NewMemoryStorage(configuration CandidateConfig) *MemoryStorage {
 	client := &memoryClient{
 		id: configuration.ClientID, secret: configuration.ClientSecret,
 		redirectURI: configuration.RedirectURI, postLogoutRedirect: configuration.PostLogoutRedirectURI,
-		loginURL: "/login",
+		loginURL: providerEndpoint(configuration.Issuer, "login"),
 	}
 	return &MemoryStorage{
 		configuration: configuration,
@@ -293,6 +295,14 @@ func NewMemoryStorage(configuration CandidateConfig) *MemoryStorage {
 		refreshTokens: make(map[[32]byte]*memoryRefreshToken),
 		signingKey:    memorySigningKey{id: configuration.SigningKeyID, algorithm: jose.RS256, private: configuration.SigningKey},
 	}
+}
+
+func providerEndpoint(issuer, endpoint string) string {
+	parsed, err := url.Parse(issuer)
+	if err != nil {
+		return "/" + strings.TrimLeft(endpoint, "/")
+	}
+	return path.Join("/", parsed.Path, endpoint)
 }
 
 func (storage *MemoryStorage) Health(context.Context) error { return nil }
@@ -312,7 +322,7 @@ func (storage *MemoryStorage) CreateAuthRequest(_ context.Context, request *oidc
 		id: requestID, clientID: request.ClientID, redirectURI: request.RedirectURI,
 		state: request.State, nonce: request.Nonce, responseType: request.ResponseType,
 		responseMode: request.ResponseMode, scopes: append([]string(nil), request.Scopes...),
-		subject: storage.configuration.SubjectID, authTime: time.Now().UTC(),
+		subject: storage.configuration.SubjectID, authTime: time.Now().UTC(), amr: []string{"pwd"},
 	}
 	if request.CodeChallenge != "" {
 		copyRequest.codeChallenge = &oidc.CodeChallenge{Challenge: request.CodeChallenge, Method: request.CodeChallengeMethod}
@@ -374,60 +384,66 @@ func (storage *MemoryStorage) CreateAccessToken(_ context.Context, request op.To
 }
 
 func (storage *MemoryStorage) CreateAccessAndRefreshTokens(_ context.Context, request op.TokenRequest, currentRefreshToken string) (string, string, time.Time, error) {
-	clientID := ""
-	if clientRequest, ok := request.(interface{ GetClientID() string }); ok {
-		clientID = clientRequest.GetClientID()
-	}
-	if currentRefreshToken != "" {
-		hash := sha256.Sum256([]byte(currentRefreshToken))
+	return "", "", time.Time{}, oidc.ErrInvalidGrant()
+	/*
+		clientID := ""
+		if clientRequest, ok := request.(interface{ GetClientID() string }); ok {
+			clientID = clientRequest.GetClientID()
+		}
+		if currentRefreshToken != "" {
+			hash := sha256.Sum256([]byte(currentRefreshToken))
+			storage.mu.Lock()
+			previous, ok := storage.refreshTokens[hash]
+			if ok {
+				delete(storage.refreshTokens, hash)
+			}
+			storage.mu.Unlock()
+			if !ok || previous.subject != request.GetSubject() || previous.clientID != clientID {
+				return "", "", time.Time{}, oidc.ErrInvalidGrant()
+			}
+		}
+		accessID, expiry, err := storage.createAccessToken(request.GetSubject(), request.GetAudience(), request.GetScopes(), clientID)
+		if err != nil {
+			return "", "", time.Time{}, err
+		}
+		rawRefresh, err := randomProviderID("rt_")
+		if err != nil {
+			return "", "", time.Time{}, err
+		}
+		hash := sha256.Sum256([]byte(rawRefresh))
+		authTime := time.Now().UTC()
+		if authRequest, ok := request.(interface{ GetAuthTime() time.Time }); ok {
+			authTime = authRequest.GetAuthTime()
+		}
+		amr := []string{"pwd"}
+		if authRequest, ok := request.(interface{ GetAMR() []string }); ok {
+			amr = authRequest.GetAMR()
+		}
+		refresh := &memoryRefreshToken{
+			tokenHash: hash, accessID: accessID, clientID: clientID, subject: request.GetSubject(),
+			audience: request.GetAudience(), scopes: request.GetScopes(), authTime: authTime,
+			amr: amr, expiresAt: expiry.Add(30 * time.Minute),
+		}
 		storage.mu.Lock()
-		previous, ok := storage.refreshTokens[hash]
-		if ok {
-			delete(storage.refreshTokens, hash)
-		}
+		storage.refreshTokens[hash] = refresh
 		storage.mu.Unlock()
-		if !ok || previous.subject != request.GetSubject() || previous.clientID != clientID {
-			return "", "", time.Time{}, oidc.ErrInvalidGrant()
-		}
-	}
-	accessID, expiry, err := storage.createAccessToken(request.GetSubject(), request.GetAudience(), request.GetScopes(), clientID)
-	if err != nil {
-		return "", "", time.Time{}, err
-	}
-	rawRefresh, err := randomProviderID("rt_")
-	if err != nil {
-		return "", "", time.Time{}, err
-	}
-	hash := sha256.Sum256([]byte(rawRefresh))
-	authTime := time.Now().UTC()
-	if authRequest, ok := request.(interface{ GetAuthTime() time.Time }); ok {
-		authTime = authRequest.GetAuthTime()
-	}
-	amr := []string{"pwd"}
-	if authRequest, ok := request.(interface{ GetAMR() []string }); ok {
-		amr = authRequest.GetAMR()
-	}
-	refresh := &memoryRefreshToken{
-		tokenHash: hash, accessID: accessID, clientID: clientID, subject: request.GetSubject(),
-		audience: request.GetAudience(), scopes: request.GetScopes(), authTime: authTime,
-		amr: amr, expiresAt: expiry.Add(30 * time.Minute),
-	}
-	storage.mu.Lock()
-	storage.refreshTokens[hash] = refresh
-	storage.mu.Unlock()
-	return accessID, rawRefresh, expiry, nil
+		return accessID, rawRefresh, expiry, nil
+	*/
 }
 
 func (storage *MemoryStorage) TokenRequestByRefreshToken(_ context.Context, raw string) (op.RefreshTokenRequest, error) {
-	hash := sha256.Sum256([]byte(raw))
-	storage.mu.Lock()
-	defer storage.mu.Unlock()
-	refresh, ok := storage.refreshTokens[hash]
-	if !ok || !time.Now().Before(refresh.expiresAt) {
-		return nil, op.ErrInvalidRefreshToken
-	}
-	copyRefresh := *refresh
-	return &memoryRefreshRequest{memoryRefreshToken: &copyRefresh}, nil
+	return nil, op.ErrInvalidRefreshToken
+	/*
+		hash := sha256.Sum256([]byte(raw))
+		storage.mu.Lock()
+		defer storage.mu.Unlock()
+		refresh, ok := storage.refreshTokens[hash]
+		if !ok || !time.Now().Before(refresh.expiresAt) {
+			return nil, op.ErrInvalidRefreshToken
+		}
+		copyRefresh := *refresh
+		return &memoryRefreshRequest{memoryRefreshToken: &copyRefresh}, nil
+	*/
 }
 
 func (storage *MemoryStorage) TerminateSession(_ context.Context, subjectID, clientID string) error {
@@ -561,7 +577,6 @@ func (storage *MemoryStorage) Authorize(requestID string) error {
 	}
 	request.subject = storage.configuration.SubjectID
 	request.done = true
-	request.authTime = time.Now().UTC()
 	return nil
 }
 

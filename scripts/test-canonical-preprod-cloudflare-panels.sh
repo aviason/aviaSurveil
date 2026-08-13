@@ -31,7 +31,6 @@ public_origin="$(node -e '
       origin.pathname !== "/" || origin.search || origin.hash) process.exit(65);
   process.stdout.write(origin.origin);
 ' "$runtime_file")" || fail "runtime public origin is invalid"
-public_host="${public_origin#https://}"
 qualification_password="$(tr -d '\r\n' <"$password_file")"
 [[ -n "$qualification_password" ]] || fail "demo qualification password is empty"
 
@@ -48,7 +47,6 @@ trap cleanup EXIT
   cd "$repository_root/apps/web"
   AVIA_E2E_PROFILE=canonical-quick-tunnel \
   AVIA_E2E_BASE_URL="$public_origin" \
-  AVIA_PREPROD_OIDC_HOST="$public_host" \
   AVIA_AGA_OIDC_PASSWORD="$qualification_password" \
   AVIA_PLAYWRIGHT_OUTPUT_DIR="$output_root" \
     ./node_modules/.bin/playwright test \

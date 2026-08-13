@@ -3,8 +3,7 @@ set -eu
 
 # This runner creates every credential and certificate in a task-owned,
 # disposable directory. It intentionally starts only the isolated auth
-# candidate profile; it neither reads nor alters the normal profile or
-# Keycloak's serving topology.
+# candidate profile; it neither reads nor alters any other serving topology.
 repository_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 compose_file="$repository_root/deploy/local/auth/compose.auth-candidate.yaml"
 runtime_directory=$(mktemp -d /private/tmp/avia-auth-runtime.XXXXXX)
@@ -15,9 +14,15 @@ callback_port=${AVIA_AUTH_CANDIDATE_CALLBACK_PORT:-18082}
 browser_seed_image="avia-auth-candidate-browser-seed:local"
 
 cleanup() {
+	status=$?
+	trap - EXIT INT TERM
+	if [ "$status" -ne 0 ]; then
+		docker compose --project-name "$project_name" --file "$compose_file" --profile auth-candidate logs --no-color auth-candidate auth-postgres auth-mailpit >&2 || true
+	fi
   docker compose --project-name "$project_name" --file "$compose_file" --profile auth-candidate down --volumes --remove-orphans >/dev/null 2>&1 || true
   docker image rm --force "$browser_seed_image" >/dev/null 2>&1 || true
   rm -rf "$runtime_directory"
+	exit "$status"
 }
 trap cleanup EXIT INT TERM
 

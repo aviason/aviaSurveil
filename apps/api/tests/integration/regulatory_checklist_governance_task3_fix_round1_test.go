@@ -115,9 +115,10 @@ func TestTask3FixRound1RollbackRefusesAdoptedSeededSourceChildren(t *testing.T) 
 	}
 }
 
-// This catches historical-version coverage that checks CTV-CABIN-1 alone but
-// not the real immutable Audit package that remains pinned to it.
-func TestTask3FixRound1HistoricalCTVCabinAuditPackageBindingRemainsExact(t *testing.T) {
+// This catches historical-version coverage that checks the checklist template
+// alone but not the real immutable Audit package pinned to its released
+// canonical scope snapshot.
+func TestTask3FixRound1CanonicalCabinAuditPackageBindingRemainsExact(t *testing.T) {
 	pool := createTestDatabase(t, "task3r1_historical_binding")
 	if err := migrations.Apply(context.Background(), pool); err != nil {
 		t.Fatalf("apply migrations: %v", err)
@@ -125,13 +126,13 @@ func TestTask3FixRound1HistoricalCTVCabinAuditPackageBindingRemainsExact(t *test
 	if err := testprofile.Reset(context.Background(), pool, testprofile.CanonicalScenarioTime()); err != nil {
 		t.Fatalf("seed canonical historical profile: %v", err)
 	}
-	var inspectionID, templateVersionID, digest, snapshot string
+	var inspectionID, canonicalScopeSnapshotID, digest, snapshot string
 	var packageVersion int
-	if err := pool.QueryRow(context.Background(), `SELECT inspection_id, checklist_template_version_id, package_version, package_digest, snapshot::text FROM inspection_packages WHERE id = 'PKG-CAB-2026-001'`).Scan(&inspectionID, &templateVersionID, &packageVersion, &digest, &snapshot); err != nil {
-		t.Fatalf("read historical CTV Audit package binding: %v", err)
+	if err := pool.QueryRow(context.Background(), `SELECT inspection_id, canonical_scope_snapshot_id, package_version, package_digest, snapshot::text FROM inspection_packages WHERE id = 'PKG-CAB-2026-001'`).Scan(&inspectionID, &canonicalScopeSnapshotID, &packageVersion, &digest, &snapshot); err != nil {
+		t.Fatalf("read canonical Audit package binding: %v", err)
 	}
-	if inspectionID != "AUD-2026-001" || templateVersionID != "CTV-CABIN-1" || packageVersion != 1 || digest != "sha256:candidate-cabin-package-v1" || snapshot == "" {
-		t.Fatalf("historical CTV Audit package binding changed: %q/%q/%d/%q/%q", inspectionID, templateVersionID, packageVersion, digest, snapshot)
+	if inspectionID != "AUD-2026-001" || canonicalScopeSnapshotID != "scope-snapshot-package-001" || packageVersion != 1 || digest != "sha256:candidate-cabin-package-v1" || snapshot == "" {
+		t.Fatalf("canonical Audit package binding changed: %q/%q/%d/%q/%q", inspectionID, canonicalScopeSnapshotID, packageVersion, digest, snapshot)
 	}
 }
 

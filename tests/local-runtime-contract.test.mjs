@@ -45,7 +45,7 @@ function serviceBlock(service) {
 test("full runtime waits for one-shot migration and named required dependencies", () => {
   assert.match(compose, /^\s{2}migration:\s*$/m);
   assert.match(compose, /migration:\s*\n(?:.*\n)*?\s+condition: service_completed_successfully/m);
-  for (const service of ["api", "worker", "scheduler"]) {
+  for (const service of ["api", "worker"]) {
     assert.match(
       serviceBlock(service),
       /depends_on:[\s\S]*?migration:[\s\S]*?condition: service_completed_successfully/,
@@ -57,23 +57,22 @@ test("full runtime waits for one-shot migration and named required dependencies"
 
 test("full OIDC runtime separates public issuer from private discovery", () => {
   const api = serviceBlock("api");
-  const keycloak = serviceBlock("keycloak");
-  const scheduler = serviceBlock("scheduler");
+  const provider = serviceBlock("preprod-auth");
   assert.match(
     api,
-    /AVIA_OIDC_ISSUER_URL:\s+["']?https:\/\/localhost:\$\{AVIA_LOCAL_HTTPS_PORT:-8443\}\/identity\/realms\/aviasurveil360["']?/,
+    /AVIA_OIDC_ISSUER_URL:\s+["']?https:\/\/localhost:\$\{AVIA_LOCAL_HTTPS_PORT:-8443\}\/identity["']?/,
   );
   assert.match(
     api,
-    /AVIA_OIDC_DISCOVERY_URL:\s+http:\/\/keycloak:8080\/identity\/realms\/aviasurveil360/,
+    /AVIA_OIDC_DISCOVERY_URL:\s+http:\/\/preprod-auth:8080/,
   );
   assert.match(api, /AVIA_OIDC_DISCOVERY_PRIVATE_NETWORK:\s*["']true["']/);
-  assert.match(keycloak, /--hostname-backchannel-dynamic=true/);
-  assert.doesNotMatch(scheduler, /OIDC|oidc|session_encryption_key/);
+  assert.match(provider, /AVIA_AUTH_ADMIN_HTTP_ADDRESS:\s+0\.0\.0\.0:8081/u);
+  assert.doesNotMatch(provider, /ports:/u);
 
-  const initializer = read("scripts/init-local-secrets.sh");
-  assert.match(initializer, /AVIA_LOCAL_HTTPS_PORT/);
-  assert.match(initializer, /--public-origin/);
+  const initializer = read("scripts/init-local-preprod-namespace.sh");
+  assert.match(initializer, /preprod_auth_signing_key/u);
+  assert.match(initializer, /preprod_auth_admin_secret/u);
 });
 
 test("runtime services declare bounded shutdown, restart, resources, and process limits", () => {
@@ -86,10 +85,10 @@ test("runtime services declare bounded shutdown, restart, resources, and process
     "web-http",
     "api",
     "worker",
-    "scheduler",
     "postgres",
-    "keycloak-postgres",
-    "keycloak",
+    "preprod-auth-postgres",
+    "preprod-auth-mailpit",
+    "preprod-auth",
     "minio",
     "clamav",
     "mailpit",
@@ -125,7 +124,7 @@ test("runtime checker covers failure, leakage, isolation, and residue contracts"
   const script = read("scripts/check-local-runtime.sh");
   for (const required of [
     "postgres",
-    "keycloak",
+    "preprod-auth",
     "minio",
     "clamav",
     "gotenberg",
@@ -164,8 +163,8 @@ test("runtime checker covers failure, leakage, isolation, and residue contracts"
   );
   assert.match(
     script,
-    /assert_service_networks mailpit "identity platform"/u,
-    "runtime checker must preserve Mailpit's exact Keycloak identity and worker platform reachability",
+    /assert_service_networks preprod-auth "identity preprod-identity preprod-identity-database"/u,
+    "runtime checker must preserve the provider's exact private network reachability",
   );
 });
 

@@ -427,7 +427,7 @@ export function UsersRolesPage() {
       title="Users / Roles"
       description={
         isHttp
-          ? "Application-authorized Keycloak directory and reasoned account lifecycle controls."
+          ? "Application-authorized identity directory and reasoned account lifecycle controls."
           : "Typed demo access directory. Production identity and account administration remain outside the demo profile."
       }
       action={
@@ -583,7 +583,7 @@ export function UsersRolesPage() {
             <div><dt>Provider acknowledgement</dt><dd>{lifecycle.providerAcknowledgedAt ? formatInstant(lifecycle.providerAcknowledgedAt) : "Pending"}</dd></div>
             <div><dt>Attempts</dt><dd>{lifecycle.attemptCount}</dd></div>
           </dl>
-          <p>TOTP MFA is optional and self-enrolled in Keycloak.</p>
+          <p>TOTP MFA is optional and self-enrolled with the configured identity provider.</p>
           <button
             disabled={busy}
             onClick={() => void refreshLifecycle()}
@@ -634,7 +634,7 @@ export function UsersRolesPage() {
       >
         {directory.data?.items.map((entry) => {
           const demoReason =
-            `${entry.subjectId} account provisioning and role changes are production-only and require Plan 3 Keycloak administration.`;
+            `${entry.subjectId} account provisioning and role changes are production-only and require configured identity-provider administration.`;
           return (
             <article
               aria-label={`${entry.displayName} ${entry.subjectId}`}
@@ -726,7 +726,7 @@ export function UsersRolesPage() {
       {!isHttp ? (
         <DisabledAdminAction
           label="Create user"
-          reason="User creation is production-only and requires Plan 3 Keycloak administration."
+        reason="User creation is production-only and requires configured identity-provider administration."
         />
       ) : null}
 

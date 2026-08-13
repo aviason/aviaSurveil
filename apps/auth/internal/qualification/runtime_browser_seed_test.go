@@ -69,15 +69,16 @@ func TestRuntimeBrowserSeed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, _, err := identities.ProvisionInvitation(ctx, identity.InvitationInput{Email: "browser-candidate@example.invalid", Username: "browsercandidate"})
+	account, invitation, err := identities.ProvisionProviderInvitation(
+		ctx,
+		identity.InvitationInput{Email: "browser-candidate@example.invalid", Username: "browsercandidate"},
+		identity.ProviderProfileInput{DisplayName: "Browser Candidate", GivenName: "Browser", FamilyName: "Candidate"},
+		identity.ProviderAuthorityInput{MembershipID: "membership-browser-candidate", OrganizationID: "CAA", Role: "inspector", ExpectedRevision: 0, ResultingRevision: 1},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err = identities.SetEmailVerified(ctx, account.SubjectID, account.AuthRevision)
-	if err != nil {
-		t.Fatal(err)
-	}
-	account, err = identities.Activate(ctx, account.SubjectID, account.AuthRevision, []byte(strings.TrimSpace(string(accountPassword))))
+	account, err = identities.ActivateWithInvitation(ctx, account.SubjectID, invitation.Token, []byte(strings.TrimSpace(string(accountPassword))))
 	if err != nil {
 		t.Fatal(err)
 	}

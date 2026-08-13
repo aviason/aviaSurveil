@@ -10,12 +10,12 @@ database:
   user: aviasurveil360
   passwordFile: /run/secrets/app_database_password
 identity:
-  issuer: https://localhost:8443/identity/realms/aviasurveil360
-  internalIssuer: http://keycloak:8080/identity/realms/aviasurveil360
-  clientId: aviasurveil360-web
-  clientSecretFile: /run/secrets/oidc_client_secret
-  lifecycleClientId: aviasurveil360-lifecycle
-  lifecycleClientSecretFile: /run/secrets/keycloak_service_client_secret
+  issuer: https://localhost:8443/identity
+  internalIssuer: http://preprod-auth:8080
+  clientId: aviasurveil360-local-preprod-web
+  clientSecretFile: /run/secrets/preprod_oidc_client_secret
+  adminEndpoint: http://preprod-auth:8081
+  adminSecretFile: /run/secrets/preprod_auth_admin_secret
 session:
   encryptionKeyFile: /run/secrets/session_encryption_key
 objectStorage:

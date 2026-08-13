@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/MarlonJD/aviaSurveil360/apps/auth/internal/admin"
 	"github.com/MarlonJD/aviaSurveil360/apps/auth/internal/challenge"
 	"github.com/MarlonJD/aviaSurveil360/apps/auth/internal/config"
 	"github.com/MarlonJD/aviaSurveil360/apps/auth/internal/httpserver"
@@ -60,7 +61,15 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("initialize password hasher: %w", err)
 	}
-	limiter, err := throttle.NewPostgresLimiter(pool, time.Minute, 10, time.Now)
+	loginLimit := 10
+	if settings.Profile == "first-party-local-preprod" {
+		// The disposable qualification lifecycle intentionally signs the nine
+		// synthetic accounts in and out repeatedly. Keep normal profiles at the
+		// production-shaped limit while giving this isolated namespace enough
+		// room for its bounded, task-owned browser matrix.
+		loginLimit = 100
+	}
+	limiter, err := throttle.NewPostgresLimiter(pool, time.Minute, loginLimit, time.Now)
 	if err != nil {
 		return fmt.Errorf("initialize durable login limiter: %w", err)
 	}
@@ -98,6 +107,8 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	if err := storage.Bootstrap(ctx); err != nil {
 		return fmt.Errorf("bootstrap isolated OIDC material: %w", err)
 	}
+	identities.SetSessionRevoker(storage)
+	mfaStore.SetSessionRevoker(storage)
 	runtime, err := provider.NewRuntimeCandidate(candidateConfig, storage, provider.RuntimeDependencies{Identity: identities, MFA: mfaStore, Challenges: challenges, Outbox: outbox})
 	if err != nil {
 		return fmt.Errorf("initialize isolated OIDC runtime: %w", err)
@@ -112,7 +123,24 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		return sender.Probe(checkContext)
 	})
 	server.Ready()
+	var adminServer *httpserver.Server
+	if settings.AdminHTTPAddress != "" {
+		adminRuntime, adminErr := admin.NewServer(admin.Config{
+			Pool: pool, Secret: settings.AdminBearerSecret(), Issuer: settings.IssuerURL,
+			Identity: identities, MFA: mfaStore, Challenges: challenges, Outbox: outbox, Provider: storage,
+		})
+		if adminErr != nil {
+			return fmt.Errorf("initialize provider-admin server: %w", adminErr)
+		}
+		adminSettings := settings
+		adminSettings.HTTPAddress = settings.AdminHTTPAddress
+		adminServer = httpserver.NewWithRuntimeReadiness(adminSettings, logger, adminRuntime.Handler(), func(checkContext context.Context) error {
+			return storage.Health(checkContext)
+		})
+		adminServer.Ready()
+	}
 	go deliverOutbox(ctx, outbox, sender, logger)
+	go maintainProvider(ctx, storage, logger)
 	logger.Info("isolated auth candidate starting",
 		slog.String("service", "auth"),
 		slog.String("version", version),
@@ -128,6 +156,11 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	go func() {
 		serverErrors <- server.ListenAndServe()
 	}()
+	if adminServer != nil {
+		go func() {
+			serverErrors <- adminServer.ListenAndServe()
+		}()
+	}
 
 	select {
 	case <-ctx.Done():
@@ -136,12 +169,34 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		if shutdownErr := server.Shutdown(shutdownContext); shutdownErr != nil {
 			return fmt.Errorf("shutdown auth scaffold: %w", shutdownErr)
 		}
+		if adminServer != nil {
+			if shutdownErr := adminServer.Shutdown(shutdownContext); shutdownErr != nil {
+				return fmt.Errorf("shutdown provider-admin server: %w", shutdownErr)
+			}
+		}
 		return nil
 	case serverErr := <-serverErrors:
 		if errors.Is(serverErr, http.ErrServerClosed) {
 			return nil
 		}
 		return fmt.Errorf("listen on auth scaffold: %w", serverErr)
+	}
+}
+
+func maintainProvider(ctx context.Context, storage *provider.PostgresStorage, logger *slog.Logger) {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			cleanupContext, cancel := context.WithTimeout(ctx, 5*time.Second)
+			if _, err := storage.CleanupExpired(cleanupContext, 100); err != nil {
+				logger.Warn("provider authorization cleanup deferred", slog.String("error_class", "provider_cleanup_failure"))
+			}
+			cancel()
+		}
 	}
 }
 

@@ -135,7 +135,7 @@ run "ecr_is_immutable_encrypted_and_scan_on_push" {
       "api",
       "worker",
       "scheduler",
-      "keycloak",
+      "auth",
     ]
     kms_key_arn = "arn:aws:kms:eu-central-1:111122223333:key/11111111-2222-3333-4444-555555555555"
   }

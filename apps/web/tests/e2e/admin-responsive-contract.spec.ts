@@ -163,7 +163,7 @@ for (const viewport of viewports) {
     await expect(users).toContainText("USR-AUDITEE-FLY");
     await expect(users).toContainText("ORG-FLY-NAMIBIA");
     await expect(users).toContainText("Not configured in demo");
-    await expect(users.getByRole("button", { name: /Change role USR-AUDITEE-FLY unavailable.*Plan 3 Keycloak administration/ })).toBeDisabled();
+    await expect(users.getByRole("button", { name: /Change role USR-AUDITEE-FLY unavailable.*configured identity-provider administration/ })).toBeDisabled();
 
     await page.goto("/admin/configurations");
     const configurations = page.getByTestId("admin-configurations-page");

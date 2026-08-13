@@ -599,7 +599,7 @@ organizations, and enforcement deliberations.
 
 Covers `ui-audit-074`–`075`, `077`–`086`. Demo mutations create new immutable
 versions. Regulatory content is labelled configured reference, not legal advice.
-User provisioning is visibly demo-only until Plan 3 activates Keycloak admin.
+User provisioning is visibly demo-only until Plan 3 activates provider administration.
 
 - [x] Write 12 failing tests for list/detail/direct load, multiline questions,
   builder ordering, immutable publish/version history, user scope, organization
@@ -841,7 +841,7 @@ passage or production readiness.
 ## Out Of Scope
 
 - Real Go/PostgreSQL implementations for the new 69 routes.
-- Keycloak provisioning/MFA activation, ClamAV, Mailpit, Gotenberg, Caddy, and
+- Identity provisioning/MFA activation, ClamAV, Mailpit, Gotenberg, Caddy, and
   full Compose application runtime.
 - Monitoring, alarms, backup/DR, Terraform, Terragrunt, AWS, deployment, and
   production cutover.

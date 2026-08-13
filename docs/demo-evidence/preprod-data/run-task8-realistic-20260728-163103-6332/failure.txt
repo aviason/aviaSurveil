@@ -1,1 +1,0 @@
-Task 8 profile qualification failed with exit 1.

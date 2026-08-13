@@ -10,20 +10,22 @@ state, and Node smoke tests under `tests/`. The authorized first executable
 React application is under `apps/web/`; it uses TypeScript, Vite, build-time
 separated mock and HTTP entries, one capability-composed `Backend`, and a
 versioned OpenAPI contract under `api/openapi/`. The one-module Go API/worker is
-under `apps/api/`. Its local verification profile uses pinned PostgreSQL,
-Keycloak, MinIO, and a deterministic scanner adapter.
+under `apps/api/`. The separate first-party Go OIDC service is under
+`apps/auth/`. Maintained local verification profiles use pinned application
+and auth PostgreSQL, MinIO, authenticated Mailpit SMTP, and bounded scanner
+adapters.
 
-**Candidate-only / not production-ready:** the Go/PostgreSQL authority layer,
+**Candidate-only:** the Go/PostgreSQL authority layer,
 private bounded object upload, deterministic scan worker, full canonical HTTP
 scenario, PWA/readiness, atomic offline field repository/outbox, and
 manifest-first OPFS Inspection Attachment recovery, typed foreground sync,
 approved first-production route families, and the complete local
 release-candidate matrix are `verified locally`; they are not deployed
 production services. The local recommendation is `GO` for a `candidate-only`
-artifact whose release remains `release pending`. Production OIDC/MFA,
-production object store/scanner or Evidence records policy, deployment,
-cutover, and legacy removal remain `blocked`. The root demo remains the
-removal-blocking behavior oracle.
+artifact whose release remains `release pending`. First-party local OIDC/MFA
+is implemented, while remote deployment, traffic, production secrets, real
+identity migration, production object-store/scanner policy, and release
+approval are `not run`. The root demo remains the behavior oracle.
 
 ## Product definition
 
@@ -73,8 +75,9 @@ To manage the same local server in the background, use `make demo-up`,
 See `docs/demo-evidence/REACT_MOCK_SLICE_2026-07-20.md` for the exact verified
 scope, commands, transcript, and exclusions.
 
-For the disposable canonical API-backed preprod profile (PostgreSQL, Keycloak,
-Go API, HTTP React shell, and the 1,310-question exercise catalog):
+For the disposable canonical API-backed preprod profile (application and auth
+PostgreSQL, first-party Go OIDC, dedicated auth Mailpit, Go API, HTTP React
+shell, and the 1,310-question exercise catalog):
 
 ```bash
 make preprod-up
@@ -86,19 +89,7 @@ to check API/web health and the loaded catalog, and `make preprod-down` to
 remove the disposable containers, volumes, and temporary credentials. The
 obsolete AGA-only stakeholder runtime and its operator aliases were physically
 removed after donor-free qualification. This canonical profile remains
-`candidate-only`; it does not establish production readiness.
-
-For the separately gated AWS Single-AZ ARM64 private-pilot preparation, use
-only the offline contracts under `deploy/aws-private-pilot/` and
-`infra/terragrunt/environments/aws-private-pilot/`. Operator-side AWS tooling
-is fixed to the named profile `avia`; `default` is rejected, while EC2 runtime
-containers use only the instance profile. The active local target is an
-outbound-only IPv6 Cloudflare Tunnel to a loopback gateway on one private
-dual-stack `t4g.small`; it contains no ALB, NAT Gateway, public subnet, public
-IPv4, or runtime ingress rule. A recorded AWS read-only discovery wave does
-not authorize a provider-backed plan, AWS/Cloudflare mutation, deployment,
-release, or capacity claim. See
-`docs/operations/AWS_PRIVATE_PILOT_RUNTIME.md` and the active ExecPlan.
+`candidate-only`; release remains `release pending`.
 
 For an explicitly authorized public demo backed by this Mac, the named
 Cloudflare Tunnel profile targets `https://demo.aviasurveil.com` while keeping

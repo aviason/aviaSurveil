@@ -28,13 +28,15 @@ const callbackURL = "http://127.0.0.1:18082/callback";
 const discoveryResponse = await request(`${baseURL}/.well-known/openid-configuration`);
 if (!discoveryResponse.ok) throw new Error(`discovery status ${discoveryResponse.status}`);
 const discovery = await discoveryResponse.json();
+if (discovery.scopes_supported?.includes("offline_access")) throw new Error("discovery advertises disabled offline_access scope");
+if (discovery.grant_types_supported?.includes("refresh_token")) throw new Error("discovery advertises disabled refresh-token grant");
 
 async function authorize(index, expectedSuccess) {
   const verifier = `load-verifier-${index.toString().padStart(2, "0")}-012345678901234567890123456789`;
   const challenge = Buffer.from(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier))).toString("base64url");
   const authorizeURL = new URL(`${baseURL}/authorize`);
   const state = `load-state-${index}`;
-  authorizeURL.search = new URLSearchParams({ client_id: "as360-local-candidate-web", response_type: "code", response_mode: "query", scope: "openid profile email offline_access", redirect_uri: callbackURL, state, nonce: `load-nonce-${index}`, code_challenge: challenge, code_challenge_method: "S256" }).toString();
+  authorizeURL.search = new URLSearchParams({ client_id: "as360-local-candidate-web", response_type: "code", response_mode: "query", scope: "openid profile email", redirect_uri: callbackURL, state, nonce: `load-nonce-${index}`, code_challenge: challenge, code_challenge_method: "S256" }).toString();
   const authorizeResponse = await request(authorizeURL);
   if (authorizeResponse.status !== 302) throw new Error(`authorize ${index} status ${authorizeResponse.status}`);
   const loginURL = new URL(requiredLocation(authorizeResponse, `authorize ${index}`), baseURL);
@@ -61,7 +63,7 @@ async function authorize(index, expectedSuccess) {
   const tokenResponse = await request(discovery.token_endpoint, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", Authorization: `Basic ${Buffer.from(`as360-local-candidate-web:${clientSecret}`).toString("base64")}` }, body: new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: callbackURL, code_verifier: verifier }) });
   if (!tokenResponse.ok) throw new Error(`token ${index} status ${tokenResponse.status}`);
   const token = await tokenResponse.json();
-  if (!token.access_token || !token.id_token || !token.refresh_token) throw new Error(`token ${index} was incomplete`);
+  if (!token.access_token || !token.id_token || token.refresh_token) throw new Error(`token ${index} violated the no-refresh-token contract`);
 }
 
 function requiredLocation(response, stage) {

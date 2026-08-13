@@ -69,17 +69,6 @@ returned `0 exact matches`. The actual inventory begins with
 `FSS-AGA-FORM-002`; the user must discover and change the form filter before a
 useful preview is possible.
 
-### F-004 — Visible logout does not clear the identity-provider SSO
-
-**Severity:** high for multi-role demo handoff
-**Evidence:** verified locally
-
-After logging out through the visible browser control, starting another OIDC
-login reused the previous Keycloak identity. Attempting to switch from the
-Manager to the Inspector consequently returned `Not available for this role`
-instead of presenting the requested account. The qualification helper avoids
-this by explicitly clearing the browser cookie jar; the visible UI does not.
-
 ### F-005 — Reloading the package page reuses idempotency keys
 
 **Severity:** medium

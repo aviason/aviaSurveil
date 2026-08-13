@@ -1,12 +1,31 @@
 import { describe, expect, it } from "vitest";
 
-import { backendContract, FIXED_NOW, PRINCIPALS, type BackendContractHarness } from "./backend-contract";
+import {
+  backendContract,
+  FIXED_NOW,
+  PRINCIPALS,
+  type BackendContractFixture,
+  type BackendContractHarness,
+} from "./backend-contract";
 import type { DemoBackend } from "../../src/backend/backend";
 import { createMockBackend } from "../../src/mock/create-mock-backend";
 import { MemoryMockStore } from "../../src/mock/memory-mock-store";
 
-backendContract(async (): Promise<BackendContractHarness> => {
+backendContract(async (fixture: BackendContractFixture = "canonical"): Promise<BackendContractHarness> => {
   const store = MemoryMockStore.createCanonical({ clock: () => FIXED_NOW });
+  if (fixture === "coordination") {
+    store.execute("TEST-FIXTURE-COORDINATION", {}, (state) => {
+      const packageView = state.packages["PKG-CAB-2026-001"];
+      const assignment = state.assignments.find((candidate) => candidate.auditId === "AUD-2026-001");
+      if (!packageView || !assignment) {
+        throw new Error("Canonical coordination fixture is unavailable.");
+      }
+      packageView.checklistStatus = "NOT_STARTED";
+      assignment.status = "AWAITING_AUDITEE_CONFIRMATION";
+      assignment.nextAction = "Start inspection when ready";
+      return null;
+    });
+  }
   store.execute("TEST-FIXTURE-FINAL-REPORT-DM-REVIEW", {}, (state) => {
     const report = state.reportVersions["RPT-CAB-2026-001-V1"];
     if (!report) throw new Error("Canonical Final Report fixture is unavailable.");

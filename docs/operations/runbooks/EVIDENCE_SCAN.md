@@ -93,18 +93,3 @@ records-policy questions to Records/Legal.
 Manual requeue, scan-state mutation, quarantine release, Evidence deletion,
 retention change, scanner policy change, production object access, and any
 closure decision require new explicit authorization.
-
-## AWS Private-Pilot Managed Scan Boundary
-
-Production uses standalone GuardDuty Malware Protection for S3, not ClamAV.
-The worker records the upload bucket, key, version ID, ETag, SHA-256, and size;
-only an exact-version `NO_THREATS_FOUND` tag plus an exact byte-hash check can
-promote that version and mark it `CLEAN`. Missing, mismatched, unsupported,
-failed, access-denied, unknown, threat, or tampered results remain quarantined
-and non-reviewable. Runtime IAM cannot mutate scan tags or delete versions.
-
-`./scripts/test-aws-private-pilot-local-integrations.sh` retains real local
-MinIO/ClamAV clean, threat, lease, retry, and crash-recovery coverage without
-putting either service in production Compose. Any future AWS inspection uses
-the explicit operator profile `avia`; no AWS call or GuardDuty/S3 mutation is
-authorized here, so production scan evidence is `not run`.

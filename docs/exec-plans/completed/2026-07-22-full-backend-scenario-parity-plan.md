@@ -13,10 +13,10 @@ OpenAPI contract. Preserve module-owned tables, application-service
 coordination, same-origin session authority, transactional idempotency/audit/
 change/outbox writes, and typed `HttpBackend` mapping. New platform-facing work
 is queued through outbox adapters; Plan 3 supplies the production-like local
-Keycloak, ClamAV, Mailpit, Gotenberg, and gateway services.
+the then-current external OIDC provider, ClamAV, Mailpit, Gotenberg, and gateway services.
 
 **Tech Stack:** Go 1.26, `chi`, PostgreSQL 17, `pgx`, `sqlc`, OpenAPI 3.1,
-generated Go/TypeScript transport, React `HttpBackend`, Keycloak OIDC boundary,
+generated Go/TypeScript transport, React `HttpBackend`, external OIDC boundary,
 MinIO-compatible private storage, Vitest contracts, Go race/integration tests,
 and Playwright mock/HTTP transcript parity.
 
@@ -319,7 +319,7 @@ return closed projections while cross-organization IDs return indistinguishable
 not-found results before storage. User lifecycle requests persist `PENDING`
 provisioning jobs and invalidate target sessions for suspension/role changes;
 logout revocation is audited. Migration 10 backfills retained v9 subjects,
-tombstoned profiles cannot create new sessions, and the real pinned Keycloak
+tombstoned profiles cannot create new sessions, and the then-current pinned provider
 Authorization Code + PKCE test passed 1/1 under `-race`.
 
 The final focused PostgreSQL/session/HTTP command passed all eight selected
@@ -347,7 +347,7 @@ through focused RED → GREEN cycles. This review is not independent.
 Profiles and settings are application records keyed by stable session subject.
 Role membership is projected from the authenticated session; clients cannot
 assert roles. User provisioning commands persist requested lifecycle state and
-an outbox job; Plan 3 performs the real Keycloak Admin API call.
+an outbox job; Plan 3 performs the real provider-admin API call.
 
 - [x] Write failing tests for role/list/direct-ID authorization, user lifecycle
   request, profile/settings revisions, logout/revocation, Auditee own-org-only
@@ -537,7 +537,7 @@ an earlier CAP after resubmission, and an old CAP projection that remained
 GREEN and checkpoint review: the focused Potential Finding/Finding/CAP/Evidence
 domain plus full lifecycle selection passed under `-race`; the complete
 internal/migration/integration race matrix passed with only the separately
-fixture-owned pinned-Keycloak test explicitly excluded from that direct
+fixture-owned pinned-provider test explicitly excluded from that direct
 command. Upload/worker regressions passed, and the live deterministic worker
 processed two scan batches with exact scan outbox counts `pending=0` and
 `terminal=0`. Contract drift passed `15/15`, SQLC drift passed, focused
@@ -583,7 +583,7 @@ unsafe legacy snapshots.
 
 Focused report/document/worker integration selection passed under `-race`;
 the complete internal/migration/integration race matrix passed with only the
-separately fixture-owned pinned-Keycloak test explicitly excluded from that
+separately fixture-owned pinned-provider test explicitly excluded from that
 direct command. The final focused worker reset-race regression passed, and the
 complete shared live `HttpBackend` contract passed `17/17`. The focused live
 report transcript passed `1/1`; final live worker state was literally
@@ -679,7 +679,7 @@ or the root oracle.
 
 The final five-scenario Task 8 integration selection passed together under
 `-race`; the complete internal/migration/integration race matrix passed with
-only the separately script-owned pinned-Keycloak test explicitly excluded from
+only the separately script-owned pinned-provider test explicitly excluded from
 that direct command. Contract drift passed `15/15`; SQLC drift, `go vet`, and
 typecheck passed. Focused frontend transport and Mock contracts passed `34/34`
 across `2/2` files. The complete web suite passed `613/613` across `58/58`
@@ -1052,7 +1052,7 @@ zero skipped projects, and no task-owned residue.
 
 ## Out Of Scope
 
-- Real Keycloak Admin API provisioning, TOTP enrollment UI, ClamAV signatures,
+- Real provider-admin API provisioning, TOTP enrollment UI, ClamAV signatures,
   SMTP delivery, Gotenberg rendering, Caddy HTTPS, and consolidated Compose.
 - Production identity federation, external model provider, legal retention,
   enforcement case automation, deployment, Terraform, Terragrunt, or AWS.

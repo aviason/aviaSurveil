@@ -61,9 +61,9 @@ type ExactCopyRequest struct {
 	DestinationKey    string
 }
 
-// ExactVersionStore is deliberately separate from Store. Local MinIO callers
-// keep the existing stream-scanner contract; the AWS private-pilot worker must
-// explicitly require this stronger version/tag/copy boundary.
+// ExactVersionStore is deliberately separate from Store. Stream-scanner callers
+// keep the existing contract; exact-version workflows must explicitly require
+// this stronger version/tag/copy boundary.
 type ExactVersionStore interface {
 	OpenExact(context.Context, ExactObject) (io.ReadCloser, ObjectInfo, error)
 	ReadTagsExact(context.Context, ExactObject) (map[string]string, ObjectInfo, error)

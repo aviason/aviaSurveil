@@ -178,11 +178,11 @@ assert_exact_network_membership() {
   assert_service_networks web-http "frontend"
   assert_service_networks api "database frontend identity platform"
   assert_service_networks worker "database identity platform"
-  assert_service_networks scheduler "database"
   assert_service_networks migration "database"
   assert_service_networks postgres "database"
-  assert_service_networks keycloak-postgres "identity-database"
-  assert_service_networks keycloak "identity identity-database"
+  assert_service_networks preprod-auth-postgres "preprod-identity-database"
+  assert_service_networks preprod-auth-mailpit "preprod-identity"
+  assert_service_networks preprod-auth "identity preprod-identity preprod-identity-database"
   assert_service_networks minio "platform"
   assert_service_networks clamav "platform signature-updates"
   assert_service_networks mailpit "identity platform"
@@ -274,7 +274,7 @@ assert_liveness
 wait_for_readiness 200 ready
 
 if [[ "${AVIA_RUNTIME_FAILURE_MATRIX:-0}" == "1" ]]; then
-  for required in postgres keycloak minio clamav; do
+  for required in postgres preprod-auth minio clamav; do
     inject_dependency_failure "${required}" not_ready 503
   done
   for optional in gotenberg mailpit; do

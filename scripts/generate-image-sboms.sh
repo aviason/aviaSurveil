@@ -85,4 +85,4 @@ done
 
 mv -f -- "$manifest_next" "$manifest_path"
 chmod 0600 "$manifest_path"
-echo "Generated 9 digest-bound CycloneDX SBOMs."
+echo "Generated 8 digest-bound CycloneDX SBOMs."

@@ -8057,7 +8057,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Durable reasoned user lifecycle request accepted for Keycloak reconciliation */
+            /** @description Durable reasoned user lifecycle request accepted for provider reconciliation */
             202: {
                 headers: {
                     ETag: components["headers"]["ETag"];

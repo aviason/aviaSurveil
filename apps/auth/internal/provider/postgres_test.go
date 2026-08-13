@@ -100,18 +100,11 @@ func TestPostgreSQLStoragePersistsOIDCState(t *testing.T) {
 		t.Fatalf("durable authorization code = %+v/%v", loaded, err)
 	}
 	access, refresh, _, err := store.CreateAccessAndRefreshTokens(ctx, loaded, "")
-	if err != nil || access == "" || refresh == "" {
-		t.Fatalf("issue durable tokens = %q/%q/%v", access, refresh, err)
+	if !errors.Is(err, oidc.ErrInvalidGrant()) || access != "" || refresh != "" {
+		t.Fatalf("refresh-token issuance should be disabled = %q/%q/%v", access, refresh, err)
 	}
-	refreshRequest, err := store.TokenRequestByRefreshToken(ctx, refresh)
-	if err != nil || refreshRequest.GetSubject() != configuration.SubjectID {
-		t.Fatalf("load durable refresh = %+v/%v", refreshRequest, err)
-	}
-	if _, _, _, err := store.CreateAccessAndRefreshTokens(ctx, refreshRequest, refresh); err != nil {
-		t.Fatalf("rotate durable refresh: %v", err)
-	}
-	if _, err := store.TokenRequestByRefreshToken(ctx, refresh); !errors.Is(err, op.ErrInvalidRefreshToken) {
-		t.Fatalf("reused durable refresh = %v", err)
+	if _, err := store.TokenRequestByRefreshToken(ctx, "refresh-token-disabled"); !errors.Is(err, op.ErrInvalidRefreshToken) {
+		t.Fatalf("disabled refresh lookup = %v", err)
 	}
 	if _, err := store.SigningKey(ctx); err != nil {
 		t.Fatalf("load encrypted signing key: %v", err)
@@ -159,7 +152,7 @@ func TestPostgreSQLStoragePersistsOIDCState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	identities, err := identity.NewPostgresStore(pool, identity.Config{Hasher: hasher, PasswordPolicy: password.DefaultPolicy(), Limiter: limiter})
+	identities, err := identity.NewPostgresStore(pool, identity.Config{Hasher: hasher, PasswordPolicy: password.DefaultPolicy(), Limiter: limiter, Clock: func() time.Time { return now }})
 	if err != nil {
 		t.Fatal(err)
 	}

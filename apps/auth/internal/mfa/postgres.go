@@ -21,6 +21,7 @@ import (
 type PostgresStore struct {
 	pool                *pgxpool.Pool
 	key                 []byte
+	sessionRevoker      SessionRevoker
 	clock               Clock
 	period              time.Duration
 	window              int
@@ -36,10 +37,14 @@ func NewPostgresStore(pool *pgxpool.Pool, configuration Config) (*PostgresStore,
 		return nil, err
 	}
 	return &PostgresStore{
-		pool: pool, key: append([]byte(nil), configuration.EncryptionKey...), clock: configuration.Clock,
+		pool: pool, key: append([]byte(nil), configuration.EncryptionKey...), sessionRevoker: configuration.SessionRevoker, clock: configuration.Clock,
 		period: configuration.Period, window: configuration.Window, digits: configuration.Digits,
 		maxRecoveryFailures: configuration.MaxRecoveryFailures,
 	}, nil
+}
+
+func (store *PostgresStore) SetSessionRevoker(revoker SessionRevoker) {
+	store.sessionRevoker = revoker
 }
 
 func (store *PostgresStore) Enroll(ctx context.Context, subjectID, issuer, accountLabel string) (Enrollment, error) {
@@ -236,14 +241,73 @@ func (store *PostgresStore) ConsumeRecoveryCode(ctx context.Context, subjectID, 
 }
 
 func (store *PostgresStore) Reset(ctx context.Context, subjectID string) error {
-	command, err := store.pool.Exec(ctx, `DELETE FROM auth_identity.mfa_factors WHERE subject_id = $1`, subjectID)
+	tx, err := store.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin MFA reset: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	command, err := tx.Exec(ctx, `DELETE FROM auth_identity.mfa_factors WHERE subject_id = $1`, subjectID)
 	if err != nil {
 		return fmt.Errorf("reset MFA factor: %w", err)
 	}
 	if command.RowsAffected() != 1 {
 		return ErrFactorNotFound
 	}
+	if _, err := tx.Exec(ctx, `UPDATE auth_identity.accounts SET auth_revision = auth_revision + 1, updated_at = $2 WHERE subject_id = $1`, subjectID, store.clock().UTC()); err != nil {
+		return fmt.Errorf("advance MFA reset auth revision: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit MFA reset: %w", err)
+	}
+	if store.sessionRevoker != nil {
+		if err := store.sessionRevoker.RevokeAllSessions(ctx, subjectID); err != nil {
+			return fmt.Errorf("revoke provider sessions after MFA reset: %w", err)
+		}
+	}
 	return nil
+}
+
+// ResetAtAuthRevision makes the provider-admin MFA mutation conditional on
+// the account security revision observed by the caller.
+func (store *PostgresStore) ResetAtAuthRevision(ctx context.Context, subjectID string, expected uint64) (uint64, error) {
+	if expected < 1 {
+		return 0, ErrRevisionConflict
+	}
+	tx, err := store.pool.Begin(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("begin revisioned MFA reset: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var current uint64
+	if err := tx.QueryRow(ctx, `SELECT auth_revision FROM auth_identity.accounts WHERE subject_id = $1 FOR UPDATE`, subjectID).Scan(&current); errors.Is(err, pgx.ErrNoRows) {
+		return 0, ErrFactorNotFound
+	} else if err != nil {
+		return 0, fmt.Errorf("lock account for revisioned MFA reset: %w", err)
+	}
+	if current != expected {
+		return 0, ErrRevisionConflict
+	}
+	command, err := tx.Exec(ctx, `DELETE FROM auth_identity.mfa_factors WHERE subject_id = $1`, subjectID)
+	if err != nil {
+		return 0, fmt.Errorf("reset revisioned MFA factor: %w", err)
+	}
+	if command.RowsAffected() != 1 {
+		return 0, ErrFactorNotFound
+	}
+	resulting := expected + 1
+	now := store.clock().UTC()
+	if _, err := tx.Exec(ctx, `UPDATE auth_identity.accounts SET auth_revision = $2, updated_at = $3 WHERE subject_id = $1 AND auth_revision = $4`, subjectID, resulting, now, expected); err != nil {
+		return 0, fmt.Errorf("advance revisioned MFA auth revision: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("commit revisioned MFA reset: %w", err)
+	}
+	if store.sessionRevoker != nil {
+		if err := store.sessionRevoker.RevokeAllSessions(ctx, subjectID); err != nil {
+			return 0, fmt.Errorf("revoke provider sessions after revisioned MFA reset: %w", err)
+		}
+	}
+	return resulting, nil
 }
 
 func (store *PostgresStore) Snapshot(ctx context.Context, subjectID string) (Snapshot, error) {

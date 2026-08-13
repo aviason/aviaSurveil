@@ -297,7 +297,7 @@ func (api *CanonicalAPI) createReportVersion(
 	writeJSON(writer, http.StatusCreated, generated.ReportVersionView{
 		ReportVersionId: record.ReportVersionID, ReportId: record.ReportID,
 		OrganizationId: record.OrganizationID, AuditId: record.AuditID,
-		FindingIds:  append([]string(nil), record.FindingIDs...),
+		FindingIds:  append([]string{}, record.FindingIDs...),
 		ContentHash: record.ContentHash, Version: record.Version,
 		Status:   generated.ReportApprovalStatus(record.Status),
 		Revision: record.Revision, IssuedAt: record.IssuedAt,

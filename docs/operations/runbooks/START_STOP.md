@@ -172,7 +172,7 @@ task-owned disposable password. Never copy that password into documentation or
 reuse it outside this exact disposable namespace. `preprod-cloudflare-test-panels`
 runs isolated headless Chromium logins for all nine accounts with Service
 Workers enabled. Each context is reloaded under worker control before the test
-requires visible Keycloak username/password fields, verifies the public OIDC
+requires visible first-party provider username/password fields, verifies the public OIDC
 callback and `__Host-` Secure cookie pair, checks every role home,
 and exercises Department Manager Question Review plus New Audit through the
 1,310-question exact-selection review stage. It retains no screenshots, video,
@@ -268,7 +268,7 @@ loopback placeholder. It refuses to start the application unless public
 DNS resolves and `https://demo.aviasurveil.com` reaches that exact placeholder;
 this detects a missing hostname route or a dashboard origin that does not match
 `http://127.0.0.1:8086`. It then starts the canonical stack with the named HTTPS
-origin bound consistently into Keycloak issuer/callback URLs, API CORS, Secure
+origin bound consistently into first-party provider issuer/callback URLs, API CORS, Secure
 cookies, and signed-object URLs. Status verifies the exact hostname, Keychain
 reference, recorded process identity, local/public readiness, OIDC issuer, and
 nine synthetic identities.
@@ -279,38 +279,3 @@ Cloudflare dashboard/DNS configuration. The stable hostname will be unavailable
 until the profile is started again. Delete or rotate the Cloudflare credential
 from Cloudflare first if compromise is suspected; do not rely on stopping the
 local process alone.
-
-## AWS Private-Pilot Production Candidate
-
-The dedicated `deploy/aws-private-pilot/compose.yaml` surface is not a local
-replacement for `deploy/local`. The Task 8 target contains exactly gateway,
-API, consolidated worker, and Keycloak plus bounded database-bootstrap,
-migration, and Keycloak-bootstrap jobs. React assets are embedded in the
-gateway, reminders are worker-owned, and PDF rendering is native Go. Run only
-its offline contracts during local preparation:
-
-```bash
-./scripts/test-aws-private-pilot-compose.sh static
-./scripts/check-aws-private-pilot-infrastructure.sh
-./scripts/test-aws-private-pilot-release.sh
-```
-
-Systemd owns production render/start/health/drain/stop after a separately
-authorized release installs a `0600` manifest, runtime environment, reviewed
-RDS CA bundle, and secret-file references. The Compose unit starts first. A
-separate connector unit materializes the exact SSM SecureString into a
-connector-UID `0400` file, rejects the Terraform placeholder, and then runs the
-digest-bound ARM64 `cloudflared` container with IPv6 edge mode. A timer
-publishes `CloudflaredTunnelHAConnections`; fewer than four or missing metrics
-fails health. Authorized shutdown stops the health timer and Tunnel before
-draining workers and stopping Compose so no new browser traffic arrives.
-
-The gateway is fixed to `127.0.0.1:8080`; the EC2 security group has zero
-ingress. `cloudflared` is not a Compose service and its host-network use is the
-only approved exception. Do not start any of these units from this runbook.
-Every future operator-side AWS command and Terragrunt provider must select
-`avia` explicitly in `eu-central-1`; `default` or an omitted profile fails
-closed. EC2 containers do not use a named AWS profile and retain
-instance-profile access only. The recorded AWS read-only Task 7 wave does not
-authorize provider planning, token population, deployment, traffic, or
-external health; those remain `not run`.

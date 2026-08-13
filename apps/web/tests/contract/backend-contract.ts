@@ -18,7 +18,11 @@ export interface BackendContractHarness {
   backendFor(principal: BackendPrincipal): Backend;
 }
 
-export type BackendContractHarnessFactory = () => Promise<BackendContractHarness>;
+export type BackendContractFixture = "canonical" | "coordination";
+
+export type BackendContractHarnessFactory = (
+  fixture?: BackendContractFixture,
+) => Promise<BackendContractHarness>;
 
 function normalizeReleasedDocument(
   document: DocumentMetadataView,
@@ -84,8 +88,91 @@ export const PRINCIPALS = {
   },
 } as const satisfies Record<string, BackendPrincipal>;
 
+const CANONICAL_REPORT_CONTENT = {
+  schema: "avia.report-content/v1",
+  languageTag: "en",
+  title: "Canonical contract Preliminary Report",
+  executiveSummary: "Synthetic local contract qualification only.",
+  scope: "Disposable canonical contract scope.",
+  methodology: "Synthetic workflow execution through the canonical BFF.",
+  sections: [{
+    id: "qualification",
+    heading: "Qualification",
+    paragraphs: ["Synthetic local contract qualification only."],
+  }],
+  findings: [],
+  conclusion: "The synthetic preliminary workflow completed.",
+  recommendations: ["Retain this result as local contract evidence only."],
+} satisfies Record<string, unknown>;
+
+async function issueCanonicalPreliminaryReport(harness: BackendContractHarness): Promise<void> {
+  const lead = harness.backendFor(PRINCIPALS.leadInspector);
+  const packageView = await lead.inspections.getPackage({ packageId: "PKG-CAB-2026-001" });
+  for (const packageQuestion of packageView.questions) {
+    if (packageQuestion.currentResponse) continue;
+    const assignedSubjectId = packageQuestion.assignedInspectorUserIds[0];
+    const assignedPrincipal = assignedSubjectId === HTTP_CANONICAL_INSPECTOR_SUBJECT_ID ||
+      assignedSubjectId === PRINCIPALS.inspector.subjectId
+      ? PRINCIPALS.inspector
+      : assignedSubjectId === PRINCIPALS.otherInspector.subjectId
+        ? PRINCIPALS.otherInspector
+        : null;
+    if (!assignedPrincipal) throw new Error(`No canonical Inspector principal is assigned to ${packageQuestion.id}.`);
+    await harness.backendFor(assignedPrincipal).inspections.upsertChecklistResponse({
+      operationId: `OP-CANONICAL-PRELIMINARY-RESPONSE-${packageQuestion.id}`,
+      responseId: `RESP-CANONICAL-PRELIMINARY-${packageQuestion.id}`,
+      auditId: packageView.auditId,
+      questionId: packageQuestion.id,
+      expectedResponseRevision: null,
+      answer: "COMPLIANT",
+      comment: "",
+    });
+  }
+  const submitted = await harness.backendFor(PRINCIPALS.inspector).inspections.submitChecklist({
+    operationId: "OP-CANONICAL-PRELIMINARY-SUBMIT",
+    auditId: packageView.auditId,
+    expectedChecklistRevision: packageView.checklistRevision,
+  });
+  const preliminary = await lead.reports.create({
+    operationId: "OP-CANONICAL-PRELIMINARY-CREATE",
+    idempotencyKey: "IDEM-CANONICAL-PRELIMINARY-CREATE",
+    expectedRevision: null,
+    reportVersionId: "PR-CANONICAL-CONTRACT-V1",
+    reportId: "PR-CANONICAL-CONTRACT",
+    auditId: packageView.auditId,
+    kind: "PRELIMINARY",
+    version: 1,
+    status: "DEPARTMENT_REVIEW",
+    findingIds: [],
+    content: CANONICAL_REPORT_CONTENT,
+  });
+  const managerReview = await harness.backendFor(PRINCIPALS.manager).reports.decide({
+    operationId: "OP-CANONICAL-PRELIMINARY-MANAGER-FORWARD",
+    reportVersionId: preliminary.reportVersionId,
+    expectedReportVersionRevision: preliminary.revision,
+    decision: "FORWARD",
+    reason: "Forward the canonical Preliminary Report for GM review.",
+  });
+  const gmReview = await harness.backendFor(PRINCIPALS.gm).reports.decide({
+    operationId: "OP-CANONICAL-PRELIMINARY-GM-FORWARD",
+    reportVersionId: managerReview.reportVersionId,
+    expectedReportVersionRevision: managerReview.revision,
+    decision: "FORWARD",
+    reason: "Forward the canonical Preliminary Report for Executive Director review.",
+  });
+  await harness.backendFor(PRINCIPALS.executiveDirector).reports.decide({
+    operationId: "OP-CANONICAL-PRELIMINARY-ISSUE",
+    reportVersionId: gmReview.reportVersionId,
+    expectedReportVersionRevision: gmReview.revision,
+    decision: "ISSUE_AND_LOCK",
+    reason: "Issue the canonical Preliminary Report.",
+  });
+  expect(submitted.checklistStatus).toBe("SUBMITTED");
+}
+
 export async function createCanonicalFinding(
   harness: BackendContractHarness,
+  options: { capRequired?: boolean; evidenceRequired?: boolean } = {},
 ): Promise<FindingView> {
   const inspector = harness.backendFor(PRINCIPALS.inspector);
   const response = await inspector.inspections.upsertChecklistResponse({
@@ -108,6 +195,7 @@ export async function createCanonicalFinding(
     requiredComment: response.comment,
     inspectionAttachmentIds: [],
   });
+  await issueCanonicalPreliminaryReport(harness);
 
   const lead = harness.backendFor(PRINCIPALS.leadInspector);
   const converted = await lead.potentialFindings.decide({
@@ -116,8 +204,8 @@ export async function createCanonicalFinding(
     expectedPotentialFindingRevision: potential.revision,
     decision: "CONVERT",
     severity: "LEVEL_1_CRITICAL",
-    capRequired: true,
-    evidenceRequired: true,
+    capRequired: options.capRequired ?? true,
+    evidenceRequired: options.evidenceRequired ?? true,
     dueDate: "2026-07-15",
   });
   expect(converted.finding).not.toBeNull();
@@ -220,7 +308,7 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
     it("uses stable exact Audit/question scope and keeps another Inspector's question read-only", async () => {
       const harness = await createHarness();
       const inspector = harness.backendFor(PRINCIPALS.inspector);
-      const packageView = await inspector.inspections.getPackage({
+      const packageView = await harness.backendFor(PRINCIPALS.leadInspector).inspections.getPackage({
         packageId: "PKG-CAB-2026-001",
       });
       expect(packageView.auditId).toBe("AUD-2026-001");
@@ -338,6 +426,7 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
         requiredComment: response.comment,
         inspectionAttachmentIds: [],
       });
+      await issueCanonicalPreliminaryReport(harness);
       const converted = await harness.backendFor(PRINCIPALS.leadInspector).potentialFindings.decide({
         operationId: "OP-PF-CONVERT-EVIDENCE-ONLY-OBSERVATION",
         potentialFindingId: potential.id,
@@ -505,7 +594,7 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
 
     it("keeps authorized closure reason-required and separate from Evidence verification", async () => {
       const harness = await createHarness();
-      const finding = await createCanonicalFinding(harness);
+      const finding = await createCanonicalFinding(harness, { capRequired: false, evidenceRequired: false });
       await expect(
         harness.backendFor(PRINCIPALS.inspector).findings.authorizedClose({
           operationId: "OP-AUTH-CLOSE-WRONG-ROLE",
@@ -535,10 +624,31 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
 
     it("binds report decisions to versions and never closes an open Finding", async () => {
       const harness = await createHarness();
-      const finding = await createCanonicalFinding(harness);
       const manager = harness.backendFor(PRINCIPALS.manager);
       const gm = harness.backendFor(PRINCIPALS.gm);
       const executive = harness.backendFor(PRINCIPALS.executiveDirector);
+      const preliminary = await manager.reports.getVersion({ reportVersionId: "PR-2026-018-V1" });
+      const preliminaryManagerReview = await manager.reports.decide({
+        operationId: "OP-REPORT-PRELIMINARY-MANAGER-FORWARD",
+        reportVersionId: preliminary.reportVersionId,
+        expectedReportVersionRevision: preliminary.revision,
+        decision: "FORWARD",
+        reason: "Forward the exact Preliminary Report version to the General Manager.",
+      });
+      const preliminaryGMReview = await gm.reports.decide({
+        operationId: "OP-REPORT-PRELIMINARY-GM-FORWARD",
+        reportVersionId: preliminaryManagerReview.reportVersionId,
+        expectedReportVersionRevision: preliminaryManagerReview.revision,
+        decision: "FORWARD",
+        reason: "Forward the exact Preliminary Report version to the Executive Director.",
+      });
+      await executive.reports.decide({
+        operationId: "OP-REPORT-PRELIMINARY-ISSUE",
+        reportVersionId: preliminaryGMReview.reportVersionId,
+        expectedReportVersionRevision: preliminaryGMReview.revision,
+        decision: "ISSUE_AND_LOCK",
+        reason: "Issue the exact Preliminary Report version before the Final Report.",
+      });
       const before = await manager.reports.getVersion({ reportVersionId: "RPT-CAB-2026-001-V1" });
       const gmReview = await manager.reports.decide({
         operationId: "OP-REPORT-MANAGER-FORWARD",
@@ -563,6 +673,7 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
       });
       expect(issued.status).toBe("LOCKED");
       expect(issued.issuedAt).not.toBeNull();
+      const finding = await createCanonicalFinding(harness);
       expect((await executive.findings.get({ findingId: finding.id })).status).not.toBe("CLOSED");
 
       const auditee = harness.backendFor(PRINCIPALS.auditee);
@@ -592,14 +703,18 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
       })).toEqual(releasedReports.items[0]);
 
       let releasedDocuments = await auditee.documents!.list({});
-      for (let attempt = 0; attempt < 100; attempt += 1) {
-        const document = releasedDocuments.items.find(
-          ({ id }) => id === issued.reportVersionId,
-        );
-        if (
-          document?.downloadFileName &&
-          (auditee.mode === "mock" || document.renderStatus === "SUCCEEDED")
-        ) {
+      const expectedReportDocumentIds = [
+        issued.reportVersionId,
+        "PR-CANONICAL-CONTRACT-V1",
+        "PR-2026-018-V1",
+      ];
+      for (let attempt = 0; attempt < 400; attempt += 1) {
+        const renderedReportCount = expectedReportDocumentIds.filter((reportVersionId) => {
+          const document = releasedDocuments.items.find(({ id }) => id === reportVersionId);
+          return document?.downloadFileName &&
+            (auditee.mode === "mock" || document.renderStatus === "SUCCEEDED");
+        }).length;
+        if (renderedReportCount === expectedReportDocumentIds.length) {
           break;
         }
         await new Promise((resolve) => setTimeout(resolve, 50));
@@ -610,22 +725,46 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
         nextCursor: releasedDocuments.nextCursor,
       };
       expect(normalizedReleasedDocuments).toEqual({
-        items: [{
-          id: "RPT-CAB-2026-001-V1",
-          organizationId: "ORG-FLY-NAMIBIA",
-          title: "Report RPT-CAB-2026-001",
-          kind: "REPORT",
-          version: 1,
-          revision: 4,
-          createdAt: issued.issuedAt,
-          publicReviewResult: "RELEASED",
-          downloadFileName: "RPT-CAB-2026-001.pdf",
-        }],
+        items: [
+          {
+            id: "RPT-CAB-2026-001-V1",
+            organizationId: "ORG-FLY-NAMIBIA",
+            title: "Report RPT-CAB-2026-001",
+            kind: "REPORT",
+            version: 1,
+            revision: 4,
+            createdAt: issued.issuedAt,
+            publicReviewResult: "RELEASED",
+            downloadFileName: "RPT-CAB-2026-001.pdf",
+          },
+          {
+            id: "PR-CANONICAL-CONTRACT-V1",
+            organizationId: "ORG-FLY-NAMIBIA",
+            title: "Report PR-CANONICAL-CONTRACT",
+            kind: "REPORT",
+            version: 1,
+            revision: 4,
+            createdAt: issued.issuedAt,
+            publicReviewResult: "RELEASED",
+            downloadFileName: "PR-CANONICAL-CONTRACT.pdf",
+          },
+          {
+            id: "PR-2026-018-V1",
+            organizationId: "ORG-FLY-NAMIBIA",
+            title: "Report PR-2026-018",
+            kind: "REPORT",
+            version: 1,
+            revision: 4,
+            createdAt: issued.issuedAt,
+            publicReviewResult: "RELEASED",
+            downloadFileName: "PR-2026-018.pdf",
+          },
+        ],
         nextCursor: null,
       });
       expect(normalizeReleasedDocument(await auditee.documents!.open({
         documentId: issued.reportVersionId,
-      }))).toEqual(normalizedReleasedDocuments.items[0]);
+      }))).toEqual(normalizedReleasedDocuments.items.find((item) => item.id === issued.reportVersionId));
     });
 
     it("produces the same normalized communication, notification, and calendar transcript", async () => {
@@ -1098,6 +1237,8 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
           expectedPlanningRevision: initial.revision,
           decision: "APPROVE_BUDGET",
           reason: "Manager cannot approve the budget gate.",
+          expectedSubmittedScopeSnapshotId: initial.submittedScopeSnapshotId,
+          expectedPlanningSnapshotDigest: initial.planningSnapshotDigest,
         }),
       ).rejects.toThrow(/Finance/i);
 
@@ -1107,6 +1248,8 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
         expectedPlanningRevision: initial.revision,
         decision: "APPROVE_BUDGET",
         reason: "Budget envelope confirmed for the configured inspection.",
+        expectedSubmittedScopeSnapshotId: initial.submittedScopeSnapshotId,
+        expectedPlanningSnapshotDigest: initial.planningSnapshotDigest,
       });
       expect(budgetApproved).toMatchObject({
         status: "GM_REVIEW",
@@ -1121,6 +1264,8 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
         expectedPlanningRevision: budgetApproved.revision,
         decision: "FORWARD_FOR_FINAL_APPROVAL",
         reason: "Operational scope is ready for final approval.",
+        expectedSubmittedScopeSnapshotId: budgetApproved.submittedScopeSnapshotId,
+        expectedPlanningSnapshotDigest: budgetApproved.planningSnapshotDigest,
       });
       expect(forwarded).toMatchObject({
         status: "EXECUTIVE_DIRECTOR_REVIEW",
@@ -1135,6 +1280,8 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
         expectedPlanningRevision: forwarded.revision,
         decision: "APPROVE_PLAN",
         reason: "The annual surveillance item is approved for release.",
+        expectedSubmittedScopeSnapshotId: forwarded.submittedScopeSnapshotId,
+        expectedPlanningSnapshotDigest: forwarded.planningSnapshotDigest,
       });
       expect(approved).toMatchObject({
         status: "GM_RELEASE",
@@ -1148,6 +1295,8 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
         expectedPlanningRevision: approved.revision,
         decision: "RELEASE_PLAN",
         reason: "Release the approved item to department preparation.",
+        expectedSubmittedScopeSnapshotId: approved.submittedScopeSnapshotId,
+        expectedPlanningSnapshotDigest: approved.planningSnapshotDigest,
       });
       expect(released).toMatchObject({
         status: "RELEASED",
@@ -1161,6 +1310,8 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
           expectedPlanningRevision: 1,
           decision: "APPROVE_BUDGET",
           reason: "Stale replay must fail.",
+          expectedSubmittedScopeSnapshotId: initial.submittedScopeSnapshotId,
+          expectedPlanningSnapshotDigest: initial.planningSnapshotDigest,
         }),
       ).rejects.toThrow(/revision/i);
 
@@ -1188,7 +1339,7 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
     });
 
     it("produces the same normalized planning, team, and Auditee coordination transcript", async () => {
-      const harness = await createHarness();
+      const harness = await createHarness("coordination");
       const manager = harness.backendFor(PRINCIPALS.manager);
       if (!manager.planningIntake || !manager.teams) {
         throw new Error("Task 4 manager capabilities are unavailable.");
@@ -1216,7 +1367,7 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
         values: {
           organizationId: "ORG-FLY-NAMIBIA",
           organizationName: "Fly Namibia",
-          applicationType: "Continued Surveillance",
+          applicationType: "CABIN",
           domain: "Cabin Safety",
           inspectionCategory: "Routine / Announced",
           noticePolicy: "ADVANCE",
@@ -1226,8 +1377,19 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
           plannedDate: "2026-12-10",
           mode: "On-site",
           location: "Windhoek",
-          templateVersionId: "CTV-CABIN-1",
-          scope: "Cabin safety and emergency equipment.",
+          catalogVersion: "aga-canonical-test@1.0.0",
+          scopeDraftId: "scope-draft-PLAN-DRAFT-2026-001",
+          selectionDigest: "f641ef5b829ce8f686cec6df2a2f1576c64008a31d1031a28e44c022d7c6264d",
+          selectedQuestionVersionIds: [
+            "QV-CAB-GALLEY-001-V2",
+            "QV-CAB-LAV-001-V2",
+            "QV-CAB-PAX-SEAT-001-V2",
+            "QV-CAB-EMEQ-PBE-001-V2",
+            "QV-CAB-VID-CREW-SEAT-001-V2",
+            "QV-CAB-COCKPIT-GEN-001-V2",
+          ],
+          providerScopeId: "SCOPE-OPS-AOC-SOURCE-BOUND",
+          regulatedTargetId: "TARGET-OPS-AOC-SOURCE-BOUND",
           requestedBudget: 0,
           currency: "USD",
         },
@@ -1476,7 +1638,7 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
         answer: "COMPLIANT",
         comment: "",
       });
-      const completePackage = await inspector.inspections.getPackage({
+      const completePackage = await harness.backendFor(PRINCIPALS.leadInspector).inspections.getPackage({
         packageId: "PKG-CAB-2026-001",
       });
       for (const packageQuestion of completePackage.questions) {
@@ -1505,20 +1667,18 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
         auditId: "AUD-2026-001",
         expectedChecklistRevision: 1,
       });
-      const reopened = await harness.backendFor(PRINCIPALS.leadInspector)
-        .inspections.reopenChecklist({
-          operationId: "OP-TASK5-CONTRACT-REOPEN",
-          auditId: "AUD-2026-001",
-          expectedChecklistRevision: submitted.checklistRevision,
-          reason: "Continue exact configured sampling.",
-        });
+      await expect(harness.backendFor(PRINCIPALS.leadInspector).inspections.reopenChecklist({
+        operationId: "OP-TASK5-CONTRACT-REOPEN",
+        auditId: "AUD-2026-001",
+        expectedChecklistRevision: submitted.checklistRevision,
+        reason: "Continue exact configured sampling.",
+      })).rejects.toThrow(/cannot be reopened/i);
       transcript.push({
         event: "checklist.execution.completed",
         responseRevision: response.revision,
         submittedStatus: submitted.checklistStatus,
         submittedRevision: submitted.checklistRevision,
-        reopenedStatus: reopened.checklistStatus,
-        reopenedRevision: reopened.checklistRevision,
+        reopenStatus: "BLOCKED_AFTER_HISTORY",
       });
 
       expect(transcript).toEqual([
@@ -1621,8 +1781,7 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
           responseRevision: 1,
           submittedStatus: "SUBMITTED",
           submittedRevision: 2,
-          reopenedStatus: "IN_PROGRESS",
-          reopenedRevision: 3,
+          reopenStatus: "BLOCKED_AFTER_HISTORY",
         },
       ]);
     });

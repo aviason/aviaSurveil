@@ -190,7 +190,6 @@ compose_down() {
   AVIA_PREPROD_TRANSPORT=http \
   AVIA_PREPROD_HTTP_PORT="$http_port" \
   AVIA_PREPROD_WEB_ORIGIN="$public_origin" \
-  AVIA_PREPROD_KEYCLOAK_PUBLIC_ORIGIN="$public_origin" \
   AVIA_PREPROD_PUBLIC_HOST="$public_host" \
   AVIA_PREPROD_ORIGIN_SCHEME=https \
   AVIA_PREPROD_PUBLIC_TLS=true \

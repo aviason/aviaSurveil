@@ -1272,7 +1272,7 @@ func (service *Service) ListAuditeeCoordination(
 		return nil, ErrForbidden
 	}
 	rows, err := service.pool.Query(ctx, `
-		SELECT inspection.id, inspection.organization_id, organization.legal_name,
+		SELECT DISTINCT inspection.id, inspection.organization_id, organization.legal_name,
 		       inspection.title, draft.values->>'inspectionCategory',
 		       assignment.scheduled_start_date, assignment.status,
 		       NULLIF(draft.values->>'alternativeDate', ''), assignment.revision

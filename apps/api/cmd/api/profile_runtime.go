@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/administration"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/config"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
 	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/objectstore"
@@ -21,8 +22,9 @@ type runtimeProfile struct {
 		config.Settings,
 		time.Time,
 	) error
-	seed    func(context.Context, *database.Pool, time.Time) error
-	protect func(
+	seed              func(context.Context, *database.Pool, time.Time) error
+	directoryProvider administration.AccessDirectoryProvider
+	protect           func(
 		config.Settings,
 		http.Handler,
 		*database.Pool,

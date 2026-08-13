@@ -11,7 +11,7 @@ case "$profile" in
     required_images="gateway web-demo"
     ;;
   full)
-    required_images="gateway web-http keycloak api worker scheduler migration"
+    required_images="gateway web-http auth api worker migration"
     ;;
   recovery)
     required_images="postgres-recovery"

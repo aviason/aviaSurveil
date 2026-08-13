@@ -2,13 +2,8 @@ package integration_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
-	"os"
-	"slices"
-	"strings"
 	"testing"
 	"time"
 
@@ -243,7 +238,7 @@ func TestTask3ProviderFailuresAreBoundedAndClassified(t *testing.T) {
 		"task3.permanent@example.test",
 	)
 	permanentProvider := &lifecycleIdentityProvider{
-		provisionError: identity.ErrKeycloakPermanent,
+		provisionError: identity.ErrProviderPermanent,
 	}
 	permanentWorker := administration.NewUserLifecycleWorker(
 		pool,
@@ -259,7 +254,7 @@ func TestTask3ProviderFailuresAreBoundedAndClassified(t *testing.T) {
 		},
 	)
 	if processed, err := permanentWorker.ProcessNext(context.Background()); !processed ||
-		!errors.Is(err, identity.ErrKeycloakPermanent) {
+		!errors.Is(err, identity.ErrProviderPermanent) {
 		t.Fatalf("process permanent failure = %t, err = %v", processed, err)
 	}
 	assertTask3FailureState(
@@ -277,7 +272,7 @@ func TestTask3ProviderFailuresAreBoundedAndClassified(t *testing.T) {
 		"task3.retryable@example.test",
 	)
 	retryableProvider := &lifecycleIdentityProvider{
-		provisionError: identity.ErrKeycloakUnavailable,
+		provisionError: identity.ErrProviderUnavailable,
 	}
 	retryableWorker := administration.NewUserLifecycleWorker(
 		pool,
@@ -296,7 +291,7 @@ func TestTask3ProviderFailuresAreBoundedAndClassified(t *testing.T) {
 		},
 	)
 	if processed, err := retryableWorker.ProcessNext(context.Background()); !processed ||
-		!errors.Is(err, identity.ErrKeycloakUnavailable) {
+		!errors.Is(err, identity.ErrProviderUnavailable) {
 		t.Fatalf("process retryable failure = %t, err = %v", processed, err)
 	}
 	assertTask3FailureState(
@@ -310,10 +305,10 @@ func TestTask3ProviderFailuresAreBoundedAndClassified(t *testing.T) {
 	)
 	now = now.Add(time.Second)
 	processed, exhaustedErr := retryableWorker.ProcessNext(context.Background())
-	if !processed || !errors.Is(exhaustedErr, identity.ErrKeycloakUnavailable) {
+	if !processed || !errors.Is(exhaustedErr, identity.ErrProviderUnavailable) {
 		t.Fatalf("process exhausted retry = %t, err = %v", processed, exhaustedErr)
 	}
-	if exhaustedErr.Error() != identity.ErrKeycloakUnavailable.Error() {
+	if exhaustedErr.Error() != identity.ErrProviderUnavailable.Error() {
 		t.Fatalf("record exhausted retry: %v", exhaustedErr)
 	}
 	assertTask3FailureState(
@@ -423,7 +418,7 @@ func TestTask3DuplicateProviderSubjectRequiresManualReviewBeforeDelivery(
 		},
 	)
 	if processed, err := worker.ProcessNext(context.Background()); !processed ||
-		!errors.Is(err, identity.ErrKeycloakDuplicateSubject) {
+		!errors.Is(err, identity.ErrProviderDuplicateSubject) {
 		t.Fatalf("process duplicate provider subject = %t, err = %v", processed, err)
 	}
 	assertTask3FailureState(
@@ -482,152 +477,4 @@ func assertTask3FailureState(
 			alertCount,
 		)
 	}
-}
-
-func TestTask3KeycloakInvitationAllEightRoles(t *testing.T) {
-	baseURL := os.Getenv("AVIA_TEST_KEYCLOAK_ADMIN_URL")
-	clientSecret := os.Getenv("AVIA_TEST_KEYCLOAK_SERVICE_CLIENT_SECRET")
-	mailpitURL := os.Getenv("AVIA_TEST_MAILPIT_HTTP_URL")
-	if baseURL == "" || clientSecret == "" || mailpitURL == "" {
-		t.Skip("requires the Plan 5 Task 3 Keycloak/Mailpit harness")
-	}
-	client, err := identity.NewKeycloakAdminClient(identity.KeycloakAdminConfig{
-		BaseURL:      baseURL,
-		Realm:        os.Getenv("AVIA_TEST_KEYCLOAK_REALM"),
-		ClientID:     os.Getenv("AVIA_TEST_KEYCLOAK_SERVICE_CLIENT_ID"),
-		ClientSecret: clientSecret,
-		HTTPClient:   &http.Client{Timeout: 10 * time.Second},
-	})
-	if err != nil {
-		t.Fatalf("create Keycloak admin client: %v", err)
-	}
-	roles := []identity.Role{
-		identity.RoleInspector,
-		identity.RoleLeadInspector,
-		identity.RoleDepartmentManager,
-		identity.RoleGeneralManager,
-		identity.RoleFinance,
-		identity.RoleExecutiveDirector,
-		identity.RoleAuditee,
-		identity.RoleAdmin,
-	}
-	expectedEmails := make(map[string]bool, len(roles))
-	for index, role := range roles {
-		organizationID := "CAA"
-		if role == identity.RoleAuditee {
-			organizationID = "ORG-TASK3-AUDITEE"
-		}
-		email := fmt.Sprintf(
-			"task3.%02d.%s@example.test",
-			index+1,
-			strings.ToLower(string(role)),
-		)
-		subjectID, err := client.ProvisionUser(
-			context.Background(),
-			identity.KeycloakUser{
-				Email:          email,
-				FirstName:      "Task",
-				LastName:       fmt.Sprintf("Role %02d", index+1),
-				OrganizationID: organizationID,
-				Roles:          []identity.Role{role},
-			},
-		)
-		if err != nil {
-			t.Fatalf("provision %s: %v", role, err)
-		}
-		if err := client.IssueExecuteActionsEmail(
-			context.Background(),
-			subjectID,
-			[]string{"UPDATE_PASSWORD", "VERIFY_EMAIL"},
-			24*60*60,
-		); err != nil {
-			t.Fatalf("issue invitation for %s: %v", role, err)
-		}
-		page, err := client.ListDirectory(
-			context.Background(),
-			identity.KeycloakDirectoryQuery{
-				Search: email,
-				Limit:  5,
-			},
-		)
-		if err != nil {
-			t.Fatalf("read provider state for %s: %v", role, err)
-		}
-		if len(page.Users) != 1 ||
-			page.Users[0].SubjectID != subjectID ||
-			!slices.Equal(page.Users[0].Roles, []identity.Role{role}) ||
-			!sameTask3Strings(
-				page.Users[0].RequiredActions,
-				[]string{"UPDATE_PASSWORD", "VERIFY_EMAIL"},
-			) ||
-			page.Users[0].TOTPConfigured {
-			t.Fatalf("provider invitation state for %s = %+v", role, page.Users)
-		}
-		expectedEmails[email] = true
-	}
-	waitForTask3MailpitDeliveries(t, mailpitURL, expectedEmails)
-}
-
-func sameTask3Strings(left, right []string) bool {
-	if len(left) != len(right) {
-		return false
-	}
-	left = append([]string(nil), left...)
-	right = append([]string(nil), right...)
-	slices.Sort(left)
-	slices.Sort(right)
-	return slices.Equal(left, right)
-}
-
-func waitForTask3MailpitDeliveries(
-	t *testing.T,
-	mailpitURL string,
-	expectedEmails map[string]bool,
-) {
-	t.Helper()
-	client := &http.Client{Timeout: 5 * time.Second}
-	deadline := time.Now().Add(15 * time.Second)
-	lastMessageCount := 0
-	missing := make([]string, 0, len(expectedEmails))
-	for time.Now().Before(deadline) {
-		response, err := client.Get(mailpitURL + "/api/v1/messages?limit=50")
-		if err == nil && response.StatusCode == http.StatusOK {
-			var payload map[string]any
-			decodeErr := json.NewDecoder(response.Body).Decode(&payload)
-			response.Body.Close()
-			if decodeErr == nil {
-				rawMessages, _ := fieldFold(payload, "messages").([]any)
-				lastMessageCount = len(rawMessages)
-				allDelivered := len(rawMessages) >= len(expectedEmails)
-				missing = missing[:0]
-				for email := range expectedEmails {
-					matched := false
-					for _, rawMessage := range rawMessages {
-						message, _ := rawMessage.(map[string]any)
-						if containsJSONValue(fieldFold(message, "To"), email) {
-							matched = true
-							break
-						}
-					}
-					if !matched {
-						missing = append(missing, email)
-						allDelivered = false
-					}
-				}
-				if allDelivered {
-					return
-				}
-			}
-		} else if response != nil {
-			response.Body.Close()
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	t.Fatalf(
-		"Mailpit reported %d messages but missed %d of %d synthetic recipients: %v",
-		lastMessageCount,
-		len(missing),
-		len(expectedEmails),
-		missing,
-	)
 }

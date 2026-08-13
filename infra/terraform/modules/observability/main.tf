@@ -47,7 +47,7 @@ variable "tags" {
 }
 
 locals {
-  log_groups = toset(["application", "gateway", "keycloak", "worker"])
+  log_groups = toset(["application", "auth", "gateway", "worker"])
 }
 
 resource "aws_cloudwatch_log_group" "this" {

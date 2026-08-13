@@ -1,2 +1,0 @@
-preprod-migration-1  | 2026/07/28 11:23:37 INFO database migration completed version=20
-preprod-api-1        | 2026/07/28 11:23:38 ERROR API stopped error="load configuration: AVIA_OBJECT_STORE_ENDPOINT is required when object storage is enabled"

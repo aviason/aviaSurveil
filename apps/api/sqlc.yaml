@@ -13,7 +13,7 @@ sql:
       - "migrations/000009_notifications_risk_admin.up.sql"
       - "migrations/000010_identity_settings.up.sql"
       - "migrations/000011_preliminary_report_versions.up.sql"
-      - "migrations/000012_keycloak_user_lifecycle.up.sql"
+      - "migrations/000012_provider_user_lifecycle.up.sql"
     queries: "internal/organizations/store/postgres/queries.sql"
     gen:
       go:
@@ -52,11 +52,12 @@ sql:
       - "migrations/000009_notifications_risk_admin.up.sql"
       - "migrations/000010_identity_settings.up.sql"
       - "migrations/000011_preliminary_report_versions.up.sql"
-      - "migrations/000012_keycloak_user_lifecycle.up.sql"
+      - "migrations/000012_provider_user_lifecycle.up.sql"
       - "migrations/000013_authority_organization.up.sql"
       - "migrations/000018_desired_membership_versions.up.sql"
       - "migrations/000019_identity_lifecycle_delivery.up.sql"
       - "migrations/000020_session_membership_authority.up.sql"
+      - "migrations/000045_first_party_provider_auth_revision.up.sql"
     queries: "internal/identity/store/postgres/queries.sql"
     gen:
       go:
@@ -210,7 +211,7 @@ sql:
       - "migrations/000009_notifications_risk_admin.up.sql"
       - "migrations/000010_identity_settings.up.sql"
       - "migrations/000011_preliminary_report_versions.up.sql"
-      - "migrations/000012_keycloak_user_lifecycle.up.sql"
+      - "migrations/000012_provider_user_lifecycle.up.sql"
     queries: "internal/assignments/store/postgres/queries.sql"
     gen:
       go:
@@ -282,7 +283,7 @@ sql:
       - "migrations/000009_notifications_risk_admin.up.sql"
       - "migrations/000010_identity_settings.up.sql"
       - "migrations/000011_preliminary_report_versions.up.sql"
-      - "migrations/000012_keycloak_user_lifecycle.up.sql"
+      - "migrations/000012_provider_user_lifecycle.up.sql"
       - "migrations/000018_desired_membership_versions.up.sql"
       - "migrations/000019_identity_lifecycle_delivery.up.sql"
     queries: "internal/administration/store/postgres/queries.sql"
@@ -308,7 +309,7 @@ sql:
       - "migrations/000009_notifications_risk_admin.up.sql"
       - "migrations/000010_identity_settings.up.sql"
       - "migrations/000011_preliminary_report_versions.up.sql"
-      - "migrations/000012_keycloak_user_lifecycle.up.sql"
+      - "migrations/000012_provider_user_lifecycle.up.sql"
       - "migrations/000013_authority_organization.up.sql"
       - "migrations/000014_malware_scan_metadata.up.sql"
       - "migrations/000015_document_render_provenance.up.sql"

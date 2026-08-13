@@ -764,6 +764,19 @@ export interface DecideReportInput extends CommandMeta {
   reason: string;
 }
 
+export interface CreateReportVersionInput extends CommandMeta {
+  idempotencyKey: string;
+  expectedRevision: null;
+  reportVersionId: string;
+  reportId: string;
+  auditId: string;
+  kind: "PRELIMINARY" | "FINAL";
+  version: number;
+  status: "RETURNED" | "DEPARTMENT_REVIEW";
+  findingIds: string[];
+  content: Record<string, unknown>;
+}
+
 export interface ManagerDashboardProjection {
   generatedAt: Instant;
   openFindings: number;
@@ -1453,6 +1466,10 @@ export interface EvidenceBackend {
 }
 
 export interface ReportBackend {
+  create(
+    input: CreateReportVersionInput,
+    options?: BackendRequestOptions,
+  ): Promise<ReportVersionView>;
   getVersion(
     input: { reportVersionId: string },
     options?: BackendRequestOptions,

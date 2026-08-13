@@ -13,14 +13,19 @@ type ProviderTokens struct {
 }
 
 type OIDCIdentity struct {
-	SubjectID         string
-	Issuer            string
-	DisplayName       string
-	Email             string
-	OrganizationID    string
-	Roles             []Role
-	ProviderSessionID string
-	Tokens            ProviderTokens
+	SubjectID          string
+	Issuer             string
+	DisplayName        string
+	Email              string
+	OrganizationID     string
+	Roles              []Role
+	ProviderSessionID  string
+	MembershipID       string
+	MembershipRevision int64
+	AuthRevision       uint64
+	AMR                []string
+	AuthTime           time.Time
+	Tokens             ProviderTokens
 }
 
 type OIDCProvider interface {

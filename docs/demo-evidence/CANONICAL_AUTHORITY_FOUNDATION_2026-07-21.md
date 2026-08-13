@@ -18,7 +18,7 @@ intact as the behavioral reference.
 Domain state-machine, authorization, raw-projection, idempotency, migration,
 session, OIDC, and offline-grant tests were written against missing behavior
 before their implementations. The integration profile then exposed two real
-local-provider defects: the seeded Keycloak user required a complete profile,
+local-provider defects: the seeded external-provider user required a complete profile,
 and an unsupported `offline_access` request consumed the authorization code.
 The realm fixture and requested scopes were corrected, and the complete profile
 was rerun successfully. A final review also found that a fixed browser-cookie
@@ -68,7 +68,7 @@ under server authority, and the targeted test passed before the full rerun.
   sessions use Secure, HttpOnly, SameSite cookies, mutation CSRF checks,
   30-minute rolling idle expiry, eight-hour absolute expiry, and explicit
   revocation.
-- The pinned local Keycloak profile completes a real Authorization Code + PKCE
+- The then-current pinned local OIDC profile completes a real Authorization Code + PKCE
   exchange with issuer, signature, audience, nonce, organization, and canonical
   role checks. This is local-provider evidence, not production OIDC/MFA
   evidence.
@@ -94,10 +94,10 @@ It completed with exit code `0` and proved:
 - API and worker builds: pass
 - Full Go race suite, including domain and live PostgreSQL integration tests: pass
 - Empty install and retained N-1 migration upgrade: pass
-- Pinned local Keycloak Authorization Code + PKCE integration: pass
+- Then-current pinned local OIDC Authorization Code + PKCE integration: pass
 - OpenAPI examples and TypeScript/Go generation drift: pass
 - All module-owned SQLC generation drift: pass
-- Task-owned Keycloak/PostgreSQL containers, volume, and network cleanup: pass
+- Task-owned OIDC-provider/PostgreSQL containers, volume, and network cleanup: pass
 
 Additional fresh gates:
 

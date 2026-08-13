@@ -6,16 +6,10 @@ umask 077
 repository_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 local_state_dir=${AVIASURVEIL_LOCAL_STATE_DIR:-"$repository_root/.local/aviasurveil360"}
 secret_directory="$local_state_dir/secrets"
-keycloak_directory="$local_state_dir/keycloak"
 recovery_directory="$local_state_dir/recovery"
 recovery_tls_directory="$recovery_directory/tls"
-runtime_realm="$keycloak_directory/realm.json"
 recovery_public_cert="$recovery_tls_directory/public.crt"
 recovery_private_key="$recovery_tls_directory/private.key"
-realm_builder="$repository_root/deploy/local/keycloak/build-realm.mjs"
-realm_source="$repository_root/deploy/local/keycloak/realm-source.json"
-local_https_port=${AVIA_LOCAL_HTTPS_PORT:-8443}
-public_origin=${AVIA_LOCAL_PUBLIC_ORIGIN:-"https://localhost:$local_https_port"}
 rotate=false
 
 if [ "${1:-}" = "--rotate" ]; then
@@ -38,16 +32,12 @@ backup_pgbackrest_access_key
 backup_pgbackrest_secret_key
 backup_repository_cipher_passphrase
 grafana_admin_password
-keycloak_bootstrap_admin_password
-keycloak_database_password
-keycloak_service_client_secret
 minio_api_access_key
 minio_api_secret_key
 minio_root_password
 minio_root_user
 minio_worker_access_key
 minio_worker_secret_key
-oidc_client_secret
 session_encryption_key
 smtp_password
 smtp_auth_file
@@ -60,10 +50,6 @@ if [ "$rotate" = false ]; then
       exit 1
     fi
   done
-  if [ -e "$runtime_realm" ]; then
-    echo "local Keycloak realm already exists; refusing to overwrite without --rotate" >&2
-    exit 1
-  fi
   if [ -e "$recovery_public_cert" ] || [ -e "$recovery_private_key" ]; then
     echo "local recovery TLS material already exists; refusing to overwrite without --rotate" >&2
     exit 1
@@ -72,12 +58,10 @@ fi
 
 mkdir -p \
   "$secret_directory" \
-  "$keycloak_directory" \
   "$recovery_tls_directory"
 chmod 0700 \
   "$local_state_dir" \
   "$secret_directory" \
-  "$keycloak_directory" \
   "$recovery_directory" \
   "$recovery_tls_directory"
 
@@ -123,19 +107,9 @@ openssl req \
 chmod 0600 "$temporary_directory/private.key"
 chmod 0644 "$temporary_directory/public.crt"
 
-node "$realm_builder" \
-  --source "$realm_source" \
-  --output "$temporary_directory/realm.json" \
-  --client-secret-file "$temporary_directory/oidc_client_secret" \
-  --service-client-secret-file "$temporary_directory/keycloak_service_client_secret" \
-  --smtp-password-file "$temporary_directory/smtp_password" \
-  --public-origin "$public_origin"
-
 for filename in $secret_files; do
   mv -f -- "$temporary_directory/$filename" "$secret_directory/$filename"
 done
-mv -f -- "$temporary_directory/realm.json" "$runtime_realm"
-chmod 0600 "$runtime_realm"
 mv -f -- "$temporary_directory/private.key" "$recovery_private_key"
 mv -f -- "$temporary_directory/public.crt" "$recovery_public_cert"
 chmod 0600 "$recovery_private_key"

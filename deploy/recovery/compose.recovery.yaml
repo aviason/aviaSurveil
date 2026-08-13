@@ -56,7 +56,7 @@ services:
     networks:
       - recovery-backup
 
-  keycloak-postgres:
+  preprod-auth-postgres:
     image: aviasurveil360/postgres-recovery:local
     build:
       context: ../..
@@ -75,7 +75,7 @@ services:
         target: /etc/pgbackrest/pgbackrest.conf
         mode: 0444
     secrets:
-      - keycloak_database_password
+      - preprod_auth_database_password
       - backup_pgbackrest_access_key
       - backup_pgbackrest_secret_key
       - backup_repository_cipher_passphrase
@@ -166,7 +166,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      keycloak-postgres:
+      preprod-auth-postgres:
         condition: service_healthy
       minio:
         condition: service_healthy
@@ -190,7 +190,7 @@ services:
         mode: 0555
     secrets:
       - app_database_password
-      - keycloak_database_password
+      - preprod_auth_database_password
       - minio_root_user
       - minio_root_password
       - backup_minio_root_user
@@ -204,7 +204,7 @@ services:
       - /tmp:uid=70,gid=70,mode=1777
     networks:
       - database
-      - identity-database
+      - preprod-identity-database
       - platform
       - recovery-backup
     healthcheck:

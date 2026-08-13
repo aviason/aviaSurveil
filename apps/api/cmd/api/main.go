@@ -80,20 +80,18 @@ func run(ctx context.Context) error {
 	}
 	var directoryProvider administration.AccessDirectoryProvider
 	var authorityObserver identity.AuthorityObserver
-	if settings.KeycloakAdminURL != "" {
-		keycloakClient, keycloakErr := identity.NewKeycloakAdminClient(
-			identity.KeycloakAdminConfig{
-				BaseURL:      settings.KeycloakAdminURL,
-				Realm:        settings.KeycloakRealm,
-				ClientID:     settings.KeycloakServiceClientID,
-				ClientSecret: settings.KeycloakServiceClientSecret,
-			},
-		)
-		if keycloakErr != nil {
-			return fmt.Errorf("configure Keycloak directory provider: %w", keycloakErr)
+	if settings.FirstPartyAdminURL != "" {
+		firstPartyClient, firstPartyErr := identity.NewFirstPartyAdminClient(identity.FirstPartyAdminConfig{
+			BaseURL: settings.FirstPartyAdminURL, SecretFile: settings.FirstPartyAdminSecretFile,
+		})
+		if firstPartyErr != nil {
+			return fmt.Errorf("configure first-party identity provider: %w", firstPartyErr)
 		}
-		directoryProvider = keycloakClient
-		authorityObserver = keycloakClient
+		directoryProvider = firstPartyClient
+		authorityObserver = firstPartyClient
+	}
+	if directoryProvider == nil {
+		directoryProvider = profile.directoryProvider
 	}
 	telemetryRuntime, err := telemetry.NewRuntime(ctx, telemetry.Config{
 		ServiceName:      "api",
@@ -127,7 +125,7 @@ func run(ctx context.Context) error {
 	)
 	if databaseErr == nil {
 		var migrationErr error
-		if !profile.skipMigrations && settings.RuntimeProfile != "aws-private-pilot" {
+		if !profile.skipMigrations {
 			migrationErr = migrations.Apply(ctx, pool)
 		}
 		if migrationErr == nil {
@@ -153,7 +151,14 @@ func run(ctx context.Context) error {
 				databaseHealth = databaseProbe
 				probe = databaseProbe
 				exerciseProfileEnabled := canonicalAGAExerciseProfileEnabled(settings.Environment, os.LookupEnv)
-				if exerciseProfileEnabled {
+				if !exerciseProfileEnabled && canonicalTestExerciseProfileEnabled(settings) {
+					// The canonical HTTP contract harness is an explicit disposable
+					// test profile. It uses the same namespaced exercise content as
+					// local-preprod, while the strict production/default guard above
+					// remains unchanged.
+					exerciseProfileEnabled = true
+				}
+				if exerciseProfileEnabled && !canonicalTestExerciseProfileEnabled(settings) {
 					if namespaceErr := verifyCanonicalAGAExerciseDatabase(ctx, pool); namespaceErr != nil {
 						exerciseProfileEnabled = false
 						probe = unavailableReadiness{err: namespaceErr}
@@ -166,15 +171,16 @@ func run(ctx context.Context) error {
 					var managerErr error
 					if authorityObserver == nil {
 						managerErr = errors.New(
-							"Keycloak authority observer is required for OIDC sessions",
+							"identity provider authority observer is required for OIDC sessions",
 						)
 					} else {
 						sessionManager, managerErr = session.NewManager(
 							pool,
 							settings.SessionEncryptionKey,
 							session.ManagerDependencies{
-								AuthorityObserver:    authorityObserver,
-								ActivationReconciler: userLifecycleService,
+								AuthorityObserver:                 authorityObserver,
+								ActivationReconciler:              userLifecycleService,
+								RequireProviderAuthorityRevisions: true,
 							},
 						)
 					}
@@ -186,12 +192,15 @@ func run(ctx context.Context) error {
 							IssuerURL: settings.OIDCIssuerURL, DiscoveryURL: settings.OIDCDiscoveryURL,
 							ClientID:     settings.OIDCClientID,
 							ClientSecret: settings.OIDCClientSecret, RedirectURL: settings.OIDCRedirectURL,
+							RequireAuthorityClaims: true,
+							DisableRefreshToken:    true,
 						})
 						if providerErr != nil {
 							probe = unavailableReadiness{err: providerErr}
 							slog.Error("OIDC provider unavailable; readiness will fail closed", "error", providerErr)
 						} else {
 							authBoundary = httpapi.NewAuthBoundaryWithCookieSecure(provider, sessionManager, settings.CookieSecure)
+							authBoundary.RequireFreshAuthorityOnEveryRequest()
 							authentication = authBoundary.Handler()
 						}
 					}
@@ -457,6 +466,10 @@ func canonicalAGAExerciseProfileEnabled(environment string, lookup func(string) 
 		namespaceOK && strings.TrimSpace(namespace) == "canonical-aga-preprod-exercise-v1" &&
 		databaseNameOK && strings.TrimSpace(databaseName) == "aviasurveil360_local_preprod" &&
 		databaseOwnerOK && strings.TrimSpace(databaseOwner) == "aviasurveil360_preprod_loader"
+}
+
+func canonicalTestExerciseProfileEnabled(settings config.Settings) bool {
+	return settings.Environment == "test" && settings.CanonicalSeed && settings.CanonicalTestProfile
 }
 
 func newRuntimeReadiness(

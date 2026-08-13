@@ -9,7 +9,7 @@
 - Production deployment and cutover decision: `NO-GO` and `blocked`
 - Production hosting, production OIDC/MFA, traffic routing, legacy removal, and a `production-ready` claim: `blocked`
 
-Task 13 completes the authorized local verification packet for Tasks 5-13. The React/Vite mock and HTTP entries, one-module Go API/worker, PostgreSQL authority path, local Keycloak exchange, private MinIO-compatible object flow, deterministic scanner, field-only browser persistence, foreground sync, and approved route families pass the required local gates. The root Vanilla JavaScript demo remains intact as the removal-blocking behavioral reference.
+Task 13 completes the authorized local verification packet for Tasks 5-13. The React/Vite mock and HTTP entries, one-module Go API/worker, PostgreSQL authority path, then-current local OIDC exchange, private MinIO-compatible object flow, deterministic scanner, field-only browser persistence, foreground sync, and approved route families pass the required local gates. The root Vanilla JavaScript demo remains intact as the removal-blocking behavioral reference.
 
 This decision authorizes no deployment, production traffic, cutover, or legacy archival/removal. A separately approved production release/operations plan does not exist in this authorized slice; therefore production remains `blocked` even though the local candidate receives `GO`.
 
@@ -36,7 +36,7 @@ Every successful result below completed with exit code `0` on 2026-07-21:
 | React type/unit/component | TypeScript passed; Vitest 17 files, 148/148 tests, 0 skipped |
 | Build and artifact boundaries | Demo and HTTP builds passed; HTTP scan passed across 12 files and 89 build inputs; mock/seed/demo-public/test-profile inputs absent |
 | App shell and CSP | Demo and HTTP scans passed across 12 files and 4 shell assets each; production policies exclude unsafe inline/eval and wildcard sources |
-| Go build/vet/race and live integration | API/worker builds and `go vet` passed; the isolated HTTP profile passed the full Go race suite and live PostgreSQL/Keycloak/MinIO integration, migrations, upload/scan, raw authorization, sync, and cleanup |
+| Go build/vet/race and live integration | API/worker builds and `go vet` passed; the isolated HTTP profile passed the full Go race suite and live PostgreSQL/OIDC-provider/MinIO integration, migrations, upload/scan, raw authorization, sync, and cleanup |
 | Live HTTP Backend contract | 11/11 |
 | Mock browser profile | 5/5, including canonical lifecycle, all approved first-production entries at desktop/tablet/mobile, keyboard/focus/target checks, stable reset, and zero unexpected console issues |
 | HTTP browser profile | 7/7, including the same parity matrix, lost acknowledgement, foreground recovery, explicit stale-revision conflict resolution, and zero unexpected console issues outside the deliberately aborted acknowledgement |
@@ -53,7 +53,7 @@ The supported local browser evidence uses Google Chrome `150.0.7871.129` with is
 
 ## Security And Operational Boundary Review
 
-- Same-origin session, OIDC state/PKCE, secure cookie, CSRF, expiry/revocation, role, organization, assignment, direct-ID, list, pull, and conflict boundaries pass focused and live Go tests. The configured local Keycloak flow is test evidence, not production Identity evidence.
+- Same-origin session, OIDC state/PKCE, secure cookie, CSRF, expiry/revocation, role, organization, assignment, direct-ID, list, pull, and conflict boundaries pass focused and live Go tests. The then-current configured local OIDC flow is test evidence, not production Identity evidence.
 - Raw Auditee JSON tests scan Finding, CAP, Evidence, report, assignment, dashboard, direct-ID/list, and sync projections for forbidden Internal CAA, other-organization, workload/risk, unreleased-report, and enforcement material.
 - Official Evidence upload remains private, bounded to PDF/JPEG/PNG and 25 MB, server-observed, non-overwriting, immutable by version, quarantined until scan-clean, and gated for review/download/closure. Offline Inspection Attachments remain distinct from official Evidence.
 - Field records are subject-scoped; official checkout refuses missing managed-policy, persistence, storage-health, version, grant, or advisory-capacity gates. Site-data clearing remains an explicit irrecoverable unsynced-copy boundary. App-level encryption and production MDM evidence are not claimed.

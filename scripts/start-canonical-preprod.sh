@@ -112,7 +112,6 @@ compose() {
   AVIA_PREPROD_HTTPS_PORT="$https_port" \
   AVIA_PREPROD_HTTP_PORT="$http_port" \
   AVIA_PREPROD_WEB_ORIGIN="$web_origin" \
-  AVIA_PREPROD_KEYCLOAK_PUBLIC_ORIGIN="$web_origin" \
   AVIA_PREPROD_PUBLIC_HOST="$public_host" \
   AVIA_PREPROD_ORIGIN_SCHEME="$origin_scheme" \
   AVIA_PREPROD_PUBLIC_TLS="$public_tls" \
@@ -137,7 +136,6 @@ mkdir -p "$state_root"
 chmod 0700 "$state_root"
 AVIA_PREPROD_STATE_DIR="$state_root" \
 AVIA_PREPROD_WEB_ORIGIN="$web_origin" \
-AVIA_PREPROD_KEYCLOAK_PUBLIC_ORIGIN="$web_origin" \
 AVIA_PREPROD_ORIGIN_SCHEME="$origin_scheme" \
   "$repository_root/scripts/init-local-preprod-namespace.sh"
 
@@ -161,19 +159,20 @@ if [[ "$skip_build" == false ]]; then
     preprod-canonical-demo-identity-loader \
     preprod-clamav \
     preprod-gotenberg \
-    preprod-keycloak \
+    preprod-auth \
     preprod-minio \
     preprod-mailpit \
     preprod-api \
     preprod-worker \
-    preprod-scheduler \
     preprod-web-http \
     preprod-gateway
 fi
 
 compose up --detach --wait --wait-timeout 300 \
   preprod-postgres \
-  preprod-keycloak-postgres \
+  preprod-auth-postgres \
+  preprod-auth-mailpit \
+  preprod-auth \
   preprod-mailpit \
   preprod-minio \
   preprod-clamav \
@@ -210,7 +209,6 @@ compose exec --no-TTY preprod-postgres psql \
             'TARGET-OPS-AOC-SOURCE-BOUND')\
     ON CONFLICT (id) DO NOTHING;"
 
-compose up --detach --wait --wait-timeout 600 preprod-keycloak
 compose up --detach preprod-canonical-demo-identity-loader
 compose wait preprod-canonical-demo-identity-loader
 identity_loader_container="$(compose ps -aq preprod-canonical-demo-identity-loader)"
@@ -248,16 +246,16 @@ compose up --detach --wait --wait-timeout 300 \
   preprod-canonical-aga-loader \
   preprod-api \
   preprod-worker \
-  preprod-scheduler \
   preprod-gateway
 
 cat >"$metadata_file" <<EOF
 {
-  "schemaVersion": "canonical-preprod-runtime/v1",
+  "schemaVersion": "canonical-preprod-runtime/v2",
   "project": "$project_name",
   "stateDirectory": "$state_root",
   "profile": "aga-preprod@1.0.0",
   "identityNamespace": "canonical-aga-preprod-exercise-v1",
+  "identityProvider": "first-party",
   "webOrigin": "$web_origin",
   "apiHealth": "$web_origin/health/ready",
   "donorRuntime": "disabled",
