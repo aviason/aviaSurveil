@@ -680,7 +680,7 @@ is authorized.
 - [x] Work package 7 functional, repository-lane, connected-runtime, fault/restart, and cleanup verification completed locally.
 - [x] Task-owned diff review and pre-remediation Codex Security diff scan completed; the sealed snapshot reported 3 Medium and 6 Low findings with no Critical or High finding.
 - [x] Confirmed Medium findings were remediated locally: API/provider bootstrap outstanding partitions and bounded throttle-cleanup throughput; affected focused, race, full-package, connected-runtime, and fault/restart checks were rerun.
-- [x] Post-remediation Codex Security diff scan completed and sealed with 6 Low residuals, no Medium/High/Critical findings, complete coverage, and zero deferred rows.
+- [x] Post-remediation Codex Security diff scan completed and sealed with 3 Low residuals, no Medium/High/Critical findings, complete coverage, and zero deferred rows.
 - [x] AUTH-SEC-06 follow-up completed: delivered recovery dedupe is gated by a usable challenge, expired active rows are invalidated transactionally before replacement, and the connected PostgreSQL replacement regression passed.
 - [x] AUTH-SEC-11 follow-up completed: API/provider bootstrap partitions and 100-state caps pass 20/100/101 burst, consume/delete release, and forged-cookie regression coverage; connected API and PostgreSQL harnesses passed.
 - [x] Recovery maintenance follow-up completed: challenge and retained-delivery cleanup now drain two bounded 1,000-row batches per minute, exceeding the two-purpose 1,200-per-minute recovery admission ceiling without introducing an unbounded delete. Focused challenge/mail/command tests and vet passed; the existing provider listener test remains sandbox-blocked.
