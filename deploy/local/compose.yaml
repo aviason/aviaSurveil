@@ -451,20 +451,6 @@ services:
     entrypoint: [/bin/sh, -c]
     command:
       - >-
-        database_password="$$(tr -d '\r\n'
-        </run/secrets/preprod_normal_api_database_password)";
-        oidc_secret="$$(tr -d '\r\n' </run/secrets/preprod_oidc_client_secret)";
-        session_key="$$(tr -d '\r\n' </run/secrets/preprod_session_encryption_key)";
-        object_store_access_key="$$(tr -d '\r\n' </run/secrets/preprod_minio_api_access_key)";
-        object_store_secret_key="$$(tr -d '\r\n' </run/secrets/preprod_minio_api_secret_key)";
-        smtp_password="$$(tr -d '\r\n' </run/secrets/preprod_smtp_password)";
-        export AVIA_DATABASE_URL="postgres://preprod_normal_api:$${database_password}@preprod-postgres:5432/aviasurveil360_local_preprod?sslmode=disable";
-        export AVIA_OIDC_CLIENT_SECRET="$${oidc_secret}";
-        export AVIA_SESSION_ENCRYPTION_KEY="$${session_key}";
-        export AVIA_OBJECT_STORE_ACCESS_KEY="$${object_store_access_key}";
-        export AVIA_OBJECT_STORE_SECRET_KEY="$${object_store_secret_key}";
-        export AVIA_SMTP_PASSWORD="$${smtp_password}";
-        unset database_password oidc_secret session_key object_store_access_key object_store_secret_key smtp_password;
         oidc_wait_attempt=0;
         until wget --quiet --output-document=/dev/null
         "$${AVIA_OIDC_DISCOVERY_URL}/.well-known/openid-configuration"; do
@@ -475,7 +461,7 @@ services:
           fi;
           sleep 5;
         done;
-        exec /app/api
+        exec /app/entrypoint.sh
     secrets:
       - preprod_normal_api_database_password
       - preprod_auth_admin_secret
