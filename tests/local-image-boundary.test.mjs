@@ -14,7 +14,6 @@ const requiredFiles = [
   "apps/web/Dockerfile",
   "deploy/local/webserver/main.go",
   "apps/api/Dockerfile",
-  "apps/auth/Dockerfile",
   "deploy/local/gateway/Dockerfile",
   "deploy/local/gateway/Caddyfile",
   "deploy/local/gateway/security-headers.caddy",
@@ -198,7 +197,7 @@ test("Compose maps each local runtime service to its reviewed build target", () 
   }
 });
 
-test("ClamAV uses its reviewed amd64-only image on Apple Silicon hosts", () => {
+test("the full profile has no external malware scanner or document renderer service", () => {
   const rendered = JSON.parse(
     execFileSync(
       "docker",
@@ -216,7 +215,8 @@ test("ClamAV uses its reviewed amd64-only image on Apple Silicon hosts", () => {
     ),
   );
 
-  assert.equal(rendered.services.clamav.platform, "linux/amd64");
+  assert.equal("clamav" in rendered.services, false);
+  assert.equal("gotenberg" in rendered.services, false);
 });
 
 test("every full-profile Go process uses production configuration without test bypasses", () => {

@@ -5,18 +5,20 @@
   "repository": "https://github.com/aviason/aviaSurveil.git",
   "image": "ghcr.io/aviason/avia-surveil",
   "localCompose": "deploy/local/compose.yaml",
+  "localComposeScope": "candidate-validation-only",
+  "deploymentAuthority": "aviaWorkspace",
   "runtime": {
     "dev": {
       "status": "candidate-only",
-      "reason": "The API module and local entrypoints now consume the Workspace file-backed contract, but AviaAuth still exposes liveness only; OIDC/private-admin integration, the optional AviaData-disabled path, and cross-repository runtime checks remain unverified."
+      "reason": "Workspace dev composes the explicit local-candidate AviaData admission path and the worker delivery loop; shared AviaAuth E2E, connected-data E2E, and release qualification remain candidate-only."
     },
     "demo": {
       "status": "blocked",
-      "reason": "Keycloak-specific runtime paths and preprod-demo assumptions remain; AviaAuth integration, prepared users, persistent curated data, and immutable image release are not verified."
+      "reason": "Persistent curated records, prepared users, immutable image release, and demo deployment evidence are not established."
     },
     "preprod": {
       "status": "blocked",
-      "reason": "Provider-neutral OIDC and private-admin integration, file-backed database/auth configuration, source-bound immutable images, and external deployment evidence remain incomplete."
+      "reason": "The local candidate has provider-neutral OIDC and AviaAuth private-admin configuration, but source-bound immutable images, remote deployment, and release evidence are not established."
     },
     "prod": {
       "status": "blocked",

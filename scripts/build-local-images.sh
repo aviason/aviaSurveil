@@ -2,6 +2,7 @@
 set -eu
 
 repository_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+shared_auth_root=$(CDPATH= cd -- "$repository_root/../../shared/auth" && pwd)
 state_directory=${AVIASURVEIL_LOCAL_STATE_DIR:-"$repository_root/.local/aviasurveil360"}
 manifest_path="$state_directory/image-evidence.json"
 image_lock="$repository_root/deploy/local/image-lock.json"
@@ -40,8 +41,13 @@ build_image() {
   dockerfile=$3
   target=$4
   shift 4
+  build_context=$repository_root
+  if [ "${1:-}" = "--context" ]; then
+    build_context=$2
+    shift 2
+  fi
   docker build \
-    --file "$repository_root/$dockerfile" \
+    --file "$build_context/$dockerfile" \
     --target "$target" \
     --tag "$image_tag" \
     --build-arg "SOURCE_DATE_EPOCH=$source_date_epoch" \
@@ -50,7 +56,7 @@ build_image() {
     --label "io.aviasurveil360.source-dirty=$source_dirty" \
     --label "io.aviasurveil360.source-state-sha256=$source_state_sha256" \
     "$@" \
-    "$repository_root" >&2
+    "$build_context" >&2
   image_digest=$(docker image inspect --format '{{.Id}}' "$image_tag")
   case "$image_digest" in
     sha256:????????????????????????????????????????????????????????????????) ;;
@@ -79,7 +85,7 @@ build_image web-demo aviasurveil360/web-demo:local apps/web/Dockerfile demo \
 build_image web-http aviasurveil360/web-http:local apps/web/Dockerfile http \
   --build-arg "NODE_BUILD_IMAGE=$node_build_image" \
   --build-arg "GO_BUILD_IMAGE=$go_build_image" >>"$records_file"
-build_image auth aviasurveil360/preprod-auth:local apps/auth/Dockerfile runtime \
+build_image auth aviasurveil360/preprod-auth:local Dockerfile runtime --context "$shared_auth_root" \
   --build-arg "GO_BUILD_IMAGE=$go_build_image" \
   --build-arg "GO_RUNTIME_IMAGE=$go_runtime_image" >>"$records_file"
 build_image postgres-recovery aviasurveil360/postgres-recovery:local deploy/recovery/Dockerfile postgres-recovery \

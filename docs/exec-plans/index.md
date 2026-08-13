@@ -31,7 +31,7 @@ the sequence remains useful for successor dependency context:
 
 2026-08-13 continuation — first-party Go OIDC is the only maintained identity
 implementation. The canonical disposable profile, its dedicated PostgreSQL,
-authenticated STARTTLS auth Mailpit, public 8080 OIDC/UI, private 8081
+SMTP-free direct activation path, public 8080 OIDC/UI, private 8081
 administration, nine fresh `usr_...` synthetic subjects, exact BFF authority,
 HTTPS/HTTP role panels, lifecycle, dependency-loss/restart, fault recovery,
 and cleanup are `verified locally`.
@@ -51,6 +51,7 @@ remote/deployment/traffic/release activity are `not run`. The result remains
 
 | Plan | Status | Next Todo |
 |---|---|---|
+| [AviaWorkspace Layout Migration](active/2026-08-13-avia-workspace-layout-migration-plan.md) | active — embedded auth removal, local AviaData candidate, dev cutover, identity migration, and digest-bound locks implemented locally; candidate-only; release pending | Run live cross-repository E2E, publish verified immutable images, obtain exact-target release approval, then separately authorize deployment. |
 | [First-Party Authentication Security Remediation](active/2026-08-13-first-party-auth-security-remediation-plan.md) | active — implementation not started; candidate-only; release pending | The 11 source-audit findings and the issuer-prefix integration defect are mapped to forward-only migrations, durable browser/admission controls, credential and MFA state-machine changes, revision-bound pending OIDC state, recovery coalescing, bounded cleanup, focused/full verification, and a final security diff review. No finding is closed by planning alone. **Next:** execute Gate 0 to capture the dirty-tree baseline, run current focused tests, and revalidate all finding owners before the first source edit. |
 | [Governed Service Provider Checklist Generation And Publication](completed/2026-07-29-governed-service-provider-checklist-generation-plan.md) | completed | Gate 0 and Tasks 1–9 are independently accepted and final local verification is recorded. The result is `candidate-only`, `release pending`, and `production-ready: not established`; the real OPS/AOC request remains `blocked` with zero lifecycle effects. **Next:** retain external NCAA/source-owner and responsible Department Manager confirmations as tracker-managed dependencies. |
 | [Regulatory Source Refresh And Adaptive Checklists](active/2026-07-28-regulatory-source-refresh-adaptive-checklists-plan.md) | active — Task 6 complete locally | Tasks 1–6 are `verified locally` and Task 6 has independent read-only acceptance with no Critical or Important finding. Every proposed/published question exposes a scope classification and a current reviewable regulatory trace, or the literal blocking `SOURCE_MAPPING_REQUIRED` Draft state. Existing checklist content remains only candidate input; hybrid reconciliation creates a new immutable Draft while preserving historical published/Audit bytes. Source-owner/current-applicability confirmation and real Department Manager technical/publication decisions remain external `blocked` gates. **Next:** keep the recurring source-refresh evidence current and obtain those separate real-source and real-decision owner approvals; the result remains `candidate-only`, `release pending`, and `production-ready: not established`. |

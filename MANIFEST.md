@@ -5,9 +5,9 @@ clickable demo** and a separate `candidate-only` React/Go application. It is
 not a production system.
 
 Candidate boundary: a local Go/PostgreSQL API/worker, a separate first-party
-Go OIDC service with dedicated auth PostgreSQL and authenticated STARTTLS
-Mailpit, private versioned MinIO storage, real ClamAV scanning, application
-Mailpit SMTP, Gotenberg PDF rendering, complete normalized MockBackend/HttpBackend
+Go OIDC service with dedicated auth PostgreSQL, private versioned MinIO storage,
+an explicit disabled fail-closed scanner, local-only application Mailpit SMTP,
+native Go PDF rendering, complete normalized MockBackend/HttpBackend
 scenarios, PWA/readiness, atomic offline field/outbox persistence,
 manifest-first OPFS Inspection Attachment recovery, typed foreground sync, and
 all 85 current React routes in demo and HTTP are `verified locally`; the
@@ -47,6 +47,14 @@ fault/restart matrix passed again with no donor fallback and zero residue. The
 manual three-viewport review was accepted on 2026-08-11. External preprod is no longer part
 of that plan; it is `not run` in a separate paused follow-up ExecPlan.
 The root Vanilla demo remains intact.
+
+`component.json` declares the `aviason/aviaSurveil` Workspace contract. Its
+local Compose path is scoped to candidate validation; AviaWorkspace owns
+customer topology, environment selection, immutable image locks, and
+deployment infrastructure. The application defaults to `AVIA_DATA=0`.
+Workspace Namibia dev explicitly selects the local-candidate AviaData
+admission path; released environments remain fail-closed until the connected
+contract and images are qualified.
 
 ## Root Files
 
@@ -188,11 +196,12 @@ The root Vanilla demo remains intact.
 - `apps/api/internal/` — canonical domain/authority modules, module-owned
   PostgreSQL stores, same-origin OIDC/session boundary, private object-store
   adapter, Evidence and Inspection Attachment upload services, real local
-  ClamAV/Gotenberg/Mailpit adapters, deterministic test scanner, and
-  fail-closed local test profile.
-- `apps/auth/` — first-party public OIDC/UI, private provider administration,
-  credentials, MFA, recovery, signing keys, provider sessions, authority
-  mirrors, idempotency receipts, redacted audit, and forward-only migrations.
+  disabled scanner/native Go renderer/Mailpit adapters, deterministic test
+  scanner, and fail-closed local test profile.
+- `../../shared/auth/` — shared first-party public OIDC/UI, private provider
+  administration, credentials, MFA, recovery, signing keys, provider sessions,
+  opaque claim projections, idempotency receipts, redacted audit, and
+  forward-only migrations.
 - `apps/api/cmd/preprod-canonical-demo-identity-loader/` — resumable
   nine-user first-party bootstrap with fresh opaque subjects and exact
   cross-database identity/membership/assignment reconciliation.
@@ -210,11 +219,12 @@ The root Vanilla demo remains intact.
   upload, worker recovery/failure/timeout, migration, generation, and cleanup
   tests.
 - `deploy/local/compose.test.yaml` — digest-pinned, isolated local PostgreSQL,
-  Mailpit, ClamAV, and MinIO verification services.
-- `deploy/local/compose.yaml` — profile-scoped local HTTPS gateway, React
+  Mailpit, and MinIO verification services.
+- `deploy/local/compose.yaml` — candidate-validation-only profile-scoped local HTTPS gateway, React
   demo/HTTP artifacts, API/worker, first-party auth, separate application and
-  auth databases, separate application and privileged auth Mailpit services,
-  MinIO, ClamAV, and Gotenberg topology.
+  auth databases, local-only application Mailpit, and MinIO topology. The
+  scanner is disabled fail-closed and document rendering is native Go; no
+  external scanner or document-renderer service is part of any Compose profile.
 - `deploy/local/compose.local-http.yaml`,
   `deploy/local/gateway/Caddyfile.preprod.http`, and
   the default Quick Tunnel mode in `scripts/*canonical-preprod-cloudflare*` —
@@ -497,9 +507,9 @@ authority, audit-event, private upload, deterministic scan, scenario contracts,
 PWA/readiness, atomic field storage, OPFS attachment recovery, the historical
 17-surface root-demo parity checkpoint, and the current 86-route dual-profile
 backend candidate recorded in Task evidence. Plan 3 Tasks 1–9 additionally
-prove local production-mode identity/MFA, private versioned storage, real
-malware scanning, immutable PDF rendering, and authenticated Mailpit SMTP
-delivery with retry/restart evidence, plus bounded concurrent readiness,
+  prove local production-mode identity/MFA, private versioned storage,
+  fail-closed disabled scanning, native Go PDF rendering, and local Mailpit
+  SMTP delivery with retry/restart evidence, plus bounded concurrent readiness,
 failure recovery, exact network membership, two clean 86-route demo/full
 profile repetitions, and zero-residue stack ownership.
 They do not prove production identity

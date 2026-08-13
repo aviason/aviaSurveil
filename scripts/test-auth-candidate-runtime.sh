@@ -5,6 +5,7 @@ set -eu
 # disposable directory. It intentionally starts only the isolated auth
 # candidate profile; it neither reads nor alters any other serving topology.
 repository_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+shared_auth_root=$(CDPATH= cd -- "$repository_root/../../shared/auth" && pwd)
 compose_file="$repository_root/deploy/local/auth/compose.auth-candidate.yaml"
 runtime_directory=$(mktemp -d /private/tmp/avia-auth-runtime.XXXXXX)
 secret_directory="$runtime_directory/secrets"
@@ -145,7 +146,7 @@ if [ "${AVIA_AUTH_CANDIDATE_BROWSER_QUALIFICATION:-0}" = "1" ]; then
   : >"$password_reset_url_file"
   : >"$mfa_reset_url_file"
   chmod 0600 "$browser_code_file" "$password_reset_url_file" "$mfa_reset_url_file"
-  docker build --file "$repository_root/apps/auth/Dockerfile" --target go-build --tag "$browser_seed_image" "$repository_root" >/dev/null
+  docker build --file "$shared_auth_root/Dockerfile" --target go-build --tag "$browser_seed_image" "$shared_auth_root" >/dev/null
   docker run --rm --user "$(id -u):$(id -g)" --network "$network_name" \
     --mount "type=bind,src=$secret_directory,dst=/run/auth,readonly" \
     --mount "type=bind,src=$runtime_directory,dst=/run/runtime" \
@@ -200,7 +201,7 @@ if [ "${AVIA_AUTH_CANDIDATE_LOAD_QUALIFICATION:-0}" = "1" ]; then
     1|2|3|4|5|6|7|8) ;;
     *) printf '%s\n' 'auth-candidate load recovery count must be from 1 to 8' >&2; exit 1 ;;
   esac
-  docker build --file "$repository_root/apps/auth/Dockerfile" --target go-build --tag "$browser_seed_image" "$repository_root" >/dev/null
+  docker build --file "$shared_auth_root/Dockerfile" --target go-build --tag "$browser_seed_image" "$shared_auth_root" >/dev/null
   docker run --rm --user "$(id -u):$(id -g)" --network "$network_name" \
     --mount "type=bind,src=$secret_directory,dst=/run/auth,readonly" \
     -e AVIA_AUTH_RUNTIME_LOAD_SEED=1 \

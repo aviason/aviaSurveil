@@ -21,6 +21,27 @@ type Scanner interface {
 	Scan(context.Context, io.Reader) (Result, error)
 }
 
+// DisabledScanner is the explicit fail-closed mode used when no content
+// scanning service is available. It records that scanning was skipped and
+// never promotes the object to canonical storage.
+type DisabledScanner struct {
+	Clock func() time.Time
+}
+
+func (scanner DisabledScanner) Scan(_ context.Context, _ io.Reader) (Result, error) {
+	now := time.Now
+	if scanner.Clock != nil {
+		now = scanner.Clock
+	}
+	return Result{
+		Clean:            false,
+		Reason:           "content scanning is disabled",
+		EngineVersion:    "disabled",
+		SignatureVersion: "not-run",
+		ScannedAt:        now().UTC(),
+	}, nil
+}
+
 // ManagedResultProvider resolves a provider-owned decision for one exact
 // immutable object version. It never accepts a bucket/key-only result.
 type ManagedResultProvider interface {

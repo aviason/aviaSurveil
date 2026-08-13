@@ -179,10 +179,6 @@ test("first-party auth namespace creates separate keys, admin secret, and STARTT
     "preprod_auth_mfa_key",
     "preprod_auth_admin_secret",
     "preprod_oidc_client_secret",
-    "preprod_auth_smtp_auth_file",
-    "preprod_auth_mailpit_ca",
-    "preprod_auth_mailpit_cert",
-    "preprod_auth_mailpit_key",
   ]) {
     assert.equal(statSync(path.join(directory, name)).mode & 0o777, 0o400, name);
   }
@@ -211,8 +207,9 @@ test("API and worker use only the first-party administration boundary", () => {
   ], { cwd: repositoryRoot, encoding: "utf8" }));
   for (const name of ["api", "worker"]) {
     const service = compose.services[name];
-    assert.equal(service.environment.AVIA_FIRST_PARTY_ADMIN_URL, "http://preprod-auth:8081");
-    assert.equal(service.environment.AVIA_FIRST_PARTY_ADMIN_SECRET_FILE, "/run/secrets/preprod_auth_admin_secret");
+    assert.equal(service.environment.AVIA_DATA, "0");
+    assert.equal(service.environment.AVIA_AUTH_ADMIN_URL, "http://preprod-auth:8081");
+    assert.equal(service.environment.AVIA_AUTH_ADMIN_SECRET_FILE, "/run/secrets/preprod_auth_admin_secret");
     assert.equal(service.environment.AVIA_OIDC_ISSUER_URL, "https://localhost:8443/identity");
   }
   assert.equal(compose.services.api.environment.AVIA_OIDC_DISCOVERY_URL, "http://preprod-auth:8080");

@@ -57,10 +57,11 @@ Alternatives considered:
 2. **One all-in-process monolith including identity, scanning, email, and PDF —
    rejected.** It would couple security/platform lifecycles to domain code and
    prevent independent failure/restart/resource boundaries.
-3. **Modular Go monolith plus external platform services — selected.** It keeps
+3. **Modular Go monolith plus bounded platform services — selected.** It keeps
    domain transactions and authorization coherent while allowing first-party
-   OIDC, ClamAV, SMTP, Gotenberg, object storage, and telemetry to operate
-   through separate process boundaries.
+   OIDC, SMTP, object storage, and telemetry to operate through separate
+   process boundaries. Content scanning is a disabled, fail-closed adapter and
+   document rendering is implemented in Go.
 
 ### Application components
 
@@ -75,9 +76,9 @@ Alternatives considered:
 | Workers | Go commands from the same module | Outbox delivery, Evidence scanning, notifications, documents, and scheduled reminder work |
 | Identity | First-party Go OIDC with private administration and TOTP MFA | Local OIDC, exact authority revisions, user lifecycle, session revocation, recovery, and MFA |
 | Object storage | Private MinIO buckets | Immutable Evidence, Inspection Attachment delivery, generated report versions, quarantine, and backup artifacts |
-| Malware scanning | ClamAV `clamd` plus `freshclam` | Real local signature-based scan; fail closed before Evidence review or download |
+| Malware scanning | Disabled scanner adapter | Explicit `not-run` result; fail closed before Evidence review or download |
 | Email | SMTP adapter with Mailpit locally | Observable local delivery of notification and reminder messages without an external provider |
-| Document rendering | Gotenberg | Versioned PDF rendering from approved report/document HTML templates |
+| Document rendering | Native Go renderer | Versioned PDF rendering from approved report/document HTML templates |
 | Local gateway | Caddy | Local HTTPS, static HTTP artifact, same-origin `/api` and `/auth` routing, security headers, and service isolation |
 | Secrets | Docker secrets for local runtime; SOPS + age for encrypted configuration; AWS Secrets Manager/SSM later | No committed plaintext runtime credentials |
 | Telemetry | OpenTelemetry Collector, Prometheus, Grafana, Loki, Tempo, Alertmanager | Metrics, logs, traces, dashboards, alert routing, and local operational exercises |
@@ -111,8 +112,9 @@ the same audited draft interface and requires a separate governance decision.
    state.
 5. A command transaction writes the domain mutation, audit event, idempotency
    response, authorized change record, and outbox item together.
-6. Workers claim outbox work and call ClamAV, SMTP/Mailpit, Gotenberg, or MinIO
-   through typed adapters. Retries are idempotent and observable.
+6. Workers claim outbox work and call the disabled scanner adapter, SMTP/Mailpit
+   locally, the native Go renderer, or MinIO through typed adapters. Retries
+   are idempotent and observable.
 7. React invalidates typed queries or processes authorized sync changes; no UI
    action relies on a toast as its only durable effect.
 8. Deterministic reset/seed behavior exists only in a scoped test-profile

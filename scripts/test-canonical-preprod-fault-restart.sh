@@ -310,27 +310,6 @@ assert_runtime_log_secrets_absent() {
   done
 }
 
-assert_mailpit_delivery() {
-  local deadline=$((SECONDS + 60))
-  local messages="$artifact_root/mailpit-messages.json"
-  while ((SECONDS < deadline)); do
-    if compose exec --no-TTY preprod-api \
-      wget --quiet --output-document=- http://preprod-mailpit:8025/api/v1/messages \
-      >"$messages" 2>/dev/null &&
-      node -e '
-        const fs = require("node:fs");
-        const payload = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-        const messages = payload.messages ?? payload.Messages;
-        if (!Array.isArray(messages) || messages.length === 0) process.exit(1);
-        if (!JSON.stringify(messages).includes("@synthetic.invalid")) process.exit(1);
-      ' "$messages"; then
-      return 0
-    fi
-    sleep 2
-  done
-  fail "Mailpit omitted the canonical lifecycle delivery to the synthetic recipient"
-}
-
 run_playwright_file() {
   local file="$1"
   local output="$2"
@@ -378,17 +357,15 @@ assert_donor_unavailable
 assert_public_provider_admin_unavailable
 
 run_playwright_file tests/e2e/canonical-quick-tunnel-lifecycle.spec.ts "$artifact_root/lifecycle"
-assert_mailpit_delivery
+
 before_fingerprint="$(wait_for_database_quiescence "$artifact_root/fingerprint-before.txt")"
 
 compose stop --timeout 30 \
   preprod-gateway preprod-api preprod-worker preprod-auth \
-  preprod-web-http preprod-gotenberg preprod-clamav preprod-minio preprod-mailpit \
-  preprod-postgres preprod-auth-postgres preprod-auth-mailpit
+  preprod-web-http preprod-minio preprod-postgres preprod-auth-postgres
 compose start \
-  preprod-postgres preprod-auth-postgres preprod-auth-mailpit preprod-mailpit preprod-minio \
-  preprod-clamav preprod-gotenberg preprod-web-http
-for service in preprod-postgres preprod-auth-postgres preprod-auth-mailpit preprod-mailpit preprod-minio preprod-clamav preprod-gotenberg preprod-web-http; do
+  preprod-postgres preprod-auth-postgres preprod-minio preprod-web-http
+for service in preprod-postgres preprod-auth-postgres preprod-minio preprod-web-http; do
   wait_for_service_health "$service"
 done
 compose start preprod-auth
@@ -406,14 +383,8 @@ after_fingerprint="$(wait_for_database_quiescence "$artifact_root/fingerprint-af
 
 run_playwright_file tests/e2e/canonical-quick-tunnel-panels.spec.ts "$artifact_root/panels-after-restart"
 
-for service in preprod-postgres preprod-auth-postgres preprod-auth-mailpit preprod-auth preprod-minio preprod-clamav; do
+for service in preprod-postgres preprod-auth-postgres preprod-auth preprod-minio; do
   inject_dependency_failure "$service" not_ready 503
-done
-# Gotenberg is still part of the disposable service graph, but the current
-# native renderer does not make it an API readiness dependency. Mailpit is the
-# only intentionally optional readiness dependency in this profile.
-for service in preprod-mailpit; do
-  inject_dependency_failure "$service" degraded 200
 done
 assert_worker_restart
 assert_runtime_log_secrets_absent

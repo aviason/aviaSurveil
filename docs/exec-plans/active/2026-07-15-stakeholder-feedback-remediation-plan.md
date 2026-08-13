@@ -11,7 +11,7 @@
 
 ## Global Constraints
 
-- Work from `/Users/marlonjd/Developer/web/aviaSurveil360` on the current branch.
+- Work from `/Users/marlonjd/Developer/monorepos/avia/apps/surveil` on the current branch.
 - Preserve all unrelated dirty-worktree changes; do not overwrite or revert user work.
 - Do not create or switch branches, commit, stage, push, deploy, open a PR, or post GitHub comments unless the user separately authorizes that exact action.
 - Keep the demo frontend-only: no backend, database, API, real authentication, real authorization enforcement, real upload/storage, real notification service, real e-signature, production reporting engine, immutable audit log, or framework migration.
@@ -1274,7 +1274,7 @@ This plan may move to `ready-for-verification` only when:
 ## Execution Prompt
 
 ```text
-Implement docs/exec-plans/active/2026-07-15-stakeholder-feedback-remediation-plan.md in /Users/marlonjd/Developer/web/aviaSurveil360.
+Implement docs/exec-plans/active/2026-07-15-stakeholder-feedback-remediation-plan.md in /Users/marlonjd/Developer/monorepos/avia/apps/surveil.
 
 Read AGENTS.md, the approved design linked by the plan, the active plan, and its listed canonical product/evidence sources before editing. Work on the current branch and preserve all unrelated dirty-worktree changes. Do not create or switch branches, stage, commit, push, deploy, open a PR, or post GitHub comments unless I separately authorize that exact action.
 

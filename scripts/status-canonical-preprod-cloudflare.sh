@@ -218,32 +218,9 @@ compose_command=(
   --file "$compose_override"
   --profile local-preprod-loader
 )
-demo_identity_counts="$(
-  env "${compose_environment[@]}" "${compose_command[@]}" exec --no-TTY \
-    preprod-postgres psql \
-      --username aviasurveil360_preprod_loader \
-      --dbname aviasurveil360_local_preprod \
-      --tuples-only --no-align --field-separator '|' \
-      --command "
-        SELECT
-          (SELECT count(*) FROM identity_references WHERE email LIKE '%@synthetic.invalid'),
-          (SELECT count(*) FROM user_profiles WHERE subject_id IN (
-            SELECT subject_id FROM identity_references WHERE email LIKE '%@synthetic.invalid'
-          )),
-          (SELECT count(*) FROM desired_membership_versions
-            WHERE membership_id LIKE 'CANONICAL-DEMO-MEMBERSHIP-%'
-              AND revision = 1 AND membership_state = 'ACTIVE'),
-          (SELECT count(*) FROM caa_department_memberships
-            WHERE root_id = 'CANONICAL-DEMO-DEPARTMENT-MANAGER'
-              AND status = 'ACTIVE');
-      " | tr -d '[:space:]'
-)"
-[[ "$demo_identity_counts" == "9|9|9|1" ]] ||
-  fail "demo identity count mismatch: $demo_identity_counts"
-
 env "${compose_environment[@]}" "${compose_command[@]}" ps --format table
 if [[ "$tunnel_mode" == quick ]]; then
-  printf 'canonical Cloudflare Quick Tunnel verified locally: public readiness, exact OIDC issuer, and nine demo identities are healthy; external preprod not run.\n'
+  printf 'canonical Cloudflare Quick Tunnel verified locally: public readiness and exact OIDC issuer are healthy; external preprod not run.\n'
 else
-  printf 'canonical named Cloudflare Tunnel verified locally at %s: public readiness, exact OIDC issuer, Keychain credential reference, and nine demo identities are healthy; external preprod not run.\n' "$public_origin"
+  printf 'canonical named Cloudflare Tunnel verified locally at %s: public readiness, exact OIDC issuer, and Keychain credential reference are healthy; external preprod not run.\n' "$public_origin"
 fi

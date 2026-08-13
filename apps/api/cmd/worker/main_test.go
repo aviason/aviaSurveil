@@ -38,7 +38,7 @@ func (processor *persistedJobProcessor) ProcessNext(ctx context.Context) (bool, 
 		processor.traceParent,
 		processor.correlation,
 		"scan",
-		"clamav",
+		"disabled",
 	)
 	span.End()
 	return true, nil
@@ -139,7 +139,7 @@ func TestNewIdentityAdminClientRequiresProductionWorkerConfiguration(t *testing.
 	}
 	if _, err := newIdentityAdminClient(config.Settings{
 		Environment: "production",
-	}); err == nil || !strings.Contains(err.Error(), "first-party") {
+	}); err == nil || !strings.Contains(err.Error(), "AviaAuth") {
 		t.Fatalf("missing production first-party config error = %v", err)
 	}
 	secretFile := filepath.Join(t.TempDir(), "admin-secret")
@@ -167,14 +167,12 @@ func TestNewEvidenceScannerKeepsDeterministicModeOutOfProduction(t *testing.T) {
 		t.Fatalf("test scanner = %T, err = %v", deterministic, err)
 	}
 
-	clamAV, err := newEvidenceScanner(config.Settings{
-		Environment:               "production",
-		ScannerMode:               "clamav",
-		ClamAVAddress:             "clamav:3310",
-		ClamAVMaximumSignatureAge: 48 * time.Hour,
+	disabled, err := newEvidenceScanner(config.Settings{
+		Environment: "production",
+		ScannerMode: "disabled",
 	})
-	if err != nil || clamAV == nil {
-		t.Fatalf("production scanner = %T, err = %v", clamAV, err)
+	if err != nil || disabled == nil {
+		t.Fatalf("production disabled scanner = %T, err = %v", disabled, err)
 	}
 
 	if candidate, err := newEvidenceScanner(config.Settings{

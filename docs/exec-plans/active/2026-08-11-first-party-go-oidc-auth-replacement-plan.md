@@ -25,8 +25,8 @@ The result remains `candidate-only` and `release pending`.
 
 In scope:
 
-- `apps/auth` public OIDC/UI on port 8080 and private provider administration
-  on port 8081;
+- `../../shared/auth` public OIDC/UI on port 8080 and private provider
+  administration on port 8081;
 - provider persistence, authority, credentials, MFA, recovery, sessions,
   signing keys, idempotency receipts, audit, and cleanup;
 - the API/worker first-party provider-admin adapter and BFF authority checks;
@@ -47,9 +47,9 @@ Out of scope:
 
 ## Repository orientation
 
-- `apps/auth/` owns first-party OIDC, credentials, MFA, recovery, signing
-  keys, authority mirrors, private administration, and auth PostgreSQL
-  migrations.
+- `../../shared/auth/` owns first-party OIDC, credentials, MFA, recovery,
+  signing keys, opaque claim projections, private administration, and auth
+  PostgreSQL migrations.
 - `apps/api/internal/identity/` owns neutral provider authority types and the
   first-party provider-admin client.
 - `apps/api/internal/platform/session/` owns BFF sessions and exact revision
@@ -57,7 +57,7 @@ Out of scope:
 - `apps/api/cmd/preprod-canonical-demo-identity-loader/` owns the disposable
   nine-user cross-database bootstrap.
 - `deploy/local/` owns maintained local topology, gateway routing, generated
-  disposable secrets, authenticated STARTTLS auth Mailpit, and policy.
+  disposable secrets, SMTP-free local-preprod activation, and policy.
 - `deploy/recovery/` and the recovery scripts own local backup/fingerprint
   support for application and first-party auth PostgreSQL.
 - `docs/security/auth-replacement/` contains only the current plan link and
@@ -112,7 +112,7 @@ stale BFF sessions immediately.
 ### Canonical bootstrap
 
 The loader provisions nine new synthetic identities through the private admin
-API and activates them through the dedicated auth Mailpit. It never imports
+API and activates them through the private local-preprod admin endpoint. It never imports
 subjects, passwords, or MFA state from the retired provider. It persists
 returned subjects into application identity references, memberships, lifecycle
 receipts, and required assignments. Replay is resumable and idempotent; partial
@@ -142,7 +142,7 @@ or drifted cross-database state fails closed.
    - Removed the retired adapter and integration scenario.
 
 5. Canonical bootstrap and topology — completed.
-   - Added first-party auth PostgreSQL, auth Mailpit, auth runtime, generated
+   - Added first-party auth PostgreSQL, SMTP-free local-preprod auth runtime, generated
      secret/TLS material, gateway prefix stripping, and the nine-user loader.
    - Updated HTTPS, local HTTP, status, fault/restart, and cleanup scripts.
 
@@ -246,7 +246,7 @@ limited to the maintained first-party PostgreSQL topology.
 ## Execution Prompt
 
 Continue in
-`/Users/marlonjd/Developer/monorepo/aviaSurveil360` on the current branch.
+`/Users/marlonjd/Developer/monorepos/avia/apps/surveil` on the current branch.
 Preserve unrelated dirty-tree changes. Do not commit, push, deploy, touch remote
 systems, rerun/cite the retired security scan, or claim anything beyond
 `candidate-only` and `release pending`.

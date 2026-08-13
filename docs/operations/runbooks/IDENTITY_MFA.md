@@ -52,7 +52,7 @@ depend on provider-specific DOM selectors.
 ## Verification
 
 ```bash
-go -C apps/auth test -count=1 ./...
+go -C ../../shared/auth test -count=1 ./...
 go -C apps/api test -count=1 ./internal/identity ./internal/platform/session
 ./scripts/test-auth-candidate-runtime.sh
 ./scripts/test-preprod-identity-lifecycle.sh

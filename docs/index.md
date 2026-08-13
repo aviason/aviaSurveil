@@ -43,7 +43,7 @@ This is the canonical docs map for AviaSurveil360. Use it after the root
 | `../api/openapi/aviasurveil360.yaml` | Minimal versioned transport source for the authorized local candidate slices. |
 | `../apps/web/` | Build-time-separated React/Vite mock and HTTP candidate entries with the canonical lifecycle, approved route families, PWA/readiness, atomic field storage, OPFS attachment recovery, and typed foreground sync. |
 | `../apps/api/` | One-module Go API/worker candidate with canonical and planning authority, local OIDC/session, PostgreSQL stores, bounded upload/scan, configuration/audit projections, and typed sync services. |
-| `../deploy/local/compose.test.yaml` | Pinned isolated PostgreSQL, Mailpit, ClamAV, and MinIO local verification profile. |
+| `../deploy/local/compose.test.yaml` | Pinned isolated PostgreSQL, Mailpit, and MinIO local verification profile. |
 
 ## Demo Boundary
 

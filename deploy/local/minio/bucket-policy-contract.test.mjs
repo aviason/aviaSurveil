@@ -27,7 +27,7 @@ test("all object buckets are private, separate, and versioned", () => {
 });
 
 test("runtime services never receive MinIO root credentials", () => {
-  for (const service of ["api", "worker", "scheduler"]) {
+  for (const service of ["api", "worker"]) {
     const block = compose.match(
       new RegExp(`\\n  ${service}:([\\s\\S]*?)(?=\\n  [a-z][a-z0-9-]*:|\\nconfigs:)`),
     )?.[1];
@@ -75,16 +75,13 @@ test("credential-bearing MinIO administration output never reaches runtime logs"
   assert.doesNotMatch(initScript, /^mc admin policy attach/m);
 });
 
-test("full profile wires real ClamAV and named buckets", () => {
-  assert.match(compose, /AVIA_SCANNER_MODE:\s*clamav/);
-  assert.match(compose, /AVIA_CLAMAV_ADDRESS:\s*clamav:3310/);
+test("full profile keeps scanning disabled and preserves named buckets", () => {
+  assert.match(compose, /AVIA_SCANNER_MODE:\s*disabled/);
   assert.match(compose, /AVIA_OBJECT_STORE_QUARANTINE_BUCKET:\s*evidence-quarantine/);
   assert.match(compose, /AVIA_OBJECT_STORE_CANONICAL_BUCKET:\s*evidence-clean/);
   assert.match(compose, /AVIA_OBJECT_STORE_ATTACHMENT_BUCKET:\s*inspection-attachments/);
   assert.match(compose, /AVIA_OBJECT_STORE_DOCUMENT_BUCKET:\s*generated-documents/);
-  assert.match(compose, /- DAC_OVERRIDE/);
-  assert.match(compose, /\/run\/lock:mode=1777/);
-  assert.match(compose, /\/var\/log\/clamav:uid=0,gid=101,mode=0770/);
+  assert.doesNotMatch(compose, /clamav|gotenberg/iu);
 });
 
 test("signed object traffic stays on the one HTTPS gateway origin", () => {

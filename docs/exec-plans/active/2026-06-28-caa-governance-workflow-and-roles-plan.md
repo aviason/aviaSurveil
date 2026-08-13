@@ -567,7 +567,7 @@ Status: **demo-only** contract correction **verified locally** by focused report
 ## Execution Prompt
 
 ```text
-You are working in /Users/marlonjd/Developer/web/aviaSurveil360.
+You are working in /Users/marlonjd/Developer/monorepos/avia/apps/surveil.
 
 Task: perform stakeholder review/sign-off for the CAA Governance Workflow And Multi-Role Expansion demo lane.
 

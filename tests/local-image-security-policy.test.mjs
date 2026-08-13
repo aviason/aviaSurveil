@@ -145,7 +145,6 @@ test("Dockerfile base defaults resolve only through the reviewed image lock", ()
   for (const relativePath of [
     "apps/web/Dockerfile",
     "apps/api/Dockerfile",
-    "apps/auth/Dockerfile",
     "deploy/local/gateway/Dockerfile",
     "deploy/recovery/Dockerfile",
   ]) {

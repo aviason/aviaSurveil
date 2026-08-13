@@ -870,7 +870,7 @@ This plan may move to `ready-for-verification` only when:
 ## Execution Prompt
 
 ```text
-Implement docs/exec-plans/active/2026-07-10-stakeholder-readiness-final-remediation-plan.md in /Users/marlonjd/Developer/web/aviaSurveil360.
+Implement docs/exec-plans/active/2026-07-10-stakeholder-readiness-final-remediation-plan.md in /Users/marlonjd/Developer/monorepos/avia/apps/surveil.
 
 Start by reading AGENTS.md, docs/product-specs/workflows/2026-07-10-stakeholder-readiness-remediation-design.md, the blocked predecessor plan, and every source document in the plan's Source And Dependency Map. Do not rely on prior task summaries; inspect current code, tests, browser behavior, and Git state yourself.
 

@@ -19,7 +19,6 @@ type LookupEnv func(string) (string, bool)
 
 type runtimeRequirements struct {
 	objectStore bool
-	scanner     bool
 	oidc        bool
 	smtp        bool
 }
@@ -27,19 +26,19 @@ type runtimeRequirements struct {
 var (
 	allRuntimeRequirements = runtimeRequirements{
 		objectStore: true,
-		scanner:     true,
 		oidc:        true,
 		smtp:        true,
 	}
 	apiRuntimeRequirements = runtimeRequirements{
 		objectStore: true,
-		scanner:     true,
 		oidc:        true,
 	}
 )
 
 type Settings struct {
 	Environment                 string
+	DataEnabled                 bool
+	DataMode                    string
 	DatabaseURL                 string
 	HTTPAddress                 string
 	WorkerInterval              time.Duration
@@ -77,8 +76,6 @@ type Settings struct {
 	DocumentBucket              string
 	AllowServerManagedCORS      bool
 	ScannerMode                 string
-	ClamAVAddress               string
-	ClamAVMaximumSignatureAge   time.Duration
 	SMTPAddress                 string
 	SMTPFrom                    string
 	SMTPUsername                string
@@ -107,6 +104,25 @@ func LoadDatabaseRuntime(lookup LookupEnv) (Settings, error) {
 
 func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) {
 	environment := valueOrDefault(lookup, "AVIA_ENVIRONMENT", "development")
+	dataEnabled, err := parseDataMode(lookup)
+	if err != nil {
+		return Settings{}, err
+	}
+	dataMode := value(lookup, "AVIA_DATA_MODE")
+	if dataEnabled {
+		localCandidate := environment == "development" && dataMode == "local-candidate"
+		directMTLS := environment == "production" && dataMode == "direct-mtls"
+		if !localCandidate && !directMTLS {
+			return Settings{}, fmt.Errorf("AVIA_DATA=1 requires AVIA_DATA_MODE=local-candidate in development or direct-mtls in production")
+		}
+	} else if dataMode != "" {
+		return Settings{}, fmt.Errorf("AVIA_DATA_MODE requires AVIA_DATA=1")
+	}
+	if !dataEnabled {
+		if err := rejectDisabledDataFeedConfiguration(lookup); err != nil {
+			return Settings{}, err
+		}
+	}
 	databaseURL, err := valueOrFile(lookup, "AVIA_DATABASE_URL")
 	if err != nil {
 		return Settings{}, err
@@ -133,6 +149,8 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 	}
 	settings := Settings{
 		Environment:               environment,
+		DataEnabled:               dataEnabled,
+		DataMode:                  dataMode,
 		DatabaseURL:               databaseURL,
 		HTTPAddress:               valueOrDefault(lookup, "AVIA_HTTP_ADDRESS", ":8080"),
 		TestPrincipal:             value(lookup, "AVIA_TEST_PRINCIPAL"),
@@ -143,8 +161,8 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 		OIDCClientID:              value(lookup, "AVIA_OIDC_CLIENT_ID"),
 		OIDCClientSecret:          oidcClientSecret,
 		OIDCRedirectURL:           value(lookup, "AVIA_OIDC_REDIRECT_URL"),
-		FirstPartyAdminURL:        value(lookup, "AVIA_FIRST_PARTY_ADMIN_URL"),
-		FirstPartyAdminSecretFile: value(lookup, "AVIA_FIRST_PARTY_ADMIN_SECRET_FILE"),
+		FirstPartyAdminURL:        value(lookup, "AVIA_AUTH_ADMIN_URL"),
+		FirstPartyAdminSecretFile: value(lookup, "AVIA_AUTH_ADMIN_SECRET_FILE"),
 		SessionIdleDuration:       30 * time.Minute,
 		SessionAbsoluteDuration:   8 * time.Hour,
 		CookieSecure:              true,
@@ -160,8 +178,7 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 		CanonicalBucket:           valueOrDefault(lookup, "AVIA_OBJECT_STORE_CANONICAL_BUCKET", "evidence-clean"),
 		AttachmentBucket:          valueOrDefault(lookup, "AVIA_OBJECT_STORE_ATTACHMENT_BUCKET", "inspection-attachments"),
 		DocumentBucket:            valueOrDefault(lookup, "AVIA_OBJECT_STORE_DOCUMENT_BUCKET", "generated-documents"),
-		ScannerMode:               value(lookup, "AVIA_SCANNER_MODE"),
-		ClamAVAddress:             value(lookup, "AVIA_CLAMAV_ADDRESS"),
+		ScannerMode:               valueOrDefault(lookup, "AVIA_SCANNER_MODE", "disabled"),
 		SMTPAddress:               value(lookup, "AVIA_SMTP_ADDRESS"),
 		SMTPFrom:                  value(lookup, "AVIA_SMTP_FROM"),
 		SMTPUsername:              value(lookup, "AVIA_SMTP_USERNAME"),
@@ -216,13 +233,6 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 		return Settings{}, err
 	}
 	settings.ObjectStorePrivateNetwork = objectStorePrivateNetwork
-	clamAVMaximumSignatureAge, err := time.ParseDuration(
-		valueOrDefault(lookup, "AVIA_CLAMAV_MAX_SIGNATURE_AGE", "48h"),
-	)
-	if err != nil || clamAVMaximumSignatureAge <= 0 {
-		return Settings{}, fmt.Errorf("AVIA_CLAMAV_MAX_SIGNATURE_AGE must be a positive duration")
-	}
-	settings.ClamAVMaximumSignatureAge = clamAVMaximumSignatureAge
 	smtpTimeout, err := time.ParseDuration(
 		valueOrDefault(lookup, "AVIA_SMTP_TIMEOUT", "10s"),
 	)
@@ -312,6 +322,9 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 	if settings.Environment == "production" && settings.ScannerMode == "deterministic-test" {
 		return Settings{}, fmt.Errorf("AVIA_SCANNER_MODE=deterministic-test is forbidden in production")
 	}
+	if !contains([]string{"disabled", "deterministic-test", "guardduty-s3"}, settings.ScannerMode) {
+		return Settings{}, fmt.Errorf("unsupported AVIA_SCANNER_MODE %q", settings.ScannerMode)
+	}
 	if settings.Environment != "test" && (settings.TestPrincipal != "" || settings.TestSession != "") {
 		return Settings{}, fmt.Errorf("AVIA_TEST_PRINCIPAL and AVIA_TEST_SESSION require AVIA_ENVIRONMENT=test")
 	}
@@ -330,17 +343,17 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 	firstPartyConfigured := settings.FirstPartyAdminURL != "" || settings.FirstPartyAdminSecretFile != ""
 	if firstPartyConfigured || settings.Environment == "local-preprod" {
 		if settings.FirstPartyAdminURL == "" {
-			return Settings{}, fmt.Errorf("AVIA_FIRST_PARTY_ADMIN_URL is required for first-party administration")
+			return Settings{}, fmt.Errorf("AVIA_AUTH_ADMIN_URL is required for AviaAuth administration")
 		}
 		if settings.FirstPartyAdminSecretFile == "" {
-			return Settings{}, fmt.Errorf("AVIA_FIRST_PARTY_ADMIN_SECRET_FILE is required for first-party administration")
+			return Settings{}, fmt.Errorf("AVIA_AUTH_ADMIN_SECRET_FILE is required for AviaAuth administration")
 		}
 		adminURL, err := url.Parse(settings.FirstPartyAdminURL)
 		if err != nil || adminURL.Host == "" || (adminURL.Scheme != "http" && adminURL.Scheme != "https") || adminURL.User != nil || adminURL.RawQuery != "" || adminURL.Fragment != "" {
-			return Settings{}, fmt.Errorf("AVIA_FIRST_PARTY_ADMIN_URL must be an absolute HTTP(S) URL without credentials, query, or fragment")
+			return Settings{}, fmt.Errorf("AVIA_AUTH_ADMIN_URL must be an absolute HTTP(S) URL without credentials, query, or fragment")
 		}
 		if !strings.HasPrefix(settings.FirstPartyAdminSecretFile, "/") {
-			return Settings{}, fmt.Errorf("AVIA_FIRST_PARTY_ADMIN_SECRET_FILE must be an absolute secret-file path")
+			return Settings{}, fmt.Errorf("AVIA_AUTH_ADMIN_SECRET_FILE must be an absolute secret-file path")
 		}
 	}
 
@@ -396,15 +409,6 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 	}
 	if settings.ObjectStoreMode == "" && objectStoreConfigured {
 		settings.ObjectStoreMode = "minio"
-	}
-
-	if settings.Environment == "production" && requirements.scanner {
-		if settings.ScannerMode != "clamav" {
-			return Settings{}, fmt.Errorf("AVIA_SCANNER_MODE=clamav is required in production")
-		}
-		if settings.ClamAVAddress == "" {
-			return Settings{}, fmt.Errorf("AVIA_CLAMAV_ADDRESS is required in production")
-		}
 	}
 
 	smtpKeys := []struct {
@@ -482,7 +486,7 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 	if (settings.Environment == "production" && requirements.oidc) ||
 		oidcConfigured {
 		if !firstPartyConfigured {
-			return Settings{}, fmt.Errorf("first-party administration is required when OIDC authentication is enabled")
+			return Settings{}, fmt.Errorf("AviaAuth administration is required when OIDC authentication is enabled")
 		}
 		for _, entry := range oidcKeys {
 			if entry.value == "" {
@@ -613,6 +617,42 @@ func contains(values []string, expected string) bool {
 		}
 	}
 	return false
+}
+
+var dataFeedEnvironmentKeys = []string{
+	"AVIA_DATA_FEED_TENANT_ID",
+	"AVIA_DATA_FEED_OWNING_ORGANIZATION_ID",
+	"AVIA_DATA_FEED_REPLAY_ID",
+	"AVIA_DATA_FEED_REPLAY_RUN_ID",
+	"AVIA_DATA_FEED_PAYLOAD_KEY_FILE",
+	"AVIA_DATA_FEED_PAYLOAD_KEY_REF",
+	"AVIA_DATA_FEED_ENDPOINT",
+	"AVIA_DATA_FEED_CA_BUNDLE_FILE",
+	"AVIA_DATA_FEED_CA_BUNDLE_SHA256",
+	"AVIA_DATA_FEED_REVOCATION_LIST_FILE",
+	"AVIA_DATA_FEED_CLIENT_CERTIFICATE_FILE",
+	"AVIA_DATA_FEED_CLIENT_PRIVATE_KEY_FILE",
+	"AVIA_DATA_FEED_EXPECTED_CLIENT_SAN",
+}
+
+func parseDataMode(lookup LookupEnv) (bool, error) {
+	switch valueOrDefault(lookup, "AVIA_DATA", "0") {
+	case "0":
+		return false, nil
+	case "1":
+		return true, nil
+	default:
+		return false, fmt.Errorf("AVIA_DATA must be 0 or 1")
+	}
+}
+
+func rejectDisabledDataFeedConfiguration(lookup LookupEnv) error {
+	for _, key := range dataFeedEnvironmentKeys {
+		if value(lookup, key) != "" {
+			return fmt.Errorf("%s requires AVIA_DATA=1", key)
+		}
+	}
+	return nil
 }
 
 func parseBoolean(lookup LookupEnv, key string, fallback bool) (bool, error) {

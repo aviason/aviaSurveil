@@ -3,20 +3,15 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"html"
 	"io"
 	"log/slog"
 	"net"
-	"net/http"
 	"net/mail"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 	"time"
 
@@ -28,11 +23,9 @@ import (
 const fixtureSchema = "canonical-preprod-demo-identities/v2"
 
 var (
-	scenarioIDPattern    = regexp.MustCompile(`^synthetic-[a-z0-9-]{1,118}$`)
-	membershipIDPattern  = regexp.MustCompile(`^CANONICAL-DEMO-MEMBERSHIP-[A-Z0-9-]{1,96}$`)
-	activationURLPattern = regexp.MustCompile(`https?://[^\s"'<>]+`)
-	hrefURLPattern       = regexp.MustCompile(`(?i)href=["']([^"']+)["']`)
-	expectedRoles        = map[string]int{
+	scenarioIDPattern   = regexp.MustCompile(`^synthetic-[a-z0-9-]{1,118}$`)
+	membershipIDPattern = regexp.MustCompile(`^CANONICAL-DEMO-MEMBERSHIP-[A-Z0-9-]{1,96}$`)
+	expectedRoles       = map[string]int{
 		"admin": 1, "auditee": 2, "executiveDirector": 1, "finance": 1,
 		"gm": 1, "inspector": 1, "leadInspector": 1, "manager": 1,
 	}
@@ -64,30 +57,6 @@ type provisionedUser struct {
 	SubjectID string
 }
 
-type mailpitClient struct {
-	baseURL    *url.URL
-	httpClient *http.Client
-}
-
-type mailpitMessages struct {
-	Messages []mailpitMessage `json:"messages"`
-}
-
-type mailpitMessage struct {
-	ID      string           `json:"ID"`
-	To      []mailpitAddress `json:"To"`
-	Created time.Time        `json:"Created"`
-}
-
-type mailpitAddress struct {
-	Address string `json:"Address"`
-}
-
-type mailpitDetail struct {
-	HTML string `json:"HTML"`
-	Text string `json:"Text"`
-}
-
 func main() {
 	if err := run(context.Background(), os.Stdout); err != nil {
 		slog.Error("canonical preprod demo identity load failed", "error", err)
@@ -98,10 +67,6 @@ func main() {
 func run(ctx context.Context, output io.Writer) error {
 	fixturePath := strings.TrimSpace(os.Getenv("AVIA_CANONICAL_DEMO_IDENTITIES_FILE"))
 	issuer, err := validateIssuer(os.Getenv("AVIA_PREPROD_OIDC_ISSUER_URL"))
-	if err != nil {
-		return err
-	}
-	authURL, err := validateHTTPURL(requiredEnvironment("AVIA_PREPROD_AUTH_URL"), "private first-party auth URL")
 	if err != nil {
 		return err
 	}
@@ -121,8 +86,8 @@ func run(ctx context.Context, output io.Writer) error {
 		return fmt.Errorf("demo qualification password is below the reviewed minimum")
 	}
 	providerAdmin, err := identity.NewFirstPartyAdminClient(identity.FirstPartyAdminConfig{
-		BaseURL:    requiredEnvironment("AVIA_FIRST_PARTY_ADMIN_URL"),
-		SecretFile: requiredEnvironment("AVIA_FIRST_PARTY_ADMIN_SECRET_FILE"),
+		BaseURL:    requiredEnvironment("AVIA_AUTH_ADMIN_URL"),
+		SecretFile: requiredEnvironment("AVIA_AUTH_ADMIN_SECRET_FILE"),
 	})
 	if err != nil {
 		return err
@@ -131,11 +96,6 @@ func run(ctx context.Context, output io.Writer) error {
 	if !ok {
 		return fmt.Errorf("first-party provider does not expose revisioned administration")
 	}
-	mailpit, err := newMailpitClient(requiredEnvironment("AVIA_PREPROD_AUTH_MAILPIT_HTTP_URL"))
-	if err != nil {
-		return err
-	}
-
 	pool, err := database.Open(ctx, databaseURL(ownerPassword))
 	if err != nil {
 		return fmt.Errorf("open canonical demo identity database: %w", err)
@@ -147,7 +107,7 @@ func run(ctx context.Context, output io.Writer) error {
 
 	provisioned := make([]provisionedUser, 0, len(fixture.Users))
 	for _, user := range fixture.Users {
-		subjectID, err := ensureProviderUser(ctx, providerAdmin, revisioned, mailpit, authURL, user, qualificationPassword)
+		subjectID, err := ensureProviderUser(ctx, providerAdmin, revisioned, user, qualificationPassword)
 		if err != nil {
 			return fmt.Errorf("prepare %s: %w", user.Role, err)
 		}
@@ -170,8 +130,6 @@ func ensureProviderUser(
 	ctx context.Context,
 	providerAdmin identity.ProviderAdmin,
 	revisioned identity.RevisionedProviderAdmin,
-	mailpit *mailpitClient,
-	authURL *url.URL,
 	fixture fixtureUser,
 	password string,
 ) (string, error) {
@@ -179,7 +137,6 @@ func ensureProviderUser(
 	if err != nil {
 		return "", err
 	}
-	newlyProvisioned := false
 	if !found {
 		subjectID, provisionErr := revisioned.ProvisionUserAtRevision(ctx, identity.ProviderUser{
 			Email:          fixture.Email,
@@ -198,30 +155,19 @@ func ensureProviderUser(
 		if !found || user.SubjectID != subjectID {
 			return "", fmt.Errorf("provider account disappeared or changed subject after provisioning")
 		}
-		newlyProvisioned = true
 	}
 	if err := validateProviderDirectoryUser(user, fixture); err != nil {
 		return "", err
 	}
 	if user.State == "INVITED" {
-		if !newlyProvisioned {
-			if err := providerAdmin.IssueExecuteActionsEmail(ctx, user.SubjectID, []string{"UPDATE_PASSWORD", "VERIFY_EMAIL"}, 24*60*60); err != nil {
-				return "", fmt.Errorf("reissue activation email: %w", err)
-			}
+		direct, ok := any(providerAdmin).(interface {
+			ActivateUserAtRevision(context.Context, string, string, int64, int64) error
+		})
+		if !ok {
+			return "", fmt.Errorf("first-party provider does not expose disposable direct activation")
 		}
-		links, err := mailpit.waitForActivationLinks(ctx, fixture.Email, user.SubjectID, authURL)
-		if err != nil {
-			return "", err
-		}
-		activated := false
-		for _, link := range links {
-			if err := activateUser(ctx, link, user.SubjectID, password); err == nil {
-				activated = true
-				break
-			}
-		}
-		if !activated {
-			return "", fmt.Errorf("dedicated auth Mailpit activation did not accept a current invitation")
+		if err := direct.ActivateUserAtRevision(ctx, user.SubjectID, password, user.MembershipRevision, user.MembershipRevision); err != nil {
+			return "", fmt.Errorf("direct auth activation failed: %w", err)
 		}
 	}
 	updated, found, err := findProviderUser(ctx, providerAdmin, fixture.Email)
@@ -382,15 +328,6 @@ func validateIssuer(raw string) (string, error) {
 		return "", fmt.Errorf("HTTP canonical issuer is allowed only on loopback")
 	}
 	return value, nil
-}
-
-func validateHTTPURL(raw, label string) (*url.URL, error) {
-	value := strings.TrimRight(strings.TrimSpace(raw), "/")
-	parsed, err := url.Parse(value)
-	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
-		return nil, fmt.Errorf("%s must be an absolute HTTP(S) URL without credentials, query, or fragment", label)
-	}
-	return parsed, nil
 }
 
 func preflightDatabase(ctx context.Context, pool *database.Pool, fixture identityFixture) error {
@@ -590,186 +527,6 @@ func verifyDatabase(ctx context.Context, pool *database.Pool, users []provisione
 		if storedSubject != user.SubjectID || storedIssuer != issuer {
 			return fmt.Errorf("application identity reference does not match first-party provider subject")
 		}
-	}
-	return nil
-}
-
-func newMailpitClient(raw string) (*mailpitClient, error) {
-	baseURL, err := validateHTTPURL(raw, "auth Mailpit HTTP URL")
-	if err != nil {
-		return nil, err
-	}
-	return &mailpitClient{baseURL: baseURL, httpClient: &http.Client{Timeout: 10 * time.Second}}, nil
-}
-
-func (client *mailpitClient) waitForActivationLinks(ctx context.Context, recipient, subjectID string, authURL *url.URL) ([]string, error) {
-	deadline := time.Now().Add(45 * time.Second)
-	var lastErr error
-	for {
-		links, err := client.activationLinks(ctx, recipient, subjectID, authURL)
-		if err == nil && len(links) > 0 {
-			return links, nil
-		}
-		lastErr = err
-		if time.Now().After(deadline) {
-			if lastErr != nil {
-				return nil, lastErr
-			}
-			return nil, fmt.Errorf("auth Mailpit omitted the activation email for %s", recipient)
-		}
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(250 * time.Millisecond):
-		}
-	}
-}
-
-func (client *mailpitClient) activationLinks(ctx context.Context, recipient, subjectID string, authURL *url.URL) ([]string, error) {
-	requestURL := *client.baseURL
-	requestURL.Path = strings.TrimRight(requestURL.Path, "/") + "/api/v1/messages"
-	query := requestURL.Query()
-	query.Set("limit", "1000")
-	requestURL.RawQuery = query.Encode()
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-	response, err := client.httpClient.Do(request)
-	if err != nil {
-		return nil, err
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("auth Mailpit messages status %d", response.StatusCode)
-	}
-	var payload mailpitMessages
-	if err := decodeJSON(response.Body, &payload, 512*1024); err != nil {
-		return nil, err
-	}
-	sort.SliceStable(payload.Messages, func(i, j int) bool { return payload.Messages[i].Created.After(payload.Messages[j].Created) })
-	links := make([]string, 0, len(payload.Messages))
-	for _, message := range payload.Messages {
-		if strings.TrimSpace(message.ID) == "" || len(message.To) == 0 {
-			continue
-		}
-		matched := false
-		for _, address := range message.To {
-			if strings.EqualFold(strings.TrimSpace(address.Address), strings.TrimSpace(recipient)) {
-				matched = true
-			}
-		}
-		if !matched {
-			continue
-		}
-		detail, err := client.message(ctx, message.ID)
-		if err != nil {
-			return nil, err
-		}
-		content := html.UnescapeString(detail.HTML + "\n" + detail.Text)
-		candidates := make([]string, 0, 4)
-		for _, match := range hrefURLPattern.FindAllStringSubmatch(content, -1) {
-			if len(match) == 2 {
-				candidates = append(candidates, match[1])
-			}
-		}
-		candidates = append(candidates, activationURLPattern.FindAllString(content, -1)...)
-		for _, candidate := range candidates {
-			link, ok := normalizeActivationLink(candidate, subjectID, authURL)
-			if ok {
-				links = append(links, link)
-			}
-		}
-	}
-	return deduplicateStrings(links), nil
-}
-
-func (client *mailpitClient) message(ctx context.Context, messageID string) (mailpitDetail, error) {
-	requestURL := *client.baseURL
-	requestURL.Path = strings.TrimRight(requestURL.Path, "/") + "/api/v1/message/" + url.PathEscape(messageID)
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL.String(), nil)
-	if err != nil {
-		return mailpitDetail{}, err
-	}
-	response, err := client.httpClient.Do(request)
-	if err != nil {
-		return mailpitDetail{}, err
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		return mailpitDetail{}, fmt.Errorf("auth Mailpit message status %d", response.StatusCode)
-	}
-	var detail mailpitDetail
-	if err := decodeJSON(response.Body, &detail, 256*1024); err != nil {
-		return mailpitDetail{}, err
-	}
-	return detail, nil
-}
-
-func normalizeActivationLink(raw, subjectID string, authURL *url.URL) (string, bool) {
-	parsed, err := url.Parse(strings.Trim(strings.TrimSpace(raw), ".,);]"))
-	if err != nil || parsed.Scheme == "" || parsed.Host == "" || parsed.User != nil || parsed.Fragment != "" {
-		return "", false
-	}
-	query := parsed.Query()
-	if query.Get("subject") != subjectID || strings.TrimSpace(query.Get("token")) == "" || !strings.HasSuffix(parsed.Path, "/activate") {
-		return "", false
-	}
-	private := *authURL
-	private.Path = path.Join(strings.TrimRight(authURL.Path, "/"), "activate")
-	private.RawQuery = query.Encode()
-	return private.String(), true
-}
-
-func activateUser(ctx context.Context, link, subjectID, password string) error {
-	parsed, err := url.Parse(link)
-	if err != nil {
-		return err
-	}
-	form := url.Values{"subject": {subjectID}, "token": {parsed.Query().Get("token")}, "password": {password}}
-	if parsed.Query().Get("subject") != subjectID || form.Get("token") == "" {
-		return fmt.Errorf("activation link is not bound to the expected subject")
-	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, link, strings.NewReader(form.Encode()))
-	if err != nil {
-		return err
-	}
-	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	client := &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }}
-	response, err := client.Do(request)
-	if err != nil {
-		return err
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusSeeOther && response.StatusCode != http.StatusFound {
-		return fmt.Errorf("activation endpoint rejected invitation")
-	}
-	return nil
-}
-
-func deduplicateStrings(values []string) []string {
-	seen := make(map[string]bool, len(values))
-	result := make([]string, 0, len(values))
-	for _, value := range values {
-		if !seen[value] {
-			seen[value] = true
-			result = append(result, value)
-		}
-	}
-	return result
-}
-
-func decodeJSON(reader io.Reader, value any, limit int64) error {
-	decoder := json.NewDecoder(io.LimitReader(reader, limit+1))
-	if err := decoder.Decode(value); err != nil {
-		return err
-	}
-	var trailing any
-	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
-		if err == nil {
-			return fmt.Errorf("JSON body contains multiple values")
-		}
-		return err
 	}
 	return nil
 }

@@ -157,11 +157,8 @@ if [[ "$skip_build" == false ]]; then
     preprod-normal-runtime-role-provisioner \
     preprod-canonical-aga-loader \
     preprod-canonical-demo-identity-loader \
-    preprod-clamav \
-    preprod-gotenberg \
     preprod-auth \
     preprod-minio \
-    preprod-mailpit \
     preprod-api \
     preprod-worker \
     preprod-web-http \
@@ -171,12 +168,8 @@ fi
 compose up --detach --wait --wait-timeout 300 \
   preprod-postgres \
   preprod-auth-postgres \
-  preprod-auth-mailpit \
   preprod-auth \
-  preprod-mailpit \
   preprod-minio \
-  preprod-clamav \
-  preprod-gotenberg \
   preprod-web-http
 
 compose up --detach preprod-migration

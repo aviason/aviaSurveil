@@ -51,47 +51,6 @@ services:
       start_period: 5s
     restart: "no"
 
-  clamav:
-    image: clamav/clamav:1.4.3@sha256:75fb5fd95fcbe1d7e6d240c369c1572b686ee2c95949d1042b5148de8eddebb4
-    platform: linux/amd64
-    user: "0:0"
-    read_only: true
-    init: false
-    entrypoint:
-      - /bin/sh
-      - /opt/aviasurveil360/clamav-entrypoint.sh
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - SETGID
-      - SETUID
-    security_opt:
-      - no-new-privileges:true
-    configs:
-      - source: clamav_entrypoint
-        target: /opt/aviasurveil360/clamav-entrypoint.sh
-        uid: "0"
-        gid: "0"
-        mode: 0550
-    ports:
-      - "127.0.0.1:${AVIA_TEST_CLAMAV_PORT:-53310}:3310"
-    volumes:
-      - clamav-test-signatures:/var/lib/clamav
-    tmpfs:
-      - /run/clamav:uid=0,gid=101,mode=0770
-      - /run/lock:mode=1777
-      - /var/log/clamav:uid=0,gid=101,mode=0770
-      - /tmp:mode=1777
-    healthcheck:
-      test: [CMD, clamdscan, --ping, "1"]
-      interval: 5s
-      timeout: 5s
-      retries: 60
-      start_period: 60s
-    restart: "no"
-
   object-store-init:
     image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
     user: "0:0"
@@ -146,8 +105,6 @@ services:
     restart: "no"
 
 configs:
-  clamav_entrypoint:
-    file: ./clamav/entrypoint.sh
   minio_init:
     file: ./minio/init.sh
 
@@ -173,4 +130,3 @@ volumes:
   postgres-test-data:
   object-store-test-data:
   mailpit-test-data:
-  clamav-test-signatures:

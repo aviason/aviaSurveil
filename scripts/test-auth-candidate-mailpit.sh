@@ -40,7 +40,7 @@ smtp_port=$(docker port "$container_name" 1025/tcp | sed -n 's/.*:\([0-9][0-9]*\
 http_port=$(docker port "$container_name" 8025/tcp | sed -n 's/.*:\([0-9][0-9]*\)$/\1/p')
 test -n "$smtp_port" && test -n "$http_port"
 
-cd "$repository_root/apps/auth"
+cd "$repository_root/../../shared/auth"
 AVIA_AUTH_MAILPIT_ADDRESS="127.0.0.1:$smtp_port" \
 AVIA_AUTH_MAILPIT_HTTP_URL="http://127.0.0.1:$http_port" \
 AVIA_AUTH_MAILPIT_PASSWORD_FILE="$runtime_directory/password" \

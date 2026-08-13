@@ -11,9 +11,10 @@ React application is under `apps/web/`; it uses TypeScript, Vite, build-time
 separated mock and HTTP entries, one capability-composed `Backend`, and a
 versioned OpenAPI contract under `api/openapi/`. The one-module Go API/worker is
 under `apps/api/`. The separate first-party Go OIDC service is under
-`apps/auth/`. Maintained local verification profiles use pinned application
-and auth PostgreSQL, MinIO, authenticated Mailpit SMTP, and bounded scanner
-adapters.
+`../../shared/auth/` as the shared AviaAuth runtime owned outside this
+application. Maintained local verification profiles use pinned application and
+auth PostgreSQL, MinIO, local-only Mailpit SMTP, a disabled fail-closed scanner
+adapter, and the native Go document renderer.
 
 **Candidate-only:** the Go/PostgreSQL authority layer,
 private bounded object upload, deterministic scan worker, full canonical HTTP
@@ -26,6 +27,14 @@ artifact whose release remains `release pending`. First-party local OIDC/MFA
 is implemented, while remote deployment, traffic, production secrets, real
 identity migration, production object-store/scanner policy, and release
 approval are `not run`. The root demo remains the behavior oracle.
+
+AviaWorkspace owns platform composition, deployment targets, release locks, and
+customer infrastructure. This repository's `deploy/local/` Compose files are
+candidate-validation fixtures only. The application defaults to
+`AVIA_DATA=0`; Workspace Namibia dev explicitly selects
+`AVIA_DATA_MODE=local-candidate` and the shared PostgreSQL/SeaweedFS admission
+service. Released environments remain fail-closed until connected-data and
+image qualification is complete.
 
 ## Product definition
 
@@ -76,8 +85,8 @@ See `docs/demo-evidence/REACT_MOCK_SLICE_2026-07-20.md` for the exact verified
 scope, commands, transcript, and exclusions.
 
 For the disposable canonical API-backed preprod profile (application and auth
-PostgreSQL, first-party Go OIDC, dedicated auth Mailpit, Go API, HTTP React
-shell, and the 1,310-question exercise catalog):
+PostgreSQL, first-party Go OIDC, SMTP-free direct local-preprod activation, Go
+API, HTTP React shell, and the 1,310-question exercise catalog):
 
 ```bash
 make preprod-up

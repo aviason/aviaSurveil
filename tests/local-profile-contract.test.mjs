@@ -81,21 +81,14 @@ test("the obsolete fixed-workspace local-full runner is retired in favor of the 
   assert.match(config, /profile !== "canonical-quick-tunnel"/u);
 });
 
-test("canonical connected proof covers exact roles, lifecycle, real adapters, Mailpit, and cleanup", () => {
+test("canonical connected proof covers exact roles, lifecycle, native adapters, and cleanup", () => {
   const fault = readRequired(canonicalFaultScriptPath);
   const lifecycle = readRequired(canonicalLifecycleSpecPath);
   const panels = readRequired(canonicalPanelsSpecPath);
-  for (const service of [
-    "preprod-postgres",
-    "preprod-auth",
-    "preprod-minio",
-    "preprod-clamav",
-    "preprod-gotenberg",
-    "preprod-mailpit",
-  ]) {
+  for (const service of ["preprod-postgres", "preprod-auth", "preprod-minio"]) {
     assert.match(fault, new RegExp(service));
   }
-  assert.match(fault, /assert_mailpit_delivery/u);
+  assert.doesNotMatch(fault, /assert_mailpit_delivery/u);
   assert.match(fault, /assert_no_project_residue/u);
   assert.match(fault, /canonical-quick-tunnel-lifecycle\.spec\.ts/u);
   assert.match(fault, /canonical-quick-tunnel-panels\.spec\.ts/u);

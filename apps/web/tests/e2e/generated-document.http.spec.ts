@@ -23,7 +23,7 @@ async function decideReport(
   revision: number,
   decision: "FORWARD" | "ISSUE_AND_LOCK",
 ): Promise<void> {
-  const operationId = `OP-GOTENBERG-${revision}-${decision}`;
+  const operationId = `OP-NATIVE-GO-RENDERER-${revision}-${decision}`;
   const response = await request.post(
     `${apiURL}/v1/report-versions/${reportVersionId}/decisions`,
     {
@@ -50,7 +50,7 @@ test.beforeEach(async ({ request }) => {
   expect(response.ok(), await response.text()).toBe(true);
 });
 
-test("real Gotenberg PDF is privately rendered and downloaded for the exact report version", async ({
+test("native Go PDF is privately rendered and downloaded for the exact report version", async ({
   page,
   request,
 }) => {
@@ -68,7 +68,7 @@ test("real Gotenberg PDF is privately rendered and downloaded for the exact repo
     return (await response.json() as { renderStatus?: string }).renderStatus;
   }, {
     timeout: 60_000,
-    message: "real document worker should complete the Gotenberg render",
+    message: "native Go document worker should complete the render",
   }).toBe("SUCCEEDED");
 
   await page.goto("/auditee/documents");

@@ -11,13 +11,13 @@ Status: `candidate-only`. Release: `release pending`.
 
 - `apps/web`: build-separated React/Vite demo and HTTP artifacts.
 - `apps/api`: Go API, consolidated worker/reminder controller, migrations,
-  application PostgreSQL authority, BFF sessions, object storage, scanning,
-  email, and document workflows.
-- `apps/auth`: first-party Go OIDC, password/MFA/recovery, provider sessions,
-  signing keys, authority mirrors, private administration, and dedicated auth
-  PostgreSQL.
+  application PostgreSQL authority, BFF sessions, object storage, disabled
+  fail-closed scanning, email, and native Go document workflows.
+- `../../shared/auth`: shared first-party Go OIDC, password/MFA/recovery,
+  provider sessions, signing keys, opaque claim projections, private
+  administration, and dedicated auth PostgreSQL.
 - `deploy/local/compose.yaml`: maintained demo/full/local-preprod services,
-  including separate application and privileged auth Mailpit services.
+  including local-only application Mailpit; preprod has no Mailpit service.
 - `apps/api/cmd/preprod-canonical-demo-identity-loader`: resumable nine-user
   synthetic identity bootstrap.
 - `apps/api/cmd/preprod-canonical-aga-loader`: canonical 1,310-question

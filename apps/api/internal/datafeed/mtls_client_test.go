@@ -66,6 +66,16 @@ func TestNewMTLSClientRejectsUnsafeTransportConfiguration(t *testing.T) {
 	}
 }
 
+func TestNewLocalCandidateClientIsExplicitlyInternalHTTPOnly(t *testing.T) {
+	client, err := NewLocalCandidateClient("http://avia-data-admission:8080/v3/aviasurveil/event-batches")
+	if err != nil || client == nil {
+		t.Fatalf("local candidate client=%v err=%v", client, err)
+	}
+	if _, err := NewLocalCandidateClient("https://external.example/v3/aviasurveil/event-batches"); err == nil {
+		t.Fatal("local candidate accepted an HTTPS external endpoint")
+	}
+}
+
 func TestMTLSClientPinsCAUsesTLS13AndPresentsApprovedClientSAN(t *testing.T) {
 	t.Parallel()
 	const clientSAN = "spiffe://aviacore/tenant-contract-fixture/aviasurveil-production-api"

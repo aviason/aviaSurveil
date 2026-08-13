@@ -807,7 +807,7 @@ The plan may move to `ready-for-verification` only when:
 Use this exact prompt to execute the plan:
 
 ```text
-Implement docs/exec-plans/active/2026-07-10-inspector-report-and-governance-workflow-remediation-plan.md in /Users/marlonjd/Developer/web/aviaSurveil360.
+Implement docs/exec-plans/active/2026-07-10-inspector-report-and-governance-workflow-remediation-plan.md in /Users/marlonjd/Developer/monorepos/avia/apps/surveil.
 
 Read AGENTS.md and the plan's linked active-plan/product sources first. Work on the current branch and preserve unrelated dirty-worktree changes. Do not create or switch branches, commit, push, deploy, open a PR, or post GitHub comments unless I separately request that exact action.
 

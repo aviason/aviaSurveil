@@ -16,8 +16,6 @@ test("canonical local-preprod owns one isolated first-party identity namespace",
   const compose = read("deploy/local/compose.yaml");
   for (const name of [
     "preprod-auth-postgres",
-    "preprod-auth-mailpit-volume-init",
-    "preprod-auth-mailpit",
     "preprod-auth",
     "preprod-canonical-aga-loader",
     "preprod-canonical-demo-identity-loader",
@@ -27,8 +25,13 @@ test("canonical local-preprod owns one isolated first-party identity namespace",
     assert.match(block, /local-preprod-loader/u, name);
   }
   assert.doesNotMatch(compose, new RegExp(["key", "cloak"].join(""), "iu"));
-  assert.match(compose, /^  preprod-auth-database:\s*$/mu);
-  assert.match(compose, /^  preprod-auth-mailpit-data:\s*$/mu);
+  for (const name of ["preprod-auth", "preprod-api", "preprod-worker", "preprod-canonical-demo-identity-loader"]) {
+    assert.doesNotMatch(
+      serviceBlock(compose, name),
+      /mailpit|AVIA_(?:AUTH_)?SMTP_(?:ADDRESS|FROM|USERNAME|PASSWORD|TLS_MODE|CA_FILE)/iu,
+      name,
+    );
+  }
 });
 
 test("public identity routing strips the issuer prefix and never exposes admin port", () => {
@@ -76,9 +79,6 @@ test("namespace initializer generates all privileged auth material create-only",
     "preprod_auth_mfa_key",
     "preprod_auth_admin_secret",
     "preprod_oidc_client_secret",
-    "preprod_auth_smtp_password",
-    "preprod_auth_mailpit_cert",
-    "preprod_auth_mailpit_key",
     "identityProvider\": \"first-party",
   ]) {
     assert.ok(initializer.includes(marker), marker);
@@ -100,11 +100,13 @@ test("canonical API and worker use non-owner application credentials and first-p
   for (const name of ["preprod-api", "preprod-worker"]) {
     const service = serviceBlock(compose, name);
     assert.match(service, /preprod-normal-runtime-role-provisioner:[^]*?service_completed_successfully/u, name);
+    assert.match(service, /AVIA_DATA:\s*"0"/u, name);
     assert.match(service, /AVIA_DATABASE_USER:\s*preprod_normal_api/u, name);
     assert.match(service, /preprod_normal_api_database_password/u, name);
     assert.doesNotMatch(service, /preprod_app_database_password/u, name);
-    assert.match(service, /AVIA_FIRST_PARTY_ADMIN_URL:\s*http:\/\/preprod-auth:8081/u, name);
-    assert.match(service, /AVIA_FIRST_PARTY_ADMIN_SECRET_FILE:\s*\/run\/secrets\/preprod_auth_admin_secret/u, name);
+    assert.match(service, /AVIA_AUTH_ADMIN_URL:\s*http:\/\/preprod-auth:8081/u, name);
+    assert.match(service, /AVIA_AUTH_ADMIN_SECRET_FILE:\s*\/run\/secrets\/preprod_auth_admin_secret/u, name);
+    assert.doesNotMatch(service, /AVIA_DATA_FEED_/u, name);
   }
 });
 
@@ -114,9 +116,9 @@ test("canonical synthetic identity loader is one-shot and authority-aware", () =
   assert.match(dockerfile, /\.\/cmd\/preprod-canonical-demo-identity-loader/u);
   assert.match(dockerfile, /AS preprod-canonical-demo-identity-loader/u);
   assert.match(loader, /preprod-auth:[^]*?condition: service_healthy/u);
-  assert.match(loader, /preprod-auth-mailpit:[^]*?condition: service_healthy/u);
-  assert.match(loader, /AVIA_FIRST_PARTY_ADMIN_URL/u);
+  assert.match(loader, /AVIA_AUTH_ADMIN_URL/u);
   assert.match(loader, /preprod_auth_admin_secret/u);
+  assert.doesNotMatch(loader, /mailpit|AVIA_(?:AUTH_)?SMTP_/iu);
   assert.match(loader, /restart:\s*"no"/u);
 });
 

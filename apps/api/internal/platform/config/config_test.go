@@ -58,8 +58,8 @@ func TestProductionAPIRuntimeDoesNotRequireWorkerOnlyAdapters(t *testing.T) {
 		"AVIA_OIDC_REDIRECT_URL":              "https://avia.example/auth/callback",
 		"AVIA_OIDC_DISCOVERY_URL":             "http://auth:8080",
 		"AVIA_OIDC_DISCOVERY_PRIVATE_NETWORK": "true",
-		"AVIA_FIRST_PARTY_ADMIN_URL":          "http://auth:8081",
-		"AVIA_FIRST_PARTY_ADMIN_SECRET_FILE":  "/run/secrets/auth_admin_secret",
+		"AVIA_AUTH_ADMIN_URL":                 "http://auth:8081",
+		"AVIA_AUTH_ADMIN_SECRET_FILE":         "/run/secrets/auth_admin_secret",
 		"AVIA_SESSION_ENCRYPTION_KEY":         base64.StdEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef")),
 		"AVIA_OBJECT_STORE_ENDPOINT":          "minio:9000",
 		"AVIA_OBJECT_STORE_PUBLIC_ENDPOINT":   "localhost:8443",
@@ -68,8 +68,7 @@ func TestProductionAPIRuntimeDoesNotRequireWorkerOnlyAdapters(t *testing.T) {
 		"AVIA_OBJECT_STORE_CORS_ORIGINS":      "https://localhost:8443",
 		"AVIA_OBJECT_STORE_PUBLIC_TLS":        "true",
 		"AVIA_OBJECT_STORE_PRIVATE_NETWORK":   "true",
-		"AVIA_SCANNER_MODE":                   "clamav",
-		"AVIA_CLAMAV_ADDRESS":                 "clamav:3310",
+		"AVIA_SCANNER_MODE":                   "disabled",
 	}
 
 	settings, err := config.LoadAPI(mapLookup(values))
@@ -106,14 +105,75 @@ func TestProductionDatabaseRuntimeRequiresOnlyItsDatabaseCapability(t *testing.T
 	}
 }
 
+func TestDataIntegrationIsExplicitAndFailClosed(t *testing.T) {
+	t.Parallel()
+
+	values := map[string]string{
+		"AVIA_ENVIRONMENT":  "development",
+		"AVIA_DATABASE_URL": "postgres://example.invalid/avia",
+	}
+	settings, err := config.LoadDatabaseRuntime(mapLookup(values))
+	if err != nil {
+		t.Fatalf("LoadDatabaseRuntime() default data mode: %v", err)
+	}
+	if settings.DataEnabled {
+		t.Fatal("default AVIA_DATA mode unexpectedly enabled")
+	}
+
+	values["AVIA_DATA"] = "2"
+	if _, err := config.LoadDatabaseRuntime(mapLookup(values)); err == nil ||
+		!strings.Contains(err.Error(), "AVIA_DATA must be 0 or 1") {
+		t.Fatalf("invalid AVIA_DATA mode error = %v", err)
+	}
+
+	values["AVIA_DATA"] = "1"
+	if _, err := config.LoadDatabaseRuntime(mapLookup(values)); err == nil ||
+		!strings.Contains(err.Error(), "AVIA_DATA_MODE") {
+		t.Fatalf("missing AviaData candidate mode error = %v", err)
+	}
+
+	values["AVIA_DATA_MODE"] = "local-candidate"
+	settings, err = config.LoadDatabaseRuntime(mapLookup(values))
+	if err != nil || !settings.DataEnabled || settings.DataMode != "local-candidate" {
+		t.Fatalf("local AviaData candidate settings = %+v, err = %v", settings, err)
+	}
+
+	values["AVIA_ENVIRONMENT"] = "production"
+	if _, err := config.LoadDatabaseRuntime(mapLookup(values)); err == nil ||
+		!strings.Contains(err.Error(), "AVIA_DATA_MODE") {
+		t.Fatalf("production AviaData candidate error = %v", err)
+	}
+
+	values["AVIA_DATA_MODE"] = "direct-mtls"
+	settings, err = config.LoadDatabaseRuntime(mapLookup(values))
+	if err != nil || !settings.DataEnabled || settings.DataMode != "direct-mtls" {
+		t.Fatalf("production AviaData direct-mTLS settings = %+v, err = %v", settings, err)
+	}
+
+	values["AVIA_ENVIRONMENT"] = "development"
+	values["AVIA_DATA"] = "0"
+	delete(values, "AVIA_DATA_MODE")
+	values["AVIA_DATA_FEED_TENANT_ID"] = "tenant-example"
+	if _, err := config.LoadDatabaseRuntime(mapLookup(values)); err == nil ||
+		!strings.Contains(err.Error(), "AVIA_DATA_FEED_TENANT_ID") {
+		t.Fatalf("disabled AviaData feed configuration error = %v", err)
+	}
+	values["AVIA_DATA"] = "1"
+	values["AVIA_DATA_MODE"] = "local-candidate"
+	settings, err = config.LoadDatabaseRuntime(mapLookup(values))
+	if err != nil || !settings.DataEnabled || settings.DataMode != "local-candidate" {
+		t.Fatalf("enabled AviaData feed configuration = %+v, err = %v", settings, err)
+	}
+}
+
 func TestLocalPreprodEnvironmentIsAcceptedForTheDedicatedDisposableProfile(t *testing.T) {
 	t.Parallel()
 
 	settings, err := config.LoadAPI(mapLookup(map[string]string{
-		"AVIA_ENVIRONMENT":                   "local-preprod",
-		"AVIA_DATABASE_URL":                  "postgres://preprod.example/avia",
-		"AVIA_FIRST_PARTY_ADMIN_URL":         "http://preprod-auth:8081",
-		"AVIA_FIRST_PARTY_ADMIN_SECRET_FILE": "/run/secrets/preprod_auth_admin_secret",
+		"AVIA_ENVIRONMENT":            "local-preprod",
+		"AVIA_DATABASE_URL":           "postgres://preprod.example/avia",
+		"AVIA_AUTH_ADMIN_URL":         "http://preprod-auth:8081",
+		"AVIA_AUTH_ADMIN_SECRET_FILE": "/run/secrets/preprod_auth_admin_secret",
 	}))
 	if err != nil {
 		t.Fatalf("LoadAPI() rejected the dedicated local-preprod environment: %v", err)
@@ -312,30 +372,28 @@ func TestProductionRequiresCompleteHTTPSOIDCAndSessionConfiguration(t *testing.T
 	t.Parallel()
 
 	base := map[string]string{
-		"AVIA_ENVIRONMENT":                   "production",
-		"AVIA_DATABASE_URL":                  "postgres://example.invalid/avia",
-		"AVIA_OIDC_ISSUER_URL":               "https://identity.example/realms/avia",
-		"AVIA_OIDC_CLIENT_ID":                "aviasurveil360",
-		"AVIA_OIDC_CLIENT_SECRET":            "provider-secret",
-		"AVIA_OIDC_REDIRECT_URL":             "https://avia.example/auth/callback",
-		"AVIA_FIRST_PARTY_ADMIN_URL":         "http://auth:8081",
-		"AVIA_FIRST_PARTY_ADMIN_SECRET_FILE": "/run/secrets/auth_admin_secret",
-		"AVIA_SESSION_ENCRYPTION_KEY":        base64.StdEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef")),
-		"AVIA_OBJECT_STORE_ENDPOINT":         "objects.example:443",
-		"AVIA_OBJECT_STORE_PUBLIC_ENDPOINT":  "objects.example:443",
-		"AVIA_OBJECT_STORE_ACCESS_KEY":       "production-access",
-		"AVIA_OBJECT_STORE_SECRET_KEY":       "production-secret",
-		"AVIA_OBJECT_STORE_CORS_ORIGINS":     "https://avia.example",
-		"AVIA_OBJECT_STORE_TLS":              "true",
-		"AVIA_OBJECT_STORE_PUBLIC_TLS":       "true",
-		"AVIA_SCANNER_MODE":                  "clamav",
-		"AVIA_CLAMAV_ADDRESS":                "scanner.example:3310",
-		"AVIA_CLAMAV_MAX_SIGNATURE_AGE":      "48h",
-		"AVIA_SMTP_ADDRESS":                  "mailpit:1025",
-		"AVIA_SMTP_FROM":                     "no-reply@aviasurveil360.local",
-		"AVIA_SMTP_USERNAME":                 "aviasurveil360",
-		"AVIA_SMTP_PASSWORD":                 "smtp-secret",
-		"AVIA_SMTP_PRIVATE_NETWORK":          "true",
+		"AVIA_ENVIRONMENT":                  "production",
+		"AVIA_DATABASE_URL":                 "postgres://example.invalid/avia",
+		"AVIA_OIDC_ISSUER_URL":              "https://identity.example/realms/avia",
+		"AVIA_OIDC_CLIENT_ID":               "aviasurveil360",
+		"AVIA_OIDC_CLIENT_SECRET":           "provider-secret",
+		"AVIA_OIDC_REDIRECT_URL":            "https://avia.example/auth/callback",
+		"AVIA_AUTH_ADMIN_URL":               "http://auth:8081",
+		"AVIA_AUTH_ADMIN_SECRET_FILE":       "/run/secrets/auth_admin_secret",
+		"AVIA_SESSION_ENCRYPTION_KEY":       base64.StdEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef")),
+		"AVIA_OBJECT_STORE_ENDPOINT":        "objects.example:443",
+		"AVIA_OBJECT_STORE_PUBLIC_ENDPOINT": "objects.example:443",
+		"AVIA_OBJECT_STORE_ACCESS_KEY":      "production-access",
+		"AVIA_OBJECT_STORE_SECRET_KEY":      "production-secret",
+		"AVIA_OBJECT_STORE_CORS_ORIGINS":    "https://avia.example",
+		"AVIA_OBJECT_STORE_TLS":             "true",
+		"AVIA_OBJECT_STORE_PUBLIC_TLS":      "true",
+		"AVIA_SCANNER_MODE":                 "disabled",
+		"AVIA_SMTP_ADDRESS":                 "mailpit:1025",
+		"AVIA_SMTP_FROM":                    "no-reply@aviasurveil360.local",
+		"AVIA_SMTP_USERNAME":                "aviasurveil360",
+		"AVIA_SMTP_PASSWORD":                "smtp-secret",
+		"AVIA_SMTP_PRIVATE_NETWORK":         "true",
 	}
 	settings, err := config.Load(mapLookup(base))
 	if err != nil {
@@ -393,30 +451,28 @@ func TestCookieSecureOverrideIsAllowedOnlyOutsideProduction(t *testing.T) {
 func TestProductionRejectsInsecureOIDCEndpointsAndInvalidEncryptionKey(t *testing.T) {
 	t.Parallel()
 	base := map[string]string{
-		"AVIA_ENVIRONMENT":                   "production",
-		"AVIA_DATABASE_URL":                  "postgres://example.invalid/avia",
-		"AVIA_OIDC_ISSUER_URL":               "https://identity.example/realms/avia",
-		"AVIA_OIDC_CLIENT_ID":                "aviasurveil360",
-		"AVIA_OIDC_CLIENT_SECRET":            "provider-secret",
-		"AVIA_OIDC_REDIRECT_URL":             "https://avia.example/auth/callback",
-		"AVIA_FIRST_PARTY_ADMIN_URL":         "http://auth:8081",
-		"AVIA_FIRST_PARTY_ADMIN_SECRET_FILE": "/run/secrets/auth_admin_secret",
-		"AVIA_SESSION_ENCRYPTION_KEY":        base64.StdEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef")),
-		"AVIA_OBJECT_STORE_ENDPOINT":         "objects.example:443",
-		"AVIA_OBJECT_STORE_PUBLIC_ENDPOINT":  "objects.example:443",
-		"AVIA_OBJECT_STORE_ACCESS_KEY":       "production-access",
-		"AVIA_OBJECT_STORE_SECRET_KEY":       "production-secret",
-		"AVIA_OBJECT_STORE_CORS_ORIGINS":     "https://avia.example",
-		"AVIA_OBJECT_STORE_TLS":              "true",
-		"AVIA_OBJECT_STORE_PUBLIC_TLS":       "true",
-		"AVIA_SCANNER_MODE":                  "clamav",
-		"AVIA_CLAMAV_ADDRESS":                "scanner.example:3310",
-		"AVIA_CLAMAV_MAX_SIGNATURE_AGE":      "48h",
-		"AVIA_SMTP_ADDRESS":                  "mailpit:1025",
-		"AVIA_SMTP_FROM":                     "no-reply@aviasurveil360.local",
-		"AVIA_SMTP_USERNAME":                 "aviasurveil360",
-		"AVIA_SMTP_PASSWORD":                 "smtp-secret",
-		"AVIA_SMTP_PRIVATE_NETWORK":          "true",
+		"AVIA_ENVIRONMENT":                  "production",
+		"AVIA_DATABASE_URL":                 "postgres://example.invalid/avia",
+		"AVIA_OIDC_ISSUER_URL":              "https://identity.example/realms/avia",
+		"AVIA_OIDC_CLIENT_ID":               "aviasurveil360",
+		"AVIA_OIDC_CLIENT_SECRET":           "provider-secret",
+		"AVIA_OIDC_REDIRECT_URL":            "https://avia.example/auth/callback",
+		"AVIA_AUTH_ADMIN_URL":               "http://auth:8081",
+		"AVIA_AUTH_ADMIN_SECRET_FILE":       "/run/secrets/auth_admin_secret",
+		"AVIA_SESSION_ENCRYPTION_KEY":       base64.StdEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef")),
+		"AVIA_OBJECT_STORE_ENDPOINT":        "objects.example:443",
+		"AVIA_OBJECT_STORE_PUBLIC_ENDPOINT": "objects.example:443",
+		"AVIA_OBJECT_STORE_ACCESS_KEY":      "production-access",
+		"AVIA_OBJECT_STORE_SECRET_KEY":      "production-secret",
+		"AVIA_OBJECT_STORE_CORS_ORIGINS":    "https://avia.example",
+		"AVIA_OBJECT_STORE_TLS":             "true",
+		"AVIA_OBJECT_STORE_PUBLIC_TLS":      "true",
+		"AVIA_SCANNER_MODE":                 "disabled",
+		"AVIA_SMTP_ADDRESS":                 "mailpit:1025",
+		"AVIA_SMTP_FROM":                    "no-reply@aviasurveil360.local",
+		"AVIA_SMTP_USERNAME":                "aviasurveil360",
+		"AVIA_SMTP_PASSWORD":                "smtp-secret",
+		"AVIA_SMTP_PRIVATE_NETWORK":         "true",
 	}
 	for name, mutation := range map[string]func(map[string]string){
 		"HTTP issuer":   func(values map[string]string) { values["AVIA_OIDC_ISSUER_URL"] = "http://identity.example/realms/avia" },
@@ -435,34 +491,32 @@ func TestProductionRejectsInsecureOIDCEndpointsAndInvalidEncryptionKey(t *testin
 	}
 }
 
-func TestProductionObjectStorageUsesPrivateTransportPublicHTTPSSigningAndRealClamAV(t *testing.T) {
+func TestProductionObjectStorageUsesPrivateTransportPublicHTTPSAndExplicitDisabledScanner(t *testing.T) {
 	t.Parallel()
 	values := map[string]string{
-		"AVIA_ENVIRONMENT":                   "production",
-		"AVIA_DATABASE_URL":                  "postgres://example.invalid/avia",
-		"AVIA_OIDC_ISSUER_URL":               "https://identity.example/realms/avia",
-		"AVIA_OIDC_CLIENT_ID":                "aviasurveil360",
-		"AVIA_OIDC_CLIENT_SECRET":            "provider-secret",
-		"AVIA_OIDC_REDIRECT_URL":             "https://avia.example/auth/callback",
-		"AVIA_FIRST_PARTY_ADMIN_URL":         "http://auth:8081",
-		"AVIA_FIRST_PARTY_ADMIN_SECRET_FILE": "/run/secrets/auth_admin_secret",
-		"AVIA_SESSION_ENCRYPTION_KEY":        base64.StdEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef")),
-		"AVIA_OBJECT_STORE_ENDPOINT":         "minio:9000",
-		"AVIA_OBJECT_STORE_PUBLIC_ENDPOINT":  "localhost:8443",
-		"AVIA_OBJECT_STORE_ACCESS_KEY":       "production-access",
-		"AVIA_OBJECT_STORE_SECRET_KEY":       "production-secret",
-		"AVIA_OBJECT_STORE_CORS_ORIGINS":     "https://localhost:8443",
-		"AVIA_OBJECT_STORE_TLS":              "false",
-		"AVIA_OBJECT_STORE_PUBLIC_TLS":       "true",
-		"AVIA_OBJECT_STORE_PRIVATE_NETWORK":  "true",
-		"AVIA_SCANNER_MODE":                  "clamav",
-		"AVIA_CLAMAV_ADDRESS":                "clamav:3310",
-		"AVIA_CLAMAV_MAX_SIGNATURE_AGE":      "48h",
-		"AVIA_SMTP_ADDRESS":                  "mailpit:1025",
-		"AVIA_SMTP_FROM":                     "no-reply@aviasurveil360.local",
-		"AVIA_SMTP_USERNAME":                 "aviasurveil360",
-		"AVIA_SMTP_PASSWORD":                 "smtp-secret",
-		"AVIA_SMTP_PRIVATE_NETWORK":          "true",
+		"AVIA_ENVIRONMENT":                  "production",
+		"AVIA_DATABASE_URL":                 "postgres://example.invalid/avia",
+		"AVIA_OIDC_ISSUER_URL":              "https://identity.example/realms/avia",
+		"AVIA_OIDC_CLIENT_ID":               "aviasurveil360",
+		"AVIA_OIDC_CLIENT_SECRET":           "provider-secret",
+		"AVIA_OIDC_REDIRECT_URL":            "https://avia.example/auth/callback",
+		"AVIA_AUTH_ADMIN_URL":               "http://auth:8081",
+		"AVIA_AUTH_ADMIN_SECRET_FILE":       "/run/secrets/auth_admin_secret",
+		"AVIA_SESSION_ENCRYPTION_KEY":       base64.StdEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef")),
+		"AVIA_OBJECT_STORE_ENDPOINT":        "minio:9000",
+		"AVIA_OBJECT_STORE_PUBLIC_ENDPOINT": "localhost:8443",
+		"AVIA_OBJECT_STORE_ACCESS_KEY":      "production-access",
+		"AVIA_OBJECT_STORE_SECRET_KEY":      "production-secret",
+		"AVIA_OBJECT_STORE_CORS_ORIGINS":    "https://localhost:8443",
+		"AVIA_OBJECT_STORE_TLS":             "false",
+		"AVIA_OBJECT_STORE_PUBLIC_TLS":      "true",
+		"AVIA_OBJECT_STORE_PRIVATE_NETWORK": "true",
+		"AVIA_SCANNER_MODE":                 "disabled",
+		"AVIA_SMTP_ADDRESS":                 "mailpit:1025",
+		"AVIA_SMTP_FROM":                    "no-reply@aviasurveil360.local",
+		"AVIA_SMTP_USERNAME":                "aviasurveil360",
+		"AVIA_SMTP_PASSWORD":                "smtp-secret",
+		"AVIA_SMTP_PRIVATE_NETWORK":         "true",
 	}
 	settings, err := config.Load(mapLookup(values))
 	if err != nil {
@@ -475,8 +529,7 @@ func TestProductionObjectStorageUsesPrivateTransportPublicHTTPSSigningAndRealCla
 		settings.CanonicalBucket != "evidence-clean" ||
 		settings.AttachmentBucket != "inspection-attachments" ||
 		settings.DocumentBucket != "generated-documents" ||
-		settings.ClamAVAddress != "clamav:3310" ||
-		settings.ClamAVMaximumSignatureAge != 48*time.Hour {
+		settings.ScannerMode != "disabled" {
 		t.Fatalf("production object/scanner settings = %+v", settings)
 	}
 
@@ -492,9 +545,6 @@ func TestProductionObjectStorageUsesPrivateTransportPublicHTTPSSigningAndRealCla
 		},
 		"deterministic scanner": func(candidate map[string]string) {
 			candidate["AVIA_SCANNER_MODE"] = "deterministic-test"
-		},
-		"missing ClamAV endpoint": func(candidate map[string]string) {
-			delete(candidate, "AVIA_CLAMAV_ADDRESS")
 		},
 		"duplicate clean and attachment buckets": func(candidate map[string]string) {
 			candidate["AVIA_OBJECT_STORE_ATTACHMENT_BUCKET"] = "evidence-clean"
@@ -513,23 +563,23 @@ func TestProductionObjectStorageUsesPrivateTransportPublicHTTPSSigningAndRealCla
 func TestFirstPartyAdminConfigurationRequiresACompleteInternalEndpointAndSecretFile(t *testing.T) {
 	t.Parallel()
 	base := map[string]string{
-		"AVIA_ENVIRONMENT":                   "development",
-		"AVIA_DATABASE_URL":                  "postgres://127.0.0.1/avia",
-		"AVIA_FIRST_PARTY_ADMIN_URL":         "http://auth:8081",
-		"AVIA_FIRST_PARTY_ADMIN_SECRET_FILE": "/run/secrets/auth_admin_secret",
+		"AVIA_ENVIRONMENT":            "development",
+		"AVIA_DATABASE_URL":           "postgres://127.0.0.1/avia",
+		"AVIA_AUTH_ADMIN_URL":         "http://auth:8081",
+		"AVIA_AUTH_ADMIN_SECRET_FILE": "/run/secrets/auth_admin_secret",
 	}
 	settings, err := config.Load(mapLookup(base))
 	if err != nil {
 		t.Fatalf("Load() first-party admin config: %v", err)
 	}
-	if settings.FirstPartyAdminURL != base["AVIA_FIRST_PARTY_ADMIN_URL"] ||
-		settings.FirstPartyAdminSecretFile != base["AVIA_FIRST_PARTY_ADMIN_SECRET_FILE"] {
+	if settings.FirstPartyAdminURL != base["AVIA_AUTH_ADMIN_URL"] ||
+		settings.FirstPartyAdminSecretFile != base["AVIA_AUTH_ADMIN_SECRET_FILE"] {
 		t.Fatalf("first-party admin settings = %+v", settings)
 	}
 
 	for _, missing := range []string{
-		"AVIA_FIRST_PARTY_ADMIN_URL",
-		"AVIA_FIRST_PARTY_ADMIN_SECRET_FILE",
+		"AVIA_AUTH_ADMIN_URL",
+		"AVIA_AUTH_ADMIN_SECRET_FILE",
 	} {
 		t.Run("missing "+missing, func(t *testing.T) {
 			values := cloneValues(base)
@@ -542,9 +592,9 @@ func TestFirstPartyAdminConfigurationRequiresACompleteInternalEndpointAndSecretF
 	}
 
 	invalid := cloneValues(base)
-	invalid["AVIA_FIRST_PARTY_ADMIN_URL"] = "file:///run/auth"
+	invalid["AVIA_AUTH_ADMIN_URL"] = "file:///run/auth"
 	if _, err := config.Load(mapLookup(invalid)); err == nil ||
-		!strings.Contains(err.Error(), "AVIA_FIRST_PARTY_ADMIN_URL") {
+		!strings.Contains(err.Error(), "AVIA_AUTH_ADMIN_URL") {
 		t.Fatalf("invalid first-party admin URL error = %v", err)
 	}
 }
@@ -563,15 +613,15 @@ func TestFileBackedRuntimeConfigurationUsesProviderNeutralInputs(t *testing.T) {
 
 	sessionKey := base64.StdEncoding.EncodeToString(make([]byte, 32))
 	values := map[string]string{
-		"AVIA_ENVIRONMENT":                   "development",
-		"AVIA_DATABASE_URL_FILE":             secretFile(t, "database-url", "postgres://auth.example.invalid/avia"),
-		"AVIA_OIDC_ISSUER_URL":               "https://identity.example.invalid",
-		"AVIA_OIDC_CLIENT_ID":                "avia-surveil-web",
-		"AVIA_OIDC_CLIENT_SECRET_FILE":       secretFile(t, "oidc-secret", "oidc-client-secret"),
-		"AVIA_OIDC_REDIRECT_URL":             "https://surveil.example.invalid/auth/callback",
-		"AVIA_SESSION_ENCRYPTION_KEY_FILE":   secretFile(t, "session-key", sessionKey),
-		"AVIA_FIRST_PARTY_ADMIN_URL":         "http://auth:8080/private/admin",
-		"AVIA_FIRST_PARTY_ADMIN_SECRET_FILE": secretFile(t, "admin-secret", "admin-api-secret"),
+		"AVIA_ENVIRONMENT":                 "development",
+		"AVIA_DATABASE_URL_FILE":           secretFile(t, "database-url", "postgres://auth.example.invalid/avia"),
+		"AVIA_OIDC_ISSUER_URL":             "https://identity.example.invalid",
+		"AVIA_OIDC_CLIENT_ID":              "avia-surveil-web",
+		"AVIA_OIDC_CLIENT_SECRET_FILE":     secretFile(t, "oidc-secret", "oidc-client-secret"),
+		"AVIA_OIDC_REDIRECT_URL":           "https://surveil.example.invalid/auth/callback",
+		"AVIA_SESSION_ENCRYPTION_KEY_FILE": secretFile(t, "session-key", sessionKey),
+		"AVIA_AUTH_ADMIN_URL":              "http://auth:8080/private/admin",
+		"AVIA_AUTH_ADMIN_SECRET_FILE":      secretFile(t, "admin-secret", "admin-api-secret"),
 	}
 	settings, err := config.Load(mapLookup(values))
 	if err != nil {
@@ -580,8 +630,8 @@ func TestFileBackedRuntimeConfigurationUsesProviderNeutralInputs(t *testing.T) {
 	if settings.DatabaseURL != "postgres://auth.example.invalid/avia" ||
 		settings.OIDCClientSecret != "oidc-client-secret" ||
 		len(settings.SessionEncryptionKey) != 32 ||
-		settings.FirstPartyAdminURL != values["AVIA_FIRST_PARTY_ADMIN_URL"] ||
-		settings.FirstPartyAdminSecretFile != values["AVIA_FIRST_PARTY_ADMIN_SECRET_FILE"] {
+		settings.FirstPartyAdminURL != values["AVIA_AUTH_ADMIN_URL"] ||
+		settings.FirstPartyAdminSecretFile != values["AVIA_AUTH_ADMIN_SECRET_FILE"] {
 		t.Fatalf("file-backed settings = %+v", settings)
 	}
 }

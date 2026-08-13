@@ -24,13 +24,7 @@ preprod_auth_signing_key
 preprod_auth_data_encryption_key
 preprod_auth_mfa_key
 preprod_auth_admin_secret
-preprod_auth_smtp_password
-preprod_auth_smtp_auth_file
-preprod_auth_mailpit_key
-preprod_auth_mailpit_cert
-preprod_auth_mailpit_ca
 preprod_session_encryption_key
-preprod_data_feed_payload_key
 preprod_minio_api_access_key
 preprod_minio_api_secret_key
 preprod_minio_loader_access_key
@@ -38,8 +32,6 @@ preprod_minio_loader_secret_key
 preprod_minio_root_password
 preprod_minio_root_user
 preprod_oidc_client_secret
-preprod_smtp_password
-preprod_smtp_auth_file
 preprod_loader_seed
 "
 
@@ -86,7 +78,7 @@ for filename in $secret_files; do
       printf 'postgres://auth_preprod:%s@preprod-auth-postgres:5432/auth_local_preprod?sslmode=disable\n' "$auth_database_password" >"$temporary_directory/$filename"
       unset auth_database_password
       ;;
-    preprod_auth_database_password | preprod_auth_smtp_password | preprod_auth_admin_secret | preprod_oidc_client_secret | preprod_smtp_password)
+    preprod_auth_database_password | preprod_auth_admin_secret | preprod_oidc_client_secret)
       openssl rand -hex 32 >"$temporary_directory/$filename"
       ;;
     preprod_auth_data_encryption_key | preprod_auth_mfa_key)
@@ -95,37 +87,11 @@ for filename in $secret_files; do
     preprod_auth_signing_key)
       openssl genrsa 2048 >"$temporary_directory/$filename" 2>/dev/null
       ;;
-    preprod_auth_smtp_auth_file)
-      smtp_password_value=$(tr -d '\r\n' <"$temporary_directory/preprod_auth_smtp_password")
-      printf 'aviasurveil360-auth-preprod:%s\n' "$smtp_password_value" >"$temporary_directory/$filename"
-      unset smtp_password_value
-      ;;
-    preprod_auth_mailpit_key)
-      openssl genrsa 2048 >"$temporary_directory/$filename" 2>/dev/null
-      ;;
-    preprod_auth_mailpit_cert)
-      openssl req -x509 -new -sha256 -days 1 \
-        -key "$temporary_directory/preprod_auth_mailpit_key" \
-        -out "$temporary_directory/$filename" \
-        -subj '/CN=preprod-auth-mailpit' \
-        -addext 'subjectAltName=DNS:preprod-auth-mailpit' 2>/dev/null
-      ;;
-    preprod_auth_mailpit_ca)
-      cp "$temporary_directory/preprod_auth_mailpit_cert" "$temporary_directory/$filename"
-      ;;
-    preprod_smtp_auth_file)
-      smtp_password_value=$(tr -d '\r\n' <"$temporary_directory/preprod_smtp_password")
-      printf 'aviasurveil360-preprod:%s\n' "$smtp_password_value" >"$temporary_directory/$filename"
-      unset smtp_password_value
-      ;;
     preprod_minio_root_user | preprod_minio_api_access_key | preprod_minio_loader_access_key)
       openssl rand -hex 10 >"$temporary_directory/$filename"
       ;;
     preprod_loader_seed)
       openssl rand -hex 32 >"$temporary_directory/$filename"
-      ;;
-    preprod_data_feed_payload_key)
-      openssl rand -hex 16 | tr -d '\r\n' >"$temporary_directory/$filename"
       ;;
     preprod_session_encryption_key)
       openssl rand -base64 32 >"$temporary_directory/$filename"
@@ -149,8 +115,6 @@ printf '%s\n' \
   '  "authAdminAddress": "http://preprod-auth:8081",' \
   '  "publicIssuerPath": "/identity",' \
   '  "composeProject": "aviasurveil360-local-preprod",' \
-  '  "mailpitNamespace": "aviasurveil360-local-preprod",' \
-  '  "authMailpitNamespace": "aviasurveil360-local-preprod-auth",' \
   '  "objectBucket": "aviasurveil360-local-preprod",' \
   '  "objectPrefixPolicy": "runs/{runId}/",' \
   '  "loaderQueueNamespace": "aviasurveil360-local-preprod",' \

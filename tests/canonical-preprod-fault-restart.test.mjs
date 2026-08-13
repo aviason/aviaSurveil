@@ -36,18 +36,12 @@ test("Task 8 fault/restart runner owns the complete disposable lifecycle", () =>
   assert.match(script, /AVIA_CANONICAL_PREPROD_PROJECT/u);
   assert.match(script, /AVIA_PREPROD_HTTPS_PORT/u);
   assert.match(script, /start-canonical-preprod\.sh/u);
-  assert.match(script, /canonical-quick-tunnel-lifecycle\.spec\.ts/u);
-  assert.match(script, /canonical-quick-tunnel-panels\.spec\.ts/u);
-  assert.match(script, /AVIA_E2E_IGNORE_HTTPS_ERRORS=1/u);
 
-  for (const required of ["preprod-postgres", "preprod-auth", "preprod-minio", "preprod-clamav"]) {
+  for (const required of ["preprod-postgres", "preprod-auth", "preprod-minio"]) {
     assert.match(script, new RegExp(required, "u"));
   }
-  for (const optional of ["preprod-gotenberg", "preprod-mailpit"]) {
-    assert.match(script, new RegExp(optional, "u"));
-  }
+  assert.doesNotMatch(script, /preprod-(?:clamav|gotenberg|mailpit)|preprod-auth-mailpit/u);
   assert.match(script, /not_ready/u);
-  assert.match(script, /degraded/u);
   assert.match(script, /RestartCount/u);
   assert.match(script, /fingerprint_database/u);
   assert.match(script, /wait_for_database_quiescence/u);

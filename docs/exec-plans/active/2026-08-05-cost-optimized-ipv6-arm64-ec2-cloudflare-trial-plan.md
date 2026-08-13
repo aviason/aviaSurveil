@@ -17,6 +17,11 @@ This plan is separate from retired AWS preprod validation work. It is
 a smaller, single-node, non-HA experiment and cannot issue `preprod verified`,
 `qualified for production deployment planning`, or `production-ready`.
 
+**Current topology note (2026-08-13):** The retired ClamAV/Gotenberg services
+are not part of the maintained runtime or this trial's active deployment
+contract. Current Surveil images use fail-closed disabled scanning and native
+Go document rendering; Mailpit is local-development-only.
+
 ## Current Authorization Boundary
 
 The user authorized planning this architecture. No AWS or Cloudflare

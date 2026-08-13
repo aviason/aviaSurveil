@@ -10,8 +10,8 @@ Owner: Backend
 
 Escalation owner: Platform/Operations and Security
 
-Scope includes ready outbox work, bounded attempts, authenticated private
-Mailpit delivery, Gotenberg rendering, and append-only document versions.
+Scope includes ready outbox work, bounded attempts, authenticated private local
+Mailpit delivery, native Go rendering, and append-only document versions.
 
 ## Preconditions
 
@@ -40,7 +40,7 @@ Mailpit delivery, Gotenberg rendering, and append-only document versions.
 ```bash
 export AVIA_LOCAL_PROJECT="aviasurveil360-task-worker-example"
 export AVIASURVEIL_LOCAL_STATE_DIR="$PWD/.local/aviasurveil360/projects/$AVIA_LOCAL_PROJECT"
-docker compose --project-name "$AVIA_LOCAL_PROJECT" --file deploy/local/compose.yaml --profile full ps --all worker mailpit gotenberg
+docker compose --project-name "$AVIA_LOCAL_PROJECT" --file deploy/local/compose.yaml --profile full ps --all worker mailpit
 docker compose --project-name "$AVIA_LOCAL_PROJECT" --file deploy/local/compose.yaml --profile full exec --no-TTY postgres psql --username aviasurveil360 --dbname aviasurveil360 --tuples-only --no-align --command "SELECT topic, terminal_state, count(*) FROM outbox_messages WHERE delivered_at IS NULL GROUP BY topic, terminal_state ORDER BY topic, terminal_state;"
 docker compose --project-name "$AVIA_LOCAL_PROJECT" --file deploy/local/compose.yaml --profile full exec --no-TTY postgres psql --username aviasurveil360 --dbname aviasurveil360 --tuples-only --no-align --command "SELECT status, count(*) FROM notification_delivery_jobs GROUP BY status ORDER BY status; SELECT status, count(*) FROM document_render_jobs GROUP BY status ORDER BY status;"
 ```
@@ -48,8 +48,8 @@ docker compose --project-name "$AVIA_LOCAL_PROJECT" --file deploy/local/compose.
 ## Expected Output
 
 Healthy workers drain eligible work exactly once, preserve deduplication, store
-provider/render provenance, append a new document version, and distinguish
-failed retryable work from terminal work.
+provider/native-renderer provenance, append a new document version, and
+distinguish failed retryable work from terminal work.
 
 ## Reversible Mitigation
 
@@ -73,9 +73,9 @@ queue rows.
 make preprod-test-fault-restart
 ```
 
-Require one accepted private email, one generated PDF with provenance, restart
-recovery, append-only history, exact organization visibility, and zero residue
-before recording `verified locally`.
+Require one accepted private local email, one native Go-generated PDF with
+provenance, restart recovery, append-only history, exact organization
+visibility, and zero residue before recording `verified locally`.
 
 ## Evidence Capture
 
@@ -92,5 +92,5 @@ retention or legal-hold questions.
 ## Authorization Required
 
 Manual requeue, dead-letter release, body or audience change, resend to any
-external recipient, document-version mutation, production SMTP/Gotenberg use,
-and retention changes require new explicit authorization.
+external recipient, document-version mutation, production SMTP/native-renderer
+use, and retention changes require new explicit authorization.

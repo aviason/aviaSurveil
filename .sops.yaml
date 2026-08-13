@@ -1,3 +1,0 @@
-creation_rules:
-  - path_regex: ^deploy/local/config/application\.enc\.yaml$
-    age: age1w0vrwyn3fnqw3mxcm9ahusdfvzk2jg7akeslh5ttdxkdxw0stanspr3mpy

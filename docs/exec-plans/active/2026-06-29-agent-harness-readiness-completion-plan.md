@@ -557,7 +557,7 @@ Execution of the plan is verified when:
 ## Execution Prompt
 
 ```text
-You are working in /Users/marlonjd/Developer/web/aviaSurveil360.
+You are working in /Users/marlonjd/Developer/monorepos/avia/apps/surveil.
 
 Task: execute docs/exec-plans/active/2026-06-29-agent-harness-readiness-completion-plan.md and make the AviaSurveil360 agent harness fully ready as a canonical repo package.
 

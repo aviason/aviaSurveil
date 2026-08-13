@@ -25,7 +25,6 @@ import (
 	"github.com/aviason/aviaSurveil/internal/platform/database"
 	platformhealth "github.com/aviason/aviaSurveil/internal/platform/health"
 	"github.com/aviason/aviaSurveil/internal/platform/objectstore"
-	"github.com/aviason/aviaSurveil/internal/platform/scanner"
 	"github.com/aviason/aviaSurveil/internal/platform/session"
 	"github.com/aviason/aviaSurveil/internal/platform/telemetry"
 	"github.com/aviason/aviaSurveil/internal/risk"
@@ -85,7 +84,7 @@ func run(ctx context.Context) error {
 			BaseURL: settings.FirstPartyAdminURL, SecretFile: settings.FirstPartyAdminSecretFile,
 		})
 		if firstPartyErr != nil {
-			return fmt.Errorf("configure first-party identity provider: %w", firstPartyErr)
+			return fmt.Errorf("configure AviaAuth identity provider: %w", firstPartyErr)
 		}
 		directoryProvider = firstPartyClient
 		authorityObserver = firstPartyClient
@@ -518,12 +517,6 @@ func newRuntimeReadiness(
 			Timeout: settings.RuntimeHealthTimeout,
 		})
 	}
-	if settings.ScannerMode == "clamav" {
-		dependencies = append(dependencies, platformhealth.Dependency{
-			Name: "clamav", Required: true, Probe: namedProbe(scannerProbe, "ClamAV"),
-			Timeout: settings.RuntimeHealthTimeout,
-		})
-	}
 	if settings.ScannerMode == "guardduty-s3" {
 		dependencies = append(dependencies, platformhealth.Dependency{
 			Name: "guardduty-s3-result", Required: true, Probe: namedProbe(scannerProbe, "GuardDuty S3 result"),
@@ -548,13 +541,8 @@ func newRuntimeReadiness(
 
 func newScannerReadiness(settings config.Settings) (httpapi.ReadinessProbe, error) {
 	switch settings.ScannerMode {
-	case "", "deterministic-test", "guardduty-s3":
+	case "", "disabled", "deterministic-test", "guardduty-s3":
 		return nil, nil
-	case "clamav":
-		return scanner.NewClamAV(scanner.ClamAVConfig{
-			Address:             settings.ClamAVAddress,
-			MaximumSignatureAge: settings.ClamAVMaximumSignatureAge,
-		})
 	default:
 		return nil, fmt.Errorf("unsupported AVIA_SCANNER_MODE %q", settings.ScannerMode)
 	}

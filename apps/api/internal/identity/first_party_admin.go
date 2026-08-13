@@ -203,6 +203,12 @@ func (client *FirstPartyAdminClient) IssueExecuteActionsEmail(ctx context.Contex
 	})
 }
 
+func (client *FirstPartyAdminClient) ActivateUserAtRevision(ctx context.Context, subjectID, password string, expected, resulting int64) error {
+	return client.postRevisioned(ctx, http.MethodPost, client.endpoint("/v1/users", subjectID, "activate").String(), map[string]any{
+		"password": password, "expectedMembershipRevision": expected, "resultingMembershipRevision": resulting,
+	})
+}
+
 func (client *FirstPartyAdminClient) ResetUserMFA(ctx context.Context, subjectID string) error {
 	observation, err := client.ObserveUserAuthority(ctx, subjectID)
 	if err != nil {

@@ -81,7 +81,15 @@ func New(pool *database.Pool, objects objectstore.Store, scanner Scanner, config
 	}
 	scanBackend := config.ScanBackend
 	if scanBackend == "" {
-		scanBackend = "clamav"
+		if scanner != nil {
+			// Direct worker tests may provide an explicit deterministic scanner
+			// without a runtime configuration object. Production callers always
+			// pass the validated scanner mode from config, whose default is
+			// fail-closed disabled scanning.
+			scanBackend = "scanner"
+		} else {
+			scanBackend = "disabled"
+		}
 	}
 	return &Worker{
 		pool: pool, objects: objects, scanner: scanner, workerID: config.WorkerID,
@@ -584,6 +592,9 @@ func (worker *Worker) resolveScan(ctx context.Context, record objectRecord) (Sca
 			Bucket: record.SourceBucket, Key: record.SourceKey, VersionID: record.VersionID,
 			ETag: record.ETag, SHA256: record.SHA256, Size: record.Size,
 		})
+	}
+	if worker.scanBackend == "disabled" || worker.scanBackend == "" {
+		return scanner.DisabledScanner{}.Scan(scanContext, nil)
 	}
 	if worker.scanner == nil {
 		return ScanResult{}, errors.New("Evidence scanner is unavailable")

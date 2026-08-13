@@ -208,11 +208,8 @@ prebuild_images() {
         preprod-normal-runtime-role-provisioner \
         preprod-canonical-aga-loader \
         preprod-canonical-demo-identity-loader \
-        preprod-clamav \
-        preprod-gotenberg \
         preprod-auth \
         preprod-minio \
-        preprod-mailpit \
         preprod-api \
         preprod-worker \
         preprod-web-http \

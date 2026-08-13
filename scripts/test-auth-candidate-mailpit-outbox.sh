@@ -57,7 +57,7 @@ database_password=$(tr -d '\r\n' <"$runtime_directory/secrets/app_database_passw
 export AVIA_AUTH_TEST_DATABASE_URL="postgresql://aviasurveil:${database_password}@127.0.0.1:${postgres_port}/aviasurveil?sslmode=disable"
 unset database_password
 
-cd "$repository_root/apps/auth"
+cd "$repository_root/../../shared/auth"
 AVIA_AUTH_MAILPIT_ADDRESS="127.0.0.1:$smtp_port" \
 AVIA_AUTH_MAILPIT_HTTP_URL="http://127.0.0.1:$http_port" \
 AVIA_AUTH_MAILPIT_PASSWORD_FILE="$mailpit_directory/password" \

@@ -11,7 +11,7 @@ aws_trial_require_phase "${phase}"
 case "${mode}" in
   preview)
     aws_trial_preview smoke "${phase}" "${bundle}"
-    printf 'smoke scope: HTTPS, OIDC/MFA, 86 routes, canonical mutation, scan, Mailpit, PDF, telemetry, alerts, backup\n'
+    printf 'smoke scope: HTTPS, OIDC/MFA, 86 routes, canonical mutation, fail-closed scan, provider email, native Go PDF, telemetry, alerts, backup\n'
     ;;
   execute)
     # check-aws-plan.sh must pass before the exact-authorization token is accepted.

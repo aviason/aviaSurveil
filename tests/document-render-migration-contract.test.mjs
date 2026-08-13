@@ -15,5 +15,5 @@ test("legacy native-PDF migration is append-only and does not claim active legac
   assert.doesNotMatch(migration, /UPDATE\s+outbox_messages/iu);
   assert.doesNotMatch(migration, /UPDATE\s+document_render_jobs/iu);
   assert.match(service, /AND job\.input_snapshot \? 'source'/u);
-  assert.match(service, /SUPERSEDED_GOTENBERG/u);
+  assert.match(service, /disposition\.disposition LIKE 'SUPERSEDED_%'/u);
 });

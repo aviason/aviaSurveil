@@ -1,7 +1,7 @@
 # Authentication Replacement
 
-The repository now maintains one identity implementation: the first-party Go
-OIDC service in `apps/auth`.
+The repository now consumes one identity implementation: the shared first-party
+Go OIDC service in `../../../../shared/auth`.
 
 Current authorities:
 

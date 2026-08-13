@@ -29,10 +29,8 @@ objectStorage:
     inspectionAttachments: inspection-attachments
     generatedDocuments: generated-documents
 scanner:
-  address: clamav:3310
+  mode: disabled
 smtp:
   address: mailpit:1025
   username: aviasurveil360
   passwordFile: /run/secrets/smtp_password
-renderer:
-  endpoint: http://gotenberg:3000

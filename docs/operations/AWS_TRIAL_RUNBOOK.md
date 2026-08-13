@@ -63,8 +63,9 @@ scripts/aws-trial-smoke.sh execute data-runtime <bundle-directory>
 ```
 
 The frozen smoke covers HTTPS/security headers, OIDC and MFA, all 86 routes,
-canonical mutation authority, private Evidence scanning, private trial
-Mailpit, PDF generation, telemetry/alerts, and backup status. A failed health,
+canonical mutation authority, fail-closed Evidence handling, configured
+provider email, native Go PDF generation, telemetry/alerts, and backup status.
+A failed health,
 authority, privacy, digest, cost, or alert check stops the trial.
 
 ## Rollback

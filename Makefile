@@ -149,7 +149,7 @@ preprod-cloudflare-test-panels:
 
 preprod-cloudflare-test-lifecycle:
 	@AVIA_CANONICAL_PREPROD_STATE_DIR="$(CANONICAL_PREPROD_CLOUDFLARE_STATE_DIR)" \
-		AVIA_CANONICAL_PREPROD_TUNNEL_RUNTIME_DIR="$(CANONICAL_PREPROD_CLOUDFLARE_RUNTIME_DIR)" \
+	AVIA_CANONICAL_PREPROD_TUNNEL_RUNTIME_DIR="$(CANONICAL_PREPROD_CLOUDFLARE_RUNTIME_DIR)" \
 		bash scripts/test-canonical-preprod-cloudflare-lifecycle.sh
 
 preprod-cloudflare-demo-token:

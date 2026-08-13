@@ -10,6 +10,13 @@ one from current approved official regulatory/controlled CAA-procedure
 sources, without allowing either intake path to imply source authority,
 technical approval, publication, or executable Audit-package eligibility.
 
+**Current topology note (2026-08-13):** ClamAV and Gotenberg are retired from
+all active runtime profiles. The maintained candidate topology uses a
+fail-closed disabled scanner and the native Go document renderer; Mailpit is
+local-development-only. The historical service references below describe
+earlier candidate evidence or plan scope and are not current deployment
+requirements.
+
 **Architecture:** Extend the accepted governed-checklist lifecycle with a
 register-first archive receipt aggregate and immutable existing-checklist
 candidate snapshots, then converge both authoring paths at a governed Draft

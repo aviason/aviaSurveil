@@ -109,8 +109,8 @@ test("AWS trial exposes bounded canonical and operational smoke receipts", async
     alerts: boolean;
     backup: boolean;
     canonicalMutation: boolean;
-    evidenceScan: "clean";
-    mailpitPrivate: boolean;
+    evidenceScan: "not-run";
+    emailProviderConfigured: boolean;
     pdf: boolean;
     telemetry: boolean;
   };
@@ -118,8 +118,8 @@ test("AWS trial exposes bounded canonical and operational smoke receipts", async
     alerts: true,
     backup: true,
     canonicalMutation: true,
-    evidenceScan: "clean",
-    mailpitPrivate: true,
+    evidenceScan: "not-run",
+    emailProviderConfigured: true,
     pdf: true,
     telemetry: true,
   });

@@ -87,12 +87,9 @@ test("runtime services declare bounded shutdown, restart, resources, and process
     "worker",
     "postgres",
     "preprod-auth-postgres",
-    "preprod-auth-mailpit",
     "preprod-auth",
     "minio",
-    "clamav",
     "mailpit",
-    "gotenberg",
   ]) {
     assert.match(
       serviceBlock(service),
@@ -126,8 +123,6 @@ test("runtime checker covers failure, leakage, isolation, and residue contracts"
     "postgres",
     "preprod-auth",
     "minio",
-    "clamav",
-    "gotenberg",
     "mailpit",
     "worker",
     "health/ready",
@@ -151,6 +146,7 @@ test("runtime checker covers failure, leakage, isolation, and residue contracts"
     /compose\s+kill/u,
     "worker crash injection must not be treated as a manual Docker stop",
   );
+  assert.doesNotMatch(compose, /^  (?:clamav|gotenberg|preprod-clamav|preprod-gotenberg|preprod-mailpit|preprod-auth-mailpit):/mu);
   assert.match(
     script,
     /compose\s+exec[\s\S]*kill\s+-KILL/u,

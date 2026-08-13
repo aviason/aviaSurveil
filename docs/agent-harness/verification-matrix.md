@@ -155,7 +155,7 @@ authorized.
 For first-party identity or canonical local-preprod changes, run:
 
 ```bash
-go -C apps/auth test -count=1 ./...
+go -C ../../shared/auth test -count=1 ./...
 go -C apps/api test -count=1 ./internal/identity ./internal/platform/session ./cmd/preprod-canonical-demo-identity-loader
 node --test tests/local-compose-policy.test.mjs tests/preprod-data-boundary.test.mjs
 docker compose --file deploy/local/compose.yaml config --quiet
@@ -194,7 +194,7 @@ path and writes nothing. A successful `gate0`/`task8` exit is `verified locally`
 `task9` and `final` may exit `2` only for the explicit real Form 048 mechanism
 and Phase 2 expansion authorization blocker after all required artifacts and
 Vitest/Playwright runner discovery are non-zero and present. Missing artifacts
-remain failures, never skips. Live PostgreSQL, MinIO, ClamAV, Poppler, browser,
+remain failures, never skips. Live PostgreSQL, MinIO, browser,
 source-owner, reviewed-source-set, assignment-provisioning, Department Manager,
 release, and production evidence are `blocked` until separately authorized.
 

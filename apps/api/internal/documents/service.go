@@ -227,7 +227,7 @@ func (service *Service) claimNext(ctx context.Context) (claimedJob, bool, error)
 			  AND NOT EXISTS (
 			      SELECT 1 FROM document_render_job_dispositions disposition
 			      WHERE disposition.job_id = job.id
-			        AND disposition.disposition = 'SUPERSEDED_GOTENBERG'
+			        AND disposition.disposition LIKE 'SUPERSEDED_%'
 			  )
 			  AND outbox.available_at <= $1
 			  AND (outbox.lease_expires_at IS NULL OR outbox.lease_expires_at <= $1)

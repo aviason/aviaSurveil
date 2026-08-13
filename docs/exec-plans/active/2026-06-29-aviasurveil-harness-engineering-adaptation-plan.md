@@ -434,7 +434,7 @@ Plan creation is complete when:
 ## Execution Prompt
 
 ```text
-You are working in /Users/marlonjd/Developer/web/aviaSurveil360.
+You are working in /Users/marlonjd/Developer/monorepos/avia/apps/surveil.
 
 Task: perform the next stakeholder verification/sign-off pass for the AviaSurveil360 Harness Engineering Adaptation plan.
 

@@ -19,5 +19,6 @@ decisions.
 
 Alertmanager groups by alert name, service, and severity; inhibits derivative
 latency/job alerts during the declared full-stack dependency outage; and sends
-one local firing and one resolved notification to authenticated private
-Mailpit. Production recipients and staffed on-call ownership are `not run`.
+one local firing and one resolved notification to the local Mailpit receiver.
+Production recipients and staffed on-call ownership are `not run`; cloud
+targets must use their separately configured SMTP provider.

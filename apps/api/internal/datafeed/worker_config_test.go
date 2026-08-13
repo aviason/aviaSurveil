@@ -74,6 +74,25 @@ func TestLoadWorkerConfigRejectsUnsafePublisherSettings(t *testing.T) {
 	}
 }
 
+func TestLoadLocalCandidateWorkerConfigUsesOnlyInternalHTTPAndScopedSecrets(t *testing.T) {
+	values := map[string]string{
+		"AVIA_DATA_MODE":                        "local-candidate",
+		"AVIA_DATA_FEED_TENANT_ID":              "tenant-local-candidate",
+		"AVIA_DATA_FEED_OWNING_ORGANIZATION_ID": "org-local-candidate",
+		"AVIA_DATA_FEED_REPLAY_ID":              "10000000-0000-4000-8000-000000000091",
+		"AVIA_DATA_FEED_ENDPOINT":               "http://avia-data-admission:8080/v3/aviasurveil/event-batches",
+		"AVIA_DATA_FEED_PAYLOAD_KEY_FILE":       "/run/secrets/data_payload_key",
+	}
+	config, err := LoadLocalCandidateWorkerConfig(mapLookup(values))
+	if err != nil || config.MTLS.Endpoint != values["AVIA_DATA_FEED_ENDPOINT"] {
+		t.Fatalf("local candidate config=%+v err=%v", config, err)
+	}
+	values["AVIA_DATA_FEED_ENDPOINT"] = "https://external.example/v3/aviasurveil/event-batches"
+	if _, err := LoadLocalCandidateWorkerConfig(mapLookup(values)); err == nil {
+		t.Fatal("local candidate accepted a released HTTPS endpoint")
+	}
+}
+
 func TestLoadReplayWorkerConfigRequiresTheImmutableRunIdentityToMatchTransportReplayID(t *testing.T) {
 	values := map[string]string{
 		"AVIA_DATA_FEED_TENANT_ID":               "tenant-ncaa",

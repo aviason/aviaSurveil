@@ -19,15 +19,11 @@
   "externalImageServices": [
     "postgres",
     "preprod-auth-postgres",
-    "preprod-auth-mailpit",
-    "preprod-auth-mailpit-volume-init",
     "minio",
     "minio-volume-init",
-    "clamav",
     "mailpit",
     "mailpit-volume-init",
-    "mailpit-tools",
-    "gotenberg"
+    "mailpit-tools"
   ],
   "healthcheckRequiredServices": [
     "gateway",
@@ -37,21 +33,16 @@
     "worker",
     "postgres",
     "preprod-auth-postgres",
-    "preprod-auth-mailpit",
     "preprod-auth",
     "minio",
-    "clamav",
     "mailpit",
-    "mailpit-tools",
-    "gotenberg"
+    "mailpit-tools"
   ],
   "profileServices": {
     "demo": [
       "gateway",
       "web-demo",
       "preprod-auth-postgres",
-      "preprod-auth-mailpit-volume-init",
-      "preprod-auth-mailpit",
       "preprod-auth"
     ],
     "full": [
@@ -62,15 +53,11 @@
       "migration",
       "postgres",
       "preprod-auth-postgres",
-      "preprod-auth-mailpit-volume-init",
-      "preprod-auth-mailpit",
       "preprod-auth",
       "minio",
       "minio-volume-init",
-      "clamav",
       "mailpit",
-      "mailpit-volume-init",
-      "gotenberg"
+      "mailpit-volume-init"
     ],
     "test": ["fixture-init", "postgres", "minio", "minio-volume-init"],
     "recovery": ["postgres", "minio", "minio-volume-init"],
@@ -78,14 +65,11 @@
   },
   "publicNetworkServices": ["gateway"],
   "egressNetworkServices": {
-    "clamav": ["signature-updates"],
     "mailpit-tools": ["tools"]
   },
   "rootUserExceptions": {
-    "clamav": "The reviewed upstream image starts its supervisor with CHOWN/DAC_OVERRIDE/SETGID/SETUID so freshclam can initialize the signature volume, then its daemons drop to the clamav account.",
     "minio-volume-init": "A networkless one-shot container chowns only the task-scoped MinIO data volume before the non-root MinIO service starts.",
-    "mailpit-volume-init": "A networkless one-shot container chowns only the task-scoped Mailpit data volume before the non-root Mailpit service starts.",
-    "preprod-auth-mailpit-volume-init": "A networkless one-shot container chowns only the task-scoped privileged auth Mailpit data volume before the non-root service starts."
+    "mailpit-volume-init": "A networkless one-shot container chowns only the task-scoped Mailpit data volume before the non-root Mailpit service starts."
   },
   "secretMounts": {
     "api": [
@@ -109,19 +93,12 @@
     "fixture-init": ["app_database_password"],
     "postgres": ["app_database_password"],
     "preprod-auth-postgres": ["preprod_auth_database_password"],
-    "preprod-auth-mailpit": [
-      "preprod_auth_smtp_auth_file",
-      "preprod_auth_mailpit_cert",
-      "preprod_auth_mailpit_key"
-    ],
     "preprod-auth": [
       "preprod_auth_database_url",
       "preprod_auth_signing_key",
       "preprod_auth_data_encryption_key",
       "preprod_auth_mfa_key",
       "preprod_oidc_client_secret",
-      "preprod_auth_smtp_password",
-      "preprod_auth_mailpit_ca",
       "preprod_auth_admin_secret"
     ],
     "minio": [

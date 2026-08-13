@@ -81,9 +81,9 @@ func TestTelemetryPipelinePropagatesHTTPPostgresAndJobContext(t *testing.T) {
 		),
 		carrier,
 		"scan",
-		"clamav",
+		"disabled",
 	)
-	runtime.RecordJobAttempt(jobContext, "scan", "clamav", "succeeded")
+	runtime.RecordJobAttempt(jobContext, "scan", "disabled", "succeeded")
 	runtime.RecordOutboxReadyAge(
 		jobContext,
 		"scan",
@@ -264,9 +264,9 @@ func TestOutboxPersistsW3CContextAndWorkerCreatesALink(t *testing.T) {
 		traceParent,
 		correlationID,
 		"scan",
-		"clamav",
+		"disabled",
 	)
-	runtime.RecordJobAttempt(workerContext, "scan", "clamav", "succeeded")
+	runtime.RecordJobAttempt(workerContext, "scan", "disabled", "succeeded")
 	workerSpan.End()
 	if err := runtime.ForceFlush(context.Background()); err != nil {
 		t.Fatalf("ForceFlush() error = %v", err)

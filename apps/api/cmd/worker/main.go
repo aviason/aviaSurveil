@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	cryptorand "crypto/rand"
 	"errors"
 	"fmt"
 	"log/slog"
+	"math/big"
 	"os"
 	"os/signal"
 	"sync"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/aviason/aviaSurveil/internal/administration"
 	"github.com/aviason/aviaSurveil/internal/application"
+	"github.com/aviason/aviaSurveil/internal/datafeed"
 	"github.com/aviason/aviaSurveil/internal/documents"
 	"github.com/aviason/aviaSurveil/internal/identity"
 	"github.com/aviason/aviaSurveil/internal/notifications"
@@ -77,6 +80,54 @@ func run(ctx context.Context) error {
 	readiness := database.Readiness{Pool: pool, RequiredMigrationVersion: migrations.LatestVersion}
 	if err := readiness.Ready(ctx); err != nil {
 		return fmt.Errorf("worker migration precondition: %w", err)
+	}
+	var datafeedWorker *datafeed.OutboxWorker
+	if settings.DataEnabled {
+		var workerConfig datafeed.WorkerConfig
+		var publisher datafeed.Publisher
+		if settings.DataMode == "local-candidate" {
+			candidateConfig, configErr := datafeed.LoadLocalCandidateWorkerConfig(os.LookupEnv)
+			if configErr != nil {
+				return fmt.Errorf("configure local AviaData candidate worker: %w", configErr)
+			}
+			workerConfig = candidateConfig
+			candidateClient, clientErr := datafeed.NewLocalCandidateClient(workerConfig.MTLS.Endpoint)
+			if clientErr != nil {
+				return fmt.Errorf("configure local AviaData candidate transport: %w", clientErr)
+			}
+			publisher = datafeed.Publisher{Client: candidateClient}
+		} else {
+			directConfig, configErr := datafeed.LoadWorkerConfig(os.LookupEnv)
+			if configErr != nil {
+				return fmt.Errorf("configure direct AviaData worker: %w", configErr)
+			}
+			workerConfig = directConfig
+			directClient, clientErr := datafeed.NewMTLSClient(workerConfig.MTLS)
+			if clientErr != nil {
+				return fmt.Errorf("configure direct AviaData transport: %w", clientErr)
+			}
+			publisher = datafeed.Publisher{Client: directClient}
+		}
+		payloadKey, keyErr := datafeed.LoadPayloadKeyFile(workerConfig.PayloadKeyFile)
+		if keyErr != nil {
+			return keyErr
+		}
+		datafeedWorker = &datafeed.OutboxWorker{
+			Source: datafeed.PostgresLeaseSource{
+				Pool: pool, TenantID: workerConfig.TenantID,
+				OwningOrganizationID: workerConfig.OwningOrganizationID,
+				PayloadKey:           payloadKey,
+			},
+			Publisher: publisher,
+			Processor: datafeed.ReceiptProcessor{
+				Recorder: datafeed.PostgresDecisionRecorder{Pool: pool},
+				Now:      time.Now,
+				RandInt:  secureRandInt,
+			},
+			ReplayID:      workerConfig.ReplayID,
+			LeaseDuration: 30 * time.Second,
+			Limit:         workerConfig.BatchLimit,
+		}
 	}
 	identityAdmin, err := newIdentityAdminClient(settings)
 	if err != nil {
@@ -158,7 +209,7 @@ func run(ctx context.Context) error {
 				return err
 			}
 		}
-		if contentScanner != nil || managedResultProvider != nil {
+		if contentScanner != nil || managedResultProvider != nil || settings.ScannerMode == "disabled" {
 			evidenceProcessor = evidenceworker.New(pool, objects, contentScanner, evidenceworker.Config{
 				WorkerID: "evidence-worker", CanonicalBucket: settings.CanonicalBucket,
 				AttachmentBucket: settings.AttachmentBucket, LeaseDuration: time.Minute,
@@ -224,6 +275,14 @@ func run(ctx context.Context) error {
 						slog.Info("notification delivery work batch completed", "processed", processed)
 					}
 				}
+				if datafeedWorker != nil {
+					processed, datafeedErr := datafeedWorker.ProcessOnce(workerContext)
+					if datafeedErr != nil {
+						slog.Error("AviaData candidate delivery batch failed", "processed", processed, "error", datafeedErr)
+					} else if processed > 0 {
+						slog.Info("AviaData candidate delivery batch completed", "processed", processed)
+					}
+				}
 				if objects == nil {
 					continue
 				}
@@ -274,6 +333,17 @@ func run(ctx context.Context) error {
 	}
 }
 
+func secureRandInt(limit int64) int64 {
+	if limit <= 0 {
+		return 0
+	}
+	value, err := cryptorand.Int(cryptorand.Reader, big.NewInt(limit))
+	if err != nil {
+		return 0
+	}
+	return value.Int64()
+}
+
 func newNotificationSender(
 	settings config.Settings,
 ) (notifications.DeliveryAdapter, error) {
@@ -307,18 +377,13 @@ func newDocumentRenderer(settings config.Settings) (documents.Renderer, error) {
 
 func newEvidenceScanner(settings config.Settings) (evidenceworker.Scanner, error) {
 	switch settings.ScannerMode {
-	case "":
-		return nil, nil
+	case "", "disabled":
+		return scanner.DisabledScanner{}, nil
 	case "deterministic-test":
 		if settings.Environment == "production" {
 			return nil, errors.New("deterministic Evidence scanner is forbidden in production")
 		}
 		return scanner.SignatureScanner{}, nil
-	case "clamav":
-		return scanner.NewClamAV(scanner.ClamAVConfig{
-			Address:             settings.ClamAVAddress,
-			MaximumSignatureAge: settings.ClamAVMaximumSignatureAge,
-		})
 	case "guardduty-s3":
 		return nil, nil
 	default:
@@ -331,7 +396,7 @@ func newIdentityAdminClient(
 ) (identity.ProviderAdmin, error) {
 	if settings.FirstPartyAdminURL == "" {
 		if settings.Environment == "production" {
-			return nil, errors.New("first-party administration is required by the production worker")
+			return nil, errors.New("AviaAuth administration is required by the production worker")
 		}
 		return nil, nil
 	}
@@ -339,7 +404,7 @@ func newIdentityAdminClient(
 		BaseURL: settings.FirstPartyAdminURL, SecretFile: settings.FirstPartyAdminSecretFile,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("configure first-party administration: %w", err)
+		return nil, fmt.Errorf("configure AviaAuth administration: %w", err)
 	}
 	return client, nil
 }

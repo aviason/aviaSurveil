@@ -30,17 +30,9 @@
       "reference": "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e",
       "purpose": "Private versioned object storage"
     },
-    "clamav": {
-      "reference": "clamav/clamav:1.4.3@sha256:75fb5fd95fcbe1d7e6d240c369c1572b686ee2c95949d1042b5148de8eddebb4",
-      "purpose": "Malware scanning and signature updates"
-    },
     "mailpit": {
       "reference": "axllent/mailpit:v1.27.8@sha256:6abc8e633df15eaf785cfcf38bae48e66f64beecdc03121e249d0f9ec15f0707",
       "purpose": "Local SMTP receiver and inspection UI"
-    },
-    "gotenberg": {
-      "reference": "gotenberg/gotenberg:8.23.2@sha256:56c47f7b913f3b978554115a0191c4a9dcc2558f9090f27f3f13f28a7c2f8329",
-      "purpose": "Versioned PDF rendering"
     }
   },
   "components": {

@@ -116,3 +116,47 @@ func LoadReplayWorkerConfig(lookup func(string) (string, bool)) (ReplayWorkerCon
 	}
 	return ReplayWorkerConfig{WorkerConfig: config, ReplayRunID: runID}, nil
 }
+
+// LoadLocalCandidateWorkerConfig is deliberately separate from the released
+// direct-mTLS configuration. Workspace dev uses an internal HTTP hop whose
+// receiver derives an explicitly enabled fixture identity from its own
+// process environment. No production profile may call this path.
+func LoadLocalCandidateWorkerConfig(lookup func(string) (string, bool)) (WorkerConfig, error) {
+	value := func(key string) string {
+		if raw, ok := lookup(key); ok {
+			return strings.TrimSpace(raw)
+		}
+		return ""
+	}
+	if value("AVIA_DATA_MODE") != "local-candidate" {
+		return WorkerConfig{}, fmt.Errorf("AVIA_DATA_MODE must be local-candidate for the local AviaData candidate")
+	}
+	config := WorkerConfig{
+		TenantID:             value("AVIA_DATA_FEED_TENANT_ID"),
+		OwningOrganizationID: value("AVIA_DATA_FEED_OWNING_ORGANIZATION_ID"),
+		ReplayID:             value("AVIA_DATA_FEED_REPLAY_ID"),
+		PayloadKeyFile:       value("AVIA_DATA_FEED_PAYLOAD_KEY_FILE"),
+		BatchLimit:           maxBatchItems,
+	}
+	for _, required := range []struct{ name, value string }{
+		{"AVIA_DATA_FEED_TENANT_ID", config.TenantID},
+		{"AVIA_DATA_FEED_OWNING_ORGANIZATION_ID", config.OwningOrganizationID},
+		{"AVIA_DATA_FEED_REPLAY_ID", config.ReplayID},
+		{"AVIA_DATA_FEED_PAYLOAD_KEY_FILE", config.PayloadKeyFile},
+		{"AVIA_DATA_FEED_ENDPOINT", value("AVIA_DATA_FEED_ENDPOINT")},
+	} {
+		if required.value == "" {
+			return WorkerConfig{}, fmt.Errorf("%s is required", required.name)
+		}
+	}
+	if !validReplayUUID(config.ReplayID) {
+		return WorkerConfig{}, fmt.Errorf("AVIA_DATA_FEED_REPLAY_ID must be a UUID")
+	}
+	endpoint, err := url.Parse(value("AVIA_DATA_FEED_ENDPOINT"))
+	if err != nil || endpoint.Scheme != "http" || endpoint.Host == "" || endpoint.User != nil ||
+		endpoint.RawQuery != "" || endpoint.Fragment != "" || endpoint.Path != "/v3/aviasurveil/event-batches" {
+		return WorkerConfig{}, fmt.Errorf("local AviaData candidate requires an internal http event endpoint")
+	}
+	config.MTLS.Endpoint = endpoint.String()
+	return config, nil
+}

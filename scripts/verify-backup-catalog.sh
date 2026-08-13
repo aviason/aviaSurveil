@@ -62,11 +62,11 @@ jq -n \
   --arg recoveryPointId "$recovery_point_id" \
   --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --arg applicationConfigSHA "$(
-    shasum -a 256 "$repository_root/deploy/local/config/application.enc.yaml" |
+    shasum -a 256 "$repository_root/deploy/local/config/application.example.yaml" |
       awk '{print $1}'
   )" \
   --arg authSchemaSHA "$(
-    shasum -a 256 "$repository_root/apps/auth/migrations/000008_local_preprod_authority_admin.up.sql" |
+    shasum -a 256 "$repository_root/../../shared/auth/migrations/000008_local_preprod_authority_admin.up.sql" |
       awk '{print $1}'
   )" \
   --arg backupPolicySHA "$(
@@ -81,11 +81,11 @@ jq -n \
       generatedAt: $generatedAt,
       files: [
         {
-          reference: "deploy/local/config/application.enc.yaml",
+          reference: "deploy/local/config/application.example.yaml",
           sha256: $applicationConfigSHA
         },
         {
-          reference: "apps/auth/migrations/000008_local_preprod_authority_admin.up.sql",
+          reference: "../../shared/auth/migrations/000008_local_preprod_authority_admin.up.sql",
           sha256: $authSchemaSHA
         },
         {

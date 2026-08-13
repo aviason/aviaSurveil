@@ -15,7 +15,6 @@ Compose mounts these files as Docker secrets. Do not copy their values into
 Compose environment variables, application YAML, shell history, logs, browser
 bundles, or image layers.
 
-`deploy/local/config/application.enc.yaml` is maintained with SOPS and age.
-The repository stores only its public age recipient in `.sops.yaml`; the
-matching private identity remains local and ignored. Set `SOPS_AGE_KEY_FILE`
-to that identity before decrypting or updating the encrypted configuration.
+`deploy/local/config/application.example.yaml` contains only non-secret local
+configuration and file-backed secret paths. No encrypted scanner or external
+renderer endpoint is retained in the candidate topology.

@@ -26,6 +26,6 @@ database_password=$(tr -d '\r\n' <"$runtime_directory/secrets/app_database_passw
 export AVIA_AUTH_TEST_DATABASE_URL="postgresql://aviasurveil:${database_password}@127.0.0.1:${postgres_port}/aviasurveil?sslmode=disable"
 unset database_password
 
-cd "$repository_root/apps/auth"
+cd "$repository_root/../../shared/auth"
 GOTOOLCHAIN=local GOCACHE=/private/tmp/avia-auth-go-cache GOMODCACHE=/private/tmp/avia-auth-outbox-mod-cache \
 go test -p 1 ./internal/identity ./internal/session ./internal/mail ./internal/mfa ./internal/challenge ./internal/provider ./migrations -run 'Test(PostgreSQL|IdentityMigration)' -count=1 -v

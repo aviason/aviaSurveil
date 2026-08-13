@@ -48,23 +48,14 @@ func TestUploadServiceConfigsUseInjectedScenarioClock(t *testing.T) {
 	}
 }
 
-func TestScannerReadinessIsRequiredOnlyForRealClamAVMode(t *testing.T) {
+func TestScannerReadinessDoesNotRequireAnExternalScanner(t *testing.T) {
 	t.Parallel()
 
-	probe, err := newScannerReadiness(config.Settings{
-		ScannerMode:               "clamav",
-		ClamAVAddress:             "clamav:3310",
-		ClamAVMaximumSignatureAge: 48 * time.Hour,
-	})
-	if err != nil || probe == nil {
-		t.Fatalf("ClamAV readiness = %T, err = %v", probe, err)
-	}
-	testProbe, err := newScannerReadiness(config.Settings{
-		Environment: "test",
-		ScannerMode: "deterministic-test",
-	})
-	if err != nil || testProbe != nil {
-		t.Fatalf("deterministic readiness = %T, err = %v", testProbe, err)
+	for _, mode := range []string{"", "disabled", "deterministic-test", "guardduty-s3"} {
+		probe, err := newScannerReadiness(config.Settings{ScannerMode: mode})
+		if err != nil || probe != nil {
+			t.Fatalf("%s readiness = %T, err = %v", mode, probe, err)
+		}
 	}
 }
 
@@ -131,7 +122,7 @@ func TestRuntimeReadinessKeepsConfiguredUnavailableDependenciesNamed(t *testing.
 	probe, err := newRuntimeReadiness(
 		config.Settings{
 			ObjectStoreEndpoint:  "minio:9000",
-			ScannerMode:          "clamav",
+			ScannerMode:          "disabled",
 			RuntimeHealthTimeout: time.Second,
 		},
 		ready,
@@ -154,7 +145,7 @@ func TestRuntimeReadinessKeepsConfiguredUnavailableDependenciesNamed(t *testing.
 	for _, dependency := range report.Dependencies {
 		statuses[dependency.Name] = dependency.Status
 	}
-	for _, name := range []string{"minio", "clamav"} {
+	for _, name := range []string{"minio"} {
 		if statuses[name] != platformhealth.DependencyStatusUnavailable {
 			t.Fatalf("%s status = %q, want unavailable", name, statuses[name])
 		}
