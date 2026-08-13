@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/httpapi"
+	"github.com/aviason/aviaSurveil/internal/httpapi"
 )
 
 type readinessFunc func(context.Context) error

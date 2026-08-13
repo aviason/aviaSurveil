@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/objectstore"
+	"github.com/aviason/aviaSurveil/internal/platform/objectstore"
 )
 
 func TestMinIOObjectStoreKeepsObjectsPrivateAndHonorsSignedBoundaries(t *testing.T) {

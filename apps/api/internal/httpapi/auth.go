@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/session"
+	"github.com/aviason/aviaSurveil/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/platform/session"
 	"github.com/go-chi/chi/v5"
 )
 

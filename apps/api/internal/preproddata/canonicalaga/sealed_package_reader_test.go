@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/preproddata/canonicalaga"
+	"github.com/aviason/aviaSurveil/internal/preproddata/canonicalaga"
 )
 
 func TestPackageReaderRejectsRelativePathBeforeOpeningArchive(t *testing.T) {

@@ -3,8 +3,8 @@ package auditlog_test
 import (
 	"testing"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/auditlog"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/auditlog"
+	"github.com/aviason/aviaSurveil/internal/identity"
 )
 
 func TestInternalAuditLogAuthorityExcludesAuditeeAndBudgetOnlyFinance(t *testing.T) {

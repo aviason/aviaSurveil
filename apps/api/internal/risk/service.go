@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
-	riskstore "github.com/MarlonJD/aviaSurveil360/apps/api/internal/risk/store/postgres"
+	"github.com/aviason/aviaSurveil/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/platform/database"
+	riskstore "github.com/aviason/aviaSurveil/internal/risk/store/postgres"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )

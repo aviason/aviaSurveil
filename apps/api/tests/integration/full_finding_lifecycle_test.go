@@ -14,16 +14,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/application"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/caps"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/evidence"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/findings"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/httpapi"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/potentialfindings"
-	fieldsync "github.com/MarlonJD/aviaSurveil360/apps/api/internal/sync"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/testprofile"
+	"github.com/aviason/aviaSurveil/internal/application"
+	"github.com/aviason/aviaSurveil/internal/caps"
+	"github.com/aviason/aviaSurveil/internal/evidence"
+	"github.com/aviason/aviaSurveil/internal/findings"
+	"github.com/aviason/aviaSurveil/internal/httpapi"
+	"github.com/aviason/aviaSurveil/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/platform/database"
+	"github.com/aviason/aviaSurveil/internal/potentialfindings"
+	fieldsync "github.com/aviason/aviaSurveil/internal/sync"
+	"github.com/aviason/aviaSurveil/internal/testprofile"
 )
 
 func TestFullFindingLifecycleAuthority(t *testing.T) {

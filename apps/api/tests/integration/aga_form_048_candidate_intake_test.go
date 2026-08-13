@@ -11,8 +11,8 @@ import (
 	"hash/crc32"
 	"testing"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/checklistintake"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/checklistintake"
+	"github.com/aviason/aviaSurveil/internal/identity"
 )
 
 func TestAGAForm048CandidateIntake(t *testing.T) {

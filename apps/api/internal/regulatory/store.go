@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/application"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
+	"github.com/aviason/aviaSurveil/internal/application"
+	"github.com/aviason/aviaSurveil/internal/platform/database"
 	"github.com/jackc/pgx/v5"
 )
 

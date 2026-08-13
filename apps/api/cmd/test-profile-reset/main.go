@@ -6,11 +6,11 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/config"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/objectstore"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/testprofile"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/migrations"
+	"github.com/aviason/aviaSurveil/internal/platform/config"
+	"github.com/aviason/aviaSurveil/internal/platform/database"
+	"github.com/aviason/aviaSurveil/internal/platform/objectstore"
+	"github.com/aviason/aviaSurveil/internal/testprofile"
+	"github.com/aviason/aviaSurveil/migrations"
 )
 
 func main() {

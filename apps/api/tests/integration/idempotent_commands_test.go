@@ -5,10 +5,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/application"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/idempotency"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/potentialfindings"
+	"github.com/aviason/aviaSurveil/internal/application"
+	"github.com/aviason/aviaSurveil/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/platform/idempotency"
+	"github.com/aviason/aviaSurveil/internal/potentialfindings"
 )
 
 func TestLostAcknowledgementReplaysOneCanonicalMutationAndTransitionEnvelope(t *testing.T) {

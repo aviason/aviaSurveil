@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/config"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/telemetry"
+	"github.com/aviason/aviaSurveil/internal/platform/config"
+	"github.com/aviason/aviaSurveil/internal/platform/telemetry"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )

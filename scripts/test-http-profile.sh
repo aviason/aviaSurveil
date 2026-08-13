@@ -124,7 +124,7 @@ go -C "${REPOSITORY_ROOT}/apps/api" build -o "${RUNTIME_DIRECTORY}/worker" ./cmd
 if [[ -z "${FOCUSED_E2E}" ]]; then
   API_RACE_PACKAGES=()
   while IFS= read -r package; do
-    if [[ "${package}" != "github.com/MarlonJD/aviaSurveil360/apps/api/internal/agaapplicability" ]]; then
+    if [[ "${package}" != "github.com/aviason/aviaSurveil/internal/agaapplicability" ]]; then
       API_RACE_PACKAGES+=("${package}")
     fi
   done < <(go -C "${REPOSITORY_ROOT}/apps/api" list ./...)

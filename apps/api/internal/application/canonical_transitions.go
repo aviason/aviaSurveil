@@ -7,14 +7,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/assignments"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/caps"
-	capstore "github.com/MarlonJD/aviaSurveil360/apps/api/internal/caps/store/postgres"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/evidence"
-	evidencestore "github.com/MarlonJD/aviaSurveil360/apps/api/internal/evidence/store/postgres"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/findings"
-	findingstore "github.com/MarlonJD/aviaSurveil360/apps/api/internal/findings/store/postgres"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/assignments"
+	"github.com/aviason/aviaSurveil/internal/caps"
+	capstore "github.com/aviason/aviaSurveil/internal/caps/store/postgres"
+	"github.com/aviason/aviaSurveil/internal/evidence"
+	evidencestore "github.com/aviason/aviaSurveil/internal/evidence/store/postgres"
+	"github.com/aviason/aviaSurveil/internal/findings"
+	findingstore "github.com/aviason/aviaSurveil/internal/findings/store/postgres"
+	"github.com/aviason/aviaSurveil/internal/identity"
 	"github.com/jackc/pgx/v5"
 )
 

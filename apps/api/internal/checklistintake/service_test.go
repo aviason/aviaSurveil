@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/identity"
 )
 
 func TestReceiveArchiveIsAdminOnlyAndReplayStable(t *testing.T) {

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/netpolicy"
+	"github.com/aviason/aviaSurveil/internal/platform/netpolicy"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
@@ -23,7 +23,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-const instrumentationName = "github.com/MarlonJD/aviaSurveil360/apps/api"
+const instrumentationName = "github.com/aviason/aviaSurveil"
 
 type Config struct {
 	ServiceName      string

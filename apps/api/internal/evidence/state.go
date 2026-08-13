@@ -3,8 +3,8 @@ package evidence
 import (
 	"fmt"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/findings"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/findings"
+	"github.com/aviason/aviaSurveil/internal/identity"
 )
 
 type ScanStatus string

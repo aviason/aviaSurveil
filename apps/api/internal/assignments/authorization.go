@@ -1,6 +1,6 @@
 package assignments
 
-import "github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
+import "github.com/aviason/aviaSurveil/internal/identity"
 
 func CanPrepare(actor identity.Principal) bool {
 	return actor.HasRole(identity.RoleDepartmentManager)

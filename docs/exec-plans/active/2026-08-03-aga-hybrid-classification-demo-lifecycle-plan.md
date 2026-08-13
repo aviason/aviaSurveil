@@ -3015,7 +3015,7 @@ Stakeholder review remains required before lifecycle status can move to
   command rather than an invalid direct mutation. The two-test RED was
   `private classification input mismatch` and `proposal resolution is
   incomplete or invalid`; its GREEN printed
-  `ok github.com/MarlonJD/aviaSurveil360/apps/api/internal/agaapplicability`.
+  `ok github.com/aviason/aviaSurveil/internal/agaapplicability`.
   The final verbose full package rerun passed its listed tests, including the
   corrected 25-batch receipt assertion. Task 1 remains locally verified only
   and awaits focused Sol review; Tasks 2–10 remain `not run`.
@@ -3027,7 +3027,7 @@ Stakeholder review remains required before lifecycle status can move to
   checks the required sealed row/pass cardinality before unrelated taxonomy
   pins. The isolated RED was `blank recommendation state error = digest
   mismatch`; the isolated GREEN printed
-  `ok github.com/MarlonJD/aviaSurveil360/apps/api/internal/agaapplicability 8.650s`.
+  `ok github.com/aviason/aviaSurveil/internal/agaapplicability 8.650s`.
   The full `GOCACHE=/tmp/avia-aga-go-cache go test -count=1
   ./internal/agaapplicability` rerun exited 0. Task 1 remains locally verified
   only and awaits focused Sol review; Tasks 2–10 remain `not run`.

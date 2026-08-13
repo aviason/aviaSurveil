@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/regulatory"
+	"github.com/aviason/aviaSurveil/internal/regulatory"
 )
 
 // AuditPackageEligibilityView is a pure, read-only projection. It is kept

@@ -10,10 +10,10 @@ import (
 	"io"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/objectstore"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/scanner"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/telemetry"
+	"github.com/aviason/aviaSurveil/internal/platform/database"
+	"github.com/aviason/aviaSurveil/internal/platform/objectstore"
+	"github.com/aviason/aviaSurveil/internal/platform/scanner"
+	"github.com/aviason/aviaSurveil/internal/platform/telemetry"
 	"github.com/jackc/pgx/v5"
 )
 

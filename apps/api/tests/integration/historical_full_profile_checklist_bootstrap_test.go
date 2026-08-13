@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/testprofile"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/migrations"
+	"github.com/aviason/aviaSurveil/internal/platform/database"
+	"github.com/aviason/aviaSurveil/internal/testprofile"
+	"github.com/aviason/aviaSurveil/migrations"
 )
 
 var historicalFullProfileBootstrapTime = time.Date(2026, time.July, 25, 9, 0, 0, 0, time.UTC)

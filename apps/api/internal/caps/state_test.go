@@ -3,9 +3,9 @@ package caps_test
 import (
 	"testing"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/caps"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/findings"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/caps"
+	"github.com/aviason/aviaSurveil/internal/findings"
+	"github.com/aviason/aviaSurveil/internal/identity"
 )
 
 func TestAuditeeSubmissionNeverAcceptsCAP(t *testing.T) {

@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/idempotency"
-	fieldsync "github.com/MarlonJD/aviaSurveil360/apps/api/internal/sync"
+	"github.com/aviason/aviaSurveil/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/platform/idempotency"
+	fieldsync "github.com/aviason/aviaSurveil/internal/sync"
 )
 
 func TestOfflineGrantUsesServerAuthorityForExpiryAssignmentSessionAndDevice(t *testing.T) {

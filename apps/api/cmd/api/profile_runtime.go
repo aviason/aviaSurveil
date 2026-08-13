@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/administration"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/config"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/objectstore"
+	"github.com/aviason/aviaSurveil/internal/administration"
+	"github.com/aviason/aviaSurveil/internal/platform/config"
+	"github.com/aviason/aviaSurveil/internal/platform/database"
+	"github.com/aviason/aviaSurveil/internal/platform/objectstore"
 )
 
 type runtimeProfile struct {

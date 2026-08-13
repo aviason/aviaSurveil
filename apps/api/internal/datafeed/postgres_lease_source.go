@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	feedstore "github.com/MarlonJD/aviaSurveil360/apps/api/internal/datafeed/store/postgres"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
+	feedstore "github.com/aviason/aviaSurveil/internal/datafeed/store/postgres"
+	"github.com/aviason/aviaSurveil/internal/platform/database"
 )
 
 // PostgresLeaseSource is the only worker-side reader of encrypted producer

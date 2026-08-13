@@ -3,7 +3,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 api_root="$repo_root/apps/api"
-module_path="github.com/MarlonJD/aviaSurveil360/apps/api"
+module_path="github.com/aviason/aviaSurveil"
 temporary_root="$(mktemp -d "${TMPDIR:-/tmp}/aviasurveil360-normal-artifact.XXXXXX")"
 export GOCACHE="$temporary_root/go-build-cache"
 

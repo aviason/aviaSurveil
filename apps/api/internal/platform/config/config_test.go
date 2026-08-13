@@ -2,11 +2,13 @@ package config_test
 
 import (
 	"encoding/base64"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/config"
+	"github.com/aviason/aviaSurveil/internal/platform/config"
 )
 
 func TestProductionRejectsTestAndDevelopmentBypasses(t *testing.T) {
@@ -251,6 +253,32 @@ func TestOIDCProfileExplicitlyAllowsTestOnlyServerManagedObjectStoreCORS(t *test
 	}
 	if settings.CanonicalSeed || !settings.AllowServerManagedCORS {
 		t.Fatalf("OIDC object-store CORS settings = %+v", settings)
+	}
+
+	values["AVIA_ENVIRONMENT"] = "production"
+	if _, err := config.Load(mapLookup(values)); err == nil ||
+		!strings.Contains(err.Error(), "AVIA_OBJECT_STORE_SERVER_MANAGED_CORS") {
+		t.Fatalf("production server-managed CORS error = %v", err)
+	}
+}
+
+func TestDevelopmentProfileAllowsExplicitServerManagedObjectStoreCORS(t *testing.T) {
+	t.Parallel()
+	values := map[string]string{
+		"AVIA_ENVIRONMENT":                      "development",
+		"AVIA_DATABASE_URL":                     "postgres://127.0.0.1/avia",
+		"AVIA_OBJECT_STORE_ENDPOINT":            "127.0.0.1:59001",
+		"AVIA_OBJECT_STORE_ACCESS_KEY":          "local-access",
+		"AVIA_OBJECT_STORE_SECRET_KEY":          "local-secret",
+		"AVIA_OBJECT_STORE_CORS_ORIGINS":        "https://localhost:8443",
+		"AVIA_OBJECT_STORE_SERVER_MANAGED_CORS": "true",
+	}
+	settings, err := config.Load(mapLookup(values))
+	if err != nil {
+		t.Fatalf("Load() development object-store profile: %v", err)
+	}
+	if !settings.AllowServerManagedCORS {
+		t.Fatalf("development object-store CORS settings = %+v", settings)
 	}
 
 	values["AVIA_ENVIRONMENT"] = "production"
@@ -611,6 +639,72 @@ func TestRuntimeHealthEndpointsAreBoundedAndContainNoCredentials(t *testing.T) {
 		if err == nil {
 			t.Fatalf("unsafe %s=%q was accepted", key, value)
 		}
+	}
+}
+
+func TestFileBackedRuntimeValuesLoadWithoutExportingSecrets(t *testing.T) {
+	t.Parallel()
+
+	directory := t.TempDir()
+	writeSecret := func(name, value string) string {
+		fileName := filepath.Join(directory, name)
+		if err := os.WriteFile(fileName, []byte(value+"\n"), 0o600); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+		return fileName
+	}
+	sessionKey := base64.StdEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef"))
+	values := map[string]string{
+		"AVIA_ENVIRONMENT":                    "development",
+		"AVIA_DATABASE_URL_FILE":              writeSecret("database-url", "postgres://auth.example.invalid/avia"),
+		"AVIA_OIDC_ISSUER_URL":                "https://identity.example/issuer",
+		"AVIA_OIDC_DISCOVERY_URL":             "http://auth:8080",
+		"AVIA_OIDC_DISCOVERY_PRIVATE_NETWORK": "true",
+		"AVIA_OIDC_CLIENT_ID":                 "aviasurveil360",
+		"AVIA_OIDC_CLIENT_SECRET_FILE":        writeSecret("oidc-secret", "oidc-client-secret"),
+		"AVIA_OIDC_REDIRECT_URL":              "https://avia.example/auth/callback",
+		"AVIA_FIRST_PARTY_ADMIN_URL":          "http://auth:8081",
+		"AVIA_FIRST_PARTY_ADMIN_SECRET_FILE":  "/run/secrets/auth-admin-secret",
+		"AVIA_SESSION_ENCRYPTION_KEY_FILE":    writeSecret("session-key", sessionKey),
+		"AVIA_OBJECT_STORE_ENDPOINT":          "minio:9000",
+		"AVIA_OBJECT_STORE_PUBLIC_ENDPOINT":   "localhost:8443",
+		"AVIA_OBJECT_STORE_ACCESS_KEY_FILE":   writeSecret("object-access", "object-access"),
+		"AVIA_OBJECT_STORE_SECRET_KEY_FILE":   writeSecret("object-secret", "object-secret"),
+		"AVIA_OBJECT_STORE_CORS_ORIGINS":      "https://localhost:8443",
+		"AVIA_SMTP_ADDRESS":                   "mailpit:1025",
+		"AVIA_SMTP_FROM":                      "no-reply@example.invalid",
+		"AVIA_SMTP_USERNAME":                  "mailer",
+		"AVIA_SMTP_PASSWORD_FILE":             writeSecret("smtp-password", "smtp-password"),
+		"AVIA_SMTP_PRIVATE_NETWORK":           "true",
+	}
+
+	settings, err := config.Load(mapLookup(values))
+	if err != nil {
+		t.Fatalf("Load() file-backed config: %v", err)
+	}
+	if settings.DatabaseURL != "postgres://auth.example.invalid/avia" ||
+		settings.OIDCClientSecret != "oidc-client-secret" ||
+		string(settings.SessionEncryptionKey) != "0123456789abcdef0123456789abcdef" ||
+		settings.ObjectStoreAccessKey != "object-access" ||
+		settings.ObjectStoreSecretKey != "object-secret" ||
+		settings.SMTPPassword != "smtp-password" {
+		t.Fatalf("file-backed settings = %+v", settings)
+	}
+}
+
+func TestFileBackedRuntimeValuesRejectDuplicateSources(t *testing.T) {
+	t.Parallel()
+
+	fileName := filepath.Join(t.TempDir(), "database-url")
+	if err := os.WriteFile(fileName, []byte("postgres://file.example.invalid/avia\n"), 0o600); err != nil {
+		t.Fatalf("write database URL: %v", err)
+	}
+	_, err := config.Load(mapLookup(map[string]string{
+		"AVIA_DATABASE_URL":      "postgres://inline.example.invalid/avia",
+		"AVIA_DATABASE_URL_FILE": fileName,
+	}))
+	if err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Fatalf("duplicate database URL sources error = %v", err)
 	}
 }
 

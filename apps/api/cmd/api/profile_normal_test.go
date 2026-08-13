@@ -5,7 +5,7 @@ package main
 import (
 	"testing"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/config"
+	"github.com/aviason/aviaSurveil/internal/platform/config"
 )
 
 func TestNormalRuntimeProfileRejectsCanonicalSeedAndHeaderAuthority(t *testing.T) {

@@ -1,0 +1,26 @@
+{
+  "workspaceContractVersion": 1,
+  "id": "surveil",
+  "kind": "application",
+  "repository": "https://github.com/aviason/aviaSurveil.git",
+  "image": "ghcr.io/aviason/avia-surveil",
+  "localCompose": "deploy/local/compose.yaml",
+  "runtime": {
+    "dev": {
+      "status": "candidate-only",
+      "reason": "The API module and local entrypoints consume the Workspace file-backed contract; first-party OIDC/private-admin integration and cross-repository runtime checks remain candidate-only."
+    },
+    "demo": {
+      "status": "blocked",
+      "reason": "First-party OIDC integration, prepared users, persistent curated data, and immutable image release are not verified."
+    },
+    "preprod": {
+      "status": "blocked",
+      "reason": "Provider-neutral OIDC and private-admin integration, file-backed database/auth configuration, source-bound immutable images, and external deployment evidence remain incomplete."
+    },
+    "prod": {
+      "status": "blocked",
+      "reason": "Production OIDC/MFA, identity and data migration, immutable release artifacts, infrastructure/recovery ownership, rollback evidence, and deployment approval are not established."
+    }
+  }
+}

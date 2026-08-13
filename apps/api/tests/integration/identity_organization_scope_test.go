@@ -16,13 +16,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/administration"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/httpapi"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/organizations"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/idempotency"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/testprofile"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/migrations"
+	"github.com/aviason/aviaSurveil/internal/administration"
+	"github.com/aviason/aviaSurveil/internal/httpapi"
+	"github.com/aviason/aviaSurveil/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/organizations"
+	"github.com/aviason/aviaSurveil/internal/platform/idempotency"
+	"github.com/aviason/aviaSurveil/internal/testprofile"
+	"github.com/aviason/aviaSurveil/migrations"
 )
 
 func TestIdentityProfileAndSettingsAreRevisionedWithoutClientRoleAuthority(t *testing.T) {

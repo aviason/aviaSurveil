@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/identity"
 )
 
 type Service struct {

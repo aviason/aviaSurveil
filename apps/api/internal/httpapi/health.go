@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	platformhealth "github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/health"
+	platformhealth "github.com/aviason/aviaSurveil/internal/platform/health"
 	"github.com/go-chi/chi/v5"
 )
 

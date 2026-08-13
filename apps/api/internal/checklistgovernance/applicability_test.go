@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/application"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/regulatory"
+	"github.com/aviason/aviaSurveil/internal/application"
+	"github.com/aviason/aviaSurveil/internal/regulatory"
 )
 
 func TestResolveApplicablePublishedVersionsFiltersExactScopeTargetQualifiersAndDate(t *testing.T) {

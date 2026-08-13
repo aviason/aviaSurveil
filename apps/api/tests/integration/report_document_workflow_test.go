@@ -13,12 +13,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/application"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/documents"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/httpapi"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/reports"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/testprofile"
+	"github.com/aviason/aviaSurveil/internal/application"
+	"github.com/aviason/aviaSurveil/internal/documents"
+	"github.com/aviason/aviaSurveil/internal/httpapi"
+	"github.com/aviason/aviaSurveil/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/reports"
+	"github.com/aviason/aviaSurveil/internal/testprofile"
 )
 
 func TestReportIssueQueuesAndRendersOneImmutableAuthorizedDocument(t *testing.T) {

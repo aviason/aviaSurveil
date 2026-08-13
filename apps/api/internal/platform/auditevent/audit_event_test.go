@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/auditevent"
+	"github.com/aviason/aviaSurveil/internal/platform/auditevent"
 )
 
 func TestEventRequiresStableIdentityActionAndEntity(t *testing.T) {

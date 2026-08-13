@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/checklistintake"
+	"github.com/aviason/aviaSurveil/internal/checklistintake"
 )
 
 // The parser command is intentionally a bounded worker entrypoint. Archive

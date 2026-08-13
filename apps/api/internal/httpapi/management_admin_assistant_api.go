@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/administration"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/application"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/assistant"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/httpapi/generated"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/administration"
+	"github.com/aviason/aviaSurveil/internal/application"
+	"github.com/aviason/aviaSurveil/internal/assistant"
+	"github.com/aviason/aviaSurveil/internal/httpapi/generated"
+	"github.com/aviason/aviaSurveil/internal/identity"
 	"github.com/go-chi/chi/v5"
 )
 

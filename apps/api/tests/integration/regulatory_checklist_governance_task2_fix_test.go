@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/httpapi"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/organizations"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/session"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/migrations"
+	"github.com/aviason/aviaSurveil/internal/httpapi"
+	"github.com/aviason/aviaSurveil/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/organizations"
+	"github.com/aviason/aviaSurveil/internal/platform/session"
+	"github.com/aviason/aviaSurveil/migrations"
 )
 
 func TestTask2ScopeSupersessionSelectsOnlyCurrentFact(t *testing.T) {

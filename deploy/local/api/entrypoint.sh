@@ -1,32 +1,28 @@
 #!/bin/sh
 set -eu
 
-read_secret() {
-  secret_path=$1
+if [ -z "${AVIA_DATABASE_URL:-}" ] && [ -z "${AVIA_DATABASE_URL_FILE:-}" ]; then
+  secret_path=${AVIA_DATABASE_PASSWORD_FILE:-/run/secrets/app_database_password}
   if [ ! -f "$secret_path" ]; then
-    echo "required mounted file is unavailable" >&2
+    echo "required database input is unavailable" >&2
     exit 1
   fi
-  secret_value=$(tr -d '\r\n' <"$secret_path")
-  if [ -z "$secret_value" ]; then
-    echo "required mounted file is empty" >&2
+  database_password=$(tr -d '\r\n' <"$secret_path")
+  if [ -z "$database_password" ]; then
+    echo "required database input is empty" >&2
     exit 1
   fi
-  printf '%s' "$secret_value"
-}
-
-database_password=$(read_secret "${AVIA_DATABASE_PASSWORD_FILE:-/run/secrets/app_database_password}")
-oidc_client_secret=$(read_secret "${AVIA_OIDC_CLIENT_SECRET_FILE:-/run/secrets/oidc_client_secret}")
-session_encryption_key=$(read_secret "${AVIA_SESSION_ENCRYPTION_KEY_FILE:-/run/secrets/session_encryption_key}")
-object_store_access_key=$(read_secret "${AVIA_OBJECT_STORE_ACCESS_KEY_FILE:-/run/secrets/minio_api_access_key}")
-object_store_secret_key=$(read_secret "${AVIA_OBJECT_STORE_SECRET_KEY_FILE:-/run/secrets/minio_api_secret_key}")
-
-export AVIA_DATABASE_URL="postgres://${AVIA_DATABASE_USER:-aviasurveil360}:${database_password}@${AVIA_DATABASE_HOST:-postgres}:${AVIA_DATABASE_PORT:-5432}/${AVIA_DATABASE_NAME:-aviasurveil360}?sslmode=disable"
-export AVIA_OIDC_CLIENT_SECRET="$oidc_client_secret"
-export AVIA_SESSION_ENCRYPTION_KEY="$session_encryption_key"
-export AVIA_OBJECT_STORE_ACCESS_KEY="$object_store_access_key"
-export AVIA_OBJECT_STORE_SECRET_KEY="$object_store_secret_key"
-unset database_password oidc_client_secret session_encryption_key
-unset object_store_access_key object_store_secret_key
+  database_url_file=$(mktemp /tmp/avia-database-url.XXXXXX)
+  chmod 600 "$database_url_file"
+  printf 'postgres://%s:%s@%s:%s/%s?sslmode=disable' \
+    "${AVIA_DATABASE_USER:-aviasurveil360}" \
+    "$database_password" \
+    "${AVIA_DATABASE_HOST:-postgres}" \
+    "${AVIA_DATABASE_PORT:-5432}" \
+    "${AVIA_DATABASE_NAME:-aviasurveil360}" >"$database_url_file"
+  export AVIA_DATABASE_URL_FILE="$database_url_file"
+  trap 'rm -f "$database_url_file"' EXIT
+  unset database_password
+fi
 
 exec /app/api

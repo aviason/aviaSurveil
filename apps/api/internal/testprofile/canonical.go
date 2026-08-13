@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/documents"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/questioncatalog"
+	"github.com/aviason/aviaSurveil/internal/documents"
+	"github.com/aviason/aviaSurveil/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/platform/database"
+	"github.com/aviason/aviaSurveil/internal/questioncatalog"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )

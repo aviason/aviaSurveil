@@ -3,7 +3,7 @@ package potentialfindings
 import (
 	"fmt"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/identity"
 )
 
 type ReadAuthorizationInput struct {

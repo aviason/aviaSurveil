@@ -5,8 +5,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/checklistintake"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/checklistintake"
+	"github.com/aviason/aviaSurveil/internal/identity"
 )
 
 type Worker struct {

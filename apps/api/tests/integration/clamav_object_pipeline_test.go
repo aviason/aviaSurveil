@@ -12,12 +12,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/evidence"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/database"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/objectstore"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/scanner"
-	evidenceworker "github.com/MarlonJD/aviaSurveil360/apps/api/internal/worker/evidence"
+	"github.com/aviason/aviaSurveil/internal/evidence"
+	"github.com/aviason/aviaSurveil/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/platform/database"
+	"github.com/aviason/aviaSurveil/internal/platform/objectstore"
+	"github.com/aviason/aviaSurveil/internal/platform/scanner"
+	evidenceworker "github.com/aviason/aviaSurveil/internal/worker/evidence"
 )
 
 func TestLiveClamAVAdapterScansCleanAndEICARStreams(t *testing.T) {

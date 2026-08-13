@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	contractv3 "github.com/MarlonJD/aviaSurveil360/apps/api/internal/aviacorecontract/v3"
+	contractv3 "github.com/aviason/aviaSurveil/internal/aviacorecontract/v3"
 )
 
 func TestBuildEventProducesLockedImmutableV3Envelope(t *testing.T) {

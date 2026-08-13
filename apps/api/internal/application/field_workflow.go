@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/checklists"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/inspections"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/potentialfindings"
+	"github.com/aviason/aviaSurveil/internal/checklists"
+	"github.com/aviason/aviaSurveil/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/inspections"
+	"github.com/aviason/aviaSurveil/internal/potentialfindings"
 	"github.com/jackc/pgx/v5"
 )
 

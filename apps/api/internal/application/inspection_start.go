@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/assignments"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/assignments"
+	"github.com/aviason/aviaSurveil/internal/identity"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )

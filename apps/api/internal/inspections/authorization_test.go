@@ -3,8 +3,8 @@ package inspections_test
 import (
 	"testing"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/inspections"
+	"github.com/aviason/aviaSurveil/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/inspections"
 )
 
 func TestInspectorCanAnswerOnlyAssignedQuestion(t *testing.T) {

@@ -27,7 +27,7 @@ The exact Task 7 focused lifecycle command passed:
 
 ```text
 GOCACHE=/tmp/avia-aga-go-cache-task7 go -C apps/api test -count=1 ./internal/agademoworkspace -run 'Test(LifecycleRequiresPotentialFindingConversion|InspectionRequiresExactCurrentRecommendation|FindingInitialStateCoversEveryCAPEvidenceChoice|DueDateChoiceIsIndependentAndExact|ReopenAndInspectionCompletionTransitionsAreTotal|CAPAndEvidenceResubmissionTransitionsAreTotal|CAPAcceptanceLeavesFindingOpen|EvidenceReviewOutcomeMappingIsAtomic|EvidenceVerificationAndAuthorizedClosureAreSeparate|AuditeeProjectionIsOrganizationScoped)$'
-ok github.com/MarlonJD/aviaSurveil360/apps/api/internal/agademoworkspace
+ok github.com/aviason/aviaSurveil/internal/agademoworkspace
 ```
 
 The specified package and contract checks also passed:

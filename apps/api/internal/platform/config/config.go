@@ -7,11 +7,12 @@ import (
 	"net"
 	"net/mail"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/netpolicy"
+	"github.com/aviason/aviaSurveil/internal/platform/netpolicy"
 )
 
 type LookupEnv func(string) (string, bool)
@@ -106,9 +107,33 @@ func LoadDatabaseRuntime(lookup LookupEnv) (Settings, error) {
 
 func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) {
 	environment := valueOrDefault(lookup, "AVIA_ENVIRONMENT", "development")
+	databaseURL, err := valueOrFile(lookup, "AVIA_DATABASE_URL")
+	if err != nil {
+		return Settings{}, err
+	}
+	oidcClientSecret, err := valueOrFile(lookup, "AVIA_OIDC_CLIENT_SECRET")
+	if err != nil {
+		return Settings{}, err
+	}
+	sessionEncryptionKey, err := valueOrFile(lookup, "AVIA_SESSION_ENCRYPTION_KEY")
+	if err != nil {
+		return Settings{}, err
+	}
+	objectStoreAccessKey, err := valueOrFile(lookup, "AVIA_OBJECT_STORE_ACCESS_KEY")
+	if err != nil {
+		return Settings{}, err
+	}
+	objectStoreSecretKey, err := valueOrFile(lookup, "AVIA_OBJECT_STORE_SECRET_KEY")
+	if err != nil {
+		return Settings{}, err
+	}
+	smtpPassword, err := valueOrFile(lookup, "AVIA_SMTP_PASSWORD")
+	if err != nil {
+		return Settings{}, err
+	}
 	settings := Settings{
 		Environment:               environment,
-		DatabaseURL:               value(lookup, "AVIA_DATABASE_URL"),
+		DatabaseURL:               databaseURL,
 		HTTPAddress:               valueOrDefault(lookup, "AVIA_HTTP_ADDRESS", ":8080"),
 		TestPrincipal:             value(lookup, "AVIA_TEST_PRINCIPAL"),
 		TestSession:               value(lookup, "AVIA_TEST_SESSION"),
@@ -116,7 +141,7 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 		OIDCIssuerURL:             value(lookup, "AVIA_OIDC_ISSUER_URL"),
 		OIDCDiscoveryURL:          value(lookup, "AVIA_OIDC_DISCOVERY_URL"),
 		OIDCClientID:              value(lookup, "AVIA_OIDC_CLIENT_ID"),
-		OIDCClientSecret:          value(lookup, "AVIA_OIDC_CLIENT_SECRET"),
+		OIDCClientSecret:          oidcClientSecret,
 		OIDCRedirectURL:           value(lookup, "AVIA_OIDC_REDIRECT_URL"),
 		FirstPartyAdminURL:        value(lookup, "AVIA_FIRST_PARTY_ADMIN_URL"),
 		FirstPartyAdminSecretFile: value(lookup, "AVIA_FIRST_PARTY_ADMIN_SECRET_FILE"),
@@ -127,8 +152,8 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 		ObjectStoreEndpoint:       value(lookup, "AVIA_OBJECT_STORE_ENDPOINT"),
 		ObjectStoreMode:           value(lookup, "AVIA_OBJECT_STORE_MODE"),
 		ObjectStorePublicEndpoint: value(lookup, "AVIA_OBJECT_STORE_PUBLIC_ENDPOINT"),
-		ObjectStoreAccessKey:      value(lookup, "AVIA_OBJECT_STORE_ACCESS_KEY"),
-		ObjectStoreSecretKey:      value(lookup, "AVIA_OBJECT_STORE_SECRET_KEY"),
+		ObjectStoreAccessKey:      objectStoreAccessKey,
+		ObjectStoreSecretKey:      objectStoreSecretKey,
 		ObjectStoreRegion:         value(lookup, "AVIA_OBJECT_STORE_REGION"),
 		ObjectStoreCORSOrigins:    commaValues(value(lookup, "AVIA_OBJECT_STORE_CORS_ORIGINS")),
 		QuarantineBucket:          valueOrDefault(lookup, "AVIA_OBJECT_STORE_QUARANTINE_BUCKET", "evidence-quarantine"),
@@ -140,7 +165,7 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 		SMTPAddress:               value(lookup, "AVIA_SMTP_ADDRESS"),
 		SMTPFrom:                  value(lookup, "AVIA_SMTP_FROM"),
 		SMTPUsername:              value(lookup, "AVIA_SMTP_USERNAME"),
-		SMTPPassword:              value(lookup, "AVIA_SMTP_PASSWORD"),
+		SMTPPassword:              smtpPassword,
 		SMTPTransport:             value(lookup, "AVIA_SMTP_TRANSPORT"),
 		SMTPTLSServerName:         value(lookup, "AVIA_SMTP_TLS_SERVER_NAME"),
 		IdentityHealthURL:         value(lookup, "AVIA_IDENTITY_HEALTH_URL"),
@@ -248,7 +273,8 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 	}
 	settings.AllowServerManagedCORS = (settings.Environment == "test" &&
 		(settings.CanonicalSeed || serverManagedCORS)) ||
-		settings.Environment == "local-preprod"
+		settings.Environment == "local-preprod" ||
+		(settings.Environment == "development" && serverManagedCORS)
 
 	if settings.Environment == "production" {
 		if !settings.CookieSecure {
@@ -260,9 +286,9 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 			}
 		}
 	}
-	if serverManagedCORS && settings.Environment != "test" {
+	if serverManagedCORS && settings.Environment != "test" && settings.Environment != "development" {
 		return Settings{}, fmt.Errorf(
-			"AVIA_OBJECT_STORE_SERVER_MANAGED_CORS requires AVIA_ENVIRONMENT=test",
+			"AVIA_OBJECT_STORE_SERVER_MANAGED_CORS requires AVIA_ENVIRONMENT=test or development",
 		)
 	}
 	if settings.CanonicalSeed && settings.Environment != "test" {
@@ -444,7 +470,7 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 		{name: "AVIA_OIDC_CLIENT_ID", value: settings.OIDCClientID},
 		{name: "AVIA_OIDC_CLIENT_SECRET", value: settings.OIDCClientSecret},
 		{name: "AVIA_OIDC_REDIRECT_URL", value: settings.OIDCRedirectURL},
-		{name: "AVIA_SESSION_ENCRYPTION_KEY", value: value(lookup, "AVIA_SESSION_ENCRYPTION_KEY")},
+		{name: "AVIA_SESSION_ENCRYPTION_KEY", value: sessionEncryptionKey},
 	}
 	oidcConfigured := false
 	for _, entry := range oidcKeys {
@@ -463,7 +489,7 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 				return Settings{}, fmt.Errorf("%s is required when OIDC authentication is enabled", entry.name)
 			}
 		}
-		key, err := base64.StdEncoding.DecodeString(value(lookup, "AVIA_SESSION_ENCRYPTION_KEY"))
+		key, err := base64.StdEncoding.DecodeString(sessionEncryptionKey)
 		if err != nil || len(key) != 32 {
 			return Settings{}, fmt.Errorf("AVIA_SESSION_ENCRYPTION_KEY must be base64 for exactly 32 bytes")
 		}
@@ -550,6 +576,27 @@ func value(lookup LookupEnv, key string) string {
 		return strings.TrimSpace(raw)
 	}
 	return ""
+}
+
+func valueOrFile(lookup LookupEnv, name string) (string, error) {
+	inline := value(lookup, name)
+	fileName := name + "_FILE"
+	filePath := value(lookup, fileName)
+	if inline != "" && filePath != "" {
+		return "", fmt.Errorf("%s and %s are mutually exclusive", name, fileName)
+	}
+	if filePath == "" {
+		return inline, nil
+	}
+	contents, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", fmt.Errorf("%s could not be read", fileName)
+	}
+	resolved := strings.TrimSpace(string(contents))
+	if resolved == "" {
+		return "", fmt.Errorf("%s must contain a non-empty value", fileName)
+	}
+	return resolved, nil
 }
 
 func valueOrDefault(lookup LookupEnv, key, fallback string) string {

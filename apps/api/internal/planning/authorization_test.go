@@ -3,8 +3,8 @@ package planning_test
 import (
 	"testing"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/planning"
+	"github.com/aviason/aviaSurveil/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/planning"
 )
 
 func TestPlanningAuthorizationKeepsIntermediateRolesNarrow(t *testing.T) {

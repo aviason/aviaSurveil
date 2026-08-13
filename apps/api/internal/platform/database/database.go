@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/platform/telemetry"
+	"github.com/aviason/aviaSurveil/internal/platform/telemetry"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )

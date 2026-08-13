@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/application"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/identity"
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/reports"
+	"github.com/aviason/aviaSurveil/internal/application"
+	"github.com/aviason/aviaSurveil/internal/identity"
+	"github.com/aviason/aviaSurveil/internal/reports"
 )
 
 func TestReportApprovalUsesExactVersionAndIssueNeverClosesFinding(t *testing.T) {

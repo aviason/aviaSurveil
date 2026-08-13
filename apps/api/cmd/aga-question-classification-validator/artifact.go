@@ -16,7 +16,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/MarlonJD/aviaSurveil360/apps/api/internal/agaapplicability"
+	"github.com/aviason/aviaSurveil/internal/agaapplicability"
 )
 
 const (
