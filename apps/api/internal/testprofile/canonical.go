@@ -2,6 +2,7 @@ package testprofile
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,8 +10,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aviason/aviaSurveil/internal/documents"
 	"github.com/aviason/aviaSurveil/internal/identity"
 	"github.com/aviason/aviaSurveil/internal/platform/database"
+	"github.com/aviason/aviaSurveil/internal/questioncatalog"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -334,22 +337,40 @@ func Reset(ctx context.Context, pool *database.Pool, now time.Time) error {
 		question("CAB-VID-CREW-SEAT-001", "VID+CREW SEAT", "Are cabin information displays and crew seats serviceable?", "Inspector observation and required exception comment", []string{CanonicalInspectorSubjectID}),
 		question("CAB-COCKPIT-GEN-001", "COCKPIT+CAB GEN COND+EXITS", "Are cabin general condition and emergency exits satisfactory?", "Inspector observation and required exception comment", []string{CanonicalInspectorSubjectID}),
 	}
+	canonicalCatalogID := "catalog-canonical-test"
+	canonicalCatalogVersion := "aga-canonical-test@1.0.0"
+	canonicalProviderScopeID := "SCOPE-OPS-AOC-SOURCE-BOUND"
+	canonicalRegulatedTargetID := "TARGET-OPS-AOC-SOURCE-BOUND"
+	canonicalQuestionVersionIDs := make([]string, 0, len(questions))
+	for _, currentQuestion := range questions {
+		canonicalQuestionVersionIDs = append(canonicalQuestionVersionIDs, "QV-"+currentQuestion.ID+"-V2")
+	}
+	canonicalSelectionDigest := questioncatalog.SelectionDigest(canonicalQuestionVersionIDs)
 	snapshot, err := json.Marshal(map[string]any{
 		"schemaVersion": 1, "protocolVersion": 1,
 		"creatorSubjectId": "USR-MANAGER-NORA",
 		"changeReason":     "Initial immutable published Cabin Inspection version.",
-		"questions":        questions,
+		"riskFocus": []string{
+			"Emergency equipment serviceability",
+			"PBE serviceability",
+			"Cabin inspection CAP follow-up",
+		},
+		"questions": questions,
 	})
 	if err != nil {
 		return err
 	}
 	planningDraftValues := map[string]any{
 		"organizationId": "ORG-FLY-NAMIBIA", "organizationName": "Fly Namibia",
-		"applicationType": "Continued Surveillance", "domain": "Cabin Safety",
+		"applicationType": "CABIN", "domain": "Cabin Safety",
 		"inspectionCategory": "Routine / Announced", "noticePolicy": "ADVANCE",
 		"purpose": "", "triggerType": "Department Manager initiated",
 		"riskCategory": "", "plannedDate": "2026-12-10", "mode": "On-site",
-		"location": "", "templateVersionId": "CTV-CABIN-1", "scope": "",
+		"location": "", "catalogVersion": canonicalCatalogVersion,
+		"scopeDraftId":               "scope-draft-PLAN-DRAFT-2026-001",
+		"selectionDigest":            canonicalSelectionDigest,
+		"selectedQuestionVersionIds": canonicalQuestionVersionIDs,
+		"providerScopeId":            canonicalProviderScopeID, "regulatedTargetId": canonicalRegulatedTargetID,
 		"requestedBudget": 0, "currency": "USD",
 	}
 	planningDraftSnapshot, err := json.Marshal(planningDraftValues)
@@ -358,12 +379,16 @@ func Reset(ctx context.Context, pool *database.Pool, now time.Time) error {
 	}
 	coordinationValues := map[string]any{
 		"organizationId": "ORG-FLY-NAMIBIA", "organizationName": "Fly Namibia",
-		"applicationType": "Cabin Inspection", "domain": "Cabin Safety",
+		"applicationType": "CABIN", "domain": "Cabin Safety",
 		"inspectionCategory": "Routine / Announced", "noticePolicy": "ADVANCE",
 		"purpose": "Annual routine oversight", "triggerType": "Annual Plan",
 		"riskCategory": "Cabin Safety", "plannedDate": "2026-06-15", "mode": "On-site",
-		"location": "Windhoek", "templateVersionId": "CTV-CABIN-1",
-		"scope": "Cabin safety", "requestedBudget": 48000, "currency": "USD",
+		"location": "Windhoek", "catalogVersion": canonicalCatalogVersion,
+		"scopeDraftId":               "scope-draft-PLAN-DRAFT-COORDINATION",
+		"selectionDigest":            canonicalSelectionDigest,
+		"selectedQuestionVersionIds": canonicalQuestionVersionIDs,
+		"providerScopeId":            canonicalProviderScopeID, "regulatedTargetId": canonicalRegulatedTargetID,
+		"requestedBudget": 48000, "currency": "USD",
 		"preparedAuditId": CanonicalAuditID,
 	}
 	coordinationSnapshot, err := json.Marshal(coordinationValues)
@@ -376,6 +401,49 @@ func Reset(ctx context.Context, pool *database.Pool, now time.Time) error {
 		"changeReason":     "Initial immutable published Flight Operations version.",
 		"questions":        []canonicalQuestion{},
 	})
+	if err != nil {
+		return err
+	}
+	canonicalScopeSnapshotValues := map[string]any{
+		"draftId": "PLAN-DRAFT-COORDINATION", "organizationId": "ORG-FLY-NAMIBIA", "organizationName": "Fly Namibia",
+		"applicationType": "CABIN", "domain": "Cabin Safety", "inspectionCategory": "Routine / Announced",
+		"purpose": "Annual routine oversight", "triggerType": "Annual Plan", "riskCategory": "Cabin Safety",
+		"plannedDate": "2026-06-15", "mode": "On-site", "location": "Windhoek",
+		"providerScopeId": canonicalProviderScopeID, "regulatedTargetId": canonicalRegulatedTargetID,
+		"catalogVersion": canonicalCatalogVersion, "usageClass": "PREPROD_EXERCISE",
+		"selectionDigest": canonicalSelectionDigest, "selectedQuestionVersionIds": canonicalQuestionVersionIDs,
+		"estimatedResourceRequirement": float64(len(questions)),
+		"formDistribution":             map[string]any{"CABIN": len(questions)},
+		"domainDistribution":           map[string]any{"Cabin Safety": len(questions)},
+		"requestedBudget":              48000, "currency": "USD", "noticePolicy": "ADVANCE",
+	}
+	canonicalScopeSnapshot, err := json.Marshal(canonicalScopeSnapshotValues)
+	if err != nil {
+		return err
+	}
+	canonicalScopePlanningDigestBytes := sha256.Sum256(canonicalScopeSnapshot)
+	canonicalScopePlanningDigest := "sha256:" + fmt.Sprintf("%x", canonicalScopePlanningDigestBytes[:])
+	packageScopeSnapshotValues := map[string]any{
+		"draftId": "PLAN-DRAFT-PACKAGE-001", "organizationId": "ORG-FLY-NAMIBIA", "organizationName": "Fly Namibia",
+		"applicationType": "CABIN", "domain": "Cabin Safety", "inspectionCategory": "Routine / Announced",
+		"purpose": "Canonical execution package fixture", "triggerType": "Canonical test profile",
+		"riskCategory": "Cabin Safety", "plannedDate": "2026-06-15", "mode": "On-site", "location": "Windhoek",
+		"preparedAuditId": CanonicalAuditID,
+		"providerScopeId": canonicalProviderScopeID, "regulatedTargetId": canonicalRegulatedTargetID,
+		"catalogVersion": canonicalCatalogVersion, "usageClass": "PREPROD_EXERCISE",
+		"selectionDigest": canonicalSelectionDigest, "selectedQuestionVersionIds": canonicalQuestionVersionIDs,
+		"estimatedResourceRequirement": float64(len(questions)),
+		"formDistribution":             map[string]any{"CABIN": len(questions)},
+		"domainDistribution":           map[string]any{"Cabin Safety": len(questions)},
+		"requestedBudget":              48000, "currency": "USD", "noticePolicy": "ADVANCE",
+	}
+	packageScopeSnapshot, err := json.Marshal(packageScopeSnapshotValues)
+	if err != nil {
+		return err
+	}
+	packageScopePlanningDigestBytes := sha256.Sum256(packageScopeSnapshot)
+	packageScopePlanningDigest := "sha256:" + fmt.Sprintf("%x", packageScopePlanningDigestBytes[:])
+	selectionIDsJSON, err := json.Marshal(canonicalQuestionVersionIDs)
 	if err != nil {
 		return err
 	}
@@ -450,6 +518,28 @@ func Reset(ctx context.Context, pool *database.Pool, now time.Time) error {
 				return fmt.Errorf("seed canonical department-manager authority: %w", err)
 			}
 			if _, err := transaction.Exec(ctx, `
+			INSERT INTO regulated_targets (id, target_kind, organization_id, created_at)
+			VALUES ($1, 'ORGANIZATION', 'ORG-FLY-NAMIBIA', $2)
+		`, canonicalRegulatedTargetID, now); err != nil {
+				return fmt.Errorf("seed canonical regulated target: %w", err)
+			}
+			if _, err := transaction.Exec(ctx, `
+			INSERT INTO organization_service_provider_scopes (
+				id, organization_id, service_provider_type_id, authorization_identifier,
+				status, effective_from, primary_target_id, created_at
+			) VALUES ($1, 'ORG-FLY-NAMIBIA', 'AIR_OPERATOR', 'AOC-FLY-NAMIBIA-SOURCE-BOUND',
+				'ACTIVE', '2025-01-01', $2, $3)
+		`, canonicalProviderScopeID, canonicalRegulatedTargetID, now); err != nil {
+				return fmt.Errorf("seed canonical provider scope: %w", err)
+			}
+			if _, err := transaction.Exec(ctx, `
+			INSERT INTO organization_service_provider_scope_targets (
+				organization_service_provider_scope_id, regulated_target_id, created_at
+			) VALUES ($1, $2, $3)
+		`, canonicalProviderScopeID, canonicalRegulatedTargetID, now); err != nil {
+				return fmt.Errorf("seed canonical provider target applicability: %w", err)
+			}
+			if _, err := transaction.Exec(ctx, `
 			INSERT INTO user_settings (
 				subject_id, notification_preferences, locale, timezone, revision, updated_at
 			)
@@ -480,7 +570,7 @@ func Reset(ctx context.Context, pool *database.Pool, now time.Time) error {
 				due_date, revision, created_at, updated_at
 			) VALUES
 				('AUD-2026-001', 'ORG-FLY-NAMIBIA', $2,
-				 '2026 Cabin Inspection - Fly Namibia', 'CABIN', 'IN_PROGRESS', '2026-06-18', 1, $1, $1),
+					 '2026 Cabin Inspection - Fly Namibia', 'CABIN', 'IN_PROGRESS', '2026-06-18', 1, $1, $1),
 				('AUD-2026-099', 'ORG-SKYCARGO', 'USR-INSPECTOR-DAVID',
 				 '2026 Cargo Inspection - SkyCargo Air', 'CARGO', 'IN_PROGRESS', '2026-07-30', 1, $1, $1)
 		`, now, CanonicalInspectorSubjectID); err != nil {
@@ -570,6 +660,87 @@ func Reset(ctx context.Context, pool *database.Pool, now time.Time) error {
 					return fmt.Errorf("seed Template Question %s: %w", question.ID, err)
 				}
 			}
+			// V1 remains bound to the historical published template. The
+			// canonical PREPROD_EXERCISE catalog uses separate immutable V2
+			// question-version identities so exercise provenance cannot be
+			// reused by an administrative template draft.
+			for _, question := range questions {
+				questionVersionID := "QV-" + question.ID + "-V2"
+				if _, err := transaction.Exec(ctx, `
+				INSERT INTO question_versions (
+					id, question_id, version, prompt, configured_reference,
+					expected_evidence, created_by_subject_id, created_at
+				) VALUES ($1, $2, 2, $3, $4, $5, 'USR-MANAGER-NORA', $6)
+			`, questionVersionID, question.ID, question.Prompt,
+					question.RegulatoryReference, question.ExpectedEvidence, now); err != nil {
+					return fmt.Errorf("seed Exercise Question version %s: %w", question.ID, err)
+				}
+			}
+			if _, err := transaction.Exec(ctx, `
+			INSERT INTO canonical_question_catalogs (
+				id, catalog_version, usage_class, profile_name, profile_version, status,
+				source_package_version, source_package_json_sha256, source_package_zip_sha256,
+				root_digest, question_count, form_count, created_by_subject_id, created_at
+			) VALUES ($1, $2, 'PREPROD_EXERCISE', 'aga-preprod', '1.0.0', 'SEALED',
+				'canonical-test-fixture@1.0.0', 'sha256:canonical-test-package-json',
+				'sha256:canonical-test-package-zip', 'sha256:canonical-test-catalog-root',
+				$3, 1, 'USR-MANAGER-NORA', $4)
+		`, canonicalCatalogID, canonicalCatalogVersion, len(questions), now); err != nil {
+				return fmt.Errorf("seed canonical question catalog: %w", err)
+			}
+			if _, err := transaction.Exec(ctx, `
+			INSERT INTO canonical_question_catalog_forms (
+				catalog_id, form_code, form_digest, archive_digest, question_count,
+				source_gap_state, created_at
+			) VALUES ($1, 'CABIN', 'sha256:canonical-test-form',
+				'sha256:canonical-test-archive', $2, 'SOURCE_MAPPING_REQUIRED', $3)
+		`, canonicalCatalogID, len(questions), now); err != nil {
+				return fmt.Errorf("seed canonical question form: %w", err)
+			}
+			for position, currentQuestion := range questions {
+				questionVersionID := "QV-" + currentQuestion.ID + "-V2"
+				if _, err := transaction.Exec(ctx, `
+				INSERT INTO canonical_question_version_provenance (
+					question_version_id, usage_class, catalog_id, recorded_at
+				) VALUES ($1, 'PREPROD_EXERCISE', $2, $3)
+			`, questionVersionID, canonicalCatalogID, now); err != nil {
+					return fmt.Errorf("seed canonical question provenance %s: %w", currentQuestion.ID, err)
+				}
+				if _, err := transaction.Exec(ctx, `
+				INSERT INTO canonical_question_catalog_memberships (
+					catalog_id, question_version_id, usage_class, form_code, proposal_id,
+					ordinal, question_digest, source_locator, source_gap_state,
+					proposed_domain, proposed_topic, proposed_risk_band, created_at
+				) VALUES ($1, $2, 'PREPROD_EXERCISE', 'CABIN', $3, $4, $5, $6,
+					'SOURCE_MAPPING_REQUIRED', 'Cabin Safety', $7, 'MEDIUM', $8)
+				`, canonicalCatalogID, questionVersionID, currentQuestion.ID, position+1,
+					"sha256:canonical-question-"+fmt.Sprintf("%02d", position+1),
+					"fixture://canonical-cabin/"+currentQuestion.ID, currentQuestion.SectionID,
+					now); err != nil {
+					return fmt.Errorf("seed canonical question membership %s: %w", currentQuestion.ID, err)
+				}
+				if _, err := transaction.Exec(ctx, `
+				INSERT INTO canonical_question_catalog_membership_events (
+					event_id, catalog_id, question_version_id, status, reason,
+					actor_subject_id, occurred_at
+				) VALUES ($1, $2, $3, 'AVAILABLE', 'canonical local exercise fixture',
+					'USR-MANAGER-NORA', $4)
+			`, "canonical-membership:"+currentQuestion.ID+":available", canonicalCatalogID, questionVersionID, now); err != nil {
+					return fmt.Errorf("seed canonical question availability %s: %w", currentQuestion.ID, err)
+				}
+			}
+			if _, err := transaction.Exec(ctx, `
+			INSERT INTO canonical_question_catalog_applicabilities (
+				catalog_id, question_version_id, provider_scope_id, regulated_target_id,
+				status, reason, actor_subject_id, created_at
+			)
+			SELECT $1, membership.question_version_id, $2, $3, 'ELIGIBLE',
+				'canonical local exercise fixture applicability', 'USR-MANAGER-NORA', $4
+			FROM canonical_question_catalog_memberships membership
+			WHERE membership.catalog_id = $1
+		`, canonicalCatalogID, canonicalProviderScopeID, canonicalRegulatedTargetID, now); err != nil {
+				return fmt.Errorf("seed canonical question applicability: %w", err)
+			}
 			if _, err := transaction.Exec(ctx, `
 			INSERT INTO template_masters (
 				id, title, owner_role, published_template_version_id,
@@ -588,27 +759,138 @@ func Reset(ctx context.Context, pool *database.Pool, now time.Time) error {
 				created_by_subject_id, created_at, updated_at
 			) VALUES
 				('PLAN-DRAFT-2026-001', 'ORG-FLY-NAMIBIA', $1, NULL, 1,
-					'USR-MANAGER-NORA', $3, $3),
+					'USR-MANAGER-NORA', $4, $4),
 				('PLAN-DRAFT-COORDINATION', 'ORG-FLY-NAMIBIA', $2,
-					'PLAN-2026-CAB-001', 2, 'USR-MANAGER-NORA', $3, $3)
-		`, planningDraftSnapshot, coordinationSnapshot, now); err != nil {
+					'PLAN-2026-CAB-001', 2, 'USR-MANAGER-NORA', $4, $4),
+				('PLAN-DRAFT-PACKAGE-001', 'ORG-FLY-NAMIBIA', $3, NULL, 1,
+					'USR-MANAGER-NORA', $4, $4)
+		`, planningDraftSnapshot, coordinationSnapshot, packageScopeSnapshot, now); err != nil {
 				return fmt.Errorf("seed canonical Planning intake drafts: %w", err)
+			}
+			for _, scopeFixture := range []struct {
+				id                 string
+				draftID            string
+				status             string
+				revision           int
+				requestedBudget    float64
+				snapshotID         string
+				snapshotStage      string
+				snapshot           []byte
+				planningDigest     string
+				selectionOperation string
+			}{
+				{
+					id: "scope-draft-PLAN-DRAFT-2026-001", draftID: "PLAN-DRAFT-2026-001",
+					status: "DRAFT", revision: 1, requestedBudget: 0,
+					selectionOperation: "canonical-select:PLAN-DRAFT-2026-001",
+				},
+				{
+					id: "scope-draft-PLAN-DRAFT-COORDINATION", draftID: "PLAN-DRAFT-COORDINATION",
+					status: "SUBMITTED", revision: 2, requestedBudget: 48000,
+					snapshotID:    "scope-snapshot:PLAN-DRAFT-COORDINATION:submitted:2",
+					snapshotStage: "SUBMITTED", snapshot: canonicalScopeSnapshot,
+					planningDigest:     canonicalScopePlanningDigest,
+					selectionOperation: "canonical-select:PLAN-DRAFT-COORDINATION",
+				},
+				{
+					id: "scope-draft-package-001", draftID: "PLAN-DRAFT-PACKAGE-001",
+					status: "RELEASED", revision: 1, requestedBudget: 48000,
+					snapshotID: "scope-snapshot-package-001", snapshotStage: "RELEASED",
+					snapshot: packageScopeSnapshot, planningDigest: packageScopePlanningDigest,
+				},
+			} {
+				if _, err := transaction.Exec(ctx, `
+				INSERT INTO canonical_audit_scope_drafts (
+					id, planning_intake_draft_id, organization_id, provider_scope_id,
+					regulated_target_id, audit_type, catalog_id, usage_class, revision,
+					status, selected_question_count, selection_digest, requested_budget,
+					notice_policy, created_by_subject_id, created_at, updated_at
+				) VALUES ($1, $2, 'ORG-FLY-NAMIBIA', $3, $4, 'CABIN', $5,
+					'PREPROD_EXERCISE', $6, $7, $8, $9, $10, 'ADVANCE',
+					'USR-MANAGER-NORA', $11, $11)
+				`, scopeFixture.id, scopeFixture.draftID, canonicalProviderScopeID,
+					canonicalRegulatedTargetID, canonicalCatalogID, scopeFixture.revision,
+					scopeFixture.status, len(canonicalQuestionVersionIDs), canonicalSelectionDigest,
+					scopeFixture.requestedBudget, now); err != nil {
+					return fmt.Errorf("seed canonical scope draft %s: %w", scopeFixture.id, err)
+				}
+				for position, questionVersionID := range canonicalQuestionVersionIDs {
+					if _, err := transaction.Exec(ctx, `
+					INSERT INTO canonical_audit_scope_draft_questions (
+						scope_draft_id, revision, catalog_id, question_version_id,
+						position, selection_digest, created_at
+					) VALUES ($1, $2, $3, $4, $5, $6, $7)
+					`, scopeFixture.id, scopeFixture.revision, canonicalCatalogID,
+						questionVersionID, position, canonicalSelectionDigest, now); err != nil {
+						return fmt.Errorf("seed canonical scope question %s: %w", scopeFixture.id, err)
+					}
+				}
+				if scopeFixture.selectionOperation != "" {
+					if _, err := transaction.Exec(ctx, `
+					INSERT INTO canonical_audit_scope_selection_operations (
+						id, scope_draft_id, operation_id, idempotency_key, operation_kind,
+						expected_digest, result_digest, affected_question_version_ids,
+						filter_payload, actor_subject_id, created_at
+					) VALUES ($1, $2, $1, $1, 'REPLACE', $3, $3, $4::jsonb,
+						'{}'::jsonb, 'USR-MANAGER-NORA', $5)
+					`, scopeFixture.selectionOperation, scopeFixture.id, canonicalSelectionDigest,
+						selectionIDsJSON, now); err != nil {
+						return fmt.Errorf("seed canonical selection operation %s: %w", scopeFixture.id, err)
+					}
+					for position, questionVersionID := range canonicalQuestionVersionIDs {
+						if _, err := transaction.Exec(ctx, `
+						INSERT INTO canonical_audit_scope_selection_questions (
+							operation_id, catalog_id, question_version_id, position,
+							selection_digest, created_at
+						) VALUES ($1, $2, $3, $4, $5, $6)
+						`, scopeFixture.selectionOperation, canonicalCatalogID,
+							questionVersionID, position, canonicalSelectionDigest, now); err != nil {
+							return fmt.Errorf("seed canonical selection question %s: %w", scopeFixture.id, err)
+						}
+					}
+				}
+				if scopeFixture.snapshotID != "" {
+					if _, err := transaction.Exec(ctx, `
+					INSERT INTO canonical_audit_scope_snapshots (
+						id, scope_draft_id, revision, stage, catalog_id, usage_class,
+						selection_digest, planning_snapshot_digest, selected_question_count,
+						snapshot, created_by_subject_id, created_at
+					) VALUES ($1, $2, $3, $4, $5, 'PREPROD_EXERCISE', $6, $7, $8, $9,
+						'USR-MANAGER-NORA', $10)
+					`, scopeFixture.snapshotID, scopeFixture.id, scopeFixture.revision,
+						scopeFixture.snapshotStage, canonicalCatalogID, canonicalSelectionDigest,
+						scopeFixture.planningDigest, len(canonicalQuestionVersionIDs),
+						scopeFixture.snapshot, now); err != nil {
+						return fmt.Errorf("seed canonical scope snapshot %s: %w", scopeFixture.snapshotID, err)
+					}
+					for position, questionVersionID := range canonicalQuestionVersionIDs {
+						if _, err := transaction.Exec(ctx, `
+						INSERT INTO canonical_audit_scope_snapshot_questions (
+							snapshot_id, catalog_id, question_version_id, position
+						) VALUES ($1, $2, $3, $4)
+						`, scopeFixture.snapshotID, canonicalCatalogID, questionVersionID, position); err != nil {
+							return fmt.Errorf("seed canonical snapshot question %s: %w", scopeFixture.snapshotID, err)
+						}
+					}
+				}
 			}
 			if _, err := transaction.Exec(ctx, `
 			INSERT INTO inspection_packages (
-				id, inspection_id, checklist_template_version_id, package_version, snapshot,
-				expires_at, created_at, package_digest
-			) VALUES ('PKG-CAB-2026-001', 'AUD-2026-001', 'CTV-CABIN-1', 1, $1, $2, $3,
+				id, inspection_id, checklist_template_version_id, canonical_scope_snapshot_id,
+				package_version, snapshot, expires_at, created_at, package_digest
+			) VALUES ('PKG-CAB-2026-001', 'AUD-2026-001', NULL, 'scope-snapshot-package-001', 1, $1, $2, $3,
 				'sha256:candidate-cabin-package-v1')
 		`, snapshot, now.Add(72*time.Hour), now); err != nil {
 				return fmt.Errorf("seed canonical inspection package: %w", err)
 			}
 			if _, err := transaction.Exec(ctx, `
 			INSERT INTO audit_assignments (
-				id, inspection_id, organization_id, lead_subject_id, status,
-				scheduled_start_date, scheduled_end_date, revision, created_at, updated_at
+				id, inspection_id, planning_item_id, released_scope_snapshot_id,
+				organization_id, lead_subject_id, status, scheduled_start_date,
+				scheduled_end_date, revision, created_at, updated_at
 			) VALUES (
-				'ASSIGN-AUD-2026-001', 'AUD-2026-001', 'ORG-FLY-NAMIBIA',
+				'ASSIGN-AUD-2026-001', 'AUD-2026-001', 'PLAN-2026-CAB-001',
+				'scope-snapshot-package-001', 'ORG-FLY-NAMIBIA',
 				'USR-LEAD-CANER', 'AWAITING_AUDITEE_CONFIRMATION',
 				'2026-06-15', '2026-06-18', 1, $1, $1
 			)
@@ -685,19 +967,31 @@ func Reset(ctx context.Context, pool *database.Pool, now time.Time) error {
 		`, now); err != nil {
 				return fmt.Errorf("seed isolation CAP history: %w", err)
 			}
+			finalContent, finalContentHash := canonicalReportContent(
+				"Final cabin safety surveillance report",
+			)
+			preliminaryV0Content, preliminaryV0ContentHash := canonicalReportContent(
+				"Preliminary cabin safety surveillance report draft",
+			)
+			preliminaryV1Content, preliminaryV1ContentHash := canonicalReportContent(
+				"Preliminary cabin safety surveillance report",
+			)
 			reportSnapshot, _ := json.Marshal(map[string]any{
 				"kind": "FINAL", "ready": true,
-				"findingIds": []string{}, "contentHash": "sha256:7961a5302bc8b86e945ff0377df996f317b01337df2928aac7375ecc35a8917d",
+				"findingIds": []string{}, "contentHash": finalContentHash,
+				"content": finalContent, "createdBySubject": "USR-LEAD-CANER",
 				"responseDueDate": nil, "caaVisibleComment": nil,
 			})
 			preliminaryV0Snapshot, _ := json.Marshal(map[string]any{
 				"kind": "PRELIMINARY", "ready": false,
-				"findingIds": []string{}, "contentHash": "sha256:bf2808353c67d92c37b6a1f0aec20feeaea14bd746d9d8ec07a1850590677071",
+				"findingIds": []string{}, "contentHash": preliminaryV0ContentHash,
+				"content": preliminaryV0Content, "createdBySubject": "USR-LEAD-CANER",
 				"responseDueDate": nil, "caaVisibleComment": nil,
 			})
 			preliminaryV1Snapshot, _ := json.Marshal(map[string]any{
 				"kind": "PRELIMINARY", "ready": true,
-				"findingIds": []string{}, "contentHash": "sha256:59f2a462c7e884f376db7e849ff68c64714ec9479de83b129a91bf2ec0f32642",
+				"findingIds": []string{}, "contentHash": preliminaryV1ContentHash,
+				"content": preliminaryV1Content, "createdBySubject": "USR-LEAD-CANER",
 				"responseDueDate": nil, "caaVisibleComment": nil,
 			})
 			if _, err := transaction.Exec(ctx, `
@@ -743,6 +1037,73 @@ func Reset(ctx context.Context, pool *database.Pool, now time.Time) error {
 		return fmt.Errorf("bootstrap blocked real OPS/AOC test inputs: %w", err)
 	}
 	return nil
+}
+
+// ResetCoordination prepares the same canonical records in the pre-execution
+// state required to exercise a successful announced-date confirmation. The
+// ordinary canonical reset remains execution-ready because the offline grant
+// contract requires both the inspection and checklist to be IN_PROGRESS.
+func ResetCoordination(ctx context.Context, pool *database.Pool, now time.Time) error {
+	if err := Reset(ctx, pool, now); err != nil {
+		return err
+	}
+	return database.WithinTransaction(ctx, pool, func(ctx context.Context, transaction pgx.Tx) error {
+		updates := []struct {
+			name  string
+			query string
+		}{
+			{
+				name:  "inspection",
+				query: `UPDATE inspections SET status = 'AWAITING_AUDITEE_CONFIRMATION', revision = 1, updated_at = $2 WHERE id = $1`,
+			},
+			{
+				name:  "checklist",
+				query: `UPDATE inspection_checklists SET status = 'NOT_STARTED', revision = 1 WHERE inspection_id = $1`,
+			},
+			{
+				name:  "assignment",
+				query: `UPDATE audit_assignments SET status = 'AWAITING_AUDITEE_CONFIRMATION', revision = 1, updated_at = $2 WHERE inspection_id = $1`,
+			},
+		}
+		for _, update := range updates {
+			var result pgconn.CommandTag
+			var err error
+			if update.name == "checklist" {
+				result, err = transaction.Exec(ctx, update.query, CanonicalAuditID)
+			} else {
+				result, err = transaction.Exec(ctx, update.query, CanonicalAuditID, now)
+			}
+			if err != nil {
+				return fmt.Errorf("reset coordination %s: %w", update.name, err)
+			}
+			if result.RowsAffected() != 1 {
+				return fmt.Errorf("reset coordination %s affected %d rows", update.name, result.RowsAffected())
+			}
+		}
+		return nil
+	})
+}
+
+func canonicalReportContent(title string) (documents.ReportContent, string) {
+	content := documents.ReportContent{
+		Schema: documents.ReportContentSchema, LanguageTag: "en", Title: title,
+		ExecutiveSummary: "Synthetic local surveillance narrative for deterministic verification.",
+		Scope:            "Cabin safety surveillance for the authorized synthetic organization.",
+		Methodology:      "Review of the immutable Audit, Finding, CAP, and Evidence records.",
+		Sections: []documents.ReportSection{{
+			ID: "overview", Heading: "Surveillance overview",
+			Paragraphs: []string{"The report preserves the exact authorized synthetic record boundary."},
+		}},
+		Findings:        []documents.ReportFinding{},
+		Conclusion:      "The synthetic report is ready for its configured approval state.",
+		Recommendations: []string{"Continue configured local oversight verification."},
+	}
+	canonical, err := json.Marshal(content)
+	if err != nil {
+		panic("encode canonical test report content: " + err.Error())
+	}
+	digest := sha256.Sum256(canonical)
+	return content, fmt.Sprintf("sha256:%x", digest)
 }
 
 func retryCanonicalReset(ctx context.Context, operation func() error) error {

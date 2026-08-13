@@ -51,6 +51,16 @@ test("focused HTTP profile preserves an explicitly supplied canonical test token
   );
 });
 
+test("full HTTP profile shards the heavy AGA race package", () => {
+  const source = readRequired("scripts/test-http-profile.sh");
+  assert.doesNotMatch(source, /test -race -p 1 -count=1 \.\/\.\.\./u);
+  assert.match(source, /internal\/agaapplicability/u);
+  assert.match(
+    source,
+    /test-agaapplicability-race-shards\.sh/u,
+  );
+});
+
 test("governed checklist HTTP mode runs its canonical focused transport contract", () => {
   const source = readRequired("scripts/test-http-profile.sh");
   assert.match(
@@ -77,7 +87,7 @@ test("canonical connected proof covers exact roles, lifecycle, real adapters, Ma
   const panels = readRequired(canonicalPanelsSpecPath);
   for (const service of [
     "preprod-postgres",
-    "preprod-keycloak",
+    "preprod-auth",
     "preprod-minio",
     "preprod-clamav",
     "preprod-gotenberg",

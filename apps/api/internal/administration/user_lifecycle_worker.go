@@ -135,7 +135,7 @@ func (worker *UserLifecycleWorker) ProcessNext(
 		claimed.TraceParent,
 		claimed.CorrelationID,
 		"identity",
-		"keycloak",
+		"identity-provider",
 	)
 	telemetry.RecordPersistedOutboxReadyAge(
 		jobContext,
@@ -149,7 +149,7 @@ func (worker *UserLifecycleWorker) ProcessNext(
 			jobContext,
 			span,
 			"identity",
-			"keycloak",
+			"identity-provider",
 			resultErr,
 		)
 	}()
@@ -548,12 +548,20 @@ func (worker *UserLifecycleWorker) applyProviderAction(
 	switch claimed.Action {
 	case UserLifecycleProvision:
 		firstName, lastName := splitDisplayName(claimed.DisplayName)
+		membershipID := "membership-" + claimed.RequestID
 		user := identity.ProviderUser{
 			Email: claimed.Email, FirstName: firstName, LastName: lastName,
+			MembershipID:   membershipID,
 			OrganizationID: claimed.OrganizationID,
 			Roles:          append([]identity.Role(nil), claimed.Roles...),
 		}
-		subjectID, err := worker.provider.ProvisionUser(ctx, user)
+		var subjectID string
+		var err error
+		if revisioned, ok := worker.provider.(identity.RevisionedProviderAdmin); ok {
+			subjectID, err = revisioned.ProvisionUserAtRevision(ctx, user, 0, 1)
+		} else {
+			subjectID, err = worker.provider.ProvisionUser(ctx, user)
+		}
 		result.SubjectID = subjectID
 		if err == nil {
 			if err := worker.requireUnboundProviderSubject(
@@ -570,7 +578,7 @@ func (worker *UserLifecycleWorker) applyProviderAction(
 				24*time.Hour,
 			)
 		}
-		if !errors.Is(err, identity.ErrKeycloakDuplicateEmail) {
+		if !errors.Is(err, identity.ErrProviderDuplicateEmail) {
 			return result, err
 		}
 		reconciledSubjectID, matched, reconcileErr :=
@@ -596,12 +604,13 @@ func (worker *UserLifecycleWorker) applyProviderAction(
 			24*time.Hour,
 		)
 	case UserLifecycleUpdateRoles, UserLifecycleTransferOrganization:
-		if err := worker.provider.UpdateUserAuthority(
-			ctx,
-			claimed.SubjectID,
-			claimed.OrganizationID,
-			claimed.Roles,
-		); err != nil {
+		var err error
+		if revisioned, ok := worker.provider.(identity.RevisionedProviderAdmin); ok {
+			err = revisioned.UpdateUserAuthorityAtRevision(ctx, claimed.SubjectID, claimed.OrganizationID, claimed.Roles, claimed.MembershipID, claimed.ExpectedMembershipRevision, claimed.ExpectedMembershipRevision+1)
+		} else {
+			err = worker.provider.UpdateUserAuthority(ctx, claimed.SubjectID, claimed.OrganizationID, claimed.Roles)
+		}
+		if err != nil {
 			return result, err
 		}
 		if err := worker.provider.ForceUserLogout(
@@ -612,15 +621,22 @@ func (worker *UserLifecycleWorker) applyProviderAction(
 		}
 		return result, nil
 	case UserLifecycleSuspend, UserLifecycleDeactivate:
-		return result, worker.provider.DisableUser(
-			ctx,
-			claimed.SubjectID,
-		)
+		if revisioned, ok := worker.provider.(identity.RevisionedProviderAdmin); ok {
+			state := "SUSPENDED"
+			if claimed.Action == UserLifecycleDeactivate {
+				state = "DEACTIVATED"
+			}
+			return result, revisioned.SetUserStateAtRevision(ctx, claimed.SubjectID, state, claimed.ExpectedMembershipRevision, claimed.ExpectedMembershipRevision+1)
+		}
+		return result, worker.provider.DisableUser(ctx, claimed.SubjectID)
 	case UserLifecycleReactivate:
-		if err := worker.provider.EnableUser(
-			ctx,
-			claimed.SubjectID,
-		); err != nil {
+		var err error
+		if revisioned, ok := worker.provider.(identity.RevisionedProviderAdmin); ok {
+			err = revisioned.SetUserStateAtRevision(ctx, claimed.SubjectID, "INVITED", claimed.ExpectedMembershipRevision, claimed.ExpectedMembershipRevision+1)
+		} else {
+			err = worker.provider.EnableUser(ctx, claimed.SubjectID)
+		}
+		if err != nil {
 			return result, err
 		}
 		return worker.issueIdentityActions(
@@ -703,7 +719,7 @@ func (worker *UserLifecycleWorker) requireUnboundProviderSubject(
 	if subjectID == "" {
 		return fmt.Errorf(
 			"identity provider omitted subject ID: %w",
-			identity.ErrKeycloakManualReview,
+			identity.ErrProviderManualReview,
 		)
 	}
 	var retained bool
@@ -717,7 +733,7 @@ func (worker *UserLifecycleWorker) requireUnboundProviderSubject(
 		return fmt.Errorf("check retained provider subject: %w", err)
 	}
 	if retained {
-		return identity.ErrKeycloakDuplicateSubject
+		return identity.ErrProviderDuplicateSubject
 	}
 	return nil
 }
@@ -1099,13 +1115,13 @@ func (worker *UserLifecycleWorker) recordFailure(
 	providerErr error,
 ) error {
 	now := worker.clock().UTC()
-	failureClass := identity.ClassifyKeycloakError(providerErr)
-	failureCode := identity.KeycloakFailureReasonCode(providerErr)
+	failureClass := identity.ClassifyProviderError(providerErr)
+	failureCode := identity.ProviderFailureReasonCode(providerErr)
 	if errors.Is(providerErr, ErrMembershipRevisionConflict) {
-		failureClass = identity.KeycloakFailurePermanent
+		failureClass = identity.ProviderFailurePermanent
 		failureCode = "STALE_MEMBERSHIP_REVISION"
 	} else if errors.Is(providerErr, ErrInvitationResendLimit) {
-		failureClass = identity.KeycloakFailurePermanent
+		failureClass = identity.ProviderFailurePermanent
 		failureCode = "INVITATION_RESEND_LIMIT"
 	}
 	return database.WithinTransaction(
@@ -1127,7 +1143,7 @@ func (worker *UserLifecycleWorker) recordFailure(
 			); err != nil {
 				return err
 			}
-			retryable := failureClass == identity.KeycloakFailureRetryable &&
+			retryable := failureClass == identity.ProviderFailureRetryable &&
 				attemptCount < worker.maxAttempts &&
 				now.Sub(createdAt) < worker.maxRetryWindow
 			status := UserLifecycleFailedPermanent
@@ -1137,12 +1153,12 @@ func (worker *UserLifecycleWorker) recordFailure(
 				status = UserLifecycleFailedRetryable
 				terminalState = ""
 				nextAvailableAt = now.Add(worker.retryBackoff(attemptCount))
-			} else if failureClass == identity.KeycloakFailureManualReview ||
-				failureClass == identity.KeycloakFailureRetryable {
+			} else if failureClass == identity.ProviderFailureManualReview ||
+				failureClass == identity.ProviderFailureRetryable {
 				status = UserLifecycleManualReview
 				terminalState = string(status)
-				if failureClass == identity.KeycloakFailureRetryable {
-					failureClass = identity.KeycloakFailureManualReview
+				if failureClass == identity.ProviderFailureRetryable {
+					failureClass = identity.ProviderFailureManualReview
 					failureCode = "PROVIDER_RETRY_EXHAUSTED"
 				}
 			}

@@ -1,141 +1,90 @@
-# Local Identity And MFA Recovery
+# Local First-Party Identity And MFA Recovery
 
-This procedure covers local Keycloak, OIDC, session, TOTP, and exact role-scope
-evidence for the `candidate-only` stack. It is not production-ready and is
-`not run` for a new incident until browser verification succeeds.
+This runbook covers only the disposable first-party Go OIDC topology. The
+result is `candidate-only`; release is `release pending`.
 
-## Scope And Owner
+## Scope and ownership
 
-Owner: Platform/Operations
+Identity owns account, password, MFA, recovery, signing-key, provider-session,
+and authority state in auth PostgreSQL. The application owns membership and BFF
+session state in application PostgreSQL. Provider administration listens on
+port 8081 only inside the Compose network and must never be exposed by the
+gateway.
 
-Escalation owner: Security and Release authority
+Use only synthetic `@synthetic.invalid` users. Real users, remote systems,
+external SMTP, deployment, traffic, and production secrets are outside this
+runbook.
 
-Identity owns issuer, realm, MFA, and subject identity. Backend owns session
-exchange and application role enforcement.
+## Start and observe
 
-## Preconditions
-
-- Confirm the exact project, state directory, HTTPS port, realm, client, and
-  affected local subject.
-- Keep TOTP seeds and bootstrap credentials outside logs and evidence.
-- Distinguish authentication failure from application authorization failure.
-
-## Symptoms
-
-- OIDC discovery, callback, session exchange, or logout fails.
-- TOTP enrollment or a normal TOTP login fails.
-- The authenticated subject has missing, excess, or wrong organization scope.
-
-## Safety Boundary
-
-- Never disable MFA or broaden a role to make a check pass.
-- Never replace one subject identity with another or reuse a TOTP seed.
-- Do not expose bootstrap credentials, client secrets, cookies, or TOTP values.
-- The one-shot bootstrap administrator is recovery material, not an
-  application Admin or normal runtime identity. API, worker reminder
-  controller, and loader runtime must not receive that credential.
-- Break-glass is a separate, temporary provider authority with no AviaSurveil
-  application membership. It must never be imported as a standing realm or
-  application administrator.
-
-## Break-Glass Gate
-
-Break-glass use is blocked unless Security and Operations record all of the
-following before creating or enabling temporary provider authority:
-
-1. one incident identifier and two named, independent approvals;
-2. a confirmed alarm notification to the approved incident/identity alert
-   receiver;
-3. a UTC start time and an expiry no more than 15 minutes later; and
-4. the exact provider action and affected realm.
-
-The local repository does not provide or authorize an external incident or
-alert receiver. Therefore a local operator cannot satisfy the alarm gate by
-writing only a repository file or log line. If the external alarm and incident
-records are unavailable, do not use break-glass.
-
-During an authorized window, Keycloak login events, detailed administration
-events, and the `jboss-logging` event listener must remain enabled. Capture
-event identifiers and UTC timestamps without credentials or tokens. The
-temporary authority has no application membership, so an AviaSurveil session
-must be denied even if the provider observes an Admin role.
-
-Before closing the incident, disable or remove the temporary authority, close
-all provider and application sessions created during the window, rotate the
-recovery credential, confirm the 15-minute window was not exceeded, and attach
-the provider audit references to the incident. Any missing alarm, audit event,
-approval, rotation, or session-closure evidence is a failed break-glass
-procedure and must be escalated.
-
-## Diagnosis
+For the named canonical disposable profile:
 
 ```bash
-export AVIA_LOCAL_PROJECT="aviasurveil360-task-identity-example"
+make preprod-up
+make preprod-status
+```
+
+For a uniquely named full profile:
+
+```bash
+export AVIA_LOCAL_PROJECT="aviasurveil360-task-identity-check"
 export AVIASURVEIL_LOCAL_STATE_DIR="$PWD/.local/aviasurveil360/projects/$AVIA_LOCAL_PROJECT"
-export AVIA_LOCAL_HTTPS_PORT="18443"
-curl --fail --silent --show-error --insecure "https://localhost:$AVIA_LOCAL_HTTPS_PORT/identity/realms/aviasurveil360/.well-known/openid-configuration"
-docker compose --project-name "$AVIA_LOCAL_PROJECT" --file deploy/local/compose.yaml --profile full logs --no-color keycloak api
+./scripts/local-stack.sh up full
+./scripts/local-stack.sh check full
 ```
 
-## Expected Output
+Public discovery is available only through the gateway's `/identity` prefix.
+Port 8081 has no host publication and no gateway route. Never copy or print the
+admin secret.
 
-Discovery names the configured local issuer. Logs show no credential values.
-The browser flow retains exact subject, role, organization, and route
-authorization; a denied role remains denied.
+## Recovery and MFA behavior
 
-## Reversible Mitigation
+Recovery initiation must return a generic response. Activation, password reset,
+and MFA reset consume one-time state transactionally and are replay-safe.
+Password changes and MFA resets increment `auth_revision` and revoke provider
+sessions. Authority, disable/suspend, and activation changes revoke old
+credentials and application sessions.
 
-Restart only the identity service and wait for its healthcheck:
+The canonical browser path must use accessible labels for username/email,
+password, one-time code, recovery, password reset, and MFA reset. It must not
+depend on provider-specific DOM selectors.
+
+## Verification
 
 ```bash
-export AVIA_LOCAL_PROJECT="aviasurveil360-task-identity-example"
-export AVIASURVEIL_LOCAL_STATE_DIR="$PWD/.local/aviasurveil360/projects/$AVIA_LOCAL_PROJECT"
-export AVIA_LOCAL_HTTPS_PORT="18443"
-export AVIA_LOCAL_PUBLIC_ORIGIN="https://localhost:$AVIA_LOCAL_HTTPS_PORT"
-docker compose --project-name "$AVIA_LOCAL_PROJECT" --file deploy/local/compose.yaml --profile full restart keycloak
-docker compose --project-name "$AVIA_LOCAL_PROJECT" --file deploy/local/compose.yaml --profile full up --detach --wait keycloak api
+go -C apps/auth test -count=1 ./...
+go -C apps/api test -count=1 ./internal/identity ./internal/platform/session
+./scripts/test-auth-candidate-runtime.sh
+./scripts/test-preprod-identity-lifecycle.sh
+make preprod-test-fault-restart
 ```
 
-If realm data or role scope differs, stop and escalate rather than editing it.
+Record each command literally as `verified locally`, `not run`, or
+`blocked`. Verify that browser storage contains no provider token, old BFF
+sessions fail after lifecycle/revision changes, public admin paths are denied,
+and task-owned containers, volumes, networks, browser profiles, and processes
+are removed.
 
-## Recovery Verification
+## Restart
 
-Run the isolated OIDC/TOTP contract:
+Restart only the exact task-owned auth service:
 
 ```bash
-./scripts/test-http-oidc-profile.sh
-node --test deploy/local/keycloak/realm-contract.test.mjs
-./scripts/test-preprod-identity-lifecycle.sh session-authority
+docker compose \
+  --project-name "$AVIA_LOCAL_PROJECT" \
+  --file deploy/local/compose.yaml \
+  --profile full \
+  restart preprod-auth
+./scripts/local-stack.sh check full
 ```
 
-Require normal TOTP login, exact role scope, negative authorization checks, no
-secret leak, denial of bootstrap and break-glass identities without application
-membership, provider event/audit settings, and zero task-owned residue before
-recording `verified locally`. Break-glass procedure evidence remains `not run`
-unless a separately authorized incident actually invokes it.
+A restart must preserve durable accounts, authority, MFA, signing keys, and
+sessions according to their explicit lifecycle. Dependency loss must make
+readiness fail closed and recovery must restore readiness.
 
-## Evidence Capture
+## Escalation and authorization
 
-Capture issuer, realm, client ID, opaque subject ID, expected/actual role and
-organization scope, UTC timeline, negative authorization result, and cleanup
-status. Exclude credentials, cookies, tokens, and TOTP material.
-
-## Escalation
-
-Escalate subject, role, organization, MFA, or realm mismatch to Security and
-Identity. Escalate application policy mismatch to Backend and Product/CAA
-Operations.
-
-## Authorization Required
-
-MFA reset, role or organization reassignment, user lifecycle changes, realm
-import, credential rotation, production federation, and production account
-operations require new explicit authorization.
-
-## AWS Private-Pilot Boundary
-
-Production Keycloak is internal behind the gateway, uses its own logical
-database and runtime role on the single RDS instance, verifies RDS with the
-digest-bound CA bundle, and uses the selected encrypted SMTP mode. The realm
-and SMTP placeholder contract can be checked locally, but realm import,
-production federation, identity load, and login smoke remain `not run`.
+Escalate authority drift, replay conflict, credential leakage, unexpected
+session survival, or public access to port 8081 to Identity and Security.
+Production credential operations, real-user mutation, remote SMTP, deployment,
+traffic, or external identity migration require separate explicit authority.

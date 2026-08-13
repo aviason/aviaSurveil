@@ -6,23 +6,18 @@ initialize_local_test_runtime() {
   public_origin=$2
   repository_root=$3
   secret_directory="$runtime_directory/secrets"
-  keycloak_directory="$runtime_directory/keycloak"
 
   umask 077
-  mkdir -p "$secret_directory" "$keycloak_directory"
-  chmod 0700 "$runtime_directory" "$secret_directory" "$keycloak_directory"
+  mkdir -p "$secret_directory"
+  chmod 0700 "$runtime_directory" "$secret_directory"
 
   for filename in \
     app_database_password \
-    keycloak_bootstrap_admin_password \
-    keycloak_database_password \
-    keycloak_service_client_secret \
     minio_api_access_key \
     minio_api_secret_key \
     minio_root_password \
     minio_worker_access_key \
     minio_worker_secret_key \
-    oidc_client_secret \
     smtp_password
   do
     openssl rand -hex 32 >"$secret_directory/$filename"
@@ -43,12 +38,5 @@ initialize_local_test_runtime() {
   chmod 0600 "$secret_directory/smtp_auth_file"
   unset smtp_password_value
 
-  node "$repository_root/deploy/local/keycloak/build-realm.mjs" \
-    --source "$repository_root/deploy/local/keycloak/realm-source.json" \
-    --output "$keycloak_directory/realm.json" \
-    --client-secret-file "$secret_directory/oidc_client_secret" \
-    --service-client-secret-file "$secret_directory/keycloak_service_client_secret" \
-    --smtp-password-file "$secret_directory/smtp_password" \
-    --public-origin "$public_origin"
-  chmod 0600 "$keycloak_directory/realm.json"
+  : "$public_origin" "$repository_root"
 }

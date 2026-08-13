@@ -70,26 +70,27 @@ func (q *Queries) GetProfile(ctx context.Context, subjectID string) (GetProfileR
 const getSessionForAuthentication = `-- name: GetSessionForAuthentication :one
 SELECT id, subject_id, organization_id, roles, expires_at, absolute_expires_at, revoked_at,
        csrf_token_hash, provider_session_id, membership_id, membership_revision,
-       authority_observed_at, authority_state
+       authority_observed_at, authority_state, provider_auth_revision
 FROM session_references
 WHERE session_token_hash = $1
 FOR UPDATE
 `
 
 type GetSessionForAuthenticationRow struct {
-	ID                  string             `json:"id"`
-	SubjectID           string             `json:"subject_id"`
-	OrganizationID      *string            `json:"organization_id"`
-	Roles               []string           `json:"roles"`
-	ExpiresAt           pgtype.Timestamptz `json:"expires_at"`
-	AbsoluteExpiresAt   pgtype.Timestamptz `json:"absolute_expires_at"`
-	RevokedAt           pgtype.Timestamptz `json:"revoked_at"`
-	CsrfTokenHash       *string            `json:"csrf_token_hash"`
-	ProviderSessionID   *string            `json:"provider_session_id"`
-	MembershipID        *string            `json:"membership_id"`
-	MembershipRevision  *int64             `json:"membership_revision"`
-	AuthorityObservedAt pgtype.Timestamptz `json:"authority_observed_at"`
-	AuthorityState      *string            `json:"authority_state"`
+	ID                   string             `json:"id"`
+	SubjectID            string             `json:"subject_id"`
+	OrganizationID       *string            `json:"organization_id"`
+	Roles                []string           `json:"roles"`
+	ExpiresAt            pgtype.Timestamptz `json:"expires_at"`
+	AbsoluteExpiresAt    pgtype.Timestamptz `json:"absolute_expires_at"`
+	RevokedAt            pgtype.Timestamptz `json:"revoked_at"`
+	CsrfTokenHash        *string            `json:"csrf_token_hash"`
+	ProviderSessionID    *string            `json:"provider_session_id"`
+	MembershipID         *string            `json:"membership_id"`
+	MembershipRevision   *int64             `json:"membership_revision"`
+	AuthorityObservedAt  pgtype.Timestamptz `json:"authority_observed_at"`
+	AuthorityState       *string            `json:"authority_state"`
+	ProviderAuthRevision *int64             `json:"provider_auth_revision"`
 }
 
 func (q *Queries) GetSessionForAuthentication(ctx context.Context, sessionTokenHash *string) (GetSessionForAuthenticationRow, error) {
@@ -109,6 +110,7 @@ func (q *Queries) GetSessionForAuthentication(ctx context.Context, sessionTokenH
 		&i.MembershipRevision,
 		&i.AuthorityObservedAt,
 		&i.AuthorityState,
+		&i.ProviderAuthRevision,
 	)
 	return i, err
 }

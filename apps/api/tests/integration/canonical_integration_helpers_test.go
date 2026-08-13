@@ -10,11 +10,11 @@ import (
 
 type lifecycleIdentityProvider struct {
 	provisionedSubjectID string
-	provisioned          identity.KeycloakUser
+	provisioned          identity.ProviderUser
 	provisionError       error
 	reconciledSubjectID  string
 	reconcileMatched     bool
-	reconciled           identity.KeycloakUser
+	reconciled           identity.ProviderUser
 	disabledSubjects     []string
 	executeActions       []lifecycleExecuteActions
 	resetMFASubjects     []string
@@ -31,7 +31,7 @@ type lifecycleExecuteActions struct {
 
 func (provider *lifecycleIdentityProvider) ProvisionUser(
 	_ context.Context,
-	user identity.KeycloakUser,
+	user identity.ProviderUser,
 ) (string, error) {
 	provider.provisioned = user
 	if provider.provisionError != nil {
@@ -42,7 +42,7 @@ func (provider *lifecycleIdentityProvider) ProvisionUser(
 
 func (provider *lifecycleIdentityProvider) ReconcileProvisionedUser(
 	_ context.Context,
-	user identity.KeycloakUser,
+	user identity.ProviderUser,
 ) (string, bool, error) {
 	provider.reconciled = user
 	return provider.reconciledSubjectID, provider.reconcileMatched, nil

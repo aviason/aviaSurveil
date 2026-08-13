@@ -12,12 +12,15 @@ AVIA_LOCAL_PROJECT="aviasurveil360-task-plan4-backup-$(date -u +%Y%m%d%H%M%S)-$$
 AVIASURVEIL_LOCAL_STATE_DIR="$runtime_directory/local-state"
 AVIA_LOCAL_HTTPS_PORT=${AVIA_BACKUP_HTTPS_PORT:-$((48443 + $$ % 1000))}
 AVIA_LOCAL_PUBLIC_ORIGIN="https://localhost:$AVIA_LOCAL_HTTPS_PORT"
+AVIA_PREPROD_STATE_DIR="$AVIASURVEIL_LOCAL_STATE_DIR/first-party-auth"
+AVIA_PREPROD_WEB_ORIGIN="$AVIA_LOCAL_PUBLIC_ORIGIN"
 stack_started=false
 
 export AVIA_LOCAL_PROJECT
 export AVIASURVEIL_LOCAL_STATE_DIR
 export AVIA_LOCAL_HTTPS_PORT
 export AVIA_LOCAL_PUBLIC_ORIGIN
+export AVIA_PREPROD_STATE_DIR AVIA_PREPROD_WEB_ORIGIN
 export COMPOSE_PROGRESS=plain
 
 compose() {
@@ -92,6 +95,7 @@ printf '%s\n' "$AVIA_LOCAL_PROJECT" \
 chmod 0600 "$AVIASURVEIL_LOCAL_STATE_DIR/.compose-project-owner"
 
 "$script_directory/init-local-secrets.sh"
+"$script_directory/init-local-preprod-namespace.sh"
 "$script_directory/check-local-image-evidence.sh" full
 "$script_directory/check-local-image-evidence.sh" recovery
 

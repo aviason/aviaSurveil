@@ -46,7 +46,7 @@ Task 16 allowlist.
 | OpenAPI/generated contracts | `./scripts/check-contracts.sh`: 8/8 passed; lint and generation passed |
 | SQLC | `./scripts/check-sqlc.sh`: passed, `sqlc-check: ok` |
 | Contract examples | 7/7 passed |
-| Go authority/security | `go test -race -p 1 -count=1 ./...` passed inside the canonical HTTP profile after its required PostgreSQL, Keycloak, and MinIO bring-up |
+| Go authority/security | `go test -race -p 1 -count=1 ./...` passed inside the canonical HTTP profile after its required PostgreSQL, then-current local OIDC provider, and MinIO bring-up |
 | React type/unit/contract | typecheck passed; Vitest 47 files / 282 tests passed |
 | Builds and boundaries | demo and HTTP builds passed; both app-shell scans passed at 24 files / 16 assets; HTTP artifact passed at 24 files / 109 inputs; parity boundary passed at 17 routes / 2 profiles |
 | Baseline integrity | all 51 tracked PNG hashes and metadata passed |
@@ -54,7 +54,7 @@ Task 16 allowlist.
 | Mock browser | 8/8 passed |
 | Visible actions | 3/3 viewport tests passed; every test inventoried all 17 surfaces |
 | Canonical HTTP | complete profile passed: Go race/integration, contracts, SQLC, React 282/282, HTTP contract 14/14, mock 8/8, HTTP 10/10, and worker/outbox observability |
-| Normal OIDC | 1/1 passed, including Keycloak login, session projection, role route, CSRF mutation, expiry boundary, and logout |
+| Normal OIDC | 1/1 passed, including external-provider login, session projection, role route, CSRF mutation, expiry boundary, and logout |
 | Real offline | 7/7 passed |
 | Recovery | PostgreSQL and exact private-object backup/delete/restore passed; candidate-only drill |
 | Visual parity | 52/52 passed: primitive gallery plus 51 route/viewport comparisons |
@@ -154,7 +154,7 @@ values/counts inside predeclared adapted regions.
 ## Cleanup And Handoff
 
 The canonical HTTP, OIDC, and recovery scripts removed their task-owned API,
-worker, Vite/static server, PostgreSQL, Keycloak, MinIO, network, and volume
+worker, Vite/static server, PostgreSQL, the then-current local OIDC provider, MinIO, network, and volume
 resources. The final browser process inspection found no task-owned Playwright,
 webdriver, remote-debugging Chromium, or Vite residue. Unrelated user processes
 and the preserved untracked workspace paths were not touched.

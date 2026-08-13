@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/aviason/aviaSurveil/internal/administration"
 	"github.com/aviason/aviaSurveil/internal/platform/config"
 	"github.com/aviason/aviaSurveil/internal/platform/database"
 	"github.com/aviason/aviaSurveil/internal/platform/objectstore"
@@ -21,8 +22,9 @@ type runtimeProfile struct {
 		config.Settings,
 		time.Time,
 	) error
-	seed    func(context.Context, *database.Pool, time.Time) error
-	protect func(
+	seed              func(context.Context, *database.Pool, time.Time) error
+	directoryProvider administration.AccessDirectoryProvider
+	protect           func(
 		config.Settings,
 		http.Handler,
 		*database.Pool,

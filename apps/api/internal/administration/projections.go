@@ -331,7 +331,7 @@ func (service *ProjectionService) ListAccessDirectory(
 		return AccessDirectoryPage{}, ErrForbidden
 	}
 	if service.directoryProvider == nil {
-		return AccessDirectoryPage{}, identity.ErrKeycloakUnavailable
+		return AccessDirectoryPage{}, identity.ErrProviderUnavailable
 	}
 	limit := filters.Limit
 	if limit == 0 {

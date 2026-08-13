@@ -152,21 +152,23 @@ accessibility, and task-owned process/container cleanup gates before those
 capabilities can be reported as `verified locally`. Remote CI remains separately
 authorized.
 
-For Plan 5 connected preprod scenario changes, run:
+For first-party identity or canonical local-preprod changes, run:
 
 ```bash
-go -C apps/api test -count=1 ./internal/preproddata/... ./cmd/preprod-data-loader
-node --test tests/preprod-data-boundary.test.mjs
-./scripts/test-preprod-connected-scenarios.sh smoke
+go -C apps/auth test -count=1 ./...
+go -C apps/api test -count=1 ./internal/identity ./internal/platform/session ./cmd/preprod-canonical-demo-identity-loader
+node --test tests/local-compose-policy.test.mjs tests/preprod-data-boundary.test.mjs
+docker compose --file deploy/local/compose.yaml config --quiet
+./scripts/test-canonical-preprod-fault-restart.sh
 git diff --check
 ```
 
-Expected: the one-shot artifact remains absent from normal runtime images; the
-real disposable PostgreSQL, Keycloak, Mailpit, and MinIO namespace reconciles
-the frozen 40-family/86-route/306-action/eight-role smoke manifest and retained
-privacy canaries; cleanup consumes separate authority through a networkless
-standalone recorder; and task-owned residue is zero. This is local
-`candidate-only` evidence, not deployment or production readiness.
+Expected: public OIDC and private administration remain split; the gateway
+cannot reach private administration; nine fresh synthetic subjects reconcile
+exact provider/application authority; HTTPS/HTTP role, lifecycle,
+dependency-loss/restart, and public-admin denial checks complete; and
+task-owned residue is zero. This remains `candidate-only`; release is
+`release pending`.
 
 ## Governed AGA Intake And Official-Source Authoring Lane
 

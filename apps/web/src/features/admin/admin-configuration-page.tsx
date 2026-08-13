@@ -146,7 +146,7 @@ export function AdminConfigurationsPage() {
       <div className="admin-configuration-grid">
         <section className="admin-record-card"><h2>Configured demo rules</h2><ul><li>Finding severity: Level 1 Critical, Level 2 Major, Level 3 Minor, Observation</li><li>Finding → CAP → Evidence → CAA Review → Closure lifecycle</li><li>Due Date, Target, Due Soon, and Overdue language</li><li>Oversight Health Index is advisory only and never makes a legal, enforcement, certificate, or closure decision</li></ul></section>
         <section className="admin-record-card"><h2>Notification Rules</h2><p>This section aliases the same configuration surface without creating a second active route.</p><p>Configured 30 / 15 / 7 day and Due Date in-app reminder rules are demo records.</p><p>No real email or SMS delivery is configured.</p></section>
-        <section className="admin-record-card"><h2>Production-required integrations</h2><ul><li>Plan 3 Keycloak identity administration</li><li>Real email / SMS provider</li><li>Real regulatory ingestion and records governance</li></ul><p>No fake editable or Save control is shown because Task 10 declares no configuration mutation.</p></section>
+        <section className="admin-record-card"><h2>Production-required integrations</h2><ul><li>Configured identity-provider administration</li><li>Real email / SMS provider</li><li>Real regulatory ingestion and records governance</li></ul><p>No fake editable or Save control is shown because Task 10 declares no configuration mutation.</p></section>
       </div>
     </AdminPage>
   );

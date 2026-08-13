@@ -13,8 +13,7 @@ security-group rules and no public IPv4 address. Operators reach the host only
 through AWS Systems Manager using IPv6-capable endpoints. The first milestone
 is the root demo artifact, not the full HTTP/preprod runtime.
 
-This plan does not supersede the paused
-[AWS Preprod Validation Plan](2026-07-27-aws-preprod-validation-plan.md). It is
+This plan is separate from retired AWS preprod validation work. It is
 a smaller, single-node, non-HA experiment and cannot issue `preprod verified`,
 `qualified for production deployment planning`, or `production-ready`.
 
@@ -98,7 +97,7 @@ Planning references reviewed on 5 August 2026:
 - High availability, multi-AZ runtime, autoscaling, load balancers, RDS,
   managed backups, host-loss DR, or production RPO/RTO.
 - The full local Compose profile on `t4g.small`.
-- Keycloak, ClamAV, MinIO, Gotenberg, Mailpit, the LGTM observability stack,
+- Identity-provider, ClamAV, MinIO, Gotenberg, Mailpit, the LGTM observability stack,
   workers, scheduler, and other backend dependencies in milestone 1.
 - amd64 images, QEMU/Rosetta emulation, or a compatibility fallback.
 - Direct inbound HTTP/HTTPS/SSH access to the EC2 IPv6 address.
@@ -538,12 +537,6 @@ silently left behind.
   `aws-ipv6-trial` Terragrunt graph, local backend fixture boundary, protected
   plan hooks, and an offline layout checker. HCL formatting passes; no remote
   state, lock, plan, apply, or provider call was run.
-- [x] (2026-08-10) The user selected a separate
-  [Single-AZ ARM64 private-pilot production target](2026-08-10-aws-single-az-arm64-private-pilot-production-plan.md)
-  using Cloudflare plus an origin-locked ALB, RDS, S3, managed malware
-  scanning, external SMTP, and a dedicated production Compose stack. That
-  decision does not expand or supersede this disposable Tunnel-based demo
-  trial.
 
 ## Decisions
 
@@ -554,9 +547,6 @@ silently left behind.
   administration path.
 - Keep the existing ALB/RDS AWS preprod plan paused and unchanged.
 - Treat the environment as disposable `candidate-only` trial infrastructure.
-- Do not evolve this trial in place into the accepted private-pilot production
-  architecture. The production target has a separate plan, environment,
-  topology, owner inputs, policy, evidence, and authorization boundary.
 
 ## Discoveries
 

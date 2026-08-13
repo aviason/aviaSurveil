@@ -61,7 +61,11 @@ func (store *PostgresStore) VerifyInvitation(ctx context.Context, subjectID, tok
 	if err := tx.Commit(ctx); err != nil {
 		return AccountSnapshot{}, fmt.Errorf("commit invitation verification: %w", err)
 	}
-	return updated.snapshot(), nil
+	snapshot := updated.snapshot()
+	if err := store.revokeSessions(ctx, subjectID); err != nil {
+		return snapshot, err
+	}
+	return snapshot, nil
 }
 
 func (store *PostgresStore) ResendInvitation(ctx context.Context, subjectID string) (InvitationSnapshot, error) {

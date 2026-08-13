@@ -69,7 +69,7 @@ func run(ctx context.Context) error {
 		return err
 	}
 	defer pool.Close()
-	if settings.Environment != "local-preprod" && settings.RuntimeProfile != "aws-private-pilot" {
+	if settings.Environment != "local-preprod" {
 		if err := migrations.Apply(ctx, pool); err != nil {
 			return err
 		}
@@ -78,15 +78,15 @@ func run(ctx context.Context) error {
 	if err := readiness.Ready(ctx); err != nil {
 		return fmt.Errorf("worker migration precondition: %w", err)
 	}
-	keycloakAdmin, err := newKeycloakAdminClient(settings)
+	identityAdmin, err := newIdentityAdminClient(settings)
 	if err != nil {
 		return err
 	}
 	var identityWorker scanProcessor
-	if keycloakAdmin != nil {
+	if identityAdmin != nil {
 		identityWorker = administration.NewUserLifecycleWorker(
 			pool,
-			keycloakAdmin,
+			identityAdmin,
 			administration.UserLifecycleWorkerDependencies{
 				WorkerID:      "identity-lifecycle-worker",
 				LeaseDuration: time.Minute,
@@ -326,24 +326,20 @@ func newEvidenceScanner(settings config.Settings) (evidenceworker.Scanner, error
 	}
 }
 
-func newKeycloakAdminClient(
+func newIdentityAdminClient(
 	settings config.Settings,
-) (*identity.KeycloakAdminClient, error) {
-	if settings.KeycloakAdminURL == "" {
+) (identity.ProviderAdmin, error) {
+	if settings.FirstPartyAdminURL == "" {
 		if settings.Environment == "production" {
-			return nil, fmt.Errorf(
-				"Keycloak administration is required by the production worker",
-			)
+			return nil, errors.New("first-party administration is required by the production worker")
 		}
 		return nil, nil
 	}
-	client, err := identity.NewKeycloakAdminClient(identity.KeycloakAdminConfig{
-		BaseURL: settings.KeycloakAdminURL, Realm: settings.KeycloakRealm,
-		ClientID:     settings.KeycloakServiceClientID,
-		ClientSecret: settings.KeycloakServiceClientSecret,
+	client, err := identity.NewFirstPartyAdminClient(identity.FirstPartyAdminConfig{
+		BaseURL: settings.FirstPartyAdminURL, SecretFile: settings.FirstPartyAdminSecretFile,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("configure Keycloak administration: %w", err)
+		return nil, fmt.Errorf("configure first-party administration: %w", err)
 	}
 	return client, nil
 }

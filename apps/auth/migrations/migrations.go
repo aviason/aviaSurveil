@@ -18,7 +18,22 @@ var sessionsSchema string
 //go:embed 000003_provider_admin_audit.up.sql
 var providerAdminAuditSchema string
 
-const latestVersion int64 = 3
+//go:embed 000004_mail_outbox.up.sql
+var mailOutboxSchema string
+
+//go:embed 000005_mfa.up.sql
+var mfaSchema string
+
+//go:embed 000006_challenges.up.sql
+var challengesSchema string
+
+//go:embed 000007_oidc_runtime.up.sql
+var oidcRuntimeSchema string
+
+//go:embed 000008_local_preprod_authority_admin.up.sql
+var localPreprodAuthorityAdminSchema string
+
+const latestVersion int64 = 8
 
 func LatestVersion() int64 {
 	return latestVersion
@@ -47,6 +62,11 @@ func Apply(ctx context.Context, pool *pgxpool.Pool) error {
 		{version: 1, schema: identitySchema, name: "identity"},
 		{version: 2, schema: sessionsSchema, name: "sessions"},
 		{version: 3, schema: providerAdminAuditSchema, name: "provider-admin-audit"},
+		{version: 4, schema: mailOutboxSchema, name: "mail-outbox"},
+		{version: 5, schema: mfaSchema, name: "mfa"},
+		{version: 6, schema: challengesSchema, name: "challenges"},
+		{version: 7, schema: oidcRuntimeSchema, name: "oidc-runtime"},
+		{version: 8, schema: localPreprodAuthorityAdminSchema, name: "local-preprod-authority-admin"},
 	}
 	for _, migration := range migrations {
 		var applied bool

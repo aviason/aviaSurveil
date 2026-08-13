@@ -193,7 +193,7 @@ func TestChecklistQuestionDraftVersionAndPackageSnapshotWorkflow(t *testing.T) {
 		len(adminPackage.QuestionIDs) != 6 ||
 		len(adminPackage.ConfiguredReferences) != 6 ||
 		len(adminPackage.ExpectedEvidence) != 6 ||
-		len(adminPackage.RiskFocus) != 0 {
+		len(adminPackage.RiskFocus) != 3 {
 		t.Fatalf("Admin Inspection Package = %+v", adminPackage)
 	}
 	if containsString(adminPackage.QuestionIDs, created.ID) {

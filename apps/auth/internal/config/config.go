@@ -2,6 +2,7 @@ package config
 
 import (
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -24,8 +25,10 @@ type ReadFile func(string) ([]byte, error)
 
 const (
 	EnvironmentLocalCandidate = "local-candidate"
+	EnvironmentLocalPreprod   = "local-preprod"
 	EnvironmentTest           = "test"
 	ProfileIsolatedCandidate  = "isolated-candidate"
+	ProfileLocalPreprod       = "first-party-local-preprod"
 
 	defaultMaxRequestBytes   int64 = 1 << 20
 	defaultMaxHeaderBytes    int   = 32 << 10
@@ -46,14 +49,18 @@ type Settings struct {
 	Environment string
 	Profile     string
 
-	HTTPAddress string
-	IssuerURL   string
+	HTTPAddress      string
+	AdminHTTPAddress string
+	IssuerURL        string
 
 	DatabaseURL    string
 	DatabaseRole   string
 	DatabaseSchema string
 
 	SigningKeyID      string
+	OIDCClientID      string
+	OIDCRedirectURI   string
+	OIDCLogoutURI     string
 	MaxRequestBytes   int64
 	MaxHeaderBytes    int
 	ReadHeaderTimeout time.Duration
@@ -61,14 +68,18 @@ type Settings struct {
 	WriteTimeout      time.Duration
 	IdleTimeout       time.Duration
 
-	SMTPAddress string
-	SMTPFrom    string
-	SMTPTLSMode string
+	SMTPAddress  string
+	SMTPFrom     string
+	SMTPUsername string
+	SMTPTLSMode  string
 
 	signingKey        *rsa.PrivateKey
 	dataEncryptionKey [32]byte
 	mfaKey            [32]byte
+	oidcClientSecret  []byte
 	smtpPassword      []byte
+	smtpTLSConfig     *tls.Config
+	adminBearerSecret []byte
 }
 
 // Load validates the isolated provider contract. It intentionally accepts
@@ -87,6 +98,7 @@ func Load(lookup LookupEnv, readFile ReadFile) (Settings, error) {
 		"AVIA_AUTH_DATA_ENCRYPTION_KEY",
 		"AVIA_AUTH_MFA_KEY",
 		"AVIA_AUTH_SMTP_PASSWORD",
+		"AVIA_AUTH_ADMIN_SECRET",
 	} {
 		if _, present := lookup(name); present {
 			return Settings{}, invalid(name, "inline secret environment variables are forbidden; use a read-only secret file")
@@ -97,14 +109,17 @@ func Load(lookup LookupEnv, readFile ReadFile) (Settings, error) {
 	if err != nil {
 		return Settings{}, err
 	}
-	if environment != EnvironmentLocalCandidate && environment != EnvironmentTest {
-		return Settings{}, invalid("AVIA_AUTH_ENVIRONMENT", "only local-candidate and test are enabled before cutover")
+	if environment != EnvironmentLocalCandidate && environment != EnvironmentLocalPreprod && environment != EnvironmentTest {
+		return Settings{}, invalid("AVIA_AUTH_ENVIRONMENT", "only local-candidate, local-preprod, and test are enabled")
 	}
 	profile, err := required(lookup, "AVIA_AUTH_PROFILE")
 	if err != nil {
 		return Settings{}, err
 	}
-	if profile != ProfileIsolatedCandidate {
+	if environment == EnvironmentLocalPreprod && profile != ProfileLocalPreprod {
+		return Settings{}, invalid("AVIA_AUTH_PROFILE", "must be first-party-local-preprod")
+	}
+	if environment != EnvironmentLocalPreprod && profile != ProfileIsolatedCandidate {
 		return Settings{}, invalid("AVIA_AUTH_PROFILE", "must be isolated-candidate")
 	}
 
@@ -114,6 +129,28 @@ func Load(lookup LookupEnv, readFile ReadFile) (Settings, error) {
 	}
 	if err := validateListenAddress(address); err != nil {
 		return Settings{}, invalid("AVIA_AUTH_HTTP_ADDRESS", err.Error())
+	}
+	adminAddress := ""
+	var adminBearerSecret []byte
+	if environment == EnvironmentLocalPreprod {
+		adminAddress, err = required(lookup, "AVIA_AUTH_ADMIN_HTTP_ADDRESS")
+		if err != nil {
+			return Settings{}, err
+		}
+		if err := validateListenAddress(adminAddress); err != nil {
+			return Settings{}, invalid("AVIA_AUTH_ADMIN_HTTP_ADDRESS", err.Error())
+		}
+		adminSecretPath, secretErr := required(lookup, "AVIA_AUTH_ADMIN_SECRET_FILE")
+		if secretErr != nil {
+			return Settings{}, secretErr
+		}
+		adminBearerSecret, secretErr = readSecretFile(readFile, adminSecretPath, "AVIA_AUTH_ADMIN_SECRET_FILE", 32, 4096)
+		if secretErr != nil {
+			return Settings{}, secretErr
+		}
+		if containsPlaceholder(string(adminBearerSecret)) {
+			return Settings{}, invalid("AVIA_AUTH_ADMIN_SECRET_FILE", "placeholder secret is forbidden")
+		}
 	}
 
 	issuer, err := required(lookup, "AVIA_AUTH_ISSUER_URL")
@@ -197,6 +234,32 @@ func Load(lookup LookupEnv, readFile ReadFile) (Settings, error) {
 	if err != nil {
 		return Settings{}, invalid("AVIA_AUTH_MFA_KEY_FILE", err.Error())
 	}
+	oidcClientID, err := required(lookup, "AVIA_AUTH_OIDC_CLIENT_ID")
+	if err != nil {
+		return Settings{}, err
+	}
+	oidcRedirectURI, err := required(lookup, "AVIA_AUTH_OIDC_REDIRECT_URI")
+	if err != nil {
+		return Settings{}, err
+	}
+	oidcLogoutURI, err := required(lookup, "AVIA_AUTH_OIDC_POST_LOGOUT_REDIRECT_URI")
+	if err != nil {
+		return Settings{}, err
+	}
+	if err := validateOIDCURIs(oidcRedirectURI, oidcLogoutURI); err != nil {
+		return Settings{}, invalid("AVIA_AUTH_OIDC_REDIRECT_URI", err.Error())
+	}
+	oidcClientSecretPath, err := required(lookup, "AVIA_AUTH_OIDC_CLIENT_SECRET_FILE")
+	if err != nil {
+		return Settings{}, err
+	}
+	oidcClientSecret, err := readSecretFile(readFile, oidcClientSecretPath, "AVIA_AUTH_OIDC_CLIENT_SECRET_FILE", minSecretBytes, maxSMTPPasswordBytes)
+	if err != nil {
+		return Settings{}, err
+	}
+	if containsPlaceholder(string(oidcClientSecret)) {
+		return Settings{}, invalid("AVIA_AUTH_OIDC_CLIENT_SECRET_FILE", "placeholder secret is forbidden")
+	}
 
 	smtpAddress, err := required(lookup, "AVIA_AUTH_SMTP_ADDRESS")
 	if err != nil {
@@ -211,6 +274,10 @@ func Load(lookup LookupEnv, readFile ReadFile) (Settings, error) {
 	}
 	if err := validateMailFrom(smtpFrom); err != nil {
 		return Settings{}, invalid("AVIA_AUTH_SMTP_FROM", err.Error())
+	}
+	smtpUsername, err := required(lookup, "AVIA_AUTH_SMTP_USERNAME")
+	if err != nil {
+		return Settings{}, err
 	}
 	smtpTLSMode, err := required(lookup, "AVIA_AUTH_SMTP_TLS_MODE")
 	if err != nil {
@@ -229,6 +296,18 @@ func Load(lookup LookupEnv, readFile ReadFile) (Settings, error) {
 	}
 	if containsPlaceholder(string(smtpPassword)) {
 		return Settings{}, invalid("AVIA_AUTH_SMTP_PASSWORD_FILE", "placeholder secret is forbidden")
+	}
+	smtpCAPath, err := required(lookup, "AVIA_AUTH_SMTP_CA_FILE")
+	if err != nil {
+		return Settings{}, err
+	}
+	smtpCA, err := readSecretFile(readFile, smtpCAPath, "AVIA_AUTH_SMTP_CA_FILE", minSecretBytes, 64<<10)
+	if err != nil {
+		return Settings{}, err
+	}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(smtpCA) {
+		return Settings{}, invalid("AVIA_AUTH_SMTP_CA_FILE", "must contain at least one PEM certificate")
 	}
 
 	maxRequestBytes, err := optionalInt64(lookup, "AVIA_AUTH_MAX_REQUEST_BYTES", defaultMaxRequestBytes, 1<<10, 16<<20)
@@ -260,11 +339,15 @@ func Load(lookup LookupEnv, readFile ReadFile) (Settings, error) {
 		Environment:       environment,
 		Profile:           profile,
 		HTTPAddress:       address,
+		AdminHTTPAddress:  adminAddress,
 		IssuerURL:         issuer,
 		DatabaseURL:       databaseURL,
 		DatabaseRole:      databaseRole,
 		DatabaseSchema:    databaseSchema,
 		SigningKeyID:      signingKeyID,
+		OIDCClientID:      oidcClientID,
+		OIDCRedirectURI:   oidcRedirectURI,
+		OIDCLogoutURI:     oidcLogoutURI,
 		MaxRequestBytes:   maxRequestBytes,
 		MaxHeaderBytes:    maxHeaderBytes,
 		ReadHeaderTimeout: readHeaderTimeout,
@@ -273,12 +356,48 @@ func Load(lookup LookupEnv, readFile ReadFile) (Settings, error) {
 		IdleTimeout:       idleTimeout,
 		SMTPAddress:       smtpAddress,
 		SMTPFrom:          smtpFrom,
+		SMTPUsername:      smtpUsername,
 		SMTPTLSMode:       smtpTLSMode,
 		signingKey:        signingKey,
 		dataEncryptionKey: dataKey,
 		mfaKey:            mfaKey,
+		oidcClientSecret:  append([]byte(nil), oidcClientSecret...),
 		smtpPassword:      smtpPassword,
+		smtpTLSConfig:     &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12},
+		adminBearerSecret: append([]byte(nil), adminBearerSecret...),
 	}, nil
+}
+
+// SigningKey returns a private-key copy for the isolated provider bootstrap.
+func (settings Settings) SigningKey() *rsa.PrivateKey {
+	if settings.signingKey == nil {
+		return nil
+	}
+	copyKey, err := x509.ParsePKCS1PrivateKey(x509.MarshalPKCS1PrivateKey(settings.signingKey))
+	if err != nil {
+		return nil
+	}
+	return copyKey
+}
+
+func (settings Settings) DataEncryptionKey() [32]byte { return settings.dataEncryptionKey }
+func (settings Settings) MFAKey() [32]byte            { return settings.mfaKey }
+func (settings Settings) OIDCClientSecret() string {
+	return strings.TrimSpace(string(settings.oidcClientSecret))
+}
+func (settings Settings) SMTPPassword() string {
+	return strings.TrimSpace(string(settings.smtpPassword))
+}
+
+func (settings Settings) AdminBearerSecret() string {
+	return strings.TrimSpace(string(settings.adminBearerSecret))
+}
+
+func (settings Settings) SMTPTLSConfig() *tls.Config {
+	if settings.smtpTLSConfig == nil {
+		return nil
+	}
+	return settings.smtpTLSConfig.Clone()
 }
 
 func invalid(field, reason string) error {
@@ -349,12 +468,22 @@ func validateIssuer(environment, issuer string) error {
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
 		return errors.New("must be an absolute issuer URL without credentials, query, or fragment")
 	}
-	if environment == EnvironmentLocalCandidate || environment == EnvironmentTest {
+	if environment == EnvironmentLocalCandidate || environment == EnvironmentLocalPreprod || environment == EnvironmentTest {
 		if parsed.Scheme != "https" && !isLoopbackHost(parsed.Hostname()) {
 			return errors.New("non-HTTPS issuer is allowed only on loopback in local/test profiles")
 		}
 	} else if parsed.Scheme != "https" {
 		return errors.New("issuer must use HTTPS")
+	}
+	return nil
+}
+
+func validateOIDCURIs(redirectURI, logoutURI string) error {
+	for _, raw := range []string{redirectURI, logoutURI} {
+		parsed, err := url.Parse(raw)
+		if err != nil || !parsed.IsAbs() || parsed.User != nil || parsed.Fragment != "" || parsed.RawQuery != "" || (parsed.Scheme != "https" && parsed.Scheme != "http") {
+			return errors.New("OIDC redirect URIs must be absolute HTTP(S) URLs without credentials, query, or fragment")
+		}
 	}
 	return nil
 }
@@ -367,8 +496,8 @@ func validateDatabase(rawURL, role, schema string) error {
 	if containsPlaceholder(role) || containsPlaceholder(schema) {
 		return errors.New("database role/schema cannot be placeholders")
 	}
-	if role == "postgres" || role == "root" || role == "keycloak" || role == "aviasurveil360" || schema == "public" || schema == "keycloak" || schema == "aviasurveil360" {
-		return errors.New("database role and schema must be separate from application and Keycloak ownership")
+	if role == "postgres" || role == "root" || role == "aviasurveil360" || schema == "public" || schema == "aviasurveil360" {
+		return errors.New("database role and schema must be separate from application ownership")
 	}
 	parsed, err := url.Parse(rawURL)
 	if err != nil || (parsed.Scheme != "postgres" && parsed.Scheme != "postgresql") || parsed.Host == "" || parsed.Path == "" || parsed.User == nil {

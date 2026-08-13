@@ -24,11 +24,7 @@
     },
     "postgres": {
       "reference": "postgres:17.6-alpine3.22@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94",
-      "purpose": "Application and Keycloak databases"
-    },
-    "keycloak": {
-      "reference": "quay.io/keycloak/keycloak:26.7.0@sha256:0f198be292568439d700cdbfb893e69a6009bb43a94a06a945b1d3d506c76b13",
-      "purpose": "Production-mode local identity provider"
+      "purpose": "Application and first-party identity databases"
     },
     "minio": {
       "reference": "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e",

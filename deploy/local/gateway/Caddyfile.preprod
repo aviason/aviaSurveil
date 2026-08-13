@@ -33,8 +33,8 @@ https://localhost:8445 {
 		reverse_proxy preprod-api:8080
 	}
 
-	handle /identity/* {
-		reverse_proxy preprod-keycloak:8080
+	handle_path /identity/* {
+		reverse_proxy preprod-auth:8080
 	}
 
 	@private_objects path /evidence-quarantine/* /evidence-clean/* /inspection-attachments/* /generated-documents/*

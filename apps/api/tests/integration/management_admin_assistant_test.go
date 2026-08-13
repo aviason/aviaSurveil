@@ -675,7 +675,7 @@ func TestManagementAdminAssistantExactHTTPAndRawWirePrivacy(t *testing.T) {
 	}{
 		{"USR-INSPECTOR-DAVID", 12},
 		{"USR-LEAD-CANER", 15},
-		{"USR-MANAGER-NORA", 26},
+		{"USR-MANAGER-NORA", 25},
 		{"USR-FINANCE-LINA", 2},
 		{"USR-GM-OMAR", 7},
 		{"USR-ED-ZARA", 8},
@@ -1077,9 +1077,9 @@ type canonicalDirectoryProvider struct{}
 
 func (canonicalDirectoryProvider) ListDirectory(
 	_ context.Context,
-	query identity.KeycloakDirectoryQuery,
-) (identity.KeycloakDirectoryPage, error) {
-	users := []identity.KeycloakDirectoryUser{
+	query identity.ProviderDirectoryQuery,
+) (identity.ProviderDirectoryPage, error) {
+	users := []identity.ProviderDirectoryUser{
 		{
 			SubjectID: "inspector-cabin-001",
 			Email:     "inspector.cabin@example.test", DisplayName: "Cabin Inspector",
@@ -1101,7 +1101,7 @@ func (canonicalDirectoryProvider) ListDirectory(
 		},
 	}
 	needle := strings.ToLower(strings.TrimSpace(query.Search))
-	filtered := make([]identity.KeycloakDirectoryUser, 0, len(users))
+	filtered := make([]identity.ProviderDirectoryUser, 0, len(users))
 	for _, user := range users {
 		if needle == "" ||
 			strings.Contains(strings.ToLower(
@@ -1122,8 +1122,8 @@ func (canonicalDirectoryProvider) ListDirectory(
 	if end < len(filtered) {
 		nextFirst = end
 	}
-	return identity.KeycloakDirectoryPage{
-		Users:         append([]identity.KeycloakDirectoryUser(nil), filtered[first:end]...),
+	return identity.ProviderDirectoryPage{
+		Users:         append([]identity.ProviderDirectoryUser(nil), filtered[first:end]...),
 		NextFirst:     nextFirst,
 		ProviderCalls: 1 + end - first,
 	}, nil
@@ -1133,7 +1133,7 @@ type unavailableDirectoryProvider struct{}
 
 func (unavailableDirectoryProvider) ListDirectory(
 	context.Context,
-	identity.KeycloakDirectoryQuery,
-) (identity.KeycloakDirectoryPage, error) {
-	return identity.KeycloakDirectoryPage{}, identity.ErrKeycloakUnavailable
+	identity.ProviderDirectoryQuery,
+) (identity.ProviderDirectoryPage, error) {
+	return identity.ProviderDirectoryPage{}, identity.ErrProviderUnavailable
 }

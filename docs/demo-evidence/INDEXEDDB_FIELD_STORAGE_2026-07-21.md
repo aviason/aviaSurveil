@@ -53,7 +53,7 @@ The following completed with exit code `0` unless an audit result is explicitly 
 - `npm --prefix apps/web test`: 14 files, 97/97 tests
 - focused FieldRepository suite: 20/20 tests
 - `npm --prefix apps/web run test:e2e:offline`: 3/3 real persistent-Chrome tests
-- `./scripts/test-http-profile.sh`: full Go race/live PostgreSQL, Keycloak, and MinIO integration; OpenAPI 5/5; SQLC clean generation; React 97/97; live HTTP Backend contract 9/9; mock Playwright 1/1; HTTP Playwright 1/1; both builds; HTTP artifact isolation across 10 files and 81 inputs; task-owned dependency cleanup
+- `./scripts/test-http-profile.sh`: full Go race/live PostgreSQL, then-current local OIDC provider, and MinIO integration; OpenAPI 5/5; SQLC clean generation; React 97/97; live HTTP Backend contract 9/9; mock Playwright 1/1; HTTP Playwright 1/1; both builds; HTTP artifact isolation across 10 files and 81 inputs; task-owned dependency cleanup
 - `npm --prefix apps/web run check:app-shell`: demo and HTTP artifacts pass across 10 files and 3 assets each
 - Root Vanilla JavaScript smoke suite: 103/103
 - `git diff --check`

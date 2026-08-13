@@ -74,7 +74,17 @@ func TestPostgreSQLStoreLifecycle(t *testing.T) {
 	if _, err := store.Authenticate(ctx, AuthenticationRequest{Identifier: email, Password: []byte("new correct password 2"), Source: throttle.ForwardedHeaders{RemoteAddr: "203.0.113.9:443"}, DeviceKey: "pg-device"}); err != nil {
 		t.Fatalf("authentication after password change = %v", err)
 	}
-	if _, err := store.Transition(ctx, account.SubjectID, changed.AuthRevision, AccountSuspended); err != nil {
+	reset, err := store.ResetPassword(ctx, account.SubjectID, changed.AuthRevision, []byte("reset correct password 3"))
+	if err != nil {
+		t.Fatalf("PostgreSQL password reset = %v", err)
+	}
+	if reset.AuthRevision <= changed.AuthRevision {
+		t.Fatalf("password reset revision = %d, want advance from %d", reset.AuthRevision, changed.AuthRevision)
+	}
+	if _, err := store.Authenticate(ctx, AuthenticationRequest{Identifier: email, Password: []byte("reset correct password 3"), Source: throttle.ForwardedHeaders{RemoteAddr: "203.0.113.9:443"}, DeviceKey: "pg-device"}); err != nil {
+		t.Fatalf("authentication after password reset = %v", err)
+	}
+	if _, err := store.Transition(ctx, account.SubjectID, reset.AuthRevision, AccountSuspended); err != nil {
 		t.Fatal(err)
 	}
 }

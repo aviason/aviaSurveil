@@ -88,7 +88,7 @@ func TestCandidateProviderDiscoveryJWKSAndAuthorizationCodePKCE(t *testing.T) {
 	verifier := "verifier-for-as360-pkce-2026"
 	authorizeURL := testServer.issuer + "/authorize?" + url.Values{
 		"client_id": {"as360-web"}, "redirect_uri": {"https://app.example.invalid/oidc/callback"},
-		"response_type": {"code"}, "scope": {"openid profile email offline_access"},
+		"response_type": {"code"}, "scope": {"openid profile email"},
 		"state": {"state-2026"}, "nonce": {"nonce-2026"},
 		"code_challenge": {oidc.NewSHACodeChallenge(verifier)}, "code_challenge_method": {"S256"},
 	}.Encode()
@@ -126,7 +126,7 @@ func TestCandidateProviderDiscoveryJWKSAndAuthorizationCodePKCE(t *testing.T) {
 		TokenType    string `json:"token_type"`
 	}
 	decodeJSON(t, tokenResponse, &tokens)
-	if tokens.AccessToken == "" || tokens.IDToken == "" || tokens.RefreshToken == "" || tokens.TokenType != "Bearer" {
+	if tokens.AccessToken == "" || tokens.IDToken == "" || tokens.RefreshToken != "" || tokens.TokenType != "Bearer" {
 		t.Fatalf("token response = %+v", tokens)
 	}
 	verifyCandidateIDToken(t, testServer.candidate, tokens.IDToken, "nonce-2026")
@@ -135,21 +135,10 @@ func TestCandidateProviderDiscoveryJWKSAndAuthorizationCodePKCE(t *testing.T) {
 		t.Fatalf("replayed authorization code status = %d", replayedCodeResponse.StatusCode)
 	}
 
-	refreshForm := url.Values{"grant_type": {"refresh_token"}, "refresh_token": {tokens.RefreshToken}}
-	rotatedResponse := mustAuthenticatedPost(t, client, testServer.issuer+"/oauth/token", refreshForm, "as360-web", "client-secret-2026")
-	if rotatedResponse.StatusCode != http.StatusOK {
-		t.Fatalf("refresh status = %d", rotatedResponse.StatusCode)
-	}
-	var rotated struct {
-		RefreshToken string `json:"refresh_token"`
-	}
-	decodeJSON(t, rotatedResponse, &rotated)
-	if rotated.RefreshToken == "" || rotated.RefreshToken == tokens.RefreshToken {
-		t.Fatalf("refresh rotation did not replace token: %+v", rotated)
-	}
-	reuseResponse := mustAuthenticatedPost(t, client, testServer.issuer+"/oauth/token", refreshForm, "as360-web", "client-secret-2026")
-	if reuseResponse.StatusCode < http.StatusBadRequest || reuseResponse.StatusCode >= http.StatusInternalServerError {
-		t.Fatalf("reused refresh status = %d", reuseResponse.StatusCode)
+	refreshForm := url.Values{"grant_type": {"refresh_token"}, "refresh_token": {"refresh-token-disabled"}}
+	refreshResponse := mustAuthenticatedPost(t, client, testServer.issuer+"/oauth/token", refreshForm, "as360-web", "client-secret-2026")
+	if refreshResponse.StatusCode < http.StatusBadRequest || refreshResponse.StatusCode >= http.StatusInternalServerError {
+		t.Fatalf("disabled refresh status = %d", refreshResponse.StatusCode)
 	}
 	logoutURL := testServer.issuer + "/end_session?" + url.Values{
 		"post_logout_redirect_uri": {"https://app.example.invalid/"},

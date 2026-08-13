@@ -248,7 +248,15 @@ func (service *Service) SubmitChecklist(ctx context.Context, actor identity.Prin
 					FROM inspection_question_assignments assignment
 					LEFT JOIN canonical_audit_scope_snapshot_questions scoped
 					  ON scoped.snapshot_id = $1
-					 AND scoped.question_version_id = assignment.question_id
+					 AND (
+						scoped.question_version_id = assignment.question_id
+						OR EXISTS (
+							SELECT 1
+							FROM question_versions assigned_version
+							WHERE assigned_version.id = scoped.question_version_id
+							  AND assigned_version.question_id = assignment.question_id
+						)
+					 )
 					WHERE assignment.inspection_id = $2 AND scoped.question_version_id IS NULL
 				) uncovered
 			`, *canonicalSnapshotID, command.InspectionID).Scan(&uncoveredQuestionCount); err != nil {

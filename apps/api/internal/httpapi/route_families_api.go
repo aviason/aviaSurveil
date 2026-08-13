@@ -639,10 +639,10 @@ func (api *CanonicalAPI) getAdminInspectionPackage(
 	api.respond(writer, generated.AdminInspectionPackageView{
 		Id: record.ID, AuditId: record.AuditID,
 		OrganizationId: record.OrganizationID, OrganizationName: record.OrganizationName,
-		QuestionIds:          append([]string(nil), record.QuestionIDs...),
-		ConfiguredReferences: append([]string(nil), record.ConfiguredReferences...),
-		ExpectedEvidence:     append([]string(nil), record.ExpectedEvidence...),
-		RiskFocus:            append([]string(nil), record.RiskFocus...),
+		QuestionIds:          append([]string{}, record.QuestionIDs...),
+		ConfiguredReferences: append([]string{}, record.ConfiguredReferences...),
+		ExpectedEvidence:     append([]string{}, record.ExpectedEvidence...),
+		RiskFocus:            append([]string{}, record.RiskFocus...),
 	}, nil)
 }
 

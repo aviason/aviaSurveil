@@ -455,6 +455,7 @@ func (service *WorkspaceService) GetInspectionPackage(
 		return AdminInspectionPackage{}, err
 	}
 	var packageSnapshot struct {
+		RiskFocus []string `json:"riskFocus"`
 		Questions []struct {
 			ID                  string `json:"id"`
 			RegulatoryReference string `json:"regulatoryReference"`
@@ -472,7 +473,7 @@ func (service *WorkspaceService) GetInspectionPackage(
 		)
 		output.ExpectedEvidence = append(output.ExpectedEvidence, question.ExpectedEvidence)
 	}
-	output.RiskFocus = []string{}
+	output.RiskFocus = append([]string{}, packageSnapshot.RiskFocus...)
 	return output, nil
 }
 

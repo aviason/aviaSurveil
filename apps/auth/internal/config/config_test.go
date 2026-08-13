@@ -6,10 +6,12 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestLoadAcceptsCompleteIsolatedCandidateConfiguration(t *testing.T) {
@@ -126,29 +128,52 @@ func validEnvironment(t *testing.T) map[string]string {
 	dataKeyPath := filepath.Join(directory, "data-key")
 	mfaKeyPath := filepath.Join(directory, "mfa-key")
 	smtpPath := filepath.Join(directory, "smtp-password")
+	oidcSecretPath := filepath.Join(directory, "oidc-client-secret")
+	caPath := filepath.Join(directory, "smtp-ca.pem")
+	certificate, err := certificateForTest(signingKey)
+	if err != nil {
+		t.Fatal(err)
+	}
 	writeSecret(t, databasePath, []byte("postgresql://auth_owner:long-credential-2026@127.0.0.1:5432/auth?sslmode=disable\n"), 0o400)
 	writeSecret(t, signingPath, signingKeyBytes, 0o400)
 	writeSecret(t, dataKeyPath, bytes.Repeat([]byte{0x42}, 32), 0o400)
 	writeSecret(t, mfaKeyPath, bytes.Repeat([]byte{0x43}, 32), 0o400)
 	writeSecret(t, smtpPath, []byte("smtp-credential-2026\n"), 0o400)
+	writeSecret(t, oidcSecretPath, []byte("oidc-client-credential-2026\n"), 0o400)
+	writeSecret(t, caPath, certificate, 0o400)
 	return map[string]string{
-		"AVIA_AUTH_ENVIRONMENT":              EnvironmentLocalCandidate,
-		"AVIA_AUTH_PROFILE":                  ProfileIsolatedCandidate,
-		"AVIA_AUTH_HTTP_ADDRESS":             "127.0.0.1:18081",
-		"AVIA_AUTH_ISSUER_URL":               "http://127.0.0.1:18081/",
-		"AVIA_AUTH_DATABASE_URL_FILE":        databasePath,
-		"AVIA_AUTH_DATABASE_ROLE":            "auth_owner",
-		"AVIA_AUTH_DATABASE_SCHEMA":          "auth_identity",
-		"AVIA_AUTH_SIGNING_KEY_FILE":         signingPath,
-		"AVIA_AUTH_SIGNING_KEY_ID":           "as360-auth-2026-08-11",
-		"AVIA_AUTH_SIGNING_ALGORITHM":        "RS256",
-		"AVIA_AUTH_DATA_ENCRYPTION_KEY_FILE": dataKeyPath,
-		"AVIA_AUTH_MFA_KEY_FILE":             mfaKeyPath,
-		"AVIA_AUTH_SMTP_ADDRESS":             "mailpit:1025",
-		"AVIA_AUTH_SMTP_FROM":                "identity@aviasurveil360.local",
-		"AVIA_AUTH_SMTP_TLS_MODE":            "starttls",
-		"AVIA_AUTH_SMTP_PASSWORD_FILE":       smtpPath,
+		"AVIA_AUTH_ENVIRONMENT":                   EnvironmentLocalCandidate,
+		"AVIA_AUTH_PROFILE":                       ProfileIsolatedCandidate,
+		"AVIA_AUTH_HTTP_ADDRESS":                  "127.0.0.1:18081",
+		"AVIA_AUTH_ISSUER_URL":                    "http://127.0.0.1:18081/",
+		"AVIA_AUTH_DATABASE_URL_FILE":             databasePath,
+		"AVIA_AUTH_DATABASE_ROLE":                 "auth_owner",
+		"AVIA_AUTH_DATABASE_SCHEMA":               "auth_identity",
+		"AVIA_AUTH_SIGNING_KEY_FILE":              signingPath,
+		"AVIA_AUTH_SIGNING_KEY_ID":                "as360-auth-2026-08-11",
+		"AVIA_AUTH_SIGNING_ALGORITHM":             "RS256",
+		"AVIA_AUTH_DATA_ENCRYPTION_KEY_FILE":      dataKeyPath,
+		"AVIA_AUTH_MFA_KEY_FILE":                  mfaKeyPath,
+		"AVIA_AUTH_OIDC_CLIENT_ID":                "as360-local-candidate-web",
+		"AVIA_AUTH_OIDC_REDIRECT_URI":             "http://127.0.0.1:18082/callback",
+		"AVIA_AUTH_OIDC_POST_LOGOUT_REDIRECT_URI": "http://127.0.0.1:18082/logout",
+		"AVIA_AUTH_OIDC_CLIENT_SECRET_FILE":       oidcSecretPath,
+		"AVIA_AUTH_SMTP_ADDRESS":                  "mailpit:1025",
+		"AVIA_AUTH_SMTP_FROM":                     "identity@aviasurveil360.local",
+		"AVIA_AUTH_SMTP_USERNAME":                 "aviasurveil360",
+		"AVIA_AUTH_SMTP_TLS_MODE":                 "starttls",
+		"AVIA_AUTH_SMTP_PASSWORD_FILE":            smtpPath,
+		"AVIA_AUTH_SMTP_CA_FILE":                  caPath,
 	}
+}
+
+func certificateForTest(key *rsa.PrivateKey) ([]byte, error) {
+	template := &x509.Certificate{SerialNumber: new(big.Int).SetInt64(1), NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour), KeyUsage: x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}, DNSNames: []string{"mailpit"}}
+	encoded, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	if err != nil {
+		return nil, err
+	}
+	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: encoded}), nil
 }
 
 func writeSecret(t *testing.T, path string, contents []byte, mode os.FileMode) {

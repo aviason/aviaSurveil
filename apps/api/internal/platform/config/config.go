@@ -40,7 +40,6 @@ var (
 
 type Settings struct {
 	Environment                 string
-	RuntimeProfile              string
 	DatabaseURL                 string
 	HTTPAddress                 string
 	WorkerInterval              time.Duration
@@ -53,14 +52,8 @@ type Settings struct {
 	OIDCClientID                string
 	OIDCClientSecret            string
 	OIDCRedirectURL             string
-	AuthAdminURL                string
-	AuthAdminAPIKey             string
-	AuthAdminAPISecret          string
-	AuthAccountID               string
-	KeycloakAdminURL            string
-	KeycloakRealm               string
-	KeycloakServiceClientID     string
-	KeycloakServiceClientSecret string
+	FirstPartyAdminURL          string
+	FirstPartyAdminSecretFile   string
 	SessionEncryptionKey        []byte
 	SessionIdleDuration         time.Duration
 	SessionAbsoluteDuration     time.Duration
@@ -138,68 +131,46 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 	if err != nil {
 		return Settings{}, err
 	}
-	authAdminAPIKey, err := valueOrFile(lookup, "AVIA_AUTH_ADMIN_API_KEY")
-	if err != nil {
-		return Settings{}, err
-	}
-	authAdminAPISecret, err := valueOrFile(lookup, "AVIA_AUTH_ADMIN_API_SECRET")
-	if err != nil {
-		return Settings{}, err
-	}
-	keycloakServiceClientSecret, err := valueOrFile(
-		lookup,
-		"AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET",
-	)
-	if err != nil {
-		return Settings{}, err
-	}
 	settings := Settings{
-		Environment:                 environment,
-		RuntimeProfile:              value(lookup, "AVIA_RUNTIME_PROFILE"),
-		DatabaseURL:                 databaseURL,
-		HTTPAddress:                 valueOrDefault(lookup, "AVIA_HTTP_ADDRESS", ":8080"),
-		TestPrincipal:               value(lookup, "AVIA_TEST_PRINCIPAL"),
-		TestSession:                 value(lookup, "AVIA_TEST_SESSION"),
-		DevSessionSecret:            value(lookup, "AVIA_DEV_SESSION_SECRET"),
-		OIDCIssuerURL:               value(lookup, "AVIA_OIDC_ISSUER_URL"),
-		OIDCDiscoveryURL:            value(lookup, "AVIA_OIDC_DISCOVERY_URL"),
-		OIDCClientID:                value(lookup, "AVIA_OIDC_CLIENT_ID"),
-		OIDCClientSecret:            oidcClientSecret,
-		OIDCRedirectURL:             value(lookup, "AVIA_OIDC_REDIRECT_URL"),
-		AuthAdminURL:                value(lookup, "AVIA_AUTH_ADMIN_URL"),
-		AuthAdminAPIKey:             authAdminAPIKey,
-		AuthAdminAPISecret:          authAdminAPISecret,
-		AuthAccountID:               value(lookup, "AVIA_AUTH_ACCOUNT_ID"),
-		KeycloakAdminURL:            value(lookup, "AVIA_KEYCLOAK_ADMIN_URL"),
-		KeycloakRealm:               value(lookup, "AVIA_KEYCLOAK_REALM"),
-		KeycloakServiceClientID:     value(lookup, "AVIA_KEYCLOAK_SERVICE_CLIENT_ID"),
-		KeycloakServiceClientSecret: keycloakServiceClientSecret,
-		SessionIdleDuration:         30 * time.Minute,
-		SessionAbsoluteDuration:     8 * time.Hour,
-		CookieSecure:                true,
-		CanonicalTestToken:          value(lookup, "AVIA_CANONICAL_TEST_TOKEN"),
-		ObjectStoreEndpoint:         value(lookup, "AVIA_OBJECT_STORE_ENDPOINT"),
-		ObjectStoreMode:             value(lookup, "AVIA_OBJECT_STORE_MODE"),
-		ObjectStorePublicEndpoint:   value(lookup, "AVIA_OBJECT_STORE_PUBLIC_ENDPOINT"),
-		ObjectStoreAccessKey:        objectStoreAccessKey,
-		ObjectStoreSecretKey:        objectStoreSecretKey,
-		ObjectStoreRegion:           value(lookup, "AVIA_OBJECT_STORE_REGION"),
-		ObjectStoreCORSOrigins:      commaValues(value(lookup, "AVIA_OBJECT_STORE_CORS_ORIGINS")),
-		QuarantineBucket:            valueOrDefault(lookup, "AVIA_OBJECT_STORE_QUARANTINE_BUCKET", "evidence-quarantine"),
-		CanonicalBucket:             valueOrDefault(lookup, "AVIA_OBJECT_STORE_CANONICAL_BUCKET", "evidence-clean"),
-		AttachmentBucket:            valueOrDefault(lookup, "AVIA_OBJECT_STORE_ATTACHMENT_BUCKET", "inspection-attachments"),
-		DocumentBucket:              valueOrDefault(lookup, "AVIA_OBJECT_STORE_DOCUMENT_BUCKET", "generated-documents"),
-		ScannerMode:                 value(lookup, "AVIA_SCANNER_MODE"),
-		ClamAVAddress:               value(lookup, "AVIA_CLAMAV_ADDRESS"),
-		SMTPAddress:                 value(lookup, "AVIA_SMTP_ADDRESS"),
-		SMTPFrom:                    value(lookup, "AVIA_SMTP_FROM"),
-		SMTPUsername:                value(lookup, "AVIA_SMTP_USERNAME"),
-		SMTPPassword:                smtpPassword,
-		SMTPTransport:               value(lookup, "AVIA_SMTP_TRANSPORT"),
-		SMTPTLSServerName:           value(lookup, "AVIA_SMTP_TLS_SERVER_NAME"),
-		IdentityHealthURL:           value(lookup, "AVIA_IDENTITY_HEALTH_URL"),
-		SMTPHealthAddress:           value(lookup, "AVIA_SMTP_HEALTH_ADDRESS"),
-		OTLPHTTPEndpoint:            value(lookup, "AVIA_OTEL_EXPORTER_OTLP_ENDPOINT"),
+		Environment:               environment,
+		DatabaseURL:               databaseURL,
+		HTTPAddress:               valueOrDefault(lookup, "AVIA_HTTP_ADDRESS", ":8080"),
+		TestPrincipal:             value(lookup, "AVIA_TEST_PRINCIPAL"),
+		TestSession:               value(lookup, "AVIA_TEST_SESSION"),
+		DevSessionSecret:          value(lookup, "AVIA_DEV_SESSION_SECRET"),
+		OIDCIssuerURL:             value(lookup, "AVIA_OIDC_ISSUER_URL"),
+		OIDCDiscoveryURL:          value(lookup, "AVIA_OIDC_DISCOVERY_URL"),
+		OIDCClientID:              value(lookup, "AVIA_OIDC_CLIENT_ID"),
+		OIDCClientSecret:          oidcClientSecret,
+		OIDCRedirectURL:           value(lookup, "AVIA_OIDC_REDIRECT_URL"),
+		FirstPartyAdminURL:        value(lookup, "AVIA_FIRST_PARTY_ADMIN_URL"),
+		FirstPartyAdminSecretFile: value(lookup, "AVIA_FIRST_PARTY_ADMIN_SECRET_FILE"),
+		SessionIdleDuration:       30 * time.Minute,
+		SessionAbsoluteDuration:   8 * time.Hour,
+		CookieSecure:              true,
+		CanonicalTestToken:        value(lookup, "AVIA_CANONICAL_TEST_TOKEN"),
+		ObjectStoreEndpoint:       value(lookup, "AVIA_OBJECT_STORE_ENDPOINT"),
+		ObjectStoreMode:           value(lookup, "AVIA_OBJECT_STORE_MODE"),
+		ObjectStorePublicEndpoint: value(lookup, "AVIA_OBJECT_STORE_PUBLIC_ENDPOINT"),
+		ObjectStoreAccessKey:      objectStoreAccessKey,
+		ObjectStoreSecretKey:      objectStoreSecretKey,
+		ObjectStoreRegion:         value(lookup, "AVIA_OBJECT_STORE_REGION"),
+		ObjectStoreCORSOrigins:    commaValues(value(lookup, "AVIA_OBJECT_STORE_CORS_ORIGINS")),
+		QuarantineBucket:          valueOrDefault(lookup, "AVIA_OBJECT_STORE_QUARANTINE_BUCKET", "evidence-quarantine"),
+		CanonicalBucket:           valueOrDefault(lookup, "AVIA_OBJECT_STORE_CANONICAL_BUCKET", "evidence-clean"),
+		AttachmentBucket:          valueOrDefault(lookup, "AVIA_OBJECT_STORE_ATTACHMENT_BUCKET", "inspection-attachments"),
+		DocumentBucket:            valueOrDefault(lookup, "AVIA_OBJECT_STORE_DOCUMENT_BUCKET", "generated-documents"),
+		ScannerMode:               value(lookup, "AVIA_SCANNER_MODE"),
+		ClamAVAddress:             value(lookup, "AVIA_CLAMAV_ADDRESS"),
+		SMTPAddress:               value(lookup, "AVIA_SMTP_ADDRESS"),
+		SMTPFrom:                  value(lookup, "AVIA_SMTP_FROM"),
+		SMTPUsername:              value(lookup, "AVIA_SMTP_USERNAME"),
+		SMTPPassword:              smtpPassword,
+		SMTPTransport:             value(lookup, "AVIA_SMTP_TRANSPORT"),
+		SMTPTLSServerName:         value(lookup, "AVIA_SMTP_TLS_SERVER_NAME"),
+		IdentityHealthURL:         value(lookup, "AVIA_IDENTITY_HEALTH_URL"),
+		SMTPHealthAddress:         value(lookup, "AVIA_SMTP_HEALTH_ADDRESS"),
+		OTLPHTTPEndpoint:          value(lookup, "AVIA_OTEL_EXPORTER_OTLP_ENDPOINT"),
 	}
 	cookieSecure, err := parseBoolean(lookup, "AVIA_COOKIE_SECURE", true)
 	if err != nil {
@@ -315,29 +286,6 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 			}
 		}
 	}
-	awsPrivatePilot := settings.RuntimeProfile == "aws-private-pilot"
-	if settings.RuntimeProfile != "" && !awsPrivatePilot {
-		return Settings{}, fmt.Errorf("AVIA_RUNTIME_PROFILE is unsupported")
-	}
-	if awsPrivatePilot && settings.Environment != "production" {
-		return Settings{}, fmt.Errorf("AVIA_RUNTIME_PROFILE=aws-private-pilot requires AVIA_ENVIRONMENT=production")
-	}
-	if awsPrivatePilot {
-		for _, key := range []string{
-			"AWS_PROFILE", "AWS_DEFAULT_PROFILE", "AWS_SHARED_CREDENTIALS_FILE", "AWS_CONFIG_FILE",
-			"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN",
-			"AWS_WEB_IDENTITY_TOKEN_FILE", "AWS_ROLE_ARN", "AWS_ROLE_SESSION_NAME",
-			"AWS_CONTAINER_CREDENTIALS_RELATIVE_URI", "AWS_CONTAINER_CREDENTIALS_FULL_URI",
-			"AWS_CONTAINER_AUTHORIZATION_TOKEN", "AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE",
-			"AWS_EC2_METADATA_SERVICE_ENDPOINT", "AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE",
-			"AWS_ENDPOINT_URL", "AWS_ENDPOINT_URL_S3",
-			"AVIA_OBJECT_STORE_ACCESS_KEY", "AVIA_OBJECT_STORE_SECRET_KEY",
-		} {
-			if value(lookup, key) != "" {
-				return Settings{}, fmt.Errorf("%s is forbidden by the AWS private-pilot instance-profile contract", key)
-			}
-		}
-	}
 	if serverManagedCORS && settings.Environment != "test" && settings.Environment != "development" {
 		return Settings{}, fmt.Errorf(
 			"AVIA_OBJECT_STORE_SERVER_MANAGED_CORS requires AVIA_ENVIRONMENT=test or development",
@@ -379,23 +327,29 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 	if !contains([]string{"development", "test", "production", "local-preprod"}, settings.Environment) {
 		return Settings{}, fmt.Errorf("AVIA_ENVIRONMENT must be development, test, production, or local-preprod")
 	}
+	firstPartyConfigured := settings.FirstPartyAdminURL != "" || settings.FirstPartyAdminSecretFile != ""
+	if firstPartyConfigured || settings.Environment == "local-preprod" {
+		if settings.FirstPartyAdminURL == "" {
+			return Settings{}, fmt.Errorf("AVIA_FIRST_PARTY_ADMIN_URL is required for first-party administration")
+		}
+		if settings.FirstPartyAdminSecretFile == "" {
+			return Settings{}, fmt.Errorf("AVIA_FIRST_PARTY_ADMIN_SECRET_FILE is required for first-party administration")
+		}
+		adminURL, err := url.Parse(settings.FirstPartyAdminURL)
+		if err != nil || adminURL.Host == "" || (adminURL.Scheme != "http" && adminURL.Scheme != "https") || adminURL.User != nil || adminURL.RawQuery != "" || adminURL.Fragment != "" {
+			return Settings{}, fmt.Errorf("AVIA_FIRST_PARTY_ADMIN_URL must be an absolute HTTP(S) URL without credentials, query, or fragment")
+		}
+		if !strings.HasPrefix(settings.FirstPartyAdminSecretFile, "/") {
+			return Settings{}, fmt.Errorf("AVIA_FIRST_PARTY_ADMIN_SECRET_FILE must be an absolute secret-file path")
+		}
+	}
 
 	objectStoreConfigured := settings.ObjectStoreEndpoint != "" ||
 		settings.ObjectStorePublicEndpoint != "" ||
 		settings.ObjectStoreAccessKey != "" ||
 		settings.ObjectStoreSecretKey != "" ||
 		len(settings.ObjectStoreCORSOrigins) > 0
-	if awsPrivatePilot && requirements.objectStore {
-		if settings.ObjectStoreMode != "aws-s3" {
-			return Settings{}, fmt.Errorf("AVIA_OBJECT_STORE_MODE=aws-s3 is required by the AWS private-pilot profile")
-		}
-		if settings.ObjectStoreRegion == "" {
-			return Settings{}, fmt.Errorf("AVIA_OBJECT_STORE_REGION is required by the AWS private-pilot profile")
-		}
-		if settings.ObjectStoreEndpoint != "" || settings.ObjectStorePublicEndpoint != "" {
-			return Settings{}, fmt.Errorf("custom object-store endpoints are forbidden by the AWS private-pilot profile")
-		}
-	} else if (settings.Environment == "production" && requirements.objectStore) ||
+	if (settings.Environment == "production" && requirements.objectStore) ||
 		settings.CanonicalSeed ||
 		objectStoreConfigured {
 		for _, entry := range []struct {
@@ -440,38 +394,16 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 			return Settings{}, fmt.Errorf("AVIA_OBJECT_STORE_PUBLIC_TLS=true is required in production")
 		}
 	}
-	if settings.ObjectStoreMode == "" && !awsPrivatePilot && objectStoreConfigured {
+	if settings.ObjectStoreMode == "" && objectStoreConfigured {
 		settings.ObjectStoreMode = "minio"
-	}
-	buckets := []string{settings.QuarantineBucket, settings.CanonicalBucket, settings.AttachmentBucket, settings.DocumentBucket}
-	if awsPrivatePilot && requirements.objectStore {
-		seenBuckets := make(map[string]struct{}, len(buckets))
-		for _, bucket := range buckets {
-			if strings.TrimSpace(bucket) == "" {
-				return Settings{}, fmt.Errorf("all AWS private-pilot object-store buckets are required")
-			}
-			if _, exists := seenBuckets[bucket]; exists {
-				return Settings{}, fmt.Errorf("all object-store buckets must be distinct")
-			}
-			seenBuckets[bucket] = struct{}{}
-		}
 	}
 
 	if settings.Environment == "production" && requirements.scanner {
-		if awsPrivatePilot {
-			if settings.ScannerMode != "guardduty-s3" {
-				return Settings{}, fmt.Errorf("AVIA_SCANNER_MODE=guardduty-s3 is required by the AWS private-pilot profile")
-			}
-			if settings.ClamAVAddress != "" {
-				return Settings{}, fmt.Errorf("AVIA_CLAMAV_ADDRESS is forbidden by the AWS private-pilot profile")
-			}
-		} else {
-			if settings.ScannerMode != "clamav" {
-				return Settings{}, fmt.Errorf("AVIA_SCANNER_MODE=clamav is required in production")
-			}
-			if settings.ClamAVAddress == "" {
-				return Settings{}, fmt.Errorf("AVIA_CLAMAV_ADDRESS is required in production")
-			}
+		if settings.ScannerMode != "clamav" {
+			return Settings{}, fmt.Errorf("AVIA_SCANNER_MODE=clamav is required in production")
+		}
+		if settings.ClamAVAddress == "" {
+			return Settings{}, fmt.Errorf("AVIA_CLAMAV_ADDRESS is required in production")
 		}
 	}
 
@@ -519,9 +451,6 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 			if !settings.SMTPPrivateNetwork {
 				return Settings{}, fmt.Errorf("plaintext SMTP transport requires AVIA_SMTP_PRIVATE_NETWORK=true")
 			}
-			if awsPrivatePilot {
-				return Settings{}, fmt.Errorf("public plaintext SMTP is forbidden by the AWS private-pilot profile")
-			}
 		case "starttls", "implicit-tls":
 			if settings.SMTPTLSServerName == "" {
 				return Settings{}, fmt.Errorf("AVIA_SMTP_TLS_SERVER_NAME is required for encrypted SMTP")
@@ -530,9 +459,6 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 			return Settings{}, fmt.Errorf("AVIA_SMTP_TRANSPORT is required when SMTP delivery is enabled")
 		default:
 			return Settings{}, fmt.Errorf("AVIA_SMTP_TRANSPORT must be private-plaintext, starttls, or implicit-tls")
-		}
-		if awsPrivatePilot && settings.SMTPPrivateNetwork {
-			return Settings{}, fmt.Errorf("AVIA_SMTP_PRIVATE_NETWORK must be false for the external AWS private-pilot relay")
 		}
 	}
 
@@ -555,6 +481,9 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 	}
 	if (settings.Environment == "production" && requirements.oidc) ||
 		oidcConfigured {
+		if !firstPartyConfigured {
+			return Settings{}, fmt.Errorf("first-party administration is required when OIDC authentication is enabled")
+		}
 		for _, entry := range oidcKeys {
 			if entry.value == "" {
 				return Settings{}, fmt.Errorf("%s is required when OIDC authentication is enabled", entry.name)
@@ -590,66 +519,6 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 			!settings.OIDCDiscoveryPrivateNetwork {
 			return Settings{}, fmt.Errorf(
 				"plaintext OIDC discovery requires AVIA_OIDC_DISCOVERY_PRIVATE_NETWORK=true",
-			)
-		}
-	}
-
-	authAdminConfigured := settings.AuthAdminURL != "" ||
-		settings.AuthAdminAPIKey != "" ||
-		settings.AuthAdminAPISecret != "" ||
-		settings.AuthAccountID != ""
-	if authAdminConfigured {
-		if settings.AuthAdminURL == "" {
-			return Settings{}, fmt.Errorf(
-				"AVIA_AUTH_ADMIN_URL is required when AviaAuth administration is configured",
-			)
-		}
-		adminURL, err := url.Parse(settings.AuthAdminURL)
-		if err != nil || adminURL.Host == "" ||
-			(adminURL.Scheme != "http" && adminURL.Scheme != "https") ||
-			adminURL.User != nil || adminURL.RawQuery != "" || adminURL.Fragment != "" {
-			return Settings{}, fmt.Errorf(
-				"AVIA_AUTH_ADMIN_URL must be an absolute HTTP(S) URL without credentials, query, or fragment",
-			)
-		}
-		if (settings.AuthAdminAPIKey == "") != (settings.AuthAdminAPISecret == "") {
-			return Settings{}, fmt.Errorf(
-				"AVIA_AUTH_ADMIN_API_KEY and AVIA_AUTH_ADMIN_API_SECRET must be configured together",
-			)
-		}
-	}
-
-	keycloakAdminKeys := []struct {
-		name  string
-		value string
-	}{
-		{name: "AVIA_KEYCLOAK_ADMIN_URL", value: settings.KeycloakAdminURL},
-		{name: "AVIA_KEYCLOAK_REALM", value: settings.KeycloakRealm},
-		{name: "AVIA_KEYCLOAK_SERVICE_CLIENT_ID", value: settings.KeycloakServiceClientID},
-		{name: "AVIA_KEYCLOAK_SERVICE_CLIENT_SECRET", value: settings.KeycloakServiceClientSecret},
-	}
-	keycloakAdminConfigured := false
-	for _, entry := range keycloakAdminKeys {
-		if entry.value != "" {
-			keycloakAdminConfigured = true
-			break
-		}
-	}
-	if keycloakAdminConfigured {
-		for _, entry := range keycloakAdminKeys {
-			if entry.value == "" {
-				return Settings{}, fmt.Errorf(
-					"%s is required when Keycloak administration is enabled",
-					entry.name,
-				)
-			}
-		}
-		adminURL, err := url.Parse(settings.KeycloakAdminURL)
-		if err != nil ||
-			adminURL.Host == "" ||
-			(adminURL.Scheme != "http" && adminURL.Scheme != "https") {
-			return Settings{}, fmt.Errorf(
-				"AVIA_KEYCLOAK_ADMIN_URL must be an absolute HTTP(S) URL",
 			)
 		}
 	}

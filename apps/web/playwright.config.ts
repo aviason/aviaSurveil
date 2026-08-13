@@ -4,17 +4,13 @@ const e2eProfile = process.env.AVIA_E2E_PROFILE;
 const profile =
   e2eProfile === "local-demo"
     ? "local-demo"
-    : e2eProfile === "restored-platform"
-      ? "restored-platform"
-      : e2eProfile === "aws-trial"
+    : e2eProfile === "aws-trial"
         ? "aws-trial"
       : e2eProfile === "http"
     ? "http"
     : e2eProfile === "canonical-quick-tunnel"
       ? "canonical-quick-tunnel"
-    : e2eProfile === "oidc"
-      ? "oidc"
-      : e2eProfile === "offline"
+    : e2eProfile === "offline"
       ? "offline"
       : e2eProfile === "visual-parity"
         ? "visual-parity"
@@ -22,16 +18,13 @@ const profile =
 const command =
   profile === "http"
     ? "AVIA_HTTP_TEST_PROFILE=canonical npm run dev:http -- --host 127.0.0.1 --port 4174 --strictPort"
-    : profile === "oidc"
-      ? "AVIA_HTTP_TEST_PROFILE= npm run dev:http -- --host 127.0.0.1 --port 4174 --strictPort"
-      : profile === "visual-parity"
+    : profile === "visual-parity"
       ? "VITE_AVIA_VISUAL_FIXTURES=1 npm run dev:demo -- --host 127.0.0.1 --port 4174 --strictPort"
     : "npm run dev:demo -- --host 127.0.0.1 --port 4174 --strictPort";
 const shouldStartWebServer =
   profile !== "offline" &&
   profile !== "canonical-quick-tunnel" &&
   profile !== "local-demo" &&
-  profile !== "restored-platform" &&
   profile !== "aws-trial" &&
   process.env.AVIA_UPDATE_LEGACY_BASELINES !== "1";
 const visualUse = {
@@ -82,10 +75,6 @@ export default defineConfig({
     {
       name: "local-demo",
       testMatch: ["e2e/local-demo-platform.spec.ts"],
-    },
-    {
-      name: "restored-platform",
-      testMatch: ["e2e/restored-platform-smoke.spec.ts"],
     },
     {
       name: "aws-trial",
@@ -146,10 +135,6 @@ export default defineConfig({
         screenshot: "off",
         video: "off",
       },
-    },
-    {
-      name: "oidc",
-      testMatch: ["e2e/oidc-mfa-provisioning.spec.ts"],
     },
     {
       name: "offline",

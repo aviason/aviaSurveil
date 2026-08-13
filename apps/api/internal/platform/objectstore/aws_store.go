@@ -12,8 +12,7 @@ import (
 )
 
 // AWSConfig intentionally has no access-key or secret-key field. The client
-// uses the AWS IAM credential-provider chain (ECS/EKS/EC2 instance metadata)
-// and the private-pilot profile separately rejects static credential env vars.
+// uses the AWS IAM credential-provider chain (ECS/EKS/EC2 instance metadata).
 type AWSConfig struct {
 	Region       string
 	HealthBucket string

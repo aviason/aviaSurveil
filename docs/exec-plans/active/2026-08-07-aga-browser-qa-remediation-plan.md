@@ -46,7 +46,7 @@ switching, and renders truthful unavailable/error states instead of generic
 - Production deployment, hosted environments, release approval, and any
   production-ready claim.
 - External/production IdP certification, tenant configuration, secrets, or
-  interoperability claims beyond the connected local Keycloak run.
+  interoperability claims beyond the then-current connected local OIDC run.
 - Real regulatory ingestion, operator data, enforcement decisions, or legal
   advice.
 - Changes to the root legacy HTML/CSS/JavaScript oracle.
@@ -384,7 +384,7 @@ evidence label.
   current on any failure.
 - Canonical opaque keys prevent control-character namespace drift.
 - Deterministic lock order and concurrency/fault tests prevent partial commits.
-- Local Keycloak logout claims are scoped to the connected run only.
+- Local OIDC-provider logout claims are scoped to the connected run only.
 - Preparation uses receipts/counts/digests and disposable data; it never writes
   canonical records.
 - Replaying the same intent key and payload returns the exact receipt; changed

@@ -43,6 +43,9 @@ if [[ "${AVIASURVEIL_LOCAL_STATE_DIR}" != /* ]]; then
   exit 64
 fi
 export AVIASURVEIL_LOCAL_STATE_DIR
+AVIA_PREPROD_STATE_DIR="${AVIA_PREPROD_STATE_DIR:-${AVIASURVEIL_LOCAL_STATE_DIR}/first-party-auth}"
+AVIA_PREPROD_WEB_ORIGIN="${AVIA_PREPROD_WEB_ORIGIN:-https://localhost:${AVIA_LOCAL_HTTPS_PORT:-8443}}"
+export AVIA_PREPROD_STATE_DIR AVIA_PREPROD_WEB_ORIGIN
 OWNER_MARKER="${AVIASURVEIL_LOCAL_STATE_DIR}/.compose-project-owner"
 PROFILE_MARKER="${AVIASURVEIL_LOCAL_STATE_DIR}/.compose-profile"
 
@@ -81,6 +84,10 @@ case "${COMMAND}" in
     if [[ "${PROFILE}" != "demo" ]] &&
       [[ ! -f "${AVIASURVEIL_LOCAL_STATE_DIR}/secrets/app_database_password" ]]; then
       "${REPOSITORY_ROOT}/scripts/init-local-secrets.sh"
+    fi
+    if [[ "${PROFILE}" =~ ^(demo|full)$ ]] &&
+      [[ ! -f "${AVIA_PREPROD_STATE_DIR}/namespace.json" ]]; then
+      "${REPOSITORY_ROOT}/scripts/init-local-preprod-namespace.sh"
     fi
     compose up --detach --wait
     printf 'Local %s profile is running as project %s\n' "${PROFILE}" "${AVIA_LOCAL_PROJECT}"

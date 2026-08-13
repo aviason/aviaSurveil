@@ -4,26 +4,33 @@ import (
 	"context"
 	"crypto/subtle"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
 )
 
 type RemoteOIDCConfig struct {
-	IssuerURL    string
-	DiscoveryURL string
-	ClientID     string
-	ClientSecret string
-	RedirectURL  string
+	IssuerURL              string
+	DiscoveryURL           string
+	ClientID               string
+	ClientSecret           string
+	RedirectURL            string
+	RequireAuthorityClaims bool
+	DisableRefreshToken    bool
 }
 
 type RemoteOIDCProvider struct {
-	oauthConfig        oauth2.Config
-	verifier           *oidc.IDTokenVerifier
-	logoutEndpoint     url.URL
-	postLogoutRedirect string
+	oauthConfig            oauth2.Config
+	verifier               *oidc.IDTokenVerifier
+	httpClient             *http.Client
+	logoutEndpoint         url.URL
+	postLogoutRedirect     string
+	requireAuthorityClaims bool
+	disableRefreshToken    bool
 }
 
 func NewRemoteOIDCProvider(ctx context.Context, config RemoteOIDCConfig) (*RemoteOIDCProvider, error) {
@@ -35,8 +42,11 @@ func NewRemoteOIDCProvider(ctx context.Context, config RemoteOIDCConfig) (*Remot
 		discoveryURL = config.IssuerURL
 	}
 	discoveryContext := ctx
+	var privateClient *http.Client
 	if discoveryURL != config.IssuerURL {
+		privateClient = newPrivateOIDCClient(config.IssuerURL, discoveryURL)
 		discoveryContext = oidc.InsecureIssuerURLContext(ctx, config.IssuerURL)
+		discoveryContext = oidc.ClientContext(discoveryContext, privateClient)
 	}
 	provider, err := oidc.NewProvider(discoveryContext, discoveryURL)
 	if err != nil {
@@ -63,18 +73,26 @@ func NewRemoteOIDCProvider(ctx context.Context, config RemoteOIDCConfig) (*Remot
 	if err != nil {
 		return nil, err
 	}
+	endpoint := provider.Endpoint()
+	if privateClient != nil {
+		endpoint.TokenURL = privateOIDCEndpoint(endpoint.TokenURL, config.IssuerURL, discoveryURL)
+		endpoint.DeviceAuthURL = privateOIDCEndpoint(endpoint.DeviceAuthURL, config.IssuerURL, discoveryURL)
+	}
 	postLogoutRedirect, err := oidcApplicationOrigin(config.RedirectURL)
 	if err != nil {
 		return nil, err
 	}
 	return &RemoteOIDCProvider{
 		oauthConfig: oauth2.Config{
-			ClientID: config.ClientID, ClientSecret: config.ClientSecret, Endpoint: provider.Endpoint(),
+			ClientID: config.ClientID, ClientSecret: config.ClientSecret, Endpoint: endpoint,
 			RedirectURL: config.RedirectURL, Scopes: []string{oidc.ScopeOpenID, "profile", "email"},
 		},
-		verifier:           provider.Verifier(&oidc.Config{ClientID: config.ClientID}),
-		logoutEndpoint:     logoutEndpoint,
-		postLogoutRedirect: postLogoutRedirect,
+		verifier:               provider.Verifier(&oidc.Config{ClientID: config.ClientID}),
+		httpClient:             privateClient,
+		logoutEndpoint:         logoutEndpoint,
+		postLogoutRedirect:     postLogoutRedirect,
+		requireAuthorityClaims: config.RequireAuthorityClaims,
+		disableRefreshToken:    config.DisableRefreshToken,
 	}, nil
 }
 
@@ -131,6 +149,9 @@ func (provider *RemoteOIDCProvider) Exchange(ctx context.Context, code, pkceVeri
 	if strings.TrimSpace(code) == "" || strings.TrimSpace(pkceVerifier) == "" || strings.TrimSpace(expectedNonce) == "" {
 		return OIDCIdentity{}, fmt.Errorf("authorization code, PKCE verifier, and expected nonce are required")
 	}
+	if provider.httpClient != nil {
+		ctx = oidc.ClientContext(ctx, provider.httpClient)
+	}
 	token, err := provider.oauthConfig.Exchange(ctx, code, oauth2.VerifierOption(pkceVerifier))
 	if err != nil {
 		return OIDCIdentity{}, fmt.Errorf("exchange OIDC authorization code: %w", err)
@@ -147,13 +168,18 @@ func (provider *RemoteOIDCProvider) Exchange(ctx context.Context, code, pkceVeri
 		return OIDCIdentity{}, fmt.Errorf("OIDC ID token nonce mismatch")
 	}
 	var claims struct {
-		Name              string   `json:"name"`
-		PreferredUsername string   `json:"preferred_username"`
-		Email             string   `json:"email"`
-		OrganizationID    string   `json:"organization_id"`
-		Roles             []string `json:"roles"`
-		SID               string   `json:"sid"`
-		RealmAccess       struct {
+		Name               string   `json:"name"`
+		PreferredUsername  string   `json:"preferred_username"`
+		Email              string   `json:"email"`
+		OrganizationID     string   `json:"organization_id"`
+		Roles              []string `json:"roles"`
+		SID                string   `json:"sid"`
+		MembershipID       string   `json:"membership_id"`
+		MembershipRevision int64    `json:"membership_revision"`
+		AuthRevision       uint64   `json:"auth_revision"`
+		AMR                []string `json:"amr"`
+		AuthTime           int64    `json:"auth_time"`
+		RealmAccess        struct {
 			Roles []string `json:"roles"`
 		} `json:"realm_access"`
 	}
@@ -177,6 +203,14 @@ func (provider *RemoteOIDCProvider) Exchange(ctx context.Context, code, pkceVeri
 			err,
 		)
 	}
+	if provider.disableRefreshToken && strings.TrimSpace(token.RefreshToken) != "" {
+		return OIDCIdentity{}, fmt.Errorf("first-party provider returned a refresh token")
+	}
+	if provider.requireAuthorityClaims {
+		if strings.TrimSpace(claims.MembershipID) == "" || claims.MembershipRevision < 1 || claims.AuthRevision < 1 || claims.AuthTime <= 0 || len(claims.AMR) == 0 || !containsString(claims.AMR, "pwd") {
+			return OIDCIdentity{}, fmt.Errorf("first-party OIDC authority and authentication claims are incomplete")
+		}
+	}
 	displayName := strings.TrimSpace(claims.Name)
 	if displayName == "" {
 		displayName = strings.TrimSpace(claims.PreferredUsername)
@@ -189,10 +223,22 @@ func (provider *RemoteOIDCProvider) Exchange(ctx context.Context, code, pkceVeri
 		Email:          strings.ToLower(strings.TrimSpace(claims.Email)),
 		OrganizationID: strings.TrimSpace(claims.OrganizationID), Roles: roles,
 		ProviderSessionID: strings.TrimSpace(claims.SID),
+		MembershipID:      strings.TrimSpace(claims.MembershipID), MembershipRevision: claims.MembershipRevision,
+		AuthRevision: claims.AuthRevision, AMR: append([]string(nil), claims.AMR...),
+		AuthTime: time.Unix(claims.AuthTime, 0).UTC(),
 		Tokens: ProviderTokens{
 			AccessToken: token.AccessToken, RefreshToken: token.RefreshToken, IDToken: rawIDToken, Expiry: token.Expiry,
 		},
 	}, nil
+}
+
+func containsString(values []string, expected string) bool {
+	for _, value := range values {
+		if value == expected {
+			return true
+		}
+	}
+	return false
 }
 
 func validOIDCEmail(value string) bool {
@@ -224,4 +270,66 @@ func constantTimeEqual(actual, expected string) bool {
 		return false
 	}
 	return subtle.ConstantTimeCompare([]byte(actual), []byte(expected)) == 1
+}
+
+func newPrivateOIDCClient(publicIssuer, discoveryURL string) *http.Client {
+	public, publicErr := url.Parse(strings.TrimSpace(publicIssuer))
+	private, privateErr := url.Parse(strings.TrimSpace(discoveryURL))
+	if publicErr != nil || privateErr != nil || public.Host == "" || private.Host == "" {
+		return &http.Client{Timeout: 10 * time.Second}
+	}
+	return &http.Client{
+		Timeout: 10 * time.Second,
+		Transport: privateOIDCTransport{
+			base:         http.DefaultTransport,
+			publicOrigin: public.Scheme + "://" + public.Host,
+			issuerPath:   strings.TrimRight(public.Path, "/"),
+			privateBase:  private,
+		},
+	}
+}
+
+type privateOIDCTransport struct {
+	base         http.RoundTripper
+	publicOrigin string
+	issuerPath   string
+	privateBase  *url.URL
+}
+
+func (transport privateOIDCTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	base := transport.base
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	clone := request.Clone(request.Context())
+	if request.URL.Scheme+"://"+request.URL.Host == transport.publicOrigin {
+		clone.URL = privateOIDCEndpointURL(request.URL, transport.issuerPath, transport.privateBase)
+	}
+	return base.RoundTrip(clone)
+}
+
+func privateOIDCEndpoint(rawEndpoint, publicIssuer, discoveryURL string) string {
+	endpoint, err := url.Parse(strings.TrimSpace(rawEndpoint))
+	if err != nil {
+		return rawEndpoint
+	}
+	issuer, issuerErr := url.Parse(strings.TrimSpace(publicIssuer))
+	private, privateErr := url.Parse(strings.TrimSpace(discoveryURL))
+	if issuerErr != nil || privateErr != nil || issuer.Host == "" || private.Host == "" || endpoint.Scheme+"://"+endpoint.Host != issuer.Scheme+"://"+issuer.Host {
+		return rawEndpoint
+	}
+	return privateOIDCEndpointURL(endpoint, strings.TrimRight(issuer.Path, "/"), private).String()
+}
+
+func privateOIDCEndpointURL(endpoint *url.URL, issuerPath string, privateBase *url.URL) *url.URL {
+	private := *privateBase
+	suffix := endpoint.Path
+	if issuerPath != "" && strings.HasPrefix(suffix, issuerPath) {
+		suffix = strings.TrimPrefix(suffix, issuerPath)
+	}
+	private.Path = strings.TrimRight(privateBase.Path, "/") + "/" + strings.TrimLeft(suffix, "/")
+	private.RawPath = ""
+	private.RawQuery = endpoint.RawQuery
+	private.Fragment = ""
+	return &private
 }

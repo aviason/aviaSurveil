@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "canonical-preprod-demo-identities/v1",
+  "schemaVersion": "canonical-preprod-demo-identities/v2",
   "users": [
     {
       "scenarioId": "synthetic-canonical-aga-admin",

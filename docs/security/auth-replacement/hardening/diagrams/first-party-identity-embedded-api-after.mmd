@@ -1,6 +1,0 @@
-flowchart LR
-    Browser["Browser"] --> Gateway["Gateway"]
-    Gateway --> API["Go API, BFF, OIDC, passwords and MFA"]
-    API --> AppDB["Application database\nidentity, sessions and memberships"]
-    API --> Keys["Signing and MFA secrets"]
-    API --> SMTP["Verified TLS SMTP"]

@@ -101,35 +101,11 @@ func (sender *Sender) Send(ctx context.Context, recipient, subject, body string)
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	dialer := net.Dialer{Timeout: sender.timeout}
-	var connection net.Conn
-	if sender.mode == TLSModeImplicit {
-		connection, err = tls.DialWithDialer(&dialer, "tcp", sender.address, sender.tls)
-	} else {
-		connection, err = dialer.DialContext(ctx, "tcp", sender.address)
-	}
+	client, closeClient, err := sender.authenticatedClient(ctx)
 	if err != nil {
-		return fmt.Errorf("SMTP connect: %w", err)
+		return err
 	}
-	defer connection.Close()
-	_ = connection.SetDeadline(time.Now().Add(sender.timeout))
-	client, err := smtp.NewClient(connection, sender.host)
-	if err != nil {
-		return fmt.Errorf("SMTP protocol: %w", err)
-	}
-	defer client.Close()
-	if sender.mode == TLSModeStartTLS {
-		supported, _ := client.Extension("STARTTLS")
-		if !supported {
-			return errors.New("SMTP server does not advertise STARTTLS")
-		}
-		if err := client.StartTLS(sender.tls); err != nil {
-			return fmt.Errorf("SMTP STARTTLS: %w", err)
-		}
-	}
-	if err := client.Auth(smtp.PlainAuth("", sender.username, sender.password, sender.host)); err != nil {
-		return fmt.Errorf("SMTP authentication: %w", err)
-	}
+	defer closeClient()
 	if err := client.Mail(sender.from.Address); err != nil {
 		return fmt.Errorf("SMTP sender: %w", err)
 	}
@@ -153,4 +129,56 @@ func (sender *Sender) Send(ctx context.Context, recipient, subject, body string)
 		return fmt.Errorf("SMTP quit: %w", err)
 	}
 	return nil
+}
+
+// Probe verifies the complete configured SMTP transport, including TLS and
+// authentication, without accepting or delivering a message. Readiness uses
+// it to fail closed when the candidate's recovery dependency is unavailable.
+func (sender *Sender) Probe(ctx context.Context) error {
+	client, closeClient, err := sender.authenticatedClient(ctx)
+	if err != nil {
+		return err
+	}
+	defer closeClient()
+	if err := client.Quit(); err != nil {
+		return fmt.Errorf("SMTP quit: %w", err)
+	}
+	return nil
+}
+
+func (sender *Sender) authenticatedClient(ctx context.Context) (*smtp.Client, func() error, error) {
+	dialer := net.Dialer{Timeout: sender.timeout}
+	var connection net.Conn
+	var err error
+	if sender.mode == TLSModeImplicit {
+		connection, err = tls.DialWithDialer(&dialer, "tcp", sender.address, sender.tls)
+	} else {
+		connection, err = dialer.DialContext(ctx, "tcp", sender.address)
+	}
+	if err != nil {
+		return nil, nil, fmt.Errorf("SMTP connect: %w", err)
+	}
+	closeClient := connection.Close
+	_ = connection.SetDeadline(time.Now().Add(sender.timeout))
+	client, err := smtp.NewClient(connection, sender.host)
+	if err != nil {
+		_ = closeClient()
+		return nil, nil, fmt.Errorf("SMTP protocol: %w", err)
+	}
+	if sender.mode == TLSModeStartTLS {
+		supported, _ := client.Extension("STARTTLS")
+		if !supported {
+			_ = client.Close()
+			return nil, nil, errors.New("SMTP server does not advertise STARTTLS")
+		}
+		if err := client.StartTLS(sender.tls); err != nil {
+			_ = client.Close()
+			return nil, nil, fmt.Errorf("SMTP STARTTLS: %w", err)
+		}
+	}
+	if err := client.Auth(smtp.PlainAuth("", sender.username, sender.password, sender.host)); err != nil {
+		_ = client.Close()
+		return nil, nil, fmt.Errorf("SMTP authentication: %w", err)
+	}
+	return client, client.Close, nil
 }

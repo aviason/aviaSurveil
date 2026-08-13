@@ -640,7 +640,7 @@ describe("UsersRolesPage production-like identity controls", () => {
     cleanup();
 
     const listAccessDirectory = vi.fn()
-      .mockRejectedValueOnce(new Error("Keycloak directory unavailable."))
+      .mockRejectedValueOnce(new Error("Identity provider directory unavailable."))
       .mockResolvedValueOnce({
         items: [directoryEntry()],
         nextCursor: null,
@@ -648,7 +648,7 @@ describe("UsersRolesPage production-like identity controls", () => {
       .mockRejectedValueOnce(new Error("Provider observation timed out."));
     const { user } = renderHttpPage({ listAccessDirectory });
     const unavailable = await screen.findByRole("alert");
-    expect(unavailable).toHaveTextContent("Keycloak directory unavailable.");
+    expect(unavailable).toHaveTextContent("Identity provider directory unavailable.");
     await user.click(screen.getByRole("button", {
       name: "Retry user directory",
     }));
@@ -673,7 +673,7 @@ describe("UsersRolesPage production-like identity controls", () => {
         ...lifecycle(input, "FAILED_RETRYABLE"),
         providerFailureClass: "RETRYABLE" as const,
         attemptCount: 1,
-        failureReason: "Keycloak write timed out.",
+        failureReason: "Identity provider write timed out.",
       }))
       .mockRejectedValueOnce(new Error("Lifecycle command was rejected."));
     const getUserLifecycleRequest = vi.fn(
@@ -716,7 +716,7 @@ describe("UsersRolesPage production-like identity controls", () => {
       name: "Lifecycle request status",
     });
     expect(retryable).toHaveTextContent("Failed — retry available");
-    expect(retryable).toHaveTextContent("Keycloak write timed out.");
+    expect(retryable).toHaveTextContent("Identity provider write timed out.");
     await user.click(within(retryable).getByRole("button", {
       name: "Retry lifecycle status",
     }));

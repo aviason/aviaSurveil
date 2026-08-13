@@ -395,7 +395,18 @@ test.describe("canonical Quick Tunnel 1,310-question lifecycle", () => {
       version: 1,
       status: "DEPARTMENT_REVIEW",
       findingIds: [],
-      content: { title: "Privacy-safe Preliminary Report", summary: "Synthetic connected qualification only." },
+      content: {
+        schema: "avia.report-content/v1",
+        languageTag: "en",
+        title: "Privacy-safe Preliminary Report",
+        executiveSummary: "Synthetic connected qualification only.",
+        scope: "Disposable local-preprod qualification scope.",
+        methodology: "Synthetic workflow execution through the canonical BFF.",
+        sections: [{ id: "qualification", heading: "Qualification", paragraphs: ["Synthetic connected qualification only."] }],
+        findings: [],
+        conclusion: "The synthetic preliminary workflow completed.",
+        recommendations: ["Retain this result as local qualification evidence only."],
+      },
     }));
     expect(preliminaryReport.status).toBe("DEPARTMENT_REVIEW");
     await logout(page);
@@ -470,7 +481,8 @@ test.describe("canonical Quick Tunnel 1,310-question lifecycle", () => {
       byteSize: evidenceBytes.byteLength,
       sha256: evidenceDigest,
     });
-    expect(new URL(upload.uploadUrl).protocol).toBe("https:");
+    const publicProtocol = new URL(requiredEnvironment("AVIA_E2E_BASE_URL")).protocol;
+    expect(new URL(upload.uploadUrl).protocol).toBe(publicProtocol);
     const putResult = await page.evaluate(async ({ url, headers, bytes }) => {
       const response = await fetch(url, { method: "PUT", headers, body: Uint8Array.from(bytes) });
       return { status: response.status, body: await response.text() };
@@ -523,7 +535,24 @@ test.describe("canonical Quick Tunnel 1,310-question lifecycle", () => {
       version: 1,
       status: "DEPARTMENT_REVIEW",
       findingIds: [finding.id],
-      content: { title: "Privacy-safe Final Report", summary: "Synthetic connected lifecycle completed." },
+    content: {
+      schema: "avia.report-content/v1",
+      languageTag: "en",
+      title: "Privacy-safe Final Report",
+      executiveSummary: "Synthetic connected lifecycle completed.",
+      scope: "Disposable local-preprod qualification scope.",
+      methodology: "Synthetic workflow execution through the canonical BFF.",
+      sections: [{ id: "qualification", heading: "Qualification", paragraphs: ["Synthetic connected lifecycle completed."] }],
+      findings: [{
+        findingId: finding.id,
+        reference: "SYNTHETIC-QUALIFICATION",
+        title: "Synthetic qualification finding",
+        narrative: "Synthetic evidence was accepted and the finding was closed on the evidence-verified basis.",
+        regulatoryBasis: ["Local qualification only"],
+      }],
+      conclusion: "The synthetic final workflow completed.",
+      recommendations: ["Retain this result as local qualification evidence only."],
+    },
     });
     await logout(page);
     await signIn(page, accounts.manager, "/department-manager/dashboard");

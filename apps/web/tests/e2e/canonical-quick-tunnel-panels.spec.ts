@@ -202,6 +202,11 @@ async function crawlPrimaryRolePages(page: Page, account: DemoAccount, serverErr
 
 async function assertAuthenticatedPanel(page: Page, account: DemoAccount): Promise<void> {
   const publicOrigin = new URL(requiredEnvironment("AVIA_E2E_BASE_URL")).origin;
+  const secureTransport = publicOrigin.startsWith("https://");
+  const sessionCookieName = secureTransport ? "__Host-avia_session" : "avia_session";
+  const csrfCookieName = secureTransport ? "__Host-avia_csrf" : "avia_csrf";
+  const nonCanonicalSessionCookieName = secureTransport ? "avia_session" : "__Host-avia_session";
+  const nonCanonicalCSRFCookieName = secureTransport ? "avia_csrf" : "__Host-avia_csrf";
 
   await ensureAppShellServiceWorkerControlsPage(page);
   await loginQualificationAccount(page, account.username, account.homePath);
@@ -235,22 +240,30 @@ async function assertAuthenticatedPanel(page: Page, account: DemoAccount): Promi
   expect(session.body.subjectId).toEqual(expect.any(String));
 
   const cookies = await page.context().cookies(publicOrigin);
-  const sessionCookie = cookies.find((cookie) => cookie.name === "__Host-avia_session");
-  const csrfCookie = cookies.find((cookie) => cookie.name === "__Host-avia_csrf");
+  const sessionCookie = cookies.find((cookie) => cookie.name === sessionCookieName);
+  const csrfCookie = cookies.find((cookie) => cookie.name === csrfCookieName);
   expect(sessionCookie).toMatchObject({
-    secure: true,
+    secure: secureTransport,
     httpOnly: true,
     sameSite: "Strict",
     path: "/",
   });
   expect(csrfCookie).toMatchObject({
-    secure: true,
+    secure: secureTransport,
     httpOnly: false,
     sameSite: "Strict",
     path: "/",
   });
-  expect(cookies.some((cookie) => cookie.name === "avia_session")).toBe(false);
-  expect(cookies.some((cookie) => cookie.name === "avia_csrf")).toBe(false);
+  expect(cookies.some((cookie) => cookie.name === nonCanonicalSessionCookieName)).toBe(false);
+  expect(cookies.some((cookie) => cookie.name === nonCanonicalCSRFCookieName)).toBe(false);
+
+  const providerCredentialEntries = await page.evaluate(() => [
+    ...Object.entries(localStorage),
+    ...Object.entries(sessionStorage),
+  ].map(([key, value]) => `${key}=${value}`));
+  expect(
+    providerCredentialEntries.filter((entry) => /(?:access|id|refresh)[_-]?token/i.test(entry)),
+  ).toEqual([]);
 
   if (account.role === "admin") {
     const donorCapabilityStatus = await page.evaluate(async () => (
@@ -360,12 +373,12 @@ test.describe("canonical Quick Tunnel role panels", () => {
 		await page.goto(manager.homePath);
 		await expect(page.getByRole("heading", { name: /Sign in to AviaSurveil360/i })).toBeVisible();
 		await page.getByRole("button", { name: "Sign in with organization identity" }).click();
-		await expect(page.locator("#username")).toBeVisible();
-		await expect(page.locator("#password")).toBeVisible();
+		await expect(page.getByLabel(/username or email/i)).toBeVisible();
+		await expect(page.getByLabel(/^password$/i)).toBeVisible();
 
-		await page.locator("#username").fill(manager.username);
-		await page.locator("#password").fill(requiredEnvironment("AVIA_AGA_OIDC_PASSWORD"));
-		await page.locator("#kc-login").click();
+		await page.getByLabel(/username or email/i).fill(manager.username);
+		await page.getByLabel(/^password$/i).fill(requiredEnvironment("AVIA_AGA_OIDC_PASSWORD"));
+		await page.getByRole("button", { name: "Continue" }).click();
 		await expect(page).toHaveURL((url) => url.pathname === manager.homePath);
 		await expect(page.getByTestId("application-shell")).toHaveAttribute("data-active-role", "manager");
 		await expect(page.getByRole("heading", { name: manager.heading, level: 1 })).toBeVisible();

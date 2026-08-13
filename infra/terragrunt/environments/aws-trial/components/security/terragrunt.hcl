@@ -60,7 +60,7 @@ dependency "observability" {
     log_group_arns = {
       application = "arn:aws:logs:${include.root.locals.region}:${include.root.locals.account_id}:log-group:/avia/fixture/application:*"
       gateway     = "arn:aws:logs:${include.root.locals.region}:${include.root.locals.account_id}:log-group:/avia/fixture/gateway:*"
-      keycloak    = "arn:aws:logs:${include.root.locals.region}:${include.root.locals.account_id}:log-group:/avia/fixture/keycloak:*"
+      auth        = "arn:aws:logs:${include.root.locals.region}:${include.root.locals.account_id}:log-group:/avia/fixture/auth:*"
       worker      = "arn:aws:logs:${include.root.locals.region}:${include.root.locals.account_id}:log-group:/avia/fixture/worker:*"
     }
   }

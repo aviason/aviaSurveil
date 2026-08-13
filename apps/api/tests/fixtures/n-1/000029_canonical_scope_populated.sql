@@ -12,7 +12,7 @@
 -- avia-include: migrations/000009_notifications_risk_admin.up.sql
 -- avia-include: migrations/000010_identity_settings.up.sql
 -- avia-include: migrations/000011_preliminary_report_versions.up.sql
--- avia-include: migrations/000012_keycloak_user_lifecycle.up.sql
+-- avia-include: migrations/000012_provider_user_lifecycle.up.sql
 -- avia-include: migrations/000013_authority_organization.up.sql
 -- avia-include: migrations/000014_malware_scan_metadata.up.sql
 -- avia-include: migrations/000015_document_render_provenance.up.sql

@@ -150,5 +150,11 @@ func (store *Store) Cleanup(at time.Time) int {
 }
 
 func hashToken(token string) [32]byte {
+	return DigestToken(token)
+}
+
+// DigestToken is shared with transactional consume-and-mutate operations so
+// every challenge lookup uses the same domain-separated digest.
+func DigestToken(token string) [32]byte {
 	return sha256.Sum256([]byte("as360-challenge-v1\x00" + strings.TrimSpace(token)))
 }

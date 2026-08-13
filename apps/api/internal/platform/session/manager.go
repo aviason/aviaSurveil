@@ -156,21 +156,23 @@ type ActivationReconciler interface {
 }
 
 type ManagerDependencies struct {
-	Clock                func() time.Time
-	IDGenerator          func(string) string
-	RandomBytes          func(int) ([]byte, error)
-	AuthorityObserver    identity.AuthorityObserver
-	ActivationReconciler ActivationReconciler
+	Clock                             func() time.Time
+	IDGenerator                       func(string) string
+	RandomBytes                       func(int) ([]byte, error)
+	AuthorityObserver                 identity.AuthorityObserver
+	ActivationReconciler              ActivationReconciler
+	RequireProviderAuthorityRevisions bool
 }
 
 type Manager struct {
-	pool                 *database.Pool
-	aead                 cipher.AEAD
-	clock                func() time.Time
-	idGenerator          func(string) string
-	randomBytes          func(int) ([]byte, error)
-	authorityObserver    identity.AuthorityObserver
-	activationReconciler ActivationReconciler
+	pool                              *database.Pool
+	aead                              cipher.AEAD
+	clock                             func() time.Time
+	idGenerator                       func(string) string
+	randomBytes                       func(int) ([]byte, error)
+	authorityObserver                 identity.AuthorityObserver
+	activationReconciler              ActivationReconciler
+	requireProviderAuthorityRevisions bool
 }
 
 func NewManager(pool *database.Pool, encryptionKey []byte, dependencies ManagerDependencies) (*Manager, error) {
@@ -202,21 +204,25 @@ func NewManager(pool *database.Pool, encryptionKey []byte, dependencies ManagerD
 	}
 	return &Manager{
 		pool: pool, aead: aead, clock: clock, idGenerator: idGenerator,
-		randomBytes:          randomBytes,
-		authorityObserver:    dependencies.AuthorityObserver,
-		activationReconciler: dependencies.ActivationReconciler,
+		randomBytes:                       randomBytes,
+		authorityObserver:                 dependencies.AuthorityObserver,
+		activationReconciler:              dependencies.ActivationReconciler,
+		requireProviderAuthorityRevisions: dependencies.RequireProviderAuthorityRevisions,
 	}, nil
 }
 
 type CreateInput struct {
-	SubjectID         string
-	Issuer            string
-	DisplayName       string
-	Email             string
-	OrganizationID    string
-	Roles             []identity.Role
-	ProviderSessionID string
-	ProviderTokens    identity.ProviderTokens
+	SubjectID          string
+	Issuer             string
+	DisplayName        string
+	Email              string
+	OrganizationID     string
+	Roles              []identity.Role
+	ProviderSessionID  string
+	MembershipID       string
+	MembershipRevision int64
+	AuthRevision       uint64
+	ProviderTokens     identity.ProviderTokens
 }
 
 type BrowserSession struct {
@@ -273,6 +279,18 @@ func (manager *Manager) Create(ctx context.Context, input CreateInput) (BrowserS
 		) {
 		return BrowserSession{}, ErrUnauthenticated
 	}
+	if (input.MembershipID != "" && input.MembershipID != observation.MembershipID) ||
+		(input.MembershipRevision > 0 && input.MembershipRevision != observation.MembershipRevision) ||
+		(input.AuthRevision > 0 && input.AuthRevision != observation.AuthRevision) {
+		return BrowserSession{}, ErrUnauthenticated
+	}
+	if manager.requireProviderAuthorityRevisions &&
+		(input.MembershipID == "" || input.MembershipRevision <= 0 || input.AuthRevision == 0 ||
+			observation.MembershipID != input.MembershipID ||
+			observation.MembershipRevision != input.MembershipRevision ||
+			observation.AuthRevision != input.AuthRevision) {
+		return BrowserSession{}, ErrUnauthenticated
+	}
 	now := manager.clock().UTC()
 	authority, err := loadDesiredSessionAuthority(
 		ctx,
@@ -287,6 +305,11 @@ func (manager *Manager) Create(ctx context.Context, input CreateInput) (BrowserS
 			"read desired session authority before login: %w",
 			err,
 		)
+	}
+	if manager.requireProviderAuthorityRevisions &&
+		(authority.MembershipID != input.MembershipID ||
+			authority.Revision != input.MembershipRevision) {
+		return BrowserSession{}, ErrUnauthenticated
 	}
 	if authority.State == "INVITED" {
 		if manager.activationReconciler == nil ||
@@ -374,7 +397,13 @@ func (manager *Manager) Create(ctx context.Context, input CreateInput) (BrowserS
 				authority.Roles,
 				observation.OrganizationID,
 				observation.Roles,
-			) {
+			) ||
+			manager.requireProviderAuthorityRevisions &&
+				(authority.MembershipID != input.MembershipID ||
+					authority.Revision != input.MembershipRevision ||
+					observation.MembershipID != authority.MembershipID ||
+					observation.MembershipRevision != authority.Revision ||
+					observation.AuthRevision != input.AuthRevision) {
 			return ErrUnauthenticated
 		}
 		var persistedSubjectID, persistedIssuer string
@@ -437,16 +466,16 @@ func (manager *Manager) Create(ctx context.Context, input CreateInput) (BrowserS
 				id, subject_id, organization_id, provider_session_id, expires_at, created_at,
 				session_token_hash, csrf_token_hash, last_seen_at, absolute_expires_at, roles,
 				provider_tokens_ciphertext, membership_id, membership_revision,
-				authority_observed_at, authority_state
+				provider_auth_revision, authority_observed_at, authority_state
 			) VALUES (
 				$1, $2, $3, NULLIF($4, ''), $5, $6, $7, $8, $6, $9, $10,
-				$11, $12, $13, $6, 'ACTIVE'
+				$11, $12, $13, NULLIF($14, 0), $6, 'ACTIVE'
 			)
 		`, sessionID, input.SubjectID, authority.OrganizationID,
 			input.ProviderSessionID, idleExpiresAt, now,
 			hashToken(rawToken), hashToken(rawCSRF), absoluteExpiresAt,
 			rolesToStrings(authority.Roles), providerCiphertext,
-			authority.MembershipID, authority.Revision); err != nil {
+			authority.MembershipID, authority.Revision, input.AuthRevision); err != nil {
 			return fmt.Errorf("persist browser session: %w", err)
 		}
 		return nil
@@ -661,7 +690,22 @@ func (manager *Manager) Authenticate(ctx context.Context, rawToken string) (iden
 				outcome = authenticationFailure("provider-unavailable", ErrUnauthenticated)
 				return nil
 			}
-			if !observation.Enabled ||
+			if record.ProviderAuthRevision != nil &&
+				(observation.AuthRevision == 0 || uint64(*record.ProviderAuthRevision) != observation.AuthRevision) {
+				if err := manager.denySessionAuthority(
+					ctx, transaction, record.ID, record.SubjectID, record.OrganizationID,
+					record.Roles, record.MembershipRevision, "AUTH_REVISION_MISMATCH", now,
+				); err != nil {
+					return err
+				}
+				outcome = authenticationFailure("authority-mismatch", ErrUnauthenticated)
+				return nil
+			}
+			if manager.requireProviderAuthorityRevisions &&
+				(observation.MembershipID == "" ||
+					observation.MembershipID != *record.MembershipID ||
+					observation.MembershipRevision != *record.MembershipRevision) ||
+				!observation.Enabled ||
 				observation.Locked ||
 				len(observation.RequiredActions) != 0 ||
 				!identity.EqualApplicationAuthority(

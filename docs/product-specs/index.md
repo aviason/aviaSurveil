@@ -25,7 +25,6 @@ repository documents.
 17. `data-and-rules/CONCEPTUAL_DATA_MODEL.md`
 18. `data-and-rules/STATUS_PERMISSION_SECURITY.md`
 19. `data-and-rules/PRODUCTION_CONTRACT_VOCABULARY.md`
-20. `data-and-rules/PREPROD_IDENTITY_AND_DATA_PROFILE.md`
 21. `data-and-rules/AVIACORE_DATA_FEED_COVERAGE.md`
 22. `data-and-rules/AGA_HYBRID_QUESTION_CLASSIFICATION.md`
 23. `analytics/OVERSIGHT_HEALTH_INDEX_AND_KPIS.md`

@@ -5,6 +5,7 @@ package integration_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -30,15 +31,46 @@ func TestReportIssueQueuesAndRendersOneImmutableAuthorizedDocument(t *testing.T)
 	`); err != nil {
 		t.Fatalf("close Finding before Final Report: %v", err)
 	}
+	reportContent := documents.ReportContent{
+		Schema: documents.ReportContentSchema, LanguageTag: "en",
+		Title:            "Final surveillance report",
+		ExecutiveSummary: "The accepted Evidence supports closure of the recorded Finding.",
+		Scope:            "Cabin safety surveillance for the authorized organization.",
+		Methodology:      "Review of the immutable Audit record, CAP, and accepted Evidence.",
+		Sections: []documents.ReportSection{{
+			ID: "closure", Heading: "Closure verification",
+			Paragraphs: []string{"CAA verification confirmed the implemented corrective control."},
+		}},
+		Findings: []documents.ReportFinding{{
+			FindingID: "finding-report-document", Reference: "OPS-2026-018",
+			Title: "Recorded Finding", Narrative: "The Finding was closed only after accepted Evidence verification.",
+			RegulatoryBasis: []string{"Synthetic local verification basis"},
+		}},
+		Conclusion:      "The immutable surveillance lifecycle is complete.",
+		Recommendations: []string{"Continue routine oversight monitoring."},
+	}
+	contentJSON, err := json.Marshal(reportContent)
+	if err != nil {
+		t.Fatalf("encode Final Report content: %v", err)
+	}
+	reportSnapshot, err := json.Marshal(map[string]any{
+		"kind": "FINAL", "ready": true,
+		"findingIds":  []string{"finding-report-document"},
+		"contentHash": sha256Digest(contentJSON), "content": reportContent,
+		"createdBySubject":  "executive-001",
+		"responseDueDate":   "2026-08-30",
+		"caaVisibleComment": "Submit the response by the stated date.",
+	})
+	if err != nil {
+		t.Fatalf("encode Final Report snapshot: %v", err)
+	}
 	if _, err := pool.Exec(context.Background(), `
 		INSERT INTO report_versions (id, report_id, inspection_id, version, status, snapshot, created_at)
 		VALUES (
 			'report-final-v1', 'FR-2026-018', 'audit-cabin-001', 1,
-			'EXECUTIVE_DIRECTOR_REVIEW',
-			'{"kind":"FINAL","ready":true,"findingIds":["finding-report-document"],"contentHash":"sha256:final-v1","responseDueDate":"2026-08-30","caaVisibleComment":"Submit the response by the stated date."}',
-			$1
+			'EXECUTIVE_DIRECTOR_REVIEW', $1, $2
 		)
-	`, canonicalNow); err != nil {
+	`, reportSnapshot, canonicalNow); err != nil {
 		t.Fatalf("seed Final Report version: %v", err)
 	}
 	if _, err := pool.Exec(context.Background(), `
@@ -97,8 +129,12 @@ func TestReportIssueQueuesAndRendersOneImmutableAuthorizedDocument(t *testing.T)
 	}
 
 	objects := newMemoryObjectStore()
+	renderer, err := documents.NewNativeRenderer()
+	if err != nil {
+		t.Fatalf("create native document renderer: %v", err)
+	}
 	documentService := documents.NewService(pool, objects, documents.Dependencies{
-		Renderer: documents.DeterministicPDFRenderer{},
+		Renderer: renderer,
 		Bucket:   "avia-documents", Clock: func() time.Time { return canonicalNow },
 	})
 	processed, err := documentService.ProcessNext(context.Background())
@@ -336,11 +372,15 @@ func TestReportDocumentHTTPUsesExactIdentityAndAuditeeSafeProjections(t *testing
 	}
 
 	objects := newMemoryObjectStore()
+	renderer, err := documents.NewNativeRenderer()
+	if err != nil {
+		t.Fatalf("create native document renderer: %v", err)
+	}
 	documentService := documents.NewService(
 		pool,
 		objects,
 		documents.Dependencies{
-			Renderer: documents.DeterministicPDFRenderer{},
+			Renderer: renderer,
 			Bucket:   "generated-documents", Clock: func() time.Time { return canonicalNow },
 			WorkerID: "document-http-test",
 		},

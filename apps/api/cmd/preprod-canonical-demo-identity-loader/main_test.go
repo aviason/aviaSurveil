@@ -41,18 +41,22 @@ func TestValidateFixtureRequiresExactRoleAndAuthorityMatrix(t *testing.T) {
 	}
 }
 
-func TestValidateIssuerRequiresExactRealmPath(t *testing.T) {
-	want := "https://fixture.trycloudflare.com/identity/realms/aviasurveil360-local-preprod"
+func TestValidateIssuerRequiresExactFirstPartyPath(t *testing.T) {
+	want := "https://fixture.trycloudflare.com/identity"
 	if got, err := validateIssuer(want); err != nil || got != want {
 		t.Fatalf("valid issuer rejected: got=%q err=%v", got, err)
 	}
 	for _, candidate := range []string{
 		"https://fixture.trycloudflare.com",
 		"https://fixture.trycloudflare.com/identity/realms/other",
-		"https://fixture.trycloudflare.com/identity/realms/aviasurveil360-local-preprod?x=1",
+		"https://fixture.trycloudflare.com/identity?x=1",
+		"http://fixture.trycloudflare.com/identity",
 	} {
 		if _, err := validateIssuer(candidate); err == nil {
 			t.Fatalf("invalid issuer accepted: %s", candidate)
 		}
+	}
+	if got, err := validateIssuer("http://localhost:8445/identity"); err != nil || got != "http://localhost:8445/identity" {
+		t.Fatalf("loopback HTTP issuer rejected: got=%q err=%v", got, err)
 	}
 }

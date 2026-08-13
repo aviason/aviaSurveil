@@ -1,6 +1,7 @@
 package mfa
 
 import (
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/hmac"
@@ -26,12 +27,20 @@ var (
 	ErrRecoveryLocked   = errors.New("recovery code attempts are temporarily locked")
 	ErrRecoveryConsumed = errors.New("recovery code was already consumed")
 	ErrMFAUnavailable   = errors.New("MFA secret protection unavailable")
+	ErrRevisionConflict = errors.New("MFA auth revision conflict")
 )
 
 type Clock func() time.Time
 
+// SessionRevoker is the provider credential boundary used when a privileged
+// MFA mutation invalidates existing authentication material.
+type SessionRevoker interface {
+	RevokeAllSessions(context.Context, string) error
+}
+
 type Config struct {
 	EncryptionKey       []byte
+	SessionRevoker      SessionRevoker
 	Clock               Clock
 	Period              time.Duration
 	Window              int

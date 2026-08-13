@@ -89,8 +89,7 @@ rollback input. Do not rebuild silently after the freeze.
 ### Task 2 — Select And Authorize The Remote Environment
 
 Choose the provider and exact account/project/region/environment identity.
-Review the applicable
-[AWS Preprod Validation](2026-07-27-aws-preprod-validation-plan.md) or create an
+Review an explicitly authorized future remote validation plan or create an
 equivalent provider plan. Obtain separate authorization for read-only discovery
 and for every later cost-bearing or mutating slice.
 

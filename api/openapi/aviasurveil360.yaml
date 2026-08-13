@@ -5947,7 +5947,7 @@
         },
         "responses": {
           "202": {
-            "description": "Durable reasoned user lifecycle request accepted for Keycloak reconciliation",
+            "description": "Durable reasoned user lifecycle request accepted for provider reconciliation",
             "content": {
               "application/json": {
                 "schema": {

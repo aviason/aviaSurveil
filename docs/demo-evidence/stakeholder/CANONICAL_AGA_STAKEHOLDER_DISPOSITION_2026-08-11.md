@@ -33,8 +33,8 @@ The manual three-viewport review is **accepted** for the local
 therefore close with the recorded local verification evidence.
 
 This acceptance does not convert any blocked or unrun gate into a pass. The
-recursive root discovery result, full race timeout, expired Keycloak
-image-security exception, release approval, production readiness, and every
+recursive root discovery result, full race timeout, release approval,
+production readiness, and every
 external-preprod action retain their literal recorded states.
 
 ## Excluded Actions And Claims

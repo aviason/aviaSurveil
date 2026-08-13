@@ -25,6 +25,13 @@ type PostgresStore struct {
 	clock          Clock
 }
 
+// SetSessionRevoker wires provider credential/session revocation after both
+// durable stores have been initialized. Security-state mutations fail closed
+// when this boundary reports an unavailable provider session store.
+func (store *PostgresStore) SetSessionRevoker(revoker SessionRevoker) {
+	store.sessionRevoker = revoker
+}
+
 func NewPostgresStore(pool *pgxpool.Pool, configuration Config) (*PostgresStore, error) {
 	if pool == nil || configuration.Hasher == nil || configuration.Limiter == nil {
 		return nil, errors.New("PostgreSQL identity store requires pool, hasher, and limiter")
@@ -159,7 +166,11 @@ func (store *PostgresStore) SetEmailVerified(ctx context.Context, subjectID stri
 	if err := transaction.Commit(ctx); err != nil {
 		return AccountSnapshot{}, fmt.Errorf("commit email verification: %w", err)
 	}
-	return updated.snapshot(), nil
+	snapshot := updated.snapshot()
+	if err := store.revokeSessions(ctx, subjectID); err != nil {
+		return snapshot, err
+	}
+	return snapshot, nil
 }
 
 func (store *PostgresStore) Activate(ctx context.Context, subjectID string, expectedRevision uint64, newPassword []byte) (AccountSnapshot, error) {
@@ -206,7 +217,11 @@ func (store *PostgresStore) Activate(ctx context.Context, subjectID string, expe
 	if err := transaction.Commit(ctx); err != nil {
 		return AccountSnapshot{}, fmt.Errorf("commit account activation: %w", err)
 	}
-	return updated.snapshot(), nil
+	snapshot := updated.snapshot()
+	if err := store.revokeSessions(ctx, subjectID); err != nil {
+		return snapshot, err
+	}
+	return snapshot, nil
 }
 
 func (store *PostgresStore) Authenticate(ctx context.Context, request AuthenticationRequest) (AuthenticationResult, error) {
@@ -329,6 +344,75 @@ func (store *PostgresStore) ChangePassword(ctx context.Context, subjectID string
 	}
 	if err := transaction.Commit(ctx); err != nil {
 		return AccountSnapshot{}, fmt.Errorf("commit password change: %w", err)
+	}
+	snapshot := updated.snapshot()
+	if err := store.revokeSessions(ctx, subjectID); err != nil {
+		return snapshot, err
+	}
+	return snapshot, nil
+}
+
+// LookupEmail is deliberately narrow for provider-owned recovery initiation.
+// The caller must still return an enumeration-resistant response when this
+// lookup reports no account.
+func (store *PostgresStore) LookupEmail(ctx context.Context, email string) (AccountSnapshot, error) {
+	identifier, err := NormalizeIdentifier(IdentifierEmail, email)
+	if err != nil {
+		return AccountSnapshot{}, ErrAccountNotFound
+	}
+	current, err := loadAccountByIdentifier(ctx, store.pool, identifier.Normalized)
+	if err != nil {
+		return AccountSnapshot{}, mapAccountReadError(err)
+	}
+	return current.snapshot(), nil
+}
+
+// ResetPassword changes an active account's password after an independently
+// consumed, subject-bound recovery challenge. It preserves password-history
+// policy and revokes existing provider sessions just like a password change.
+func (store *PostgresStore) ResetPassword(ctx context.Context, subjectID string, expectedRevision uint64, newPassword []byte) (AccountSnapshot, error) {
+	current, err := loadAccount(ctx, store.pool, subjectID, false)
+	if err != nil {
+		return AccountSnapshot{}, mapAccountReadError(err)
+	}
+	if current.authRevision != expectedRevision || current.state != AccountActive {
+		return AccountSnapshot{}, ErrRevisionConflict
+	}
+	history, err := loadPasswordHistory(ctx, store.pool, subjectID)
+	if err != nil {
+		return AccountSnapshot{}, err
+	}
+	if err := store.passwordPolicy.Validate(newPassword, store.hasher, current.passwordHash, history); err != nil {
+		return AccountSnapshot{}, err
+	}
+	newHash, err := store.hasher.Hash(newPassword)
+	if err != nil {
+		return AccountSnapshot{}, err
+	}
+	transaction, err := store.pool.Begin(ctx)
+	if err != nil {
+		return AccountSnapshot{}, fmt.Errorf("begin password reset: %w", err)
+	}
+	defer func() { _ = transaction.Rollback(ctx) }()
+	locked, err := loadAccount(ctx, transaction, subjectID, true)
+	if err != nil {
+		return AccountSnapshot{}, mapAccountReadError(err)
+	}
+	if locked.authRevision != expectedRevision || locked.passwordHash != current.passwordHash || locked.state != AccountActive {
+		return AccountSnapshot{}, ErrRevisionConflict
+	}
+	if _, err := transaction.Exec(ctx, `INSERT INTO auth_identity.password_history(subject_id, history_revision, password_hash, created_at) VALUES ($1, $2, $3, $4)`, subjectID, expectedRevision, current.passwordHash, store.clock()); err != nil {
+		return AccountSnapshot{}, fmt.Errorf("record password reset history: %w", err)
+	}
+	if _, err := transaction.Exec(ctx, `UPDATE auth_identity.accounts SET password_hash=$2, auth_revision=auth_revision+1, failed_login_count=0, locked_until=NULL, updated_at=$3 WHERE subject_id=$1 AND auth_revision=$4`, subjectID, newHash, store.clock(), expectedRevision); err != nil {
+		return AccountSnapshot{}, fmt.Errorf("reset password: %w", err)
+	}
+	updated, err := loadAccount(ctx, transaction, subjectID, true)
+	if err != nil {
+		return AccountSnapshot{}, err
+	}
+	if err := transaction.Commit(ctx); err != nil {
+		return AccountSnapshot{}, fmt.Errorf("commit password reset: %w", err)
 	}
 	snapshot := updated.snapshot()
 	if err := store.revokeSessions(ctx, subjectID); err != nil {

@@ -1,11 +1,10 @@
 # Local Candidate Operations
 
-This collection governs the `candidate-only` local reliability surface. It is
-not production-ready. Unless a row says otherwise, procedure evidence is
-`not run`; completed local exercises are labeled `verified locally`.
-The final local matrix, exact hashes, recovery measurements, and explicit AWS
-`not run` boundary are recorded in
-[Local Reliability, DR, And Infrastructure Evidence](../demo-evidence/LOCAL_RELIABILITY_AND_DR_2026-07-22.md).
+This collection governs the `candidate-only` local reliability surface.
+Release remains `release pending`. Unless a row says otherwise, procedure
+evidence is `not run`; completed local exercises are labeled `verified locally`.
+Current verification results are recorded in their owning active plans and
+evidence files; unexecuted recovery and remote gates remain `not run`.
 
 ## Operating Contracts
 
@@ -19,8 +18,6 @@ The final local matrix, exact hashes, recovery measurements, and explicit AWS
 | [AWS trial runbook](AWS_TRIAL_RUNBOOK.md) | Phase-scoped plan, apply, smoke, rollback, retention, and destroy procedure. |
 | [AWS IPv6 ARM64 trial decisions](AWS_IPV6_TRIAL_DECISIONS.md) | Separate owner-input contract for the disposable IPv6-only ARM64 trial. |
 | [AWS IPv6 ARM64 trial runbook](AWS_IPV6_TRIAL_RUNBOOK.md) | Local-only ARM64 runtime gates and exact remote authorization stop boundaries. |
-| [AWS private-pilot decisions](AWS_PRIVATE_PILOT_DECISIONS.md) | Fail-closed owner overlay and exact `avia` operator-profile boundary for the production pilot candidate. |
-| [AWS private-pilot runtime](AWS_PRIVATE_PILOT_RUNTIME.md) | Production-only ARM64 Compose, managed-service, security, release, and capacity contract. |
 
 ## Runbooks
 
@@ -33,8 +30,8 @@ The final local matrix, exact hashes, recovery measurements, and explicit AWS
 | [Email and document workers](runbooks/EMAIL_DOCUMENT_WORKERS.md) | Diagnose outbox, email, and document render work. |
 | [Backup](runbooks/BACKUP.md) | Create and verify same-host logical recovery points. |
 | [Restore](runbooks/RESTORE.md) | Restore one point into an isolated local target. |
-| [Disaster recovery](runbooks/DISASTER_RECOVERY.md) | Exercise two complete restore drills and fallback. |
-| [AviaCore feed recovery](runbooks/AVIACORE_DATA_FEED_RECOVERY.md) | Dormant candidate-only replay/backfill and fail-closed manifest reconciliation; not a private-pilot runtime surface. |
+| [Disaster recovery](runbooks/DISASTER_RECOVERY.md) | State the maintained component checks and the full coordinated drill gap. |
+| [AviaCore feed recovery](runbooks/AVIACORE_DATA_FEED_RECOVERY.md) | Dormant candidate-only replay/backfill and fail-closed manifest reconciliation. |
 | [Release and rollback](runbooks/RELEASE_ROLLBACK.md) | Gate a local candidate and abandon a failed candidate safely. |
 | [Secret rotation](runbooks/SECRET_ROTATION.md) | Replace local credentials through a parallel fresh stack. |
 
@@ -66,7 +63,7 @@ rerun:
   now carries both values, and the contract rejects omissions.
 
 The corrected dry-run proved exact project status, readiness, OIDC discovery,
-read-only scan/outbox/document diagnosis, scoped API/worker/Keycloak restart,
+read-only scan/outbox/document diagnosis, scoped API/worker/auth restart,
 image evidence, secret-log scanning, and zero full-stack residue. The live
 observability rerun proved all eight alert fixtures, one grouped delivery, a
 resolved message, telemetry persistence across restart, and zero observability

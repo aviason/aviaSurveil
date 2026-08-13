@@ -1,8 +1,0 @@
- Container aviasurveil360-local-preprod-preprod-postgres-1 Running 
- Container aviasurveil360-local-preprod-preprod-postgres-1 Waiting 
- Container aviasurveil360-local-preprod-preprod-postgres-1 Healthy 
- Container aviasurveil360-local-preprod-preprod-aga-candidate-demo-loader-run-819202c10f47 Creating 
-time="2026-08-02T01:52:18+03:00" level=warning msg="secrets `uid`, `gid` and `mode` are not supported, they will be ignored"
- Container aviasurveil360-local-preprod-preprod-aga-candidate-demo-loader-run-819202c10f47 Created 
-2026/08/01 22:52:18 ERROR AGA candidate demo loader failed error="AGA demo run was cleaned and is non-replayable"
-

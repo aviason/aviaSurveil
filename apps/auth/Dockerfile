@@ -22,6 +22,6 @@ WORKDIR /app
 ENV TZ=UTC
 COPY --from=go-build --chown=10001:10001 /out/auth /app/auth
 USER 10001:10001
-EXPOSE 8080
+EXPOSE 8080 8081
 HEALTHCHECK --interval=5s --timeout=3s --retries=3 CMD wget --quiet --output-document=/dev/null http://127.0.0.1:8080/health/live || exit 1
 ENTRYPOINT ["/app/auth"]

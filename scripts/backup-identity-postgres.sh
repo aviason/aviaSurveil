@@ -30,23 +30,23 @@ fingerprint_path="$directory/.identity-fingerprint.json"
 record_backup_audit started "$recovery_point_id" identityDatabase pending
 
 pgbackrest_command \
-  keycloak-postgres \
+  preprod-auth-postgres \
   /etc/pgbackrest/pgbackrest.conf \
   identity \
   stanza-create
 pgbackrest_command \
-  keycloak-postgres \
+  preprod-auth-postgres \
   /etc/pgbackrest/pgbackrest.conf \
   identity \
   check
 pgbackrest_command \
-  keycloak-postgres \
+  preprod-auth-postgres \
   /etc/pgbackrest/pgbackrest.conf \
   identity \
   backup \
   "--type=$backup_type"
 pgbackrest_command \
-  keycloak-postgres \
+  preprod-auth-postgres \
   /etc/pgbackrest/pgbackrest.conf \
   identity \
   info \

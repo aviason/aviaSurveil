@@ -19,7 +19,7 @@ quick_tunnel_launcher="$repository_root/scripts/canonical-preprod-cloudflare-lau
 named_tunnel_launcher="$repository_root/scripts/canonical-preprod-cloudflare-named-launcher.mjs"
 tunnel_token_validator="$repository_root/scripts/validate-cloudflare-tunnel-token.mjs"
 local_origin="http://127.0.0.1:${http_port}"
-realm_path="/identity/realms/aviasurveil360-local-preprod"
+discovery_path="/identity/.well-known/openid-configuration"
 placeholder_log="$runtime_root/placeholder.log"
 tunnel_log="$runtime_root/cloudflared.log"
 placeholder_pid_file="$runtime_root/placeholder.pid"
@@ -177,7 +177,6 @@ compose_down() {
   AVIA_PREPROD_TRANSPORT=http \
   AVIA_PREPROD_HTTP_PORT="$http_port" \
   AVIA_PREPROD_WEB_ORIGIN="$origin" \
-  AVIA_PREPROD_KEYCLOAK_PUBLIC_ORIGIN="$origin" \
   AVIA_PREPROD_PUBLIC_HOST="$public_host" \
   AVIA_PREPROD_ORIGIN_SCHEME="$public_scheme" \
   AVIA_PREPROD_PUBLIC_TLS="$public_tls" \
@@ -197,7 +196,6 @@ prebuild_images() {
   AVIA_PREPROD_TRANSPORT=http \
   AVIA_PREPROD_HTTP_PORT="$http_port" \
   AVIA_PREPROD_WEB_ORIGIN="$build_origin" \
-  AVIA_PREPROD_KEYCLOAK_PUBLIC_ORIGIN="$build_origin" \
   AVIA_PREPROD_PUBLIC_HOST="prebuild.invalid" \
   AVIA_PREPROD_ORIGIN_SCHEME=https \
   AVIA_PREPROD_PUBLIC_TLS=true \
@@ -212,12 +210,11 @@ prebuild_images() {
         preprod-canonical-demo-identity-loader \
         preprod-clamav \
         preprod-gotenberg \
-        preprod-keycloak \
+        preprod-auth \
         preprod-minio \
         preprod-mailpit \
         preprod-api \
         preprod-worker \
-        preprod-scheduler \
         preprod-web-http \
         preprod-gateway
 }
@@ -296,10 +293,10 @@ NODE
 }
 
 verify_public_discovery() {
-  node --input-type=module - "$public_origin" "$realm_path" <<'NODE'
-const [origin, realmPath] = process.argv.slice(2);
-const expectedIssuer = `${origin}${realmPath}`;
-const response = await fetch(`${expectedIssuer}/.well-known/openid-configuration`, {
+  node --input-type=module - "$public_origin" "$discovery_path" <<'NODE'
+const [origin, discoveryPath] = process.argv.slice(2);
+const expectedIssuer = `${origin}/identity`;
+const response = await fetch(`${origin}${discoveryPath}`, {
   signal: AbortSignal.timeout(5000),
 });
 if (!response.ok) throw new Error(`OIDC discovery returned ${response.status}`);

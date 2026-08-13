@@ -96,7 +96,7 @@ test("SBOM and vulnerability tools run from reviewed digest-pinned containers", 
     assert.match(script, /--tmpfs \/tmp:.*mode=1777/u);
   }
   assert.match(sbomScript, /--tmpfs \/tmp:.*size=1g/u);
-  assert.match(sbomScript, /Generated 9 digest-bound CycloneDX SBOMs/u);
+  assert.match(sbomScript, /Generated 8 digest-bound CycloneDX SBOMs/u);
   assert.match(scanScript, /--tmpfs \/tmp:.*size=2g/u);
   assert.match(
     scanScript,
@@ -107,7 +107,7 @@ test("SBOM and vulnerability tools run from reviewed digest-pinned containers", 
   assert.match(scanScript, /rm -rf -- "\$trivy_temp"/u);
   assert.match(
     scanScript,
-    /All 9 local image digests passed the HIGH\/CRITICAL vulnerability gate/u,
+    /All 8 local image digests passed the HIGH\/CRITICAL vulnerability gate/u,
   );
   assert.doesNotMatch(sbomScript, /^\s*syft\s/mu);
   assert.doesNotMatch(scanScript, /^\s*trivy\s/mu);
@@ -129,153 +129,6 @@ test("the gateway rebuilds pinned Caddy with patched Go dependencies into scratc
   assert.doesNotMatch(dockerfile, /\bapk\b/u);
 });
 
-test("Keycloak is optimized at image build time and starts optimized on a read-only runtime", () => {
-  const lock = JSON.parse(readFileSync(imageLockPath, "utf8"));
-  const keycloakReference = lock.images?.keycloak?.reference;
-  assert.equal(
-    keycloakReference,
-    "quay.io/keycloak/keycloak:26.7.0@sha256:0f198be292568439d700cdbfb893e69a6009bb43a94a06a945b1d3d506c76b13",
-  );
-
-  const dockerfile = read("deploy/local/keycloak/Dockerfile");
-  assert.match(
-    dockerfile,
-    /^ARG KEYCLOAK_IMAGE=\S+@sha256:[a-f0-9]{64}$/mu,
-  );
-  assert.match(dockerfile, /^FROM \$\{KEYCLOAK_IMAGE\} AS keycloak-build$/mu);
-  assert.match(dockerfile, /KC_HTTP_RELATIVE_PATH=\/identity/u);
-  assert.match(dockerfile, /\/opt\/keycloak\/bin\/kc\.sh build/u);
-  assert.match(dockerfile, /^FROM \$\{KEYCLOAK_IMAGE\} AS keycloak$/mu);
-  assert.match(
-    dockerfile,
-    /^COPY --from=keycloak-build \/opt\/keycloak\/ \/opt\/keycloak\/$/mu,
-  );
-
-  const compose = read("deploy/local/compose.yaml");
-  const keycloakStart = compose.indexOf("\n  keycloak:\n");
-  const keycloakEnd = compose.indexOf("\n  minio:\n", keycloakStart);
-  assert.ok(keycloakStart >= 0 && keycloakEnd > keycloakStart);
-  const keycloakCompose = compose.slice(keycloakStart, keycloakEnd);
-  assert.match(
-    keycloakCompose,
-    /image: aviasurveil360\/keycloak:local/u,
-  );
-  assert.match(keycloakCompose, /- --optimized/u);
-  assert.doesNotMatch(keycloakCompose, /--health-enabled/u);
-});
-
-test("Keycloak patches fixed dependencies without changing Quarkus classpath paths", () => {
-  const manifest = JSON.parse(
-    read("deploy/local/keycloak/runtime-patches.json"),
-  );
-  assert.equal(manifest.schemaVersion, 1);
-  assert.equal(manifest.patches.length, 21);
-
-  const outputs = new Set();
-  const classpathPaths = new Set();
-  for (const patch of manifest.patches) {
-    assert.match(
-      patch.url,
-      /^https:\/\/(?:repo\.maven\.apache\.org|jdbc\.postgresql\.org)\//u,
-    );
-    assert.match(patch.sha256, /^[a-f0-9]{64}$/u);
-    assert.match(patch.output, /^[A-Za-z0-9._-]+\.jar$/u);
-    assert.match(patch.classpath, /^[A-Za-z0-9._-]+\.jar$/u);
-    assert.equal(
-      patch.output.length,
-      patch.classpath.length,
-      `classpath rewrite must preserve byte length for ${patch.output}`,
-    );
-    assert.ok(!outputs.has(patch.output), `duplicate patch ${patch.output}`);
-    assert.ok(
-      !classpathPaths.has(patch.classpath),
-      `duplicate classpath ${patch.classpath}`,
-    );
-    outputs.add(patch.output);
-    classpathPaths.add(patch.classpath);
-  }
-  assert.ok(
-    outputs.has("org.postgresql.postgresql-42.7.12.jar") &&
-      classpathPaths.has("org.postgresql.postgresql-42.7.11.jar"),
-    "patched PostgreSQL JDBC must expose its fixed version and preserve its classpath",
-  );
-  assert.ok(
-    outputs.has("com.fasterxml.jackson.core.jackson-core-2.21.4.jar") &&
-      classpathPaths.has("com.fasterxml.jackson.core.jackson-core-2.21.2.jar"),
-    "patched Jackson core must expose its fixed version and preserve its classpath",
-  );
-  assert.ok(
-    outputs.has("com.fasterxml.jackson.core.jackson-databind-2.21.4.jar") &&
-      classpathPaths.has(
-        "com.fasterxml.jackson.core.jackson-databind-2.21.2.jar",
-      ),
-    "patched Jackson databind must expose its fixed version and preserve its classpath",
-  );
-  assert.ok(
-    outputs.has("com.microsoft.sqlserver.mssql-jdbc-13.4.0.jre11.jar") &&
-      classpathPaths.has(
-        "com.microsoft.sqlserver.mssql-jdbc-13.2.1.jre11.jar",
-      ),
-    "patched SQL Server JDBC must expose its fixed version and preserve its classpath",
-  );
-  assert.equal(
-    [...outputs].filter((output) => output.includes("netty-")).length,
-    17,
-    "the full Netty runtime family must remain version-aligned",
-  );
-
-  const downloader = read("deploy/local/keycloak/download-runtime-patches.mjs");
-  assert.match(downloader, /createHash\("sha256"\)/u);
-  assert.match(downloader, /timingSafeEqual/u);
-  assert.match(downloader, /repo\.maven\.apache\.org/u);
-  assert.match(downloader, /jdbc\.postgresql\.org/u);
-  assert.doesNotMatch(downloader, /symlinkSync/u);
-
-  const rewriter = read("deploy/local/keycloak/rewrite-quarkus-classpath.mjs");
-  assert.match(rewriter, /Buffer\.from/u);
-  assert.match(rewriter, /\.indexOf\(/u);
-  assert.match(rewriter, /replacement byte length/u);
-
-  const dockerfile = read("deploy/local/keycloak/Dockerfile");
-  assert.match(dockerfile, /^ARG NODE_BUILD_IMAGE=\S+@sha256:[a-f0-9]{64}$/mu);
-  assert.match(dockerfile, /^FROM \$\{NODE_BUILD_IMAGE\} AS keycloak-patches$/mu);
-  assert.match(dockerfile, /download-runtime-patches\.mjs/u);
-  assert.match(dockerfile, /rewrite-quarkus-classpath\.mjs/u);
-  assert.match(dockerfile, /runtime-patches\.json/u);
-  for (const metadataName of [
-    "appmodel.dat",
-    "deployment-class-path.dat",
-    "quarkus-application.dat",
-  ]) {
-    assert.match(dockerfile, new RegExp(metadataName.replace(".", "\\."), "u"));
-  }
-  assert.match(dockerfile, /\bRUN rm -f\b/u);
-  assert.match(
-    dockerfile,
-    /COPY --from=keycloak-patches --chown=1000:0 \/patches\/ \/opt\/keycloak\/lib\/lib\/main\//u,
-  );
-  const finalCopy = dockerfile.indexOf(
-    "COPY --from=keycloak-build /opt/keycloak/ /opt/keycloak/",
-  );
-  assert.ok(finalCopy >= 0, "final Keycloak stage must copy optimized output");
-  assert.match(
-    dockerfile.slice(finalCopy),
-    /\bRUN rm -f\b/u,
-    "final base merge must remove obsolete vulnerable JARs again",
-  );
-  assert.match(
-    dockerfile.slice(finalCopy),
-    /\/opt\/keycloak\/bin\/client\/keycloak-admin-cli-26\.7\.0\.jar/u,
-    "unused Keycloak admin CLI must not remain in the server runtime image",
-  );
-
-  const buildScript = read("scripts/build-local-images.sh");
-  assert.match(
-    buildScript,
-    /--build-arg "NODE_BUILD_IMAGE=\$node_build_image"/u,
-  );
-});
-
 test("the Docker build context excludes local secrets and host build state", () => {
   const dockerIgnore = read(".dockerignore");
   assert.match(dockerIgnore, /^\.local\/?$/mu);
@@ -292,8 +145,8 @@ test("Dockerfile base defaults resolve only through the reviewed image lock", ()
   for (const relativePath of [
     "apps/web/Dockerfile",
     "apps/api/Dockerfile",
+    "apps/auth/Dockerfile",
     "deploy/local/gateway/Dockerfile",
-    "deploy/local/keycloak/Dockerfile",
     "deploy/recovery/Dockerfile",
   ]) {
     const dockerfile = read(relativePath);
@@ -369,27 +222,7 @@ test("vulnerability exceptions require owner, expiry, rationale, and tracker", a
     validateVulnerabilityPolicy(policy, { today: "2026-07-24" }),
     [],
   );
-  const javaMismatchException = policy.exceptions.find(
-    (entry) => entry.vulnerabilityId === "CVE-2026-22020",
-  );
-  assert.deepEqual(
-    {
-      image: javaMismatchException?.image,
-      digest: javaMismatchException?.digest,
-      owner: javaMismatchException?.owner,
-      expiresOn: javaMismatchException?.expiresOn,
-      tracker: javaMismatchException?.tracker,
-    },
-    {
-      image: "keycloak",
-      digest:
-        "sha256:0f198be292568439d700cdbfb893e69a6009bb43a94a06a945b1d3d506c76b13",
-      owner: "Local Platform Security",
-      expiresOn: "2026-08-08",
-      tracker:
-        "docs/exec-plans/tech-debt-tracker.md#td-plan3-keycloak-java21-trivy-mismatch",
-    },
-  );
+  assert.deepEqual(policy.exceptions, []);
   const invalid = structuredClone(policy);
   invalid.exceptions = [
     {
@@ -421,7 +254,7 @@ test("vulnerability exceptions require owner, expiry, rationale, and tracker", a
   const sourceBound = structuredClone(policy);
   sourceBound.exceptions = [
     {
-      image: "keycloak",
+      image: "auth",
       digest: sourceDigest,
       vulnerabilityId: "CVE-2099-0002",
       owner: "Local Platform Security",
@@ -433,7 +266,7 @@ test("vulnerability exceptions require owner, expiry, rationale, and tracker", a
   assert.deepEqual(
     exceptionIDsForImage(
       sourceBound,
-      "keycloak",
+      "auth",
       builtDigest,
       {
         additionalDigests: [sourceDigest],
@@ -445,7 +278,7 @@ test("vulnerability exceptions require owner, expiry, rationale, and tracker", a
   assert.deepEqual(
     exceptionIDsForImage(
       sourceBound,
-      "keycloak",
+      "auth",
       builtDigest,
       {
         additionalDigests: [`sha256:${"d".repeat(64)}`],

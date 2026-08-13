@@ -12,7 +12,7 @@ This is the canonical docs map for AviaSurveil360. Use it after the root
 | `agent-harness/index.md` | Agent routing, output contracts, verification, registry, and cleanup rules. |
 | `../integrations/aviacore/contract-lock.json` | Task 3B exact local candidate mirror/provenance lock for the AviaCore v3 producer-facing contract; use the read-only checker before relying on it. |
 | `operations/index.md` | Candidate-only objectives, telemetry, alerts, ownership, operational runbooks, and drill evidence. |
-| `security/auth-replacement/README.md` | Two integrity-retained owner-provided auth inputs, their comparative security hardening, and the selected separate Go OIDC provider implementation handoff; Keycloak remains required until all cutover gates pass. |
+| `security/auth-replacement/README.md` | Current first-party Go OIDC implementation, repository-local retirement plan, and Task 11 evidence. |
 | `exec-plans/index.md` | Active execution-plan status and one next concrete todo per plan. |
 | `exec-plans/tech-debt-tracker.md` | Durable blockers, accepted risks, missing evidence, and technical debt. |
 | `product-specs/index.md` | Product source documents for domain, workflow, UX, data, analytics, scenarios, and references. |
@@ -39,21 +39,17 @@ This is the canonical docs map for AviaSurveil360. Use it after the root
 | `demo-evidence/stakeholder/PLAN1_VISUAL_STAKEHOLDER_DECISIONS_2026-07-27.md` | Completed Plan 1 stakeholder closeout ledger: 170/170 dispositions resolved, all 10 Fix records `fixed-verified-locally`, and zero manual decisions remaining. |
 | `demo-evidence/stakeholder/PLANS2_4_STAKEHOLDER_DISPOSITION_2026-07-28.md` | Combined Plans 2–4 local stakeholder acceptance, canonical evidence basis, preserved historical verification boundaries, residual owner decisions, explicit AWS/release/deployment/production exclusions, and the separate Plan 5 Task 2 authorization gate. |
 | `demo-evidence/FULL_BACKEND_SCENARIO_PARITY_2026-07-22.md` | Full Backend Tasks 1–12 evidence: 86 dual-profile routes, 28 Backend slices, 10 scenario families, 45 proofs, final matrix, reviews, and preserved Plan 1 gaps. |
-| `demo-evidence/LOCAL_PRODUCTION_LIKE_SERVICES_2026-07-22.md` | Local production-like services evidence: scanned runtime digests, clean 86-route demo/full profiles, 10 scenario families, real MFA/MinIO/ClamAV/Mailpit/Gotenberg proofs, failure/restart, and cleanup. |
-| `demo-evidence/LOCAL_RELIABILITY_AND_DR_2026-07-22.md` | Local reliability, observability, alert, dual-database backup, exact isolated restore, RPO/RTO, runbook, image/SBOM/scan, Terraform, Terragrunt, and explicit AWS `not run` evidence. |
-| `demo-evidence/PLAN5_IDENTITY_DATA_FOUNDATION_2026-07-28.md` | Plan 5 Tasks 1–8 contract and implementation evidence: normal/canonical-test artifact split, append-only membership, least-privilege Keycloak service client, provider-backed directory, revision-guarded lifecycle, exact desired/provider/token/session authority, complete Admin experience, isolated loader, real connected PostgreSQL/Keycloak/Mailpit/MinIO scenarios, four-profile local qualification, strict RED results, retained full-volume endurance `not run` boundary, and fresh local verification. |
-| `demo-evidence/PREPROD_IDENTITY_AND_DATA_FOUNDATION_2026-07-27.md` | Plan 5 Task 9 final full-matrix evidence: contract/SQLC, exact Go race, React/root builds and tests, normal-artifact boundary, all-eight-role lifecycle, local-full/OIDC, fresh four-profile reconciliation/resource/privacy/resume/cleanup results, literal owner-approved stress exception, final review, and zero-residue verification. |
 | `demo-evidence/REGULATORY_SOURCE_REFRESH_TASK6_2026-07-31.md` | Task 6 mandatory question scope/trace, fail-closed source-gap and publication boundaries, immutable hybrid reconciliation, mock/HTTP/Go/React parity, and candidate-only local verification evidence. |
 | `../api/openapi/aviasurveil360.yaml` | Minimal versioned transport source for the authorized local candidate slices. |
 | `../apps/web/` | Build-time-separated React/Vite mock and HTTP candidate entries with the canonical lifecycle, approved route families, PWA/readiness, atomic field storage, OPFS attachment recovery, and typed foreground sync. |
 | `../apps/api/` | One-module Go API/worker candidate with canonical and planning authority, local OIDC/session, PostgreSQL stores, bounded upload/scan, configuration/audit projections, and typed sync services. |
-| `../deploy/local/compose.test.yaml` | Pinned isolated PostgreSQL, Keycloak, and MinIO local verification profile. |
+| `../deploy/local/compose.test.yaml` | Pinned isolated PostgreSQL, Mailpit, ClamAV, and MinIO local verification profile. |
 
 ## Demo Boundary
 
 AviaSurveil360 remains a planning pack with the intact frontend-only static
 clickable demo plus a separate `candidate-only` React/Go vertical. A real local
-Go/PostgreSQL HTTP path, pinned local Keycloak exchange, private MinIO upload,
+Go/PostgreSQL HTTP path, first-party local OIDC exchange, private MinIO upload,
 deterministic scan worker, canonical and approved route-family mock/HTTP browser
 parity, Task 6 app-shell/readiness/restart behavior, Task 7-8 field/attachment
 recovery, Task 12 foreground sync, and the Task 13 complete local matrix are

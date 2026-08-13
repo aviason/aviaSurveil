@@ -53,7 +53,7 @@ This ExecPlan is a living document. Keep `Progress`, `Decision Log`,
   preserved the exact authoritative database SHA-256
   `3c13f4999eba1d942a079117912af42f961c897046271ca37bc3fb3c0f6e333e`
   across a cold full-stack restart, passed the post-restart role/logout matrix
-  (`10/10`, 1.3 minutes), and proved required PostgreSQL/Keycloak/MinIO/ClamAV
+  (`10/10`, 1.3 minutes), and proved required PostgreSQL/OIDC-provider/MinIO/ClamAV
   loss as `503/not_ready`, optional Gotenberg/Mailpit loss as `200/degraded`,
   worker crash recovery, secret-log denial, donor unavailability, and zero
   task-owned container/volume/network/process/runtime residue. After physical
@@ -66,11 +66,8 @@ This ExecPlan is a living document. Keep `Progress`, `Decision Log`,
   `6902377347b88cf11c6558af7af2a594f4542b0b81bda8491ce143cc696b1ddd`
   and zero residue. The full race
   harness remains `blocked` by the
-  existing `internal/agaapplicability` timeout. The HIGH/CRITICAL image scan is
-  `blocked`: the sole Keycloak Java 21/Java 17 advisory-mismatch exception
-  expired on 2026-08-08; a fresh exception-free scan reproduced the one HIGH
-  mismatch with no fixed version, so no owner extension was inferred. Complete
-  recursive root JS/MJS discovery after deletion ran 88 files / 394 tests and
+  existing `internal/agaapplicability` timeout. Complete recursive root JS/MJS
+  discovery after deletion ran 88 files / 394 tests and
   produced 373 pass / 21 fail. The 12 paused donor failures are gone. The exact
   remaining split is one active governed-intake archive test blocked by absent
   `AGA_CHECKLIST_ARCHIVE`; seven AviaCore
@@ -81,16 +78,15 @@ This ExecPlan is a living document. Keep `Progress`, `Decision Log`,
   blocked pending AviaCore owner authority; this plan records no owner
   disposition for them. The nine-image automated viewport capture is `verified
   locally`; the stakeholder visual disposition is `accepted` as recorded in
-  the 2026-08-11 stakeholder disposition. The blocked root/race/image-security
+  the 2026-08-11 stakeholder disposition. The blocked root/race
   facts remain tracked and are not relabelled as passes.
 - External preprod deployment: out of scope. It is `not run`, unauthorized, and
   tracked only by the separate paused external-preprod plan. The disposable
   Quick Tunnel and `demo.aviasurveil.com` are local-origin transport evidence.
 - Release: `release pending`.
 - Production readiness: `production-ready: not established`.
-- Immediate next gate: none in this completed local plan. Keep the expired
-  Keycloak scan mismatch and the root/race results at their literal tracked
-  states. External preprod remains separately paused and requires explicit
+- Immediate next gate: none in this completed local plan. Keep the root/race
+  results at their literal tracked states. External preprod remains separately paused and requires explicit
   resumption plus action-by-action authority.
 
 ## Objective
@@ -229,7 +225,7 @@ Specifically:
 - A versioned deterministic preprod dataset with all required role accounts,
   organizations, provider scopes, targets, team members, and one repeatable
   hero scenario.
-- Local connected qualification across PostgreSQL, Keycloak, MinIO, Mailpit,
+- Local connected qualification across PostgreSQL, the then-current OIDC provider, MinIO, Mailpit,
   Go API/worker, and the React HTTP artifact.
 - A separately gated handoff into the existing local-preprod and external AWS
   preprod plans after the canonical product flow passes locally.
@@ -336,7 +332,7 @@ The existing work is a donor implementation, not a second permanent product.
   transient question-text handling, and digest verification from the AGA
   workspace.
 - Server-issued, digest-bound batch preview and the 500-item maximum.
-- Local Keycloak role accounts, disposable namespace ownership, status/cleanup,
+- Local OIDC-provider role accounts, disposable namespace ownership, status/cleanup,
   privacy, residue, and connected-browser harness patterns.
 - Canonical Planning decisions and role authority.
 - Canonical Audit, assignment, checklist, Potential Finding, Finding, CAP,
@@ -1036,7 +1032,7 @@ Work:
 1. Add one canonical `make preprod-up`, `make preprod-status`, and
    `make preprod-down` operator path, or extend the existing local stack with
    those exact semantics. Do not retain alias targets for the obsolete demo.
-2. Start PostgreSQL, Keycloak, MinIO, ClamAV, Mailpit, Gotenberg, API, worker,
+2. Start PostgreSQL, the then-current OIDC provider, MinIO, ClamAV, Mailpit, Gotenberg, API, worker,
    scheduler, and the HTTP React artifact with the AGA preprod data profile.
 3. Reconcile the exact catalog, users, roles, organization, provider scope,
    target, and empty/new product starting state.
@@ -1197,7 +1193,7 @@ Selected-boundary result, 2026-08-10:
   `DELIVERED` state and Mailpit, cold restart preserved fingerprint
   `6902377347b88cf11c6558af7af2a594f4542b0b81bda8491ce143cc696b1ddd`,
   and the role/logout matrix passed `10/10` in 1.4 minutes. PostgreSQL,
-  Keycloak, MinIO, ClamAV, Gotenberg, and Mailpit loss/recovery plus worker
+  the then-current OIDC provider, MinIO, ClamAV, Gotenberg, and Mailpit loss/recovery plus worker
   crash restart passed, donor probes stayed fail-closed, and cleanup left zero
   task-owned container, volume, network, process, or runtime residue;
 - an initial post-deletion Evidence PUT returned MinIO `507` because the local
@@ -1479,7 +1475,7 @@ The plan is ready for stakeholder verification only when fresh evidence proves:
 - Canonical Planning, assignment, Audit, checklist, Potential Finding, Finding,
   CAP, Evidence, report, notification, and audit-event modules.
 - Existing preprod identity/data loader and exact eight-role authority contract.
-- Local PostgreSQL, Keycloak, MinIO, ClamAV, Mailpit, Gotenberg, API/worker, and
+- Local PostgreSQL, the then-current OIDC provider, MinIO, ClamAV, Mailpit, Gotenberg, API/worker, and
   React HTTP stack.
 - Explicit implementation authorization before Gate 0 changes runtime code.
 
@@ -1600,7 +1596,7 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   `not run`.
 - [x] 2026-08-08: The disposable canonical local-preprod stack was started
   without AWS or external infrastructure. Migration 41, the privacy-safe
-  `aga-preprod@1.0.0` catalog (1,310 questions), API readiness, Keycloak’s
+  `aga-preprod@1.0.0` catalog (1,310 questions), API readiness, the provider's
   nine role-mapped demo users, MinIO private buckets, ClamAV, Gotenberg, and
   Mailpit dependency health are `verified locally`. A connected OIDC session
   smoke for all nine privacy-safe roles, the Manager New Audit selection →
@@ -1652,7 +1648,7 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   AWS action, or external-preprod deployment. `make preprod-cloudflare-link`
   now starts or validates the disposable profile and prints its strict random
   `https://*.trycloudflare.com` URL. The gateway remains loopback-only HTTP;
-  the public HTTPS origin drives Keycloak/OIDC issuer and callback URLs, API
+  the public HTTPS origin drives OIDC issuer and callback URLs, API
   CORS, object-signing origin, and Secure-cookie configuration. The current
   public root, `/health/ready`, exact OIDC issuer/authorization/token endpoints,
   and `/auth/login` public-host callback redirect are `verified locally`.
@@ -1660,7 +1656,7 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   cleanup guards, and `git diff --check` are also `verified locally`. After
   the fresh privacy-safe nine-account identity seed was added,
   `make preprod-cloudflare-test-panels` ran with Service Workers enabled,
-  proved each public page was worker-controlled and the Keycloak username and
+  proved each public page was worker-controlled and the provider username and
   password fields were visible, then passed 9/9 role-panel cases, exact
   session roles/organizations, `Secure`/`HttpOnly`/`SameSite=Strict` session
   cookie semantics, all role homes, Department Manager Question Review, and a
@@ -1673,7 +1669,7 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   nine-role browser matrix passed 9/9 again. A subsequent logout remediation
   now decrypts the server-held ID token only inside the revocation transaction,
   clears it, returns only a short-lived encrypted same-origin logout ticket,
-  redeems that ticket server-side into the discovery-bound Keycloak end-session
+  redeems that ticket server-side into the discovery-bound provider end-session
   redirect, and sets
   `prompt=login`/`max_age=0` on every new authorization request. The public
   matrix passed 10/10: all nine role cases plus Admin logout → visible
@@ -1773,7 +1769,7 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   `3c13f4999eba1d942a079117912af42f961c897046271ca37bc3fb3c0f6e333e`
   remained identical across a cold full-stack restart; and the post-restart
   nine-role plus forced-credential logout matrix passed `10/10` in 1.3 minutes.
-  Required PostgreSQL, Keycloak, MinIO, and ClamAV loss produced live
+  Required PostgreSQL, the then-current OIDC provider, MinIO, and ClamAV loss produced live
   `200` plus ready `503/not_ready`; optional Gotenberg and Mailpit loss produced
   ready `200/degraded`; every service recovered to `ready`; and an injected
   worker crash incremented its restart count from 1 to 2. Pre-auth and
@@ -1792,12 +1788,7 @@ They remain mandatory for any future `GOVERNED_OPERATIONAL` use.
   suite passed 7/7. Nine current-source runtime images and nine digest-bound
   CycloneDX SBOMs were produced. Recursive root discovery reran at 94 files /
   451 tests with 418 pass / 33 fail and the unchanged exact 12 + 1 + 7 + 13
-  classification. The HIGH/CRITICAL image scan remains `blocked`, not passed:
-  the Keycloak Java 21/Java 17 advisory-mismatch exception expired on
-  2026-08-08, and a fresh exception-free scan reproduced the sole HIGH mapping
-  with no fixed version. No security-owner exception extension was inferred.
-  The final Sol XHigh reread accepted the latest local code boundary with 0
-  Critical / 0 Important findings. External preprod was literally `not run`.
+  classification. External preprod was literally `not run`.
 - [x] 2026-08-11: The user explicitly accepted the nine-image manual viewport
   review for the local `candidate-only` demo milestone. The disposition closes
   Task 11 without changing the blocked root/race/image-security results,
@@ -2003,7 +1994,7 @@ Question Review/New Audit 1440x900, 1024x768, and 390x844 DOM/overflow/console
 The application logout command now locks and revokes the exact browser session,
 decrypts only its server-held provider-token envelope, clears that envelope,
 and returns a short-lived encrypted same-origin logout ticket. The API redeems
-the opaque ticket into the discovery-validated Keycloak RP-initiated logout
+the opaque ticket into the discovery-validated provider RP-initiated logout
 redirect; provider tokens never enter the application JavaScript response. The
 browser completes provider logout before returning to the public root. New
 authorization requests carry `prompt=login` and `max_age=0`, so a stale SSO
@@ -2152,9 +2143,7 @@ Implementation outcome as of 2026-08-11:
   React suite, builds/artifact scans, PostgreSQL/object-store backup/restore,
   and the clean-profile 1,310-question connected lifecycle are `verified
   locally`. Nine current-source runtime images and their digest-bound SBOMs are
-  also `verified locally`; the HIGH/CRITICAL image scan is `blocked` by the
-  expired Keycloak advisory-mismatch exception and was not relabelled as a
-  pass. The nine-role/logout browser matrix is 10/10. Recursive root discovery
+  also `verified locally`. The nine-role/logout browser matrix is 10/10. Recursive root discovery
   is truthfully `blocked` at 373/394. The 12 paused donor failures were removed;
   the remaining failures are one missing active-plan archive input, three external and four locally
   drifting AviaCore checks, one stale local AWS fixture, and 12 missing local

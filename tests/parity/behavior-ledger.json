@@ -2263,7 +2263,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Change role USR-ADMIN-ADA unavailable: USR-ADMIN-ADA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Change role USR-ADMIN-ADA unavailable: USR-ADMIN-ADA account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Change role USR-ADMIN-ADA unavailable: USR-ADMIN-ADA account provisioning and role chan...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2280,7 +2280,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Change role USR-AUDITEE-FLY unavailable: USR-AUDITEE-FLY account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Change role USR-AUDITEE-FLY unavailable: USR-AUDITEE-FLY account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Change role USR-AUDITEE-FLY unavailable: USR-AUDITEE-FLY account provisioning and role ...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2297,7 +2297,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Change role USR-ED-ZARA unavailable: USR-ED-ZARA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Change role USR-ED-ZARA unavailable: USR-ED-ZARA account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Change role USR-ED-ZARA unavailable: USR-ED-ZARA account provisioning and role changes ...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2314,7 +2314,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Change role USR-FINANCE-LINA unavailable: USR-FINANCE-LINA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Change role USR-FINANCE-LINA unavailable: USR-FINANCE-LINA account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Change role USR-FINANCE-LINA unavailable: USR-FINANCE-LINA account provisioning and rol...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2331,7 +2331,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Change role USR-GM-OMAR unavailable: USR-GM-OMAR account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Change role USR-GM-OMAR unavailable: USR-GM-OMAR account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Change role USR-GM-OMAR unavailable: USR-GM-OMAR account provisioning and role changes ...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2348,7 +2348,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Change role USR-INSPECTOR-AMINA unavailable: USR-INSPECTOR-AMINA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Change role USR-INSPECTOR-AMINA unavailable: USR-INSPECTOR-AMINA account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Change role USR-INSPECTOR-AMINA unavailable: USR-INSPECTOR-AMINA account provisioning a...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2365,7 +2365,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Change role USR-INSPECTOR-DAVID unavailable: USR-INSPECTOR-DAVID account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Change role USR-INSPECTOR-DAVID unavailable: USR-INSPECTOR-DAVID account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Change role USR-INSPECTOR-DAVID unavailable: USR-INSPECTOR-DAVID account provisioning a...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2382,7 +2382,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Change role USR-LEAD-CANER unavailable: USR-LEAD-CANER account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Change role USR-LEAD-CANER unavailable: USR-LEAD-CANER account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Change role USR-LEAD-CANER unavailable: USR-LEAD-CANER account provisioning and role ch...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2399,7 +2399,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Change role USR-MANAGER-NORA unavailable: USR-MANAGER-NORA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Change role USR-MANAGER-NORA unavailable: USR-MANAGER-NORA account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Change role USR-MANAGER-NORA unavailable: USR-MANAGER-NORA account provisioning and rol...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2416,9 +2416,9 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Create user unavailable: User creation is production-only and requires Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Create user unavailable: User creation is production-only and requires configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Create user unavailable: User creation is production-only and requires Plan 3 Keycloak ...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
+      "durableEffect": "The unavailable \"Create user unavailable: User creation is production-only and requires configured identity-provider ...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "disabledReason",
       "profiles": [
@@ -2450,7 +2450,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Deactivate USR-ADMIN-ADA unavailable: USR-ADMIN-ADA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Deactivate USR-ADMIN-ADA unavailable: USR-ADMIN-ADA account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Deactivate USR-ADMIN-ADA unavailable: USR-ADMIN-ADA account provisioning and role chang...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2467,7 +2467,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Deactivate USR-AUDITEE-FLY unavailable: USR-AUDITEE-FLY account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Deactivate USR-AUDITEE-FLY unavailable: USR-AUDITEE-FLY account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Deactivate USR-AUDITEE-FLY unavailable: USR-AUDITEE-FLY account provisioning and role c...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2484,7 +2484,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Deactivate USR-ED-ZARA unavailable: USR-ED-ZARA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Deactivate USR-ED-ZARA unavailable: USR-ED-ZARA account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Deactivate USR-ED-ZARA unavailable: USR-ED-ZARA account provisioning and role changes a...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2501,7 +2501,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Deactivate USR-FINANCE-LINA unavailable: USR-FINANCE-LINA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Deactivate USR-FINANCE-LINA unavailable: USR-FINANCE-LINA account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Deactivate USR-FINANCE-LINA unavailable: USR-FINANCE-LINA account provisioning and role...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2518,7 +2518,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Deactivate USR-GM-OMAR unavailable: USR-GM-OMAR account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Deactivate USR-GM-OMAR unavailable: USR-GM-OMAR account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Deactivate USR-GM-OMAR unavailable: USR-GM-OMAR account provisioning and role changes a...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2535,7 +2535,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Deactivate USR-INSPECTOR-AMINA unavailable: USR-INSPECTOR-AMINA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Deactivate USR-INSPECTOR-AMINA unavailable: USR-INSPECTOR-AMINA account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Deactivate USR-INSPECTOR-AMINA unavailable: USR-INSPECTOR-AMINA account provisioning an...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2552,7 +2552,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Deactivate USR-INSPECTOR-DAVID unavailable: USR-INSPECTOR-DAVID account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Deactivate USR-INSPECTOR-DAVID unavailable: USR-INSPECTOR-DAVID account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Deactivate USR-INSPECTOR-DAVID unavailable: USR-INSPECTOR-DAVID account provisioning an...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2569,7 +2569,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Deactivate USR-LEAD-CANER unavailable: USR-LEAD-CANER account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Deactivate USR-LEAD-CANER unavailable: USR-LEAD-CANER account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Deactivate USR-LEAD-CANER unavailable: USR-LEAD-CANER account provisioning and role cha...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2586,7 +2586,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Deactivate USR-MANAGER-NORA unavailable: USR-MANAGER-NORA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Deactivate USR-MANAGER-NORA unavailable: USR-MANAGER-NORA account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Deactivate USR-MANAGER-NORA unavailable: USR-MANAGER-NORA account provisioning and role...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2603,7 +2603,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Invite USR-ADMIN-ADA unavailable: USR-ADMIN-ADA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Invite USR-ADMIN-ADA unavailable: USR-ADMIN-ADA account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Invite USR-ADMIN-ADA unavailable: USR-ADMIN-ADA account provisioning and role changes a...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2620,7 +2620,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Invite USR-AUDITEE-FLY unavailable: USR-AUDITEE-FLY account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Invite USR-AUDITEE-FLY unavailable: USR-AUDITEE-FLY account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Invite USR-AUDITEE-FLY unavailable: USR-AUDITEE-FLY account provisioning and role chang...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2637,7 +2637,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Invite USR-ED-ZARA unavailable: USR-ED-ZARA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Invite USR-ED-ZARA unavailable: USR-ED-ZARA account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Invite USR-ED-ZARA unavailable: USR-ED-ZARA account provisioning and role changes are p...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2654,7 +2654,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Invite USR-FINANCE-LINA unavailable: USR-FINANCE-LINA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Invite USR-FINANCE-LINA unavailable: USR-FINANCE-LINA account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Invite USR-FINANCE-LINA unavailable: USR-FINANCE-LINA account provisioning and role cha...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2671,7 +2671,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Invite USR-GM-OMAR unavailable: USR-GM-OMAR account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Invite USR-GM-OMAR unavailable: USR-GM-OMAR account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Invite USR-GM-OMAR unavailable: USR-GM-OMAR account provisioning and role changes are p...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2688,7 +2688,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Invite USR-INSPECTOR-AMINA unavailable: USR-INSPECTOR-AMINA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Invite USR-INSPECTOR-AMINA unavailable: USR-INSPECTOR-AMINA account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Invite USR-INSPECTOR-AMINA unavailable: USR-INSPECTOR-AMINA account provisioning and ro...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2705,7 +2705,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Invite USR-INSPECTOR-DAVID unavailable: USR-INSPECTOR-DAVID account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Invite USR-INSPECTOR-DAVID unavailable: USR-INSPECTOR-DAVID account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Invite USR-INSPECTOR-DAVID unavailable: USR-INSPECTOR-DAVID account provisioning and ro...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2722,7 +2722,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Invite USR-LEAD-CANER unavailable: USR-LEAD-CANER account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Invite USR-LEAD-CANER unavailable: USR-LEAD-CANER account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Invite USR-LEAD-CANER unavailable: USR-LEAD-CANER account provisioning and role changes...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2739,7 +2739,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Invite USR-MANAGER-NORA unavailable: USR-MANAGER-NORA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Invite USR-MANAGER-NORA unavailable: USR-MANAGER-NORA account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Invite USR-MANAGER-NORA unavailable: USR-MANAGER-NORA account provisioning and role cha...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2756,7 +2756,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Manage MFA USR-ADMIN-ADA unavailable: USR-ADMIN-ADA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Manage MFA USR-ADMIN-ADA unavailable: USR-ADMIN-ADA account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Manage MFA USR-ADMIN-ADA unavailable: USR-ADMIN-ADA account provisioning and role chang...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2773,7 +2773,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Manage MFA USR-AUDITEE-FLY unavailable: USR-AUDITEE-FLY account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Manage MFA USR-AUDITEE-FLY unavailable: USR-AUDITEE-FLY account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Manage MFA USR-AUDITEE-FLY unavailable: USR-AUDITEE-FLY account provisioning and role c...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2790,7 +2790,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Manage MFA USR-ED-ZARA unavailable: USR-ED-ZARA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Manage MFA USR-ED-ZARA unavailable: USR-ED-ZARA account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Manage MFA USR-ED-ZARA unavailable: USR-ED-ZARA account provisioning and role changes a...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2807,7 +2807,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Manage MFA USR-FINANCE-LINA unavailable: USR-FINANCE-LINA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Manage MFA USR-FINANCE-LINA unavailable: USR-FINANCE-LINA account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Manage MFA USR-FINANCE-LINA unavailable: USR-FINANCE-LINA account provisioning and role...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2824,7 +2824,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Manage MFA USR-GM-OMAR unavailable: USR-GM-OMAR account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Manage MFA USR-GM-OMAR unavailable: USR-GM-OMAR account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Manage MFA USR-GM-OMAR unavailable: USR-GM-OMAR account provisioning and role changes a...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2841,7 +2841,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Manage MFA USR-INSPECTOR-AMINA unavailable: USR-INSPECTOR-AMINA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Manage MFA USR-INSPECTOR-AMINA unavailable: USR-INSPECTOR-AMINA account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Manage MFA USR-INSPECTOR-AMINA unavailable: USR-INSPECTOR-AMINA account provisioning an...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2858,7 +2858,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Manage MFA USR-INSPECTOR-DAVID unavailable: USR-INSPECTOR-DAVID account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Manage MFA USR-INSPECTOR-DAVID unavailable: USR-INSPECTOR-DAVID account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Manage MFA USR-INSPECTOR-DAVID unavailable: USR-INSPECTOR-DAVID account provisioning an...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2875,7 +2875,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Manage MFA USR-LEAD-CANER unavailable: USR-LEAD-CANER account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Manage MFA USR-LEAD-CANER unavailable: USR-LEAD-CANER account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Manage MFA USR-LEAD-CANER unavailable: USR-LEAD-CANER account provisioning and role cha...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -2892,7 +2892,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Manage MFA USR-MANAGER-NORA unavailable: USR-MANAGER-NORA account provisioning and role changes are production-only and require Plan 3 Keycloak administration.||1",
+      "controlKey": "route|BUTTON|button|Manage MFA USR-MANAGER-NORA unavailable: USR-MANAGER-NORA account provisioning and role changes are production-only and require configured identity-provider administration.||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Manage MFA USR-MANAGER-NORA unavailable: USR-MANAGER-NORA account provisioning and role...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -10160,7 +10160,7 @@
         "apps/web/tests/e2e/canonical-quick-tunnel-lifecycle.spec.ts",
         "scripts/test-canonical-preprod-fault-restart.sh"
       ],
-      "acceptedDifference": "The obsolete fixed-workspace local-full runner was retired after canonical cutover. The canonical task-owned profile now uses normal Keycloak OIDC and real local service adapters; it remains candidate-only and does not establish production readiness."
+      "acceptedDifference": "The obsolete fixed-workspace local-full runner and the retired provider were removed after first-party cutover. Every maintained local identity topology now uses first-party Go OIDC and real local service adapters; the result remains candidate-only and release pending without establishing production readiness."
     },
     {
       "id": "full-platform-mock-http-transcript-parity",

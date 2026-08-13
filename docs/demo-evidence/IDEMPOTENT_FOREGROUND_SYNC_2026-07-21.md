@@ -50,14 +50,14 @@ The expected browser `net::ERR_FAILED` record from the deliberate route abort is
 
 The following completed with exit code `0`:
 
-- `./scripts/test-http-profile.sh`: API/worker direct temporary binaries; full Go `-race` package and live PostgreSQL/Keycloak/MinIO integration suite; OpenAPI 5/5; SQLC clean generation; TypeScript; React/Vitest 16 files and 143/143 tests; demo and HTTP builds; HTTP artifact scan across 12 files and 86 inputs; live HTTP Backend contract 9/9; mock Playwright 1/1; HTTP Playwright 2/2; container/network/volume cleanup
+- `./scripts/test-http-profile.sh`: API/worker direct temporary binaries; full Go `-race` package and live PostgreSQL/OIDC-provider/MinIO integration suite; OpenAPI 5/5; SQLC clean generation; TypeScript; React/Vitest 16 files and 143/143 tests; demo and HTTP builds; HTTP artifact scan across 12 files and 86 inputs; live HTTP Backend contract 9/9; mock Playwright 1/1; HTTP Playwright 2/2; container/network/volume cleanup
 - Focused sync, field-repository, and attachment suites: 66/66 tests
 - `go vet ./...`
 - Root Vanilla JavaScript smoke suite: 103/103
 - `git diff --check`
 - Post-run checks: no Task-owned container, API/worker listener, Playwright, or test Chrome process remained
 
-The HTTP artifact remains free of mock, seed, and test-profile inputs. The deterministic scanner, local Keycloak, PostgreSQL, and MinIO-compatible object store are test infrastructure only.
+The HTTP artifact remains free of mock, seed, and test-profile inputs. The deterministic scanner, then-current local OIDC provider, PostgreSQL, and MinIO-compatible object store are test infrastructure only.
 
 ## Remaining Boundary
 

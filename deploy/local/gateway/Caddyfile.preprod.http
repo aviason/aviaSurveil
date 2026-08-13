@@ -37,8 +37,8 @@ import /etc/caddy/security-headers-http.caddy
 		}
 	}
 
-	handle /identity/* {
-		reverse_proxy preprod-keycloak:8080 {
+	handle_path /identity/* {
+		reverse_proxy preprod-auth:8080 {
 			header_up X-Forwarded-Proto {$AVIA_PREPROD_ORIGIN_SCHEME}
 		}
 	}

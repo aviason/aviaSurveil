@@ -119,7 +119,8 @@ func TestLocalPostgreSQLProfileIsPinnedAndSelfCleaning(t *testing.T) {
 	script := string(scriptContents)
 	for _, required := range []string{
 		"down --volumes", "trap cleanup EXIT", "go -C", "check-contracts.sh", "check-sqlc.sh",
-		"GOTMPDIR", "SHARED_GO_CACHE", "seed_task_go_cache", "cp -al", "test -race -p 1 -count=1 ./...",
+		"GOTMPDIR", "SHARED_GO_CACHE", "seed_task_go_cache", "cp -al", "API_RACE_PACKAGES",
+		"test-agaapplicability-race-shards.sh",
 		"build -tags canonicaltest -o \"${RUNTIME_DIRECTORY}/api\" ./cmd/api", "build -o \"${RUNTIME_DIRECTORY}/worker\" ./cmd/worker",
 		"exec \"${RUNTIME_DIRECTORY}/api\"", "exec \"${RUNTIME_DIRECTORY}/worker\"",
 		"test:contract:http", "test:e2e:mock", "test:e2e:http",

@@ -65,8 +65,8 @@ jq -n \
     shasum -a 256 "$repository_root/deploy/local/config/application.enc.yaml" |
       awk '{print $1}'
   )" \
-  --arg realmSourceSHA "$(
-    shasum -a 256 "$repository_root/deploy/local/keycloak/realm-source.json" |
+  --arg authSchemaSHA "$(
+    shasum -a 256 "$repository_root/apps/auth/migrations/000008_local_preprod_authority_admin.up.sql" |
       awk '{print $1}'
   )" \
   --arg backupPolicySHA "$(
@@ -85,8 +85,8 @@ jq -n \
           sha256: $applicationConfigSHA
         },
         {
-          reference: "deploy/local/keycloak/realm-source.json",
-          sha256: $realmSourceSHA
+          reference: "apps/auth/migrations/000008_local_preprod_authority_admin.up.sql",
+          sha256: $authSchemaSHA
         },
         {
           reference: "deploy/recovery/minio-backup-policy.json",
@@ -95,9 +95,9 @@ jq -n \
       ],
       secretReferences: [
         "app_database_password",
-        "keycloak_database_password",
+        "preprod_auth_database_password",
         "backup_repository_cipher_passphrase",
-        "oidc_client_secret",
+        "preprod_oidc_client_secret",
         "session_encryption_key"
       ]
     }

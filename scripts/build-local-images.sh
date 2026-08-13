@@ -12,7 +12,6 @@ chmod 0700 "$state_directory"
 node_build_image=$(jq -er '.images["node-build"].reference' "$image_lock")
 go_build_image=$(jq -er '.images["go-build"].reference' "$image_lock")
 go_runtime_image=$(jq -er '.images["go-runtime"].reference' "$image_lock")
-keycloak_image=$(jq -er '.images.keycloak.reference' "$image_lock")
 postgres_image=$(jq -er '.images.postgres.reference' "$image_lock")
 caddy_version=$(jq -er '.components.caddy.version' "$image_lock")
 grpc_version=$(jq -er '.components.grpc.version' "$image_lock")
@@ -80,9 +79,9 @@ build_image web-demo aviasurveil360/web-demo:local apps/web/Dockerfile demo \
 build_image web-http aviasurveil360/web-http:local apps/web/Dockerfile http \
   --build-arg "NODE_BUILD_IMAGE=$node_build_image" \
   --build-arg "GO_BUILD_IMAGE=$go_build_image" >>"$records_file"
-build_image keycloak aviasurveil360/keycloak:local deploy/local/keycloak/Dockerfile keycloak \
-  --build-arg "KEYCLOAK_IMAGE=$keycloak_image" \
-  --build-arg "NODE_BUILD_IMAGE=$node_build_image" >>"$records_file"
+build_image auth aviasurveil360/preprod-auth:local apps/auth/Dockerfile runtime \
+  --build-arg "GO_BUILD_IMAGE=$go_build_image" \
+  --build-arg "GO_RUNTIME_IMAGE=$go_runtime_image" >>"$records_file"
 build_image postgres-recovery aviasurveil360/postgres-recovery:local deploy/recovery/Dockerfile postgres-recovery \
   --build-arg "GO_BUILD_IMAGE=$go_build_image" \
   --build-arg "POSTGRES_IMAGE=$postgres_image" >>"$records_file"
@@ -90,7 +89,6 @@ build_image postgres-recovery aviasurveil360/postgres-recovery:local deploy/reco
 for specification in \
   "api|aviasurveil360/api:local|api" \
   "worker|aviasurveil360/worker:local|worker" \
-  "scheduler|aviasurveil360/scheduler:local|scheduler" \
   "migration|aviasurveil360/migration:local|migration"
 do
   image_name=${specification%%|*}
@@ -131,4 +129,4 @@ done <"$records_file"
 
 mv -f -- "$manifest_next" "$manifest_path"
 chmod 0600 "$manifest_path"
-echo "Built 9 local runtime images and recorded digest-bound evidence metadata."
+echo "Built 8 local runtime images and recorded digest-bound evidence metadata."

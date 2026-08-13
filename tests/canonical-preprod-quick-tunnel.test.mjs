@@ -20,8 +20,8 @@ test("canonical HTTPS remains the default and HTTP is an explicit isolated overr
   assert.match(canonical, /AVIA_PREPROD_ORIGIN_SCHEME="\$origin_scheme"/u);
   assert.match(
     canonical,
-    /compose up --detach --wait --wait-timeout 600 preprod-keycloak/u,
-    "Keycloak must keep its real readiness gate while allowing a cold optimized start",
+    /compose up --detach --wait --wait-timeout 300[\s\S]*?preprod-auth/u,
+    "the canonical profile must wait for the first-party auth service",
   );
   assert.doesNotMatch(canonical, /cloudflared|trycloudflare/u);
 
@@ -194,11 +194,10 @@ test("HTTP override accepts a random Quick Tunnel host and wires the public HTTP
   assert.match(override, /ports:\s*!override/u);
   assert.match(
     override,
-    /preprod-keycloak:[\s\S]*?ports:\s*!override\s*\[\]/u,
-    "the Quick Tunnel profile must not inherit Keycloak's direct host port",
+    /preprod-auth:[\s\S]*?healthcheck:/u,
+    "the Quick Tunnel profile must keep first-party auth internal",
   );
   assert.doesNotMatch(override, /published:\s*["']?58082/u);
-  assert.match(override, /--proxy-headers=xforwarded/u);
   assert.match(override, /AVIA_COOKIE_SECURE/u);
   assert.match(override, /AVIA_OIDC_ISSUER_URL/u);
   assert.match(override, /AVIA_OIDC_REDIRECT_URL/u);
@@ -222,7 +221,7 @@ test("HTTP override accepts a random Quick Tunnel host and wires the public HTTP
   assert.doesNotMatch(canonicalCaddy, /trycloudflare|:8085/u);
 });
 
-test("rendered HTTP Quick Tunnel config never publishes Keycloak directly", (t) => {
+test("rendered HTTP Quick Tunnel config never publishes the privileged provider directly", (t) => {
   const rendered = spawnSync(
     "docker",
     [
@@ -251,7 +250,6 @@ test("rendered HTTP Quick Tunnel config never publishes Keycloak directly", (t) 
         AVIA_PREPROD_TRANSPORT: "http",
         AVIA_PREPROD_HTTP_PORT: "18085",
         AVIA_PREPROD_WEB_ORIGIN: "https://fixture-quick-tunnel.trycloudflare.com",
-        AVIA_PREPROD_KEYCLOAK_PUBLIC_ORIGIN: "https://fixture-quick-tunnel.trycloudflare.com",
         AVIA_PREPROD_PUBLIC_HOST: "fixture-quick-tunnel.trycloudflare.com",
         AVIA_PREPROD_ORIGIN_SCHEME: "https",
         AVIA_PREPROD_PUBLIC_TLS: "true",
@@ -265,7 +263,7 @@ test("rendered HTTP Quick Tunnel config never publishes Keycloak directly", (t) 
   }
   assert.equal(rendered.status, 0, rendered.stderr);
   const config = JSON.parse(rendered.stdout);
-  assert.deepEqual(config.services["preprod-keycloak"].ports ?? [], []);
+  assert.deepEqual(config.services["preprod-auth"].ports ?? [], []);
   assert.equal(
     config.services["preprod-gateway"].ports?.[0]?.host_ip,
     "127.0.0.1",
@@ -335,7 +333,7 @@ test("canonical Quick Tunnel provisions the exact privacy-safe multi-role login 
   const canonicalStart = read("scripts/start-canonical-preprod.sh");
   const status = read("scripts/status-canonical-preprod-cloudflare.sh");
 
-  assert.equal(fixture.schemaVersion, "canonical-preprod-demo-identities/v1");
+  assert.equal(fixture.schemaVersion, "canonical-preprod-demo-identities/v2");
   assert.equal(fixture.users.length, 9);
   assert.deepEqual(
     fixture.users.map((user) => user.role).sort(),
@@ -362,8 +360,8 @@ test("canonical Quick Tunnel provisions the exact privacy-safe multi-role login 
     assert.doesNotMatch(JSON.stringify(user), /password|secret|token/iu);
   }
 
-  assert.match(identityLoader, /EnsureProviderAccount/u);
-  assert.match(identityLoader, /QualifyExistingProviderAccounts/u);
+  assert.match(identityLoader, /ProvisionUserAtRevision/u);
+  assert.match(identityLoader, /ensureProviderUser/u);
   assert.match(identityLoader, /user_lifecycle_requests/u);
   assert.match(identityLoader, /desired_membership_versions/u);
   assert.match(identityLoader, /desired_membership_sync/u);

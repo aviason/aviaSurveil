@@ -39,7 +39,7 @@ The behavior ledger is version 3 with 15 executable entries: the eight role entr
 
 The following completed with exit code `0`:
 
-- `./scripts/test-http-profile.sh`: direct API/worker builds; full Go `-race` package and live PostgreSQL/Keycloak/MinIO integration suite including migration v6 and retained N-1 upgrade; OpenAPI 6/6; clean SQLC regeneration; TypeScript; React/Vitest 16 files and 146/146 tests; demo and HTTP builds; HTTP artifact scan across 12 files and 89 inputs; live HTTP Backend contract 11/11; mock Playwright 4/4; HTTP Playwright 5/5; container/network/volume cleanup
+- `./scripts/test-http-profile.sh`: direct API/worker builds; full Go `-race` package and live PostgreSQL/OIDC-provider/MinIO integration suite including migration v6 and retained N-1 upgrade; OpenAPI 6/6; clean SQLC regeneration; TypeScript; React/Vitest 16 files and 146/146 tests; demo and HTTP builds; HTTP artifact scan across 12 files and 89 inputs; live HTTP Backend contract 11/11; mock Playwright 4/4; HTTP Playwright 5/5; container/network/volume cleanup
 - Focused mock Backend contract: 11/11
 - Focused router and Backend tests: 14/14
 - Focused fake-fetch `HttpBackend` mapper tests: 7/7

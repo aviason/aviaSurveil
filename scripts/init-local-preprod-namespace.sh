@@ -6,11 +6,7 @@ umask 077
 repository_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 state_directory=${AVIA_PREPROD_STATE_DIR:-"$repository_root/.local/aviasurveil360-preprod"}
 secret_directory="$state_directory/secrets"
-keycloak_directory="$state_directory/keycloak"
 control_store_directory="$state_directory/control-store"
-realm_builder="$repository_root/deploy/local/keycloak/build-realm.mjs"
-realm_source="$repository_root/deploy/local/keycloak/realm-source.json"
-runtime_realm="$keycloak_directory/realm.json"
 namespace_record="$state_directory/namespace.json"
 
 if [ "$#" -ne 0 ]; then
@@ -22,9 +18,17 @@ secret_files="
 preprod_app_database_password
 preprod_normal_api_database_password
 preprod_canonical_demo_oidc_qualification_password
-preprod_keycloak_bootstrap_admin_password
-preprod_keycloak_database_password
-preprod_keycloak_service_client_secret
+preprod_auth_database_password
+preprod_auth_database_url
+preprod_auth_signing_key
+preprod_auth_data_encryption_key
+preprod_auth_mfa_key
+preprod_auth_admin_secret
+preprod_auth_smtp_password
+preprod_auth_smtp_auth_file
+preprod_auth_mailpit_key
+preprod_auth_mailpit_cert
+preprod_auth_mailpit_ca
 preprod_session_encryption_key
 preprod_data_feed_payload_key
 preprod_minio_api_access_key
@@ -45,14 +49,13 @@ for filename in $secret_files; do
     exit 1
   fi
 done
-if [ -e "$runtime_realm" ] || [ -e "$namespace_record" ]; then
+if [ -e "$namespace_record" ]; then
   echo "local-preprod namespace exists; initializer is create-only" >&2
   exit 1
 fi
 
 mkdir -p \
   "$secret_directory" \
-  "$keycloak_directory" \
   "$control_store_directory/intents" \
   "$control_store_directory/results" \
   "$control_store_directory/checkpoints" \
@@ -61,7 +64,6 @@ mkdir -p \
 chmod 0700 \
   "$state_directory" \
   "$secret_directory" \
-  "$keycloak_directory" \
   "$control_store_directory" \
   "$control_store_directory/intents" \
   "$control_store_directory/results" \
@@ -79,6 +81,38 @@ chmod 0700 "$temporary_directory"
 
 for filename in $secret_files; do
   case "$filename" in
+    preprod_auth_database_url)
+      auth_database_password=$(tr -d '\r\n' <"$temporary_directory/preprod_auth_database_password")
+      printf 'postgres://auth_preprod:%s@preprod-auth-postgres:5432/auth_local_preprod?sslmode=disable\n' "$auth_database_password" >"$temporary_directory/$filename"
+      unset auth_database_password
+      ;;
+    preprod_auth_database_password | preprod_auth_smtp_password | preprod_auth_admin_secret | preprod_oidc_client_secret | preprod_smtp_password)
+      openssl rand -hex 32 >"$temporary_directory/$filename"
+      ;;
+    preprod_auth_data_encryption_key | preprod_auth_mfa_key)
+      openssl rand 32 >"$temporary_directory/$filename"
+      ;;
+    preprod_auth_signing_key)
+      openssl genrsa 2048 >"$temporary_directory/$filename" 2>/dev/null
+      ;;
+    preprod_auth_smtp_auth_file)
+      smtp_password_value=$(tr -d '\r\n' <"$temporary_directory/preprod_auth_smtp_password")
+      printf 'aviasurveil360-auth-preprod:%s\n' "$smtp_password_value" >"$temporary_directory/$filename"
+      unset smtp_password_value
+      ;;
+    preprod_auth_mailpit_key)
+      openssl genrsa 2048 >"$temporary_directory/$filename" 2>/dev/null
+      ;;
+    preprod_auth_mailpit_cert)
+      openssl req -x509 -new -sha256 -days 1 \
+        -key "$temporary_directory/preprod_auth_mailpit_key" \
+        -out "$temporary_directory/$filename" \
+        -subj '/CN=preprod-auth-mailpit' \
+        -addext 'subjectAltName=DNS:preprod-auth-mailpit' 2>/dev/null
+      ;;
+    preprod_auth_mailpit_ca)
+      cp "$temporary_directory/preprod_auth_mailpit_cert" "$temporary_directory/$filename"
+      ;;
     preprod_smtp_auth_file)
       smtp_password_value=$(tr -d '\r\n' <"$temporary_directory/preprod_smtp_password")
       printf 'aviasurveil360-preprod:%s\n' "$smtp_password_value" >"$temporary_directory/$filename"
@@ -100,46 +134,35 @@ for filename in $secret_files; do
       openssl rand -hex 32 >"$temporary_directory/$filename"
       ;;
   esac
-  chmod 0600 "$temporary_directory/$filename"
+  chmod 0400 "$temporary_directory/$filename"
 done
-
-node "$realm_builder" \
-  --source "$realm_source" \
-  --output "$temporary_directory/realm.json" \
-  --client-secret-file "$temporary_directory/preprod_oidc_client_secret" \
-  --service-client-secret-file "$temporary_directory/preprod_keycloak_service_client_secret" \
-  --smtp-password-file "$temporary_directory/preprod_smtp_password" \
-  --realm-name aviasurveil360-local-preprod \
-  --web-client-id aviasurveil360-local-preprod-web \
-  --service-client-id aviasurveil360-local-preprod-lifecycle \
-  --public-origin "${AVIA_PREPROD_WEB_ORIGIN:-https://localhost:8445}" \
-  --smtp-host preprod-mailpit \
-  --smtp-user aviasurveil360-preprod
 
 printf '%s\n' \
   '{' \
-  '  "schemaVersion": "preprod-namespace/v1",' \
+  '  "schemaVersion": "preprod-namespace/v2",' \
   '  "environment": "local-preprod",' \
+  '  "identityProvider": "first-party",' \
   '  "databaseName": "aviasurveil360_local_preprod",' \
   '  "databaseOwner": "aviasurveil360_preprod_loader",' \
+  '  "authDatabaseName": "auth_local_preprod",' \
+  '  "authDatabaseRole": "auth_preprod",' \
+  '  "authAdminAddress": "http://preprod-auth:8081",' \
+  '  "publicIssuerPath": "/identity",' \
   '  "composeProject": "aviasurveil360-local-preprod",' \
-  '  "keycloakRealm": "aviasurveil360-local-preprod",' \
-  '  "keycloakDatabase": "keycloak_local_preprod",' \
-  '  "keycloakServiceClientId": "aviasurveil360-local-preprod-lifecycle",' \
   '  "mailpitNamespace": "aviasurveil360-local-preprod",' \
+  '  "authMailpitNamespace": "aviasurveil360-local-preprod-auth",' \
   '  "objectBucket": "aviasurveil360-local-preprod",' \
   '  "objectPrefixPolicy": "runs/{runId}/",' \
   '  "loaderQueueNamespace": "aviasurveil360-local-preprod",' \
   '  "controlStore": "outside-disposable-target",' \
-  '  "operationAuthorization": "separate-ephemeral-0600-file-required"' \
+  '  "operationAuthorization": "separate-ephemeral-0400-file-required"' \
   '}' >"$temporary_directory/namespace.json"
-chmod 0600 "$temporary_directory/realm.json" "$temporary_directory/namespace.json"
+chmod 0400 "$temporary_directory/namespace.json"
 
 for filename in $secret_files; do
   mv -- "$temporary_directory/$filename" "$secret_directory/$filename"
 done
-mv -- "$temporary_directory/realm.json" "$runtime_realm"
 mv -- "$temporary_directory/namespace.json" "$namespace_record"
-chmod 0600 "$runtime_realm" "$namespace_record"
+chmod 0400 "$namespace_record"
 
-echo "Local-preprod namespace initialized under $state_directory"
+echo "Local-preprod first-party identity namespace initialized under $state_directory"

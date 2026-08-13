@@ -48,6 +48,9 @@ var (
 	ErrInvitationExpired            = errors.New("invitation expired")
 	ErrInvitationNotFound           = errors.New("invitation not found")
 	ErrSessionRevocationUnavailable = errors.New("provider session revocation unavailable")
+	ErrProviderNotFound             = errors.New("provider account not found")
+	ErrProviderRevisionConflict     = errors.New("provider membership revision conflict")
+	ErrInvalidRecovery              = errors.New("recovery operation is invalid")
 )
 
 var usernamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{2,63}$`)
@@ -117,6 +120,42 @@ type AccountSnapshot struct {
 	LockedUntil    time.Time
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
+}
+
+// ProviderAuthority is the first-party provider's current, application-owned
+// authority projection. auth_revision belongs to the account security state;
+// membership_revision belongs only to the application authority contract.
+type ProviderAuthority struct {
+	SubjectID          string
+	Email              string
+	DisplayName        string
+	GivenName          string
+	FamilyName         string
+	EmailVerified      bool
+	State              string
+	MembershipID       string
+	OrganizationID     string
+	Role               string
+	MembershipRevision int64
+	AuthRevision       uint64
+	MFAEnrolled        bool
+	Locked             bool
+	UpdatedAt          time.Time
+}
+
+type ProviderAuthorityInput struct {
+	MembershipID      string
+	OrganizationID    string
+	Role              string
+	State             string
+	ExpectedRevision  int64
+	ResultingRevision int64
+}
+
+type ProviderProfileInput struct {
+	DisplayName string
+	GivenName   string
+	FamilyName  string
 }
 
 type InvitationSnapshot struct {

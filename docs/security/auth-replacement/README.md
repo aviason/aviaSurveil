@@ -1,32 +1,18 @@
-# Authentication Replacement Security Package
+# Authentication Replacement
 
-This package keeps the first-party source evidence separate from derived design
-and implementation planning.
+The repository now maintains one identity implementation: the first-party Go
+OIDC service in `apps/auth`.
 
-- [`evidence/2026-08-11-first-party-auth-export/IMPORT_RECEIPT.md`](evidence/2026-08-11-first-party-auth-export/IMPORT_RECEIPT.md)
-  records ownership, integrity, and the first candidate-only use boundary.
-- [`evidence/2026-08-11-kindred-auth-export/IMPORT_RECEIPT.md`](evidence/2026-08-11-kindred-auth-export/IMPORT_RECEIPT.md)
-  records integrity, classification, and the use boundary for the second
-  owner-provided auth/JWT/session export.
-- [`evidence/2026-08-11-oidc-library-spike/RESULTS.md`](evidence/2026-08-11-oidc-library-spike/RESULTS.md)
-  records the primary-source Task 1 comparison, ARM64 disposable spikes, and
-  the dated owner authorization of Option A (`zitadel/oidc` v3.47.5,
-  `fb9fbfe`). Tasks 2–10 candidate evidence is retained beside it.
-- [`evidence/2026-08-11-oidc-library-spike/CONTRACTS.md`](evidence/2026-08-11-oidc-library-spike/CONTRACTS.md)
-  freezes provider-neutral boundaries and the `AS360-AUTH-001` through
-  `AS360-AUTH-030` test map without selecting a library.
-- [`hardening/source-comparison.md`](hardening/source-comparison.md) selects the
-  reusable concepts and adds source-derived regression contracts without
-  importing either candidate runtime.
-- [`hardening/hardening.md`](hardening/hardening.md) presents the reviewed
-  architecture options and recommendation.
-- [`hardening/proposals/first-party-identity-boundary.md`](hardening/proposals/first-party-identity-boundary.md)
-  contains the complete security and engineering tradeoff analysis.
-- [`hardening/implementation/separate-go-oidc-provider.md`](hardening/implementation/separate-go-oidc-provider.md)
-  hands the selected design to the active ExecPlan.
-- [`../../exec-plans/active/2026-08-11-first-party-go-oidc-auth-replacement-plan.md`](../../exec-plans/active/2026-08-11-first-party-go-oidc-auth-replacement-plan.md)
-  controls implementation and verification.
+Current authorities:
 
-The retained exports are not part of any runtime build. Keycloak remains the
-active identity provider until the ExecPlan's cutover gates and separate exact
-authorizations are complete.
+- [First-Party Go OIDC Authentication And Repository-Local Provider Retirement](../../exec-plans/active/2026-08-11-first-party-go-oidc-auth-replacement-plan.md)
+  controls implementation, retirement, and final verification.
+- [Task 11 cutover and local-retirement evidence](evidence/2026-08-11-oidc-library-spike/TASK11_LOCAL_PREPROD_CUTOVER.md)
+  records the canonical disposable topology and the later owner-authorized
+  repository-local retirement.
+
+Obsolete source exports, comparison spikes, hardening alternatives, rollback
+baselines, and pre-cutover evidence were removed by explicit owner direction.
+The maintained result is `candidate-only` and `release pending`. No remote,
+deployment, traffic, production-secret, or real-user action is authorized by
+this package.

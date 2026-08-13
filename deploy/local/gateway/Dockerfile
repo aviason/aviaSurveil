@@ -31,16 +31,3 @@ COPY deploy/local/gateway/security-headers-http.caddy /etc/caddy/security-header
 USER 1000:1000
 EXPOSE 8443
 ENTRYPOINT ["/caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
-
-FROM scratch AS aws-private-pilot-gateway
-ENV XDG_CONFIG_HOME=/config
-ENV XDG_DATA_HOME=/data
-COPY --from=gateway-build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-COPY --from=gateway-build /out/caddy /caddy
-COPY --from=gateway-build /out/healthcheck /healthcheck
-COPY --from=gateway-build --chown=1000:1000 /runtime/data /data
-COPY --from=gateway-build --chown=1000:1000 /runtime/config /config
-COPY deploy/aws-private-pilot/gateway/Caddyfile /etc/caddy/Caddyfile
-USER 1000:1000
-EXPOSE 8080
-ENTRYPOINT ["/caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]

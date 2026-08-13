@@ -128,4 +128,4 @@ done
 node "$policy_tool" validate-image-evidence "$manifest_next"
 mv -f -- "$manifest_next" "$manifest_path"
 chmod 0600 "$manifest_path"
-echo "All 9 local image digests passed the HIGH/CRITICAL vulnerability gate."
+echo "All 8 local image digests passed the HIGH/CRITICAL vulnerability gate."

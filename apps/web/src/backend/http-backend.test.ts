@@ -1245,7 +1245,7 @@ describe("HttpBackend", () => {
       .toBe(assistantBody.idempotencyKey);
   });
 
-  it("requests and reconciles Keycloak user provisioning through the exact admin transport", async () => {
+  it("requests and reconciles provider user provisioning through the exact admin transport", async () => {
     const pending = {
       id: "user-lifecycle-001",
       subjectId: null,

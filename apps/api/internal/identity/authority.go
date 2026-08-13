@@ -13,14 +13,18 @@ var ErrInvalidApplicationAuthority = errors.New(
 )
 
 type AuthorityObservation struct {
-	SubjectID       string
-	Enabled         bool
-	Locked          bool
-	OrganizationID  string
-	Roles           []Role
-	RequiredActions []string
-	MFAEnrolled     bool
-	ObservedAt      time.Time
+	SubjectID          string
+	Enabled            bool
+	Locked             bool
+	OrganizationID     string
+	Roles              []Role
+	RequiredActions    []string
+	MFAEnrolled        bool
+	State              string
+	MembershipID       string
+	MembershipRevision int64
+	AuthRevision       uint64
+	ObservedAt         time.Time
 }
 
 type AuthorityObserver interface {

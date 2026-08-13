@@ -461,7 +461,7 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 	}
 
 	provider := &lifecycleIdentityProvider{
-		provisionedSubjectID: "keycloak-subject-001",
+		provisionedSubjectID: "provider-subject-001",
 	}
 	worker := administration.NewUserLifecycleWorker(
 		pool,
@@ -500,7 +500,7 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 		t.Fatalf("read completed provisioning request: %v", err)
 	}
 	if lifecycleStatus != "SUCCEEDED" ||
-		lifecycleSubject != "keycloak-subject-001" ||
+		lifecycleSubject != "provider-subject-001" ||
 		lifecycleEmail != "new.auditee@example.test" {
 		t.Fatalf(
 			"completed provisioning = status %q subject %q email %q",
@@ -515,7 +515,7 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 		FROM identity_references identity
 		JOIN user_profiles profile ON profile.subject_id = identity.subject_id
 		JOIN user_settings settings ON settings.subject_id = identity.subject_id
-		WHERE identity.subject_id = 'keycloak-subject-001'
+		WHERE identity.subject_id = 'provider-subject-001'
 	`).Scan(&issuer, &displayName, &organizationID); err != nil {
 		t.Fatalf("read provisioned identity projection: %v", err)
 	}
@@ -535,7 +535,7 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 	if err := pool.QueryRow(context.Background(), `
 		SELECT revision, membership_state, organization_id, roles, drift_state
 		FROM desired_membership_versions
-		WHERE subject_id = 'keycloak-subject-001'
+		WHERE subject_id = 'provider-subject-001'
 		ORDER BY revision DESC
 		LIMIT 1
 	`).Scan(
@@ -564,14 +564,14 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 	if _, err := pool.Exec(context.Background(), `
 		UPDATE desired_membership_versions
 		SET membership_state = 'SUSPENDED'
-		WHERE subject_id = 'keycloak-subject-001'
+		WHERE subject_id = 'provider-subject-001'
 		  AND revision = 1
 	`); err == nil {
 		t.Fatal("desired membership history accepted an in-place rewrite")
 	}
 	if _, err := pool.Exec(context.Background(), `
 		DELETE FROM desired_membership_versions
-		WHERE subject_id = 'keycloak-subject-001'
+		WHERE subject_id = 'provider-subject-001'
 		  AND revision = 1
 	`); err == nil {
 		t.Fatal("desired membership history accepted deletion")
@@ -600,7 +600,7 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 		t.Fatalf("provisioning success audit count = %d", successAuditCount)
 	}
 	if len(provider.executeActions) != 1 ||
-		provider.executeActions[0].subjectID != "keycloak-subject-001" ||
+		provider.executeActions[0].subjectID != "provider-subject-001" ||
 		!slices.Equal(
 			provider.executeActions[0].actions,
 			[]string{"UPDATE_PASSWORD", "VERIFY_EMAIL"},
@@ -624,7 +624,7 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 	}
 	if err := userService.ReconcileActivatedMembership(
 		context.Background(),
-		"keycloak-subject-001",
+		"provider-subject-001",
 		1,
 		nil,
 		false,
@@ -634,7 +634,7 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 	if err := pool.QueryRow(context.Background(), `
 		SELECT revision, membership_state
 		FROM desired_membership_versions
-		WHERE subject_id = 'keycloak-subject-001'
+		WHERE subject_id = 'provider-subject-001'
 		ORDER BY revision DESC
 		LIMIT 1
 	`).Scan(&membershipRevision, &membershipState); err != nil {
@@ -670,7 +670,7 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 			id, subject_id, organization_id, expires_at, last_seen_at,
 			absolute_expires_at, roles
 		) VALUES (
-			'session-keycloak-subject-001', 'keycloak-subject-001',
+			'session-provider-subject-001', 'provider-subject-001',
 			'airline-xyz', $1, $2, $1, ARRAY['auditee']
 		)
 	`, canonicalNow.Add(24*time.Hour), canonicalNow); err != nil {
@@ -682,7 +682,7 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 		administration.RequestUserLifecycleCommand{
 			OperationID:                "op-user-suspend-worker-001",
 			IdempotencyKey:             "idem-user-suspend-worker-001",
-			SubjectID:                  "keycloak-subject-001",
+			SubjectID:                  "provider-subject-001",
 			Action:                     administration.UserLifecycleSuspend,
 			OrganizationID:             "airline-xyz",
 			Roles:                      []identity.Role{identity.RoleAuditee},
@@ -697,14 +697,14 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 	if err != nil || !processed {
 		t.Fatalf("process suspension = %t, err = %v", processed, err)
 	}
-	if !slices.Equal(provider.disabledSubjects, []string{"keycloak-subject-001"}) {
+	if !slices.Equal(provider.disabledSubjects, []string{"provider-subject-001"}) {
 		t.Fatalf("provider disabled subjects = %#v", provider.disabledSubjects)
 	}
 	var revokedAt *time.Time
 	if err := pool.QueryRow(context.Background(), `
 		SELECT revoked_at
 		FROM session_references
-		WHERE id = 'session-keycloak-subject-001'
+		WHERE id = 'session-provider-subject-001'
 	`).Scan(&revokedAt); err != nil {
 		t.Fatalf("read suspended session: %v", err)
 	}
@@ -733,7 +733,7 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 		JOIN desired_membership_sync sync
 		  ON sync.membership_id = version.membership_id
 		 AND sync.desired_revision = version.revision
-		WHERE version.subject_id = 'keycloak-subject-001'
+		WHERE version.subject_id = 'provider-subject-001'
 		ORDER BY version.revision DESC
 		LIMIT 1
 	`).Scan(
@@ -791,7 +791,7 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 		administration.RequestUserLifecycleCommand{
 			OperationID:                "op-user-reactivate-worker-001",
 			IdempotencyKey:             "idem-user-reactivate-worker-001",
-			SubjectID:                  "keycloak-subject-001",
+			SubjectID:                  "provider-subject-001",
 			Action:                     administration.UserLifecycleReactivate,
 			OrganizationID:             "airline-xyz",
 			Roles:                      []identity.Role{identity.RoleAuditee},
@@ -804,7 +804,7 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 		administration.RequestUserLifecycleCommand{
 			OperationID:                "op-user-resend-worker-001",
 			IdempotencyKey:             "idem-user-resend-worker-001",
-			SubjectID:                  "keycloak-subject-001",
+			SubjectID:                  "provider-subject-001",
 			Action:                     administration.UserLifecycleResendInvitation,
 			OrganizationID:             "airline-xyz",
 			Roles:                      []identity.Role{identity.RoleAuditee},
@@ -824,7 +824,7 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 					"idem-user-resend-worker-%03d",
 					resendNumber,
 				),
-				SubjectID:      "keycloak-subject-001",
+				SubjectID:      "provider-subject-001",
 				Action:         administration.UserLifecycleResendInvitation,
 				OrganizationID: "airline-xyz",
 				Roles:          []identity.Role{identity.RoleAuditee},
@@ -842,7 +842,7 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 		administration.RequestUserLifecycleCommand{
 			OperationID:                "op-user-resend-worker-004",
 			IdempotencyKey:             "idem-user-resend-worker-004",
-			SubjectID:                  "keycloak-subject-001",
+			SubjectID:                  "provider-subject-001",
 			Action:                     administration.UserLifecycleResendInvitation,
 			OrganizationID:             "airline-xyz",
 			Roles:                      []identity.Role{identity.RoleAuditee},
@@ -898,7 +898,7 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 		administration.RequestUserLifecycleCommand{
 			OperationID:                "op-user-recovery-worker-001",
 			IdempotencyKey:             "idem-user-recovery-worker-001",
-			SubjectID:                  "keycloak-subject-001",
+			SubjectID:                  "provider-subject-001",
 			Action:                     administration.UserLifecycleResetPassword,
 			OrganizationID:             "airline-xyz",
 			Roles:                      []identity.Role{identity.RoleAuditee},
@@ -911,7 +911,7 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 		administration.RequestUserLifecycleCommand{
 			OperationID:                "op-user-reset-mfa-worker-001",
 			IdempotencyKey:             "idem-user-reset-mfa-worker-001",
-			SubjectID:                  "keycloak-subject-001",
+			SubjectID:                  "provider-subject-001",
 			Action:                     administration.UserLifecycleResetMFA,
 			OrganizationID:             "airline-xyz",
 			Roles:                      []identity.Role{identity.RoleAuditee},
@@ -924,7 +924,7 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 		administration.RequestUserLifecycleCommand{
 			OperationID:                "op-user-force-logout-worker-001",
 			IdempotencyKey:             "idem-user-force-logout-worker-001",
-			SubjectID:                  "keycloak-subject-001",
+			SubjectID:                  "provider-subject-001",
 			Action:                     administration.UserLifecycleForceLogout,
 			OrganizationID:             "airline-xyz",
 			Roles:                      []identity.Role{identity.RoleAuditee},
@@ -937,7 +937,7 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 		administration.RequestUserLifecycleCommand{
 			OperationID:                "op-user-update-role-worker-001",
 			IdempotencyKey:             "idem-user-update-role-worker-001",
-			SubjectID:                  "keycloak-subject-001",
+			SubjectID:                  "provider-subject-001",
 			Action:                     administration.UserLifecycleUpdateRoles,
 			OrganizationID:             "airline-xyz",
 			Roles:                      []identity.Role{identity.RoleAuditee},
@@ -952,7 +952,7 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 		administration.RequestUserLifecycleCommand{
 			OperationID:                "op-user-transfer-worker-001",
 			IdempotencyKey:             "idem-user-transfer-worker-001",
-			SubjectID:                  "keycloak-subject-001",
+			SubjectID:                  "provider-subject-001",
 			Action:                     administration.UserLifecycleTransferOrganization,
 			OrganizationID:             "airline-other",
 			Roles:                      []identity.Role{identity.RoleAuditee},
@@ -1009,7 +1009,7 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 		administration.RequestUserLifecycleCommand{
 			OperationID:                "op-user-deactivate-worker-001",
 			IdempotencyKey:             "idem-user-deactivate-worker-001",
-			SubjectID:                  "keycloak-subject-001",
+			SubjectID:                  "provider-subject-001",
 			Action:                     administration.UserLifecycleDeactivate,
 			OrganizationID:             "airline-other",
 			Roles:                      []identity.Role{identity.RoleAuditee},
@@ -1035,7 +1035,7 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 		JOIN user_profiles profile ON profile.subject_id = membership.subject_id
 		JOIN identity_references identity
 		  ON identity.subject_id = membership.subject_id
-		WHERE membership.subject_id = 'keycloak-subject-001'
+		WHERE membership.subject_id = 'provider-subject-001'
 		ORDER BY membership.revision DESC
 		LIMIT 1
 	`).Scan(
@@ -1093,8 +1093,8 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 	if err != nil {
 		t.Fatalf("request recovered provisioning: %v", err)
 	}
-	provider.provisionError = identity.ErrKeycloakDuplicateEmail
-	provider.reconciledSubjectID = "keycloak-subject-recovered-001"
+	provider.provisionError = identity.ErrProviderDuplicateEmail
+	provider.reconciledSubjectID = "provider-subject-recovered-001"
 	provider.reconcileMatched = true
 	processed, err = worker.ProcessNext(context.Background())
 	if err != nil || !processed {
@@ -1112,7 +1112,7 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 		t.Fatalf("read reconciled provisioning request: %v", err)
 	}
 	if recoveredStatus != "SUCCEEDED" ||
-		recoveredSubject != "keycloak-subject-recovered-001" {
+		recoveredSubject != "provider-subject-recovered-001" {
 		t.Fatalf(
 			"reconciled provisioning = status %q subject %q",
 			recoveredStatus,
@@ -1147,7 +1147,7 @@ func TestUserLifecycleWorkerPersistsProviderSubjectAndDisablesProviderSessions(t
 	if err := pool.QueryRow(context.Background(), `
 		SELECT state
 		FROM identity_action_facts
-		WHERE subject_id = 'keycloak-subject-recovered-001'
+		WHERE subject_id = 'provider-subject-recovered-001'
 		  AND action_kind = 'INVITATION'
 		ORDER BY created_at DESC, fact_sequence DESC
 		LIMIT 1

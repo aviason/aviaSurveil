@@ -183,7 +183,7 @@ func boundedJobKind(value string) string {
 
 func boundedAdapter(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "clamav", "mailpit", "native-pdf", "keycloak", "postgresql":
+	case "clamav", "mailpit", "native-pdf", "postgresql":
 		return strings.ToLower(strings.TrimSpace(value))
 	default:
 		return "other"

@@ -28,7 +28,7 @@ test("milestone-1 Compose contains exactly cloudflared, internal gateway, and we
   const compose = read(composePath);
   assert.match(compose, /^services:\n/mu);
   for (const service of ["cloudflared", "gateway", "web-demo"]) assert.match(compose, new RegExp(`^  ${service}:`, "mu"));
-  assert.doesNotMatch(compose, /^  (?:api|worker|scheduler|keycloak|postgres|clamav|minio|gotenberg|mailpit):/mu);
+  assert.doesNotMatch(compose, /^  (?:api|auth|worker|scheduler|postgres|clamav|minio|gotenberg|mailpit):/mu);
   assert.match(compose, /trial-internal:\n\s+driver: bridge\n\s+internal: true/u);
   assert.match(compose, /TUNNEL_EDGE_IP_VERSION:\s*["']?6/u);
   assert.match(compose, /--token-file[\s\S]*\/run\/secrets\/tunnel-token/u);
