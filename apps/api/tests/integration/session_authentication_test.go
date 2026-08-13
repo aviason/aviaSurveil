@@ -3,6 +3,8 @@ package integration_test
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"strings"
@@ -229,20 +231,32 @@ func TestSessionManagerInjectsOnlyCurrentEffectiveDepartmentAssignments(t *testi
 
 func TestOIDCLoginStateIsOneTimeHashedAndRejectsUnsafeReturnTargets(t *testing.T) {
 	pool := canonicalDatabase(t, "oidc_login_state")
+	randomCall := byte(6)
 	manager, err := session.NewManager(pool, []byte("0123456789abcdef0123456789abcdef"), session.ManagerDependencies{
 		Clock:       func() time.Time { return canonicalNow },
 		IDGenerator: func(prefix string) string { return prefix + "-login-001" },
-		RandomBytes: func(size int) ([]byte, error) { return bytes.Repeat([]byte{7}, size), nil },
+		RandomBytes: func(size int) ([]byte, error) {
+			randomCall++
+			return bytes.Repeat([]byte{randomCall}, size), nil
+		},
 	})
 	if err != nil {
 		t.Fatalf("new session manager: %v", err)
 	}
-	request, err := manager.NewLoginState(context.Background(), "https://attacker.example/phish")
+	request, err := manager.NewLoginState(context.Background(), "https://attacker.example/phish", "")
 	if err != nil {
 		t.Fatalf("new login state: %v", err)
 	}
 	if request.ReturnTo != "/" || request.State == "" || request.Nonce == "" || request.PKCEChallenge == "" {
 		t.Fatalf("login request = %+v", request)
+	}
+	forgedBinding := base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{8}, 32)) + "." + base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{9}, sha256.Size))
+	forgedRequest, err := manager.NewLoginState(context.Background(), "/", forgedBinding)
+	if err != nil {
+		t.Fatalf("forged binding login state: %v", err)
+	}
+	if !forgedRequest.SetBrowserBinding || forgedRequest.BrowserBinding == forgedBinding {
+		t.Fatalf("forged binding was accepted as server-issued: %+v", forgedRequest)
 	}
 	var storedState string
 	if err := pool.QueryRow(context.Background(), "SELECT state_hash FROM oidc_login_states").Scan(&storedState); err != nil {
@@ -251,14 +265,75 @@ func TestOIDCLoginStateIsOneTimeHashedAndRejectsUnsafeReturnTargets(t *testing.T
 	if storedState == request.State {
 		t.Fatal("raw OIDC state was persisted")
 	}
-	consumed, err := manager.ConsumeLoginState(context.Background(), request.State)
+	if _, err := manager.ConsumeLoginState(context.Background(), request.State, "wrong-binding"); !errors.Is(err, session.ErrUnauthenticated) {
+		t.Fatalf("wrong OIDC browser binding error = %v", err)
+	}
+	consumed, err := manager.ConsumeLoginState(context.Background(), request.State, request.BrowserBinding)
 	if err != nil {
 		t.Fatalf("consume login state: %v", err)
 	}
 	if consumed.Nonce != request.Nonce || consumed.PKCEVerifier == "" || consumed.ReturnTo != "/" {
 		t.Fatalf("consumed state = %+v", consumed)
 	}
-	if _, err := manager.ConsumeLoginState(context.Background(), request.State); !errors.Is(err, session.ErrUnauthenticated) {
+	if _, err := manager.ConsumeLoginState(context.Background(), request.State, request.BrowserBinding); !errors.Is(err, session.ErrUnauthenticated) {
 		t.Fatalf("replayed OIDC state error = %v", err)
+	}
+}
+
+func TestOIDCLoginAdmissionReservesBoundCapacityAtConfiguredBurstAndReleasesConsumedState(t *testing.T) {
+	pool := canonicalDatabase(t, "oidc_login_admission")
+	policy := session.LoginAdmissionPolicy{
+		Window:                    time.Minute,
+		GlobalLimit:               600,
+		BrowserLimit:              100,
+		OutstandingLimit:          100,
+		BootstrapOutstandingLimit: 20,
+	}
+	manager, err := session.NewManager(pool, []byte("0123456789abcdef0123456789abcdef"), session.ManagerDependencies{
+		Clock:                func() time.Time { return canonicalNow },
+		LoginAdmissionPolicy: policy,
+	})
+	if err != nil {
+		t.Fatalf("new session manager: %v", err)
+	}
+
+	var bootstrap session.LoginRequest
+	for index := 0; index < policy.BootstrapOutstandingLimit; index++ {
+		request, requestErr := manager.NewLoginState(context.Background(), "/", "")
+		if requestErr != nil {
+			t.Fatalf("anonymous bootstrap %d: %v", index+1, requestErr)
+		}
+		if index == 0 {
+			bootstrap = request
+		}
+	}
+	if !bootstrap.SetBrowserBinding || bootstrap.BrowserBinding == "" {
+		t.Fatalf("bootstrap login state = %+v", bootstrap)
+	}
+	if _, err := manager.NewLoginState(context.Background(), "/", ""); !errors.Is(err, session.ErrLoginRateLimited) {
+		t.Fatalf("anonymous burst over bootstrap partition = %v", err)
+	}
+
+	bound, err := manager.NewLoginState(context.Background(), "/", bootstrap.BrowserBinding)
+	if err != nil || bound.SetBrowserBinding || bound.BrowserBinding != bootstrap.BrowserBinding {
+		t.Fatalf("bound login state = %+v/%v", bound, err)
+	}
+	if bound.SetBrowserBinding {
+		t.Fatalf("bound login state was not admitted from reserved capacity = %+v/%v", bound, err)
+	}
+	for index := 0; index < policy.OutstandingLimit-policy.BootstrapOutstandingLimit-1; index++ {
+		if _, err := manager.NewLoginState(context.Background(), "/", bootstrap.BrowserBinding); err != nil {
+			t.Fatalf("bound burst %d: %v", index+1, err)
+		}
+	}
+	if _, err := manager.NewLoginState(context.Background(), "/", bootstrap.BrowserBinding); !errors.Is(err, session.ErrLoginRateLimited) {
+		t.Fatalf("101st outstanding state = %v", err)
+	}
+
+	if _, err := manager.ConsumeLoginState(context.Background(), bootstrap.State, bootstrap.BrowserBinding); err != nil {
+		t.Fatalf("consume bootstrap state: %v", err)
+	}
+	if _, err := manager.NewLoginState(context.Background(), "/", bootstrap.BrowserBinding); err != nil {
+		t.Fatalf("capacity was not released after consume: %v", err)
 	}
 }

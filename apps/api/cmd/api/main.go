@@ -46,6 +46,11 @@ func (readiness objectStoreReadiness) Ready(ctx context.Context) error {
 
 type combinedReadiness []httpapi.ReadinessProbe
 
+const (
+	oidcLoginAdmissionCleanupBatch  = 1000
+	oidcLoginAdmissionCleanupPasses = 2
+)
+
 func (readiness combinedReadiness) Ready(ctx context.Context) error {
 	for _, probe := range readiness {
 		if err := probe.Ready(ctx); err != nil {
@@ -180,6 +185,7 @@ func run(ctx context.Context) error {
 								AuthorityObserver:                 authorityObserver,
 								ActivationReconciler:              userLifecycleService,
 								RequireProviderAuthorityRevisions: true,
+								LoginBindingKey:                   []byte(settings.OIDCClientSecret),
 							},
 						)
 					}
@@ -187,6 +193,7 @@ func run(ctx context.Context) error {
 						probe = unavailableReadiness{err: managerErr}
 						slog.Error("session manager unavailable; readiness will fail closed", "error", managerErr)
 					} else {
+						go maintainOIDCLoginState(ctx, sessionManager)
 						provider, providerErr := identity.NewRemoteOIDCProvider(ctx, identity.RemoteOIDCConfig{
 							IssuerURL: settings.OIDCIssuerURL, DiscoveryURL: settings.OIDCDiscoveryURL,
 							ClientID:     settings.OIDCClientID,
@@ -421,6 +428,44 @@ func run(ctx context.Context) error {
 			return nil
 		}
 		return fmt.Errorf("serve HTTP: %w", err)
+	}
+}
+
+func maintainOIDCLoginState(ctx context.Context, manager *session.Manager) {
+	if manager == nil {
+		return
+	}
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			cleanupContext, cancel := context.WithTimeout(ctx, 5*time.Second)
+			if removed, err := manager.CleanupLoginState(cleanupContext, 100); err != nil {
+				slog.Warn("OIDC login-state cleanup deferred", "errorClass", "oidc_login_state_cleanup_failure")
+			} else if removed > 0 {
+				slog.Info("OIDC login-state cleanup completed", "cleanupClass", "oidc_login_state", "removedCount", removed)
+			}
+			// The global login-admission ceiling is 600 starts per minute. Drain
+			// two bounded batches so attacker-variable buckets cannot outgrow
+			// retention while cleanup remains bounded per tick.
+			for pass := 0; pass < oidcLoginAdmissionCleanupPasses; pass++ {
+				removed, err := manager.CleanupLoginAdmission(cleanupContext, oidcLoginAdmissionCleanupBatch)
+				if err != nil {
+					slog.Warn("OIDC login-admission cleanup deferred", "errorClass", "oidc_login_admission_cleanup_failure")
+					break
+				}
+				if removed > 0 {
+					slog.Info("OIDC login-admission cleanup completed", "cleanupClass", "oidc_login_admission", "removedCount", removed)
+				}
+				if removed < oidcLoginAdmissionCleanupBatch {
+					break
+				}
+			}
+			cancel()
+		}
 	}
 }
 

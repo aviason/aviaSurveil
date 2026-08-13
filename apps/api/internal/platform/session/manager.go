@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -28,6 +29,7 @@ const (
 	absoluteDuration              = 8 * time.Hour
 	loginStateTTL                 = 10 * time.Minute
 	providerLogoutTicketTTL       = 2 * time.Minute
+	loginBindingTTL               = loginStateTTL
 	authorityObservationHeartbeat = 30 * time.Second
 	authorityObservationMaxAge    = 60 * time.Second
 	authorityDenialDeadline       = 120 * time.Second
@@ -38,8 +40,9 @@ const (
 )
 
 var (
-	ErrUnauthenticated = errors.New("unauthenticated")
-	ErrCSRF            = errors.New("csrf validation failed")
+	ErrUnauthenticated  = errors.New("unauthenticated")
+	ErrCSRF             = errors.New("csrf validation failed")
+	ErrLoginRateLimited = errors.New("OIDC login admission denied")
 )
 
 type authenticationFailureError struct {
@@ -159,9 +162,29 @@ type ManagerDependencies struct {
 	Clock                             func() time.Time
 	IDGenerator                       func(string) string
 	RandomBytes                       func(int) ([]byte, error)
+	LoginBindingKey                   []byte
 	AuthorityObserver                 identity.AuthorityObserver
 	ActivationReconciler              ActivationReconciler
 	RequireProviderAuthorityRevisions bool
+	LoginAdmissionPolicy              LoginAdmissionPolicy
+}
+
+type LoginAdmissionPolicy struct {
+	Window                    time.Duration
+	GlobalLimit               int
+	BrowserLimit              int
+	OutstandingLimit          int
+	BootstrapOutstandingLimit int
+}
+
+func DefaultLoginAdmissionPolicy() LoginAdmissionPolicy {
+	return LoginAdmissionPolicy{
+		Window:                    time.Minute,
+		GlobalLimit:               600,
+		BrowserLimit:              60,
+		OutstandingLimit:          100,
+		BootstrapOutstandingLimit: 20,
+	}
 }
 
 type Manager struct {
@@ -170,9 +193,11 @@ type Manager struct {
 	clock                             func() time.Time
 	idGenerator                       func(string) string
 	randomBytes                       func(int) ([]byte, error)
+	loginBindingKey                   []byte
 	authorityObserver                 identity.AuthorityObserver
 	activationReconciler              ActivationReconciler
 	requireProviderAuthorityRevisions bool
+	loginAdmission                    LoginAdmissionPolicy
 }
 
 func NewManager(pool *database.Pool, encryptionKey []byte, dependencies ManagerDependencies) (*Manager, error) {
@@ -202,12 +227,30 @@ func NewManager(pool *database.Pool, encryptionKey []byte, dependencies ManagerD
 	if randomBytes == nil {
 		randomBytes = secureRandomBytes
 	}
+	bindingKey := dependencies.LoginBindingKey
+	if len(bindingKey) == 0 {
+		// Direct package fixtures can use the session key. The deployed API
+		// supplies the shared first-party OIDC client secret explicitly.
+		bindingKey = encryptionKey
+	}
+	loginAdmission := dependencies.LoginAdmissionPolicy
+	if loginAdmission.Window <= 0 {
+		loginAdmission = DefaultLoginAdmissionPolicy()
+	}
+	if loginAdmission.BootstrapOutstandingLimit <= 0 {
+		loginAdmission.BootstrapOutstandingLimit = DefaultLoginAdmissionPolicy().BootstrapOutstandingLimit
+	}
+	if loginAdmission.GlobalLimit < 1 || loginAdmission.BrowserLimit < 1 || loginAdmission.OutstandingLimit < 1 || loginAdmission.BootstrapOutstandingLimit < 1 {
+		return nil, fmt.Errorf("OIDC login admission policy is invalid")
+	}
 	return &Manager{
 		pool: pool, aead: aead, clock: clock, idGenerator: idGenerator,
 		randomBytes:                       randomBytes,
+		loginBindingKey:                   deriveLoginBindingKey(bindingKey),
 		authorityObserver:                 dependencies.AuthorityObserver,
 		activationReconciler:              dependencies.ActivationReconciler,
 		requireProviderAuthorityRevisions: dependencies.RequireProviderAuthorityRevisions,
+		loginAdmission:                    loginAdmission,
 	}, nil
 }
 
@@ -1189,10 +1232,12 @@ func (manager *Manager) RedeemProviderLogout(
 }
 
 type LoginRequest struct {
-	State         string
-	Nonce         string
-	PKCEChallenge string
-	ReturnTo      string
+	State             string
+	Nonce             string
+	PKCEChallenge     string
+	ReturnTo          string
+	BrowserBinding    string
+	SetBrowserBinding bool
 }
 
 type LoginState struct {
@@ -1201,7 +1246,7 @@ type LoginState struct {
 	ReturnTo     string
 }
 
-func (manager *Manager) NewLoginState(ctx context.Context, returnTo string) (LoginRequest, error) {
+func (manager *Manager) NewLoginState(ctx context.Context, returnTo, currentBinding string) (LoginRequest, error) {
 	state, err := manager.opaqueToken(32)
 	if err != nil {
 		return LoginRequest{}, fmt.Errorf("generate OIDC state: %w", err)
@@ -1214,30 +1259,48 @@ func (manager *Manager) NewLoginState(ctx context.Context, returnTo string) (Log
 	if err != nil {
 		return LoginRequest{}, fmt.Errorf("generate PKCE verifier: %w", err)
 	}
+	binding, setBinding, err := manager.loginBinding(currentBinding)
+	if err != nil {
+		return LoginRequest{}, fmt.Errorf("generate OIDC browser binding: %w", err)
+	}
 	returnTo = safeReturnTo(returnTo)
 	now := manager.clock().UTC()
-	if _, err := manager.pool.Exec(ctx, `
-		INSERT INTO oidc_login_states (state_hash, nonce, pkce_verifier, return_to, expires_at, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
-	`, hashToken(state), nonce, verifier, returnTo, now.Add(loginStateTTL), now); err != nil {
+	bindingHash := hashBrowserBinding(binding)
+	tx, err := manager.pool.Begin(ctx)
+	if err != nil {
+		return LoginRequest{}, fmt.Errorf("begin OIDC login state admission: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := manager.admitLoginState(ctx, tx, bindingHash, setBinding, now); err != nil {
+		return LoginRequest{}, err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO oidc_login_states (state_hash, nonce, pkce_verifier, return_to, expires_at, created_at, browser_binding_hash, browser_binding_bootstrap)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`, hashToken(state), nonce, verifier, returnTo, now.Add(loginStateTTL), now, bindingHash, setBinding); err != nil {
 		return LoginRequest{}, fmt.Errorf("persist OIDC login state: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return LoginRequest{}, fmt.Errorf("commit OIDC login state: %w", err)
 	}
 	challengeHash := sha256.Sum256([]byte(verifier))
 	return LoginRequest{
 		State: state, Nonce: nonce, PKCEChallenge: base64.RawURLEncoding.EncodeToString(challengeHash[:]), ReturnTo: returnTo,
+		BrowserBinding: binding, SetBrowserBinding: setBinding,
 	}, nil
 }
 
-func (manager *Manager) ConsumeLoginState(ctx context.Context, rawState string) (LoginState, error) {
-	if strings.TrimSpace(rawState) == "" {
+func (manager *Manager) ConsumeLoginState(ctx context.Context, rawState, rawBinding string) (LoginState, error) {
+	_, err := decodeBrowserBinding(rawBinding, manager.loginBindingKey)
+	if strings.TrimSpace(rawState) == "" || err != nil {
 		return LoginState{}, ErrUnauthenticated
 	}
 	var state LoginState
-	err := manager.pool.QueryRow(ctx, `
+	err = manager.pool.QueryRow(ctx, `
 		DELETE FROM oidc_login_states
-		WHERE state_hash = $1 AND expires_at > $2
+		WHERE state_hash = $1 AND browser_binding_hash = $2 AND expires_at > $3
 		RETURNING nonce, pkce_verifier, return_to
-	`, hashToken(rawState), manager.clock().UTC()).Scan(&state.Nonce, &state.PKCEVerifier, &state.ReturnTo)
+	`, hashToken(rawState), hashBrowserBinding(strings.TrimSpace(rawBinding)), manager.clock().UTC()).Scan(&state.Nonce, &state.PKCEVerifier, &state.ReturnTo)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return LoginState{}, ErrUnauthenticated
 	}
@@ -1245,6 +1308,160 @@ func (manager *Manager) ConsumeLoginState(ctx context.Context, rawState string) 
 		return LoginState{}, fmt.Errorf("consume OIDC login state: %w", err)
 	}
 	return state, nil
+}
+
+func (manager *Manager) loginBinding(current string) (string, bool, error) {
+	if _, err := decodeBrowserBinding(current, manager.loginBindingKey); err == nil {
+		return strings.TrimSpace(current), false, nil
+	}
+	rawBinding, err := manager.randomBytes(32)
+	if err != nil {
+		return "", false, err
+	}
+	if len(rawBinding) != 32 {
+		return "", false, fmt.Errorf("random source returned %d bytes, expected 32", len(rawBinding))
+	}
+	return encodeBrowserBinding(rawBinding, manager.loginBindingKey), true, nil
+}
+
+func deriveLoginBindingKey(raw []byte) []byte {
+	hash := sha256.New()
+	_, _ = hash.Write([]byte("as360-oidc-login-binding-key-v1\x00"))
+	_, _ = hash.Write(raw)
+	return hash.Sum(nil)
+}
+
+func encodeBrowserBinding(raw []byte, key []byte) string {
+	mac := hmac.New(sha256.New, key)
+	_, _ = mac.Write([]byte("as360-oidc-login-binding-v1\x00"))
+	_, _ = mac.Write(raw)
+	return base64.RawURLEncoding.EncodeToString(raw) + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+}
+
+func decodeBrowserBinding(raw string, key []byte) ([]byte, error) {
+	parts := strings.Split(strings.TrimSpace(raw), ".")
+	if len(parts) != 2 {
+		return nil, ErrUnauthenticated
+	}
+	value, err := base64.RawURLEncoding.DecodeString(parts[0])
+	if err != nil || len(value) != 32 {
+		return nil, ErrUnauthenticated
+	}
+	signature, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil || len(signature) != sha256.Size {
+		return nil, ErrUnauthenticated
+	}
+	mac := hmac.New(sha256.New, key)
+	_, _ = mac.Write([]byte("as360-oidc-login-binding-v1\x00"))
+	_, _ = mac.Write(value)
+	if subtle.ConstantTimeCompare(signature, mac.Sum(nil)) != 1 {
+		return nil, ErrUnauthenticated
+	}
+	return value, nil
+}
+
+func hashBrowserBinding(raw string) string {
+	hash := sha256.Sum256([]byte("as360-oidc-login-binding-v1\x00" + raw))
+	return hex.EncodeToString(hash[:])
+}
+
+func (manager *Manager) admitLoginState(ctx context.Context, tx pgx.Tx, bindingHash string, bootstrap bool, now time.Time) error {
+	type admissionState struct {
+		key     string
+		started time.Time
+		count   int
+		limit   int
+	}
+	states := make([]admissionState, 0, 2)
+	keys := []struct {
+		key   string
+		limit int
+	}{
+		{key: hashToken("as360-oidc-login-global"), limit: manager.loginAdmission.GlobalLimit},
+		{key: bindingHash, limit: manager.loginAdmission.BrowserLimit},
+	}
+	for _, rule := range keys {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO oidc_login_admission(rule_key, window_started, request_count, updated_at)
+			VALUES ($1, $2, 0, $2) ON CONFLICT (rule_key) DO NOTHING
+		`, rule.key, now); err != nil {
+			return fmt.Errorf("create OIDC login admission bucket: %w", err)
+		}
+		var state admissionState
+		state.key, state.limit = rule.key, rule.limit
+		if err := tx.QueryRow(ctx, `SELECT window_started, request_count FROM oidc_login_admission WHERE rule_key = $1 FOR UPDATE`, rule.key).Scan(&state.started, &state.count); err != nil {
+			return fmt.Errorf("lock OIDC login admission bucket: %w", err)
+		}
+		if !now.Before(state.started.Add(manager.loginAdmission.Window)) {
+			state.started, state.count = now, 0
+		}
+		if state.count >= state.limit {
+			return ErrLoginRateLimited
+		}
+		states = append(states, state)
+	}
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('oidc_login_states:outstanding'))`); err != nil {
+		return fmt.Errorf("lock outstanding OIDC login-state cap: %w", err)
+	}
+	var outstanding int
+	if err := tx.QueryRow(ctx, `SELECT COUNT(*) FROM oidc_login_states WHERE expires_at > $1`, now).Scan(&outstanding); err != nil {
+		return fmt.Errorf("count outstanding OIDC login states: %w", err)
+	}
+	if outstanding >= manager.loginAdmission.OutstandingLimit {
+		return ErrLoginRateLimited
+	}
+	if bootstrap {
+		var bootstrapOutstanding int
+		if err := tx.QueryRow(ctx, `SELECT COUNT(*) FROM oidc_login_states WHERE browser_binding_bootstrap = true AND expires_at > $1`, now).Scan(&bootstrapOutstanding); err != nil {
+			return fmt.Errorf("count bootstrap OIDC login states: %w", err)
+		}
+		if bootstrapOutstanding >= manager.loginAdmission.BootstrapOutstandingLimit {
+			return ErrLoginRateLimited
+		}
+	}
+	for _, state := range states {
+		if _, err := tx.Exec(ctx, `UPDATE oidc_login_admission SET window_started = $2, request_count = $3, updated_at = $2 WHERE rule_key = $1`, state.key, state.started, state.count+1); err != nil {
+			return fmt.Errorf("update OIDC login admission bucket: %w", err)
+		}
+	}
+	return nil
+}
+
+func (manager *Manager) CleanupLoginState(ctx context.Context, limit int) (int64, error) {
+	if limit < 1 || limit > 1000 {
+		return 0, fmt.Errorf("OIDC login-state cleanup limit is invalid")
+	}
+	command, err := manager.pool.Exec(ctx, `
+		WITH expired AS (
+			SELECT state_hash FROM oidc_login_states
+			WHERE expires_at <= $1 ORDER BY expires_at, created_at, state_hash LIMIT $2
+		)
+		DELETE FROM oidc_login_states state USING expired
+		WHERE state.state_hash = expired.state_hash
+	`, manager.clock().UTC(), limit)
+	if err != nil {
+		return 0, fmt.Errorf("cleanup OIDC login states: %w", err)
+	}
+	return command.RowsAffected(), nil
+}
+
+func (manager *Manager) CleanupLoginAdmission(ctx context.Context, limit int) (int64, error) {
+	if limit < 1 || limit > 1000 {
+		return 0, fmt.Errorf("OIDC login-admission cleanup limit is invalid")
+	}
+	command, err := manager.pool.Exec(ctx, `
+		WITH stale AS (
+			SELECT rule_key FROM oidc_login_admission
+			WHERE updated_at <= $1 ORDER BY updated_at, rule_key LIMIT $2
+		)
+		DELETE FROM oidc_login_admission admission USING stale
+		WHERE admission.rule_key = stale.rule_key
+		  AND admission.updated_at <= $1
+	`, manager.clock().UTC().Add(-manager.loginAdmission.Window), limit)
+	if err != nil {
+		return 0, fmt.Errorf("cleanup OIDC login admission: %w", err)
+	}
+	return command.RowsAffected(), nil
 }
 
 func (manager *Manager) encryptProviderTokens(tokens identity.ProviderTokens) ([]byte, error) {

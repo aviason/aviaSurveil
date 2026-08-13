@@ -43,12 +43,12 @@ docker run --detach --rm --name "$container_name" \
   --database /data/mailpit.db --smtp-auth-file /run/auth/auth --smtp-tls-cert /run/auth/smtp.crt --smtp-tls-key /run/auth/smtp.key --smtp-require-starttls --smtp-disable-rdns >/dev/null
 
 for attempt in 1 2 3 4 5 6 7 8 9 10; do
-  if docker exec "$container_name" mailpit readyz >/dev/null 2>&1; then
+  if docker exec "$container_name" /mailpit readyz >/dev/null 2>&1; then
     break
   fi
   sleep 1
 done
-docker exec "$container_name" mailpit readyz >/dev/null
+docker exec "$container_name" /mailpit readyz >/dev/null
 
 smtp_port=$(docker port "$container_name" 1025/tcp | sed -n 's/.*:\([0-9][0-9]*\)$/\1/p')
 http_port=$(docker port "$container_name" 8025/tcp | sed -n 's/.*:\([0-9][0-9]*\)$/\1/p')

@@ -13,7 +13,7 @@ import (
 	"github.com/aviason/aviaSurveil/internal/platform/database"
 )
 
-const LatestVersion int64 = 45
+const LatestVersion int64 = 46
 const advisoryLockID int64 = 36020260721
 
 //go:embed *.up.sql
