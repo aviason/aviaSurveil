@@ -38,7 +38,7 @@ export function LoginPage({
           </p>
         </div>
         <div className="login-hero__foot">
-          <p>Candidate local-preprod · server-authorized access</p>
+          <p>Server-authorized access</p>
           <span className="login-auth-hero-mark">CAA oversight platform</span>
         </div>
       </section>
