@@ -85,8 +85,13 @@ chain-of-custody, remote CI coverage, deployment readiness, or legal/regulatory
 decision automation unless a future task adds matching implementation and
 evidence.
 
-For current harness work, the correct boundary is:
+For legacy static-demo harness work, the correct boundary is:
 
 ```text
 demo-only; verified locally when local checks pass; production-readiness not claimed
 ```
+
+For React/Go/PostgreSQL or first-party Auth candidate work, use the same
+literal evidence labels but do not call the implemented candidate
+frontend-only. It remains `candidate-only` and `release pending` until its
+separate runtime and release evidence exists.

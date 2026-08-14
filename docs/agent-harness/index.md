@@ -8,6 +8,12 @@ The harness does not change product scope. AviaSurveil360 contains the intact
 root static demo plus separately bounded React/Go candidates. Local candidate
 evidence does not establish deployment or production readiness.
 
+The legacy static demo remains a behavior oracle where its boundary is stated;
+the candidate application is React/Vite in `apps/web/` plus Go/PostgreSQL in
+`apps/api/`. First-party AviaAuth is the separate `../../shared/auth/` OIDC
+candidate surface. Select its focused Go/Compose checks from the verification
+matrix instead of describing the repository as frontend-only.
+
 ## Source Hierarchy
 
 1. [`../../AGENTS.md`](../../AGENTS.md) is the concise instruction router.
@@ -17,8 +23,9 @@ evidence does not establish deployment or production readiness.
    behavior and terminology.
 4. [`../PLANS.md`](../PLANS.md) defines the plan contract, while
    [`../exec-plans/index.md`](../exec-plans/index.md) tracks current state.
-5. This package defines agent-facing output, registry, verification, and
-   cleanup rules.
+5. This package defines the machine-readable authority map, environment,
+   operating loop, output, registry, verification, coverage, certification,
+   evidence, and cleanup rules.
 6. [`../demo-evidence/BUILD_SUMMARY.md`](../demo-evidence/BUILD_SUMMARY.md)
    records historical local evidence and known gaps.
 
@@ -27,8 +34,14 @@ evidence does not establish deployment or production readiness.
 | File | Use it for |
 |---|---|
 | `output-contract.md` | Final readout shape, status labels, evidence language, and forbidden claims. |
+| `config.json` | Supported machine-readable authority paths for native harness consumers. |
 | `registry.md` | Repo surface inventory and task-to-source routing. |
+| `environment-contract.md` | Local isolation, lifecycle, external-fixture, and recovery boundaries. |
+| `operating-loop.md` | Read → change → verify → record → escalate sequence. |
 | `verification-matrix.md` | Local command ladder by risk level. |
+| `coverage.md` | Canonical 31-capability inventory plus local dispositions. |
+| `certification.md` | Explicit non-certifying source/fixture/commit/HMAC/Data stop boundaries. |
+| `evidence/` | Future authorized local evidence only; it contains no certification record now. |
 | `entropy-cleanup-checklist.md` | Drift, stale-claim, plan-index, and evidence-label cleanup. |
 | `../exec-plans/index.md` | Active plan state and one concrete next todo per active plan. |
 | `../exec-plans/tech-debt-tracker.md` | Durable blockers, accepted risks, missing evidence, and technical debt. |
@@ -44,6 +57,7 @@ evidence does not establish deployment or production readiness.
 | Static demo behavior | Relevant workflow/module docs, `../demo-evidence/BUILD_SUMMARY.md`, targeted tests | Use the smallest local verification level that covers the changed path. |
 | Role, visibility, CAP, evidence, upload, AI, or regulatory copy | `../product-specs/data-and-rules/STATUS_PERMISSION_SECURITY.md` plus workflow/module docs | Treat as boundary-sensitive and review demo-only labels. |
 | Harness maintenance | This package, manifest, plan index | Prefer one focused harness doc update over broad AGENTS expansion. |
+| Harness certification question | `certification.md`, active plan, Workspace integration contract | Stop at the named authority boundary; do not create commits, HMAC keys, or Data harness files. |
 
 ## Demo-Only Boundary
 

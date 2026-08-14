@@ -19,7 +19,8 @@ rg -n "docs/agent-harness|agent-harness/index|output-contract|verification-matri
 When harness docs are touched, also run:
 
 ```bash
-node tests/harness-docs-smoke.test.js
+make harness-check
+make harness-maintenance
 ```
 
 ## Level 2 - JavaScript Logic
@@ -169,6 +170,12 @@ exact provider/application authority; HTTPS/HTTP role, lifecycle,
 dependency-loss/restart, and public-admin denial checks complete; and
 task-owned residue is zero. This remains `candidate-only`; release is
 `release pending`.
+
+For harness semantic maintenance, run `make harness-maintenance`. It verifies
+the authority map, coverage/certification routes, current Go/PostgreSQL and
+first-party Auth routing while retaining the legacy frontend-only demo boundary
+where that scope is explicitly stated. It does not run Auth fixture
+qualification, Workspace composition, or any external action.
 
 ## Governed AGA Intake And Official-Source Authoring Lane
 

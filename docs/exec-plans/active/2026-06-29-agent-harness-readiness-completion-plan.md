@@ -37,6 +37,21 @@ regulatory ingestion, notification service, production audit-log behavior, or
 framework migration was added or claimed. Remaining gate:
 stakeholder/user sign-off before moving to `completed`.
 
+**Maintenance note (2026-08-14):** The harness routing now distinguishes the
+legacy frontend-only demo from the current React/Vite, Go/PostgreSQL, and
+separate first-party AviaAuth candidate surfaces. Stale historical
+stakeholder-disposition routes now point to an indexed immutable provenance
+note rather than restoring the blob deleted by the first-party OIDC cutover.
+The custom harness shape now also has its supported `config.json` authority
+map, environment contract, operating loop, evidence route, certification
+boundary, and complete 31-row capability inventory. Native smoke tests enforce
+the Data `DEBT-001`, Auth-fixture, exact-source-commit, and caller-owned
+external-HMAC stop conditions. `make harness-maintenance` and the adaptive
+helper with `--warnings-as-errors` returned `verified locally` with 0 errors
+and 0 warnings. The existing stakeholder-sign-off completion rule is unchanged.
+This is `verified locally` documentation repair, not certification or
+production evidence.
+
 **Maintenance note (2026-07-23):** The user explicitly authorized an
 English-only documentation policy and an entropy cleanup pass. All 53 paired
 `.turkce.md` companions were removed after confirming that each had an English

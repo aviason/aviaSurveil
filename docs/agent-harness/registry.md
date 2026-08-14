@@ -12,8 +12,14 @@ evidence afterward. It is an inventory, not a new product specification.
 | `../PLANS.md` | Repository-native ExecPlan contract and lifecycle. |
 | `../../CLAUDE.md` | Thin Claude adapter that routes back to `AGENTS.md`. |
 | `index.md` | Canonical harness entrypoint. |
+| `config.json` | Supported machine-readable authority paths. |
 | `output-contract.md` | Response shape, status labels, evidence wording, and forbidden claims. |
+| `environment-contract.md` | Local lifecycle, isolation, fixture, and recovery boundaries. |
+| `operating-loop.md` | Change/verify/recovery/escalation sequence and authority stops. |
 | `verification-matrix.md` | Local command ladder and risk-based verification. |
+| `coverage.md` | Canonical capability inventory and project-specific dispositions. |
+| `certification.md` | Source, fixture, commit, HMAC, and Data stop boundaries. |
+| `evidence/` | Reserved for future authorized local evidence; never key material. |
 | `entropy-cleanup-checklist.md` | Drift and cleanup queue for future harness maintenance. |
 
 ## Product Source Documents
@@ -32,6 +38,8 @@ evidence afterward. It is an inventory, not a new product specification.
 | `../product-specs/scenarios/` | Demo scenario and edge-case replay paths. |
 | `../product-specs/references/` | Glossary, terminology, and source notes. |
 | `../regulatory-sources/` | Public-source manifest, refresh boundary, ignored full-text locators, and compact source-bound derived assessments. |
+| `../../shared/auth/` | Separate first-party AviaAuth candidate/OIDC runtime; Workspace owns its Compose integration. |
+| `../../shared/data/` | Separate Data repository; its deliberate `DEBT-001` harness retirement remains owner-controlled and must not be recreated here. |
 
 ## Plans, Evidence, And Notes
 
@@ -63,6 +71,14 @@ evidence afterward. It is an inventory, not a new product specification.
 | `../../js/views.js` | Static demo screen rendering. |
 | `../../js/app.js` | Role routing, UI actions, mock interactions, and bootstrapping. |
 
+## Candidate Runtime Surfaces
+
+The current candidate is React/Vite (`../../apps/web/`) and Go/PostgreSQL
+(`../../apps/api/`), not a replacement for the root legacy static demo. The
+separate first-party Auth candidate is `../../shared/auth/`. Use the
+production-application verification lane for those surfaces and preserve the
+legacy frontend-only boundary only where it accurately describes the demo.
+
 ## Local Smoke Tests
 
 There is no root `package.json`; root legacy tests run directly with `node`.
@@ -71,6 +87,8 @@ The React candidate uses `apps/web/package.json`.
 | Test | Main coverage |
 |---|---|
 | `../../tests/harness-docs-smoke.test.js` | Harness package structure, links, labels, and forbidden readiness claims. |
+| `make harness-maintenance` | Native harness smoke maintenance; no certification record or Git write is created. |
+| `../../shared/auth/Makefile` → `make endpoint-qualification` | Auth fixture qualification is a separate child gate; it is not run by Surveil harness maintenance. |
 | `../../tests/demo-boundary-smoke.test.js` | Auditee isolation, CAP closure boundary, mock evidence filename-only behavior. |
 | `../../tests/approval-smoke.test.js` | Shared approval-chain behavior. |
 | `../../tests/checklist-approval-smoke.test.js` | Checklist approval workflow. |

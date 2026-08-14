@@ -28,12 +28,20 @@ Local evidence does not establish production readiness or deployment.
 - [Execution-plan index](docs/exec-plans/index.md) — current plan status and
   next todo.
 - [Harness index](docs/agent-harness/index.md) — agent operating entrypoint.
+- [Harness authority map](docs/agent-harness/config.json) — supported machine-readable route map.
 - [Capability registry](docs/agent-harness/registry.md) — runnable commands and
   repository surfaces.
+- [Environment contract](docs/agent-harness/environment-contract.md) — local
+  lifecycle, isolation, and fixture boundaries.
+- [Operating loop](docs/agent-harness/operating-loop.md) — authority,
+  verification, recovery, and escalation sequence.
 - [Verification matrix](docs/agent-harness/verification-matrix.md) — checks by
   risk and change type.
 - [Output contract](docs/agent-harness/output-contract.md) — evidence labels
   and handoff language.
+- [Coverage inventory](docs/agent-harness/coverage.md) and
+  [certification boundary](docs/agent-harness/certification.md) — capability
+  dispositions and explicit non-certifying stop conditions.
 - [Entropy checklist](docs/agent-harness/entropy-cleanup-checklist.md) —
   recurring documentation and plan cleanup.
 - [Build evidence](docs/demo-evidence/BUILD_SUMMARY.md) — historical local

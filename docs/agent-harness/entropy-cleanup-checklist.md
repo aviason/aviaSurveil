@@ -15,6 +15,9 @@ from becoming the next agent's default context.
 | `MANIFEST.md` lists new harness docs and smoke test. | verified locally | Agent executing readiness plan | Manifest Agent Harness and Smoke Tests sections. |
 | Active plan index matches actual harness status. | ready-for-verification | Plan owner / future agents | Maintenance repair is verified locally; user sign-off remains the next lifecycle action. |
 | Superseded partial adaptation remains historical, not completed by inference. | accepted current risk | Future agents | Keep continuation note linked to readiness plan. |
+| Historical Plans 2–4 stakeholder links resolve through immutable provenance, not a restored deleted blob. | verified locally | Harness maintainer | `stakeholder/PLANS2_4_STAKEHOLDER_DISPOSITION_2026-07-28.md` is a provenance-only replacement with blob and deleting commit identities. |
+| Custom harness authority map, operating loop, coverage, and certification routes stay complete. | verified locally | Harness maintainer | `make harness-maintenance` checks the routes without creating evidence or certification records. |
+| Data's `DEBT-001` retirement stays owner-controlled. | recurring check | Integration owner | Do not recreate `shared/data/docs/agent-harness`, certification trees, or HMAC snapshots from Surveil. |
 | Demo summary keeps local evidence separate from production gaps. | recurring check | Future agents | `../demo-evidence/BUILD_SUMMARY.md` after visible demo verification. |
 
 ## Recurring Drift Symptoms

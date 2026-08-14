@@ -21,11 +21,13 @@ CLOUDFLARE_DEMO_HOSTNAME ?= demo.aviasurveil.com
 CLOUDFLARE_DEMO_KEYCHAIN_SERVICE ?= com.aviasurveil360.cloudflare-tunnel
 CLOUDFLARE_DEMO_KEYCHAIN_ACCOUNT ?= $(CLOUDFLARE_DEMO_HOSTNAME)
 
-.PHONY: help demo-up demo-down demo-status preprod-up preprod-down preprod-status preprod-test-fault-restart preprod-cloudflare-up preprod-cloudflare-link preprod-cloudflare-down preprod-cloudflare-status preprod-cloudflare-users preprod-cloudflare-test-panels preprod-cloudflare-test-lifecycle preprod-cloudflare-demo-token preprod-cloudflare-demo-up preprod-cloudflare-demo-down preprod-cloudflare-demo-status preprod-cloudflare-demo-users
+.PHONY: help harness-check harness-maintenance demo-up demo-down demo-status preprod-up preprod-down preprod-status preprod-test-fault-restart preprod-cloudflare-up preprod-cloudflare-link preprod-cloudflare-down preprod-cloudflare-status preprod-cloudflare-users preprod-cloudflare-test-panels preprod-cloudflare-test-lifecycle preprod-cloudflare-demo-token preprod-cloudflare-demo-up preprod-cloudflare-demo-down preprod-cloudflare-demo-status preprod-cloudflare-demo-users
 
 help:
 	@printf '%s\n' \
 		'demo-up      Start the local React demo at http://$(DEMO_HOST):$(DEMO_PORT)' \
+		'harness-check Validate repository-native harness routes and semantic smoke assertions' \
+		'harness-maintenance Run local harness maintenance without certification writes' \
 		'demo-down    Stop the demo process started by demo-up' \
 		'demo-status  Show whether the mock demo URL is responding' \
 		'preprod-up   Start the canonical disposable local-preprod stack' \
@@ -44,6 +46,12 @@ help:
 		'preprod-cloudflare-demo-status Verify the named Tunnel and local candidate' \
 		'preprod-cloudflare-demo-users Print the named URL and privacy-safe demo login matrix' \
 		'preprod-cloudflare-demo-down Stop named exposure and erase disposable local state'
+
+harness-check:
+	node tests/harness-docs-smoke.test.js
+
+harness-maintenance: harness-check
+	@echo "verified locally: Surveil harness maintenance completed; certification remains candidate-only without authorized S/A commits and caller-owned HMAC key custody"
 
 demo-up:
 	@set -eu; \
