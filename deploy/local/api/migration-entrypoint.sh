@@ -14,12 +14,13 @@ if [ -z "${AVIA_DATABASE_URL:-}" ] && [ -z "${AVIA_DATABASE_URL_FILE:-}" ]; then
   fi
   database_url_file=$(mktemp /tmp/avia-database-url.XXXXXX)
   chmod 600 "$database_url_file"
-  printf 'postgres://%s:%s@%s:%s/%s?sslmode=disable' \
+  printf 'postgres://%s:%s@%s:%s/%s?sslmode=%s' \
     "${AVIA_DATABASE_USER:-aviasurveil360}" \
     "$database_password" \
     "${AVIA_DATABASE_HOST:-postgres}" \
     "${AVIA_DATABASE_PORT:-5432}" \
-    "${AVIA_DATABASE_NAME:-aviasurveil360}" >"$database_url_file"
+    "${AVIA_DATABASE_NAME:-aviasurveil360}" \
+    "${AVIA_DATABASE_SSL_MODE:-disable}" >"$database_url_file"
   export AVIA_DATABASE_URL_FILE="$database_url_file"
   trap 'rm -f "$database_url_file"' EXIT
   unset database_password

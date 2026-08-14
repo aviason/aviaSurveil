@@ -180,7 +180,7 @@ func run(ctx context.Context) error {
 				Region: settings.ObjectStoreRegion, AllowServerManagedCORS: settings.AllowServerManagedCORS,
 			})
 			objects = localObjects
-			if err == nil && settings.Environment != "production" {
+			if err == nil && settings.Environment != "production" && settings.Environment != "demo" {
 				err = localObjects.EnsurePrivateBuckets(ctx, []string{
 					settings.QuarantineBucket,
 					settings.CanonicalBucket,
@@ -380,7 +380,7 @@ func newEvidenceScanner(settings config.Settings) (evidenceworker.Scanner, error
 	case "", "disabled":
 		return scanner.DisabledScanner{}, nil
 	case "deterministic-test":
-		if settings.Environment == "production" {
+		if settings.Environment == "production" || settings.Environment == "demo" {
 			return nil, errors.New("deterministic Evidence scanner is forbidden in production")
 		}
 		return scanner.SignatureScanner{}, nil
@@ -395,7 +395,7 @@ func newIdentityAdminClient(
 	settings config.Settings,
 ) (identity.ProviderAdmin, error) {
 	if settings.FirstPartyAdminURL == "" {
-		if settings.Environment == "production" {
+		if settings.Environment == "production" || settings.Environment == "demo" {
 			return nil, errors.New("AviaAuth administration is required by the production worker")
 		}
 		return nil, nil

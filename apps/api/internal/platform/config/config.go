@@ -104,6 +104,7 @@ func LoadDatabaseRuntime(lookup LookupEnv) (Settings, error) {
 
 func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) {
 	environment := valueOrDefault(lookup, "AVIA_ENVIRONMENT", "development")
+	cloudEnvironment := environment == "demo" || environment == "production"
 	dataEnabled, err := parseDataMode(lookup)
 	if err != nil {
 		return Settings{}, err
@@ -197,7 +198,7 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 	if settings.OIDCDiscoveryURL == "" {
 		settings.OIDCDiscoveryURL = settings.OIDCIssuerURL
 	}
-	if settings.ObjectStorePublicEndpoint == "" && settings.Environment != "production" {
+	if settings.ObjectStorePublicEndpoint == "" && !cloudEnvironment {
 		settings.ObjectStorePublicEndpoint = settings.ObjectStoreEndpoint
 	}
 	canonicalProfile, err := parseBoolean(lookup, "AVIA_ENABLE_CANONICAL_TEST_PROFILE", false)
@@ -286,7 +287,7 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 		settings.Environment == "local-preprod" ||
 		(settings.Environment == "development" && serverManagedCORS)
 
-	if settings.Environment == "production" {
+	if cloudEnvironment {
 		if !settings.CookieSecure {
 			return Settings{}, fmt.Errorf("AVIA_COOKIE_SECURE=false is forbidden in production")
 		}
@@ -319,8 +320,8 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 	if settings.CanonicalSeed && settings.ScannerMode != "deterministic-test" {
 		return Settings{}, fmt.Errorf("AVIA_SCANNER_MODE=deterministic-test is required by the canonical seed")
 	}
-	if settings.Environment == "production" && settings.ScannerMode == "deterministic-test" {
-		return Settings{}, fmt.Errorf("AVIA_SCANNER_MODE=deterministic-test is forbidden in production")
+	if cloudEnvironment && settings.ScannerMode == "deterministic-test" {
+		return Settings{}, fmt.Errorf("AVIA_SCANNER_MODE=deterministic-test is forbidden in cloud environments")
 	}
 	if !contains([]string{"disabled", "deterministic-test", "guardduty-s3"}, settings.ScannerMode) {
 		return Settings{}, fmt.Errorf("unsupported AVIA_SCANNER_MODE %q", settings.ScannerMode)
@@ -337,8 +338,8 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 	if settings.DatabaseURL == "" {
 		return Settings{}, fmt.Errorf("AVIA_DATABASE_URL is required")
 	}
-	if !contains([]string{"development", "test", "production", "local-preprod"}, settings.Environment) {
-		return Settings{}, fmt.Errorf("AVIA_ENVIRONMENT must be development, test, production, or local-preprod")
+	if !contains([]string{"demo", "development", "test", "production", "local-preprod"}, settings.Environment) {
+		return Settings{}, fmt.Errorf("AVIA_ENVIRONMENT must be demo, development, test, production, or local-preprod")
 	}
 	firstPartyConfigured := settings.FirstPartyAdminURL != "" || settings.FirstPartyAdminSecretFile != ""
 	if firstPartyConfigured || settings.Environment == "local-preprod" {
@@ -357,24 +358,37 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 		}
 	}
 
-	objectStoreConfigured := settings.ObjectStoreEndpoint != "" ||
+	objectStoreConfigured := settings.ObjectStoreMode != "" ||
+		settings.ObjectStoreEndpoint != "" ||
 		settings.ObjectStorePublicEndpoint != "" ||
 		settings.ObjectStoreAccessKey != "" ||
 		settings.ObjectStoreSecretKey != "" ||
 		len(settings.ObjectStoreCORSOrigins) > 0
-	if (settings.Environment == "production" && requirements.objectStore) ||
+	if (cloudEnvironment && requirements.objectStore) ||
 		settings.CanonicalSeed ||
 		objectStoreConfigured {
-		for _, entry := range []struct {
+		type requiredValue struct {
 			name  string
 			value any
-		}{
-			{name: "AVIA_OBJECT_STORE_ENDPOINT", value: settings.ObjectStoreEndpoint},
-			{name: "AVIA_OBJECT_STORE_PUBLIC_ENDPOINT", value: settings.ObjectStorePublicEndpoint},
-			{name: "AVIA_OBJECT_STORE_ACCESS_KEY", value: settings.ObjectStoreAccessKey},
-			{name: "AVIA_OBJECT_STORE_SECRET_KEY", value: settings.ObjectStoreSecretKey},
-			{name: "AVIA_OBJECT_STORE_CORS_ORIGINS", value: settings.ObjectStoreCORSOrigins},
-		} {
+		}
+		requiredValues := []requiredValue{{name: "AVIA_OBJECT_STORE_CORS_ORIGINS", value: settings.ObjectStoreCORSOrigins}}
+		switch settings.ObjectStoreMode {
+		case "aws-s3":
+			requiredValues = append(requiredValues, requiredValue{name: "AVIA_OBJECT_STORE_REGION", value: settings.ObjectStoreRegion})
+			if settings.ObjectStoreAccessKey != "" || settings.ObjectStoreSecretKey != "" {
+				return Settings{}, fmt.Errorf("static object-store credentials are forbidden in aws-s3 mode; use the AWS IAM provider chain")
+			}
+		case "", "minio":
+			requiredValues = append(requiredValues,
+				requiredValue{name: "AVIA_OBJECT_STORE_ENDPOINT", value: settings.ObjectStoreEndpoint},
+				requiredValue{name: "AVIA_OBJECT_STORE_PUBLIC_ENDPOINT", value: settings.ObjectStorePublicEndpoint},
+				requiredValue{name: "AVIA_OBJECT_STORE_ACCESS_KEY", value: settings.ObjectStoreAccessKey},
+				requiredValue{name: "AVIA_OBJECT_STORE_SECRET_KEY", value: settings.ObjectStoreSecretKey},
+			)
+		default:
+			return Settings{}, fmt.Errorf("unsupported AVIA_OBJECT_STORE_MODE %q", settings.ObjectStoreMode)
+		}
+		for _, entry := range requiredValues {
 			missing := entry.value == ""
 			if values, ok := entry.value.([]string); ok {
 				missing = len(values) == 0
@@ -396,14 +410,14 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 			}
 			seenBuckets[bucket] = struct{}{}
 		}
-		if settings.Environment == "production" &&
+		if cloudEnvironment && settings.ObjectStoreMode != "aws-s3" &&
 			!settings.ObjectStoreTLS &&
 			!settings.ObjectStorePrivateNetwork {
 			return Settings{}, fmt.Errorf(
 				"plaintext object-store transport requires AVIA_OBJECT_STORE_PRIVATE_NETWORK=true",
 			)
 		}
-		if settings.Environment == "production" && !settings.ObjectStorePublicTLS {
+		if cloudEnvironment && settings.ObjectStoreMode != "aws-s3" && !settings.ObjectStorePublicTLS {
 			return Settings{}, fmt.Errorf("AVIA_OBJECT_STORE_PUBLIC_TLS=true is required in production")
 		}
 	}
@@ -483,7 +497,7 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 			break
 		}
 	}
-	if (settings.Environment == "production" && requirements.oidc) ||
+	if (cloudEnvironment && requirements.oidc) ||
 		oidcConfigured {
 		if !firstPartyConfigured {
 			return Settings{}, fmt.Errorf("AviaAuth administration is required when OIDC authentication is enabled")
@@ -515,10 +529,10 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 		if err != nil || redirectURL.Scheme == "" || redirectURL.Host == "" {
 			return Settings{}, fmt.Errorf("AVIA_OIDC_REDIRECT_URL must be an absolute URL")
 		}
-		if settings.Environment == "production" && (issuerURL.Scheme != "https" || redirectURL.Scheme != "https") {
-			return Settings{}, fmt.Errorf("production OIDC issuer and redirect URLs must use HTTPS")
+		if cloudEnvironment && (issuerURL.Scheme != "https" || redirectURL.Scheme != "https") {
+			return Settings{}, fmt.Errorf("cloud OIDC issuer and redirect URLs must use HTTPS")
 		}
-		if settings.Environment == "production" &&
+		if cloudEnvironment &&
 			discoveryURL.Scheme == "http" &&
 			!settings.OIDCDiscoveryPrivateNetwork {
 			return Settings{}, fmt.Errorf(

@@ -229,7 +229,7 @@ func run(ctx context.Context) error {
 							Clock: runtimeClock,
 						})
 						objects = localObjects
-						if objectErr == nil && settings.Environment != "production" {
+						if objectErr == nil && settings.Environment != "production" && settings.Environment != "demo" {
 							objectErr = localObjects.EnsurePrivateBuckets(ctx, []string{
 								settings.QuarantineBucket,
 								settings.CanonicalBucket,

@@ -423,6 +423,44 @@ func TestProductionRequiresCompleteHTTPSOIDCAndSessionConfiguration(t *testing.T
 	}
 }
 
+func TestDemoUsesAWSIAMObjectStoreWithoutSMTPOrStaticKeys(t *testing.T) {
+	t.Parallel()
+
+	values := map[string]string{
+		"AVIA_ENVIRONMENT":                    "demo",
+		"AVIA_DATABASE_URL":                   "postgres://avia:credential@example.invalid/avia?sslmode=require",
+		"AVIA_OIDC_ISSUER_URL":                "https://demo.aviasurveil.com/identity",
+		"AVIA_OIDC_DISCOVERY_URL":             "http://auth:8080",
+		"AVIA_OIDC_DISCOVERY_PRIVATE_NETWORK": "true",
+		"AVIA_OIDC_CLIENT_ID":                 "avia-surveil-demo-web",
+		"AVIA_OIDC_CLIENT_SECRET":             "provider-secret",
+		"AVIA_OIDC_REDIRECT_URL":              "https://demo.aviasurveil.com/auth/callback",
+		"AVIA_AUTH_ADMIN_URL":                 "http://auth:8081",
+		"AVIA_AUTH_ADMIN_SECRET_FILE":         "/run/secrets/auth_admin_secret",
+		"AVIA_SESSION_ENCRYPTION_KEY":         base64.StdEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef")),
+		"AVIA_OBJECT_STORE_MODE":              "aws-s3",
+		"AVIA_OBJECT_STORE_REGION":            "eu-central-1",
+		"AVIA_OBJECT_STORE_CORS_ORIGINS":      "https://demo.aviasurveil.com",
+		"AVIA_SCANNER_MODE":                   "guardduty-s3",
+	}
+
+	settings, err := config.Load(mapLookup(values))
+	if err != nil {
+		t.Fatalf("Load() demo AWS runtime: %v", err)
+	}
+	if settings.ObjectStoreMode != "aws-s3" || settings.ObjectStoreAccessKey != "" || settings.ObjectStoreSecretKey != "" {
+		t.Fatalf("demo object store = mode %q access %q secret %q", settings.ObjectStoreMode, settings.ObjectStoreAccessKey, settings.ObjectStoreSecretKey)
+	}
+	if settings.SMTPAddress != "" {
+		t.Fatalf("demo SMTP address = %q, want disabled", settings.SMTPAddress)
+	}
+
+	values["AVIA_OBJECT_STORE_ACCESS_KEY"] = "forbidden-static-key"
+	if _, err := config.Load(mapLookup(values)); err == nil || !strings.Contains(err.Error(), "static object-store credentials") {
+		t.Fatalf("Load() static aws-s3 credential error = %v", err)
+	}
+}
+
 func TestCookieSecureOverrideIsAllowedOnlyOutsideProduction(t *testing.T) {
 	t.Parallel()
 
