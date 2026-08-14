@@ -66,6 +66,7 @@ func activeRuntimeProfile(settings config.Settings) (runtimeProfile, error) {
 	}
 	generator := testprofile.NewGenerator()
 	return runtimeProfile{
+		applyMigrations:           true,
 		clock:                     testprofile.CanonicalScenarioTime,
 		idGenerator:               generator.Next,
 		findingReferenceGenerator: generator.FindingReference,

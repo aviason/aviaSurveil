@@ -12,7 +12,7 @@ import (
 )
 
 type runtimeProfile struct {
-	skipMigrations            bool
+	applyMigrations           bool
 	clock                     func() time.Time
 	idGenerator               func(string) string
 	findingReferenceGenerator func() string

@@ -32,7 +32,7 @@ func TestNormalRuntimeProfileHasNoSeedResetOrTestAuthorityHooks(t *testing.T) {
 	if profile.bootstrap != nil ||
 		profile.seed != nil ||
 		profile.protect != nil ||
-		profile.skipMigrations ||
+		profile.applyMigrations ||
 		profile.clock == nil {
 		t.Fatalf("normal runtime profile exposes a test hook: %+v", profile)
 	}

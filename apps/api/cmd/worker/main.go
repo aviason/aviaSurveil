@@ -72,11 +72,6 @@ func run(ctx context.Context) error {
 		return err
 	}
 	defer pool.Close()
-	if settings.Environment != "local-preprod" {
-		if err := migrations.Apply(ctx, pool); err != nil {
-			return err
-		}
-	}
 	readiness := database.Readiness{Pool: pool, RequiredMigrationVersion: migrations.LatestVersion}
 	if err := readiness.Ready(ctx); err != nil {
 		return fmt.Errorf("worker migration precondition: %w", err)

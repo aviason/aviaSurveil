@@ -129,7 +129,7 @@ func run(ctx context.Context) error {
 	)
 	if databaseErr == nil {
 		var migrationErr error
-		if !profile.skipMigrations {
+		if profile.applyMigrations {
 			migrationErr = migrations.Apply(ctx, pool)
 		}
 		if migrationErr == nil {
