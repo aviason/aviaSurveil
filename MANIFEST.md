@@ -17,14 +17,17 @@ migration's Task 10 correction and Tasks 11–12 evidence have clean independent
 acceptance; its full visual gate remains literally `not verified`. Plan 4 adds
 local telemetry and alerting, separate application/identity backup chains,
 exact isolated restore and candidate RPO/RTO drills, owner-scoped runbooks,
-digest-bound recovery images, and offline Terraform/Terragrunt policy gates.
+and digest-bound recovery images. The former repository-local cloud
+infrastructure gates were retired when AviaWorkspace became the sole platform
+infrastructure authority.
 Plan 1 visual stakeholder disposition is 170/170 complete; all 10 Fix records
 are `fixed-verified-locally` and zero manual decisions remain.
 The fresh strict baseline verifier is separately `not verified` on later
 UI-audit metadata drift, while a read-only content check verifies all 258/258
 baseline PNG hashes; the accepted manifest was not changed.
-Plans 1–4 are completed local `candidate-only` milestones. AWS Task 10 is
-optional, unauthorized, and literally `not run`.
+Plans 1–4 are completed local `candidate-only` milestones. The former AWS Task
+10 path is superseded by AviaWorkspace and is no longer a Surveil execution
+surface.
 The old connected identity/data loader and its disposable evidence were
 retired after the canonical successor and first-party identity loader became
 the maintained local-preprod path. The sealed package reader needed by the
@@ -305,14 +308,9 @@ contract and images are qualified.
 - `scripts/test-observability-profile.sh` and
   `scripts/verify-backup-catalog.sh` — isolated alert and recovery-catalog
   verification profiles.
-- `docs/operations/` — candidate service objectives, telemetry/alert contracts,
-  ownership, operational runbooks, and gated AWS trial decisions.
-- `infra/terraform/` — reusable AWS modules, bootstrap and secure local
-  fixtures, native tests, and version/provider locks.
-- `infra/terragrunt/` — explicit-owner AWS trial component graph and
-  non-deployable validate/plan fixtures.
-- `infra/policies/aws-plan.rego` and `scripts/check-terragrunt.sh` — fail-closed
-  fixture plan and policy gates that perform no AWS apply or destroy.
+- `docs/operations/` — candidate-local service objectives, telemetry/alert
+  contracts, ownership, and operational runbooks. Cloud infrastructure
+  operations belong to AviaWorkspace.
 
 ## Smoke Tests
 
@@ -532,9 +530,10 @@ matrix, two final clean demo/full repetitions, and separate final main-agent
 reviews pass. Plan 4 Tasks 1–9 and Task 11 are also `verified locally`: the
 clean 86-route/10-scenario profile, all eight alert fixtures, exact
 dual-database/object recovery, two isolated RPO/RTO drills, ten runbooks, nine
-image/SBOM/scan bindings, Terraform/Terragrunt fixtures, IaC policy gates, and
-zero-residue checks pass. Plans 1–4 are completed local `candidate-only`
+image/SBOM/scan bindings and zero-residue checks pass. The former Surveil IaC
+fixtures and policy gates were retired in favor of AviaWorkspace ownership.
+Plans 1–4 are completed local `candidate-only`
 milestones under the combined 28 July 2026 stakeholder disposition. The
 platform remains `candidate-only` and `release pending`. Deployment and
-production readiness are `not run`. AWS Task 10 remains optional,
-unauthorized, and literally `not run`.
+production readiness are `not run`. Cloud infrastructure and deployment are
+owned and gated by AviaWorkspace.

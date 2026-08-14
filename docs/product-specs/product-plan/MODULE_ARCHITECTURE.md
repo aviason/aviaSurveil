@@ -85,7 +85,7 @@ Alternatives considered:
 | PostgreSQL backup | pgBackRest | Separate application and first-party auth database full/differential/incremental backups, identity/application fingerprints, retention, and restore verification |
 | Object backup | MinIO versioning/object lock plus verified mirror to a logically isolated local backup store | Exact object/version recovery without treating versioning as the only backup; local same-host evidence is not host-loss recovery |
 | Local orchestration | Docker Compose profiles | `demo`, `full`, `test`, `observability`, and `recovery` execution lanes |
-| Future AWS trial | Terraform resource modules composed by Terragrunt | Repeatable VPC, load balancer, EC2 application runtime, RDS PostgreSQL, S3, ECR, KMS, Secrets Manager, telemetry, and backup resources after local acceptance; Terraform owns resources while Terragrunt owns environment composition and generated backend wiring |
+| Cloud infrastructure | AviaWorkspace-owned Terraform and Terragrunt | Customer topology, environment composition, remote state, platform services, and deployment targets remain outside the application repository |
 
 ### Domain ownership
 

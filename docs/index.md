@@ -67,11 +67,11 @@ zero. Plan 4
 Tasks 1–9 and Task 11
 add locally verified telemetry, all eight alerts, separate application/identity
 backup chains, two exact isolated restores, candidate RPO/RTO, owner-scoped
-runbooks, nine image/SBOM/scan bindings, and offline Terraform/Terragrunt policy
-gates. Plans 1–4 are completed local `candidate-only` milestones under the
-28 July 2026 combined stakeholder disposition. AWS Task 10 is optional,
-unauthorized, and literally `not run`. The result is local `GO`,
-`candidate-only`, and `release pending`.
+runbooks and nine image/SBOM/scan bindings. The former Surveil-owned cloud
+infrastructure branch is retired; AviaWorkspace owns Terraform/Terragrunt and
+exact deployment targets. Plans 1–4 are completed local `candidate-only`
+milestones under the 28 July 2026 combined stakeholder disposition. The
+result is local `GO`, `candidate-only`, and `release pending`.
 These are not deployed production services. The docs do not
 claim production identity federation,
 production authorization operations, production storage/scanning or Evidence

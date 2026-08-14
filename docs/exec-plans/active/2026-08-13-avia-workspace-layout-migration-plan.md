@@ -1,7 +1,7 @@
 # AviaWorkspace Layout Migration
 
 Date: 2026-08-13
-Last updated: 2026-08-13
+Last updated: 2026-08-14
 Status: active
 Release state: `candidate-only`; `release pending`
 
@@ -26,6 +26,9 @@ AviaAuth owns durable identity, and shared AviaData owns the local admission
 boundary and retained source contracts. Local candidate implementation is
 complete; live cross-repository qualification, released images, and cloud
 deployment remain separate evidence states.
+The obsolete Surveil-owned `aws-trial` and `aws-ipv6-trial` infrastructure
+surfaces are retired so that AviaWorkspace is the sole Terraform/Terragrunt
+and cloud deployment authority.
 
 The immediate user-visible result is a safer local contract: disabled Data
 configuration fails closed, Surveil's Workspace composition uses a private
@@ -47,6 +50,9 @@ In scope:
 - Immutable release-lock validation and exact environment target cutover.
 - Workspace integration-gap documentation.
 - Active AviaSurveil plan paths that still point at retired checkout locations.
+- Retirement of repository-local AWS trial infrastructure, deployment
+  bundles, commands, tests, runbooks, and active-plan references from
+  AviaSurveil.
 - Local verification and literal blocker recording.
 
 Out of scope:
@@ -191,6 +197,17 @@ forward-only and immutable.
       writes remain `not run` because the repository instructions require
       separate owner authorization and external credentials.
 
+11. **Surveil cloud-infrastructure retirement — implemented and verified locally.**
+    - Removed the Surveil Terraform/Terragrunt tree and the obsolete
+      `aws-trial` and `aws-ipv6-trial` deployment bundles, commands, policies,
+      tests, runbooks, and active execution plan.
+    - Removed the trial-only Playwright profile and synchronized living
+      architecture, manifest, operations, plan-index, and tracker references.
+    - Preserved candidate-local application Compose, observability, recovery,
+      and object-store adapters; those remain application validation surfaces,
+      not customer infrastructure ownership.
+    - Left the existing dirty AviaWorkspace infrastructure worktree unchanged.
+
 ## Verification matrix
 
 Run from the owning repository unless noted otherwise:
@@ -209,6 +226,7 @@ Run from the owning repository unless noted otherwise:
 | `node --test tests/harness-docs-smoke.test.js` in AviaSurveil | Plan, index, tracker, and harness documentation links remain coherent | verified locally |
 | `git diff --check` in each changed repository | No whitespace errors | verified locally |
 | Active-path scan | No retired local checkout path in active plan instructions; historical evidence remains allowed | verified locally |
+| Surveil infrastructure ownership scan | No tracked Surveil Terraform/Terragrunt tree, AWS trial deployment/tool/test surface, or obsolete living-doc link remains | verified locally |
 | Workspace operational doctor | Live auth/data/database/object-store readiness and cross-repository E2E | not run; candidate runtime requires Docker services and external release evidence |
 | Shared AviaAuth ready/admin runtime | Durable implementation and cross-repository E2E | implementation verified locally; DB/mail/browser E2E and released image pending |
 | Connected AviaData mode | Live PostgreSQL/SeaweedFS admission, endpoint/auth/image/fallback contract | candidate-only; live Docker E2E not run |
@@ -237,6 +255,8 @@ The repository-local implementation slice is complete when:
 - cloud release locks are immutable and digest-bound, with missing image
   values still failing closed.
 - active plan prompts use the current checkout path.
+- AviaSurveil contains no cloud Terraform/Terragrunt or AWS trial execution
+  surface; AviaWorkspace is the sole platform-infrastructure authority.
 - focused tests and diff checks are `verified locally`, with every external or
   missing-runtime gate labeled literally.
 - unrelated dirty files remain unchanged and no commit/push/deploy occurs.
@@ -281,6 +301,8 @@ Implemented locally in this thread:
 - synchronized Workspace integration-gap status;
 - fail-closed cross-repository component metadata enforcement and canonical
   AviaData image metadata;
+- retirement of Surveil-owned AWS trial Terraform/Terragrunt, runtime,
+  command, policy, test, runbook, and active-plan surfaces;
 - focused Go/Node/Python checks and static Compose/validator/lock checks.
 
 Still blocked or intentionally deferred:
@@ -299,6 +321,8 @@ files. Do not create, switch, rename, or delete branches; do not commit, push,
 deploy, or perform remote/cost-bearing actions. Keep application behavior in
 `apps/surveil`, platform composition and release authority in `workspace`,
 durable identity in `shared/auth`, and source/data contracts in `shared/data`.
+Keep all cloud Terraform/Terragrunt and exact deployment-target work in
+`workspace`; do not recreate repository-local Surveil trial infrastructure.
 Run the focused verification matrix, repair only failures caused by this
 plan, and update this plan, `docs/exec-plans/index.md`, and
 `docs/exec-plans/tech-debt-tracker.md` with literal evidence states. Never

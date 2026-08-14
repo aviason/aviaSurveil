@@ -5,6 +5,8 @@ Release remains `release pending`. Unless a row says otherwise, procedure
 evidence is `not run`; completed local exercises are labeled `verified locally`.
 Current verification results are recorded in their owning active plans and
 evidence files; unexecuted recovery and remote gates remain `not run`.
+Cloud infrastructure operations are owned and documented by AviaWorkspace;
+this application repository contains only candidate-local operating contracts.
 
 ## Operating Contracts
 
@@ -14,10 +16,6 @@ evidence files; unexecuted recovery and remote gates remain `not run`.
 | [Telemetry contract](TELEMETRY_CONTRACT.md) | Signal names, attributes, and redaction. |
 | [Alert catalog](ALERT_CATALOG.md) | Alert symptoms, owners, recovery conditions, and runbook links. |
 | [Ownership](OWNERSHIP.md) | Local owners and escalation boundaries. |
-| [AWS trial decisions](AWS_TRIAL_DECISIONS.md) | Required owner inputs, protected plan bundles, and exact action authorization. |
-| [AWS trial runbook](AWS_TRIAL_RUNBOOK.md) | Phase-scoped plan, apply, smoke, rollback, retention, and destroy procedure. |
-| [AWS IPv6 ARM64 trial decisions](AWS_IPV6_TRIAL_DECISIONS.md) | Separate owner-input contract for the disposable IPv6-only ARM64 trial. |
-| [AWS IPv6 ARM64 trial runbook](AWS_IPV6_TRIAL_RUNBOOK.md) | Local-only ARM64 runtime gates and exact remote authorization stop boundaries. |
 
 ## Runbooks
 

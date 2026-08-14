@@ -58,9 +58,10 @@ result is `preprod verified`; this plan cannot establish `production-ready`.
 - No production deployment, production data, real stakeholder provisioning,
   regulatory publication, source-owner approval, or production cutover.
 - No provider is selected by this document.
-- No Terraform/Terragrunt initialization, cloud discovery, plan, apply, upload,
-  DNS, Cloudflare Access, secret creation, or cost-bearing action without its
-  own current explicit authorization.
+- Cloud infrastructure is owned by AviaWorkspace. No Terraform/Terragrunt
+  initialization, cloud discovery, plan, apply, upload, DNS, Cloudflare
+  Access, secret creation, or cost-bearing action may run from this
+  application plan or without its own current explicit authorization.
 - This plan does not block truthful local demo completion or stakeholder
   acceptance while it is paused.
 

@@ -4,17 +4,15 @@ const e2eProfile = process.env.AVIA_E2E_PROFILE;
 const profile =
   e2eProfile === "local-demo"
     ? "local-demo"
-    : e2eProfile === "aws-trial"
-        ? "aws-trial"
-      : e2eProfile === "http"
-    ? "http"
-    : e2eProfile === "canonical-quick-tunnel"
-      ? "canonical-quick-tunnel"
-    : e2eProfile === "offline"
-      ? "offline"
-      : e2eProfile === "visual-parity"
-        ? "visual-parity"
-        : "mock";
+    : e2eProfile === "http"
+      ? "http"
+      : e2eProfile === "canonical-quick-tunnel"
+        ? "canonical-quick-tunnel"
+        : e2eProfile === "offline"
+          ? "offline"
+          : e2eProfile === "visual-parity"
+            ? "visual-parity"
+            : "mock";
 const command =
   profile === "http"
     ? "AVIA_HTTP_TEST_PROFILE=canonical npm run dev:http -- --host 127.0.0.1 --port 4174 --strictPort"
@@ -25,7 +23,6 @@ const shouldStartWebServer =
   profile !== "offline" &&
   profile !== "canonical-quick-tunnel" &&
   profile !== "local-demo" &&
-  profile !== "aws-trial" &&
   process.env.AVIA_UPDATE_LEGACY_BASELINES !== "1";
 const visualUse = {
   browserName: "chromium" as const,
@@ -75,10 +72,6 @@ export default defineConfig({
     {
       name: "local-demo",
       testMatch: ["e2e/local-demo-platform.spec.ts"],
-    },
-    {
-      name: "aws-trial",
-      testMatch: ["e2e/aws-trial-smoke.spec.ts"],
     },
     {
       name: "mock",
