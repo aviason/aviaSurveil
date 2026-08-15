@@ -9,8 +9,8 @@
   "deploymentAuthority": "aviaWorkspace",
   "runtime": {
     "dev": {
-      "status": "candidate-only",
-      "reason": "Workspace dev composes the explicit local-candidate AviaData admission path and the worker delivery loop; shared AviaAuth E2E, connected-data E2E, and release qualification remain candidate-only."
+      "status": "verified locally",
+      "reason": "Native Surveil gates, real PostgreSQL loader qualification, connected Auth/data checks, and the responsive all-role dev E2E passed; released demo evidence remains separate."
     },
     "demo": {
       "status": "blocked",
