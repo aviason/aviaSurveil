@@ -86,7 +86,7 @@ func run(ctx context.Context, lookup func(string) string, readFile func(string) 
 			return err
 		}
 	}
-	if err := configureSurveil(ctx, masterURL, master); err != nil {
+	if err := configureSurveil(ctx, masterURL, master, passwords["surveil_migration"]); err != nil {
 		return err
 	}
 	if err := configureAuth(ctx, masterURL, master); err != nil {
@@ -104,6 +104,10 @@ func runPermissions(ctx context.Context, lookup func(string) string, readFile fu
 	if err != nil {
 		return err
 	}
+	migrationPassword, err := requiredSecretFile(lookup("AVIA_DATABASE_MIGRATION_PASSWORD_FILE"), readFile)
+	if err != nil {
+		return fmt.Errorf("read database credential surveil_migration: %w", err)
+	}
 	master, err := database.Open(ctx, masterURL)
 	if err != nil {
 		return fmt.Errorf("open managed PostgreSQL permission connection: %w", err)
@@ -112,7 +116,7 @@ func runPermissions(ctx context.Context, lookup func(string) string, readFile fu
 	if err := waitForDatabase(ctx, master); err != nil {
 		return err
 	}
-	if err := configureSurveilWithTableGrants(ctx, masterURL, master, true); err != nil {
+	if err := configureSurveilWithTableGrants(ctx, masterURL, master, migrationPassword, true); err != nil {
 		return err
 	}
 	_, err = fmt.Fprintln(output, "runtime database table permissions reconciled")
@@ -177,11 +181,11 @@ func ensureDatabase(ctx context.Context, pool *database.Pool, name string) error
 	return nil
 }
 
-func configureSurveil(ctx context.Context, masterURL string, master *database.Pool) error {
-	return configureSurveilWithTableGrants(ctx, masterURL, master, false)
+func configureSurveil(ctx context.Context, masterURL string, master *database.Pool, migrationPassword string) error {
+	return configureSurveilWithTableGrants(ctx, masterURL, master, migrationPassword, false)
 }
 
-func configureSurveilWithTableGrants(ctx context.Context, masterURL string, master *database.Pool, grantLoaderTables bool) error {
+func configureSurveilWithTableGrants(ctx context.Context, masterURL string, master *database.Pool, migrationPassword string, grantLoaderTables bool) error {
 	pool, err := openDatabaseURL(ctx, masterURL, surveilDatabase)
 	if err != nil {
 		return err
@@ -209,20 +213,36 @@ func configureSurveilWithTableGrants(ctx context.Context, masterURL string, mast
 		`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO surveil_runtime`,
 		`GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO surveil_runtime`,
 		`GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO surveil_runtime`,
-		`ALTER DEFAULT PRIVILEGES FOR ROLE surveil_migration IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO surveil_runtime`,
-		`ALTER DEFAULT PRIVILEGES FOR ROLE surveil_migration IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO surveil_runtime`,
-		`ALTER DEFAULT PRIVILEGES FOR ROLE surveil_migration IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO surveil_runtime`,
 		`REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM surveil_bootstrap`,
 		`REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM surveil_bootstrap`,
 		`REVOKE ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public FROM surveil_bootstrap`,
 		`REVOKE ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC`,
+	} {
+		if _, err := pool.Exec(ctx, statement); err != nil {
+			return fmt.Errorf("configure surveil database privileges: %w", err)
+		}
+	}
+
+	// RDS master users can manage the fixed database boundary but are not
+	// PostgreSQL superusers. ALTER DEFAULT PRIVILEGES FOR ROLE ... must run as
+	// the owning role itself, so use the migration role for only that narrow
+	// operation set.
+	migrationPool, err := openMigrationDatabaseURL(ctx, masterURL, migrationPassword)
+	if err != nil {
+		return err
+	}
+	defer migrationPool.Close()
+	for _, statement := range []string{
+		`ALTER DEFAULT PRIVILEGES FOR ROLE surveil_migration IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO surveil_runtime`,
+		`ALTER DEFAULT PRIVILEGES FOR ROLE surveil_migration IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO surveil_runtime`,
+		`ALTER DEFAULT PRIVILEGES FOR ROLE surveil_migration IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO surveil_runtime`,
 		`ALTER DEFAULT PRIVILEGES FOR ROLE surveil_migration IN SCHEMA public REVOKE ALL ON TABLES FROM surveil_bootstrap`,
 		`ALTER DEFAULT PRIVILEGES FOR ROLE surveil_migration IN SCHEMA public REVOKE ALL ON SEQUENCES FROM surveil_bootstrap`,
 		`ALTER DEFAULT PRIVILEGES FOR ROLE surveil_migration IN SCHEMA public REVOKE ALL ON FUNCTIONS FROM surveil_bootstrap`,
 		`ALTER DEFAULT PRIVILEGES FOR ROLE surveil_migration IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC`,
 	} {
-		if _, err := pool.Exec(ctx, statement); err != nil {
-			return fmt.Errorf("configure surveil database privileges: %w", err)
+		if _, err := migrationPool.Exec(ctx, statement); err != nil {
+			return fmt.Errorf("configure surveil default privileges: %w", err)
 		}
 	}
 	if !grantLoaderTables {
@@ -244,6 +264,22 @@ func configureSurveilWithTableGrants(ctx context.Context, masterURL string, mast
 		}
 	}
 	return nil
+}
+
+func openMigrationDatabaseURL(ctx context.Context, masterURL, password string) (*database.Pool, error) {
+	databaseURL := migrationDatabaseURL(masterURL, password)
+	if databaseURL == "" {
+		return nil, fmt.Errorf("managed PostgreSQL migration URL is malformed")
+	}
+	pool, err := database.Open(ctx, databaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("open managed PostgreSQL migration role: %w", err)
+	}
+	return pool, nil
+}
+
+func migrationDatabaseURL(masterURL, password string) string {
+	return roleURL(masterURL, "surveil_migration", password, surveilDatabase)
 }
 
 func configureAuth(ctx context.Context, masterURL string, master *database.Pool) error {
