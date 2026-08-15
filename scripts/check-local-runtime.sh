@@ -180,8 +180,7 @@ assert_exact_network_membership() {
   assert_service_networks worker "database identity platform"
   assert_service_networks migration "database"
   assert_service_networks postgres "database"
-  assert_service_networks preprod-auth-postgres "preprod-identity-database"
-  assert_service_networks preprod-auth "identity preprod-identity preprod-identity-database"
+  assert_service_networks auth "identity database"
   assert_service_networks minio "platform"
   assert_service_networks mailpit "identity platform"
   echo "Network membership: exact"
@@ -212,9 +211,9 @@ assert_no_secret_leakage() {
   for secret_path in "${STATE_DIRECTORY}/secrets/"*; do
     [[ -f "${secret_path}" ]] || continue
     secret_name="${secret_path##*/}"
-    secret_value="$(tr -d '\r\n' <"${secret_path}")"
+    secret_value="$(LC_ALL=C tr -d '\r\n' <"${secret_path}")"
     if [[ -n "${secret_value}" ]] &&
-      rg --fixed-strings --quiet -- "${secret_value}" "${RUNTIME_ARTIFACT_DIRECTORY}"; then
+      LC_ALL=C grep -R -a -F -q -- "${secret_value}" "${RUNTIME_ARTIFACT_DIRECTORY}"; then
       echo "generated secret found in runtime logs: ${secret_name}" >&2
       return 1
     fi
@@ -271,7 +270,7 @@ assert_liveness
 wait_for_readiness 200 ready
 
 if [[ "${AVIA_RUNTIME_FAILURE_MATRIX:-0}" == "1" ]]; then
-  for required in postgres preprod-auth minio; do
+  for required in postgres auth minio; do
     inject_dependency_failure "${required}" not_ready 503
   done
   for optional in mailpit; do

@@ -20,7 +20,7 @@ describe("Inspector Finding route ownership", () => {
     const managerDashboard = readFileSync(resolve(import.meta.dirname, "../findings/manager-dashboard-page.tsx"), "utf8");
     const evidenceReview = readFileSync(resolve(import.meta.dirname, "../evidence/evidence-review-page.tsx"), "utf8");
     const capReview = readFileSync(resolve(import.meta.dirname, "../caps/cap-review-page.tsx"), "utf8");
-    expect(leadReview).toContain("/lead-inspector/cap-review/FND-CAB-2026-001");
+    expect(leadReview).toContain("/lead-inspector/cap-review/");
     expect(managerDashboard).toContain("/department-manager/findings-review");
     expect(evidenceReview).toContain("/department-manager/findings-review");
     expect(capReview).toContain("Switch to CAA Inspector Finding");

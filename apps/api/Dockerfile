@@ -14,9 +14,10 @@ RUN mkdir -p /out \
     && go build -trimpath -tags canonicaltest -buildvcs=false -ldflags="-s -w -buildid=" -o /out/canonical-test-api ./cmd/api \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/worker ./cmd/worker \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/migrate ./cmd/migrate \
-    && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-canonical-aga-loader ./cmd/preprod-canonical-aga-loader \
-    && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-canonical-demo-identity-loader ./cmd/preprod-canonical-demo-identity-loader \
-    && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/preprod-normal-runtime-role-provisioner ./cmd/preprod-normal-runtime-role-provisioner
+    && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/runtime-database-bootstrap ./cmd/runtime-database-bootstrap \
+    && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/curated-foundation-loader ./cmd/curated-foundation-loader \
+    && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/prepared-roster-loader ./cmd/prepared-roster-loader \
+    && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/approved-aga-catalog-loader ./cmd/approved-aga-catalog-loader
 
 FROM ${GO_RUNTIME_IMAGE} AS runtime-base
 COPY --from=go-build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
@@ -48,14 +49,10 @@ COPY --from=go-build --chown=10001:10001 /out/migrate /app/migrate
 COPY --chown=10001:10001 deploy/local/api/migration-entrypoint.sh /app/entrypoint.sh
 ENTRYPOINT ["/app/entrypoint.sh"]
 
-FROM runtime-base AS preprod-canonical-aga-loader
-COPY --from=go-build --chown=10001:10001 /out/preprod-canonical-aga-loader /app/preprod-canonical-aga-loader
-ENTRYPOINT ["/app/preprod-canonical-aga-loader"]
-
-FROM runtime-base AS preprod-canonical-demo-identity-loader
-COPY --from=go-build --chown=10001:10001 /out/preprod-canonical-demo-identity-loader /app/preprod-canonical-demo-identity-loader
-ENTRYPOINT ["/app/preprod-canonical-demo-identity-loader"]
-
-FROM runtime-base AS preprod-normal-runtime-role-provisioner
-COPY --from=go-build --chown=10001:10001 /out/preprod-normal-runtime-role-provisioner /app/preprod-normal-runtime-role-provisioner
-ENTRYPOINT ["/app/preprod-normal-runtime-role-provisioner"]
+FROM runtime-base AS bootstrap
+COPY --from=go-build --chown=10001:10001 /out/runtime-database-bootstrap /app/runtime-database-bootstrap
+COPY --from=go-build --chown=10001:10001 /out/curated-foundation-loader /app/curated-foundation-loader
+COPY --from=go-build --chown=10001:10001 /out/prepared-roster-loader /app/prepared-roster-loader
+COPY --from=go-build --chown=10001:10001 /out/approved-aga-catalog-loader /app/approved-aga-catalog-loader
+COPY --chown=10001:10001 deliverables/AGA_ALL_FORMS_APPROVED_SOURCE_V2.zip /app/bootstrap/AGA_ALL_FORMS_APPROVED_SOURCE_V2.zip
+ENTRYPOINT ["/app/curated-foundation-loader", "load"]

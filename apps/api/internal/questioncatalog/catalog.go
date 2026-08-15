@@ -15,14 +15,21 @@ import (
 	"sync"
 )
 
-// UsageClass identifies the authority boundary of a catalog.  Exercise
-// records are valid only in a dedicated disposable preprod profile and cannot
-// be promoted through the governed publication path.
+// UsageClass identifies the operational authority boundary of a catalog.
 type UsageClass string
 
 const (
 	UsageClassGovernedOperational UsageClass = "GOVERNED_OPERATIONAL"
-	UsageClassPreprodExercise     UsageClass = "PREPROD_EXERCISE"
+)
+
+// SourceOrigin records why an operational catalog is available. It is
+// intentionally separate from UsageClass: the imported source classification
+// is not an internal Manager approval or publication event.
+type SourceOrigin string
+
+const (
+	SourceOriginImportedApproved  SourceOrigin = "IMPORTED_APPROVED_SOURCE"
+	SourceOriginInternalCandidate SourceOrigin = "INTERNAL_GENERATED_CANDIDATE"
 )
 
 // ImportRow is the import/provenance projection for one immutable
@@ -37,6 +44,7 @@ type ImportRow struct {
 	QuestionVersionID string
 	QuestionDigest    string
 	UsageClass        UsageClass
+	SourceOrigin      SourceOrigin
 	Body              string
 }
 
@@ -128,9 +136,9 @@ func ImportDigest(rows []ImportRow) string {
 	for _, row := range canonical {
 		// Include every immutable lineage fact and usage boundary.  Delimiters
 		// avoid ambiguous concatenations while keeping the digest portable.
-		fmt.Fprintf(h, "%s\x00%s\x00%s\x00%d\x00%s\x00%s\x00%s\n",
+		fmt.Fprintf(h, "%s\x00%s\x00%s\x00%d\x00%s\x00%s\x00%s\x00%s\n",
 			row.CatalogVersion, row.FormCode, row.ProposalID, row.Ordinal,
-			row.QuestionVersionID, row.QuestionDigest, row.UsageClass)
+			row.QuestionVersionID, row.QuestionDigest, row.UsageClass, row.SourceOrigin)
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }
@@ -139,7 +147,8 @@ func ImportDigest(rows []ImportRow) string {
 // A production importer should enforce the same boundary in the database
 // profile and foreign keys; this type provides the command-level guard.
 type CatalogPolicy struct {
-	UsageClass UsageClass
+	UsageClass   UsageClass
+	SourceOrigin SourceOrigin
 }
 
 // SelectionRequest carries the desired exact selected set.  ExpectedDigest is
@@ -193,6 +202,9 @@ func NewCatalog(rows []ImportRow, policy CatalogPolicy) (*Catalog, error) {
 	for _, row := range rows {
 		if row.UsageClass != policy.UsageClass {
 			return nil, fmt.Errorf("%w: want %s, got %s", errUsageClassMismatch, policy.UsageClass, row.UsageClass)
+		}
+		if policy.SourceOrigin != "" && row.SourceOrigin != policy.SourceOrigin {
+			return nil, fmt.Errorf("%w: source origin want %s, got %s", errUsageClassMismatch, policy.SourceOrigin, row.SourceOrigin)
 		}
 		// Keep only the immutable reference/provenance projection.  Body is
 		// already rejected above, so this also documents the authority boundary.

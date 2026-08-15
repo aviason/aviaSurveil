@@ -9,13 +9,14 @@ func syntheticImportRows() []ImportRow {
 	for form := 1; form <= 52; form++ {
 		for ordinal := 1; ordinal <= 25; ordinal++ {
 			rows = append(rows, ImportRow{
-				CatalogVersion:    "aga-preprod@1.0.0",
+				CatalogVersion:    "aga-approved-source@2.0.0",
 				FormCode:          formCode(form),
 				ProposalID:        "proposal-" + formCode(form),
 				Ordinal:           ordinal,
 				QuestionVersionID: "qv-" + formCode(form) + "-" + formatOrdinal(ordinal),
 				QuestionDigest:    "digest-" + formCode(form) + "-" + formatOrdinal(ordinal),
-				UsageClass:        UsageClassPreprodExercise,
+				UsageClass:        UsageClassGovernedOperational,
+				SourceOrigin:      SourceOriginImportedApproved,
 			})
 		}
 	}
@@ -23,13 +24,14 @@ func syntheticImportRows() []ImportRow {
 	// 52-by-25 grid; ten forms carry one additional question.
 	for form := 1; form <= 10; form++ {
 		rows = append(rows, ImportRow{
-			CatalogVersion:    "aga-preprod@1.0.0",
+			CatalogVersion:    "aga-approved-source@2.0.0",
 			FormCode:          formCode(form),
 			ProposalID:        "proposal-" + formCode(form),
 			Ordinal:           26,
 			QuestionVersionID: "qv-" + formCode(form) + "-026",
 			QuestionDigest:    "digest-" + formCode(form) + "-026",
-			UsageClass:        UsageClassPreprodExercise,
+			UsageClass:        UsageClassGovernedOperational,
+			SourceOrigin:      SourceOriginImportedApproved,
 		})
 	}
 	return rows
@@ -57,7 +59,7 @@ func TestSuccessorImportPreservesExactAGAIdentitySet(t *testing.T) {
 }
 
 func TestSuccessorCatalogSelectionIsBoundedAndCASProtected(t *testing.T) {
-	catalog, err := NewCatalog(syntheticImportRows(), CatalogPolicy{UsageClass: UsageClassPreprodExercise})
+	catalog, err := NewCatalog(syntheticImportRows(), CatalogPolicy{UsageClass: UsageClassGovernedOperational, SourceOrigin: SourceOriginImportedApproved})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,8 +79,8 @@ func TestSuccessorImportCannotCopyBodiesOrCrossUsageClass(t *testing.T) {
 		t.Fatal("RED successor authority contract: catalog import must reject copied question bodies")
 	}
 	rows = syntheticImportRows()
-	rows[0].UsageClass = UsageClassGovernedOperational
-	if _, err := NewCatalog(rows, CatalogPolicy{UsageClass: UsageClassPreprodExercise}); err == nil {
-		t.Fatal("RED successor usage boundary: exercise catalog must reject governed records")
+	rows[0].SourceOrigin = SourceOriginInternalCandidate
+	if _, err := NewCatalog(rows, CatalogPolicy{UsageClass: UsageClassGovernedOperational, SourceOrigin: SourceOriginImportedApproved}); err == nil {
+		t.Fatal("approved catalog must reject a different source lineage")
 	}
 }

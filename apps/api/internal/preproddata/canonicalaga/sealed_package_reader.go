@@ -230,6 +230,10 @@ func parseManifest(content []byte) (map[string]string, error) {
 }
 
 func validateManifestEntries(entries map[string][]byte, root string, manifest map[string]string) error {
+	return validateManifestEntriesFor(entries, root, manifest, packageJSONName)
+}
+
+func validateManifestEntriesFor(entries map[string][]byte, root string, manifest map[string]string, packageName string) error {
 	if len(entries) != len(manifest)+2 {
 		return invalid("ZIP entry set does not exactly match manifest")
 	}
@@ -239,7 +243,7 @@ func validateManifestEntries(entries map[string][]byte, root string, manifest ma
 			return invalid("manifest digest mismatch for %q", fileName)
 		}
 	}
-	if _, ok := manifest[packageJSONName]; !ok {
+	if _, ok := manifest[packageName]; !ok {
 		return invalid("manifest does not bind package JSON")
 	}
 	return nil

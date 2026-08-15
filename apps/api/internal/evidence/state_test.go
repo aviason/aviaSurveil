@@ -30,6 +30,17 @@ func TestEvidenceReviewRequiresExactScanCleanImmutableVersion(t *testing.T) {
 	}
 }
 
+func TestDepartmentManagerCannotReviewEvidence(t *testing.T) {
+	manager := identity.Principal{Roles: []identity.Role{identity.RoleDepartmentManager}}
+	_, err := evidence.Review(evidence.ReviewInput{
+		Actor: manager, VersionID: "evidence-version-003", VersionRevision: 3, ExpectedVersionRevision: 3,
+		ScanStatus: evidence.ScanClean, FindingStatus: findings.StatusPendingCAAReview, Decision: evidence.DecisionClose,
+	})
+	if err == nil {
+		t.Fatal("Department Manager reviewed Evidence without assigned CAA reviewer role")
+	}
+}
+
 func TestNonClosingEvidenceDecisionsKeepFindingOpen(t *testing.T) {
 	t.Parallel()
 	inspector := identity.Principal{Roles: []identity.Role{identity.RoleInspector}}

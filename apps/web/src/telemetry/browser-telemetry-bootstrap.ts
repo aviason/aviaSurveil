@@ -23,7 +23,7 @@ function disabledBrowserTelemetry(): BrowserTelemetry {
 
 export function installBrowserTelemetry(
   buildProfile: "demo" | "http",
-  serviceVersion = "candidate",
+  serviceVersion = "runtime",
   options: BrowserTelemetryInstallOptions = {},
 ): BrowserTelemetry {
   if (options.disabled) {
@@ -86,7 +86,12 @@ export function installBrowserTelemetry(
 
 export function currentBrowserRouteID(): string {
   const path = window.location.pathname;
-  return REACT_ROUTE_CONTRACTS.find((contract) => contract.path === path)?.id ?? "unknown";
+  const route = REACT_ROUTE_CONTRACTS.find((contract) => {
+    const templateSegments = contract.path.split("/").filter(Boolean);
+    const pathSegments = path.split("/").filter(Boolean);
+    return templateSegments.length === pathSegments.length && templateSegments.every((segment, index) => segment.startsWith(":") || segment === pathSegments[index]);
+  });
+  return route?.id ?? "unknown";
 }
 
 export function observeBrowserNavigation(

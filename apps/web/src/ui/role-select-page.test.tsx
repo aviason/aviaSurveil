@@ -60,7 +60,7 @@ describe("RoleSelectPage", () => {
     );
 
     const workspaces = screen.getByRole("main");
-    await user.click(screen.getByRole("button", { name: "Explore the clickable demo" }));
+    await user.click(screen.getByRole("button", { name: "Explore the local workspace" }));
     expect(workspaces).toHaveFocus();
     await user.click(screen.getByRole("button", { name: "Skip to workspace selection" }));
     expect(workspaces).toHaveFocus();

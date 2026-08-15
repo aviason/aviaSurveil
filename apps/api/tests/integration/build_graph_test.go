@@ -112,21 +112,18 @@ func TestLocalPostgreSQLProfileIsPinnedAndSelfCleaning(t *testing.T) {
 		t.Error("compose profile uses an unpinned latest tag")
 	}
 
-	scriptContents, err := os.ReadFile(filepath.Join(repositoryRoot, "scripts", "test-http-profile.sh"))
+	scriptContents, err := os.ReadFile(filepath.Join(repositoryRoot, "scripts", "test-qualification-bootstrap.sh"))
 	if err != nil {
-		t.Fatalf("read HTTP profile script: %v", err)
+		t.Fatalf("read qualification bootstrap script: %v", err)
 	}
 	script := string(scriptContents)
 	for _, required := range []string{
-		"down --volumes", "trap cleanup EXIT", "go -C", "check-contracts.sh", "check-sqlc.sh",
-		"GOTMPDIR", "SHARED_GO_CACHE", "seed_task_go_cache", "cp -al", "API_RACE_PACKAGES",
-		"test-agaapplicability-race-shards.sh",
-		"build -tags canonicaltest -o \"${RUNTIME_DIRECTORY}/api\" ./cmd/api", "build -o \"${RUNTIME_DIRECTORY}/worker\" ./cmd/worker",
-		"exec \"${RUNTIME_DIRECTORY}/api\"", "exec \"${RUNTIME_DIRECTORY}/worker\"",
-		"test:contract:http", "test:e2e:mock", "test:e2e:http",
+		"down --volumes --remove-orphans", "trap cleanup EXIT", "docker compose --project-name",
+		"AVIA_TEST_DATABASE_URL=", "go -C \"${REPOSITORY_ROOT}/apps/api\" test ./tests/integration",
+		"TestQualificationBootstrapReplayDriftAndPermissionBoundary", "qualification-bootstrap: verified locally",
 	} {
 		if !strings.Contains(script, required) {
-			t.Errorf("HTTP profile script does not contain %q", required)
+			t.Errorf("qualification bootstrap script does not contain %q", required)
 		}
 	}
 }

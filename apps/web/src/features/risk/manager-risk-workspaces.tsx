@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import { useApplicationRuntime } from "../../app/providers";
 import type {
@@ -123,19 +123,7 @@ function csvFor(records: RiskManagementProjectionView["findings"]): string {
 }
 
 function OrganizationProfileAction({ organizationId }: { organizationId: string }) {
-  if (organizationId === "ORG-FLY-NAMIBIA") {
-    return <Link aria-label="Open risk profile for ORG-FLY-NAMIBIA" to="/department-manager/organizations/ORG-FLY-NAMIBIA/risk-profile">Open profile</Link>;
-  }
-  return (
-    <button
-      aria-label={`Risk profile unavailable for ${organizationId}`}
-      disabled
-      title={`Organization ${organizationId} has no declared Department Manager risk-profile route in Plan 1.`}
-      type="button"
-    >
-      Profile unavailable
-    </button>
-  );
+  return <Link aria-label={`Open risk profile for ${organizationId}`} to={`/department-manager/organizations/${encodeURIComponent(organizationId)}/risk-profile`}>Open profile</Link>;
 }
 
 export function ManagerRiskDashboardPage() {
@@ -238,7 +226,7 @@ export function ManagerSafetyIntelligencePage() {
         <CommandError message={error} /><AdvisoryBoundary />
         <section aria-label="Safety intelligence filters" className="manager-intelligence-filters"><label>Signal filter<select aria-label="Signal filter" value={filter} onChange={(event) => setFilter(event.target.value)}><option value="all">All signals</option><option value="overdue">Overdue</option><option value="repeat">Repeat</option></select></label><output data-testid="active-signal-filter">{filter}</output></section>
         <p className="eyebrow">Management attention</p>
-        <section aria-label="Management attention" className="manager-signal-list">{signals.map((organization) => { const overview = projection.overviews[organization.id]; return <article key={organization.id}><div><p className="eyebrow">Mock risk indicator</p><h2>{organization.legalName}</h2><p>{organization.id} · Recommended action: review exact Finding and planning context.</p></div><dl><div><dt>Open Findings</dt><dd>{overview?.openFindingCount ?? 0}</dd></div><div><dt>Overdue</dt><dd>{overview?.overdueFindingCount ?? 0}</dd></div></dl><OrganizationProfileAction organizationId={organization.id} /></article>; })}{signals.length === 0 ? <p>No safety intelligence signals match this filter.</p> : null}</section>
+        <section aria-label="Management attention" className="manager-signal-list">{signals.map((organization) => { const overview = projection.overviews[organization.id]; return <article key={organization.id}><div><p className="eyebrow">Server-derived risk signal</p><h2>{organization.legalName}</h2><p>{organization.id} · Recommended action: review exact Finding and planning context.</p></div><dl><div><dt>Open Findings</dt><dd>{overview?.openFindingCount ?? 0}</dd></div><div><dt>Overdue</dt><dd>{overview?.overdueFindingCount ?? 0}</dd></div></dl><OrganizationProfileAction organizationId={organization.id} /></article>; })}{signals.length === 0 ? <p>No safety intelligence signals match this filter.</p> : null}</section>
       </div>
     </WorkspaceShell>
   );
@@ -246,32 +234,30 @@ export function ManagerSafetyIntelligencePage() {
 
 export function OrganizationRiskProfilePage() {
   const { projection, error } = useIntelligenceProjection();
-  const organization = projection.organizations.find((item) => item.id === "ORG-FLY-NAMIBIA") ?? null;
+  const { organizationId } = useParams<{ organizationId: string }>();
+  const organization = projection.organizations.find((item) => item.id === organizationId) ?? null;
   const overview = organization ? projection.overviews[organization.id] ?? null : null;
   const advisoryHealth = overview?.advisoryHealth ?? null;
   return (
     <WorkspaceShell roleLabel="Department Manager" routeLabel="Organization Risk Profile">
       <div className="manager-intelligence-page" data-testid="organization-risk-profile-page">
-        <PageHeader eyebrow="Exact Organization profile" title={`Organization Risk Profile — ${organization?.legalName ?? "Fly Namibia"}`} description="Understand why this Organization needs oversight attention before planning or opening an inspection." />
+        <PageHeader eyebrow="Exact Organization profile" title={`Organization Risk Profile — ${organization?.legalName ?? "Organization unavailable"}`} description="Understand why this Organization needs oversight attention before planning or opening an inspection." />
         <CommandError message={error} /><AdvisoryBoundary />
-        <section className="organization-risk-summary"><div><span>Oversight Health</span><strong>{advisoryHealth?.score ?? "—"}</strong><b>{advisoryHealth?.band ?? "Loading indicator"}</b><small>{advisoryHealth ? `Configured demo scenario · ${advisoryHealth.recommendedAction}` : "Loading configured demo indicator."}</small></div><dl><div><dt>Organization ID</dt><dd>ORG-FLY-NAMIBIA</dd></div><div><dt>Open Findings</dt><dd>{overview?.openFindingCount ?? 0}</dd></div><div><dt>Overdue</dt><dd>{overview?.overdueFindingCount ?? 0}</dd></div><div><dt>Repeat signals</dt><dd>{overview?.repeatFindingCount ?? 0}</dd></div></dl></section>
-        <section aria-label="Organization risk actions" className="manager-intelligence-actions"><Link aria-label="Open Fly Namibia organization record" to="/department-manager/organizations/ORG-FLY-NAMIBIA">Open organization record</Link><Link aria-label="Open Findings Review for ORG-FLY-NAMIBIA" to="/department-manager/findings-review?organizationId=ORG-FLY-NAMIBIA">Open Findings Review</Link><Link to="/department-manager/safety-intelligence">Back to Safety Intelligence</Link></section>
+        <section className="organization-risk-summary"><div><span>Oversight Health</span><strong>{advisoryHealth?.score ?? "—"}</strong><b>{advisoryHealth?.band ?? "Loading indicator"}</b><small>{advisoryHealth ? advisoryHealth.recommendedAction : "Management indicator unavailable."}</small></div><dl><div><dt>Organization ID</dt><dd>{organization?.id ?? "Unavailable"}</dd></div><div><dt>Open Findings</dt><dd>{overview?.openFindingCount ?? 0}</dd></div><div><dt>Overdue</dt><dd>{overview?.overdueFindingCount ?? 0}</dd></div><div><dt>Repeat signals</dt><dd>{overview?.repeatFindingCount ?? 0}</dd></div></dl></section>
+        {organization ? <section aria-label="Organization risk actions" className="manager-intelligence-actions"><Link aria-label={`Open ${organization.id} organization record`} to={`/department-manager/organizations/${encodeURIComponent(organization.id)}`}>Open organization record</Link><Link aria-label={`Open Findings Review for ${organization.id}`} to={`/department-manager/findings-review?organizationId=${encodeURIComponent(organization.id)}`}>Open Findings Review</Link><Link to="/department-manager/safety-intelligence">Back to Safety Intelligence</Link></section> : null}
       </div>
     </WorkspaceShell>
   );
 }
 
-const sspObjectives = [
-  { id: "SSP-OBJ-001", title: "Strengthen cabin emergency equipment oversight follow-up", spi: "Overdue CAP ratio", current: "18%", target: "< 10%", action: "NASP-ACT-001", owner: "Cabin Safety Section", status: "In progress" },
-  { id: "SSP-OBJ-002", title: "Improve evidence-based closure discipline", spi: "Evidence accepted before closure", current: "Demo workflow enforced", target: "100%", action: "NASP-ACT-002", owner: "Oversight Quality Team", status: "Planned" },
-] as const;
-
 export function ManagerSspNaspPage() {
-  return <WorkspaceShell roleLabel="Department Manager" routeLabel="SSP / NASP"><div className="manager-intelligence-page" data-testid="manager-ssp-nasp-page"><PageHeader eyebrow="State safety monitoring" title="SSP/NASP Management Dashboard" description="Track safety objectives, SPI trends, NASP actions, and responsible sections." /><AdvisoryBoundary><span> Supports monitoring; it does not determine State safety performance automatically.</span></AdvisoryBoundary><section className="manager-dossier-list">{sspObjectives.map((item) => <article key={item.id}><p className="eyebrow">{item.id} · Monitoring indicator</p><h2>{item.title}</h2><div className="manager-intelligence-table-wrap"><table><thead><tr><th>SPI</th><th>Current</th><th>Target</th></tr></thead><tbody><tr><td>{item.spi}</td><td>{item.current}</td><td>{item.target}</td></tr></tbody></table><table><thead><tr><th>NASP action</th><th>Owner</th><th>Status</th></tr></thead><tbody><tr><td>{item.action}</td><td>{item.owner}</td><td>{item.status}</td></tr></tbody></table></div></article>)}</section><Link to="/department-manager/risk-dashboard">Back to Risk Dashboard</Link></div></WorkspaceShell>;
+  const { projection, error } = useIntelligenceProjection();
+  return <WorkspaceShell roleLabel="Department Manager" routeLabel="SSP / NASP"><div className="manager-intelligence-page" data-testid="manager-ssp-nasp-page"><PageHeader eyebrow="State safety monitoring" title="SSP/NASP Management Dashboard" description="Review configured safety objectives and SPI records exposed by the current API contract." /><CommandError message={error} /><AdvisoryBoundary><span> Supports monitoring; it does not determine State safety performance automatically.</span></AdvisoryBoundary><section className="manager-dossier-list">{projection.management.findings.length ? <div className="manager-intelligence-table-wrap"><table><thead><tr><th>Finding</th><th>Organization</th><th>Risk level</th><th>Status</th><th>Due state</th></tr></thead><tbody>{projection.management.findings.map((record) => <tr key={record.findingId}><td><b>{record.findingId}</b><small>{record.findingNumber}</small></td><td>{record.organizationName}<small>{record.organizationId}</small></td><td>{riskLabel(record.riskLevel)}</td><td>{record.status}</td><td>{record.dueState}</td></tr>)}</tbody></table></div> : <p>No server-owned SSP/NASP objective or SPI records are available in the current API contract.</p>}</section><Link to="/department-manager/risk-dashboard">Back to Risk Dashboard</Link></div></WorkspaceShell>;
 }
 
 export function ManagerUsoapReadinessPage() {
-  return <WorkspaceShell roleLabel="Department Manager" routeLabel="USOAP Readiness"><div className="manager-intelligence-page" data-testid="manager-usoap-readiness-page"><PageHeader eyebrow="Configured readiness support" title="USOAP Readiness Workspace" description="See PQ / CE gaps, missing Evidence, and readiness history without claiming an official EI outcome." /><AdvisoryBoundary><span> No official EI score or automatic compliance conclusion.</span></AdvisoryBoundary><section className="manager-intelligence-table-wrap"><table><thead><tr><th>PQ readiness item</th><th>Critical Element</th><th>Audit area</th><th>Linked CAP / Finding</th><th>Status</th><th>Verification history</th></tr></thead><tbody><tr><td><b>PQ-CAB-MOCK-001</b><small>Mock readiness record; not an official ICAO assessment.</small></td><td>CE-7</td><td>Cabin Safety</td><td>FND-SKYCARGO-2026-099</td><td>Missing evidence</td><td>15 Jun 2026 · Gap remains under review.</td></tr></tbody></table></section><Link to="/department-manager/risk-dashboard">Back to Risk Dashboard</Link></div></WorkspaceShell>;
+  const { projection, error } = useIntelligenceProjection();
+  return <WorkspaceShell roleLabel="Department Manager" routeLabel="USOAP Readiness"><div className="manager-intelligence-page" data-testid="manager-usoap-readiness-page"><PageHeader eyebrow="Configured readiness support" title="USOAP Readiness Workspace" description="See PQ / CE gaps and readiness history when those records are exposed by the server contract, without claiming an official EI outcome." /><CommandError message={error} /><AdvisoryBoundary><span> No official EI score or automatic compliance conclusion.</span></AdvisoryBoundary><section className="manager-intelligence-table-wrap">{projection.management.findings.length ? <table><thead><tr><th>Server-owned Finding</th><th>Organization</th><th>Risk level</th><th>Status</th><th>Evidence next action</th></tr></thead><tbody>{projection.management.findings.map((record) => <tr key={record.findingId}><td><b>{record.findingId}</b><small>{record.findingNumber}</small></td><td>{record.organizationName}</td><td>{riskLabel(record.riskLevel)}</td><td>{record.status}</td><td>{record.capRequired ? "CAP / Evidence review remains separate" : "No CAP required"}</td></tr>)}</tbody></table> : <p>No server-owned PQ/CE readiness records are available in the current API contract.</p>}</section><Link to="/department-manager/risk-dashboard">Back to Risk Dashboard</Link></div></WorkspaceShell>;
 }
 
 export function ManagerCapEffectivenessPage() {

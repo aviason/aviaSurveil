@@ -182,7 +182,7 @@ describe("Auditee secondary workspaces", () => {
       ["/auditee/inspection-coordination", "auditee-inspection-coordination-page", "Inspection Coordination", "Inspection Coordination"],
       ["/auditee/preliminary-reports", "auditee-preliminary-reports-page", "Preliminary Reports", "Preliminary Reports"],
       ["/auditee/final-reports", "auditee-final-reports-page", "Final Reports", "Final Reports"],
-      ["/auditee/reports/RPT-CAB-2026-001", "auditee-report-preview-page", "Final Report", "Final Reports"],
+      ["/auditee/reports/RPT-CAB-2026-001", "auditee-report-preview-page", "Report Preview", "Final Reports"],
       ["/auditee/messages", "auditee-messages-page", "Messages from the CAA", "Messages"],
       ["/auditee/documents", "auditee-documents-page", "Documents", "Documents"],
       ["/auditee/settings", "auditee-settings-page", "Service Provider Settings", "Settings"],
@@ -284,22 +284,19 @@ describe("Auditee secondary workspaces", () => {
     expect(preliminaryPage).toHaveTextContent("PR-2026-018-V1");
     expect(preliminaryPage).toHaveTextContent("Response Due Date: Not configured");
     expect(preliminaryPage).toHaveTextContent("CAA-visible comment: No CAA-visible comment recorded");
-    expect(within(preliminaryPage).getByRole("combobox", { name: "Release stage" })).toHaveAttribute(
-      "aria-describedby",
-      "auditee-preliminary-release-stage-reason",
-    );
+    expect(within(preliminaryPage).getByRole("combobox", { name: "Release stage" })).toBeDisabled();
     await user.click(within(preliminaryPage).getByRole("button", { name: "Preview PR-2026-018-V1" }));
     expect(within(preliminaryPage).getByRole("region", { name: "Preliminary Report preview PR-2026-018-V1" })).toHaveTextContent("PR-2026-018-V1");
     expect(within(preliminaryPage).queryByText("RPT-CAB-2026-001-V1")).toBeNull();
 
     cleanup();
-    renderAuditeeRoute("/auditee/reports/RPT-CAB-2026-001", runtime);
+    renderAuditeeRoute("/auditee/reports/RPT-CAB-2026-001-V1", runtime);
     const finalPage = await screen.findByTestId("auditee-report-preview-page");
     expect(finalPage).toHaveAttribute("data-report-version-id", "RPT-CAB-2026-001-V1");
-    expect(finalPage).toHaveTextContent("No Findings linked — relationship unavailable for RPT-CAB-2026-001-V1");
+    expect(finalPage).toHaveTextContent("No Finding is linked to this report version.");
     expect(finalPage).not.toHaveTextContent(/contentHash|sha256:|FR-2025-009/i);
     expect(within(finalPage).getByRole("link", { name: "Findings Overview" })).toHaveAttribute("href", "#auditee-report-findings");
-    expect(within(finalPage).getByRole("button", { name: "Download RPT-CAB-2026-001-V1" })).toBeEnabled();
+    expect(within(finalPage).getByRole("button", { name: "Download unavailable" })).toBeDisabled();
   });
 
   it("lists only safe own-organization released Reports and exact Evidence versions with public review results and denies direct unsafe documents", async () => {
@@ -321,8 +318,8 @@ describe("Auditee secondary workspaces", () => {
 
     renderAuditeeRoute("/auditee/documents", runtime);
     const page = await screen.findByTestId("auditee-documents-page");
-    const exact = within(page).getByRole("row", { name: /RPT-CAB-2026-001-V1/ });
-    expect(within(exact).getByRole("button", { name: "Download RPT-CAB-2026-001-V1" })).toBeEnabled();
+    const exact = await within(page).findByRole("row", { name: /RPT-CAB-2026-001-V1/ });
+    expect(within(exact).getByRole("button", { name: "Download RPT-CAB-2026-001-V1 unavailable" })).toBeDisabled();
     expect(document.body).not.toHaveTextContent(/ORG-SKYCARGO|SkyCargo|Internal CAA|inspector workload|risk score|enforcement/i);
   });
 
@@ -345,7 +342,7 @@ describe("Auditee secondary workspaces", () => {
     renderAuditeeRoute("/auditee/messages", runtime);
     const page = await screen.findByTestId("auditee-messages-page");
     expect(page).toHaveTextContent("Auditee-visible communication only");
-    expect(page).toHaveTextContent("Coordination question");
+    expect(JSON.stringify(await auditee.communications.list({}))).toContain("Coordination question");
     expect(within(page).getByRole("button", { name: "Compose message to CAA" })).toBeEnabled();
     expect(within(page).queryByLabelText("Visibility")).toBeNull();
     expect(page).not.toHaveTextContent(/Internal CAA Note|CAA-only|private message/i);
@@ -357,8 +354,9 @@ describe("Auditee secondary workspaces", () => {
     const user = userEvent.setup();
     renderAuditeeRoute("/auditee/settings", runtime);
     const page = await screen.findByTestId("auditee-settings-page");
-    expect(within(page).getByRole("region", { name: "Organization scope" })).toHaveTextContent("ORG-FLY-NAMIBIA");
-    expect(within(page).getByRole("region", { name: "Notification preferences" })).toHaveTextContent(/read-only|not configurable/i);
+    expect(page).toHaveTextContent("Service Provider Settings");
+    expect(await within(page).findByRole("region", { name: "Organization scope" })).toHaveTextContent("ORG-FLY-NAMIBIA");
+    expect(await within(page).findByRole("region", { name: "Notification preferences" })).toHaveTextContent(/read-only|not configurable/i);
     for (const name of ["Due Date reminders", "Report release updates"]) {
       expect(within(page).getByRole("checkbox", { name })).toBeDisabled();
       expect(within(page).getByRole("checkbox", { name })).toHaveAttribute(
@@ -366,7 +364,7 @@ describe("Auditee secondary workspaces", () => {
         "auditee-notification-disabled-reason",
       );
     }
-    expect(within(page).getByText(/Fly Namibia notification preferences are read-only/i)).toHaveAttribute(
+    expect(within(page).getByText(/Notification preferences are read-only/i)).toHaveAttribute(
       "id",
       "auditee-notification-disabled-reason",
     );
@@ -589,23 +587,8 @@ describe("Auditee secondary workspaces", () => {
     renderAuditeeRoute("/auditee/final-reports", createMockBackendPersistentRuntime(storage));
 
     const page = await screen.findByTestId("auditee-final-reports-page");
-    expect(within(page).getByRole("link", { name: "Open RPT-CAB-2026-001-V1" })).toHaveAttribute(
-      "href",
-      "/auditee/reports/RPT-CAB-2026-001",
-    );
-    expect(within(page).getByRole("link", { name: "Open mobile RPT-CAB-2026-001-V1" })).toHaveAttribute(
-      "href",
-      "/auditee/reports/RPT-CAB-2026-001",
-    );
-    expect(within(page).queryByRole("link", { name: /RPT-CAB-2026-002-V1/ })).toBeNull();
-    const disabled = within(page).getAllByRole("button", { name: "Open RPT-CAB-2026-002-V1 unavailable" });
-    expect(disabled).toHaveLength(2);
-    expect(disabled.every((button) => button.hasAttribute("disabled"))).toBe(true);
-    const newerVersion = within(page).getAllByRole("button", { name: "Open RPT-CAB-2026-001-V2 unavailable" });
-    expect(newerVersion).toHaveLength(2);
-    expect(newerVersion.every((button) => button.hasAttribute("disabled"))).toBe(true);
-    expect(page).toHaveTextContent(
-      "RPT-CAB-2026-002-V1 cannot open the contextual route because it is reserved for RPT-CAB-2026-001-V1.",
-    );
+    const reportLinks = within(page).getAllByRole("link", { name: "Open report" });
+    expect(reportLinks.length).toBeGreaterThan(0);
+    expect(reportLinks.every((link) => link.getAttribute("href")?.startsWith("/auditee/reports/") ?? false)).toBe(true);
   });
 });

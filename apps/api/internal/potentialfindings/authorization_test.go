@@ -18,13 +18,13 @@ func TestAuthorizePotentialFindingListAndRead(t *testing.T) {
 		t.Fatal("inspector must not list the Lead Potential Finding queue")
 	}
 	if err := AuthorizeRead(ReadAuthorizationInput{
-		Actor: inspector,
+		Actor:                       inspector,
 		AssignedInspectorSubjectIDs: []string{"USR-INSPECTOR-AMINA"},
 	}); err != nil {
 		t.Fatalf("assigned inspector read authorization failed: %v", err)
 	}
 	if err := AuthorizeRead(ReadAuthorizationInput{
-		Actor: inspector,
+		Actor:                       inspector,
 		AssignedInspectorSubjectIDs: []string{"USR-INSPECTOR-DAVID"},
 	}); err == nil {
 		t.Fatal("unassigned inspector must not read another inspector's Potential Finding")

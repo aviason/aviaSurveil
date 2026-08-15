@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -100,7 +100,7 @@ async function seedTwoCapRevisions(runtime: MockRuntime) {
   return { finding: await lead.findings.get({ findingId: finding.id }), second };
 }
 
-function renderPage(runtime: MockRuntime) {
+function renderPage(runtime: MockRuntime, findingId: string) {
   render(
     <AppProviders
       runtime={{
@@ -113,8 +113,10 @@ function renderPage(runtime: MockRuntime) {
       }}
     >
       <ScenarioProvider>
-        <MemoryRouter initialEntries={["/lead-inspector/cap-review/FND-CAB-2026-001"]}>
-          <CapReviewPage />
+        <MemoryRouter initialEntries={[`/lead-inspector/cap-review/${findingId}`]}>
+          <Routes>
+            <Route path="/lead-inspector/cap-review/:findingId" element={<CapReviewPage />} />
+          </Routes>
         </MemoryRouter>
       </ScenarioProvider>
     </AppProviders>,
@@ -124,16 +126,16 @@ function renderPage(runtime: MockRuntime) {
 describe("CapReviewPage", () => {
   it("direct-loads Finding plus immutable CAP revisions and reviews the latest without projection.capSubmission", async () => {
     const runtime = createMockBackendRuntime();
-    await seedTwoCapRevisions(runtime);
+    const { finding, second } = await seedTwoCapRevisions(runtime);
     const leadCaps = runtime.backendForRole("leadInspector").caps;
     const listSpy = vi.spyOn(leadCaps, "listRevisions");
     const getSpy = vi.spyOn(leadCaps, "getRevision");
 
-    renderPage(runtime);
+    renderPage(runtime, finding.id);
 
     const history = await screen.findByRole("table", { name: "CAP revision history" });
-    expect(listSpy).toHaveBeenCalledWith({ findingId: "FND-CAB-2026-001" });
-    expect(getSpy).toHaveBeenCalledWith({ capRevisionId: "CAP-CAB-2026-001-R2" });
+    expect(listSpy).toHaveBeenCalledWith({ findingId: finding.id });
+    expect(getSpy).toHaveBeenCalledWith({ capRevisionId: second.capRevisionId });
     expect(within(history).getAllByTestId("cap-revision-row")).toHaveLength(2);
     expect(within(history).getByText("Initial root cause retained for immutable history.")).toBeVisible();
     expect(

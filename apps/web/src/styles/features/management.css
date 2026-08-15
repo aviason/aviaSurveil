@@ -104,7 +104,7 @@
   background: #f4f6fa;
 }
 
-.workspace-shell--manager .candidate-boundary,
+.workspace-shell--manager .qualification-boundary,
 .workspace-shell--manager .candidate-environment { display: none; }
 
 .workspace-shell--manager .manager-root-topbar {

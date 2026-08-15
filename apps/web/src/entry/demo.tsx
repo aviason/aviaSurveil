@@ -1,9 +1,9 @@
 import { bootstrap } from "../app/bootstrap";
-import { DEMO_PRINCIPALS, createMockBackendPersistentRuntime } from "../mock/create-mock-backend";
+import { DEMO_PRINCIPALS, createMockBackendRuntime } from "../mock/create-mock-backend";
 import { seedVisualRuntimeForPath } from "../mock/seed-visual-runtime";
 import { completeMockChecklist } from "../mock/test-checklist-fixtures";
 
-const mockRuntime = createMockBackendPersistentRuntime(window.localStorage);
+const mockRuntime = createMockBackendRuntime();
 
 declare global {
   interface Window {

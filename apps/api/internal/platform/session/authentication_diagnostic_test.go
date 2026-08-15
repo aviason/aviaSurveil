@@ -69,6 +69,9 @@ func TestAuthenticationFailureDiagnosticIsFixedAndPreservesTheSentinel(t *testin
 	if got := AuthenticationFailureDiagnostic(context.DeadlineExceeded); got != "context-expired" {
 		t.Fatalf("context diagnostic = %q, want context-expired", got)
 	}
+	if got := AuthenticationFailureDiagnostic(authenticationFailure("transaction", context.Canceled)); got != "context-expired" {
+		t.Fatalf("cancelled transaction diagnostic = %q, want context-expired", got)
+	}
 	if got := AuthenticationFailureDiagnostic(errors.New("resolve authenticated department authority: failed")); got != "department-assignment" {
 		t.Fatalf("department diagnostic = %q, want department-assignment", got)
 	}

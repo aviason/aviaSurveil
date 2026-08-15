@@ -1,9 +1,9 @@
 #!/bin/sh
 set -eu
 
-if [ "${AVIA_ENVIRONMENT:-}" != "local-candidate" ] ||
+if [ "${AVIA_ENVIRONMENT:-}" != "demo" ] ||
   [ "${AVIA_ENABLE_RECOVERY_BACKUP:-}" != "true" ]; then
-  echo "local-candidate recovery authorization is required" >&2
+  echo "demo recovery authorization is required" >&2
   exit 1
 fi
 if [ -z "${AVIA_RECOVERY_POINT_ID:-}" ]; then
@@ -11,15 +11,15 @@ if [ -z "${AVIA_RECOVERY_POINT_ID:-}" ]; then
   exit 1
 fi
 
-password=$(tr -d '\r\n' </run/secrets/preprod_auth_database_password)
+password=$(tr -d '\r\n' </run/secrets/auth_database_password)
 export PGPASSWORD="$password"
 unset password
 
 identity_json=$(
   psql \
-    --host preprod-auth-postgres \
-    --username auth_preprod \
-    --dbname auth_local_preprod \
+    --host auth-postgres \
+    --username auth_runtime \
+    --dbname auth \
     --tuples-only \
     --no-align \
     --set ON_ERROR_STOP=1 <<'SQL'

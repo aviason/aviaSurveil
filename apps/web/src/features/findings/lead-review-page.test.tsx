@@ -76,7 +76,7 @@ function renderPage(
 describe("LeadReviewPage", () => {
   it("direct-loads the persisted Lead queue, requires reasons, and converts with explicit CAP/Evidence requirements", async () => {
     const runtime = createMockBackendRuntime();
-    await seedPotentialFinding(runtime);
+    const potential = await seedPotentialFinding(runtime);
     const leadBackend = runtime.backendForRole("leadInspector");
     const listSpy = vi.spyOn(leadBackend.potentialFindings, "list");
     const getSpy = vi.spyOn(leadBackend.potentialFindings, "get");
@@ -87,9 +87,12 @@ describe("LeadReviewPage", () => {
       name: "Potential Findings awaiting Lead review",
     });
     expect(listSpy).toHaveBeenCalledWith({ status: "PENDING_LEAD_REVIEW" });
-    expect(getSpy).toHaveBeenCalledWith({ potentialFindingId: "PF-2026-001" });
-    expect(within(queue).getByRole("cell", { name: "PF-2026-001" })).toBeVisible();
+    expect(getSpy).not.toHaveBeenCalled();
+    expect(within(queue).getByRole("cell", { name: potential.id })).toBeVisible();
     expect(within(queue).getByText("PENDING LEAD REVIEW")).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: `${potential.id} · PENDING LEAD REVIEW` }));
+    expect(getSpy).toHaveBeenCalledWith({ potentialFindingId: potential.id });
+    expect(await screen.findByText("The configured cabin check could not confirm PBE serviceability.")).toBeVisible();
 
     await userEvent.click(screen.getByRole("button", { name: "Return Potential Finding" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Lead decision reason is required");
@@ -117,11 +120,12 @@ describe("LeadReviewPage", () => {
 
   it("applies no-CAP no-Evidence no-Due-Date defaults when Observation is selected", async () => {
     const runtime = createMockBackendRuntime();
-    await seedPotentialFinding(runtime);
+    const potential = await seedPotentialFinding(runtime);
     const leadBackend = runtime.backendForRole("leadInspector");
     const decideSpy = vi.spyOn(leadBackend.potentialFindings, "decide");
 
     renderPage(runtime);
+    await userEvent.click(await screen.findByRole("button", { name: `${potential.id} · PENDING LEAD REVIEW` }));
     await screen.findByTestId("potential-finding-dossier");
     await userEvent.selectOptions(screen.getByLabelText("Finding severity"), "OBSERVATION");
 
@@ -132,8 +136,8 @@ describe("LeadReviewPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Convert to Finding" }));
 
     expect(decideSpy).toHaveBeenLastCalledWith({
-      operationId: "OP-PF-CONVERT",
-      potentialFindingId: "PF-2026-001",
+      operationId: `POTENTIAL-FINDING-${potential.id}-1-CONVERT`,
+      potentialFindingId: potential.id,
       expectedPotentialFindingRevision: 1,
       decision: "CONVERT",
       severity: "OBSERVATION",
@@ -148,11 +152,12 @@ describe("LeadReviewPage", () => {
 
   it("allows the Lead to explicitly configure an Observation Due Date", async () => {
     const runtime = createMockBackendRuntime();
-    await seedPotentialFinding(runtime);
+    const potential = await seedPotentialFinding(runtime);
     const leadBackend = runtime.backendForRole("leadInspector");
     const decideSpy = vi.spyOn(leadBackend.potentialFindings, "decide");
 
     renderPage(runtime);
+    await userEvent.click(await screen.findByRole("button", { name: `${potential.id} · PENDING LEAD REVIEW` }));
     await screen.findByTestId("potential-finding-dossier");
     await userEvent.selectOptions(screen.getByLabelText("Finding severity"), "OBSERVATION");
     const dueDate = screen.getByLabelText("Finding Due Date");
@@ -170,13 +175,14 @@ describe("LeadReviewPage", () => {
 
   it("keeps a successful conversion visible when the runtime creates role adapters per call", async () => {
     const runtime = createMockBackendRuntime();
-    await seedPotentialFinding(runtime);
+    const potential = await seedPotentialFinding(runtime);
     const backendForRole: MockRuntime["backendForRole"] = (role) => ({
       ...runtime.backendForRole(role),
     });
 
     renderPage(runtime, backendForRole);
 
+    await userEvent.click(await screen.findByRole("button", { name: `${potential.id} · PENDING LEAD REVIEW` }));
     await screen.findByTestId("potential-finding-dossier");
     await userEvent.click(screen.getByRole("button", { name: "Convert to Finding" }));
 

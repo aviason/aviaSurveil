@@ -105,7 +105,7 @@ describe("browser navigation telemetry", () => {
     window.history.replaceState(
       {},
       "",
-      "/inspector/findings/FND-CAB-2026-001?source=private",
+      "/inspector/findings/finding-42?source=private",
     );
     window.dispatchEvent(new PopStateEvent("popstate"));
 

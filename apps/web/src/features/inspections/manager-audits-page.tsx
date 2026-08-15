@@ -41,7 +41,7 @@ export function ManagerAuditsPage() {
           <section aria-label="Audit register" className="manager-ops-register">
             {visible.map((audit) => (
               <article className="manager-ops-card" key={audit.auditId}>
-                <div><p className="eyebrow">{audit.status}</p><h2>{audit.auditId}</h2><p>{audit.organizationName} · {audit.auditId === "AUD-2026-001" ? "Cabin Inspection" : audit.title}</p></div>
+                <div><p className="eyebrow">{audit.status}</p><h2>{audit.auditId}</h2><p>{audit.organizationName} · {audit.title}</p></div>
                 <dl><div><dt>Due Date</dt><dd>{formatLocalDate(audit.dueDate)}</dd></div><div><dt>Next action</dt><dd>{audit.nextAction}</dd></div></dl>
                 <button onClick={() => setSelectedId(audit.auditId)} type="button">Open Audit {audit.auditId}</button>
               </article>

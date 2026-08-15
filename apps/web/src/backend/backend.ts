@@ -747,9 +747,12 @@ export interface ReviewEvidenceOutput {
 export interface ReportVersionView {
   reportVersionId: string;
   reportId: string;
+  kind: "PRELIMINARY" | "FINAL";
   organizationId: string;
   auditId: string;
   findingIds: string[];
+  potentialFindingIds: string[];
+  potentialFindingRootDigest: string;
   contentHash: string;
   version: number;
   status: ReportApprovalStatus;
@@ -1524,11 +1527,7 @@ export interface PlanningIntakeBackend {
   ): Promise<SubmitPlanningIntakeOutput>;
 }
 
-export type CanonicalQuestionUsageClass = "GOVERNED_OPERATIONAL" | "PREPROD_EXERCISE";
-export type CanonicalQuestionReviewAction =
-  | "RETAIN" | "INCLUDE" | "EXCLUDE" | "DEFER"
-  | "DOMAIN_RECLASSIFIED" | "TOPIC_RECLASSIFIED"
-  | "TECHNICAL_APPROVE" | "PUBLISH";
+export type CanonicalQuestionUsageClass = "GOVERNED_OPERATIONAL";
 
 export interface CanonicalAuditScopeOption {
   organizationId: string;
@@ -1609,70 +1608,12 @@ export interface CanonicalSelectionReceipt {
   selection: CanonicalSelectionDigest;
 }
 
-export interface CanonicalQuestionReviewQueue {
-  mode: CanonicalQuestionUsageClass;
-  items: CanonicalQuestionCatalogEntry[];
-  nextCursor: string | null;
-  totalCount: number;
-  capabilities: {
-    canTechnicalApprove: boolean;
-    canPublish: boolean;
-    disabledReason: string | null;
-  };
-}
-
-export interface CanonicalExerciseQuestionReviewCommandInput extends CommandMeta {
-  idempotencyKey?: string;
-  mode: "PREPROD_EXERCISE";
-  catalogVersion: string;
-  scopeId: string;
-  questionVersionId: string;
-  expectedRevision: number;
-  expectedReviewDigest: string;
-  action: Exclude<CanonicalQuestionReviewAction, "TECHNICAL_APPROVE" | "PUBLISH">;
-  reason: string;
-  domain?: string | null;
-  topic?: string | null;
-}
-
-export interface CanonicalGovernedQuestionReviewCommandInput extends CommandMeta {
-  idempotencyKey?: string;
-  mode: "GOVERNED_OPERATIONAL";
-  catalogVersion: string;
-  questionVersionId: string;
-  candidateId: string;
-  expectedCandidateRevision: number;
-  expectedCandidateContentDigest: string;
-  action: CanonicalQuestionReviewAction;
-  reason: string;
-  domain?: string | null;
-  topic?: string | null;
-}
-
-export type CanonicalQuestionReviewCommandInput =
-  | CanonicalExerciseQuestionReviewCommandInput
-  | CanonicalGovernedQuestionReviewCommandInput;
-
-export interface CanonicalQuestionReviewCommandOutput {
-  operationId: string;
-  mode: CanonicalQuestionUsageClass;
-  questionVersionId: string;
-  action: string;
-  replayed: boolean;
-  canPublish: boolean;
-  currentCandidateId?: string | null;
-  currentCandidateRevision?: number | null;
-  currentCandidateContentDigest?: string | null;
-}
-
-export interface CanonicalQuestionReviewBackend {
+export interface CanonicalCatalogBackend {
   listScopeOptions(input?: { cursor?: string; limit?: number; catalogVersion?: string; usageClass?: CanonicalQuestionUsageClass; forReview?: boolean }, options?: BackendRequestOptions): Promise<CanonicalAuditScopeOptionPage>;
   listCatalog(input: { catalogVersion: string; usageClass: CanonicalQuestionUsageClass; search?: string; formCode?: string; domain?: string; topic?: string; riskBand?: string; sourceGapState?: string; selected?: "all" | "selected" | "unselected"; scopeId?: string; cursor?: string; limit?: number }, options?: BackendRequestOptions): Promise<CanonicalQuestionCatalogPage>;
   getQuestion(input: { catalogVersion: string; usageClass: CanonicalQuestionUsageClass; questionVersionId: string; scopeId?: string }, options?: BackendRequestOptions): Promise<CanonicalQuestionCatalogEntry>;
   previewSelection(input: { scopeId: string; operationId: string; idempotencyKey?: string; expectedSelectionDigest: string; questionVersionIds: string[]; operationKind?: "ADD" | "REMOVE" | "REPLACE"; usageClass: CanonicalQuestionUsageClass; filter?: Record<string, never> }, options?: BackendRequestOptions): Promise<CanonicalSelectionPreview>;
   commitSelection(input: { scopeId: string; operationId: string; previewOperationId: string; idempotencyKey?: string; expectedSelectionDigest: string; questionVersionIds: string[]; operationKind?: "ADD" | "REMOVE" | "REPLACE"; usageClass: CanonicalQuestionUsageClass; filter?: Record<string, never> }, options?: BackendRequestOptions): Promise<CanonicalSelectionReceipt>;
-  reviewQueue(input: { mode: CanonicalQuestionUsageClass; catalogVersion: string; search?: string; formCode?: string; domain?: string; topic?: string; riskBand?: string; sourceGapState?: string; selected?: "all" | "selected" | "unselected"; scopeId?: string; cursor?: string; limit?: number }, options?: BackendRequestOptions): Promise<CanonicalQuestionReviewQueue>;
-  command(input: CanonicalQuestionReviewCommandInput, options?: BackendRequestOptions): Promise<CanonicalQuestionReviewCommandOutput>;
 }
 
 /**
@@ -1932,7 +1873,7 @@ export interface Backend {
   readonly governedChecklistIntake: GovernedChecklistIntakeBackend;
   readonly assistantDrafts: AssistantDraftsBackend;
   readonly planningIntake: PlanningIntakeBackend;
-  readonly canonicalQuestionReview?: CanonicalQuestionReviewBackend;
+  readonly canonicalCatalog?: CanonicalCatalogBackend;
   readonly canonicalAuditWorkflow?: CanonicalAuditWorkflowBackend;
   /** Fail-closed Auditee coordination projection and command boundary. */
   readonly auditeeCoordination: AuditeeCoordinationBackend;
@@ -1968,7 +1909,7 @@ export const BACKEND_CAPABILITY_REGISTRY = {
   governedChecklistIntake: true,
   assistantDrafts: true,
   planningIntake: true,
-  canonicalQuestionReview: true,
+  canonicalCatalog: true,
   canonicalAuditWorkflow: true,
   auditeeCoordination: true,
   auditeeReports: true,

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -58,7 +58,7 @@ async function seedFinding(runtime: MockRuntime) {
   return result.finding;
 }
 
-function renderPage(runtime: MockRuntime) {
+function renderPage(runtime: MockRuntime, findingId: string) {
   render(
     <AppProviders
       runtime={{
@@ -71,8 +71,10 @@ function renderPage(runtime: MockRuntime) {
       }}
     >
       <ScenarioProvider>
-        <MemoryRouter initialEntries={["/inspector/findings/FND-CAB-2026-001"]}>
-          <FindingDetailPage />
+        <MemoryRouter initialEntries={[`/inspector/findings/${findingId}`]}>
+          <Routes>
+            <Route path="/inspector/findings/:findingId" element={<FindingDetailPage />} />
+          </Routes>
         </MemoryRouter>
       </ScenarioProvider>
     </AppProviders>,
@@ -83,7 +85,7 @@ describe("FindingDetailPage", () => {
   it("does not fabricate the CAB dossier from an unrelated Finding", async () => {
     const runtime = createMockBackendRuntime();
 
-    renderPage(runtime);
+    renderPage(runtime, "FND-UNKNOWN-TEST");
 
     expect(await screen.findByRole("heading", { name: "Finding unavailable" })).toBeVisible();
     expect(screen.queryByText(/Finding CAB-2026-011/)).toBeNull();
@@ -92,12 +94,12 @@ describe("FindingDetailPage", () => {
 
   it("direct-loads ui-audit-009 as a CAA Inspector dossier with source-role ownership", async () => {
     const runtime = createMockBackendRuntime();
-    await seedFinding(runtime);
+    const finding = await seedFinding(runtime);
 
-    renderPage(runtime);
+    renderPage(runtime, finding.id);
 
     const dossier = await screen.findByTestId("finding-dossier");
-    expect(within(dossier).getAllByText("CAB-2026-011").length).toBeGreaterThanOrEqual(1);
+    expect(within(dossier).getAllByText(finding.findingNumber).length).toBeGreaterThanOrEqual(1);
     expect(within(dossier).getByText("CAA Inspector")).toBeVisible();
     expect(within(dossier).queryByText("Lead Inspector")).toBeNull();
     expect(within(dossier).getAllByText("WAITING_FOR_CAP").length).toBeGreaterThanOrEqual(1);
@@ -105,8 +107,8 @@ describe("FindingDetailPage", () => {
       "Fly Namibia",
       "AUD-2026-001",
       "Level 1 Critical",
-      "Due Date: 15 Jul 2026",
-      "Non-Compliant response and required Inspector comment for CAB-EMEQ-PBE-001",
+      "Overdue: 15 Jul 2026",
+      /Non-Compliant response and required Inspector comment/,
       "Auditee to submit CAP",
     ]) {
       expect(within(dossier).getByText(expected)).toBeVisible();
@@ -131,10 +133,13 @@ describe("FindingDetailPage", () => {
       targetCompletionDate: "2026-07-15",
       commentToCaa: "Ready for Lead review.",
     });
-    renderPage(runtime);
+    renderPage(runtime, finding.id);
 
     const dossier = await screen.findByTestId("finding-dossier");
-    expect(within(dossier).getByRole("link", { name: "Open Inspector Assistant" })).toHaveAttribute("href", "/inspector/assistant");
+    expect(within(dossier).getByRole("link", { name: "Open Inspector Assistant" })).toHaveAttribute(
+      "href",
+      `/inspector/assistant?findingId=${finding.id}`,
+    );
     expect(within(dossier).queryByRole("button", { name: "Review CAP" })).toBeNull();
     expect(within(dossier).getByText("Review CAP requires Lead Inspector authority.")).toBeVisible();
     expect(within(dossier).getByRole("button", { name: "Switch to Lead Inspector for CAP Review" })).toBeVisible();

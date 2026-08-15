@@ -95,16 +95,12 @@ export function ApplicationTopbar({
       <header className={`application-topbar application-topbar--root ${auditeeChrome ? "application-topbar--auditee auditee-root-topbar" : managerChrome ? "application-topbar--manager manager-root-topbar" : adminChrome ? "application-topbar--admin admin-root-topbar" : "application-topbar--authority authority-root-topbar"}`}>
         <div className="auditee-root-topbar__crumbs"><b>{routeCrumbs}</b></div>
         <div className="auditee-root-topbar__spacer" />
-        <label className="auditee-root-topbar__experience">
+        {identity.mode !== "oidc-session" ? <label className="auditee-root-topbar__experience">
           <span>Experience</span>
-          <select
-            aria-label="Experience"
-            onChange={(event) => onRoleRequest(event.target.value as Role)}
-            value={identity.activeRole}
-          >
+          <select aria-label="Experience" onChange={(event) => onRoleRequest(event.target.value as Role)} value={identity.activeRole}>
             {identity.availableRoles.map((role) => <option key={role} value={role}>{role === "auditee" ? "Service Provider Portal - Service Provider" : role === "admin" ? "Administration" : roleLabel(role)}</option>)}
           </select>
-        </label>
+        </label> : null}
         <div className="auditee-root-topbar__notification">
           {notificationState.kind === "local" ? (
             <button
@@ -154,7 +150,7 @@ export function ApplicationTopbar({
       >
         ?
       </button>
-      {helpOpen ? <p className="topbar-popover" role="status">Candidate help is available in this workbench.</p> : null}
+      {helpOpen ? <p className="topbar-popover" role="status">Workspace help is available in this workbench.</p> : null}
       <div className="topbar-control">
         {notificationState.kind === "local" ? (
           <button
@@ -219,9 +215,9 @@ export function ApplicationTopbar({
           <div className="topbar-profile-menu" role="menu" aria-label="Profile menu">
             <p>{identity.organizationLabel}</p>
             <p>{roleLabel(identity.activeRole)}</p>
-            {identity.availableRoles.filter((role) => role !== identity.activeRole).map((role) => (
+            {identity.mode !== "oidc-session" ? identity.availableRoles.filter((role) => role !== identity.activeRole).map((role) => (
               <button key={role} onClick={() => onRoleRequest(role)} type="button">{roleLabel(role)}</button>
-            ))}
+            )) : null}
             <button onClick={onLogout} type="button">Logout</button>
           </div>
         ) : null}

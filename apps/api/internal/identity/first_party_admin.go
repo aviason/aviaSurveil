@@ -20,15 +20,18 @@ import (
 const firstPartyAdminMaxResponseBytes int64 = 128 * 1024
 
 type FirstPartyAdminConfig struct {
-	BaseURL    string
-	Secret     string
-	SecretFile string
-	HTTPClient *http.Client
+	BaseURL             string
+	Secret              string
+	SecretFile          string
+	BootstrapSecretFile string
+	Target              string
+	HTTPClient          *http.Client
 }
 
 type FirstPartyAdminClient struct {
 	baseURL    *url.URL
 	secret     []byte
+	target     string
 	httpClient *http.Client
 }
 
@@ -38,8 +41,16 @@ func NewFirstPartyAdminClient(configuration FirstPartyAdminConfig) (*FirstPartyA
 		return nil, fmt.Errorf("first-party admin URL must be an absolute HTTP(S) URL")
 	}
 	secret := strings.TrimSpace(configuration.Secret)
-	if strings.TrimSpace(configuration.SecretFile) != "" {
-		secretBytes, readErr := readFirstPartySecret(configuration.SecretFile)
+	secretFile := strings.TrimSpace(configuration.SecretFile)
+	bootstrapSecretFile := strings.TrimSpace(configuration.BootstrapSecretFile)
+	if bootstrapSecretFile != "" {
+		if secretFile != "" || secret != "" {
+			return nil, fmt.Errorf("first-party admin runtime and bootstrap secret files must be configured separately")
+		}
+		secretFile = bootstrapSecretFile
+	}
+	if secretFile != "" {
+		secretBytes, readErr := readFirstPartySecret(secretFile)
 		if readErr != nil {
 			return nil, readErr
 		}
@@ -52,7 +63,7 @@ func NewFirstPartyAdminClient(configuration FirstPartyAdminConfig) (*FirstPartyA
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 10 * time.Second}
 	}
-	return &FirstPartyAdminClient{baseURL: baseURL, secret: []byte(secret), httpClient: httpClient}, nil
+	return &FirstPartyAdminClient{baseURL: baseURL, secret: []byte(secret), target: strings.TrimSpace(configuration.Target), httpClient: httpClient}, nil
 }
 
 func (client *FirstPartyAdminClient) ListDirectory(ctx context.Context, query ProviderDirectoryQuery) (ProviderDirectoryPage, error) {
@@ -209,6 +220,26 @@ func (client *FirstPartyAdminClient) ActivateUserAtRevision(ctx context.Context,
 	})
 }
 
+func (client *FirstPartyAdminClient) ActivateUserAtAuthorityRevision(ctx context.Context, subjectID, membershipID string, expectedMembershipRevision, resultingMembershipRevision int64, expectedAuthRevision, resultingAuthRevision uint64, password string) error {
+	endpoint := client.endpoint("/v1/users", subjectID, "activate").String()
+	body := map[string]any{
+		"password": password, "membershipId": membershipID,
+		"expectedMembershipRevision": expectedMembershipRevision, "resultingMembershipRevision": resultingMembershipRevision,
+		"expectedAuthRevision": expectedAuthRevision, "resultingAuthRevision": resultingAuthRevision,
+	}
+	return client.do(ctx, http.MethodPost, endpoint, body, stableActivationOperationID(client, subjectID, membershipID, expectedMembershipRevision, expectedAuthRevision), &struct{}{})
+}
+
+func (client *FirstPartyAdminClient) VerifyUserCredential(ctx context.Context, subjectID, password string) (bool, error) {
+	var response struct {
+		Valid bool `json:"valid"`
+	}
+	if err := client.do(ctx, http.MethodPost, client.endpoint("/v1/users", subjectID, "verify-credential").String(), map[string]any{"password": password}, "", &response); err != nil {
+		return false, err
+	}
+	return response.Valid, nil
+}
+
 func (client *FirstPartyAdminClient) ResetUserMFA(ctx context.Context, subjectID string) error {
 	observation, err := client.ObserveUserAuthority(ctx, subjectID)
 	if err != nil {
@@ -257,7 +288,7 @@ func (client *FirstPartyAdminClient) do(ctx context.Context, method, endpoint st
 	}
 	if method != http.MethodGet {
 		if operationID == "" {
-			operationID = operationKey(method, endpoint, encoded)
+			operationID = operationKey(client.target, method, endpoint, encoded)
 		}
 		request.Header.Set("Idempotency-Key", operationID)
 	}
@@ -301,6 +332,7 @@ type firstPartyDirectoryUser struct {
 	DisplayName        string   `json:"displayName"`
 	OrganizationID     string   `json:"organizationId"`
 	Enabled            bool     `json:"enabled"`
+	Locked             bool     `json:"locked"`
 	TOTPConfigured     bool     `json:"totpConfigured"`
 	RequiredActions    []string `json:"requiredActions"`
 	Roles              []Role   `json:"roles"`
@@ -311,11 +343,11 @@ type firstPartyDirectoryUser struct {
 }
 
 func (user firstPartyDirectoryUser) toProviderDirectoryUser() ProviderDirectoryUser {
-	return ProviderDirectoryUser{SubjectID: user.SubjectID, Email: user.Email, DisplayName: user.DisplayName, OrganizationID: user.OrganizationID, Enabled: user.Enabled, TOTPConfigured: user.TOTPConfigured, RequiredActions: append([]string(nil), user.RequiredActions...), Roles: append([]Role(nil), user.Roles...), MembershipID: user.MembershipID, MembershipRevision: user.MembershipRevision, AuthRevision: user.AuthRevision, State: user.State}
+	return ProviderDirectoryUser{SubjectID: user.SubjectID, Email: user.Email, DisplayName: user.DisplayName, OrganizationID: user.OrganizationID, Enabled: user.Enabled, Locked: user.Locked, TOTPConfigured: user.TOTPConfigured, RequiredActions: append([]string(nil), user.RequiredActions...), Roles: append([]Role(nil), user.Roles...), MembershipID: user.MembershipID, MembershipRevision: user.MembershipRevision, AuthRevision: user.AuthRevision, State: user.State}
 }
 
 func (user firstPartyDirectoryUser) toAuthorityObservation() AuthorityObservation {
-	return AuthorityObservation{SubjectID: user.SubjectID, Enabled: user.Enabled, OrganizationID: user.OrganizationID, Roles: append([]Role(nil), user.Roles...), RequiredActions: append([]string(nil), user.RequiredActions...), MFAEnrolled: user.TOTPConfigured, State: user.State, MembershipID: user.MembershipID, MembershipRevision: user.MembershipRevision, AuthRevision: user.AuthRevision}
+	return AuthorityObservation{SubjectID: user.SubjectID, Enabled: user.Enabled, Locked: user.Locked, OrganizationID: user.OrganizationID, Roles: append([]Role(nil), user.Roles...), RequiredActions: append([]string(nil), user.RequiredActions...), MFAEnrolled: user.TOTPConfigured, State: user.State, MembershipID: user.MembershipID, MembershipRevision: user.MembershipRevision, AuthRevision: user.AuthRevision}
 }
 
 func roleForProvider(roles []Role) string {
@@ -325,9 +357,21 @@ func roleForProvider(roles []Role) string {
 	return string(roles[0])
 }
 
-func operationKey(method, endpoint string, body []byte) string {
-	digest := sha256.Sum256(append([]byte(method+"\x00"+endpoint+"\x00"), body...))
-	return "op_" + hex.EncodeToString(digest[:])[:48]
+func operationKey(target, method, endpoint string, body []byte) string {
+	requestPath := endpoint
+	if parsed, err := url.Parse(endpoint); err == nil {
+		requestPath = parsed.Path
+	}
+	digest := sha256.Sum256(append([]byte(strings.Join([]string{target, method, requestPath}, "\x00")+"\x00"), body...))
+	return "op-bootstrap-" + hex.EncodeToString(digest[:])[:48]
+}
+
+func stableActivationOperationID(client *FirstPartyAdminClient, subjectID, membershipID string, membershipRevision int64, authRevision uint64) string {
+	// Keep this derivation byte-for-byte aligned with AviaAuth's private admin
+	// authority. It contains no credential material and is stable across retry.
+	values := strings.Join([]string{client.target, subjectID, membershipID, "DIRECT_PROVIDER_ACTIVATION", strconv.FormatInt(membershipRevision, 10), strconv.FormatUint(authRevision, 10)}, "\x00")
+	digest := sha256.Sum256([]byte(values))
+	return "auth-direct-activation-" + hex.EncodeToString(digest[:])[:32]
 }
 
 func digestString(value string) string {

@@ -1,6 +1,6 @@
 {
   "name": "@aviasurveil360/web",
-  "version": "0.1.0-candidate",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -15,6 +15,7 @@
     "test:e2e:accessibility": "AVIA_E2E_PROFILE=mock playwright test tests/e2e/full-route-accessibility.spec.ts --project=mock",
     "test:e2e:visible-actions": "AVIA_E2E_PROFILE=mock playwright test tests/e2e/visible-action-contract.spec.ts --project=mock",
     "test:e2e:http": "AVIA_E2E_PROFILE=http playwright test --project=http",
+    "test:e2e:qualification": "AVIA_E2E_PROFILE=qualification AVIA_E2E_BASE_URL=${AVIA_QUALIFICATION_ORIGIN:-https://localhost:8443} AVIA_E2E_IGNORE_HTTPS_ERRORS=1 playwright test --project=qualification",
     "test:e2e:offline": "npm run build:demo && AVIA_E2E_PROFILE=offline playwright test --project=offline",
     "test:e2e:brand-offline": "npm run build:demo && AVIA_E2E_PROFILE=offline playwright test tests/e2e/brand-app-shell-restart.spec.ts --project=offline",
     "test:e2e:visual-parity": "AVIA_E2E_PROFILE=visual-parity playwright test --project=legacy-parity",

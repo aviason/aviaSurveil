@@ -44,12 +44,12 @@ export function AuditeeInspectionCoordinationPage() {
     } catch (cause) { setError(errorMessage(cause)); }
   }
 
-  return <WorkspaceShell roleLabel="Auditee — Fly Namibia" routeLabel="Inspection Coordination">
+  return <WorkspaceShell roleLabel="Auditee" routeLabel="Inspection Coordination">
     <div className="auditee-secondary-page auditee-coordination-page" data-testid="auditee-inspection-coordination-page">
       <header className="auditee-secondary-head workbench-page-header">
-        <div><span>Fly Namibia · ORG-FLY-NAMIBIA</span><h1>Inspection Coordination</h1><p>The CAA expects Fly Namibia to confirm the proposed inspection date or propose an alternative date next.</p></div>
+        <div><span>Organization-scoped coordination</span><h1>Inspection Coordination</h1><p>The CAA expects the authorized Auditee organization to confirm the proposed inspection date or propose an alternative date next.</p></div>
       </header>
-      <p className="auditee-safe-boundary">Only CAA-released Routine / Announced inspections for Fly Namibia appear here.</p>
+      <p className="auditee-safe-boundary">Only CAA-released Routine / Announced inspections for the authorized Auditee organization appear here.</p>
       <CommandError message={error} />
       {status ? <p className="auditee-action-result" role="status">{status}</p> : null}
       <section className="auditee-secondary-filters" aria-label="Inspection coordination filters">

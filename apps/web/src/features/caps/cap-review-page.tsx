@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { useApplicationRuntime } from "../../app/providers";
 import type { CapRevisionView, FindingView, ReviewCapOutput, Role } from "../../backend/backend";
@@ -39,6 +39,7 @@ export function CapReviewPage() {
   );
   const session = useOptionalSession();
   const navigate = useNavigate();
+  const { findingId } = useParams<{ findingId: string }>();
   const [finding, setFinding] = useState<FindingView | null>(null);
   const [capRevisions, setCapRevisions] = useState<CapRevisionView[]>([]);
   const [targetRevision, setTargetRevision] = useState<CapRevisionView | null>(null);
@@ -52,7 +53,7 @@ export function CapReviewPage() {
   const [revisionQuery, setRevisionQuery] = useState("");
   const identityMode =
     session?.identityMode ??
-    (runtime.buildProfile === "http" ? "canonical-test-role-switch" : "demo-role-switch");
+    (runtime.identityMode ?? "oidc-session");
   const handoffSession = session?.state ?? { status: "unauthenticated" as const };
   const visibleCapRevisions = useMemo(() => {
     const query = revisionQuery.trim().toLowerCase();
@@ -67,7 +68,8 @@ export function CapReviewPage() {
   }, [capRevisions, revisionQuery]);
 
   async function loadReviewTarget(): Promise<void> {
-    const loadedFinding = await leadBackend.findings.get({ findingId: "FND-CAB-2026-001" });
+    if (!findingId) throw new Error("The CAP review route does not contain a finding identity.");
+    const loadedFinding = await leadBackend.findings.get({ findingId });
     const revisionList = await leadBackend.caps.listRevisions({ findingId: loadedFinding.id });
     const latest = latestRevision(revisionList.items);
     const selected = latest
@@ -87,7 +89,7 @@ export function CapReviewPage() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leadBackend]);
+  }, [findingId, leadBackend]);
 
   function requestRole(role: Role): void {
     session?.setActiveRole(role);
@@ -96,7 +98,7 @@ export function CapReviewPage() {
 
   function requestInspectorFinding(role: Role): void {
     session?.setActiveRole(role);
-    navigate("/inspector/findings/FND-CAB-2026-001");
+    if (finding) navigate(`/inspector/findings/${encodeURIComponent(finding.id)}`);
   }
 
   async function review(decision: "ACCEPT" | "REJECT" | "REQUEST_MORE_INFORMATION"): Promise<void> {
@@ -233,7 +235,7 @@ export function CapReviewPage() {
                   <div><dt>Finding ID</dt><dd>{finding.findingNumber}</dd></div>
                   <div><dt>Severity</dt><dd>{formatSeverity(finding.severity)}</dd></div>
                   <div><dt>Regulatory reference</dt><dd>{finding.regulatoryReference ?? "Configured reference"}</dd></div>
-                  <div><dt>Due Date</dt><dd><DueState dueDate={finding.dueDate} today="2026-06-15" /></dd></div>
+                  <div><dt>Due Date</dt><dd><DueState dueDate={finding.dueDate} today={new Date().toISOString().slice(0, 10)} /></dd></div>
                   <div className="is-wide"><dt>Finding Title</dt><dd>{finding.title}</dd></div>
                   <div><dt>Finding Raised On</dt><dd>15 Jun 2026</dd></div>
                   <div className="is-full"><dt>Finding Description</dt><dd>{finding.description}</dd></div>

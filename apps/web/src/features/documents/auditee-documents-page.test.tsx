@@ -82,7 +82,7 @@ describe("Auditee generated Document downloads", () => {
     }]);
 
     const page = await screen.findByTestId("auditee-documents-page");
-    expect(page).toHaveTextContent("Generated PDF");
+    expect(page).toHaveTextContent("Generated Report");
     expect(page).toHaveTextContent("does not approve, sign, close, or confer legal validity");
     await userEvent.click(
       within(page).getByRole("button", {

@@ -57,6 +57,7 @@ describe("FinanceReviewPage", () => {
       expect(within(queue).getByRole("columnheader", { name: column })).toBeVisible();
     }
     expect(within(queue).getByText("PLAN-2026-CAB-001")).toBeVisible();
+    await userEvent.setup().click(within(queue).getByRole("button", { name: "Review PLAN-2026-CAB-001" }));
     const approvalFlow = screen.getByRole("list", { name: "Finance approval flow" });
     expect(approvalFlow).toBeVisible();
     expect(within(approvalFlow).getAllByRole("listitem").map((stage) => [
@@ -89,6 +90,7 @@ describe("FinanceReviewPage", () => {
     renderPage(runtime);
     const user = userEvent.setup();
 
+    await user.click(await screen.findByRole("button", { name: "Review PLAN-2026-CAB-001" }));
     await user.click(await screen.findByRole("button", { name: "Return for Revision" }));
     await user.click(screen.getByRole("button", { name: "Confirm Finance Decision" }));
     expect(screen.getByRole("alert")).toHaveTextContent(/decision reason is required/i);
@@ -113,6 +115,7 @@ describe("FinanceReviewPage", () => {
     renderPage(runtime);
     const user = userEvent.setup();
 
+    await user.click(await screen.findByRole("button", { name: "Review PLAN-2026-CAB-001" }));
     await user.click(await screen.findByRole("button", { name: "Approve Budget" }));
     await user.type(screen.getByLabelText("Finance decision reason"), "Budget and resources reviewed.");
     await user.click(screen.getByRole("button", { name: "Confirm Finance Decision" }));
@@ -128,6 +131,9 @@ describe("FinanceReviewPage", () => {
 
     cleanup();
     renderPage(runtime, "oidc-session");
+    await screen.findByRole("table", { name: "Finance Review Queue" });
+    await user.selectOptions(screen.getByLabelText("Finance status"), "all");
+    await user.click(await screen.findByRole("button", { name: "Review PLAN-2026-CAB-001" }));
     expect(await screen.findByRole("button", { name: "Continue as General Manager" })).toBeDisabled();
     expect(screen.getByText(/session does not include General Manager authority/i)).toBeVisible();
   });

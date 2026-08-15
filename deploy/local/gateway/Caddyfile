@@ -63,7 +63,7 @@ https://localhost:8443 {
 	}
 
 	handle_path /identity/* {
-		reverse_proxy preprod-auth:8080 {
+		reverse_proxy auth:8080 {
 			header_up -X-Forwarded-For
 			header_up -X-Forwarded-Host
 			header_up -X-Forwarded-Proto

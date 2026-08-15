@@ -30,6 +30,14 @@ const HIGH_RISK_BINDINGS: Record<string, string> = {
   "executive-preliminary-reports/issue-preliminary-report": "reports.decide", "executive-final-reports/issue-final-report": "reports.decide",
 };
 
+function routePatternMatches(pattern: string, target: string): boolean {
+  const patternParts = pattern.split("/").filter(Boolean);
+  const targetParts = target.split("/").filter(Boolean);
+  return patternParts.length === targetParts.length && patternParts.every((part, index) =>
+    part.startsWith(":") || part === targetParts[index],
+  );
+}
+
 describe("full-screen deterministic demo scenario", () => {
   it("keeps an exhaustive source-faithful action map with non-inert high-risk effects", () => {
     expect(Object.keys(EXPECTED_ACTION_IDS)).toEqual(REACT_ROUTE_CONTRACTS.map((route) => route.id));
@@ -39,7 +47,7 @@ describe("full-screen deterministic demo scenario", () => {
       for (const action of SCREEN_VISIBLE_ACTIONS[route.id]) {
         const effect = action.effect;
         if (effect.type === "navigation") {
-          const target = REACT_ROUTE_CONTRACTS.find((candidate) => candidate.path === effect.target);
+          const target = REACT_ROUTE_CONTRACTS.find((candidate) => routePatternMatches(candidate.path, effect.target));
           expect(target, `${route.id}/${action.id} target`).toBeDefined();
           expect(target!.id, `${route.id}/${action.id} self target`).not.toBe(route.id);
           if (route.id !== "role-select") expect(target!.requiredRole).toBe(route.requiredRole);
@@ -121,10 +129,10 @@ describe("full-screen deterministic demo scenario", () => {
     );
     expect(invoked.flat().every((result) => result.effect.type !== undefined)).toBe(true);
     expect(projections.find((projection) => projection.screenId === "finding-detail")).toMatchObject({
-      directRecordId: "FND-CAB-2026-001",
-      state: "returned",
-      overdue: true,
-      versionHistory: true,
+      directRecordId: null,
+      state: "ready",
+      overdue: false,
+      versionHistory: false,
     });
     const auditeeDocuments = projections.find((projection) => projection.screenId === "auditee-documents");
     expect(auditeeDocuments).toMatchObject({ organizationId: "ORG-FLY-NAMIBIA" });

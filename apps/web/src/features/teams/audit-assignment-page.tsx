@@ -6,11 +6,6 @@ import type { AssignmentSummary, CanonicalAssignmentView, InspectionPackage } fr
 import type { CanonicalPreparationEditPreviewView } from "../../backend/backend";
 import { CommandError, errorMessage, WorkspaceShell } from "../shared/workspace-shell";
 
-const inspectorNames: Readonly<Record<string, string>> = {
-  "USR-INSPECTOR-AMINA": "Amina Inspector",
-  "USR-INSPECTOR-DAVID": "David Inspector",
-};
-
 const coverageBatchLimit = 500;
 
 type CoverageRow = CanonicalAssignmentView["questionAssignments"][number];
@@ -79,7 +74,6 @@ export function AuditAssignmentPage() {
           setPreparation(item);
           const inspectors = item.memberSubjectIds.filter((subjectId) => subjectId !== item.leadSubjectId);
           setMemberSubjectIds(inspectors.join(", "));
-          setCoverageInspectorId((current) => current || inspectors[0] || "");
           setQuestionCoverage(item.questionAssignments.map((row) => `${row.questionId}:${row.subjectId}`).join("\n"));
         }
       }).catch(() => {
@@ -136,8 +130,6 @@ export function AuditAssignmentPage() {
         memberSubjectIds: teamPreview.memberSubjectIds ?? [],
       });
       setPreparation(next);
-      const inspectors = next.memberSubjectIds.filter((subjectId) => subjectId !== next.leadSubjectId);
-      setCoverageInspectorId((current) => current || inspectors[0] || "");
       setTeamPreview(null);
     } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); }
   }
@@ -224,9 +216,9 @@ export function AuditAssignmentPage() {
           <dl className="lead-detail-grid"><div><dt>Assignment</dt><dd>{preparation.id}</dd></div><div><dt>Status</dt><dd>{preparation.status}</dd></div><div><dt>Released questions</dt><dd>{preparation.selectedQuestionVersionIds?.length ?? 0}</dd></div><div><dt>Revision</dt><dd>{preparation.revision}</dd></div></dl>
           <label>Inspector subject IDs<input aria-label="Inspector subject IDs" value={memberSubjectIds} onChange={(event) => { setMemberSubjectIds(event.target.value); setTeamPreview(null); }} placeholder="inspector-a, inspector-b" /></label>
           <button className="lead-button lead-button--primary" disabled={busy || preparation.status !== "LEAD_ASSIGNED"} onClick={() => void previewTeamChange()} title={preparation.status !== "LEAD_ASSIGNED" ? "Team membership is already assigned or the preparation is no longer editable." : undefined} type="button">Preview exact team</button>
-          {teamPreview ? <div className="lead-preview-receipt" aria-label="Team assignment preview"><p role="status">Preview ready · {(teamPreview.memberSubjectIds ?? []).join(", ")} · digest {teamPreview.digest}</p><button className="lead-button lead-button--primary" disabled={busy} onClick={() => void confirmTeamChange()} type="button">Confirm team assignment</button><button className="lead-button" disabled={busy} onClick={() => setTeamPreview(null)} type="button">Discard preview</button></div> : null}
+		  {teamPreview ? <div className="lead-preview-receipt" aria-label="Team assignment preview" role="region"><p role="status">Preview ready · {(teamPreview.memberSubjectIds ?? []).join(", ")} · digest {teamPreview.digest}</p><button className="lead-button lead-button--primary" disabled={busy} onClick={() => void confirmTeamChange()} type="button">Confirm team assignment</button><button className="lead-button" disabled={busy} onClick={() => setTeamPreview(null)} type="button">Discard preview</button></div> : null}
           <p>Released question versions: {(preparation.selectedQuestionVersionIds ?? []).slice(0, 50).join(", ") || "none returned"}{(preparation.selectedQuestionVersionIds?.length ?? 0) > 50 ? ` · and ${(preparation.selectedQuestionVersionIds?.length ?? 0) - 50} more exact identities` : ""}</p>
-          <label>Coverage Inspector<select aria-label="Coverage Inspector" disabled={busy || !preparation.memberSubjectIds.some((subjectId) => subjectId !== preparation.leadSubjectId)} value={coverageInspectorId} onChange={(event) => setCoverageInspectorId(event.target.value)}><option value="">Choose an assigned Inspector…</option>{preparation.memberSubjectIds.filter((subjectId) => subjectId !== preparation.leadSubjectId).map((subjectId) => <option key={subjectId} value={subjectId}>{inspectorNames[subjectId] ?? subjectId}</option>)}</select></label>
+          <label>Coverage Inspector<select aria-label="Coverage Inspector" disabled={busy || !preparation.memberSubjectIds.some((subjectId) => subjectId !== preparation.leadSubjectId)} value={coverageInspectorId} onChange={(event) => setCoverageInspectorId(event.target.value)}><option value="">Choose an assigned Inspector…</option>{preparation.memberSubjectIds.filter((subjectId) => subjectId !== preparation.leadSubjectId).map((subjectId) => <option key={subjectId} value={subjectId}>{subjectId}</option>)}</select></label>
           <button className="lead-button" disabled={busy || !coverageInspectorId || !(preparation.selectedQuestionVersionIds?.length)} onClick={stageAllReleasedCoverage} type="button">Stage all released questions for Inspector</button>
           <label>Per-question coverage<textarea aria-label="Per-question coverage" value={questionCoverage} onChange={(event) => { setQuestionCoverage(event.target.value); setCoveragePreview(null); setCoveragePreviewOperation(null); setCoverageStatus("Coverage edits are staged locally; preview the next exact batch."); }} placeholder="questionVersionId:subjectId" /></label>
           <button className="lead-button lead-button--primary" disabled={busy || (preparation.status !== "TEAM_ASSIGNED" && preparation.status !== "QUESTIONS_ASSIGNED")} onClick={() => void previewCoverageChange()} title={preparation.status !== "TEAM_ASSIGNED" && preparation.status !== "QUESTIONS_ASSIGNED" ? "Assign the exact team before coverage." : undefined} type="button">Preview next coverage batch</button>
@@ -242,7 +234,7 @@ export function AuditAssignmentPage() {
           <section className="lead-panel"><h2>Inspection Scope</h2><dl className="lead-detail-grid"><div><dt>Sections</dt><dd>{new Set(inspectionPackage.questions.map((question) => question.sectionId)).size}</dd></div><div><dt>Template</dt><dd>{inspectionPackage.templateVersionId}</dd></div><div><dt>Lead Inspector</dt><dd>Current assignment</dd></div></dl></section>
           <section className="lead-panel"><h2>Next Steps</h2><button className="lead-button" onClick={() => setShowWorkload((value) => !value)} type="button">{showWorkload ? "Hide" : "View"} Workload Summary</button><p>Assignment changes cannot approve, issue, sign, or lock reports.</p></section>
         </div>
-        {showWorkload ? <section aria-label="Inspector workload" className="lead-panel lead-workload"><h2>Inspector workload</h2>{workload.map(([subjectId, count]) => <article data-subject-id={subjectId} key={subjectId}><strong>{inspectorNames[subjectId] ?? subjectId}</strong><span>{subjectId}</span><b>{count} exact questions</b></article>)}</section> : null}
+        {showWorkload ? <section aria-label="Inspector workload" className="lead-panel lead-workload"><h2>Inspector workload</h2>{workload.map(([subjectId, count]) => <article data-subject-id={subjectId} key={subjectId}><strong>{subjectId}</strong><b>{count} exact questions</b></article>)}</section> : null}
       </> : <p>Loading exact Audit assignment…</p>}
     </div>
   </WorkspaceShell>;

@@ -66,14 +66,14 @@ class TestAttachmentFileSystem implements InspectionAttachmentFileSystem {
   }
 }
 
-function FieldHarness() {
+function FieldHarness({ questionId }: { questionId: string }) {
   const { actions, projection } = useScenario();
   return (
     <>
-      <button type="button" onClick={() => void actions.loadPackage()}>Load local package</button>
+      <button type="button" onClick={() => void actions.loadPackage(packageId)}>Load local package</button>
       <button
         type="button"
-        onClick={() => void actions.saveChecklistResponse("NON_COMPLIANT", "PBE record unavailable.")}
+        onClick={() => void actions.saveChecklistResponse("NON_COMPLIANT", "PBE record unavailable.", questionId)}
       >
         Save local response
       </button>
@@ -89,7 +89,7 @@ function FieldHarness() {
       >
         Stage local attachment
       </button>
-      <button type="button" onClick={() => void actions.createPotentialFinding()}>
+      <button type="button" onClick={() => void actions.createPotentialFinding(questionId)}>
         Create local Potential Finding
       </button>
       <button type="button" onClick={() => void actions.submitChecklist()}>
@@ -126,6 +126,8 @@ describe("ScenarioProvider field working set", () => {
       expectedPackageVersion: inspectionPackage.packageVersion,
       deviceInstanceId: "DEVICE-TEST-001",
     });
+    const questionId = checkout.inspectionPackage.questions.find((question) => question.assignedInspectorUserIds.includes(subjectId))?.id;
+    if (!questionId) throw new Error("A test-assigned question is required.");
     const databaseName = `aviasurveil360-scenario-field-${crypto.randomUUID()}`;
     databases.add(databaseName);
     const database = new OfflineFieldDatabase({ name: databaseName });
@@ -156,7 +158,7 @@ describe("ScenarioProvider field working set", () => {
         }}
       >
         <ScenarioProvider>
-          <FieldHarness />
+          <FieldHarness questionId={questionId} />
         </ScenarioProvider>
       </AppProviders>,
     );
@@ -220,6 +222,8 @@ describe("ScenarioProvider field working set", () => {
           : question.assignedInspectorUserIds,
       })),
     };
+    const questionId = uuidPackage.questions.find((question) => question.assignedInspectorUserIds.includes(uuidSubjectId))?.id;
+    if (!questionId) throw new Error("A UUID-assigned question is required.");
     const databaseName = `aviasurveil360-scenario-field-${crypto.randomUUID()}`;
     databases.add(databaseName);
     const database = new OfflineFieldDatabase({ name: databaseName });
@@ -268,7 +272,7 @@ describe("ScenarioProvider field working set", () => {
         }}
       >
         <ScenarioProvider>
-          <FieldHarness />
+          <FieldHarness questionId={questionId} />
         </ScenarioProvider>
       </AppProviders>,
     );

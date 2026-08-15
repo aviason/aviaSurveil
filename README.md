@@ -1,40 +1,28 @@
-# AviaSurveil360 Planning Pack, Frontend Demo, And React/Go Candidate
+# AviaSurveil360 Planning Pack And Connected Product
 
 This repository contains a structured planning pack, the original
-**frontend-only static clickable demo**, and a separate `candidate-only`
-React/Go application for a proposed Civil Aviation Authority surveillance,
+**frontend-only static clickable demo**, and the connected React/Go
+Civil Aviation Authority surveillance,
 audit, Findings, CAP, and Evidence management product.
 
-The intact legacy demo is `index.html` with `css/`, `js/`, browser-local mock
-state, and Node smoke tests under `tests/`. The authorized first executable
-React application is under `apps/web/`; it uses TypeScript, Vite, build-time
-separated mock and HTTP entries, one capability-composed `Backend`, and a
-versioned OpenAPI contract under `api/openapi/`. The one-module Go API/worker is
-under `apps/api/`. The separate first-party Go OIDC service is under
-`../../shared/auth/` as the shared AviaAuth runtime owned outside this
-application. Maintained local verification profiles use pinned application and
-auth PostgreSQL, MinIO, local-only Mailpit SMTP, a disabled fail-closed scanner
-adapter, and the native Go document renderer.
+The intact historical demo is `index.html` with `css/`, `js/`, browser-local
+mock state, and Node smoke tests under `tests/`. The maintained product is
+under `apps/web/` and `apps/api/`; it uses a server-owned OpenAPI contract,
+first-party AviaAuth from `../../shared/auth/`, target-bound bootstrap
+manifests, PostgreSQL, MinIO, and the native Go document renderer. The HTTP
+artifact excludes mock and seed inputs.
 
-**Candidate-only:** the Go/PostgreSQL authority layer,
-private bounded object upload, deterministic scan worker, full canonical HTTP
-scenario, PWA/readiness, atomic offline field repository/outbox, and
-manifest-first OPFS Inspection Attachment recovery, typed foreground sync,
-approved first-production route families, and the complete local
-release-candidate matrix are `verified locally`; they are not deployed
-production services. The local recommendation is `GO` for a `candidate-only`
-artifact whose release remains `release pending`. First-party local OIDC/MFA
-is implemented, while remote deployment, traffic, production secrets, real
-identity migration, production object-store/scanner policy, and release
-approval are `not run`. The root demo remains the behavior oracle.
+The local qualification profile is target-bound and is not a substitute for
+production approval. First-party OIDC/MFA, approved-source catalog loading,
+role roster reconciliation, connected workflow state transitions, and release
+evidence are explicit repository contracts. Remote deployment and production
+approval remain separately gated.
 
 AviaWorkspace owns platform composition, deployment targets, release locks, and
-customer infrastructure. This repository's `deploy/local/` Compose files are
-candidate-validation fixtures only. The application defaults to
-`AVIA_DATA=0`; Workspace Namibia dev explicitly selects
-`AVIA_DATA_MODE=local-candidate` and the shared PostgreSQL/SeaweedFS admission
-service. Released environments remain fail-closed until connected-data and
-image qualification is complete.
+customer infrastructure. This repository's `deploy/local/` Compose files
+provide the target-neutral connected qualification stack. The application
+defaults to `AVIA_DATA=0`; released environments remain fail-closed until
+their Workspace release lock is applied.
 
 ## Product definition
 
@@ -84,57 +72,33 @@ To manage the same local server in the background, use `make demo-up`,
 See `docs/demo-evidence/REACT_MOCK_SLICE_2026-07-20.md` for the exact verified
 scope, commands, transcript, and exclusions.
 
-For the disposable canonical API-backed preprod profile (application and auth
-PostgreSQL, first-party Go OIDC, SMTP-free direct local-preprod activation, Go
-API, HTTP React shell, and the 1,310-question exercise catalog):
+For the target-neutral connected qualification stack (first-party Auth,
+foundation, prepared roster, approved 1,310-question catalog, API, worker,
+PostgreSQL, MinIO, and HTTP React shell):
 
 ```bash
-make preprod-up
+make local-up LOCAL_PROFILE=full LOCAL_PROJECT=aviasurveil360-task-local
+make local-status LOCAL_PROFILE=full LOCAL_PROJECT=aviasurveil360-task-local
+make local-check LOCAL_PROFILE=full LOCAL_PROJECT=aviasurveil360-task-local
 ```
 
-The command prints the local URL and synthetic login credentials. Startup
-builds a fresh target and can take several minutes. Use `make preprod-status`
-to check API/web health and the loaded catalog, and `make preprod-down` to
-remove the disposable containers, volumes, and temporary credentials. The
-obsolete AGA-only stakeholder runtime and its operator aliases were physically
-removed after donor-free qualification. This canonical profile remains
-`candidate-only`; release remains `release pending`.
-
-For an explicitly authorized public demo backed by this Mac, the named
-Cloudflare Tunnel profile targets `https://demo.aviasurveil.com` while keeping
-the origin loopback-only. Create the remotely managed tunnel/public-hostname
-route in Cloudflare first, then store only its connector token in macOS
-Keychain and start the separate profile. Copy the complete raw `eyJ...` value
-from the install command—either its final argument or the value after
-`--token`—even when Cloudflare visually wraps the command:
+Stop only the task-owned project after qualification:
 
 ```bash
-make preprod-cloudflare-demo-token
-make preprod-cloudflare-demo-up
-make preprod-cloudflare-demo-status
-make preprod-cloudflare-demo-users
-make preprod-cloudflare-demo-down
+make local-down LOCAL_PROFILE=full LOCAL_PROJECT=aviasurveil360-task-local
 ```
 
-The terminal prompt is hidden and its Security-framework writer supports the
-complete long connector value without the macOS `security -w` prompt's
-128-byte ceiling. The token is not stored in the repository, shell history,
-process arguments, logs, or runtime files. See the
-[start/stop runbook](docs/operations/runbooks/START_STOP.md#named-cloudflare-tunnel-at-demoaviasurveilcom)
-for the exact Cloudflare dashboard route, security boundary, rotation, and
-cleanup behavior. This remains a public `candidate-only` local-origin demo, not
-an external preprod deployment or production-readiness evidence.
-
-For the complete local HTTP candidate profile:
+For the HTTP artifact contract:
 
 ```bash
-./scripts/test-http-profile.sh
+npm --prefix apps/web run build:http
+node apps/web/scripts/assert-http-artifact.mjs apps/web/dist/http
 ```
 
-See
-`docs/demo-evidence/BOUNDED_UPLOAD_AND_HTTP_PARITY_2026-07-21.md` for the
-bounded upload/scan contract, real HTTP parity, fresh local gates, and explicit
-production exclusions.
+Cloud deployment is owned by AviaWorkspace. The exact `namibia/demo` release
+lock and Terragrunt target are applied from the Workspace repository; this
+repository does not retain local-preprod, exercise, or tunnel compatibility
+profiles.
 
 For the dedicated persistent-profile PWA/offline foundation check:
 

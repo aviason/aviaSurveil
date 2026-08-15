@@ -2,9 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "AviaSurveil360 API",
-    "version": "0.2.0-candidate",
-    "description": "Versioned full-platform candidate contract for the React and Go local release-candidate slices. Production deployment and cutover are outside this contract.",
-    "x-preprod-exercise-publication": "forbidden"
+    "version": "0.2.0",
+    "description": "Versioned full-platform contract for the connected AviaSurveil360 runtime."
   },
   "servers": [
     {
@@ -9078,7 +9077,7 @@
           {
             "name": "scopeId",
             "in": "query",
-            "description": "Required and owned by the current Department Manager for PREPROD_EXERCISE selection or review.",
+            "description": "Required and owned by the current Department Manager for operational catalog selection or review.",
             "schema": {
               "type": "string",
               "maxLength": 120
@@ -9243,7 +9242,7 @@
           {
             "name": "scopeId",
             "in": "query",
-            "description": "Required and must be owned by the current Department Manager when usageClass is PREPROD_EXERCISE.",
+            "description": "Required and must be owned by the current Department Manager for the selected operational scope.",
             "schema": {
               "type": "string"
             }
@@ -9389,293 +9388,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CanonicalAuditScopeSelectionReceipt"
-                }
-              }
-            },
-            "headers": {
-              "ETag": {
-                "$ref": "#/components/headers/ETag"
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "401": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "403": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "409": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "412": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "422": {
-            "$ref": "#/components/responses/Problem"
-          }
-        },
-        "security": [
-          {
-            "oidc": []
-          }
-        ],
-        "x-authorized-roles": [
-          "inspector",
-          "leadInspector",
-          "manager",
-          "finance",
-          "gm",
-          "executiveDirector",
-          "admin"
-        ],
-        "x-organization-scope": "authorized-projection"
-      }
-    },
-    "/v1/department-manager/question-review": {
-      "get": {
-        "operationId": "getCanonicalQuestionReviewQueue",
-        "parameters": [
-          {
-            "name": "mode",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/QuestionReviewMode"
-            }
-          },
-          {
-            "name": "catalogVersion",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "search",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "maxLength": 120
-            }
-          },
-          {
-            "name": "formCode",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "maxLength": 80
-            }
-          },
-          {
-            "name": "domain",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "maxLength": 80
-            }
-          },
-          {
-            "name": "topic",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "maxLength": 80
-            }
-          },
-          {
-            "name": "riskBand",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "maxLength": 80
-            }
-          },
-          {
-            "name": "sourceGapState",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "maxLength": 80
-            }
-          },
-          {
-            "name": "selected",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "all",
-                "selected",
-                "unselected"
-              ]
-            }
-          },
-          {
-            "name": "scopeId",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "maxLength": 120
-            }
-          },
-          {
-            "$ref": "#/components/parameters/Cursor"
-          },
-          {
-            "$ref": "#/components/parameters/Limit"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Canonical Find-Compare-Decide queue",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/QuestionReviewQueue"
-                }
-              }
-            },
-            "headers": {
-              "ETag": {
-                "$ref": "#/components/headers/ETag"
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "403": {
-            "$ref": "#/components/responses/Problem"
-          }
-        },
-        "security": [
-          {
-            "oidc": []
-          }
-        ],
-        "x-authorized-roles": [
-          "inspector",
-          "leadInspector",
-          "manager",
-          "finance",
-          "gm",
-          "executiveDirector",
-          "admin"
-        ],
-        "x-organization-scope": "authorized-projection"
-      }
-    },
-    "/v1/department-manager/question-review/exercise-commands": {
-      "post": {
-        "operationId": "commandCanonicalExerciseQuestionReview",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/IdempotencyKey"
-          },
-          {
-            "$ref": "#/components/parameters/CsrfToken"
-          },
-          {
-            "$ref": "#/components/parameters/ExpectedRevision"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ExerciseQuestionReviewCommandInput"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Explicit PREPROD_EXERCISE review disposition",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/QuestionReviewCommandOutput"
-                }
-              }
-            },
-            "headers": {
-              "ETag": {
-                "$ref": "#/components/headers/ETag"
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "401": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "403": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "409": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "412": {
-            "$ref": "#/components/responses/Problem"
-          },
-          "422": {
-            "$ref": "#/components/responses/Problem"
-          }
-        },
-        "security": [
-          {
-            "oidc": []
-          }
-        ],
-        "x-authorized-roles": [
-          "inspector",
-          "leadInspector",
-          "manager",
-          "finance",
-          "gm",
-          "executiveDirector",
-          "admin"
-        ],
-        "x-organization-scope": "authorized-projection"
-      }
-    },
-    "/v1/department-manager/question-review/governed-commands": {
-      "post": {
-        "operationId": "commandCanonicalGovernedQuestionReview",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/IdempotencyKey"
-          },
-          {
-            "$ref": "#/components/parameters/CsrfToken"
-          },
-          {
-            "$ref": "#/components/parameters/ExpectedRevision"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GovernedQuestionReviewCommandInput"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Explicit GOVERNED_OPERATIONAL review disposition or authority handoff",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/QuestionReviewCommandOutput"
                 }
               }
             },
@@ -12027,9 +11739,12 @@
         "required": [
           "reportVersionId",
           "reportId",
+          "kind",
           "organizationId",
           "auditId",
           "findingIds",
+          "potentialFindingIds",
+          "potentialFindingRootDigest",
           "contentHash",
           "version",
           "status",
@@ -12043,6 +11758,13 @@
           "reportId": {
             "type": "string"
           },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "PRELIMINARY",
+              "FINAL"
+            ]
+          },
           "organizationId": {
             "type": "string"
           },
@@ -12054,6 +11776,15 @@
             "items": {
               "type": "string"
             }
+          },
+          "potentialFindingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "potentialFindingRootDigest": {
+            "type": "string"
           },
           "contentHash": {
             "type": "string"
@@ -21111,15 +20842,13 @@
       "QuestionUsageClass": {
         "type": "string",
         "enum": [
-          "GOVERNED_OPERATIONAL",
-          "PREPROD_EXERCISE"
+          "GOVERNED_OPERATIONAL"
         ]
       },
       "QuestionReviewMode": {
         "type": "string",
         "enum": [
-          "GOVERNED_OPERATIONAL",
-          "PREPROD_EXERCISE"
+          "GOVERNED_OPERATIONAL"
         ]
       },
       "CanonicalAuditScopeOption": {
@@ -21578,76 +21307,6 @@
           },
           "selection": {
             "$ref": "#/components/schemas/AuditScopeSelectionDigest"
-          }
-        }
-      },
-      "ExerciseQuestionReviewCommandInput": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "operationId",
-          "idempotencyKey",
-          "catalogVersion",
-          "scopeId",
-          "questionVersionId",
-          "expectedRevision",
-          "expectedReviewDigest",
-          "action",
-          "reason"
-        ],
-        "properties": {
-          "operationId": {
-            "type": "string"
-          },
-          "idempotencyKey": {
-            "type": "string",
-            "minLength": 1
-          },
-          "catalogVersion": {
-            "type": "string",
-            "minLength": 1
-          },
-          "scopeId": {
-            "type": "string",
-            "minLength": 1
-          },
-          "questionVersionId": {
-            "type": "string"
-          },
-          "expectedRevision": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "expectedReviewDigest": {
-            "type": "string",
-            "minLength": 1
-          },
-          "action": {
-            "type": "string",
-            "enum": [
-              "RETAIN",
-              "INCLUDE",
-              "EXCLUDE",
-              "DEFER",
-              "DOMAIN_RECLASSIFIED",
-              "TOPIC_RECLASSIFIED"
-            ]
-          },
-          "reason": {
-            "type": "string",
-            "minLength": 1
-          },
-          "domain": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "topic": {
-            "type": [
-              "string",
-              "null"
-            ]
           }
         }
       },

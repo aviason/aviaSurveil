@@ -22,11 +22,7 @@ export function OrganizationRegistryPage() {
   const [error, setError] = useState<string | null>(null);
 
   function organizationAction(organization: OrganizationSummary) {
-    if (organization.id === "ORG-FLY-NAMIBIA") {
-      return <Link aria-label={`Open organization ${organization.id}`} to={`/department-manager/organizations/${organization.id}`}>Open record</Link>;
-    }
-    const reason = `Organization ${organization.id} has no declared Department Manager child route.`;
-    return <button aria-label={`Organization detail unavailable for ${organization.id}`} disabled title={reason} type="button">Unavailable</button>;
+    return <Link aria-label={`Open organization ${organization.id}`} to={`/department-manager/organizations/${encodeURIComponent(organization.id)}`}>Open record</Link>;
   }
 
   useEffect(() => {
@@ -91,7 +87,7 @@ export function OrganizationRegistryPage() {
               <div><dt>Next Audit</dt><dd>{formatLocalDate(selected.nextAuditDate)}</dd></div>
               <div><dt>Revision</dt><dd>{selected.revision}</dd></div>
             </dl>
-            <p>Read-only authorized organization projection. Editing and organization administration are not connected in this candidate.</p>
+            <p>Read-only authorized organization projection. Editing and organization administration are outside this workspace surface.</p>
           </aside>
         ) : null}
       </div>

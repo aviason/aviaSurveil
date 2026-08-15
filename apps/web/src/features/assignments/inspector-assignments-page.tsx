@@ -216,7 +216,7 @@ export function InspectorAssignmentsPage() {
         />
       </section>
       {rows.length === 0 ? <p className="inspector-empty-state">No assignments match these filters.</p> : null}
-      <span className="candidate-boundary">
+      <span className="qualification-boundary">
         Inspector Workspace. Current owner: CAA Inspector. {dueSoonCount} Due Soon. Next action: {primaryAssignment?.nextAction ?? "None"}
       </span>
       </div>

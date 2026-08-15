@@ -307,18 +307,18 @@ func releaseCanonicalScopeSnapshot(
 	planningItemID string,
 	now time.Time,
 ) error {
-	var scopeID, submittedID, catalogID, usageClass, digest, planningSnapshotDigest string
+	var scopeID, submittedID, catalogID, catalogRootDigest, usageClass, digest, planningSnapshotDigest string
 	var revision int64
 	var selectedCount int
 	var snapshot []byte
 	err := tx.QueryRow(ctx, `
-		SELECT scope.id, submitted.id, submitted.catalog_id, submitted.usage_class,
+			SELECT scope.id, submitted.id, submitted.catalog_id, submitted.catalog_root_digest, submitted.usage_class,
 		       submitted.revision, submitted.selection_digest, submitted.planning_snapshot_digest,
 		       submitted.selected_question_count, submitted.snapshot
 		FROM canonical_audit_scope_drafts scope
 		JOIN planning_intake_drafts draft ON draft.id = scope.planning_intake_draft_id
 		JOIN LATERAL (
-			SELECT snapshot.id, snapshot.catalog_id, snapshot.usage_class,
+				SELECT snapshot.id, snapshot.catalog_id, snapshot.catalog_root_digest, snapshot.usage_class,
 			       snapshot.revision, snapshot.selection_digest,
 			       snapshot.planning_snapshot_digest, snapshot.selected_question_count, snapshot.snapshot
 			FROM canonical_audit_scope_snapshots snapshot
@@ -329,7 +329,7 @@ func releaseCanonicalScopeSnapshot(
 		WHERE draft.submitted_planning_item_id = $1
 		  AND scope.status IN ('SUBMITTED', 'DRAFT')
 		FOR UPDATE OF scope
-	`, planningItemID).Scan(&scopeID, &submittedID, &catalogID, &usageClass, &revision, &digest, &planningSnapshotDigest, &selectedCount, &snapshot)
+		`, planningItemID).Scan(&scopeID, &submittedID, &catalogID, &catalogRootDigest, &usageClass, &revision, &digest, &planningSnapshotDigest, &selectedCount, &snapshot)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return fmt.Errorf("%w: canonical submitted scope snapshot is required before release", application.ErrConflict)
 	}
@@ -346,10 +346,11 @@ func releaseCanonicalScopeSnapshot(
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO canonical_audit_scope_snapshots (
 			id, scope_draft_id, revision, stage, catalog_id, usage_class,
+			catalog_root_digest,
 			selection_digest, planning_snapshot_digest, selected_question_count, snapshot,
 			created_by_subject_id, created_at
-		) VALUES ($1, $2, $3, 'RELEASED', $4, $5, $6, $7, $8, $9, $10, $11)
-	`, releasedID, scopeID, revision, catalogID, usageClass, digest, planningSnapshotDigest, selectedCount, snapshot, actor.SubjectID, now); err != nil {
+		) VALUES ($1, $2, $3, 'RELEASED', $4, $5, $6, $7, $8, $9, $10, $11, $12)
+	`, releasedID, scopeID, revision, catalogID, usageClass, catalogRootDigest, digest, planningSnapshotDigest, selectedCount, snapshot, actor.SubjectID, now); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx, `

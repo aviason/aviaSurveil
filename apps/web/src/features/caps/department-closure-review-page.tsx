@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import { useApplicationRuntime } from "../../app/providers";
 import type { CapRevisionView, EvidenceVersionView, FindingView } from "../../backend/backend";
@@ -8,6 +8,7 @@ import { CommandError, errorMessage, FindingFacts, PageHeader, WorkspaceShell } 
 export function DepartmentClosureReviewPage() {
   const runtime = useApplicationRuntime();
   const backend = useMemo(() => runtime.backendForRole?.("manager") ?? runtime.backend, [runtime]);
+  const { findingId } = useParams<{ findingId: string }>();
   const [finding, setFinding] = useState<FindingView | null>(null);
   const [caps, setCaps] = useState<CapRevisionView[]>([]);
   const [evidence, setEvidence] = useState<EvidenceVersionView[]>([]);
@@ -17,19 +18,23 @@ export function DepartmentClosureReviewPage() {
 
   useEffect(() => {
     let cancelled = false;
-    void backend.findings.get({ findingId: "FND-CAB-2026-001" }).then(async (loaded) => {
+    if (!findingId) {
+      setError("The closure review route does not contain a finding identity.");
+      return () => { cancelled = true; };
+    }
+    void backend.findings.get({ findingId }).then(async (loaded) => {
       const [capHistory, evidenceHistory] = await Promise.all([backend.caps.listRevisions({ findingId: loaded.id }), backend.evidence.listVersions({ findingId: loaded.id })]);
       if (!cancelled) { setFinding(loaded); setCaps(capHistory.items); setEvidence(evidenceHistory); }
     }).catch((cause) => !cancelled && setError(errorMessage(cause)));
     return () => { cancelled = true; };
-  }, [backend]);
+  }, [backend, findingId]);
 
   async function authorizeClosure() {
     if (!finding) return;
     if (!reason.trim()) { setError("Authorized closure reason is required"); return; }
     setBusy(true); setError(null);
     try {
-      const updated = await backend.findings.authorizedClose({ operationId: "OP-MANAGER-AUTHORIZED-CLOSE-FND-CAB-2026-001", findingId: finding.id, expectedFindingRevision: finding.revision, reason });
+      const updated = await backend.findings.authorizedClose({ operationId: `OP-MANAGER-AUTHORIZED-CLOSE-${finding.id}-${finding.revision}`, findingId: finding.id, expectedFindingRevision: finding.revision, reason });
       setFinding(updated);
     } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); }
   }

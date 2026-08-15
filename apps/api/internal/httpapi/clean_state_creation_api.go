@@ -296,9 +296,12 @@ func (api *CanonicalAPI) createReportVersion(
 	writer.Header().Set("ETag", strongRevisionETag(record.Revision))
 	writeJSON(writer, http.StatusCreated, generated.ReportVersionView{
 		ReportVersionId: record.ReportVersionID, ReportId: record.ReportID,
+		Kind:           string(record.Kind),
 		OrganizationId: record.OrganizationID, AuditId: record.AuditID,
-		FindingIds:  append([]string{}, record.FindingIDs...),
-		ContentHash: record.ContentHash, Version: record.Version,
+		FindingIds:                 append([]string{}, record.FindingIDs...),
+		PotentialFindingIds:        append([]string{}, record.PotentialFindingIDs...),
+		PotentialFindingRootDigest: record.PotentialFindingRootDigest,
+		ContentHash:                record.ContentHash, Version: record.Version,
 		Status:   generated.ReportApprovalStatus(record.Status),
 		Revision: record.Revision, IssuedAt: record.IssuedAt,
 	})

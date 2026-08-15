@@ -69,16 +69,17 @@ describe("React route contracts", () => {
 
     expect(finding).toMatchObject({
       id: "finding-detail",
-      path: "/inspector/findings/FND-CAB-2026-001",
+      path: "/inspector/findings/:findingId",
       requiredRole: "inspector",
       parentId: "inspector-findings",
     });
     expect(evidence).toMatchObject({
       id: "evidence-review",
-      path: "/department-manager/evidence/FND-CAB-2026-001",
+      path: "/department-manager/evidence/:findingId",
       requiredRole: "manager",
       parentId: "manager-findings-review",
     });
+    expect(evidence?.additionalRoles).toEqual(["leadInspector", "inspector"]);
   });
 
   it("freezes root-navigation screens as primary routes", () => {

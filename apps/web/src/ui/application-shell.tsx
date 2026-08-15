@@ -1,6 +1,5 @@
 import type { PropsWithChildren } from "react";
 
-import { DEMO_MOCK_STORAGE_KEY } from "../app/demo-persistence";
 import type { Role } from "../backend/backend";
 import type { ReactSurfaceId } from "../app/route-contracts";
 import { ApplicationTopbar, type NotificationState, type ShellIdentityPresentation } from "./application-topbar";
@@ -25,17 +24,18 @@ export function ApplicationShell({
   onRoleRequest,
   onLogout,
   notificationState,
-  environmentLabel = "Deterministic mock data",
+  environmentLabel = "Local qualification workspace",
   children,
 }: PropsWithChildren<ApplicationShellProps>) {
   const auditeeChrome = identity.activeRole === "auditee";
   const managerChrome = identity.activeRole === "manager";
   const authorityChrome = ["gm", "finance", "executiveDirector"].includes(identity.activeRole);
   const adminChrome = identity.activeRole === "admin";
-  const auditeeDemoChrome = auditeeChrome && identity.mode === "demo-role-switch";
-  const managerDemoChrome = managerChrome && identity.mode === "demo-role-switch";
-  const authorityDemoChrome = authorityChrome && identity.mode === "demo-role-switch";
-  const adminDemoChrome = adminChrome && identity.mode === "demo-role-switch";
+  const qualificationChrome = identity.mode !== "oidc-session";
+  const auditeeDemoChrome = auditeeChrome && qualificationChrome;
+  const managerDemoChrome = managerChrome && qualificationChrome;
+  const authorityDemoChrome = authorityChrome && qualificationChrome;
+  const adminDemoChrome = adminChrome && qualificationChrome;
   const rootDemoChrome = auditeeDemoChrome || managerDemoChrome || authorityDemoChrome || adminDemoChrome;
   const compactNavigation = typeof window !== "undefined" && window.innerWidth <= 900;
   return (
@@ -48,17 +48,7 @@ export function ApplicationShell({
         <div className="auditee-demo-ribbon" role="status">
           <span className="auditee-demo-ribbon__dot" aria-hidden="true" />
           <strong>DEMO</strong>
-          <span className="auditee-demo-ribbon__text">Frontend clickable prototype — mock data only. Frontend-only demo saved in this browser; no backend, database, AI runtime, production regulatory ingestion, or real integrations.</span>
-          <button
-            className="auditee-demo-ribbon__reset"
-            onClick={() => {
-              window.localStorage.removeItem(DEMO_MOCK_STORAGE_KEY);
-              window.location.reload();
-            }}
-            type="button"
-          >
-            <span>Reset demo</span>
-          </button>
+          <span className="auditee-demo-ribbon__text">Local qualification workspace · no production deployment claim.</span>
         </div>
       ) : null}
       <aside
@@ -82,11 +72,11 @@ export function ApplicationShell({
             </span>
             <span>{(auditeeChrome || managerChrome || authorityChrome || adminChrome) && identity.mode !== "oidc-session" ? "Role select" : "Logout"}</span>
           </button>
-          {rootDemoChrome ? <small>Demo data · frontend-only · saved in this browser</small> : null}
+          {rootDemoChrome ? <small>Local qualification profile</small> : null}
         </div>
       </aside>
       <section className="workspace-content">
-        <span className="candidate-boundary" data-testid="active-role">
+        <span className={identity.mode === "oidc-session" ? "release-boundary" : "qualification-boundary"} data-testid="active-role">
           {identity.activeRole === "inspector" ? "CAA Inspector" : identity.activeRole === "leadInspector" ? "Lead Inspector" : identity.activeRole}
         </span>
         <MobileNavigation activeRole={identity.activeRole} activeRouteId={activeRouteId} />

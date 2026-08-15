@@ -2,7 +2,7 @@
 import "@testing-library/jest-dom/vitest";
 import "fake-indexeddb/auto";
 
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
@@ -28,8 +28,10 @@ function renderPage() {
       }}
     >
       <ScenarioProvider>
-        <MemoryRouter initialEntries={["/inspector/audits/AUD-2026-001/checklist"]}>
-          <ChecklistRunnerPage />
+        <MemoryRouter initialEntries={["/inspector/audits/AUD-2026-001/checklist?packageId=PKG-CAB-2026-001"]}>
+          <Routes>
+            <Route path="/inspector/audits/:auditId/checklist" element={<ChecklistRunnerPage />} />
+          </Routes>
         </MemoryRouter>
       </ScenarioProvider>
     </AppProviders>,
@@ -41,10 +43,10 @@ describe("ChecklistRunnerPage", () => {
     renderPage();
 
     expect(await screen.findAllByTestId("checklist-question-row")).toHaveLength(6);
-    await userEvent.click(screen.getByTestId("question-CAB-EMEQ-PBE-001"));
+    await userEvent.click(screen.getByRole("button", { name: "Open question 4" }));
     const responsePanel = screen.getByTestId("checklist-response-panel");
-    expect(within(responsePanel).getByText("Configured Cabin Inspection reference — EM EQ / PBE")).toBeVisible();
-    expect(within(responsePanel).getByText("PBE serviceability record and cabin position confirmation")).toBeVisible();
+    expect(within(responsePanel).getAllByText("Configured Cabin Inspection reference — EM EQ / PBE").length).toBeGreaterThan(0);
+    expect(within(responsePanel).getAllByText("PBE serviceability record and cabin position confirmation").length).toBeGreaterThan(0);
     expect(within(responsePanel).getByText(/Comments required for Non Compliant and Observation/i)).toBeVisible();
 
     await userEvent.selectOptions(screen.getByLabelText("Checklist answer"), "NON_COMPLIANT");

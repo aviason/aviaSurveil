@@ -13,7 +13,7 @@ import (
 	"github.com/aviason/aviaSurveil/internal/platform/database"
 )
 
-const LatestVersion int64 = 46
+const LatestVersion int64 = 47
 const advisoryLockID int64 = 36020260721
 
 //go:embed *.up.sql
@@ -277,78 +277,10 @@ BEGIN
     END IF;
 END
 $preparation_position_repair$;
-ALTER TABLE canonical_exercise_question_review_drafts ADD COLUMN IF NOT EXISTS scope_draft_id text REFERENCES canonical_audit_scope_drafts(id);
-ALTER TABLE canonical_exercise_question_review_events ADD COLUMN IF NOT EXISTS scope_draft_id text REFERENCES canonical_audit_scope_drafts(id);
-DO $exercise_scope_history_guard$
-BEGIN
-    IF EXISTS (SELECT 1 FROM canonical_exercise_question_review_drafts WHERE scope_draft_id IS NULL)
-       OR EXISTS (SELECT 1 FROM canonical_exercise_question_review_events WHERE scope_draft_id IS NULL) THEN
-        RAISE EXCEPTION 'migration 39 cannot infer canonical exercise review scope from legacy unscoped append-only history; export and replay each decision with an explicit scope before retrying';
-    END IF;
-END
-$exercise_scope_history_guard$;
-DO $drop_legacy_exercise_review_key$
-DECLARE constraint_name text;
-BEGIN
-    FOR constraint_name IN
-        SELECT pg_constraint.conname
-        FROM pg_constraint
-        WHERE pg_constraint.conrelid = 'canonical_exercise_question_review_drafts'::regclass
-          AND pg_constraint.contype = 'u'
-          AND pg_get_constraintdef(pg_constraint.oid) = 'UNIQUE (catalog_id, question_version_id, revision)'
-    LOOP
-        EXECUTE format('ALTER TABLE canonical_exercise_question_review_drafts DROP CONSTRAINT %I', constraint_name);
-    END LOOP;
-END
-$drop_legacy_exercise_review_key$;
-DO $exercise_scope_repair$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='canonical_exercise_question_review_drafts'::regclass AND conname='canonical_exercise_question_review_drafts_scope_revision_key') THEN
-        ALTER TABLE canonical_exercise_question_review_drafts ADD CONSTRAINT canonical_exercise_question_review_drafts_scope_revision_key UNIQUE (scope_draft_id, catalog_id, question_version_id, revision);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='canonical_exercise_question_review_drafts'::regclass AND conname='canonical_exercise_question_review_drafts_scope_required') THEN
-        ALTER TABLE canonical_exercise_question_review_drafts ADD CONSTRAINT canonical_exercise_question_review_drafts_scope_required CHECK (scope_draft_id IS NOT NULL) NOT VALID;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='canonical_exercise_question_review_events'::regclass AND conname='canonical_exercise_question_review_events_scope_required') THEN
-        ALTER TABLE canonical_exercise_question_review_events ADD CONSTRAINT canonical_exercise_question_review_events_scope_required CHECK (scope_draft_id IS NOT NULL) NOT VALID;
-    END IF;
-END
-$exercise_scope_repair$;
-ALTER TABLE canonical_exercise_question_review_drafts VALIDATE CONSTRAINT canonical_exercise_question_review_drafts_scope_required;
-ALTER TABLE canonical_exercise_question_review_events VALIDATE CONSTRAINT canonical_exercise_question_review_events_scope_required;
-CREATE INDEX IF NOT EXISTS canonical_exercise_question_review_drafts_scope_question_idx ON canonical_exercise_question_review_drafts (scope_draft_id, catalog_id, question_version_id, revision DESC);
-CREATE INDEX IF NOT EXISTS canonical_exercise_question_review_events_scope_question_idx ON canonical_exercise_question_review_events (scope_draft_id, occurred_at DESC, event_id DESC);
 ALTER TABLE canonical_question_catalogs ADD COLUMN IF NOT EXISTS governed_publication_decision_id text;
 ALTER TABLE canonical_question_catalogs ADD COLUMN IF NOT EXISTS governed_candidate_draft_version_id text;
 ALTER TABLE canonical_question_catalogs ADD COLUMN IF NOT EXISTS governed_candidate_revision bigint;
 ALTER TABLE canonical_question_catalogs ADD COLUMN IF NOT EXISTS governed_candidate_content_digest text;
-DO $repair$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='canonical_question_catalogs'::regclass AND conname='canonical_question_catalog_publication_shape') THEN
-        ALTER TABLE canonical_question_catalogs ADD CONSTRAINT canonical_question_catalog_publication_shape CHECK ((usage_class='PREPROD_EXERCISE' AND governed_publication_decision_id IS NULL AND governed_candidate_draft_version_id IS NULL AND governed_candidate_revision IS NULL AND governed_candidate_content_digest IS NULL) OR (usage_class='GOVERNED_OPERATIONAL' AND governed_publication_decision_id IS NOT NULL AND governed_candidate_draft_version_id IS NOT NULL AND governed_candidate_revision IS NOT NULL AND governed_candidate_content_digest IS NOT NULL));
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='canonical_question_catalogs'::regclass AND conname='canonical_question_catalog_publication_fk') THEN
-        ALTER TABLE canonical_question_catalogs ADD CONSTRAINT canonical_question_catalog_publication_fk FOREIGN KEY (governed_publication_decision_id) REFERENCES checklist_publication_decisions(id);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='canonical_question_catalogs'::regclass AND conname='canonical_question_catalog_candidate_fk') THEN
-        ALTER TABLE canonical_question_catalogs ADD CONSTRAINT canonical_question_catalog_candidate_fk FOREIGN KEY (governed_candidate_draft_version_id, governed_candidate_revision, governed_candidate_content_digest) REFERENCES template_draft_versions(id, revision, candidate_content_digest);
-    END IF;
-END
-$repair$;
-CREATE OR REPLACE FUNCTION validate_canonical_governed_catalog_membership() RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE catalog record; published_count integer;
-BEGIN
-    SELECT * INTO catalog FROM canonical_question_catalogs WHERE id=NEW.catalog_id;
-    IF catalog.usage_class='GOVERNED_OPERATIONAL' THEN
-        IF catalog.governed_publication_decision_id IS NULL OR catalog.governed_candidate_draft_version_id IS NULL OR catalog.governed_candidate_revision IS NULL OR catalog.governed_candidate_content_digest IS NULL THEN RAISE EXCEPTION 'governed catalog membership requires one exact publication decision and candidate digest'; END IF;
-        SELECT count(*) INTO published_count FROM template_version_questions link JOIN checklist_template_versions template ON template.id=link.template_version_id WHERE link.question_version_id=NEW.question_version_id AND template.candidate_draft_version_id=catalog.governed_candidate_draft_version_id AND template.candidate_revision=catalog.governed_candidate_revision AND template.candidate_content_digest=catalog.governed_candidate_content_digest AND template.publication_decision_id=catalog.governed_publication_decision_id AND template.published_at IS NOT NULL;
-        IF published_count<>1 THEN RAISE EXCEPTION 'governed catalog question must be present in the exact published candidate template'; END IF;
-    END IF;
-    RETURN NEW;
-END;
-$$;
-DROP TRIGGER IF EXISTS canonical_governed_catalog_membership_guard ON canonical_question_catalog_memberships;
-CREATE TRIGGER canonical_governed_catalog_membership_guard BEFORE INSERT ON canonical_question_catalog_memberships FOR EACH ROW EXECUTE FUNCTION validate_canonical_governed_catalog_membership();
 ALTER TABLE canonical_audit_scope_selection_operations ADD COLUMN IF NOT EXISTS expires_at timestamptz;
 CREATE TABLE IF NOT EXISTS canonical_audit_scope_selection_preview_consumptions (
     preview_operation_id text PRIMARY KEY REFERENCES canonical_audit_scope_selection_operations(operation_id),
@@ -361,7 +293,7 @@ CREATE TRIGGER canonical_audit_scope_selection_preview_consumptions_append_only 
 
 CREATE TABLE IF NOT EXISTS canonical_question_version_provenance (
     question_version_id text REFERENCES question_versions(id),
-    usage_class text NOT NULL CHECK (usage_class IN ('GOVERNED_OPERATIONAL', 'PREPROD_EXERCISE')),
+    usage_class text NOT NULL CHECK (usage_class = 'GOVERNED_OPERATIONAL'),
     catalog_id text NOT NULL REFERENCES canonical_question_catalogs(id),
     recorded_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (question_version_id, usage_class, catalog_id)
@@ -391,31 +323,6 @@ INSERT INTO canonical_question_version_provenance
 SELECT membership.question_version_id, membership.usage_class, membership.catalog_id, now()
 FROM canonical_question_catalog_memberships membership
 ON CONFLICT (question_version_id, usage_class, catalog_id) DO NOTHING;
-DO $repair$
-BEGIN
-    IF EXISTS (
-        SELECT 1
-        FROM template_draft_versions draft
-        JOIN canonical_question_version_provenance provenance
-          ON provenance.question_version_id = ANY(draft.question_version_ids)
-        WHERE provenance.usage_class = 'PREPROD_EXERCISE'
-    ) THEN
-        RAISE EXCEPTION 'existing governed candidate contains PREPROD_EXERCISE question versions';
-    END IF;
-    IF EXISTS (
-        SELECT 1
-        FROM checklist_template_versions template
-        JOIN template_version_questions template_question
-          ON template_question.template_version_id = template.id
-        JOIN canonical_question_version_provenance provenance
-          ON provenance.question_version_id = template_question.question_version_id
-        WHERE provenance.usage_class = 'PREPROD_EXERCISE'
-          AND template.candidate_draft_version_id IS NOT NULL
-    ) THEN
-        RAISE EXCEPTION 'existing governed published template contains PREPROD_EXERCISE question versions';
-    END IF;
-END
-$repair$;
 CREATE OR REPLACE FUNCTION reject_catalog_membership_provenance_mismatch() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
     PERFORM pg_advisory_xact_lock(hashtextextended('qv-provenance:' || NEW.question_version_id, 0));
@@ -428,49 +335,6 @@ END;
 $$;
 DROP TRIGGER IF EXISTS canonical_catalog_membership_provenance_guard ON canonical_question_catalog_memberships;
 CREATE TRIGGER canonical_catalog_membership_provenance_guard BEFORE INSERT ON canonical_question_catalog_memberships FOR EACH ROW EXECUTE FUNCTION reject_catalog_membership_provenance_mismatch();
-CREATE OR REPLACE FUNCTION reject_exercise_question_version_reuse() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM canonical_question_version_provenance provenance WHERE provenance.question_version_id = ANY(NEW.question_version_ids) AND provenance.usage_class = 'PREPROD_EXERCISE') THEN
-        RAISE EXCEPTION 'PREPROD_EXERCISE question versions cannot enter a governed candidate';
-    END IF;
-    RETURN NEW;
-END;
-$$;
-DROP TRIGGER IF EXISTS template_draft_versions_exercise_provenance_guard ON template_draft_versions;
-CREATE TRIGGER template_draft_versions_exercise_provenance_guard BEFORE INSERT OR UPDATE OF question_version_ids ON template_draft_versions FOR EACH ROW EXECUTE FUNCTION reject_exercise_question_version_reuse();
-CREATE OR REPLACE FUNCTION reject_exercise_published_question_version() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM template_draft_versions draft JOIN canonical_question_version_provenance provenance ON provenance.question_version_id = ANY(draft.question_version_ids) WHERE draft.id = NEW.candidate_draft_version_id AND provenance.usage_class = 'PREPROD_EXERCISE') THEN
-        RAISE EXCEPTION 'PREPROD_EXERCISE question versions cannot be published';
-    END IF;
-    RETURN NEW;
-END;
-$$;
-DROP TRIGGER IF EXISTS checklist_publication_decisions_exercise_provenance_guard ON checklist_publication_decisions;
-CREATE TRIGGER checklist_publication_decisions_exercise_provenance_guard BEFORE INSERT ON checklist_publication_decisions FOR EACH ROW EXECUTE FUNCTION reject_exercise_published_question_version();
-CREATE OR REPLACE FUNCTION reject_exercise_template_question_link() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM checklist_template_versions template JOIN canonical_question_version_provenance provenance ON provenance.question_version_id = NEW.question_version_id WHERE template.id = NEW.template_version_id AND template.candidate_draft_version_id IS NOT NULL AND provenance.usage_class = 'PREPROD_EXERCISE') THEN
-        RAISE EXCEPTION 'PREPROD_EXERCISE question versions cannot enter a governed published template';
-    END IF;
-    RETURN NEW;
-END;
-$$;
-DROP TRIGGER IF EXISTS template_version_questions_exercise_provenance_guard ON template_version_questions;
-CREATE TRIGGER template_version_questions_exercise_provenance_guard BEFORE INSERT ON template_version_questions FOR EACH ROW EXECUTE FUNCTION reject_exercise_template_question_link();
-CREATE OR REPLACE FUNCTION reject_canonical_snapshot_usage_mismatch() RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE snapshot_usage text; membership_usage text;
-BEGIN
-    SELECT usage_class INTO snapshot_usage FROM canonical_audit_scope_snapshots WHERE id = NEW.snapshot_id;
-    SELECT usage_class INTO membership_usage FROM canonical_question_catalog_memberships WHERE catalog_id = NEW.catalog_id AND question_version_id = NEW.question_version_id;
-    IF snapshot_usage IS NULL OR membership_usage IS NULL OR snapshot_usage <> membership_usage THEN
-        RAISE EXCEPTION 'canonical scope snapshot usage class does not match question provenance';
-    END IF;
-    RETURN NEW;
-END;
-$$;
-DROP TRIGGER IF EXISTS canonical_scope_snapshot_question_usage_guard ON canonical_audit_scope_snapshot_questions;
-CREATE TRIGGER canonical_scope_snapshot_question_usage_guard BEFORE INSERT ON canonical_audit_scope_snapshot_questions FOR EACH ROW EXECUTE FUNCTION reject_canonical_snapshot_usage_mismatch();
 DROP TRIGGER IF EXISTS canonical_question_version_provenance_append_only ON canonical_question_version_provenance;
 CREATE TRIGGER canonical_question_version_provenance_append_only BEFORE UPDATE OR DELETE ON canonical_question_version_provenance FOR EACH ROW EXECUTE FUNCTION reject_immutable_row_change();
 

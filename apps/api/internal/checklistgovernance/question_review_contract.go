@@ -5,14 +5,12 @@ import (
 	"fmt"
 )
 
-// QuestionReviewMode is a server-selected authority boundary.  The retained
-// queue/dossier UI may render both modes, but exercise commands can never
-// reach governed technical approval or publication aggregates.
+// QuestionReviewMode is the server-selected operational authority boundary.
+// Approved source catalog use does not create a question-review approval mode.
 type QuestionReviewMode string
 
 const (
 	QuestionReviewModeGoverned QuestionReviewMode = "GOVERNED_OPERATIONAL"
-	QuestionReviewModeExercise QuestionReviewMode = "PREPROD_EXERCISE"
 )
 
 // QuestionReviewAction is intentionally a finite command vocabulary.  The
@@ -38,7 +36,6 @@ type QuestionReviewCommand struct {
 
 var (
 	ErrInvalidQuestionReviewMode = errors.New("invalid question review mode")
-	ErrExercisePublication       = errors.New("preprod exercise review cannot invoke technical approval or publication")
 	ErrTechnicalApprovalRequired = errors.New("technical approval is required before publication")
 	ErrUnsupportedReviewAction   = errors.New("unsupported question review action")
 )
@@ -52,7 +49,7 @@ type QuestionReview struct {
 }
 
 func NewQuestionReview(mode QuestionReviewMode) (*QuestionReview, error) {
-	if mode != QuestionReviewModeGoverned && mode != QuestionReviewModeExercise {
+	if mode != QuestionReviewModeGoverned {
 		return nil, fmt.Errorf("%w: %q", ErrInvalidQuestionReviewMode, mode)
 	}
 	return &QuestionReview{mode: mode}, nil
@@ -87,23 +84,9 @@ func (review *QuestionReview) Execute(command QuestionReviewCommand) error {
 	}
 }
 
-func (review *QuestionReview) ExecuteExerciseDisposition(action QuestionReviewAction) error {
-	if review == nil || review.mode != QuestionReviewModeExercise {
-		return ErrInvalidQuestionReviewMode
-	}
-	switch action {
-	case QuestionReviewActionRetain, QuestionReviewActionInclude,
-		QuestionReviewActionExclude, QuestionReviewActionDefer,
-		QuestionReviewActionDomainReclassified, QuestionReviewActionTopicReclassified:
-		return nil
-	default:
-		return ErrExercisePublication
-	}
-}
-
 func (review *QuestionReview) ExecuteTechnicalApproval() error {
 	if review == nil || review.mode != QuestionReviewModeGoverned {
-		return ErrExercisePublication
+		return ErrInvalidQuestionReviewMode
 	}
 	review.technicalApproved = true
 	return nil
@@ -111,7 +94,7 @@ func (review *QuestionReview) ExecuteTechnicalApproval() error {
 
 func (review *QuestionReview) ExecutePublication() error {
 	if review == nil || review.mode != QuestionReviewModeGoverned {
-		return ErrExercisePublication
+		return ErrInvalidQuestionReviewMode
 	}
 	if !review.technicalApproved {
 		return ErrTechnicalApprovalRequired

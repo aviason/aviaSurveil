@@ -86,7 +86,7 @@ describe("ManagerDashboardPage", () => {
     );
     expect(screen.getByRole("link", { name: "Open Reports Approval" })).toHaveAttribute(
       "href",
-      "/department-manager/preliminary-reports/PR-2026-018",
+      "/department-manager/audits",
     );
     expect(screen.getByRole("button", { name: "Risk Dashboard unavailable" })).toHaveAttribute(
       "title",

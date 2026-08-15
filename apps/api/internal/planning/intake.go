@@ -649,6 +649,7 @@ func canonicalSelectionSummary(
 		  ON membership.catalog_id = catalog.id
 		WHERE catalog.catalog_version = $1
 		  AND catalog.status = 'SEALED'
+		  AND catalog.source_origin = 'IMPORTED_APPROVED_SOURCE'
 		  AND membership.question_version_id = ANY($2::text[])
 		ORDER BY membership.ordinal, membership.question_version_id
 	`, catalogVersion, ids)
@@ -773,13 +774,14 @@ func persistSubmittedCanonicalScope(
 	digestBytes := sha256.Sum256(snapshot)
 	planningSnapshotDigest := "sha256:" + hex.EncodeToString(digestBytes[:])
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO canonical_audit_scope_snapshots (
-			id, scope_draft_id, revision, stage, catalog_id, usage_class,
-			selection_digest, planning_snapshot_digest, selected_question_count, snapshot,
-			created_by_subject_id, created_at
-		) VALUES ($1, $2, $3, 'SUBMITTED', $4, $5, $6, $7, $8, $9, $10, $11)
-	`, snapshotID, facts.ScopeID, draft.Revision, facts.CatalogID, facts.UsageClass,
-		facts.SelectionDigest, planningSnapshotDigest, len(ids), snapshot, actor.SubjectID, now); err != nil {
+			INSERT INTO canonical_audit_scope_snapshots (
+				id, scope_draft_id, revision, stage, catalog_id, usage_class,
+				catalog_root_digest,
+				selection_digest, planning_snapshot_digest, selected_question_count, snapshot,
+				created_by_subject_id, created_at
+			) VALUES ($1, $2, $3, 'SUBMITTED', $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		`, snapshotID, facts.ScopeID, draft.Revision, facts.CatalogID, facts.UsageClass,
+		facts.CatalogRootDigest, facts.SelectionDigest, planningSnapshotDigest, len(ids), snapshot, actor.SubjectID, now); err != nil {
 		return err
 	}
 	for position, questionVersionID := range ids {

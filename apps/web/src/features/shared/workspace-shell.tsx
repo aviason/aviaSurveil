@@ -46,7 +46,7 @@ export function WorkspaceShell({
     authenticatedSession?.session.roles.includes(routeRole)
       ? routeRole
       : authenticatedSession?.activeRole ?? routeRole;
-  const fallbackMode = buildProfile === "http" ? "canonical-test-role-switch" : "demo-role-switch";
+  const fallbackMode = "oidc-session" as const;
   const mode =
     authenticatedSession
       ? session?.identityMode ?? fallbackMode
@@ -56,7 +56,7 @@ export function WorkspaceShell({
     displayName: authenticatedSession?.session.displayName ?? deterministicDisplayName(activeRole),
     organizationLabel:
       authenticatedSession?.session.organizationId ??
-      (activeRole === "auditee" ? "Fly Namibia" : "Namibia Civil Aviation Authority"),
+      (activeRole === "auditee" ? "Authorized Auditee organization" : "Namibia Civil Aviation Authority"),
     activeRole,
     availableRoles: authenticatedSession?.session.roles ?? ROLE_ENTRIES.map((entry) => entry.role),
   };
@@ -64,7 +64,7 @@ export function WorkspaceShell({
     buildProfile === "http"
       ? {
           kind: "unavailable",
-          reason: "Notification delivery is not connected in this candidate.",
+          reason: "Notification delivery is not enabled for this release.",
         }
       : {
           kind: "local",
@@ -96,7 +96,7 @@ export function WorkspaceShell({
     <>
       <ApplicationShell
         activeRouteId={activeRouteId}
-        environmentLabel={buildProfile === "demo" ? "Deterministic mock data" : environmentLabel}
+        environmentLabel={buildProfile === "demo" ? "Local qualification data" : environmentLabel}
         identity={identity}
         notificationState={notificationState}
         onLogout={handleLogout}
@@ -119,7 +119,7 @@ const roleLabels: Record<string, Role> = {
   "General Manager": "gm",
   "Finance Review": "finance",
   "Executive Director": "executiveDirector",
-  "Auditee — Fly Namibia": "auditee",
+  Auditee: "auditee",
   "Admin Preview": "admin",
 };
 
@@ -130,7 +130,7 @@ const deterministicNames: Record<Role, string> = {
   gm: "Okan Demir",
   finance: "Derya Acar",
   executiveDirector: "Ufuk Aslan",
-  auditee: "Fly Namibia Quality Manager",
+  auditee: "Authorized Auditee user",
   admin: "System Admin",
 };
 
@@ -295,5 +295,5 @@ export function CommandError({ message }: { message: string | null }) {
 }
 
 export function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "The candidate action could not be completed.";
+  return error instanceof Error ? error.message : "The workspace action could not be completed.";
 }

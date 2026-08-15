@@ -47,7 +47,7 @@ describe("Department Manager intelligence workspaces", () => {
     renderManagerRoute(path);
 
     const page = await screen.findByTestId(testId);
-    expect(within(page).getByRole("heading", { level: 1, name: heading })).toBeVisible();
+    expect(await within(page).findByRole("heading", { level: 1, name: heading })).toBeVisible();
     expect(screen.getByTestId("application-shell")).toHaveAttribute("data-active-role", "manager");
     expect(screen.queryByTestId("route-pending-implementation")).toBeNull();
     expect(page).toHaveTextContent(/indicator|monitoring|readiness|effectiveness/i);
@@ -71,11 +71,10 @@ describe("Department Manager intelligence workspaces", () => {
       "href",
       "/department-manager/organizations/ORG-FLY-NAMIBIA/risk-profile",
     );
-    expect(within(page).getByRole("button", { name: "Risk profile unavailable for ORG-SKYCARGO" })).toHaveAttribute(
-      "title",
-      "Organization ORG-SKYCARGO has no declared Department Manager risk-profile route in Plan 1.",
+    expect(within(page).getByRole("link", { name: "Open risk profile for ORG-SKYCARGO" })).toHaveAttribute(
+      "href",
+      "/department-manager/organizations/ORG-SKYCARGO/risk-profile",
     );
-    expect(within(page).queryByRole("link", { name: "Open risk profile for ORG-SKYCARGO" })).toBeNull();
     await user.selectOptions(within(page).getByLabelText("Signal filter"), "overdue");
     expect(within(page).getByTestId("active-signal-filter")).toHaveTextContent("overdue");
   });
@@ -161,7 +160,7 @@ describe("Department Manager intelligence workspaces", () => {
     const page = await screen.findByTestId("organization-risk-profile-page");
 
     expect(page).toHaveTextContent("ORG-FLY-NAMIBIA");
-    expect(within(page).getByRole("link", { name: "Open Fly Namibia organization record" })).toHaveAttribute(
+    expect(within(page).getByRole("link", { name: "Open ORG-FLY-NAMIBIA organization record" })).toHaveAttribute(
       "href",
       "/department-manager/organizations/ORG-FLY-NAMIBIA",
     );
@@ -171,7 +170,7 @@ describe("Department Manager intelligence workspaces", () => {
     );
     expect(await within(page).findByText("74")).toBeVisible();
     expect(page).toHaveTextContent("Needs Attention");
-    expect(page).toHaveTextContent("Configured demo scenario");
+    expect(page).toHaveTextContent(/Prioritize Cabin Inspection focus/);
     expect(page).not.toHaveTextContent("Unavailable");
   });
 

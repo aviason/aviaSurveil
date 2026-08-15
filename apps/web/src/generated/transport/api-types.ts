@@ -2116,54 +2116,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/department-manager/question-review": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getCanonicalQuestionReviewQueue"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/department-manager/question-review/exercise-commands": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["commandCanonicalExerciseQuestionReview"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/department-manager/question-review/governed-commands": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["commandCanonicalGovernedQuestionReview"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/audits/{auditId}/start": {
         parameters: {
             query?: never;
@@ -2699,9 +2651,13 @@ export interface components {
         ReportVersionView: {
             reportVersionId: string;
             reportId: string;
+            /** @enum {string} */
+            kind: "PRELIMINARY" | "FINAL";
             organizationId: string;
             auditId: string;
             findingIds: string[];
+            potentialFindingIds: string[];
+            potentialFindingRootDigest: string;
             contentHash: string;
             version: number;
             status: components["schemas"]["ReportApprovalStatus"];
@@ -4846,9 +4802,9 @@ export interface components {
             decisionDigest: string;
         };
         /** @enum {string} */
-        QuestionUsageClass: "GOVERNED_OPERATIONAL" | "PREPROD_EXERCISE";
+        QuestionUsageClass: "GOVERNED_OPERATIONAL";
         /** @enum {string} */
-        QuestionReviewMode: "GOVERNED_OPERATIONAL" | "PREPROD_EXERCISE";
+        QuestionReviewMode: "GOVERNED_OPERATIONAL";
         CanonicalAuditScopeOption: {
             organizationId: string;
             organizationName: string;
@@ -4948,20 +4904,6 @@ export interface components {
             operationId: string;
             replayed: boolean;
             selection: components["schemas"]["AuditScopeSelectionDigest"];
-        };
-        ExerciseQuestionReviewCommandInput: {
-            operationId: string;
-            idempotencyKey: string;
-            catalogVersion: string;
-            scopeId: string;
-            questionVersionId: string;
-            expectedRevision: number;
-            expectedReviewDigest: string;
-            /** @enum {string} */
-            action: "RETAIN" | "INCLUDE" | "EXCLUDE" | "DEFER" | "DOMAIN_RECLASSIFIED" | "TOPIC_RECLASSIFIED";
-            reason: string;
-            domain?: string | null;
-            topic?: string | null;
         };
         GovernedQuestionReviewCommandInput: {
             operationId: string;
@@ -9524,7 +9466,7 @@ export interface operations {
                 riskBand?: string;
                 sourceGapState?: string;
                 selected?: "all" | "selected" | "unselected";
-                /** @description Required and owned by the current Department Manager for PREPROD_EXERCISE selection or review. */
+                /** @description Required and owned by the current Department Manager for operational catalog selection or review. */
                 scopeId?: string;
                 usageClass: components["schemas"]["QuestionUsageClass"];
                 cursor?: components["parameters"]["Cursor"];
@@ -9585,7 +9527,7 @@ export interface operations {
         parameters: {
             query: {
                 usageClass: components["schemas"]["QuestionUsageClass"];
-                /** @description Required and must be owned by the current Department Manager when usageClass is PREPROD_EXERCISE. */
+                /** @description Required and must be owned by the current Department Manager for the selected operational scope. */
                 scopeId?: string;
             };
             header?: never;
@@ -9668,114 +9610,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CanonicalAuditScopeSelectionReceipt"];
-                };
-            };
-            400: components["responses"]["Problem"];
-            401: components["responses"]["Problem"];
-            403: components["responses"]["Problem"];
-            409: components["responses"]["Problem"];
-            412: components["responses"]["Problem"];
-            422: components["responses"]["Problem"];
-        };
-    };
-    getCanonicalQuestionReviewQueue: {
-        parameters: {
-            query: {
-                mode: components["schemas"]["QuestionReviewMode"];
-                catalogVersion: string;
-                search?: string;
-                formCode?: string;
-                domain?: string;
-                topic?: string;
-                riskBand?: string;
-                sourceGapState?: string;
-                selected?: "all" | "selected" | "unselected";
-                scopeId?: string;
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Canonical Find-Compare-Decide queue */
-            200: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QuestionReviewQueue"];
-                };
-            };
-            401: components["responses"]["Problem"];
-            403: components["responses"]["Problem"];
-        };
-    };
-    commandCanonicalExerciseQuestionReview: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-CSRF-Token": components["parameters"]["CsrfToken"];
-                /** @description Expected entity revision encoded as a strong ETag. */
-                "If-Match": components["parameters"]["ExpectedRevision"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ExerciseQuestionReviewCommandInput"];
-            };
-        };
-        responses: {
-            /** @description Explicit PREPROD_EXERCISE review disposition */
-            200: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QuestionReviewCommandOutput"];
-                };
-            };
-            400: components["responses"]["Problem"];
-            401: components["responses"]["Problem"];
-            403: components["responses"]["Problem"];
-            409: components["responses"]["Problem"];
-            412: components["responses"]["Problem"];
-            422: components["responses"]["Problem"];
-        };
-    };
-    commandCanonicalGovernedQuestionReview: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-CSRF-Token": components["parameters"]["CsrfToken"];
-                /** @description Expected entity revision encoded as a strong ETag. */
-                "If-Match": components["parameters"]["ExpectedRevision"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GovernedQuestionReviewCommandInput"];
-            };
-        };
-        responses: {
-            /** @description Explicit GOVERNED_OPERATIONAL review disposition or authority handoff */
-            200: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QuestionReviewCommandOutput"];
                 };
             };
             400: components["responses"]["Problem"];

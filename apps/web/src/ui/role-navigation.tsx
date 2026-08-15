@@ -75,17 +75,14 @@ interface AcceptedNavigationItem {
 
 const ACCEPTED_NAVIGATION: Readonly<Record<Role, readonly AcceptedNavigationItem[]>> = {
   inspector: [
-    { label: "Dashboard", icon: "dashboard" },
     { label: "My Assignments", icon: "assignment", routeId: "inspector-home", badge: "8" },
     { label: "Findings", icon: "finding", routeId: "inspector-findings", badge: "14" },
-    { label: "Evidence Review", icon: "evidence", badge: "3" },
     { label: "Messages", icon: "message", routeId: "inspector-messages", badge: "2" },
     { label: "Calendar", icon: "calendar", routeId: "inspector-calendar", badge: "2" },
     { label: "Reports", icon: "report", routeId: "inspector-reports" },
   ],
   leadInspector: [
     { label: "Assigned Audits", icon: "assignment", routeId: "lead-home" },
-    { label: "Evidence Review", icon: "evidence" },
     { label: "Preliminary Reports", icon: "report", routeId: "lead-preliminary-reports", badge: "6" },
     { label: "Final Reports", icon: "report", routeId: "lead-final-reports", badge: "4" },
     { label: "Calendar", icon: "calendar", routeId: "lead-calendar", badge: "5" },
@@ -195,24 +192,15 @@ export function RoleNavigation({
           (activeRole === "inspector" && activeRouteId === "audit-plan" && item.label === "Calendar");
         const visuallyActive = active && activeRouteId !== "inspector-profile";
         const content = <><NavigationGlyph icon={item.icon} /><span>{item.label}</span>{item.badge ? <span className="nav-item__badge">{item.badge}</span> : null}</>;
+        if (!route || !targetRoute) {
+          throw new Error(`Navigation item ${item.label} has no declared server-owned route.`);
+        }
         return (
           <Fragment key={item.label}>
             {item.section ? <p className="role-navigation__section">{item.section}</p> : null}
-            {route ? (
-              <Link aria-label={item.label} className={`nav-item${visuallyActive ? " active" : ""}`} to={targetRoute?.path ?? route.path} aria-current={active ? "page" : undefined} onClick={onNavigate}>
-                {content}
-              </Link>
-            ) : (
-              <button
-                aria-label={`${item.label} unavailable: this screen remains in the accepted legacy demo`}
-                className={`nav-item${active ? " active" : ""}`}
-                disabled
-                title="This screen remains in the accepted legacy demo."
-                type="button"
-              >
-                {content}
-              </button>
-            )}
+            <Link aria-label={item.label} className={`nav-item${visuallyActive ? " active" : ""}`} to={targetRoute.path} aria-current={active ? "page" : undefined} onClick={onNavigate}>
+              {content}
+            </Link>
           </Fragment>
         );
       })}

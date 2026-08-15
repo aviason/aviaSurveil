@@ -17,6 +17,7 @@ type CanonicalScopeFacts struct {
 	ScopeID           string
 	CatalogID         string
 	CatalogVersion    string
+	CatalogRootDigest string
 	UsageClass        string
 	ProviderScopeID   string
 	RegulatedTargetID string
@@ -115,11 +116,17 @@ func ValidateCanonicalScopeMap(
 		return CanonicalScopeFacts{}, err
 	}
 	var facts CanonicalScopeFacts
-	var profileName, status string
+	var sourceOrigin, status string
 	if err := tx.QueryRow(ctx, `
-		SELECT id, catalog_version, usage_class, status, profile_name
-		FROM canonical_question_catalogs WHERE catalog_version = $1
-	`, catalogVersion).Scan(&facts.CatalogID, &facts.CatalogVersion, &facts.UsageClass, &status, &profileName); err != nil {
+		SELECT id, catalog_version, catalog_root_digest, usage_class, status, source_origin
+		FROM canonical_question_catalogs
+		WHERE catalog_version = $1
+		  AND usage_class = 'GOVERNED_OPERATIONAL'
+		  AND status = 'SEALED'
+		  AND source_origin = 'IMPORTED_APPROVED_SOURCE'
+		ORDER BY created_at DESC, id DESC
+		LIMIT 1
+	`, catalogVersion).Scan(&facts.CatalogID, &facts.CatalogVersion, &facts.CatalogRootDigest, &facts.UsageClass, &status, &sourceOrigin); err != nil {
 		if err == pgx.ErrNoRows {
 			return CanonicalScopeFacts{}, ErrNotFound
 		}
@@ -128,11 +135,11 @@ func ValidateCanonicalScopeMap(
 	if status != "SEALED" {
 		return CanonicalScopeFacts{}, fmt.Errorf("%w: catalog is not sealed", ErrConflict)
 	}
-	if facts.UsageClass != string(questioncatalog.UsageClassGovernedOperational) && facts.UsageClass != string(questioncatalog.UsageClassPreprodExercise) {
+	if facts.UsageClass != string(questioncatalog.UsageClassGovernedOperational) {
 		return CanonicalScopeFacts{}, fmt.Errorf("%w: unsupported catalog usage class", ErrInvalid)
 	}
-	if facts.UsageClass == string(questioncatalog.UsageClassPreprodExercise) && profileName != "aga-preprod" {
-		return CanonicalScopeFacts{}, fmt.Errorf("%w: exercise catalog requires the dedicated disposable aga-preprod profile", ErrForbidden)
+	if sourceOrigin != string(questioncatalog.SourceOriginImportedApproved) || strings.TrimSpace(facts.CatalogRootDigest) == "" {
+		return CanonicalScopeFacts{}, fmt.Errorf("%w: catalog source is not the approved Aviation source", ErrForbidden)
 	}
 	var organizationID, targetOrganizationID, scopeStatus string
 	if err := tx.QueryRow(ctx, `
@@ -218,7 +225,7 @@ func ValidateCanonicalScopeMap(
 	}
 	// The 500-item bound applies to each ADD/REMOVE preview/commit batch. The
 	// durable audit scope itself may contain the complete selected set (for
-	// example all 1,310 imported exercise questions).
+	// example all 1,310 imported approved questions).
 	if len(ids) > 0 {
 		seen := make(map[string]struct{}, len(ids))
 		for _, id := range ids {
@@ -257,18 +264,7 @@ func ValidateCanonicalScopeMap(
 				  AND applicability.regulated_target_id = $3
 				  AND applicability.status = 'ELIGIBLE'
 				  AND applicability.question_version_id = ANY($4::text[])
-				  AND (catalog.usage_class = 'PREPROD_EXERCISE' OR EXISTS (
-					SELECT 1
-					FROM template_version_questions published_question
-					JOIN checklist_template_versions published_template
-					  ON published_template.id = published_question.template_version_id
-					WHERE published_question.question_version_id = applicability.question_version_id
-					  AND published_template.published_at IS NOT NULL
-					  AND published_template.candidate_draft_version_id = catalog.governed_candidate_draft_version_id
-					  AND published_template.candidate_revision = catalog.governed_candidate_revision
-					  AND published_template.candidate_content_digest = catalog.governed_candidate_content_digest
-					  AND published_template.publication_decision_id = catalog.governed_publication_decision_id
-				  ))
+				  AND catalog.source_origin = 'IMPORTED_APPROVED_SOURCE'
 			`
 			if err := tx.QueryRow(ctx, applicabilityQuery, facts.CatalogID, providerScopeID, regulatedTargetID, ids).Scan(&applicableCount); err != nil {
 				return CanonicalScopeFacts{}, err
@@ -291,22 +287,22 @@ func ValidateCanonicalScopeDraft(ctx context.Context, tx canonicalQueryRow, draf
 	if facts.ScopeID == "" {
 		return nil
 	}
-	var catalogID, version, usage, providerScopeID, targetID, digest, auditType string
+	var catalogID, version, rootDigest, usage, providerScopeID, targetID, digest, auditType string
 	var count int
 	if err := tx.QueryRow(ctx, `
-		SELECT scope.catalog_id, catalog.catalog_version, scope.usage_class,
+		SELECT scope.catalog_id, catalog.catalog_version, scope.catalog_root_digest, scope.usage_class,
 		       scope.provider_scope_id, scope.regulated_target_id,
 		       scope.selected_question_count, scope.selection_digest, scope.audit_type
 		FROM canonical_audit_scope_drafts scope
 		JOIN canonical_question_catalogs catalog ON catalog.id = scope.catalog_id
 		WHERE scope.id = $1 AND scope.planning_intake_draft_id = $2 FOR UPDATE
-	`, facts.ScopeID, draftID).Scan(&catalogID, &version, &usage, &providerScopeID, &targetID, &count, &digest, &auditType); err != nil {
+	`, facts.ScopeID, draftID).Scan(&catalogID, &version, &rootDigest, &usage, &providerScopeID, &targetID, &count, &digest, &auditType); err != nil {
 		if err == pgx.ErrNoRows {
 			return ErrConflict
 		}
 		return err
 	}
-	if catalogID != facts.CatalogID || version != facts.CatalogVersion || usage != facts.UsageClass || providerScopeID != facts.ProviderScopeID || targetID != facts.RegulatedTargetID || auditType != facts.AuditType {
+	if catalogID != facts.CatalogID || version != facts.CatalogVersion || rootDigest != facts.CatalogRootDigest || usage != facts.UsageClass || providerScopeID != facts.ProviderScopeID || targetID != facts.RegulatedTargetID || auditType != facts.AuditType {
 		return fmt.Errorf("%w: canonical scope identity changed", ErrConflict)
 	}
 	if count != facts.SelectedCount ||

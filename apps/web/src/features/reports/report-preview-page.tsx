@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { useBackendForRole } from "../../app/providers";
-import type { FindingView, ReportVersionView } from "../../backend/backend";
+import type { DocumentMetadataView, FindingView, ReportVersionView } from "../../backend/backend";
 import { useDialogFocus } from "../../ui/dialog-focus";
 import { CommandError, errorMessage, formatLocalDate, formatSeverity, WorkspaceShell } from "../shared/workspace-shell";
 
@@ -12,8 +12,9 @@ type ReportTab = typeof tabs[number];
 export function ReportPreviewPage() {
   const backend = useBackendForRole("manager");
   const params = useParams();
-  const reportVersionId = params.reportVersionId ?? "RPT-CAB-2026-001-V1";
+  const reportVersionId = params.reportVersionId;
   const [report, setReport] = useState<ReportVersionView | null>(null);
+  const [reportDocument, setReportDocument] = useState<DocumentMetadataView | null>(null);
   const [findings, setFindings] = useState<FindingView[]>([]);
   const [activeTab, setActiveTab] = useState<ReportTab>("Summary");
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -40,12 +41,18 @@ export function ReportPreviewPage() {
 
   useEffect(() => {
     let cancelled = false;
+    if (!reportVersionId) {
+      setError("The report route does not contain a report version identity.");
+      return () => { cancelled = true; };
+    }
     void Promise.all([
       backend.reports.getVersion({ reportVersionId }),
+      backend.documents.open({ documentId: reportVersionId }),
       backend.findings.list({ limit: 50 }),
-    ]).then(([nextReport, findingOutput]) => {
+    ]).then(([nextReport, nextDocument, findingOutput]) => {
       if (!cancelled) {
         setReport(nextReport);
+        setReportDocument(nextDocument);
         setFindings(findingOutput.items.filter((finding) => nextReport.findingIds.includes(finding.id)));
       }
     }).catch((cause) => {
@@ -55,7 +62,7 @@ export function ReportPreviewPage() {
   }, [backend, reportVersionId]);
 
   const queueVisible = useMemo(() => {
-    const matchesSearch = !search.trim() || [report?.reportVersionId, report?.reportId, "Fly Namibia", report?.auditId]
+    const matchesSearch = !search.trim() || [report?.reportVersionId, report?.reportId, report?.organizationId, report?.auditId]
       .some((value) => value?.toLowerCase().includes(search.toLowerCase()));
     const matchesType = typeFilter === "all" || typeFilter === "inspection";
     const matchesStatus = statusFilter === "all" || report?.status.includes("REVIEW");
@@ -88,8 +95,6 @@ export function ReportPreviewPage() {
     }
   }
 
-  const canonicalFinding = findings[0] ?? null;
-
   return (
     <WorkspaceShell roleLabel="Department Manager" routeLabel="Reports Approval">
       <div className="management-workspace reports-workspace">
@@ -98,7 +103,7 @@ export function ReportPreviewPage() {
         <div className="reports-approval-layout">
           <section className="report-queue management-panel">
             <div className="management-section-head"><div><span>Department workspace</span><h2>Report Queue</h2></div></div>
-            <p className="report-queue__scope">Demo report artifacts · <Link to="/department-manager/preliminary-reports/PR-2026-018">Review Preliminary Report PR-2026-018</Link></p>
+            <p className="report-queue__scope">Server-owned report version · {report?.reportVersionId ?? "Loading"}</p>
             <div className="report-queue__filters">
               <label><span>Search</span><input aria-label="Search reports" onChange={(event) => setSearchDraft(event.target.value)} placeholder="Report, audit, organization" value={searchDraft} /></label>
               <button
@@ -123,33 +128,33 @@ export function ReportPreviewPage() {
               </button>
             </div>
             <div className="report-queue__counts" aria-label="Report counts">
-              {[["All", 1], ["Department", report?.status === "DEPARTMENT_REVIEW" ? 1 : 0], ["GM", report?.status === "GM_REVIEW" ? 1 : 0], ["Executive", report?.status === "EXECUTIVE_DIRECTOR_REVIEW" ? 1 : 0], ["Returned", report?.status === "RETURNED" ? 1 : 0], ["Issued", ["ISSUED", "LOCKED"].includes(report?.status ?? "") ? 1 : 0]].map(([label, value]) => <span key={label}><b>{value}</b><small>{label}</small></span>)}
+              {[["All", report ? 1 : 0], ["Department", report?.status === "DEPARTMENT_REVIEW" ? 1 : 0], ["GM", report?.status === "GM_REVIEW" ? 1 : 0], ["Executive", report?.status === "EXECUTIVE_DIRECTOR_REVIEW" ? 1 : 0], ["Returned", report?.status === "RETURNED" ? 1 : 0], ["Issued", ["ISSUED", "LOCKED"].includes(report?.status ?? "") ? 1 : 0]].map(([label, value]) => <span key={label}><b>{value}</b><small>{label}</small></span>)}
             </div>
             <div className="management-table-scroll">
               <table aria-label="Report Queue"><thead><tr><th>Report</th><th>Organization</th><th>Type</th><th>Status</th><th>Action</th></tr></thead><tbody>
-                {report && queueVisible ? <tr className="is-selected"><td><b>{report.reportVersionId}</b><small>{report.auditId}</small></td><td>Fly Namibia</td><td>Cabin Inspection</td><td>{report.status}</td><td><div className="manager-record-actions"><button aria-controls="report-version-dossier" onClick={() => document.getElementById("report-version-dossier")?.focus()} type="button">Open</button><button aria-label={`Department review unavailable for ${report.reportVersionId}`} disabled title={`Report version ${report.reportVersionId} is ${report.status}; Department Manager review is unavailable.`} type="button">Review unavailable</button></div></td></tr> : <tr><td colSpan={5}>No matching report versions.</td></tr>}
+                {report && queueVisible ? <tr className="is-selected"><td><b>{report.reportVersionId}</b><small>{report.auditId}</small></td><td>{report.organizationId}</td><td>Inspection report</td><td>{report.status}</td><td><div className="manager-record-actions"><button aria-controls="report-version-dossier" onClick={() => document.getElementById("report-version-dossier")?.focus()} type="button">Open</button></div></td></tr> : <tr><td colSpan={5}>No matching report versions.</td></tr>}
               </tbody></table>
             </div>
           </section>
 
           {report ? (
             <section className="report-dossier management-panel" data-testid="report-version-dossier" id="report-version-dossier" tabIndex={-1}>
-              <header><div><span>Immutable selected version</span><h2>Fly Namibia · Cabin Inspection</h2><small>{report.reportVersionId}</small></div><strong data-testid="report-status">{report.status}</strong></header>
+              <header><div><span>Immutable selected version</span><h2>{report.organizationId} · Inspection report</h2><small>{report.reportVersionId}</small></div><strong data-testid="report-status">{report.status}</strong></header>
               <dl className="report-dossier__identity"><div><dt>Report ID</dt><dd>{report.reportId}</dd></div><div><dt>Version</dt><dd>Version {report.version}</dd></div><div><dt>Audit</dt><dd>{report.auditId}</dd></div><div><dt>Content hash</dt><dd>{report.contentHash}</dd></div></dl>
               <div className="report-tabs" role="tablist" aria-label="Report dossier sections">
                 {tabs.map((tab) => <button aria-selected={activeTab === tab} key={tab} onClick={() => setActiveTab(tab)} role="tab" type="button">{tab}</button>)}
               </div>
               <div className="report-tab-panel" role="tabpanel">
-                {activeTab === "Summary" ? <><h3>Cabin Inspection Report Preview</h3><p>This immutable candidate summarizes the accepted audit record and current Finding projection.</p></> : null}
-                {activeTab === "Findings" ? canonicalFinding ? <dl><div><dt>Finding</dt><dd>{canonicalFinding.findingNumber}</dd></div><div><dt>Severity</dt><dd>{formatSeverity(canonicalFinding.severity)}</dd></div><div><dt>Due Date</dt><dd>{formatLocalDate(canonicalFinding.dueDate)}</dd></div></dl> : <p>No Finding is included.</p> : null}
-                {activeTab === "Attachments" ? <p>Attachments are represented by the immutable content hash; binary download is not connected.</p> : null}
+                {activeTab === "Summary" ? <><h3>Inspection Report Preview</h3><p>This immutable report version summarizes the server-owned audit record and current Finding projection.</p></> : null}
+                {activeTab === "Findings" ? findings.length ? <ul>{findings.map((finding) => <li key={finding.id}><b>{finding.findingNumber}</b> · {formatSeverity(finding.severity)} · Due {formatLocalDate(finding.dueDate)} · {finding.status.replaceAll("_", " ")}</li>)}</ul> : <p>No Finding is included.</p> : null}
+                {activeTab === "Attachments" ? <p>Attachments are represented by the server-owned document metadata. Binary download is available when the renderer has produced a document.</p> : null}
                 {activeTab === "Comments" ? <p>No additional CAA-visible comments are recorded for this version.</p> : null}
                 {activeTab === "Decision history" ? <p>The current immutable state is <b>{report.status}</b>. Earlier report versions and decisions are preserved.</p> : null}
               </div>
-              {canonicalFinding ? <div className="report-conclusion"><span data-testid="report-finding-status">{canonicalFinding.status}</span><strong>{canonicalFinding.closureBasis === "EVIDENCE_VERIFIED" ? "Evidence accepted and verified" : "Finding remains open"}</strong></div> : null}
+              {findings.length ? <div className="report-conclusion">{findings.map((finding) => <p key={finding.id}><span data-testid={`report-finding-status-${finding.id}`}>{finding.status}</span><strong>{finding.closureBasis === "EVIDENCE_VERIFIED" ? "Evidence accepted and verified" : "Finding remains open"}</strong></p>)}</div> : null}
               {report.status === "DEPARTMENT_REVIEW" ? <div className="report-decision-panel"><label>Department Manager decision reason<textarea rows={3} value={reason} onChange={(event) => setReason(event.target.value)} /></label><div><button disabled={busy} onClick={() => void decide("RETURN")} type="button">Return for Revision</button><button disabled={busy} onClick={() => void decide("FORWARD")} type="button">Forward to General Manager</button></div></div> : <p className="management-authority-note">Department Manager cannot issue, sign, lock, or close this report. The current stage belongs to the authorized downstream role.</p>}
-              <div className="report-dossier__actions"><button aria-label="Review Full Report" onClick={() => setPreviewOpen(true)} ref={previewOpenerRef} type="button">Preview Full Report</button><span><button aria-describedby="pdf-disabled-reason" disabled type="button">Download PDF</button><small id="pdf-disabled-reason">PDF generation is not connected in this candidate.</small></span></div>
-              <Link className="primary-link" to="/auditee/service-provider-cap">View as Fly Namibia Auditee</Link>
+              <div className="report-dossier__actions"><button aria-label="Review Full Report" onClick={() => setPreviewOpen(true)} ref={previewOpenerRef} type="button">Preview Full Report</button>{reportDocument?.downloadUrl ? <a className="primary-link" href={reportDocument.downloadUrl} rel="noreferrer" target="_blank">Download generated document</a> : <span title="No generated document URL is available for this report version.">Generated document unavailable</span>}</div>
+              <Link className="primary-link" to={`/auditee/reports/${encodeURIComponent(report.reportVersionId)}`}>View as Auditee</Link>
             </section>
           ) : null}
         </div>

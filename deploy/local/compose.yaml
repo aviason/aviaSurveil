@@ -11,10 +11,8 @@ x-runtime-security: &runtime-security
         cpus: "2"
         memory: 2G
         pids: 256
-  cap_drop:
-    - ALL
-  security_opt:
-    - no-new-privileges:true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
 
 x-health-defaults: &health-defaults
   interval: 5s
@@ -30,12 +28,12 @@ services:
       context: ../..
       dockerfile: deploy/local/gateway/Dockerfile
       target: gateway
-    profiles: [demo, full]
+    profiles: [full]
     user: "1000:1000"
     environment:
       AVIA_WEB_UPSTREAM: web:8080
       AVIA_API_UPSTREAM: api:8080
-      AVIA_IDENTITY_UPSTREAM: preprod-auth:8080
+      AVIA_IDENTITY_UPSTREAM: auth:8080
     ports:
       - target: 8443
         published: "${AVIA_LOCAL_HTTPS_PORT:-8443}"
@@ -44,13 +42,17 @@ services:
     volumes:
       - caddy-data:/data
       - caddy-config:/config
-    tmpfs:
-      - /tmp:mode=1777
-    networks:
-      - edge
-      - frontend
-      - identity
-      - platform
+      - type: bind
+        source: ./gateway/Caddyfile
+        target: /etc/caddy/Caddyfile
+        read_only: true
+    tmpfs: [/tmp:mode=1777]
+    networks: [edge, frontend, identity, platform]
+    depends_on:
+      api: {condition: service_healthy}
+      auth: {condition: service_healthy}
+      web-http: {condition: service_healthy}
+      minio: {condition: service_healthy}
     healthcheck:
       <<: *health-defaults
       test: [CMD, /healthcheck, https://localhost:8443/]
@@ -65,12 +67,10 @@ services:
       target: demo
     profiles: [demo]
     user: "10001:10001"
-    tmpfs:
-      - /tmp:mode=1777
+    tmpfs: [/tmp:mode=1777]
     networks:
       frontend:
-        aliases:
-          - web
+        aliases: [web]
     healthcheck:
       <<: *health-defaults
       test: [CMD, /web-server, healthcheck]
@@ -83,18 +83,240 @@ services:
       context: ../..
       dockerfile: apps/web/Dockerfile
       target: http
+      args:
+        VITE_AVIA_DISABLE_BROWSER_TELEMETRY: "1"
     profiles: [full]
     user: "10001:10001"
-    tmpfs:
-      - /tmp:mode=1777
+    tmpfs: [/tmp:mode=1777]
     networks:
       frontend:
-        aliases:
-          - web
+        aliases: [web]
     healthcheck:
       <<: *health-defaults
       test: [CMD, /web-server, healthcheck]
     restart: unless-stopped
+
+  postgres:
+    <<: *runtime-security
+    image: postgres:17.6-alpine3.22@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94
+    profiles: [full, test, recovery]
+    user: "70:70"
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: avia_master
+      POSTGRES_PASSWORD_FILE: /run/secrets/rds_master_database_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    secrets: [rds_master_database_password]
+    volumes:
+      - app-database:/var/lib/postgresql/data
+    tmpfs:
+      - /run/postgresql:uid=70,gid=70,mode=0770
+      - /tmp:mode=1777
+    networks: [database]
+    healthcheck:
+      <<: *health-defaults
+      timeout: 8s
+      test: [CMD-SHELL, pg_isready -U avia_master -d postgres]
+    restart: unless-stopped
+
+  runtime-database-bootstrap:
+    <<: *runtime-security
+    image: aviasurveil360/surveil-bootstrap:local
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      target: bootstrap
+    profiles: [full, test, recovery]
+    user: "10001:10001"
+    entrypoint: [/app/runtime-database-bootstrap]
+    depends_on:
+      postgres: {condition: service_healthy}
+    environment:
+      AVIA_DATABASE_MASTER_URL_FILE: /run/secrets/rds_master_database_url
+      AVIA_DATABASE_RUNTIME_PASSWORD_FILE: /run/secrets/surveil_runtime_database_password
+      AVIA_DATABASE_MIGRATION_PASSWORD_FILE: /run/secrets/surveil_migration_database_password
+      AVIA_DATABASE_BOOTSTRAP_PASSWORD_FILE: /run/secrets/surveil_bootstrap_database_password
+      AVIA_AUTH_DATABASE_PASSWORD_FILE: /run/secrets/auth_runtime_database_password
+    secrets: [rds_master_database_url, surveil_runtime_database_password, surveil_migration_database_password, surveil_bootstrap_database_password, auth_runtime_database_password]
+    tmpfs: [/tmp:mode=1777]
+    networks: [database]
+    restart: "no"
+
+  migration:
+    <<: *runtime-security
+    image: aviasurveil360/migration:local
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      target: migration
+    profiles: [full, test, recovery]
+    user: "10001:10001"
+    depends_on:
+      runtime-database-bootstrap: {condition: service_completed_successfully}
+    environment:
+      AVIA_ENVIRONMENT: ${LOCAL_RUNTIME_ENVIRONMENT:-demo}
+      AVIA_DATA: "0"
+      AVIA_DATABASE_HOST: postgres
+      AVIA_DATABASE_PORT: "5432"
+      AVIA_DATABASE_NAME: surveil
+      AVIA_DATABASE_USER: surveil_migration
+      AVIA_DATABASE_PASSWORD_FILE: /run/secrets/surveil_migration_database_password
+    secrets: [surveil_migration_database_password]
+    tmpfs: [/tmp:mode=1777]
+    networks: [database]
+    restart: "no"
+
+  runtime-database-permissions:
+    <<: *runtime-security
+    image: aviasurveil360/surveil-bootstrap:local
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      target: bootstrap
+    profiles: [full, test, recovery]
+    user: "10001:10001"
+    entrypoint: [/app/runtime-database-bootstrap, permissions]
+    depends_on:
+      migration: {condition: service_completed_successfully}
+    environment:
+      AVIA_DATABASE_MASTER_URL_FILE: /run/secrets/rds_master_database_url
+    secrets: [rds_master_database_url]
+    tmpfs: [/tmp:mode=1777]
+    networks: [database]
+    restart: "no"
+
+  auth:
+    <<: *runtime-security
+    image: aviasurveil360/auth:local
+    build:
+      context: ../../../../shared/auth
+      dockerfile: Dockerfile
+      target: runtime
+    profiles: [full, test, recovery]
+    user: "10001:10001"
+    depends_on:
+      runtime-database-bootstrap: {condition: service_completed_successfully}
+    environment:
+      AVIA_AUTH_ENVIRONMENT: ${LOCAL_AUTH_ENVIRONMENT:-demo}
+      AVIA_AUTH_PROFILE: ${LOCAL_AUTH_PROFILE:-first-party-demo}
+      AVIA_AUTH_ONBOARDING_MODE: ${LOCAL_AUTH_ONBOARDING_MODE:-createAndDirectActivate}
+      AVIA_AUTH_TARGET: ${AVIA_LOCAL_TARGET:-namibia/demo}
+      AVIA_AUTH_HTTP_ADDRESS: 0.0.0.0:8080
+      AVIA_AUTH_ADMIN_HTTP_ADDRESS: 0.0.0.0:8081
+      AVIA_AUTH_BOOTSTRAP_SECRET_FILE: /run/secrets/auth_bootstrap_secret
+      AVIA_AUTH_ISSUER_URL: "https://localhost:${AVIA_LOCAL_HTTPS_PORT:-8443}/identity"
+      AVIA_AUTH_DATABASE_URL_FILE: /run/secrets/auth_database_url
+      AVIA_AUTH_DATABASE_ROLE: auth_runtime
+      AVIA_AUTH_DATABASE_SCHEMA: auth_identity
+      AVIA_AUTH_SIGNING_KEY_FILE: /run/secrets/auth_signing_key
+      AVIA_AUTH_SIGNING_KEY_ID: ${LOCAL_SIGNING_KEY_ID:-avia-namibia-demo-auth-signing-2026}
+      AVIA_AUTH_SIGNING_ALGORITHM: RS256
+      AVIA_AUTH_DATA_ENCRYPTION_KEY_FILE: /run/secrets/auth_data_encryption_key
+      AVIA_AUTH_MFA_KEY_FILE: /run/secrets/auth_mfa_key
+      AVIA_AUTH_OIDC_CLIENT_ID: ${LOCAL_OIDC_CLIENT_ID:-aviasurveil360-namibia-demo-web}
+      AVIA_AUTH_OIDC_REDIRECT_URI: "https://localhost:${AVIA_LOCAL_HTTPS_PORT:-8443}/auth/callback"
+      AVIA_AUTH_OIDC_POST_LOGOUT_REDIRECT_URI: "https://localhost:${AVIA_LOCAL_HTTPS_PORT:-8443}/"
+      AVIA_AUTH_OIDC_CLIENT_SECRET_FILE: /run/secrets/oidc_client_secret
+      AVIA_AUTH_SMTP_MODE: disabled
+      AVIA_AUTH_ADMIN_SECRET_FILE: /run/secrets/auth_admin_secret
+    secrets: [auth_database_url, auth_signing_key, auth_data_encryption_key, auth_mfa_key, oidc_client_secret, auth_admin_secret, auth_bootstrap_secret]
+    tmpfs: [/tmp:mode=1777]
+    networks: [identity, database]
+    healthcheck:
+      <<: *health-defaults
+      test: [CMD, wget, --quiet, --output-document=/dev/null, http://127.0.0.1:8080/health/ready]
+    restart: unless-stopped
+
+  curated-foundation-loader:
+    <<: *runtime-security
+    image: aviasurveil360/surveil-bootstrap:local
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      target: bootstrap
+    profiles: [full, test, recovery]
+    user: "10001:10001"
+    depends_on:
+      runtime-database-permissions: {condition: service_completed_successfully}
+    environment:
+      AVIA_BOOTSTRAP_TARGET: ${AVIA_LOCAL_TARGET:-namibia/demo}
+      AVIA_FOUNDATION_MANIFEST_PATH: /app/bootstrap-manifests/${LOCAL_MANIFEST_PREFIX:-demo}-foundation.json
+      AVIA_FOUNDATION_MANIFEST_SHA256: ${AVIA_FOUNDATION_MANIFEST_SHA256:-UNSET}
+      AVIA_DATABASE_URL_FILE: /run/secrets/surveil_bootstrap_database_url
+    entrypoint: [/app/curated-foundation-loader, load]
+    secrets: [surveil_bootstrap_database_url]
+    volumes:
+      - type: bind
+        source: ${AVIA_BOOTSTRAP_MANIFEST_DIR:-../../../../deployments/namibia/manifests}
+        target: /app/bootstrap-manifests
+        read_only: true
+    tmpfs: [/tmp:mode=1777]
+    networks: [database]
+    restart: "no"
+
+  prepared-roster-loader:
+    <<: *runtime-security
+    image: aviasurveil360/surveil-bootstrap:local
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      target: bootstrap
+    profiles: [full, test, recovery]
+    user: "10001:10001"
+    depends_on:
+      curated-foundation-loader: {condition: service_completed_successfully}
+      auth: {condition: service_healthy}
+    environment:
+      AVIA_BOOTSTRAP_TARGET: ${AVIA_LOCAL_TARGET:-namibia/demo}
+      AVIA_ROSTER_MANIFEST_PATH: /app/bootstrap-manifests/${LOCAL_MANIFEST_PREFIX:-demo}-identity-roster.json
+      AVIA_ROSTER_MANIFEST_SHA256: ${AVIA_ROSTER_MANIFEST_SHA256:-UNSET}
+      AVIA_DATABASE_URL_FILE: /run/secrets/surveil_bootstrap_database_url
+      AVIA_AUTH_ADMIN_URL: http://auth:8081
+      AVIA_AUTH_BOOTSTRAP_SECRET_FILE: /run/secrets/auth_bootstrap_secret
+      AVIA_OIDC_ISSUER_URL: "https://localhost:${AVIA_LOCAL_HTTPS_PORT:-8443}/identity"
+      AVIA_ROSTER_CREDENTIAL_DIRECTORY: /run/roster-credentials
+    entrypoint: [/app/prepared-roster-loader, load]
+    secrets: [surveil_bootstrap_database_url, auth_bootstrap_secret]
+    volumes:
+      - type: bind
+        source: ${AVIA_BOOTSTRAP_MANIFEST_DIR:-../../../../deployments/namibia/manifests}
+        target: /app/bootstrap-manifests
+        read_only: true
+      - type: bind
+        source: ${AVIA_ROSTER_CREDENTIAL_DIRECTORY:-../../.local/aviasurveil360/roster-credentials}
+        target: /run/roster-credentials
+        read_only: true
+    tmpfs: [/tmp:mode=1777]
+    networks: [database, identity]
+    restart: "no"
+
+  approved-aga-catalog-loader:
+    <<: *runtime-security
+    image: aviasurveil360/surveil-bootstrap:local
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      target: bootstrap
+    profiles: [full, test, recovery]
+    user: "10001:10001"
+    depends_on:
+      prepared-roster-loader: {condition: service_completed_successfully}
+    environment:
+      AVIA_BOOTSTRAP_TARGET: ${AVIA_LOCAL_TARGET:-namibia/demo}
+      AVIA_CATALOG_MANIFEST_PATH: /app/bootstrap-manifests/${LOCAL_MANIFEST_PREFIX:-demo}-approved-catalog.json
+      AVIA_CATALOG_MANIFEST_SHA256: ${AVIA_CATALOG_MANIFEST_SHA256:-UNSET}
+      AVIA_APPROVED_CATALOG_PACKAGE_PATH: /app/bootstrap/AGA_ALL_FORMS_APPROVED_SOURCE_V2.zip
+      AVIA_DATABASE_URL_FILE: /run/secrets/surveil_bootstrap_database_url
+    entrypoint: [/app/approved-aga-catalog-loader, load]
+    secrets: [surveil_bootstrap_database_url]
+    volumes:
+      - type: bind
+        source: ${AVIA_BOOTSTRAP_MANIFEST_DIR:-../../../../deployments/namibia/manifests}
+        target: /app/bootstrap-manifests
+        read_only: true
+    tmpfs: [/tmp:mode=1777]
+    networks: [database]
+    restart: "no"
 
   api:
     <<: *runtime-security
@@ -106,30 +328,28 @@ services:
     profiles: [full]
     user: "10001:10001"
     depends_on:
-      migration:
-        condition: service_completed_successfully
-      preprod-auth:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
+      approved-aga-catalog-loader: {condition: service_completed_successfully}
+      auth: {condition: service_healthy}
+      minio: {condition: service_healthy}
     environment:
-      AVIA_ENVIRONMENT: production
+      AVIA_ENVIRONMENT: ${LOCAL_RUNTIME_ENVIRONMENT:-demo}
       AVIA_DATA: "0"
       AVIA_HTTP_ADDRESS: 0.0.0.0:8080
       AVIA_DATABASE_HOST: postgres
       AVIA_DATABASE_PORT: "5432"
-      AVIA_DATABASE_NAME: aviasurveil360
-      AVIA_DATABASE_USER: aviasurveil360
-      AVIA_DATABASE_PASSWORD_FILE: /run/secrets/app_database_password
+      AVIA_DATABASE_NAME: surveil
+      AVIA_DATABASE_USER: surveil_runtime
+      AVIA_DATABASE_PASSWORD_FILE: /run/secrets/surveil_runtime_database_password
       AVIA_OIDC_ISSUER_URL: "https://localhost:${AVIA_LOCAL_HTTPS_PORT:-8443}/identity"
-      AVIA_OIDC_DISCOVERY_URL: http://preprod-auth:8080
+      AVIA_OIDC_DISCOVERY_URL: http://auth:8080
       AVIA_OIDC_DISCOVERY_PRIVATE_NETWORK: "true"
-      AVIA_OIDC_CLIENT_ID: aviasurveil360-local-preprod-web
-      AVIA_OIDC_CLIENT_SECRET_FILE: /run/secrets/preprod_oidc_client_secret
+      AVIA_OIDC_CLIENT_ID: ${LOCAL_OIDC_CLIENT_ID:-aviasurveil360-namibia-demo-web}
+      AVIA_OIDC_CLIENT_SECRET_FILE: /run/secrets/oidc_client_secret
       AVIA_OIDC_REDIRECT_URL: "https://localhost:${AVIA_LOCAL_HTTPS_PORT:-8443}/auth/callback"
-      AVIA_AUTH_ADMIN_URL: http://preprod-auth:8081
-      AVIA_AUTH_ADMIN_SECRET_FILE: /run/secrets/preprod_auth_admin_secret
+      AVIA_AUTH_ADMIN_URL: http://auth:8081
+      AVIA_AUTH_ADMIN_SECRET_FILE: /run/secrets/auth_admin_secret
       AVIA_SESSION_ENCRYPTION_KEY_FILE: /run/secrets/session_encryption_key
+      AVIA_OBJECT_STORE_MODE: minio
       AVIA_OBJECT_STORE_ENDPOINT: minio:9000
       AVIA_OBJECT_STORE_PUBLIC_ENDPOINT: "localhost:${AVIA_LOCAL_HTTPS_PORT:-8443}"
       AVIA_OBJECT_STORE_ACCESS_KEY_FILE: /run/secrets/minio_api_access_key
@@ -139,32 +359,28 @@ services:
       AVIA_OBJECT_STORE_PRIVATE_NETWORK: "true"
       AVIA_OBJECT_STORE_REGION: local
       AVIA_OBJECT_STORE_CORS_ORIGINS: "https://localhost:${AVIA_LOCAL_HTTPS_PORT:-8443}"
+      AVIA_OBJECT_STORE_SERVER_MANAGED_CORS: ${LOCAL_SERVER_MANAGED_CORS:-false}
       AVIA_OBJECT_STORE_QUARANTINE_BUCKET: evidence-quarantine
       AVIA_OBJECT_STORE_CANONICAL_BUCKET: evidence-clean
       AVIA_OBJECT_STORE_ATTACHMENT_BUCKET: inspection-attachments
       AVIA_OBJECT_STORE_DOCUMENT_BUCKET: generated-documents
-      AVIA_SCANNER_MODE: disabled
-      AVIA_IDENTITY_HEALTH_URL: http://preprod-auth:8080/health/ready
+      AVIA_SCANNER_MODE: ${LOCAL_SCANNER_MODE:-disabled}
+      AVIA_IDENTITY_HEALTH_URL: http://auth:8080/health/ready
       AVIA_SMTP_HEALTH_ADDRESS: mailpit:1025
+      AVIA_SMTP_ADDRESS: mailpit:1025
+      AVIA_SMTP_FROM: no-reply@aviasurveil360.local
+      AVIA_SMTP_USERNAME: aviasurveil360
+      AVIA_SMTP_PASSWORD_FILE: /run/secrets/smtp_password
+      AVIA_SMTP_TRANSPORT: private-plaintext
+      AVIA_SMTP_PRIVATE_NETWORK: "true"
       AVIA_RUNTIME_HEALTH_TIMEOUT: 1s
     configs:
       - source: application_config
         target: /etc/aviasurveil360/application.yaml
         mode: 0444
-    secrets:
-      - app_database_password
-      - preprod_auth_admin_secret
-      - minio_api_access_key
-      - minio_api_secret_key
-      - preprod_oidc_client_secret
-      - session_encryption_key
-    tmpfs:
-      - /tmp:mode=1777
-    networks:
-      - frontend
-      - database
-      - identity
-      - platform
+    secrets: [surveil_runtime_database_password, auth_admin_secret, minio_api_access_key, minio_api_secret_key, oidc_client_secret, session_encryption_key, smtp_password]
+    tmpfs: [/tmp:mode=1777]
+    networks: [frontend, database, identity, platform]
     healthcheck:
       <<: *health-defaults
       test: [CMD, wget, --quiet, --output-document=/dev/null, http://127.0.0.1:8080/health/ready]
@@ -180,29 +396,26 @@ services:
     profiles: [full]
     user: "10001:10001"
     depends_on:
-      migration:
-        condition: service_completed_successfully
-      preprod-auth:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-      mailpit:
-        condition: service_started
+      approved-aga-catalog-loader: {condition: service_completed_successfully}
+      auth: {condition: service_healthy}
+      minio: {condition: service_healthy}
+      mailpit: {condition: service_healthy}
     environment:
-      AVIA_ENVIRONMENT: production
+      AVIA_ENVIRONMENT: ${LOCAL_RUNTIME_ENVIRONMENT:-demo}
       AVIA_DATA: "0"
       AVIA_DATABASE_HOST: postgres
       AVIA_DATABASE_PORT: "5432"
-      AVIA_DATABASE_NAME: aviasurveil360
-      AVIA_DATABASE_USER: aviasurveil360
-      AVIA_DATABASE_PASSWORD_FILE: /run/secrets/app_database_password
-      AVIA_AUTH_ADMIN_URL: http://preprod-auth:8081
-      AVIA_AUTH_ADMIN_SECRET_FILE: /run/secrets/preprod_auth_admin_secret
+      AVIA_DATABASE_NAME: surveil
+      AVIA_DATABASE_USER: surveil_runtime
+      AVIA_DATABASE_PASSWORD_FILE: /run/secrets/surveil_runtime_database_password
+      AVIA_AUTH_ADMIN_URL: http://auth:8081
+      AVIA_AUTH_ADMIN_SECRET_FILE: /run/secrets/auth_admin_secret
       AVIA_OIDC_ISSUER_URL: "https://localhost:${AVIA_LOCAL_HTTPS_PORT:-8443}/identity"
-      AVIA_OIDC_CLIENT_ID: aviasurveil360-local-preprod-web
-      AVIA_OIDC_CLIENT_SECRET_FILE: /run/secrets/preprod_oidc_client_secret
+      AVIA_OIDC_CLIENT_ID: ${LOCAL_OIDC_CLIENT_ID:-aviasurveil360-namibia-demo-web}
+      AVIA_OIDC_CLIENT_SECRET_FILE: /run/secrets/oidc_client_secret
       AVIA_OIDC_REDIRECT_URL: "https://localhost:${AVIA_LOCAL_HTTPS_PORT:-8443}/auth/callback"
       AVIA_SESSION_ENCRYPTION_KEY_FILE: /run/secrets/session_encryption_key
+      AVIA_OBJECT_STORE_MODE: minio
       AVIA_OBJECT_STORE_ENDPOINT: minio:9000
       AVIA_OBJECT_STORE_PUBLIC_ENDPOINT: "localhost:${AVIA_LOCAL_HTTPS_PORT:-8443}"
       AVIA_OBJECT_STORE_ACCESS_KEY_FILE: /run/secrets/minio_worker_access_key
@@ -212,679 +425,29 @@ services:
       AVIA_OBJECT_STORE_PRIVATE_NETWORK: "true"
       AVIA_OBJECT_STORE_REGION: local
       AVIA_OBJECT_STORE_CORS_ORIGINS: "https://localhost:${AVIA_LOCAL_HTTPS_PORT:-8443}"
+      AVIA_OBJECT_STORE_SERVER_MANAGED_CORS: ${LOCAL_SERVER_MANAGED_CORS:-false}
       AVIA_OBJECT_STORE_QUARANTINE_BUCKET: evidence-quarantine
       AVIA_OBJECT_STORE_CANONICAL_BUCKET: evidence-clean
       AVIA_OBJECT_STORE_ATTACHMENT_BUCKET: inspection-attachments
       AVIA_OBJECT_STORE_DOCUMENT_BUCKET: generated-documents
-      AVIA_SCANNER_MODE: disabled
+      AVIA_SCANNER_MODE: ${LOCAL_SCANNER_MODE:-disabled}
       AVIA_SMTP_ADDRESS: mailpit:1025
       AVIA_SMTP_FROM: no-reply@aviasurveil360.local
       AVIA_SMTP_USERNAME: aviasurveil360
       AVIA_SMTP_PASSWORD_FILE: /run/secrets/smtp_password
-      AVIA_SMTP_TIMEOUT: 10s
+      AVIA_SMTP_TRANSPORT: private-plaintext
       AVIA_SMTP_PRIVATE_NETWORK: "true"
-    configs:
-      - source: application_config
-        target: /etc/aviasurveil360/application.yaml
-        mode: 0444
-    secrets:
-      - app_database_password
-      - preprod_auth_admin_secret
-      - minio_worker_access_key
-      - minio_worker_secret_key
-      - preprod_oidc_client_secret
-      - session_encryption_key
-      - smtp_password
-    tmpfs:
-      - /tmp:mode=1777
-    networks:
-      - database
-      - identity
-      - platform
-    healthcheck:
-      <<: *health-defaults
-      test: [CMD-SHELL, kill -0 1]
-    restart: unless-stopped
-
-  migration:
-    <<: *runtime-security
-    image: aviasurveil360/migration:local
-    build:
-      context: ../..
-      dockerfile: apps/api/Dockerfile
-      target: migration
-    profiles: [full]
-    user: "10001:10001"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      AVIA_DATA: "0"
-      AVIA_DATABASE_HOST: postgres
-      AVIA_DATABASE_PORT: "5432"
-      AVIA_DATABASE_NAME: aviasurveil360
-      AVIA_DATABASE_USER: aviasurveil360
-      AVIA_DATABASE_PASSWORD_FILE: /run/secrets/app_database_password
-    secrets:
-      - app_database_password
-    tmpfs:
-      - /tmp:mode=1777
-    networks:
-      - database
-    restart: "no"
-
-  preprod-postgres:
-    <<: *runtime-security
-    image: postgres:17.6-alpine3.22@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94
-    profiles: [local-preprod-loader]
-    user: "70:70"
-    environment:
-      POSTGRES_DB: aviasurveil360_local_preprod
-      POSTGRES_USER: aviasurveil360_preprod_loader
-      POSTGRES_PASSWORD_FILE: /run/secrets/preprod_app_database_password
-      PGDATA: /var/lib/postgresql/data/pgdata
-    secrets:
-      - preprod_app_database_password
-    volumes:
-      - preprod-app-database:/var/lib/postgresql/data
-    tmpfs:
-      - /run/postgresql:uid=70,gid=70,mode=0770
-      - /tmp:mode=1777
-    networks:
-      - preprod-app-database
-    healthcheck:
-      <<: *health-defaults
-      timeout: 8s
-      test:
-        - CMD-SHELL
-        - >-
-          sleep 5;
-          pg_isready -U aviasurveil360_preprod_loader
-          -d aviasurveil360_local_preprod &&
-          psql -U aviasurveil360_preprod_loader
-          -d aviasurveil360_local_preprod -tAc 'SELECT 1' |
-          grep -qx 1
-    restart: unless-stopped
-
-  preprod-migration:
-    <<: *runtime-security
-    image: aviasurveil360/preprod-migration:local
-    build:
-      context: ../..
-      dockerfile: apps/api/Dockerfile
-      target: migration
-    profiles: [local-preprod-loader]
-    user: "10001:10001"
-    depends_on:
-      preprod-postgres:
-        condition: service_healthy
-    environment:
-      AVIA_ENVIRONMENT: development
-      AVIA_DATA: "0"
-      AVIA_DATABASE_HOST: preprod-postgres
-      AVIA_DATABASE_PORT: "5432"
-      AVIA_DATABASE_NAME: aviasurveil360_local_preprod
-      AVIA_DATABASE_USER: aviasurveil360_preprod_loader
-      AVIA_DATABASE_PASSWORD_FILE: /run/secrets/preprod_app_database_password
-    secrets:
-      - preprod_app_database_password
-    tmpfs:
-      - /tmp:mode=1777
-    networks:
-      - preprod-app-database
-    restart: "no"
-
-  # This one-shot bootstrap receives the owner credential only long enough to
-  # create/update the dedicated non-owner runtime login. Long-lived services
-  # below receive only preprod_normal_api's secret.
-  preprod-normal-runtime-role-provisioner:
-    <<: *runtime-security
-    image: aviasurveil360/preprod-normal-runtime-role-provisioner:local
-    build:
-      context: ../..
-      dockerfile: apps/api/Dockerfile
-      target: preprod-normal-runtime-role-provisioner
-    profiles: [local-preprod-loader]
-    user: "10001:10001"
-    depends_on:
-      preprod-migration:
-        condition: service_completed_successfully
-    secrets:
-      - preprod_app_database_password
-      - preprod_normal_api_database_password
-    tmpfs:
-      - /tmp:mode=1777
-    networks:
-      - preprod-app-database
-    restart: "no"
-
-  preprod-api:
-    <<: *runtime-security
-    image: aviasurveil360/preprod-api:local
-    build:
-      context: ../..
-      dockerfile: apps/api/Dockerfile
-      target: api
-    profiles: [local-preprod-loader]
-    user: "10001:10001"
-    depends_on:
-      preprod-migration:
-        condition: service_completed_successfully
-      preprod-normal-runtime-role-provisioner:
-        condition: service_completed_successfully
-      preprod-canonical-aga-loader:
-        condition: service_completed_successfully
-      preprod-auth:
-        condition: service_healthy
-      preprod-minio:
-        condition: service_healthy
-    environment:
-      AVIA_ENVIRONMENT: local-preprod
-      AVIA_DATA: "0"
-      # Canonical AGA exercise content is fail-closed unless the qualification
-      # runner explicitly supplies the dedicated disposable profile and
-      # identity namespace.
-      AVIA_PREPROD_PROFILE: ${AVIA_PREPROD_PROFILE:-}
-      AVIA_PREPROD_PROFILE_QUALIFICATION: ${AVIA_PREPROD_PROFILE_QUALIFICATION:-false}
-      AVIA_PREPROD_IDENTITY_NAMESPACE: ${AVIA_PREPROD_IDENTITY_NAMESPACE:-}
-      AVIA_PREPROD_DATABASE_NAME: aviasurveil360_local_preprod
-      AVIA_PREPROD_DATABASE_OWNER: aviasurveil360_preprod_loader
-      AVIA_HTTP_ADDRESS: 0.0.0.0:8080
-      AVIA_OIDC_ISSUER_URL: "${AVIA_PREPROD_WEB_ORIGIN:-https://localhost:8445}/identity"
-      AVIA_OIDC_DISCOVERY_URL: http://preprod-auth:8080
-      AVIA_OIDC_DISCOVERY_PRIVATE_NETWORK: "true"
-      AVIA_OIDC_CLIENT_ID: aviasurveil360-local-preprod-web
-      AVIA_OIDC_REDIRECT_URL: "${AVIA_PREPROD_WEB_ORIGIN:-https://localhost:8445}/auth/callback"
-      AVIA_AUTH_ADMIN_URL: http://preprod-auth:8081
-      AVIA_AUTH_ADMIN_SECRET_FILE: /run/secrets/preprod_auth_admin_secret
-      AVIA_IDENTITY_HEALTH_URL: http://preprod-auth:8080/health/ready
-      AVIA_DATABASE_HOST: preprod-postgres
-      AVIA_DATABASE_PORT: "5432"
-      AVIA_DATABASE_NAME: aviasurveil360_local_preprod
-      AVIA_DATABASE_USER: preprod_normal_api
-      AVIA_DATABASE_PASSWORD_FILE: /run/secrets/preprod_normal_api_database_password
-      AVIA_OBJECT_STORE_ENDPOINT: preprod-minio:9000
-      AVIA_OBJECT_STORE_PUBLIC_ENDPOINT: "localhost:${AVIA_PREPROD_HTTPS_PORT:-8445}"
-      AVIA_OBJECT_STORE_ACCESS_KEY_FILE: /run/secrets/preprod_minio_api_access_key
-      AVIA_OBJECT_STORE_SECRET_KEY_FILE: /run/secrets/preprod_minio_api_secret_key
-      AVIA_OBJECT_STORE_TLS: "false"
-      AVIA_OBJECT_STORE_PUBLIC_TLS: "true"
-      AVIA_OBJECT_STORE_PRIVATE_NETWORK: "true"
-      AVIA_OBJECT_STORE_REGION: local
-      AVIA_OBJECT_STORE_CORS_ORIGINS: "https://localhost:${AVIA_PREPROD_HTTPS_PORT:-8445}"
-      AVIA_OBJECT_STORE_QUARANTINE_BUCKET: evidence-quarantine
-      AVIA_OBJECT_STORE_CANONICAL_BUCKET: evidence-clean
-      AVIA_OBJECT_STORE_ATTACHMENT_BUCKET: inspection-attachments
-      AVIA_OBJECT_STORE_DOCUMENT_BUCKET: generated-documents
-      AVIA_SCANNER_MODE: disabled
-      AVIA_RUNTIME_HEALTH_TIMEOUT: 1s
-    entrypoint: [/bin/sh, -c]
-    command:
-      - >-
-        database_password="$$(tr -d '\r\n'
-        </run/secrets/preprod_normal_api_database_password)";
-        oidc_secret="$$(tr -d '\r\n' </run/secrets/preprod_oidc_client_secret)";
-        session_key="$$(tr -d '\r\n' </run/secrets/preprod_session_encryption_key)";
-        object_store_access_key="$$(tr -d '\r\n' </run/secrets/preprod_minio_api_access_key)";
-        object_store_secret_key="$$(tr -d '\r\n' </run/secrets/preprod_minio_api_secret_key)";
-        export AVIA_DATABASE_URL="postgres://preprod_normal_api:$${database_password}@preprod-postgres:5432/aviasurveil360_local_preprod?sslmode=disable";
-        export AVIA_OIDC_CLIENT_SECRET="$${oidc_secret}";
-        export AVIA_SESSION_ENCRYPTION_KEY="$${session_key}";
-        export AVIA_OBJECT_STORE_ACCESS_KEY="$${object_store_access_key}";
-        export AVIA_OBJECT_STORE_SECRET_KEY="$${object_store_secret_key}";
-        unset database_password oidc_secret session_key object_store_access_key object_store_secret_key;
-        oidc_wait_attempt=0;
-        until wget --quiet --output-document=/dev/null
-        "$${AVIA_OIDC_DISCOVERY_URL}/.well-known/openid-configuration"; do
-          oidc_wait_attempt=$$((oidc_wait_attempt + 1));
-          if [ "$${oidc_wait_attempt}" -ge 120 ]; then
-            echo "OIDC discovery did not become ready before API startup" >&2;
-            exit 1;
-          fi;
-          sleep 5;
-        done;
-        exec /app/api
-    secrets:
-      - preprod_normal_api_database_password
-      - preprod_auth_admin_secret
-      - preprod_minio_api_access_key
-      - preprod_minio_api_secret_key
-      - preprod_oidc_client_secret
-      - preprod_session_encryption_key
-    tmpfs:
-      - /tmp:mode=1777
-    networks:
-      - preprod-app-database
-      - preprod-identity
-      - preprod-platform
-    healthcheck:
-      <<: *health-defaults
-      test:
-        - CMD
-        - wget
-        - --quiet
-        - --output-document=/dev/null
-        - http://127.0.0.1:8080/health/ready
-    restart: unless-stopped
-
-  preprod-worker:
-    <<: *runtime-security
-    image: aviasurveil360/preprod-worker:local
-    build:
-      context: ../..
-      dockerfile: apps/api/Dockerfile
-      target: worker
-    profiles: [local-preprod-loader]
-    user: "10001:10001"
-    depends_on:
-      preprod-migration:
-        condition: service_completed_successfully
-      preprod-normal-runtime-role-provisioner:
-        condition: service_completed_successfully
-      preprod-auth:
-        condition: service_healthy
-      preprod-minio:
-        condition: service_healthy
-    environment:
-      AVIA_ENVIRONMENT: local-preprod
-      AVIA_DATA: "0"
-      AVIA_DATABASE_HOST: preprod-postgres
-      AVIA_DATABASE_PORT: "5432"
-      AVIA_DATABASE_NAME: aviasurveil360_local_preprod
-      AVIA_DATABASE_USER: preprod_normal_api
-      AVIA_DATABASE_PASSWORD_FILE: /run/secrets/preprod_normal_api_database_password
-      AVIA_OIDC_CLIENT_SECRET_FILE: /run/secrets/preprod_oidc_client_secret
-      AVIA_SESSION_ENCRYPTION_KEY_FILE: /run/secrets/preprod_session_encryption_key
-      AVIA_OIDC_DISCOVERY_URL: http://preprod-auth:8080
-      AVIA_OIDC_DISCOVERY_PRIVATE_NETWORK: "true"
-      AVIA_AUTH_ADMIN_URL: http://preprod-auth:8081
-      AVIA_AUTH_ADMIN_SECRET_FILE: /run/secrets/preprod_auth_admin_secret
-      AVIA_OIDC_ISSUER_URL: "${AVIA_PREPROD_WEB_ORIGIN:-https://localhost:8445}/identity"
-      AVIA_OIDC_CLIENT_ID: aviasurveil360-local-preprod-web
-      AVIA_OIDC_REDIRECT_URL: "${AVIA_PREPROD_WEB_ORIGIN:-https://localhost:8445}/auth/callback"
-      AVIA_OBJECT_STORE_ENDPOINT: preprod-minio:9000
-      AVIA_OBJECT_STORE_PUBLIC_ENDPOINT: "${AVIA_PREPROD_PUBLIC_HOST:-localhost:8445}"
-      AVIA_OBJECT_STORE_ACCESS_KEY_FILE: /run/secrets/preprod_minio_api_access_key
-      AVIA_OBJECT_STORE_SECRET_KEY_FILE: /run/secrets/preprod_minio_api_secret_key
-      AVIA_OBJECT_STORE_TLS: "false"
-      AVIA_OBJECT_STORE_PUBLIC_TLS: "true"
-      AVIA_OBJECT_STORE_PRIVATE_NETWORK: "true"
-      AVIA_OBJECT_STORE_REGION: local
-      AVIA_OBJECT_STORE_CORS_ORIGINS: "${AVIA_PREPROD_WEB_ORIGIN:-https://localhost:8445}"
-      AVIA_OBJECT_STORE_QUARANTINE_BUCKET: evidence-quarantine
-      AVIA_OBJECT_STORE_CANONICAL_BUCKET: evidence-clean
-      AVIA_OBJECT_STORE_ATTACHMENT_BUCKET: inspection-attachments
-      AVIA_OBJECT_STORE_DOCUMENT_BUCKET: generated-documents
-      AVIA_SCANNER_MODE: disabled
       AVIA_WORKER_INTERVAL_MS: "1000"
-    secrets:
-      - preprod_normal_api_database_password
-      - preprod_auth_admin_secret
-      - preprod_minio_api_access_key
-      - preprod_minio_api_secret_key
-      - preprod_oidc_client_secret
-      - preprod_session_encryption_key
-    tmpfs:
-      - /tmp:mode=1777
-    networks:
-      - preprod-app-database
-      - preprod-identity
-      - preprod-platform
-    healthcheck:
-      <<: *health-defaults
-      test: [CMD-SHELL, kill -0 1]
-    restart: unless-stopped
-
-  preprod-web-http:
-    <<: *runtime-security
-    image: aviasurveil360/preprod-web-http:local
-    build:
-      context: ../..
-      dockerfile: apps/web/Dockerfile
-      target: http
-      args:
-        VITE_AVIA_DISABLE_BROWSER_TELEMETRY: "1"
-    profiles: [local-preprod-loader]
-    user: "10001:10001"
-    tmpfs:
-      - /tmp:mode=1777
-    networks:
-      preprod-frontend:
-        aliases:
-          - preprod-web-http
-    healthcheck:
-      <<: *health-defaults
-      test: [CMD, /web-server, healthcheck]
-    restart: unless-stopped
-
-  preprod-gateway:
-    <<: *runtime-security
-    image: aviasurveil360/preprod-gateway:local
-    build:
-      context: ../..
-      dockerfile: deploy/local/gateway/Dockerfile
-      target: gateway
-    profiles: [local-preprod-loader]
-    user: "1000:1000"
-    depends_on:
-      preprod-api:
-        condition: service_healthy
-      preprod-auth:
-        condition: service_healthy
-      preprod-minio:
-        condition: service_healthy
-      preprod-web-http:
-        condition: service_healthy
-    ports:
-      - target: 8445
-        published: "${AVIA_PREPROD_HTTPS_PORT:-8445}"
-        host_ip: 127.0.0.1
-        protocol: tcp
-    volumes:
-      - preprod-caddy-data:/data
-      - preprod-caddy-config:/config
-      - type: bind
-        source: ./gateway/Caddyfile.preprod
-        target: /etc/caddy/Caddyfile
-        read_only: true
-    tmpfs:
-      - /tmp:mode=1777
-    networks:
-      - preprod-canonical-edge
-      - preprod-frontend
-      - preprod-app-database
-      - preprod-identity
-      - preprod-platform
-    healthcheck:
-      <<: *health-defaults
-      test: [CMD, /healthcheck, https://localhost:8445/]
-    restart: unless-stopped
-
-  # All disposable local profiles use the first-party provider.
-  preprod-auth-postgres:
-    <<: *runtime-security
-    image: postgres:17.6-alpine3.22@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94
-    profiles: [demo, full, local-preprod-loader]
-    user: "70:70"
-    environment:
-      POSTGRES_DB: auth_local_preprod
-      POSTGRES_USER: auth_preprod
-      POSTGRES_PASSWORD_FILE: /run/secrets/preprod_auth_database_password
-      PGDATA: /var/lib/postgresql/data/pgdata
-    secrets:
-      - preprod_auth_database_password
-    volumes:
-      - preprod-auth-database:/var/lib/postgresql/data
-    tmpfs:
-      - /run/postgresql:uid=70,gid=70,mode=0770
-      - /tmp:mode=1777
-    networks:
-      - preprod-identity-database
-    healthcheck:
-      <<: *health-defaults
-      timeout: 8s
-      test:
-        - CMD-SHELL
-        - >-
-          sleep 5;
-          pg_isready -U auth_preprod -d auth_local_preprod &&
-          psql -U auth_preprod -d auth_local_preprod -tAc 'SELECT 1' |
-          grep -qx 1
-    restart: unless-stopped
-
-  preprod-auth:
-    <<: *runtime-security
-    image: aviasurveil360/preprod-auth:local
-    build:
-      context: ../../../../shared/auth
-      dockerfile: Dockerfile
-      target: runtime
-    profiles: [demo, full, local-preprod-loader]
-    user: "10001:10001"
-    depends_on:
-      preprod-auth-postgres:
-        condition: service_healthy
-    environment:
-      AVIA_AUTH_ENVIRONMENT: local-preprod
-      AVIA_AUTH_PROFILE: first-party-local-preprod
-      AVIA_AUTH_HTTP_ADDRESS: 0.0.0.0:8080
-      AVIA_AUTH_ADMIN_HTTP_ADDRESS: 0.0.0.0:8081
-      AVIA_AUTH_ISSUER_URL: "${AVIA_PREPROD_WEB_ORIGIN:-https://localhost:8445}/identity"
-      AVIA_AUTH_DATABASE_URL_FILE: /run/secrets/preprod_auth_database_url
-      AVIA_AUTH_DATABASE_ROLE: auth_preprod
-      AVIA_AUTH_DATABASE_SCHEMA: auth_identity
-      AVIA_AUTH_SIGNING_KEY_FILE: /run/secrets/preprod_auth_signing_key
-      AVIA_AUTH_SIGNING_KEY_ID: avia-preprod-auth-signing-2026
-      AVIA_AUTH_SIGNING_ALGORITHM: RS256
-      AVIA_AUTH_DATA_ENCRYPTION_KEY_FILE: /run/secrets/preprod_auth_data_encryption_key
-      AVIA_AUTH_MFA_KEY_FILE: /run/secrets/preprod_auth_mfa_key
-      AVIA_AUTH_OIDC_CLIENT_ID: aviasurveil360-local-preprod-web
-      AVIA_AUTH_OIDC_REDIRECT_URI: "${AVIA_PREPROD_WEB_ORIGIN:-https://localhost:8445}/auth/callback"
-      AVIA_AUTH_OIDC_POST_LOGOUT_REDIRECT_URI: "${AVIA_PREPROD_WEB_ORIGIN:-https://localhost:8445}/"
-      AVIA_AUTH_OIDC_CLIENT_SECRET_FILE: /run/secrets/preprod_oidc_client_secret
-      AVIA_AUTH_SMTP_MODE: disabled
-      AVIA_AUTH_ADMIN_SECRET_FILE: /run/secrets/preprod_auth_admin_secret
-    secrets:
-      - preprod_auth_database_url
-      - preprod_auth_signing_key
-      - preprod_auth_data_encryption_key
-      - preprod_auth_mfa_key
-      - preprod_oidc_client_secret
-      - preprod_auth_admin_secret
-    tmpfs:
-      - /tmp:mode=1777
-    networks:
-      - preprod-identity
-      - preprod-identity-database
-      - identity
-    healthcheck:
-      <<: *health-defaults
-      test:
-        - CMD
-        - wget
-        - --quiet
-        - --output-document=/dev/null
-        - http://127.0.0.1:8080/health/ready
-    restart: unless-stopped
-
-  preprod-minio-volume-init:
-    <<: *runtime-security
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
-    profiles: [local-preprod-loader]
-    user: "0:0"
-    entrypoint: [/usr/bin/chown]
-    command: [-R, 1000:1000, /data]
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - FOWNER
-    network_mode: none
-    volumes:
-      - preprod-object-store:/data
-    restart: "no"
-
-  preprod-minio:
-    <<: *runtime-security
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
-    profiles: [local-preprod-loader]
-    user: "1000:1000"
-    depends_on:
-      preprod-minio-volume-init:
-        condition: service_completed_successfully
-    entrypoint: [/bin/sh, /opt/aviasurveil360/preprod-minio-init.sh]
-    environment:
-      AVIA_PREPROD_OBJECT_BUCKET: aviasurveil360-local-preprod
-      MINIO_ROOT_USER_FILE: /run/secrets/preprod_minio_root_user
-      MINIO_ROOT_PASSWORD_FILE: /run/secrets/preprod_minio_root_password
-      MINIO_RUNTIME_ACCESS_KEY_FILE: /run/secrets/preprod_minio_api_access_key
-      MINIO_RUNTIME_SECRET_KEY_FILE: /run/secrets/preprod_minio_api_secret_key
-      MINIO_LOADER_ACCESS_KEY_FILE: /run/secrets/preprod_minio_loader_access_key
-      MINIO_LOADER_SECRET_KEY_FILE: /run/secrets/preprod_minio_loader_secret_key
-    configs:
-      - source: preprod_minio_init
-        target: /opt/aviasurveil360/preprod-minio-init.sh
-        uid: "1000"
-        gid: "1000"
-        mode: 0550
-    secrets:
-      - preprod_minio_api_access_key
-      - preprod_minio_api_secret_key
-      - preprod_minio_loader_access_key
-      - preprod_minio_loader_secret_key
-      - preprod_minio_root_password
-      - preprod_minio_root_user
-    volumes:
-      - preprod-object-store:/data
-    tmpfs:
-      - /tmp:mode=1777
-    networks:
-      - preprod-platform
-    healthcheck:
-      <<: *health-defaults
-      test:
-        - CMD-SHELL
-        - >-
-          test -f /tmp/preprod-minio-initialized &&
-          curl --fail http://127.0.0.1:9000/minio/health/live
-    restart: unless-stopped
-
-  preprod-canonical-aga-loader:
-    <<: *runtime-security
-    image: aviasurveil360/preprod-canonical-aga-loader:local
-    build:
-      context: ../..
-      dockerfile: apps/api/Dockerfile
-      target: preprod-canonical-aga-loader
-    profiles: [local-preprod-loader]
-    user: "10001:10001"
-    depends_on:
-      preprod-migration:
-        condition: service_completed_successfully
-    environment:
-      AVIA_PREPROD_IDENTITY_NAMESPACE: ${AVIA_PREPROD_IDENTITY_NAMESPACE:-}
-      AVIA_CANONICAL_AGA_LOADER_ACTOR: ${AVIA_CANONICAL_AGA_LOADER_ACTOR:-canonical-aga-preprod-loader}
-      AVIA_CANONICAL_AGA_PROVIDER_SCOPE_ID: ${AVIA_CANONICAL_AGA_PROVIDER_SCOPE_ID:-SCOPE-OPS-AOC-SOURCE-BOUND}
-      AVIA_CANONICAL_AGA_REGULATED_TARGET_ID: ${AVIA_CANONICAL_AGA_REGULATED_TARGET_ID:-TARGET-OPS-AOC-SOURCE-BOUND}
-      AVIA_CANONICAL_AGA_PACKAGE_FILE: /run/input/aga-package.zip
-    entrypoint: [/bin/sh, -c]
-    command:
-      - >-
-        database_password="$$(tr -d '\r\n' </run/secrets/preprod_app_database_password)";
-        export AVIA_CANONICAL_AGA_DATABASE_URL="postgres://aviasurveil360_preprod_loader:$${database_password}@preprod-postgres:5432/aviasurveil360_local_preprod?sslmode=disable";
-        unset database_password;
-        exec /app/preprod-canonical-aga-loader load
-        --package /run/input/aga-package.zip
-        --catalog-version aga-preprod@1.0.0
-        --database-url "$${AVIA_CANONICAL_AGA_DATABASE_URL}"
-        --actor-subject-id "$${AVIA_CANONICAL_AGA_LOADER_ACTOR}"
-        --provider-scope-id "$${AVIA_CANONICAL_AGA_PROVIDER_SCOPE_ID}"
-        --regulated-target-id "$${AVIA_CANONICAL_AGA_REGULATED_TARGET_ID}"
-        --identity-namespace "$${AVIA_PREPROD_IDENTITY_NAMESPACE}"
-    secrets:
-      - preprod_app_database_password
-    volumes:
-      - type: bind
-        source: ${AVIA_PREPROD_CANONICAL_PACKAGE_FILE:-../../deliverables/AGA_ALL_FORMS_SOURCE_RISK_DRAFT_2026-08-01.zip}
-        target: /run/input/aga-package.zip
-        read_only: true
-    tmpfs:
-      - /tmp:mode=1777
-    networks:
-      - preprod-app-database
-    restart: "no"
-
-  preprod-canonical-demo-identity-loader:
-    <<: *runtime-security
-    image: aviasurveil360/preprod-canonical-demo-identity-loader:local
-    build:
-      context: ../..
-      dockerfile: apps/api/Dockerfile
-      target: preprod-canonical-demo-identity-loader
-    profiles: [local-preprod-loader]
-    user: "10001:10001"
-    depends_on:
-      preprod-migration:
-        condition: service_completed_successfully
-      preprod-auth:
-        condition: service_healthy
-    environment:
-      AVIA_CANONICAL_DEMO_IDENTITIES_FILE: /run/input/canonical-preprod-demo-identities.json
-      AVIA_PREPROD_OIDC_ISSUER_URL: ${AVIA_PREPROD_WEB_ORIGIN:-https://localhost:8445}/identity
-      AVIA_DATABASE_PASSWORD_FILE: /run/secrets/preprod_app_database_password
-      AVIA_AUTH_ADMIN_URL: http://preprod-auth:8081
-      AVIA_AUTH_ADMIN_SECRET_FILE: /run/secrets/preprod_auth_admin_secret
-      AVIA_DEMO_QUALIFICATION_PASSWORD_FILE: /run/secrets/preprod_canonical_demo_oidc_qualification_password
-    secrets:
-      - preprod_app_database_password
-      - preprod_auth_admin_secret
-      - preprod_canonical_demo_oidc_qualification_password
-    volumes:
-      - type: bind
-        source: ./fixtures/canonical-preprod-demo-identities.json
-        target: /run/input/canonical-preprod-demo-identities.json
-        read_only: true
-    tmpfs:
-      - /tmp:mode=1777
-    networks:
-      - preprod-app-database
-      - preprod-identity
-    restart: "no"
-
-  fixture-init:
-    <<: *runtime-security
-    image: aviasurveil360/migration:local
-    build:
-      context: ../..
-      dockerfile: apps/api/Dockerfile
-      target: migration
-    profiles: [test]
-    user: "10001:10001"
-    command: [fixture-init]
-    environment:
-      AVIA_CONFIG_FILE: /etc/aviasurveil360/application.yaml
-      AVIA_DATABASE_PASSWORD_FILE: /run/secrets/app_database_password
     configs:
       - source: application_config
         target: /etc/aviasurveil360/application.yaml
         mode: 0444
-    secrets:
-      - app_database_password
-    tmpfs:
-      - /tmp:mode=1777
-    networks:
-      - database
-      - platform
-    restart: "no"
-
-  postgres:
-    <<: *runtime-security
-    image: postgres:17.6-alpine3.22@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94
-    profiles: [full, test, recovery]
-    user: "70:70"
-    environment:
-      POSTGRES_DB: aviasurveil360
-      POSTGRES_USER: aviasurveil360
-      POSTGRES_PASSWORD_FILE: /run/secrets/app_database_password
-      PGDATA: /var/lib/postgresql/data/pgdata
-    secrets:
-      - app_database_password
-    volumes:
-      - app-database:/var/lib/postgresql/data
-    tmpfs:
-      - /run/postgresql:uid=70,gid=70,mode=0770
-      - /tmp:mode=1777
-    networks:
-      - database
+    secrets: [surveil_runtime_database_password, auth_admin_secret, minio_worker_access_key, minio_worker_secret_key, oidc_client_secret, session_encryption_key, smtp_password]
+    tmpfs: [/tmp:mode=1777]
+    networks: [database, identity, platform]
     healthcheck:
       <<: *health-defaults
-      timeout: 8s
-      test:
-        - CMD-SHELL
-        - >-
-          sleep 5;
-          pg_isready -U aviasurveil360 -d aviasurveil360 &&
-          psql -U aviasurveil360 -d aviasurveil360 -tAc 'SELECT 1' |
-          grep -qx 1
+      test: [CMD-SHELL, kill -0 1]
     restart: unless-stopped
 
   minio-volume-init:
@@ -894,13 +457,9 @@ services:
     user: "0:0"
     entrypoint: [/usr/bin/chown]
     command: [-R, 1000:1000, /data]
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - FOWNER
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER]
     network_mode: none
-    volumes:
-      - object-store:/data
+    volumes: [object-store:/data]
     restart: "no"
 
   minio:
@@ -909,8 +468,7 @@ services:
     profiles: [full, test, recovery]
     user: "1000:1000"
     depends_on:
-      minio-volume-init:
-        condition: service_completed_successfully
+      minio-volume-init: {condition: service_completed_successfully}
     entrypoint: [/bin/sh, /opt/aviasurveil360/minio-init.sh]
     environment:
       MINIO_ROOT_USER_FILE: /run/secrets/minio_root_user
@@ -925,19 +483,10 @@ services:
         uid: "1000"
         gid: "1000"
         mode: 0550
-    secrets:
-      - minio_api_access_key
-      - minio_api_secret_key
-      - minio_root_password
-      - minio_root_user
-      - minio_worker_access_key
-      - minio_worker_secret_key
-    volumes:
-      - object-store:/data
-    tmpfs:
-      - /tmp:mode=1777
-    networks:
-      - platform
+    secrets: [minio_api_access_key, minio_api_secret_key, minio_root_password, minio_root_user, minio_worker_access_key, minio_worker_secret_key]
+    volumes: [object-store:/data]
+    tmpfs: [/tmp:mode=1777]
+    networks: [platform]
     healthcheck:
       <<: *health-defaults
       test: [CMD-SHELL, test -f /tmp/minio-initialized && curl --fail http://127.0.0.1:9000/minio/health/live]
@@ -950,13 +499,9 @@ services:
     user: "0:0"
     entrypoint: [/usr/bin/chown]
     command: [-R, 1000:1000, /data]
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - FOWNER
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER]
     network_mode: none
-    volumes:
-      - mailpit-data:/data
+    volumes: [mailpit-data:/data]
     restart: "no"
 
   mailpit:
@@ -965,23 +510,17 @@ services:
     profiles: [full]
     user: "1000:1000"
     depends_on:
-      mailpit-volume-init:
-        condition: service_completed_successfully
+      mailpit-volume-init: {condition: service_completed_successfully}
     environment:
       MP_DATABASE: /data/mailpit.db
       MP_SMTP_AUTH_FILE: /run/secrets/smtp_auth_file
       MP_SMTP_AUTH_ALLOW_INSECURE: "true"
       MP_SMTP_REQUIRE_STARTTLS: "false"
       MP_SMTP_DISABLE_RDNS: "true"
-    secrets:
-      - smtp_auth_file
-    volumes:
-      - mailpit-data:/data
-    tmpfs:
-      - /tmp:mode=1777
-    networks:
-      - platform
-      - identity
+    secrets: [smtp_auth_file]
+    volumes: [mailpit-data:/data]
+    tmpfs: [/tmp:mode=1777]
+    networks: [platform, identity]
     healthcheck:
       <<: *health-defaults
       test: [CMD, /mailpit, readyz]
@@ -993,32 +532,24 @@ services:
     profiles: [tools]
     user: "1000:1000"
     depends_on:
-      mailpit-volume-init:
-        condition: service_completed_successfully
+      mailpit-volume-init: {condition: service_completed_successfully}
     environment:
       MP_DATABASE: /data/mailpit.db
       MP_SMTP_AUTH_FILE: /run/secrets/smtp_auth_file
       MP_SMTP_AUTH_ALLOW_INSECURE: "true"
       MP_SMTP_REQUIRE_STARTTLS: "false"
       MP_SMTP_DISABLE_RDNS: "true"
-    secrets:
-      - smtp_auth_file
+    secrets: [smtp_auth_file]
     ports:
       - target: 1025
         published: "${AVIA_LOCAL_MAILPIT_SMTP_PORT:-1025}"
         host_ip: 127.0.0.1
-        protocol: tcp
       - target: 8025
         published: "${AVIA_LOCAL_MAILPIT_UI_PORT:-8025}"
         host_ip: 127.0.0.1
-        protocol: tcp
-    volumes:
-      - mailpit-data:/data
-    tmpfs:
-      - /tmp:mode=1777
-    networks:
-      - platform
-      - tools
+    volumes: [mailpit-data:/data]
+    tmpfs: [/tmp:mode=1777]
+    networks: [platform, tools]
     healthcheck:
       <<: *health-defaults
       test: [CMD, /mailpit, readyz]
@@ -1027,67 +558,56 @@ services:
 configs:
   application_config:
     file: ./config/application.example.yaml
-  preprod_minio_init:
-    file: ./minio/preprod-init.sh
   minio_init:
     file: ./minio/init.sh
 
 secrets:
-  app_database_password:
-    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/app_database_password
+  rds_master_database_password:
+    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/rds_master_database_password
+  rds_master_database_url:
+    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/rds_master_database_url
+  surveil_runtime_database_password:
+    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/surveil_runtime_database_password
+  surveil_migration_database_password:
+    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/surveil_migration_database_password
+  surveil_bootstrap_database_password:
+    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/surveil_bootstrap_database_password
+  surveil_bootstrap_database_url:
+    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/surveil_bootstrap_database_url
+  auth_runtime_database_password:
+    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/auth_runtime_database_password
+  auth_database_url:
+    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/auth_database_url
+  auth_signing_key:
+    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/auth_signing_key
+  auth_data_encryption_key:
+    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/auth_data_encryption_key
+  auth_mfa_key:
+    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/auth_mfa_key
+  auth_admin_secret:
+    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/auth_admin_secret
+  auth_bootstrap_secret:
+    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/auth_bootstrap_secret
+  oidc_client_secret:
+    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/oidc_client_secret
+  session_encryption_key:
+    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/session_encryption_key
   minio_api_access_key:
     file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/minio_api_access_key
   minio_api_secret_key:
     file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/minio_api_secret_key
-  minio_root_password:
-    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/minio_root_password
-  minio_root_user:
-    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/minio_root_user
   minio_worker_access_key:
     file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/minio_worker_access_key
   minio_worker_secret_key:
     file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/minio_worker_secret_key
-  session_encryption_key:
-    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/session_encryption_key
+  minio_root_user:
+    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/minio_root_user
+  minio_root_password:
+    file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/minio_root_password
   smtp_password:
     file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/smtp_password
   smtp_auth_file:
     file: ${AVIASURVEIL_LOCAL_STATE_DIR:-../../.local/aviasurveil360}/secrets/smtp_auth_file
-  preprod_app_database_password:
-    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_app_database_password
-
-  preprod_auth_database_password:
-    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_auth_database_password
-  preprod_auth_database_url:
-    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_auth_database_url
-  preprod_auth_signing_key:
-    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_auth_signing_key
-  preprod_auth_data_encryption_key:
-    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_auth_data_encryption_key
-  preprod_auth_mfa_key:
-    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_auth_mfa_key
-  preprod_auth_admin_secret:
-    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_auth_admin_secret
-  preprod_canonical_demo_oidc_qualification_password:
-    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_canonical_demo_oidc_qualification_password
-  preprod_normal_api_database_password:
-    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_normal_api_database_password
-  preprod_session_encryption_key:
-    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_session_encryption_key
-  preprod_minio_api_access_key:
-    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_minio_api_access_key
-  preprod_minio_api_secret_key:
-    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_minio_api_secret_key
-  preprod_minio_loader_access_key:
-    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_minio_loader_access_key
-  preprod_minio_loader_secret_key:
-    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_minio_loader_secret_key
-  preprod_minio_root_password:
-    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_minio_root_password
-  preprod_minio_root_user:
-    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_minio_root_user
-  preprod_oidc_client_secret:
-    file: ${AVIA_PREPROD_STATE_DIR:-../../.local/aviasurveil360-preprod}/secrets/preprod_oidc_client_secret
 
 networks:
   edge:
@@ -1099,27 +619,12 @@ networks:
     internal: true
   platform:
     internal: true
-  preprod-app-database:
-    internal: true
-  preprod-identity:
-    internal: true
-  preprod-identity-database:
-    internal: true
-  preprod-canonical-edge:
-  preprod-frontend:
-    internal: true
-  preprod-platform:
-    internal: true
   tools:
+    internal: true
 
 volumes:
   app-database:
   object-store:
   mailpit-data:
-  preprod-app-database:
-  preprod-auth-database:
-  preprod-object-store:
-  preprod-caddy-data:
-  preprod-caddy-config:
   caddy-data:
   caddy-config:

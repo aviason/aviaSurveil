@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -133,7 +133,7 @@ async function seedEvidenceVersions(runtime: MockRuntime) {
   return finding;
 }
 
-function renderPage(runtime: MockRuntime) {
+function renderPage(runtime: MockRuntime, findingId: string, reviewerRole: "manager" | "leadInspector" = "manager") {
   render(
     <AppProviders
       runtime={{
@@ -142,12 +142,14 @@ function renderPage(runtime: MockRuntime) {
         buildProfile: "demo",
         environmentLabel: "test",
         identityMode: "demo-role-switch",
-        subjectId: "USR-MANAGER-NORA",
+        subjectId: reviewerRole === "leadInspector" ? "USR-LEAD-CANER" : "USR-MANAGER-NORA",
       }}
     >
       <ScenarioProvider>
-        <MemoryRouter initialEntries={["/department-manager/evidence/FND-CAB-2026-001"]}>
-          <EvidenceReviewPage />
+        <MemoryRouter initialEntries={[`/department-manager/evidence/${findingId}`]}>
+          <Routes>
+            <Route path="/department-manager/evidence/:findingId" element={<EvidenceReviewPage reviewerRole={reviewerRole} />} />
+          </Routes>
         </MemoryRouter>
       </ScenarioProvider>
     </AppProviders>,
@@ -155,14 +157,14 @@ function renderPage(runtime: MockRuntime) {
 }
 
 describe("EvidenceReviewPage", () => {
-  it("direct-loads the Manager-owned Inspection Evidence projection and records exact partial-close audit identity", async () => {
+  it("direct-loads the assigned Lead-owned Inspection Evidence projection and records exact partial-close audit identity", async () => {
     const runtime = createMockBackendRuntime();
-    await seedEvidenceVersions(runtime);
-    const managerEvidence = runtime.backendForRole("manager").evidence;
-    const listSpy = vi.spyOn(managerEvidence, "listVersions");
-    const reviewSpy = vi.spyOn(managerEvidence, "review");
+    const finding = await seedEvidenceVersions(runtime);
+    const leadEvidence = runtime.backendForRole("leadInspector").evidence;
+    const listSpy = vi.spyOn(leadEvidence, "listVersions");
+    const reviewSpy = vi.spyOn(leadEvidence, "review");
 
-    renderPage(runtime);
+    renderPage(runtime, finding.id, "leadInspector");
 
     const page = await screen.findByTestId("manager-inspection-evidence-page");
     expect(within(page).getByTestId("reviewing-evidence-version")).toHaveTextContent("Version 2");
@@ -171,9 +173,9 @@ describe("EvidenceReviewPage", () => {
     expect(findingRow).toHaveTextContent("CAA reviews Evidence");
     expect(findingRow).toHaveTextContent("PENDING_CAA_REVIEW");
     expect(within(page).getByText("Evidence Waiting Review", { selector: ".evidence-root-attention span" }).parentElement).toHaveTextContent("1 finding");
-    expect(screen.getByTestId("application-shell")).toHaveAttribute("data-active-role", "manager");
-    expect(document.querySelector(".evidence-root-page")).not.toHaveTextContent("Lead Inspector workspace");
-    expect(listSpy).toHaveBeenCalledWith({ findingId: "FND-CAB-2026-001" });
+    expect(screen.getByTestId("application-shell")).toHaveAttribute("data-active-role", "leadInspector");
+    expect(document.querySelector(".evidence-root-page")).toHaveTextContent("Lead Inspector");
+    expect(listSpy).toHaveBeenCalledWith({ findingId: finding.id });
     const history = screen.getByRole("list", { name: "Evidence version history" });
     expect(within(history).getAllByTestId("evidence-history-row")).toHaveLength(2);
     expect(within(history).getByText("Fly_Namibia_PBE_Serviceability_Record_CAB-2026-001.pdf")).toBeVisible();
@@ -213,31 +215,31 @@ describe("EvidenceReviewPage", () => {
       "title",
       "Evidence version EV-CAB-2026-001-V2 is PARTIALLY_ACCEPTED and is no longer pending CAA review.",
     );
-    const events = await runtime.backendForRole("manager").auditTrail.list({ entityType: "finding", entityId: "FND-CAB-2026-001" });
+    const events = await runtime.backendForRole("leadInspector").auditTrail.list({ entityType: "finding", entityId: finding.id });
     expect(events.items.at(-1)).toMatchObject({
-      actorSubjectId: "USR-MANAGER-NORA",
-      actorRole: "manager",
+      actorSubjectId: "USR-LEAD-CANER",
+      actorRole: "leadInspector",
       action: "evidence.reviewed",
       entityType: "finding",
-      entityId: "FND-CAB-2026-001",
+      entityId: finding.id,
       beforeStatus: "PENDING_CAA_REVIEW",
       afterStatus: "EVIDENCE_MORE_INFORMATION_REQUESTED",
       reason: "Serviceability is accepted; position confirmation remains incomplete.",
       entityRevision: 9,
     });
-    expect(within(page).getByRole("link", { name: "Open Department CAP Closure Review for FND-CAB-2026-001" })).toHaveAttribute(
+    expect(within(page).getByRole("link", { name: `Open Department CAP Closure Review for ${finding.id}` })).toHaveAttribute(
       "href",
-      "/department-manager/findings/FND-CAB-2026-001/closure-review",
+      `/department-manager/findings/${finding.id}/closure-review`,
     );
   });
 
   it("allows the same decision for a later exact Evidence version without replaying the prior operation", async () => {
     const runtime = createMockBackendRuntime();
     let finding = await seedEvidenceVersions(runtime);
-    const manager = runtime.backendForRole("manager");
-    const second = (await manager.evidence.listVersions({ findingId: finding.id })).at(-1);
+    const lead = runtime.backendForRole("leadInspector");
+    const second = (await lead.evidence.listVersions({ findingId: finding.id })).at(-1);
     if (!second) throw new Error("Expected Evidence version 2.");
-    await manager.evidence.review({
+    await lead.evidence.review({
       operationId: `OP-EVIDENCE-${second.id}-R${second.revision}-NOT_CLOSE`,
       evidenceVersionId: second.id,
       expectedEvidenceVersionRevision: second.revision,
@@ -248,11 +250,11 @@ describe("EvidenceReviewPage", () => {
       internalCaaNote: "Record the exact version 2 decision.",
     });
 
-    finding = await manager.findings.get({ findingId: finding.id });
+    finding = await lead.findings.get({ findingId: finding.id });
     finding = await submitEvidenceVersion(runtime, finding, "Fly_Namibia_PBE_Position_Confirmation_V3.pdf");
-    const third = (await manager.evidence.listVersions({ findingId: finding.id })).at(-1);
+    const third = (await lead.evidence.listVersions({ findingId: finding.id })).at(-1);
     if (!third) throw new Error("Expected Evidence version 3.");
-    const thirdReview = await manager.evidence.review({
+    const thirdReview = await lead.evidence.review({
       operationId: `OP-EVIDENCE-${third.id}-R${third.revision}-NOT_CLOSE`,
       evidenceVersionId: third.id,
       expectedEvidenceVersionRevision: third.revision,
@@ -264,7 +266,7 @@ describe("EvidenceReviewPage", () => {
     });
 
     expect(thirdReview).toMatchObject({ evidenceVersionId: "EV-CAB-2026-001-V3", evidenceVersionRevision: 3 });
-    const events = await manager.auditTrail.list({ entityType: "finding", entityId: finding.id });
+    const events = await lead.auditTrail.list({ entityType: "finding", entityId: finding.id });
     expect(events.items.filter((event) => event.action === "evidence.reviewed")).toHaveLength(3);
   });
 });

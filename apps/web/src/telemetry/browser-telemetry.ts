@@ -19,7 +19,7 @@ export interface BrowserTelemetryBatch {
   resource: {
     "service.name": "aviasurveil360-web";
     "service.version": string;
-    "deployment.environment.name": "local-candidate";
+    "deployment.environment.name": string;
     "build.profile": "demo" | "http";
   };
   records: BrowserTelemetryRecord[];
@@ -141,7 +141,7 @@ export function createBrowserTelemetry(
       resource: {
         "service.name": "aviasurveil360-web",
         "service.version": options.serviceVersion,
-        "deployment.environment.name": "local-candidate",
+        "deployment.environment.name": options.buildProfile === "http" ? "production" : "demo",
         "build.profile": options.buildProfile,
       },
       records,

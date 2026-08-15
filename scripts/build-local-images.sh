@@ -85,7 +85,7 @@ build_image web-demo aviasurveil360/web-demo:local apps/web/Dockerfile demo \
 build_image web-http aviasurveil360/web-http:local apps/web/Dockerfile http \
   --build-arg "NODE_BUILD_IMAGE=$node_build_image" \
   --build-arg "GO_BUILD_IMAGE=$go_build_image" >>"$records_file"
-build_image auth aviasurveil360/preprod-auth:local Dockerfile runtime --context "$shared_auth_root" \
+build_image auth aviasurveil360/auth:local Dockerfile runtime --context "$shared_auth_root" \
   --build-arg "GO_BUILD_IMAGE=$go_build_image" \
   --build-arg "GO_RUNTIME_IMAGE=$go_runtime_image" >>"$records_file"
 build_image postgres-recovery aviasurveil360/postgres-recovery:local deploy/recovery/Dockerfile postgres-recovery \

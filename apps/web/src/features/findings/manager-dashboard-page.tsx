@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useBackendForRole } from "../../app/providers";
@@ -68,8 +68,8 @@ const taskLinks = [
   },
   {
     title: "Reports Approval",
-    description: "Review exact Preliminary Report PR-2026-018 and its immutable versions.",
-    href: "/department-manager/preliminary-reports/PR-2026-018",
+    description: "Open a server-owned report version from its exact workflow handoff.",
+    href: "/department-manager/audits",
     action: "Open Reports Approval",
   },
 ] as const;
@@ -85,9 +85,7 @@ function statusLabel(status: string): string {
 export function ManagerDashboardPage() {
   const backend = useBackendForRole("manager");
   const [state, setState] = useState<ManagerWorkspaceState | null>(null);
-  const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -112,40 +110,6 @@ export function ManagerDashboardPage() {
       cancelled = true;
     };
   }, [backend]);
-
-  const canonicalFinding = useMemo(
-    () => state?.findings.find((finding) => finding.id === "FND-CAB-2026-001") ?? null,
-    [state?.findings],
-  );
-
-  async function authorizedClose(): Promise<void> {
-    if (!canonicalFinding) return;
-    if (!reason.trim()) {
-      setError("Authorized closure reason is required.");
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      const finding = await backend.findings.authorizedClose({
-        operationId: `OP-AUTHORIZED-CLOSE-${crypto.randomUUID()}`,
-        findingId: canonicalFinding.id,
-        expectedFindingRevision: canonicalFinding.revision,
-        reason,
-      });
-      const dashboard = await backend.dashboards.getManagerProjection({});
-      setState((current) => current ? {
-        ...current,
-        dashboard,
-        findings: current.findings.map((item) => item.id === finding.id ? finding : item),
-      } : current);
-      setReason("");
-    } catch (cause) {
-      setError(errorMessage(cause));
-    } finally {
-      setBusy(false);
-    }
-  }
 
   const dashboard = state?.dashboard;
   const openFindings = state?.findings.filter((finding) => finding.status !== "CLOSED") ?? [];
@@ -235,21 +199,9 @@ export function ManagerDashboardPage() {
 
         <p className="management-advisory">Oversight Health Index is advisory; it does not trigger automatic legal, enforcement, certificate, or Finding-closure decisions.</p>
 
-        {canonicalFinding ? (
-          <section className="management-panel manager-canonical-finding">
-            <div className="management-section-head"><div><span>Canonical lifecycle control</span><h2>{canonicalFinding.findingNumber}</h2></div><strong data-testid="manager-canonical-status">{canonicalFinding.status}</strong></div>
-            <dl><div><dt>Organization</dt><dd>{canonicalFinding.organizationName}</dd></div><div><dt>Current owner</dt><dd>{canonicalFinding.currentOwnerType}</dd></div><div><dt>Next action</dt><dd>{canonicalFinding.nextAction}</dd></div><div><dt>Due Date</dt><dd>{formatLocalDate(canonicalFinding.dueDate)}</dd></div></dl>
-            {canonicalFinding.status !== "CLOSED" ? (
-              <div className="authorized-close-panel">
-                <label>Authorized closure reason<textarea rows={3} value={reason} onChange={(event) => setReason(event.target.value)} /></label>
-                <button className="secondary-button" disabled={busy} onClick={() => void authorizedClose()} type="button">Use authorized closure</button>
-                <p>This distinct manager path records an authorized basis; it is not CAP acceptance or report issue.</p>
-              </div>
-            ) : null}
-            {canonicalFinding.status === "EVIDENCE_REQUIRED" ? <Link className="primary-link" to="/auditee/service-provider-cap">Return to Fly Namibia Evidence</Link> : null}
-            {canonicalFinding.status === "CLOSED" ? <Link className="primary-link" to="/department-manager/preliminary-reports/PR-2026-018">Open PR-2026-018 review</Link> : null}
-          </section>
-        ) : null}
+        <section className="management-panel" aria-label="Finding selection boundary">
+          <p>Select an exact Finding from the register above to review CAP, Evidence, and closure state. No Finding is implicitly selected.</p>
+        </section>
       </div>
     </WorkspaceShell>
   );

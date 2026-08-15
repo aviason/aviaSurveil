@@ -28,7 +28,7 @@ export function ManagerFindingsReviewPage() {
         setSelectedId(
           requestedFindingId && scopedItems.some((item) => item.id === requestedFindingId)
             ? requestedFindingId
-            : scopedItems[0]?.id ?? null,
+            : null,
         );
       }
     }).catch((cause) => !cancelled && setError(errorMessage(cause)));
@@ -58,7 +58,7 @@ export function ManagerFindingsReviewPage() {
               <article aria-label={`Finding ${finding.id}`} className="manager-ops-card" data-finding-id={finding.id} key={finding.id}>
                 <button aria-pressed={selectedId === finding.id} className="manager-ops-record-select" onClick={() => setSelectedId(finding.id)} type="button"><span>{finding.findingNumber}</span><strong>{finding.title}</strong></button>
                 <p>{finding.organizationName} · {finding.status}</p>
-                {finding.id === "FND-CAB-2026-001" ? <Link to={`/department-manager/evidence/${finding.id}`}>Open Evidence {finding.id}</Link> : <button aria-label={`Evidence unavailable for ${finding.id}`} disabled title={`Finding ${finding.id} has no declared Department Manager Evidence-review route.`} type="button">Evidence unavailable</button>}
+                <Link to={`/department-manager/evidence/${encodeURIComponent(finding.id)}`}>Open Evidence {finding.id}</Link>
               </article>
             ))}
             {visible.length === 0 ? <p>No Findings match the active Organization, status, and search scope.</p> : null}

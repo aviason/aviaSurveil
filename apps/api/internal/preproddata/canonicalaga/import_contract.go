@@ -31,15 +31,19 @@ type QuestionVersionImport struct {
 	ProposedTopic       string
 	ProposedRiskBand    string
 	UsageClass          questioncatalog.UsageClass
+	SourceOrigin        questioncatalog.SourceOrigin
 }
 
 type ImportManifest struct {
-	CatalogVersion   string
-	UsageClass       questioncatalog.UsageClass
-	Forms            []CatalogFormImport
-	Rows             []questioncatalog.ImportRow
-	QuestionVersions []QuestionVersionImport
-	ImportDigest     string
+	CatalogVersion       string
+	UsageClass           questioncatalog.UsageClass
+	SourceOrigin         questioncatalog.SourceOrigin
+	SourceManifestSHA256 string
+	CatalogRootDigest    string
+	Forms                []CatalogFormImport
+	Rows                 []questioncatalog.ImportRow
+	QuestionVersions     []QuestionVersionImport
+	ImportDigest         string
 }
 
 // CatalogFormImport preserves every form boundary, including zero-question
@@ -91,7 +95,8 @@ func BuildImportManifest(pkg AcceptedPackage, catalogVersion string) (ImportMani
 				FormCode:       form.FormCode, ProposalID: question.ProposalID,
 				Ordinal: question.Ordinal, QuestionVersionID: id,
 				QuestionDigest: computedDigest,
-				UsageClass:     questioncatalog.UsageClassPreprodExercise,
+				UsageClass:     questioncatalog.UsageClassGovernedOperational,
+				SourceOrigin:   questioncatalog.SourceOriginInternalCandidate,
 			}
 			rows = append(rows, row)
 			versions = append(versions, QuestionVersionImport{
@@ -103,7 +108,8 @@ func BuildImportManifest(pkg AcceptedPackage, catalogVersion string) (ImportMani
 				Ordinal: question.Ordinal, TextDigest: computedDigest,
 				SourceLocator: question.SourceLocator, SourceGapState: gapState,
 				ProposedDomain: question.ProposedRisk.Domain, ProposedRiskBand: question.ProposedRisk.Band,
-				UsageClass: questioncatalog.UsageClassPreprodExercise,
+				UsageClass:   questioncatalog.UsageClassGovernedOperational,
+				SourceOrigin: questioncatalog.SourceOriginInternalCandidate,
 			})
 		}
 	}
@@ -116,15 +122,81 @@ func BuildImportManifest(pkg AcceptedPackage, catalogVersion string) (ImportMani
 		return ImportManifest{}, err
 	}
 	manifest := ImportManifest{
-		CatalogVersion: catalogVersion,
-		UsageClass:     questioncatalog.UsageClassPreprodExercise,
-		Forms:          forms,
-		Rows:           rows, QuestionVersions: versions,
+		CatalogVersion:       catalogVersion,
+		UsageClass:           questioncatalog.UsageClassGovernedOperational,
+		SourceOrigin:         questioncatalog.SourceOriginInternalCandidate,
+		SourceManifestSHA256: pkg.Identity.ManifestSHA256,
+		Forms:                forms,
+		Rows:                 rows, QuestionVersions: versions,
 	}
 	// Bind the complete sealed package boundary, not only question membership
 	// rows. Form identities (including zero-question forms), archive/form
 	// digests, and package identities are part of the provenance root.
 	manifest.ImportDigest = canonicalImportDigest(pkg, manifest)
+	return manifest, nil
+}
+
+// BuildApprovedImportManifest adapts the source-approved V2 package directly
+// to the operational catalog. No candidate review, publication decision, or
+// parser-proposed source reference is synthesized here.
+func BuildApprovedImportManifest(pkg ApprovedSourcePackage, catalogVersion string) (ImportManifest, error) {
+	if strings.TrimSpace(catalogVersion) == "" || pkg.CatalogRootDigest == "" || pkg.SourceManifestSHA256 == "" {
+		return ImportManifest{}, fmt.Errorf("approved catalog version and pinned digests are required")
+	}
+	if len(pkg.Forms) != 52 {
+		return ImportManifest{}, fmt.Errorf("approved AGA import requires 52 forms, got %d", len(pkg.Forms))
+	}
+	manifest := ImportManifest{
+		CatalogVersion:       catalogVersion,
+		UsageClass:           questioncatalog.UsageClassGovernedOperational,
+		SourceOrigin:         questioncatalog.SourceOriginImportedApproved,
+		SourceManifestSHA256: pkg.SourceManifestSHA256,
+		CatalogRootDigest:    pkg.CatalogRootDigest,
+		Forms:                make([]CatalogFormImport, 0, len(pkg.Forms)),
+		Rows:                 make([]questioncatalog.ImportRow, 0, 1310),
+		QuestionVersions:     make([]QuestionVersionImport, 0, 1310),
+	}
+	for _, form := range pkg.Forms {
+		if strings.TrimSpace(form.FormCode) == "" || len(form.Questions) != form.QuestionCount {
+			return ImportManifest{}, fmt.Errorf("invalid approved form %s", form.FormCode)
+		}
+		manifest.Forms = append(manifest.Forms, CatalogFormImport{
+			FormCode: form.FormCode, FormDigest: form.SourceFormSHA256,
+			ArchiveDigest: form.SourceArchiveSHA256, QuestionCount: form.QuestionCount,
+			SourceGapState: "OPTIONAL_ENRICHMENT_NOT_PROVIDED",
+		})
+		for _, question := range form.Questions {
+			if question.Ordinal < 1 || strings.TrimSpace(question.ProposalID) == "" || strings.TrimSpace(question.Text) == "" || question.QuestionVersionID == "" {
+				return ImportManifest{}, fmt.Errorf("invalid approved question identity in %s/%d", form.FormCode, question.Ordinal)
+			}
+			if digestText(question.Text) != question.TextDigest {
+				return ImportManifest{}, fmt.Errorf("approved question text digest mismatch in %s/%d", form.FormCode, question.Ordinal)
+			}
+			row := questioncatalog.ImportRow{
+				CatalogVersion: catalogVersion, FormCode: form.FormCode,
+				ProposalID: question.ProposalID, Ordinal: question.Ordinal,
+				QuestionVersionID: question.QuestionVersionID, QuestionDigest: question.TextDigest,
+				UsageClass:   questioncatalog.UsageClassGovernedOperational,
+				SourceOrigin: questioncatalog.SourceOriginImportedApproved,
+			}
+			manifest.Rows = append(manifest.Rows, row)
+			manifest.QuestionVersions = append(manifest.QuestionVersions, QuestionVersionImport{
+				ID: question.QuestionVersionID, QuestionID: question.QuestionID, Version: question.Version,
+				Prompt: question.Text, ConfiguredReference: "", ExpectedEvidence: "",
+				FormCode: form.FormCode, ProposalID: question.ProposalID, Ordinal: question.Ordinal,
+				TextDigest: question.TextDigest, SourceLocator: question.SourceLocator,
+				SourceGapState: "OPTIONAL_ENRICHMENT_NOT_PROVIDED", UsageClass: questioncatalog.UsageClassGovernedOperational,
+				SourceOrigin: questioncatalog.SourceOriginImportedApproved,
+			})
+		}
+	}
+	if len(manifest.Rows) != 1310 {
+		return ImportManifest{}, fmt.Errorf("approved AGA import requires 1,310 questions, got %d", len(manifest.Rows))
+	}
+	if err := questioncatalog.ValidateImport(manifest.Rows, questioncatalog.ImportPolicy{ExpectedRows: 1310}); err != nil {
+		return ImportManifest{}, err
+	}
+	manifest.ImportDigest = pkg.CatalogRootDigest
 	return manifest, nil
 }
 

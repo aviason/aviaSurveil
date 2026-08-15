@@ -124,9 +124,8 @@ export function AuditeeCapPage() {
   const [online, setOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
   const identityMode =
     session?.identityMode ?? runtime.identityMode ??
-    (runtime.buildProfile === "http" ? "canonical-test-role-switch" : "demo-role-switch");
+    (runtime.identityMode ?? "oidc-session");
   const handoffSession = session?.state ?? { status: "unauthenticated" as const };
-  const deterministicDemo = runtime.buildProfile === "demo";
 
   useEffect(() => {
     const updateOnlineState = () => setOnline(navigator.onLine);
@@ -159,7 +158,6 @@ export function AuditeeCapPage() {
   );
   const organizationName =
     publicFinding?.organizationName ??
-    publicFindings[0]?.organizationName ??
     projection.auditeeOrganizationName ??
     "Authorized organization";
   const audits = useMemo(
@@ -251,7 +249,7 @@ export function AuditeeCapPage() {
   }
 
   return (
-    <WorkspaceShell roleLabel="Auditee — Fly Namibia" routeLabel="Corrective Actions">
+    <WorkspaceShell roleLabel="Auditee" routeLabel="Corrective Actions">
       <div className="auditee-workspace" data-testid="auditee-page">
         <span className="visually-hidden">Service Provider Portal</span>
         <header className="workbench-page-header auditee-page-header">
@@ -540,13 +538,12 @@ export function AuditeeCapPage() {
                 {canSubmitEvidence ? (
                   <div className="auditee-upload-panel">
                     <label>
-                      {deterministicDemo ? "Deterministic demo Evidence file" : "Evidence file"}
-                      <input data-testid="evidence-file" disabled={!deterministicDemo && !online} type="file" accept="application/pdf" onChange={chooseFile} />
+                      Evidence file
+                      <input data-testid="evidence-file" disabled={!online} type="file" accept="application/pdf" onChange={chooseFile} />
                     </label>
                     <span data-testid="selected-evidence-file">{selectedFile?.name ?? "No file selected"}</span>
-                    {deterministicDemo ? <small>Deterministic demo mode stores bounded Evidence version state in this browser session.</small> : null}
-                    {!deterministicDemo && !online ? <small role="status">Official Evidence submission requires an online connection.</small> : null}
-                    <button className="primary-button" disabled={busy || !selectedFile || (!deterministicDemo && !online)} onClick={() => selectedFile && void run(() => actions.submitEvidence(selectedFile))} type="button">Submit Evidence version</button>
+                    {!online ? <small role="status">Official Evidence submission requires an online connection.</small> : null}
+                    <button className="primary-button" disabled={busy || !selectedFile || !online} onClick={() => selectedFile && void run(() => actions.submitEvidence(selectedFile))} type="button">Submit Evidence version</button>
                   </div>
                 ) : null}
               </section>
@@ -561,7 +558,7 @@ export function AuditeeCapPage() {
             {projection.finding?.status === "PENDING_CAA_REVIEW" ? (
               <footer className="auditee-handoff">
                 <div><span>Current owner</span><strong>CAA Evidence Review</strong></div>
-                <RoleHandoff identityMode={identityMode} session={handoffSession} targetRole="manager" onRoleRequest={requestEvidenceReview}>Switch to Evidence Review</RoleHandoff>
+                <RoleHandoff identityMode={identityMode} session={handoffSession} targetRole="leadInspector" onRoleRequest={requestEvidenceReview}>Switch to Evidence Review</RoleHandoff>
               </footer>
             ) : null}
           </section>

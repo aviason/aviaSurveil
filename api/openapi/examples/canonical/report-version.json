@@ -3,6 +3,7 @@
   "value": {
     "reportVersionId": "RPT-CAB-2026-001-V1",
     "reportId": "RPT-CAB-2026-001",
+    "kind": "PRELIMINARY",
     "organizationId": "ORG-FLY-NAMIBIA",
     "auditId": "AUD-2026-001",
     "findingIds": ["FND-CAB-2026-001"],

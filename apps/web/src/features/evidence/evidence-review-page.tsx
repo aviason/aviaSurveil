@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { useApplicationRuntime } from "../../app/providers";
 import type {
@@ -22,6 +22,7 @@ import {
 } from "../shared/workspace-shell";
 
 type EvidenceDecision = "CLOSE" | "PARTIALLY_CLOSE" | "NOT_CLOSE" | "REQUEST_MORE_INFORMATION";
+type EvidenceReviewerRole = "manager" | "leadInspector" | "inspector";
 
 function statusTone(status: string): StatusPillTone {
   if (status === "CLOSED" || status === "ACCEPTED") return "success";
@@ -38,13 +39,22 @@ function submittedDate(instant: string): string {
   }).format(new Date(instant));
 }
 
-export function EvidenceReviewPage() {
+function latestEvidenceVersion(items: readonly EvidenceVersionView[]): EvidenceVersionView | null {
+  return [...items].sort((left, right) =>
+    right.version - left.version || right.revision - left.revision || right.id.localeCompare(left.id),
+  )[0] ?? null;
+}
+
+export function EvidenceReviewPage({ reviewerRole }: { reviewerRole?: EvidenceReviewerRole } = {}) {
   const runtime = useApplicationRuntime();
-  const managerBackend = useMemo(
-    () => runtime.backendForRole?.("manager") ?? runtime.backend,
-    [runtime],
-  );
   const session = useOptionalSession();
+  const sessionRole = session?.state.status === "authenticated" ? session.state.activeRole : null;
+  const effectiveReviewerRole = reviewerRole ?? (sessionRole === "leadInspector" || sessionRole === "inspector" ? sessionRole : "manager");
+  const managerBackend = useMemo(
+    () => runtime.backendForRole?.(effectiveReviewerRole) ?? runtime.backend,
+    [effectiveReviewerRole, runtime],
+  );
+  const { findingId } = useParams<{ findingId: string }>();
   const navigate = useNavigate();
   const [finding, setFinding] = useState<FindingView | null>(null);
   const [capRevisions, setCapRevisions] = useState<CapRevisionView[]>([]);
@@ -56,25 +66,28 @@ export function EvidenceReviewPage() {
   const [internalCaaNote, setInternalCaaNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const latest = useMemo(() => evidenceVersions.at(-1) ?? null, [evidenceVersions]);
+  const latest = useMemo(() => latestEvidenceVersion(evidenceVersions), [evidenceVersions]);
   const selectedEvidence = useMemo(
     () => evidenceVersions.find((version) => version.id === selectedEvidenceVersionId) ?? null,
     [evidenceVersions, selectedEvidenceVersionId],
   );
   const identityMode =
     session?.identityMode ??
-    (runtime.buildProfile === "http" ? "canonical-test-role-switch" : "demo-role-switch");
+    (runtime.identityMode ?? "oidc-session");
   const handoffSession = session?.state ?? { status: "unauthenticated" as const };
+  const canRecordReview = effectiveReviewerRole === "leadInspector" || effectiveReviewerRole === "inspector";
+  const roleLabel = effectiveReviewerRole === "leadInspector" ? "Lead Inspector" : effectiveReviewerRole === "inspector" ? "CAA Inspector" : "Department Manager";
 
   async function loadReviewTarget(): Promise<void> {
-    const loadedFinding = await managerBackend.findings.get({ findingId: "FND-CAB-2026-001" });
+    if (!findingId) throw new Error("The Evidence route does not contain a server-owned Finding identity.");
+    const loadedFinding = await managerBackend.findings.get({ findingId });
     const [versions, caps] = await Promise.all([
       managerBackend.evidence.listVersions({ findingId: loadedFinding.id }),
       managerBackend.caps.listRevisions({ findingId: loadedFinding.id }),
     ]);
     setFinding(loadedFinding);
     setEvidenceVersions(versions);
-    setSelectedEvidenceVersionId(versions.at(-1)?.id ?? null);
+    setSelectedEvidenceVersionId(latestEvidenceVersion(versions)?.id ?? null);
     setCapRevisions(caps.items);
   }
 
@@ -87,7 +100,7 @@ export function EvidenceReviewPage() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [managerBackend]);
+  }, [findingId, managerBackend]);
 
   function requestRole(role: Role): void {
     session?.setActiveRole(role);
@@ -95,7 +108,7 @@ export function EvidenceReviewPage() {
   }
 
   async function recordReview(): Promise<void> {
-    if (!finding || !selectedEvidence || reviewDisabledReason) return;
+    if (!canRecordReview || !finding || !selectedEvidence || reviewDisabledReason) return;
     if (!commentToAuditee.trim()) {
       setError("Comment to Auditee is required");
       return;
@@ -137,7 +150,7 @@ export function EvidenceReviewPage() {
   }
 
   const closed = finding?.status === "CLOSED";
-  const latestCap = capRevisions.at(-1) ?? null;
+  const latestCap = [...capRevisions].sort((left, right) => right.revision - left.revision || right.id.localeCompare(left.id))[0] ?? null;
 
   const reviewDisabledReason = useMemo(() => {
     if (!selectedEvidence) return "No Evidence version is selected.";
@@ -165,25 +178,25 @@ export function EvidenceReviewPage() {
   }
 
   return (
-    <WorkspaceShell roleLabel="Department Manager" routeLabel="Inspection Evidence">
+    <WorkspaceShell roleLabel={roleLabel} routeLabel="Inspection Evidence">
       {finding ? (
         <div className="evidence-root-page" data-testid="manager-inspection-evidence-page">
           <CommandError message={error} />
-          <span className="finding-semantic-context">Department Manager · {finding.id} · {finding.organizationName} · Review evidence · Evidence · Due</span>
+          <span className="finding-semantic-context">{roleLabel} · {finding.id} · {finding.organizationName} · Review evidence · Evidence · Due</span>
           <header className="evidence-root-head workbench-page-header">
             <div>
               <h1>Findings</h1>
               <p>Follow findings, CAP responses, evidence, owner, due date, and next action in one workspace.</p>
             </div>
             <div aria-label="Finding filters" className="evidence-root-filters">
-              <button disabled title="The all-findings register remains in the accepted legacy demo." type="button"><span>All Findings</span></button>
-              <button disabled title="The open-findings register remains in the accepted legacy demo." type="button"><span>Open Findings</span></button>
-              <button disabled title="The overdue-findings register remains in the accepted legacy demo." type="button"><span>Overdue Findings</span></button>
+              <button disabled title="The all-findings register is not part of this scoped Evidence view." type="button"><span>All Findings</span></button>
+              <button disabled title="The open-findings register is not part of this scoped Evidence view." type="button"><span>Open Findings</span></button>
+              <button disabled title="The overdue-findings register is not part of this scoped Evidence view." type="button"><span>Overdue Findings</span></button>
               <button aria-label="Open CAP / Provider Review" onClick={() => navigate("/department-manager/findings-review")} type="button"><span>CAP / Provider Review</span></button>
               <button aria-current="page" disabled title="Evidence Waiting Review is the current filter." type="button"><span>Evidence Waiting Review</span></button>
-              <button disabled title="The Due Soon findings register remains in the accepted legacy demo." type="button"><span>Findings Due Soon</span></button>
-              <button disabled title="The critical-findings register remains in the accepted legacy demo." type="button"><span>Critical Findings</span></button>
-              <button disabled title="The closed-findings register remains in the accepted legacy demo." type="button"><span>Closed Findings</span></button>
+              <button disabled title="The Due Soon findings register is not part of this scoped Evidence view." type="button"><span>Findings Due Soon</span></button>
+              <button disabled title="The critical-findings register is not part of this scoped Evidence view." type="button"><span>Critical Findings</span></button>
+              <button disabled title="The closed-findings register is not part of this scoped Evidence view." type="button"><span>Closed Findings</span></button>
             </div>
           </header>
 
@@ -247,7 +260,7 @@ export function EvidenceReviewPage() {
                 <StatusPill label={selectedEvidence.reviewState} tone={statusTone(selectedEvidence.reviewState)} />
               ) : null}
             </div>
-            {selectedEvidence ? <p>{selectedEvidence.id} · {selectedEvidence.fileName}</p> : <p>No Evidence version is selected.</p>}
+            {selectedEvidence ? <p><span data-testid="reviewing-evidence-id">{selectedEvidence.id}</span> · {selectedEvidence.fileName}</p> : <p>No Evidence version is selected.</p>}
             <ol aria-label="Evidence version history" className="lead-review-version-list">
               {evidenceVersions.map((version) => (
                 <li data-testid="evidence-history-row" key={version.id}>
@@ -289,9 +302,9 @@ export function EvidenceReviewPage() {
               </label>
               <button
                 className="primary-button lead-review-field-span"
-                disabled={busy || Boolean(reviewDisabledReason)}
+                disabled={busy || !canRecordReview || Boolean(reviewDisabledReason)}
                 onClick={() => void recordReview()}
-                title={reviewDisabledReason ?? undefined}
+                title={!canRecordReview ? "Only the assigned Lead Inspector or CAA Inspector can record Evidence review." : reviewDisabledReason ?? undefined}
                 type="button"
               >
                 Record Evidence review
@@ -331,7 +344,7 @@ export function EvidenceReviewPage() {
       ) : (
         <article className="lead-review-empty">
           <h2>Finding unavailable</h2>
-          <p>The Evidence review route could not load this Finding for the Department Manager.</p>
+          <p>The Evidence review route could not load this Finding for the {roleLabel}.</p>
         </article>
       )}
     </WorkspaceShell>

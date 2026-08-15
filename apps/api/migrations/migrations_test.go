@@ -23,7 +23,7 @@ func TestOIDCLoginStateSecurityMigrationContainsBrowserBoundAdmission(t *testing
 			t.Errorf("login-state security migration missing %q", required)
 		}
 	}
-	if LatestVersion != 46 {
-		t.Fatalf("latest API migration = %d, want 46", LatestVersion)
+	if LatestVersion != 47 {
+		t.Fatalf("latest API migration = %d, want 47", LatestVersion)
 	}
 }

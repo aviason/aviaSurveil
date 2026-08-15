@@ -2,6 +2,7 @@
 import "@testing-library/jest-dom/vitest";
 
 import { cleanup, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -44,8 +45,9 @@ describe("AdminConfigurationPage", () => {
     const get = vi.spyOn(admin.configuration, "getChecklistTemplateVersion");
     renderPage(runtime);
 
-    expect(await screen.findByRole("heading", { name: "Template Preview — Cabin Inspection" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Checklist Templates" })).toBeVisible();
     expect(list).toHaveBeenCalledWith({ limit: 100 });
+    await userEvent.setup().click(screen.getByRole("button", { name: "Preview CTV-CABIN-1" }));
     expect(get).toHaveBeenCalledWith({ templateVersionId: "CTV-CABIN-1" });
 
     const summary = await screen.findByRole("region", { name: "Published template summary" });
@@ -67,9 +69,9 @@ describe("AdminConfigurationPage", () => {
     const runtime = createMockBackendRuntime();
     renderPage(runtime);
 
-    const back = await screen.findByRole("link", { name: "Back to templates" });
-    expect(back).toHaveAttribute("href", "/admin/template-library");
-    expect(screen.queryByRole("table", { name: "Published checklist template versions" })).toBeNull();
+    expect(await screen.findByRole("heading", { name: "Checklist Templates" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Preview CTV-CABIN-1" })).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Back to templates" })).toBeNull();
     expect(screen.queryByRole("button", { name: /edit|publish|delete|add user|add role|configure/i })).toBeNull();
     expect(document.body).not.toHaveTextContent(/draft version|save changes/i);
   });
@@ -126,6 +128,7 @@ describe("AdminConfigurationPage", () => {
       .mockRejectedValue(new Error("Checklist template detail is malformed."));
     renderPage(runtime);
 
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Preview CTV-CABIN-1" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Checklist template detail is malformed.");
     expect(screen.queryByRole("table", { name: "Published checklist questions" })).toBeNull();
   });

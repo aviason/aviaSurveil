@@ -7,13 +7,15 @@ of expanding this file.
 
 AviaSurveil360 is a CAA surveillance and oversight product with:
 
-- an intact root HTML/CSS/Vanilla JavaScript demo that remains the legacy UI
-  and behavior oracle;
-- a `candidate-only` React/Vite application under `apps/web/`;
-- a local Go/PostgreSQL candidate under `apps/api/`; and
+- an intact root HTML/CSS/Vanilla JavaScript demo kept as a historical UI
+  oracle;
+- a connected React/Vite product under `apps/web/` with separate local and
+  authenticated HTTP profiles;
+- a local Go/PostgreSQL API, bootstrap, and worker under `apps/api/`; and
 - versioned product, plan, harness, and verification knowledge under `docs/`.
 
-Local evidence does not establish production readiness or deployment.
+Local evidence is scoped to the named qualification target and does not by
+itself establish production readiness.
 
 ## Canonical Routes
 

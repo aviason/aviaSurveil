@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -188,12 +189,13 @@ func (service *Service) CreatePlanningIntakeDraft(
 				INSERT INTO canonical_audit_scope_drafts (
 					id, planning_intake_draft_id, organization_id, provider_scope_id,
 					regulated_target_id, audit_type, catalog_id, usage_class, revision,
+					catalog_root_digest,
 					status, selected_question_count, selection_digest, requested_budget,
 					notice_policy, created_by_subject_id, created_at, updated_at
-				) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, 'DRAFT', 0, '', $9, $10, $11, $12, $12)
+				) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, $9, 'DRAFT', 0, '', $10, $11, $12, $13, $13)
 			`, facts.ScopeID, output.ID, stringValue(canonicalValues["organizationId"]), facts.ProviderScopeID,
 				facts.RegulatedTargetID, stringValue(canonicalValues["applicationType"]), facts.CatalogID,
-				facts.UsageClass, numberValue(canonicalValues["requestedBudget"]),
+				facts.UsageClass, facts.CatalogRootDigest, numberValue(canonicalValues["requestedBudget"]),
 				stringValue(canonicalValues["noticePolicy"]), actor.SubjectID, now); err != nil {
 				return transition[PlanningIntakeDraft]{}, mapCreateConflict(err)
 			}
@@ -303,16 +305,27 @@ type CreateReportVersionCommand struct {
 }
 
 type CreatedReportVersion struct {
-	ReportVersionID string   `json:"reportVersionId"`
-	ReportID        string   `json:"reportId"`
-	OrganizationID  string   `json:"organizationId"`
-	AuditID         string   `json:"auditId"`
-	FindingIDs      []string `json:"findingIds"`
-	ContentHash     string   `json:"contentHash"`
-	Version         int64    `json:"version"`
-	Status          string   `json:"status"`
-	Revision        int64    `json:"revision"`
-	IssuedAt        *string  `json:"issuedAt"`
+	ReportVersionID            string       `json:"reportVersionId"`
+	ReportID                   string       `json:"reportId"`
+	Kind                       reports.Kind `json:"kind"`
+	OrganizationID             string       `json:"organizationId"`
+	AuditID                    string       `json:"auditId"`
+	FindingIDs                 []string     `json:"findingIds"`
+	PotentialFindingIDs        []string     `json:"potentialFindingIds"`
+	PotentialFindingRootDigest string       `json:"potentialFindingRootDigest"`
+	ContentHash                string       `json:"contentHash"`
+	Version                    int64        `json:"version"`
+	Status                     string       `json:"status"`
+	Revision                   int64        `json:"revision"`
+	IssuedAt                   *string      `json:"issuedAt"`
+}
+
+func potentialFindingRootDigest(ids []string) string {
+	canonicalIDs := append([]string(nil), ids...)
+	sort.Strings(canonicalIDs)
+	canonical, _ := json.Marshal(canonicalIDs)
+	digest := sha256.Sum256(canonical)
+	return fmt.Sprintf("sha256:%x", digest[:])
 }
 
 func (service *Service) CreateReportVersion(
@@ -443,6 +456,7 @@ func (service *Service) CreateReportVersion(
 		`, command.AuditID).Scan(&potentialFindingIDs); err != nil {
 			return transition[CreatedReportVersion]{}, err
 		}
+		potentialFindingRoot := potentialFindingRootDigest(potentialFindingIDs)
 		contentBytes, err := json.Marshal(command.Content)
 		if err != nil {
 			return transition[CreatedReportVersion]{}, ErrInvalid
@@ -464,8 +478,9 @@ func (service *Service) CreateReportVersion(
 			// Freeze the Potential Finding roots alongside the formal Finding
 			// set. A later conversion is valid only for a root explicitly present
 			// in this immutable Preliminary snapshot.
-			"potentialFindingIds": potentialFindingIDs,
-			"responseDueDate":     nil, "caaVisibleComment": nil,
+			"potentialFindingIds":        potentialFindingIDs,
+			"potentialFindingRootDigest": potentialFindingRoot,
+			"responseDueDate":            nil, "caaVisibleComment": nil,
 			"content": content,
 		}
 		if _, err := reports.Prepare(reports.PrepareInput{
@@ -494,9 +509,12 @@ func (service *Service) CreateReportVersion(
 		}
 		output := CreatedReportVersion{
 			ReportVersionID: command.ReportVersionID, ReportID: command.ReportID,
+			Kind:           command.Kind,
 			OrganizationID: organizationID, AuditID: command.AuditID,
-			FindingIDs:  append([]string(nil), command.FindingIDs...),
-			ContentHash: contentHash, Version: command.Version,
+			FindingIDs:                 append([]string(nil), command.FindingIDs...),
+			PotentialFindingIDs:        append([]string(nil), potentialFindingIDs...),
+			PotentialFindingRootDigest: potentialFindingRoot,
+			ContentHash:                contentHash, Version: command.Version,
 			Status: command.Status, Revision: 1,
 		}
 		return transition[CreatedReportVersion]{

@@ -135,8 +135,12 @@ async function seedEvidence(runtime: MockRuntime, finding: FindingView): Promise
   });
 }
 
-function renderPage(runtime: MockRuntime, identityMode: "demo-role-switch" | "oidc-session" = "demo-role-switch") {
-  return render(
+async function renderPage(
+  runtime: MockRuntime,
+  findingId: string,
+  identityMode: "demo-role-switch" | "oidc-session" = "demo-role-switch",
+) {
+  render(
     <AppProviders
       runtime={{
         backend: runtime.backend,
@@ -154,6 +158,9 @@ function renderPage(runtime: MockRuntime, identityMode: "demo-role-switch" | "oi
       </ScenarioProvider>
     </AppProviders>,
   );
+  const finding = await runtime.backendForRole("auditee").findings.get({ findingId });
+  await userEvent.click(await screen.findByRole("button", { name: new RegExp(`^${finding.findingNumber}$`) }));
+  await screen.findByTestId("auditee-selected-finding");
 }
 
 describe("AuditeeCapPage", () => {
@@ -165,7 +172,7 @@ describe("AuditeeCapPage", () => {
       runtime.backendForRole("auditee").findings.get({ findingId: "FND-SKYCARGO-2026-099" }),
     ).rejects.toThrow(/unavailable to this Auditee organization/i);
 
-    renderPage(runtime);
+    await renderPage(runtime, finding.id);
 
     const findings = await screen.findByRole("table", { name: "My Findings" });
     expect(within(findings).getByText("CAB-2026-001")).toBeVisible();
@@ -191,8 +198,8 @@ describe("AuditeeCapPage", () => {
 
   it("submits every CAP field, hydrates the immutable revision, and uses a bounded role handoff", async () => {
     const runtime = createMockBackendRuntime();
-    await seedFinding(runtime);
-    renderPage(runtime);
+    const finding = await seedFinding(runtime);
+    await renderPage(runtime, finding.id);
     const user = userEvent.setup();
 
     await screen.findByRole("table", { name: "My Findings" });
@@ -210,18 +217,18 @@ describe("AuditeeCapPage", () => {
     expect(screen.getByRole("button", { name: "Switch to CAA CAP Review" })).toBeEnabled();
 
     cleanup();
-    renderPage(runtime, "oidc-session");
+    await renderPage(runtime, finding.id, "oidc-session");
     expect(await screen.findByRole("button", { name: "Switch to CAA CAP Review" })).toBeDisabled();
     expect(screen.getByText(/session does not include Lead Inspector authority/i)).toBeVisible();
   });
 
-  it("labels deterministic demo Evidence truthfully and exposes only the selected filename", async () => {
+  it("labels connected Evidence truthfully and exposes only the selected filename", async () => {
     const runtime = createMockBackendRuntime();
-    await seedAcceptedSecondCap(runtime);
-    renderPage(runtime);
+    const finding = await seedAcceptedSecondCap(runtime);
+    await renderPage(runtime, finding.id);
     const user = userEvent.setup();
 
-    const input = await screen.findByLabelText("Deterministic demo Evidence file");
+    const input = await screen.findByLabelText("Evidence file");
     const file = new File(["demo evidence"], "PBE-record.pdf", { type: "application/pdf" });
     await user.upload(input, file);
 
@@ -231,10 +238,10 @@ describe("AuditeeCapPage", () => {
 
   it("keeps official HTTP Evidence submission online-first", async () => {
     const runtime = createMockBackendRuntime();
-    await seedAcceptedSecondCap(runtime);
+    const finding = await seedAcceptedSecondCap(runtime);
     vi.spyOn(window.navigator, "onLine", "get").mockReturnValue(false);
 
-    renderPage(runtime, "oidc-session");
+    await renderPage(runtime, finding.id, "oidc-session");
 
     const input = await screen.findByLabelText("Evidence file");
     expect(input).toBeDisabled();
@@ -245,14 +252,14 @@ describe("AuditeeCapPage", () => {
     expect(document.body).not.toHaveTextContent(/Deterministic demo|Mock Evidence file/);
   });
 
-  it("hands pending Evidence review to the declared Department Manager route authority", async () => {
+  it("hands pending Evidence review to the assigned Lead Inspector route authority", async () => {
     const runtime = createMockBackendRuntime();
     const finding = await seedAcceptedSecondCap(runtime);
     await seedEvidence(runtime, finding);
 
-    renderPage(runtime, "oidc-session");
+    await renderPage(runtime, finding.id, "oidc-session");
 
     expect(await screen.findByRole("button", { name: "Switch to Evidence Review" })).toBeDisabled();
-    expect(screen.getByText(/session does not include Department Manager authority/i)).toBeVisible();
+    expect(screen.getByText(/session does not include Lead Inspector authority/i)).toBeVisible();
   });
 });

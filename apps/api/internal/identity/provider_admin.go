@@ -78,6 +78,7 @@ type ProviderDirectoryUser struct {
 	DisplayName        string
 	OrganizationID     string
 	Enabled            bool
+	Locked             bool
 	TOTPConfigured     bool
 	RequiredActions    []string
 	Roles              []Role
@@ -114,4 +115,16 @@ type RevisionedProviderAdmin interface {
 	ProvisionUserAtRevision(context.Context, ProviderUser, int64, int64) (string, error)
 	UpdateUserAuthorityAtRevision(context.Context, string, string, []Role, string, int64, int64) error
 	SetUserStateAtRevision(context.Context, string, string, int64, int64) error
+}
+
+// AuthorityRevisionedProviderAdmin is the narrow bootstrap capability for
+// direct activation. It binds the password-bearing operation to the exact
+// membership and Auth revisions; ordinary lifecycle callers do not receive
+// this capability.
+type AuthorityRevisionedProviderAdmin interface {
+	ActivateUserAtAuthorityRevision(context.Context, string, string, int64, int64, uint64, uint64, string) error
+}
+
+type CredentialVerifier interface {
+	VerifyUserCredential(context.Context, string, string) (bool, error)
 }

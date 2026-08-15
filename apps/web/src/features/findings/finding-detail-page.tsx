@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { useApplicationRuntime } from "../../app/providers";
 import type { FindingView, Role } from "../../backend/backend";
@@ -80,24 +80,10 @@ function displayNextAction(finding: FindingView): string {
   return finding.nextAction;
 }
 
-function findingDetailProjection(source: FindingView): FindingView {
-  if (source.id !== "FND-CAB-2026-001") return source;
-  return {
-    ...source,
-    findingNumber: "CAB-2026-011",
-    title: "Emergency equipment serviceability record incomplete",
-    description: "The sampled emergency equipment position did not have a complete serviceability record available for review.",
-    regulatoryReference: source.status === "CAP_SUBMITTED"
-      ? "Configured reference CAB-EME-01 (demo)"
-      : source.regulatoryReference,
-    dueDate: source.status === "CAP_SUBMITTED" ? "2026-06-19" : source.dueDate,
-  };
-}
-
 function dueTiming(finding: FindingView): string {
   if (!finding.dueDate) return "";
   const due = Date.parse(`${finding.dueDate}T00:00:00Z`);
-  const today = Date.parse("2026-06-15T00:00:00Z");
+  const today = Date.parse(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`);
   const days = Math.round((due - today) / 86_400_000);
   if (days < 0) return ` (${Math.abs(days)} days overdue)`;
   if (days === 0) return " (Due today)";
@@ -112,19 +98,24 @@ export function FindingDetailPage() {
   );
   const session = useOptionalSession();
   const navigate = useNavigate();
+  const { findingId } = useParams<{ findingId: string }>();
   const [finding, setFinding] = useState<FindingView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const identityMode =
     session?.identityMode ??
-    (runtime.buildProfile === "http" ? "canonical-test-role-switch" : "demo-role-switch");
+    (runtime.identityMode ?? "oidc-session");
   const handoffSession = session?.state ?? { status: "unauthenticated" as const };
 
   useEffect(() => {
     let cancelled = false;
+    if (!findingId) {
+      setError("The route does not contain a finding identity.");
+      return () => { cancelled = true; };
+    }
     void inspectorBackend.findings
-      .get({ findingId: "FND-CAB-2026-001" })
+      .get({ findingId })
       .then((loaded) => {
-        if (!cancelled) setFinding(findingDetailProjection(loaded));
+        if (!cancelled) setFinding(loaded);
       })
       .catch((cause) => {
         if (!cancelled) setError(errorMessage(cause));
@@ -132,7 +123,7 @@ export function FindingDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [inspectorBackend]);
+  }, [findingId, inspectorBackend]);
 
   function requestRole(role: Role): void {
     session?.setActiveRole(role);
@@ -141,7 +132,7 @@ export function FindingDetailPage() {
 
   function requestLeadCapReview(role: Role): void {
     session?.setActiveRole(role);
-    navigate("/lead-inspector/cap-review/FND-CAB-2026-001");
+    if (finding) navigate(`/lead-inspector/cap-review/${encodeURIComponent(finding.id)}`);
   }
 
   function activatePrimaryAction(): void {
@@ -149,7 +140,7 @@ export function FindingDetailPage() {
     document.getElementById(finding.status === "CAP_SUBMITTED" ? "finding-cap" : "finding-details")?.scrollIntoView({ block: "start" });
   }
 
-  const displayFindingNumber = finding?.id === "FND-CAB-2026-001" ? "CAB-2026-011" : finding?.findingNumber;
+  const displayFindingNumber = finding?.findingNumber;
 
   return (
     <WorkspaceShell roleLabel="CAA Inspector" routeLabel="Finding Detail">
@@ -198,15 +189,7 @@ export function FindingDetailPage() {
           </section>
 
           <section className="finding-caa-actions">
-            <span>⚖️ <b>CAA actions</b> — nudge the auditee with a traceable reminder, or close this finding without evidence under an authorized closure (reason required, recorded in the demo audit history).</span>
-            <button
-              className="lead-root-button lead-root-button--danger"
-              disabled
-              title="Authorized closure remains in the accepted legacy demo."
-              type="button"
-            >
-              Authorized closure…
-            </button>
+            <span>⚖️ <b>CAA actions</b> — nudge the Auditee with a traceable reminder. Department Manager owns any explicit authorized-closure decision; Evidence-backed closure remains the normal path.</span>
           </section>
 
           <section className="finding-root-lifecycle">
@@ -228,7 +211,7 @@ export function FindingDetailPage() {
                     <div><dt>Severity</dt><dd>{formatSeverity(finding.severity)}</dd></div>
                     <div><dt>Current owner</dt><dd>{ownerDetailLabel(finding)}</dd></div>
                     <div><dt>Next action</dt><dd>{displayNextAction(finding)}</dd></div>
-                    <div><dt>Due Date</dt><dd><DueState dueDate={finding.dueDate} today="2026-06-15" />{dueTiming(finding)}</dd></div>
+                    <div><dt>Due Date</dt><dd><DueState dueDate={finding.dueDate} today={new Date().toISOString().slice(0, 10)} />{dueTiming(finding)}</dd></div>
                     <div><dt>Organization</dt><dd>{finding.organizationName}</dd></div>
                     <div><dt>Related audit</dt><dd>{finding.auditId}</dd></div>
                     <div><dt>Finding</dt><dd>{displayFindingNumber}</dd></div>
@@ -239,7 +222,7 @@ export function FindingDetailPage() {
                     <span>Finding basis / regulatory reference</span>
                     <p>{finding.regulatoryReference ?? "Configured regulatory reference"}</p>
                     <p>{finding.findingBasis}</p>
-                    <Link className="lead-root-button" to="/inspector/assistant">Open Inspector Assistant</Link>
+                    <Link className="lead-root-button" to={`/inspector/assistant?findingId=${encodeURIComponent(finding.id)}`}>Open Inspector Assistant</Link>
                   </div>
                 </div>
               </section>
@@ -268,7 +251,7 @@ export function FindingDetailPage() {
                         session={handoffSession}
                         targetRole="auditee"
                       >
-                        Switch to Fly Namibia Auditee
+                        Switch to {finding.organizationName} Auditee
                       </RoleHandoff>
                     )}
                   </div>

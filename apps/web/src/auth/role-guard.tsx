@@ -6,10 +6,12 @@ import { useOptionalSession } from "./session-provider";
 
 export function RoleGuard({
   requiredRole,
+  additionalRoles = [],
   state,
   children,
 }: PropsWithChildren<{
   requiredRole: Role | null;
+  additionalRoles?: readonly Role[];
   state?: SessionState;
 }>) {
   const session = useOptionalSession();
@@ -25,7 +27,7 @@ export function RoleGuard({
   if (resolvedState.status === "unavailable") {
     return <p data-testid="route-unavailable">{resolvedState.message}</p>;
   }
-  if (!resolvedState.session.roles.includes(requiredRole)) {
+  if (![requiredRole, ...additionalRoles].some((role) => role && resolvedState.session.roles.includes(role))) {
     return <p data-testid="route-forbidden">Not available for this role</p>;
   }
   return <>{children}</>;

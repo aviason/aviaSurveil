@@ -14,9 +14,9 @@ func TestAuthorizeCapRevisionReadAudience(t *testing.T) {
 
 	for _, actor := range []identity.Principal{lead, manager} {
 		audience, err := AuthorizeRevisionRead(RevisionReadAuthorizationInput{
-			Actor: actor,
+			Actor:                 actor,
 			FindingOrganizationID: "ORG-FLY-NAMIBIA",
-			FindingAuthorized: true,
+			FindingAuthorized:     true,
 		})
 		if err != nil {
 			t.Fatalf("CAA CAP revision read failed for %s: %v", actor.SubjectID, err)
@@ -27,9 +27,9 @@ func TestAuthorizeCapRevisionReadAudience(t *testing.T) {
 	}
 
 	audience, err := AuthorizeRevisionRead(RevisionReadAuthorizationInput{
-		Actor: auditee,
+		Actor:                 auditee,
 		FindingOrganizationID: "ORG-FLY-NAMIBIA",
-		FindingAuthorized: false,
+		FindingAuthorized:     false,
 	})
 	if err != nil {
 		t.Fatalf("auditee CAP revision read failed: %v", err)
@@ -39,16 +39,16 @@ func TestAuthorizeCapRevisionReadAudience(t *testing.T) {
 	}
 
 	if _, err := AuthorizeRevisionRead(RevisionReadAuthorizationInput{
-		Actor: auditee,
+		Actor:                 auditee,
 		FindingOrganizationID: "ORG-SKYCARGO",
-		FindingAuthorized: false,
+		FindingAuthorized:     false,
 	}); err == nil {
 		t.Fatal("auditee must not read another organization's CAP revision")
 	}
 	if _, err := AuthorizeRevisionRead(RevisionReadAuthorizationInput{
-		Actor: gm,
+		Actor:                 gm,
 		FindingOrganizationID: "ORG-FLY-NAMIBIA",
-		FindingAuthorized: true,
+		FindingAuthorized:     true,
 	}); err == nil {
 		t.Fatal("GM must not read CAP revision lifecycle detail")
 	}

@@ -51,7 +51,6 @@ const expectedAppCss = `@layer reset, tokens, base, shell, primitives, features,
 @import "./features/executive-secondary.css" layer(features);
 @import "./features/admin.css" layer(features);
 @import "./features/admin-secondary.css" layer(features);
-@import "../features/checklists/question-review-page.css" layer(features);
 @import "./utilities.css" layer(utilities);
 @import "./responsive.css" layer(responsive);
 `;
@@ -96,19 +95,6 @@ describe("CSS layer and ownership contract", () => {
     );
     expect(planningIntake).toMatch(
       /\.planning-intake-status,[\s\S]*\.planning-intake-selection-preview[\s\S]*\{[^}]*overflow-wrap:\s*anywhere;/,
-    );
-  });
-
-  it("keeps Question Review history digests inside the Decision file", () => {
-    const questionReview = readFileSync(
-      resolve(styleRoot, "../features/checklists/question-review-page.css"),
-      "utf8",
-    );
-    expect(questionReview).toMatch(
-      /\.canonical-question-review__workspace,[\s\S]*\.canonical-question-review__history li[\s\S]*\{[^}]*min-width:\s*0;/,
-    );
-    expect(questionReview).toMatch(
-      /\.canonical-question-review__history code\s*\{[^}]*overflow-wrap:\s*anywhere;[^}]*white-space:\s*normal;/,
     );
   });
 

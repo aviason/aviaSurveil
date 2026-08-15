@@ -62,13 +62,12 @@ import type {
   GovernedSourceMappingAttestationInput,
   GovernedAuditPackageEligibilityInput,
   GovernedAuditPackageEligibilityView,
-  CanonicalQuestionReviewBackend,
+  CanonicalCatalogBackend,
   CanonicalAuditWorkflowBackend,
   CanonicalAuditScopeOptionPage,
   CanonicalQuestionCatalogEntry,
   CanonicalSelectionDigest,
   CanonicalQuestionUsageClass,
-  CanonicalQuestionReviewCommandInput,
 } from "../backend/backend";
 import {
   BackendAuthorizationInvariantError,
@@ -1092,14 +1091,6 @@ interface MockSourceCurrentnessCommand {
   view: GovernedSourceCurrentnessActivationView;
 }
 
-interface MockCanonicalReviewState {
-  revision: number;
-  disposition: CanonicalQuestionReviewCommandInput["action"] | null;
-  digest: string;
-  domain: string | null;
-  topic: string | null;
-}
-
 interface MockGovernedState {
   candidate: GovernedCandidateView;
   candidates: Map<string, GovernedCandidateView>;
@@ -1134,8 +1125,7 @@ export class MockBackendEngine implements DemoBackend {
   private readonly governedState: MockGovernedState;
   private readonly governedIntakeBatches = new Map<string, ChecklistImportBatchReceiptView>();
   private readonly canonicalSelections = new Map<string, { digest: string; ids: string[] }>();
-  private readonly canonicalReviewOperations = new Map<string, string>();
-  private readonly canonicalReviewStates = new Map<string, MockCanonicalReviewState>();
+  private readonly canonicalCatalogOperations = new Map<string, string>();
 
   constructor(
     private readonly store: MemoryMockStore,
@@ -3085,15 +3075,15 @@ export class MockBackendEngine implements DemoBackend {
     },
   };
 
-  /** Canonical catalog/review boundary used by the New Audit and Checklist
-   * Management workbenches. The fixture text is intentionally invented and
-   * never represents the sealed AGA source package. */
-  readonly canonicalQuestionReview: CanonicalQuestionReviewBackend = {
+/** Test-only catalog boundary used by New Audit contract tests. The fixture
+ * text is intentionally invented and never represents the sealed AGA source
+ * package used by the HTTP product. */
+  readonly canonicalCatalog: CanonicalCatalogBackend = {
     listScopeOptions: async (input) => {
-      requireDemoCapability(this.principal, "canonicalQuestionReview");
+      requireDemoCapability(this.principal, "canonicalCatalog");
       requireRole(this.principal, ["manager"], "Department Manager authority is required for audit scope selection.");
-      const usageClass = input?.usageClass ?? "PREPROD_EXERCISE";
-      const catalogVersion = input?.catalogVersion ?? (usageClass === "PREPROD_EXERCISE" ? "aga-preprod@1.0.0" : "governed-operational@1.0.0");
+      const usageClass = input?.usageClass ?? "GOVERNED_OPERATIONAL";
+      const catalogVersion = input?.catalogVersion ?? "aga-approved-source-v2@1.0.0";
       const option: CanonicalAuditScopeOptionPage["items"][number] = {
         organizationId: "ORG-FLY-NAMIBIA",
         organizationName: "Fly Namibia",
@@ -3110,12 +3100,12 @@ export class MockBackendEngine implements DemoBackend {
       return { items: [option], nextCursor: null };
     },
     listCatalog: async (input) => {
-      requireDemoCapability(this.principal, "canonicalQuestionReview");
+      requireDemoCapability(this.principal, "canonicalCatalog");
       requireRole(this.principal, ["manager"], "Canonical catalog access is restricted to Department Managers.");
       const limit = Math.min(100, Math.max(1, input.limit ?? 25));
       const offset = Number(input.cursor ?? 0) || 0;
       const selectedIds = input.scopeId ? new Set(this.canonicalSelections.get(input.scopeId)?.ids ?? []) : null;
-      const rows = this.syntheticCanonicalRows(input.usageClass, input.catalogVersion).map((row) => this.applyCanonicalReviewState(row)).filter((row) => {
+      const rows = this.syntheticCanonicalRows(input.usageClass, input.catalogVersion).filter((row) => {
         const needle = input.search?.trim().toLocaleLowerCase() ?? "";
         const selected = selectedIds?.has(row.questionVersionId) ?? false;
         return (!needle || `${row.formCode} ${row.proposalId} ${row.questionVersionId}`.toLocaleLowerCase().includes(needle))
@@ -3130,78 +3120,44 @@ export class MockBackendEngine implements DemoBackend {
       return { items: page.map((row) => ({ ...row, prompt: null, configuredReference: null, expectedEvidence: null })), nextCursor: offset + limit < rows.length ? String(offset + limit) : null, catalogVersion: input.catalogVersion, usageClass: input.usageClass, totalCount: rows.length };
     },
     getQuestion: async (input) => {
-      requireDemoCapability(this.principal, "canonicalQuestionReview");
+      requireDemoCapability(this.principal, "canonicalCatalog");
       requireRole(this.principal, ["manager"], "Canonical catalog access is restricted to Department Managers.");
       const row = this.syntheticCanonicalRows(input.usageClass, input.catalogVersion).find((candidate) => candidate.questionVersionId === input.questionVersionId);
       if (!row) throw new BackendInvariantError(`Question version ${input.questionVersionId} was not found.`);
-      const current = this.applyCanonicalReviewState(row);
-      return { ...current, prompt: `Synthetic privacy-safe question ${current.formCode} item ${current.ordinal}.`, configuredReference: "Synthetic controlled reference", expectedEvidence: "Synthetic evidence record" };
+      return { ...row, prompt: `Synthetic privacy-safe question ${row.formCode} item ${row.ordinal}.`, configuredReference: "Synthetic controlled reference", expectedEvidence: "Synthetic evidence record" };
     },
     previewSelection: async (input) => {
-      requireDemoCapability(this.principal, "canonicalQuestionReview");
+      requireDemoCapability(this.principal, "canonicalCatalog");
       requireRole(this.principal, ["manager"], "Department Manager authority is required for scope selection.");
       const state = this.canonicalSelections.get(input.scopeId) ?? { digest: await canonicalSelectionDigest([]), ids: [] };
       const ids = [...new Set(input.questionVersionIds)];
       if (ids.length === 0 || ids.length > 500 || ids.length !== input.questionVersionIds.length) throw new BackendInvariantError("Selection must contain 1–500 unique question versions.");
       if (input.expectedSelectionDigest && input.expectedSelectionDigest !== state.digest) throw new BackendConflictError("Selection digest is stale.");
       const result = applyCanonicalSelectionOperation(state.ids, ids, input.operationKind);
-      const catalogVersion = input.usageClass === "PREPROD_EXERCISE" ? "aga-preprod@1.0.0" : "governed-operational@1.0.0";
+      const catalogVersion = "aga-approved-source-v2@1.0.0";
       return { preview: this.canonicalSelectionSummary(await canonicalSelectionDigest(result), result, catalogVersion, input.usageClass), affectedCount: ids.length, valid: true, reason: "Selection is ready to commit." };
     },
     commitSelection: async (input) => {
-      requireDemoCapability(this.principal, "canonicalQuestionReview");
+      requireDemoCapability(this.principal, "canonicalCatalog");
       requireRole(this.principal, ["manager"], "Department Manager authority is required for scope selection.");
       requireNonEmpty(input.operationId, "Selection operation");
       const state = this.canonicalSelections.get(input.scopeId) ?? { digest: await canonicalSelectionDigest([]), ids: [] };
       const ids = [...new Set(input.questionVersionIds)];
       if (ids.length === 0 || ids.length > 500 || ids.length !== input.questionVersionIds.length) throw new BackendInvariantError("Selection must contain 1–500 unique question versions.");
-      const prior = this.canonicalReviewOperations.get(`selection:${input.operationId}`);
+      const prior = this.canonicalCatalogOperations.get(`selection:${input.operationId}`);
       const result = applyCanonicalSelectionOperation(state.ids, ids, input.operationKind);
       const digest = await canonicalSelectionDigest(result);
       if (prior) {
         if (prior !== digest) throw new OperationIdReuseError(input.operationId);
-        const catalogVersion = input.usageClass === "PREPROD_EXERCISE" ? "aga-preprod@1.0.0" : "governed-operational@1.0.0";
+        const catalogVersion = "aga-approved-source-v2@1.0.0";
         return { operationId: input.operationId, replayed: true, selection: this.canonicalSelectionSummary(digest, result, catalogVersion, input.usageClass) };
       }
       const expected = input.expectedSelectionDigest || await canonicalSelectionDigest([]);
       if (expected !== state.digest) throw new BackendConflictError("Selection digest is stale.");
       this.canonicalSelections.set(input.scopeId, { digest, ids: result });
-      this.canonicalReviewOperations.set(`selection:${input.operationId}`, digest);
-      const catalogVersion = input.usageClass === "PREPROD_EXERCISE" ? "aga-preprod@1.0.0" : "governed-operational@1.0.0";
+      this.canonicalCatalogOperations.set(`selection:${input.operationId}`, digest);
+      const catalogVersion = "aga-approved-source-v2@1.0.0";
       return { operationId: input.operationId, replayed: false, selection: this.canonicalSelectionSummary(digest, result, catalogVersion, input.usageClass) };
-    },
-    reviewQueue: async (input) => {
-      requireDemoCapability(this.principal, "canonicalQuestionReview");
-      requireRole(this.principal, ["manager"], "Department Manager authority is required for Question Review.");
-      const page = await this.canonicalQuestionReview.listCatalog({ catalogVersion: input.catalogVersion, usageClass: input.mode, search: input.search, formCode: input.formCode, domain: input.domain, topic: input.topic, riskBand: input.riskBand, sourceGapState: input.sourceGapState, selected: input.selected, scopeId: input.scopeId, cursor: input.cursor, limit: input.limit });
-      return { mode: input.mode, items: page.items, nextCursor: page.nextCursor, totalCount: page.totalCount, capabilities: { canTechnicalApprove: false, canPublish: false, disabledReason: input.mode === "PREPROD_EXERCISE" ? "PREPROD_EXERCISE review cannot invoke technical approval or publication." : "Governed technical approval and publication remain on the candidate authority route." } };
-    },
-    command: async (input: CanonicalQuestionReviewCommandInput) => {
-      requireDemoCapability(this.principal, "canonicalQuestionReview");
-      requireRole(this.principal, ["manager"], "Department Manager authority is required for Question Review.");
-      requireNonEmpty(input.reason, "Controlled reason");
-      const prior = this.canonicalReviewOperations.get(`review:${input.operationId}`);
-      const key = this.canonicalReviewStateKey(input.mode, input.catalogVersion, input.questionVersionId);
-      const current = this.canonicalReviewStates.get(key) ?? {
-        revision: 0,
-        disposition: null,
-        digest: "",
-        domain: "SYNTHETIC_DOMAIN",
-        topic: "SYNTHETIC_TOPIC",
-      };
-      if (prior) return { operationId: input.operationId, mode: input.mode, questionVersionId: input.questionVersionId, action: input.action, replayed: true, canPublish: input.mode === "GOVERNED_OPERATIONAL" };
-      if (input.mode === "PREPROD_EXERCISE") {
-        if (input.expectedRevision !== current.revision || (input.expectedReviewDigest ?? "") !== current.digest) {
-          throw new BackendConflictError("Question review state is stale.");
-        }
-      }
-      const nextDomain = input.action === "DOMAIN_RECLASSIFIED" ? (input.domain?.trim() || null) : current.domain;
-      const nextTopic = input.action === "TOPIC_RECLASSIFIED" ? (input.topic?.trim() || null) : current.topic;
-      if (input.action === "DOMAIN_RECLASSIFIED" && !nextDomain) throw new BackendInvariantError("A domain is required for reclassification.");
-      const digest = await governedCanonicalSHA256({ mode: input.mode, questionVersionId: input.questionVersionId, disposition: input.action, domain: nextDomain, topic: nextTopic, reason: input.reason });
-      this.canonicalReviewStates.set(key, { revision: current.revision + 1, disposition: input.action, digest, domain: nextDomain, topic: nextTopic });
-      this.canonicalReviewOperations.set(`review:${input.operationId}`, digest);
-      return { operationId: input.operationId, mode: input.mode, questionVersionId: input.questionVersionId, action: input.action, replayed: false, canPublish: input.mode === "GOVERNED_OPERATIONAL" };
     },
   };
 
@@ -3401,10 +3357,6 @@ export class MockBackendEngine implements DemoBackend {
     };
   }
 
-  private canonicalReviewStateKey(mode: CanonicalQuestionUsageClass, catalogVersion: string, questionVersionId: string): string {
-    return `${mode}:${catalogVersion}:${questionVersionId}`;
-  }
-
   private canonicalSelectionSummary(
     selectionDigest: string,
     ids: string[],
@@ -3432,19 +3384,6 @@ export class MockBackendEngine implements DemoBackend {
     };
   }
 
-  private applyCanonicalReviewState(row: CanonicalQuestionCatalogEntry): CanonicalQuestionCatalogEntry {
-    const state = this.canonicalReviewStates.get(this.canonicalReviewStateKey(row.usageClass, row.catalogVersion, row.questionVersionId));
-    if (!state) return row;
-    return {
-      ...row,
-      proposedDomain: state.domain,
-      proposedTopic: state.topic,
-      reviewRevision: state.revision,
-      reviewDisposition: state.disposition,
-      reviewDigest: state.digest,
-    };
-  }
-
   private syntheticCanonicalRows(usageClass: CanonicalQuestionUsageClass, catalogVersion: string): CanonicalQuestionCatalogEntry[] {
     return Array.from({ length: 1310 }, (_, index) => {
       const ordinal = index < 1275 ? (index % 25) + 1 : (index - 1275) + 1;
@@ -3461,12 +3400,12 @@ export class MockBackendEngine implements DemoBackend {
         configuredReference: "Synthetic controlled reference",
         expectedEvidence: "Synthetic evidence record",
         sourceLocator: `synthetic://form/${form}/item/${ordinal}`,
-        sourceGapState: usageClass === "PREPROD_EXERCISE" ? "SOURCE_MAPPING_REQUIRED" : "RESOLVED",
+        sourceGapState: "PROPOSED_NOT_APPROVED",
         proposedDomain: "SYNTHETIC_DOMAIN",
         proposedTopic: "SYNTHETIC_TOPIC",
         proposedRiskBand: "PROPOSED_REVIEW_REQUIRED",
         canSelect: true,
-        canPublish: usageClass === "GOVERNED_OPERATIONAL",
+        canPublish: false,
         governedCandidateId: null,
         governedCandidateRevision: null,
         governedCandidateContentDigest: null,
@@ -4300,12 +4239,19 @@ export class MockBackendEngine implements DemoBackend {
         }
         const packageView = Object.values(state.packages).find((candidate) => candidate.auditId === input.auditId);
         if (!packageView) throw new BackendInvariantError("Audit was not found.");
+        const potentialFindingIds = Object.values(state.potentialFindings)
+          .filter((candidate) => candidate.auditId === input.auditId)
+          .map((candidate) => candidate.id)
+          .sort();
         const report: ReportVersionView = {
           reportVersionId: input.reportVersionId,
           reportId: input.reportId,
+          kind: input.kind,
           organizationId: packageView.organizationId,
           auditId: input.auditId,
           findingIds: [...input.findingIds],
+          potentialFindingIds,
+          potentialFindingRootDigest: `sha256:mock-potential-root-${potentialFindingIds.join("-") || "empty"}`,
           contentHash: "sha256:mock-report-content",
           version: input.version,
           status: input.status,

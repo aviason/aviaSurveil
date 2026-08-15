@@ -60,7 +60,11 @@ func authenticationFailure(diagnostic string, cause error) error {
 		"authority-read", "authority-mismatch", "invalid-observation-time",
 		"provider-unavailable", "provider-drift", "observation-refresh",
 		"identity-reference", "profile-read", "invalid-role", "idle-refresh",
-		"transaction":
+		"transaction", "create-authority-read", "create-authority-mismatch",
+		"create-unbound-authority", "create-identity-reference",
+		"create-profile-read", "create-observation-refresh", "create-authority-state",
+		"create-authority-claims", "create-authority-revisions", "create-desired-revisions",
+		"create-desired-state":
 		return authenticationFailureError{diagnostic: diagnostic, cause: cause}
 	default:
 		return authenticationFailureError{diagnostic: "internal", cause: cause}
@@ -73,6 +77,14 @@ func AuthenticationFailureDiagnostic(err error) string {
 	var failure authenticationFailureError
 	if errors.As(err, &failure) {
 		if failure.diagnostic != "internal" {
+			// A request context can be cancelled while a browser page is
+			// navigating or closing. WithinTransaction preserves the stage
+			// label, so inspect the cause before reporting it as a database
+			// transaction failure.
+			if failure.diagnostic == "transaction" &&
+				(errors.Is(failure.cause, context.Canceled) || errors.Is(failure.cause, context.DeadlineExceeded)) {
+				return "context-expired"
+			}
 			return failure.diagnostic
 		}
 		err = failure.cause
@@ -300,39 +312,40 @@ func (manager *Manager) Create(ctx context.Context, input CreateInput) (BrowserS
 		input.OrganizationID,
 		input.Roles,
 	); err != nil {
-		return BrowserSession{}, ErrUnauthenticated
+		return BrowserSession{}, authenticationFailure("create-authority-mismatch", ErrUnauthenticated)
 	}
 	if manager.authorityObserver == nil {
-		return BrowserSession{}, ErrUnauthenticated
+		return BrowserSession{}, authenticationFailure("create-authority-read", ErrUnauthenticated)
 	}
 	observation, err := manager.authorityObserver.ObserveUserAuthority(
 		ctx,
 		input.SubjectID,
 	)
-	if err != nil ||
-		observation.SubjectID != input.SubjectID ||
-		!observation.Enabled ||
-		observation.Locked ||
-		len(observation.RequiredActions) != 0 ||
-		!identity.EqualApplicationAuthority(
-			input.OrganizationID,
-			input.Roles,
-			observation.OrganizationID,
-			observation.Roles,
-		) {
-		return BrowserSession{}, ErrUnauthenticated
+	if err != nil || observation.SubjectID != input.SubjectID {
+		return BrowserSession{}, authenticationFailure("create-authority-read", ErrUnauthenticated)
+	}
+	if !observation.Enabled || observation.Locked || len(observation.RequiredActions) != 0 {
+		return BrowserSession{}, authenticationFailure("create-authority-state", ErrUnauthenticated)
+	}
+	if !identity.EqualApplicationAuthority(
+		input.OrganizationID,
+		input.Roles,
+		observation.OrganizationID,
+		observation.Roles,
+	) {
+		return BrowserSession{}, authenticationFailure("create-authority-claims", ErrUnauthenticated)
 	}
 	if (input.MembershipID != "" && input.MembershipID != observation.MembershipID) ||
 		(input.MembershipRevision > 0 && input.MembershipRevision != observation.MembershipRevision) ||
 		(input.AuthRevision > 0 && input.AuthRevision != observation.AuthRevision) {
-		return BrowserSession{}, ErrUnauthenticated
+		return BrowserSession{}, authenticationFailure("create-authority-revisions", ErrUnauthenticated)
 	}
 	if manager.requireProviderAuthorityRevisions &&
 		(input.MembershipID == "" || input.MembershipRevision <= 0 || input.AuthRevision == 0 ||
 			observation.MembershipID != input.MembershipID ||
 			observation.MembershipRevision != input.MembershipRevision ||
 			observation.AuthRevision != input.AuthRevision) {
-		return BrowserSession{}, ErrUnauthenticated
+		return BrowserSession{}, authenticationFailure("create-authority-revisions", ErrUnauthenticated)
 	}
 	now := manager.clock().UTC()
 	authority, err := loadDesiredSessionAuthority(
@@ -341,7 +354,7 @@ func (manager *Manager) Create(ctx context.Context, input CreateInput) (BrowserS
 		input.SubjectID,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return BrowserSession{}, ErrUnauthenticated
+		return BrowserSession{}, authenticationFailure("create-unbound-authority", ErrUnauthenticated)
 	}
 	if err != nil {
 		return BrowserSession{}, fmt.Errorf(
@@ -352,7 +365,7 @@ func (manager *Manager) Create(ctx context.Context, input CreateInput) (BrowserS
 	if manager.requireProviderAuthorityRevisions &&
 		(authority.MembershipID != input.MembershipID ||
 			authority.Revision != input.MembershipRevision) {
-		return BrowserSession{}, ErrUnauthenticated
+		return BrowserSession{}, authenticationFailure("create-desired-revisions", ErrUnauthenticated)
 	}
 	if authority.State == "INVITED" {
 		if manager.activationReconciler == nil ||
@@ -378,7 +391,7 @@ func (manager *Manager) Create(ctx context.Context, input CreateInput) (BrowserS
 				observation.OrganizationID,
 				observation.Roles,
 			) {
-			return BrowserSession{}, ErrUnauthenticated
+			return BrowserSession{}, authenticationFailure("create-unbound-authority", ErrUnauthenticated)
 		}
 		if err := manager.activationReconciler.ReconcileActivatedMembership(
 			ctx,
@@ -387,7 +400,7 @@ func (manager *Manager) Create(ctx context.Context, input CreateInput) (BrowserS
 			observation.RequiredActions,
 			observation.MFAEnrolled,
 		); err != nil {
-			return BrowserSession{}, ErrUnauthenticated
+			return BrowserSession{}, authenticationFailure("create-authority-mismatch", ErrUnauthenticated)
 		}
 		now = manager.clock().UTC()
 	}
@@ -413,7 +426,7 @@ func (manager *Manager) Create(ctx context.Context, input CreateInput) (BrowserS
 			input.SubjectID,
 		)
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrUnauthenticated
+			return authenticationFailure("create-unbound-authority", ErrUnauthenticated)
 		}
 		if err != nil {
 			return fmt.Errorf("read desired session authority: %w", err)
@@ -447,7 +460,7 @@ func (manager *Manager) Create(ctx context.Context, input CreateInput) (BrowserS
 					observation.MembershipID != authority.MembershipID ||
 					observation.MembershipRevision != authority.Revision ||
 					observation.AuthRevision != input.AuthRevision) {
-			return ErrUnauthenticated
+			return authenticationFailure("create-authority-mismatch", ErrUnauthenticated)
 		}
 		var persistedSubjectID, persistedIssuer string
 		if err := transaction.QueryRow(ctx, `
@@ -464,7 +477,7 @@ func (manager *Manager) Create(ctx context.Context, input CreateInput) (BrowserS
 			&persistedSubjectID,
 			&persistedIssuer,
 		); errors.Is(err, pgx.ErrNoRows) {
-			return ErrUnauthenticated
+			return authenticationFailure("create-identity-reference", ErrUnauthenticated)
 		} else if err != nil {
 			return fmt.Errorf("refresh authenticated identity reference: %w", err)
 		}
@@ -478,13 +491,13 @@ func (manager *Manager) Create(ctx context.Context, input CreateInput) (BrowserS
 			err,
 			pgx.ErrNoRows,
 		) {
-			return ErrUnauthenticated
+			return authenticationFailure("create-profile-read", ErrUnauthenticated)
 		} else if err != nil {
 			return fmt.Errorf("read authenticated user profile: %w", err)
 		}
 		if profileOrganizationID == nil ||
 			*profileOrganizationID != authority.OrganizationID {
-			return ErrUnauthenticated
+			return authenticationFailure("create-profile-read", ErrUnauthenticated)
 		}
 		observationResult, err := transaction.Exec(ctx, `
 			UPDATE desired_membership_sync
@@ -502,7 +515,7 @@ func (manager *Manager) Create(ctx context.Context, input CreateInput) (BrowserS
 			return fmt.Errorf("refresh provider authority observation: %w", err)
 		}
 		if observationResult.RowsAffected() != 1 {
-			return ErrUnauthenticated
+			return authenticationFailure("create-observation-refresh", ErrUnauthenticated)
 		}
 		if _, err := transaction.Exec(ctx, `
 			INSERT INTO session_references (

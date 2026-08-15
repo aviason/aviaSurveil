@@ -1,0 +1,12 @@
+{
+  "package": "/Users/marlonjd/Developer/monorepos/avia/apps/surveil/deliverables/AGA_ALL_FORMS_APPROVED_SOURCE_V2.zip",
+  "packageVersion": "AGA_ALL_FORMS_APPROVED_SOURCE_V2",
+  "packageSha256": "sha256:f6a67d16b49d7a9a856bf458a0337f116ae2d139f7c12d7f952a5c00890764bc",
+  "packageBytes": 326448,
+  "packageJsonSha256": "sha256:57abb7b87ce91dc7383fb3b24426ccd542811ce979f33c6b17bcf938c3907973",
+  "sourceManifestSha256": "sha256:53679bd6eccb77b2d4bf1c909cb16a3b925ca1433584d206daeaf212031877f8",
+  "catalogRootDigest": "sha256:972f06005ba7befecb480d477334ea8cee542555d39d2604607f082deeee6e48",
+  "formCount": 52,
+  "questionBoundaryFormCount": 31,
+  "questionCount": 1310
+}

@@ -91,6 +91,29 @@ func TestRoutinePlanningReturnReentryAndAssignmentMaterialization(t *testing.T) 
 		resubmitted.PlanningItem.EstimatedBudget != 12500 {
 		t.Fatalf("resubmitted planning item = %+v", resubmitted.PlanningItem)
 	}
+	var usageClasses struct {
+		Catalog   string
+		Scope     string
+		Submitted string
+	}
+	if err := pool.QueryRow(context.Background(), `
+		SELECT catalog.usage_class, scope.usage_class, submitted.usage_class
+		FROM planning_intake_drafts draft
+		JOIN canonical_audit_scope_drafts scope ON scope.planning_intake_draft_id = draft.id
+		JOIN canonical_question_catalogs catalog ON catalog.id = scope.catalog_id
+		JOIN canonical_audit_scope_snapshots submitted
+		  ON submitted.scope_draft_id = scope.id AND submitted.stage = 'SUBMITTED'
+		WHERE draft.submitted_planning_item_id = 'plan-routine'
+		ORDER BY submitted.revision DESC
+		LIMIT 1
+	`).Scan(&usageClasses.Catalog, &usageClasses.Scope, &usageClasses.Submitted); err != nil {
+		t.Fatalf("inspect routine canonical usage classes: %v", err)
+	}
+	if usageClasses.Catalog != "GOVERNED_OPERATIONAL" ||
+		usageClasses.Scope != "GOVERNED_OPERATIONAL" ||
+		usageClasses.Submitted != "GOVERNED_OPERATIONAL" {
+		t.Fatalf("routine canonical usage classes = %+v", usageClasses)
+	}
 
 	approvedBudget := decidePlanning(t, planningService, finance, resubmitted.PlanningItem,
 		"op-routine-finance-approve", planning.DecisionApproveBudget)
@@ -123,6 +146,22 @@ func TestRoutinePlanningReturnReentryAndAssignmentMaterialization(t *testing.T) 
 		WHERE id = 'session-lead'
 	`, canonicalNow); err != nil {
 		t.Fatalf("revoke Lead browser session before assignment: %v", err)
+	}
+	leadRole := identity.RoleLeadInspector
+	leadMembers, err := assignmentService.ListTeamMembers(context.Background(), manager, &leadRole, 100)
+	if err != nil {
+		t.Fatalf("list prepared Lead roster without an active browser session: %v", err)
+	}
+	if len(leadMembers) != 1 || leadMembers[0].SubjectID != "lead-001" || leadMembers[0].Role != identity.RoleLeadInspector {
+		t.Fatalf("prepared Lead roster = %+v", leadMembers)
+	}
+	inspectorRole := identity.RoleInspector
+	inspectorMembers, err := assignmentService.ListTeamMembers(context.Background(), manager, &inspectorRole, 100)
+	if err != nil {
+		t.Fatalf("list prepared Inspector roster: %v", err)
+	}
+	if len(inspectorMembers) != 2 {
+		t.Fatalf("prepared Inspector roster = %+v", inspectorMembers)
 	}
 
 	assignment, err := assignmentService.AssignLead(context.Background(), manager, assignments.AssignLeadCommand{
@@ -616,9 +655,7 @@ func TestPlanningAssignmentHTTPContractsAndNoticePrivacy(t *testing.T) {
 	})
 	api := httpapi.NewCanonicalAPI(httpapi.CanonicalAPIDependencies{
 		Pool: pool, Application: testService(pool), Assignments: assignmentService,
-		Clock:                    func() time.Time { return canonicalNow },
-		PreprodExerciseProfile:   true,
-		PreprodIdentityNamespace: "canonical-aga-preprod-exercise-v1",
+		Clock: func() time.Time { return canonicalNow },
 	})
 	handler := httpapi.NewCanonicalTestBoundary("task-4-token").Protect(api.Handler())
 
@@ -1026,10 +1063,10 @@ func seedPlanningDraft(t *testing.T, pool *database.Pool, draftID, organizationI
 	if _, err := pool.Exec(context.Background(), `
 		INSERT INTO canonical_audit_scope_drafts (
 			id, planning_intake_draft_id, organization_id, provider_scope_id, regulated_target_id,
-			audit_type, catalog_id, usage_class, revision, status, selected_question_count,
+			audit_type, catalog_id, usage_class, catalog_root_digest, revision, status, selected_question_count,
 			selection_digest, requested_budget, notice_policy, created_by_subject_id
 		) VALUES ($1, $2, $3, 'scope-airline-xyz-air-operator', 'target-airline-xyz', 'CABIN',
-			'catalog-cabin-fixture', 'PREPROD_EXERCISE', 1, 'DRAFT', 1, $4, 5000, 'ADVANCE', 'manager-001')
+			'catalog-cabin-fixture', 'GOVERNED_OPERATIONAL', 'sha256:fixture-catalog-root', 1, 'DRAFT', 1, $4, 5000, 'ADVANCE', 'manager-001')
 	`, values.ScopeDraftID, draftID, organizationID, values.SelectionDigest); err != nil {
 		t.Fatalf("seed canonical planning scope: %v", err)
 	}

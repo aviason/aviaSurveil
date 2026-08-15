@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/aviason/aviaSurveil/internal/assignments"
 	"github.com/aviason/aviaSurveil/internal/identity"
 	"github.com/aviason/aviaSurveil/internal/platform/database"
 	"github.com/aviason/aviaSurveil/internal/platform/idempotency"
@@ -528,6 +529,18 @@ func (service *UploadService) authorizeFindingScope(ctx context.Context, actor i
 	}
 	if !actor.IsCAA() {
 		return ErrEvidenceForbidden
+	}
+	if actor.HasRole(identity.RoleDepartmentManager) {
+		var inspectionID string
+		if err := service.pool.QueryRow(ctx, `SELECT inspection_id FROM findings WHERE id = $1`, findingID).Scan(&inspectionID); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrEvidenceForbidden
+			}
+			return err
+		}
+		return database.WithinTransaction(ctx, service.pool, func(ctx context.Context, transaction pgx.Tx) error {
+			return assignments.RequireCurrentDepartmentScopeAuthority(ctx, transaction, actor, "", inspectionID)
+		})
 	}
 	var assigned bool
 	if err := service.pool.QueryRow(ctx, `

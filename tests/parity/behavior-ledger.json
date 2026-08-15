@@ -9659,7 +9659,7 @@
       "namePattern": "^Reset demo$",
       "boundary": "typed-mutation",
       "durableEffect": "Clears the deterministic browser demo store and reloads the active route.",
-      "evidence": "apps/web/tests/e2e/release-candidate-gates.spec.ts"
+      "evidence": "apps/web/src/ui/application-shell.test.tsx"
     },
     {
       "id": "shell-role-exit",
@@ -9753,7 +9753,7 @@
       "namePattern": "^(Role select|Logout)$",
       "boundary": "navigation",
       "durableEffect": "Navigates to role selection or performs the OIDC logout boundary.",
-      "evidence": "apps/web/tests/e2e/release-candidate-gates.spec.ts"
+      "evidence": "apps/web/src/ui/application-shell.test.tsx"
     },
     {
       "id": "role-select-local-actions",
@@ -10143,24 +10143,6 @@
         "apps/web/tests/e2e/first-production-routes.spec.ts"
       ],
       "acceptedDifference": "React exposes read-only versioned configuration and a server-shaped audit projection; broad editing remains only a later or demo-only concept."
-    },
-    {
-      "id": "canonical-local-preprod-full-service-profile",
-      "classification": "first-production",
-      "role": "multi-role",
-      "route": "task-owned-local-https-origin",
-      "action": "run-canonical-connected-fault-restart-proof",
-      "entityIdRule": "Fresh task-owned canonical scope, 1,310 exact question versions, named role assignments, and immutable lifecycle identities",
-      "expectedStatus": "CANONICAL_CONNECTED_FULL_SERVICE_VERIFIED_LOCALLY",
-      "expectedOwner": "Canonical local-preprod candidate platform",
-      "visibilityInvariant": "exact-role OIDC panels, the 1,310-question lifecycle, scan-clean Evidence, private SMTP/PDF/object services, donor denial, restart identity, and zero task-owned residue",
-      "legacyTest": "tests/scenario-integrity-regression.test.js",
-      "reactTest": [
-        "apps/web/tests/e2e/canonical-quick-tunnel-panels.spec.ts",
-        "apps/web/tests/e2e/canonical-quick-tunnel-lifecycle.spec.ts",
-        "scripts/test-canonical-preprod-fault-restart.sh"
-      ],
-      "acceptedDifference": "The obsolete fixed-workspace local-full runner and the retired provider were removed after first-party cutover. Every maintained local identity topology now uses first-party Go OIDC and real local service adapters; the result remains candidate-only and release pending without establishing production readiness."
     },
     {
       "id": "full-platform-mock-http-transcript-parity",

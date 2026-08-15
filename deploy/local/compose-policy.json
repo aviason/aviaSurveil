@@ -1,9 +1,7 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "browserPublishedPorts": {
-    "gateway": [
-      { "hostIp": "127.0.0.1", "published": 8443, "target": 8443 }
-    ]
+    "gateway": [{ "hostIp": "127.0.0.1", "published": 8443, "target": 8443 }]
   },
   "developerPublishedPorts": {
     "mailpit-tools": [
@@ -11,18 +9,12 @@
       { "hostIp": "127.0.0.1", "published": 8025, "target": 8025 }
     ]
   },
-  "databaseIsolation": {
-    "applicationService": "postgres",
-    "identityService": "preprod-auth-postgres",
-    "dataTarget": "/var/lib/postgresql/data"
-  },
   "externalImageServices": [
     "postgres",
-    "preprod-auth-postgres",
-    "minio",
     "minio-volume-init",
-    "mailpit",
+    "minio",
     "mailpit-volume-init",
+    "mailpit",
     "mailpit-tools"
   ],
   "healthcheckRequiredServices": [
@@ -32,19 +24,13 @@
     "api",
     "worker",
     "postgres",
-    "preprod-auth-postgres",
-    "preprod-auth",
+    "auth",
     "minio",
     "mailpit",
     "mailpit-tools"
   ],
   "profileServices": {
-    "demo": [
-      "gateway",
-      "web-demo",
-      "preprod-auth-postgres",
-      "preprod-auth"
-    ],
+    "demo": ["web-demo"],
     "full": [
       "gateway",
       "web-http",
@@ -52,55 +38,86 @@
       "worker",
       "migration",
       "postgres",
-      "preprod-auth-postgres",
-      "preprod-auth",
+      "runtime-database-bootstrap",
+      "auth",
+      "curated-foundation-loader",
+      "prepared-roster-loader",
+      "approved-aga-catalog-loader",
       "minio",
       "minio-volume-init",
       "mailpit",
       "mailpit-volume-init"
     ],
-    "test": ["fixture-init", "postgres", "minio", "minio-volume-init"],
-    "recovery": ["postgres", "minio", "minio-volume-init"],
+    "test": [
+      "postgres",
+      "runtime-database-bootstrap",
+      "migration",
+      "auth",
+      "curated-foundation-loader",
+      "prepared-roster-loader",
+      "approved-aga-catalog-loader",
+      "minio",
+      "minio-volume-init"
+    ],
+    "recovery": [
+      "postgres",
+      "runtime-database-bootstrap",
+      "migration",
+      "auth",
+      "curated-foundation-loader",
+      "prepared-roster-loader",
+      "approved-aga-catalog-loader",
+      "minio",
+      "minio-volume-init"
+    ],
     "tools": ["mailpit-volume-init", "mailpit-tools"]
   },
   "publicNetworkServices": ["gateway"],
-  "egressNetworkServices": {
-    "mailpit-tools": ["tools"]
-  },
+  "egressNetworkServices": { "mailpit-tools": ["tools"] },
   "rootUserExceptions": {
-    "minio-volume-init": "A networkless one-shot container chowns only the task-scoped MinIO data volume before the non-root MinIO service starts.",
-    "mailpit-volume-init": "A networkless one-shot container chowns only the task-scoped Mailpit data volume before the non-root Mailpit service starts."
+    "minio-volume-init": "A networkless one-shot container chowns only the task-scoped object-store volume before MinIO starts.",
+    "mailpit-volume-init": "A networkless one-shot container chowns only the task-scoped Mailpit data volume before Mailpit starts."
   },
   "secretMounts": {
+    "runtime-database-bootstrap": [
+      "rds_master_database_url",
+      "surveil_runtime_database_password",
+      "surveil_migration_database_password",
+      "surveil_bootstrap_database_password",
+      "auth_runtime_database_password"
+    ],
+    "migration": ["surveil_migration_database_password"],
+    "auth": [
+      "auth_database_url",
+      "auth_signing_key",
+      "auth_data_encryption_key",
+      "auth_mfa_key",
+      "oidc_client_secret",
+      "auth_admin_secret",
+      "auth_bootstrap_secret"
+    ],
+    "curated-foundation-loader": ["surveil_bootstrap_database_url"],
+    "prepared-roster-loader": ["surveil_bootstrap_database_url", "auth_bootstrap_secret"],
+    "approved-aga-catalog-loader": ["surveil_bootstrap_database_url"],
     "api": [
-      "app_database_password",
-      "preprod_auth_admin_secret",
+      "surveil_runtime_database_password",
+      "auth_admin_secret",
       "minio_api_access_key",
       "minio_api_secret_key",
-      "preprod_oidc_client_secret",
-      "session_encryption_key"
-    ],
-    "worker": [
-      "app_database_password",
-      "preprod_auth_admin_secret",
-      "minio_worker_access_key",
-      "minio_worker_secret_key",
-      "preprod_oidc_client_secret",
+      "oidc_client_secret",
       "session_encryption_key",
       "smtp_password"
     ],
-    "migration": ["app_database_password"],
-    "fixture-init": ["app_database_password"],
-    "postgres": ["app_database_password"],
-    "preprod-auth-postgres": ["preprod_auth_database_password"],
-    "preprod-auth": [
-      "preprod_auth_database_url",
-      "preprod_auth_signing_key",
-      "preprod_auth_data_encryption_key",
-      "preprod_auth_mfa_key",
-      "preprod_oidc_client_secret",
-      "preprod_auth_admin_secret"
+    "worker": [
+      "surveil_runtime_database_password",
+      "auth_admin_secret",
+      "minio_worker_access_key",
+      "minio_worker_secret_key",
+      "oidc_client_secret",
+      "session_encryption_key",
+      "smtp_password"
     ],
+    "postgres": ["rds_master_database_password"],
     "minio": [
       "minio_api_access_key",
       "minio_api_secret_key",

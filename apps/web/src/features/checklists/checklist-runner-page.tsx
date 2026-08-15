@@ -16,45 +16,6 @@ const answerLabels: Readonly<Partial<Record<ChecklistAnswer, string>>> = {
   NOT_APPLICABLE: "Not Applicable",
 };
 
-const acceptedQueueQuestions = [
-  {
-    prompt: "Is the oven installed, serviceable, and in compliance with configured cabin inspection requirements?",
-    section: "GALLEY / Galley Items",
-    reference: "Configured reference: ICAO Annex 6 / Company Cabin Inspection Manual (demo)",
-    evidence: "Galley equipment serviceability record or cabin defect rectification note",
-  },
-  {
-    prompt: "Is the lavatory oxygen compartment installed, serviceable, and in compliance with configured cabin emergency equipment requirements?",
-    section: "LAV / Lavatories",
-    reference: "Configured reference: ICAO Annex 6 / Company Cabin Inspection Manual (demo)",
-    evidence: "Lavatory oxygen compartment serviceability record and inspection note",
-  },
-  {
-    prompt: "Is the passenger oxygen mask compartment installed, serviceable, and in compliance with configured cabin emergency equipment requirements?",
-    section: "PAX SEAT / Pax Seats",
-    reference: "Configured reference: ICAO Annex 6 / Company Cabin Inspection Manual (demo)",
-    evidence: "Passenger seat oxygen mask compartment check record",
-  },
-  {
-    prompt: "Is the PBE installed, serviceable, accessible, and in compliance with configured cabin emergency equipment requirements?",
-    section: "EM EQ / Emergency Equipment",
-    reference: "Configured reference: ICAO Annex 6 / Cabin emergency equipment (demo reference)",
-    evidence: "PBE replacement/serviceability record, cabin defect rectification reference, and inspector photo filename",
-  },
-  {
-    prompt: "Are first aid oxygen masks installed, serviceable, accessible, and in compliance with configured cabin emergency equipment requirements?",
-    section: "EM EQ / Emergency Equipment",
-    reference: "Configured reference: ICAO Annex 6 / Cabin emergency equipment (demo reference)",
-    evidence: "First aid oxygen serviceability record and inspection sign-off",
-  },
-  {
-    prompt: "Is the exit safety strap installed, serviceable, and in compliance with configured exit equipment requirements?",
-    section: "COCKPIT+CAB GEN COND+EXITS / Exits",
-    reference: "Configured reference: ICAO Annex 6 / Cabin exits (demo reference)",
-    evidence: "Exit equipment inspection record and rectification note if applicable",
-  },
-] as const;
-
 function answerLabel(answer: ChecklistAnswer): string {
   return answerLabels[answer] ?? answer.replaceAll("_", " ");
 }
@@ -81,7 +42,7 @@ export function ChecklistRunnerPage() {
   const { auditId } = useParams<{ auditId: string }>();
   const navigate = useNavigate();
   const { projection, actions } = useScenario();
-  const [selectedQuestionId, setSelectedQuestionId] = useState("CAB-EMEQ-PBE-001");
+  const [selectedQuestionId, setSelectedQuestionId] = useState("");
   const [answer, setAnswer] = useState<ChecklistAnswer>("NOT_CHECKED");
   const [comment, setComment] = useState("");
   const [inspectionAttachment, setInspectionAttachment] = useState<File | null>(null);
@@ -93,12 +54,6 @@ export function ChecklistRunnerPage() {
     void actions.loadPackage(requestedPackageId).catch((cause) => setError(errorMessage(cause)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestedPackageId]);
-
-  useEffect(() => {
-    if (projection.packageView?.questions[0] && new URLSearchParams(location.search).has("packageId")) {
-      setSelectedQuestionId(projection.packageView.questions[0].id);
-    }
-  }, [location.search, projection.packageView]);
 
   useEffect(() => {
     if (!projection.fieldMode || !projection.response) return;
@@ -113,7 +68,7 @@ export function ChecklistRunnerPage() {
   const selectedResponse =
     selectedQuestion?.currentResponse ??
     (projection.response?.questionId === selectedQuestionId ? projection.response : null);
-  const activeSubjectId = runtime.subjectId ?? "USR-INSPECTOR-AMINA";
+  const activeSubjectId = runtime.subjectId ?? "authenticated-subject";
   const selectedQuestionAssignedHere =
     selectedQuestion?.assignedInspectorUserIds.includes(activeSubjectId) ?? false;
   const checklistReadOnly = packageView?.checklistStatus === "SUBMITTED";
@@ -126,12 +81,12 @@ export function ChecklistRunnerPage() {
         pendingCount: projection.fieldPendingOperationCount,
       })
     : null;
-  const answeredCount = selectedResponse ? 1 : 0;
-  const questionCount = packageView?.questions.length ?? 6;
+  const answeredCount = packageView?.questions.filter((question) => question.currentResponse).length ?? 0;
+  const questionCount = packageView?.questions.length ?? 0;
   const progress = questionCount > 0 ? Math.round((answeredCount / questionCount) * 100) : 0;
   const identityMode =
     session?.identityMode ??
-    (runtime.buildProfile === "http" ? "canonical-test-role-switch" : "demo-role-switch");
+    (runtime.identityMode ?? "oidc-session");
 
   async function run(command: () => Promise<void>): Promise<void> {
     setBusy(true);
@@ -169,8 +124,8 @@ export function ChecklistRunnerPage() {
         </div>
         <header className="checklist-page-head workbench-page-header">
           <div>
-            <h1 aria-label="Cabin Inspection checklist">Checklist Runner — Cabin Inspection</h1>
-            <p>Fly Namibia · 2026 Cabin Inspection - Fly Namibia · v1.0 (2026 demo)</p>
+            <h1 aria-label="Server-owned checklist">Checklist Runner</h1>
+            <p>{packageView?.organizationName ?? "Organization unavailable"} · {packageView?.title ?? "Server-owned inspection package"} · package v{packageView?.packageVersion ?? "—"}</p>
           </div>
           <Link to={auditId ? `/inspector/audits/${encodeURIComponent(auditId)}` : "/inspector/inspector-assignments"}>Back to audit</Link>
         </header>
@@ -179,9 +134,7 @@ export function ChecklistRunnerPage() {
           <strong>{answeredCount} of {questionCount} answered</strong>
           <div aria-hidden="true"><span style={{ width: `${progress}%` }} /></div>
           <p>
-            Demo scenario: mark <b>EM EQ / PBE serviceability</b> as <b>Non-Compliant</b> to
-            raise a finding. Source sections: GALLEY, LAV, PAX SEAT, EM EQ, VID+CREW SEAT,
-            COCKPIT+CAB GEN COND+EXITS.
+            Select an assigned question, record the server-configured response, and follow the exact next action returned by the API.
           </p>
         </section>
         {attachmentRecoveryBlocked ? (
@@ -204,9 +157,7 @@ export function ChecklistRunnerPage() {
               <>
                 <h2>{selectedQuestion.prompt}</h2>
                 <p className="checklist-active-question__meta">
-                  Emergency Equipment / Configured reference: ICAO Annex 6 / Cabin emergency
-                  equipment (demo reference) · Expected Evidence: PBE replacement/serviceability
-                  record, cabin defect rectification reference, and inspector photo filename
+                  Configured reference and Expected Evidence are server-owned for this immutable question version.
                   <span className="checklist-contract-copy">{selectedQuestion.regulatoryReference ?? "Configured checklist reference"}</span>
                   <span className="checklist-contract-copy">{selectedQuestion.expectedEvidence ?? "Inspector observation and required exception comment"}</span>
                   <span className="checklist-contract-copy">Comments required for Non Compliant and Observation</span>
@@ -214,17 +165,14 @@ export function ChecklistRunnerPage() {
                 <section className="checklist-regulatory-trace" aria-label="Regulatory trace">
                   <header>
                     <strong>Regulatory trace</strong>
-                    <span>● Mock regulatory library</span>
+                    <span>● Server-configured reference</span>
                     <span className="is-warn">● Not a legal decision</span>
-                    <span className="is-ok">● Published</span>
+                    <span className="is-ok">● Active snapshot</span>
                   </header>
                   <dl>
-                    <div><dt>Source</dt><dd>NAMCARS Cabin Emergency Equipment Requirements</dd></div>
-                    <div><dt>Version</dt><dd>2026 mock edition</dd></div>
-                    <div><dt>Clause / PQ</dt><dd>CAB EMEQ PBE</dd></div>
-                    <div><dt>Effective</dt><dd>1 Jan 2026</dd></div>
-                    <div><dt>Applicability</dt><dd>Fly Namibia is an operator / service provider with cabin emergency equipment installed.</dd></div>
-                    <div><dt>Linked checklist/evidence</dt><dd>Cabin Inspection / EM EQ / PBE serviceability · PBE serviceability record; cabin defect rectification reference; inspector photo filename</dd></div>
+                    <div><dt>Reference</dt><dd>{selectedQuestion.regulatoryReference ?? "Configured reference unavailable"}</dd></div>
+                    <div><dt>Expected Evidence</dt><dd>{selectedQuestion.expectedEvidence ?? "Configured Evidence requirement unavailable"}</dd></div>
+                    <div><dt>Question version</dt><dd>{selectedQuestion.id}</dd></div>
                   </dl>
                 </section>
                 <div className="checklist-command-strip">
@@ -371,7 +319,6 @@ export function ChecklistRunnerPage() {
                   {packageView?.questions.map((question, index) => {
                     const assignedHere = question.assignedInspectorUserIds.includes(activeSubjectId);
                     const active = selectedQuestionId === question.id;
-                    const acceptedQuestion = acceptedQueueQuestions[index];
                     return (
                       <tr className={active ? "is-selected" : ""} key={question.id}>
                         <td>
@@ -387,7 +334,7 @@ export function ChecklistRunnerPage() {
                         </td>
                         <td>
                           <strong data-testid={`question-${question.id}`}>
-                            {acceptedQuestion?.prompt ?? question.prompt}
+                            {question.prompt}
                             {!assignedHere ? (
                               <span className="checklist-contract-copy">
                                 Assigned to another Inspector — read-only
@@ -395,13 +342,11 @@ export function ChecklistRunnerPage() {
                             ) : null}
                           </strong>
                           <small>
-                            {acceptedQuestion
-                              ? `${acceptedQuestion.section} · ${acceptedQuestion.reference}`
-                              : `${question.sectionId} / ${question.regulatoryReference}`}
+                            {`${question.sectionId} / ${question.regulatoryReference ?? "Configured reference unavailable"}`}
                           </small>
                         </td>
                         <td><span>● {active && selectedResponse ? answerLabel(selectedResponse.answer) : "Not answered"}</span></td>
-                        <td>{acceptedQuestion?.evidence ?? question.expectedEvidence}</td>
+                        <td>{question.expectedEvidence ?? "Configured Evidence requirement unavailable"}</td>
                         <td>{active && activeFlagged ? findingPath : "No finding"}</td>
                         <td><span>{active ? "Current" : assignedHere ? "Select row" : "Read-only"}</span></td>
                       </tr>

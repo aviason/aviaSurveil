@@ -166,20 +166,15 @@ func TestDataIntegrationIsExplicitAndFailClosed(t *testing.T) {
 	}
 }
 
-func TestLocalPreprodEnvironmentIsAcceptedForTheDedicatedDisposableProfile(t *testing.T) {
+func TestRetiredEnvironmentIsRejected(t *testing.T) {
 	t.Parallel()
 
-	settings, err := config.LoadAPI(mapLookup(map[string]string{
-		"AVIA_ENVIRONMENT":            "local-preprod",
-		"AVIA_DATABASE_URL":           "postgres://preprod.example/avia",
-		"AVIA_AUTH_ADMIN_URL":         "http://preprod-auth:8081",
-		"AVIA_AUTH_ADMIN_SECRET_FILE": "/run/secrets/preprod_auth_admin_secret",
+	_, err := config.LoadAPI(mapLookup(map[string]string{
+		"AVIA_ENVIRONMENT":  "local-preprod",
+		"AVIA_DATABASE_URL": "postgres://retired.example/avia",
 	}))
-	if err != nil {
-		t.Fatalf("LoadAPI() rejected the dedicated local-preprod environment: %v", err)
-	}
-	if settings.Environment != "local-preprod" {
-		t.Fatalf("environment = %q, want local-preprod", settings.Environment)
+	if err == nil || !strings.Contains(err.Error(), "AVIA_ENVIRONMENT") {
+		t.Fatalf("LoadAPI() accepted retired local-preprod environment: %v", err)
 	}
 }
 

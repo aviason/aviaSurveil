@@ -34,23 +34,38 @@ func (service *Service) ListTeamMembers(
 	}
 	rows, err := service.pool.Query(ctx, `
 		SELECT profile.subject_id, profile.display_name,
-		       COALESCE(active_session.roles[1], ''),
-		       profile.organization_id, profile.revision
+		       membership.roles[1], membership.organization_id, profile.revision
 		FROM user_profiles profile
 		JOIN identity_references identity ON identity.subject_id = profile.subject_id
-		LEFT JOIN LATERAL (
-			SELECT session.roles
-			FROM session_references session
-			WHERE session.subject_id = profile.subject_id
-			  AND session.revoked_at IS NULL
-			ORDER BY session.created_at DESC, session.id DESC
+		JOIN LATERAL (
+			SELECT version.organization_id, version.roles
+			FROM desired_membership_versions version
+			JOIN desired_membership_sync sync
+			  ON sync.membership_id = version.membership_id
+			 AND sync.subject_id = version.subject_id
+			 AND sync.desired_revision = version.revision
+			WHERE version.subject_id = profile.subject_id
+			  AND version.revision = (
+			      SELECT latest.revision
+			      FROM desired_membership_versions latest
+			      WHERE latest.subject_id = profile.subject_id
+			      ORDER BY latest.revision DESC
+			      LIMIT 1
+			  )
+			  AND version.membership_state = 'ACTIVE'
+			  AND version.effective_at <= now()
+			  AND sync.observed_provider_enabled
+			  AND sync.observed_organization_id = version.organization_id
+			  AND sync.drift_state = 'IN_SYNC'
+			  AND version.roles <@ sync.observed_roles
+			  AND sync.observed_roles <@ version.roles
 			LIMIT 1
-		) active_session ON true
+		) membership ON true
 		WHERE profile.tombstoned_at IS NULL
 		  AND identity.tombstoned_at IS NULL
-		  AND ($1 = '' OR $1 = ANY(active_session.roles))
-		  AND COALESCE(active_session.roles[1], '') <> 'auditee'
-		  AND ($3 = '' OR profile.organization_id = $3)
+		  AND ($1 = '' OR $1 = ANY(membership.roles))
+		  AND membership.roles[1] <> 'auditee'
+		  AND ($3 = '' OR membership.organization_id = $3)
 		ORDER BY profile.display_name, profile.subject_id
 		LIMIT $2
 	`, roleFilter, limit, organizationFilter)
@@ -98,22 +113,38 @@ func (service *Service) getTeamMember(
 	var output TeamMember
 	if err := service.pool.QueryRow(ctx, `
 		SELECT profile.subject_id, profile.display_name,
-		       COALESCE(active_session.roles[1], ''),
-		       profile.organization_id, profile.revision
+		       membership.roles[1], membership.organization_id, profile.revision
 		FROM user_profiles profile
 		JOIN identity_references identity ON identity.subject_id = profile.subject_id
-		LEFT JOIN LATERAL (
-			SELECT session.roles
-			FROM session_references session
-			WHERE session.subject_id = profile.subject_id
-			  AND session.revoked_at IS NULL
-			ORDER BY session.created_at DESC, session.id DESC
+		JOIN LATERAL (
+			SELECT version.organization_id, version.roles
+			FROM desired_membership_versions version
+			JOIN desired_membership_sync sync
+			  ON sync.membership_id = version.membership_id
+			 AND sync.subject_id = version.subject_id
+			 AND sync.desired_revision = version.revision
+			WHERE version.subject_id = profile.subject_id
+			  AND version.revision = (
+			      SELECT latest.revision
+			      FROM desired_membership_versions latest
+			      WHERE latest.subject_id = profile.subject_id
+			      ORDER BY latest.revision DESC
+			      LIMIT 1
+			  )
+			  AND version.membership_state = 'ACTIVE'
+			  AND version.effective_at <= now()
+			  AND sync.observed_provider_enabled
+			  AND sync.observed_organization_id = version.organization_id
+			  AND sync.drift_state = 'IN_SYNC'
+			  AND version.roles <@ sync.observed_roles
+			  AND sync.observed_roles <@ version.roles
 			LIMIT 1
-		) active_session ON true
+		) membership ON true
 		WHERE profile.subject_id = $1
 		  AND profile.tombstoned_at IS NULL
 		  AND identity.tombstoned_at IS NULL
-		  AND ($2 = '' OR profile.organization_id = $2)
+		  AND membership.roles[1] <> 'auditee'
+		  AND ($2 = '' OR membership.organization_id = $2)
 	`, subjectID, organizationFilter).Scan(
 		&output.SubjectID, &output.DisplayName, &output.Role,
 		&output.OrganizationID, &output.Revision,

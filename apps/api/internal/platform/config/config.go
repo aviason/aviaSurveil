@@ -284,7 +284,6 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 	}
 	settings.AllowServerManagedCORS = (settings.Environment == "test" &&
 		(settings.CanonicalSeed || serverManagedCORS)) ||
-		settings.Environment == "local-preprod" ||
 		(settings.Environment == "development" && serverManagedCORS)
 
 	if cloudEnvironment {
@@ -338,11 +337,11 @@ func load(lookup LookupEnv, requirements runtimeRequirements) (Settings, error) 
 	if settings.DatabaseURL == "" {
 		return Settings{}, fmt.Errorf("AVIA_DATABASE_URL is required")
 	}
-	if !contains([]string{"demo", "development", "test", "production", "local-preprod"}, settings.Environment) {
-		return Settings{}, fmt.Errorf("AVIA_ENVIRONMENT must be demo, development, test, production, or local-preprod")
+	if !contains([]string{"demo", "development", "test", "production"}, settings.Environment) {
+		return Settings{}, fmt.Errorf("AVIA_ENVIRONMENT must be demo, development, test, or production")
 	}
 	firstPartyConfigured := settings.FirstPartyAdminURL != "" || settings.FirstPartyAdminSecretFile != ""
-	if firstPartyConfigured || settings.Environment == "local-preprod" {
+	if firstPartyConfigured {
 		if settings.FirstPartyAdminURL == "" {
 			return Settings{}, fmt.Errorf("AVIA_AUTH_ADMIN_URL is required for AviaAuth administration")
 		}

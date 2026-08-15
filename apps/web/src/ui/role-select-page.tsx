@@ -88,10 +88,10 @@ export const ROLE_ENTRIES: readonly RoleEntry[] = [
     routeId: "auditee-home",
     route: "service-provider-cap",
     slug: "auditee",
-    label: "Auditee — Fly Namibia",
+    label: "Auditee",
     purpose: "What does the CAA need from my organization?",
     iconKey: "assignments",
-    loginLabel: "Service Provider Portal — Fly Namibia",
+    loginLabel: "Service Provider Portal",
     loginPurpose: "Inspection dates, CAP, Evidence and CAA requests",
     loginIconKey: "profile",
   },
@@ -152,7 +152,7 @@ export function RoleSelectPage({
           </div>
         </div>
         <div className="login-hero__story">
-          <span className="login-demo-badge">Demo workspace</span>
+          <span className="login-demo-badge">Local workspace</span>
           <h1 id="login-hero-title">
             Safer oversight,
             <br />
@@ -168,20 +168,20 @@ export function RoleSelectPage({
             }}
             type="button"
           >
-            Explore the clickable demo
+            Explore the local workspace
             <img src={BRAND_ASSETS.icons.logout} width="22" height="22" alt="" aria-hidden="true" />
           </button>
         </div>
         <div className="login-hero__foot">
-          <p>Frontend-only prototype · mock data · no real authentication or backend.</p>
-          <button onClick={() => window.location.reload()} type="button">Reset demo data</button>
+          <p>Local qualification profile · the production profile uses authenticated sessions.</p>
+          <button onClick={() => window.location.reload()} type="button">Reset local session</button>
         </div>
       </section>
       <main className="login-selector" id="login-workspaces" tabIndex={-1}>
         <header className="login-selector__head">
           <span className="login-selector__eyebrow">Role-based access</span>
           <h2>Choose your workspace</h2>
-          <p>Enter the demo through one of eight perspectives. You can switch roles at any time.</p>
+          <p>Enter the local qualification profile through one of eight role perspectives.</p>
         </header>
         <div className="login-selector__groups role-select-panel" data-testid="role-select-panel" aria-label="Role entries">
           {ROLE_GROUPS.map((group) => (

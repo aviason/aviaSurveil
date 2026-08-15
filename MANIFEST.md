@@ -1,63 +1,30 @@
 # AviaSurveil360 Package Manifest
 
-This repository is a planning pack plus an intact **frontend-only static
-clickable demo** and a separate `candidate-only` React/Go application. It is
-not a production system.
+This repository contains the accepted static demo, the connected React/Go
+product, the first-party bootstrap loaders, and the source and evidence needed
+to qualify a target-bound release. It is not a production-readiness claim by
+itself; AviaWorkspace owns immutable release locks and cloud deployment.
 
-Candidate boundary: a local Go/PostgreSQL API/worker, a separate first-party
-Go OIDC service with dedicated auth PostgreSQL, private versioned MinIO storage,
-an explicit disabled fail-closed scanner, local-only application Mailpit SMTP,
-native Go PDF rendering, complete normalized MockBackend/HttpBackend
-scenarios, PWA/readiness, atomic offline field/outbox persistence,
-manifest-first OPFS Inspection Attachment recovery, typed foreground sync, and
-all 85 current React routes in demo and HTTP are `verified locally`; the
-retired fixed-ID package-builder route remains only in the historical
-86-screen baseline. The Full React
-migration's Task 10 correction and Tasks 11–12 evidence have clean independent
-acceptance; its full visual gate remains literally `not verified`. Plan 4 adds
-local telemetry and alerting, separate application/identity backup chains,
-exact isolated restore and candidate RPO/RTO drills, owner-scoped runbooks,
-and digest-bound recovery images. The former repository-local cloud
-infrastructure gates were retired when AviaWorkspace became the sole platform
-infrastructure authority.
-Plan 1 visual stakeholder disposition is 170/170 complete; all 10 Fix records
-are `fixed-verified-locally` and zero manual decisions remain.
-The fresh strict baseline verifier is separately `not verified` on later
-UI-audit metadata drift, while a read-only content check verifies all 258/258
-baseline PNG hashes; the accepted manifest was not changed.
-Plans 1–4 are completed local `candidate-only` milestones. The former AWS Task
-10 path is superseded by AviaWorkspace and is no longer a Surveil execution
-surface.
-The old connected identity/data loader and its disposable evidence were
-retired after the canonical successor and first-party identity loader became
-the maintained local-preprod path. The sealed package reader needed by the
-canonical AGA loader remains under canonical import ownership; no duplicate
-stakeholder runtime remains in the package.
-The active Canonical AGA Preprod End-To-End Product successor is separately
-`candidate-only`: its canonical Question Review history, immutable New Audit
-selection summary, pre-materialization Lead handoff, donor-free normal HTTP
-contract/artifact/binary, non-owner local-preprod runtime role, and connected
-OIDC hero lifecycle through Final Report issue are `verified locally`; the
-privacy-safe manual viewport qualification is recorded as accepted, while full
-recursive gates remain `not run` or `blocked`. Its final Task 8 disposable
-matrix verified transaction/fault/concurrency, cold-restart fingerprint
-preservation, post-restart multi-role OIDC, dependency loss/recovery, worker
-crash restart, donor fail-closed behavior, secret-log denial, and zero residue.
-Sol XHigh accepted the implemented pre-deletion code boundary with 0
-Critical/0 Important. The user then selected Task 9 `delete`; 153 tracked donor
-files were removed and the full Go/React/build/artifact plus connected
-fault/restart matrix passed again with no donor fallback and zero residue. The
-manual three-viewport review was accepted on 2026-08-11. External preprod is no longer part
-of that plan; it is `not run` in a separate paused follow-up ExecPlan.
-The root Vanilla demo remains intact.
-
-`component.json` declares the `aviason/aviaSurveil` Workspace contract. Its
-local Compose path is scoped to candidate validation; AviaWorkspace owns
-customer topology, environment selection, immutable image locks, and
-deployment infrastructure. The application defaults to `AVIA_DATA=0`.
-Workspace Namibia dev explicitly selects the local-candidate AviaData
-admission path; released environments remain fail-closed until the connected
-contract and images are qualified.
+The maintained connected boundary is a Go/PostgreSQL API and worker, a
+first-party AviaAuth OIDC service, private versioned MinIO storage, a
+fail-closed scanner, local Mailpit delivery, native Go document rendering, and
+the React HTTP artifact. The target manifest supplies the exact foundation,
+nine-account prepared roster, and approved 52-form/1,310-question source
+package. The catalog is imported as `IMPORTED_APPROVED_SOURCE`; optional risk or
+regulatory mappings remain explicitly unapproved enrichment.
+The local Compose profiles are target-neutral (`demo`, `full`, `test`,
+`recovery`, and `tools`) and are owned by `scripts/local-stack.sh`. The
+Workspace repository owns cloud Terraform/Terragrunt, immutable image digests,
+release locks, and the exact `namibia/demo` deployment. Legacy local-preprod,
+exercise, candidate publication, and tunnel compatibility paths are removed.
+The root static demo remains intact as a historical UI oracle.
+The active prepared-identity plan is the source of truth for current
+qualification evidence. Its connected browser scenarios, real PostgreSQL
+loader replay/drift checks, release evidence, and cloud rollout status must be
+reported with literal evidence labels; historical plan records do not authorize
+legacy runtime paths. `component.json` declares the `aviason/aviaSurveil`
+Workspace contract. The application defaults to `AVIA_DATA=0`; released
+environments remain fail-closed until the Workspace release lock is applied.
 
 ## Root Files
 
@@ -89,7 +56,7 @@ contract and images are qualified.
 - `js/app.js` — role routing, UI action handling, mock interactions, and demo
   bootstrapping.
 
-## Versioned Contract, React Candidate, And Go Candidate
+## Versioned Contract, Connected React Product, And Go Services
 
 - `api/openapi/aviasurveil360.yaml` — generated versioned full-platform
   transport contract for all frozen local candidate slices.

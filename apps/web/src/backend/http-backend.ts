@@ -18,8 +18,6 @@ import type {
   CanonicalQuestionCatalogEntry,
   CanonicalQuestionCatalogPage,
   CanonicalAuditScopeOptionPage,
-  CanonicalQuestionReviewQueue,
-  CanonicalQuestionReviewCommandOutput,
   CanonicalSelectionPreview,
   CanonicalSelectionReceipt,
   CanonicalAuditWorkflowBackend,
@@ -137,14 +135,6 @@ function mapCanonicalSelectionPreview(value: Schemas["CanonicalAuditScopeSelecti
 }
 
 function mapCanonicalSelectionReceipt(value: Schemas["CanonicalAuditScopeSelectionReceipt"]): CanonicalSelectionReceipt {
-  return value;
-}
-
-function mapCanonicalReviewQueue(value: Schemas["QuestionReviewQueue"]): CanonicalQuestionReviewQueue {
-  return { ...value, items: value.items.map(mapCanonicalCatalogEntry) };
-}
-
-function mapCanonicalReviewCommand(value: Schemas["QuestionReviewCommandOutput"]): CanonicalQuestionReviewCommandOutput {
   return value;
 }
 
@@ -797,7 +787,7 @@ export function createHttpBackend(
           ),
       ),
     },
-    canonicalQuestionReview: {
+    canonicalCatalog: {
       listScopeOptions: async (input, options) => mapCanonicalScopeOptionPage(await request<Schemas["CanonicalAuditScopeOptionPage"]>(
         appendQuery("/v1/audit-scope-options", {
           cursor: input?.cursor,
@@ -824,16 +814,6 @@ export function createHttpBackend(
         const { scopeId, ...body } = input;
         return mapCanonicalSelectionReceipt(await request<Schemas["CanonicalAuditScopeSelectionReceipt"]>(
           `/v1/audit-scopes/${encodeURIComponent(scopeId)}/selection`, { method: "PUT", body, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey ?? input.operationId, expectedRevision: null }) }, options));
-      },
-      reviewQueue: async (input, options) => mapCanonicalReviewQueue(await request<Schemas["QuestionReviewQueue"]>(
-        appendQuery("/v1/department-manager/question-review", input), { cache: "no-store", suppressTelemetry: true }, options)),
-      command: async (input, options) => {
-        const { mode, ...commandBody } = input;
-        return mapCanonicalReviewCommand(await request<Schemas["QuestionReviewCommandOutput"]>(
-          mode === "PREPROD_EXERCISE"
-            ? "/v1/department-manager/question-review/exercise-commands"
-            : "/v1/department-manager/question-review/governed-commands",
-          { method: "POST", body: commandBody, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey ?? input.operationId, expectedRevision: null }), cache: "no-store", suppressTelemetry: true }, options));
       },
     },
     canonicalAuditWorkflow: {

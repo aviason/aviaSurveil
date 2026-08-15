@@ -46,7 +46,7 @@ function useRoleContinuation() {
   const session = useOptionalSession();
   const navigate = useNavigate();
   return {
-    identityMode: session?.identityMode ?? runtime.identityMode ?? (runtime.buildProfile === "http" ? "oidc-session" : "demo-role-switch"),
+    identityMode: session?.identityMode ?? runtime.identityMode ?? "oidc-session",
     session: session?.state ?? { status: "unauthenticated" as const },
     request(role: Role) {
       session?.setActiveRole(role);
@@ -88,7 +88,6 @@ export function FinanceReviewPage() {
   useEffect(() => {
     void backend.planning.list({ limit: 20 }).then((output) => {
       setItems(output.items);
-      setSelected(output.items[0] ?? null);
     }).catch((cause) => setError(errorMessage(cause)));
   }, [backend]);
 
@@ -136,6 +135,7 @@ export function GeneralManagerDashboardPage() {
   const [organizations, setOrganizations] = useState<OrganizationSummary[]>([]);
   const [plans, setPlans] = useState<PlanningItemView[]>([]);
   const [reports, setReports] = useState<ReportVersionView[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [choice, setChoice] = useState<PlanningDecision | null>(null);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -143,24 +143,25 @@ export function GeneralManagerDashboardPage() {
   useEffect(() => {
     void Promise.all([backend.dashboards.getManagerProjection({}), backend.findings.list({ limit: 50 }), backend.organizations.list({ limit: 100 }), backend.planning.list({ limit: 20 }), discoverCAAReportVersions(backend)]).then(([nextDashboard, nextFindings, nextOrganizations, nextPlans, nextReports]) => { setDashboard(nextDashboard); setFindings(nextFindings.items); setOrganizations(nextOrganizations.items); setPlans(nextPlans.items); setReports(nextReports); }).catch((cause) => setError(errorMessage(cause)));
   }, [backend]);
-  const plan = plans[0] ?? null;
+  const plan = selectedPlanId ? plans.find((candidate) => candidate.id === selectedPlanId) ?? null : null;
   async function decide(): Promise<void> {
     if (!plan || !choice) return;
     if (!reason.trim()) { setError("General Manager decision reason is required."); return; }
     setBusy(true); setError(null);
-    try { const updated = await backend.planning.decide({ operationId: `GM-${choice}-${plan.id}-${plan.revision}`, planningItemId: plan.id, expectedPlanningRevision: plan.revision, decision: choice, reason, expectedSubmittedScopeSnapshotId: plan.submittedScopeSnapshotId, expectedPlanningSnapshotDigest: plan.planningSnapshotDigest }); setPlans([updated]); setChoice(null); setReason(""); } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); }
+    try { const updated = await backend.planning.decide({ operationId: `GM-${choice}-${plan.id}-${plan.revision}`, planningItemId: plan.id, expectedPlanningRevision: plan.revision, decision: choice, reason, expectedSubmittedScopeSnapshotId: plan.submittedScopeSnapshotId, expectedPlanningSnapshotDigest: plan.planningSnapshotDigest }); setPlans((current) => current.map((item) => item.id === updated.id ? updated : item)); setChoice(null); setReason(""); } catch (cause) { setError(errorMessage(cause)); } finally { setBusy(false); }
   }
   const departments = ["Cabin Safety", "Security", "Airworthiness", "Ramp", "Unassigned", "Certification", "Licensing"];
   const highRisk = findings.filter((finding) => ["LEVEL_1_CRITICAL", "LEVEL_2_MAJOR"].includes(finding.severity)).length;
   const pendingReports = reports.filter((report) => report.status === "GM_REVIEW");
-  const kpis = [["Pending Preliminary Reports", pendingReports.filter((report) => report.reportId.startsWith("PR-")).length], ["Pending Final Reports", pendingReports.filter((report) => !report.reportId.startsWith("PR-")).length], ["High Risk Findings", highRisk], ["Reports Awaiting Your Approval", pendingReports.length], ["Overdue CAPs", dashboard?.overdueFindings ?? 0]] as const;
+  const kpis = [["Pending Preliminary Reports", pendingReports.filter((report) => report.kind === "PRELIMINARY").length], ["Pending Final Reports", pendingReports.filter((report) => report.kind === "FINAL").length], ["High Risk Findings", highRisk], ["Reports Awaiting Your Approval", pendingReports.length], ["Overdue CAPs", dashboard?.overdueFindings ?? 0]] as const;
   return (
     <WorkspaceShell roleLabel="General Manager" routeLabel="GM Dashboard">
-      <div className="authority-workspace gm-dashboard-page"><header className="authority-page-head workbench-page-header"><h1>General Manager Dashboard</h1><p>Review intermediate Preliminary and Final Report decisions, department exposure, high-risk findings, and overdue CAPs.</p><span className="candidate-boundary">Due</span></header><CommandError message={error} />
+      <div className="authority-workspace gm-dashboard-page"><header className="authority-page-head workbench-page-header"><h1>General Manager Dashboard</h1><p>Review intermediate Preliminary and Final Report decisions, department exposure, high-risk findings, and overdue CAPs.</p><span className="qualification-boundary">Due</span></header><CommandError message={error} />
         <section aria-label="General Manager indicators" className="gm-kpis">{kpis.map(([label, value]) => <article key={label}><span>{label}</span><strong>{value}</strong></article>)}</section>
         <div className="gm-dashboard-grid"><section className="gm-panel"><header><span>Cross-department oversight</span><h2>Department Overview</h2></header><div className="gm-table"><table aria-label="Department Overview"><thead><tr><th>Department</th><th>Audits</th><th>Active</th><th>Findings</th><th>High</th><th>Medium</th><th>Overdue CAPs</th><th>Exposure</th></tr></thead><tbody>{departments.map((department, index) => <tr key={department}><td><b>{department}</b></td><td>{index === 0 ? plans.length : 0}</td><td>{index === 0 ? plans.filter((item) => item.status !== "RELEASED").length : 0}</td><td>{index === 0 ? findings.length : 0}</td><td>{index === 0 ? highRisk : 0}</td><td>0</td><td>{index === 0 ? dashboard?.overdueFindings ?? 0 : 0}</td><td><span className="gm-exposure-score">{index === 0 ? findings.length + plans.length : 0}</span></td></tr>)}</tbody></table></div><Link to="/general-manager/departments">View All Departments</Link></section>
           <section aria-label="Risk Heat Map" className="gm-panel gm-risk-heat"><header><span>Likelihood × Impact</span><h2>Risk Heat Map</h2></header><div className="gm-risk-matrix">{Array.from({ length: 25 }, (_, index) => { const score = (5 - Math.floor(index / 5)) * ((index % 5) + 1); return <div className={score >= 15 ? "is-critical" : score >= 10 ? "is-high" : score >= 5 ? "is-medium" : "is-low"} key={index}><b>{index === 22 ? highRisk : 0}</b><small>{score}</small></div>; })}</div><div className="gm-risk-axis"><span>Higher likelihood ↑</span><span>Impact →</span></div></section></div>
-        <section className="gm-panel gm-dashboard-queue"><header><span>Intermediate review stage</span><h2>Report Review Queue</h2></header><div className="gm-table gm-approval-table"><table aria-label="Report Review Queue"><thead><tr><th>Report</th><th>Type</th><th>Organization</th><th>Status</th><th>Owner</th><th>Decision</th></tr></thead><tbody>{reports.length ? reports.map((report) => <tr key={report.reportVersionId}><td><b>{report.reportVersionId}</b><small>{report.auditId}</small></td><td>{report.reportId.startsWith("PR-") ? "Preliminary Report" : "Final Report"}</td><td>{organizations.find((organization) => organization.id === report.organizationId)?.legalName ?? report.organizationId}</td><td>{report.status}</td><td>{report.status === "GM_REVIEW" ? "General Manager" : report.status === "EXECUTIVE_DIRECTOR_REVIEW" || report.status === "LOCKED" ? "Executive Director" : "Department Manager"}</td><td>{report.status === "GM_REVIEW" ? <Link aria-label={`Open report ${report.reportVersionId}`} to="/general-manager/report-approvals">Open Report</Link> : <button aria-label={`Open report ${report.reportVersionId} unavailable`} disabled title={`Report version ${report.reportVersionId} is ${report.status}; General Manager can open exact report decisions only at GM_REVIEW.`} type="button">Open Report</button>}</td></tr>) : <tr><td colSpan={6}><b>No report versions are available yet.</b><small>The queue will populate after an inspection completes the report lifecycle.</small></td></tr>}</tbody></table></div></section>
+        <section className="gm-panel gm-dashboard-queue"><header><span>Intermediate review stage</span><h2>Report Review Queue</h2></header><div className="gm-table gm-approval-table"><table aria-label="Report Review Queue"><thead><tr><th>Report</th><th>Type</th><th>Organization</th><th>Status</th><th>Owner</th><th>Decision</th></tr></thead><tbody>{reports.length ? reports.map((report) => <tr key={report.reportVersionId}><td><b>{report.reportVersionId}</b><small>{report.auditId}</small></td><td>{report.kind === "PRELIMINARY" ? "Preliminary Report" : "Final Report"}</td><td>{organizations.find((organization) => organization.id === report.organizationId)?.legalName ?? report.organizationId}</td><td>{report.status}</td><td>{report.status === "GM_REVIEW" ? "General Manager" : report.status === "EXECUTIVE_DIRECTOR_REVIEW" || report.status === "LOCKED" ? "Executive Director" : "Department Manager"}</td><td>{report.status === "GM_REVIEW" ? <Link aria-label={`Open report ${report.reportVersionId}`} to="/general-manager/report-approvals">Open Report</Link> : <button aria-label={`Open report ${report.reportVersionId} unavailable`} disabled title={`Report version ${report.reportVersionId} is ${report.status}; General Manager can open exact report decisions only at GM_REVIEW.`} type="button">Open Report</button>}</td></tr>) : <tr><td colSpan={6}><b>No report versions are available yet.</b><small>The queue will populate after an inspection completes the report lifecycle.</small></td></tr>}</tbody></table></div></section>
+        <section aria-label="General Manager planning queue" className="gm-panel gm-dashboard-queue"><header><span>Planning decisions</span><h2>Select an exact Planning item</h2></header>{plans.length ? <div className="gm-table"><table><thead><tr><th>Planning item</th><th>Organization</th><th>Status</th><th>Action</th></tr></thead><tbody>{plans.map((item) => <tr key={item.id}><td><b>{item.id}</b><small>{item.title}</small></td><td>{item.organizationName}</td><td>{item.status}</td><td><button disabled={selectedPlanId === item.id} onClick={() => setSelectedPlanId(item.id)} type="button">{selectedPlanId === item.id ? "Selected" : `Open ${item.id}`}</button></td></tr>)}</tbody></table></div> : <p>No server-owned Planning items are available.</p>}</section>
         <p className="gm-authority-note"><b>Authority boundary:</b> General Manager review may return or forward a Preliminary or Final Report. General Manager cannot issue, sign, lock, or close a Finding.</p>
         {plan && ["GM_REVIEW", "GM_RELEASE", "EXECUTIVE_DIRECTOR_REVIEW", "RELEASED"].includes(plan.status) ? <section aria-label="General Manager planning decision" className="gm-planning-decision"><header><span>Planning authority</span><h2>{plan.title}</h2></header><dl><div><dt>Status</dt><dd data-testid="planning-status">{plan.status}</dd></div><div><dt>Current owner</dt><dd data-testid="planning-owner">{roleLabels[plan.currentOwnerRole]}</dd></div><div><dt>Target</dt><dd>{formatLocalDate(plan.scheduledDate)}</dd></div><div><dt>Revision</dt><dd>Revision {plan.revision}</dd></div></dl>{["GM_REVIEW", "GM_RELEASE"].includes(plan.status) ? <><div className="gm-decision-buttons"><button disabled={busy} onClick={() => setChoice(plan.status === "GM_RELEASE" ? "RELEASE_PLAN" : "FORWARD_FOR_FINAL_APPROVAL")} type="button">{plan.status === "GM_RELEASE" ? "Release Plan" : "Forward to Executive Director"}</button><button disabled={busy} onClick={() => setChoice("RETURN_FOR_REVISION")} type="button">Return for Revision</button></div>{choice ? <div className="gm-decision-form"><label>General Manager decision reason<textarea value={reason} onChange={(event) => setReason(event.target.value)} /></label><button onClick={() => void decide()} type="button">Confirm General Manager Decision</button></div> : null}</> : null}{plan.status === "EXECUTIVE_DIRECTOR_REVIEW" ? <RoleHandoff identityMode={handoff.identityMode} session={handoff.session} targetRole="executiveDirector" onRoleRequest={handoff.request}>Continue as Executive Director</RoleHandoff> : null}</section> : null}
       </div>
@@ -181,11 +182,10 @@ function PlanningGovernancePage({ role }: { role: "gm" | "executiveDirector" }) 
   useEffect(() => {
     void backend.planning.list({ limit: 50 }).then((output) => {
       setItems(output.items);
-      setSelectedId((current) => current || output.items[0]?.id || "");
     }).catch((cause) => setError(errorMessage(cause)));
   }, [backend]);
 
-  const selected = items.find((item) => item.id === selectedId) ?? items[0] ?? null;
+  const selected = items.find((item) => item.id === selectedId) ?? null;
   const visible = useMemo(() => items.filter((item) => {
     const matchesQuery = !query.trim() || [item.id, item.title, item.organizationName, item.inspectionType]
       .join(" ").toLowerCase().includes(query.trim().toLowerCase());
@@ -300,7 +300,7 @@ export function AuditPlanCalendarPage() {
     void backend.planning.list({ limit: 20 }).then((output) => {
       setItems(output.items);
       const requestedId = searchParams.get("planningItemId");
-      setSelected(output.items.find((item) => item.id === requestedId) ?? output.items[0] ?? null);
+      setSelected(output.items.find((item) => item.id === requestedId) ?? null);
     }).catch((cause) => setError(errorMessage(cause)));
   }, [backend, searchParams]);
 

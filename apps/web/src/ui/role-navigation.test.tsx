@@ -48,7 +48,7 @@ describe("RoleNavigation", () => {
     expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Reports Approval" })).toHaveAttribute(
       "href",
-      "/department-manager/preliminary-reports/PR-2026-018",
+      "/department-manager/preliminary-reports/:reportId",
     );
     expect(screen.getByRole("link", { name: "Risk Dashboard" })).toHaveAttribute(
       "href",
@@ -132,7 +132,7 @@ describe("RoleNavigation", () => {
     );
 
     expect(screen.queryByRole("link", { name: "Evidence Review" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Evidence Review unavailable/ })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /Evidence Review/ })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Assigned Audits" })).toHaveAttribute("href", "/lead-inspector/lead-review");
   });
 

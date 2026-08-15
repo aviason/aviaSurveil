@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import { AdminError, AdminPage, DisabledAdminAction, useAdminLoad, useAdminWorkspace } from "./admin-workspace-shared";
 
@@ -23,7 +23,8 @@ export function OrganizationMasterDataPage() {
 
 export function AdminOrganizationDetailPage() {
   const backend = useAdminWorkspace();
-  const { data, error } = useAdminLoad(() => backend.getOrganization({ organizationId: "ORG-FLY-NAMIBIA" }), [backend]);
+  const { organizationId } = useParams<{ organizationId: string }>();
+  const { data, error } = useAdminLoad(() => organizationId ? backend.getOrganization({ organizationId }) : Promise.resolve(null), [backend, organizationId]);
   return (
     <AdminPage testId="admin-organization-detail-page" routeLabel="Admin Organization Detail" title="Organization Detail" description="Exact contextual master-data record under Organisation Master Data.">
       <AdminError message={error} />

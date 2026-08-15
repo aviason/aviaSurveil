@@ -6,13 +6,13 @@ const profile =
     ? "local-demo"
     : e2eProfile === "http"
       ? "http"
-      : e2eProfile === "canonical-quick-tunnel"
-        ? "canonical-quick-tunnel"
-        : e2eProfile === "offline"
-          ? "offline"
-          : e2eProfile === "visual-parity"
-            ? "visual-parity"
-            : "mock";
+      : e2eProfile === "qualification"
+        ? "qualification"
+      : e2eProfile === "offline"
+        ? "offline"
+        : e2eProfile === "visual-parity"
+          ? "visual-parity"
+          : "mock";
 const command =
   profile === "http"
     ? "AVIA_HTTP_TEST_PROFILE=canonical npm run dev:http -- --host 127.0.0.1 --port 4174 --strictPort"
@@ -21,7 +21,7 @@ const command =
     : "npm run dev:demo -- --host 127.0.0.1 --port 4174 --strictPort";
 const shouldStartWebServer =
   profile !== "offline" &&
-  profile !== "canonical-quick-tunnel" &&
+  profile !== "qualification" &&
   profile !== "local-demo" &&
   process.env.AVIA_UPDATE_LEGACY_BASELINES !== "1";
 const visualUse = {
@@ -78,7 +78,6 @@ export default defineConfig({
       testMatch: [
         "e2e/canonical-scenario.spec.ts",
         "e2e/first-production-routes.spec.ts",
-        "e2e/release-candidate-gates.spec.ts",
         "e2e/full-route-accessibility.spec.ts",
         "e2e/full-platform-scenarios.spec.ts",
         "e2e/visible-action-contract.spec.ts",
@@ -98,7 +97,6 @@ export default defineConfig({
         "e2e/first-production-routes.spec.ts",
         "e2e/full-platform-scenarios.spec.ts",
         "e2e/offline-sync.http.spec.ts",
-        "e2e/release-candidate-gates.spec.ts",
         "e2e/visible-action-contract.spec.ts",
         "e2e/generated-document.http.spec.ts",
         "e2e/notification-delivery.http.spec.ts",
@@ -110,20 +108,12 @@ export default defineConfig({
       ],
     },
     {
-      name: "canonical-quick-tunnel",
-      testMatch: [
-        "e2e/canonical-quick-tunnel-panels.spec.ts",
-        "e2e/canonical-quick-tunnel-lifecycle.spec.ts",
-      ],
+      name: "qualification",
+      testMatch: ["e2e/qualification-all-role.spec.ts"],
       use: {
-        actionTimeout: 30_000,
-        navigationTimeout: 30_000,
-        serviceWorkers: "allow",
-        launchOptions: {
-          args: process.env.AVIA_E2E_IGNORE_HTTPS_ERRORS === "1"
-            ? ["--ignore-certificate-errors", "--allow-insecure-localhost"]
-            : [],
-        },
+        baseURL: process.env.AVIA_QUALIFICATION_ORIGIN ?? "https://localhost:8443",
+        ignoreHTTPSErrors: true,
+        viewport: { width: 1280, height: 800 },
         trace: "off",
         screenshot: "off",
         video: "off",

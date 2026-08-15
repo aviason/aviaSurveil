@@ -140,9 +140,6 @@ const expectedPaths = [
   "/v1/question-catalogs/{catalogVersion}/questions/{questionVersionId}",
   "/v1/audit-scopes/{scopeId}/preview",
   "/v1/audit-scopes/{scopeId}/selection",
-  "/v1/department-manager/question-review",
-  "/v1/department-manager/question-review/exercise-commands",
-  "/v1/department-manager/question-review/governed-commands",
   "/v1/audits/{auditId}/start",
 ];
 

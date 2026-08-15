@@ -18,6 +18,5 @@
 @import "./features/executive-secondary.css" layer(features);
 @import "./features/admin.css" layer(features);
 @import "./features/admin-secondary.css" layer(features);
-@import "../features/checklists/question-review-page.css" layer(features);
 @import "./utilities.css" layer(utilities);
 @import "./responsive.css" layer(responsive);

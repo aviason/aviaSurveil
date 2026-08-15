@@ -22,7 +22,7 @@
 .workspace-shell--authority .sidebar-footer { display: block; height: 115px; flex: 0 0 115px; padding: 12px; }
 .workspace-shell--authority .sidebar-footer small { display: block; padding: 8px 11px; color: #7f95b6; font-size: 11px; }
 .workspace-shell--authority .workspace-content { width: calc(100% - 234px); padding: 85px 28px 60px; background: #f4f6fa; }
-.workspace-shell--authority .candidate-boundary, .workspace-shell--authority .candidate-environment { display: none; }
+.workspace-shell--authority .qualification-boundary, .workspace-shell--authority .candidate-environment { display: none; }
 .workspace-shell--authority .authority-root-topbar { top: 0; right: 0; left: 0; display: flex; min-height: 56px; align-items: center; gap: 14px; padding: 11px 24px; border-bottom: 1px solid #dde3ec; background: #fff; }
 .workspace-shell--authority .auditee-root-topbar__experience { display: flex; min-width: 0; flex: 0 1 auto; align-items: center; gap: 9px; color: #6b7891; font-size: 12.5px; }
 .workspace-shell--authority .auditee-root-topbar__experience select { width: auto; max-width: 220px; min-height: 34px; padding: 7px 10px; border: 1px solid #dde3ec; border-radius: 8px; color: #16202e; background: #fff; font-size: 13.5px; }

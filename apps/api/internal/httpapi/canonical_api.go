@@ -39,54 +39,50 @@ import (
 )
 
 type CanonicalAPIDependencies struct {
-	Pool                     *database.Pool
-	Application              *application.Service
-	GrantService             *fieldsync.GrantService
-	SyncOperations           *fieldsync.OperationService
-	EvidenceUploads          *evidence.UploadService
-	AttachmentUploads        *attachments.UploadService
-	Planning                 *planning.Service
-	Profiles                 *identity.ProfileService
-	Assignments              *assignments.Service
-	AdminWorkspace           *configuration.WorkspaceService
-	Risk                     *risk.Service
-	Administration           *administration.ProjectionService
-	DirectoryProvider        administration.AccessDirectoryProvider
-	Users                    *administration.UserService
-	Assistant                *assistant.Service
-	Communications           *application.CommunicationsWorkflow
-	Documents                *documents.Service
-	GovernedCandidates       *regulatory.AdminService
-	GovernedLifecycle        *checklistgovernance.Service
-	ChecklistIntake          *checklistintake.Service
-	PreprodExerciseProfile   bool
-	PreprodIdentityNamespace string
-	Clock                    func() time.Time
+	Pool               *database.Pool
+	Application        *application.Service
+	GrantService       *fieldsync.GrantService
+	SyncOperations     *fieldsync.OperationService
+	EvidenceUploads    *evidence.UploadService
+	AttachmentUploads  *attachments.UploadService
+	Planning           *planning.Service
+	Profiles           *identity.ProfileService
+	Assignments        *assignments.Service
+	AdminWorkspace     *configuration.WorkspaceService
+	Risk               *risk.Service
+	Administration     *administration.ProjectionService
+	DirectoryProvider  administration.AccessDirectoryProvider
+	Users              *administration.UserService
+	Assistant          *assistant.Service
+	Communications     *application.CommunicationsWorkflow
+	Documents          *documents.Service
+	GovernedCandidates *regulatory.AdminService
+	GovernedLifecycle  *checklistgovernance.Service
+	ChecklistIntake    *checklistintake.Service
+	Clock              func() time.Time
 }
 
 type CanonicalAPI struct {
-	pool                     *database.Pool
-	application              *application.Service
-	grants                   *fieldsync.GrantService
-	syncOperations           *fieldsync.OperationService
-	evidenceUploads          *evidence.UploadService
-	attachmentUploads        *attachments.UploadService
-	planning                 *planning.Service
-	profiles                 *identity.ProfileService
-	assignments              *assignments.Service
-	adminWorkspace           *configuration.WorkspaceService
-	risk                     *risk.Service
-	administration           *administration.ProjectionService
-	users                    *administration.UserService
-	assistant                *assistant.Service
-	communications           *application.CommunicationsWorkflow
-	documents                *documents.Service
-	governedCandidates       *regulatory.AdminService
-	governedLifecycle        *checklistgovernance.Service
-	checklistIntake          *checklistintake.Service
-	preprodExerciseProfile   bool
-	preprodIdentityNamespace string
-	clock                    func() time.Time
+	pool               *database.Pool
+	application        *application.Service
+	grants             *fieldsync.GrantService
+	syncOperations     *fieldsync.OperationService
+	evidenceUploads    *evidence.UploadService
+	attachmentUploads  *attachments.UploadService
+	planning           *planning.Service
+	profiles           *identity.ProfileService
+	assignments        *assignments.Service
+	adminWorkspace     *configuration.WorkspaceService
+	risk               *risk.Service
+	administration     *administration.ProjectionService
+	users              *administration.UserService
+	assistant          *assistant.Service
+	communications     *application.CommunicationsWorkflow
+	documents          *documents.Service
+	governedCandidates *regulatory.AdminService
+	governedLifecycle  *checklistgovernance.Service
+	checklistIntake    *checklistintake.Service
+	clock              func() time.Time
 }
 
 func NewCanonicalAPI(dependencies CanonicalAPIDependencies) *CanonicalAPI {
@@ -186,12 +182,7 @@ func NewCanonicalAPI(dependencies CanonicalAPIDependencies) *CanonicalAPI {
 		governedCandidates: governedCandidates,
 		governedLifecycle:  governedLifecycle,
 		checklistIntake:    checklistIntake,
-		// Exercise data is enabled only by the explicitly task-owned disposable
-		// profile dependency. A catalog/version query or ambient environment
-		// variable cannot turn it on in a normal API process.
-		preprodExerciseProfile:   dependencies.PreprodExerciseProfile && strings.TrimSpace(dependencies.PreprodIdentityNamespace) == "canonical-aga-preprod-exercise-v1",
-		preprodIdentityNamespace: strings.TrimSpace(dependencies.PreprodIdentityNamespace),
-		clock:                    clock,
+		clock:              clock,
 	}
 }
 
@@ -352,29 +343,26 @@ func (api *CanonicalAPI) Handler() http.Handler {
 	router.Get("/v1/question-catalogs/{catalogVersion}/questions/{questionVersionId}", api.getCanonicalQuestionCatalogEntry)
 	router.Post("/v1/audit-scopes/{scopeId}/preview", api.previewCanonicalAuditScopeSelection)
 	router.Put("/v1/audit-scopes/{scopeId}/selection", api.commitCanonicalAuditScopeSelection)
-	router.Get("/v1/department-manager/question-review", api.getCanonicalQuestionReviewQueue)
-	router.Post("/v1/department-manager/question-review/exercise-commands", api.commandCanonicalExerciseQuestionReview)
-	router.Post("/v1/department-manager/question-review/governed-commands", api.commandCanonicalGovernedQuestionReview)
 	router.Post("/v1/audits/{auditId}/start", api.startInspection)
 	return router
 }
 
-// requireCatalogRuntimeProfile keeps the PREPROD_EXERCISE usage class behind
-// the exact disposable API profile. Database presence alone must never turn a
-// production/default HTTP process into an exercise runtime.
+// requireCatalogRuntimeProfile accepts only the immutable imported approved
+// catalog for planning writes. Catalog presence alone must not make an
+// unapproved or legacy projection usable by the product.
 func (api *CanonicalAPI) requireCatalogRuntimeProfile(ctx context.Context, catalogVersion string) error {
 	if strings.TrimSpace(catalogVersion) == "" || api.pool == nil {
 		return nil
 	}
-	var usage string
-	if err := api.pool.QueryRow(ctx, `SELECT usage_class FROM canonical_question_catalogs WHERE catalog_version = $1`, strings.TrimSpace(catalogVersion)).Scan(&usage); err != nil {
+	var usage, sourceOrigin string
+	if err := api.pool.QueryRow(ctx, `SELECT usage_class,source_origin FROM canonical_question_catalogs WHERE catalog_version = $1 AND status = 'SEALED' AND source_origin = 'IMPORTED_APPROVED_SOURCE' ORDER BY created_at DESC, id DESC LIMIT 1`, strings.TrimSpace(catalogVersion)).Scan(&usage, &sourceOrigin); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return application.ErrNotFound
 		}
 		return err
 	}
-	if usage == "PREPROD_EXERCISE" && !api.preprodExerciseProfile {
-		return fmt.Errorf("%w: PREPROD_EXERCISE requires the dedicated disposable preprod profile", application.ErrForbidden)
+	if usage != "GOVERNED_OPERATIONAL" || sourceOrigin != "IMPORTED_APPROVED_SOURCE" {
+		return fmt.Errorf("%w: planning requires the immutable imported approved catalog", application.ErrForbidden)
 	}
 	return nil
 }
@@ -383,23 +371,24 @@ func (api *CanonicalAPI) requireDraftRuntimeProfile(ctx context.Context, draftID
 	if strings.TrimSpace(draftID) == "" || api.pool == nil {
 		return nil
 	}
-	var usage string
+	var usage, sourceOrigin string
 	err := api.pool.QueryRow(ctx, `
-		SELECT scope.usage_class
+		SELECT scope.usage_class,catalog.source_origin
 		FROM canonical_audit_scope_drafts scope
+		JOIN canonical_question_catalogs catalog ON catalog.id=scope.catalog_id
 		WHERE scope.planning_intake_draft_id = $1
 		  AND scope.status IN ('DRAFT', 'SUBMITTED', 'RELEASED')
 		ORDER BY scope.updated_at DESC
 		LIMIT 1
-	`, draftID).Scan(&usage)
+	`, draftID).Scan(&usage, &sourceOrigin)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	if usage == "PREPROD_EXERCISE" && !api.preprodExerciseProfile {
-		return fmt.Errorf("%w: PREPROD_EXERCISE requires the dedicated disposable preprod profile", application.ErrForbidden)
+	if usage != "GOVERNED_OPERATIONAL" || sourceOrigin != "IMPORTED_APPROVED_SOURCE" {
+		return fmt.Errorf("%w: planning requires the immutable imported approved catalog", application.ErrForbidden)
 	}
 	return nil
 }

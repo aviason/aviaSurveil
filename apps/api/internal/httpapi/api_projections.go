@@ -566,13 +566,13 @@ func (api *CanonicalAPI) reportProjection(ctx context.Context, actor identity.Pr
 	var snapshot []byte
 	var issuedAt *time.Time
 	if err := api.pool.QueryRow(ctx, `
-		SELECT version.id, version.report_id, inspection.organization_id, version.inspection_id,
+		SELECT version.id, version.report_id, version.snapshot->>'kind', inspection.organization_id, version.inspection_id,
 		       version.version, version.snapshot, state.status, state.revision, state.issued_at
 		FROM report_versions version
 		JOIN report_approval_states state ON state.report_version_id = version.id
 		JOIN inspections inspection ON inspection.id = version.inspection_id
 		WHERE version.id = $1
-	`, reportVersionID).Scan(&view.ReportVersionId, &view.ReportId, &view.OrganizationId, &view.AuditId,
+	`, reportVersionID).Scan(&view.ReportVersionId, &view.ReportId, &view.Kind, &view.OrganizationId, &view.AuditId,
 		&view.Version, &snapshot, &view.Status, &view.Revision, &issuedAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return generated.ReportVersionView{}, application.ErrNotFound
@@ -589,13 +589,17 @@ func (api *CanonicalAPI) reportProjection(ctx context.Context, actor identity.Pr
 		return generated.ReportVersionView{}, application.ErrForbidden
 	}
 	var payload struct {
-		FindingIDs  []string `json:"findingIds"`
-		ContentHash string   `json:"contentHash"`
+		FindingIDs                 []string `json:"findingIds"`
+		PotentialFindingIDs        []string `json:"potentialFindingIds"`
+		PotentialFindingRootDigest string   `json:"potentialFindingRootDigest"`
+		ContentHash                string   `json:"contentHash"`
 	}
 	if err := json.Unmarshal(snapshot, &payload); err != nil {
 		return generated.ReportVersionView{}, err
 	}
 	view.FindingIds = payload.FindingIDs
+	view.PotentialFindingIds = payload.PotentialFindingIDs
+	view.PotentialFindingRootDigest = payload.PotentialFindingRootDigest
 	view.ContentHash = payload.ContentHash
 	view.IssuedAt = formatOptionalInstant(issuedAt)
 	return view, nil

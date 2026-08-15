@@ -141,7 +141,7 @@ describe("New Inspection Planning intake", () => {
   it("stages all 1,310 eligible versions and commits them through bounded digest-chained batches", async () => {
     const runtime = createMockBackendRuntime();
     const manager = runtime.backendForRole("manager");
-    const review = manager.canonicalQuestionReview;
+    const review = manager.canonicalCatalog;
     if (!review) throw new Error("Canonical Question Review is required for this test");
     const previewBatches: Array<{ count: number; kind: string | undefined; expectedDigest: string }> = [];
     const commitBatches: Array<{ count: number; kind: string | undefined; expectedDigest: string }> = [];

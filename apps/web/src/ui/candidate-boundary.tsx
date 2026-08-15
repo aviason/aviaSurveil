@@ -7,17 +7,15 @@ export function CandidateBoundary({
   mode: RoleSelectionMode;
   environmentLabel: string;
 }) {
-  const modeLabel =
-    mode === "demo-role-switch"
-      ? "Deterministic mock data"
-      : mode === "canonical-test-role-switch"
-        ? environmentLabel
-        : "Browser session candidate";
+  if (mode === "oidc-session") {
+    return <p className="release-boundary"><span>Release-bound authenticated session</span><span>{environmentLabel}</span></p>;
+  }
+  const modeLabel = "Local qualification data";
   return (
-    <p className="candidate-boundary">
-      <span>Candidate-only</span>
+    <p className="qualification-boundary">
+      <span>Qualification profile</span>
       <span>{modeLabel}</span>
-      <span>No production-readiness claim</span>
+      <span>Release evidence required</span>
     </p>
   );
 }

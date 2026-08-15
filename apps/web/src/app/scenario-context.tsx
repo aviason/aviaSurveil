@@ -99,7 +99,7 @@ export interface ScenarioActions {
     evidenceRequired: boolean;
     dueDate: string | null;
   }): Promise<void>;
-  refreshFinding(role: Role): Promise<void>;
+  refreshFinding(role: Role, findingId: string): Promise<void>;
   loadAuditeeFindings(): Promise<void>;
   selectAuditeeFinding(findingId: string): Promise<void>;
   submitCap(input: Omit<SubmitCapInput, "operationId" | "findingId" | "expectedFindingRevision">): Promise<void>;
@@ -116,7 +116,7 @@ export interface ScenarioActions {
     internalCaaNote: string;
   }): Promise<void>;
   authorizedClose(reason: string): Promise<void>;
-  loadReport(role: Role): Promise<void>;
+  loadReport(role: Role, reportVersionId: string): Promise<void>;
   issueReport(reason: string): Promise<void>;
   loadManagerDashboard(): Promise<void>;
   syncFieldWork(trigger?: FieldSyncTrigger): Promise<void>;
@@ -156,9 +156,12 @@ const initialProjection: ScenarioProjection = {
   fieldSyncConflict: null,
 };
 
-const DEMO_FIELD_SUBJECT_ID = "USR-INSPECTOR-AMINA";
-const FIELD_PACKAGE_ID = "PKG-CAB-2026-001";
-const FIELD_QUESTION_ID = "CAB-EMEQ-PBE-001";
+function latestEvidenceVersion(items: readonly EvidenceVersionView[]): EvidenceVersionView | null {
+  return [...items].sort((left, right) =>
+    right.version - left.version || right.revision - left.revision || right.id.localeCompare(left.id),
+  )[0] ?? null;
+}
+
 const FIELD_WORK_ROUTE_PREFIX = "/inspector/audits/";
 
 function toPotentialFindingView(row: PotentialFindingDraftRow): PotentialFindingView {
@@ -175,12 +178,19 @@ function toPotentialFindingView(row: PotentialFindingDraftRow): PotentialFinding
   };
 }
 
+function checklistResponseId(auditId: string, questionId: string): string {
+  return `RESP-${auditId}-${questionId}`;
+}
+
 function fieldProjection(view: FieldPackageView, recovery?: AttachmentRecoveryReport) {
+  const activeQuestionId =
+    view.responses.find((candidate) => !candidate.tombstoned)?.questionId ??
+    view.inspectionPackage.questions[0]?.id;
   const response = view.responses.find(
-    (candidate) => candidate.questionId === FIELD_QUESTION_ID && !candidate.tombstoned,
+    (candidate) => candidate.questionId === activeQuestionId && !candidate.tombstoned,
   );
   const potentialFinding = view.potentialFindingDrafts.find(
-    (candidate) => candidate.questionId === FIELD_QUESTION_ID,
+    (candidate) => candidate.questionId === activeQuestionId,
   );
   const recoveryProjection = recovery
     ? {
@@ -204,7 +214,7 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
   const runtime = useApplicationRuntime();
   const [projection, setProjection] = useState<ScenarioProjection>(initialProjection);
   const syncBroadcastRef = useRef<SyncStatusBroadcast | null>(null);
-  const fieldSubjectId = runtime.subjectId ?? DEMO_FIELD_SUBJECT_ID;
+  const fieldSubjectId = runtime.subjectId ?? "authenticated-inspector";
 
   const backendFor = (role: Role) => runtime.backendForRole?.(role) ?? runtime.backend;
   const operationId = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
@@ -231,10 +241,11 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
         setProjection((current) => ({ ...current, assignments: result.items }));
       },
 
-      async loadPackage(requestedPackageID = FIELD_PACKAGE_ID) {
-        const isFieldPackage = requestedPackageID === FIELD_PACKAGE_ID;
+      async loadPackage(requestedPackageID) {
+        if (!requestedPackageID) throw new Error("An exact inspection package identity is required.");
+        const isFieldPackage = Boolean(runtime.fieldRepositoryForSubject);
         const repository = fieldRepository();
-        const local = isFieldPackage ? await repository.loadPackage(FIELD_PACKAGE_ID) : null;
+        const local = isFieldPackage ? await repository.loadPackage(requestedPackageID) : null;
         if (local) {
           const attachmentStore = inspectionAttachmentStore(repository);
           const recovery = await reconcileInspectionAttachments({
@@ -242,7 +253,7 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
             fileSystem: attachmentStore.fileSystem,
             hasher: attachmentStore.hasher,
           });
-          const recoveredLocal = await repository.loadPackage(FIELD_PACKAGE_ID);
+          const recoveredLocal = await repository.loadPackage(requestedPackageID);
           if (!recoveredLocal) throw new Error("Checked-out field package disappeared during recovery.");
           setProjection((current) => ({ ...current, ...fieldProjection(recoveredLocal, recovery) }));
           return;
@@ -265,7 +276,9 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
         }));
       },
 
-      async saveChecklistResponse(answer, comment, requestedQuestionID = FIELD_QUESTION_ID) {
+      async saveChecklistResponse(answer, comment, requestedQuestionID) {
+        const questionId = requestedQuestionID;
+        if (!questionId || !projection.packageView) throw new Error("An exact checklist question identity is required.");
         if (projection.fieldMode) {
           if (projection.attachmentRecoveryBlocking.length > 0) {
             throw new Error("Resolve blocking Inspection Attachment recovery before editing.");
@@ -273,30 +286,43 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
           const repository = fieldRepository();
           await repository.saveChecklistResponse({
             operationId: fieldOperationId("OP-RESPONSE"),
-            packageId: FIELD_PACKAGE_ID,
-            responseId: "RESP-CAB-EMEQ-PBE-001",
-            questionId: FIELD_QUESTION_ID,
+            packageId: projection.packageView.id,
+            responseId: checklistResponseId(projection.packageView.auditId, questionId),
+            questionId,
             answer,
             comment,
           });
-          const local = await repository.loadPackage(FIELD_PACKAGE_ID);
+          const local = await repository.loadPackage(projection.packageView.id);
           if (!local) throw new Error("Checked-out field package disappeared after local commit.");
           setProjection((current) => ({ ...current, ...fieldProjection(local) }));
           return;
         }
         const existingResponse =
-          projection.packageView?.questions.find((question) => question.id === requestedQuestionID)?.currentResponse ??
-          (projection.response?.questionId === requestedQuestionID ? projection.response : null);
+          projection.packageView.questions.find((question) => question.id === questionId)?.currentResponse ??
+          (projection.response?.questionId === questionId ? projection.response : null);
         const response = await backendFor("inspector").inspections.upsertChecklistResponse({
           operationId: operationId("OP-RESPONSE"),
-          responseId: `RESP-${requestedQuestionID}`,
-          auditId: projection.packageView?.auditId ?? "AUD-2026-001",
-          questionId: requestedQuestionID,
+          responseId: checklistResponseId(projection.packageView.auditId, questionId),
+          auditId: projection.packageView.auditId,
+          questionId,
           expectedResponseRevision: existingResponse?.revision ?? null,
           answer,
           comment,
         });
-        setProjection((current) => ({ ...current, response }));
+        setProjection((current) => ({
+          ...current,
+          packageView: current.packageView
+            ? {
+                ...current.packageView,
+                questions: current.packageView.questions.map((question) =>
+                  question.id === response.questionId
+                    ? { ...question, currentResponse: response }
+                    : question,
+                ),
+              }
+            : current.packageView,
+          response,
+        }));
       },
 
       async stageInspectionAttachment(file) {
@@ -383,10 +409,12 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
         setProjection((current) => ({ ...current, ...fieldProjection(local) }));
       },
 
-      async createPotentialFinding(requestedQuestionID = FIELD_QUESTION_ID) {
+      async createPotentialFinding(requestedQuestionID) {
+        const questionId = requestedQuestionID;
+        if (!questionId || !projection.packageView) throw new Error("An exact checklist question identity is required.");
         const selectedResponse =
-          projection.packageView?.questions.find((question) => question.id === requestedQuestionID)?.currentResponse ??
-          (projection.response?.questionId === requestedQuestionID ? projection.response : null);
+          projection.packageView.questions.find((question) => question.id === questionId)?.currentResponse ??
+          (projection.response?.questionId === questionId ? projection.response : null);
         if (!selectedResponse) throw new Error("Save the exact checklist response first.");
         if (projection.fieldMode) {
           if (projection.attachmentRecoveryBlocking.length > 0) {
@@ -395,9 +423,9 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
           const repository = fieldRepository();
           await repository.createPotentialFindingDraft({
             operationId: fieldOperationId("OP-PF"),
-            packageId: FIELD_PACKAGE_ID,
+            packageId: projection.packageView.id,
             localId: `PF-LOCAL-${crypto.randomUUID()}`,
-            questionId: FIELD_QUESTION_ID,
+            questionId,
             checklistResponseId: selectedResponse.id,
             title: "PBE serviceability and accessibility not confirmed",
             description:
@@ -407,15 +435,15 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
               .filter((attachment) => attachment.stagingState === "ready")
               .map((attachment) => attachment.attachmentId),
           });
-          const local = await repository.loadPackage(FIELD_PACKAGE_ID);
+          const local = await repository.loadPackage(projection.packageView.id);
           if (!local) throw new Error("Checked-out field package disappeared after local commit.");
           setProjection((current) => ({ ...current, ...fieldProjection(local) }));
           return;
         }
         const potentialFinding = await backendFor("inspector").potentialFindings.create({
           operationId: operationId("OP-PF"),
-          auditId: projection.packageView?.auditId ?? "AUD-2026-001",
-          questionId: requestedQuestionID,
+          auditId: projection.packageView.auditId,
+          questionId,
           checklistResponseId: selectedResponse.id,
           expectedChecklistResponseRevision: selectedResponse.revision,
           title: "PBE serviceability and accessibility not confirmed",
@@ -495,22 +523,21 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
         }));
       },
 
-      async refreshFinding(role) {
-        const finding = await backendFor(role).findings.get({ findingId: "FND-CAB-2026-001" });
+      async refreshFinding(role, findingId) {
+        const finding = await backendFor(role).findings.get({ findingId });
         setProjection((current) => ({ ...current, finding }));
       },
 
       async loadAuditeeFindings() {
         const backend = backendFor("auditee");
-        const [result, organizations] = await Promise.all([
+        const [result] = await Promise.all([
           backend.findings.list({}),
-          backend.organizations.list({}),
         ]);
-        const auditeeOrganizationName = organizations.items[0]?.legalName ?? null;
+        const auditeeOrganizationName = projection.finding?.organizationName ?? null;
         const selectedId =
           projection.finding && result.items.some((candidate) => candidate.id === projection.finding?.id)
             ? projection.finding.id
-            : (result.items.find((candidate) => candidate.id === "FND-CAB-2026-001") ?? result.items[0])?.id;
+            : null;
         if (!selectedId) {
           setProjection((current) => ({
             ...current,
@@ -628,13 +655,16 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
         });
         let evidenceVersions: EvidenceVersionView[] = [];
         let finding = await backend.findings.get({ findingId: projection.finding.id });
-        for (let attempt = 0; attempt < 100; attempt += 1) {
+        const scanDeadline = Date.now() + 30_000;
+        for (;;) {
           evidenceVersions = await backend.evidence.listVersions({ findingId: projection.finding.id });
           finding = await backend.findings.get({ findingId: projection.finding.id });
-          if (backend.mode === "mock" || evidenceVersions.at(-1)?.scanState === "CLEAN") break;
-          await new Promise((resolve) => setTimeout(resolve, 50));
+          if (backend.mode === "mock" || latestEvidenceVersion(evidenceVersions)?.scanState === "CLEAN") break;
+          if (Date.now() >= scanDeadline) break;
+          await new Promise((resolve) => setTimeout(resolve, 100));
         }
-        if (evidenceVersions.at(-1)?.scanState !== "CLEAN") {
+        const latest = latestEvidenceVersion(evidenceVersions);
+        if (!latest || latest.scanState !== "CLEAN") {
           throw new Error("Evidence scan did not reach CLEAN before the review timeout.");
         }
         setProjection((current) => ({
@@ -657,7 +687,7 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
 
       async reviewEvidence(input) {
         if (!projection.finding) throw new Error("Finding is unavailable.");
-        const latest = projection.evidenceVersions.at(-1);
+        const latest = latestEvidenceVersion(projection.evidenceVersions);
         if (!latest) throw new Error("Evidence version is unavailable.");
         const backend = backendFor("leadInspector");
         const evidenceReview = await backend.evidence.review({
@@ -692,18 +722,18 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
         setProjection((current) => ({ ...current, finding }));
       },
 
-      async loadReport(role) {
+      async loadReport(role, reportVersionId) {
+        if (!reportVersionId) throw new Error("An exact report version identity is required.");
         const report = await backendFor(role).reports.getVersion({
-          reportVersionId: "RPT-CAB-2026-001-V1",
+          reportVersionId,
         });
         setProjection((current) => ({ ...current, report }));
       },
 
       async issueReport(reason) {
         const backend = backendFor("executiveDirector");
-        const currentReport =
-          projection.report ??
-          (await backend.reports.getVersion({ reportVersionId: "RPT-CAB-2026-001-V1" }));
+        const currentReport = projection.report;
+        if (!currentReport) throw new Error("The exact report version must be loaded before issuance.");
         const report = await backend.reports.decide({
           operationId: operationId("OP-REPORT-ISSUE"),
           reportVersionId: currentReport.reportVersionId,
@@ -711,32 +741,31 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
           decision: "ISSUE_AND_LOCK",
           reason,
         });
-        const finding = await backend.findings.get({ findingId: "FND-CAB-2026-001" });
-        setProjection((current) => ({ ...current, report, finding }));
+        setProjection((current) => ({ ...current, report }));
       },
 
       async loadManagerDashboard() {
         const backend = backendFor("manager");
-        const [dashboard, findings, report] = await Promise.all([
+        const [dashboard, findings] = await Promise.all([
           backend.dashboards.getManagerProjection({}),
           backend.findings.list({}),
-          backend.reports.getVersion({ reportVersionId: "RPT-CAB-2026-001-V1" }),
         ]);
-        const finding = findings.items.find((candidate) => candidate.id === "FND-CAB-2026-001");
+        const finding = projection.finding && findings.items.find((candidate) => candidate.id === projection.finding?.id);
         setProjection((current) => ({
           ...current,
           dashboard,
           finding: finding ?? current.finding,
-          report,
         }));
       },
 
       async syncFieldWork(trigger = "manual") {
         if (runtime.buildProfile !== "http") return;
         const repository = fieldRepository();
-        const local = await repository.loadPackage(FIELD_PACKAGE_ID);
+        const packageId = projection.packageView?.id;
+        if (!packageId) return;
+        const local = await repository.loadPackage(packageId);
         if (!local) return;
-        const state = await repository.getSyncState(FIELD_PACKAGE_ID);
+        const state = await repository.getSyncState(packageId);
         if (!state) throw new Error("The field sync scope is unavailable.");
         const lock = createBrowserSyncOwnerLock();
         if (!lock) throw new Error("The approved managed-browser sync lock is unavailable.");
@@ -749,12 +778,12 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
           broadcast: syncBroadcastRef.current?.broadcast,
         });
         const report = await engine.run(
-          { packageId: FIELD_PACKAGE_ID, offlineGrantId: state.grantId },
+          { packageId, offlineGrantId: state.grantId },
           trigger,
         );
         let refreshed: FieldPackageView | null = null;
         if (report.status !== "resnapshot-required") {
-          refreshed = await repository.loadPackage(FIELD_PACKAGE_ID);
+          refreshed = await repository.loadPackage(packageId);
         }
         setProjection((current) => ({
           ...current,
@@ -781,7 +810,7 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
     const broadcast = createBrowserSyncBroadcast();
     syncBroadcastRef.current = broadcast;
     const unsubscribe = broadcast?.subscribe((message) => {
-      if (message.packageId !== FIELD_PACKAGE_ID) return;
+      if (projection.packageView && message.packageId !== projection.packageView.id) return;
       setProjection((current) => ({
         ...current,
         fieldSyncStatus: message.report.status,
@@ -806,7 +835,7 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
       broadcast?.close();
       if (syncBroadcastRef.current === broadcast) syncBroadcastRef.current = null;
     };
-  }, [runtime.buildProfile]);
+  }, [projection.packageView?.id, runtime.buildProfile]);
 
   return <ScenarioContext.Provider value={{ projection, actions }}>{children}</ScenarioContext.Provider>;
 }

@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AppProviders } from "../../app/providers";
@@ -32,7 +32,9 @@ function renderPage() {
     >
       <ScenarioProvider>
         <MemoryRouter initialEntries={["/department-manager/reports/RPT-CAB-2026-001-V1"]}>
-          <ReportPreviewPage />
+          <Routes>
+            <Route path="/department-manager/reports/:reportVersionId" element={<ReportPreviewPage />} />
+          </Routes>
         </MemoryRouter>
       </ScenarioProvider>
     </AppProviders>,
@@ -79,20 +81,12 @@ describe("ReportPreviewPage", () => {
     expect(screen.getByLabelText("Report type")).toHaveValue("all");
     expect(screen.getByLabelText("Report status")).toHaveValue("all");
     expect(screen.getByRole("button", { name: "Reset report filters unavailable" })).toBeDisabled();
-    expect(screen.getByRole("link", { name: "Review Preliminary Report PR-2026-018" })).toHaveAttribute(
-      "href",
-      "/department-manager/preliminary-reports/PR-2026-018",
-    );
-    expect(within(queue).getByRole("button", { name: "Department review unavailable for RPT-CAB-2026-001-V1" })).toHaveAttribute(
-      "title",
-      "Report version RPT-CAB-2026-001-V1 is EXECUTIVE_DIRECTOR_REVIEW; Department Manager review is unavailable.",
-    );
+    expect(within(queue).queryByRole("button", { name: /Department review unavailable/i })).toBeNull();
+    expect(screen.getByText(/Department Manager cannot issue, sign, lock, or close this report/i)).toBeVisible();
     await user.click(screen.getByRole("tab", { name: "Decision history" }));
     expect(screen.getByRole("tabpanel")).toHaveTextContent(/current immutable state/i);
     await user.click(screen.getByRole("button", { name: "Review Full Report" }));
     expect(screen.getByRole("dialog", { name: "Immutable report preview" })).toBeVisible();
-    const download = screen.getByRole("button", { name: "Download PDF" });
-    expect(download).toBeDisabled();
-    expect(screen.getByText(/PDF generation is not connected in this candidate/i)).toBeVisible();
+    expect(screen.getByText(/This preview is read-only/i)).toBeVisible();
   });
 });

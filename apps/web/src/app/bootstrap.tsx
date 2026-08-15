@@ -24,12 +24,12 @@ export function bootstrap(runtime: ApplicationRuntime): void {
   if (!rootElement) throw new Error("AviaSurveil360 root element is missing");
   const browserTelemetry = installBrowserTelemetry(
     runtime.buildProfile,
-    "candidate",
+    runtime.buildProfile === "http" ? "runtime" : "demo",
     { disabled: import.meta.env.VITE_AVIA_DISABLE_BROWSER_TELEMETRY === "1" },
   );
 
   const identityMode =
-    runtime.identityMode ?? (runtime.buildProfile === "http" ? "canonical-test-role-switch" : "demo-role-switch");
+    runtime.identityMode ?? "oidc-session";
   createRoot(rootElement).render(
     <StrictMode>
       <BrowserTelemetryErrorBoundary

@@ -100,6 +100,14 @@ function noticeLabel(values: Pick<PlanningIntakeDraftValues, "noticePolicy">): s
   return values.noticePolicy === "WITHHELD" ? "No Advance Notice (withheld)" : "Advance Notice Required";
 }
 
+function inspectionTypeFor(types: readonly PlanningIntakeDraftValues["applicationType"][]): PlanningIntakeDraftValues["applicationType"] {
+  if (types.includes("CABIN_INSPECTION")) return "CABIN_INSPECTION";
+  if (types.includes("RAMP_INSPECTION")) return "RAMP_INSPECTION";
+  if (types.includes("CABIN")) return "CABIN";
+  if (types.includes("RAMP")) return "RAMP";
+  throw new Error("The selected server-owned scope has no supported inspection type.");
+}
+
 async function selectionDigestFor(ids: readonly string[]): Promise<string> {
   const canonical = [...new Set(ids)].map((id, index) => `${index}\u0000${id}\n`).join("");
   const bytes = new TextEncoder().encode(canonical);
@@ -218,8 +226,7 @@ export function NewAuditWizardPage() {
   const [scopeOptionLabel, setScopeOptionLabel] = useState<string | null>(null);
   const [scopeOptions, setScopeOptions] = useState<CanonicalAuditScopeOption[]>([]);
   // Catalog authority is returned by the server-owned scope selector. The
-  // normal API returns GOVERNED_OPERATIONAL; only the disposable local
-  // preprod profile may return PREPROD_EXERCISE.
+  // approved source is the only catalog that can be used for a new Audit.
   const [auditUsageClass, setAuditUsageClass] = useState<CanonicalQuestionUsageClass>("GOVERNED_OPERATIONAL");
 
   useEffect(() => {
@@ -230,20 +237,20 @@ export function NewAuditWizardPage() {
     }
     const requestedDraftId = new URLSearchParams(location.search).get("draftId");
     const load = (async () => {
-      if (!backend.canonicalQuestionReview) {
+      if (!backend.canonicalCatalog) {
         throw new Error("Server-authorized audit scope selection is unavailable in this build profile.");
       }
       const optionPages: CanonicalAuditScopeOption[] = [];
       let cursor: string | undefined;
       do {
-        const page = await backend.canonicalQuestionReview.listScopeOptions({ limit: 25, cursor });
+        const page = await backend.canonicalCatalog.listScopeOptions({ limit: 25, cursor });
         optionPages.push(...page.items);
         cursor = page.nextCursor ?? undefined;
       } while (cursor && optionPages.length < 1000);
       const options = { items: optionPages };
       if (!cancelled) {
         setScopeOptions(options.items);
-        setAuditUsageClass(options.items[0]?.usageClass ?? "GOVERNED_OPERATIONAL");
+        setAuditUsageClass("GOVERNED_OPERATIONAL");
       }
       if (requestedDraftId) {
         const loadedDraft = await backend.planningIntake.getDraft({ draftId: requestedDraftId });
@@ -268,7 +275,7 @@ export function NewAuditWizardPage() {
       }
       // A new audit remains an uncommitted setup until the manager explicitly
       // chooses an authorized organization/provider scope/target.
-      return { draft: null, usageClass: options.items[0]?.usageClass ?? "GOVERNED_OPERATIONAL" as CanonicalQuestionUsageClass };
+      return { draft: null, usageClass: "GOVERNED_OPERATIONAL" as CanonicalQuestionUsageClass };
     })();
     void load.then(({ draft: loaded, usageClass }) => {
       if (!cancelled) {
@@ -307,7 +314,7 @@ export function NewAuditWizardPage() {
         ...(values ? commandValuesFor(values) : {
           organizationId: "",
           organizationName: "",
-          applicationType: option.inspectionTypes[0] ?? "CABIN_INSPECTION",
+          applicationType: inspectionTypeFor(option.inspectionTypes),
           domain: "Cabin Safety",
           inspectionCategory: "Routine / Announced" as const,
           noticePolicy: "ADVANCE" as const,
@@ -328,7 +335,7 @@ export function NewAuditWizardPage() {
         }),
         organizationId: option.organizationId,
         organizationName: option.organizationName,
-        applicationType: option.inspectionTypes[0] ?? "CABIN_INSPECTION",
+        applicationType: inspectionTypeFor(option.inspectionTypes),
         catalogVersion: option.catalogVersion,
         providerScopeId: option.providerScopeId,
         regulatedTargetId: option.regulatedTargetId,
@@ -364,10 +371,10 @@ export function NewAuditWizardPage() {
   }
 
   useEffect(() => {
-    if (step !== 4 || !values || !values.catalogVersion || !backend.canonicalQuestionReview) return;
+    if (step !== 4 || !values || !values.catalogVersion || !backend.canonicalCatalog) return;
     const controller = new AbortController();
     setCatalogBusy(true);
-    void backend.canonicalQuestionReview.listCatalog({
+    void backend.canonicalCatalog.listCatalog({
       catalogVersion: values.catalogVersion,
       usageClass: auditUsageClass,
       search: catalogSearch || undefined,
@@ -435,7 +442,7 @@ export function NewAuditWizardPage() {
   }
 
   async function stageAllMatchingQuestions() {
-    if (busy || !values?.catalogVersion || !backend.canonicalQuestionReview) return;
+    if (busy || !values?.catalogVersion || !backend.canonicalCatalog) return;
     setBusy(true);
     setError(null);
     try {
@@ -444,7 +451,7 @@ export function NewAuditWizardPage() {
       const seenCursors = new Set<string>();
       let cursor: string | undefined;
       do {
-        const page = await backend.canonicalQuestionReview.listCatalog({
+        const page = await backend.canonicalCatalog.listCatalog({
           catalogVersion: values.catalogVersion,
           usageClass: auditUsageClass,
           search: catalogSearch || undefined,
@@ -482,7 +489,7 @@ export function NewAuditWizardPage() {
   }
 
   async function previewQuestionSelection() {
-    if (busy || !values || !draft || !backend.canonicalQuestionReview) return;
+    if (busy || !values || !draft || !backend.canonicalCatalog) return;
     if (!values.scopeDraftId) {
       setError("The server did not return a canonical scope identity; reload this draft before selecting questions.");
       return;
@@ -497,7 +504,7 @@ export function NewAuditWizardPage() {
     try {
       const expectedSelectionDigest = values.selectionDigest || await selectionDigestFor([]);
       const previewOperationId = operationId(`SCOPE-${draft.id}-PREVIEW`);
-      const previewReceipt = await backend.canonicalQuestionReview.previewSelection({
+      const previewReceipt = await backend.canonicalCatalog.previewSelection({
         scopeId: values.scopeDraftId,
         operationId: previewOperationId,
         idempotencyKey: previewOperationId,
@@ -519,7 +526,7 @@ export function NewAuditWizardPage() {
   }
 
   async function confirmQuestionSelection() {
-    if (busy || !values || !draft || !backend.canonicalQuestionReview || !selectionPreview || !selectionPreviewOperation) return;
+    if (busy || !values || !draft || !backend.canonicalCatalog || !selectionPreview || !selectionPreviewOperation) return;
     if (!values.scopeDraftId) {
       setError("The server did not return a canonical scope identity; reload this draft before selecting questions.");
       return;
@@ -528,7 +535,7 @@ export function NewAuditWizardPage() {
     try {
       const expectedSelectionDigest = values.selectionDigest || await selectionDigestFor([]);
       const operationIdValue = operationId(`SCOPE-${draft.id}-COMMIT`);
-      const receipt = await backend.canonicalQuestionReview.commitSelection({
+      const receipt = await backend.canonicalCatalog.commitSelection({
         scopeId: values.scopeDraftId,
         operationId: operationIdValue,
         previewOperationId: selectionPreviewOperation.operationId,
@@ -575,9 +582,9 @@ export function NewAuditWizardPage() {
 
   async function openCatalogDetail(question: CanonicalQuestionCatalogEntry) {
     setCatalogDetail(question);
-    if (!values || !backend.canonicalQuestionReview) return;
+    if (!values || !backend.canonicalCatalog) return;
     try {
-      const detail = await backend.canonicalQuestionReview.getQuestion({
+      const detail = await backend.canonicalCatalog.getQuestion({
         catalogVersion: values.catalogVersion ?? "",
         usageClass: auditUsageClass,
         questionVersionId: question.questionVersionId,
@@ -715,7 +722,7 @@ export function NewAuditWizardPage() {
           </div> : null}
           {values && step === 4 ? <div className="planning-intake-fields">
             <div className="planning-intake-catalog" aria-label="Question catalog selection">
-                <div className="planning-intake-catalog-header"><div><span className="eyebrow">{auditUsageClass === "PREPROD_EXERCISE" ? "Disposable preprod exercise boundary" : "Governed selection boundary"}</span><h3>Choose the exact question subset</h3><p>Only the selected immutable question versions are sent to Finance. No checklist template is selected here.</p></div><span className="planning-intake-catalog-count" aria-live="polite">{pendingSelectionIds.length} selected{selectionDirty ? " · staged" : ""}</span></div>
+                <div className="planning-intake-catalog-header"><div><span className="eyebrow">Approved source catalog</span><h3>Choose the exact question subset</h3><p>Browse, filter, and select immutable question versions. Nothing is preselected for a new Audit.</p></div><span className="planning-intake-catalog-count" aria-live="polite">{pendingSelectionIds.length} selected{selectionDirty ? " · staged" : ""}</span></div>
               <div className="planning-intake-catalog-filters" aria-label="New Audit question search and filters">
                 <label>Search<input aria-label="New Audit question search" value={catalogSearch} onChange={(event) => { setCatalogSearch(event.target.value); resetCatalogPage(); }} placeholder="Form, proposal, or question identity" /></label>
                 <label>Form<input aria-label="New Audit form filter" value={catalogFormCode} onChange={(event) => { setCatalogFormCode(event.target.value); resetCatalogPage(); }} /></label>

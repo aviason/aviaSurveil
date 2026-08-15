@@ -75,8 +75,8 @@ test("credential-bearing MinIO administration output never reaches runtime logs"
   assert.doesNotMatch(initScript, /^mc admin policy attach/m);
 });
 
-test("full profile keeps scanning disabled and preserves named buckets", () => {
-  assert.match(compose, /AVIA_SCANNER_MODE:\s*disabled/);
+test("local profile selects its scanner mode explicitly and preserves named buckets", () => {
+  assert.match(compose, /AVIA_SCANNER_MODE:\s*\$\{LOCAL_SCANNER_MODE:-disabled\}/);
   assert.match(compose, /AVIA_OBJECT_STORE_QUARANTINE_BUCKET:\s*evidence-quarantine/);
   assert.match(compose, /AVIA_OBJECT_STORE_CANONICAL_BUCKET:\s*evidence-clean/);
   assert.match(compose, /AVIA_OBJECT_STORE_ATTACHMENT_BUCKET:\s*inspection-attachments/);

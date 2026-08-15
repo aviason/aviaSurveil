@@ -1,21 +1,21 @@
 version: 1
-environment: local-production-like
+environment: demo
 http:
   listenAddress: 0.0.0.0:8080
   publicOrigin: https://localhost:8443
 database:
   host: postgres
   port: 5432
-  name: aviasurveil360
-  user: aviasurveil360
-  passwordFile: /run/secrets/app_database_password
+  name: surveil
+  user: surveil_runtime
+  passwordFile: /run/secrets/surveil_runtime_database_password
 identity:
   issuer: https://localhost:8443/identity
-  internalIssuer: http://preprod-auth:8080
-  clientId: aviasurveil360-local-preprod-web
-  clientSecretFile: /run/secrets/preprod_oidc_client_secret
-  adminEndpoint: http://preprod-auth:8081
-  adminSecretFile: /run/secrets/preprod_auth_admin_secret
+  internalIssuer: http://auth:8080
+  clientId: aviasurveil360-namibia-demo-web
+  clientSecretFile: /run/secrets/oidc_client_secret
+  adminEndpoint: http://auth:8081
+  adminSecretFile: /run/secrets/auth_admin_secret
 session:
   encryptionKeyFile: /run/secrets/session_encryption_key
 objectStorage:

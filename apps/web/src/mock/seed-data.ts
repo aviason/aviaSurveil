@@ -915,9 +915,12 @@ export function createCanonicalSeedState(now: string): MockState {
       "PR-2026-018-V0": {
         reportVersionId: "PR-2026-018-V0",
         reportId: "PR-2026-018",
+        kind: "PRELIMINARY",
         organizationId: "ORG-FLY-NAMIBIA",
         auditId: "AUD-2026-001",
         findingIds: [],
+        potentialFindingIds: [],
+        potentialFindingRootDigest: "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
         contentHash: "sha256:preliminary-report-v0-returned",
         version: 0,
         status: "RETURNED",
@@ -927,9 +930,12 @@ export function createCanonicalSeedState(now: string): MockState {
       "PR-2026-018-V1": {
         reportVersionId: "PR-2026-018-V1",
         reportId: "PR-2026-018",
+        kind: "PRELIMINARY",
         organizationId: "ORG-FLY-NAMIBIA",
         auditId: "AUD-2026-001",
         findingIds: [],
+        potentialFindingIds: [],
+        potentialFindingRootDigest: "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
         contentHash: "sha256:preliminary-report-v1-department-review",
         version: 1,
         status: "DEPARTMENT_REVIEW",
@@ -939,9 +945,12 @@ export function createCanonicalSeedState(now: string): MockState {
       "RPT-CAB-2026-001-V1": {
         reportVersionId: "RPT-CAB-2026-001-V1",
         reportId: "RPT-CAB-2026-001",
+        kind: "FINAL",
         organizationId: "ORG-FLY-NAMIBIA",
         auditId: "AUD-2026-001",
         findingIds: [],
+        potentialFindingIds: [],
+        potentialFindingRootDigest: "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
         contentHash: "sha256:candidate-report-v1",
         version: 1,
         status: "EXECUTIVE_DIRECTOR_REVIEW",
@@ -1038,7 +1047,7 @@ export function createFullScreenScenarioSeedState(now: string): MockState {
     { id: "EVD-CAB-SCREEN-V1", findingId: "FND-CAB-2026-001", organizationId: "ORG-FLY-NAMIBIA", version: 1, fileName: "historical-evidence-v1.pdf", submittedAt: now, uploadState: "UPLOADED", scanState: "CLEAN", reviewState: "MORE_INFORMATION_REQUESTED", revision: 1, commentToAuditee: "Historical request." },
     { id: "EVD-CAB-SCREEN-V2", findingId: "FND-CAB-2026-001", organizationId: "ORG-FLY-NAMIBIA", version: 2, fileName: "historical-evidence-v2.pdf", submittedAt: now, uploadState: "UPLOADED", scanState: "CLEAN", reviewState: "PENDING_CAA_REVIEW", revision: 2, commentToAuditee: "Latest submission." },
   );
-  state.reportVersions["RPT-CAB-2026-001-V0"] = { reportVersionId: "RPT-CAB-2026-001-V0", reportId: "RPT-CAB-2026-001", organizationId: "ORG-FLY-NAMIBIA", auditId: "AUD-2026-001", findingIds: ["FND-CAB-2026-001"], contentHash: "sha256:screen-report-v0", version: 0, status: "RETURNED", revision: 1, issuedAt: null };
+  state.reportVersions["RPT-CAB-2026-001-V0"] = { reportVersionId: "RPT-CAB-2026-001-V0", reportId: "RPT-CAB-2026-001", kind: "FINAL", organizationId: "ORG-FLY-NAMIBIA", auditId: "AUD-2026-001", findingIds: ["FND-CAB-2026-001"], potentialFindingIds: [], potentialFindingRootDigest: "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945", contentHash: "sha256:screen-report-v0", version: 0, status: "RETURNED", revision: 1, issuedAt: null };
   state.reportPublicMetadata["RPT-CAB-2026-001-V0"] = { kind: "FINAL", responseDueDate: null, caaVisibleComment: null };
   state.reportVersions["RPT-CAB-2026-001-V1"]!.findingIds = ["FND-CAB-2026-001"];
   return state;

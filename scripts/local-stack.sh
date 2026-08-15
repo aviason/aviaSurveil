@@ -6,6 +6,7 @@ REPOSITORY_ROOT="$(cd "${SCRIPT_DIRECTORY}/.." && pwd)"
 COMPOSE_FILE="${REPOSITORY_ROOT}/deploy/local/compose.yaml"
 COMMAND="${1:-status}"
 PROFILE="${2:-${AVIA_LOCAL_PROFILE:-full}}"
+LOCAL_TARGET="${AVIA_LOCAL_TARGET:-namibia/demo}"
 
 case "${COMMAND}" in
   up | down | status | logs | check) ;;
@@ -21,6 +22,31 @@ case "${PROFILE}" in
     exit 64
     ;;
 esac
+case "${LOCAL_TARGET}" in
+  namibia/dev | namibia/demo) ;;
+  *)
+    echo "AVIA_LOCAL_TARGET must be one exact local target: namibia/dev or namibia/demo" >&2
+    exit 64
+    ;;
+esac
+LOCAL_ENVIRONMENT="${LOCAL_TARGET##*/}"
+LOCAL_MANIFEST_PREFIX="${AVIA_LOCAL_MANIFEST_PREFIX:-${LOCAL_ENVIRONMENT}}"
+if [[ "${LOCAL_ENVIRONMENT}" == "dev" ]]; then
+  LOCAL_RUNTIME_ENVIRONMENT="development"
+  LOCAL_AUTH_ENVIRONMENT="dev"
+  LOCAL_AUTH_PROFILE="${AVIA_LOCAL_AUTH_PROFILE:-standalone}"
+  LOCAL_SERVER_MANAGED_CORS="true"
+  LOCAL_SCANNER_MODE="${AVIA_LOCAL_SCANNER_MODE:-deterministic-test}"
+else
+  LOCAL_RUNTIME_ENVIRONMENT="demo"
+  LOCAL_AUTH_ENVIRONMENT="demo"
+  LOCAL_AUTH_PROFILE="${AVIA_LOCAL_AUTH_PROFILE:-first-party-demo}"
+  LOCAL_SERVER_MANAGED_CORS="false"
+  LOCAL_SCANNER_MODE="${AVIA_LOCAL_SCANNER_MODE:-disabled}"
+fi
+LOCAL_OIDC_CLIENT_ID="${AVIA_LOCAL_OIDC_CLIENT_ID:-aviasurveil360-namibia-${LOCAL_ENVIRONMENT}-web}"
+LOCAL_SIGNING_KEY_ID="${AVIA_LOCAL_SIGNING_KEY_ID:-avia-namibia-${LOCAL_ENVIRONMENT}-auth-signing-2026}"
+export AVIA_LOCAL_TARGET LOCAL_ENVIRONMENT LOCAL_RUNTIME_ENVIRONMENT LOCAL_AUTH_ENVIRONMENT LOCAL_MANIFEST_PREFIX LOCAL_AUTH_PROFILE LOCAL_SERVER_MANAGED_CORS LOCAL_SCANNER_MODE LOCAL_OIDC_CLIENT_ID LOCAL_SIGNING_KEY_ID
 
 if [[ -z "${AVIA_LOCAL_PROJECT:-}" ]]; then
   if [[ "${COMMAND}" != "up" ]]; then
@@ -43,9 +69,20 @@ if [[ "${AVIASURVEIL_LOCAL_STATE_DIR}" != /* ]]; then
   exit 64
 fi
 export AVIASURVEIL_LOCAL_STATE_DIR
-AVIA_PREPROD_STATE_DIR="${AVIA_PREPROD_STATE_DIR:-${AVIASURVEIL_LOCAL_STATE_DIR}/first-party-auth}"
-AVIA_PREPROD_WEB_ORIGIN="${AVIA_PREPROD_WEB_ORIGIN:-https://localhost:${AVIA_LOCAL_HTTPS_PORT:-8443}}"
-export AVIA_PREPROD_STATE_DIR AVIA_PREPROD_WEB_ORIGIN
+AVIA_BOOTSTRAP_MANIFEST_DIR="${AVIA_BOOTSTRAP_MANIFEST_DIR:-${REPOSITORY_ROOT}/../../deployments/namibia/manifests}"
+AVIA_ROSTER_CREDENTIAL_DIRECTORY="${AVIA_ROSTER_CREDENTIAL_DIRECTORY:-${AVIASURVEIL_LOCAL_STATE_DIR}/roster-credentials}"
+manifest_digest() {
+  local path="$1"
+  if command -v shasum >/dev/null 2>&1; then
+    printf 'sha256:%s\n' "$(shasum -a 256 "${path}" | awk '{print $1}')"
+  else
+    printf 'sha256:%s\n' "$(sha256sum "${path}" | awk '{print $1}')"
+  fi
+}
+export AVIA_BOOTSTRAP_MANIFEST_DIR AVIA_ROSTER_CREDENTIAL_DIRECTORY
+export AVIA_FOUNDATION_MANIFEST_SHA256="${AVIA_FOUNDATION_MANIFEST_SHA256:-$(manifest_digest "${AVIA_BOOTSTRAP_MANIFEST_DIR}/${LOCAL_MANIFEST_PREFIX}-foundation.json")}"
+export AVIA_ROSTER_MANIFEST_SHA256="${AVIA_ROSTER_MANIFEST_SHA256:-$(manifest_digest "${AVIA_BOOTSTRAP_MANIFEST_DIR}/${LOCAL_MANIFEST_PREFIX}-identity-roster.json")}"
+export AVIA_CATALOG_MANIFEST_SHA256="${AVIA_CATALOG_MANIFEST_SHA256:-$(manifest_digest "${AVIA_BOOTSTRAP_MANIFEST_DIR}/${LOCAL_MANIFEST_PREFIX}-approved-catalog.json")}"
 OWNER_MARKER="${AVIASURVEIL_LOCAL_STATE_DIR}/.compose-project-owner"
 PROFILE_MARKER="${AVIASURVEIL_LOCAL_STATE_DIR}/.compose-profile"
 
@@ -81,14 +118,12 @@ compose() {
 case "${COMMAND}" in
   up)
     initialize_owner
-    if [[ "${PROFILE}" != "demo" ]] &&
-      [[ ! -f "${AVIASURVEIL_LOCAL_STATE_DIR}/secrets/app_database_password" ]]; then
-      "${REPOSITORY_ROOT}/scripts/init-local-secrets.sh"
+    if [[ "${PROFILE}" =~ ^(full|test|recovery)$ ]] &&
+      [[ ! -f "${AVIASURVEIL_LOCAL_STATE_DIR}/bootstrap.json" ]]; then
+      AVIASURVEIL_LOCAL_STATE_DIR="${AVIASURVEIL_LOCAL_STATE_DIR}" \
+        "${REPOSITORY_ROOT}/scripts/init-local-demo-bootstrap.sh"
     fi
-    if [[ "${PROFILE}" =~ ^(demo|full)$ ]] &&
-      [[ ! -f "${AVIA_PREPROD_STATE_DIR}/namespace.json" ]]; then
-      "${REPOSITORY_ROOT}/scripts/init-local-preprod-namespace.sh"
-    fi
+    compose build
     compose up --detach --wait
     printf 'Local %s profile is running as project %s\n' "${PROFILE}" "${AVIA_LOCAL_PROJECT}"
     ;;

@@ -60,7 +60,7 @@ describe("OrganizationRegistryPage", () => {
     expect(screen.queryByRole("button", { name: /edit|create|delete/i })).toBeNull();
   });
 
-  it("links the supported organization to its exact child route and disables unsupported records by ID", async () => {
+  it("links each server-owned organization to its exact child route without a fixture-specific fallback", async () => {
     renderPage();
 
     const register = await screen.findByRole("table", { name: "Organizations" });
@@ -68,9 +68,9 @@ describe("OrganizationRegistryPage", () => {
       "href",
       "/department-manager/organizations/ORG-FLY-NAMIBIA",
     );
-    expect(within(register).getByRole("button", { name: "Organization detail unavailable for ORG-SKYCARGO" })).toHaveAttribute(
-      "title",
-      "Organization ORG-SKYCARGO has no declared Department Manager child route.",
+    expect(within(register).getByRole("link", { name: "Open organization ORG-SKYCARGO" })).toHaveAttribute(
+      "href",
+      "/department-manager/organizations/ORG-SKYCARGO",
     );
   });
 });

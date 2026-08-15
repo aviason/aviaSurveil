@@ -38,6 +38,18 @@ func canonicalDatabase(t *testing.T, label string) *database.Pool {
 			('manager-001', 'test', 'Department Manager', 'manager@example.test'),
 			('gm-001', 'test', 'General Manager', 'gm@example.test'),
 			('executive-001', 'test', 'Executive Director', 'executive@example.test')`},
+		{sql: `INSERT INTO user_profiles (
+				subject_id, display_name, organization_id, revision, created_at, updated_at
+			) VALUES
+				('inspector-cabin-001', 'Cabin Inspector', 'caa', 1, $1, $1),
+				('inspector-other', 'Other Inspector', 'caa', 1, $1, $1),
+				('lead-001', 'Lead Inspector', 'caa', 1, $1, $1),
+				('auditee-xyz', 'Airline XYZ Auditee', 'airline-xyz', 1, $1, $1),
+				('auditee-other', 'Other Airline Auditee', 'airline-other', 1, $1, $1),
+				('manager-001', 'Department Manager', 'caa', 1, $1, $1),
+				('gm-001', 'General Manager', 'caa', 1, $1, $1),
+				('executive-001', 'Executive Director', 'caa', 1, $1, $1)
+			ON CONFLICT (subject_id) DO NOTHING`, args: []any{canonicalNow}},
 		{sql: `INSERT INTO user_lifecycle_requests (
 				id, subject_id, requested_action, requested_roles, requested_organization_id,
 				status, idempotency_key, requested_by_subject_id, requested_email,
@@ -106,21 +118,23 @@ func canonicalDatabase(t *testing.T, label string) *database.Pool {
 		{sql: `INSERT INTO canonical_question_catalogs (
 				id, catalog_version, usage_class, profile_name, profile_version, status,
 				source_package_version, source_package_json_sha256, source_package_zip_sha256,
-				root_digest, question_count, form_count, created_by_subject_id
+				root_digest, source_origin, source_manifest_sha256, catalog_root_digest,
+				question_count, form_count, created_by_subject_id
 			) VALUES (
-				'catalog-cabin-fixture', 'aga-fixture@1.0.0', 'PREPROD_EXERCISE', 'aga-preprod', '1.0.0', 'SEALED',
+				'catalog-cabin-fixture', 'aga-fixture@1.0.0', 'GOVERNED_OPERATIONAL', 'aga-approved-source', '2.0.0', 'SEALED',
 				'fixture-1.0.0', 'sha256:fixture-package-json', 'sha256:fixture-package-zip',
+				'sha256:fixture-catalog-root', 'IMPORTED_APPROVED_SOURCE', 'sha256:fixture-source-manifest',
 				'sha256:fixture-catalog-root', 1, 1, 'manager-001'
 			)`},
 		{sql: `INSERT INTO canonical_question_catalog_forms (catalog_id, form_code, form_digest, archive_digest, question_count, source_gap_state)
 			VALUES ('catalog-cabin-fixture', 'CABIN', 'sha256:fixture-form', 'sha256:fixture-archive', 1, 'SOURCE_MAPPING_REQUIRED')`},
-		{sql: `INSERT INTO canonical_question_version_provenance (question_version_id, usage_class, catalog_id)
-			VALUES ('q-cabin-crew-training', 'PREPROD_EXERCISE', 'catalog-cabin-fixture')`},
+		{sql: `INSERT INTO canonical_question_version_provenance (question_version_id, usage_class, source_origin, catalog_id)
+			VALUES ('q-cabin-crew-training', 'GOVERNED_OPERATIONAL', 'IMPORTED_APPROVED_SOURCE', 'catalog-cabin-fixture')`},
 		{sql: `INSERT INTO canonical_question_catalog_memberships (
-				catalog_id, question_version_id, usage_class, form_code, proposal_id, ordinal,
+				catalog_id, question_version_id, usage_class, source_origin, form_code, proposal_id, ordinal,
 				question_digest, source_locator, source_gap_state, proposed_domain, proposed_topic, proposed_risk_band
 			) VALUES (
-				'catalog-cabin-fixture', 'q-cabin-crew-training', 'PREPROD_EXERCISE', 'CABIN', 'proposal-cabin-001', 1,
+				'catalog-cabin-fixture', 'q-cabin-crew-training', 'GOVERNED_OPERATIONAL', 'IMPORTED_APPROVED_SOURCE', 'CABIN', 'proposal-cabin-001', 1,
 				'sha256:fixture-question', 'fixture://cabin/1', 'SOURCE_MAPPING_REQUIRED', 'Cabin Safety', 'Crew Training', 'MEDIUM'
 			)`},
 		{sql: `INSERT INTO canonical_question_catalog_applicabilities (
@@ -147,31 +161,31 @@ func canonicalDatabase(t *testing.T, label string) *database.Pool {
 			)`},
 		{sql: `INSERT INTO canonical_audit_scope_drafts (
 				id, planning_intake_draft_id, organization_id, provider_scope_id, regulated_target_id,
-				audit_type, catalog_id, usage_class, revision, status, selected_question_count,
+				audit_type, catalog_id, usage_class, catalog_root_digest, revision, status, selected_question_count,
 				selection_digest, requested_budget, notice_policy, created_by_subject_id
 			) VALUES (
 				'scope-draft-cabin-fixture', 'draft-cabin-canonical', 'airline-xyz',
 				'scope-airline-xyz-air-operator', 'target-airline-xyz', 'CABIN', 'catalog-cabin-fixture',
-				'PREPROD_EXERCISE', 1, 'RELEASED', 1, 'sha256:fixture-selection', 1000, 'ADVANCE', 'manager-001'
+				'GOVERNED_OPERATIONAL', 'sha256:fixture-catalog-root', 1, 'RELEASED', 1, 'sha256:fixture-selection', 1000, 'ADVANCE', 'manager-001'
 			)`},
 		{sql: `INSERT INTO canonical_audit_scope_draft_questions (
 				scope_draft_id, revision, catalog_id, question_version_id, position, selection_digest
 			) VALUES ('scope-draft-cabin-fixture', 1, 'catalog-cabin-fixture', 'q-cabin-crew-training', 0, 'sha256:fixture-selection')`},
 		{sql: `INSERT INTO canonical_audit_scope_snapshots (
-				id, scope_draft_id, revision, stage, catalog_id, usage_class, selection_digest,
+				id, scope_draft_id, revision, stage, catalog_id, usage_class, catalog_root_digest, selection_digest,
 				selected_question_count, snapshot, planning_snapshot_digest, created_by_subject_id
 			) VALUES (
 				'scope-snapshot-cabin-submitted', 'scope-draft-cabin-fixture', 1, 'SUBMITTED', 'catalog-cabin-fixture',
-				'PREPROD_EXERCISE', 'sha256:fixture-selection', 1,
+				'GOVERNED_OPERATIONAL', 'sha256:fixture-catalog-root', 'sha256:fixture-selection', 1,
 				'{"planningItemId":"planning-item-cabin-canonical","catalogVersion":"aga-fixture@1.0.0","selectedQuestionVersionIds":["q-cabin-crew-training"]}',
 				governed_jsonb_sha256('{"planningItemId":"planning-item-cabin-canonical","catalogVersion":"aga-fixture@1.0.0","selectedQuestionVersionIds":["q-cabin-crew-training"]}'::jsonb), 'manager-001'
 			)`},
 		{sql: `INSERT INTO canonical_audit_scope_snapshots (
-				id, scope_draft_id, revision, stage, catalog_id, usage_class, selection_digest,
+				id, scope_draft_id, revision, stage, catalog_id, usage_class, catalog_root_digest, selection_digest,
 				selected_question_count, snapshot, planning_snapshot_digest, created_by_subject_id
 			) VALUES (
 				'scope-snapshot-cabin-001', 'scope-draft-cabin-fixture', 1, 'RELEASED', 'catalog-cabin-fixture',
-				'PREPROD_EXERCISE', 'sha256:fixture-selection', 1,
+				'GOVERNED_OPERATIONAL', 'sha256:fixture-catalog-root', 'sha256:fixture-selection', 1,
 				'{"planningItemId":"planning-item-cabin-canonical","catalogVersion":"aga-fixture@1.0.0","selectedQuestionVersionIds":["q-cabin-crew-training"]}',
 				governed_jsonb_sha256('{"planningItemId":"planning-item-cabin-canonical","catalogVersion":"aga-fixture@1.0.0","selectedQuestionVersionIds":["q-cabin-crew-training"]}'::jsonb), 'manager-001'
 			)`},

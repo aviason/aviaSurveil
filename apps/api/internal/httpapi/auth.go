@@ -49,8 +49,8 @@ func NewAuthBoundary(provider identity.OIDCProvider, sessions AuthSessionManager
 }
 
 // NewAuthBoundaryWithCookieSecure keeps the cookie transport policy explicit.
-// Production must use secure cookies; the disposable local-preprod demo may
-// opt out because it is intentionally served over plain HTTP on loopback.
+// Connected demo and production profiles use secure cookies; test profiles
+// may provide an explicit loopback policy through their own harness.
 func NewAuthBoundaryWithCookieSecure(
 	provider identity.OIDCProvider,
 	sessions AuthSessionManager,
@@ -174,6 +174,10 @@ func (boundary *AuthBoundary) callback(writer http.ResponseWriter, request *http
 	})
 	if err != nil {
 		if errors.Is(err, session.ErrUnauthenticated) {
+			slog.Warn(
+				"OIDC browser session admission rejected",
+				slog.String("diagnostic", session.AuthenticationFailureDiagnostic(err)),
+			)
 			boundary.expireBrowserSessionCookies(writer)
 			writeProblem(
 				writer,
@@ -277,11 +281,20 @@ func (boundary *AuthBoundary) authenticate(writer http.ResponseWriter, request *
 		cookie.Value,
 	)
 	if err != nil {
-		slog.Warn(
-			"browser session authentication rejected",
-			"diagnostic",
-			session.AuthenticationFailureDiagnostic(err),
-		)
+		diagnostic := session.AuthenticationFailureDiagnostic(err)
+		if diagnostic == "context-expired" {
+			slog.Debug(
+				"browser session authentication request cancelled",
+				"diagnostic",
+				diagnostic,
+			)
+		} else {
+			slog.Warn(
+				"browser session authentication rejected",
+				"diagnostic",
+				diagnostic,
+			)
+		}
 		if errors.Is(err, session.ErrUnauthenticated) {
 			boundary.expireBrowserSessionCookies(writer)
 		}

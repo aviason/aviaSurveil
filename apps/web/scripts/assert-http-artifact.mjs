@@ -78,6 +78,10 @@ export function assertHttpArtifact(suppliedPath = "dist") {
     /x-avia-test-subject/i,
     /candidate-canonical-test-token/i,
     /src\/test-profile/i,
+    /FND-CAB-2026-001|RPT-CAB-2026-001|PR-2026-018|ORG-FLY-NAMIBIA|PKG-CAB-2026-001|TPL-CABIN-2026/i,
+    /Fly Namibia/i,
+    /canonical-test-role-switch|demo-role-switch/i,
+    /localStorage|sessionStorage/i,
   ];
   for (const relativePath of files.filter((file) => /\.(?:js|map)$/.test(file))) {
     const contents = fs.readFileSync(path.join(artifactRoot, relativePath), "utf8");

@@ -58,7 +58,7 @@
   background: #f4f6fa;
 }
 
-.workspace-shell--admin .candidate-boundary,
+.workspace-shell--admin .qualification-boundary,
 .workspace-shell--admin .candidate-environment { display: none; }
 
 .workspace-shell--admin .admin-root-topbar {

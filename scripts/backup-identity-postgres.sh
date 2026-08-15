@@ -30,30 +30,30 @@ fingerprint_path="$directory/.identity-fingerprint.json"
 record_backup_audit started "$recovery_point_id" identityDatabase pending
 
 pgbackrest_command \
-  preprod-auth-postgres \
+  auth-postgres \
   /etc/pgbackrest/pgbackrest.conf \
   identity \
   stanza-create
 pgbackrest_command \
-  preprod-auth-postgres \
+  auth-postgres \
   /etc/pgbackrest/pgbackrest.conf \
   identity \
   check
 pgbackrest_command \
-  preprod-auth-postgres \
+  auth-postgres \
   /etc/pgbackrest/pgbackrest.conf \
   identity \
   backup \
   "--type=$backup_type"
 pgbackrest_command \
-  preprod-auth-postgres \
+  auth-postgres \
   /etc/pgbackrest/pgbackrest.conf \
   identity \
   info \
   --output=json >"$info_path"
 
 compose_recovery exec --no-TTY \
-  --env AVIA_ENVIRONMENT=local-candidate \
+  --env AVIA_ENVIRONMENT=demo \
   --env AVIA_ENABLE_RECOVERY_BACKUP=true \
   --env "AVIA_RECOVERY_POINT_ID=$recovery_point_id" \
   recovery-toolbox \

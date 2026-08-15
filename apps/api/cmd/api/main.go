@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -154,21 +153,6 @@ func run(ctx context.Context) error {
 				databaseProbe := database.Readiness{Pool: pool, RequiredMigrationVersion: migrations.LatestVersion}
 				databaseHealth = databaseProbe
 				probe = databaseProbe
-				exerciseProfileEnabled := canonicalAGAExerciseProfileEnabled(settings.Environment, os.LookupEnv)
-				if !exerciseProfileEnabled && canonicalTestExerciseProfileEnabled(settings) {
-					// The canonical HTTP contract harness is an explicit disposable
-					// test profile. It uses the same namespaced exercise content as
-					// local-preprod, while the strict production/default guard above
-					// remains unchanged.
-					exerciseProfileEnabled = true
-				}
-				if exerciseProfileEnabled && !canonicalTestExerciseProfileEnabled(settings) {
-					if namespaceErr := verifyCanonicalAGAExerciseDatabase(ctx, pool); namespaceErr != nil {
-						exerciseProfileEnabled = false
-						probe = unavailableReadiness{err: namespaceErr}
-						slog.Error("canonical AGA exercise namespace does not match the connected database; readiness will fail closed", "error", namespaceErr)
-					}
-				}
 				var authBoundary *httpapi.AuthBoundary
 				if settings.OIDCIssuerURL != "" {
 					var sessionManager *session.Manager
@@ -326,17 +310,12 @@ func run(ctx context.Context) error {
 							EvidenceUploads: evidenceUploads, AttachmentUploads: attachmentUploads,
 							Planning: planningService,
 							Risk:     riskService, Administration: administrationService,
-							Assistant:              assistantService,
-							Communications:         communicationsWorkflow,
-							Documents:              documentAccess,
-							DirectoryProvider:      directoryProvider,
-							Users:                  userLifecycleService,
-							PreprodExerciseProfile: exerciseProfileEnabled,
-							PreprodIdentityNamespace: func() string {
-								value, _ := os.LookupEnv("AVIA_PREPROD_IDENTITY_NAMESPACE")
-								return value
-							}(),
-							Clock: runtimeClock,
+							Assistant:         assistantService,
+							Communications:    communicationsWorkflow,
+							Documents:         documentAccess,
+							DirectoryProvider: directoryProvider,
+							Users:             userLifecycleService,
+							Clock:             runtimeClock,
 						}).Handler()
 						if profile.protect != nil {
 							protectedAPI, testAdmin, profileErr := profile.protect(
@@ -467,53 +446,6 @@ func maintainOIDCLoginState(ctx context.Context, manager *session.Manager) {
 			cancel()
 		}
 	}
-}
-
-// verifyCanonicalAGAExerciseDatabase checks the connected PostgreSQL
-// identity, rather than trusting process environment variables.  A copied
-// profile env file on a shared database must fail readiness before exercise
-// catalogs can become visible.
-func verifyCanonicalAGAExerciseDatabase(ctx context.Context, pool *database.Pool) error {
-	if pool == nil {
-		return errors.New("PostgreSQL pool is required for exercise namespace verification")
-	}
-	var databaseName, databaseOwner string
-	if err := pool.QueryRow(ctx, `
-		SELECT current_database(), pg_get_userbyid(datdba)
-		FROM pg_database
-		WHERE datname = current_database()
-	`).Scan(&databaseName, &databaseOwner); err != nil {
-		return fmt.Errorf("verify connected exercise database identity: %w", err)
-	}
-	if databaseName != "aviasurveil360_local_preprod" || databaseOwner != "aviasurveil360_preprod_loader" {
-		return fmt.Errorf("connected database is not the dedicated exercise namespace: got %s owned by %s", databaseName, databaseOwner)
-	}
-	return nil
-}
-
-// canonicalAGAExerciseProfileEnabled is deliberately stricter than a single
-// feature flag. Exercise content is enabled only for the local-preprod
-// runtime, the sealed versioned profile, an explicit qualification opt-in,
-// the dedicated whole-namespace identity, and the disposable database owner
-// envelope. A shared/default database can therefore never expose exercise
-// question versions merely because a profile variable was inherited.
-// Production/default API processes therefore fail closed even if a profile
-// variable is accidentally inherited.
-func canonicalAGAExerciseProfileEnabled(environment string, lookup func(string) (string, bool)) bool {
-	profile, profileOK := lookup("AVIA_PREPROD_PROFILE")
-	qualification, qualificationOK := lookup("AVIA_PREPROD_PROFILE_QUALIFICATION")
-	namespace, namespaceOK := lookup("AVIA_PREPROD_IDENTITY_NAMESPACE")
-	databaseName, databaseNameOK := lookup("AVIA_PREPROD_DATABASE_NAME")
-	databaseOwner, databaseOwnerOK := lookup("AVIA_PREPROD_DATABASE_OWNER")
-	return environment == "local-preprod" && profileOK && profile == "aga-preprod@1.0.0" &&
-		qualificationOK && strings.EqualFold(strings.TrimSpace(qualification), "true") &&
-		namespaceOK && strings.TrimSpace(namespace) == "canonical-aga-preprod-exercise-v1" &&
-		databaseNameOK && strings.TrimSpace(databaseName) == "aviasurveil360_local_preprod" &&
-		databaseOwnerOK && strings.TrimSpace(databaseOwner) == "aviasurveil360_preprod_loader"
-}
-
-func canonicalTestExerciseProfileEnabled(settings config.Settings) bool {
-	return settings.Environment == "test" && settings.CanonicalSeed && settings.CanonicalTestProfile
 }
 
 func newRuntimeReadiness(

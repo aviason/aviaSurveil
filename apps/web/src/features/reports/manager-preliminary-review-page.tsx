@@ -41,7 +41,7 @@ export function ManagerPreliminaryReviewPage() {
     setBusy(true); setError(null);
     try {
       const updated = await backend.reports.decide({
-        operationId: `OP-PR-2026-018-V1-${decision}`,
+        operationId: `REPORT-${current.reportVersionId}-${current.revision}-${decision}`,
         reportVersionId: current.reportVersionId,
         expectedReportVersionRevision: current.revision,
         decision,

@@ -5,6 +5,7 @@ import type {
   FindingSeverity,
   FindingView,
   PotentialFindingView,
+  ReportVersionView,
 } from "../../backend/backend";
 import { useApplicationRuntime } from "../../app/providers";
 import { DataRegister, type DataRegisterColumn } from "../../ui/workbench/data-register";
@@ -46,6 +47,27 @@ function statusTone(value: string): StatusPillTone {
   return "neutral";
 }
 
+function newOpaqueIdentity(prefix: string): string {
+  return `${prefix}:${globalThis.crypto.randomUUID()}`;
+}
+
+const preliminaryReportContent = (auditId: string) => ({
+  schema: "avia.report-content/v1",
+  languageTag: "en",
+  title: "Preliminary Inspection Report",
+  executiveSummary: "The released inspection checklist has been executed and is ready for governed report review.",
+  scope: `Canonical inspection ${auditId}`,
+  methodology: "The assigned Inspector executed the immutable released question set and recorded server-owned responses.",
+  sections: [{
+    id: "execution-summary",
+    heading: "Inspection execution",
+    paragraphs: ["This Preliminary Report records the submitted checklist boundary. Finding conversion remains a later governed action."],
+  }],
+  findings: [],
+  conclusion: "The inspection evidence is ready for the declared Preliminary Report approval path.",
+  recommendations: ["Review and issue this immutable Preliminary Report before converting any Potential Finding."],
+});
+
 /**
  * The Lead preparation hand-off shares the role-owned Lead workspace route.
  * Keeping the assignment identity in the query makes the route server-owned
@@ -69,7 +91,8 @@ function LeadReviewQueuePage() {
   const [severity, setSeverity] = useState<FindingSeverity>("LEVEL_1_CRITICAL");
   const [capRequired, setCapRequired] = useState(true);
   const [evidenceRequired, setEvidenceRequired] = useState(true);
-  const [dueDate, setDueDate] = useState<string | null>("2026-07-15");
+  const [dueDate, setDueDate] = useState<string | null>(() => new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10));
+  const [preliminaryReport, setPreliminaryReport] = useState<ReportVersionView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -80,13 +103,9 @@ function LeadReviewQueuePage() {
         const result = await leadBackend.potentialFindings.list({
           status: "PENDING_LEAD_REVIEW",
         });
-        const first = result.items[0] ?? null;
-        const selectedPotential = first
-          ? await leadBackend.potentialFindings.get({ potentialFindingId: first.id })
-          : null;
         if (!cancelled) {
           setQueue(result.items);
-          setSelected(selectedPotential);
+          setSelected(null);
           setFinding(null);
         }
       } catch (cause) {
@@ -98,6 +117,19 @@ function LeadReviewQueuePage() {
       cancelled = true;
     };
   }, [leadBackend]);
+
+  async function selectPotentialFinding(id: string): Promise<void> {
+    setBusy(true);
+    setError(null);
+    try {
+      setSelected(await leadBackend.potentialFindings.get({ potentialFindingId: id }));
+      setFinding(null);
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const rows = useMemo<PotentialFindingRow[]>(
     () =>
@@ -122,7 +154,7 @@ function LeadReviewQueuePage() {
     setError(null);
     try {
       const result = await leadBackend.potentialFindings.decide({
-        operationId: `OP-PF-${decision}`,
+        operationId: `POTENTIAL-FINDING-${selected.id}-${selected.revision}-${decision}`,
         potentialFindingId: selected.id,
         expectedPotentialFindingRevision: selected.revision,
         decision,
@@ -143,7 +175,7 @@ function LeadReviewQueuePage() {
     setError(null);
     try {
       const result = await leadBackend.potentialFindings.decide({
-        operationId: "OP-PF-CONVERT",
+        operationId: `POTENTIAL-FINDING-${selected.id}-${selected.revision}-CONVERT`,
         potentialFindingId: selected.id,
         expectedPotentialFindingRevision: selected.revision,
         decision: "CONVERT",
@@ -162,6 +194,34 @@ function LeadReviewQueuePage() {
     }
   }
 
+  async function createPreliminaryReport(): Promise<void> {
+    if (!selected) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const reportId = newOpaqueIdentity("report");
+      const reportVersionId = newOpaqueIdentity("report-version");
+      const created = await leadBackend.reports.create({
+        operationId: `CREATE-PRELIMINARY-${reportVersionId}`,
+        idempotencyKey: `CREATE-PRELIMINARY-${reportVersionId}`,
+        expectedRevision: null,
+        reportVersionId,
+        reportId,
+        auditId: selected.auditId,
+        kind: "PRELIMINARY",
+        version: 1,
+        status: "DEPARTMENT_REVIEW",
+        findingIds: [],
+        content: preliminaryReportContent(selected.auditId),
+      });
+      setPreliminaryReport(created);
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function selectSeverity(nextSeverity: FindingSeverity): void {
     if (nextSeverity === "OBSERVATION") {
       setCapRequired(false);
@@ -170,7 +230,7 @@ function LeadReviewQueuePage() {
     } else if (severity === "OBSERVATION") {
       setCapRequired(true);
       setEvidenceRequired(true);
-      setDueDate("2026-07-15");
+        setDueDate(new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10));
     }
     setSeverity(nextSeverity);
   }
@@ -180,14 +240,7 @@ function LeadReviewQueuePage() {
       <div className="lead-assigned-page">
         <div className="lead-assigned-crumb"><span>Dashboard</span><span>›</span><b>Assigned Audits</b></div>
         <header className="lead-assigned-head workbench-page-header">
-          <div><h1>Assigned Audits</h1><p>View and manage all audits assigned to you.</p></div>
-          <button
-            aria-label="New Audit Assignment unavailable: this screen remains in the accepted legacy demo"
-            className="lead-root-button lead-root-button--primary"
-            disabled
-            title="New Audit Assignment remains in the accepted legacy demo."
-            type="button"
-          >+ New Audit Assignment</button>
+          <div><h1>Assigned Audits</h1><p>View and manage server-owned audits assigned to you. New assignments are created by the Department Manager.</p></div>
         </header>
         <section className="lead-assigned-kpis" aria-label="Lead assignment summary">
           {[
@@ -207,12 +260,22 @@ function LeadReviewQueuePage() {
         {selected ? (
           <section className="lead-potential-panel" data-testid="potential-finding-dossier">
             <header><h2>Pending Inspector Finding Decisions</h2><span>Lead only</span></header>
-            <article className="lead-potential-card">
+              <article className="lead-potential-card">
               <div className="lead-potential-card__head">
-                <div><h3>{selected.id} · Non-Compliant</h3><p>2026 Cabin Inspection - Fly Namibia · Is protective breathing equipment serviceable and accessible?</p></div>
+                <div><h3>{selected.id}</h3><p>{selected.title} · {selected.organizationId}</p></div>
                 <StatusPill label="Pending Lead Review" tone={statusTone(selected.status)} />
               </div>
-              <p className="lead-potential-comment">PBE serviceability and accessibility could not be confirmed.</p>
+              <p className="lead-potential-comment">{selected.description}</p>
+              {!preliminaryReport ? <div className="lead-report-preparation">
+                <h3>Preliminary Report</h3>
+                <p>Create the immutable Preliminary Report after the Inspector submits the checklist. Finding issuance remains blocked until this version is approved and issued.</p>
+                <button className="lead-root-button" disabled={busy} onClick={() => void createPreliminaryReport()} type="button">Create Preliminary Report</button>
+              </div> : <section aria-label="Created Preliminary Report" className="lead-report-preparation" data-testid="created-preliminary-report">
+                <h3>Preliminary Report created</h3>
+                <p data-testid="preliminary-report-version-id">{preliminaryReport.reportVersionId}</p>
+                <span data-testid="preliminary-report-status">{preliminaryReport.status}</span>
+                <Link className="primary-link" to={`/lead-inspector/preliminary-reports/${encodeURIComponent(preliminaryReport.reportVersionId)}`}>Open Preliminary Report</Link>
+              </section>}
               {!finding ? (
                 <div className="lead-potential-form">
                   <label>Finding title<input readOnly title="Finding title is sourced from the persisted Potential Finding." value={selected.title} /></label>
@@ -231,7 +294,7 @@ function LeadReviewQueuePage() {
                 </div>
               ) : (
                 <section className="lead-review-result" data-testid="lead-decision-result">
-                  <span>Canonical Finding</span><strong data-testid="finding-number">{finding.findingNumber}</strong><span data-testid="finding-status">{finding.status}</span><span>{formatSeverity(finding.severity)}</span><span>{finding.capRequired ? "CAP required" : "CAP not required"}</span><span>{finding.evidenceRequired ? "Evidence required" : "Evidence not required"}</span><Link className="primary-link" to="/lead-inspector/cap-review/FND-CAB-2026-001">Open Lead CAP review</Link>
+                  <span>Finding</span><strong data-testid="finding-number">{finding.findingNumber}</strong><span data-testid="finding-status">{finding.status}</span><span>{formatSeverity(finding.severity)}</span><span>{finding.capRequired ? "CAP required" : "CAP not required"}</span><span>{finding.evidenceRequired ? "Evidence required" : "Evidence not required"}</span><Link className="primary-link" to={`/lead-inspector/cap-review/${encodeURIComponent(finding.id)}`}>Open Lead CAP review</Link>
                 </section>
               )}
             </article>
@@ -240,11 +303,14 @@ function LeadReviewQueuePage() {
           <article className="lead-review-empty"><h2>No authorized persisted Potential Findings awaiting Lead review</h2><p>Empty state means no persisted records are authorized for this Lead Inspector, not that the React session has no prior in-memory state.</p></article>
         )}
         {queue.length > 0 ? (
-          <section className="lead-review-register" aria-label="Lead Potential Finding queue">
+        <section className="lead-review-register" aria-label="Lead Potential Finding queue">
+            <nav aria-label="Select Potential Finding" className="button-row">
+              {queue.map((item) => <button disabled={busy} key={item.id} onClick={() => void selectPotentialFinding(item.id)} type="button">{item.id} · {statusLabel(item.status)}</button>)}
+            </nav>
             <DataRegister caption="Potential Findings awaiting Lead review" columns={potentialFindingColumns} rowKey={(row) => row.rowId} rows={rows} />
-          </section>
-        ) : null}
-        <span className="candidate-boundary">Pending lead review. Due Date: 15 Jul 2026.</span>
+        </section>
+      ) : null}
+        <span className="qualification-boundary">Pending Lead review uses the persisted Potential Finding state.</span>
       </div>
     </WorkspaceShell>
   );

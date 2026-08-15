@@ -25,7 +25,7 @@ describe("ApplicationShell", () => {
   function LocationProbe() {
     return <output data-testid="location-probe">{useLocation().pathname}</output>;
   }
-  it("composes candidate boundary, registry navigation, topbar, and supplied content", () => {
+  it("composes the qualification boundary, registry navigation, topbar, and supplied content", () => {
     render(
       <MemoryRouter>
         <ApplicationShell
@@ -41,8 +41,8 @@ describe("ApplicationShell", () => {
     );
 
     expect(screen.getByTestId("application-shell")).toBeInTheDocument();
-    expect(screen.getByText("Candidate-only")).toBeInTheDocument();
-    expect(screen.getByText("No production-readiness claim")).toBeInTheDocument();
+    expect(screen.getByText("Local qualification data")).toBeInTheDocument();
+    expect(screen.getByText("Release evidence required")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "My Assignments" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("heading", { name: "Audit Detail" })).toBeInTheDocument();
   });
@@ -217,7 +217,7 @@ describe("ApplicationShell", () => {
     );
 
     expect(screen.getByTestId("application-shell")).toHaveClass("workspace-shell--auditee-demo");
-    expect(screen.getByRole("status")).toHaveTextContent("Frontend clickable prototype");
+    expect(screen.getByRole("status")).toHaveTextContent("Local qualification workspace");
     expect(screen.getAllByText("Service Provider Portal").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Role select" })).toBeEnabled();
   });

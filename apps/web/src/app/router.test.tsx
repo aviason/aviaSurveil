@@ -52,10 +52,8 @@ describe("authorized role-entry inventory", () => {
       </AppProviders>,
     );
     expect(await screen.findByRole("heading", { name: "Finance Review" })).toBeInTheDocument();
-    expect(
-      await screen.findByRole("heading", { name: "2026 Cabin Surveillance — Fly Namibia" }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Approve Budget" })).toBeInTheDocument();
+    expect(await screen.findByText("2026 Cabin Surveillance — Fly Namibia")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Review PLAN-2026-CAB-001" })).toBeInTheDocument();
     expect(screen.queryByText(/candidate React entry route/i)).not.toBeInTheDocument();
   });
 
@@ -169,18 +167,9 @@ describe("authorized role-entry inventory", () => {
     expect(screen.queryByRole("alert", { name: "Unavailable HTTP capability" })).not.toBeInTheDocument();
   });
 
-  it("direct-loads the Admin inspection-package route in the HTTP profile", async () => {
+  it("direct-loads the Admin approved-catalog route in the HTTP profile", async () => {
     const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
-      new Response(JSON.stringify({
-        id: "PKG-CAB-2026-001",
-        auditId: "AUD-2026-001",
-        organizationId: "ORG-FLY-NAMIBIA",
-        organizationName: "Fly Namibia",
-        questionIds: ["CAB-EMEQ-PBE-001"],
-        configuredReferences: ["Configured EM EQ / PBE"],
-        expectedEvidence: ["PBE record"],
-        riskFocus: ["Emergency equipment serviceability"],
-      }), {
+      new Response(JSON.stringify({ items: [], nextCursor: null }), {
         headers: { "content-type": "application/json" },
       }),
     );
@@ -196,11 +185,11 @@ describe("authorized role-entry inventory", () => {
       </AppProviders>,
     );
 
-    expect(await screen.findByRole("heading", { name: "Inspection Package Builder" })).toBeInTheDocument();
-    expect(await screen.findByText("PKG-CAB-2026-001")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Approved AGA Catalog" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /load approved questions/i })).toBeDisabled();
     expect(screen.queryByRole("alert", { name: "Unavailable HTTP capability" })).not.toBeInTheDocument();
     expect(fetchImplementation).toHaveBeenCalledWith(
-      "/v1/admin/inspection-packages/PKG-CAB-2026-001",
+      "/v1/audit-scope-options?limit=100",
       expect.objectContaining({ credentials: "same-origin" }),
     );
   });

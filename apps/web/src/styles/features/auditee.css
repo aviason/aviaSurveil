@@ -418,6 +418,8 @@
 }
 
 .auditee-table-scroll {
+  width: 100%;
+  min-width: 0;
   max-width: 100%;
   overflow-x: auto;
 }
@@ -652,6 +654,10 @@
   gap: 16px;
   margin-top: 18px;
   padding: 18px;
+}
+
+.auditee-response-work-package > * {
+  min-width: 0;
 }
 
 .auditee-response-work-package > header {

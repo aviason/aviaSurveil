@@ -2,7 +2,6 @@ import {
   CANONICAL_AUDIT_PREPARATION_PATH,
   CANONICAL_INSPECTOR_AUDIT_PATH,
   CANONICAL_INSPECTOR_CHECKLIST_PATH,
-  CANONICAL_QUESTION_REVIEW_PATH,
   REACT_ROUTE_CONTRACTS,
 } from "../app/route-contracts";
 import type { Role } from "../backend/backend";
@@ -77,7 +76,6 @@ export class RefreshCoordinator {
 
 const sessionPaths = new Set(REACT_ROUTE_CONTRACTS.map((contract) => contract.path));
 const canonicalSessionPathPatterns = [
-  CANONICAL_QUESTION_REVIEW_PATH,
   CANONICAL_AUDIT_PREPARATION_PATH,
   CANONICAL_INSPECTOR_AUDIT_PATH,
   CANONICAL_INSPECTOR_CHECKLIST_PATH,
@@ -94,7 +92,7 @@ const supportedRoles = new Set<Role>([
 ]);
 
 export function parseCsrfCookie(cookieSource = document.cookie, protocol = window.location.protocol): string | null {
-  // Local-preprod is served over plain HTTP and intentionally uses the
+  // Local qualification is served over plain HTTP and intentionally uses the
   // unprefixed cookie names. Prefer that cookie when a browser still carries a
   // stale secure cookie from an earlier run; otherwise the stale token would
   // be sent in the header while the API validates the local cookie.
