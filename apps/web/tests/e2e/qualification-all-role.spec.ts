@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -77,6 +78,8 @@ const scenarioId = process.env.AVIA_QUALIFICATION_SCENARIO_ID ?? "qualification-
 const scenarioManifestPath = process.env.AVIA_QUALIFICATION_SCENARIO_MANIFEST ?? "";
 const rosterManifestPath = process.env.AVIA_QUALIFICATION_ROSTER_MANIFEST ?? "";
 const credentialDirectory = process.env.AVIA_QUALIFICATION_CREDENTIAL_DIRECTORY ?? "";
+const cloudCredentialRecovery = process.env.AVIA_QUALIFICATION_CLOUD_CREDENTIAL_RECOVERY === "1";
+const workspaceRoot = process.env.AVIA_WORKSPACE_ROOT ?? "";
 const resultPath = process.env.AVIA_QUALIFICATION_RESULT_PATH ?? "";
 const qualificationTarget = process.env.AVIA_QUALIFICATION_TARGET ?? "";
 
@@ -85,14 +88,54 @@ function readJson<T>(filePath: string): T {
   return JSON.parse(fs.readFileSync(filePath, "utf8")) as T;
 }
 
+function recoverCloudCredential(purposeToken: PurposeToken): string {
+  if (!workspaceRoot || !qualificationTarget) throw new Error("Cloud qualification credential recovery is not configured.");
+  const [customer, environment] = qualificationTarget.split("/", 2);
+  if (!customer || environment !== "demo") throw new Error("Cloud qualification credential recovery requires the exact demo target.");
+  const expectedPath = path.join(workspaceRoot, ".state", "qualification", "role-credentials", customer, environment, scenarioId, purposeToken);
+  const python = process.env.AVIA_QUALIFICATION_PYTHON ?? "python3";
+  const result = spawnSync(
+    python,
+    [
+      path.join(workspaceRoot, "scripts", "workspace.py"),
+      "qualification-credential",
+      "--target",
+      qualificationTarget,
+      "--scenario-id",
+      scenarioId,
+      "--purpose",
+      purposeToken,
+      "--confirm",
+      `${qualificationTarget}:${purposeToken}`,
+    ],
+    { cwd: workspaceRoot, env: process.env, encoding: "utf8", maxBuffer: 64 * 1024 },
+  );
+  if (result.error || result.status !== 0) {
+    throw new Error(`Cloud credential recovery failed for ${purposeToken} (exit ${result.status ?? "spawn"}).`);
+  }
+  const returnedPath = result.stdout.trim().split(/\r?\n/).at(-1) ?? "";
+  if (path.resolve(returnedPath) !== path.resolve(expectedPath)) {
+    throw new Error(`Cloud credential recovery returned an unexpected custody path for ${purposeToken}.`);
+  }
+  return expectedPath;
+}
+
 function readCredential(purposeToken: PurposeToken): string {
-  if (!credentialDirectory) throw new Error("Qualification credential directory is not configured.");
-  const filePath = path.join(credentialDirectory, purposeToken);
+  const filePath = cloudCredentialRecovery ? recoverCloudCredential(purposeToken) : path.join(credentialDirectory, purposeToken);
+  if (!cloudCredentialRecovery && !credentialDirectory) throw new Error("Qualification credential directory is not configured.");
   const stat = fs.lstatSync(filePath);
-  if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`Qualification credential entry is not a regular file: ${purposeToken}`);
-  const value = fs.readFileSync(filePath, "utf8").trim();
-  if (!value) throw new Error(`Qualification credential entry is empty: ${purposeToken}`);
-  return value;
+  if (!stat.isFile() || stat.isSymbolicLink() || (stat.mode & 0o077) !== 0) throw new Error(`Qualification credential entry is not a private regular file: ${purposeToken}`);
+  try {
+    const value = fs.readFileSync(filePath, "utf8").trim();
+    if (!value) throw new Error(`Qualification credential entry is empty: ${purposeToken}`);
+    return value;
+  } finally {
+    if (cloudCredentialRecovery) {
+      fs.unlinkSync(filePath);
+      const runDirectory = path.dirname(filePath);
+      if (fs.readdirSync(runDirectory).length === 0) fs.rmdirSync(runDirectory);
+    }
+  }
 }
 
 function potentialFindingRootDigest(ids: readonly string[]): string {
