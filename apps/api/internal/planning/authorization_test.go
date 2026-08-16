@@ -23,3 +23,23 @@ func TestPlanningAuthorizationKeepsIntermediateRolesNarrow(t *testing.T) {
 		t.Fatal("Executive Director cannot issue")
 	}
 }
+
+func TestPlanningAuthorizationDoesNotExposeGlobalQueueToInspectors(t *testing.T) {
+	t.Parallel()
+	for _, role := range []identity.Role{identity.RoleInspector, identity.RoleLeadInspector} {
+		if planning.CanListQueue(identity.Principal{Roles: []identity.Role{role}}) {
+			t.Fatalf("%s can list the global planning queue", role)
+		}
+	}
+	for _, role := range []identity.Role{
+		identity.RoleDepartmentManager,
+		identity.RoleFinance,
+		identity.RoleGeneralManager,
+		identity.RoleExecutiveDirector,
+		identity.RoleAdmin,
+	} {
+		if !planning.CanListQueue(identity.Principal{Roles: []identity.Role{role}}) {
+			t.Fatalf("%s cannot list the global planning queue", role)
+		}
+	}
+}

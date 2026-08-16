@@ -92,15 +92,7 @@ func NewService(pool *database.Pool, dependencies Dependencies) *Service {
 }
 
 func (service *Service) List(ctx context.Context, actor identity.Principal, limit int32) ([]Item, error) {
-	if !actor.HasRole(
-		identity.RoleInspector,
-		identity.RoleLeadInspector,
-		identity.RoleDepartmentManager,
-		identity.RoleFinance,
-		identity.RoleGeneralManager,
-		identity.RoleExecutiveDirector,
-		identity.RoleAdmin,
-	) {
+	if !CanListQueue(actor) {
 		return nil, fmt.Errorf("%w: CAA planning access is required", application.ErrForbidden)
 	}
 	records, err := planningstore.New(service.pool).ListSurveillancePlanItems(ctx, boundedLimit(limit))

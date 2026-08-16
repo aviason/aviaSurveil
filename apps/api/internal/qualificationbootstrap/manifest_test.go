@@ -57,6 +57,35 @@ func TestReadRosterManifestRejectsUnknownFieldsAndSecretShapedData(t *testing.T)
 	assertManifestRejected(t, []byte(secretMarker), "secret-shaped field")
 }
 
+func TestReadRosterManifestRequiresOneManagerWithDepartmentAuthority(t *testing.T) {
+	base := RosterManifest{
+		SchemaVersion: 1, ManifestVersion: "test", AdvisoryLockKey: 41010202,
+		Target: testTarget, Enabled: true, QualificationOnly: true,
+		OnboardingMode: "verifyExisting", CredentialCustody: "none",
+		Accounts: []RosterAccount{
+			{PurposeToken: "MANAGER-ONE", DisplayName: "Manager One", Email: "one@example.test", OrganizationID: "CAA", Role: "manager", MembershipID: "membership-one"},
+			{PurposeToken: "MANAGER-TWO", DisplayName: "Manager Two", Email: "two@example.test", OrganizationID: "CAA", Role: "manager", MembershipID: "membership-two"},
+		},
+	}
+	path := writeJSONManifest(t, base)
+	if _, _, err := ReadRosterManifest(path, fileDigest(t, path), testTarget); err == nil {
+		t.Fatal("manifest with two manager roles and no department authority was accepted")
+	}
+
+	base.Accounts[1].Department = &DepartmentBinding{ID: "department-membership-two", DepartmentID: "AERODROME_INSPECTORATE", OrganizationalUnitID: "AERODROME_INSPECTORATE"}
+	path = writeJSONManifest(t, base)
+	if _, _, err := ReadRosterManifest(path, fileDigest(t, path), testTarget); err == nil {
+		t.Fatal("manifest with two manager roles and one department authority was accepted")
+	}
+
+	base.Accounts = base.Accounts[:1]
+	base.Accounts[0].Department = &DepartmentBinding{ID: "department-membership-one", DepartmentID: "AERODROME_INSPECTORATE", OrganizationalUnitID: "AERODROME_INSPECTORATE"}
+	path = writeJSONManifest(t, base)
+	if _, _, err := ReadRosterManifest(path, fileDigest(t, path), testTarget); err != nil {
+		t.Fatalf("manifest with one manager and one department authority rejected: %v", err)
+	}
+}
+
 func TestRosterCredentialRequiresPrivateRegularFile(t *testing.T) {
 	directory := t.TempDir()
 	path := filepath.Join(directory, "TEST-ACCOUNT")

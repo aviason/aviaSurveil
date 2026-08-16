@@ -59,6 +59,49 @@ interface ReportVersionApiView {
   status: string;
 }
 
+interface CanonicalQuestionCatalogEntry {
+  catalogVersion: string;
+  usageClass: string;
+  questionVersionId: string;
+  formCode: string;
+  ordinal: number;
+  questionDigest: string;
+  sourceLocator?: string;
+  sourceGapState: string;
+  canSelect: boolean;
+  canPublish: boolean;
+}
+
+interface CanonicalQuestionCatalogPage {
+  items: CanonicalQuestionCatalogEntry[];
+  nextCursor?: string | null;
+  catalogVersion: string;
+  usageClass: string;
+  totalCount: number;
+}
+
+interface ApprovedSourceQuestion {
+  immutableQuestionId: string;
+  immutableQuestionVersionId: string;
+  ordinal: number;
+  textDigest: string;
+  sourceLocator: string;
+}
+
+interface ApprovedSourceForm {
+  formCode: string;
+  sourceFormSha256: string;
+  sourceArchiveSha256: string;
+  questionCount: number;
+  questions: ApprovedSourceQuestion[];
+}
+
+interface ApprovedCatalogOracle {
+  catalogRootDigest: string;
+  forms: ApprovedSourceForm[];
+  rows: Array<ApprovedSourceQuestion & { formCode: string }>;
+}
+
 interface EvidenceCompleteApiView {
   evidenceVersionId: string;
   version: number;
@@ -82,10 +125,50 @@ const cloudCredentialRecovery = process.env.AVIA_QUALIFICATION_CLOUD_CREDENTIAL_
 const workspaceRoot = process.env.AVIA_WORKSPACE_ROOT ?? "";
 const resultPath = process.env.AVIA_QUALIFICATION_RESULT_PATH ?? "";
 const qualificationTarget = process.env.AVIA_QUALIFICATION_TARGET ?? "";
+type RoleSession = { context: BrowserContext; page: Page };
+const roleSessions = new Map<PurposeToken, RoleSession>();
 
 function readJson<T>(filePath: string): T {
   if (!filePath) throw new Error("Qualification manifest path is not configured.");
   return JSON.parse(fs.readFileSync(filePath, "utf8")) as T;
+}
+
+function readApprovedCatalogOracle(): ApprovedCatalogOracle {
+  if (!workspaceRoot) throw new Error("Workspace root is required for the approved catalog oracle.");
+  const archivePath = path.join(workspaceRoot, "apps", "surveil", "deliverables", "AGA_ALL_FORMS_APPROVED_SOURCE_V2.zip");
+  const result = spawnSync(
+    "unzip",
+    ["-p", archivePath, "aga-approved-source-v2/AGA_ALL_FORMS_APPROVED_SOURCE_V2.json"],
+    { cwd: workspaceRoot, env: process.env, encoding: "utf8", maxBuffer: 8 * 1024 * 1024 },
+  );
+  if (result.error || result.status !== 0 || !result.stdout) {
+    throw new Error(`Approved catalog oracle extraction failed (exit ${result.status ?? "spawn"}).`);
+  }
+  const document = JSON.parse(result.stdout) as { catalogRootDigest: string; forms: ApprovedSourceForm[] };
+  const rows: ApprovedCatalogOracle["rows"] = [];
+  const digest = createHash("sha256");
+  for (const form of document.forms) {
+    digest.update(`form\u0000${form.formCode}\u0000${form.sourceFormSha256}\u0000${form.sourceArchiveSha256}\u0000${form.questionCount}\n`);
+    for (const question of form.questions) {
+      const row = { ...question, formCode: form.formCode };
+      rows.push(row);
+      digest.update(`question\u0000${form.formCode}\u0000${question.ordinal}\u0000${question.immutableQuestionId}\u0000${question.immutableQuestionVersionId}\u0000${question.textDigest}\u0000${question.sourceLocator}\n`);
+    }
+  }
+  return { catalogRootDigest: `sha256:${digest.digest("hex")}`, forms: document.forms, rows };
+}
+
+function catalogRootDigestForTraversal(oracle: ApprovedCatalogOracle, orderedQuestionVersionIds: readonly string[]): string {
+  const observed = new Set(orderedQuestionVersionIds);
+  const digest = createHash("sha256");
+  for (const form of oracle.forms) {
+    digest.update(`form\u0000${form.formCode}\u0000${form.sourceFormSha256}\u0000${form.sourceArchiveSha256}\u0000${form.questionCount}\n`);
+    for (const question of form.questions) {
+      if (!observed.has(question.immutableQuestionVersionId)) continue;
+      digest.update(`question\u0000${form.formCode}\u0000${question.ordinal}\u0000${question.immutableQuestionId}\u0000${question.immutableQuestionVersionId}\u0000${question.textDigest}\u0000${question.sourceLocator}\n`);
+    }
+  }
+  return `sha256:${digest.digest("hex")}`;
 }
 
 function recoverCloudCredential(purposeToken: PurposeToken): string {
@@ -157,6 +240,8 @@ function accountsByToken(): Map<PurposeToken, RosterAccount> {
 }
 
 async function signIn(browser: Browser, account: RosterAccount, viewport: { width: number; height: number } = { width: 1280, height: 800 }): Promise<{ context: BrowserContext; page: Page }> {
+  const existing = roleSessions.get(account.purposeToken);
+  if (existing) return existing;
   const context = await browser.newContext({ viewport });
   const page = await context.newPage();
   await page.goto(`${origin}/`, { waitUntil: "domcontentloaded" });
@@ -167,7 +252,15 @@ async function signIn(browser: Browser, account: RosterAccount, viewport: { widt
   await page.getByRole("button", { name: "Continue" }).click();
   await page.waitForURL((url) => url.origin === origin && !url.pathname.startsWith("/identity/"), { timeout: 30_000 });
   await expect(page.locator("main")).toHaveCount(1);
-  return { context, page };
+  const session = { context, page };
+  roleSessions.set(account.purposeToken, session);
+  return session;
+}
+
+async function closeRoleSessions(): Promise<void> {
+  const sessions = [...roleSessions.values()];
+  roleSessions.clear();
+  await Promise.all(sessions.map(({ context }) => context.close()));
 }
 
 async function verifyGenericFailure(browser: Browser): Promise<void> {
@@ -205,10 +298,35 @@ async function getApiJson<T>(page: Page, requestPath: string): Promise<T> {
   return response.body as T;
 }
 
-async function assertControlApiIsolation(page: Page, requestPaths: string[], forbiddenValues: string[]): Promise<void> {
+async function assertControlApiIsolation(
+  page: Page,
+  requestPaths: string[],
+  forbiddenValues: string[],
+  options: { detailPaths?: readonly string[] } = {},
+): Promise<void> {
+  const detailPaths = new Set(options.detailPaths ?? []);
   for (const requestPath of requestPaths) {
     const response = await getApiResponse(page, requestPath);
-    expect([200, 403, 404], `${requestPath} must be empty or denied for Control Auditee`).toContain(response.status);
+    if (detailPaths.has(requestPath)) {
+      expect([403, 404], `${requestPath} must be denied for Control Auditee`).toContain(response.status);
+    } else {
+      expect([200, 403, 404], `${requestPath} must be empty or denied for Control Auditee`).toContain(response.status);
+      if (response.status === 200 && response.body && typeof response.body === "object") {
+        const collections: unknown[] = [];
+        const collect = (value: unknown) => {
+          if (Array.isArray(value)) {
+            collections.push(value);
+            return;
+          }
+          if (!value || typeof value !== "object") return;
+          for (const child of Object.values(value)) collect(child);
+        };
+        collect(response.body);
+        for (const collection of collections) {
+          expect(collection, `${requestPath} returned records to Control Auditee`).toHaveLength(0);
+        }
+      }
+    }
     for (const forbiddenValue of forbiddenValues) {
       expect(response.rawBody, `${requestPath} leaked ${forbiddenValue} to Control Auditee`).not.toContain(forbiddenValue);
     }
@@ -217,10 +335,20 @@ async function assertControlApiIsolation(page: Page, requestPaths: string[], for
 
 async function assertControlDomIsolation(page: Page, routePath: string, forbiddenValues: string[]): Promise<void> {
   await page.goto(`${origin}${routePath}`, { waitUntil: "domcontentloaded" });
+  const emptyStatePattern = /not available|not found|no [a-z ]+(available|found|assigned|records|findings|audits|reports|evidence|items|match)/i;
+  await expect.poll(async () => {
+    const text = await page.locator("body").innerText();
+    return !text.includes("Loading workspace") && !text.includes("Restoring the secured route") && emptyStatePattern.test(text);
+  }, { timeout: 30_000 }).toBe(true);
   const bodyText = await page.locator("body").innerText();
   for (const forbiddenValue of forbiddenValues) {
     expect(bodyText, `${routePath} leaked ${forbiddenValue} to Control Auditee DOM`).not.toContain(forbiddenValue);
   }
+  const recordSelectors = ["[data-audit-id]", "[data-finding-id]", "[data-evidence-id]", "[data-report-version-id]"];
+  for (const selector of recordSelectors) {
+    await expect(page.locator(selector), `${routePath} rendered a target record in Control Auditee DOM`).toHaveCount(0);
+  }
+  expect(bodyText, `${routePath} must render an explicit empty or denied state`).toMatch(emptyStatePattern);
 }
 
 async function expectResponsiveViewport(page: Page, surface: string): Promise<void> {
@@ -243,16 +371,73 @@ async function findPreparedTeamMember(page: Page, role: "leadInspector" | "inspe
   return matches[0];
 }
 
+interface PlanningPinView {
+  id: string;
+  revision: number;
+  submittedScopeSnapshotId?: string;
+  planningSnapshotDigest?: string;
+}
+
+async function assertPlanningPin(page: Page, planningItemId: string, expected: { snapshotId: string; digest: string; minimumRevision: number }): Promise<PlanningPinView> {
+  const output = await getApiJson<{ items: PlanningPinView[] }>(page, "/v1/planning/items?limit=100");
+  const item = output.items.find((candidate) => candidate.id === planningItemId);
+  expect(item, `planning item ${planningItemId} must remain visible to its approval authority`).toBeTruthy();
+  expect(item?.submittedScopeSnapshotId).toBe(expected.snapshotId);
+  expect(item?.planningSnapshotDigest).toBe(expected.digest);
+  expect(item?.revision).toBeGreaterThanOrEqual(expected.minimumRevision);
+  return item as PlanningPinView;
+}
+
+async function verifyPublicPrivateAdmin404(browser: Browser): Promise<void> {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  try {
+    const response = await context.request.get(`${origin}/api/private-admin`);
+    expect(response.status(), "public private-admin endpoint must not exist").toBe(404);
+  } finally {
+    await context.close();
+  }
+}
+
+async function verifyRoleBoundaryMatrix(browser: Browser, cases: Array<{ account: RosterAccount; home: string; foreign: string }>): Promise<void> {
+  for (const boundary of cases) {
+    const session = await signIn(browser, boundary.account);
+    await session.page.goto(`${origin}${boundary.home}`, { waitUntil: "domcontentloaded" });
+    await expect(session.page.getByTestId("route-forbidden")).toHaveCount(0);
+    await session.page.goto(`${origin}${boundary.foreign}`, { waitUntil: "domcontentloaded" });
+    await expect(session.page.getByTestId("route-forbidden")).toBeVisible();
+    await session.page.goto(`${origin}${boundary.home}`, { waitUntil: "domcontentloaded" });
+    const directLogout = session.page.getByRole("button", { name: "Logout" }).first();
+    const profile = session.page.getByRole("button", { name: boundary.account.displayName }).first();
+    await expect.poll(async () => (await directLogout.isVisible()) || (await profile.isVisible()), { timeout: 30_000 }).toBe(true);
+    if (await directLogout.isVisible()) {
+      await directLogout.click();
+    } else {
+      await profile.click();
+      await session.page.getByRole("menu", { name: "Profile menu" }).getByRole("button", { name: "Logout" }).click();
+    }
+    await expect(session.page.getByRole("button", { name: "Sign in with organization identity" })).toBeVisible();
+    const sessionAfterLogout = await getApiResponse(session.page, "/auth/session");
+    expect(sessionAfterLogout.status, `${boundary.account.purposeToken} session must be unauthorized after logout`).toBe(401);
+  }
+}
+
 test.describe("prepared identity connected qualification", () => {
+  test.afterEach(async () => {
+    await closeRoleSessions();
+  });
+
   test("completes the connected planning approval and canonical preparation handoff", async ({ browser }) => {
     test.setTimeout(600_000);
     const scenario = readJson<ScenarioManifest>(scenarioManifestPath);
+    const catalogOracle = readApprovedCatalogOracle();
     const accounts = accountsByToken();
     expect(scenario.schemaVersion).toBe(1);
     if (!qualificationTarget) throw new Error("Qualification target is not configured.");
     expect(scenario.target).toBe(qualificationTarget);
     expect(scenario.scenarioName).toBe("all-role-e2e");
     expect(scenario.selectedQuestionVersionIds.length).toBeGreaterThan(0);
+    expect(catalogOracle.catalogRootDigest).toBe(scenario.catalogRootDigest);
+    expect(catalogOracle.rows).toHaveLength(1310);
     await verifyGenericFailure(browser);
 
     const admin = accounts.get("PLATFORM-ADMIN");
@@ -279,6 +464,10 @@ test.describe("prepared identity connected qualification", () => {
     let finalReportVersionId = "";
     let finalPotentialRootDigest = "";
     let findingId = "";
+    let preliminaryContentHash = "";
+    let submittedScopeSnapshotId = "";
+    let planningSnapshotDigest = "";
+    let planningRevision = 0;
     try {
       await adminSession.page.goto(`${origin}/admin/users-roles`, { waitUntil: "domcontentloaded" });
       await expect(adminSession.page.getByTestId("admin-users-roles-page")).toBeVisible();
@@ -288,6 +477,29 @@ test.describe("prepared identity connected qualification", () => {
         await expect(card).toHaveCount(1);
         await expect(card).toContainText(account.role);
         await expect(card).toContainText(account.organizationId);
+      }
+      const adminDirectory = await getApiJson<{ items: Array<{
+        email: string;
+        roles: Role[];
+        organizationId: string | null;
+        membershipId: string | null;
+        membershipRevision: number;
+        membershipState: string;
+        membershipDrift: string;
+        requiredActions: string[];
+        accountStatus: string;
+      }> }>(adminSession.page, "/v1/admin/access-directory?limit=25");
+      for (const account of accounts.values()) {
+        const entry = adminDirectory.items.find((candidate) => candidate.email === account.email);
+        expect(entry, `admin access directory must contain ${account.purposeToken}`).toBeTruthy();
+        expect(entry?.roles).toEqual([account.role]);
+        expect(entry?.organizationId).toBe(account.organizationId);
+        expect(entry?.membershipId).toBe(account.membershipId);
+        expect(entry?.membershipRevision).toBe(1);
+        expect(entry?.membershipState).toBe("active");
+        expect(entry?.membershipDrift).toBe("in-sync");
+        expect(entry?.requiredActions).toEqual([]);
+        expect(entry?.accountStatus).toBe("enabled");
       }
       writeEvent({ event: "admin-roster-verification", accountCount: accounts.size, status: "verified locally" });
 
@@ -308,14 +520,38 @@ test.describe("prepared identity connected qualification", () => {
       await managerSession.page.getByLabel("Planned Date").fill(scenario.plannedDate);
       await managerSession.page.getByLabel("Location").fill(scenario.location);
       await managerSession.page.getByRole("button", { name: "Next" }).click();
+      const draftId = new URL(managerSession.page.url()).searchParams.get("draftId") ?? "";
+      expect(draftId).toBeTruthy();
+      const draft = await getApiJson<{ scopeDraftId?: string; catalogVersion?: string }>(managerSession.page, `/v1/planning/intake-drafts/${encodeURIComponent(draftId)}`);
+      const scopeDraftId = draft.scopeDraftId ?? "";
+      expect(scopeDraftId).toBeTruthy();
+      expect(draft.catalogVersion).toBe(scenario.catalogVersion);
       const catalogRows = managerSession.page.locator(".planning-intake-catalog-list li small");
       await expect(catalogRows).toHaveCount(25, { timeout: 30_000 });
       const seenIds: string[] = [];
       const seen = new Set<string>();
+      let apiCursor: string | undefined;
       for (;;) {
         const firstVisibleId = await catalogRows.first().textContent();
         const pageIds = await catalogRows.evaluateAll((nodes) => nodes.map((node) => node.textContent?.match(/qv:[^\s·]+/)?.[0] ?? ""));
         expect(pageIds.length).toBeGreaterThan(0);
+        const apiQuery = new URLSearchParams({ usageClass: "GOVERNED_OPERATIONAL", scopeId: scopeDraftId, limit: "25" });
+        if (apiCursor) apiQuery.set("cursor", apiCursor);
+        const apiPage = await getApiJson<CanonicalQuestionCatalogPage>(managerSession.page, `/v1/question-catalogs/${encodeURIComponent(scenario.catalogVersion)}/questions?${apiQuery.toString()}`);
+        expect(apiPage.totalCount).toBe(1310);
+        expect(apiPage.items.map((item) => item.questionVersionId)).toEqual(pageIds);
+        expect(apiPage.items).toHaveLength(pageIds.length);
+        for (const [pageIndex, item] of apiPage.items.entries()) {
+          const oracleRow = catalogOracle.rows[seenIds.length + pageIndex];
+          expect(oracleRow).toBeTruthy();
+          expect(item.formCode).toBe(oracleRow?.formCode);
+          expect(item.ordinal).toBe(oracleRow?.ordinal);
+          expect(item.questionDigest).toBe(oracleRow?.textDigest);
+          expect(item.sourceLocator).toBe(oracleRow?.sourceLocator);
+          expect(item.sourceGapState).toBe("OPTIONAL_ENRICHMENT_NOT_PROVIDED");
+          expect(item.canSelect).toBe(true);
+          expect(item.canPublish).toBe(false);
+        }
         for (const id of pageIds) {
           expect(id).toMatch(/^qv:aga-approved-source-v2:/);
           if (seen.has(id)) throw new Error(`Catalog traversal repeated a visible question row: ${id}`);
@@ -327,6 +563,7 @@ test.describe("prepared identity connected qualification", () => {
             await row.getByRole("checkbox").check();
           }
         }
+        apiCursor = apiPage.nextCursor ?? undefined;
         const next = managerSession.page.getByRole("button", { name: "Next questions" });
         if (await next.isDisabled()) break;
         await next.click();
@@ -335,7 +572,19 @@ test.describe("prepared identity connected qualification", () => {
       await expect(managerSession.page.locator(".planning-intake-catalog-pagination")).toContainText("1310 matching questions");
       expect(seenIds).toHaveLength(1310);
       expect(new Set(seenIds).size).toBe(1310);
-      writeEvent({ event: "manager-catalog-cursor-traversal", questionCount: seenIds.length, catalogRootDigest: scenario.catalogRootDigest, selectionDigest: scenario.selectionDigest, status: "verified locally" });
+      expect(seenIds).toEqual(catalogOracle.rows.map((row) => row.immutableQuestionVersionId));
+      expect(catalogRootDigestForTraversal(catalogOracle, seenIds)).toBe(catalogOracle.catalogRootDigest);
+
+      const representativeForm = catalogOracle.rows[0]?.formCode;
+      expect(representativeForm).toBeTruthy();
+      await managerSession.page.getByRole("textbox", { name: "New Audit question search", exact: true }).fill(representativeForm ?? "");
+      await expect(managerSession.page.locator(".planning-intake-catalog-pagination")).toContainText("matching questions");
+      await expect(catalogRows.first()).toContainText(representativeForm ?? "");
+      await managerSession.page.getByLabel("New Audit form filter").fill(representativeForm ?? "");
+      await expect(managerSession.page.locator(".planning-intake-catalog-pagination")).toContainText("matching questions");
+      await managerSession.page.getByRole("button", { name: "Clear filters" }).click();
+      await expect(managerSession.page.locator(".planning-intake-catalog-pagination")).toContainText("1310 matching questions");
+      writeEvent({ event: "manager-catalog-cursor-traversal", questionCount: seenIds.length, catalogRootDigest: catalogOracle.catalogRootDigest, rootMatchesManifest: catalogOracle.catalogRootDigest === scenario.catalogRootDigest, searchFilterVerified: true, formFilterVerified: true, selectionDigest: scenario.selectionDigest, status: "verified locally" });
 
       const selectedTray = managerSession.page.getByRole("region", { name: "Selected question tray" });
       await expect(selectedTray).toContainText(`${scenario.selectedQuestionVersionIds.length} exact immutable versions`);
@@ -355,16 +604,23 @@ test.describe("prepared identity connected qualification", () => {
       await managerSession.page.waitForURL(/\/department-manager\/audit-plan\?planningItemId=/);
       planningItemId = new URL(managerSession.page.url()).searchParams.get("planningItemId") ?? "";
       expect(planningItemId).toBeTruthy();
-      writeEvent({ event: "manager-planning-submitted", planningItemId, selectedQuestionCount: scenario.selectedQuestionVersionIds.length, selectionDigest: scenario.selectionDigest, status: "verified locally" });
+      const submittedPlanningItems = await getApiJson<{ items: PlanningPinView[] }>(managerSession.page, "/v1/planning/items?limit=100");
+      const submittedPlanningItem = submittedPlanningItems.items.find((item) => item.id === planningItemId);
+      expect(submittedPlanningItem, `submitted planning item ${planningItemId} must expose its immutable scope snapshot`).toBeTruthy();
+      expect(submittedPlanningItem?.submittedScopeSnapshotId).toMatch(/^scope-snapshot:/);
+      expect(submittedPlanningItem?.planningSnapshotDigest).toMatch(/^sha256:/);
+      expect(submittedPlanningItem?.revision).toBeGreaterThan(0);
+      submittedScopeSnapshotId = submittedPlanningItem?.submittedScopeSnapshotId ?? "";
+      planningSnapshotDigest = submittedPlanningItem?.planningSnapshotDigest ?? "";
+      planningRevision = submittedPlanningItem?.revision ?? 0;
+      writeEvent({ event: "manager-planning-submitted", planningItemId, selectedQuestionCount: scenario.selectedQuestionVersionIds.length, selectionDigest: scenario.selectionDigest, submittedScopeSnapshotId, planningSnapshotDigest, planningRevision, status: "verified locally" });
     } finally {
-      await adminSession.context.close();
-      await managerSession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
 
     const leadMemberSession = await signIn(browser, manager);
     const leadMember = await findPreparedTeamMember(leadMemberSession.page, "leadInspector", leadInspector.displayName);
     const inspectorMember = await findPreparedTeamMember(leadMemberSession.page, "inspector", inspector.displayName);
-    await leadMemberSession.context.close();
     writeEvent({ event: "server-roster-subject-resolution", leadSubjectId: leadMember.subjectId, inspectorSubjectId: inspectorMember.subjectId, status: "verified locally" });
 
     const financeSession = await signIn(browser, finance);
@@ -378,9 +634,11 @@ test.describe("prepared identity connected qualification", () => {
       await financeSession.page.getByLabel("Finance decision reason").fill("Finance verified the released planning budget and exact immutable scope.");
       await financeSession.page.getByRole("button", { name: "Confirm Finance Decision" }).click();
       await expect(financeSession.page.getByTestId("planning-status")).toHaveText("GM_REVIEW");
-      writeEvent({ event: "finance-approved-planning", planningItemId, status: "verified locally" });
+      const financePin = await assertPlanningPin(financeSession.page, planningItemId, { snapshotId: submittedScopeSnapshotId, digest: planningSnapshotDigest, minimumRevision: planningRevision });
+      planningRevision = financePin.revision;
+      writeEvent({ event: "finance-approved-planning", planningItemId, submittedScopeSnapshotId, planningSnapshotDigest, planningRevision, status: "verified locally" });
     } finally {
-      await financeSession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
 
     const gmReviewSession = await signIn(browser, gm);
@@ -393,9 +651,11 @@ test.describe("prepared identity connected qualification", () => {
       await gmReviewSession.page.getByLabel("General Manager decision reason").fill("General Manager verified the exact target scope and operational readiness.");
       await gmReviewSession.page.getByRole("button", { name: `Forward ${planningItemId} to Executive Director` }).click();
       await expect(gmReviewSession.page.getByTestId("planning-status")).toHaveText("EXECUTIVE_DIRECTOR_REVIEW");
-      writeEvent({ event: "gm-forwarded-planning", planningItemId, status: "verified locally" });
+      const gmPin = await assertPlanningPin(gmReviewSession.page, planningItemId, { snapshotId: submittedScopeSnapshotId, digest: planningSnapshotDigest, minimumRevision: planningRevision });
+      planningRevision = gmPin.revision;
+      writeEvent({ event: "gm-forwarded-planning", planningItemId, submittedScopeSnapshotId, planningSnapshotDigest, planningRevision, status: "verified locally" });
     } finally {
-      await gmReviewSession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
 
     const executiveSession = await signIn(browser, executiveDirector);
@@ -408,9 +668,11 @@ test.describe("prepared identity connected qualification", () => {
       await executiveSession.page.getByLabel("Executive Director plan decision reason").fill("Executive Director approved the governed planning record for release.");
       await executiveSession.page.getByRole("button", { name: `Approve plan ${planningItemId}` }).click();
       await expect(executiveSession.page.getByTestId("planning-status")).toHaveText("GM_RELEASE");
-      writeEvent({ event: "executive-approved-planning", planningItemId, status: "verified locally" });
+      const executivePin = await assertPlanningPin(executiveSession.page, planningItemId, { snapshotId: submittedScopeSnapshotId, digest: planningSnapshotDigest, minimumRevision: planningRevision });
+      planningRevision = executivePin.revision;
+      writeEvent({ event: "executive-approved-planning", planningItemId, submittedScopeSnapshotId, planningSnapshotDigest, planningRevision, status: "verified locally" });
     } finally {
-      await executiveSession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
 
     const gmReleaseSession = await signIn(browser, gm);
@@ -429,9 +691,11 @@ test.describe("prepared identity connected qualification", () => {
         throw new Error(`GM release command failed with HTTP ${releaseResult.status()} (${problem.code ?? problem.title ?? "unknown"}): ${problem.detail ?? "no detail"}.`);
       }
       await expect(gmReleaseSession.page.getByTestId("planning-status")).toHaveText("RELEASED");
-      writeEvent({ event: "gm-released-planning", planningItemId, status: "verified locally" });
+      const releasePin = await assertPlanningPin(gmReleaseSession.page, planningItemId, { snapshotId: submittedScopeSnapshotId, digest: planningSnapshotDigest, minimumRevision: planningRevision });
+      planningRevision = releasePin.revision;
+      writeEvent({ event: "gm-released-planning", planningItemId, submittedScopeSnapshotId, planningSnapshotDigest, planningRevision, status: "verified locally" });
     } finally {
-      await gmReleaseSession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
 
     const preparationSession = await signIn(browser, manager);
@@ -449,7 +713,7 @@ test.describe("prepared identity connected qualification", () => {
       await expect(preparationPanel).toContainText(`${assignmentId} · LEAD_ASSIGNED`);
       writeEvent({ event: "manager-assigned-lead", planningItemId, assignmentId, leadSubjectId: leadMember.subjectId, status: "verified locally" });
     } finally {
-      await preparationSession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
 
     const leadSession = await signIn(browser, leadInspector);
@@ -472,7 +736,7 @@ test.describe("prepared identity connected qualification", () => {
       await expect(leadPreparation).toContainText("QUESTIONS_ASSIGNED");
       writeEvent({ event: "lead-assigned-exact-coverage", assignmentId, selectedQuestionCount: scenario.selectedQuestionVersionIds.length, inspectorSubjectId: inspectorMember.subjectId, status: "verified locally" });
     } finally {
-      await leadSession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
 
     const materializeSession = await signIn(browser, manager);
@@ -492,7 +756,7 @@ test.describe("prepared identity connected qualification", () => {
       await expect(materializedStatus).toContainText("AWAITING_AUDITEE_CONFIRMATION");
       writeEvent({ event: "manager-materialized-canonical-audit", planningItemId, assignmentId, inspectionId, packageId, selectedQuestionCount: scenario.selectedQuestionVersionIds.length, status: "verified locally" });
     } finally {
-      await materializeSession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
 
     const targetAuditeeSession = await signIn(browser, targetAuditee);
@@ -506,7 +770,7 @@ test.describe("prepared identity connected qualification", () => {
       await expect(targetCoordination).toContainText("CONFIRMED");
       writeEvent({ event: "target-auditee-coordination-confirmed", inspectionId, organizationId: targetAuditee.organizationId, status: "verified locally" });
     } finally {
-      await targetAuditeeSession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
 
     const controlAuditeeSession = await signIn(browser, controlAuditee);
@@ -517,10 +781,12 @@ test.describe("prepared identity connected qualification", () => {
       await assertControlApiIsolation(controlAuditeeSession.page, [
         "/v1/auditee/coordination",
         `/v1/inspection-packages/${encodeURIComponent(packageId)}`,
-      ], [inspectionId, targetAuditee.organizationId, packageId]);
+      ], [inspectionId, targetAuditee.organizationId, packageId], {
+        detailPaths: [`/v1/inspection-packages/${encodeURIComponent(packageId)}`],
+      });
       writeEvent({ event: "control-auditee-tenant-isolation", inspectionId, targetVisibleInApi: false, targetVisibleInDom: false, status: "verified locally" });
     } finally {
-      await controlAuditeeSession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
 
     const inspectorSession = await signIn(browser, inspector);
@@ -590,7 +856,7 @@ test.describe("prepared identity connected qualification", () => {
       await expect(inspectorSession.page.getByTestId("checklist-status")).toHaveText("SUBMITTED");
       writeEvent({ event: "inspector-executed-checklist", inspectionId, questionCount: scenario.selectedQuestionVersionIds.length, nonCompliantQuestionId: scenario.selectedQuestionVersionIds[0], potentialFindingId, status: "verified locally" });
     } finally {
-      await inspectorSession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
 
     const leadFindingSession = await signIn(browser, leadInspector);
@@ -613,19 +879,23 @@ test.describe("prepared identity connected qualification", () => {
       const preliminaryReport = await preliminaryCreateResult.json() as ReportVersionApiView;
       expect(preliminaryReport.kind).toBe("PRELIMINARY");
       expect(preliminaryReport.auditId).toBe(inspectionId);
+      expect(preliminaryReport.findingIds).toEqual([]);
       expect(preliminaryReport.potentialFindingIds).toEqual([potentialFindingId]);
       preliminaryPotentialRootDigest = potentialFindingRootDigest(preliminaryReport.potentialFindingIds);
       expect(preliminaryReport.potentialFindingRootDigest).toBe(preliminaryPotentialRootDigest);
       preliminaryReportVersionId = preliminaryReport.reportVersionId;
+      preliminaryContentHash = preliminaryReport.contentHash;
       const persistedPreliminaryReport = await getApiJson<ReportVersionApiView>(leadFindingSession.page, `/v1/report-versions/${encodeURIComponent(preliminaryReportVersionId)}`);
+      expect(persistedPreliminaryReport.findingIds).toEqual([]);
       expect(persistedPreliminaryReport.potentialFindingIds).toEqual([potentialFindingId]);
       expect(persistedPreliminaryReport.potentialFindingRootDigest).toBe(preliminaryPotentialRootDigest);
+      expect(persistedPreliminaryReport.contentHash).toBe(preliminaryContentHash);
       expect(await dossier.getByTestId("preliminary-report-version-id").textContent()).toBe(preliminaryReportVersionId);
       expect(preliminaryReportVersionId).toBeTruthy();
       await expect(dossier.getByTestId("preliminary-report-status")).toHaveText("DEPARTMENT_REVIEW");
       writeEvent({ event: "lead-created-preliminary-report", inspectionId, preliminaryReportVersionId, status: "verified locally" });
     } finally {
-      await leadFindingSession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
 
     const managerPreliminarySession = await signIn(browser, manager);
@@ -639,7 +909,7 @@ test.describe("prepared identity connected qualification", () => {
       await expect(managerReview.getByTestId("manager-preliminary-status")).toHaveText("GM_REVIEW");
       writeEvent({ event: "manager-forwarded-preliminary-report", inspectionId, preliminaryReportVersionId, status: "verified locally" });
     } finally {
-      await managerPreliminarySession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
 
     const gmPreliminarySession = await signIn(browser, gm);
@@ -655,7 +925,7 @@ test.describe("prepared identity connected qualification", () => {
       await expect(gmDossier.getByTestId("report-status")).toHaveText("EXECUTIVE_DIRECTOR_REVIEW");
       writeEvent({ event: "gm-forwarded-preliminary-report", inspectionId, preliminaryReportVersionId, status: "verified locally" });
     } finally {
-      await gmPreliminarySession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
 
     const executivePreliminarySession = await signIn(browser, executiveDirector);
@@ -671,7 +941,7 @@ test.describe("prepared identity connected qualification", () => {
       await expect(executiveDossier.getByTestId("report-status")).toHaveText("LOCKED");
       writeEvent({ event: "executive-issued-preliminary-report", inspectionId, preliminaryReportVersionId, status: "verified locally" });
     } finally {
-      await executivePreliminarySession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
 
     const leadFindingConversionSession = await signIn(browser, leadInspector);
@@ -690,9 +960,12 @@ test.describe("prepared identity connected qualification", () => {
       findingId = findingHref?.split("/").pop() ?? "";
       expect(findingId).toBeTruthy();
       await expect(leadFindingConversionSession.page.getByTestId("finding-status")).toHaveText("WAITING_FOR_CAP");
+      const preliminaryAfterConversion = await getApiJson<ReportVersionApiView>(leadFindingConversionSession.page, `/v1/report-versions/${encodeURIComponent(preliminaryReportVersionId)}`);
+      expect(preliminaryAfterConversion.findingIds).toEqual([]);
+      expect(preliminaryAfterConversion.contentHash).toBe(preliminaryContentHash);
       writeEvent({ event: "lead-converted-potential-finding", inspectionId, potentialFindingId, findingId, status: "verified locally" });
     } finally {
-      await leadFindingConversionSession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
 
     const controlFindingSession = await signIn(browser, controlAuditee);
@@ -702,10 +975,15 @@ test.describe("prepared identity connected qualification", () => {
         "/v1/findings",
         `/v1/findings/${encodeURIComponent(findingId)}`,
         `/v1/potential-findings/${encodeURIComponent(potentialFindingId)}`,
-      ], [inspectionId, targetAuditee.organizationId, potentialFindingId, findingId]);
+      ], [inspectionId, targetAuditee.organizationId, potentialFindingId, findingId], {
+        detailPaths: [
+          `/v1/findings/${encodeURIComponent(findingId)}`,
+          `/v1/potential-findings/${encodeURIComponent(potentialFindingId)}`,
+        ],
+      });
       writeEvent({ event: "control-auditee-finding-isolation", inspectionId, potentialFindingId, findingId, targetVisibleInApi: false, targetVisibleInDom: false, status: "verified locally" });
     } finally {
-      await controlFindingSession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
 
     const targetCapSession = await signIn(browser, targetAuditee);
@@ -734,7 +1012,7 @@ test.describe("prepared identity connected qualification", () => {
       await expect(selectedFinding.getByTestId("finding-status")).toContainText("CAP Submitted");
       writeEvent({ event: "target-auditee-submitted-cap", inspectionId, findingId, status: "verified locally" });
     } finally {
-      await targetCapSession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
 
     const leadCapSession = await signIn(browser, leadInspector);
@@ -748,7 +1026,7 @@ test.describe("prepared identity connected qualification", () => {
       await expect(leadCapSession.page.getByTestId("finding-status")).toHaveText("EVIDENCE_REQUIRED");
       writeEvent({ event: "lead-accepted-cap", inspectionId, findingId, status: "verified locally" });
     } finally {
-      await leadCapSession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
 
     const targetEvidenceSession = await signIn(browser, targetAuditee);
@@ -770,18 +1048,63 @@ test.describe("prepared identity connected qualification", () => {
         buffer: Buffer.from("%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n"),
       });
       await expect(auditeePage.getByTestId("selected-evidence-file")).toHaveText("qualification-evidence.pdf");
+      const submitEvidenceButton = auditeePage.getByRole("button", { name: "Submit Evidence version" });
+      writeEvent({
+        event: "target-auditee-evidence-submit-preflight",
+        url: targetEvidenceSession.page.url(),
+        online: await targetEvidenceSession.page.evaluate(() => navigator.onLine),
+        disabled: await submitEvidenceButton.isDisabled(),
+        status: "verified locally",
+      });
+      await expect(submitEvidenceButton).toBeEnabled();
+      const evidenceBeginRequest = targetEvidenceSession.page.waitForRequest((request) =>
+        request.method() === "POST" && request.url().endsWith("/api/v1/evidence/uploads"),
+        { timeout: 30_000 },
+      );
+      const evidenceBeginResponse = targetEvidenceSession.page.waitForResponse((response) =>
+        response.request().method() === "POST" && response.url().endsWith("/api/v1/evidence/uploads"),
+        { timeout: 30_000 },
+      );
       const evidenceCompleteResponse = targetEvidenceSession.page.waitForResponse((response) =>
         response.request().method() === "POST" && /\/api\/v1\/evidence\/uploads\/[^/]+\/complete$/.test(response.url()),
+        { timeout: 120_000 },
       );
-      await auditeePage.getByRole("button", { name: "Submit Evidence version" }).click();
+      await submitEvidenceButton.click();
+      const evidenceBeginRequestResult = await evidenceBeginRequest;
+      writeEvent({
+        event: "target-auditee-evidence-begin-requested",
+        url: evidenceBeginRequestResult.url(),
+        status: "verified locally",
+      });
+      const evidenceBeginResult = await evidenceBeginResponse;
+      expect(evidenceBeginResult.ok(), `Evidence Begin failed with HTTP ${evidenceBeginResult.status()}`).toBe(true);
       const evidenceCompleteResult = await evidenceCompleteResponse;
+      writeEvent({
+        event: "target-auditee-evidence-complete-response",
+        statusCode: evidenceCompleteResult.status(),
+        ok: evidenceCompleteResult.ok(),
+        url: evidenceCompleteResult.url(),
+        status: "verified locally",
+      });
+      if (!evidenceCompleteResult.ok()) {
+        const problem = await evidenceCompleteResult.json() as { code?: string; title?: string };
+        writeEvent({
+          event: "target-auditee-evidence-complete-problem",
+          problemCode: problem.code ?? "",
+          problemTitle: problem.title ?? "",
+          status: "verified locally",
+        });
+      }
       expect(evidenceCompleteResult.ok()).toBe(true);
       const completedEvidence = await evidenceCompleteResult.json() as EvidenceCompleteApiView;
       evidenceVersionId = completedEvidence.evidenceVersionId;
       evidenceVersion = completedEvidence.version;
       expect(evidenceVersionId).toBeTruthy();
       expect(evidenceVersion).toBeGreaterThan(0);
-      await expect(auditeePage.getByTestId("evidence-version-count")).toHaveText("1");
+      // The API completion response precedes the UI's bounded CLEAN poll.
+      // Wait for that connected state refresh instead of racing the worker.
+      await expect(auditeePage.getByTestId("evidence-version-count")).toHaveText("1", { timeout: 45_000 });
+      writeEvent({ event: "target-auditee-evidence-ui-refreshed", evidenceVersionId, evidenceVersion, status: "verified locally" });
       const evidence = await getApiJson<{ items: Array<{ id: string; version: number; scanState: string; reviewState: string }> }>(targetEvidenceSession.page, `/v1/findings/${encodeURIComponent(findingId)}/evidence`);
       const uploadedEvidence = evidence.items.find((item) => item.id === evidenceVersionId);
       expect(uploadedEvidence).toBeTruthy();
@@ -807,7 +1130,7 @@ test.describe("prepared identity connected qualification", () => {
         await targetEvidenceSession.page.setViewportSize({ width: 1280, height: 800 });
       }
     } finally {
-      await targetEvidenceSession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
 
     const controlEvidenceSession = await signIn(browser, controlAuditee);
@@ -816,10 +1139,15 @@ test.describe("prepared identity connected qualification", () => {
       await assertControlApiIsolation(controlEvidenceSession.page, [
         `/v1/findings/${encodeURIComponent(findingId)}/evidence`,
         `/v1/findings/${encodeURIComponent(findingId)}/cap-revisions`,
-      ], [inspectionId, targetAuditee.organizationId, potentialFindingId, findingId, evidenceVersionId]);
+      ], [inspectionId, targetAuditee.organizationId, potentialFindingId, findingId, evidenceVersionId], {
+        detailPaths: [
+          `/v1/findings/${encodeURIComponent(findingId)}/evidence`,
+          `/v1/findings/${encodeURIComponent(findingId)}/cap-revisions`,
+        ],
+      });
       writeEvent({ event: "control-auditee-cap-evidence-isolation", inspectionId, findingId, evidenceVersionId, targetVisibleInApi: false, targetVisibleInDom: false, status: "verified locally" });
     } finally {
-      await controlEvidenceSession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
 
     const leadEvidenceSession = await signIn(browser, leadInspector);
@@ -841,11 +1169,14 @@ test.describe("prepared identity connected qualification", () => {
       await expect(leadEvidenceSession.page.getByTestId("closure-basis")).toHaveText("EVIDENCE_VERIFIED");
       writeEvent({ event: "lead-closed-finding-after-latest-evidence", inspectionId, findingId, evidenceVersionId, closureBasis: "EVIDENCE_VERIFIED", status: "verified locally" });
     } finally {
-      await leadEvidenceSession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
 
     const finalCreationSession = await signIn(browser, leadInspector);
     try {
+      const preliminaryBeforeFinal = await getApiJson<ReportVersionApiView>(finalCreationSession.page, `/v1/report-versions/${encodeURIComponent(preliminaryReportVersionId)}`);
+      expect(preliminaryBeforeFinal.findingIds).toEqual([]);
+      expect(preliminaryBeforeFinal.contentHash).toBe(preliminaryContentHash);
       await finalCreationSession.page.goto(`${origin}/lead-inspector/final-reports`, { waitUntil: "domcontentloaded" });
       const finalReports = finalCreationSession.page.getByTestId("lead-final-reports-page");
       const finalCreator = finalReports.getByTestId("final-report-creator");
@@ -861,6 +1192,7 @@ test.describe("prepared identity connected qualification", () => {
       const finalReport = await finalCreateResult.json() as ReportVersionApiView;
       expect(finalReport.kind).toBe("FINAL");
       expect(finalReport.auditId).toBe(inspectionId);
+      expect(finalReport.findingIds).toEqual([findingId]);
       expect(finalReport.potentialFindingIds).toEqual([potentialFindingId]);
       finalPotentialRootDigest = potentialFindingRootDigest(finalReport.potentialFindingIds);
       expect(finalPotentialRootDigest).toBe(preliminaryPotentialRootDigest);
@@ -869,9 +1201,11 @@ test.describe("prepared identity connected qualification", () => {
       finalReportVersionId = finalReport.reportVersionId;
       expect(await finalCreator.getByTestId("final-report-version-id").textContent()).toBe(finalReportVersionId);
       expect(finalReportVersionId).toBeTruthy();
+      const persistedFinalReport = await getApiJson<ReportVersionApiView>(finalCreationSession.page, `/v1/report-versions/${encodeURIComponent(finalReportVersionId)}`);
+      expect(persistedFinalReport.findingIds).toEqual([findingId]);
       writeEvent({ event: "lead-created-final-report", inspectionId, findingId, finalReportVersionId, status: "verified locally" });
     } finally {
-      await finalCreationSession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
 
     const managerFinalSession = await signIn(browser, manager);
@@ -897,7 +1231,7 @@ test.describe("prepared identity connected qualification", () => {
         await managerFinalSession.page.setViewportSize({ width: 1280, height: 800 });
       }
     } finally {
-      await managerFinalSession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
 
     const gmFinalSession = await signIn(browser, gm);
@@ -913,7 +1247,7 @@ test.describe("prepared identity connected qualification", () => {
       await expect(finalDossier.getByTestId("report-status")).toHaveText("EXECUTIVE_DIRECTOR_REVIEW");
       writeEvent({ event: "gm-forwarded-final-report", inspectionId, finalReportVersionId, status: "verified locally" });
     } finally {
-      await gmFinalSession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
 
     const executiveFinalSession = await signIn(browser, executiveDirector);
@@ -929,7 +1263,7 @@ test.describe("prepared identity connected qualification", () => {
       await expect(finalDossier.getByTestId("report-status")).toHaveText("LOCKED");
       writeEvent({ event: "executive-issued-final-report", inspectionId, finalReportVersionId, status: "verified locally" });
     } finally {
-      await executiveFinalSession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
 
     const targetFinalSession = await signIn(browser, targetAuditee);
@@ -954,7 +1288,7 @@ test.describe("prepared identity connected qualification", () => {
         await targetFinalSession.page.setViewportSize({ width: 1280, height: 800 });
       }
     } finally {
-      await targetFinalSession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
 
     const controlReportSession = await signIn(browser, controlAuditee);
@@ -967,10 +1301,15 @@ test.describe("prepared identity connected qualification", () => {
         "/v1/auditee/report-versions?kind=FINAL",
         `/v1/auditee/report-versions/${encodeURIComponent(finalReportVersionId)}`,
         `/v1/report-versions/${encodeURIComponent(finalReportVersionId)}`,
-      ], [inspectionId, targetAuditee.organizationId, preliminaryReportVersionId, finalReportVersionId, findingId, evidenceVersionId]);
+      ], [inspectionId, targetAuditee.organizationId, preliminaryReportVersionId, finalReportVersionId, findingId, evidenceVersionId], {
+        detailPaths: [
+          `/v1/auditee/report-versions/${encodeURIComponent(finalReportVersionId)}`,
+          `/v1/report-versions/${encodeURIComponent(finalReportVersionId)}`,
+        ],
+      });
       writeEvent({ event: "control-auditee-report-isolation", inspectionId, preliminaryReportVersionId, finalReportVersionId, targetVisibleInApi: false, targetVisibleInDom: false, status: "verified locally" });
     } finally {
-      await controlReportSession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
 
     const adminEvidenceSession = await signIn(browser, admin);
@@ -992,7 +1331,21 @@ test.describe("prepared identity connected qualification", () => {
       await expect(findingReviewEvents).toContainText("CLOSED");
       writeEvent({ event: "admin-verified-evidence-record", inspectionId, findingId, evidenceVersionId, finalReportVersionId, status: "verified locally" });
     } finally {
-      await adminEvidenceSession.context.close();
+      // Shared role sessions are closed by the test-level cleanup hook.
     }
+
+    await verifyPublicPrivateAdmin404(browser);
+    await verifyRoleBoundaryMatrix(browser, [
+      { account: admin, home: "/admin/users-roles", foreign: "/department-manager/audit-plan" },
+      { account: manager, home: "/department-manager/audit-plan", foreign: "/finance/finance-review" },
+      { account: finance, home: "/finance/finance-review", foreign: "/admin/users-roles" },
+      { account: gm, home: "/general-manager/planning", foreign: "/finance/finance-review" },
+      { account: executiveDirector, home: "/executive-director/planning", foreign: "/general-manager/planning" },
+      { account: leadInspector, home: "/lead-inspector/lead-review", foreign: "/inspector/inspector-assignments" },
+      { account: inspector, home: "/inspector/inspector-assignments", foreign: "/lead-inspector/lead-review" },
+      { account: targetAuditee, home: "/auditee/service-provider-cap", foreign: "/department-manager/audit-plan" },
+      { account: controlAuditee, home: "/auditee/service-provider-cap", foreign: "/admin/users-roles" },
+    ]);
+    writeEvent({ event: "all-role-boundary-matrix", accountCount: accounts.size, publicPrivateAdminStatus: 404, logoutSessionStatus: 401, status: "verified locally" });
   });
 });

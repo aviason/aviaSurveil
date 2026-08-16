@@ -219,6 +219,9 @@ func persistRoster(ctx context.Context, pool *database.Pool, observed []observed
 				return err
 			}
 		}
+		if err := verifyDepartmentMembershipSet(ctx, tx, observed, manifest.OnboardingMode); err != nil {
+			return err
+		}
 		var managerCount int
 		if err := tx.QueryRow(ctx, `SELECT count(*) FROM caa_department_memberships membership JOIN identity_references identity ON identity.subject_id=membership.subject_id WHERE membership.status='ACTIVE' AND membership.department_id='AERODROME_INSPECTORATE' AND identity.subject_id = ANY($1::text[])`, subjectIDs(observed)).Scan(&managerCount); err != nil {
 			return err
@@ -234,6 +237,70 @@ func persistRoster(ctx context.Context, pool *database.Pool, observed []observed
 		}
 		return nil
 	})
+}
+
+type departmentMembershipRecord struct {
+	ID                   string
+	SubjectID            string
+	DepartmentID         string
+	OrganizationalUnitID string
+	MembershipRole       string
+	Status               string
+}
+
+// verifyDepartmentMembershipSet rejects effective authority that is present
+// in the database but absent from the approved roster. Counting only the
+// declared department allowed an undeclared active assignment to survive a
+// replay and become effective authorization.
+func verifyDepartmentMembershipSet(ctx context.Context, tx pgx.Tx, observed []observedRosterAccount, mode string) error {
+	expected := make(map[string]departmentMembershipRecord)
+	if mode != "provisionInvite" {
+		for _, item := range observed {
+			if item.Manifest.Department == nil {
+				continue
+			}
+			department := item.Manifest.Department
+			expected[department.ID] = departmentMembershipRecord{
+				ID:                   department.ID,
+				SubjectID:            item.Provider.SubjectID,
+				DepartmentID:         department.DepartmentID,
+				OrganizationalUnitID: department.OrganizationalUnitID,
+				MembershipRole:       "DEPARTMENT_MANAGER",
+				Status:               "ACTIVE",
+			}
+		}
+	}
+	rows, err := tx.Query(ctx, `
+		SELECT id, subject_id, department_id, organizational_unit_id, membership_role, status
+		FROM caa_department_memberships
+		WHERE status = 'ACTIVE' AND subject_id = ANY($1::text[])
+		ORDER BY id
+	`, subjectIDs(observed))
+	if err != nil {
+		return fmt.Errorf("inspect roster department authority: %w", err)
+	}
+	defer rows.Close()
+	actual := make(map[string]departmentMembershipRecord)
+	for rows.Next() {
+		var record departmentMembershipRecord
+		if err := rows.Scan(&record.ID, &record.SubjectID, &record.DepartmentID, &record.OrganizationalUnitID, &record.MembershipRole, &record.Status); err != nil {
+			return fmt.Errorf("scan roster department authority: %w", err)
+		}
+		actual[record.ID] = record
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("read roster department authority: %w", err)
+	}
+	if len(actual) != len(expected) {
+		return fmt.Errorf("roster department membership set drifted: expected %d active assignments, found %d", len(expected), len(actual))
+	}
+	for id, expectedRecord := range expected {
+		actualRecord, ok := actual[id]
+		if !ok || actualRecord != expectedRecord {
+			return fmt.Errorf("roster department membership %s drifted", id)
+		}
+	}
+	return nil
 }
 
 func persistRosterAccount(ctx context.Context, tx pgx.Tx, account observedRosterAccount, mode, issuer, actor string, now time.Time) error {

@@ -81,13 +81,34 @@ func TestQualificationBootstrapReplayDriftAndPermissionBoundary(t *testing.T) {
 		t.Fatalf("provider reconciliation calls = provision %d activation %d verify %d, want provision/activation %d and verify %d", provider.provisionCalls, provider.activationCalls, provider.verifyCalls, len(roster.Accounts), 2*len(roster.Accounts))
 	}
 
+	managerSubjectID := provider.users[roster.Accounts[1].Email].SubjectID
+	if _, err := pool.Exec(ctx, `INSERT INTO caa_departments (id, name, status) VALUES ('QUALIFICATION-EXTRA-DEPARTMENT', 'Qualification extra department', 'ACTIVE')`); err != nil {
+		t.Fatalf("insert undeclared department: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO caa_organizational_units (id, department_id, name, status) VALUES ('QUALIFICATION-EXTRA-UNIT', 'QUALIFICATION-EXTRA-DEPARTMENT', 'Qualification extra unit', 'ACTIVE')`); err != nil {
+		t.Fatalf("insert undeclared organizational unit: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO caa_department_memberships (id, root_id, subject_id, department_id, organizational_unit_id, membership_role, effective_from, status)
+		VALUES ('qualification-extra-membership', 'qualification-extra-membership', $1, 'QUALIFICATION-EXTRA-DEPARTMENT', 'QUALIFICATION-EXTRA-UNIT', 'DEPARTMENT_MANAGER', '2026-08-15', 'ACTIVE')
+	`, managerSubjectID); err != nil {
+		t.Fatalf("insert undeclared active department authority: %v", err)
+	}
+	beforeUndeclaredAuthorityReplay := qualificationBootstrapCounts(t, pool)
+	if err := qualificationbootstrap.LoadRoster(ctx, pool, provider, roster, rosterDigest, "namibia/demo", "avia:first-party", credentials, actor, now.Add(90*time.Second)); err == nil {
+		t.Fatal("roster replay accepted an undeclared active department authority")
+	}
+	if got := qualificationBootstrapCounts(t, pool); got != beforeUndeclaredAuthorityReplay {
+		t.Fatalf("undeclared department authority replay changed persisted counts: before=%v after=%v", beforeUndeclaredAuthorityReplay, got)
+	}
+
 	provider.driftEmail = roster.Accounts[0].Email
 	provider.users[provider.driftEmail] = mutateProviderRole(provider.users[provider.driftEmail], "inspector")
 	if err := qualificationbootstrap.LoadRoster(ctx, pool, provider, roster, rosterDigest, "namibia/demo", "avia:first-party", credentials, actor, now.Add(2*time.Minute)); err == nil {
 		t.Fatal("roster drift was accepted")
 	}
-	if got := qualificationBootstrapCounts(t, pool); got != afterReplay {
-		t.Fatalf("roster drift changed persisted counts: before=%v after=%v", afterReplay, got)
+	if got := qualificationBootstrapCounts(t, pool); got != beforeUndeclaredAuthorityReplay {
+		t.Fatalf("roster drift changed persisted counts: before=%v after=%v", beforeUndeclaredAuthorityReplay, got)
 	}
 
 	assertQualificationBootstrapPermissionBoundary(t, pool, foundation, foundationDigest, actor, now)

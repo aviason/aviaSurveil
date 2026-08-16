@@ -176,7 +176,9 @@ func validateRosterManifest(manifest RosterManifest) error {
 	seenPurpose := map[string]struct{}{}
 	seenEmail := map[string]struct{}{}
 	seenMembership := map[string]struct{}{}
-	managerCount := 0
+	managerRoleCount := 0
+	departmentAuthorityCount := 0
+	departmentAuthorityPurpose := ""
 	for _, account := range manifest.Accounts {
 		address, err := mail.ParseAddress(account.Email)
 		if err != nil || address.Address != account.Email || strings.TrimSpace(account.DisplayName) == "" || strings.TrimSpace(account.OrganizationID) == "" || strings.TrimSpace(account.MembershipID) == "" || !purposeTokenPattern.MatchString(account.PurposeToken) {
@@ -192,19 +194,20 @@ func validateRosterManifest(manifest RosterManifest) error {
 			return fmt.Errorf("roster membership ID is duplicated")
 		}
 		if account.Role == "manager" {
-			managerCount++
+			managerRoleCount++
 		}
 		if account.Department != nil {
 			if account.Role != "manager" {
 				return fmt.Errorf("only a manager may have department authority")
 			}
-			managerCount++
+			departmentAuthorityCount++
+			departmentAuthorityPurpose = account.PurposeToken
 		}
 		seenPurpose[account.PurposeToken] = struct{}{}
 		seenEmail[strings.ToLower(account.Email)] = struct{}{}
 		seenMembership[account.MembershipID] = struct{}{}
 	}
-	if managerCount != 2 && manifest.Enabled {
+	if (managerRoleCount != 1 || departmentAuthorityCount != 1 || managerRoleCount != departmentAuthorityCount || departmentAuthorityPurpose == "") && manifest.Enabled {
 		return fmt.Errorf("roster must declare exactly one manager and one department authority")
 	}
 	return nil

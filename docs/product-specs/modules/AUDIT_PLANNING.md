@@ -60,10 +60,12 @@ Create annual and ad hoc audit/inspection plans.
 - One organization may have several active provider scopes. Provider scope is
   separate from the coarse organization type and may target an organization,
   person, facility, device, system, asset, or location.
-- Operational selection requires governed, technically approved, separately
-  published, package-eligible question versions for the applicable provider
-  scope and typed target. Technical approval and publication remain separate
-  decisions.
+- Operational selection for an imported Aviation-approved catalog consumes the
+  sealed source-approved question versions directly for the applicable
+  provider scope and typed target. Optional risk or regulatory enrichment is
+  non-authoritative and does not block selection or represent an approved
+  conclusion. Internally generated candidates remain separate from the
+  imported approved source and must not be presented as its approval gate.
 - A disposable preprod exercise may select `PREPROD_EXERCISE` catalog members
   only when the dedicated disposable preprod profile is active. Exercise
   records cannot be published, promoted to operational use, or used to satisfy
