@@ -9049,9 +9049,34 @@
           {
             "name": "riskBand",
             "in": "query",
+            "description": "AI advisory risk tier (HIGH, MEDIUM, LOW, UNKNOWN).",
             "schema": {
               "type": "string",
               "maxLength": 80
+            }
+          },
+          {
+            "name": "checklistFocus",
+            "in": "query",
+            "description": "Comma-separated AI checklist focus modes; a question may match any selected focus, and the focus filter is combined with the other facets.",
+            "schema": {
+              "type": "string",
+              "maxLength": 400
+            }
+          },
+          {
+            "name": "recommendationState",
+            "in": "query",
+            "description": "Optional deterministic advisory state filter.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "SUGGESTED_NOW",
+                "MATCHING_OPTIONAL",
+                "RECENTLY_VERIFIED",
+                "OUTSIDE_FOCUS",
+                "UNCERTAIN_SIGNAL"
+              ]
             }
           },
           {
@@ -20991,6 +21016,174 @@
           }
         }
       },
+      "CanonicalQuestionAIAdvisory": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "domainCode",
+          "topicCodes",
+          "inspectionTypeCodes",
+          "inspectionProfileCodes",
+          "applicabilityDisposition",
+          "riskTier",
+          "safetyCritical",
+          "agreementConfidence",
+          "advisoryState",
+          "recommendationReasonCodes",
+          "recurrenceMonths",
+          "externalApplicabilityUnresolved"
+        ],
+        "properties": {
+          "domainCode": {
+            "type": "string"
+          },
+          "topicCodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "inspectionTypeCodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "inspectionProfileCodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "applicabilityDisposition": {
+            "type": "string"
+          },
+          "riskTier": {
+            "type": "string",
+            "enum": [
+              "HIGH",
+              "MEDIUM",
+              "LOW",
+              "UNKNOWN"
+            ]
+          },
+          "safetyCritical": {
+            "type": "boolean"
+          },
+          "agreementConfidence": {
+            "type": "string",
+            "enum": [
+              "HIGH",
+              "MEDIUM",
+              "LOW"
+            ]
+          },
+          "advisoryState": {
+            "type": "string",
+            "enum": [
+              "SUGGESTED_NOW",
+              "MATCHING_OPTIONAL",
+              "RECENTLY_VERIFIED",
+              "OUTSIDE_FOCUS",
+              "UNCERTAIN_SIGNAL"
+            ]
+          },
+          "recommendationReasonCodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "recurrenceMonths": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "previouslyVerifiedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "recurrenceDueAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "externalApplicabilityUnresolved": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CanonicalQuestionCatalogFacetOption": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "count"
+        ],
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "CanonicalQuestionCatalogFacets": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "forms",
+          "domains",
+          "topics",
+          "riskTiers",
+          "checklistFocuses",
+          "recommendationStates"
+        ],
+        "properties": {
+          "forms": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CanonicalQuestionCatalogFacetOption"
+            }
+          },
+          "domains": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CanonicalQuestionCatalogFacetOption"
+            }
+          },
+          "topics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CanonicalQuestionCatalogFacetOption"
+            }
+          },
+          "riskTiers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CanonicalQuestionCatalogFacetOption"
+            }
+          },
+          "checklistFocuses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CanonicalQuestionCatalogFacetOption"
+            }
+          },
+          "recommendationStates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CanonicalQuestionCatalogFacetOption"
+            }
+          }
+        }
+      },
       "CanonicalQuestionCatalogEntry": {
         "type": "object",
         "additionalProperties": false,
@@ -21004,7 +21197,8 @@
           "questionDigest",
           "sourceGapState",
           "canSelect",
-          "canPublish"
+          "canPublish",
+          "aiAdvisory"
         ],
         "properties": {
           "catalogVersion": {
@@ -21074,6 +21268,9 @@
               "null"
             ]
           },
+          "aiAdvisory": {
+            "$ref": "#/components/schemas/CanonicalQuestionAIAdvisory"
+          },
           "canSelect": {
             "type": "boolean"
           },
@@ -21138,7 +21335,8 @@
           "nextCursor",
           "catalogVersion",
           "usageClass",
-          "totalCount"
+          "totalCount",
+          "facets"
         ],
         "properties": {
           "items": {
@@ -21163,6 +21361,9 @@
           "totalCount": {
             "type": "integer",
             "minimum": 0
+          },
+          "facets": {
+            "$ref": "#/components/schemas/CanonicalQuestionCatalogFacets"
           }
         }
       },

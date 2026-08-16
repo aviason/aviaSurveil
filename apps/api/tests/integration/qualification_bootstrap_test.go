@@ -62,6 +62,14 @@ func TestQualificationBootstrapReplayDriftAndPermissionBoundary(t *testing.T) {
 	if _, err := canonicalaga.LoadApprovedCatalog(ctx, pool, pkg, catalog.CatalogVersion, actor, catalog.ProviderScopeID, catalog.RegulatedTargetID, catalog.AdvisoryLockKey, now); err != nil {
 		t.Fatalf("load approved catalog: %v", err)
 	}
+	artifactPath := filepath.Join(apiModuleRoot(t), "..", "..", "deliverables", "aga-ai-checklist-recommendations-v1", "AGA_AI_CHECKLIST_RECOMMENDATIONS_V1.json")
+	artifact, _, err := canonicalaga.ReadAIRecommendationArtifact(artifactPath)
+	if err != nil {
+		t.Fatalf("read AI recommendation artifact: %v", err)
+	}
+	if _, err := canonicalaga.LoadAIRecommendationEnrichment(ctx, pool, artifact, catalog.CatalogVersion, catalog.AdvisoryLockKey, now); err != nil {
+		t.Fatalf("load AI recommendation enrichment: %v", err)
+	}
 
 	beforeReplay := qualificationBootstrapCounts(t, pool)
 	if err := qualificationbootstrap.LoadFoundation(ctx, pool, foundation, foundationDigest, actor, now.Add(time.Minute)); err != nil {
@@ -73,12 +81,30 @@ func TestQualificationBootstrapReplayDriftAndPermissionBoundary(t *testing.T) {
 	if _, err := canonicalaga.LoadApprovedCatalog(ctx, pool, pkg, catalog.CatalogVersion, actor, catalog.ProviderScopeID, catalog.RegulatedTargetID, catalog.AdvisoryLockKey, now.Add(time.Minute)); err != nil {
 		t.Fatalf("replay approved catalog: %v", err)
 	}
+	if _, err := canonicalaga.LoadAIRecommendationEnrichment(ctx, pool, artifact, catalog.CatalogVersion, catalog.AdvisoryLockKey, now.Add(time.Minute)); err != nil {
+		t.Fatalf("replay AI recommendation enrichment: %v", err)
+	}
 	afterReplay := qualificationBootstrapCounts(t, pool)
 	if beforeReplay != afterReplay {
 		t.Fatalf("bootstrap replay changed persisted counts: before=%v after=%v", beforeReplay, afterReplay)
 	}
 	if provider.provisionCalls != len(roster.Accounts) || provider.activationCalls != len(roster.Accounts) || provider.verifyCalls != 2*len(roster.Accounts) {
 		t.Fatalf("provider reconciliation calls = provision %d activation %d verify %d, want provision/activation %d and verify %d", provider.provisionCalls, provider.activationCalls, provider.verifyCalls, len(roster.Accounts), 2*len(roster.Accounts))
+	}
+
+	issuerDriftSubjectID := provider.users[roster.Accounts[0].Email].SubjectID
+	if _, err := pool.Exec(ctx, `UPDATE identity_references SET issuer='https://localhost:8443/identity' WHERE subject_id=$1`, issuerDriftSubjectID); err != nil {
+		t.Fatalf("create issuer drift fixture: %v", err)
+	}
+	beforeIssuerDrift := qualificationBootstrapCounts(t, pool)
+	if err := qualificationbootstrap.LoadRoster(ctx, pool, provider, roster, rosterDigest, "namibia/demo", "avia:first-party", credentials, actor, now.Add(75*time.Second)); err == nil {
+		t.Fatal("roster replay accepted an issuer-drifted identity reference")
+	}
+	if got := qualificationBootstrapCounts(t, pool); got != beforeIssuerDrift {
+		t.Fatalf("issuer drift replay changed persisted counts: before=%v after=%v", beforeIssuerDrift, got)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE identity_references SET issuer='avia:first-party' WHERE subject_id=$1`, issuerDriftSubjectID); err != nil {
+		t.Fatalf("restore issuer fixture: %v", err)
 	}
 
 	managerSubjectID := provider.users[roster.Accounts[1].Email].SubjectID
@@ -188,6 +214,7 @@ type qualificationBootstrapCount struct {
 	CatalogMembershipEvents   int
 	CatalogApplicabilities    int
 	CatalogImportRuns         int
+	AIEnrichments             int
 }
 
 func qualificationBootstrapCounts(t *testing.T, pool *database.Pool) qualificationBootstrapCount {
@@ -213,14 +240,15 @@ func qualificationBootstrapCounts(t *testing.T, pool *database.Pool) qualificati
 			(SELECT count(*) FROM canonical_question_catalog_memberships),
 			(SELECT count(*) FROM canonical_question_catalog_membership_events),
 			(SELECT count(*) FROM canonical_question_catalog_applicabilities),
-			(SELECT count(*) FROM canonical_question_catalog_import_runs)
+			(SELECT count(*) FROM canonical_question_catalog_import_runs),
+			(SELECT count(*) FROM canonical_question_catalog_ai_enrichments)
 	`).Scan(
 		&counts.Organizations, &counts.RegulatedTargets, &counts.ProviderScopes, &counts.ProviderScopeTargets,
 		&counts.IdentityReferences, &counts.UserProfiles, &counts.UserSettings, &counts.LifecycleRequests,
 		&counts.DesiredMembershipVersions, &counts.DesiredMembershipSync, &counts.DepartmentMemberships,
 		&counts.Catalogs, &counts.CatalogForms, &counts.QuestionVersions, &counts.CatalogProvenance,
 		&counts.CatalogMemberships, &counts.CatalogMembershipEvents, &counts.CatalogApplicabilities,
-		&counts.CatalogImportRuns,
+		&counts.CatalogImportRuns, &counts.AIEnrichments,
 	)
 	if err != nil {
 		t.Fatalf("read qualification bootstrap counts: %v", err)
@@ -312,11 +340,14 @@ func assertSurveilBootstrapRoleBoundary(t *testing.T, pool *database.Pool) {
 		"canonical_question_catalogs", "canonical_question_catalog_forms", "question_versions",
 		"canonical_question_version_provenance", "canonical_question_catalog_memberships",
 		"canonical_question_catalog_membership_events", "canonical_question_catalog_applicabilities",
-		"canonical_question_catalog_import_runs",
+		"canonical_question_catalog_import_runs", "canonical_question_catalog_ai_enrichments",
 	} {
 		if _, err := pool.Exec(ctx, "GRANT SELECT, INSERT ON TABLE public."+table+" TO surveil_bootstrap"); err != nil {
 			t.Fatalf("grant bootstrap role table %s: %v", table, err)
 		}
+	}
+	if _, err := pool.Exec(ctx, `GRANT EXECUTE ON FUNCTION public.governed_sha256(text) TO surveil_bootstrap`); err != nil {
+		t.Fatalf("grant bootstrap digest validator function: %v", err)
 	}
 	restrictedURL := *parsed
 	restrictedURL.Path = "/" + databaseName
@@ -351,6 +382,12 @@ func assertSurveilBootstrapRoleBoundary(t *testing.T, pool *database.Pool) {
 	}
 	if canExecute {
 		t.Fatal("surveil_bootstrap can execute application functions")
+	}
+	if err := restricted.QueryRow(ctx, `SELECT public.governed_sha256('sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')`).Scan(&canExecute); err != nil {
+		t.Fatalf("inspect bootstrap digest validator privilege: %v", err)
+	}
+	if !canExecute {
+		t.Fatal("surveil_bootstrap cannot execute its bounded digest validator")
 	}
 }
 

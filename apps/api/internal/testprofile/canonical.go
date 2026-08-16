@@ -317,6 +317,22 @@ func Reset(ctx context.Context, pool *database.Pool, now time.Time) error {
 		return errors.New("canonical test reset requires database and server time")
 	}
 	now = now.UTC()
+	canonicalUsageClass := "PREPROD_EXERCISE"
+	var hasCatalogLineage bool
+	if err := pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM information_schema.columns
+			WHERE table_schema = 'public'
+			  AND table_name = 'canonical_question_catalogs'
+			  AND column_name = 'catalog_root_digest'
+		)
+	`).Scan(&hasCatalogLineage); err != nil {
+		return fmt.Errorf("inspect canonical catalog schema: %w", err)
+	}
+	if hasCatalogLineage {
+		canonicalUsageClass = "GOVERNED_OPERATIONAL"
+	}
 	allowedAnswers := []string{"COMPLIANT", "NON_COMPLIANT", "OBSERVATION", "NOT_APPLICABLE", "NOT_CHECKED"}
 	commentRequiredFor := []string{"NON_COMPLIANT", "OBSERVATION"}
 	question := func(id, sectionID, prompt, expectedEvidence string, assigned []string) canonicalQuestion {
@@ -410,7 +426,7 @@ func Reset(ctx context.Context, pool *database.Pool, now time.Time) error {
 		"purpose": "Annual routine oversight", "triggerType": "Annual Plan", "riskCategory": "Cabin Safety",
 		"plannedDate": "2026-06-15", "mode": "On-site", "location": "Windhoek",
 		"providerScopeId": canonicalProviderScopeID, "regulatedTargetId": canonicalRegulatedTargetID,
-		"catalogVersion": canonicalCatalogVersion, "usageClass": "PREPROD_EXERCISE",
+		"catalogVersion": canonicalCatalogVersion, "usageClass": canonicalUsageClass,
 		"selectionDigest": canonicalSelectionDigest, "selectedQuestionVersionIds": canonicalQuestionVersionIDs,
 		"estimatedResourceRequirement": float64(len(questions)),
 		"formDistribution":             map[string]any{"CABIN": len(questions)},
@@ -430,7 +446,7 @@ func Reset(ctx context.Context, pool *database.Pool, now time.Time) error {
 		"riskCategory": "Cabin Safety", "plannedDate": "2026-06-15", "mode": "On-site", "location": "Windhoek",
 		"preparedAuditId": CanonicalAuditID,
 		"providerScopeId": canonicalProviderScopeID, "regulatedTargetId": canonicalRegulatedTargetID,
-		"catalogVersion": canonicalCatalogVersion, "usageClass": "PREPROD_EXERCISE",
+		"catalogVersion": canonicalCatalogVersion, "usageClass": canonicalUsageClass,
 		"selectionDigest": canonicalSelectionDigest, "selectedQuestionVersionIds": canonicalQuestionVersionIDs,
 		"estimatedResourceRequirement": float64(len(questions)),
 		"formDistribution":             map[string]any{"CABIN": len(questions)},
@@ -446,6 +462,29 @@ func Reset(ctx context.Context, pool *database.Pool, now time.Time) error {
 	selectionIDsJSON, err := json.Marshal(canonicalQuestionVersionIDs)
 	if err != nil {
 		return err
+	}
+	catalogInsertSQL := `
+			INSERT INTO canonical_question_catalogs (
+				id, catalog_version, usage_class, profile_name, profile_version, status,
+				source_package_version, source_package_json_sha256, source_package_zip_sha256,
+				root_digest, question_count, form_count, created_by_subject_id, created_at
+			) VALUES ($1, $2, $3, 'aga-preprod', '1.0.0', 'SEALED',
+				'canonical-test-fixture@1.0.0', 'sha256:canonical-test-package-json',
+				'sha256:canonical-test-package-zip', 'sha256:canonical-test-catalog-root',
+				$4, 1, 'USR-MANAGER-NORA', $5)
+		`
+	catalogInsertArgs := []any{canonicalCatalogID, canonicalCatalogVersion, canonicalUsageClass, len(questions), now}
+	if hasCatalogLineage {
+		catalogInsertSQL = `
+			INSERT INTO canonical_question_catalogs (
+				id, catalog_version, usage_class, profile_name, profile_version, status,
+				source_package_version, source_package_json_sha256, source_package_zip_sha256,
+				root_digest, catalog_root_digest, question_count, form_count, created_by_subject_id, created_at
+			) VALUES ($1, $2, $3, 'aga-preprod', '1.0.0', 'SEALED',
+				'canonical-test-fixture@1.0.0', 'sha256:canonical-test-package-json',
+				'sha256:canonical-test-package-zip', 'sha256:canonical-test-catalog-root',
+				'sha256:canonical-test-catalog-root', $4, 1, 'USR-MANAGER-NORA', $5)
+		`
 	}
 	if err := retryCanonicalReset(ctx, func() error {
 		return database.WithinTransaction(ctx, pool, func(ctx context.Context, transaction pgx.Tx) error {
@@ -661,9 +700,9 @@ func Reset(ctx context.Context, pool *database.Pool, now time.Time) error {
 				}
 			}
 			// V1 remains bound to the historical published template. The
-			// canonical PREPROD_EXERCISE catalog uses separate immutable V2
-			// question-version identities so exercise provenance cannot be
-			// reused by an administrative template draft.
+			// The canonical operational fixture uses separate immutable V2
+			// question-version identities so provenance cannot be reused by an
+			// administrative template draft.
 			for _, question := range questions {
 				questionVersionID := "QV-" + question.ID + "-V2"
 				if _, err := transaction.Exec(ctx, `
@@ -676,16 +715,7 @@ func Reset(ctx context.Context, pool *database.Pool, now time.Time) error {
 					return fmt.Errorf("seed Exercise Question version %s: %w", question.ID, err)
 				}
 			}
-			if _, err := transaction.Exec(ctx, `
-			INSERT INTO canonical_question_catalogs (
-				id, catalog_version, usage_class, profile_name, profile_version, status,
-				source_package_version, source_package_json_sha256, source_package_zip_sha256,
-				root_digest, question_count, form_count, created_by_subject_id, created_at
-			) VALUES ($1, $2, 'PREPROD_EXERCISE', 'aga-preprod', '1.0.0', 'SEALED',
-				'canonical-test-fixture@1.0.0', 'sha256:canonical-test-package-json',
-				'sha256:canonical-test-package-zip', 'sha256:canonical-test-catalog-root',
-				$3, 1, 'USR-MANAGER-NORA', $4)
-		`, canonicalCatalogID, canonicalCatalogVersion, len(questions), now); err != nil {
+			if _, err := transaction.Exec(ctx, catalogInsertSQL, catalogInsertArgs...); err != nil {
 				return fmt.Errorf("seed canonical question catalog: %w", err)
 			}
 			if _, err := transaction.Exec(ctx, `
@@ -702,8 +732,8 @@ func Reset(ctx context.Context, pool *database.Pool, now time.Time) error {
 				if _, err := transaction.Exec(ctx, `
 				INSERT INTO canonical_question_version_provenance (
 					question_version_id, usage_class, catalog_id, recorded_at
-				) VALUES ($1, 'PREPROD_EXERCISE', $2, $3)
-			`, questionVersionID, canonicalCatalogID, now); err != nil {
+				) VALUES ($1, $2, $3, $4)
+			`, questionVersionID, canonicalUsageClass, canonicalCatalogID, now); err != nil {
 					return fmt.Errorf("seed canonical question provenance %s: %w", currentQuestion.ID, err)
 				}
 				if _, err := transaction.Exec(ctx, `
@@ -711,9 +741,9 @@ func Reset(ctx context.Context, pool *database.Pool, now time.Time) error {
 					catalog_id, question_version_id, usage_class, form_code, proposal_id,
 					ordinal, question_digest, source_locator, source_gap_state,
 					proposed_domain, proposed_topic, proposed_risk_band, created_at
-				) VALUES ($1, $2, 'PREPROD_EXERCISE', 'CABIN', $3, $4, $5, $6,
-					'SOURCE_MAPPING_REQUIRED', 'Cabin Safety', $7, 'MEDIUM', $8)
-				`, canonicalCatalogID, questionVersionID, currentQuestion.ID, position+1,
+				) VALUES ($1, $2, $3, 'CABIN', $4, $5, $6, $7,
+					'SOURCE_MAPPING_REQUIRED', 'Cabin Safety', $8, 'MEDIUM', $9)
+				`, canonicalCatalogID, questionVersionID, canonicalUsageClass, currentQuestion.ID, position+1,
 					"sha256:canonical-question-"+fmt.Sprintf("%02d", position+1),
 					"fixture://canonical-cabin/"+currentQuestion.ID, currentQuestion.SectionID,
 					now); err != nil {
@@ -806,10 +836,10 @@ func Reset(ctx context.Context, pool *database.Pool, now time.Time) error {
 					status, selected_question_count, selection_digest, requested_budget,
 					notice_policy, created_by_subject_id, created_at, updated_at
 				) VALUES ($1, $2, 'ORG-FLY-NAMIBIA', $3, $4, 'CABIN', $5,
-					'PREPROD_EXERCISE', $6, $7, $8, $9, $10, 'ADVANCE',
-					'USR-MANAGER-NORA', $11, $11)
+					$6, $7, $8, $9, $10, $11, 'ADVANCE',
+					'USR-MANAGER-NORA', $12, $12)
 				`, scopeFixture.id, scopeFixture.draftID, canonicalProviderScopeID,
-					canonicalRegulatedTargetID, canonicalCatalogID, scopeFixture.revision,
+					canonicalRegulatedTargetID, canonicalCatalogID, canonicalUsageClass, scopeFixture.revision,
 					scopeFixture.status, len(canonicalQuestionVersionIDs), canonicalSelectionDigest,
 					scopeFixture.requestedBudget, now); err != nil {
 					return fmt.Errorf("seed canonical scope draft %s: %w", scopeFixture.id, err)
@@ -855,10 +885,10 @@ func Reset(ctx context.Context, pool *database.Pool, now time.Time) error {
 						id, scope_draft_id, revision, stage, catalog_id, usage_class,
 						selection_digest, planning_snapshot_digest, selected_question_count,
 						snapshot, created_by_subject_id, created_at
-					) VALUES ($1, $2, $3, $4, $5, 'PREPROD_EXERCISE', $6, $7, $8, $9,
-						'USR-MANAGER-NORA', $10)
+					) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+						'USR-MANAGER-NORA', $11)
 					`, scopeFixture.snapshotID, scopeFixture.id, scopeFixture.revision,
-						scopeFixture.snapshotStage, canonicalCatalogID, canonicalSelectionDigest,
+						scopeFixture.snapshotStage, canonicalCatalogID, canonicalUsageClass, canonicalSelectionDigest,
 						scopeFixture.planningDigest, len(canonicalQuestionVersionIDs),
 						scopeFixture.snapshot, now); err != nil {
 						return fmt.Errorf("seed canonical scope snapshot %s: %w", scopeFixture.snapshotID, err)

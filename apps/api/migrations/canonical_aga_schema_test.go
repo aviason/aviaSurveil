@@ -37,6 +37,37 @@ func TestCanonicalAGAMigrationKeepsQuestionVersionAuthorityAndAppendOnlyBoundari
 	}
 }
 
+func TestOfflineAIChecklistEnrichmentMigrationIsAppendOnlyAndSourceSeparate(t *testing.T) {
+	available, err := load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sql string
+	for _, migration := range available {
+		if migration.version == 48 {
+			sql = migration.sql
+			break
+		}
+	}
+	if sql == "" {
+		t.Fatal("offline AI checklist enrichment migration 48 is not embedded")
+	}
+	for _, required := range []string{
+		"canonical_question_catalog_ai_enrichments",
+		"REFERENCES canonical_question_catalog_memberships(catalog_id, question_version_id)",
+		"artifact_digest",
+		"recommendation_policy_version",
+		"risk_band IN ('PROPOSED_SAFETY_CRITICAL', 'PROPOSED_HIGH_OPERATIONAL', 'PROPOSED_CONTROL_ASSURANCE', 'PROPOSED_REVIEW_REQUIRED')",
+		"advisory_state IN ('SUGGESTED_NOW', 'MATCHING_OPTIONAL', 'UNCERTAIN_SIGNAL', 'RECENTLY_VERIFIED', 'OUTSIDE_FOCUS')",
+		"default_recommendation_bucket IN ('SUGGESTED_NOW', 'MATCHING_OPTIONAL', 'UNCERTAIN_SIGNAL')",
+		"canonical_question_catalog_ai_enrichments_append_only",
+	} {
+		if !strings.Contains(sql, required) {
+			t.Fatalf("migration 48 missing %q", required)
+		}
+	}
+}
+
 func TestCanonicalAuditPackageMigrationPinsReleasedScopeWithoutTemplateFallback(t *testing.T) {
 	available, err := load()
 	if err != nil {

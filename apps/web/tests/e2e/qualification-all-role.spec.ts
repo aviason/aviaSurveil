@@ -580,7 +580,11 @@ test.describe("prepared identity connected qualification", () => {
       await managerSession.page.getByRole("textbox", { name: "New Audit question search", exact: true }).fill(representativeForm ?? "");
       await expect(managerSession.page.locator(".planning-intake-catalog-pagination")).toContainText("matching questions");
       await expect(catalogRows.first()).toContainText(representativeForm ?? "");
-      await managerSession.page.getByLabel("New Audit form filter").fill(representativeForm ?? "");
+      const formFacet = managerSession.page.locator("details.planning-intake-facet-picker").filter({ has: managerSession.page.locator('summary[aria-label="New Audit form filter"]') });
+      await formFacet.locator("summary").click();
+      const formOptions = formFacet.locator('input[type="checkbox"]');
+      await expect(formOptions).toHaveCount(1);
+      await formOptions.first().check();
       await expect(managerSession.page.locator(".planning-intake-catalog-pagination")).toContainText("matching questions");
       await managerSession.page.getByRole("button", { name: "Clear filters" }).click();
       await expect(managerSession.page.locator(".planning-intake-catalog-pagination")).toContainText("1310 matching questions");

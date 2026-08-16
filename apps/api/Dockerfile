@@ -55,4 +55,5 @@ COPY --from=go-build --chown=10001:10001 /out/curated-foundation-loader /app/cur
 COPY --from=go-build --chown=10001:10001 /out/prepared-roster-loader /app/prepared-roster-loader
 COPY --from=go-build --chown=10001:10001 /out/approved-aga-catalog-loader /app/approved-aga-catalog-loader
 COPY --chown=10001:10001 deliverables/AGA_ALL_FORMS_APPROVED_SOURCE_V2.zip /app/bootstrap/AGA_ALL_FORMS_APPROVED_SOURCE_V2.zip
+COPY --chown=10001:10001 deliverables/aga-ai-checklist-recommendations-v1/AGA_AI_CHECKLIST_RECOMMENDATIONS_V1.json /app/bootstrap/AGA_AI_CHECKLIST_RECOMMENDATIONS_V1.json
 ENTRYPOINT ["/app/curated-foundation-loader", "load"]

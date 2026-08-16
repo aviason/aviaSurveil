@@ -40,6 +40,42 @@ interface SelectionPreviewOperation {
   questionVersionIds: string[];
 }
 
+type CatalogFacetOption = { value: string; count: number };
+
+function catalogValueLabel(value: string): string {
+  return value
+    .toLocaleLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toLocaleUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function CatalogFacetPicker({
+  label,
+  ariaLabel,
+  options,
+  selected,
+  onChange,
+}: {
+  label: string;
+  ariaLabel: string;
+  options: CatalogFacetOption[];
+  selected: string[];
+  onChange: (next: string[]) => void;
+}) {
+  return (
+    <details className="planning-intake-facet-picker">
+      <summary aria-label={ariaLabel}>{selected.length ? `${label} · ${selected.length} selected` : `${label} · Any`}</summary>
+      <div className="planning-intake-facet-options" role="group" aria-label={ariaLabel}>
+        {options.length ? options.map((option) => <label key={option.value}>
+          <input checked={selected.includes(option.value)} onChange={(event) => onChange(event.target.checked ? [...selected, option.value] : selected.filter((value) => value !== option.value))} type="checkbox" />
+          <span>{catalogValueLabel(option.value)}</span><small>{option.count.toLocaleString("en-US")}</small>
+        </label>) : <p>No values in the current result set.</p>}
+      </div>
+    </details>
+  );
+}
+
 type PlanningIntakeFormValues = Omit<PlanningIntakeDraftValues, "requestedBudget"> & {
   requestedBudget: string;
 };
@@ -208,11 +244,13 @@ export function NewAuditWizardPage() {
   const [catalogPage, setCatalogPage] = useState<CanonicalQuestionCatalogPage | null>(null);
   const [catalogBusy, setCatalogBusy] = useState(false);
   const [catalogSearch, setCatalogSearch] = useState("");
-  const [catalogFormCode, setCatalogFormCode] = useState("");
-  const [catalogDomain, setCatalogDomain] = useState("");
-  const [catalogTopic, setCatalogTopic] = useState("");
-  const [catalogRiskBand, setCatalogRiskBand] = useState("");
+  const [catalogFormCode, setCatalogFormCode] = useState<string[]>([]);
+  const [catalogDomain, setCatalogDomain] = useState<string[]>([]);
+  const [catalogTopic, setCatalogTopic] = useState<string[]>([]);
+  const [catalogRiskBand, setCatalogRiskBand] = useState<string[]>([]);
   const [catalogSourceGapState, setCatalogSourceGapState] = useState("");
+  const [catalogChecklistFocus, setCatalogChecklistFocus] = useState<string[]>([]);
+  const [catalogRecommendationState, setCatalogRecommendationState] = useState("");
   const [catalogSelectedFilter, setCatalogSelectedFilter] = useState<"all" | "selected" | "unselected">("all");
   const [catalogCursor, setCatalogCursor] = useState<string | undefined>();
   const [catalogPreviousCursors, setCatalogPreviousCursors] = useState<string[]>([]);
@@ -304,6 +342,15 @@ export function NewAuditWizardPage() {
     return () => { cancelled = true; };
   }, [backend, location.search]);
 
+  useEffect(() => {
+    if (!catalogDetail) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setCatalogDetail(null);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [catalogDetail]);
+
   async function changeScope(option: (typeof scopeOptions)[number]) {
     if (!backend.planningIntake || (values && option.providerScopeId === values.providerScopeId && option.regulatedTargetId === values.regulatedTargetId)) return;
     setAuditUsageClass(option.usageClass);
@@ -383,6 +430,8 @@ export function NewAuditWizardPage() {
       topic: catalogTopic || undefined,
       riskBand: catalogRiskBand || undefined,
       sourceGapState: catalogSourceGapState || undefined,
+      checklistFocus: catalogChecklistFocus.length ? catalogChecklistFocus : undefined,
+      recommendationState: catalogRecommendationState || undefined,
       selected: catalogSelectedFilter,
       scopeId: values.scopeDraftId || undefined,
       cursor: catalogCursor,
@@ -395,7 +444,7 @@ export function NewAuditWizardPage() {
       if (!controller.signal.aborted) setCatalogBusy(false);
     });
     return () => controller.abort();
-  }, [auditUsageClass, backend, catalogCursor, catalogDomain, catalogFormCode, catalogRiskBand, catalogSearch, catalogSelectedFilter, catalogSourceGapState, catalogTopic, step, values?.catalogVersion, values?.scopeDraftId]);
+  }, [auditUsageClass, backend, catalogChecklistFocus, catalogCursor, catalogDomain, catalogFormCode, catalogRecommendationState, catalogRiskBand, catalogSearch, catalogSelectedFilter, catalogSourceGapState, catalogTopic, step, values?.catalogVersion, values?.scopeDraftId]);
 
   const selectionSummary = useMemo(() => {
     const selected = new Set(pendingSelectionIds);
@@ -441,7 +490,7 @@ export function NewAuditWizardPage() {
     setStatus("Selection changes are staged locally. Preview and confirm the exact batch before continuing.");
   }
 
-  async function stageAllMatchingQuestions() {
+  async function stageAllMatchingQuestions(recommendationOverride?: string) {
     if (busy || !values?.catalogVersion || !backend.canonicalCatalog) return;
     setBusy(true);
     setError(null);
@@ -455,11 +504,13 @@ export function NewAuditWizardPage() {
           catalogVersion: values.catalogVersion,
           usageClass: auditUsageClass,
           search: catalogSearch || undefined,
-          formCode: catalogFormCode || undefined,
-          domain: catalogDomain || undefined,
-          topic: catalogTopic || undefined,
-          riskBand: catalogRiskBand || undefined,
+          formCode: catalogFormCode.length ? catalogFormCode : undefined,
+          domain: catalogDomain.length ? catalogDomain : undefined,
+          topic: catalogTopic.length ? catalogTopic : undefined,
+          riskBand: catalogRiskBand.length ? catalogRiskBand : undefined,
           sourceGapState: catalogSourceGapState || undefined,
+          checklistFocus: catalogChecklistFocus.length ? catalogChecklistFocus : undefined,
+          recommendationState: recommendationOverride || catalogRecommendationState || undefined,
           selected: catalogSelectedFilter,
           scopeId: values.scopeDraftId || undefined,
           cursor,
@@ -479,8 +530,9 @@ export function NewAuditWizardPage() {
         cursor = nextCursor;
       } while (cursor);
       if (!ids.length) throw new Error("No selectable questions match the current server-authorized filters.");
-      setPendingSelection(ids);
-      setStatus(`${ids.length.toLocaleString("en-US")} eligible questions staged locally; commits run in batches of at most ${selectionBatchLimit}.`);
+      const currentSelection = values.selectedQuestionVersionIds ?? [];
+      setPendingSelection([...currentSelection, ...ids]);
+      setStatus(`${ids.length.toLocaleString("en-US")} ${recommendationOverride ? "AI-suggested" : "eligible"} questions staged locally; commits run in batches of at most ${selectionBatchLimit}.`);
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -722,32 +774,35 @@ export function NewAuditWizardPage() {
           </div> : null}
           {values && step === 4 ? <div className="planning-intake-fields">
             <div className="planning-intake-catalog" aria-label="Question catalog selection">
-                <div className="planning-intake-catalog-header"><div><span className="eyebrow">Approved source catalog</span><h3>Choose the exact question subset</h3><p>Browse, filter, and select immutable question versions. Nothing is preselected for a new Audit.</p></div><span className="planning-intake-catalog-count" aria-live="polite">{pendingSelectionIds.length} selected{selectionDirty ? " · staged" : ""}</span></div>
+              <div className="planning-intake-catalog-header"><div><span className="eyebrow">Approved source catalog · 1,310 immutable questions</span><h3>Build the checklist with guided suggestions</h3><p>AI enrichment is advisory only. Choose a focus, review why a question is suggested, and keep or remove any valid question yourself.</p></div><span className="planning-intake-catalog-count" aria-live="polite">{pendingSelectionIds.length} selected{selectionDirty ? " · staged" : ""}</span></div>
               <div className="planning-intake-catalog-filters" aria-label="New Audit question search and filters">
-                <label>Search<input aria-label="New Audit question search" value={catalogSearch} onChange={(event) => { setCatalogSearch(event.target.value); resetCatalogPage(); }} placeholder="Form, proposal, or question identity" /></label>
-                <label>Form<input aria-label="New Audit form filter" value={catalogFormCode} onChange={(event) => { setCatalogFormCode(event.target.value); resetCatalogPage(); }} /></label>
-                <label>Domain<input aria-label="New Audit domain filter" value={catalogDomain} onChange={(event) => { setCatalogDomain(event.target.value); resetCatalogPage(); }} /></label>
-                <label>Topic<input aria-label="New Audit topic filter" value={catalogTopic} onChange={(event) => { setCatalogTopic(event.target.value); resetCatalogPage(); }} /></label>
-                <label>Risk band<input aria-label="New Audit risk filter" value={catalogRiskBand} onChange={(event) => { setCatalogRiskBand(event.target.value); resetCatalogPage(); }} /></label>
-                <label>Source gap<input aria-label="New Audit source gap filter" value={catalogSourceGapState} onChange={(event) => { setCatalogSourceGapState(event.target.value); resetCatalogPage(); }} /></label>
+                <label className="planning-intake-catalog-search">Search<input aria-label="New Audit question search" value={catalogSearch} onChange={(event) => { setCatalogSearch(event.target.value); resetCatalogPage(); }} placeholder="Search the question text, form, or identity" /></label>
+                <CatalogFacetPicker ariaLabel="New Audit form filter" label="Form" options={catalogPage?.facets.forms ?? []} selected={catalogFormCode} onChange={(next) => { setCatalogFormCode(next); resetCatalogPage(); }} />
+                <CatalogFacetPicker ariaLabel="New Audit domain filter" label="Domain" options={catalogPage?.facets.domains ?? []} selected={catalogDomain} onChange={(next) => { setCatalogDomain(next); resetCatalogPage(); }} />
+                <CatalogFacetPicker ariaLabel="New Audit topic filter" label="Topic" options={catalogPage?.facets.topics ?? []} selected={catalogTopic} onChange={(next) => { setCatalogTopic(next); resetCatalogPage(); }} />
+                <CatalogFacetPicker ariaLabel="New Audit risk tier filter" label="Risk tier" options={catalogPage?.facets.riskTiers ?? []} selected={catalogRiskBand} onChange={(next) => { setCatalogRiskBand(next); resetCatalogPage(); }} />
+                <CatalogFacetPicker ariaLabel="New Audit checklist focus filter" label="Checklist focus" options={catalogPage?.facets.checklistFocuses ?? []} selected={catalogChecklistFocus} onChange={(next) => { setCatalogChecklistFocus(next); resetCatalogPage(); }} />
+                <label>Source gap<select aria-label="New Audit source gap filter" value={catalogSourceGapState} onChange={(event) => { setCatalogSourceGapState(event.target.value); resetCatalogPage(); }}><option value="">Any source context</option><option value="OPTIONAL_ENRICHMENT_NOT_PROVIDED">Optional enrichment unavailable</option><option value="SOURCE_CONTEXT_INCOMPLETE">Source context incomplete</option></select></label>
+                <label>Recommendation<select aria-label="New Audit recommendation filter" value={catalogRecommendationState} onChange={(event) => { setCatalogRecommendationState(event.target.value); resetCatalogPage(); }}><option value="">All advisory states</option>{(catalogPage?.facets.recommendationStates ?? []).map((option) => <option key={option.value} value={option.value}>{catalogValueLabel(option.value)} · {option.count.toLocaleString("en-US")}</option>)}</select></label>
                 <label>Selected state<select aria-label="New Audit selected filter" value={catalogSelectedFilter} onChange={(event) => { setCatalogSelectedFilter(event.target.value as typeof catalogSelectedFilter); resetCatalogPage(); }}><option value="all">All questions</option><option value="selected">Selected in scope</option><option value="unselected">Not selected</option></select></label>
               </div>
+              {catalogChecklistFocus.length ? <div className="planning-intake-catalog-focus-note" role="note"><b>{catalogChecklistFocus.map(catalogValueLabel).join(", ")}</b><span>Questions outside this focus are hidden from the default result. Clear the focus filter to inspect the full catalog.</span></div> : null}
               {catalogBusy ? <p role="status">Loading catalog page…</p> : null}
               {!catalogBusy && !catalogPage ? <p role="status">Catalog selection is unavailable in this build profile.</p> : null}
               {catalogPage ? <ul className="planning-intake-catalog-list">
                 {catalogPage.items.map((question) => {
                   const checked = pendingSelectionIds.includes(question.questionVersionId);
-                  return <li key={question.questionVersionId}><label><input aria-label={`Select ${question.formCode} ${question.ordinal}`} checked={checked} disabled={busy || !question.canSelect} onChange={() => toggleQuestion(question.questionVersionId)} title={!question.canSelect ? "This question is not selectable in the current server-authorized scope." : undefined} type="checkbox" /><span><b>{question.formCode} · item {question.ordinal}</b><small>{question.questionVersionId} · {question.proposedDomain ?? "Unclassified"}</small></span></label><button className="planning-intake-question-detail" type="button" onClick={() => void openCatalogDetail(question)}>View dossier</button></li>;
+                  return <li key={question.questionVersionId}><label><input aria-label={`Select ${question.formCode} ${question.ordinal}`} checked={checked} disabled={busy || !question.canSelect} onChange={() => toggleQuestion(question.questionVersionId)} title={!question.canSelect ? "This question is not selectable in the current server-authorized scope." : undefined} type="checkbox" /><span><b>{question.prompt ?? "Question prompt unavailable"}</b><small>{question.formCode} · item {question.ordinal} · {catalogValueLabel(question.aiAdvisory.domainCode)} · <code>{question.questionVersionId}</code></small><span className="planning-intake-question-meta"><em>{catalogValueLabel(question.aiAdvisory.riskTier)} risk</em><em>{catalogValueLabel(question.aiAdvisory.advisoryState)}</em>{question.aiAdvisory.recommendationReasonCodes.slice(0, 2).map((reason) => <em key={reason}>{catalogValueLabel(reason)}</em>)}</span></span></label><button className="planning-intake-question-detail" type="button" onClick={() => void openCatalogDetail(question)}>View dossier</button></li>;
                 })}
               </ul> : null}
               <section aria-label="Selected question tray" className="planning-intake-selected-tray">
                 <header><h4>Selected question tray</h4><span>{pendingSelectionIds.length} exact immutable versions</span></header>
                 {pendingSelectionIds.length ? <><ul>{pendingSelectionIds.slice(0, selectedTrayRenderLimit).map((questionId) => <li key={questionId}><span>{questionId}</span><button type="button" disabled={busy} onClick={() => setPendingSelection(pendingSelectionIds.filter((id) => id !== questionId))}>Remove</button></li>)}</ul>{pendingSelectionIds.length > selectedTrayRenderLimit ? <p>{pendingSelectionIds.length - selectedTrayRenderLimit} additional exact identities remain staged; use the selected-state filter and pagination to inspect them without rendering all question bodies at once.</p> : null}</> : <p>No questions selected. Select at least one version to continue.</p>}
               </section>
-              {catalogDetail ? <aside aria-label="Selected question dossier" className="planning-intake-question-dossier"><header><h4>Question dossier</h4><button type="button" onClick={() => setCatalogDetail(null)}>Close</button></header><strong>{catalogDetail.formCode} · item {catalogDetail.ordinal}</strong><p>{catalogDetail.prompt ?? "Prompt unavailable in this profile."}</p><dl><div><dt>Question version</dt><dd>{catalogDetail.questionVersionId}</dd></div><div><dt>Source gap</dt><dd>{catalogDetail.sourceGapState}</dd></div><div><dt>Reference</dt><dd>{catalogDetail.configuredReference ?? "Not configured"}</dd></div><div><dt>Expected Evidence</dt><dd>{catalogDetail.expectedEvidence ?? "Not configured"}</dd></div></dl></aside> : null}
+              {catalogDetail ? <div className="planning-intake-dossier-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setCatalogDetail(null); }}><section aria-label="Question dossier" aria-modal="true" className="planning-intake-question-dossier" role="dialog"><header><div><span className="eyebrow">Question dossier</span><h4>{catalogDetail.formCode} · item {catalogDetail.ordinal}</h4></div><button autoFocus type="button" onClick={() => setCatalogDetail(null)}>Close</button></header><p className="planning-intake-dossier-prompt">{catalogDetail.prompt ?? "Prompt unavailable in this profile."}</p><div className="planning-intake-question-meta"><em>{catalogValueLabel(catalogDetail.aiAdvisory.riskTier)} risk</em><em>{catalogValueLabel(catalogDetail.aiAdvisory.advisoryState)}</em>{catalogDetail.aiAdvisory.recommendationReasonCodes.map((reason) => <em key={reason}>{catalogValueLabel(reason)}</em>)}</div><p>{catalogDetail.aiAdvisory.previouslyVerifiedAt ? `Previously verified ${new Date(catalogDetail.aiAdvisory.previouslyVerifiedAt).toLocaleDateString("en-GB")}.` : "No prior locked Final verification is recorded for this question."}</p><dl><div><dt>Question version</dt><dd>{catalogDetail.questionVersionId}</dd></div><div><dt>Domain</dt><dd>{catalogValueLabel(catalogDetail.aiAdvisory.domainCode)}</dd></div><div><dt>Checklist focus</dt><dd>{catalogDetail.aiAdvisory.inspectionTypeCodes.map(catalogValueLabel).join(", ") || "Not classified"}</dd></div><div><dt>Reference</dt><dd>{catalogDetail.configuredReference ?? "Not configured"}</dd></div><div><dt>Expected evidence</dt><dd>{catalogDetail.expectedEvidence ?? "Not configured"}</dd></div><div><dt>Source context</dt><dd>{catalogDetail.aiAdvisory.externalApplicabilityUnresolved ? "Some applicability context is unresolved; this advisory does not block selection." : "Source context available"}</dd></div></dl></section></div> : null}
               {selectionPreview ? <p className="planning-intake-selection-preview" role="status">Preview: {selectionPreview.preview.selectedCount} selected · {selectionPreview.valid ? "ready to confirm" : selectionPreview.reason}</p> : null}
-              <div className="planning-intake-selection-actions"><button type="button" disabled={busy || catalogBusy || !catalogPage} onClick={() => void stageAllMatchingQuestions()}>Stage all matching eligible questions</button><button type="button" disabled={busy || !selectionDirty} onClick={() => void previewQuestionSelection()} title={!selectionDirty ? "Stage an Add, Remove, or tray change first." : undefined}>Preview next exact batch</button><button type="button" disabled={busy || !selectionPreview?.valid || !selectionPreviewOperation} onClick={() => void confirmQuestionSelection()} title={!selectionPreview?.valid ? "Preview the staged exact batch first." : undefined}>Confirm selection</button><button type="button" disabled={busy || !selectionDirty} onClick={() => { setPendingSelectionIds([...(values.selectedQuestionVersionIds ?? [])]); setSelectionDirty(false); setSelectionPreview(null); setSelectionPreviewOperation(null); setStatus("Staged selection changes were discarded."); }} title={!selectionDirty ? "There are no staged selection changes." : undefined}>Undo staged changes</button></div>
-              <div className="planning-intake-catalog-pagination" aria-label="New Audit question pagination"><button disabled={catalogBusy || !catalogPreviousCursors.length} onClick={() => { const history = [...catalogPreviousCursors]; setCatalogCursor(history.pop()); setCatalogPreviousCursors(history); setCatalogPageNumber((value) => Math.max(1, value - 1)); }} type="button">Previous questions</button><button disabled={catalogBusy || (!catalogSearch && !catalogFormCode && !catalogDomain && !catalogTopic && !catalogRiskBand && !catalogSourceGapState && catalogSelectedFilter === "all")} onClick={() => { setCatalogSearch(""); setCatalogFormCode(""); setCatalogDomain(""); setCatalogTopic(""); setCatalogRiskBand(""); setCatalogSourceGapState(""); setCatalogSelectedFilter("all"); resetCatalogPage(); }} type="button">Clear filters</button><span aria-live="polite">{catalogPage?.totalCount ?? 0} matching questions · page {catalogPageNumber}</span><button disabled={catalogBusy || !catalogPage?.nextCursor} onClick={() => { if (!catalogPage?.nextCursor) return; setCatalogPreviousCursors((history) => [...history, catalogCursor ?? ""]); setCatalogCursor(catalogPage.nextCursor ?? undefined); setCatalogPageNumber((value) => value + 1); }} type="button">Next questions</button></div>
+              <div className="planning-intake-selection-actions"><button type="button" disabled={busy || catalogBusy || !catalogPage} onClick={() => void stageAllMatchingQuestions("SUGGESTED_NOW")}>Stage suggested questions</button><button type="button" disabled={busy || catalogBusy || !catalogPage} onClick={() => void stageAllMatchingQuestions()}>Stage all matching eligible questions</button><button type="button" disabled={busy || !selectionDirty} onClick={() => void previewQuestionSelection()} title={!selectionDirty ? "Stage an Add, Remove, or tray change first." : undefined}>Preview next exact batch</button><button type="button" disabled={busy || !selectionPreview?.valid || !selectionPreviewOperation} onClick={() => void confirmQuestionSelection()} title={!selectionPreview?.valid ? "Preview the staged exact batch first." : undefined}>Confirm selection</button><button type="button" disabled={busy || !selectionDirty} onClick={() => { setPendingSelectionIds([...(values.selectedQuestionVersionIds ?? [])]); setSelectionDirty(false); setSelectionPreview(null); setSelectionPreviewOperation(null); setStatus("Staged selection changes were discarded."); }} title={!selectionDirty ? "There are no staged selection changes." : undefined}>Undo staged changes</button></div>
+              <div className="planning-intake-catalog-pagination" aria-label="New Audit question pagination"><button disabled={catalogBusy || !catalogPreviousCursors.length} onClick={() => { const history = [...catalogPreviousCursors]; setCatalogCursor(history.pop()); setCatalogPreviousCursors(history); setCatalogPageNumber((value) => Math.max(1, value - 1)); }} type="button">Previous questions</button><button disabled={catalogBusy || (!catalogSearch && !catalogFormCode.length && !catalogDomain.length && !catalogTopic.length && !catalogRiskBand.length && !catalogSourceGapState && !catalogChecklistFocus.length && !catalogRecommendationState && catalogSelectedFilter === "all")} onClick={() => { setCatalogSearch(""); setCatalogFormCode([]); setCatalogDomain([]); setCatalogTopic([]); setCatalogRiskBand([]); setCatalogSourceGapState(""); setCatalogChecklistFocus([]); setCatalogRecommendationState(""); setCatalogSelectedFilter("all"); resetCatalogPage(); }} type="button">Clear filters</button><span aria-live="polite">{catalogPage?.totalCount ?? 0} matching questions · page {catalogPageNumber}</span><button disabled={catalogBusy || !catalogPage?.nextCursor} onClick={() => { if (!catalogPage?.nextCursor) return; setCatalogPreviousCursors((history) => [...history, catalogCursor ?? ""]); setCatalogCursor(catalogPage.nextCursor ?? undefined); setCatalogPageNumber((value) => value + 1); }} type="button">Next questions</button></div>
             </div>
             <label>Question Catalog Version<input aria-label="Question Catalog Version" readOnly value={values.catalogVersion ?? "Unavailable"} /></label>
             <label>Requested Budget<input aria-label="Requested Budget" min="0" type="number" value={values.requestedBudget} onChange={(event) => update("requestedBudget", event.target.value)} /></label>

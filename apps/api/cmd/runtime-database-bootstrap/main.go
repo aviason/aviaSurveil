@@ -256,12 +256,15 @@ func configureSurveilWithTableGrants(ctx context.Context, masterURL string, mast
 		"canonical_question_catalogs", "canonical_question_catalog_forms", "question_versions",
 		"canonical_question_version_provenance", "canonical_question_catalog_memberships",
 		"canonical_question_catalog_membership_events", "canonical_question_catalog_applicabilities",
-		"canonical_question_catalog_import_runs",
+		"canonical_question_catalog_import_runs", "canonical_question_catalog_ai_enrichments",
 	}
 	for _, table := range bootstrapTables {
 		if _, err := pool.Exec(ctx, "GRANT SELECT, INSERT ON TABLE public."+table+" TO surveil_bootstrap"); err != nil {
 			return fmt.Errorf("grant bounded bootstrap table privilege %s: %w", table, err)
 		}
+	}
+	if _, err := pool.Exec(ctx, `GRANT EXECUTE ON FUNCTION public.governed_sha256(text) TO surveil_bootstrap`); err != nil {
+		return fmt.Errorf("grant bounded bootstrap digest validator privilege: %w", err)
 	}
 	return nil
 }

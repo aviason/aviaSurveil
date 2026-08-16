@@ -109,6 +109,13 @@ function mapCanonicalCatalogEntry(value: Schemas["CanonicalQuestionCatalogEntry"
     proposedDomain: value.proposedDomain ?? null,
     proposedTopic: value.proposedTopic ?? null,
     proposedRiskBand: value.proposedRiskBand ?? null,
+    aiAdvisory: {
+      ...value.aiAdvisory,
+      topicCodes: [...value.aiAdvisory.topicCodes],
+      inspectionTypeCodes: [...value.aiAdvisory.inspectionTypeCodes],
+      inspectionProfileCodes: [...value.aiAdvisory.inspectionProfileCodes],
+      recommendationReasonCodes: [...value.aiAdvisory.recommendationReasonCodes],
+    },
     canSelect: value.canSelect,
     canPublish: value.canPublish,
     governedCandidateId: value.governedCandidateId ?? null,
@@ -123,7 +130,18 @@ function mapCanonicalCatalogEntry(value: Schemas["CanonicalQuestionCatalogEntry"
 }
 
 function mapCanonicalCatalogPage(value: Schemas["CanonicalQuestionCatalogPage"]): CanonicalQuestionCatalogPage {
-  return { ...value, items: value.items.map(mapCanonicalCatalogEntry) };
+  return {
+    ...value,
+    items: value.items.map(mapCanonicalCatalogEntry),
+    facets: {
+      forms: value.facets.forms.map((item) => ({ ...item })),
+      domains: value.facets.domains.map((item) => ({ ...item })),
+      topics: value.facets.topics.map((item) => ({ ...item })),
+      riskTiers: value.facets.riskTiers.map((item) => ({ ...item })),
+      checklistFocuses: value.facets.checklistFocuses.map((item) => ({ ...item })),
+      recommendationStates: value.facets.recommendationStates.map((item) => ({ ...item })),
+    },
+  };
 }
 
 function mapCanonicalScopeOptionPage(value: Schemas["CanonicalAuditScopeOptionPage"]): CanonicalAuditScopeOptionPage {
@@ -220,6 +238,10 @@ function joinApiPath(apiBaseUrl: string, path: string): string {
 function appendQuery<T extends object>(path: string, values: T): string {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(values as Record<string, unknown>)) {
+    if (Array.isArray(value)) {
+      if (value.length) query.set(key, value.join(","));
+      continue;
+    }
     if (typeof value !== "string" && typeof value !== "number" && value != null) continue;
     if (value !== undefined && value !== null && value !== "") query.set(key, String(value));
   }
@@ -801,6 +823,7 @@ export function createHttpBackend(
           usageClass: input.usageClass, search: input.search, formCode: input.formCode,
           domain: input.domain, topic: input.topic, riskBand: input.riskBand,
           sourceGapState: input.sourceGapState, selected: input.selected, scopeId: input.scopeId,
+          checklistFocus: input.checklistFocus, recommendationState: input.recommendationState,
           cursor: input.cursor, limit: input.limit,
         }), {}, options)),
       getQuestion: async (input, options) => mapCanonicalCatalogEntry(await request<Schemas["CanonicalQuestionCatalogEntry"]>(

@@ -6,6 +6,35 @@
 -- operational content. New operational catalogs have one explicit source
 -- origin and do not require an internal technical-approval/publication row.
 
+-- The lineage backfill below changes rows that were immutable under the
+-- pre-lineage schema. Suspend only the affected append-only triggers for the
+-- migration transaction; they are recreated after the backfill so the
+-- resulting schema remains immutable.
+DROP TRIGGER IF EXISTS canonical_question_catalogs_append_only ON canonical_question_catalogs;
+DROP TRIGGER IF EXISTS canonical_question_catalog_memberships_append_only ON canonical_question_catalog_memberships;
+DROP TRIGGER IF EXISTS canonical_question_version_provenance_append_only ON canonical_question_version_provenance;
+DROP TRIGGER IF EXISTS canonical_audit_scope_snapshots_append_only ON canonical_audit_scope_snapshots;
+
+-- Remove the publication-era catalog constraints before changing historical
+-- exercise rows to retired governed lineage. The old publication shape is
+-- intentionally incompatible with that transition because it requires
+-- PREPROD_EXERCISE rows to keep all publication fields NULL.
+ALTER TABLE canonical_question_catalogs
+    DROP CONSTRAINT IF EXISTS canonical_question_catalogs_usage_class_check,
+    DROP CONSTRAINT IF EXISTS canonical_question_catalog_publication_shape,
+    DROP CONSTRAINT IF EXISTS canonical_question_catalog_publication_fk,
+    DROP CONSTRAINT IF EXISTS canonical_question_catalog_candidate_fk;
+
+-- These composite FKs bind historical children to the old usage-class key.
+-- Suspend them for the parent/child usage-class backfill and recreate the
+-- retained scope FKs once every row carries GOVERNED_OPERATIONAL.
+ALTER TABLE canonical_audit_scope_drafts
+    DROP CONSTRAINT IF EXISTS canonical_audit_scope_drafts_catalog_id_usage_class_fkey;
+ALTER TABLE canonical_audit_scope_snapshots
+    DROP CONSTRAINT IF EXISTS canonical_audit_scope_snapshots_catalog_id_usage_class_fkey;
+ALTER TABLE canonical_exercise_question_review_drafts
+    DROP CONSTRAINT IF EXISTS canonical_exercise_question_review_drafts_catalog_id_question_version_id_usage_class_fkey;
+
 ALTER TABLE canonical_question_catalogs
     ADD COLUMN IF NOT EXISTS source_origin text NOT NULL DEFAULT 'INTERNAL_GENERATED_CANDIDATE',
     ADD COLUMN IF NOT EXISTS source_manifest_sha256 text NOT NULL DEFAULT '',
@@ -46,6 +75,11 @@ WHERE catalog.id = snapshot.catalog_id
 
 -- Child rows carry the same retired governed usage value before the composite
 -- foreign keys are narrowed to the single live usage class.
+UPDATE canonical_question_catalogs
+SET usage_class = 'GOVERNED_OPERATIONAL',
+    status = 'RETIRED',
+    source_origin = 'INTERNAL_GENERATED_CANDIDATE'
+WHERE usage_class = 'PREPROD_EXERCISE';
 UPDATE canonical_question_catalog_memberships
 SET usage_class = 'GOVERNED_OPERATIONAL',
     source_origin = 'INTERNAL_GENERATED_CANDIDATE'
@@ -60,11 +94,6 @@ WHERE usage_class = 'PREPROD_EXERCISE';
 UPDATE canonical_audit_scope_snapshots
 SET usage_class = 'GOVERNED_OPERATIONAL'
 WHERE usage_class = 'PREPROD_EXERCISE';
-UPDATE canonical_question_catalogs
-SET usage_class = 'GOVERNED_OPERATIONAL',
-    status = 'RETIRED',
-    source_origin = 'INTERNAL_GENERATED_CANDIDATE'
-WHERE usage_class = 'PREPROD_EXERCISE';
 
 ALTER TABLE canonical_question_catalogs
     DROP CONSTRAINT IF EXISTS canonical_question_catalogs_usage_class_check,
@@ -78,6 +107,15 @@ ALTER TABLE canonical_question_catalogs
         CHECK (source_origin IN ('IMPORTED_APPROVED_SOURCE', 'INTERNAL_GENERATED_CANDIDATE')),
     ADD CONSTRAINT canonical_question_catalog_root_digest_check
         CHECK (btrim(catalog_root_digest) <> '');
+
+ALTER TABLE canonical_audit_scope_drafts
+    ADD CONSTRAINT canonical_audit_scope_drafts_catalog_id_usage_class_fkey
+        FOREIGN KEY (catalog_id, usage_class)
+        REFERENCES canonical_question_catalogs(id, usage_class);
+ALTER TABLE canonical_audit_scope_snapshots
+    ADD CONSTRAINT canonical_audit_scope_snapshots_catalog_id_usage_class_fkey
+        FOREIGN KEY (catalog_id, usage_class)
+        REFERENCES canonical_question_catalogs(id, usage_class);
 
 ALTER TABLE canonical_question_catalog_import_runs
     ADD CONSTRAINT canonical_question_catalog_import_source_origin_check
@@ -131,3 +169,16 @@ DROP FUNCTION IF EXISTS reject_exercise_template_question_link();
 DROP FUNCTION IF EXISTS reject_canonical_snapshot_usage_mismatch();
 DROP TABLE IF EXISTS canonical_exercise_question_review_events CASCADE;
 DROP TABLE IF EXISTS canonical_exercise_question_review_drafts CASCADE;
+
+CREATE TRIGGER canonical_question_catalogs_append_only
+BEFORE UPDATE OR DELETE ON canonical_question_catalogs
+FOR EACH ROW EXECUTE FUNCTION reject_immutable_row_change();
+CREATE TRIGGER canonical_question_catalog_memberships_append_only
+BEFORE UPDATE OR DELETE ON canonical_question_catalog_memberships
+FOR EACH ROW EXECUTE FUNCTION reject_immutable_row_change();
+CREATE TRIGGER canonical_question_version_provenance_append_only
+BEFORE UPDATE OR DELETE ON canonical_question_version_provenance
+FOR EACH ROW EXECUTE FUNCTION reject_immutable_row_change();
+CREATE TRIGGER canonical_audit_scope_snapshots_append_only
+BEFORE UPDATE OR DELETE ON canonical_audit_scope_snapshots
+FOR EACH ROW EXECUTE FUNCTION reject_immutable_row_change();

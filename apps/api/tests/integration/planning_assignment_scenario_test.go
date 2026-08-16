@@ -421,7 +421,7 @@ func TestAdHocPlanningWithholdsAuditeeNoticeAfterMaterialization(t *testing.T) {
 	`, "draft-ad-hoc", mustJSON(t, adHocIntakeValues())); err != nil {
 		t.Fatalf("seed submitted Ad Hoc draft: %v", err)
 	}
-	adhocSnapshot := `{"planningItemId":"plan-ad-hoc","catalogVersion":"aga-fixture@1.0.0","usageClass":"PREPROD_EXERCISE","noticePolicy":"WITHHELD","selectedQuestionVersionIds":["q-cabin-crew-training"]}`
+	adhocSnapshot := `{"planningItemId":"plan-ad-hoc","catalogVersion":"aga-fixture@1.0.0","usageClass":"GOVERNED_OPERATIONAL","noticePolicy":"WITHHELD","selectedQuestionVersionIds":["q-cabin-crew-training"]}`
 	adhocDigest := questioncatalog.SelectionDigest([]string{"q-cabin-crew-training"})
 	if _, err := pool.Exec(context.Background(), `
 		UPDATE canonical_audit_scope_drafts
@@ -436,7 +436,7 @@ func TestAdHocPlanningWithholdsAuditeeNoticeAfterMaterialization(t *testing.T) {
 			planning_snapshot_digest, selected_question_count, snapshot, created_by_subject_id
 		) VALUES (
 			'scope-snapshot-ad-hoc-released', 'scope-draft-draft-ad-hoc', 1, 'RELEASED', 'catalog-cabin-fixture',
-			'PREPROD_EXERCISE', $2, governed_jsonb_sha256($1::jsonb), 1, $1::jsonb, 'manager-001'
+			'GOVERNED_OPERATIONAL', $2, governed_jsonb_sha256($1::jsonb), 1, $1::jsonb, 'manager-001'
 		)
 	`, adhocSnapshot, adhocDigest); err != nil {
 		t.Fatalf("seed released Ad Hoc snapshot: %v", err)
@@ -549,7 +549,7 @@ func TestCanonicalPreparationCoveragePinsQuestionPositionToReleasedSnapshot(t *t
 	}
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO canonical_question_version_provenance (question_version_id, usage_class, catalog_id)
-		VALUES ('q-preparation-position-other', 'PREPROD_EXERCISE', 'catalog-cabin-fixture')
+		VALUES ('q-preparation-position-other', 'GOVERNED_OPERATIONAL', 'catalog-cabin-fixture')
 	`); err != nil {
 		t.Fatalf("seed second question provenance: %v", err)
 	}
@@ -558,7 +558,7 @@ func TestCanonicalPreparationCoveragePinsQuestionPositionToReleasedSnapshot(t *t
 			catalog_id, question_version_id, usage_class, form_code, proposal_id, ordinal,
 			question_digest, source_gap_state
 		) VALUES (
-			'catalog-cabin-fixture', 'q-preparation-position-other', 'PREPROD_EXERCISE',
+			'catalog-cabin-fixture', 'q-preparation-position-other', 'GOVERNED_OPERATIONAL',
 			'CABIN', 'proposal-preparation-position-other', 2, 'sha256:position-other', 'NONE'
 		)
 	`); err != nil {
@@ -578,7 +578,7 @@ func TestCanonicalPreparationCoveragePinsQuestionPositionToReleasedSnapshot(t *t
 		) VALUES (
 			'scope-draft-preparation-position', 'draft-preparation-position', 'airline-xyz',
 			'scope-airline-xyz-air-operator', 'target-airline-xyz', 'CABIN',
-			'catalog-cabin-fixture', 'PREPROD_EXERCISE', 1, 'RELEASED', 2,
+			'catalog-cabin-fixture', 'GOVERNED_OPERATIONAL', 1, 'RELEASED', 2,
 			'sha256:preparation-position-selection', 'ADVANCE', 'manager-001'
 		)
 	`); err != nil {
@@ -590,7 +590,7 @@ func TestCanonicalPreparationCoveragePinsQuestionPositionToReleasedSnapshot(t *t
 			planning_snapshot_digest, selected_question_count, snapshot, created_by_subject_id
 		) VALUES (
 			'scope-snapshot-preparation-position', 'scope-draft-preparation-position', 1,
-			'RELEASED', 'catalog-cabin-fixture', 'PREPROD_EXERCISE',
+			'RELEASED', 'catalog-cabin-fixture', 'GOVERNED_OPERATIONAL',
 			'sha256:preparation-position-selection', '', 2, '{}'::jsonb, 'manager-001'
 		)
 	`); err != nil {
@@ -802,13 +802,13 @@ func seedCanonicalPlanningHTTPDraft(t *testing.T, pool *database.Pool) {
 		INSERT INTO canonical_question_catalogs (
 			id, catalog_version, usage_class, profile_name, profile_version,
 			status, source_package_version, source_package_json_sha256,
-			source_package_zip_sha256, root_digest, question_count, form_count,
+			source_package_zip_sha256, root_digest, catalog_root_digest, question_count, form_count,
 			created_by_subject_id
 		) VALUES (
-			'CAT-TASK4-PLAN', 'task4-planning@1.0.0', 'PREPROD_EXERCISE',
+			'CAT-TASK4-PLAN', 'task4-planning@1.0.0', 'GOVERNED_OPERATIONAL',
 			'aga-preprod', '1.0.0', 'SEALED', '1.0.0',
 			'sha256:task4-planning-json', 'sha256:task4-planning-zip',
-			'sha256:task4-planning-root', 1, 1, 'USR-MANAGER-NORA'
+			'sha256:task4-planning-root', 'sha256:task4-planning-root', 1, 1, 'USR-MANAGER-NORA'
 		);
 
 		INSERT INTO canonical_question_catalog_forms (
@@ -822,7 +822,7 @@ func seedCanonicalPlanningHTTPDraft(t *testing.T, pool *database.Pool) {
 		INSERT INTO canonical_question_version_provenance (
 			question_version_id, usage_class, catalog_id
 		) VALUES (
-			'QV-CAB-EMEQ-PBE-001-V1', 'PREPROD_EXERCISE', 'CAT-TASK4-PLAN'
+			'QV-CAB-EMEQ-PBE-001-V1', 'GOVERNED_OPERATIONAL', 'CAT-TASK4-PLAN'
 		);
 
 		INSERT INTO canonical_question_catalog_memberships (
@@ -830,7 +830,7 @@ func seedCanonicalPlanningHTTPDraft(t *testing.T, pool *database.Pool) {
 			proposal_id, ordinal, question_digest, source_locator,
 			source_gap_state, proposed_domain, proposed_topic, proposed_risk_band
 		) VALUES (
-			'CAT-TASK4-PLAN', 'QV-CAB-EMEQ-PBE-001-V1', 'PREPROD_EXERCISE',
+			'CAT-TASK4-PLAN', 'QV-CAB-EMEQ-PBE-001-V1', 'GOVERNED_OPERATIONAL',
 			'CABIN', 'PBE-001', 1, 'sha256:task4-pbe-question',
 			'fixture://task4/pbe', 'SOURCE_MAPPING_REQUIRED',
 			'Cabin Safety', 'PBE', 'MEDIUM'
@@ -868,7 +868,7 @@ func seedCanonicalPlanningHTTPDraft(t *testing.T, pool *database.Pool) {
 			'SCOPE-DRAFT-TASK4-PLAN', 'PLAN-DRAFT-2026-001',
 			'ORG-FLY-NAMIBIA', 'SCOPE-OPS-AOC-SOURCE-BOUND',
 			'TARGET-OPS-AOC-SOURCE-BOUND', 'CABIN',
-			'CAT-TASK4-PLAN', 'PREPROD_EXERCISE', 1, 'DRAFT', 1,
+			'CAT-TASK4-PLAN', 'GOVERNED_OPERATIONAL', 1, 'DRAFT', 1,
 			'8bf3518c051416c444a9b441fe44a67f9e17fd1c54723a2ef5cf91e1a67833e0',
 			0, 'ADVANCE', 'USR-MANAGER-NORA'
 		);

@@ -1235,13 +1235,13 @@ func seedCanonicalTestProfileAttachmentPackage(t *testing.T, pool *database.Pool
 		INSERT INTO canonical_question_catalogs (
 			id, catalog_version, usage_class, profile_name, profile_version,
 			status, source_package_version, source_package_json_sha256,
-			source_package_zip_sha256, root_digest, question_count, form_count,
+			source_package_zip_sha256, root_digest, catalog_root_digest, question_count, form_count,
 			created_by_subject_id
 		) VALUES (
 			'CAT-TASK6-ATTACHMENT', 'task6-attachment@1.0.0',
-			'PREPROD_EXERCISE', 'aga-preprod', '1.0.0', 'SEALED', '1.0.0',
+			'GOVERNED_OPERATIONAL', 'aga-preprod', '1.0.0', 'SEALED', '1.0.0',
 			'sha256:task6-attachment-json', 'sha256:task6-attachment-zip',
-			'sha256:task6-attachment-root', 1, 1, 'USR-MANAGER-NORA'
+			'sha256:task6-attachment-root', 'sha256:task6-attachment-root', 1, 1, 'USR-MANAGER-NORA'
 		);
 
 		INSERT INTO canonical_question_catalog_forms (
@@ -1255,7 +1255,7 @@ func seedCanonicalTestProfileAttachmentPackage(t *testing.T, pool *database.Pool
 		INSERT INTO canonical_question_version_provenance (
 			question_version_id, usage_class, catalog_id
 		) VALUES (
-			'QV-CAB-EMEQ-PBE-001-V1', 'PREPROD_EXERCISE',
+			'QV-CAB-EMEQ-PBE-001-V1', 'GOVERNED_OPERATIONAL',
 			'CAT-TASK6-ATTACHMENT'
 		);
 
@@ -1265,7 +1265,7 @@ func seedCanonicalTestProfileAttachmentPackage(t *testing.T, pool *database.Pool
 			source_gap_state, proposed_domain, proposed_topic, proposed_risk_band
 		) VALUES (
 			'CAT-TASK6-ATTACHMENT', 'QV-CAB-EMEQ-PBE-001-V1',
-			'PREPROD_EXERCISE', 'CABIN', 'PBE-001', 1,
+			'GOVERNED_OPERATIONAL', 'CABIN', 'PBE-001', 1,
 			'sha256:task6-pbe-question', 'fixture://task6/pbe',
 			'SOURCE_MAPPING_REQUIRED', 'Cabin Safety', 'PBE', 'MEDIUM'
 		);
@@ -1288,7 +1288,7 @@ func seedCanonicalTestProfileAttachmentPackage(t *testing.T, pool *database.Pool
 			'SCOPE-DRAFT-TASK6-ATTACHMENT', 'PLAN-DRAFT-2026-001',
 			'ORG-FLY-NAMIBIA', 'SCOPE-OPS-AOC-SOURCE-BOUND',
 			'TARGET-OPS-AOC-SOURCE-BOUND', 'CABIN',
-			'CAT-TASK6-ATTACHMENT', 'PREPROD_EXERCISE', 1, 'RELEASED', 1,
+			'CAT-TASK6-ATTACHMENT', 'GOVERNED_OPERATIONAL', 1, 'RELEASED', 1,
 			'8bf3518c051416c444a9b441fe44a67f9e17fd1c54723a2ef5cf91e1a67833e0',
 			0, 'ADVANCE', 'USR-MANAGER-NORA'
 		);
@@ -1308,7 +1308,7 @@ func seedCanonicalTestProfileAttachmentPackage(t *testing.T, pool *database.Pool
 			planning_snapshot_digest, created_by_subject_id
 		) VALUES (
 			'SCOPE-SNAPSHOT-TASK6-ATTACHMENT', 'SCOPE-DRAFT-TASK6-ATTACHMENT',
-			1, 'RELEASED', 'CAT-TASK6-ATTACHMENT', 'PREPROD_EXERCISE',
+			1, 'RELEASED', 'CAT-TASK6-ATTACHMENT', 'GOVERNED_OPERATIONAL',
 			'8bf3518c051416c444a9b441fe44a67f9e17fd1c54723a2ef5cf91e1a67833e0',
 			1, '{"catalogVersion":"task6-attachment@1.0.0","selectedQuestionVersionIds":["QV-CAB-EMEQ-PBE-001-V1"]}',
 			'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',

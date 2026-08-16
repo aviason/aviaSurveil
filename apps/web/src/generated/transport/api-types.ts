@@ -4835,6 +4835,39 @@ export interface components {
             candidateContentDigest?: string | null;
             reviewDigest: string;
         };
+        CanonicalQuestionAIAdvisory: {
+            domainCode: string;
+            topicCodes: string[];
+            inspectionTypeCodes: string[];
+            inspectionProfileCodes: string[];
+            applicabilityDisposition: string;
+            /** @enum {string} */
+            riskTier: "HIGH" | "MEDIUM" | "LOW" | "UNKNOWN";
+            safetyCritical: boolean;
+            /** @enum {string} */
+            agreementConfidence: "HIGH" | "MEDIUM" | "LOW";
+            /** @enum {string} */
+            advisoryState: "SUGGESTED_NOW" | "MATCHING_OPTIONAL" | "RECENTLY_VERIFIED" | "OUTSIDE_FOCUS" | "UNCERTAIN_SIGNAL";
+            recommendationReasonCodes: string[];
+            recurrenceMonths: number;
+            /** Format: date-time */
+            previouslyVerifiedAt?: string | null;
+            /** Format: date-time */
+            recurrenceDueAt?: string | null;
+            externalApplicabilityUnresolved: boolean;
+        };
+        CanonicalQuestionCatalogFacetOption: {
+            value: string;
+            count: number;
+        };
+        CanonicalQuestionCatalogFacets: {
+            forms: components["schemas"]["CanonicalQuestionCatalogFacetOption"][];
+            domains: components["schemas"]["CanonicalQuestionCatalogFacetOption"][];
+            topics: components["schemas"]["CanonicalQuestionCatalogFacetOption"][];
+            riskTiers: components["schemas"]["CanonicalQuestionCatalogFacetOption"][];
+            checklistFocuses: components["schemas"]["CanonicalQuestionCatalogFacetOption"][];
+            recommendationStates: components["schemas"]["CanonicalQuestionCatalogFacetOption"][];
+        };
         CanonicalQuestionCatalogEntry: {
             catalogVersion: string;
             usageClass: components["schemas"]["QuestionUsageClass"];
@@ -4851,6 +4884,7 @@ export interface components {
             proposedDomain?: string | null;
             proposedTopic?: string | null;
             proposedRiskBand?: string | null;
+            aiAdvisory: components["schemas"]["CanonicalQuestionAIAdvisory"];
             canSelect: boolean;
             canPublish: boolean;
             governedCandidateId?: string | null;
@@ -4868,6 +4902,7 @@ export interface components {
             catalogVersion: string;
             usageClass: components["schemas"]["QuestionUsageClass"];
             totalCount: number;
+            facets: components["schemas"]["CanonicalQuestionCatalogFacets"];
         };
         AuditScopeSelectionDigest: {
             selectionDigest: string;
@@ -9463,7 +9498,12 @@ export interface operations {
                 formCode?: string;
                 domain?: string;
                 topic?: string;
+                /** @description AI advisory risk tier (HIGH, MEDIUM, LOW, UNKNOWN). */
                 riskBand?: string;
+                /** @description Comma-separated AI checklist focus modes; a question may match any selected focus, and the focus filter is combined with the other facets. */
+                checklistFocus?: string;
+                /** @description Optional deterministic advisory state filter. */
+                recommendationState?: "SUGGESTED_NOW" | "MATCHING_OPTIONAL" | "RECENTLY_VERIFIED" | "OUTSIDE_FOCUS" | "UNCERTAIN_SIGNAL";
                 sourceGapState?: string;
                 selected?: "all" | "selected" | "unselected";
                 /** @description Required and owned by the current Department Manager for operational catalog selection or review. */

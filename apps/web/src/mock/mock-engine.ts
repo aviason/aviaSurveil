@@ -3105,19 +3105,48 @@ export class MockBackendEngine implements DemoBackend {
       const limit = Math.min(100, Math.max(1, input.limit ?? 25));
       const offset = Number(input.cursor ?? 0) || 0;
       const selectedIds = input.scopeId ? new Set(this.canonicalSelections.get(input.scopeId)?.ids ?? []) : null;
+      const values = (value: string | string[] | undefined) => value ? (Array.isArray(value) ? value : [value]) : [];
+      const formFilters = values(input.formCode);
+      const domainFilters = values(input.domain);
+      const topicFilters = values(input.topic);
+      const riskFilters = values(input.riskBand);
       const rows = this.syntheticCanonicalRows(input.usageClass, input.catalogVersion).filter((row) => {
         const needle = input.search?.trim().toLocaleLowerCase() ?? "";
         const selected = selectedIds?.has(row.questionVersionId) ?? false;
-        return (!needle || `${row.formCode} ${row.proposalId} ${row.questionVersionId}`.toLocaleLowerCase().includes(needle))
-          && (!input.formCode || row.formCode.includes(input.formCode))
-          && (!input.domain || row.proposedDomain === input.domain)
-          && (!input.topic || row.proposedTopic === input.topic)
-          && (!input.riskBand || row.proposedRiskBand === input.riskBand)
+        return (!needle || `${row.formCode} ${row.proposalId} ${row.questionVersionId} ${row.prompt ?? ""}`.toLocaleLowerCase().includes(needle))
+          && (!formFilters.length || formFilters.includes(row.formCode))
+          && (!domainFilters.length || domainFilters.includes(row.aiAdvisory.domainCode))
+          && (!topicFilters.length || topicFilters.some((topic) => row.aiAdvisory.topicCodes.includes(topic)))
+          && (!riskFilters.length || riskFilters.includes(row.aiAdvisory.riskTier))
+          && (!input.checklistFocus?.length || input.checklistFocus.some((focus) => row.aiAdvisory.inspectionTypeCodes.includes(focus)))
+          && (!input.recommendationState || row.aiAdvisory.advisoryState === input.recommendationState)
           && (!input.sourceGapState || row.sourceGapState === input.sourceGapState)
           && (!input.selected || input.selected === "all" || (input.selected === "selected" ? selected : !selected));
       });
       const page = rows.slice(offset, offset + limit);
-      return { items: page.map((row) => ({ ...row, prompt: null, configuredReference: null, expectedEvidence: null })), nextCursor: offset + limit < rows.length ? String(offset + limit) : null, catalogVersion: input.catalogVersion, usageClass: input.usageClass, totalCount: rows.length };
+      const facetOptions = (values: string[]) => {
+        const counts = new Map<string, number>();
+        for (const value of values) {
+          if (value) counts.set(value, (counts.get(value) ?? 0) + 1);
+        }
+        return [...counts.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([value, count]) => ({ value, count }));
+      };
+      const items = page;
+      return {
+        items,
+        nextCursor: offset + limit < rows.length ? String(offset + limit) : null,
+        catalogVersion: input.catalogVersion,
+        usageClass: input.usageClass,
+        totalCount: rows.length,
+        facets: {
+          forms: facetOptions(rows.map((row) => row.formCode)),
+          domains: facetOptions(rows.map((row) => row.aiAdvisory.domainCode)),
+          topics: facetOptions(rows.flatMap((row) => row.aiAdvisory.topicCodes)),
+          riskTiers: facetOptions(rows.map((row) => row.aiAdvisory.riskTier)),
+          checklistFocuses: facetOptions(rows.flatMap((row) => row.aiAdvisory.inspectionTypeCodes)),
+          recommendationStates: facetOptions(rows.map((row) => row.aiAdvisory.advisoryState)),
+        },
+      };
     },
     getQuestion: async (input) => {
       requireDemoCapability(this.principal, "canonicalCatalog");
@@ -3404,6 +3433,22 @@ export class MockBackendEngine implements DemoBackend {
         proposedDomain: "SYNTHETIC_DOMAIN",
         proposedTopic: "SYNTHETIC_TOPIC",
         proposedRiskBand: "PROPOSED_REVIEW_REQUIRED",
+        aiAdvisory: {
+          domainCode: "SYNTHETIC_DOMAIN",
+          topicCodes: ["SYNTHETIC_TOPIC"],
+          inspectionTypeCodes: ["RAMP_INSPECTION"],
+          inspectionProfileCodes: ["RAMP"],
+          applicabilityDisposition: "IN_SCOPE",
+          riskTier: "UNKNOWN",
+          safetyCritical: false,
+          agreementConfidence: "LOW",
+          advisoryState: "UNCERTAIN_SIGNAL",
+          recommendationReasonCodes: ["SOURCE_CONTEXT_INCOMPLETE"],
+          recurrenceMonths: 12,
+          previouslyVerifiedAt: null,
+          recurrenceDueAt: null,
+          externalApplicabilityUnresolved: true,
+        },
         canSelect: true,
         canPublish: false,
         governedCandidateId: null,

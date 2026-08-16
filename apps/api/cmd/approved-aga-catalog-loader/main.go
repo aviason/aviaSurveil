@@ -28,24 +28,29 @@ const loaderActorSubjectID = "avia-bootstrap"
 var digestPattern = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 
 type catalogManifest struct {
-	SchemaVersion        int    `json:"schemaVersion"`
-	ManifestVersion      string `json:"manifestVersion"`
-	AdvisoryLockKey      int64  `json:"advisoryLockKey"`
-	Target               string `json:"target"`
-	Enabled              bool   `json:"enabled"`
-	CatalogVersion       string `json:"catalogVersion"`
-	CatalogUsageClass    string `json:"catalogUsageClass"`
-	CatalogOrigin        string `json:"catalogOrigin"`
-	ProviderScopeID      string `json:"providerScopeId"`
-	RegulatedTargetID    string `json:"regulatedTargetId"`
-	PackagePath          string `json:"packagePath"`
-	PackageVersion       string `json:"packageVersion"`
-	PackageZipSHA256     string `json:"packageZipSha256"`
-	PackageJSONSHA256    string `json:"packageJsonSha256"`
-	SourceManifestSHA256 string `json:"sourceManifestSha256"`
-	CatalogRootDigest    string `json:"catalogRootDigest"`
-	FormCount            int    `json:"formCount"`
-	QuestionCount        int    `json:"questionCount"`
+	SchemaVersion         int    `json:"schemaVersion"`
+	ManifestVersion       string `json:"manifestVersion"`
+	AdvisoryLockKey       int64  `json:"advisoryLockKey"`
+	Target                string `json:"target"`
+	Enabled               bool   `json:"enabled"`
+	CatalogVersion        string `json:"catalogVersion"`
+	CatalogUsageClass     string `json:"catalogUsageClass"`
+	CatalogOrigin         string `json:"catalogOrigin"`
+	ProviderScopeID       string `json:"providerScopeId"`
+	RegulatedTargetID     string `json:"regulatedTargetId"`
+	PackagePath           string `json:"packagePath"`
+	PackageVersion        string `json:"packageVersion"`
+	PackageZipSHA256      string `json:"packageZipSha256"`
+	PackageJSONSHA256     string `json:"packageJsonSha256"`
+	SourceManifestSHA256  string `json:"sourceManifestSha256"`
+	CatalogRootDigest     string `json:"catalogRootDigest"`
+	FormCount             int    `json:"formCount"`
+	QuestionCount         int    `json:"questionCount"`
+	AIEnrichmentPath      string `json:"aiEnrichmentPath"`
+	AIEnrichmentSHA256    string `json:"aiEnrichmentSha256"`
+	AIEnrichmentVersion   string `json:"aiEnrichmentVersion"`
+	AIEnrichmentDigest    string `json:"aiEnrichmentDigest"`
+	AIEnrichmentItemCount int    `json:"aiEnrichmentItemCount"`
 }
 
 func main() {
@@ -57,7 +62,7 @@ func main() {
 
 func run(ctx context.Context, args []string, output io.Writer) error {
 	if len(args) == 0 || (args[0] != "validate" && args[0] != "load") {
-		return errors.New("usage: approved-aga-catalog-loader validate|load --package PATH --manifest PATH --manifest-sha256 DIGEST --target TARGET [--database-url-file PATH]")
+		return errors.New("usage: approved-aga-catalog-loader validate|load --package PATH --manifest PATH --manifest-sha256 DIGEST --target TARGET --ai-enrichment PATH --ai-enrichment-sha256 DIGEST [--database-url-file PATH]")
 	}
 	command := args[0]
 	flags := flag.NewFlagSet("approved-aga-catalog-loader", flag.ContinueOnError)
@@ -69,11 +74,13 @@ func run(ctx context.Context, args []string, output io.Writer) error {
 	catalogVersion := flags.String("catalog-version", "aga-approved-source@2.0.0", "immutable catalog version")
 	databaseURLFile := flags.String("database-url-file", os.Getenv("AVIA_DATABASE_URL_FILE"), "private target database URL file")
 	actorSubjectID := flags.String("actor-subject-id", os.Getenv("AVIA_APPROVED_CATALOG_LOADER_ACTOR"), "bootstrap service identity")
+	aiEnrichmentPath := flags.String("ai-enrichment", os.Getenv("AVIA_AI_RECOMMENDATION_ARTIFACT_PATH"), "absolute offline AI recommendation artifact path")
+	aiEnrichmentSHA256 := flags.String("ai-enrichment-sha256", os.Getenv("AVIA_AI_RECOMMENDATION_ARTIFACT_SHA256"), "release-pinned offline AI recommendation artifact file digest")
 	if err := flags.Parse(args[1:]); err != nil {
 		return errors.New("invalid approved AGA loader arguments")
 	}
-	if !filepath.IsAbs(strings.TrimSpace(*packagePath)) || !filepath.IsAbs(strings.TrimSpace(*manifestPath)) || strings.TrimSpace(*target) == "" {
-		return errors.New("--package and --manifest must be absolute paths and an exact target is required")
+	if !filepath.IsAbs(strings.TrimSpace(*packagePath)) || !filepath.IsAbs(strings.TrimSpace(*manifestPath)) || !filepath.IsAbs(strings.TrimSpace(*aiEnrichmentPath)) || strings.TrimSpace(*target) == "" {
+		return errors.New("--package, --manifest, and --ai-enrichment must be absolute paths and an exact target is required")
 	}
 	if strings.TrimSpace(*catalogVersion) != "aga-approved-source@2.0.0" {
 		return errors.New("approved AGA loader accepts only catalog version aga-approved-source@2.0.0")
@@ -86,7 +93,7 @@ func run(ctx context.Context, args []string, output io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("validate approved catalog manifest: %w", err)
 	}
-	if manifest.CatalogVersion != *catalogVersion || manifest.PackagePath != "apps/surveil/deliverables/AGA_ALL_FORMS_APPROVED_SOURCE_V2.zip" || manifest.PackageVersion != "AGA_ALL_FORMS_APPROVED_SOURCE_V2" || manifest.CatalogUsageClass != "GOVERNED_OPERATIONAL" || manifest.CatalogOrigin != "IMPORTED_APPROVED_SOURCE" {
+	if manifest.CatalogVersion != *catalogVersion || manifest.PackagePath != "apps/surveil/deliverables/AGA_ALL_FORMS_APPROVED_SOURCE_V2.zip" || manifest.PackageVersion != "AGA_ALL_FORMS_APPROVED_SOURCE_V2" || manifest.CatalogUsageClass != "GOVERNED_OPERATIONAL" || manifest.CatalogOrigin != "IMPORTED_APPROVED_SOURCE" || manifest.AIEnrichmentPath != "apps/surveil/deliverables/aga-ai-checklist-recommendations-v1/AGA_AI_CHECKLIST_RECOMMENDATIONS_V1.json" || manifest.AIEnrichmentVersion != "aga-ai-checklist-recommendations/v1" || manifest.AIEnrichmentItemCount != 1310 {
 		return errors.New("approved catalog manifest is not the governed Aviation source contract")
 	}
 	pkg, err := canonicalaga.ReadApprovedSourcePackage(ctx, *packagePath, canonicalaga.ExactApprovedSourcePackage())
@@ -100,8 +107,15 @@ func run(ctx context.Context, args []string, output io.Writer) error {
 	if manifest.PackageZipSHA256 != pkg.Identity.ZipSHA256 || manifest.PackageJSONSHA256 != pkg.Identity.JSONSHA256 || manifest.SourceManifestSHA256 != releaseManifest.SourceManifestSHA256 || manifest.CatalogRootDigest != releaseManifest.CatalogRootDigest || manifest.FormCount != len(releaseManifest.Forms) || manifest.QuestionCount != len(releaseManifest.Rows) {
 		return errors.New("approved catalog package provenance differs from the release manifest")
 	}
+	artifact, artifactFileSHA256, err := canonicalaga.ReadAIRecommendationArtifact(*aiEnrichmentPath)
+	if err != nil {
+		return fmt.Errorf("validate offline AI recommendation artifact: %w", err)
+	}
+	if strings.TrimSpace(*aiEnrichmentSHA256) == "" || artifactFileSHA256 != strings.TrimSpace(*aiEnrichmentSHA256) || manifest.AIEnrichmentSHA256 != artifactFileSHA256 || manifest.AIEnrichmentDigest != artifact.ArtifactDigest {
+		return errors.New("offline AI recommendation artifact provenance differs from the release manifest")
+	}
 	if command == "validate" {
-		_, err := fmt.Fprintf(output, "approved AGA import validated: catalog=%s forms=%d questions=%d root=%s sourceManifest=%s manifest=%s\n", releaseManifest.CatalogVersion, len(releaseManifest.Forms), len(releaseManifest.Rows), releaseManifest.CatalogRootDigest, releaseManifest.SourceManifestSHA256, manifestDigest)
+		_, err := fmt.Fprintf(output, "approved AGA import validated: catalog=%s forms=%d questions=%d aiEnrichment=%d root=%s sourceManifest=%s aiDigest=%s manifest=%s\n", releaseManifest.CatalogVersion, len(releaseManifest.Forms), len(releaseManifest.Rows), artifact.ItemCount, releaseManifest.CatalogRootDigest, releaseManifest.SourceManifestSHA256, artifact.ArtifactDigest, manifestDigest)
 		return err
 	}
 	databaseURL, err := readSecretFile(*databaseURLFile)
@@ -127,7 +141,11 @@ func run(ctx context.Context, args []string, output io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("load approved catalog: %w", err)
 	}
-	_, err = fmt.Fprintf(output, "approved AGA catalog loaded: catalog=%s forms=%d questions=%d root=%s\n", result.CatalogVersion, result.FormCount, result.QuestionCount, result.ImportDigest)
+	aiResult, err := canonicalaga.LoadAIRecommendationEnrichment(ctx, pool, artifact, *catalogVersion, manifest.AdvisoryLockKey, time.Now().UTC())
+	if err != nil {
+		return fmt.Errorf("load offline AI recommendation enrichment: %w", err)
+	}
+	_, err = fmt.Fprintf(output, "approved AGA catalog loaded: catalog=%s forms=%d questions=%d aiEnrichment=%d root=%s aiDigest=%s\n", result.CatalogVersion, result.FormCount, result.QuestionCount, aiResult.ItemCount, result.ImportDigest, aiResult.ArtifactDigest)
 	return err
 }
 
@@ -154,7 +172,7 @@ func readCatalogManifest(path, expectedDigest, target string) (catalogManifest, 
 	if err := decoder.Decode(&manifest); err != nil {
 		return manifest, "", fmt.Errorf("decode approved catalog manifest: %w", err)
 	}
-	if manifest.SchemaVersion != 1 || manifest.Target != target || !manifest.Enabled || manifest.ManifestVersion == "" || manifest.AdvisoryLockKey <= 0 || !digestPattern.MatchString(manifest.PackageZipSHA256) || !digestPattern.MatchString(manifest.PackageJSONSHA256) || !digestPattern.MatchString(manifest.SourceManifestSHA256) || !digestPattern.MatchString(manifest.CatalogRootDigest) || manifest.FormCount != 52 || manifest.QuestionCount != 1310 || strings.TrimSpace(manifest.ProviderScopeID) == "" || strings.TrimSpace(manifest.RegulatedTargetID) == "" {
+	if manifest.SchemaVersion != 1 || manifest.Target != target || !manifest.Enabled || manifest.ManifestVersion == "" || manifest.AdvisoryLockKey <= 0 || !digestPattern.MatchString(manifest.PackageZipSHA256) || !digestPattern.MatchString(manifest.PackageJSONSHA256) || !digestPattern.MatchString(manifest.SourceManifestSHA256) || !digestPattern.MatchString(manifest.CatalogRootDigest) || !digestPattern.MatchString(manifest.AIEnrichmentSHA256) || !digestPattern.MatchString(manifest.AIEnrichmentDigest) || manifest.AIEnrichmentVersion != "aga-ai-checklist-recommendations/v1" || manifest.AIEnrichmentItemCount != 1310 || manifest.FormCount != 52 || manifest.QuestionCount != 1310 || strings.TrimSpace(manifest.AIEnrichmentPath) == "" || strings.TrimSpace(manifest.ProviderScopeID) == "" || strings.TrimSpace(manifest.RegulatedTargetID) == "" {
 		return manifest, "", errors.New("approved catalog manifest identity or counts are invalid")
 	}
 	return manifest, digest, nil

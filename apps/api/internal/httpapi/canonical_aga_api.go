@@ -28,6 +28,37 @@ const (
 	canonicalCatalogMaximumPageSize = 100
 )
 
+var canonicalChecklistFocusCodes = map[string]struct{}{
+	"CHANGE_APPROVAL":            {},
+	"DOCUMENT_AND_RECORD_REVIEW": {},
+	"FOLLOW_UP":                  {},
+	"INITIAL_CERTIFICATION":      {},
+	"ON_SITE_INSPECTION":         {},
+	"PERIODIC_SURVEILLANCE":      {},
+	"RENEWAL":                    {},
+	"SPECIAL_PURPOSE":            {},
+}
+
+func parseCanonicalChecklistFocus(value string) ([]string, error) {
+	seen := map[string]struct{}{}
+	values := []string{}
+	for _, raw := range strings.Split(value, ",") {
+		focus := strings.ToUpper(strings.TrimSpace(raw))
+		if focus == "" {
+			continue
+		}
+		if _, ok := canonicalChecklistFocusCodes[focus]; !ok {
+			return nil, fmt.Errorf("%w: unsupported checklist focus", application.ErrInvalid)
+		}
+		if _, ok := seen[focus]; ok {
+			continue
+		}
+		seen[focus] = struct{}{}
+		values = append(values, focus)
+	}
+	return values, nil
+}
+
 func validQuestionReviewReason(value string) bool {
 	switch strings.TrimSpace(value) {
 	case "MANAGER_SCOPE_DECISION", "SOURCE_MAPPING_REQUIRED", "CLASSIFICATION_EXPERT_REVIEW", "MANAGER_EXACT_RESOLUTION":
@@ -390,9 +421,25 @@ type canonicalCatalogRow struct {
 	ReviewDomain                   *string
 	ReviewTopic                    *string
 	ReviewHistory                  []generated.QuestionReviewHistoryItem
+	AIAdvisory                     generated.CanonicalQuestionAIAdvisory
 }
 
 func canonicalCatalogEntry(row canonicalCatalogRow) generated.CanonicalQuestionCatalogEntry {
+	aiAdvisory := row.AIAdvisory
+	if aiAdvisory.RiskTier == "" {
+		topicCodes := []string{}
+		if row.Topic != "" {
+			topicCodes = []string{row.Topic}
+		}
+		aiAdvisory = generated.CanonicalQuestionAIAdvisory{
+			DomainCode:                row.Domain,
+			TopicCodes:                topicCodes,
+			RiskTier:                  "UNKNOWN",
+			AdvisoryState:             "UNCERTAIN_SIGNAL",
+			RecommendationReasonCodes: []string{"ADVISORY_DATA_UNAVAILABLE"},
+			RecurrenceMonths:          12,
+		}
+	}
 	domain := row.Domain
 	topic := row.Topic
 	if row.ReviewDomain != nil {
@@ -413,6 +460,7 @@ func canonicalCatalogEntry(row canonicalCatalogRow) generated.CanonicalQuestionC
 		GovernedCandidateRevision:      row.GovernedCandidateRevision,
 		GovernedCandidateContentDigest: row.GovernedCandidateContentDigest,
 		GovernedCandidateStatus:        row.GovernedCandidateStatus,
+		AiAdvisory:                     aiAdvisory,
 	}
 	reviewRevision := row.ReviewRevision
 	entry.ReviewRevision = &reviewRevision
@@ -429,12 +477,16 @@ func canonicalCatalogEntry(row canonicalCatalogRow) generated.CanonicalQuestionC
 		entry.SourceLocator = &row.SourceLocator
 	}
 	if domain != "" {
-		entry.ProposedDomain = &domain
+		if aiAdvisory.DomainCode == "" {
+			entry.ProposedDomain = &domain
+		}
 	}
 	if topic != "" {
-		entry.ProposedTopic = &topic
+		if aiAdvisory.DomainCode == "" {
+			entry.ProposedTopic = &topic
+		}
 	}
-	if row.RiskBand != "" {
+	if row.RiskBand != "" && aiAdvisory.DomainCode == "" {
 		entry.ProposedRiskBand = &row.RiskBand
 	}
 	if row.Prompt != "" {
@@ -467,6 +519,129 @@ func (api *CanonicalAPI) loadQuestionReviewHistory(ctx context.Context, row cano
 	// history to project into the operational catalog.
 	return nil, nil
 }
+
+const canonicalCatalogAIProjectionJoins = `
+JOIN canonical_question_catalog_ai_enrichments ai
+  ON ai.catalog_id = m.catalog_id AND ai.question_version_id = m.question_version_id
+LEFT JOIN canonical_audit_scope_drafts active_scope ON active_scope.id = $10
+LEFT JOIN LATERAL (
+    SELECT
+      COALESCE(bool_or(
+        EXISTS (
+          SELECT 1
+          FROM potential_findings potential
+          WHERE potential.inspection_id = prior_report.inspection_id
+            AND potential.question_id = q.question_id
+            AND COALESCE(potential.status, '') NOT IN ('CLOSED', 'RETURNED', 'RESOLVED')
+        )
+        OR EXISTS (
+          SELECT 1
+          FROM findings finding
+          JOIN potential_findings potential ON potential.id = finding.potential_finding_id
+          WHERE finding.inspection_id = prior_report.inspection_id
+            AND potential.question_id = q.question_id
+            AND COALESCE(finding.status, '') NOT IN ('CLOSED', 'RETURNED', 'RESOLVED')
+        )
+        OR EXISTS (
+          SELECT 1
+          FROM evidence_versions evidence
+          JOIN findings finding ON finding.id = evidence.finding_id
+          JOIN potential_findings potential ON potential.id = finding.potential_finding_id
+          LEFT JOIN evidence_version_states evidence_state ON evidence_state.evidence_version_id = evidence.id
+          WHERE finding.inspection_id = prior_report.inspection_id
+            AND potential.question_id = q.question_id
+            AND evidence.version = (
+              SELECT max(latest.version)
+              FROM evidence_versions latest
+              WHERE latest.evidence_id = evidence.evidence_id
+            )
+            AND (COALESCE(evidence_state.scan_state, '') <> 'CLEAN'
+              OR COALESCE(evidence_state.review_state, '') <> 'PENDING_CAA_REVIEW')
+        )
+      ), false) AS has_open_work,
+      max(prior_state.issued_at) FILTER (
+        WHERE prior_report.snapshot->>'kind' = 'FINAL'
+          AND prior_state.status = 'LOCKED'
+          AND prior_state.issued_at IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1
+            FROM potential_findings potential
+            WHERE potential.inspection_id = prior_report.inspection_id
+              AND potential.question_id = q.question_id
+              AND COALESCE(potential.status, '') NOT IN ('CLOSED', 'RETURNED', 'RESOLVED')
+          )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM findings finding
+            JOIN potential_findings potential ON potential.id = finding.potential_finding_id
+            WHERE finding.inspection_id = prior_report.inspection_id
+              AND potential.question_id = q.question_id
+              AND COALESCE(finding.status, '') NOT IN ('CLOSED', 'RETURNED', 'RESOLVED')
+          )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM evidence_versions evidence
+            JOIN findings finding ON finding.id = evidence.finding_id
+            JOIN potential_findings potential ON potential.id = finding.potential_finding_id
+            LEFT JOIN evidence_version_states evidence_state ON evidence_state.evidence_version_id = evidence.id
+            WHERE finding.inspection_id = prior_report.inspection_id
+              AND potential.question_id = q.question_id
+              AND evidence.version = (
+                SELECT max(latest.version)
+                FROM evidence_versions latest
+                WHERE latest.evidence_id = evidence.evidence_id
+              )
+              AND (COALESCE(evidence_state.scan_state, '') <> 'CLEAN'
+                OR COALESCE(evidence_state.review_state, '') <> 'PENDING_CAA_REVIEW')
+          )
+      ) AS last_verified_at
+    FROM inspection_packages prior_package
+    JOIN canonical_audit_scope_snapshots prior_snapshot
+      ON prior_snapshot.id = prior_package.canonical_scope_snapshot_id
+    JOIN canonical_audit_scope_drafts prior_scope
+      ON prior_scope.id = prior_snapshot.scope_draft_id
+    JOIN canonical_audit_scope_snapshot_questions prior_question
+      ON prior_question.snapshot_id = prior_snapshot.id
+     AND prior_question.question_version_id = m.question_version_id
+    JOIN report_versions prior_report ON prior_report.inspection_id = prior_package.inspection_id
+    JOIN report_approval_states prior_state ON prior_state.report_version_id = prior_report.id
+    WHERE active_scope.id IS NOT NULL
+      AND prior_scope.organization_id = active_scope.organization_id
+      AND prior_scope.provider_scope_id = active_scope.provider_scope_id
+      AND prior_scope.regulated_target_id = active_scope.regulated_target_id
+) history ON TRUE
+LEFT JOIN LATERAL (
+    SELECT
+      CASE
+        WHEN active_scope.id IS NULL THEN ai.default_recommendation_bucket
+        WHEN history.has_open_work THEN 'SUGGESTED_NOW'
+        WHEN $11::text[] <> '{}'::text[] AND NOT (ai.inspection_type_codes && $11::text[]) THEN 'OUTSIDE_FOCUS'
+        WHEN ai.risk_tier IN ('HIGH', 'UNKNOWN') THEN 'SUGGESTED_NOW'
+        WHEN history.last_verified_at IS NOT NULL
+         AND history.last_verified_at >= CURRENT_TIMESTAMP - make_interval(months => ai.recurrence_months)
+          THEN 'RECENTLY_VERIFIED'
+        WHEN history.last_verified_at IS NOT NULL
+         AND history.last_verified_at < CURRENT_TIMESTAMP - make_interval(months => ai.recurrence_months)
+          THEN 'SUGGESTED_NOW'
+        ELSE ai.default_recommendation_bucket
+      END AS recommendation_state,
+      array_remove(ARRAY[
+        CASE WHEN history.has_open_work THEN 'OPEN_WORK' END,
+        CASE WHEN ai.risk_tier IN ('HIGH', 'UNKNOWN') THEN 'HIGH_OR_UNKNOWN_RISK' END,
+        CASE WHEN history.last_verified_at IS NOT NULL
+                   AND history.last_verified_at >= CURRENT_TIMESTAMP - make_interval(months => ai.recurrence_months)
+             THEN 'RECENT_FINAL_VERIFICATION' END,
+        CASE WHEN history.last_verified_at IS NOT NULL
+                   AND history.last_verified_at < CURRENT_TIMESTAMP - make_interval(months => ai.recurrence_months)
+             THEN 'RECURRENCE_DUE' END,
+        CASE WHEN $11::text[] <> '{}'::text[] AND NOT (ai.inspection_type_codes && $11::text[])
+             THEN 'OUTSIDE_SELECTED_FOCUS' END,
+        CASE WHEN ai.external_applicability_unresolved THEN 'SOURCE_CONTEXT_INCOMPLETE' END
+      ], NULL)::text[] AS reason_codes,
+      history.last_verified_at,
+      CASE WHEN history.last_verified_at IS NULL THEN NULL ELSE history.last_verified_at + make_interval(months => ai.recurrence_months) END AS recurrence_due_at
+) recommendation ON TRUE
+`
 
 func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.ResponseWriter, request *http.Request) {
 	actor, ok := api.requireCanonicalCatalogActor(writer, request, false)
@@ -502,6 +677,19 @@ func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.Respons
 	domain := strings.TrimSpace(request.URL.Query().Get("domain"))
 	topic := strings.TrimSpace(request.URL.Query().Get("topic"))
 	riskBand := strings.TrimSpace(request.URL.Query().Get("riskBand"))
+	checklistFocus, err := parseCanonicalChecklistFocus(request.URL.Query().Get("checklistFocus"))
+	if err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
+	recommendationState := strings.ToUpper(strings.TrimSpace(request.URL.Query().Get("recommendationState")))
+	if recommendationState != "" {
+		validStates := map[string]struct{}{"SUGGESTED_NOW": {}, "MATCHING_OPTIONAL": {}, "RECENTLY_VERIFIED": {}, "OUTSIDE_FOCUS": {}, "UNCERTAIN_SIGNAL": {}}
+		if _, ok := validStates[recommendationState]; !ok {
+			api.respond(writer, nil, fmt.Errorf("%w: unsupported recommendation state", application.ErrInvalid))
+			return
+		}
+	}
 	sourceGapState := strings.TrimSpace(request.URL.Query().Get("sourceGapState"))
 	selected := strings.TrimSpace(request.URL.Query().Get("selected"))
 	scopeID := strings.TrimSpace(request.URL.Query().Get("scopeId"))
@@ -516,22 +704,31 @@ func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.Respons
 		return
 	}
 	selectionPredicate := `($9='' OR $9='all' OR (($9='selected') = EXISTS (SELECT 1 FROM canonical_audit_scope_selection_questions sq JOIN canonical_audit_scope_selection_operations so ON so.id=sq.operation_id WHERE so.id=(SELECT latest.id FROM canonical_audit_scope_selection_operations latest WHERE latest.scope_draft_id=$10 AND latest.operation_kind <> 'PREVIEW' ORDER BY latest.created_at DESC, latest.id DESC LIMIT 1) AND sq.question_version_id=m.question_version_id)))`
-	where := `c.catalog_version=$1 AND c.usage_class=$2 AND c.status='SEALED' AND c.source_origin='IMPORTED_APPROVED_SOURCE' AND ($3='' OR m.form_code ILIKE '%' || $3 || '%' OR m.proposal_id ILIKE '%' || $3 || '%' OR q.prompt ILIKE '%' || $3 || '%') AND ($4='' OR m.form_code=$4) AND ($5='' OR COALESCE(m.proposed_domain,'')=$5) AND ($6='' OR COALESCE(m.proposed_topic,'')=$6) AND ($7='' OR COALESCE(m.proposed_risk_band,'')=$7) AND ($8='' OR m.source_gap_state=$8) AND COALESCE((SELECT status FROM canonical_question_catalog_membership_events event WHERE event.catalog_id=m.catalog_id AND event.question_version_id=m.question_version_id ORDER BY occurred_at DESC,event_id DESC LIMIT 1),'AVAILABLE')='AVAILABLE' AND ($10='' OR EXISTS (SELECT 1 FROM canonical_question_catalog_applicabilities applicability JOIN canonical_audit_scope_drafts scope ON scope.id=$10 WHERE applicability.catalog_id=m.catalog_id AND applicability.question_version_id=m.question_version_id AND applicability.provider_scope_id=scope.provider_scope_id AND applicability.regulated_target_id=scope.regulated_target_id AND applicability.status='ELIGIBLE')) AND ` + selectionPredicate
+	where := `c.catalog_version=$1 AND c.usage_class=$2 AND c.status='SEALED' AND c.source_origin='IMPORTED_APPROVED_SOURCE' AND ($3='' OR m.form_code ILIKE '%' || $3 || '%' OR m.proposal_id ILIKE '%' || $3 || '%' OR q.prompt ILIKE '%' || $3 || '%') AND ($4='' OR m.form_code = ANY(string_to_array($4, ','))) AND ($5='' OR ai.domain_code = ANY(string_to_array($5, ','))) AND ($6='' OR ai.topic_codes && string_to_array($6, ',')) AND ($7='' OR ai.risk_tier = ANY(string_to_array($7, ','))) AND ($8='' OR m.source_gap_state=$8) AND (($11::text[] = '{}'::text[] OR ai.inspection_type_codes && $11::text[]) OR ($12='OUTSIDE_FOCUS' AND $11::text[] <> '{}'::text[] AND NOT (ai.inspection_type_codes && $11::text[]))) AND ($12='' OR recommendation.recommendation_state=$12) AND COALESCE((SELECT status FROM canonical_question_catalog_membership_events event WHERE event.catalog_id=m.catalog_id AND event.question_version_id=m.question_version_id ORDER BY occurred_at DESC,event_id DESC LIMIT 1),'AVAILABLE')='AVAILABLE' AND ($10='' OR EXISTS (SELECT 1 FROM canonical_question_catalog_applicabilities applicability JOIN canonical_audit_scope_drafts scope ON scope.id=$10 WHERE applicability.catalog_id=m.catalog_id AND applicability.question_version_id=m.question_version_id AND applicability.provider_scope_id=scope.provider_scope_id AND applicability.regulated_target_id=scope.regulated_target_id AND applicability.status='ELIGIBLE')) AND ` + selectionPredicate
 	ctx := request.Context()
 	var total int64
-	if err := api.pool.QueryRow(ctx, `SELECT COUNT(*) FROM canonical_question_catalogs c JOIN canonical_question_catalog_memberships m ON m.catalog_id = c.id JOIN question_versions q ON q.id=m.question_version_id WHERE `+where, catalogVersion, string(usage), search, formCode, domain, topic, riskBand, sourceGapState, selected, scopeID).Scan(&total); err != nil {
+	queryArgs := []any{catalogVersion, string(usage), search, formCode, domain, topic, riskBand, sourceGapState, selected, scopeID, checklistFocus, recommendationState}
+	if err := api.pool.QueryRow(ctx, `SELECT COUNT(*) FROM canonical_question_catalogs c JOIN canonical_question_catalog_memberships m ON m.catalog_id = c.id JOIN question_versions q ON q.id=m.question_version_id `+canonicalCatalogAIProjectionJoins+` WHERE `+where, queryArgs...).Scan(&total); err != nil {
 		api.respond(writer, nil, application.ErrNotFound)
 		return
 	}
 	rows, err := api.pool.Query(ctx, `
 		SELECT c.catalog_version,c.usage_class,m.question_version_id,m.form_code,m.proposal_id,m.ordinal,m.question_digest,
-		       COALESCE(m.source_locator,''),m.source_gap_state,COALESCE(m.proposed_domain,''),COALESCE(m.proposed_topic,''),COALESCE(m.proposed_risk_band,''),
+		       COALESCE(m.source_locator,''),m.source_gap_state,ai.domain_code,COALESCE(array_to_string(ai.topic_codes, ','),''),
+		       '',q.prompt,q.configured_reference,q.expected_evidence,
 		       NULL::text,NULL::bigint,NULL::text,NULL::text,
-		       0::bigint,NULL::text,NULL::text,NULL::text,NULL::text
+		       0::bigint,NULL::text,NULL::text,NULL::text,NULL::text,
+		       ai.domain_code,ai.topic_codes,ai.inspection_type_codes,ai.inspection_profile_codes,ai.applicability_disposition,
+		       ai.risk_tier,ai.safety_critical,ai.agreement_confidence,recommendation.recommendation_state,
+		       recommendation.reason_codes,ai.recurrence_months,
+		       to_char(recommendation.last_verified_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+		       to_char(recommendation.recurrence_due_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+		       ai.external_applicability_unresolved
 		FROM canonical_question_catalogs c
 		JOIN canonical_question_catalog_memberships m ON m.catalog_id = c.id
 		JOIN question_versions q ON q.id=m.question_version_id
-		WHERE `+where+` ORDER BY m.form_code,m.ordinal,m.question_version_id LIMIT $11 OFFSET $12`, catalogVersion, string(usage), search, formCode, domain, topic, riskBand, sourceGapState, selected, scopeID, limit+1, offset)
+		`+canonicalCatalogAIProjectionJoins+`
+		WHERE `+where+` ORDER BY m.form_code,m.ordinal,m.question_version_id LIMIT $13 OFFSET $14`, append(queryArgs, limit+1, offset)...)
 	if err != nil {
 		api.respond(writer, nil, application.ErrNotFound)
 		return
@@ -540,10 +737,16 @@ func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.Respons
 	items := make([]generated.CanonicalQuestionCatalogEntry, 0, limit)
 	for rows.Next() {
 		var row canonicalCatalogRow
-		if err := rows.Scan(&row.CatalogVersion, &row.UsageClass, &row.QuestionID, &row.FormCode, &row.ProposalID, &row.Ordinal, &row.Digest, &row.SourceLocator, &row.SourceGap, &row.Domain, &row.Topic, &row.RiskBand, &row.GovernedCandidateID, &row.GovernedCandidateRevision, &row.GovernedCandidateContentDigest, &row.GovernedCandidateStatus, &row.ReviewRevision, &row.ReviewDisposition, &row.ReviewReason, &row.ReviewDomain, &row.ReviewTopic); err != nil {
+		var advisoryDomain, advisoryApplicability, advisoryRiskTier, advisoryConfidence, advisoryState string
+		var advisoryTopics, advisoryInspectionTypes, advisoryInspectionProfiles, advisoryReasons []string
+		var advisorySafetyCritical, advisoryUnresolved bool
+		var advisoryRecurrence int64
+		var previouslyVerifiedAt, recurrenceDueAt *string
+		if err := rows.Scan(&row.CatalogVersion, &row.UsageClass, &row.QuestionID, &row.FormCode, &row.ProposalID, &row.Ordinal, &row.Digest, &row.SourceLocator, &row.SourceGap, &row.Domain, &row.Topic, &row.RiskBand, &row.Prompt, &row.ConfiguredReference, &row.ExpectedEvidence, &row.GovernedCandidateID, &row.GovernedCandidateRevision, &row.GovernedCandidateContentDigest, &row.GovernedCandidateStatus, &row.ReviewRevision, &row.ReviewDisposition, &row.ReviewReason, &row.ReviewDomain, &row.ReviewTopic, &advisoryDomain, &advisoryTopics, &advisoryInspectionTypes, &advisoryInspectionProfiles, &advisoryApplicability, &advisoryRiskTier, &advisorySafetyCritical, &advisoryConfidence, &advisoryState, &advisoryReasons, &advisoryRecurrence, &previouslyVerifiedAt, &recurrenceDueAt, &advisoryUnresolved); err != nil {
 			api.respond(writer, nil, application.ErrNotFound)
 			return
 		}
+		row.AIAdvisory = generated.CanonicalQuestionAIAdvisory{DomainCode: advisoryDomain, TopicCodes: advisoryTopics, InspectionTypeCodes: advisoryInspectionTypes, InspectionProfileCodes: advisoryInspectionProfiles, ApplicabilityDisposition: advisoryApplicability, RiskTier: advisoryRiskTier, SafetyCritical: advisorySafetyCritical, AgreementConfidence: advisoryConfidence, AdvisoryState: advisoryState, RecommendationReasonCodes: advisoryReasons, RecurrenceMonths: advisoryRecurrence, PreviouslyVerifiedAt: previouslyVerifiedAt, RecurrenceDueAt: recurrenceDueAt, ExternalApplicabilityUnresolved: advisoryUnresolved}
 		row.ScopeID = scopeID
 		row.ReviewHistory, err = api.loadQuestionReviewHistory(ctx, row)
 		if err != nil {
@@ -561,7 +764,108 @@ func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.Respons
 		items = items[:limit]
 		next = encodeCatalogCursor(offset + limit)
 	}
-	api.respond(writer, generated.CanonicalQuestionCatalogPage{Items: items, NextCursor: next, CatalogVersion: catalogVersion, UsageClass: generated.QuestionUsageClass(usage), TotalCount: total}, nil)
+	facets, facetErr := api.loadCanonicalCatalogFacets(ctx, catalogVersion, usage, search, formCode, domain, topic, riskBand, sourceGapState, scopeID, checklistFocus, recommendationState)
+	if facetErr != nil {
+		api.respond(writer, nil, application.ErrNotFound)
+		return
+	}
+	api.respond(writer, generated.CanonicalQuestionCatalogPage{Items: items, NextCursor: next, CatalogVersion: catalogVersion, UsageClass: generated.QuestionUsageClass(usage), TotalCount: total, Facets: facets}, nil)
+}
+
+func canonicalCatalogFacetWhere(exclude string) string {
+	parts := []string{
+		"c.catalog_version=$1::text",
+		"c.usage_class=$2::text",
+		"c.status='SEALED'",
+		"c.source_origin='IMPORTED_APPROVED_SOURCE'",
+		"($3::text='' OR m.form_code ILIKE '%' || $3::text || '%' OR m.proposal_id ILIKE '%' || $3::text || '%' OR q.prompt ILIKE '%' || $3::text || '%')",
+		"($8::text='' OR m.source_gap_state=$8::text)",
+		"$9::text=$9::text",
+		"COALESCE((SELECT status FROM canonical_question_catalog_membership_events event WHERE event.catalog_id=m.catalog_id AND event.question_version_id=m.question_version_id ORDER BY occurred_at DESC,event_id DESC LIMIT 1),'AVAILABLE')='AVAILABLE'",
+		"($10::text='' OR EXISTS (SELECT 1 FROM canonical_question_catalog_applicabilities applicability JOIN canonical_audit_scope_drafts scope ON scope.id=$10::text WHERE applicability.catalog_id=m.catalog_id AND applicability.question_version_id=m.question_version_id AND applicability.provider_scope_id=scope.provider_scope_id AND applicability.regulated_target_id=scope.regulated_target_id AND applicability.status='ELIGIBLE'))",
+	}
+	if exclude != "focus" {
+		parts = append(parts, "($11::text[] = '{}'::text[] OR ai.inspection_type_codes && $11::text[])")
+	} else {
+		parts = append(parts, "$11::text[]=$11::text[]")
+	}
+	if exclude != "recommendation" {
+		parts = append(parts, "($12::text='' OR recommendation.recommendation_state=$12::text)")
+	} else {
+		parts = append(parts, "$12::text=$12::text")
+	}
+	if exclude != "form" {
+		parts = append(parts, "($4::text='' OR m.form_code = ANY(string_to_array($4::text, ',')))")
+	} else {
+		parts = append(parts, "$4::text=$4::text")
+	}
+	if exclude != "domain" {
+		parts = append(parts, "($5::text='' OR ai.domain_code = ANY(string_to_array($5::text, ',')))")
+	} else {
+		parts = append(parts, "$5::text=$5::text")
+	}
+	if exclude != "topic" {
+		parts = append(parts, "($6::text='' OR ai.topic_codes && string_to_array($6::text, ','))")
+	} else {
+		parts = append(parts, "$6::text=$6::text")
+	}
+	if exclude != "risk" {
+		parts = append(parts, "($7::text='' OR ai.risk_tier = ANY(string_to_array($7::text, ',')))")
+	} else {
+		parts = append(parts, "$7::text=$7::text")
+	}
+	return strings.Join(parts, " AND ")
+}
+
+func (api *CanonicalAPI) loadCanonicalCatalogFacetOptions(ctx context.Context, catalogVersion string, usage questioncatalog.UsageClass, search, formCode, domain, topic, riskBand, sourceGapState, scopeID string, checklistFocus []string, recommendationState, exclude, valueSQL string) ([]generated.CanonicalQuestionCatalogFacetOption, error) {
+	query := `SELECT value, count(*) FROM (` + valueSQL + `) valueset GROUP BY value ORDER BY value LIMIT 200`
+	args := []any{catalogVersion, string(usage), search, formCode, domain, topic, riskBand, sourceGapState, "", scopeID, checklistFocus, recommendationState}
+	rows, err := api.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	options := []generated.CanonicalQuestionCatalogFacetOption{}
+	for rows.Next() {
+		var value string
+		var count int64
+		if err := rows.Scan(&value, &count); err != nil {
+			return nil, err
+		}
+		if strings.TrimSpace(value) != "" {
+			options = append(options, generated.CanonicalQuestionCatalogFacetOption{Value: value, Count: count})
+		}
+	}
+	return options, rows.Err()
+}
+
+func (api *CanonicalAPI) loadCanonicalCatalogFacets(ctx context.Context, catalogVersion string, usage questioncatalog.UsageClass, search, formCode, domain, topic, riskBand, sourceGapState, scopeID string, checklistFocus []string, recommendationState string) (generated.CanonicalQuestionCatalogFacets, error) {
+	base := `SELECT %s AS value FROM canonical_question_catalogs c JOIN canonical_question_catalog_memberships m ON m.catalog_id=c.id JOIN question_versions q ON q.id=m.question_version_id ` + canonicalCatalogAIProjectionJoins + ` WHERE `
+	forms, err := api.loadCanonicalCatalogFacetOptions(ctx, catalogVersion, usage, search, formCode, domain, topic, riskBand, sourceGapState, scopeID, checklistFocus, recommendationState, "form", strings.Replace(base+canonicalCatalogFacetWhere("form"), "%s", "m.form_code", 1))
+	if err != nil {
+		return generated.CanonicalQuestionCatalogFacets{}, err
+	}
+	domains, err := api.loadCanonicalCatalogFacetOptions(ctx, catalogVersion, usage, search, formCode, domain, topic, riskBand, sourceGapState, scopeID, checklistFocus, recommendationState, "domain", strings.Replace(base+canonicalCatalogFacetWhere("domain"), "%s", "ai.domain_code", 1))
+	if err != nil {
+		return generated.CanonicalQuestionCatalogFacets{}, err
+	}
+	topics, err := api.loadCanonicalCatalogFacetOptions(ctx, catalogVersion, usage, search, formCode, domain, topic, riskBand, sourceGapState, scopeID, checklistFocus, recommendationState, "topic", "SELECT unnest(ai.topic_codes) AS value FROM canonical_question_catalogs c JOIN canonical_question_catalog_memberships m ON m.catalog_id=c.id JOIN question_versions q ON q.id=m.question_version_id "+canonicalCatalogAIProjectionJoins+" WHERE "+canonicalCatalogFacetWhere("topic"))
+	if err != nil {
+		return generated.CanonicalQuestionCatalogFacets{}, err
+	}
+	riskTiers, err := api.loadCanonicalCatalogFacetOptions(ctx, catalogVersion, usage, search, formCode, domain, topic, riskBand, sourceGapState, scopeID, checklistFocus, recommendationState, "risk", strings.Replace(base+canonicalCatalogFacetWhere("risk"), "%s", "ai.risk_tier", 1))
+	if err != nil {
+		return generated.CanonicalQuestionCatalogFacets{}, err
+	}
+	focuses, err := api.loadCanonicalCatalogFacetOptions(ctx, catalogVersion, usage, search, formCode, domain, topic, riskBand, sourceGapState, scopeID, checklistFocus, recommendationState, "focus", "SELECT unnest(ai.inspection_type_codes) AS value FROM canonical_question_catalogs c JOIN canonical_question_catalog_memberships m ON m.catalog_id=c.id JOIN question_versions q ON q.id=m.question_version_id "+canonicalCatalogAIProjectionJoins+" WHERE "+canonicalCatalogFacetWhere("focus"))
+	if err != nil {
+		return generated.CanonicalQuestionCatalogFacets{}, err
+	}
+	recommendations, err := api.loadCanonicalCatalogFacetOptions(ctx, catalogVersion, usage, search, formCode, domain, topic, riskBand, sourceGapState, scopeID, checklistFocus, recommendationState, "recommendation", "SELECT recommendation.recommendation_state AS value FROM canonical_question_catalogs c JOIN canonical_question_catalog_memberships m ON m.catalog_id=c.id JOIN question_versions q ON q.id=m.question_version_id "+canonicalCatalogAIProjectionJoins+" WHERE "+canonicalCatalogFacetWhere("recommendation"))
+	if err != nil {
+		return generated.CanonicalQuestionCatalogFacets{}, err
+	}
+	return generated.CanonicalQuestionCatalogFacets{Forms: forms, Domains: domains, Topics: topics, RiskTiers: riskTiers, ChecklistFocuses: focuses, RecommendationStates: recommendations}, nil
 }
 
 func (api *CanonicalAPI) getCanonicalQuestionCatalogEntry(writer http.ResponseWriter, request *http.Request) {
@@ -588,15 +892,24 @@ func (api *CanonicalAPI) getCanonicalQuestionCatalogEntry(writer http.ResponseWr
 	catalogVersion := decodedCanonicalPathParam(request, "catalogVersion")
 	questionVersionID := decodedCanonicalPathParam(request, "questionVersionId")
 	var row canonicalCatalogRow
+	var advisoryDomain, advisoryApplicability, advisoryRiskTier, advisoryConfidence, advisoryState string
+	var advisoryTopics, advisoryInspectionTypes, advisoryInspectionProfiles, advisoryReasons []string
+	var advisorySafetyCritical, advisoryUnresolved bool
+	var advisoryRecurrence int64
+	var previouslyVerifiedAt, recurrenceDueAt *string
 	err = api.pool.QueryRow(request.Context(), `
 		SELECT c.catalog_version,c.usage_class,m.question_version_id,m.form_code,m.proposal_id,m.ordinal,m.question_digest,
-		       COALESCE(m.source_locator,''),m.source_gap_state,COALESCE(m.proposed_domain,''),COALESCE(m.proposed_topic,''),COALESCE(m.proposed_risk_band,''),
+		       COALESCE(m.source_locator,''),m.source_gap_state,ai.domain_code,COALESCE(array_to_string(ai.topic_codes, ','),''),'',
 		       q.prompt,q.configured_reference,q.expected_evidence,
 		       NULL::text,NULL::bigint,NULL::text,NULL::text,
-		       0::bigint,NULL::text,NULL::text,NULL::text,NULL::text
+		       0::bigint,NULL::text,NULL::text,NULL::text,NULL::text,
+		       ai.domain_code,ai.topic_codes,ai.inspection_type_codes,ai.inspection_profile_codes,ai.applicability_disposition,
+		       ai.risk_tier,ai.safety_critical,ai.agreement_confidence,ai.default_recommendation_bucket,
+		       ARRAY['ARTIFACT_DEFAULT']::text[],ai.recurrence_months,NULL::text,NULL::text,ai.external_applicability_unresolved
 		FROM canonical_question_catalogs c
 		JOIN canonical_question_catalog_memberships m ON m.catalog_id=c.id
 		JOIN question_versions q ON q.id=m.question_version_id
+		JOIN canonical_question_catalog_ai_enrichments ai ON ai.catalog_id=m.catalog_id AND ai.question_version_id=m.question_version_id
 		WHERE c.catalog_version=$1 AND c.usage_class=$2 AND c.status='SEALED'
 		  AND c.source_origin='IMPORTED_APPROVED_SOURCE'
 		  AND m.question_version_id=$3
@@ -610,7 +923,8 @@ func (api *CanonicalAPI) getCanonicalQuestionCatalogEntry(writer http.ResponseWr
 			  AND applicability.provider_scope_id=scope.provider_scope_id AND applicability.regulated_target_id=scope.regulated_target_id
 			  AND applicability.status='ELIGIBLE'
 		  ))
-	`, catalogVersion, string(usage), questionVersionID, scopeID).Scan(&row.CatalogVersion, &row.UsageClass, &row.QuestionID, &row.FormCode, &row.ProposalID, &row.Ordinal, &row.Digest, &row.SourceLocator, &row.SourceGap, &row.Domain, &row.Topic, &row.RiskBand, &row.Prompt, &row.ConfiguredReference, &row.ExpectedEvidence, &row.GovernedCandidateID, &row.GovernedCandidateRevision, &row.GovernedCandidateContentDigest, &row.GovernedCandidateStatus, &row.ReviewRevision, &row.ReviewDisposition, &row.ReviewReason, &row.ReviewDomain, &row.ReviewTopic)
+	`, catalogVersion, string(usage), questionVersionID, scopeID).Scan(&row.CatalogVersion, &row.UsageClass, &row.QuestionID, &row.FormCode, &row.ProposalID, &row.Ordinal, &row.Digest, &row.SourceLocator, &row.SourceGap, &row.Domain, &row.Topic, &row.RiskBand, &row.Prompt, &row.ConfiguredReference, &row.ExpectedEvidence, &row.GovernedCandidateID, &row.GovernedCandidateRevision, &row.GovernedCandidateContentDigest, &row.GovernedCandidateStatus, &row.ReviewRevision, &row.ReviewDisposition, &row.ReviewReason, &row.ReviewDomain, &row.ReviewTopic, &advisoryDomain, &advisoryTopics, &advisoryInspectionTypes, &advisoryInspectionProfiles, &advisoryApplicability, &advisoryRiskTier, &advisorySafetyCritical, &advisoryConfidence, &advisoryState, &advisoryReasons, &advisoryRecurrence, &previouslyVerifiedAt, &recurrenceDueAt, &advisoryUnresolved)
+	row.AIAdvisory = generated.CanonicalQuestionAIAdvisory{DomainCode: advisoryDomain, TopicCodes: advisoryTopics, InspectionTypeCodes: advisoryInspectionTypes, InspectionProfileCodes: advisoryInspectionProfiles, ApplicabilityDisposition: advisoryApplicability, RiskTier: advisoryRiskTier, SafetyCritical: advisorySafetyCritical, AgreementConfidence: advisoryConfidence, AdvisoryState: advisoryState, RecommendationReasonCodes: advisoryReasons, RecurrenceMonths: advisoryRecurrence, PreviouslyVerifiedAt: previouslyVerifiedAt, RecurrenceDueAt: recurrenceDueAt, ExternalApplicabilityUnresolved: advisoryUnresolved}
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = application.ErrNotFound
 	}

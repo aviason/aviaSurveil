@@ -37,8 +37,23 @@ func TestMinIOObjectStoreKeepsObjectsPrivateAndHonorsSignedBoundaries(t *testing
 	if err != nil {
 		t.Fatalf("create MinIO-compatible store: %v", err)
 	}
+	workerAccessKey := os.Getenv("AVIA_TEST_OBJECT_STORE_WORKER_ACCESS_KEY")
+	if workerAccessKey == "" {
+		workerAccessKey = "avia-local-worker"
+	}
+	workerSecretKey := os.Getenv("AVIA_TEST_OBJECT_STORE_WORKER_SECRET_KEY")
+	if workerSecretKey == "" {
+		workerSecretKey = "avia-local-worker-secret-key"
+	}
+	workerStore, err := objectstore.NewMinIOStore(objectstore.MinIOConfig{
+		Endpoint: endpoint, AccessKey: workerAccessKey, SecretKey: workerSecretKey,
+		AllowServerManagedCORS: true,
+	})
+	if err != nil {
+		t.Fatalf("create MinIO worker store: %v", err)
+	}
 	ctx := context.Background()
-	if err := store.EnsurePrivateBuckets(ctx, []string{"avia-quarantine", "avia-canonical"}, []string{"http://127.0.0.1:4174"}); err != nil {
+	if err := store.EnsurePrivateBuckets(ctx, []string{"evidence-quarantine", "evidence-clean"}, []string{"http://127.0.0.1:4174"}); err != nil {
 		t.Fatalf("initialize private object store: %v", err)
 	}
 	if err := store.Check(ctx); err != nil {
@@ -48,7 +63,7 @@ func TestMinIOObjectStoreKeepsObjectsPrivateAndHonorsSignedBoundaries(t *testing
 	digest := sha256Digest(body)
 	key := fmt.Sprintf("adapter-tests/%s-%d", strings.ReplaceAll(t.Name(), "/", "-"), time.Now().UnixNano())
 	instruction, err := store.CreatePutInstruction(ctx, objectstore.PutRequest{
-		Bucket: "avia-quarantine", Key: key, ExpiresAt: time.Now().Add(time.Minute),
+		Bucket: "evidence-quarantine", Key: key, ExpiresAt: time.Now().Add(time.Minute),
 		RequiredHeaders: map[string]string{
 			"Content-Type": "application/pdf", "x-amz-meta-sha256": digest,
 			"If-None-Match": "*",
@@ -97,7 +112,7 @@ func TestMinIOObjectStoreKeepsObjectsPrivateAndHonorsSignedBoundaries(t *testing
 		)
 	}
 
-	reader, info, err := store.Open(ctx, "avia-quarantine", key)
+	reader, info, err := store.Open(ctx, "evidence-quarantine", key)
 	if err != nil {
 		t.Fatalf("open uploaded object: %v", err)
 	}
@@ -107,18 +122,18 @@ func TestMinIOObjectStoreKeepsObjectsPrivateAndHonorsSignedBoundaries(t *testing
 		t.Fatalf("observed object = %+v, read = %v, close = %v", info, readErr, closeErr)
 	}
 	destination := key + "-canonical"
-	if err := store.Copy(ctx, objectstore.CopyRequest{
-		SourceBucket: "avia-quarantine", SourceKey: key, DestinationBucket: "avia-canonical", DestinationKey: destination,
+	if err := workerStore.Copy(ctx, objectstore.CopyRequest{
+		SourceBucket: "evidence-quarantine", SourceKey: key, DestinationBucket: "evidence-clean", DestinationKey: destination,
 	}); err != nil {
 		t.Fatalf("copy clean object: %v", err)
 	}
-	if err := store.Copy(ctx, objectstore.CopyRequest{
-		SourceBucket: "avia-quarantine", SourceKey: key, DestinationBucket: "avia-canonical", DestinationKey: destination,
+	if err := workerStore.Copy(ctx, objectstore.CopyRequest{
+		SourceBucket: "evidence-quarantine", SourceKey: key, DestinationBucket: "evidence-clean", DestinationKey: destination,
 	}); err != objectstore.ErrObjectAlreadyExists {
 		t.Fatalf("non-overwriting copy error = %v", err)
 	}
-	download, err := store.CreateGetInstruction(ctx, objectstore.GetRequest{
-		Bucket: "avia-canonical", Key: destination,
+	download, err := workerStore.CreateGetInstruction(ctx, objectstore.GetRequest{
+		Bucket: "evidence-clean", Key: destination,
 		DownloadFileName: "RPT-CAB-2026-001-v1.pdf",
 		ExpiresAt:        time.Now().Add(time.Minute),
 	})
@@ -169,10 +184,25 @@ func TestMinIOObjectStoreNeverOverwritesUnderConcurrentWritesAndCopies(t *testin
 	if err != nil {
 		t.Fatalf("create MinIO-compatible store: %v", err)
 	}
+	workerAccessKey := os.Getenv("AVIA_TEST_OBJECT_STORE_WORKER_ACCESS_KEY")
+	if workerAccessKey == "" {
+		workerAccessKey = "avia-local-worker"
+	}
+	workerSecretKey := os.Getenv("AVIA_TEST_OBJECT_STORE_WORKER_SECRET_KEY")
+	if workerSecretKey == "" {
+		workerSecretKey = "avia-local-worker-secret-key"
+	}
+	workerStore, err := objectstore.NewMinIOStore(objectstore.MinIOConfig{
+		Endpoint: endpoint, AccessKey: workerAccessKey, SecretKey: workerSecretKey,
+		AllowServerManagedCORS: true,
+	})
+	if err != nil {
+		t.Fatalf("create MinIO worker store: %v", err)
+	}
 	ctx := context.Background()
 	if err := store.EnsurePrivateBuckets(
 		ctx,
-		[]string{"avia-quarantine", "avia-canonical"},
+		[]string{"evidence-quarantine", "evidence-clean"},
 		[]string{"http://127.0.0.1:4174"},
 	); err != nil {
 		t.Fatalf("initialize private object store: %v", err)
@@ -186,14 +216,14 @@ func TestMinIOObjectStoreNeverOverwritesUnderConcurrentWritesAndCopies(t *testin
 			bodies[index] = bytes.Repeat([]byte(fmt.Sprintf("write-%02d|", index)), 128*1024)
 		}
 		results := raceObjectOperations(contenders, func(index int) error {
-			_, err := store.Write(ctx, objectstore.WriteRequest{
-				Bucket: "avia-canonical", Key: key, Body: bytes.NewReader(bodies[index]),
+			_, err := workerStore.Write(ctx, objectstore.WriteRequest{
+				Bucket: "evidence-clean", Key: key, Body: bytes.NewReader(bodies[index]),
 				Size: int64(len(bodies[index])), ContentType: "application/octet-stream",
 			})
 			return err
 		})
 		winner := requireSingleObjectWinner(t, results)
-		reader, _, err := store.Open(ctx, "avia-canonical", key)
+		reader, _, err := store.Open(ctx, "evidence-clean", key)
 		if err != nil {
 			t.Fatalf("open concurrent write winner: %v", err)
 		}
@@ -211,7 +241,7 @@ func TestMinIOObjectStoreNeverOverwritesUnderConcurrentWritesAndCopies(t *testin
 		for index := range bodies {
 			bodies[index] = bytes.Repeat([]byte(fmt.Sprintf("copy-%02d|", index)), 128*1024)
 			if _, err := store.Write(ctx, objectstore.WriteRequest{
-				Bucket: "avia-quarantine", Key: fmt.Sprintf("%s-source-%02d", prefix, index),
+				Bucket: "evidence-quarantine", Key: fmt.Sprintf("%s-source-%02d", prefix, index),
 				Body: bytes.NewReader(bodies[index]), Size: int64(len(bodies[index])),
 				ContentType: "application/octet-stream",
 			}); err != nil {
@@ -220,13 +250,13 @@ func TestMinIOObjectStoreNeverOverwritesUnderConcurrentWritesAndCopies(t *testin
 		}
 		destination := prefix + "-destination"
 		results := raceObjectOperations(contenders, func(index int) error {
-			return store.Copy(ctx, objectstore.CopyRequest{
-				SourceBucket: "avia-quarantine", SourceKey: fmt.Sprintf("%s-source-%02d", prefix, index),
-				DestinationBucket: "avia-canonical", DestinationKey: destination,
+			return workerStore.Copy(ctx, objectstore.CopyRequest{
+				SourceBucket: "evidence-quarantine", SourceKey: fmt.Sprintf("%s-source-%02d", prefix, index),
+				DestinationBucket: "evidence-clean", DestinationKey: destination,
 			})
 		})
 		winner := requireSingleObjectWinner(t, results)
-		reader, _, err := store.Open(ctx, "avia-canonical", destination)
+		reader, _, err := store.Open(ctx, "evidence-clean", destination)
 		if err != nil {
 			t.Fatalf("open concurrent copy winner: %v", err)
 		}
