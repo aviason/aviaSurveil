@@ -6,13 +6,12 @@ working tree.
 
 ## Status
 
-- Plan status: `active`.
+- Plan status: `completed`.
 - Scope: the canonical approved AGA catalog and the connected Department
   Manager New Audit flow.
-- Current evidence: implementation is `verified locally` through the clean
-  connected `namibia/dev` all-role qualification and runtime failure matrix;
-  exact `namibia/demo` immutable release and public qualification remain
-  pending.
+- Current evidence: implementation, the exact `namibia/demo` immutable release,
+  post-apply no-op, public readiness, and the public all-role qualification are
+  `verified locally`. Preprod/prod plan or apply was not run.
 
 ## Objective
 
@@ -105,15 +104,29 @@ scope change, or due recurrence re-enters the recommendation automatically.
   and browser processes were absent after the run. The exact runtime failure
   matrix also passed gateway-only exposure, exact network membership,
   dependency recovery, worker restart, and generated-secret log scanning.
-  Public demo remains pending.
+- [x] Exact `namibia/demo` immutable release and public qualification. Workspace
+  release lock commit `f82ea21` binds Auth `2c3386e`, Surveil `c196318d`, and
+  Workspace `e00bfae`; lock digest is
+  `sha256:0052a3cd286904b6e19d9265d0e3940d34876c0c5a34f27be9fcbe3aeec3158d`.
+  The exact Terragrunt plan applied only the runtime/release bootstrap and four
+  alarm updates (`2 added, 4 changed, 2 destroyed`); RDS, DNS, Cloudflare
+  tunnel, network, and secret resources were unchanged. The second exact plan
+  returned Terraform `No changes`.
+- [x] Public all-role evidence. Scenario
+  `namibia-demo-20260816t18471786895242z-d37e00a9b9334c7cba7234ae76929db3`
+  passed (`1 passed`, 7.6m) with nine separate role sessions, 1,310 cursor
+  traversal, bounded subset selection, target/control API and DOM isolation,
+  real upload `CLEAN` / `PENDING_CAA_REVIEW`, evidence-based closure, Final
+  issuance, Admin evidence visibility, 1280x800 and 390x844 checks, and
+  credential/browser cleanup.
 
 ## Verification notes
 
-- The local `namibia/demo` profile intentionally uses the fail-closed disabled
-  scanner, so an upload there remains `QUARANTINED` / `NOT_READY`; no
-  development-only scanner bypass was added to the demo profile. The required
-  clean evidence qualification therefore runs on `namibia/dev`, while exact
-  public `namibia/demo` qualification must use its managed scan integration.
+- The local `namibia/dev` profile intentionally uses the fail-closed disabled
+  scanner, so no development-only scanner bypass was added. Its qualification
+  uses the local clean-evidence fixture; public `namibia/demo` qualification
+  uses the managed scan integration and produced the exact uploaded version in
+  `CLEAN` / `PENDING_CAA_REVIEW` before closure.
 - A previous local E2E failure caused by the new linked facet replacing a
   free-text field was corrected in the test to exercise the real multi-select
   control. A second presentation-contract failure caused by locale grouping
@@ -122,11 +135,10 @@ scope change, or due recurrence re-enters the recommendation automatically.
   accepting an idempotent row count; the regression test fails closed before a
   stale identity authority can reach the connected session flow.
 
-## Execution prompt
+## Completion boundary
 
-Continue this plan from its current progress. Preserve immutable approved
-catalog identity and all unrelated user changes. Work on the current branch,
-read the nested repository instructions before edits, use `apply_patch`, keep
-source/docs/tests in English, run `make repos-status` at each checkpoint, and
-never add an AI runtime or an approval/publication gate. Verify focused native
-tests before broader gates and record literal evidence labels.
+The approved catalog identity, offline advisory artifact, deterministic
+recommendation behavior, connected Manager UI, exact demo release, public
+qualification, and required local/release gates are complete. Future changes
+to recommendation policy or the catalog require a new ExecPlan and a new
+immutable release; this plan does not authorize preprod/prod deployment.
