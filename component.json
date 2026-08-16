@@ -13,8 +13,8 @@
       "reason": "Native Surveil gates, real PostgreSQL loader qualification, connected Auth/data checks, and the responsive all-role dev E2E passed; released demo evidence remains separate."
     },
     "demo": {
-      "status": "blocked",
-      "reason": "Persistent curated records, prepared users, immutable image release, and demo deployment evidence are not established."
+      "status": "verified locally",
+      "reason": "Exact namibia/demo qualification is verified locally: the approved AGA catalog (52 forms and 1,310 questions), immutable Surveil images, public readiness, and isolated all-role E2E passed."
     },
     "preprod": {
       "status": "blocked",
