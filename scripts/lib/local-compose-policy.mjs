@@ -82,6 +82,9 @@ function environmentEntries(environment) {
 }
 
 function isSecretPath(key, value) {
+  if (key === "AVIA_ROSTER_CREDENTIAL_DIRECTORY") {
+    return value === "/run/roster-credentials";
+  }
   return (
     key.endsWith("_FILE") &&
     typeof value === "string" &&

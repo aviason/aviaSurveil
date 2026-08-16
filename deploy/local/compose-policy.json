@@ -39,6 +39,7 @@
       "migration",
       "postgres",
       "runtime-database-bootstrap",
+      "runtime-database-permissions",
       "auth",
       "curated-foundation-loader",
       "prepared-roster-loader",
@@ -51,6 +52,7 @@
     "test": [
       "postgres",
       "runtime-database-bootstrap",
+      "runtime-database-permissions",
       "migration",
       "auth",
       "curated-foundation-loader",
@@ -62,6 +64,7 @@
     "recovery": [
       "postgres",
       "runtime-database-bootstrap",
+      "runtime-database-permissions",
       "migration",
       "auth",
       "curated-foundation-loader",
@@ -85,6 +88,10 @@
       "surveil_migration_database_password",
       "surveil_bootstrap_database_password",
       "auth_runtime_database_password"
+    ],
+    "runtime-database-permissions": [
+      "rds_master_database_url",
+      "surveil_migration_database_password"
     ],
     "migration": ["surveil_migration_database_password"],
     "auth": [

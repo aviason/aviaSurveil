@@ -537,20 +537,20 @@ test.describe("prepared identity connected qualification", () => {
       await inspectorSession.page.goto(`${origin}/inspector/audits/${encodeURIComponent(inspectionId)}/checklist?packageId=${encodeURIComponent(packageId)}`, { waitUntil: "domcontentloaded" });
       const checklist = inspectorSession.page.getByTestId("checklist-response-panel");
       await expect(checklist).toBeVisible();
-      const mobileInspectorSession = await signIn(browser, inspector, { width: 390, height: 844 });
+      await inspectorSession.page.setViewportSize({ width: 390, height: 844 });
       try {
-        await mobileInspectorSession.page.goto(`${origin}/inspector/audits/${encodeURIComponent(inspectionId)}/checklist?packageId=${encodeURIComponent(packageId)}`, { waitUntil: "domcontentloaded" });
-        const mobileChecklist = mobileInspectorSession.page.getByTestId("checklist-response-panel");
+        await inspectorSession.page.goto(`${origin}/inspector/audits/${encodeURIComponent(inspectionId)}/checklist?packageId=${encodeURIComponent(packageId)}`, { waitUntil: "domcontentloaded" });
+        const mobileChecklist = inspectorSession.page.getByTestId("checklist-response-panel");
         await expect(mobileChecklist).toBeVisible();
-        const mobileQuestion = mobileInspectorSession.page.getByTestId(`question-${scenario.selectedQuestionVersionIds[0]}`);
+        const mobileQuestion = inspectorSession.page.getByTestId(`question-${scenario.selectedQuestionVersionIds[0]}`);
         await expect(mobileQuestion).toHaveCount(1);
         await mobileQuestion.locator("xpath=ancestor::tr").getByRole("button", { name: /Open question/ }).click();
         await expect(mobileChecklist.locator("b", { hasText: "Current owner" })).toBeVisible();
         await expect(mobileChecklist.locator("b", { hasText: "Next action" })).toBeVisible();
-        await expectResponsiveViewport(mobileInspectorSession.page, "Inspector Checklist 390x844");
+        await expectResponsiveViewport(inspectorSession.page, "Inspector Checklist 390x844");
         writeEvent({ event: "inspector-responsive-surface", surface: "checklist", viewport: "390x844", status: "verified locally" });
       } finally {
-        await mobileInspectorSession.context.close();
+        await inspectorSession.page.setViewportSize({ width: 1280, height: 800 });
       }
       for (const [index, questionId] of scenario.selectedQuestionVersionIds.entries()) {
         const question = inspectorSession.page.getByTestId(`question-${questionId}`);
@@ -789,6 +789,23 @@ test.describe("prepared identity connected qualification", () => {
       expect(uploadedEvidence?.scanState).toBe("CLEAN");
       expect(uploadedEvidence?.reviewState).toBe("PENDING_CAA_REVIEW");
       writeEvent({ event: "target-auditee-uploaded-evidence", inspectionId, findingId, evidenceVersionId, evidenceVersion, scanState: uploadedEvidence?.scanState ?? "", reviewState: uploadedEvidence?.reviewState ?? "", status: "verified locally" });
+      await targetEvidenceSession.page.setViewportSize({ width: 390, height: 844 });
+      try {
+        await targetEvidenceSession.page.goto(`${origin}/auditee/service-provider-cap`, { waitUntil: "domcontentloaded" });
+        const mobileAuditeePage = targetEvidenceSession.page.getByTestId("auditee-page");
+        await expect(mobileAuditeePage).toBeVisible();
+        const mobileFindingRow = mobileAuditeePage.getByRole("row").filter({ hasText: findingNumber });
+        await expect(mobileFindingRow).toHaveCount(1);
+        await mobileFindingRow.getByRole("button", { name: findingNumber, exact: true }).click();
+        const mobileFinding = mobileAuditeePage.getByTestId("auditee-selected-finding");
+        await expect(mobileFinding).toBeVisible();
+        await expect(mobileFinding.locator("dt", { hasText: "Current owner" })).toBeVisible();
+        await expect(mobileFinding.locator("dt", { hasText: "Next action" })).toBeVisible();
+        await expectResponsiveViewport(targetEvidenceSession.page, "Auditee CAP 390x844");
+        writeEvent({ event: "auditee-responsive-surface", surface: "cap", viewport: "390x844", status: "verified locally" });
+      } finally {
+        await targetEvidenceSession.page.setViewportSize({ width: 1280, height: 800 });
+      }
     } finally {
       await targetEvidenceSession.context.close();
     }
@@ -867,6 +884,18 @@ test.describe("prepared identity connected qualification", () => {
       await finalDossier.getByRole("button", { name: "Forward to General Manager" }).click();
       await expect(finalDossier.getByTestId("report-status")).toHaveText("GM_REVIEW");
       writeEvent({ event: "manager-forwarded-final-report", inspectionId, finalReportVersionId, status: "verified locally" });
+      await managerFinalSession.page.setViewportSize({ width: 390, height: 844 });
+      try {
+        await managerFinalSession.page.goto(`${origin}/department-manager/findings-review?findingId=${encodeURIComponent(findingId)}`, { waitUntil: "domcontentloaded" });
+        const mobileManagerPage = managerFinalSession.page.getByTestId("manager-findings-review-page");
+        await expect(mobileManagerPage).toBeVisible();
+        await expect(mobileManagerPage.locator("dt", { hasText: "Current owner" })).toBeVisible();
+        await expect(mobileManagerPage.locator("dt", { hasText: "Next action" })).toBeVisible();
+        await expectResponsiveViewport(managerFinalSession.page, "Manager Findings Review 390x844");
+        writeEvent({ event: "manager-responsive-surface", surface: "findings-review", viewport: "390x844", status: "verified locally" });
+      } finally {
+        await managerFinalSession.page.setViewportSize({ width: 1280, height: 800 });
+      }
     } finally {
       await managerFinalSession.context.close();
     }
@@ -914,6 +943,16 @@ test.describe("prepared identity connected qualification", () => {
       await targetFinalSession.page.waitForURL(`${origin}/auditee/reports/${encodeURIComponent(finalReportVersionId)}`);
       await expect(targetFinalSession.page.getByTestId("auditee-report-preview-page")).toBeVisible();
       writeEvent({ event: "target-auditee-viewed-final-report", inspectionId, finalReportVersionId, organizationId: targetAuditee.organizationId, status: "verified locally" });
+      await targetFinalSession.page.setViewportSize({ width: 390, height: 844 });
+      try {
+        await targetFinalSession.page.goto(`${origin}/auditee/final-reports`, { waitUntil: "domcontentloaded" });
+        await expect(targetFinalSession.page.getByTestId("auditee-final-reports-page")).toBeVisible();
+        await expect(targetFinalSession.page.getByRole("row").filter({ hasText: finalReportVersionId })).toHaveCount(1);
+        await expectResponsiveViewport(targetFinalSession.page, "Auditee Final Reports 390x844");
+        writeEvent({ event: "auditee-responsive-surface", surface: "final-reports", viewport: "390x844", status: "verified locally" });
+      } finally {
+        await targetFinalSession.page.setViewportSize({ width: 1280, height: 800 });
+      }
     } finally {
       await targetFinalSession.context.close();
     }
@@ -932,48 +971,6 @@ test.describe("prepared identity connected qualification", () => {
       writeEvent({ event: "control-auditee-report-isolation", inspectionId, preliminaryReportVersionId, finalReportVersionId, targetVisibleInApi: false, targetVisibleInDom: false, status: "verified locally" });
     } finally {
       await controlReportSession.context.close();
-    }
-
-    const mobileManagerSession = await signIn(browser, manager, { width: 390, height: 844 });
-    try {
-      await mobileManagerSession.page.goto(`${origin}/department-manager/findings-review?findingId=${encodeURIComponent(findingId)}`, { waitUntil: "domcontentloaded" });
-      const mobileManagerPage = mobileManagerSession.page.getByTestId("manager-findings-review-page");
-      await expect(mobileManagerPage).toBeVisible();
-      await expect(mobileManagerPage.locator("dt", { hasText: "Current owner" })).toBeVisible();
-      await expect(mobileManagerPage.locator("dt", { hasText: "Next action" })).toBeVisible();
-      await expectResponsiveViewport(mobileManagerSession.page, "Manager Findings Review 390x844");
-      writeEvent({ event: "manager-responsive-surface", surface: "findings-review", viewport: "390x844", status: "verified locally" });
-    } finally {
-      await mobileManagerSession.context.close();
-    }
-
-    const mobileAuditeeCapSession = await signIn(browser, targetAuditee, { width: 390, height: 844 });
-    try {
-      await mobileAuditeeCapSession.page.goto(`${origin}/auditee/service-provider-cap`, { waitUntil: "domcontentloaded" });
-      const mobileAuditeePage = mobileAuditeeCapSession.page.getByTestId("auditee-page");
-      await expect(mobileAuditeePage).toBeVisible();
-      const mobileFindingRow = mobileAuditeePage.getByRole("row").filter({ hasText: findingNumber });
-      await expect(mobileFindingRow).toHaveCount(1);
-      await mobileFindingRow.getByRole("button", { name: findingNumber, exact: true }).click();
-      const mobileFinding = mobileAuditeePage.getByTestId("auditee-selected-finding");
-      await expect(mobileFinding).toBeVisible();
-      await expect(mobileFinding.locator("dt", { hasText: "Current owner" })).toBeVisible();
-      await expect(mobileFinding.locator("dt", { hasText: "Next action" })).toBeVisible();
-      await expectResponsiveViewport(mobileAuditeeCapSession.page, "Auditee CAP 390x844");
-      writeEvent({ event: "auditee-responsive-surface", surface: "cap", viewport: "390x844", status: "verified locally" });
-    } finally {
-      await mobileAuditeeCapSession.context.close();
-    }
-
-    const mobileAuditeeSession = await signIn(browser, targetAuditee, { width: 390, height: 844 });
-    try {
-      await mobileAuditeeSession.page.goto(`${origin}/auditee/final-reports`, { waitUntil: "domcontentloaded" });
-      await expect(mobileAuditeeSession.page.getByTestId("auditee-final-reports-page")).toBeVisible();
-      await expect(mobileAuditeeSession.page.getByRole("row").filter({ hasText: finalReportVersionId })).toHaveCount(1);
-      await expectResponsiveViewport(mobileAuditeeSession.page, "Auditee Final Reports 390x844");
-      writeEvent({ event: "auditee-responsive-surface", surface: "final-reports", viewport: "390x844", status: "verified locally" });
-    } finally {
-      await mobileAuditeeSession.context.close();
     }
 
     const adminEvidenceSession = await signIn(browser, admin);

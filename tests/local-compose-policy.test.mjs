@@ -22,3 +22,20 @@ for (const profile of Object.keys(policy.profileServices)) {
     assert.deepEqual(validateComposePolicy({ compose, lock, policy, profile }), []);
   });
 }
+
+test("runtime database permission reconciliation has its migration credential", () => {
+  const rendered = execFileSync("docker", [
+    "compose", "--file", composePath, "--profile", "full", "config", "--format", "json",
+  ], { cwd: repositoryRoot, encoding: "utf8" });
+  const compose = JSON.parse(rendered);
+  const permissions = compose.services["runtime-database-permissions"];
+  assert.equal(
+    permissions.environment.AVIA_DATABASE_MIGRATION_PASSWORD_FILE,
+    "/run/secrets/surveil_migration_database_password",
+  );
+  assert.ok(
+    permissions.secrets.some((secret) =>
+      (typeof secret === "string" ? secret : secret.source) === "surveil_migration_database_password"
+    ),
+  );
+});

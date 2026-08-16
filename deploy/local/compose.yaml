@@ -180,7 +180,8 @@ services:
       migration: {condition: service_completed_successfully}
     environment:
       AVIA_DATABASE_MASTER_URL_FILE: /run/secrets/rds_master_database_url
-    secrets: [rds_master_database_url]
+      AVIA_DATABASE_MIGRATION_PASSWORD_FILE: /run/secrets/surveil_migration_database_password
+    secrets: [rds_master_database_url, surveil_migration_database_password]
     tmpfs: [/tmp:mode=1777]
     networks: [database]
     restart: "no"
