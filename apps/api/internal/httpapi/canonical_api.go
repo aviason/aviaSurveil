@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -837,6 +838,10 @@ func (api *CanonicalAPI) beginEvidenceUpload(writer http.ResponseWriter, request
 		ExpectedFindingRevision: input.ExpectedFindingRevision, FileName: input.FileName,
 		DeclaredMediaType: input.DeclaredMediaType, ByteSize: input.ByteSize, SHA256: input.Sha256,
 	})
+	var beginError *evidence.BeginUploadError
+	if errors.As(err, &beginError) {
+		slog.Error("evidence upload begin failed", "stage", beginError.Stage)
+	}
 	api.respondCreated(writer, generated.BeginEvidenceUploadOutput{
 		UploadId: result.UploadID, StagingObjectKey: result.StagingObjectKey, UploadUrl: result.UploadURL,
 		RequiredHeaders: generated.UploadRequiredHeaders{

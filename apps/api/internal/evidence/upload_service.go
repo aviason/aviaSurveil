@@ -25,6 +25,21 @@ var (
 	ErrEvidenceNotReady  = errors.New("evidence is not ready")
 )
 
+// BeginUploadError preserves the public error classification while exposing
+// only a bounded internal stage for operational diagnosis. The underlying
+// database/object-store error is never included in Error(), so handlers can
+// log the stage without leaking credentials, SQL, or object-store details.
+type BeginUploadError struct {
+	Stage string
+	Cause error
+}
+
+func (err *BeginUploadError) Error() string {
+	return "begin Evidence upload failed at " + err.Stage
+}
+
+func (err *BeginUploadError) Unwrap() error { return err.Cause }
+
 const (
 	UploadStatePending   = "PENDING"
 	UploadStateUploaded  = "UPLOADED"
@@ -133,11 +148,14 @@ func (service *UploadService) Begin(ctx context.Context, actor identity.Principa
 	}
 	scope := actor.SubjectID + ":begin_evidence_upload"
 	var output BeginUploadOutput
+	stage := "transaction"
 	err = database.WithinTransaction(ctx, service.pool, func(ctx context.Context, transaction pgx.Tx) error {
+		stage = "idempotency"
 		replayed, err := loadIdempotent(ctx, transaction, scope, input.OperationID, semanticHash, &output)
 		if err != nil || replayed {
 			return err
 		}
+		stage = "finding-lock"
 		var organizationID, status, inspectionID string
 		var revision int64
 		if err := transaction.QueryRow(ctx, `SELECT organization_id, inspection_id, status, revision FROM findings WHERE id = $1 FOR UPDATE`, input.FindingID).Scan(&organizationID, &inspectionID, &status, &revision); err != nil {
@@ -152,6 +170,7 @@ func (service *UploadService) Begin(ctx context.Context, actor identity.Principa
 		if revision != input.ExpectedFindingRevision || (status != "EVIDENCE_REQUIRED" && status != "EVIDENCE_MORE_INFORMATION_REQUESTED") {
 			return fmt.Errorf("%w: Finding is not at an Evidence submission boundary", ErrInvalidUpload)
 		}
+		stage = "preliminary-report"
 		var preliminaryIssued bool
 		if err := transaction.QueryRow(ctx, `
 				SELECT EXISTS (
@@ -168,6 +187,7 @@ func (service *UploadService) Begin(ctx context.Context, actor identity.Principa
 		if !preliminaryIssued {
 			return fmt.Errorf("%w: Preliminary Report must be approved and issued before Evidence", ErrInvalidUpload)
 		}
+		stage = "presign"
 		now := service.clock().UTC()
 		expiresAt := now.Add(service.instructionTTL)
 		uploadID := service.idGenerator("upload")
@@ -192,6 +212,7 @@ func (service *UploadService) Begin(ctx context.Context, actor identity.Principa
 			},
 			ExpiresAt: expiresAt, MaximumByteSize: service.maximumByteSize,
 		}
+		stage = "upload-session"
 		if _, err := transaction.Exec(ctx, `
 			INSERT INTO upload_sessions (
 				id, upload_kind, aggregate_id, organization_id, initiated_by_subject_id, bucket_name,
@@ -206,6 +227,7 @@ func (service *UploadService) Begin(ctx context.Context, actor identity.Principa
 		if err != nil {
 			return err
 		}
+		stage = "transaction-envelope"
 		return persistUploadTransaction(ctx, transaction, uploadTransactionEnvelope{
 			OperationID:      input.OperationID,
 			CorrelationID:    input.CorrelationID,
@@ -229,6 +251,9 @@ func (service *UploadService) Begin(ctx context.Context, actor identity.Principa
 			OccurredAt:       now,
 		})
 	})
+	if err != nil {
+		return output, &BeginUploadError{Stage: stage, Cause: err}
+	}
 	return output, err
 }
 
