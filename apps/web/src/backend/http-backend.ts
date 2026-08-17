@@ -824,10 +824,11 @@ export function createHttpBackend(
           domain: input.domain, topic: input.topic, riskBand: input.riskBand,
           sourceGapState: input.sourceGapState, selected: input.selected, scopeId: input.scopeId,
           checklistFocus: input.checklistFocus, recommendationState: input.recommendationState,
+          applicationType: input.applicationType,
           cursor: input.cursor, limit: input.limit,
         }), {}, options)),
       getQuestion: async (input, options) => mapCanonicalCatalogEntry(await request<Schemas["CanonicalQuestionCatalogEntry"]>(
-        appendQuery(`/v1/question-catalogs/${encodeURIComponent(input.catalogVersion)}/questions/${encodeURIComponent(input.questionVersionId)}`, { usageClass: input.usageClass, scopeId: input.scopeId }), {}, options)),
+        appendQuery(`/v1/question-catalogs/${encodeURIComponent(input.catalogVersion)}/questions/${encodeURIComponent(input.questionVersionId)}`, { usageClass: input.usageClass, scopeId: input.scopeId, applicationType: input.applicationType }), {}, options)),
       previewSelection: async (input, options) => {
         const { scopeId, ...body } = input;
         return mapCanonicalSelectionPreview(await request<Schemas["CanonicalAuditScopeSelectionPreview"]>(

@@ -125,10 +125,14 @@ func (api *CanonicalAPI) createPlanningIntakeDraft(
 	if value, ok := record.Values["organizationName"].(string); ok && strings.TrimSpace(value) != "" {
 		organizationName = value
 	}
+	applicationType := input.Values.ApplicationType
+	if value, ok := record.Values["applicationType"].(string); ok && strings.TrimSpace(value) != "" {
+		applicationType = value
+	}
 	writeJSON(writer, http.StatusCreated, generated.PlanningIntakeDraftView{
 		Id: record.ID, OrganizationId: record.OrganizationID,
 		OrganizationName: organizationName,
-		ApplicationType:  input.Values.ApplicationType, Domain: input.Values.Domain,
+		ApplicationType:  applicationType, Domain: input.Values.Domain,
 		InspectionCategory: input.Values.InspectionCategory,
 		NoticePolicy:       input.Values.NoticePolicy, Purpose: input.Values.Purpose,
 		TriggerType: input.Values.TriggerType, RiskCategory: input.Values.RiskCategory,

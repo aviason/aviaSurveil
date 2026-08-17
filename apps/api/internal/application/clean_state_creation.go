@@ -141,9 +141,12 @@ func (service *Service) CreatePlanningIntakeDraft(
 			if strings.TrimSpace(stringValue(command.Values["scopeDraftId"])) == "" {
 				command.Values["scopeDraftId"] = canonicalValues["scopeDraftId"]
 			}
-			if _, err := ValidateCanonicalScopeMap(ctx, transaction, actor, canonicalValues, false); err != nil {
+			facts, err := ValidateCanonicalScopeMap(ctx, transaction, actor, canonicalValues, false)
+			if err != nil {
 				return transition[PlanningIntakeDraft]{}, err
 			}
+			canonicalValues["applicationType"] = facts.AuditType
+			command.Values["applicationType"] = facts.AuditType
 		}
 		var legalName string
 		if err := transaction.QueryRow(ctx, `

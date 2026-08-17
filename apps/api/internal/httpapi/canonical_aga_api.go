@@ -39,6 +39,14 @@ var canonicalChecklistFocusCodes = map[string]struct{}{
 	"SPECIAL_PURPOSE":            {},
 }
 
+func parseCanonicalExecutionType(value string) (string, error) {
+	value = strings.ToUpper(strings.TrimSpace(value))
+	if value == "" {
+		return "", nil
+	}
+	return application.CanonicalExecutionType(value)
+}
+
 func parseCanonicalChecklistFocus(value string) ([]string, error) {
 	seen := map[string]struct{}{}
 	values := []string{}
@@ -218,7 +226,13 @@ func (api *CanonicalAPI) listCanonicalAuditScopeOptions(writer http.ResponseWrit
 		       scope.id, target.id, provider.id, provider.label, scope.status,
 		       COALESCE(target.external_identifier, organization.legal_name || ' regulated target'),
 		       catalog.catalog_version, catalog.usage_class,
-		       ARRAY[CASE WHEN provider.id = 'AIR_OPERATOR' THEN 'CABIN_INSPECTION' ELSE 'RAMP_INSPECTION' END]::text[]
+		   CASE
+		     WHEN provider.id = 'AIR_OPERATOR'
+		       THEN ARRAY['RAMP_INSPECTION','CABIN_INSPECTION']::text[]
+		     WHEN provider.id = 'AERODROME_OPERATOR'
+		       THEN ARRAY['RAMP_INSPECTION']::text[]
+		     ELSE ARRAY[]::text[]
+	           END
 		FROM (
 			SELECT DISTINCT ON (root_id) *
 			FROM organization_service_provider_scopes
@@ -279,6 +293,7 @@ func (api *CanonicalAPI) listCanonicalAuditScopeOptions(writer http.ResponseWrit
 			  )
 			 )
 		WHERE scope.status = 'ACTIVE'
+		  AND provider.id IN ('AIR_OPERATOR', 'AERODROME_OPERATOR')
 		  AND (scope.effective_to IS NULL OR scope.effective_to > CURRENT_DATE)
 		  AND (target.organization_id IS NULL OR target.organization_id = scope.organization_id)
 		  AND (target.owner_organization_id IS NULL OR target.owner_organization_id = scope.organization_id)
@@ -532,7 +547,10 @@ LEFT JOIN LATERAL (
           FROM potential_findings potential
           WHERE potential.inspection_id = prior_report.inspection_id
             AND potential.question_id = q.question_id
-            AND COALESCE(potential.status, '') NOT IN ('CLOSED', 'RETURNED', 'RESOLVED')
+            AND (
+              COALESCE(potential.status, '') IN ('PENDING_LEAD_REVIEW', 'RETURNED')
+              OR (COALESCE(potential.status, '') = 'CONVERTED' AND potential.converted_finding_id IS NULL)
+            )
         )
         OR EXISTS (
           SELECT 1
@@ -540,7 +558,7 @@ LEFT JOIN LATERAL (
           JOIN potential_findings potential ON potential.id = finding.potential_finding_id
           WHERE finding.inspection_id = prior_report.inspection_id
             AND potential.question_id = q.question_id
-            AND COALESCE(finding.status, '') NOT IN ('CLOSED', 'RETURNED', 'RESOLVED')
+            AND COALESCE(finding.status, '') <> 'CLOSED'
         )
         OR EXISTS (
           SELECT 1
@@ -556,7 +574,7 @@ LEFT JOIN LATERAL (
               WHERE latest.evidence_id = evidence.evidence_id
             )
             AND (COALESCE(evidence_state.scan_state, '') <> 'CLEAN'
-              OR COALESCE(evidence_state.review_state, '') <> 'PENDING_CAA_REVIEW')
+              OR COALESCE(evidence_state.review_state, '') NOT IN ('PENDING_CAA_REVIEW', 'ACCEPTED'))
         )
       ), false) AS has_open_work,
       max(prior_state.issued_at) FILTER (
@@ -568,7 +586,10 @@ LEFT JOIN LATERAL (
             FROM potential_findings potential
             WHERE potential.inspection_id = prior_report.inspection_id
               AND potential.question_id = q.question_id
-              AND COALESCE(potential.status, '') NOT IN ('CLOSED', 'RETURNED', 'RESOLVED')
+              AND (
+                COALESCE(potential.status, '') IN ('PENDING_LEAD_REVIEW', 'RETURNED')
+                OR (COALESCE(potential.status, '') = 'CONVERTED' AND potential.converted_finding_id IS NULL)
+              )
           )
           AND NOT EXISTS (
             SELECT 1
@@ -576,7 +597,7 @@ LEFT JOIN LATERAL (
             JOIN potential_findings potential ON potential.id = finding.potential_finding_id
             WHERE finding.inspection_id = prior_report.inspection_id
               AND potential.question_id = q.question_id
-              AND COALESCE(finding.status, '') NOT IN ('CLOSED', 'RETURNED', 'RESOLVED')
+              AND COALESCE(finding.status, '') <> 'CLOSED'
           )
           AND NOT EXISTS (
             SELECT 1
@@ -592,7 +613,20 @@ LEFT JOIN LATERAL (
                 WHERE latest.evidence_id = evidence.evidence_id
               )
               AND (COALESCE(evidence_state.scan_state, '') <> 'CLEAN'
-                OR COALESCE(evidence_state.review_state, '') <> 'PENDING_CAA_REVIEW')
+                OR COALESCE(evidence_state.review_state, '') NOT IN ('PENDING_CAA_REVIEW', 'ACCEPTED'))
+          )
+          AND EXISTS (
+            SELECT 1
+            FROM checklist_responses response
+            WHERE response.inspection_id = prior_report.inspection_id
+              AND response.question_id = q.question_id
+              AND response.response_value IN ('COMPLIANT', 'NOT_APPLICABLE')
+              AND NOT EXISTS (
+                SELECT 1
+                FROM potential_findings response_potential
+                WHERE response_potential.checklist_response_id = response.id
+                  AND COALESCE(response_potential.status, '') <> 'DISMISSED'
+              )
           )
       ) AS last_verified_at
     FROM inspection_packages prior_package
@@ -606,9 +640,10 @@ LEFT JOIN LATERAL (
     JOIN report_versions prior_report ON prior_report.inspection_id = prior_package.inspection_id
     JOIN report_approval_states prior_state ON prior_state.report_version_id = prior_report.id
     WHERE active_scope.id IS NOT NULL
-      AND prior_scope.organization_id = active_scope.organization_id
-      AND prior_scope.provider_scope_id = active_scope.provider_scope_id
-      AND prior_scope.regulated_target_id = active_scope.regulated_target_id
+		AND prior_scope.organization_id = active_scope.organization_id
+		AND prior_scope.provider_scope_id = active_scope.provider_scope_id
+		AND prior_scope.regulated_target_id = active_scope.regulated_target_id
+		AND prior_scope.audit_type = active_scope.audit_type
 ) history ON TRUE
 LEFT JOIN LATERAL (
     SELECT
@@ -617,6 +652,9 @@ LEFT JOIN LATERAL (
         WHEN history.has_open_work THEN 'SUGGESTED_NOW'
         WHEN $11::text[] <> '{}'::text[] AND NOT (ai.inspection_type_codes && $11::text[]) THEN 'OUTSIDE_FOCUS'
         WHEN ai.risk_tier IN ('HIGH', 'UNKNOWN') THEN 'SUGGESTED_NOW'
+        WHEN active_scope.id IS NOT NULL
+         AND NOT canonical_audit_type_matches_question_focus(active_scope.audit_type, ai.inspection_type_codes)
+          THEN 'OUTSIDE_FOCUS'
         WHEN history.last_verified_at IS NOT NULL
          AND history.last_verified_at >= CURRENT_TIMESTAMP - make_interval(months => ai.recurrence_months)
           THEN 'RECENTLY_VERIFIED'
@@ -636,6 +674,12 @@ LEFT JOIN LATERAL (
              THEN 'RECURRENCE_DUE' END,
         CASE WHEN $11::text[] <> '{}'::text[] AND NOT (ai.inspection_type_codes && $11::text[])
              THEN 'OUTSIDE_SELECTED_FOCUS' END,
+        CASE WHEN active_scope.id IS NOT NULL
+                   AND canonical_audit_type_matches_question_focus(active_scope.audit_type, ai.inspection_type_codes)
+             THEN 'AUDIT_TYPE_FOCUS_MATCH' END,
+        CASE WHEN active_scope.id IS NOT NULL
+                   AND NOT canonical_audit_type_matches_question_focus(active_scope.audit_type, ai.inspection_type_codes)
+             THEN 'OUTSIDE_AUDIT_TYPE_FOCUS' END,
         CASE WHEN ai.external_applicability_unresolved THEN 'SOURCE_CONTEXT_INCOMPLETE' END
       ], NULL)::text[] AS reason_codes,
       history.last_verified_at,
@@ -693,9 +737,37 @@ func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.Respons
 	sourceGapState := strings.TrimSpace(request.URL.Query().Get("sourceGapState"))
 	selected := strings.TrimSpace(request.URL.Query().Get("selected"))
 	scopeID := strings.TrimSpace(request.URL.Query().Get("scopeId"))
+	applicationType, err := parseCanonicalExecutionType(request.URL.Query().Get("applicationType"))
+	if err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
 	if scopeID != "" {
 		if err := api.requireCanonicalScopeOwner(request.Context(), scopeID, actor.SubjectID); err != nil {
 			api.respond(writer, nil, err)
+			return
+		}
+	}
+	if applicationType != "" {
+		if scopeID == "" {
+			api.respond(writer, nil, fmt.Errorf("%w: application type requires an owned scope draft", application.ErrInvalid))
+			return
+		}
+		var scopeAuditType string
+		if err := api.pool.QueryRow(request.Context(), `
+			SELECT audit_type
+			FROM canonical_audit_scope_drafts
+			WHERE id = $1 AND status = 'DRAFT'
+		`, scopeID).Scan(&scopeAuditType); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				api.respond(writer, nil, application.ErrNotFound)
+				return
+			}
+			api.respond(writer, nil, err)
+			return
+		}
+		if strings.TrimSpace(scopeAuditType) != applicationType {
+			api.respond(writer, nil, fmt.Errorf("%w: application type does not match the selected scope draft", application.ErrConflict))
 			return
 		}
 	}
@@ -704,10 +776,10 @@ func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.Respons
 		return
 	}
 	selectionPredicate := `($9='' OR $9='all' OR (($9='selected') = EXISTS (SELECT 1 FROM canonical_audit_scope_selection_questions sq JOIN canonical_audit_scope_selection_operations so ON so.id=sq.operation_id WHERE so.id=(SELECT latest.id FROM canonical_audit_scope_selection_operations latest WHERE latest.scope_draft_id=$10 AND latest.operation_kind <> 'PREVIEW' ORDER BY latest.created_at DESC, latest.id DESC LIMIT 1) AND sq.question_version_id=m.question_version_id)))`
-	where := `c.catalog_version=$1 AND c.usage_class=$2 AND c.status='SEALED' AND c.source_origin='IMPORTED_APPROVED_SOURCE' AND ($3='' OR m.form_code ILIKE '%' || $3 || '%' OR m.proposal_id ILIKE '%' || $3 || '%' OR q.prompt ILIKE '%' || $3 || '%') AND ($4='' OR m.form_code = ANY(string_to_array($4, ','))) AND ($5='' OR ai.domain_code = ANY(string_to_array($5, ','))) AND ($6='' OR ai.topic_codes && string_to_array($6, ',')) AND ($7='' OR ai.risk_tier = ANY(string_to_array($7, ','))) AND ($8='' OR m.source_gap_state=$8) AND (($11::text[] = '{}'::text[] OR ai.inspection_type_codes && $11::text[]) OR ($12='OUTSIDE_FOCUS' AND $11::text[] <> '{}'::text[] AND NOT (ai.inspection_type_codes && $11::text[]))) AND ($12='' OR recommendation.recommendation_state=$12) AND COALESCE((SELECT status FROM canonical_question_catalog_membership_events event WHERE event.catalog_id=m.catalog_id AND event.question_version_id=m.question_version_id ORDER BY occurred_at DESC,event_id DESC LIMIT 1),'AVAILABLE')='AVAILABLE' AND ($10='' OR EXISTS (SELECT 1 FROM canonical_question_catalog_applicabilities applicability JOIN canonical_audit_scope_drafts scope ON scope.id=$10 WHERE applicability.catalog_id=m.catalog_id AND applicability.question_version_id=m.question_version_id AND applicability.provider_scope_id=scope.provider_scope_id AND applicability.regulated_target_id=scope.regulated_target_id AND applicability.status='ELIGIBLE')) AND ` + selectionPredicate
+	where := `c.catalog_version=$1 AND c.usage_class=$2 AND c.status='SEALED' AND c.source_origin='IMPORTED_APPROVED_SOURCE' AND ($3='' OR m.form_code ILIKE '%' || $3 || '%' OR m.proposal_id ILIKE '%' || $3 || '%' OR q.prompt ILIKE '%' || $3 || '%') AND ($4='' OR m.form_code = ANY(string_to_array($4, ','))) AND ($5='' OR ai.domain_code = ANY(string_to_array($5, ','))) AND ($6='' OR ai.topic_codes && string_to_array($6, ',')) AND ($7='' OR ai.risk_tier = ANY(string_to_array($7, ','))) AND ($8='' OR m.source_gap_state=$8) AND (($11::text[] = '{}'::text[] OR ai.inspection_type_codes && $11::text[]) OR ($12='OUTSIDE_FOCUS' AND $11::text[] <> '{}'::text[] AND NOT (ai.inspection_type_codes && $11::text[]))) AND ($12='' OR recommendation.recommendation_state=$12) AND COALESCE((SELECT status FROM canonical_question_catalog_membership_events event WHERE event.catalog_id=m.catalog_id AND event.question_version_id=m.question_version_id ORDER BY occurred_at DESC,event_id DESC LIMIT 1),'AVAILABLE')='AVAILABLE' AND ($10='' OR EXISTS (SELECT 1 FROM canonical_question_catalog_applicabilities applicability JOIN canonical_audit_scope_drafts scope ON scope.id=$10 WHERE applicability.catalog_id=m.catalog_id AND applicability.question_version_id=m.question_version_id AND applicability.provider_scope_id=scope.provider_scope_id AND applicability.regulated_target_id=scope.regulated_target_id AND applicability.status='ELIGIBLE')) AND ($13='' OR active_scope.audit_type=$13) AND ` + selectionPredicate
 	ctx := request.Context()
 	var total int64
-	queryArgs := []any{catalogVersion, string(usage), search, formCode, domain, topic, riskBand, sourceGapState, selected, scopeID, checklistFocus, recommendationState}
+	queryArgs := []any{catalogVersion, string(usage), search, formCode, domain, topic, riskBand, sourceGapState, selected, scopeID, checklistFocus, recommendationState, applicationType}
 	if err := api.pool.QueryRow(ctx, `SELECT COUNT(*) FROM canonical_question_catalogs c JOIN canonical_question_catalog_memberships m ON m.catalog_id = c.id JOIN question_versions q ON q.id=m.question_version_id `+canonicalCatalogAIProjectionJoins+` WHERE `+where, queryArgs...).Scan(&total); err != nil {
 		api.respond(writer, nil, application.ErrNotFound)
 		return
@@ -728,7 +800,7 @@ func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.Respons
 		JOIN canonical_question_catalog_memberships m ON m.catalog_id = c.id
 		JOIN question_versions q ON q.id=m.question_version_id
 		`+canonicalCatalogAIProjectionJoins+`
-		WHERE `+where+` ORDER BY m.form_code,m.ordinal,m.question_version_id LIMIT $13 OFFSET $14`, append(queryArgs, limit+1, offset)...)
+		WHERE `+where+` ORDER BY m.form_code,m.ordinal,m.question_version_id LIMIT $14 OFFSET $15`, append(queryArgs, limit+1, offset)...)
 	if err != nil {
 		api.respond(writer, nil, application.ErrNotFound)
 		return
@@ -764,7 +836,7 @@ func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.Respons
 		items = items[:limit]
 		next = encodeCatalogCursor(offset + limit)
 	}
-	facets, facetErr := api.loadCanonicalCatalogFacets(ctx, catalogVersion, usage, search, formCode, domain, topic, riskBand, sourceGapState, scopeID, checklistFocus, recommendationState)
+	facets, facetErr := api.loadCanonicalCatalogFacets(ctx, catalogVersion, usage, search, formCode, domain, topic, riskBand, sourceGapState, scopeID, checklistFocus, recommendationState, applicationType)
 	if facetErr != nil {
 		api.respond(writer, nil, application.ErrNotFound)
 		return
@@ -794,6 +866,7 @@ func canonicalCatalogFacetWhere(exclude string) string {
 	} else {
 		parts = append(parts, "$12::text=$12::text")
 	}
+	parts = append(parts, "($13::text='' OR active_scope.audit_type=$13::text)")
 	if exclude != "form" {
 		parts = append(parts, "($4::text='' OR m.form_code = ANY(string_to_array($4::text, ',')))")
 	} else {
@@ -817,9 +890,9 @@ func canonicalCatalogFacetWhere(exclude string) string {
 	return strings.Join(parts, " AND ")
 }
 
-func (api *CanonicalAPI) loadCanonicalCatalogFacetOptions(ctx context.Context, catalogVersion string, usage questioncatalog.UsageClass, search, formCode, domain, topic, riskBand, sourceGapState, scopeID string, checklistFocus []string, recommendationState, exclude, valueSQL string) ([]generated.CanonicalQuestionCatalogFacetOption, error) {
+func (api *CanonicalAPI) loadCanonicalCatalogFacetOptions(ctx context.Context, catalogVersion string, usage questioncatalog.UsageClass, search, formCode, domain, topic, riskBand, sourceGapState, scopeID string, checklistFocus []string, recommendationState, applicationType, exclude, valueSQL string) ([]generated.CanonicalQuestionCatalogFacetOption, error) {
 	query := `SELECT value, count(*) FROM (` + valueSQL + `) valueset GROUP BY value ORDER BY value LIMIT 200`
-	args := []any{catalogVersion, string(usage), search, formCode, domain, topic, riskBand, sourceGapState, "", scopeID, checklistFocus, recommendationState}
+	args := []any{catalogVersion, string(usage), search, formCode, domain, topic, riskBand, sourceGapState, "", scopeID, checklistFocus, recommendationState, applicationType}
 	rows, err := api.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
@@ -839,29 +912,29 @@ func (api *CanonicalAPI) loadCanonicalCatalogFacetOptions(ctx context.Context, c
 	return options, rows.Err()
 }
 
-func (api *CanonicalAPI) loadCanonicalCatalogFacets(ctx context.Context, catalogVersion string, usage questioncatalog.UsageClass, search, formCode, domain, topic, riskBand, sourceGapState, scopeID string, checklistFocus []string, recommendationState string) (generated.CanonicalQuestionCatalogFacets, error) {
+func (api *CanonicalAPI) loadCanonicalCatalogFacets(ctx context.Context, catalogVersion string, usage questioncatalog.UsageClass, search, formCode, domain, topic, riskBand, sourceGapState, scopeID string, checklistFocus []string, recommendationState, applicationType string) (generated.CanonicalQuestionCatalogFacets, error) {
 	base := `SELECT %s AS value FROM canonical_question_catalogs c JOIN canonical_question_catalog_memberships m ON m.catalog_id=c.id JOIN question_versions q ON q.id=m.question_version_id ` + canonicalCatalogAIProjectionJoins + ` WHERE `
-	forms, err := api.loadCanonicalCatalogFacetOptions(ctx, catalogVersion, usage, search, formCode, domain, topic, riskBand, sourceGapState, scopeID, checklistFocus, recommendationState, "form", strings.Replace(base+canonicalCatalogFacetWhere("form"), "%s", "m.form_code", 1))
+	forms, err := api.loadCanonicalCatalogFacetOptions(ctx, catalogVersion, usage, search, formCode, domain, topic, riskBand, sourceGapState, scopeID, checklistFocus, recommendationState, applicationType, "form", strings.Replace(base+canonicalCatalogFacetWhere("form"), "%s", "m.form_code", 1))
 	if err != nil {
 		return generated.CanonicalQuestionCatalogFacets{}, err
 	}
-	domains, err := api.loadCanonicalCatalogFacetOptions(ctx, catalogVersion, usage, search, formCode, domain, topic, riskBand, sourceGapState, scopeID, checklistFocus, recommendationState, "domain", strings.Replace(base+canonicalCatalogFacetWhere("domain"), "%s", "ai.domain_code", 1))
+	domains, err := api.loadCanonicalCatalogFacetOptions(ctx, catalogVersion, usage, search, formCode, domain, topic, riskBand, sourceGapState, scopeID, checklistFocus, recommendationState, applicationType, "domain", strings.Replace(base+canonicalCatalogFacetWhere("domain"), "%s", "ai.domain_code", 1))
 	if err != nil {
 		return generated.CanonicalQuestionCatalogFacets{}, err
 	}
-	topics, err := api.loadCanonicalCatalogFacetOptions(ctx, catalogVersion, usage, search, formCode, domain, topic, riskBand, sourceGapState, scopeID, checklistFocus, recommendationState, "topic", "SELECT unnest(ai.topic_codes) AS value FROM canonical_question_catalogs c JOIN canonical_question_catalog_memberships m ON m.catalog_id=c.id JOIN question_versions q ON q.id=m.question_version_id "+canonicalCatalogAIProjectionJoins+" WHERE "+canonicalCatalogFacetWhere("topic"))
+	topics, err := api.loadCanonicalCatalogFacetOptions(ctx, catalogVersion, usage, search, formCode, domain, topic, riskBand, sourceGapState, scopeID, checklistFocus, recommendationState, applicationType, "topic", "SELECT unnest(ai.topic_codes) AS value FROM canonical_question_catalogs c JOIN canonical_question_catalog_memberships m ON m.catalog_id=c.id JOIN question_versions q ON q.id=m.question_version_id "+canonicalCatalogAIProjectionJoins+" WHERE "+canonicalCatalogFacetWhere("topic"))
 	if err != nil {
 		return generated.CanonicalQuestionCatalogFacets{}, err
 	}
-	riskTiers, err := api.loadCanonicalCatalogFacetOptions(ctx, catalogVersion, usage, search, formCode, domain, topic, riskBand, sourceGapState, scopeID, checklistFocus, recommendationState, "risk", strings.Replace(base+canonicalCatalogFacetWhere("risk"), "%s", "ai.risk_tier", 1))
+	riskTiers, err := api.loadCanonicalCatalogFacetOptions(ctx, catalogVersion, usage, search, formCode, domain, topic, riskBand, sourceGapState, scopeID, checklistFocus, recommendationState, applicationType, "risk", strings.Replace(base+canonicalCatalogFacetWhere("risk"), "%s", "ai.risk_tier", 1))
 	if err != nil {
 		return generated.CanonicalQuestionCatalogFacets{}, err
 	}
-	focuses, err := api.loadCanonicalCatalogFacetOptions(ctx, catalogVersion, usage, search, formCode, domain, topic, riskBand, sourceGapState, scopeID, checklistFocus, recommendationState, "focus", "SELECT unnest(ai.inspection_type_codes) AS value FROM canonical_question_catalogs c JOIN canonical_question_catalog_memberships m ON m.catalog_id=c.id JOIN question_versions q ON q.id=m.question_version_id "+canonicalCatalogAIProjectionJoins+" WHERE "+canonicalCatalogFacetWhere("focus"))
+	focuses, err := api.loadCanonicalCatalogFacetOptions(ctx, catalogVersion, usage, search, formCode, domain, topic, riskBand, sourceGapState, scopeID, checklistFocus, recommendationState, applicationType, "focus", "SELECT unnest(ai.inspection_type_codes) AS value FROM canonical_question_catalogs c JOIN canonical_question_catalog_memberships m ON m.catalog_id=c.id JOIN question_versions q ON q.id=m.question_version_id "+canonicalCatalogAIProjectionJoins+" WHERE "+canonicalCatalogFacetWhere("focus"))
 	if err != nil {
 		return generated.CanonicalQuestionCatalogFacets{}, err
 	}
-	recommendations, err := api.loadCanonicalCatalogFacetOptions(ctx, catalogVersion, usage, search, formCode, domain, topic, riskBand, sourceGapState, scopeID, checklistFocus, recommendationState, "recommendation", "SELECT recommendation.recommendation_state AS value FROM canonical_question_catalogs c JOIN canonical_question_catalog_memberships m ON m.catalog_id=c.id JOIN question_versions q ON q.id=m.question_version_id "+canonicalCatalogAIProjectionJoins+" WHERE "+canonicalCatalogFacetWhere("recommendation"))
+	recommendations, err := api.loadCanonicalCatalogFacetOptions(ctx, catalogVersion, usage, search, formCode, domain, topic, riskBand, sourceGapState, scopeID, checklistFocus, recommendationState, applicationType, "recommendation", "SELECT recommendation.recommendation_state AS value FROM canonical_question_catalogs c JOIN canonical_question_catalog_memberships m ON m.catalog_id=c.id JOIN question_versions q ON q.id=m.question_version_id "+canonicalCatalogAIProjectionJoins+" WHERE "+canonicalCatalogFacetWhere("recommendation"))
 	if err != nil {
 		return generated.CanonicalQuestionCatalogFacets{}, err
 	}
@@ -897,6 +970,26 @@ func (api *CanonicalAPI) getCanonicalQuestionCatalogEntry(writer http.ResponseWr
 	var advisorySafetyCritical, advisoryUnresolved bool
 	var advisoryRecurrence int64
 	var previouslyVerifiedAt, recurrenceDueAt *string
+	applicationType, err := parseCanonicalExecutionType(request.URL.Query().Get("applicationType"))
+	if err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
+	if applicationType != "" && scopeID != "" {
+		var scopeAuditType string
+		if err := api.pool.QueryRow(request.Context(), `SELECT audit_type FROM canonical_audit_scope_drafts WHERE id = $1 AND status = 'DRAFT'`, scopeID).Scan(&scopeAuditType); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				api.respond(writer, nil, application.ErrNotFound)
+				return
+			}
+			api.respond(writer, nil, err)
+			return
+		}
+		if scopeAuditType != applicationType {
+			api.respond(writer, nil, fmt.Errorf("%w: application type does not match the selected scope draft", application.ErrConflict))
+			return
+		}
+	}
 	err = api.pool.QueryRow(request.Context(), `
 		SELECT c.catalog_version,c.usage_class,m.question_version_id,m.form_code,m.proposal_id,m.ordinal,m.question_digest,
 		       COALESCE(m.source_locator,''),m.source_gap_state,ai.domain_code,COALESCE(array_to_string(ai.topic_codes, ','),''),'',
@@ -904,12 +997,127 @@ func (api *CanonicalAPI) getCanonicalQuestionCatalogEntry(writer http.ResponseWr
 		       NULL::text,NULL::bigint,NULL::text,NULL::text,
 		       0::bigint,NULL::text,NULL::text,NULL::text,NULL::text,
 		       ai.domain_code,ai.topic_codes,ai.inspection_type_codes,ai.inspection_profile_codes,ai.applicability_disposition,
-		       ai.risk_tier,ai.safety_critical,ai.agreement_confidence,ai.default_recommendation_bucket,
-		       ARRAY['ARTIFACT_DEFAULT']::text[],ai.recurrence_months,NULL::text,NULL::text,ai.external_applicability_unresolved
+		       ai.risk_tier,ai.safety_critical,ai.agreement_confidence,
+		       CASE
+		         WHEN active_scope.id IS NULL THEN ai.default_recommendation_bucket
+		         WHEN history.has_open_work THEN 'SUGGESTED_NOW'
+		         WHEN ai.risk_tier IN ('HIGH', 'UNKNOWN') THEN 'SUGGESTED_NOW'
+		         WHEN NOT canonical_audit_type_matches_question_focus(active_scope.audit_type, ai.inspection_type_codes) THEN 'OUTSIDE_FOCUS'
+		         WHEN history.last_verified_at IS NOT NULL
+		           AND history.last_verified_at >= CURRENT_TIMESTAMP - make_interval(months => ai.recurrence_months) THEN 'RECENTLY_VERIFIED'
+		         WHEN history.last_verified_at IS NOT NULL
+		           AND history.last_verified_at < CURRENT_TIMESTAMP - make_interval(months => ai.recurrence_months) THEN 'SUGGESTED_NOW'
+		         ELSE ai.default_recommendation_bucket
+		       END,
+		       array_remove(ARRAY[
+		         CASE WHEN history.has_open_work THEN 'OPEN_WORK' END,
+		         CASE WHEN ai.risk_tier IN ('HIGH', 'UNKNOWN') THEN 'HIGH_OR_UNKNOWN_RISK' END,
+		         CASE WHEN history.last_verified_at IS NOT NULL
+		                    AND history.last_verified_at >= CURRENT_TIMESTAMP - make_interval(months => ai.recurrence_months)
+		              THEN 'RECENT_FINAL_VERIFICATION' END,
+		         CASE WHEN history.last_verified_at IS NOT NULL
+		                    AND history.last_verified_at < CURRENT_TIMESTAMP - make_interval(months => ai.recurrence_months)
+		              THEN 'RECURRENCE_DUE' END,
+		         CASE WHEN canonical_audit_type_matches_question_focus(active_scope.audit_type, ai.inspection_type_codes)
+		              THEN 'AUDIT_TYPE_FOCUS_MATCH' END,
+		         CASE WHEN NOT canonical_audit_type_matches_question_focus(active_scope.audit_type, ai.inspection_type_codes)
+		              THEN 'OUTSIDE_AUDIT_TYPE_FOCUS' END,
+		         CASE WHEN ai.external_applicability_unresolved THEN 'SOURCE_CONTEXT_INCOMPLETE' END
+	       ], NULL)::text[],ai.recurrence_months,
+		       to_char(history.last_verified_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+		       CASE WHEN history.last_verified_at IS NULL THEN NULL ELSE to_char((history.last_verified_at + make_interval(months => ai.recurrence_months)) AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') END,
+		       ai.external_applicability_unresolved
 		FROM canonical_question_catalogs c
 		JOIN canonical_question_catalog_memberships m ON m.catalog_id=c.id
 		JOIN question_versions q ON q.id=m.question_version_id
 		JOIN canonical_question_catalog_ai_enrichments ai ON ai.catalog_id=m.catalog_id AND ai.question_version_id=m.question_version_id
+		LEFT JOIN canonical_audit_scope_drafts active_scope ON active_scope.id = $4
+		LEFT JOIN LATERAL (
+		  SELECT
+		    COALESCE(bool_or(
+		      EXISTS (
+		        SELECT 1 FROM potential_findings potential
+		        WHERE potential.inspection_id = prior_report.inspection_id
+		          AND potential.question_id = q.question_id
+		          AND (COALESCE(potential.status, '') IN ('PENDING_LEAD_REVIEW', 'RETURNED')
+		            OR (COALESCE(potential.status, '') = 'CONVERTED' AND potential.converted_finding_id IS NULL))
+		      )
+		      OR EXISTS (
+		        SELECT 1
+		        FROM findings finding
+		        JOIN potential_findings potential ON potential.id = finding.potential_finding_id
+		        WHERE finding.inspection_id = prior_report.inspection_id
+		          AND potential.question_id = q.question_id
+		          AND COALESCE(finding.status, '') <> 'CLOSED'
+		      )
+		      OR EXISTS (
+		        SELECT 1
+		        FROM evidence_versions evidence
+		        JOIN findings finding ON finding.id = evidence.finding_id
+		        JOIN potential_findings potential ON potential.id = finding.potential_finding_id
+		        LEFT JOIN evidence_version_states evidence_state ON evidence_state.evidence_version_id = evidence.id
+		        WHERE finding.inspection_id = prior_report.inspection_id
+		          AND potential.question_id = q.question_id
+		          AND evidence.version = (SELECT max(latest.version) FROM evidence_versions latest WHERE latest.evidence_id = evidence.evidence_id)
+		          AND (COALESCE(evidence_state.scan_state, '') <> 'CLEAN'
+		            OR COALESCE(evidence_state.review_state, '') NOT IN ('PENDING_CAA_REVIEW', 'ACCEPTED'))
+		      )
+		    ), false) AS has_open_work,
+		    max(prior_state.issued_at) FILTER (
+		      WHERE prior_report.snapshot->>'kind' = 'FINAL'
+		        AND prior_state.status = 'LOCKED'
+		        AND prior_state.issued_at IS NOT NULL
+		        AND NOT EXISTS (
+		          SELECT 1 FROM potential_findings potential
+		          WHERE potential.inspection_id = prior_report.inspection_id
+		            AND potential.question_id = q.question_id
+		            AND (COALESCE(potential.status, '') IN ('PENDING_LEAD_REVIEW', 'RETURNED')
+		              OR (COALESCE(potential.status, '') = 'CONVERTED' AND potential.converted_finding_id IS NULL))
+		        )
+		        AND NOT EXISTS (
+		          SELECT 1
+		          FROM findings finding
+		          JOIN potential_findings potential ON potential.id = finding.potential_finding_id
+		          WHERE finding.inspection_id = prior_report.inspection_id
+		            AND potential.question_id = q.question_id
+		            AND COALESCE(finding.status, '') <> 'CLOSED'
+		        )
+		        AND NOT EXISTS (
+		          SELECT 1
+		          FROM evidence_versions evidence
+		          JOIN findings finding ON finding.id = evidence.finding_id
+		          JOIN potential_findings potential ON potential.id = finding.potential_finding_id
+		          LEFT JOIN evidence_version_states evidence_state ON evidence_state.evidence_version_id = evidence.id
+		          WHERE finding.inspection_id = prior_report.inspection_id
+		            AND potential.question_id = q.question_id
+		            AND evidence.version = (SELECT max(latest.version) FROM evidence_versions latest WHERE latest.evidence_id = evidence.evidence_id)
+		            AND (COALESCE(evidence_state.scan_state, '') <> 'CLEAN'
+		              OR COALESCE(evidence_state.review_state, '') NOT IN ('PENDING_CAA_REVIEW', 'ACCEPTED'))
+		        )
+		        AND EXISTS (
+		          SELECT 1 FROM checklist_responses response
+		          WHERE response.inspection_id = prior_report.inspection_id
+		            AND response.question_id = q.question_id
+		            AND response.response_value IN ('COMPLIANT', 'NOT_APPLICABLE')
+		            AND NOT EXISTS (
+		              SELECT 1 FROM potential_findings response_potential
+		              WHERE response_potential.checklist_response_id = response.id
+		                AND COALESCE(response_potential.status, '') <> 'DISMISSED'
+		            )
+		        )
+		    ) AS last_verified_at
+		  FROM inspection_packages prior_package
+		  JOIN canonical_audit_scope_snapshots prior_snapshot ON prior_snapshot.id = prior_package.canonical_scope_snapshot_id
+		  JOIN canonical_audit_scope_drafts prior_scope ON prior_scope.id = prior_snapshot.scope_draft_id
+		  JOIN canonical_audit_scope_snapshot_questions prior_question ON prior_question.snapshot_id = prior_snapshot.id AND prior_question.question_version_id = m.question_version_id
+		  JOIN report_versions prior_report ON prior_report.inspection_id = prior_package.inspection_id
+		  JOIN report_approval_states prior_state ON prior_state.report_version_id = prior_report.id
+		  WHERE active_scope.id IS NOT NULL
+		    AND prior_scope.organization_id = active_scope.organization_id
+		    AND prior_scope.provider_scope_id = active_scope.provider_scope_id
+		    AND prior_scope.regulated_target_id = active_scope.regulated_target_id
+		    AND prior_scope.audit_type = active_scope.audit_type
+		) history ON TRUE
 		WHERE c.catalog_version=$1 AND c.usage_class=$2 AND c.status='SEALED'
 		  AND c.source_origin='IMPORTED_APPROVED_SOURCE'
 		  AND m.question_version_id=$3

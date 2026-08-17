@@ -105,11 +105,28 @@ func TestCanonicalCatalogFacetWhereTypesEveryPreparedParameter(t *testing.T) {
 	for _, exclude := range []string{"form", "domain", "topic", "risk", "focus", "recommendation"} {
 		query := canonicalCatalogFacetWhere(exclude)
 		for _, placeholder := range []string{
-			"$1::text", "$2::text", "$3::text", "$4::text", "$5::text", "$6::text", "$7::text", "$8::text", "$9::text", "$10::text", "$11::text[]", "$12::text",
+				"$1::text", "$2::text", "$3::text", "$4::text", "$5::text", "$6::text", "$7::text", "$8::text", "$9::text", "$10::text", "$11::text[]", "$12::text", "$13::text",
 		} {
 			if !strings.Contains(query, placeholder) {
 				t.Fatalf("facet query for excluded %s does not type %s: %s", exclude, placeholder, query)
 			}
 		}
+	}
+}
+
+func TestCanonicalExecutionTypeQueryParsingAndProviderBinding(t *testing.T) {
+	for value, want := range map[string]string{
+		"RAMP": "RAMP_INSPECTION", "CABIN": "CABIN_INSPECTION",
+		"RAMP_INSPECTION": "RAMP_INSPECTION", "CABIN_INSPECTION": "CABIN_INSPECTION",
+	} {
+		if got, err := parseCanonicalExecutionType(value); err != nil || got != want {
+			t.Fatalf("parseCanonicalExecutionType(%q) = %q, %v; want %q", value, got, err, want)
+		}
+	}
+	if got, err := parseCanonicalExecutionType(""); err != nil || got != "" {
+		t.Fatalf("empty application type = %q, %v", got, err)
+	}
+	if _, err := parseCanonicalExecutionType("UNAUTHORIZED_TYPE"); err == nil {
+		t.Fatal("unsupported application type was accepted")
 	}
 }

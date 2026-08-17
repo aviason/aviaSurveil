@@ -23,7 +23,22 @@ func TestOIDCLoginStateSecurityMigrationContainsBrowserBoundAdmission(t *testing
 			t.Errorf("login-state security migration missing %q", required)
 		}
 	}
-	if LatestVersion != 48 {
-		t.Fatalf("latest API migration = %d, want 48", LatestVersion)
+	if LatestVersion != 49 {
+		t.Fatalf("latest API migration = %d, want 49", LatestVersion)
+	}
+	focusMigration, err := migrationFiles.ReadFile("000049_canonical_audit_type_focus_policy.up.sql")
+	if err != nil {
+		t.Fatalf("read audit-type focus migration: %v", err)
+	}
+	for _, required := range []string{
+		"canonical_audit_type_matches_question_focus",
+		"RAMP_INSPECTION",
+		"CABIN_INSPECTION",
+		"PERIODIC_SURVEILLANCE",
+		"IMMUTABLE",
+	} {
+		if !strings.Contains(strings.ToUpper(string(focusMigration)), strings.ToUpper(required)) {
+			t.Errorf("audit-type focus migration missing %q", required)
+		}
 	}
 }

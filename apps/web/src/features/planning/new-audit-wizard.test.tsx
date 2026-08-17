@@ -36,12 +36,17 @@ function renderWizardRoute(path: string, runtime: MockRuntime = createMockBacken
 }
 
 async function selectFirstAuthorizedScope(user: ReturnType<typeof userEvent.setup>) {
-  const select = await screen.findByRole("combobox", { name: "Organization, provider scope, and regulated target" });
-  await waitFor(() => expect(select).toBeEnabled());
-  await waitFor(() => expect(select.querySelectorAll("option").length).toBeGreaterThan(1));
-  const option = select.querySelectorAll("option")[1] as HTMLOptionElement | undefined;
-  if (!option?.value) throw new Error("Expected an authorized scope option");
-  await user.selectOptions(select, option.value);
+  const supplier = await screen.findByRole("combobox", { name: "Supplier / organization" });
+  await waitFor(() => expect(supplier).toBeEnabled());
+  const supplierValue = (supplier.querySelector("option") as HTMLOptionElement | null)?.value;
+  if (!supplierValue) throw new Error("Expected an authorized supplier option");
+  await user.selectOptions(supplier, supplierValue);
+  await waitFor(() => expect(screen.getByRole("combobox", { name: "Provider scope" })).toBeEnabled());
+  const provider = screen.getByRole("combobox", { name: "Provider scope" });
+  await user.selectOptions(provider, (provider.querySelector("option") as HTMLOptionElement).value);
+  const target = screen.getByRole("combobox", { name: "Regulated target" });
+  await user.selectOptions(target, (target.querySelector("option") as HTMLOptionElement).value);
+  await user.click(screen.getByRole("button", { name: "Open audit setup for this supplier" }));
   return screen.findByTestId("new-audit-wizard-page");
 }
 
@@ -101,6 +106,43 @@ describe("New Inspection Planning intake", () => {
     await expect(runtime.backendForRole("auditee").planningIntake.getDraft({ draftId: "PLAN-DRAFT-2026-001" })).rejects.toThrow(
       /unavailable to this role|Department Manager/i,
     );
+  });
+
+  it("keeps supplier, provider scope, regulated target, and selected audit type visible in the Manager draft", async () => {
+    const runtime = createMockBackendRuntime();
+    const manager = runtime.backendForRole("manager");
+    const catalog = manager.canonicalCatalog;
+    if (!catalog) throw new Error("Canonical catalog is required for this test");
+    const listCatalog = vi.spyOn(catalog, "listCatalog");
+    const saveDraft = vi.spyOn(manager.planningIntake, "saveDraft");
+    const user = userEvent.setup();
+    renderWizardRoute("/department-manager/new-audit/step-1", runtime);
+    await selectFirstAuthorizedScope(user);
+
+    expect(screen.getByLabelText("Supplier / organization")).toHaveValue("ORG-FLY-NAMIBIA");
+    expect(screen.getByLabelText("Provider scope")).toHaveValue("SCOPE-OPS-AOC-SOURCE-BOUND");
+    expect(screen.getByLabelText("Regulated target")).toHaveValue("TARGET-OPS-AOC-SOURCE-BOUND");
+    const applicationType = screen.getByLabelText("Application Type");
+    expect(applicationType).toBeEnabled();
+    await user.selectOptions(applicationType, "CABIN_INSPECTION");
+    expect(applicationType).toHaveValue("CABIN_INSPECTION");
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByRole("heading", { level: 2, name: /Step 2 of 5/ });
+    expect(saveDraft.mock.calls.at(-1)?.[0].values.applicationType).toBe("CABIN_INSPECTION");
+    const purpose = await screen.findByLabelText("Purpose");
+    await user.type(purpose, "Cabin-focused type selection contract");
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByRole("heading", { level: 2, name: /Step 3 of 5/ });
+    await user.type(await screen.findByLabelText("Planned Date"), "2026-12-10");
+    await user.type(await screen.findByLabelText("Location"), "Fly Namibia HQ");
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByRole("heading", { level: 2, name: /Step 4 of 5/ });
+    expect(await screen.findByLabelText("New Audit question search")).toBeVisible();
+
+    await waitFor(() => {
+      const catalogCalls = listCatalog.mock.calls.map(([input]) => input.applicationType);
+      expect(catalogCalls).toContain("CABIN_INSPECTION");
+    });
   });
 
   it("validates required prior-step data without losing the draft", async () => {

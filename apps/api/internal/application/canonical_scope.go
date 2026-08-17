@@ -8,6 +8,7 @@ import (
 	"github.com/aviason/aviaSurveil/internal/identity"
 	"github.com/aviason/aviaSurveil/internal/questioncatalog"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // CanonicalScopeFacts is the server-owned identity and selection pin for a
@@ -26,19 +27,55 @@ type CanonicalScopeFacts struct {
 	AuditType         string
 }
 
-var canonicalAuditTypes = map[string]struct{}{
-	"RAMP": {}, "CABIN": {}, "RAMP_INSPECTION": {}, "CABIN_INSPECTION": {},
+var canonicalAuditTypes = map[string]string{
+	"RAMP":             "RAMP_INSPECTION",
+	"RAMP_INSPECTION":  "RAMP_INSPECTION",
+	"CABIN":            "CABIN_INSPECTION",
+	"CABIN_INSPECTION": "CABIN_INSPECTION",
+}
+
+// CanonicalExecutionType normalizes the two UI aliases to the immutable
+// execution names persisted in scope drafts and used for recurrence history.
+// Keeping this boundary server-owned prevents RAMP and RAMP_INSPECTION from
+// becoming two unrelated history partitions.
+func CanonicalExecutionType(value string) (string, error) {
+	canonical, ok := canonicalAuditTypes[strings.ToUpper(strings.TrimSpace(value))]
+	if !ok {
+		return "", fmt.Errorf("%w: unsupported exact inspection type %q", ErrInvalid, value)
+	}
+	return canonical, nil
 }
 
 func validateCanonicalAuditType(value string) error {
-	if _, ok := canonicalAuditTypes[strings.TrimSpace(value)]; !ok {
-		return fmt.Errorf("%w: unsupported exact inspection type %q", ErrInvalid, value)
+	_, err := CanonicalExecutionType(value)
+	return err
+}
+
+// canonicalAuditTypeAllowedForProvider keeps the execution type bound to the
+// server-owned provider scope. The approved AGA demo scope is an aerodrome
+// scope and therefore exposes only ramp inspection. Air Operator scopes may
+// expose both operational variants; the AI enrichment's semantic focus codes
+// remain advisory and are not reinterpreted as execution types here.
+func canonicalAuditTypeAllowedForProvider(providerTypeID, auditType string) bool {
+	canonical, err := CanonicalExecutionType(auditType)
+	if err != nil {
+		return false
 	}
-	return nil
+	switch strings.TrimSpace(providerTypeID) {
+	case "AIR_OPERATOR":
+		return canonical == "RAMP_INSPECTION" || canonical == "CABIN_INSPECTION"
+	case "AERODROME_OPERATOR":
+		return canonical == "RAMP_INSPECTION"
+	default:
+		// Unknown and unrelated provider types must not inherit an AGA
+		// execution policy by default.
+		return false
+	}
 }
 
 type canonicalQueryRow interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
 }
 
 func numberValue(value any) float64 {
@@ -85,6 +122,9 @@ func NormalizeCanonicalPlanningValues(values map[string]any, draftID string) map
 			copy[key] = stringValue(value)
 		}
 	}
+	if canonical, err := CanonicalExecutionType(stringValue(copy["applicationType"])); err == nil {
+		copy["applicationType"] = canonical
+	}
 	if stringValue(copy["catalogVersion"]) != "" && stringValue(copy["scopeDraftId"]) == "" && strings.TrimSpace(draftID) != "" {
 		copy["scopeDraftId"] = "scope-draft-" + strings.TrimSpace(draftID)
 	}
@@ -111,8 +151,8 @@ func ValidateCanonicalScopeMap(
 	if catalogVersion == "" || providerScopeID == "" || regulatedTargetID == "" {
 		return CanonicalScopeFacts{}, fmt.Errorf("%w: catalog, provider scope, and regulated target are required", ErrInvalid)
 	}
-	auditType := strings.TrimSpace(stringValue(values["applicationType"]))
-	if err := validateCanonicalAuditType(auditType); err != nil {
+	auditType, err := CanonicalExecutionType(stringValue(values["applicationType"]))
+	if err != nil {
 		return CanonicalScopeFacts{}, err
 	}
 	var facts CanonicalScopeFacts
@@ -141,9 +181,10 @@ func ValidateCanonicalScopeMap(
 	if sourceOrigin != string(questioncatalog.SourceOriginImportedApproved) || strings.TrimSpace(facts.CatalogRootDigest) == "" {
 		return CanonicalScopeFacts{}, fmt.Errorf("%w: catalog source is not the approved Aviation source", ErrForbidden)
 	}
-	var organizationID, targetOrganizationID, scopeStatus string
+	var organizationID, targetOrganizationID, scopeStatus, providerTypeID string
 	if err := tx.QueryRow(ctx, `
-		SELECT scope.organization_id, COALESCE(target.organization_id, target.owner_organization_id), scope.status
+		SELECT scope.organization_id, COALESCE(target.organization_id, target.owner_organization_id), scope.status,
+		       scope.service_provider_type_id
 		FROM (
 			SELECT DISTINCT ON (root_id) *
 			FROM organization_service_provider_scopes
@@ -159,7 +200,7 @@ func ValidateCanonicalScopeMap(
 			WHERE linked.organization_service_provider_scope_id = scope.id
 			  AND linked.regulated_target_id = target.id
 		  ))
-	`, providerScopeID, regulatedTargetID).Scan(&organizationID, &targetOrganizationID, &scopeStatus); err != nil {
+	`, providerScopeID, regulatedTargetID).Scan(&organizationID, &targetOrganizationID, &scopeStatus, &providerTypeID); err != nil {
 		if err == pgx.ErrNoRows {
 			return CanonicalScopeFacts{}, fmt.Errorf("%w: provider scope and target are not a compatible server-authorized pair", ErrForbidden)
 		}
@@ -167,6 +208,9 @@ func ValidateCanonicalScopeMap(
 	}
 	if scopeStatus != "ACTIVE" || (strings.TrimSpace(targetOrganizationID) != "" && targetOrganizationID != organizationID) {
 		return CanonicalScopeFacts{}, fmt.Errorf("%w: provider scope is not active for the regulated target", ErrForbidden)
+	}
+	if !canonicalAuditTypeAllowedForProvider(providerTypeID, auditType) {
+		return CanonicalScopeFacts{}, fmt.Errorf("%w: audit type %q is not authorized for provider scope %q", ErrForbidden, auditType, providerScopeID)
 	}
 	if !actor.HasRole(identity.RoleDepartmentManager) {
 		return CanonicalScopeFacts{}, fmt.Errorf("%w: Department Manager authority is required", ErrForbidden)
@@ -287,23 +331,35 @@ func ValidateCanonicalScopeDraft(ctx context.Context, tx canonicalQueryRow, draf
 	if facts.ScopeID == "" {
 		return nil
 	}
-	var catalogID, version, rootDigest, usage, providerScopeID, targetID, digest, auditType string
+	var catalogID, version, rootDigest, usage, providerScopeID, targetID, digest, auditType, scopeStatus string
 	var count int
 	if err := tx.QueryRow(ctx, `
 		SELECT scope.catalog_id, catalog.catalog_version, scope.catalog_root_digest, scope.usage_class,
 		       scope.provider_scope_id, scope.regulated_target_id,
-		       scope.selected_question_count, scope.selection_digest, scope.audit_type
+		       scope.selected_question_count, scope.selection_digest, scope.audit_type, scope.status
 		FROM canonical_audit_scope_drafts scope
 		JOIN canonical_question_catalogs catalog ON catalog.id = scope.catalog_id
 		WHERE scope.id = $1 AND scope.planning_intake_draft_id = $2 FOR UPDATE
-	`, facts.ScopeID, draftID).Scan(&catalogID, &version, &rootDigest, &usage, &providerScopeID, &targetID, &count, &digest, &auditType); err != nil {
+	`, facts.ScopeID, draftID).Scan(&catalogID, &version, &rootDigest, &usage, &providerScopeID, &targetID, &count, &digest, &auditType, &scopeStatus); err != nil {
 		if err == pgx.ErrNoRows {
 			return ErrConflict
 		}
 		return err
 	}
-	if catalogID != facts.CatalogID || version != facts.CatalogVersion || rootDigest != facts.CatalogRootDigest || usage != facts.UsageClass || providerScopeID != facts.ProviderScopeID || targetID != facts.RegulatedTargetID || auditType != facts.AuditType {
+	if catalogID != facts.CatalogID || version != facts.CatalogVersion || rootDigest != facts.CatalogRootDigest || usage != facts.UsageClass || providerScopeID != facts.ProviderScopeID || targetID != facts.RegulatedTargetID {
 		return fmt.Errorf("%w: canonical scope identity changed", ErrConflict)
+	}
+	if auditType != facts.AuditType {
+		if scopeStatus != "DRAFT" || count != 0 || digest != "" {
+			return fmt.Errorf("%w: audit type can change only before exact question selection is committed", ErrConflict)
+		}
+		if _, err := tx.Exec(ctx, `
+			UPDATE canonical_audit_scope_drafts
+			SET audit_type = $2, updated_at = CURRENT_TIMESTAMP
+			WHERE id = $1 AND planning_intake_draft_id = $3 AND status = 'DRAFT'
+		`, facts.ScopeID, facts.AuditType, draftID); err != nil {
+			return err
+		}
 	}
 	if count != facts.SelectedCount ||
 		(facts.SelectedCount > 0 && digest != facts.SelectionDigest) ||

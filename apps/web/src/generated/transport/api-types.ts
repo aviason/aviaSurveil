@@ -9508,6 +9508,8 @@ export interface operations {
                 selected?: "all" | "selected" | "unselected";
                 /** @description Required and owned by the current Department Manager for operational catalog selection or review. */
                 scopeId?: string;
+                /** @description The exact server-authorized application type on the selected scope draft; deterministic recommendations and prior-audit history are evaluated within this type. */
+                applicationType?: "RAMP" | "CABIN" | "RAMP_INSPECTION" | "CABIN_INSPECTION";
                 usageClass: components["schemas"]["QuestionUsageClass"];
                 cursor?: components["parameters"]["Cursor"];
                 limit?: components["parameters"]["Limit"];
@@ -9569,6 +9571,8 @@ export interface operations {
                 usageClass: components["schemas"]["QuestionUsageClass"];
                 /** @description Required and must be owned by the current Department Manager for the selected operational scope. */
                 scopeId?: string;
+                /** @description The canonical application type of the selected scope draft; used for the live recommendation projection. */
+                applicationType?: string;
             };
             header?: never;
             path: {

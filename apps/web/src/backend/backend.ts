@@ -1528,6 +1528,7 @@ export interface PlanningIntakeBackend {
 }
 
 export type CanonicalQuestionUsageClass = "GOVERNED_OPERATIONAL";
+export type CanonicalApplicationType = "RAMP" | "CABIN" | "RAMP_INSPECTION" | "CABIN_INSPECTION";
 
 export interface CanonicalAuditScopeOption {
   organizationId: string;
@@ -1540,7 +1541,7 @@ export interface CanonicalAuditScopeOption {
   targetLabel: string;
   catalogVersion: string;
   usageClass: CanonicalQuestionUsageClass;
-  inspectionTypes: Array<"RAMP" | "CABIN" | "RAMP_INSPECTION" | "CABIN_INSPECTION">;
+  inspectionTypes: CanonicalApplicationType[];
 }
 
 export interface CanonicalAuditScopeOptionPage {
@@ -1612,8 +1613,8 @@ export interface CanonicalSelectionReceipt {
 
 export interface CanonicalCatalogBackend {
   listScopeOptions(input?: { cursor?: string; limit?: number; catalogVersion?: string; usageClass?: CanonicalQuestionUsageClass; forReview?: boolean }, options?: BackendRequestOptions): Promise<CanonicalAuditScopeOptionPage>;
-  listCatalog(input: { catalogVersion: string; usageClass: CanonicalQuestionUsageClass; search?: string; formCode?: string | string[]; domain?: string | string[]; topic?: string | string[]; riskBand?: string | string[]; sourceGapState?: string; checklistFocus?: string[]; recommendationState?: string; selected?: "all" | "selected" | "unselected"; scopeId?: string; cursor?: string; limit?: number }, options?: BackendRequestOptions): Promise<CanonicalQuestionCatalogPage>;
-  getQuestion(input: { catalogVersion: string; usageClass: CanonicalQuestionUsageClass; questionVersionId: string; scopeId?: string }, options?: BackendRequestOptions): Promise<CanonicalQuestionCatalogEntry>;
+  listCatalog(input: { catalogVersion: string; usageClass: CanonicalQuestionUsageClass; search?: string; formCode?: string | string[]; domain?: string | string[]; topic?: string | string[]; riskBand?: string | string[]; sourceGapState?: string; checklistFocus?: string[]; recommendationState?: string; selected?: "all" | "selected" | "unselected"; scopeId?: string; applicationType?: CanonicalApplicationType; cursor?: string; limit?: number }, options?: BackendRequestOptions): Promise<CanonicalQuestionCatalogPage>;
+  getQuestion(input: { catalogVersion: string; usageClass: CanonicalQuestionUsageClass; questionVersionId: string; scopeId?: string; applicationType?: CanonicalApplicationType }, options?: BackendRequestOptions): Promise<CanonicalQuestionCatalogEntry>;
   previewSelection(input: { scopeId: string; operationId: string; idempotencyKey?: string; expectedSelectionDigest: string; questionVersionIds: string[]; operationKind?: "ADD" | "REMOVE" | "REPLACE"; usageClass: CanonicalQuestionUsageClass; filter?: Record<string, never> }, options?: BackendRequestOptions): Promise<CanonicalSelectionPreview>;
   commitSelection(input: { scopeId: string; operationId: string; previewOperationId: string; idempotencyKey?: string; expectedSelectionDigest: string; questionVersionIds: string[]; operationKind?: "ADD" | "REMOVE" | "REPLACE"; usageClass: CanonicalQuestionUsageClass; filter?: Record<string, never> }, options?: BackendRequestOptions): Promise<CanonicalSelectionReceipt>;
 }

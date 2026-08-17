@@ -250,6 +250,7 @@
         { "name": "sourceGapState", "in": "query", "schema": { "type": "string", "maxLength": 80 } },
         { "name": "selected", "in": "query", "schema": { "type": "string", "enum": ["all", "selected", "unselected"] } },
         { "name": "scopeId", "in": "query", "description": "Required and owned by the current Department Manager for operational catalog selection or review.", "schema": { "type": "string", "maxLength": 120 } },
+        { "name": "applicationType", "in": "query", "description": "The exact server-authorized application type on the selected scope draft; deterministic recommendations and prior-audit history are evaluated within this type.", "schema": { "type": "string", "enum": ["RAMP", "CABIN", "RAMP_INSPECTION", "CABIN_INSPECTION"] } },
         { "name": "usageClass", "in": "query", "required": true, "schema": { "$ref": "#/components/schemas/QuestionUsageClass" } },
         { "$ref": "#/components/parameters/Cursor" },
         { "$ref": "#/components/parameters/Limit" }
@@ -277,7 +278,8 @@
         { "name": "catalogVersion", "in": "path", "required": true, "schema": { "type": "string" } },
         { "name": "questionVersionId", "in": "path", "required": true, "schema": { "type": "string" } },
         { "name": "usageClass", "in": "query", "required": true, "schema": { "$ref": "#/components/schemas/QuestionUsageClass" } },
-        { "name": "scopeId", "in": "query", "description": "Required and must be owned by the current Department Manager for the selected operational scope.", "schema": { "type": "string" } }
+        { "name": "scopeId", "in": "query", "description": "Required and must be owned by the current Department Manager for the selected operational scope.", "schema": { "type": "string" } },
+        { "name": "applicationType", "in": "query", "description": "The canonical application type of the selected scope draft; used for the live recommendation projection.", "schema": { "type": "string" } }
       ],
       "responses": { "200": { "description": "Exact canonical catalog entry", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CanonicalQuestionCatalogEntry" } } } } }
     }

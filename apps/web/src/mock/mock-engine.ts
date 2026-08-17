@@ -3095,7 +3095,7 @@ export class MockBackendEngine implements DemoBackend {
         targetLabel: "Fly Namibia regulated target",
         catalogVersion,
         usageClass,
-        inspectionTypes: ["RAMP_INSPECTION", "CABIN_INSPECTION", "RAMP", "CABIN"],
+        inspectionTypes: ["RAMP_INSPECTION", "CABIN_INSPECTION"],
       };
       return { items: [option], nextCursor: null };
     },

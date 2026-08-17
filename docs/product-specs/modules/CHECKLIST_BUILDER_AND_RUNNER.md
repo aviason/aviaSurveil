@@ -34,12 +34,17 @@ Create reusable checklists and let inspectors execute them.
 - `question_versions` is the single immutable question body/version authority;
   catalog membership and import lineage may reference it but never copy or
   mutate its body.
-- A governed operational checklist can use only separately published,
-  package-eligible versions. `PREPROD_EXERCISE` questions are confined to a
-  dedicated disposable preprod profile and cannot be promoted or published.
-- Question Review has explicit governed and exercise command boundaries. The
-  exercise boundary records review/classification facts only and cannot invoke
-  technical approval or publication.
+- The approved AGA catalog is directly usable after deterministic technical
+  integrity/provenance validation. Its source manifest is not a human approval,
+  technical approval, or publication gate.
+- The approved AGA import preserves all 1,310 immutable question versions.
+  Optional risk, regulatory, and historical-review enrichments are advisory
+  metadata and never block catalog use or appear as approved conclusions when
+  absent.
+- A new Audit does not preselect the catalog. The Department Manager selects a
+  valid immutable subset from the complete catalog; the selected question
+  IDs/versions and catalog root digest are frozen only in that Audit's scope
+  snapshot.
 - Non-Compliant or Observation plus a required comment can create an
   audit-scoped Potential Finding for Lead Inspector review
 - Only Lead conversion creates the canonical Finding
@@ -50,20 +55,19 @@ Create reusable checklists and let inspectors execute them.
   command. Before start, responses, Potential Findings, execution-package
   access, offline execution grants/sync, and execution events fail closed.
 
-## Governed AGA checklist-intake contract (candidate-only)
+## Approved AGA catalog intake contract
 
-The governed lifecycle is `EXISTING_CHECKLIST_CANDIDATE` or
-`REGULATORY_TRACE` intake, optional `HYBRID_RECONCILED` Draft revision,
-source-authority acceptance, candidate mapping attestation, Department Manager
-technical approval, separate Department Manager publication, and separately
-computed Audit-package eligibility. Each fact is immutable and append-only.
+The loader accepts the Aviation-supplied AGA forms as
+`IMPORTED_APPROVED_SOURCE` and records the exact source/package/catalog
+digests, form inventory, question count, and ordered question identities. The
+loader rejects malformed, duplicate, changed, missing, or extra content, but it
+does not create an approval command or require a person to sign the manifest.
 
-Existing checklist material is non-authoritative candidate input. A question
-without a complete current official chain is visibly `SOURCE_MAPPING_REQUIRED`;
-it cannot be published, technically approved, automatically deferred, or used
-in an executable Audit package. A resolved question requires a complete
-`OFFICIAL_CHECKLIST_SOURCE_CHAIN_V1` and never accepts a client citation string
-as source authority.
+The catalog remains searchable and filterable in New Audit. Supplier/provider
+scope, regulated target, and application type are selected as a server-owned
+cascade before catalog browsing. Application type may add deterministic
+advisory focus suggestions; it never removes the Manager's ability to choose
+any valid question from the approved catalog.
 
 ## UX direction
 
@@ -76,10 +80,9 @@ The screen must show status, owner, due date and next action before secondary de
 - Auditee-visible and internal information stay separated.
 - The user can complete the primary task without leaving the screen.
 
-## Retired AGA candidate donor
+## Retired duplicate intake paths
 
-The separate `aga-candidate-demo@1.1.0` Checklist Builder projection and panel
-were physically removed after canonical Task 9 qualification and the user's
-explicit `delete` decision. Checklist Builder no longer exposes a duplicate
-sealed-candidate product. Historical overlay receipts remain evidence only;
-canonical catalog/import provenance and Question Review own current behavior.
+The former candidate, exercise, and duplicate sealed-overlay intake paths were
+physically removed. Checklist Builder has one current AGA catalog/import
+contract; historical receipts are evidence only and authorize no route,
+decision, or runtime behavior.

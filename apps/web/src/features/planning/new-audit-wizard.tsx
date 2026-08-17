@@ -5,6 +5,7 @@ import { z } from "zod";
 import { useApplicationRuntime } from "../../app/providers";
 import type {
   CanonicalAuditScopeOption,
+  CanonicalApplicationType,
   CanonicalQuestionCatalogPage,
   CanonicalQuestionCatalogEntry,
   CanonicalQuestionUsageClass,
@@ -136,11 +137,9 @@ function noticeLabel(values: Pick<PlanningIntakeDraftValues, "noticePolicy">): s
   return values.noticePolicy === "WITHHELD" ? "No Advance Notice (withheld)" : "Advance Notice Required";
 }
 
-function inspectionTypeFor(types: readonly PlanningIntakeDraftValues["applicationType"][]): PlanningIntakeDraftValues["applicationType"] {
-  if (types.includes("CABIN_INSPECTION")) return "CABIN_INSPECTION";
-  if (types.includes("RAMP_INSPECTION")) return "RAMP_INSPECTION";
-  if (types.includes("CABIN")) return "CABIN";
-  if (types.includes("RAMP")) return "RAMP";
+function inspectionTypeFor(types: readonly CanonicalApplicationType[]): CanonicalApplicationType {
+  const firstSupported = types.find((type) => ["RAMP", "CABIN", "RAMP_INSPECTION", "CABIN_INSPECTION"].includes(type));
+  if (firstSupported) return firstSupported;
   throw new Error("The selected server-owned scope has no supported inspection type.");
 }
 
@@ -263,6 +262,13 @@ export function NewAuditWizardPage() {
   const [selectionDirty, setSelectionDirty] = useState(false);
   const [scopeOptionLabel, setScopeOptionLabel] = useState<string | null>(null);
   const [scopeOptions, setScopeOptions] = useState<CanonicalAuditScopeOption[]>([]);
+  // Before a draft exists, keep the scope tuple in local UI state only. The
+  // server creates the opaque draft after the manager explicitly chooses the
+  // supplier, provider scope, regulated target, and application type.
+  const [pendingOrganizationId, setPendingOrganizationId] = useState("");
+  const [pendingProviderScopeId, setPendingProviderScopeId] = useState("");
+  const [pendingRegulatedTargetId, setPendingRegulatedTargetId] = useState("");
+  const [pendingApplicationType, setPendingApplicationType] = useState<CanonicalApplicationType | "">("");
   // Catalog authority is returned by the server-owned scope selector. The
   // approved source is the only catalog that can be used for a new Audit.
   const [auditUsageClass, setAuditUsageClass] = useState<CanonicalQuestionUsageClass>("GOVERNED_OPERATIONAL");
@@ -289,6 +295,13 @@ export function NewAuditWizardPage() {
       if (!cancelled) {
         setScopeOptions(options.items);
         setAuditUsageClass("GOVERNED_OPERATIONAL");
+        if (!requestedDraftId && options.items.length) {
+          const first = options.items[0];
+          setPendingOrganizationId(first.organizationId);
+          setPendingProviderScopeId(first.providerScopeId);
+          setPendingRegulatedTargetId(first.regulatedTargetId);
+          setPendingApplicationType(inspectionTypeFor(first.inspectionTypes));
+        }
       }
       if (requestedDraftId) {
         const loadedDraft = await backend.planningIntake.getDraft({ draftId: requestedDraftId });
@@ -351,7 +364,7 @@ export function NewAuditWizardPage() {
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [catalogDetail]);
 
-  async function changeScope(option: (typeof scopeOptions)[number]) {
+  async function changeScope(option: (typeof scopeOptions)[number], requestedApplicationType?: CanonicalApplicationType) {
     if (!backend.planningIntake || (values && option.providerScopeId === values.providerScopeId && option.regulatedTargetId === values.regulatedTargetId)) return;
     setAuditUsageClass(option.usageClass);
     setBusy(true);
@@ -361,7 +374,7 @@ export function NewAuditWizardPage() {
         ...(values ? commandValuesFor(values) : {
           organizationId: "",
           organizationName: "",
-          applicationType: inspectionTypeFor(option.inspectionTypes),
+          applicationType: requestedApplicationType ?? inspectionTypeFor(option.inspectionTypes),
           domain: "Cabin Safety",
           inspectionCategory: "Routine / Announced" as const,
           noticePolicy: "ADVANCE" as const,
@@ -382,7 +395,7 @@ export function NewAuditWizardPage() {
         }),
         organizationId: option.organizationId,
         organizationName: option.organizationName,
-        applicationType: inspectionTypeFor(option.inspectionTypes),
+        applicationType: requestedApplicationType ?? inspectionTypeFor(option.inspectionTypes),
         catalogVersion: option.catalogVersion,
         providerScopeId: option.providerScopeId,
         regulatedTargetId: option.regulatedTargetId,
@@ -405,6 +418,17 @@ export function NewAuditWizardPage() {
       setSelectionPreviewOperation(null);
       setServerSelectionSummary(null);
       setScopeOptionLabel(`${option.organizationName} · ${option.providerTypeLabel} · ${option.targetLabel}`);
+      setCatalogSearch("");
+      setCatalogFormCode([]);
+      setCatalogDomain([]);
+      setCatalogTopic([]);
+      setCatalogRiskBand([]);
+      setCatalogSourceGapState("");
+      setCatalogChecklistFocus([]);
+      setCatalogRecommendationState("");
+      setCatalogSelectedFilter("all");
+      setCatalogDetail(null);
+      resetCatalogPage();
       setStatus("A new server-owned draft was opened for the selected organization/provider scope/target.");
       // Preserve the requested step after the explicit scope choice. A direct
       // link to a later step still requires the same server-owned selection,
@@ -415,6 +439,18 @@ export function NewAuditWizardPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function changeApplicationType(applicationType: string) {
+    if (!values) return;
+    if ((values.selectedQuestionVersionIds ?? []).length > 0 || pendingSelectionIds.length > 0) {
+      setError("Clear the exact question selection before changing the application type.");
+      return;
+    }
+    update("applicationType", applicationType);
+    setCatalogDetail(null);
+    resetCatalogPage();
+    setStatus(`Checklist suggestions will be evaluated for ${catalogValueLabel(applicationType)} and its matching prior-audit history.`);
   }
 
   useEffect(() => {
@@ -434,6 +470,7 @@ export function NewAuditWizardPage() {
       recommendationState: catalogRecommendationState || undefined,
       selected: catalogSelectedFilter,
       scopeId: values.scopeDraftId || undefined,
+      applicationType: values.applicationType as CanonicalApplicationType,
       cursor: catalogCursor,
       limit: 25,
     }, { signal: controller.signal }).then((page) => {
@@ -444,7 +481,7 @@ export function NewAuditWizardPage() {
       if (!controller.signal.aborted) setCatalogBusy(false);
     });
     return () => controller.abort();
-  }, [auditUsageClass, backend, catalogChecklistFocus, catalogCursor, catalogDomain, catalogFormCode, catalogRecommendationState, catalogRiskBand, catalogSearch, catalogSelectedFilter, catalogSourceGapState, catalogTopic, step, values?.catalogVersion, values?.scopeDraftId]);
+  }, [auditUsageClass, backend, catalogChecklistFocus, catalogCursor, catalogDomain, catalogFormCode, catalogRecommendationState, catalogRiskBand, catalogSearch, catalogSelectedFilter, catalogSourceGapState, catalogTopic, step, values?.applicationType, values?.catalogVersion, values?.scopeDraftId]);
 
   const selectionSummary = useMemo(() => {
     const selected = new Set(pendingSelectionIds);
@@ -513,6 +550,7 @@ export function NewAuditWizardPage() {
           recommendationState: recommendationOverride || catalogRecommendationState || undefined,
           selected: catalogSelectedFilter,
           scopeId: values.scopeDraftId || undefined,
+          applicationType: values.applicationType as CanonicalApplicationType,
           cursor,
           limit: 100,
         });
@@ -641,6 +679,7 @@ export function NewAuditWizardPage() {
         usageClass: auditUsageClass,
         questionVersionId: question.questionVersionId,
         scopeId: values.scopeDraftId || undefined,
+        applicationType: values.applicationType as CanonicalApplicationType,
       });
       setCatalogDetail(detail);
     } catch (cause) {
@@ -729,6 +768,18 @@ export function NewAuditWizardPage() {
   const definition = stepDefinitions[step - 1] ?? stepDefinitions[0];
   const stage = stageFromStep(step);
   const stageDefinition = stageDefinitions[stage - 1] ?? stageDefinitions[0];
+  const selectedScopeOption = values
+    ? scopeOptions.find((item) => item.organizationId === values.organizationId && item.providerScopeId === values.providerScopeId && item.regulatedTargetId === values.regulatedTargetId) ?? null
+    : null;
+  const supplierOptions = [...new Map(scopeOptions.map((item) => [item.organizationId, item])).values()];
+  const selectedSupplierOptions = values ? scopeOptions.filter((item) => item.organizationId === values.organizationId) : [];
+  const providerScopeOptions = [...new Map(selectedSupplierOptions.map((item) => [item.providerScopeId, item])).values()];
+  const regulatedTargetOptions = selectedSupplierOptions.filter((item) => item.providerScopeId === values?.providerScopeId);
+  const pendingProviderOptions = scopeOptions.filter((item) => item.organizationId === pendingOrganizationId)
+    .filter((item, index, all) => all.findIndex((candidate) => candidate.providerScopeId === item.providerScopeId) === index);
+  const pendingTargetOptions = scopeOptions.filter((item) => item.organizationId === pendingOrganizationId && item.providerScopeId === pendingProviderScopeId);
+  const pendingScopeOption = scopeOptions.find((item) => item.organizationId === pendingOrganizationId && item.providerScopeId === pendingProviderScopeId && item.regulatedTargetId === pendingRegulatedTargetId) ?? null;
+  const pendingCanOpen = Boolean(pendingScopeOption && pendingApplicationType !== "" && pendingScopeOption.inspectionTypes.includes(pendingApplicationType));
 
   return (
     <WorkspaceShell roleLabel="Department Manager" routeLabel={`New Audit Wizard ${step}`}>
@@ -746,19 +797,47 @@ export function NewAuditWizardPage() {
         <section aria-label="Planning intake form" className="planning-intake-form">
           <header><span>Stage {stage} of 3 · substep {step} of 5</span><h2>{stageDefinition.title} — Step {step} of 5 — {definition.title}</h2></header>
           {!values ? <div className="planning-intake-fields">
-            <label>Organization, provider scope, and regulated target
-              <select aria-label="Organization, provider scope, and regulated target" disabled={busy || !scopeOptions.length} value="" onChange={(event) => { const option = scopeOptions.find((item) => `${item.providerScopeId}:${item.regulatedTargetId}` === event.target.value); if (option) void changeScope(option); }}>
-                <option value="">Choose an authorized scope…</option>
-                {scopeOptions.map((item) => <option key={`${item.providerScopeId}:${item.regulatedTargetId}`} value={`${item.providerScopeId}:${item.regulatedTargetId}`}>{item.organizationName} · {item.providerTypeLabel} · {item.targetLabel}</option>)}
-              </select>
+            <label>Supplier / organization
+              <select aria-label="Supplier / organization" disabled={busy || !supplierOptions.length} value={pendingOrganizationId} onChange={(event) => {
+                const organizationId = event.target.value;
+                const firstProvider = scopeOptions.find((item) => item.organizationId === organizationId);
+                setPendingOrganizationId(organizationId);
+                setPendingProviderScopeId(firstProvider?.providerScopeId ?? "");
+                setPendingRegulatedTargetId(firstProvider?.regulatedTargetId ?? "");
+                setPendingApplicationType(firstProvider ? inspectionTypeFor(firstProvider.inspectionTypes) : "");
+              }}>{supplierOptions.map((item) => <option key={item.organizationId} value={item.organizationId}>{item.organizationName}</option>)}</select>
             </label>
-            <div className="planning-intake-notice" role="note"><b>Selection is required</b><span>The server will create the opaque Planning draft only after this explicit Department Manager scope choice.</span></div>
+            <label>Provider scope
+              <select aria-label="Provider scope" disabled={busy || !pendingProviderOptions.length} value={pendingProviderScopeId} onChange={(event) => {
+                const providerScopeId = event.target.value;
+                const firstTarget = scopeOptions.find((item) => item.organizationId === pendingOrganizationId && item.providerScopeId === providerScopeId);
+                setPendingProviderScopeId(providerScopeId);
+                setPendingRegulatedTargetId(firstTarget?.regulatedTargetId ?? "");
+                setPendingApplicationType(firstTarget ? inspectionTypeFor(firstTarget.inspectionTypes) : "");
+              }}>{pendingProviderOptions.map((item) => <option key={item.providerScopeId} value={item.providerScopeId}>{item.providerTypeLabel} · {item.providerScopeId}</option>)}</select>
+            </label>
+            <label>Regulated target
+              <select aria-label="Regulated target" disabled={busy || !pendingTargetOptions.length} value={pendingRegulatedTargetId} onChange={(event) => {
+                const regulatedTargetId = event.target.value;
+                const option = scopeOptions.find((item) => item.organizationId === pendingOrganizationId && item.providerScopeId === pendingProviderScopeId && item.regulatedTargetId === regulatedTargetId);
+                setPendingRegulatedTargetId(regulatedTargetId);
+                setPendingApplicationType(option ? inspectionTypeFor(option.inspectionTypes) : "");
+              }}>{pendingTargetOptions.map((item) => <option key={item.regulatedTargetId} value={item.regulatedTargetId}>{item.targetLabel}</option>)}</select>
+            </label>
+            <label>Application Type
+              <select aria-label="Application Type" disabled={busy || !pendingScopeOption?.inspectionTypes.length} value={pendingApplicationType} onChange={(event) => setPendingApplicationType(event.target.value as CanonicalApplicationType)}>{(pendingScopeOption?.inspectionTypes ?? []).map((inspectionType) => <option key={inspectionType} value={inspectionType}>{catalogValueLabel(inspectionType)}</option>)}</select>
+              <small>{(pendingScopeOption?.inspectionTypes.length ?? 0) > 1 ? "Recommendations and prior-audit history will follow this audit type." : pendingScopeOption ? `Only ${catalogValueLabel(pendingApplicationType || pendingScopeOption.inspectionTypes[0] || "")} is authorized for this supplier/provider scope.` : "Choose a supplier, provider scope, and regulated target first."}</small>
+            </label>
+            <div className="planning-intake-notice" role="note"><b>Assign the supplier before opening the Audit</b><span>{pendingScopeOption ? `${pendingScopeOption.organizationName} · ${pendingScopeOption.providerTypeLabel} · ${pendingScopeOption.targetLabel}` : "Choose the server-authorized supplier scope."}</span><small>The server will create the opaque Planning draft only after this exact supplier, provider scope, target, and type tuple is selected.</small></div>
+            <button type="button" disabled={busy || !pendingCanOpen} onClick={() => { if (pendingScopeOption && pendingApplicationType) void changeScope(pendingScopeOption, pendingApplicationType); }}>Open audit setup for this supplier</button>
           </div> : null}
           {values && step === 1 ? <div className="planning-intake-fields">
-            <label>Organization<select aria-label="Organization" disabled={busy || !scopeOptions.length} value={`${values.providerScopeId}:${values.regulatedTargetId}`} onChange={(event) => { const option = scopeOptions.find((item) => `${item.providerScopeId}:${item.regulatedTargetId}` === event.target.value); if (option) void changeScope(option); }}><option value={`${values.providerScopeId}:${values.regulatedTargetId}`}>{values.organizationName || values.organizationId}</option>{scopeOptions.filter((item) => `${item.providerScopeId}:${item.regulatedTargetId}` !== `${values.providerScopeId}:${values.regulatedTargetId}`).map((item) => <option key={`${item.providerScopeId}:${item.regulatedTargetId}`} value={`${item.providerScopeId}:${item.regulatedTargetId}`}>{item.organizationName} · {item.providerTypeLabel} · {item.targetLabel}</option>)}</select></label>
-            <label>Application Type<select aria-label="Application Type" disabled={busy || (scopeOptions.find((item) => item.providerScopeId === values.providerScopeId && item.regulatedTargetId === values.regulatedTargetId)?.inspectionTypes.length ?? 0) <= 1} value={values.applicationType} onChange={(event) => update("applicationType", event.target.value)}>{(scopeOptions.find((item) => item.providerScopeId === values.providerScopeId && item.regulatedTargetId === values.regulatedTargetId)?.inspectionTypes ?? []).map((inspectionType) => <option key={inspectionType} value={inspectionType}>{inspectionType}</option>)}</select><small>Server-enumerated by provider scope; changing it requires a new scope selection.</small></label>
+            <label>Supplier / organization<select aria-label="Supplier / organization" disabled={busy || !supplierOptions.length} value={values.organizationId} onChange={(event) => { const option = scopeOptions.find((item) => item.organizationId === event.target.value); if (option) void changeScope(option); }}>{supplierOptions.map((item) => <option key={item.organizationId} value={item.organizationId}>{item.organizationName}</option>)}</select></label>
+            <label>Provider scope<select aria-label="Provider scope" disabled={busy || !providerScopeOptions.length} value={values.providerScopeId} onChange={(event) => { const option = scopeOptions.find((item) => item.organizationId === values.organizationId && item.providerScopeId === event.target.value); if (option) void changeScope(option); }}>{providerScopeOptions.map((item) => <option key={item.providerScopeId} value={item.providerScopeId}>{item.providerTypeLabel} · {item.providerScopeId}</option>)}</select></label>
+            <label>Regulated target<select aria-label="Regulated target" disabled={busy || !regulatedTargetOptions.length} value={values.regulatedTargetId} onChange={(event) => { const option = scopeOptions.find((item) => item.organizationId === values.organizationId && item.providerScopeId === values.providerScopeId && item.regulatedTargetId === event.target.value); if (option) void changeScope(option); }}>{regulatedTargetOptions.map((item) => <option key={item.regulatedTargetId} value={item.regulatedTargetId}>{item.targetLabel}</option>)}</select></label>
+            <label>Application Type<select aria-label="Application Type" disabled={busy || !selectedScopeOption?.inspectionTypes.length} value={values.applicationType} onChange={(event) => changeApplicationType(event.target.value)}>{(selectedScopeOption?.inspectionTypes ?? []).map((inspectionType) => <option key={inspectionType} value={inspectionType}>{catalogValueLabel(inspectionType)}</option>)}</select><small>{(selectedScopeOption?.inspectionTypes.length ?? 0) > 1 ? "Choose the server-authorized audit type. Recommendations and prior-audit history follow this selection." : `Only ${catalogValueLabel(values.applicationType)} is authorized for this supplier/provider scope; choose another provider scope to use a different type.`}</small></label>
             <label>Domain<input aria-label="Domain" value={values.domain} onChange={(event) => update("domain", event.target.value)} /></label>
-            <div className="planning-intake-notice" role="note"><b>Server-authorized scope</b><span>{scopeOptionLabel ?? `${values.organizationName || values.organizationId} · provider scope ${values.providerScopeId || "pending"} · target ${values.regulatedTargetId || "pending"}`}</span></div>
+            <div className="planning-intake-notice" role="note"><b>Supplier assignment is part of this Audit</b><span>{scopeOptionLabel ?? `${values.organizationName || values.organizationId} · provider scope ${values.providerScopeId || "pending"} · target ${values.regulatedTargetId || "pending"}`}</span><small>Coordination and the executable Audit are later bound to this exact supplier organization and regulated target.</small></div>
           </div> : null}
           {values && step === 2 ? <div className="planning-intake-fields">
             <label>Inspection Category<select aria-label="Inspection Category" value={values.inspectionCategory} onChange={(event) => updateCategory(event.target.value as PlanningIntakeInspectionCategory)}><option value="Routine / Announced">Routine / Announced</option><option value="Ad Hoc / Unannounced">Ad Hoc / Unannounced</option></select></label>
@@ -774,7 +853,7 @@ export function NewAuditWizardPage() {
           </div> : null}
           {values && step === 4 ? <div className="planning-intake-fields">
             <div className="planning-intake-catalog" aria-label="Question catalog selection">
-              <div className="planning-intake-catalog-header"><div><span className="eyebrow">Approved source catalog · 1,310 immutable questions</span><h3>Build the checklist with guided suggestions</h3><p>AI enrichment is advisory only. Choose a focus, review why a question is suggested, and keep or remove any valid question yourself.</p></div><span className="planning-intake-catalog-count" aria-live="polite">{pendingSelectionIds.length} selected{selectionDirty ? " · staged" : ""}</span></div>
+              <div className="planning-intake-catalog-header"><div><span className="eyebrow">Approved source catalog · 1,310 immutable questions</span><h3>Build the checklist with guided suggestions</h3><p>AI enrichment is advisory only. Suggestions for <strong>{catalogValueLabel(values.applicationType)}</strong> use the selected supplier scope, prior locked Final history, risk, and recurrence. Keep or remove any valid question yourself.</p></div><span className="planning-intake-catalog-count" aria-live="polite">{pendingSelectionIds.length} selected{selectionDirty ? " · staged" : ""}</span></div>
               <div className="planning-intake-catalog-filters" aria-label="New Audit question search and filters">
                 <label className="planning-intake-catalog-search">Search<input aria-label="New Audit question search" value={catalogSearch} onChange={(event) => { setCatalogSearch(event.target.value); resetCatalogPage(); }} placeholder="Search the question text, form, or identity" /></label>
                 <CatalogFacetPicker ariaLabel="New Audit form filter" label="Form" options={catalogPage?.facets.forms ?? []} selected={catalogFormCode} onChange={(next) => { setCatalogFormCode(next); resetCatalogPage(); }} />
@@ -786,6 +865,7 @@ export function NewAuditWizardPage() {
                 <label>Recommendation<select aria-label="New Audit recommendation filter" value={catalogRecommendationState} onChange={(event) => { setCatalogRecommendationState(event.target.value); resetCatalogPage(); }}><option value="">All advisory states</option>{(catalogPage?.facets.recommendationStates ?? []).map((option) => <option key={option.value} value={option.value}>{catalogValueLabel(option.value)} · {option.count.toLocaleString("en-US")}</option>)}</select></label>
                 <label>Selected state<select aria-label="New Audit selected filter" value={catalogSelectedFilter} onChange={(event) => { setCatalogSelectedFilter(event.target.value as typeof catalogSelectedFilter); resetCatalogPage(); }}><option value="all">All questions</option><option value="selected">Selected in scope</option><option value="unselected">Not selected</option></select></label>
               </div>
+              <div className="planning-intake-catalog-focus-note" role="note"><b>Suggestions for {catalogValueLabel(values.applicationType)}</b><span>Use “Stage suggested questions” to apply the existing deterministic AI advisory for this audit type. The full approved catalog remains available through the filters and “All advisory states”.</span></div>
               {catalogChecklistFocus.length ? <div className="planning-intake-catalog-focus-note" role="note"><b>{catalogChecklistFocus.map(catalogValueLabel).join(", ")}</b><span>Questions outside this focus are hidden from the default result. Clear the focus filter to inspect the full catalog.</span></div> : null}
               {catalogBusy ? <p role="status">Loading catalog page…</p> : null}
               {!catalogBusy && !catalogPage ? <p role="status">Catalog selection is unavailable in this build profile.</p> : null}

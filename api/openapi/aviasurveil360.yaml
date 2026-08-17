@@ -9109,6 +9109,20 @@
             }
           },
           {
+            "name": "applicationType",
+            "in": "query",
+            "description": "The exact server-authorized application type on the selected scope draft; deterministic recommendations and prior-audit history are evaluated within this type.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "RAMP",
+                "CABIN",
+                "RAMP_INSPECTION",
+                "CABIN_INSPECTION"
+              ]
+            }
+          },
+          {
             "name": "usageClass",
             "in": "query",
             "required": true,
@@ -9268,6 +9282,14 @@
             "name": "scopeId",
             "in": "query",
             "description": "Required and must be owned by the current Department Manager for the selected operational scope.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "applicationType",
+            "in": "query",
+            "description": "The canonical application type of the selected scope draft; used for the live recommendation projection.",
             "schema": {
               "type": "string"
             }

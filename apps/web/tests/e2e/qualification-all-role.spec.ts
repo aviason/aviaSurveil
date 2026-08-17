@@ -70,6 +70,7 @@ interface CanonicalQuestionCatalogEntry {
   sourceGapState: string;
   canSelect: boolean;
   canPublish: boolean;
+  aiAdvisory?: { advisoryState: string; recommendationReasonCodes?: string[] };
 }
 
 interface CanonicalQuestionCatalogPage {
@@ -374,6 +375,8 @@ async function findPreparedTeamMember(page: Page, role: "leadInspector" | "inspe
 interface PlanningPinView {
   id: string;
   revision: number;
+  organizationId?: string;
+  inspectionType?: string;
   submittedScopeSnapshotId?: string;
   planningSnapshotDigest?: string;
 }
@@ -468,6 +471,7 @@ test.describe("prepared identity connected qualification", () => {
     let submittedScopeSnapshotId = "";
     let planningSnapshotDigest = "";
     let planningRevision = 0;
+    let supplierOrganizationId = "";
     try {
       await adminSession.page.goto(`${origin}/admin/users-roles`, { waitUntil: "domcontentloaded" });
       await expect(adminSession.page.getByTestId("admin-users-roles-page")).toBeVisible();
@@ -505,14 +509,33 @@ test.describe("prepared identity connected qualification", () => {
 
       await managerSession.page.goto(`${origin}/department-manager/new-audit/step-1`, { waitUntil: "domcontentloaded" });
       await expect(managerSession.page.getByRole("heading", { name: "New Inspection" })).toBeVisible();
-      const scope = managerSession.page.getByLabel("Organization, provider scope, and regulated target");
-      await expect(scope.locator("option")).toHaveCount(2);
-      const scopeValue = `${scenario.providerScopeId}:${scenario.regulatedTargetId}`;
-      const scopeOption = scope.locator(`option[value="${scopeValue}"]`);
-      await expect(scopeOption).toHaveCount(1);
-      if (!scopeValue) throw new Error("The approved demo scope option has no server-owned value.");
-      await scope.selectOption(scopeValue);
+      const supplierSelector = managerSession.page.getByLabel("Supplier / organization");
+      await expect(supplierSelector.locator("option")).toHaveCount(1);
+      await expect(supplierSelector).toBeEnabled();
+      await supplierSelector.selectOption({ index: 0 });
+      const providerScopeSelector = managerSession.page.getByLabel("Provider scope");
+      await expect(providerScopeSelector).toBeEnabled();
+      await providerScopeSelector.selectOption(scenario.providerScopeId);
+      const regulatedTargetSelector = managerSession.page.getByLabel("Regulated target");
+      await expect(regulatedTargetSelector).toBeEnabled();
+      await regulatedTargetSelector.selectOption(scenario.regulatedTargetId);
+      const pendingApplicationType = managerSession.page.getByLabel("Application Type");
+      await expect(pendingApplicationType).toBeEnabled();
+      await expect(pendingApplicationType).toHaveValue(scenario.applicationType);
+      await managerSession.page.getByRole("button", { name: "Open audit setup for this supplier" }).click();
       await expect(managerSession.page).toHaveURL(/\/department-manager\/new-audit\/step-1\?draftId=/);
+      const supplier = managerSession.page.getByLabel("Supplier / organization");
+      const providerScope = managerSession.page.getByLabel("Provider scope");
+      const regulatedTarget = managerSession.page.getByLabel("Regulated target");
+      const applicationType = managerSession.page.getByLabel("Application Type");
+      await expect(supplier).toBeVisible();
+      await expect(providerScope).toHaveValue(scenario.providerScopeId);
+      await expect(regulatedTarget).toHaveValue(scenario.regulatedTargetId);
+      await expect(applicationType).toHaveValue(scenario.applicationType);
+      await expect(applicationType).toBeEnabled();
+      await expect(managerSession.page.getByText(/only ramp inspection is authorized for this supplier\/provider scope/i)).toBeVisible();
+      supplierOrganizationId = await supplier.inputValue();
+      expect(supplierOrganizationId).toBeTruthy();
       await managerSession.page.getByRole("button", { name: "Next", exact: true }).click();
       await managerSession.page.getByLabel("Purpose").fill("Prepared all-role AGA qualification through the approved source catalog.");
       await managerSession.page.getByLabel("Risk Category").fill(scenario.riskCategory);
@@ -522,12 +545,23 @@ test.describe("prepared identity connected qualification", () => {
       await managerSession.page.getByRole("button", { name: "Next" }).click();
       const draftId = new URL(managerSession.page.url()).searchParams.get("draftId") ?? "";
       expect(draftId).toBeTruthy();
-      const draft = await getApiJson<{ scopeDraftId?: string; catalogVersion?: string }>(managerSession.page, `/v1/planning/intake-drafts/${encodeURIComponent(draftId)}`);
+      const draft = await getApiJson<{ organizationId?: string; organizationName?: string; applicationType?: string; providerScopeId?: string; regulatedTargetId?: string; scopeDraftId?: string; catalogVersion?: string }>(managerSession.page, `/v1/planning/intake-drafts/${encodeURIComponent(draftId)}`);
+      expect(draft.organizationId).toBeTruthy();
+      expect(draft.organizationName).toBeTruthy();
+      expect(draft.applicationType).toBe(scenario.applicationType);
+      expect(draft.providerScopeId).toBe(scenario.providerScopeId);
+      expect(draft.regulatedTargetId).toBe(scenario.regulatedTargetId);
+      expect(draft.organizationId).toBe(supplierOrganizationId);
       const scopeDraftId = draft.scopeDraftId ?? "";
       expect(scopeDraftId).toBeTruthy();
       expect(draft.catalogVersion).toBe(scenario.catalogVersion);
       const catalogRows = managerSession.page.locator(".planning-intake-catalog-list li small");
       await expect(catalogRows).toHaveCount(25, { timeout: 30_000 });
+      await managerSession.page.getByRole("button", { name: "Stage suggested questions" }).click();
+      await expect(managerSession.page.locator(".planning-intake-status")).toContainText("AI-suggested questions staged locally", { timeout: 30_000 });
+      await managerSession.page.getByRole("button", { name: "Undo staged changes" }).click();
+      await expect(managerSession.page.locator(".planning-intake-status")).toContainText("Staged selection changes were discarded.");
+
       const seenIds: string[] = [];
       const seen = new Set<string>();
       let apiCursor: string | undefined;
@@ -535,7 +569,7 @@ test.describe("prepared identity connected qualification", () => {
         const firstVisibleId = await catalogRows.first().textContent();
         const pageIds = await catalogRows.evaluateAll((nodes) => nodes.map((node) => node.textContent?.match(/qv:[^\s·]+/)?.[0] ?? ""));
         expect(pageIds.length).toBeGreaterThan(0);
-        const apiQuery = new URLSearchParams({ usageClass: "GOVERNED_OPERATIONAL", scopeId: scopeDraftId, limit: "25" });
+        const apiQuery = new URLSearchParams({ usageClass: "GOVERNED_OPERATIONAL", scopeId: scopeDraftId, applicationType: scenario.applicationType, limit: "25" });
         if (apiCursor) apiQuery.set("cursor", apiCursor);
         const apiPage = await getApiJson<CanonicalQuestionCatalogPage>(managerSession.page, `/v1/question-catalogs/${encodeURIComponent(scenario.catalogVersion)}/questions?${apiQuery.toString()}`);
         expect(apiPage.totalCount).toBe(1310);
@@ -575,6 +609,27 @@ test.describe("prepared identity connected qualification", () => {
       expect(seenIds).toEqual(catalogOracle.rows.map((row) => row.immutableQuestionVersionId));
       expect(catalogRootDigestForTraversal(catalogOracle, seenIds)).toBe(catalogOracle.catalogRootDigest);
 
+      await managerSession.page.setViewportSize({ width: 390, height: 844 });
+      try {
+        await expect(managerSession.page.getByRole("button", { name: "View dossier" }).first()).toBeVisible();
+        await managerSession.page.getByRole("button", { name: "View dossier" }).first().click();
+        const questionDossier = managerSession.page.getByRole("dialog", { name: "Question dossier" });
+        await expect(questionDossier).toBeVisible();
+        await expect(questionDossier).toContainText("Question version");
+        await expect(questionDossier).toContainText("Checklist focus");
+        await questionDossier.getByRole("button", { name: "Close" }).click();
+        await expect(questionDossier).toHaveCount(0);
+        await expectResponsiveViewport(managerSession.page, "Manager New Audit catalog 390x844");
+      } finally {
+        await managerSession.page.setViewportSize({ width: 1280, height: 800 });
+      }
+      const suggestedQuery = new URLSearchParams({ usageClass: "GOVERNED_OPERATIONAL", scopeId: scopeDraftId, applicationType: scenario.applicationType, recommendationState: "SUGGESTED_NOW", limit: "25" });
+      const suggestedPage = await getApiJson<CanonicalQuestionCatalogPage>(managerSession.page, `/v1/question-catalogs/${encodeURIComponent(scenario.catalogVersion)}/questions?${suggestedQuery.toString()}`);
+      expect(suggestedPage.totalCount).toBeGreaterThan(0);
+      expect(suggestedPage.items.every((item) => item.aiAdvisory?.advisoryState === "SUGGESTED_NOW")).toBe(true);
+      expect(suggestedPage.items.some((item) => (item.aiAdvisory?.recommendationReasonCodes ?? []).includes("AUDIT_TYPE_FOCUS_MATCH"))).toBe(true);
+      expect(suggestedPage.items.every((item) => (item.aiAdvisory?.recommendationReasonCodes ?? []).some((reason) => ["HIGH_OR_UNKNOWN_RISK", "RECURRENCE_DUE", "OPEN_WORK"].includes(reason)))).toBe(true);
+
       const representativeForm = catalogOracle.rows[0]?.formCode;
       expect(representativeForm).toBeTruthy();
       await managerSession.page.getByRole("textbox", { name: "New Audit question search", exact: true }).fill(representativeForm ?? "");
@@ -588,7 +643,7 @@ test.describe("prepared identity connected qualification", () => {
       await expect(managerSession.page.locator(".planning-intake-catalog-pagination")).toContainText("matching questions");
       await managerSession.page.getByRole("button", { name: "Clear filters" }).click();
       await expect(managerSession.page.locator(".planning-intake-catalog-pagination")).toContainText("1310 matching questions");
-      writeEvent({ event: "manager-catalog-cursor-traversal", questionCount: seenIds.length, catalogRootDigest: catalogOracle.catalogRootDigest, rootMatchesManifest: catalogOracle.catalogRootDigest === scenario.catalogRootDigest, searchFilterVerified: true, formFilterVerified: true, selectionDigest: scenario.selectionDigest, status: "verified locally" });
+      writeEvent({ event: "manager-catalog-cursor-traversal", questionCount: seenIds.length, catalogRootDigest: catalogOracle.catalogRootDigest, rootMatchesManifest: catalogOracle.catalogRootDigest === scenario.catalogRootDigest, searchFilterVerified: true, formFilterVerified: true, applicationType: scenario.applicationType, typedSuggestionsVerified: true, selectionDigest: scenario.selectionDigest, status: "verified locally" });
 
       const selectedTray = managerSession.page.getByRole("region", { name: "Selected question tray" });
       await expect(selectedTray).toContainText(`${scenario.selectedQuestionVersionIds.length} exact immutable versions`);
@@ -614,10 +669,12 @@ test.describe("prepared identity connected qualification", () => {
       expect(submittedPlanningItem?.submittedScopeSnapshotId).toMatch(/^scope-snapshot:/);
       expect(submittedPlanningItem?.planningSnapshotDigest).toMatch(/^sha256:/);
       expect(submittedPlanningItem?.revision).toBeGreaterThan(0);
+      expect(submittedPlanningItem?.organizationId).toBe(supplierOrganizationId);
+      expect(submittedPlanningItem?.inspectionType).toContain(scenario.applicationType);
       submittedScopeSnapshotId = submittedPlanningItem?.submittedScopeSnapshotId ?? "";
       planningSnapshotDigest = submittedPlanningItem?.planningSnapshotDigest ?? "";
       planningRevision = submittedPlanningItem?.revision ?? 0;
-      writeEvent({ event: "manager-planning-submitted", planningItemId, selectedQuestionCount: scenario.selectedQuestionVersionIds.length, selectionDigest: scenario.selectionDigest, submittedScopeSnapshotId, planningSnapshotDigest, planningRevision, status: "verified locally" });
+      writeEvent({ event: "manager-planning-submitted", planningItemId, supplierOrganizationId, providerScopeId: scenario.providerScopeId, regulatedTargetId: scenario.regulatedTargetId, applicationType: scenario.applicationType, selectedQuestionCount: scenario.selectedQuestionVersionIds.length, selectionDigest: scenario.selectionDigest, submittedScopeSnapshotId, planningSnapshotDigest, planningRevision, status: "verified locally" });
     } finally {
       // Shared role sessions are closed by the test-level cleanup hook.
     }
