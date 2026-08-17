@@ -125,7 +125,7 @@ describe("New Inspection Planning intake", () => {
     const applicationType = screen.getByLabelText("Application Type");
     expect(applicationType).toBeEnabled();
     await user.selectOptions(applicationType, "CABIN_INSPECTION");
-    expect(applicationType).toHaveValue("CABIN_INSPECTION");
+    await waitFor(() => expect(applicationType).toHaveValue("CABIN_INSPECTION"));
     await user.click(screen.getByRole("button", { name: "Next" }));
     await screen.findByRole("heading", { level: 2, name: /Step 2 of 5/ });
     expect(saveDraft.mock.calls.at(-1)?.[0].values.applicationType).toBe("CABIN_INSPECTION");
@@ -143,6 +143,35 @@ describe("New Inspection Planning intake", () => {
       const catalogCalls = listCatalog.mock.calls.map(([input]) => input.applicationType);
       expect(catalogCalls).toContain("CABIN_INSPECTION");
     });
+  });
+
+  it("does not reopen a closed question dossier when its slower server projection resolves", async () => {
+    const runtime = createMockBackendRuntime();
+    const catalog = runtime.backendForRole("manager").canonicalCatalog;
+    if (!catalog) throw new Error("Canonical catalog is required for this test");
+    const originalGetQuestion = catalog.getQuestion.bind(catalog);
+    let releaseDetail!: () => void;
+    const detailReady = new Promise<void>((resolve) => { releaseDetail = resolve; });
+    vi.spyOn(catalog, "getQuestion").mockImplementation(async (input, options) => {
+      await detailReady;
+      return originalGetQuestion(input, options);
+    });
+
+    const user = userEvent.setup();
+    renderWizardRoute("/department-manager/new-audit/step-4", runtime);
+    await selectFirstAuthorizedScope(user);
+    await screen.findByRole("heading", { level: 2, name: /Step 4 of 5/ });
+    const dossierButton = (await screen.findAllByRole("button", { name: "View dossier" }))[0];
+    if (!dossierButton) throw new Error("Expected a catalog dossier button");
+    await user.click(dossierButton);
+    const dossier = await screen.findByRole("dialog", { name: "Question dossier" });
+    await user.click(within(dossier).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Question dossier" })).toBeNull());
+
+    releaseDetail();
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Question dossier" })).toBeNull());
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(screen.queryByRole("dialog", { name: "Question dossier" })).toBeNull();
   });
 
   it("validates required prior-step data without losing the draft", async () => {

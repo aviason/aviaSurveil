@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { z } from "zod";
 
@@ -255,6 +255,7 @@ export function NewAuditWizardPage() {
   const [catalogPreviousCursors, setCatalogPreviousCursors] = useState<string[]>([]);
   const [catalogPageNumber, setCatalogPageNumber] = useState(1);
   const [catalogDetail, setCatalogDetail] = useState<CanonicalQuestionCatalogEntry | null>(null);
+  const catalogDetailRequestRef = useRef(0);
   const [selectionPreview, setSelectionPreview] = useState<CanonicalSelectionPreview | null>(null);
   const [selectionPreviewOperation, setSelectionPreviewOperation] = useState<SelectionPreviewOperation | null>(null);
   const [serverSelectionSummary, setServerSelectionSummary] = useState<CanonicalSelectionPreview["preview"] | null>(null);
@@ -358,11 +359,21 @@ export function NewAuditWizardPage() {
   useEffect(() => {
     if (!catalogDetail) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setCatalogDetail(null);
+      if (event.key === "Escape") closeCatalogDetail();
     };
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [catalogDetail]);
+
+  function closeCatalogDetail() {
+    // A dossier opens immediately with the visible row and is then replaced
+    // by the server projection. In a slower public environment, that request
+    // can resolve after the Manager has already closed the dossier. Advance
+    // the request generation so a stale response cannot reopen the overlay
+    // and intercept the next catalog interaction.
+    catalogDetailRequestRef.current += 1;
+    setCatalogDetail(null);
+  }
 
   async function changeScope(option: (typeof scopeOptions)[number], requestedApplicationType?: CanonicalApplicationType) {
     if (!backend.planningIntake || (values && option.providerScopeId === values.providerScopeId && option.regulatedTargetId === values.regulatedTargetId)) return;
@@ -427,7 +438,7 @@ export function NewAuditWizardPage() {
       setCatalogChecklistFocus([]);
       setCatalogRecommendationState("");
       setCatalogSelectedFilter("all");
-      setCatalogDetail(null);
+      closeCatalogDetail();
       resetCatalogPage();
       setStatus("A new server-owned draft was opened for the selected organization/provider scope/target.");
       // Preserve the requested step after the explicit scope choice. A direct
@@ -448,7 +459,7 @@ export function NewAuditWizardPage() {
       return;
     }
     update("applicationType", applicationType);
-    setCatalogDetail(null);
+    closeCatalogDetail();
     resetCatalogPage();
     setStatus(`Checklist suggestions will be evaluated for ${catalogValueLabel(applicationType)} and its matching prior-audit history.`);
   }
@@ -671,6 +682,7 @@ export function NewAuditWizardPage() {
   }
 
   async function openCatalogDetail(question: CanonicalQuestionCatalogEntry) {
+    const requestGeneration = ++catalogDetailRequestRef.current;
     setCatalogDetail(question);
     if (!values || !backend.canonicalCatalog) return;
     try {
@@ -681,9 +693,9 @@ export function NewAuditWizardPage() {
         scopeId: values.scopeDraftId || undefined,
         applicationType: values.applicationType as CanonicalApplicationType,
       });
-      setCatalogDetail(detail);
+      if (requestGeneration === catalogDetailRequestRef.current) setCatalogDetail(detail);
     } catch (cause) {
-      setError(errorMessage(cause));
+      if (requestGeneration === catalogDetailRequestRef.current) setError(errorMessage(cause));
     }
   }
 
@@ -879,7 +891,7 @@ export function NewAuditWizardPage() {
                 <header><h4>Selected question tray</h4><span>{pendingSelectionIds.length} exact immutable versions</span></header>
                 {pendingSelectionIds.length ? <><ul>{pendingSelectionIds.slice(0, selectedTrayRenderLimit).map((questionId) => <li key={questionId}><span>{questionId}</span><button type="button" disabled={busy} onClick={() => setPendingSelection(pendingSelectionIds.filter((id) => id !== questionId))}>Remove</button></li>)}</ul>{pendingSelectionIds.length > selectedTrayRenderLimit ? <p>{pendingSelectionIds.length - selectedTrayRenderLimit} additional exact identities remain staged; use the selected-state filter and pagination to inspect them without rendering all question bodies at once.</p> : null}</> : <p>No questions selected. Select at least one version to continue.</p>}
               </section>
-              {catalogDetail ? <div className="planning-intake-dossier-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setCatalogDetail(null); }}><section aria-label="Question dossier" aria-modal="true" className="planning-intake-question-dossier" role="dialog"><header><div><span className="eyebrow">Question dossier</span><h4>{catalogDetail.formCode} · item {catalogDetail.ordinal}</h4></div><button autoFocus type="button" onClick={() => setCatalogDetail(null)}>Close</button></header><p className="planning-intake-dossier-prompt">{catalogDetail.prompt ?? "Prompt unavailable in this profile."}</p><div className="planning-intake-question-meta"><em>{catalogValueLabel(catalogDetail.aiAdvisory.riskTier)} risk</em><em>{catalogValueLabel(catalogDetail.aiAdvisory.advisoryState)}</em>{catalogDetail.aiAdvisory.recommendationReasonCodes.map((reason) => <em key={reason}>{catalogValueLabel(reason)}</em>)}</div><p>{catalogDetail.aiAdvisory.previouslyVerifiedAt ? `Previously verified ${new Date(catalogDetail.aiAdvisory.previouslyVerifiedAt).toLocaleDateString("en-GB")}.` : "No prior locked Final verification is recorded for this question."}</p><dl><div><dt>Question version</dt><dd>{catalogDetail.questionVersionId}</dd></div><div><dt>Domain</dt><dd>{catalogValueLabel(catalogDetail.aiAdvisory.domainCode)}</dd></div><div><dt>Checklist focus</dt><dd>{catalogDetail.aiAdvisory.inspectionTypeCodes.map(catalogValueLabel).join(", ") || "Not classified"}</dd></div><div><dt>Reference</dt><dd>{catalogDetail.configuredReference ?? "Not configured"}</dd></div><div><dt>Expected evidence</dt><dd>{catalogDetail.expectedEvidence ?? "Not configured"}</dd></div><div><dt>Source context</dt><dd>{catalogDetail.aiAdvisory.externalApplicabilityUnresolved ? "Some applicability context is unresolved; this advisory does not block selection." : "Source context available"}</dd></div></dl></section></div> : null}
+              {catalogDetail ? <div className="planning-intake-dossier-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeCatalogDetail(); }}><section aria-label="Question dossier" aria-modal="true" className="planning-intake-question-dossier" role="dialog"><header><div><span className="eyebrow">Question dossier</span><h4>{catalogDetail.formCode} · item {catalogDetail.ordinal}</h4></div><button autoFocus type="button" onClick={closeCatalogDetail}>Close</button></header><p className="planning-intake-dossier-prompt">{catalogDetail.prompt ?? "Prompt unavailable in this profile."}</p><div className="planning-intake-question-meta"><em>{catalogValueLabel(catalogDetail.aiAdvisory.riskTier)} risk</em><em>{catalogValueLabel(catalogDetail.aiAdvisory.advisoryState)}</em>{catalogDetail.aiAdvisory.recommendationReasonCodes.map((reason) => <em key={reason}>{catalogValueLabel(reason)}</em>)}</div><p>{catalogDetail.aiAdvisory.previouslyVerifiedAt ? `Previously verified ${new Date(catalogDetail.aiAdvisory.previouslyVerifiedAt).toLocaleDateString("en-GB")}.` : "No prior locked Final verification is recorded for this question."}</p><dl><div><dt>Question version</dt><dd>{catalogDetail.questionVersionId}</dd></div><div><dt>Domain</dt><dd>{catalogValueLabel(catalogDetail.aiAdvisory.domainCode)}</dd></div><div><dt>Checklist focus</dt><dd>{catalogDetail.aiAdvisory.inspectionTypeCodes.map(catalogValueLabel).join(", ") || "Not classified"}</dd></div><div><dt>Reference</dt><dd>{catalogDetail.configuredReference ?? "Not configured"}</dd></div><div><dt>Expected evidence</dt><dd>{catalogDetail.expectedEvidence ?? "Not configured"}</dd></div><div><dt>Source context</dt><dd>{catalogDetail.aiAdvisory.externalApplicabilityUnresolved ? "Some applicability context is unresolved; this advisory does not block selection." : "Source context available"}</dd></div></dl></section></div> : null}
               {selectionPreview ? <p className="planning-intake-selection-preview" role="status">Preview: {selectionPreview.preview.selectedCount} selected · {selectionPreview.valid ? "ready to confirm" : selectionPreview.reason}</p> : null}
               <div className="planning-intake-selection-actions"><button type="button" disabled={busy || catalogBusy || !catalogPage} onClick={() => void stageAllMatchingQuestions("SUGGESTED_NOW")}>Stage suggested questions</button><button type="button" disabled={busy || catalogBusy || !catalogPage} onClick={() => void stageAllMatchingQuestions()}>Stage all matching eligible questions</button><button type="button" disabled={busy || !selectionDirty} onClick={() => void previewQuestionSelection()} title={!selectionDirty ? "Stage an Add, Remove, or tray change first." : undefined}>Preview next exact batch</button><button type="button" disabled={busy || !selectionPreview?.valid || !selectionPreviewOperation} onClick={() => void confirmQuestionSelection()} title={!selectionPreview?.valid ? "Preview the staged exact batch first." : undefined}>Confirm selection</button><button type="button" disabled={busy || !selectionDirty} onClick={() => { setPendingSelectionIds([...(values.selectedQuestionVersionIds ?? [])]); setSelectionDirty(false); setSelectionPreview(null); setSelectionPreviewOperation(null); setStatus("Staged selection changes were discarded."); }} title={!selectionDirty ? "There are no staged selection changes." : undefined}>Undo staged changes</button></div>
               <div className="planning-intake-catalog-pagination" aria-label="New Audit question pagination"><button disabled={catalogBusy || !catalogPreviousCursors.length} onClick={() => { const history = [...catalogPreviousCursors]; setCatalogCursor(history.pop()); setCatalogPreviousCursors(history); setCatalogPageNumber((value) => Math.max(1, value - 1)); }} type="button">Previous questions</button><button disabled={catalogBusy || (!catalogSearch && !catalogFormCode.length && !catalogDomain.length && !catalogTopic.length && !catalogRiskBand.length && !catalogSourceGapState && !catalogChecklistFocus.length && !catalogRecommendationState && catalogSelectedFilter === "all")} onClick={() => { setCatalogSearch(""); setCatalogFormCode([]); setCatalogDomain([]); setCatalogTopic([]); setCatalogRiskBand([]); setCatalogSourceGapState(""); setCatalogChecklistFocus([]); setCatalogRecommendationState(""); setCatalogSelectedFilter("all"); resetCatalogPage(); }} type="button">Clear filters</button><span aria-live="polite">{catalogPage?.totalCount ?? 0} matching questions · page {catalogPageNumber}</span><button disabled={catalogBusy || !catalogPage?.nextCursor} onClick={() => { if (!catalogPage?.nextCursor) return; setCatalogPreviousCursors((history) => [...history, catalogCursor ?? ""]); setCatalogCursor(catalogPage.nextCursor ?? undefined); setCatalogPageNumber((value) => value + 1); }} type="button">Next questions</button></div>
