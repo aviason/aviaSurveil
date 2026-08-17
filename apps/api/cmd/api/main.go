@@ -230,7 +230,11 @@ func run(ctx context.Context) error {
 					}
 					if objectErr != nil {
 						probe = unavailableReadiness{err: objectErr}
-						slog.Error("object store unavailable; readiness will fail closed", "error", objectErr)
+						slog.Error(
+							"object store unavailable; readiness will fail closed",
+							"error", objectErr,
+							"errorClass", objectstore.ErrorClass(objectErr),
+						)
 					} else {
 						objectStoreHealth = objectStoreReadiness{store: objects}
 						if settings.ScannerMode == "guardduty-s3" {
