@@ -98,6 +98,7 @@ export function bindBrowserQuiescence(registration: ServiceWorkerRegistration): 
   };
   const onWorkerMessage = (event: MessageEvent) => {
     if (event.data?.type !== "avia:app-shell-activation" || typeof event.data.fingerprint !== "string") return;
+    if (event.data.legacyRetirement === true) return;
     state.requestReload(event.data.fingerprint);
     if (navigator.serviceWorker.controller === registration.active) onControllerChange();
   };

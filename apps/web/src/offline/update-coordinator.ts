@@ -3,7 +3,7 @@ import { CURRENT_OFFLINE_VERSIONS, type OfflineVersionVector } from "./offline-v
 export const UPDATE_ACTIVATION_POLICY = {
   automaticSkipWaiting: true,
   automaticClientsClaim: true,
-  deleteOldCachesOnActivate: false,
+  deleteOldCachesOnActivate: true,
 } as const;
 
 export type MigrationPhase =
@@ -46,7 +46,7 @@ export interface UpdateDecision {
   autoActivate: boolean;
   allowDocumentReload: boolean;
   preserveLocalData: true;
-  deleteOldCaches: false;
+  deleteOldCaches: boolean;
   databaseDowngradeAllowed: false;
   reason: string;
 }
@@ -63,7 +63,7 @@ function decision(
     autoActivate: code === "ready-for-automatic-activation",
     allowDocumentReload,
     preserveLocalData: true,
-    deleteOldCaches: false,
+    deleteOldCaches: code === "ready-for-automatic-activation",
     databaseDowngradeAllowed: false,
     reason,
   };
@@ -129,9 +129,9 @@ export function evaluateUpdateSafety(input: UpdateSafetyInput): UpdateDecision {
     "ready-for-automatic-activation",
     true,
     hasPendingLocalWork(input)
-      ? "The exact-vector worker may activate; document reload remains gated by client quiescence and durable local work."
-      : "The exact-vector worker may activate; document reload remains gated by client quiescence.",
-    !hasPendingLocalWork(input) && !input.migration.required,
+      ? "The exact-vector worker force-retires legacy documents; durable local work remains preserved."
+      : "The exact-vector worker force-retires legacy documents after activation.",
+    true,
   );
 }
 

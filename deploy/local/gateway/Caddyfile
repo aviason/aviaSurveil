@@ -10,6 +10,14 @@ https://localhost:8443 {
 	tls internal
 	encode zstd gzip
 	import security_headers
+	@legacy_worker {
+		path /sw.js
+		query v=9
+	}
+	handle @legacy_worker {
+		header Cache-Control "no-store, no-transform"
+		respond 410
+	}
 	@control path / /index.html /sw.js /app-shell-assets.json /http-config.json /demo-build.json
 	@hashed path_regexp hashed ^/assets/[A-Za-z0-9_.-]+-[A-Za-z0-9_-]{6,}\.(?:css|js|map|svg|png|jpg|jpeg|webp|ttf|woff|woff2)$
 	@network_only path /private/*

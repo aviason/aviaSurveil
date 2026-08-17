@@ -1584,7 +1584,7 @@ evidence.
 
 - [x] **Step 4: Implement update safety.**
 
-  Historical Task 6 evidence used an explicit N/N-1 compatibility range and conservative user activation. That historical evidence remains unchanged. The active successor authority is now the 2026-08-17 App-Shell Cache And Exact-Vector Convergence plan: automatic worker activation is permitted only for exact complete-vector equality; document reload remains separately gated by client quiescence, and retained caches/local data are preserved.
+  Historical Task 6 evidence used an explicit N/N-1 compatibility range and conservative user activation. That historical evidence remains unchanged. The active successor authority is now the 2026-08-17 App-Shell Cache And Exact-Vector Convergence plan: automatic worker activation is permitted only for exact complete-vector equality; legacy clients are force-retired at successor activation, while durable local data remains preserved.
 
 - [x] **Step 5: Verify actual offline startup.**
 

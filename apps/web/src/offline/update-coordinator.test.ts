@@ -70,13 +70,13 @@ describe("update safety", () => {
       autoActivate: true,
       allowDocumentReload: true,
       preserveLocalData: true,
-      deleteOldCaches: false,
+      deleteOldCaches: true,
       databaseDowngradeAllowed: false,
     });
     expect(UPDATE_ACTIVATION_POLICY).toEqual({
       automaticSkipWaiting: true,
       automaticClientsClaim: true,
-      deleteOldCachesOnActivate: false,
+      deleteOldCachesOnActivate: true,
     });
   });
 
@@ -106,16 +106,16 @@ describe("update safety", () => {
     const result = evaluateUpdateSafety(input({ localWork }));
     expect(result.code).toBe("ready-for-automatic-activation");
     expect(result.autoActivate).toBe(true);
-    expect(result.allowDocumentReload).toBe(false);
+    expect(result.allowDocumentReload).toBe(true);
     expect(result.preserveLocalData).toBe(true);
-    expect(result.deleteOldCaches).toBe(false);
+    expect(result.deleteOldCaches).toBe(true);
   });
 
   it("requires one migration owner and pauses edits during an incompatible migration", () => {
     expect(evaluateUpdateSafety(input({ migration: { required: true, ownerLockAcquired: false, phase: "before-expand", failed: false } }))).toMatchObject({
       code: "ready-for-automatic-activation",
       autoActivate: true,
-      allowDocumentReload: false,
+      allowDocumentReload: true,
     });
 
     expect(
@@ -129,7 +129,7 @@ describe("update safety", () => {
           },
         }),
       ),
-    ).toMatchObject({ code: "ready-for-automatic-activation", allowDocumentReload: false });
+    ).toMatchObject({ code: "ready-for-automatic-activation", allowDocumentReload: true });
   });
 
   it.each(["before-expand", "after-expand", "after-copy", "before-contract"] as const)(

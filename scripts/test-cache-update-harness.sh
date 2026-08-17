@@ -33,5 +33,11 @@ fi
 for label in A B C; do
   test -s "${WORK_ROOT}/${label}/sw.js"
   test -s "${WORK_ROOT}/${label}/assets/$(find "${WORK_ROOT}/${label}/assets" -maxdepth 1 -type f -name 'inspector-assignments-page-*.js' -print -quit | xargs -n1 basename)"
+  rg -q 'force-window-client-navigation-v1' "${WORK_ROOT}/${label}/sw.js"
+  rg -q '\.navigate\(' "${WORK_ROOT}/${label}/sw.js"
 done
+if rg -q 'committedClientCaches|committed\.map\(\(\{ cacheName \}\)' "${WEB_ROOT}/src/sw.ts"; then
+  echo "blocked: legacy app-shell asset fallback remains in the Service Worker" >&2
+  exit 1
+fi
 echo "verified locally: deterministic A/B/C app-shell artifacts, exact fingerprints, lazy-chunk presence, and independent validators"

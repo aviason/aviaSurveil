@@ -30,6 +30,7 @@ export interface AppShellRequestDescriptor {
 
 const EXPECTED_RELEASE_FINGERPRINT = "__AVIA_RELEASE_FINGERPRINT__";
 const LEGACY_V9_PREDECESSOR: AppShellPredecessorDescriptor | null = /*__AVIA_LEGACY_PREDECESSOR__*/ null;
+const LEGACY_RETIREMENT_POLICY = "force-window-client-navigation-v1";
 const APP_SHELL_MANIFEST_URL = "/app-shell-assets.json";
 const VERIFIED_MARKER = "/__avia_app_shell_verified__";
 const MAX_MANIFEST_BYTES = 512 * 1024;
@@ -37,7 +38,6 @@ const MAX_FILE_COUNT = 256;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 50 * 1024 * 1024;
 const serviceWorkerScope = globalThis as unknown as ServiceWorkerGlobalScope;
-const committedClientCaches = new Map<string, string>();
 let installedManifest: AppShellManifest | null = null;
 let activeCacheName: string | null = null;
 let activeManifest: AppShellManifest | null = null;
@@ -288,15 +288,29 @@ async function serveAppShellNavigation(request: Request): Promise<Response> {
   return (await cache.match(request)) ?? (await cache.match(new URL("/", serviceWorkerScope.location.origin).href)) ?? (await fetch(request, { cache: "no-store" }));
 }
 
-async function serveVersionedAsset(request: Request, clientId: string): Promise<Response> {
-  const committed = await committedManifests();
-  const preferred = committedClientCaches.get(clientId);
-  const order = [preferred, activeCacheName, ...committed.map(({ cacheName }) => cacheName)].filter((name, index, all): name is string => Boolean(name) && all.indexOf(name) === index);
-  for (const cacheName of order) {
-    const match = await (await caches.open(cacheName)).match(request);
+async function serveVersionedAsset(request: Request): Promise<Response> {
+  if (activeCacheName) {
+    const match = await (await caches.open(activeCacheName)).match(request);
     if (match) return match;
   }
   return fetch(request, { cache: "no-store" });
+}
+
+async function retireLegacyCaches(activeName: string): Promise<void> {
+  for (const cacheName of await caches.keys()) {
+    if (cacheName.startsWith("aviasurveil360-app-shell-") && cacheName !== activeName) {
+      await caches.delete(cacheName);
+    }
+  }
+}
+
+async function forceRetireLegacyClients(): Promise<void> {
+  const clients = await serviceWorkerScope.clients.matchAll({ type: "window", includeUncontrolled: true });
+  for (const client of clients) {
+    if (!client.url || new URL(client.url).origin !== serviceWorkerScope.location.origin) continue;
+    const windowClient = client as WindowClient;
+    await windowClient.navigate(client.url);
+  }
 }
 
 if (typeof serviceWorkerScope.addEventListener === "function" && "registration" in serviceWorkerScope && typeof caches !== "undefined") {
@@ -313,20 +327,21 @@ if (typeof serviceWorkerScope.addEventListener === "function" && "registration" 
       activeCacheName = candidateCacheName(installedManifest);
       activeManifest = installedManifest;
       await serviceWorkerScope.clients.claim();
+      await forceRetireLegacyClients();
+      await retireLegacyCaches(activeCacheName);
     })());
   });
 
   serviceWorkerScope.addEventListener("message", (event: ExtendableMessageEvent) => {
     if (event.data?.type === "avia:app-shell-client-ready") {
       const source = event.source as Client | null;
-      if (source?.id && typeof event.data.fingerprint === "string") committedClientCaches.set(source.id, `aviasurveil360-app-shell-${event.data.fingerprint.replace(/^sha256:/, "")}`);
-      if (source && activeManifest) source.postMessage({ type: "avia:app-shell-activation", fingerprint: activeManifest.releaseFingerprint });
+      if (source && activeManifest) source.postMessage({ type: "avia:app-shell-activation", fingerprint: activeManifest.releaseFingerprint, legacyRetirement: true, retirementPolicy: LEGACY_RETIREMENT_POLICY });
     }
   });
 
   serviceWorkerScope.addEventListener("fetch", (event: FetchEvent) => {
     const policy = classifyAppShellRequest(event.request, serviceWorkerScope.location.origin);
     if (policy === "app-shell-navigation") event.respondWith(serveAppShellNavigation(event.request));
-    if (policy === "versioned-static-asset") event.respondWith(serveVersionedAsset(event.request, event.clientId));
+    if (policy === "versioned-static-asset") event.respondWith(serveVersionedAsset(event.request));
   });
 }
