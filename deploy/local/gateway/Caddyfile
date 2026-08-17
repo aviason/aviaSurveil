@@ -10,6 +10,12 @@ https://localhost:8443 {
 	tls internal
 	encode zstd gzip
 	import security_headers
+	@control path / /index.html /sw.js /app-shell-assets.json /http-config.json /demo-build.json
+	@hashed path_regexp hashed ^/assets/[A-Za-z0-9_.-]+-[A-Za-z0-9_-]{6,}\.(?:css|js|map|svg|png|jpg|jpeg|webp|ttf|woff|woff2)$
+	@network_only path /private/*
+	header @control Cache-Control "no-store, no-transform"
+	header @hashed Cache-Control "public, max-age=31536000, immutable"
+	header @network_only Cache-Control "no-store, no-transform"
 
 	@test_routes path /__test /__test/*
 	handle @test_routes {
@@ -17,15 +23,18 @@ https://localhost:8443 {
 	}
 
 	handle /otel/* {
+		header Cache-Control "no-store, no-transform"
 		uri strip_prefix /otel
 		reverse_proxy otel-collector:4318
 	}
 
 	handle /operations/* {
+		header Cache-Control "no-store, no-transform"
 		reverse_proxy grafana:3000
 	}
 
 	handle /api/* {
+		header Cache-Control "no-store, no-transform"
 		uri strip_prefix /api
 		reverse_proxy api:8080 {
 			header_up -X-Forwarded-For
@@ -40,7 +49,15 @@ https://localhost:8443 {
 		}
 	}
 
+	handle /v1/* {
+		header Cache-Control "no-store, no-transform"
+		reverse_proxy api:8080 {
+		header_up X-Forwarded-Proto https
+	}
+	}
+
 	handle /auth/* {
+		header Cache-Control "no-store, no-transform"
 		reverse_proxy api:8080 {
 			header_up -X-Forwarded-For
 			header_up -X-Forwarded-Host
@@ -52,6 +69,7 @@ https://localhost:8443 {
 	}
 
 	handle /health/* {
+		header Cache-Control "no-store, no-transform"
 		reverse_proxy api:8080 {
 			header_up -X-Forwarded-For
 			header_up -X-Forwarded-Host
@@ -62,7 +80,14 @@ https://localhost:8443 {
 		}
 	}
 
+	handle /identity/assets/identity-v1.css {
+		header Cache-Control "public, max-age=31536000, immutable"
+		uri strip_prefix /identity
+		reverse_proxy auth:8080
+	}
+
 	handle_path /identity/* {
+		header Cache-Control "no-store, no-transform"
 		reverse_proxy auth:8080 {
 			header_up -X-Forwarded-For
 			header_up -X-Forwarded-Host
@@ -75,12 +100,11 @@ https://localhost:8443 {
 
 	@private_objects path /evidence-quarantine/* /evidence-clean/* /inspection-attachments/* /generated-documents/*
 	handle @private_objects {
+		header Cache-Control "no-store, no-transform"
 		reverse_proxy minio:9000
 	}
 
 	handle {
-		@immutable path /assets/*
-		header @immutable Cache-Control "public, max-age=31536000, immutable"
 		reverse_proxy web:8080
 	}
 }

@@ -1,0 +1,36 @@
+[
+  {
+    "name": "http-empty-predecessor-minimal",
+    "manifestInput": {
+      "schemaVersion": 2,
+      "canonicalizationVersion": 1,
+      "profile": "http",
+      "activationPolicy": "automatic-exact-vector",
+      "compatibility": {
+        "appShellVersion": 9,
+        "indexedDbSchemaVersion": 2,
+        "packageSchemaVersion": 1,
+        "syncProtocolVersion": 1
+      },
+      "predecessor": null,
+      "worker": {
+        "templateSha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "files": [
+        {
+          "url": "/",
+          "sha256": "sha256:b633a587c652d02386c4f16f8c6f6aab7352d97f16367c3c40576214372dd628",
+          "byteSize": 13,
+          "contentType": "text/html"
+        },
+        {
+          "url": "/index.html",
+          "sha256": "sha256:b633a587c652d02386c4f16f8c6f6aab7352d97f16367c3c40576214372dd628",
+          "byteSize": 13,
+          "contentType": "text/html"
+        }
+      ]
+    },
+    "expectedReleaseFingerprint": "sha256:f0d11a7677257621e5cb54225e8dc7bb24e4b87e00eb9b339e668d0187c181ba"
+  }
+]

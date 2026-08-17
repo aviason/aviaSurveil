@@ -10,9 +10,13 @@ describe("app-shell version contract", () => {
     const serviceWorker = readFileSync(resolve(sourceRoot, "sw.ts"), "utf8");
     const offlineReadiness = readFileSync(resolve(sourceRoot, "offline/storage-readiness.ts"), "utf8");
     const viteConfig = readFileSync(resolve(sourceRoot, "../vite.config.ts"), "utf8");
+    const manifestPlugin = readFileSync(resolve(sourceRoot, "../build/app-shell-manifest-plugin.ts"), "utf8");
 
-    expect(serviceWorker).toContain('AVIA_APP_SHELL_VERSION:000009');
-    expect(offlineReadiness).toMatch(/appShellVersion:\s*9,/);
-    expect(viteConfig).toMatch(/appShellVersion:\s*9,/);
+    expect(serviceWorker).toContain('__AVIA_RELEASE_FINGERPRINT__');
+    expect(serviceWorker).toContain('APP_SHELL_ACTIVATION_POLICY');
+    expect(offlineReadiness).not.toMatch(/indexedDbSchemaVersion:\s*1,/);
+    expect(viteConfig).toContain("app-shell-manifest-plugin");
+    expect(manifestPlugin).toContain("canonicalAppShellManifestInput");
+    expect(serviceWorker).not.toMatch(/indexedDbSchemaVersion:\s*1/);
   });
 });

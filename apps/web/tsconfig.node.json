@@ -14,8 +14,11 @@
   },
   "include": [
     "vite.config.ts",
+    "build/app-shell-manifest-plugin.ts",
     "playwright.config.ts",
     "src/app/build-profile.ts",
-    "src/app/csp-policy.ts"
+    "src/app/csp-policy.ts",
+    "src/offline/offline-version-contract.ts",
+    "src/offline/app-shell-manifest-contract.ts"
   ]
 }

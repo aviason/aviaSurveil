@@ -8,11 +8,15 @@ import type {
   SyncStateRow,
 } from "./db";
 import type { InspectionPackage, OfflineGrant } from "../backend/backend";
+import {
+  CURRENT_OFFLINE_VERSIONS,
+  type OfflineVersionVector,
+} from "./offline-version-contract";
 
 export const RELEASED_FIELD_SCHEMA_VERSION = 1;
-export const CURRENT_FIELD_SCHEMA_VERSION = 2;
-export const CURRENT_FIELD_PACKAGE_SCHEMA_VERSION = 1;
-export const CURRENT_FIELD_PROTOCOL_VERSION = 1;
+export const CURRENT_FIELD_SCHEMA_VERSION = CURRENT_OFFLINE_VERSIONS.indexedDbSchemaVersion;
+export const CURRENT_FIELD_PACKAGE_SCHEMA_VERSION = CURRENT_OFFLINE_VERSIONS.packageSchemaVersion;
+export const CURRENT_FIELD_PROTOCOL_VERSION = CURRENT_OFFLINE_VERSIONS.syncProtocolVersion;
 
 export type FieldMigrationPhase =
   | "before-expand"
@@ -89,6 +93,18 @@ function isLegacySnapshot(value: unknown): value is LegacyOfflineCheckoutSnapsho
   );
 }
 
+function recordedVector(value: unknown): OfflineVersionVector | null {
+  if (!isRecord(value) || !isRecord(value.versions)) return null;
+  const candidate = value.versions;
+  const values = [candidate.appShellVersion, candidate.indexedDbSchemaVersion, candidate.packageSchemaVersion, candidate.syncProtocolVersion];
+  return values.every((item) => Number.isSafeInteger(item) && (item as number) > 0) ? {
+    appShellVersion: candidate.appShellVersion as number,
+    indexedDbSchemaVersion: candidate.indexedDbSchemaVersion as number,
+    packageSchemaVersion: candidate.packageSchemaVersion as number,
+    syncProtocolVersion: candidate.syncProtocolVersion as number,
+  } : null;
+}
+
 export async function migrateReleasedFoundationToFieldSchema(
   transaction: Transaction,
   recordPhase: (phase: FieldMigrationPhase) => void,
@@ -112,6 +128,7 @@ export async function migrateReleasedFoundationToFieldSchema(
       inspectionPackage.schemaVersion === CURRENT_FIELD_PACKAGE_SCHEMA_VERSION &&
       inspectionPackage.protocolVersion === CURRENT_FIELD_PROTOCOL_VERSION &&
       offlineGrant.protocolVersion === CURRENT_FIELD_PROTOCOL_VERSION;
+    const installedVector = recordedVector(snapshot);
     const packageRow: PackageRow = {
       id: inspectionPackage.id,
       subjectId: snapshot.subjectId,
@@ -120,13 +137,14 @@ export async function migrateReleasedFoundationToFieldSchema(
       packageVersion: inspectionPackage.packageVersion,
       schemaVersion: inspectionPackage.schemaVersion,
       protocolVersion: inspectionPackage.protocolVersion,
+      installedVector,
       packageDigest: inspectionPackage.packageDigest,
       storageDigest: await Dexie.waitFor(sha256Canonical(inspectionPackage)),
       checkedOutAt: snapshot.checkedOutAt,
       expiresAt: inspectionPackage.expiresAt,
       grantId: offlineGrant.grantId,
-      accessState: compatible ? "AVAILABLE" : "QUARANTINED",
-      unavailableReason: compatible ? null : "PACKAGE_SCHEMA_INCOMPATIBLE",
+      accessState: compatible && installedVector ? "AVAILABLE" : "QUARANTINED",
+      unavailableReason: compatible && installedVector ? null : installedVector ? "PACKAGE_SCHEMA_INCOMPATIBLE" : "INSTALLED_VERSION_VECTOR_MISSING",
       localChecklistStatus: inspectionPackage.checklistStatus,
       localChecklistRevision: inspectionPackage.checklistRevision,
       pendingSubmissionOperationId: null,

@@ -71,6 +71,29 @@ if [[ "${AVIASURVEIL_LOCAL_STATE_DIR}" != /* ]]; then
   exit 64
 fi
 export AVIASURVEIL_LOCAL_STATE_DIR
+
+assert_local_port() {
+  local name="$1" value="${2:-}"
+  if [[ ! "$value" =~ ^[0-9]+$ ]] || (( value < 1024 || value > 65535 )); then
+    echo "${name} must be an explicit numeric loopback port between 1024 and 65535" >&2
+    exit 64
+  fi
+  python3 -c 'import socket,sys; sock=socket.socket(); sock.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1); sock.bind(("127.0.0.1",int(sys.argv[1]))); sock.close()' "$value" || {
+    if docker ps --filter "label=com.docker.compose.project=${AVIA_LOCAL_PROJECT}" --format '{{.Ports}}' | grep -q ":${value}->"; then return 0; fi
+    echo "${name} is not available on loopback: ${value}" >&2
+    exit 64
+  }
+}
+
+if [[ "${AVIA_LOCAL_STRICT_PORTS:-0}" == "1" && "${COMMAND}" == "up" ]]; then
+  for port_name in AVIA_LOCAL_HTTPS_PORT AVIA_LOCAL_MAILPIT_SMTP_PORT AVIA_LOCAL_MAILPIT_UI_PORT; do
+    if [[ -z "${!port_name:-}" ]]; then
+      echo "${port_name} must be explicitly supplied for strict task-owned local runs" >&2
+      exit 64
+    fi
+    assert_local_port "$port_name" "${!port_name}"
+  done
+fi
 AVIA_BOOTSTRAP_MANIFEST_DIR="${AVIA_BOOTSTRAP_MANIFEST_DIR:-${REPOSITORY_ROOT}/../../deployments/namibia/manifests}"
 AVIA_ROSTER_CREDENTIAL_DIRECTORY="${AVIA_ROSTER_CREDENTIAL_DIRECTORY:-${AVIASURVEIL_LOCAL_STATE_DIR}/roster-credentials}"
 manifest_digest() {

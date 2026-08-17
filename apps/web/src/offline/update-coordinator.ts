@@ -1,8 +1,8 @@
-import { CURRENT_OFFLINE_VERSIONS, type OfflineVersionVector } from "./storage-readiness";
+import { CURRENT_OFFLINE_VERSIONS, type OfflineVersionVector } from "./offline-version-contract";
 
 export const UPDATE_ACTIVATION_POLICY = {
-  automaticSkipWaiting: false,
-  automaticClientsClaim: false,
+  automaticSkipWaiting: true,
+  automaticClientsClaim: true,
   deleteOldCachesOnActivate: false,
 } as const;
 
@@ -35,18 +35,16 @@ export interface UpdateSafetyInput {
 }
 
 export type UpdateDecisionCode =
-  | "ready-for-user-activation"
+  | "ready-for-automatic-activation"
   | "deferred-incompatible-client"
-  | "deferred-unsynced-work"
-  | "deferred-migration-owner"
-  | "paused-for-migration"
   | "read-only-recovery"
-  | "rollback-shell-only";
+  | "blocked-vector-change";
 
 export interface UpdateDecision {
   code: UpdateDecisionCode;
   allowEdits: boolean;
-  autoActivate: false;
+  autoActivate: boolean;
+  allowDocumentReload: boolean;
   preserveLocalData: true;
   deleteOldCaches: false;
   databaseDowngradeAllowed: false;
@@ -57,11 +55,13 @@ function decision(
   code: UpdateDecisionCode,
   allowEdits: boolean,
   reason: string,
+  allowDocumentReload = false,
 ): UpdateDecision {
   return {
     code,
     allowEdits,
-    autoActivate: false,
+    autoActivate: code === "ready-for-automatic-activation",
+    allowDocumentReload,
     preserveLocalData: true,
     deleteOldCaches: false,
     databaseDowngradeAllowed: false,
@@ -69,13 +69,13 @@ function decision(
   };
 }
 
-export function isNOrNMinusOneCompatible(version: number, current: number): boolean {
+export function isExactOfflineVersion(version: number, current: number): boolean {
   return (
     Number.isSafeInteger(version) &&
     Number.isSafeInteger(current) &&
     version > 0 &&
     current > 0 &&
-    (version === current || version === current - 1)
+    version === current
   );
 }
 
@@ -87,15 +87,12 @@ function hasPendingLocalWork(input: UpdateSafetyInput): boolean {
   );
 }
 
-function clientIsCompatible(client: ClientVersion, candidate: OfflineVersionVector): boolean {
+function clientIsExact(client: ClientVersion, candidate: OfflineVersionVector): boolean {
   return (
-    isNOrNMinusOneCompatible(client.appShellVersion, candidate.appShellVersion) &&
-    isNOrNMinusOneCompatible(
-      client.indexedDbSchemaVersion,
-      candidate.indexedDbSchemaVersion,
-    ) &&
-    isNOrNMinusOneCompatible(client.packageSchemaVersion, candidate.packageSchemaVersion) &&
-    isNOrNMinusOneCompatible(client.syncProtocolVersion, candidate.syncProtocolVersion)
+    client.appShellVersion === candidate.appShellVersion &&
+    client.indexedDbSchemaVersion === candidate.indexedDbSchemaVersion &&
+    client.packageSchemaVersion === candidate.packageSchemaVersion &&
+    client.syncProtocolVersion === candidate.syncProtocolVersion
   );
 }
 
@@ -108,58 +105,33 @@ export function evaluateUpdateSafety(input: UpdateSafetyInput): UpdateDecision {
     );
   }
 
-  const databaseDowngradeRequested =
-    input.candidate.indexedDbSchemaVersion < input.active.indexedDbSchemaVersion ||
-    input.candidate.packageSchemaVersion < input.active.packageSchemaVersion ||
-    input.candidate.syncProtocolVersion < input.active.syncProtocolVersion;
-  if (databaseDowngradeRequested) {
+  if (
+    input.candidate.appShellVersion !== input.active.appShellVersion ||
+    input.candidate.indexedDbSchemaVersion !== input.active.indexedDbSchemaVersion ||
+    input.candidate.packageSchemaVersion !== input.active.packageSchemaVersion ||
+    input.candidate.syncProtocolVersion !== input.active.syncProtocolVersion
+  ) {
     return decision(
-      "read-only-recovery",
+      "blocked-vector-change",
       false,
-      "A shell rollback cannot downgrade IndexedDB, package, or protocol state.",
+      "The candidate vector differs from the active vector; a separate migration/bootstrap-shell plan is required.",
     );
   }
 
-  if (input.clients.some((client) => !clientIsCompatible(client, input.candidate))) {
+  if (input.clients.some((client) => !clientIsExact(client, input.candidate))) {
     return decision(
       "deferred-incompatible-client",
       true,
-      "An open client is outside the explicit N/N-1 compatibility window.",
-    );
-  }
-  if (hasPendingLocalWork(input)) {
-    return decision(
-      "deferred-unsynced-work",
-      true,
-      "Pending outbox, package, or attachment work blocks update activation.",
-    );
-  }
-  if (input.migration.required && !input.migration.ownerLockAcquired) {
-    return decision(
-      "deferred-migration-owner",
-      false,
-      "One approved migration owner lock is required across tabs.",
-    );
-  }
-  if (input.migration.required) {
-    return decision(
-      "paused-for-migration",
-      false,
-      `Edits remain paused during the ${input.migration.phase} migration phase.`,
-    );
-  }
-
-  if (input.candidate.appShellVersion === input.active.appShellVersion - 1) {
-    return decision(
-      "rollback-shell-only",
-      true,
-      "The N-1 shell may be restored without a database downgrade.",
+      "An open client does not report the exact complete compatibility vector.",
     );
   }
   return decision(
-    "ready-for-user-activation",
+    "ready-for-automatic-activation",
     true,
-    "The waiting shell is compatible; activation still requires an explicit coordinated action.",
+    hasPendingLocalWork(input)
+      ? "The exact-vector worker may activate; document reload remains gated by client quiescence and durable local work."
+      : "The exact-vector worker may activate; document reload remains gated by client quiescence.",
+    !hasPendingLocalWork(input) && !input.migration.required,
   );
 }
 
@@ -210,7 +182,7 @@ export function createBrowserUpdateCoordinator(): {
 export async function registerAppShellServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (!import.meta.env.PROD || !("serviceWorker" in navigator)) return null;
   const registration = await navigator.serviceWorker.register(
-    `/sw.js?v=${CURRENT_OFFLINE_VERSIONS.appShellVersion}`,
+    "/sw.js",
     {
       scope: "/",
       type: "module",
@@ -223,7 +195,7 @@ export async function registerAppShellServiceWorker(): Promise<ServiceWorkerRegi
       if (installing.state === "installed" && registration.waiting) {
         window.dispatchEvent(
           new CustomEvent("avia:app-shell-update-waiting", {
-            detail: { automaticActivation: false },
+            detail: { automaticActivation: true },
           }),
         );
       }

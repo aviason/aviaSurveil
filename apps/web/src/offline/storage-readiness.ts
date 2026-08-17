@@ -6,6 +6,12 @@ import {
 } from "./db";
 import { IndexedDbFieldRepository } from "./field-repository";
 import { CURRENT_FIELD_SCHEMA_VERSION } from "./schema-migrations";
+import {
+  CURRENT_OFFLINE_VERSIONS,
+  type OfflineVersionVector,
+} from "./offline-version-contract";
+
+export { CURRENT_OFFLINE_VERSIONS } from "./offline-version-contract";
 
 export type OfflineReadinessCode =
   | "ready"
@@ -22,19 +28,7 @@ export type OfflineReadinessCode =
   | "schema-version-incompatible"
   | "protocol-version-incompatible";
 
-export interface OfflineVersionVector {
-  appShellVersion: number;
-  indexedDbSchemaVersion: number;
-  packageSchemaVersion: number;
-  syncProtocolVersion: number;
-}
-
-export const CURRENT_OFFLINE_VERSIONS: Readonly<OfflineVersionVector> = {
-  appShellVersion: 9,
-  indexedDbSchemaVersion: CURRENT_FIELD_SCHEMA_VERSION,
-  packageSchemaVersion: 1,
-  syncProtocolVersion: 1,
-};
+export type { OfflineVersionVector } from "./offline-version-contract";
 
 export interface OfflinePackageDescriptor {
   packageId: string;
@@ -127,14 +121,8 @@ async function healthy(check: () => Promise<boolean>): Promise<boolean> {
   }
 }
 
-function isNOrNMinusOne(version: number, current: number): boolean {
-  return (
-    Number.isSafeInteger(version) &&
-    Number.isSafeInteger(current) &&
-    version > 0 &&
-    current > 0 &&
-    (version === current || version === current - 1)
-  );
+function isExactVersion(version: number, current: number): boolean {
+  return Number.isSafeInteger(version) && Number.isSafeInteger(current) && version === current;
 }
 
 function validInstant(value: string): number | null {
@@ -214,15 +202,15 @@ export async function assessOfflineReadiness(
   if (!grantIsValid(input)) {
     return failure("offline-grant-invalid", { requiredBytes, availableBytes: quota - usage });
   }
-  if (!isNOrNMinusOne(input.versions.appShellVersion, input.requiredAppShellVersion)) {
+  if (!isExactVersion(input.versions.appShellVersion, input.requiredAppShellVersion)) {
     return failure("app-version-incompatible", { requiredBytes, availableBytes: quota - usage });
   }
-  if (!isNOrNMinusOne(input.packageDescriptor.schemaVersion, input.versions.packageSchemaVersion)) {
+  if (!isExactVersion(input.packageDescriptor.schemaVersion, input.versions.packageSchemaVersion)) {
     return failure("schema-version-incompatible", { requiredBytes, availableBytes: quota - usage });
   }
   if (
     input.offlineGrant?.protocolVersion !== input.packageDescriptor.protocolVersion ||
-    !isNOrNMinusOne(
+    !isExactVersion(
       input.packageDescriptor.protocolVersion,
       input.versions.syncProtocolVersion,
     )
@@ -407,13 +395,13 @@ export async function readOfflineCheckoutSnapshot(
   const grantRow = packageRow
     ? await database.offlineGrants.get([subjectId, packageRow.grantId])
     : undefined;
-  if (packageRow?.accessState === "AVAILABLE" && grantRow) {
+  if (packageRow?.accessState === "AVAILABLE" && grantRow && packageRow.installedVector) {
     return {
       subjectId,
       inspectionPackage: structuredClone(packageRow.inspectionPackage),
       offlineGrant: structuredClone(grantRow.offlineGrant),
       checkedOutAt: packageRow.checkedOutAt,
-      versions: CURRENT_OFFLINE_VERSIONS,
+      versions: structuredClone(packageRow.installedVector),
     };
   }
   if (packageRow) return null;

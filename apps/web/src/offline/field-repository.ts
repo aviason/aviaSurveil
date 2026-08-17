@@ -36,6 +36,7 @@ import {
   isFieldSchemaNOrNMinusOne,
   sha256Canonical,
 } from "./schema-migrations";
+import { CURRENT_OFFLINE_VERSIONS } from "./offline-version-contract";
 
 export type FieldTransactionBoundary =
   | "after-checklist-response-write"
@@ -364,6 +365,7 @@ export class IndexedDbFieldRepository {
           packageVersion: inspectionPackage.packageVersion,
           schemaVersion: inspectionPackage.schemaVersion,
           protocolVersion: inspectionPackage.protocolVersion,
+          installedVector: CURRENT_OFFLINE_VERSIONS,
           packageDigest: inspectionPackage.packageDigest,
           storageDigest,
           checkedOutAt: input.checkedOutAt,

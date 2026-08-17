@@ -29,6 +29,7 @@ export async function readPublicHttpConfig(
 ): Promise<PublicHttpConfig> {
   const response = await fetchImplementation("/http-config.json", {
     credentials: "same-origin",
+    cache: "no-store",
     headers: { Accept: "application/json" },
   });
   if (!response.ok) {

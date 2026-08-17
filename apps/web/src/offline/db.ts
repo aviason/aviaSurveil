@@ -14,6 +14,7 @@ import {
   type FieldMigrationFault,
   type FieldMigrationPhase,
 } from "./schema-migrations";
+import type { OfflineVersionVector } from "./offline-version-contract";
 
 export type { FieldMigrationPhase } from "./schema-migrations";
 
@@ -58,6 +59,7 @@ export interface PackageRow {
   packageVersion: number;
   schemaVersion: number;
   protocolVersion: number;
+  installedVector: OfflineVersionVector | null;
   packageDigest: string;
   storageDigest: string;
   checkedOutAt: string;

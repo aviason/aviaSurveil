@@ -44,6 +44,9 @@ describe("Service Worker request policy", () => {
     ["https://candidate.test/evidence-quarantine/object-version-1", "navigate"],
     ["https://candidate.test/inspection-attachments/object-version-1", "navigate"],
     ["https://candidate.test/generated-documents/final-report.pdf", "navigate"],
+    ["https://candidate.test/operations/dashboard", "navigate"],
+    ["https://candidate.test/otel/v1/traces", "navigate"],
+    ["https://candidate.test/private/object", "navigate"],
   ] as const)("never caches business, API, auth, health, test, or cross-origin request %s", (url, mode) => {
     expect(
       classifyAppShellRequest(

@@ -217,6 +217,7 @@ services:
       AVIA_AUTH_OIDC_CLIENT_ID: ${LOCAL_OIDC_CLIENT_ID:-aviasurveil360-namibia-demo-web}
       AVIA_AUTH_OIDC_REDIRECT_URI: "https://localhost:${AVIA_LOCAL_HTTPS_PORT:-8443}/auth/callback"
       AVIA_AUTH_OIDC_POST_LOGOUT_REDIRECT_URI: "https://localhost:${AVIA_LOCAL_HTTPS_PORT:-8443}/"
+      AVIA_AUTH_OIDC_LOGIN_RESTART_URI: "https://localhost:${AVIA_LOCAL_HTTPS_PORT:-8443}/auth/login"
       AVIA_AUTH_OIDC_CLIENT_SECRET_FILE: /run/secrets/oidc_client_secret
       AVIA_AUTH_SMTP_MODE: disabled
       AVIA_AUTH_ADMIN_SECRET_FILE: /run/secrets/auth_admin_secret

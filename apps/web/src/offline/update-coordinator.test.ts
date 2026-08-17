@@ -4,7 +4,7 @@ import {
   UPDATE_ACTIVATION_POLICY,
   UpdateCoordinator,
   evaluateUpdateSafety,
-  isNOrNMinusOneCompatible,
+  isExactOfflineVersion,
   type UpdateSafetyInput,
 } from "./update-coordinator";
 
@@ -17,7 +17,7 @@ function input(overrides: Partial<UpdateSafetyInput> = {}): UpdateSafetyInput {
       syncProtocolVersion: 2,
     },
     candidate: {
-      appShellVersion: 3,
+      appShellVersion: 2,
       indexedDbSchemaVersion: 2,
       packageSchemaVersion: 2,
       syncProtocolVersion: 2,
@@ -54,32 +54,33 @@ function input(overrides: Partial<UpdateSafetyInput> = {}): UpdateSafetyInput {
 }
 
 describe("update safety", () => {
-  it("accepts exactly N and N-1", () => {
-    expect(isNOrNMinusOneCompatible(3, 3)).toBe(true);
-    expect(isNOrNMinusOneCompatible(2, 3)).toBe(true);
-    expect(isNOrNMinusOneCompatible(1, 3)).toBe(false);
-    expect(isNOrNMinusOneCompatible(4, 3)).toBe(false);
-    expect(isNOrNMinusOneCompatible(0, 1)).toBe(false);
-    expect(isNOrNMinusOneCompatible(-1, 1)).toBe(false);
+  it("accepts only the exact complete vector", () => {
+    expect(isExactOfflineVersion(3, 3)).toBe(true);
+    expect(isExactOfflineVersion(2, 3)).toBe(false);
+    expect(isExactOfflineVersion(1, 3)).toBe(false);
+    expect(isExactOfflineVersion(4, 3)).toBe(false);
+    expect(isExactOfflineVersion(0, 1)).toBe(false);
+    expect(isExactOfflineVersion(-1, 1)).toBe(false);
   });
 
-  it("requires explicit user activation even when the candidate is safe", () => {
+  it("allows automatic exact-vector worker activation", () => {
     expect(evaluateUpdateSafety(input())).toMatchObject({
-      code: "ready-for-user-activation",
+      code: "ready-for-automatic-activation",
       allowEdits: true,
-      autoActivate: false,
+      autoActivate: true,
+      allowDocumentReload: true,
       preserveLocalData: true,
       deleteOldCaches: false,
       databaseDowngradeAllowed: false,
     });
     expect(UPDATE_ACTIVATION_POLICY).toEqual({
-      automaticSkipWaiting: false,
-      automaticClientsClaim: false,
+      automaticSkipWaiting: true,
+      automaticClientsClaim: true,
       deleteOldCachesOnActivate: false,
     });
   });
 
-  it("defers an update while any N-2 client is open", () => {
+  it("defers an update while any client reports a different vector", () => {
     const result = evaluateUpdateSafety(
       input({
         clients: [
@@ -101,26 +102,21 @@ describe("update safety", () => {
     { pendingOutboxCount: 1, pendingAttachmentManifestCount: 0, unsyncedPackageCount: 0 },
     { pendingOutboxCount: 0, pendingAttachmentManifestCount: 1, unsyncedPackageCount: 0 },
     { pendingOutboxCount: 0, pendingAttachmentManifestCount: 0, unsyncedPackageCount: 1 },
-  ])("defers without deleting pending local work: %j", (localWork) => {
+  ])("activates without reloading over pending local work: %j", (localWork) => {
     const result = evaluateUpdateSafety(input({ localWork }));
-    expect(result.code).toBe("deferred-unsynced-work");
+    expect(result.code).toBe("ready-for-automatic-activation");
+    expect(result.autoActivate).toBe(true);
+    expect(result.allowDocumentReload).toBe(false);
     expect(result.preserveLocalData).toBe(true);
     expect(result.deleteOldCaches).toBe(false);
   });
 
   it("requires one migration owner and pauses edits during an incompatible migration", () => {
-    expect(
-      evaluateUpdateSafety(
-        input({
-          migration: {
-            required: true,
-            ownerLockAcquired: false,
-            phase: "before-expand",
-            failed: false,
-          },
-        }),
-      ).code,
-    ).toBe("deferred-migration-owner");
+    expect(evaluateUpdateSafety(input({ migration: { required: true, ownerLockAcquired: false, phase: "before-expand", failed: false } }))).toMatchObject({
+      code: "ready-for-automatic-activation",
+      autoActivate: true,
+      allowDocumentReload: false,
+    });
 
     expect(
       evaluateUpdateSafety(
@@ -133,7 +129,7 @@ describe("update safety", () => {
           },
         }),
       ),
-    ).toMatchObject({ code: "paused-for-migration", allowEdits: false });
+    ).toMatchObject({ code: "ready-for-automatic-activation", allowDocumentReload: false });
   });
 
   it.each(["before-expand", "after-expand", "after-copy", "before-contract"] as const)(
@@ -153,7 +149,7 @@ describe("update safety", () => {
     },
   );
 
-  it("allows an N-1 shell rollback without a database downgrade", () => {
+  it("blocks a vector-changing shell rollback", () => {
     const result = evaluateUpdateSafety(
       input({
         active: {
@@ -171,7 +167,7 @@ describe("update safety", () => {
         clients: [],
       }),
     );
-    expect(result.code).toBe("rollback-shell-only");
+    expect(result.code).toBe("blocked-vector-change");
     expect(result.databaseDowngradeAllowed).toBe(false);
   });
 
@@ -198,7 +194,7 @@ describe("update safety", () => {
     expect(maximumActive).toBe(1);
     expect(broadcast).toHaveBeenCalledTimes(2);
     expect(broadcast).toHaveBeenLastCalledWith(
-      expect.objectContaining({ type: "update-decision", code: "ready-for-user-activation" }),
+      expect.objectContaining({ type: "update-decision", code: "ready-for-automatic-activation" }),
     );
   });
 });

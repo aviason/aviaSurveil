@@ -135,17 +135,18 @@ For the Task 6 PWA app-shell and offline-readiness slice, add:
 ```bash
 npm --prefix apps/web run check:app-shell
 npm --prefix apps/web run test:e2e:offline
-./scripts/test-http-profile.sh
+make harness-check
+make qualification-bootstrap-check
+bash scripts/check-compose-policy.sh
 ```
 
-Expected: both generated app-shell manifests match their worker version marker;
-the worker has no automatic activation/cache deletion or API-response caching;
-the dedicated persistent-profile browser tests pass real restart/server-stop
-startup and two-client N/N-1 preservation; and the complete live HTTP profile
-still passes and cleans up task-owned dependencies. Task 6 is `verified locally`
-and `candidate-only`; atomic field/outbox persistence, staged attachment bytes,
-sync, production deployment, and production evidence remain `not run` or
-`blocked`.
+Expected: generated app-shell artifacts contain the exact dependency-free
+compatibility vector; worker installation validates candidate files and does not
+clear durable storage; exact-vector-compatible activation is automatic while
+document reload remains quiescence-gated; persistent-profile tests preserve
+IndexedDB/OPFS/outbox data; and current task-owned Compose policy/bootstrap
+checks pass. The result remains `candidate-only` until the new A/B/C browser
+harness, Auth concurrency gate, and release evidence exist.
 
 Remaining application slices must add their authorized field-storage,
 attachment, sync, route, security, migration/restore, artifact, responsive,

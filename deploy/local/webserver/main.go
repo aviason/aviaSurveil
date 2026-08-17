@@ -8,6 +8,7 @@ import (
 	"mime"
 	"net/http"
 	"os"
+	"regexp"
 	"os/signal"
 	"path/filepath"
 	"strings"
@@ -19,6 +20,8 @@ const (
 	listenAddress = ":8080"
 	documentRoot  = "/srv"
 )
+
+var contentHashedAsset = regexp.MustCompile(`^/assets/[A-Za-z0-9_.-]+-[A-Za-z0-9_-]{6,}\.(?:css|js|map|svg|png|jpg|jpeg|webp|ttf|woff|woff2)$`)
 
 func main() {
 	if len(os.Args) == 2 && os.Args[1] == "healthcheck" {
@@ -89,6 +92,7 @@ func health(response http.ResponseWriter, request *http.Request) {
 }
 
 func serveArtifact(response http.ResponseWriter, request *http.Request) {
+	setArtifactCachePolicy(response, request.URL.Path)
 	if request.Method != http.MethodGet && request.Method != http.MethodHead {
 		response.Header().Set("Allow", "GET, HEAD")
 		http.Error(response, "method not allowed", http.StatusMethodNotAllowed)
@@ -113,7 +117,7 @@ func serveArtifact(response http.ResponseWriter, request *http.Request) {
 
 func serveFile(response http.ResponseWriter, request *http.Request, filename string) {
 	if filepath.Ext(filename) == ".html" {
-		response.Header().Set("Cache-Control", "no-store")
+		response.Header().Set("Cache-Control", "no-store, no-transform")
 	}
 	if contentType := mime.TypeByExtension(filepath.Ext(filename)); contentType != "" {
 		response.Header().Set("Content-Type", contentType)
@@ -137,6 +141,17 @@ func serveFile(response http.ResponseWriter, request *http.Request, filename str
 		return
 	}
 	http.ServeContent(response, request, info.Name(), info.ModTime(), file)
+}
+
+func setArtifactCachePolicy(response http.ResponseWriter, pathname string) {
+	switch {
+	case pathname == "/" || pathname == "/index.html" || pathname == "/sw.js" || pathname == "/app-shell-assets.json" || pathname == "/http-config.json" || pathname == "/demo-build.json":
+		response.Header().Set("Cache-Control", "no-store, no-transform")
+	case contentHashedAsset.MatchString(pathname):
+		response.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	case strings.HasPrefix(pathname, "/assets/") || strings.HasPrefix(pathname, "/api/") || strings.HasPrefix(pathname, "/v1/") || strings.HasPrefix(pathname, "/auth/") || strings.HasPrefix(pathname, "/identity/") || strings.HasPrefix(pathname, "/health/") || strings.HasPrefix(pathname, "/operations/") || strings.HasPrefix(pathname, "/otel/") || strings.HasPrefix(pathname, "/private/") || strings.HasPrefix(pathname, "/evidence-") || strings.HasPrefix(pathname, "/inspection-attachments/") || strings.HasPrefix(pathname, "/generated-documents/"):
+		response.Header().Set("Cache-Control", "no-store, no-transform")
+	}
 }
 
 func acceptsHTML(request *http.Request) bool {

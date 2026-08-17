@@ -2,6 +2,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 import { fileURLToPath } from "node:url";
 
+import { createAppShellManifestPlugin } from "./build/app-shell-manifest-plugin";
 import { resolveBuildProfile, type BuildProfile } from "./src/app/build-profile";
 import { contentSecurityPolicy } from "./src/app/csp-policy";
 
@@ -26,20 +27,6 @@ function buildProfilePlugin(profile: BuildProfile, entryName: string, localDevel
         type: "asset",
         fileName: "build-inputs.json",
         source: `${JSON.stringify({ profile, inputs: [...inputs].sort() }, null, 2)}\n`,
-      });
-      const assets = Object.keys(bundle)
-        .filter(
-          (fileName) =>
-            fileName.startsWith("assets/") &&
-            /\.(?:css|js|svg|png|jpg|jpeg|webp|ttf|woff|woff2)$/.test(fileName),
-        )
-        .map((fileName) => `/${fileName}`)
-        .sort();
-      if (profile === "demo") assets.push("/demo-build.json");
-      this.emitFile({
-        type: "asset",
-        fileName: "app-shell-assets.json",
-        source: `${JSON.stringify({ appShellVersion: 9, profile, assets }, null, 2)}\n`,
       });
     },
   };
@@ -88,6 +75,7 @@ export default defineConfig(({ command }) => {
     plugins: [
       react(),
       buildProfilePlugin(profile, httpTestProfile ? "http-test" : profile, command === "serve"),
+      createAppShellManifestPlugin(profile),
       canonicalOtlpSinkPlugin(httpTestProfile),
     ],
     publicDir: `public/${profile}`,

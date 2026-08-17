@@ -12,6 +12,7 @@ import { ScenarioProvider } from "./scenario-context";
 import { HttpAuthGate } from "../auth/http-auth-gate";
 import { OfflineSubjectBoundary, SessionProvider } from "../auth/session-provider";
 import { registerAppShellServiceWorker } from "../offline/update-coordinator";
+import { bindBrowserQuiescence } from "../offline/client-quiescence";
 import {
   currentBrowserRouteID,
   installBrowserTelemetry,
@@ -72,7 +73,11 @@ export function bootstrap(runtime: ApplicationRuntime): void {
     </StrictMode>,
   );
 
-  void registerAppShellServiceWorker().catch(() => {
-    window.dispatchEvent(new CustomEvent("avia:app-shell-registration-failed"));
-  });
+  void registerAppShellServiceWorker()
+    .then((registration) => {
+      if (registration) bindBrowserQuiescence(registration);
+    })
+    .catch(() => {
+      window.dispatchEvent(new CustomEvent("avia:app-shell-registration-failed"));
+    });
 }
