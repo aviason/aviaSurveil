@@ -170,6 +170,7 @@ export function assertAppShellArtifact(suppliedPath) {
   assert.doesNotMatch(worker, /indexedDB\.deleteDatabase/);
   assert.match(worker, /force-window-client-navigation-v1/);
   assert.match(worker, /\.navigate\(/);
+  assert.doesNotMatch(worker, /await\s+[\w$.]+\.navigate\(/);
   assert.doesNotMatch(worker, /cache\.addAll/);
   return { files: files.length, assets: manifest.files.length, profile: manifest.profile, releaseFingerprint: manifest.releaseFingerprint };
 }

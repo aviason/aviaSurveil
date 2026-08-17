@@ -1,6 +1,24 @@
 import { describe, expect, it } from "vitest";
 
-import { classifyAppShellRequest } from "../sw";
+import type { AppShellPredecessorDescriptor } from "./app-shell-manifest-contract";
+import { CURRENT_OFFLINE_VERSIONS, type OfflineVersionVector } from "./offline-version-contract";
+import { canActivateAppShellCandidate, classifyAppShellRequest } from "../sw";
+
+function descriptor(
+  fingerprint: string,
+  compatibility: OfflineVersionVector = CURRENT_OFFLINE_VERSIONS,
+): AppShellPredecessorDescriptor {
+  return {
+    lockDigest: null,
+    webImageReferenceDigest: null,
+    platformManifestDigest: null,
+    serviceWorkerURL: "/sw.js",
+    serviceWorkerSha256: null,
+    appShellManifestSha256: null,
+    releaseFingerprint: fingerprint,
+    compatibility,
+  };
+}
 
 describe("Service Worker request policy", () => {
   it.each([
@@ -67,5 +85,66 @@ describe("Service Worker request policy", () => {
         "https://candidate.test",
       ),
     ).toBe("network-only");
+  });
+});
+
+describe("Service Worker activation policy", () => {
+  it("activates a first install and an exact direct predecessor", () => {
+    const previous = descriptor(`sha256:${"1".repeat(64)}`);
+    expect(canActivateAppShellCandidate(
+      { compatibility: CURRENT_OFFLINE_VERSIONS, predecessor: null },
+      [],
+    )).toBe(true);
+    expect(canActivateAppShellCandidate(
+      { compatibility: CURRENT_OFFLINE_VERSIONS, predecessor: previous },
+      [{ compatibility: CURRENT_OFFLINE_VERSIONS, releaseDescriptor: previous }],
+    )).toBe(true);
+  });
+
+  it("lets an exact-vector client skip missed app-shell releases", () => {
+    const expectedPredecessor = descriptor(`sha256:${"2".repeat(64)}`);
+    const olderCommittedRelease = descriptor(`sha256:${"1".repeat(64)}`);
+    expect(canActivateAppShellCandidate(
+      { compatibility: CURRENT_OFFLINE_VERSIONS, predecessor: expectedPredecessor },
+      [{ compatibility: CURRENT_OFFLINE_VERSIONS, releaseDescriptor: olderCommittedRelease }],
+    )).toBe(true);
+  });
+
+  it("activates the fingerprint-bound legacy v9 bridge without a committed v2 cache", () => {
+    const legacy = {
+      ...descriptor(`sha256:${"1".repeat(64)}`),
+      serviceWorkerURL: "/sw.js?v=9",
+    };
+    expect(canActivateAppShellCandidate(
+      { compatibility: CURRENT_OFFLINE_VERSIONS, predecessor: legacy },
+      [],
+    )).toBe(true);
+  });
+
+  it("rejects a skipped release when any offline compatibility dimension differs", () => {
+    const expectedPredecessor = descriptor(`sha256:${"2".repeat(64)}`);
+    const incompatible = {
+      ...CURRENT_OFFLINE_VERSIONS,
+      indexedDbSchemaVersion: CURRENT_OFFLINE_VERSIONS.indexedDbSchemaVersion - 1,
+    };
+    expect(canActivateAppShellCandidate(
+      { compatibility: CURRENT_OFFLINE_VERSIONS, predecessor: expectedPredecessor },
+      [{ compatibility: incompatible, releaseDescriptor: descriptor(`sha256:${"1".repeat(64)}`, incompatible) }],
+    )).toBe(false);
+  });
+
+  it("rejects a legacy v9 bridge with an incompatible predecessor vector", () => {
+    const incompatible = {
+      ...CURRENT_OFFLINE_VERSIONS,
+      packageSchemaVersion: CURRENT_OFFLINE_VERSIONS.packageSchemaVersion + 1,
+    };
+    const legacy = {
+      ...descriptor(`sha256:${"1".repeat(64)}`, incompatible),
+      serviceWorkerURL: "/sw.js?v=9",
+    };
+    expect(canActivateAppShellCandidate(
+      { compatibility: CURRENT_OFFLINE_VERSIONS, predecessor: legacy },
+      [],
+    )).toBe(false);
   });
 });

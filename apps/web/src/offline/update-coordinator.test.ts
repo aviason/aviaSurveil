@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  APP_SHELL_UPDATE_POLL_INTERVAL_MS,
   UPDATE_ACTIVATION_POLICY,
   UpdateCoordinator,
   evaluateUpdateSafety,
+  installAppShellUpdateMonitor,
   isExactOfflineVersion,
+  type AppShellUpdateMonitorEnvironment,
   type UpdateSafetyInput,
 } from "./update-coordinator";
 
@@ -196,5 +199,148 @@ describe("update safety", () => {
     expect(broadcast).toHaveBeenLastCalledWith(
       expect.objectContaining({ type: "update-decision", code: "ready-for-automatic-activation" }),
     );
+  });
+});
+
+function updateMonitorHarness() {
+  const eventTarget = new EventTarget();
+  const documentTarget = new EventTarget() as EventTarget & { visibilityState: string };
+  let visibilityState = "visible";
+  let online = true;
+  let intervalCallback: (() => void) | null = null;
+  const intervalHandle = { id: "app-shell-update-poll" };
+  const clearInterval = vi.fn();
+  const reportFailure = vi.fn();
+  Object.defineProperty(documentTarget, "visibilityState", {
+    get: () => visibilityState,
+  });
+  const environment: AppShellUpdateMonitorEnvironment = {
+    eventTarget,
+    documentTarget,
+    isOnline: () => online,
+    setInterval(callback, intervalMs) {
+      expect(intervalMs).toBe(APP_SHELL_UPDATE_POLL_INTERVAL_MS);
+      intervalCallback = callback;
+      return intervalHandle;
+    },
+    clearInterval,
+    reportFailure,
+  };
+  return {
+    environment,
+    eventTarget,
+    documentTarget,
+    intervalHandle,
+    clearInterval,
+    reportFailure,
+    poll: () => intervalCallback?.(),
+    setOnline: (value: boolean) => {
+      online = value;
+    },
+    setVisibility: (value: string) => {
+      visibilityState = value;
+    },
+  };
+}
+
+async function settleUpdateMonitor(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+describe("app-shell update monitor", () => {
+  it("checks on startup, polling, foreground, online recovery, and page restoration", async () => {
+    const harness = updateMonitorHarness();
+    const update = vi.fn().mockResolvedValue(undefined);
+    const monitor = installAppShellUpdateMonitor(
+      { update } as unknown as ServiceWorkerRegistration,
+      harness.environment,
+    );
+
+    await monitor.checkNow();
+    expect(update).toHaveBeenCalledTimes(1);
+
+    harness.poll();
+    await settleUpdateMonitor();
+    expect(update).toHaveBeenCalledTimes(2);
+
+    harness.documentTarget.dispatchEvent(new Event("visibilitychange"));
+    await settleUpdateMonitor();
+    expect(update).toHaveBeenCalledTimes(3);
+
+    harness.eventTarget.dispatchEvent(new Event("online"));
+    await settleUpdateMonitor();
+    expect(update).toHaveBeenCalledTimes(4);
+
+    harness.eventTarget.dispatchEvent(new Event("pageshow"));
+    await settleUpdateMonitor();
+    expect(update).toHaveBeenCalledTimes(5);
+
+    monitor.close();
+    expect(harness.clearInterval).toHaveBeenCalledWith(harness.intervalHandle);
+    harness.poll();
+    harness.eventTarget.dispatchEvent(new Event("online"));
+    harness.eventTarget.dispatchEvent(new Event("pageshow"));
+    harness.documentTarget.dispatchEvent(new Event("visibilitychange"));
+    await settleUpdateMonitor();
+    expect(update).toHaveBeenCalledTimes(5);
+  });
+
+  it("pauses while hidden or offline and coalesces concurrent checks", async () => {
+    const harness = updateMonitorHarness();
+    harness.setOnline(false);
+    const finishUpdates: Array<() => void> = [];
+    const update = vi.fn(() => new Promise<void>((resolve) => {
+      finishUpdates.push(resolve);
+    }));
+    const monitor = installAppShellUpdateMonitor(
+      { update } as unknown as ServiceWorkerRegistration,
+      harness.environment,
+    );
+
+    expect(update).not.toHaveBeenCalled();
+    harness.poll();
+    harness.eventTarget.dispatchEvent(new Event("online"));
+    expect(update).not.toHaveBeenCalled();
+
+    harness.setOnline(true);
+    harness.setVisibility("hidden");
+    harness.eventTarget.dispatchEvent(new Event("online"));
+    expect(update).not.toHaveBeenCalled();
+
+    harness.setVisibility("visible");
+    harness.documentTarget.dispatchEvent(new Event("visibilitychange"));
+    harness.poll();
+    harness.eventTarget.dispatchEvent(new Event("pageshow"));
+    expect(update).toHaveBeenCalledTimes(1);
+
+    finishUpdates.shift()?.();
+    await monitor.checkNow();
+    await settleUpdateMonitor();
+    harness.poll();
+    expect(update).toHaveBeenCalledTimes(2);
+    finishUpdates.shift()?.();
+    monitor.close();
+  });
+
+  it("reports a failed check and retries on the next trigger", async () => {
+    const harness = updateMonitorHarness();
+    const failure = new Error("temporary update failure");
+    const update = vi.fn()
+      .mockRejectedValueOnce(failure)
+      .mockResolvedValue(undefined);
+    const monitor = installAppShellUpdateMonitor(
+      { update } as unknown as ServiceWorkerRegistration,
+      harness.environment,
+    );
+
+    await monitor.checkNow();
+    expect(harness.reportFailure).toHaveBeenCalledWith(failure);
+    await settleUpdateMonitor();
+
+    harness.eventTarget.dispatchEvent(new Event("online"));
+    await settleUpdateMonitor();
+    expect(update).toHaveBeenCalledTimes(2);
+    monitor.close();
   });
 });

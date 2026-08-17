@@ -35,6 +35,10 @@ for label in A B C; do
   test -s "${WORK_ROOT}/${label}/assets/$(find "${WORK_ROOT}/${label}/assets" -maxdepth 1 -type f -name 'inspector-assignments-page-*.js' -print -quit | xargs -n1 basename)"
   rg -q 'force-window-client-navigation-v1' "${WORK_ROOT}/${label}/sw.js"
   rg -q '\.navigate\(' "${WORK_ROOT}/${label}/sw.js"
+  if rg -q 'await[[:space:]]+[[:alnum:]_$.]+\.navigate\(' "${WORK_ROOT}/${label}/sw.js"; then
+    echo "blocked: Service Worker activation awaits client navigation" >&2
+    exit 1
+  fi
 done
 if rg -q 'committedClientCaches|committed\.map\(\(\{ cacheName \}\)' "${WEB_ROOT}/src/sw.ts"; then
   echo "blocked: legacy app-shell asset fallback remains in the Service Worker" >&2

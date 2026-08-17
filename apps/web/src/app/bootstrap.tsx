@@ -11,7 +11,10 @@ import { AppRouter } from "./router";
 import { ScenarioProvider } from "./scenario-context";
 import { HttpAuthGate } from "../auth/http-auth-gate";
 import { OfflineSubjectBoundary, SessionProvider } from "../auth/session-provider";
-import { registerAppShellServiceWorker } from "../offline/update-coordinator";
+import {
+  installAppShellUpdateMonitor,
+  registerAppShellServiceWorker,
+} from "../offline/update-coordinator";
 import { bindBrowserQuiescence } from "../offline/client-quiescence";
 import {
   currentBrowserRouteID,
@@ -75,7 +78,10 @@ export function bootstrap(runtime: ApplicationRuntime): void {
 
   void registerAppShellServiceWorker()
     .then((registration) => {
-      if (registration) bindBrowserQuiescence(registration);
+      if (registration) {
+        bindBrowserQuiescence(registration);
+        installAppShellUpdateMonitor(registration);
+      }
     })
     .catch(() => {
       window.dispatchEvent(new CustomEvent("avia:app-shell-registration-failed"));

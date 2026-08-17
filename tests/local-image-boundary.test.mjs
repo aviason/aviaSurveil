@@ -159,6 +159,13 @@ test("Caddy owns one HTTPS origin and exact same-origin upstream routes", () => 
   );
 });
 
+test("the legacy v9 worker URL serves the current stable worker bridge", () => {
+  const caddyfile = read("deploy/local/gateway/Caddyfile");
+  assert.match(caddyfile, /@legacy_worker\s*\{[\s\S]*?query v=9[\s\S]*?\}/u);
+  assert.match(caddyfile, /handle @legacy_worker\s*\{[\s\S]*?rewrite \* \/sw\.js[\s\S]*?reverse_proxy web:8080[\s\S]*?\}/u);
+  assert.doesNotMatch(caddyfile, /handle @legacy_worker\s*\{[\s\S]*?respond 410[\s\S]*?\}/u);
+});
+
 test("Compose maps each local runtime service to its reviewed build target", () => {
   const rendered = JSON.parse(
     execFileSync(

@@ -2,7 +2,7 @@
 
 Date: 2026-08-17
 Last updated: 2026-08-17
-Status: active — strict-retirement implementation locally verified; `candidate-only`; `release pending`
+Status: active — legacy recovery and continuous-update implementation `verified locally`; `candidate-only`; `release pending`
 
 ## Planning authority
 
@@ -20,6 +20,12 @@ and document at cutover without reviving any OIDC artifact.
 The strict retirement bridge force-navigates same-origin legacy clients after
 the exact successor activates. It retains durable IndexedDB/OPFS/outbox state,
 but does not promise preservation of unsaved in-memory legacy form state.
+
+Visible online clients explicitly check the stable worker at startup, every 60
+seconds, on `pageshow`, after reconnecting, and after returning to the
+foreground. The gateway serves the current stable worker body from the legacy
+`/sw.js?v=9` registration URL so clients trapped behind a cached legacy
+document can enter the same verified activation path.
 
 ## Scope and ownership
 
@@ -41,11 +47,38 @@ qualification state is changed by this implementation slice.
 - `verified locally`: dependency-free compatibility vector added with the
   current `{9,2,1,1}` values.
 - `verified locally`: focused app-shell/update/quiescence tests, web typecheck, demo/http builds, Node/Python artifact verification, web-server cache tests, A/B/C fingerprint harness, local Compose health/residue checks, live local header matrix, and Caddy validation.
-- `verified locally`: strict retirement policy, force-navigation marker, predecessor-cache deletion, legacy worker route rejection, and the updated strict harness.
-- `blocked`: the full web suite ended at `674 passed / 8 failed`; failures are in unrelated dirty planning/management presentation surfaces, not the focused app-shell tests.
+- `verified locally`: continuous update checks at startup, at a bounded
+  60-second interval, on `pageshow`, on reconnect, and on foreground return;
+  concurrent checks coalesce and transient failures retry.
+- `verified locally`: the legacy `/sw.js?v=9` gateway route rewrites to and
+  proxies the current stable worker instead of returning `410`.
+- `verified locally`: a fingerprint-bound exact-vector legacy v9 predecessor
+  can activate without a v2 cache marker, and exact-vector clients may skip a
+  missed intermediate shell release.
+- `verified locally`: client navigation is scheduled without awaiting it from
+  the `activate` event, removing the activation/navigation deadlock; verified
+  CacheStorage state restores the manifest after a worker-process restart.
+- `verified locally`: the isolated persistent-browser test installed a legacy
+  worker and cache, promoted the server to the current artifact, upgraded two
+  open clients, moved the registration to `/sw.js`, deleted the legacy cache,
+  stopped the worker process, reloaded offline from the restored verified
+  cache, and preserved the local sentinel (`1 passed`).
+- `verified locally`: focused app-shell tests passed `52/52`, typecheck,
+  demo/http builds, artifact scans, A/B/C harness, focused Caddy contract, and
+  Caddy native validation passed.
+- `verified live diagnosis`: `https://demo.aviasurveil.com/` serves the current
+  HTML while `/sw.js?v=9` still returns `410`; the public environment therefore
+  does not contain this repair yet.
+- `blocked`: the fresh full web suite ended at `682 passed / 8 failed`;
+  failures are in unrelated dirty planning/management presentation surfaces,
+  not the focused app-shell tests.
 - `verified locally`: the Auth child migration/code-claim gate passed with no skipped required PostgreSQL tests.
 - `blocked`: the in-app Browser rejected the local Caddy internal CA; clean HTTP preview browser coverage passed for root, lazy Inspector route, and mobile route.
-- `not run`: OCI inspection/public release lock publication, Cloudflare discovery/purge, public transition, and demo apply.
+- `not run`: Playwright WebKit because the local WebKit binary is unavailable;
+  the same persistent-browser test supports
+  `AVIA_LEGACY_UPDATE_BROWSER=webkit` when that binary is present.
+- `not run`: commit, push, OCI inspection/public release lock publication,
+  Cloudflare discovery/purge, public transition, and demo apply.
 
 ## Ordered implementation
 
@@ -59,6 +92,9 @@ qualification state is changed by this implementation slice.
 4. Add isolated A/B/C browser tests using task-unique project/state/ports and
    verify forced legacy retirement plus predecessor-cache deletion.
 5. Run native Surveil and Auth source gates; report missing fixtures literally.
+6. Publish one immutable release containing both the gateway legacy-URL bridge
+   and the successor worker, then verify `/sw.js?v=9` returns the exact current
+   worker body before testing a retained Safari profile.
 
 ## Verification matrix
 
@@ -77,6 +113,7 @@ After the task-owned cache harness exists, run:
 
 ```bash
 bash scripts/test-cache-update-harness.sh
+AVIA_E2E_PROFILE=offline npm exec --prefix apps/web -- playwright test tests/e2e/offline-legacy-worker-upgrade.spec.ts --project=offline
 ```
 
 The harness must prove A/B/C manifest determinism, per-file hash validation,
@@ -90,6 +127,11 @@ deletion, Chromium persistence, and WebKit history behavior.
 - Automatic activation requires exact complete-vector equality.
 - Legacy v9 clients are force-navigated after exact successor activation;
   unacknowledged legacy pages are not allowed to remain active.
+- A visible online client checks for a successor within 60 seconds; foreground,
+  reconnect, startup, and page-show transitions check immediately.
+- `/sw.js?v=9` returns the current stable worker body with `no-store`; it must
+  not return `410` while a retained legacy registration can still exist.
+- The `activate` event never awaits a client navigation.
 - `/api`, `/v1`, `/auth`, `/identity`, `/health`, `/operations`, `/otel`,
   private routes, and `/http-config.json` remain network-only.
 - Every committed app-shell response is validated for origin, redirect status,
@@ -100,14 +142,16 @@ deletion, Chromium persistence, and WebKit history behavior.
 ## Recovery and release boundary
 
 Failed local candidate installation deletes only its candidate cache. A vector
-change is a separate migration plan. The current task is authorized to publish
-the exact candidate, run the exact `namibia/demo` Terragrunt plan/apply, and
-perform the public transition; no broad Terraform action or ad-hoc AWS
-infrastructure mutation is allowed.
+change is a separate migration plan. No commit, push, image publication,
+Terraform action, Cloudflare change, or public transition was performed in the
+current implementation turn; those actions require explicit current-task
+authorization. No broad Terraform action or ad-hoc AWS infrastructure mutation
+is allowed.
 
 ## Execution Prompt
 
 Continue from this plan in the Surveil checkout. Preserve unrelated changes.
-Complete the strict local gates, commit/push task-owned changes, then hand the
-immutable artifact to the Workspace Terragrunt release flow. Stop with literal
-`not run` or `blocked` labels when external evidence is unavailable.
+Re-run the focused gates, review only task-owned changes, then obtain explicit
+authorization before commit, push, image publication, or the exact
+`namibia/demo` release flow. After release, require `/sw.js?v=9` and `/sw.js` to
+return the same current worker body before retained-profile Safari validation.

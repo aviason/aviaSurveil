@@ -5,7 +5,6 @@ import {
   APP_SHELL_ACTIVATION_POLICY,
   APP_SHELL_CANONICALIZATION_VERSION,
   APP_SHELL_MANIFEST_SCHEMA_VERSION,
-  appShellDescriptorFromManifest,
   canonicalAppShellManifestInput,
   type AppShellFileRecord,
   type AppShellManifest,
@@ -205,6 +204,35 @@ function candidateCacheName(manifest: AppShellManifest): string {
   return `aviasurveil360-app-shell-${manifest.releaseFingerprint.slice("sha256:".length)}`;
 }
 
+function expectedCacheName(): string {
+  return `aviasurveil360-app-shell-${EXPECTED_RELEASE_FINGERPRINT.slice("sha256:".length)}`;
+}
+
+async function loadExpectedInstalledManifest(): Promise<AppShellManifest | null> {
+  try {
+    const cacheName = expectedCacheName();
+    if (!(await caches.keys()).includes(cacheName)) return null;
+    const response = await (await caches.open(cacheName)).match(
+      new URL(VERIFIED_MARKER, serviceWorkerScope.location.origin).href,
+    );
+    if (!response) return null;
+    const manifest = parseManifest(await response.json());
+    await verifyManifestFingerprint(manifest);
+    return manifest.releaseFingerprint === EXPECTED_RELEASE_FINGERPRINT ? manifest : null;
+  } catch {
+    return null;
+  }
+}
+
+async function restoreActiveManifest(): Promise<AppShellManifest | null> {
+  if (activeManifest) return activeManifest;
+  const manifest = await loadExpectedInstalledManifest();
+  if (!manifest) return null;
+  activeManifest = manifest;
+  activeCacheName = candidateCacheName(manifest);
+  return manifest;
+}
+
 async function fetchExact(url: string, expectedType: string, expectedSize?: number, expectedDigest?: string): Promise<Response> {
   const absolute = new URL(url, serviceWorkerScope.location.origin).href;
   const response = await fetch(absolute, { cache: "no-store", credentials: "same-origin", redirect: "error" });
@@ -272,16 +300,38 @@ function sameDescriptor(left: AppShellPredecessorDescriptor, right: AppShellPred
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
-async function canActivate(manifest: AppShellManifest): Promise<boolean> {
-  if (!sameOfflineVersionVector(manifest.compatibility, CURRENT_OFFLINE_VERSIONS)) return false;
-  const committed = (await committedManifests()).filter(({ cacheName }) => cacheName !== candidateCacheName(manifest));
-  const predecessor = manifest.predecessor;
+export function canActivateAppShellCandidate(
+  candidate: Pick<AppShellManifest, "compatibility" | "predecessor">,
+  committed: ReadonlyArray<Pick<AppShellManifest, "compatibility" | "releaseDescriptor">>,
+  legacyPredecessor: AppShellPredecessorDescriptor | null = null,
+): boolean {
+  if (!sameOfflineVersionVector(candidate.compatibility, CURRENT_OFFLINE_VERSIONS)) return false;
+  const predecessor = candidate.predecessor;
   if (predecessor === null) return committed.length === 0;
-  if (LEGACY_V9_PREDECESSOR && sameDescriptor(predecessor, LEGACY_V9_PREDECESSOR)) return true;
-  return committed.some(({ manifest: active }) => sameDescriptor(predecessor, appShellDescriptorFromManifest(active)));
+  if (
+    predecessor.serviceWorkerURL === "/sw.js?v=9" &&
+    sameOfflineVersionVector(predecessor.compatibility, candidate.compatibility)
+  ) {
+    return true;
+  }
+  if (legacyPredecessor && sameDescriptor(predecessor, legacyPredecessor)) return true;
+  return committed.some((active) =>
+    sameDescriptor(predecessor, active.releaseDescriptor) ||
+    sameOfflineVersionVector(active.compatibility, candidate.compatibility),
+  );
+}
+
+async function canActivate(manifest: AppShellManifest): Promise<boolean> {
+  const committed = (await committedManifests()).filter(({ cacheName }) => cacheName !== candidateCacheName(manifest));
+  return canActivateAppShellCandidate(
+    manifest,
+    committed.map(({ manifest: active }) => active),
+    LEGACY_V9_PREDECESSOR,
+  );
 }
 
 async function serveAppShellNavigation(request: Request): Promise<Response> {
+  await restoreActiveManifest();
   const cacheName = activeCacheName ?? (await committedManifests())[0]?.cacheName;
   if (!cacheName) return fetch(request, { cache: "no-store" });
   const cache = await caches.open(cacheName);
@@ -289,6 +339,7 @@ async function serveAppShellNavigation(request: Request): Promise<Response> {
 }
 
 async function serveVersionedAsset(request: Request): Promise<Response> {
+  await restoreActiveManifest();
   if (activeCacheName) {
     const match = await (await caches.open(activeCacheName)).match(request);
     if (match) return match;
@@ -309,7 +360,10 @@ async function forceRetireLegacyClients(): Promise<void> {
   for (const client of clients) {
     if (!client.url || new URL(client.url).origin !== serviceWorkerScope.location.origin) continue;
     const windowClient = client as WindowClient;
-    await windowClient.navigate(client.url);
+    // Do not await navigation from inside the activate event. The navigation
+    // fetch waits for activation to finish, so awaiting it here deadlocks the
+    // exact clients this bridge must retire.
+    void windowClient.navigate(client.url).catch(() => undefined);
   }
 }
 
@@ -323,19 +377,23 @@ if (typeof serviceWorkerScope.addEventListener === "function" && "registration" 
 
   serviceWorkerScope.addEventListener("activate", (event: ExtendableEvent) => {
     event.waitUntil((async () => {
-      if (!installedManifest || !(await canActivate(installedManifest))) throw new Error("app-shell predecessor/vector activation gate failed");
-      activeCacheName = candidateCacheName(installedManifest);
-      activeManifest = installedManifest;
+      const manifest = installedManifest ?? await loadExpectedInstalledManifest();
+      if (!manifest || !(await canActivate(manifest))) throw new Error("app-shell predecessor/vector activation gate failed");
+      activeCacheName = candidateCacheName(manifest);
+      activeManifest = manifest;
       await serviceWorkerScope.clients.claim();
-      await forceRetireLegacyClients();
       await retireLegacyCaches(activeCacheName);
+      await forceRetireLegacyClients();
     })());
   });
 
   serviceWorkerScope.addEventListener("message", (event: ExtendableMessageEvent) => {
     if (event.data?.type === "avia:app-shell-client-ready") {
-      const source = event.source as Client | null;
-      if (source && activeManifest) source.postMessage({ type: "avia:app-shell-activation", fingerprint: activeManifest.releaseFingerprint, legacyRetirement: true, retirementPolicy: LEGACY_RETIREMENT_POLICY });
+      event.waitUntil((async () => {
+        const source = event.source as Client | null;
+        const manifest = await restoreActiveManifest();
+        if (source && manifest) source.postMessage({ type: "avia:app-shell-activation", fingerprint: manifest.releaseFingerprint, legacyRetirement: true, retirementPolicy: LEGACY_RETIREMENT_POLICY });
+      })());
     }
   });
 

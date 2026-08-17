@@ -1,5 +1,7 @@
 import { CURRENT_OFFLINE_VERSIONS, type OfflineVersionVector } from "./offline-version-contract";
 
+export const APP_SHELL_UPDATE_POLL_INTERVAL_MS = 60_000;
+
 export const UPDATE_ACTIVATION_POLICY = {
   automaticSkipWaiting: true,
   automaticClientsClaim: true,
@@ -162,6 +164,90 @@ export class UpdateCoordinator {
 
 interface BrowserLockManager {
   request<T>(name: string, callback: () => Promise<T>): Promise<T>;
+}
+
+export interface AppShellUpdateMonitorEnvironment {
+  eventTarget: EventTarget;
+  documentTarget: EventTarget & { visibilityState: string };
+  isOnline(): boolean;
+  setInterval(callback: () => void, intervalMs: number): unknown;
+  clearInterval(handle: unknown): void;
+  reportFailure(error: unknown): void;
+}
+
+export interface AppShellUpdateMonitor {
+  checkNow(): Promise<void>;
+  close(): void;
+}
+
+function browserUpdateMonitorEnvironment(): AppShellUpdateMonitorEnvironment {
+  return {
+    eventTarget: window,
+    documentTarget: document,
+    isOnline: () => navigator.onLine,
+    setInterval: (callback, intervalMs) => window.setInterval(callback, intervalMs),
+    clearInterval: (handle) => window.clearInterval(handle as number),
+    reportFailure: () => {
+      window.dispatchEvent(new CustomEvent("avia:app-shell-update-check-failed"));
+    },
+  };
+}
+
+export function installAppShellUpdateMonitor(
+  registration: ServiceWorkerRegistration,
+  environment: AppShellUpdateMonitorEnvironment = browserUpdateMonitorEnvironment(),
+): AppShellUpdateMonitor {
+  let closed = false;
+  let inFlight: Promise<void> | null = null;
+
+  const checkNow = (): Promise<void> => {
+    if (
+      closed ||
+      !environment.isOnline() ||
+      environment.documentTarget.visibilityState !== "visible"
+    ) {
+      return Promise.resolve();
+    }
+    if (inFlight) return inFlight;
+
+    const request = (async () => {
+      try {
+        await registration.update();
+      } catch (error) {
+        environment.reportFailure(error);
+      }
+    })();
+    inFlight = request;
+    void request.finally(() => {
+      if (inFlight === request) inFlight = null;
+    });
+    return request;
+  };
+
+  const checkWhenVisible = () => {
+    if (environment.documentTarget.visibilityState === "visible") void checkNow();
+  };
+  const checkWhenOnline = () => void checkNow();
+  const checkWhenShown = () => void checkNow();
+  const poll = () => void checkNow();
+
+  environment.eventTarget.addEventListener("online", checkWhenOnline);
+  environment.eventTarget.addEventListener("pageshow", checkWhenShown);
+  environment.documentTarget.addEventListener("visibilitychange", checkWhenVisible);
+  const intervalHandle = environment.setInterval(poll, APP_SHELL_UPDATE_POLL_INTERVAL_MS);
+  void checkNow();
+
+  return {
+    checkNow,
+    close() {
+      if (closed) return;
+      closed = true;
+      environment.clearInterval(intervalHandle);
+      environment.eventTarget.removeEventListener("online", checkWhenOnline);
+      environment.eventTarget.removeEventListener("pageshow", checkWhenShown);
+      environment.documentTarget.removeEventListener("visibilitychange", checkWhenVisible);
+    },
+  };
 }
 
 export function createBrowserUpdateCoordinator(): {
