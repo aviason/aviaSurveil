@@ -98,6 +98,9 @@ func (store *AWSStore) CreateGetInstruction(ctx context.Context, request GetRequ
 }
 
 func (store *AWSStore) Check(ctx context.Context) error {
+	if _, err := store.delegate.client.GetCreds(); err != nil {
+		return fmt.Errorf("check runtime object-store credentials: %w", err)
+	}
 	_, err := store.delegate.client.GetBucketLocation(ctx, store.healthBucket)
 	if err != nil {
 		return fmt.Errorf("check configured S3 bucket: %w", mapObjectError(err))

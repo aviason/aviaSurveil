@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -48,7 +50,12 @@ func TestAWSStoreUsesPrivateCredentialProxyForPresigning(t *testing.T) {
 	}))
 	defer server.Close()
 	t.Setenv("AWS_CONTAINER_CREDENTIALS_FULL_URI", server.URL+"/v2/credentials")
-	t.Setenv("AWS_CONTAINER_AUTHORIZATION_TOKEN", "fixture-token")
+	tokenPath := filepath.Join(t.TempDir(), "credential-token")
+	if err := os.WriteFile(tokenPath, []byte("fixture-token"), 0o600); err != nil {
+		t.Fatalf("write credential token fixture: %v", err)
+	}
+	t.Setenv("AWS_CONTAINER_AUTHORIZATION_TOKEN", "")
+	t.Setenv("AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE", tokenPath)
 
 	store, err := NewAWSStore(AWSConfig{Region: "eu-central-1", HealthBucket: "fixture-private-bucket"})
 	if err != nil {
