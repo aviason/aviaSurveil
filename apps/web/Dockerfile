@@ -34,7 +34,23 @@ EXPOSE 8080
 ENTRYPOINT ["/web-server"]
 
 FROM web-runtime AS demo
+ARG AVIA_SOURCE_COMMIT=unknown
+ARG AVIA_TARGET=unknown
+ARG AVIA_BUILD_PROFILE=demo
+LABEL org.opencontainers.image.source="https://github.com/aviason/aviaSurveil" \
+      org.opencontainers.image.revision="${AVIA_SOURCE_COMMIT}" \
+      com.avia.target="${AVIA_TARGET}" \
+      com.avia.build.profile="${AVIA_BUILD_PROFILE}" \
+      com.avia.build.target="demo"
 COPY --from=demo-build --chown=10001:10001 /workspace/apps/web/dist/demo/ /srv/
 
 FROM web-runtime AS http
+ARG AVIA_SOURCE_COMMIT=unknown
+ARG AVIA_TARGET=unknown
+ARG AVIA_BUILD_PROFILE=http
+LABEL org.opencontainers.image.source="https://github.com/aviason/aviaSurveil" \
+      org.opencontainers.image.revision="${AVIA_SOURCE_COMMIT}" \
+      com.avia.target="${AVIA_TARGET}" \
+      com.avia.build.profile="${AVIA_BUILD_PROFILE}" \
+      com.avia.build.target="http"
 COPY --from=http-build --chown=10001:10001 /workspace/apps/web/dist/http/ /srv/
