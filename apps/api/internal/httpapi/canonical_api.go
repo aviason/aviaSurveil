@@ -30,6 +30,7 @@ import (
 	"github.com/aviason/aviaSurveil/internal/planning"
 	"github.com/aviason/aviaSurveil/internal/platform/database"
 	"github.com/aviason/aviaSurveil/internal/platform/idempotency"
+	"github.com/aviason/aviaSurveil/internal/platform/objectstore"
 	"github.com/aviason/aviaSurveil/internal/potentialfindings"
 	"github.com/aviason/aviaSurveil/internal/regulatory"
 	"github.com/aviason/aviaSurveil/internal/reports"
@@ -840,7 +841,7 @@ func (api *CanonicalAPI) beginEvidenceUpload(writer http.ResponseWriter, request
 	})
 	var beginError *evidence.BeginUploadError
 	if errors.As(err, &beginError) {
-		slog.Error("evidence upload begin failed", "stage", beginError.Stage)
+		slog.Error("evidence upload begin failed", "stage", beginError.Stage, "cause_class", objectstore.ErrorClass(beginError.Cause))
 	}
 	api.respondCreated(writer, generated.BeginEvidenceUploadOutput{
 		UploadId: result.UploadID, StagingObjectKey: result.StagingObjectKey, UploadUrl: result.UploadURL,
