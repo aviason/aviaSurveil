@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
+	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -29,15 +32,46 @@ func NewAWSStore(config AWSConfig) (*AWSStore, error) {
 	if region == "" || strings.TrimSpace(config.HealthBucket) == "" {
 		return nil, errors.New("AWS S3 region and health bucket are required")
 	}
+	credentialEndpoint, err := runtimeCredentialEndpoint()
+	if err != nil {
+		return nil, fmt.Errorf("configure runtime credential proxy: %w", err)
+	}
 	endpoint := "s3." + region + ".amazonaws.com"
 	delegate, err := newMinIOStore(MinIOConfig{
 		Endpoint: endpoint, PublicEndpoint: endpoint, UseTLS: true, PublicUseTLS: true,
 		Region: region, Clock: config.Clock,
-	}, credentials.NewIAM(""))
+	}, credentials.NewIAM(credentialEndpoint))
 	if err != nil {
 		return nil, fmt.Errorf("create AWS instance-profile S3 client: %w", err)
 	}
 	return &AWSStore{delegate: delegate, healthBucket: strings.TrimSpace(config.HealthBucket)}, nil
+}
+
+// runtimeCredentialEndpoint returns the task-local proxy endpoint used by
+// cloud Compose containers. MinIO's IAM provider intentionally rejects a
+// non-loopback full URI unless it is supplied as its configured endpoint. Keep
+// that explicit endpoint bounded to the private Docker bridge so a malformed
+// release cannot turn the provider into an arbitrary HTTP or IMDS client.
+func runtimeCredentialEndpoint() (string, error) {
+	raw := strings.TrimSpace(os.Getenv("AWS_CONTAINER_CREDENTIALS_FULL_URI"))
+	if raw == "" {
+		return "", nil
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.Scheme != "http" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return "", errors.New("credential proxy endpoint must be a private HTTP URL without credentials, query, or fragment")
+	}
+	if parsed.Path != "/v2/credentials" || parsed.Hostname() == "" {
+		return "", errors.New("credential proxy endpoint path is invalid")
+	}
+	ip := net.ParseIP(parsed.Hostname())
+	if ip == nil || (!ip.IsLoopback() && !ip.IsPrivate()) {
+		return "", errors.New("credential proxy endpoint host must be loopback or private")
+	}
+	if parsed.Port() == "" || (!ip.IsLoopback() && parsed.Port() != "8181") {
+		return "", errors.New("credential proxy endpoint port is invalid")
+	}
+	return parsed.String(), nil
 }
 
 func (*AWSStore) CredentialSource() string           { return "aws-iam-provider-chain" }

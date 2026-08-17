@@ -1,9 +1,15 @@
 package objectstore
 
 import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestAWSStoreUsesOnlyIAMProviderChainConfiguration(t *testing.T) {
@@ -20,6 +26,52 @@ func TestAWSStoreUsesOnlyIAMProviderChainConfiguration(t *testing.T) {
 	}
 	if store.CredentialSource() != "aws-iam-provider-chain" {
 		t.Fatalf("credential source = %q", store.CredentialSource())
+	}
+}
+
+func TestAWSStoreUsesPrivateCredentialProxyForPresigning(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.URL.Path != "/v2/credentials" {
+			t.Fatalf("credential proxy path = %q", request.URL.Path)
+		}
+		if request.Header.Get("Authorization") != "fixture-token" {
+			t.Fatalf("credential proxy authorization header was not forwarded")
+		}
+		writer.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(writer).Encode(map[string]string{
+			"AccessKeyId":     "fixture-access-key",
+			"SecretAccessKey": "fixture-secret-key",
+			"Token":           "fixture-session-token",
+			"Expiration":      time.Now().UTC().Add(time.Hour).Format(time.RFC3339),
+			"Code":            "Success",
+		})
+	}))
+	defer server.Close()
+	t.Setenv("AWS_CONTAINER_CREDENTIALS_FULL_URI", server.URL+"/v2/credentials")
+	t.Setenv("AWS_CONTAINER_AUTHORIZATION_TOKEN", "fixture-token")
+
+	store, err := NewAWSStore(AWSConfig{Region: "eu-central-1", HealthBucket: "fixture-private-bucket"})
+	if err != nil {
+		t.Fatalf("NewAWSStore() error = %v", err)
+	}
+	instruction, err := store.CreatePutInstruction(context.Background(), PutRequest{
+		Bucket: "fixture-private-bucket", Key: "fixture-key",
+		RequiredHeaders: map[string]string{"Content-Type": "application/octet-stream"},
+		ExpiresAt:       time.Now().UTC().Add(5 * time.Minute),
+	})
+	if err != nil {
+		t.Fatalf("CreatePutInstruction() error = %v", err)
+	}
+	presigned, err := url.Parse(instruction.URL)
+	if err != nil || presigned.Scheme != "https" || !strings.Contains(presigned.Host, ".s3.") || !strings.HasSuffix(presigned.Host, ".amazonaws.com") {
+		t.Fatalf("presigned URL host is not AWS S3: %q", presigned.Host)
+	}
+}
+
+func TestAWSStoreRejectsUnboundedCredentialProxy(t *testing.T) {
+	t.Setenv("AWS_CONTAINER_CREDENTIALS_FULL_URI", "http://169.254.169.254:8181/v2/credentials")
+	if _, err := NewAWSStore(AWSConfig{Region: "eu-central-1", HealthBucket: "fixture-private-bucket"}); err == nil {
+		t.Fatal("NewAWSStore() accepted an unbounded credential proxy endpoint")
 	}
 }
 
