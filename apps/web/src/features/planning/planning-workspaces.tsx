@@ -86,7 +86,7 @@ export function FinanceReviewPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    void backend.planning.list({ limit: 20 }).then((output) => {
+    void backend.planning.list({ limit: 100 }).then((output) => {
       setItems(output.items);
     }).catch((cause) => setError(errorMessage(cause)));
   }, [backend]);
@@ -141,7 +141,7 @@ export function GeneralManagerDashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    void Promise.all([backend.dashboards.getManagerProjection({}), backend.findings.list({ limit: 50 }), backend.organizations.list({ limit: 100 }), backend.planning.list({ limit: 20 }), discoverCAAReportVersions(backend)]).then(([nextDashboard, nextFindings, nextOrganizations, nextPlans, nextReports]) => { setDashboard(nextDashboard); setFindings(nextFindings.items); setOrganizations(nextOrganizations.items); setPlans(nextPlans.items); setReports(nextReports); }).catch((cause) => setError(errorMessage(cause)));
+    void Promise.all([backend.dashboards.getManagerProjection({}), backend.findings.list({ limit: 50 }), backend.organizations.list({ limit: 100 }), backend.planning.list({ limit: 100 }), discoverCAAReportVersions(backend)]).then(([nextDashboard, nextFindings, nextOrganizations, nextPlans, nextReports]) => { setDashboard(nextDashboard); setFindings(nextFindings.items); setOrganizations(nextOrganizations.items); setPlans(nextPlans.items); setReports(nextReports); }).catch((cause) => setError(errorMessage(cause)));
   }, [backend]);
   const plan = selectedPlanId ? plans.find((candidate) => candidate.id === selectedPlanId) ?? null : null;
   async function decide(): Promise<void> {
@@ -297,7 +297,7 @@ export function AuditPlanCalendarPage() {
   const [preparationConfirmed, setPreparationConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    void backend.planning.list({ limit: 20 }).then((output) => {
+    void backend.planning.list({ limit: 100 }).then((output) => {
       setItems(output.items);
       const requestedId = searchParams.get("planningItemId");
       setSelected(output.items.find((item) => item.id === requestedId) ?? null);

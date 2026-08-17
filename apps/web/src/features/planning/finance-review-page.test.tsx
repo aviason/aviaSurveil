@@ -46,7 +46,7 @@ describe("FinanceReviewPage", () => {
     renderPage(runtime);
 
     expect(await screen.findByRole("heading", { name: "Finance Review" })).toBeVisible();
-    expect(list).toHaveBeenCalledWith({ limit: 20 });
+    expect(list).toHaveBeenCalledWith({ limit: 100 });
     expect(screen.getByText("Budget approval before GM Review")).toBeVisible();
     const summary = screen.getByRole("region", { name: "Finance review summary" });
     expect(within(summary).getAllByRole("article")).toHaveLength(3);
