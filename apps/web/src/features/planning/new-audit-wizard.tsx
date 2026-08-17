@@ -552,6 +552,7 @@ export function NewAuditWizardPage() {
     if (busy || !values?.catalogVersion || !backend.canonicalCatalog) return;
     setBusy(true);
     setError(null);
+    setStatus(`Staging ${recommendationOverride ? "AI-suggested" : "eligible"} questions from the server…`);
     try {
       const ids: string[] = [];
       const seenIds = new Set<string>();
@@ -573,7 +574,8 @@ export function NewAuditWizardPage() {
           scopeId: values.scopeDraftId || undefined,
           applicationType: values.applicationType as CanonicalApplicationType,
           cursor,
-          limit: 100,
+          limit: 2000,
+          projection: "selection",
         });
         for (const entry of page.items) {
           if (entry.canSelect && !seenIds.has(entry.questionVersionId)) {
@@ -587,6 +589,7 @@ export function NewAuditWizardPage() {
         }
         if (nextCursor) seenCursors.add(nextCursor);
         cursor = nextCursor;
+        setStatus(`Staging ${recommendationOverride ? "AI-suggested" : "eligible"} questions from the server… ${ids.length.toLocaleString("en-US")} found`);
       } while (cursor);
       if (!ids.length) throw new Error("No selectable questions match the current server-authorized filters.");
       const currentSelection = values.selectedQuestionVersionIds ?? [];

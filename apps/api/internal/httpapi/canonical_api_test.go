@@ -130,3 +130,22 @@ func TestCanonicalExecutionTypeQueryParsingAndProviderBinding(t *testing.T) {
 		t.Fatal("unsupported application type was accepted")
 	}
 }
+
+func TestCanonicalCatalogProjectionParsing(t *testing.T) {
+	for _, value := range []string{"", "full", "FULL", "selection", "SELECTION"} {
+		got, err := parseCanonicalCatalogProjection(value)
+		if err != nil {
+			t.Fatalf("projection %q returned error: %v", value, err)
+		}
+		want := canonicalCatalogProjectionFull
+		if strings.EqualFold(strings.TrimSpace(value), canonicalCatalogProjectionSelection) {
+			want = canonicalCatalogProjectionSelection
+		}
+		if got != want {
+			t.Fatalf("projection %q = %q, want %q", value, got, want)
+		}
+	}
+	if _, err := parseCanonicalCatalogProjection("unsupported"); err == nil {
+		t.Fatal("unsupported catalog projection was accepted")
+	}
+}

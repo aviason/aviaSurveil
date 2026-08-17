@@ -9123,6 +9123,19 @@
             }
           },
           {
+            "name": "projection",
+            "in": "query",
+            "description": "Optional server projection. `selection` preserves the exact filters and immutable question identities while omitting the expensive count and facet calculations used only by the interactive page.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "full",
+                "selection"
+              ],
+              "default": "full"
+            }
+          },
+          {
             "name": "usageClass",
             "in": "query",
             "required": true,
@@ -9134,7 +9147,15 @@
             "$ref": "#/components/parameters/Cursor"
           },
           {
-            "$ref": "#/components/parameters/Limit"
+            "name": "limit",
+            "in": "query",
+            "description": "Bounded page size. The normal `full` projection accepts up to 100; the `selection` projection accepts up to 2,000 immutable selection candidates for one server-side staging request.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2000,
+              "default": 50
+            }
           }
         ],
         "responses": {
@@ -21363,7 +21384,7 @@
         "properties": {
           "items": {
             "type": "array",
-            "maxItems": 25,
+            "maxItems": 2000,
             "items": {
               "$ref": "#/components/schemas/CanonicalQuestionCatalogEntry"
             }

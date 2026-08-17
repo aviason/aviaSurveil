@@ -24,8 +24,14 @@ import (
 )
 
 const (
-	canonicalCatalogPageSize        = 25
-	canonicalCatalogMaximumPageSize = 100
+	canonicalCatalogPageSize             = 25
+	canonicalCatalogMaximumPageSize      = 100
+	canonicalCatalogMaximumSelectionSize = 2000
+)
+
+const (
+	canonicalCatalogProjectionFull      = "full"
+	canonicalCatalogProjectionSelection = "selection"
 )
 
 var canonicalChecklistFocusCodes = map[string]struct{}{
@@ -102,6 +108,17 @@ func parseQuestionUsageClass(value string) (questioncatalog.UsageClass, error) {
 	}
 }
 
+func parseCanonicalCatalogProjection(value string) (string, error) {
+	projection := strings.ToLower(strings.TrimSpace(value))
+	if projection == "" {
+		return canonicalCatalogProjectionFull, nil
+	}
+	if projection != canonicalCatalogProjectionFull && projection != canonicalCatalogProjectionSelection {
+		return "", fmt.Errorf("%w: unsupported catalog projection", application.ErrInvalid)
+	}
+	return projection, nil
+}
+
 func parseQuestionReviewMode(value generated.QuestionReviewMode) (questioncatalog.UsageClass, error) {
 	return parseQuestionUsageClass(string(value))
 }
@@ -127,6 +144,17 @@ func encodeCatalogCursor(offset int) *string {
 	}
 	value := base64.RawURLEncoding.EncodeToString([]byte(strconv.Itoa(offset)))
 	return &value
+}
+
+func emptyCanonicalCatalogFacets() generated.CanonicalQuestionCatalogFacets {
+	return generated.CanonicalQuestionCatalogFacets{
+		Forms:                []generated.CanonicalQuestionCatalogFacetOption{},
+		Domains:              []generated.CanonicalQuestionCatalogFacetOption{},
+		Topics:               []generated.CanonicalQuestionCatalogFacetOption{},
+		RiskTiers:            []generated.CanonicalQuestionCatalogFacetOption{},
+		ChecklistFocuses:     []generated.CanonicalQuestionCatalogFacetOption{},
+		RecommendationStates: []generated.CanonicalQuestionCatalogFacetOption{},
+	}
 }
 
 // requireCanonicalScopeOwner is the horizontal-authorization boundary for a
@@ -702,11 +730,20 @@ func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.Respons
 		api.respond(writer, nil, err)
 		return
 	}
+	projection, err := parseCanonicalCatalogProjection(request.URL.Query().Get("projection"))
+	if err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
+	maximumPageSize := canonicalCatalogMaximumPageSize
+	if projection == canonicalCatalogProjectionSelection {
+		maximumPageSize = canonicalCatalogMaximumSelectionSize
+	}
 	limit := canonicalCatalogPageSize
 	if raw := request.URL.Query().Get("limit"); raw != "" {
 		parsed, parseErr := strconv.Atoi(raw)
-		if parseErr != nil || parsed < 1 || parsed > canonicalCatalogMaximumPageSize {
-			api.respond(writer, nil, fmt.Errorf("%w: catalog limit must be between 1 and 100", application.ErrInvalid))
+		if parseErr != nil || parsed < 1 || parsed > maximumPageSize {
+			api.respond(writer, nil, fmt.Errorf("%w: catalog limit must be between 1 and %d", application.ErrInvalid, maximumPageSize))
 			return
 		}
 		limit = parsed
@@ -780,9 +817,94 @@ func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.Respons
 	ctx := request.Context()
 	var total int64
 	queryArgs := []any{catalogVersion, string(usage), search, formCode, domain, topic, riskBand, sourceGapState, selected, scopeID, checklistFocus, recommendationState, applicationType}
-	if err := api.pool.QueryRow(ctx, `SELECT COUNT(*) FROM canonical_question_catalogs c JOIN canonical_question_catalog_memberships m ON m.catalog_id = c.id JOIN question_versions q ON q.id=m.question_version_id `+canonicalCatalogAIProjectionJoins+` WHERE `+where, queryArgs...).Scan(&total); err != nil {
-		api.respond(writer, nil, application.ErrNotFound)
+	if projection == canonicalCatalogProjectionSelection {
+		rows, err := api.pool.Query(ctx, `
+			SELECT c.catalog_version,c.usage_class,m.question_version_id,m.form_code,m.proposal_id,m.ordinal,m.question_digest,
+			       COALESCE(m.source_locator,''),m.source_gap_state,
+			       ai.domain_code,ai.topic_codes,ai.inspection_type_codes,ai.inspection_profile_codes,ai.applicability_disposition,
+			       ai.risk_tier,ai.safety_critical,ai.agreement_confidence,recommendation.recommendation_state,
+			       recommendation.reason_codes,ai.recurrence_months,
+			       to_char(recommendation.last_verified_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+			       to_char(recommendation.recurrence_due_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+			       ai.external_applicability_unresolved
+			FROM canonical_question_catalogs c
+			JOIN canonical_question_catalog_memberships m ON m.catalog_id = c.id
+			JOIN question_versions q ON q.id=m.question_version_id
+			`+canonicalCatalogAIProjectionJoins+`
+			WHERE `+where+` ORDER BY m.form_code,m.ordinal,m.question_version_id LIMIT $14 OFFSET $15`, append(queryArgs, limit+1, offset)...)
+		if err != nil {
+			api.respond(writer, nil, application.ErrNotFound)
+			return
+		}
+		defer rows.Close()
+		items := make([]generated.CanonicalQuestionCatalogEntry, 0, limit)
+		for rows.Next() {
+			var row canonicalCatalogRow
+			var advisoryDomain, advisoryApplicability, advisoryRiskTier, advisoryConfidence, advisoryState string
+			var advisoryTopics, advisoryInspectionTypes, advisoryInspectionProfiles, advisoryReasons []string
+			var advisorySafetyCritical, advisoryUnresolved bool
+			var advisoryRecurrence int64
+			var previouslyVerifiedAt, recurrenceDueAt *string
+			if err := rows.Scan(&row.CatalogVersion, &row.UsageClass, &row.QuestionID, &row.FormCode, &row.ProposalID, &row.Ordinal, &row.Digest, &row.SourceLocator, &row.SourceGap, &advisoryDomain, &advisoryTopics, &advisoryInspectionTypes, &advisoryInspectionProfiles, &advisoryApplicability, &advisoryRiskTier, &advisorySafetyCritical, &advisoryConfidence, &advisoryState, &advisoryReasons, &advisoryRecurrence, &previouslyVerifiedAt, &recurrenceDueAt, &advisoryUnresolved); err != nil {
+				api.respond(writer, nil, application.ErrNotFound)
+				return
+			}
+			if advisoryTopics == nil {
+				advisoryTopics = []string{}
+			}
+			if advisoryInspectionTypes == nil {
+				advisoryInspectionTypes = []string{}
+			}
+			if advisoryInspectionProfiles == nil {
+				advisoryInspectionProfiles = []string{}
+			}
+			if advisoryReasons == nil {
+				advisoryReasons = []string{}
+			}
+			if advisoryRiskTier == "" {
+				advisoryRiskTier = "UNKNOWN"
+			}
+			if advisoryConfidence == "" {
+				advisoryConfidence = "LOW"
+			}
+			if advisoryState == "" {
+				advisoryState = "UNCERTAIN_SIGNAL"
+			}
+			if advisoryRecurrence < 1 {
+				advisoryRecurrence = 12
+			}
+			row.ScopeID = scopeID
+			row.AIAdvisory = generated.CanonicalQuestionAIAdvisory{
+				DomainCode: advisoryDomain, TopicCodes: advisoryTopics, InspectionTypeCodes: advisoryInspectionTypes,
+				InspectionProfileCodes: advisoryInspectionProfiles, ApplicabilityDisposition: advisoryApplicability,
+				RiskTier: advisoryRiskTier, SafetyCritical: advisorySafetyCritical, AgreementConfidence: advisoryConfidence,
+				AdvisoryState: advisoryState, RecommendationReasonCodes: advisoryReasons, RecurrenceMonths: advisoryRecurrence,
+				PreviouslyVerifiedAt: previouslyVerifiedAt, RecurrenceDueAt: recurrenceDueAt,
+				ExternalApplicabilityUnresolved: advisoryUnresolved,
+			}
+			items = append(items, canonicalCatalogEntry(row))
+		}
+		if err := rows.Err(); err != nil {
+			api.respond(writer, nil, application.ErrNotFound)
+			return
+		}
+		var next *string
+		if len(items) > limit {
+			items = items[:limit]
+			next = encodeCatalogCursor(offset + limit)
+		}
+		api.respond(writer, generated.CanonicalQuestionCatalogPage{
+			Items: items, NextCursor: next, CatalogVersion: catalogVersion,
+			UsageClass: generated.QuestionUsageClass(usage), TotalCount: 0,
+			Facets: emptyCanonicalCatalogFacets(),
+		}, nil)
 		return
+	}
+	if projection == canonicalCatalogProjectionFull {
+		if err := api.pool.QueryRow(ctx, `SELECT COUNT(*) FROM canonical_question_catalogs c JOIN canonical_question_catalog_memberships m ON m.catalog_id = c.id JOIN question_versions q ON q.id=m.question_version_id `+canonicalCatalogAIProjectionJoins+` WHERE `+where, queryArgs...).Scan(&total); err != nil {
+			api.respond(writer, nil, application.ErrNotFound)
+			return
+		}
 	}
 	rows, err := api.pool.Query(ctx, `
 		SELECT c.catalog_version,c.usage_class,m.question_version_id,m.form_code,m.proposal_id,m.ordinal,m.question_digest,
@@ -836,10 +958,14 @@ func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.Respons
 		items = items[:limit]
 		next = encodeCatalogCursor(offset + limit)
 	}
-	facets, facetErr := api.loadCanonicalCatalogFacets(ctx, catalogVersion, usage, search, formCode, domain, topic, riskBand, sourceGapState, scopeID, checklistFocus, recommendationState, applicationType)
-	if facetErr != nil {
-		api.respond(writer, nil, application.ErrNotFound)
-		return
+	var facets generated.CanonicalQuestionCatalogFacets
+	if projection == canonicalCatalogProjectionFull {
+		var facetErr error
+		facets, facetErr = api.loadCanonicalCatalogFacets(ctx, catalogVersion, usage, search, formCode, domain, topic, riskBand, sourceGapState, scopeID, checklistFocus, recommendationState, applicationType)
+		if facetErr != nil {
+			api.respond(writer, nil, application.ErrNotFound)
+			return
+		}
 	}
 	api.respond(writer, generated.CanonicalQuestionCatalogPage{Items: items, NextCursor: next, CatalogVersion: catalogVersion, UsageClass: generated.QuestionUsageClass(usage), TotalCount: total, Facets: facets}, nil)
 }

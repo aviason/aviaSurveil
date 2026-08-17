@@ -238,7 +238,10 @@ describe("New Inspection Planning intake", () => {
     await user.click(await screen.findByRole("button", { name: "Stage all matching eligible questions" }));
     await screen.findByText(/1,310 eligible questions staged locally/);
     expect(screen.getByText(/1310 selected · staged/)).toBeVisible();
-    expect(listCatalog.mock.calls.some(([input]) => input.limit === 100)).toBe(true);
+    expect(listCatalog.mock.calls.some(([input]) => input.projection !== "selection" && input.limit === 25)).toBe(true);
+    const selectionProjectionCalls = listCatalog.mock.calls.filter(([input]) => input.projection === "selection");
+    expect(selectionProjectionCalls.length).toBeGreaterThan(0);
+    expect(selectionProjectionCalls.every(([input]) => input.limit === 2000)).toBe(true);
 
     for (let batch = 1; batch <= 3; batch += 1) {
       await user.click(screen.getByRole("button", { name: "Preview next exact batch" }));

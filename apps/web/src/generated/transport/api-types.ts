@@ -9510,9 +9510,12 @@ export interface operations {
                 scopeId?: string;
                 /** @description The exact server-authorized application type on the selected scope draft; deterministic recommendations and prior-audit history are evaluated within this type. */
                 applicationType?: "RAMP" | "CABIN" | "RAMP_INSPECTION" | "CABIN_INSPECTION";
+                /** @description Optional server projection. `selection` preserves the exact filters and immutable question identities while omitting the expensive count and facet calculations used only by the interactive page. */
+                projection?: "full" | "selection";
                 usageClass: components["schemas"]["QuestionUsageClass"];
                 cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
+                /** @description Bounded page size. The normal `full` projection accepts up to 100; the `selection` projection accepts up to 2,000 immutable selection candidates for one server-side staging request. */
+                limit?: number;
             };
             header?: never;
             path: {
