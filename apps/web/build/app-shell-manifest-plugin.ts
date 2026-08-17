@@ -15,7 +15,7 @@ import {
 } from "../src/offline/app-shell-manifest-contract";
 
 const RELEASE_FINGERPRINT_PLACEHOLDER = "__AVIA_RELEASE_FINGERPRINT__";
-const LEGACY_PREDECESSOR_MARKER = "/*__AVIA_LEGACY_PREDECESSOR__*/ null";
+const LEGACY_PREDECESSOR_PLACEHOLDER = "__AVIA_LEGACY_PREDECESSOR_BASE64__";
 
 function digest(bytes: Uint8Array): string {
   return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
@@ -81,11 +81,10 @@ function defaultDescriptor(): AppShellPredecessorDescriptor {
   };
 }
 
-function legacyPredecessorLiteral(): string {
+function legacyPredecessorBase64(): string {
   const raw = process.env.AVIA_APP_SHELL_LEGACY_PREDECESSOR_JSON?.trim();
-  if (!raw) return "null";
-  JSON.parse(raw);
-  return raw;
+  if (!raw) return LEGACY_PREDECESSOR_PLACEHOLDER;
+  return Buffer.from(JSON.stringify(JSON.parse(raw)), "utf8").toString("base64");
 }
 
 function inventory(root: string, prefix = ""): string[] {
@@ -121,7 +120,10 @@ export function createAppShellManifestPlugin(profile: "demo" | "http"): Plugin {
     writeBundle() {
       if (!outputRoot) throw new Error("app-shell output root is unavailable");
       const workerPath = resolve(outputRoot, "sw.js");
-      let workerTemplate = readFileSync(workerPath, "utf8").replace(LEGACY_PREDECESSOR_MARKER, legacyPredecessorLiteral());
+      let workerTemplate = readFileSync(workerPath, "utf8");
+      const legacyPlaceholderCount = workerTemplate.split(LEGACY_PREDECESSOR_PLACEHOLDER).length - 1;
+      if (legacyPlaceholderCount !== 1) throw new Error(`app-shell worker must contain exactly one legacy predecessor placeholder, found ${legacyPlaceholderCount}`);
+      workerTemplate = workerTemplate.replace(LEGACY_PREDECESSOR_PLACEHOLDER, legacyPredecessorBase64());
       const placeholderCount = workerTemplate.split(RELEASE_FINGERPRINT_PLACEHOLDER).length - 1;
       if (placeholderCount !== 1) throw new Error(`app-shell worker must contain exactly one fingerprint placeholder, found ${placeholderCount}`);
       const workerTemplateSha256 = digest(textBytes(workerTemplate));

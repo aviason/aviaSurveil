@@ -55,6 +55,9 @@ qualification state is changed by this implementation slice.
 - `verified locally`: a fingerprint-bound exact-vector legacy v9 predecessor
   can activate without a v2 cache marker, and exact-vector clients may skip a
   missed intermediate shell release.
+- `verified locally`: a successor remains bound to the exact current v2
+  predecessor while a separately embedded exact legacy v9 descriptor admits
+  retained pre-v2 registrations that have no committed v2 cache marker.
 - `verified locally`: client navigation is scheduled without awaiting it from
   the `activate` event, removing the activation/navigation deadlock; verified
   CacheStorage state restores the manifest after a worker-process restart.

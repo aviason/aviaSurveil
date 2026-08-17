@@ -26,6 +26,16 @@ const legacyPredecessor: AppShellPredecessorDescriptor = {
   releaseFingerprint: null,
   compatibility: CURRENT_OFFLINE_VERSIONS,
 };
+const currentPredecessor: AppShellPredecessorDescriptor = {
+  ...legacyPredecessor,
+  lockDigest: `sha256:${"5".repeat(64)}`,
+  webImageReferenceDigest: `sha256:${"6".repeat(64)}`,
+  platformManifestDigest: `sha256:${"6".repeat(64)}`,
+  serviceWorkerURL: "/sw.js",
+  serviceWorkerSha256: `sha256:${"7".repeat(64)}`,
+  appShellManifestSha256: `sha256:${"8".repeat(64)}`,
+  releaseFingerprint: `sha256:${"9".repeat(64)}`,
+};
 
 const contentTypes: Record<string, string> = {
   ".css": "text/css",
@@ -159,12 +169,13 @@ class LegacyUpgradeServer {
 }
 
 test.beforeAll(() => {
-  execFileSync("npm", ["run", "build:demo"], {
+  execFileSync("npm", ["exec", "--", "vite", "build"], {
     cwd: webRoot,
     env: {
       ...process.env,
-      AVIA_APP_SHELL_PREDECESSOR_JSON: JSON.stringify(legacyPredecessor),
-      AVIA_APP_SHELL_LEGACY_PREDECESSOR_JSON: "",
+      AVIA_BUILD_PROFILE: "demo",
+      AVIA_APP_SHELL_PREDECESSOR_JSON: JSON.stringify(currentPredecessor),
+      AVIA_APP_SHELL_LEGACY_PREDECESSOR_JSON: JSON.stringify(legacyPredecessor),
       AVIA_APP_SHELL_RELEASE_DESCRIPTOR_JSON: "",
     },
     stdio: "pipe",
@@ -172,7 +183,7 @@ test.beforeAll(() => {
   const manifest = JSON.parse(readFileSync(resolve(buildRoot, "app-shell-assets.json"), "utf8")) as {
     predecessor?: { serviceWorkerURL?: string };
   };
-  expect(manifest.predecessor?.serviceWorkerURL).toBe("/sw.js?v=9");
+  expect(manifest.predecessor?.serviceWorkerURL).toBe("/sw.js");
 });
 
 test("persistent browser clients upgrade through the v9 worker URL", async ({ context, page }) => {

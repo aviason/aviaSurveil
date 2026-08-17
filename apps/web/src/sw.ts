@@ -28,7 +28,11 @@ export interface AppShellRequestDescriptor {
 }
 
 const EXPECTED_RELEASE_FINGERPRINT = "__AVIA_RELEASE_FINGERPRINT__";
-const LEGACY_V9_PREDECESSOR: AppShellPredecessorDescriptor | null = /*__AVIA_LEGACY_PREDECESSOR__*/ null;
+const LEGACY_PREDECESSOR_BASE64 = "__AVIA_LEGACY_PREDECESSOR_BASE64__";
+const LEGACY_V9_PREDECESSOR: AppShellPredecessorDescriptor | null =
+  LEGACY_PREDECESSOR_BASE64.startsWith("__AVIA_")
+    ? null
+    : JSON.parse(atob(LEGACY_PREDECESSOR_BASE64)) as AppShellPredecessorDescriptor;
 const LEGACY_RETIREMENT_POLICY = "force-window-client-navigation-v1";
 const APP_SHELL_MANIFEST_URL = "/app-shell-assets.json";
 const VERIFIED_MARKER = "/__avia_app_shell_verified__";
@@ -314,7 +318,12 @@ export function canActivateAppShellCandidate(
   ) {
     return true;
   }
-  if (legacyPredecessor && sameDescriptor(predecessor, legacyPredecessor)) return true;
+  if (
+    legacyPredecessor?.serviceWorkerURL === "/sw.js?v=9" &&
+    sameOfflineVersionVector(legacyPredecessor.compatibility, candidate.compatibility)
+  ) {
+    return true;
+  }
   return committed.some((active) =>
     sameDescriptor(predecessor, active.releaseDescriptor) ||
     sameOfflineVersionVector(active.compatibility, candidate.compatibility),

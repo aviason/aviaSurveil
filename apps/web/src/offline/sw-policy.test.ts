@@ -121,6 +121,19 @@ describe("Service Worker activation policy", () => {
     )).toBe(true);
   });
 
+  it("activates an exact current predecessor candidate from the embedded legacy v9 bridge", () => {
+    const currentPredecessor = descriptor(`sha256:${"2".repeat(64)}`);
+    const legacy = {
+      ...descriptor(`sha256:${"1".repeat(64)}`),
+      serviceWorkerURL: "/sw.js?v=9",
+    };
+    expect(canActivateAppShellCandidate(
+      { compatibility: CURRENT_OFFLINE_VERSIONS, predecessor: currentPredecessor },
+      [],
+      legacy,
+    )).toBe(true);
+  });
+
   it("rejects a skipped release when any offline compatibility dimension differs", () => {
     const expectedPredecessor = descriptor(`sha256:${"2".repeat(64)}`);
     const incompatible = {
@@ -145,6 +158,23 @@ describe("Service Worker activation policy", () => {
     expect(canActivateAppShellCandidate(
       { compatibility: CURRENT_OFFLINE_VERSIONS, predecessor: legacy },
       [],
+    )).toBe(false);
+  });
+
+  it("rejects an incompatible embedded legacy bridge", () => {
+    const currentPredecessor = descriptor(`sha256:${"2".repeat(64)}`);
+    const incompatible = {
+      ...CURRENT_OFFLINE_VERSIONS,
+      syncProtocolVersion: CURRENT_OFFLINE_VERSIONS.syncProtocolVersion + 1,
+    };
+    const legacy = {
+      ...descriptor(`sha256:${"1".repeat(64)}`, incompatible),
+      serviceWorkerURL: "/sw.js?v=9",
+    };
+    expect(canActivateAppShellCandidate(
+      { compatibility: CURRENT_OFFLINE_VERSIONS, predecessor: currentPredecessor },
+      [],
+      legacy,
     )).toBe(false);
   });
 });
