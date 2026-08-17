@@ -10,12 +10,20 @@ COPY apps/web/ ./
 COPY assets/ /workspace/assets/
 
 FROM web-build AS demo-build
+ARG AVIA_APP_SHELL_PREDECESSOR_JSON=""
+ARG AVIA_APP_SHELL_LEGACY_PREDECESSOR_JSON=""
+ENV AVIA_APP_SHELL_PREDECESSOR_JSON=${AVIA_APP_SHELL_PREDECESSOR_JSON} \
+    AVIA_APP_SHELL_LEGACY_PREDECESSOR_JSON=${AVIA_APP_SHELL_LEGACY_PREDECESSOR_JSON}
 RUN npm run build:demo \
     && find dist/demo -type f -name '*.map' -delete \
     && node scripts/assert-app-shell-artifact.mjs dist/demo
 
 FROM web-build AS http-build
 ARG VITE_AVIA_DISABLE_BROWSER_TELEMETRY=0
+ARG AVIA_APP_SHELL_PREDECESSOR_JSON=""
+ARG AVIA_APP_SHELL_LEGACY_PREDECESSOR_JSON=""
+ENV AVIA_APP_SHELL_PREDECESSOR_JSON=${AVIA_APP_SHELL_PREDECESSOR_JSON} \
+    AVIA_APP_SHELL_LEGACY_PREDECESSOR_JSON=${AVIA_APP_SHELL_LEGACY_PREDECESSOR_JSON}
 RUN VITE_AVIA_DISABLE_BROWSER_TELEMETRY="${VITE_AVIA_DISABLE_BROWSER_TELEMETRY}" npm run build:http \
     && find dist/http -type f -name '*.map' -delete \
     && node scripts/assert-app-shell-artifact.mjs dist/http \
