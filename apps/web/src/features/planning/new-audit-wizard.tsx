@@ -256,6 +256,7 @@ export function NewAuditWizardPage() {
   const [catalogPageNumber, setCatalogPageNumber] = useState(1);
   const [catalogDetail, setCatalogDetail] = useState<CanonicalQuestionCatalogEntry | null>(null);
   const catalogDetailRequestRef = useRef(0);
+  const skipDraftHydrationRef = useRef<string | null>(null);
   const [selectionPreview, setSelectionPreview] = useState<CanonicalSelectionPreview | null>(null);
   const [selectionPreviewOperation, setSelectionPreviewOperation] = useState<SelectionPreviewOperation | null>(null);
   const [serverSelectionSummary, setServerSelectionSummary] = useState<CanonicalSelectionPreview["preview"] | null>(null);
@@ -281,6 +282,14 @@ export function NewAuditWizardPage() {
       return () => { cancelled = true; };
     }
     const requestedDraftId = new URLSearchParams(location.search).get("draftId");
+    if (requestedDraftId && skipDraftHydrationRef.current === requestedDraftId) {
+      // changeScope already received the authoritative server draft. The URL
+      // update below intentionally re-enters this effect, but re-fetching the
+      // same draft here can race a manager's immediate application-type
+      // selection and restore the old type over the user's change.
+      skipDraftHydrationRef.current = null;
+      return () => { cancelled = true; };
+    }
     const load = (async () => {
       if (!backend.canonicalCatalog) {
         throw new Error("Server-authorized audit scope selection is unavailable in this build profile.");
@@ -422,6 +431,7 @@ export function NewAuditWizardPage() {
         values: nextValues,
       });
       setDraft(replacement);
+      skipDraftHydrationRef.current = replacement.id;
       setValues(formValuesFor(replacement));
       setPendingSelectionIds([]);
       setSelectionDirty(false);
