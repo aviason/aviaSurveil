@@ -2,7 +2,7 @@
 
 Date: 2026-08-17
 Last updated: 2026-08-17
-Status: active — legacy recovery and continuous-update implementation `verified locally`; `candidate-only`; `release pending`
+Status: active — exact `namibia/demo` release deployed; public worker/manifest/health and no-op verified; retained pre-monitor browser convergence remains browser-scheduled
 
 ## Planning authority
 
@@ -70,8 +70,24 @@ qualification state is changed by this implementation slice.
   demo/http builds, artifact scans, A/B/C harness, focused Caddy contract, and
   Caddy native validation passed.
 - `verified live diagnosis`: `https://demo.aviasurveil.com/` serves the current
-  HTML while `/sw.js?v=9` still returns `410`; the public environment therefore
-  does not contain this repair yet.
+  HTML; after release, `/sw.js?v=9` and `/sw.js` both return HTTP 200,
+  `no-store`, identical bytes, and worker SHA-256
+  `fa03db49f7e18df60fed488cd5559d387fe8030eb4dee7fbff8c3982985ea762`.
+- `verified`: public manifest SHA-256 is
+  `cd86cd35aba7d6169eef81283c4f63d853fe9d7094b29158cc3a7bc304901c76`,
+  release fingerprint is `sha256:e933f77a596f06e06969a1115c93fc7b27bfcf3c656f2f6a80895e1b606664a1`,
+  and public HTML names `app-BTQeTkmh.js` and
+  `workspace-shell-D69tKOkH.js`.
+- `verified`: exact `namibia/demo` lock
+  `sha256:82729d03896ebfd8908fd5ed202178788202126385b7aca9c8cc75b0c6016ad9`
+  was applied through the seven-action saved plan; public readiness and
+  target-specific smoke passed, then detailed-exitcode reported `No changes`.
+- `blocked`: a retained browser profile still running a pre-monitor cached
+  document did not immediately converge on reload. The server cannot invoke
+  `registration.update()` inside that already-cached document without browser
+  cooperation and site-data clearing was not performed. Its legacy worker URL
+  now serves the exact bridge; all clients that reach this release have
+  bounded automatic checks for future releases.
 - `blocked`: the fresh full web suite ended at `682 passed / 8 failed`;
   failures are in unrelated dirty planning/management presentation surfaces,
   not the focused app-shell tests.
@@ -80,8 +96,8 @@ qualification state is changed by this implementation slice.
 - `not run`: Playwright WebKit because the local WebKit binary is unavailable;
   the same persistent-browser test supports
   `AVIA_LEGACY_UPDATE_BROWSER=webkit` when that binary is present.
-- `not run`: commit, push, OCI inspection/public release lock publication,
-  Cloudflare discovery/purge, public transition, and demo apply.
+- `not run`: destructive site-data clearing, broad Cloudflare purge, public
+  mutating qualification, preprod, and prod.
 
 ## Ordered implementation
 
@@ -95,9 +111,8 @@ qualification state is changed by this implementation slice.
 4. Add isolated A/B/C browser tests using task-unique project/state/ports and
    verify forced legacy retirement plus predecessor-cache deletion.
 5. Run native Surveil and Auth source gates; report missing fixtures literally.
-6. Publish one immutable release containing both the gateway legacy-URL bridge
-   and the successor worker, then verify `/sw.js?v=9` returns the exact current
-   worker body before testing a retained Safari profile.
+6. Observe the retained Safari profile after its browser-scheduled worker
+   update check; future releases use the deployed stable-worker monitor.
 
 ## Verification matrix
 
