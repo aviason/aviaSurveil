@@ -113,6 +113,11 @@ function expectedContentType(url) {
   return CONTENT_TYPES[extension];
 }
 
+function assertDescriptor(value, label, allowLegacyWorkerURL = false) {
+  assert.equal(typeof value, "object", `${label} must be an object`);
+  assert.ok(value === null || value.serviceWorkerURL === "/sw.js" || (allowLegacyWorkerURL && value.serviceWorkerURL === "/sw.js?v=9"), `${label}.serviceWorkerURL is invalid`);
+}
+
 export function assertAppShellArtifact(suppliedPath) {
   const artifactRoot = path.resolve(suppliedPath);
   assert.ok(fs.existsSync(artifactRoot), `App-shell artifact directory is missing: ${artifactRoot}`);
@@ -127,6 +132,8 @@ export function assertAppShellArtifact(suppliedPath) {
   assert.match(manifest.releaseFingerprint, /^sha256:[0-9a-f]{64}$/);
   assert.ok(Array.isArray(manifest.files) && manifest.files.length > 0);
   assert.ok(manifest.predecessor === null || typeof manifest.predecessor === "object");
+  if (manifest.predecessor !== null) assertDescriptor(manifest.predecessor, "manifest.predecessor", true);
+  assertDescriptor(manifest.releaseDescriptor, "manifest.releaseDescriptor");
   assert.equal(manifest.releaseDescriptor.serviceWorkerURL, "/sw.js");
   assert.equal(manifest.worker.url, "/sw.js");
   assert.match(manifest.worker.sha256, /^sha256:[0-9a-f]{64}$/);

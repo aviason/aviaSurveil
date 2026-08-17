@@ -110,13 +110,13 @@ function vector(value: unknown, label: string): asserts value is OfflineVersionV
   }
 }
 
-function descriptor(value: unknown, label: string): AppShellPredecessorDescriptor {
+function descriptor(value: unknown, label: string, allowLegacyWorkerURL = false): AppShellPredecessorDescriptor {
   if (!isRecord(value)) throw new Error(`${label} must be an object`);
   exactKeys(value, ["lockDigest", "webImageReferenceDigest", "platformManifestDigest", "serviceWorkerURL", "serviceWorkerSha256", "appShellManifestSha256", "releaseFingerprint", "compatibility"], label);
   digestShape(value.lockDigest, `${label}.lockDigest`, true);
   digestShape(value.webImageReferenceDigest, `${label}.webImageReferenceDigest`, true);
   digestShape(value.platformManifestDigest, `${label}.platformManifestDigest`, true);
-  if (typeof value.serviceWorkerURL !== "string" || value.serviceWorkerURL !== "/sw.js") throw new Error(`${label}.serviceWorkerURL must be /sw.js`);
+  if (typeof value.serviceWorkerURL !== "string" || (value.serviceWorkerURL !== "/sw.js" && !(allowLegacyWorkerURL && value.serviceWorkerURL === "/sw.js?v=9"))) throw new Error(`${label}.serviceWorkerURL is not an allowed stable worker URL`);
   digestShape(value.serviceWorkerSha256, `${label}.serviceWorkerSha256`, true);
   digestShape(value.appShellManifestSha256, `${label}.appShellManifestSha256`, true);
   digestShape(value.releaseFingerprint, `${label}.releaseFingerprint`, true);
@@ -163,7 +163,7 @@ function parseManifest(value: unknown): AppShellManifest {
   digestShape(value.releaseFingerprint, "manifest.releaseFingerprint");
   if (value.activationPolicy !== APP_SHELL_ACTIVATION_POLICY) throw new Error("unsupported app-shell activation policy");
   vector(value.compatibility, "manifest.compatibility");
-  const predecessor = value.predecessor === null ? null : descriptor(value.predecessor, "manifest.predecessor");
+  const predecessor = value.predecessor === null ? null : descriptor(value.predecessor, "manifest.predecessor", true);
   const releaseDescriptor = descriptor(value.releaseDescriptor, "manifest.releaseDescriptor");
   if (!isRecord(value.worker)) throw new Error("manifest.worker must be an object");
   exactKeys(value.worker, ["url", "sha256", "templateSha256"], "manifest.worker");
