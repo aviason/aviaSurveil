@@ -92,7 +92,7 @@ const stepSchemas = {
     riskCategory: z.string().trim().min(1, "Risk category is required"),
   }),
   3: z.object({
-    plannedDate: z.string().min(1, "Planned date is required"),
+    plannedDate: z.string().min(1, "Planned date is required").regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD for the planned date"),
     location: z.string().trim().min(1, "Location is required"),
   }),
   4: z.object({
@@ -259,6 +259,83 @@ function FieldError({ id, message }: { id: string; message?: string }): ReactNod
 
 function RequiredMark(): ReactNode {
   return <span aria-hidden="true" className="planning-intake-required">*</span>;
+}
+
+function PlanningDateField({
+  value,
+  error,
+  onBlur,
+  onChange,
+  onNext,
+}: {
+  value: string;
+  error?: string;
+  onBlur: () => void;
+  onChange: (value: string) => void;
+  onNext: () => void;
+}) {
+  const pickerRef = useRef<HTMLInputElement | null>(null);
+
+  function openPicker() {
+    const picker = pickerRef.current;
+    if (!picker) return;
+    if (typeof picker.showPicker === "function") {
+      try {
+        picker.showPicker();
+        return;
+      } catch {
+        // Fall back to the native date control when showPicker is unavailable
+        // or rejected by the current browser.
+      }
+    }
+    picker.focus();
+    picker.click();
+  }
+
+  return (
+    <div className="planning-intake-date-control">
+      <input
+        aria-describedby={error ? "planning-intake-plannedDate-error" : undefined}
+        aria-invalid={Boolean(error)}
+        aria-label="Planned date"
+        autoComplete="off"
+        enterKeyHint="next"
+        id="planning-intake-plannedDate"
+        inputMode="text"
+        maxLength={10}
+        onBlur={onBlur}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            onNext();
+          }
+        }}
+        placeholder="YYYY-MM-DD"
+        type="text"
+        value={value}
+      />
+      <button
+        aria-label="Open planned date calendar"
+        className="planning-intake-date-calendar"
+        onClick={openPicker}
+        onPointerDown={(event) => event.preventDefault()}
+        title="Open calendar"
+        type="button"
+      >
+        <span aria-hidden="true">📅</span>
+      </button>
+      <input
+        aria-hidden="true"
+        className="planning-intake-date-picker"
+        onChange={(event) => onChange(event.target.value)}
+        ref={pickerRef}
+        tabIndex={-1}
+        type="date"
+        value={value}
+      />
+    </div>
+  );
 }
 
 function PlanningIntakeProgress({ step }: { step: number }) {
@@ -748,7 +825,7 @@ export function NewAuditWizardPage() {
               <p className="planning-intake-boundary-note" role="note"><b>{noticeLabel(values.inspectionCategory)}</b><span>{values.inspectionCategory === "Ad Hoc / Unannounced" ? "Organization notice remains withheld through this Planning stage." : "Notice is derived from the selected inspection approach."}</span></p>
             </div> : null}
             {!routeRedirecting && values && step === 3 ? <div className="planning-intake-fields">
-              <label htmlFor="planning-intake-plannedDate">Planned date <RequiredMark /><input aria-label="Planned date" id="planning-intake-plannedDate" aria-invalid={Boolean(fieldErrors.plannedDate)} aria-describedby={fieldErrors.plannedDate ? "planning-intake-plannedDate-error" : undefined} inputMode="numeric" placeholder="YYYY-MM-DD" type="text" value={values.plannedDate} onBlur={() => validateField("plannedDate")} onChange={(event) => update("plannedDate", event.target.value)} /><small>Use the calendar date format YYYY-MM-DD.</small><FieldError id="planning-intake-plannedDate-error" message={fieldErrors.plannedDate} /></label>
+              <label htmlFor="planning-intake-plannedDate">Planned date <RequiredMark /><PlanningDateField error={fieldErrors.plannedDate} onBlur={() => validateField("plannedDate")} onChange={(value) => update("plannedDate", value)} onNext={() => void continueFromStep()} value={values.plannedDate} /><small>Enter YYYY-MM-DD or open the calendar.</small><FieldError id="planning-intake-plannedDate-error" message={fieldErrors.plannedDate} /></label>
               <label htmlFor="planning-intake-mode">Mode<select id="planning-intake-mode" value={values.mode} onChange={(event) => update("mode", event.target.value as PlanningIntakeDraftValues["mode"])}><option value="On-site">On-site</option><option value="Remote">Remote</option></select><small>Choose how the inspection will be conducted.</small></label>
               <label className="is-wide" htmlFor="planning-intake-location">Location <RequiredMark /><input aria-label="Location" id="planning-intake-location" aria-invalid={Boolean(fieldErrors.location)} aria-describedby={fieldErrors.location ? "planning-intake-location-error" : undefined} value={values.location} onBlur={() => validateField("location")} onChange={(event) => update("location", event.target.value)} /><small>Specify the airport, facility, or other inspection location.</small><FieldError id="planning-intake-location-error" message={fieldErrors.location} /></label>
             </div> : null}

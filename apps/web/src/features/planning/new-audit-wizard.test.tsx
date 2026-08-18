@@ -80,6 +80,27 @@ async function confirmOneQuestion(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe("New Inspection Planning intake", () => {
+  it("lets mobile users type an ISO date, open its calendar, and advance with Next", async () => {
+    const user = userEvent.setup();
+    renderWizardRoute("/department-manager/new-audit/step-1");
+    await createDraft(user);
+    await user.type(await screen.findByLabelText("Purpose"), "Mobile date control regression check");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    const plannedDate = await screen.findByLabelText("Planned date");
+    expect(plannedDate).toHaveAttribute("type", "text");
+    expect(plannedDate).toHaveAttribute("inputmode", "text");
+    expect(plannedDate).toHaveAttribute("enterkeyhint", "next");
+    expect(plannedDate).toHaveAttribute("placeholder", "YYYY-MM-DD");
+    expect(screen.getByRole("button", { name: "Open planned date calendar" })).toBeVisible();
+    await user.type(plannedDate, "2026-12-10");
+    expect(plannedDate).toHaveValue("2026-12-10");
+    await user.type(await screen.findByLabelText("Location"), "Fly Namibia HQ");
+    await user.click(plannedDate);
+    await user.keyboard("{Enter}");
+    await screen.findByRole("heading", { level: 2, name: "Checklist & budget" });
+  });
+
   it("loads every authorized scope page before building the cascade", async () => {
     const runtime = createMockBackendRuntime();
     const catalog = runtime.backendForRole("manager").canonicalCatalog!;

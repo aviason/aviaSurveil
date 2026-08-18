@@ -815,6 +815,54 @@
   resize: vertical;
 }
 
+.planning-intake-date-control {
+  position: relative;
+  display: grid;
+}
+
+.planning-intake-date-control > input[type="text"] {
+  padding-right: 54px;
+}
+
+.planning-intake-date-calendar {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  display: grid;
+  width: 42px;
+  min-height: 42px;
+  transform: translateY(-50%);
+  place-items: center;
+  border: 0;
+  border-radius: calc(var(--avia-radius-control) - 2px);
+  background: transparent;
+  padding: 0;
+  color: var(--avia-color-action);
+  cursor: pointer;
+  font-size: 1.05rem;
+}
+
+.planning-intake-date-calendar:hover {
+  background: var(--avia-color-action-soft);
+}
+
+.planning-intake-date-calendar:focus-visible {
+  outline: 3px solid rgb(47 111 214 / 28%);
+  outline-offset: 1px;
+}
+
+.planning-intake-date-picker {
+  position: absolute;
+  width: 1px !important;
+  min-width: 1px !important;
+  height: 1px !important;
+  min-height: 1px !important;
+  margin: -1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .planning-intake-fields input[readonly] {
   color: var(--avia-color-muted);
   background: var(--avia-color-surface-muted);
