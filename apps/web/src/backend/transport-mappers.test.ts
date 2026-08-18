@@ -8,6 +8,7 @@ import {
   mapAdminRegulatoryReference,
   mapInspectionPackage,
   mapManagerDashboard,
+  mapReportVersion,
   mapRiskManagementProjection,
 } from "./transport-mappers";
 
@@ -288,5 +289,26 @@ describe("transport mappers", () => {
     expect(JSON.stringify(mapped)).not.toMatch(
       /internalCaaNote|PRIVATE_RISK_NOTE|privateEnforcementScore/i,
     );
+  });
+
+  it("normalizes omitted report relationship arrays from immutable snapshots", () => {
+    const mapped = mapReportVersion({
+      reportVersionId: "report-version-test",
+      reportId: "report-test",
+      kind: "PRELIMINARY",
+      organizationId: "org-test",
+      auditId: "audit-test",
+      findingIds: null,
+      potentialFindingIds: null,
+      potentialFindingRootDigest: "sha256:test",
+      contentHash: "sha256:test",
+      version: 1,
+      status: "DEPARTMENT_REVIEW",
+      revision: 1,
+      issuedAt: null,
+    } as unknown as Parameters<typeof mapReportVersion>[0]);
+
+    expect(mapped.findingIds).toEqual([]);
+    expect(mapped.potentialFindingIds).toEqual([]);
   });
 });

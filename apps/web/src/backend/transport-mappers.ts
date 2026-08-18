@@ -257,8 +257,8 @@ export function mapReviewEvidence(
 export function mapReportVersion(value: Schemas["ReportVersionView"]): ReportVersionView {
   return {
     ...value,
-    findingIds: [...value.findingIds],
-    potentialFindingIds: [...value.potentialFindingIds],
+    findingIds: [...(value.findingIds ?? [])],
+    potentialFindingIds: [...(value.potentialFindingIds ?? [])],
   };
 }
 

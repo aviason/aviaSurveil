@@ -597,8 +597,12 @@ func (api *CanonicalAPI) reportProjection(ctx context.Context, actor identity.Pr
 	if err := json.Unmarshal(snapshot, &payload); err != nil {
 		return generated.ReportVersionView{}, err
 	}
-	view.FindingIds = payload.FindingIDs
-	view.PotentialFindingIds = payload.PotentialFindingIDs
+	// Keep collection fields non-null at the transport boundary. Older and
+	// newly-created immutable report snapshots may omit an empty relationship;
+	// the OpenAPI contract is an array and clients must not have to special-case
+	// JSON null before rendering a report review page.
+	view.FindingIds = append([]string{}, payload.FindingIDs...)
+	view.PotentialFindingIds = append([]string{}, payload.PotentialFindingIDs...)
 	view.PotentialFindingRootDigest = payload.PotentialFindingRootDigest
 	view.ContentHash = payload.ContentHash
 	view.IssuedAt = formatOptionalInstant(issuedAt)
