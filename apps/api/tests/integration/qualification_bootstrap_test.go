@@ -71,8 +71,16 @@ func TestQualificationBootstrapReplayDriftAndPermissionBoundary(t *testing.T) {
 	if _, err := canonicalaga.LoadAIRecommendationEnrichment(ctx, pool, artifact, catalog.CatalogVersion, catalog.AdvisoryLockKey, now); err != nil {
 		t.Fatalf("load AI recommendation enrichment: %v", err)
 	}
+	initialCatalogCounts := qualificationBootstrapCounts(t, pool)
+	if _, err := canonicalaga.LoadApprovedCatalog(ctx, pool, pkg, catalog.CatalogVersion, actor, allCatalogBindings, catalog.AdvisoryLockKey, now.Add(30*time.Second)); err != nil {
+		t.Fatalf("upgrade approved catalog applicability bindings: %v", err)
+	}
+	upgradedCatalogCounts := qualificationBootstrapCounts(t, pool)
+	if upgradedCatalogCounts.CatalogApplicabilities != initialCatalogCounts.CatalogApplicabilities*len(allCatalogBindings) {
+		t.Fatalf("catalog applicability upgrade count = %d, want %d", upgradedCatalogCounts.CatalogApplicabilities, initialCatalogCounts.CatalogApplicabilities*len(allCatalogBindings))
+	}
 
-	beforeReplay := qualificationBootstrapCounts(t, pool)
+	beforeReplay := upgradedCatalogCounts
 	if err := qualificationbootstrap.LoadFoundation(ctx, pool, foundation, foundationDigest, actor, now.Add(time.Minute)); err != nil {
 		t.Fatalf("replay foundation: %v", err)
 	}
