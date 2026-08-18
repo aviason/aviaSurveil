@@ -83,6 +83,9 @@ func LoadApprovedCatalog(ctx context.Context, pool *database.Pool, pkg ApprovedS
 			if existingVersion != catalogVersion || existingUsage != string(questioncatalog.UsageClassGovernedOperational) || existingOrigin != string(questioncatalog.SourceOriginImportedApproved) || existingProfile != approvedCatalogProfile || existingProfileVersion != approvedCatalogProfileVersion || existingRoot != manifest.CatalogRootDigest || existingCatalogRoot != manifest.CatalogRootDigest || existingSourceManifest != manifest.SourceManifestSHA256 || existingQuestionCount != len(manifest.Rows) || existingFormCount != len(manifest.Forms) {
 				return fmt.Errorf("existing approved catalog does not match the release-pinned source")
 			}
+			if err := appendMissingApprovedApplicabilities(ctx, tx, result.CatalogID, bindings, actorSubjectID, now); err != nil {
+				return err
+			}
 			return verifyApprovedReplay(ctx, tx, result.CatalogID, manifest, pkg, actorSubjectID, bindings)
 		}
 		if !errors.Is(catalogErr, pgx.ErrNoRows) {
@@ -141,6 +144,26 @@ func LoadApprovedCatalog(ctx context.Context, pool *database.Pool, pkg ApprovedS
 		return LoadResult{}, err
 	}
 	return result, nil
+}
+
+// appendMissingApprovedApplicabilities extends an existing sealed catalog only
+// with new authorized foundation bindings. Existing catalog memberships,
+// question versions, and applicability rows remain append-only and are never
+// updated or deleted.
+func appendMissingApprovedApplicabilities(ctx context.Context, tx pgx.Tx, catalogID string, bindings []ScopeBinding, actorSubjectID string, now time.Time) error {
+	for _, binding := range bindings {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO canonical_question_catalog_applicabilities
+				(catalog_id,question_version_id,provider_scope_id,regulated_target_id,status,reason,actor_subject_id,created_at)
+			SELECT catalog_id,question_version_id,$2,$3,'ELIGIBLE','approved catalog active foundation binding',$4,$5
+			FROM canonical_question_catalog_memberships
+			WHERE catalog_id=$1
+			ON CONFLICT (catalog_id,question_version_id,provider_scope_id,regulated_target_id) DO NOTHING`,
+			catalogID, binding.ProviderScopeID, binding.RegulatedTargetID, actorSubjectID, now.UTC()); err != nil {
+			return fmt.Errorf("append approved applicability %s/%s: %w", binding.ProviderScopeID, binding.RegulatedTargetID, err)
+		}
+	}
+	return nil
 }
 
 func verifyApprovedReplay(ctx context.Context, tx pgx.Tx, catalogID string, manifest ImportManifest, pkg ApprovedSourcePackage, actorSubjectID string, bindings []ScopeBinding) error {

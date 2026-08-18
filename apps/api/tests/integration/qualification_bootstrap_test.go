@@ -59,7 +59,8 @@ func TestQualificationBootstrapReplayDriftAndPermissionBoundary(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read approved source package: %v", err)
 	}
-	if _, err := canonicalaga.LoadApprovedCatalog(ctx, pool, pkg, catalog.CatalogVersion, actor, catalogScopeBindings(catalog), catalog.AdvisoryLockKey, now); err != nil {
+	allCatalogBindings := catalogScopeBindings(catalog)
+	if _, err := canonicalaga.LoadApprovedCatalog(ctx, pool, pkg, catalog.CatalogVersion, actor, allCatalogBindings[:1], catalog.AdvisoryLockKey, now); err != nil {
 		t.Fatalf("load approved catalog: %v", err)
 	}
 	artifactPath := filepath.Join(apiModuleRoot(t), "..", "..", "deliverables", "aga-ai-checklist-recommendations-v1", "AGA_AI_CHECKLIST_RECOMMENDATIONS_V1.json")
