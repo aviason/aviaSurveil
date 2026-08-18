@@ -287,6 +287,24 @@ function PlanningDateField({
   onChange: (value: string) => void;
   onNext: () => void;
 }) {
+  const pickerRef = useRef<HTMLInputElement | null>(null);
+
+  function openPicker() {
+    const picker = pickerRef.current;
+    if (!picker) return;
+    if (typeof picker.showPicker === "function") {
+      try {
+        picker.showPicker();
+        return;
+      } catch {
+        // Fall back to the native date control when showPicker is unavailable
+        // or rejected by the current browser.
+      }
+    }
+    picker.focus();
+    picker.click();
+  }
+
   return (
     <div className="planning-intake-date-control">
       <input
@@ -310,14 +328,22 @@ function PlanningDateField({
         type="text"
         value={value}
       />
-      <span aria-hidden="true" className="planning-intake-date-calendar">
-        <span aria-hidden="true">📅</span>
-      </span>
-      <input
+      <button
         aria-label="Open planned date calendar"
+        className="planning-intake-date-calendar"
+        onClick={openPicker}
+        onPointerDown={(event) => event.preventDefault()}
+        title="Open calendar"
+        type="button"
+      >
+        <span aria-hidden="true">📅</span>
+      </button>
+      <input
+        aria-hidden="true"
         className="planning-intake-date-picker"
         onChange={(event) => onChange(event.target.value)}
-        onClick={(event) => event.stopPropagation()}
+        ref={pickerRef}
+        tabIndex={-1}
         type="date"
         value={value}
       />
