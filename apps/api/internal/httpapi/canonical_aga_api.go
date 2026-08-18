@@ -827,19 +827,47 @@ LEFT JOIN LATERAL (
 	        WHEN ai.mandatory_control OR ai.safety_critical OR ai.risk_tier = 'HIGH' THEN 'MANDATORY_CORE'
 	        WHEN history.has_open_work OR history.has_repeat_finding OR history.has_overdue_cap OR history.has_non_clean_history THEN 'FOCUSED_FULL'
 	        WHEN history.question_history_count < history.comparable_audit_count OR history.comparable_audit_count < 2 THEN 'ROTATIONAL_SAMPLE'
-	        WHEN recommendation.recommendation_state = 'RECENTLY_VERIFIED' THEN 'DEFER_ELIGIBLE'
+	        WHEN history.last_verified_at IS NOT NULL
+	         AND history.last_verified_at >= $14::timestamptz - make_interval(months => ai.recurrence_months)
+	         AND ai.risk_tier NOT IN ('HIGH','UNKNOWN')
+	         AND ($11::text[] = '{}'::text[] OR ai.inspection_type_codes && $11::text[])
+	         AND (active_scope.id IS NULL OR canonical_audit_type_matches_question_focus(active_scope.audit_type, ai.inspection_type_codes)) THEN 'DEFER_ELIGIBLE'
 	        ELSE 'ROTATIONAL_SAMPLE'
 	      END AS recommendation_classification,
 	      CASE
 	        WHEN ai.mandatory_control OR ai.safety_critical OR ai.risk_tier = 'HIGH' THEN true
-	        WHEN recommendation.recommendation_state = 'RECENTLY_VERIFIED' AND NOT history.has_open_work AND NOT history.has_repeat_finding AND NOT history.has_overdue_cap AND NOT history.has_non_clean_history THEN false
+	        WHEN history.last_verified_at IS NOT NULL
+	         AND history.last_verified_at >= $14::timestamptz - make_interval(months => ai.recurrence_months)
+	         AND NOT history.has_open_work AND NOT history.has_repeat_finding AND NOT history.has_overdue_cap AND NOT history.has_non_clean_history
+	         AND history.question_history_count >= history.comparable_audit_count
+	         AND history.comparable_audit_count >= 2
+	         AND ai.risk_tier NOT IN ('HIGH','UNKNOWN')
+	         AND ($11::text[] = '{}'::text[] OR ai.inspection_type_codes && $11::text[])
+	         AND (active_scope.id IS NULL OR canonical_audit_type_matches_question_focus(active_scope.audit_type, ai.inspection_type_codes))
+	         AND NOT ai.mandatory_control AND NOT ai.safety_critical AND ai.risk_tier <> 'HIGH' THEN false
 	        ELSE true
 	      END AS included_by_default,
 	      CASE
-	        WHEN recommendation.recommendation_state = 'RECENTLY_VERIFIED' AND NOT ai.mandatory_control AND NOT ai.safety_critical AND ai.risk_tier <> 'HIGH' THEN true
+	        WHEN history.last_verified_at IS NOT NULL
+	         AND history.last_verified_at >= $14::timestamptz - make_interval(months => ai.recurrence_months)
+	         AND NOT history.has_open_work AND NOT history.has_repeat_finding AND NOT history.has_overdue_cap AND NOT history.has_non_clean_history
+	         AND history.question_history_count >= history.comparable_audit_count
+	         AND history.comparable_audit_count >= 2
+	         AND ai.risk_tier NOT IN ('HIGH','UNKNOWN')
+	         AND ($11::text[] = '{}'::text[] OR ai.inspection_type_codes && $11::text[])
+	         AND (active_scope.id IS NULL OR canonical_audit_type_matches_question_focus(active_scope.audit_type, ai.inspection_type_codes))
+	         AND NOT ai.mandatory_control AND NOT ai.safety_critical AND ai.risk_tier <> 'HIGH' THEN true
 	        ELSE false
 	      END AS can_defer,
-	      CASE WHEN recommendation.recommendation_state = 'RECENTLY_VERIFIED' THEN 'Repeated validated-clean history is within its recurrence interval; the question is safe to defer by default.'
+	      CASE WHEN history.last_verified_at IS NOT NULL
+	                 AND history.last_verified_at >= $14::timestamptz - make_interval(months => ai.recurrence_months)
+	                 AND NOT history.has_open_work AND NOT history.has_repeat_finding AND NOT history.has_overdue_cap AND NOT history.has_non_clean_history
+	                 AND history.question_history_count >= history.comparable_audit_count
+	                 AND history.comparable_audit_count >= 2
+	                 AND ai.risk_tier NOT IN ('HIGH','UNKNOWN')
+	                 AND ($11::text[] = '{}'::text[] OR ai.inspection_type_codes && $11::text[])
+	                 AND (active_scope.id IS NULL OR canonical_audit_type_matches_question_focus(active_scope.audit_type, ai.inspection_type_codes))
+	                 AND NOT ai.mandatory_control AND NOT ai.safety_critical AND ai.risk_tier <> 'HIGH' THEN 'Repeated validated-clean history is within its recurrence interval; the question is safe to defer by default.'
 	           WHEN history.has_open_work OR history.has_repeat_finding OR history.has_overdue_cap THEN 'Open, repeat, or overdue work keeps this question in the suggested scope.'
 	           WHEN history.has_non_clean_history OR history.question_history_count < history.comparable_audit_count THEN 'History is incomplete or non-clean; the question remains suggested.'
 	           WHEN history.comparable_audit_count < 2 THEN 'One clean Audit is not sufficient longitudinal evidence for omission.'
