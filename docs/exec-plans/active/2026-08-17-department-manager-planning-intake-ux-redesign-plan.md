@@ -2,7 +2,7 @@
 
 Date: 2026-08-17
 Last updated: 2026-08-18
-Status: active — implementation and required local verification complete; IAB-native zoom/reduced-motion/full-Tab controls remain `not run`; `candidate-only`; `release pending`; production readiness not claimed
+Status: active — implementation and required local verification complete; Chrome + Computer Use browser-control checks are `verified locally`; IAB-native zoom/reduced-motion/full-Tab controls are outside the revised acceptance boundary; public demo evidence is `verified locally`; root `make check` remains `blocked`; production readiness not claimed
 
 ## Planning authority
 
@@ -293,7 +293,7 @@ The redesign is acceptable only if these facts remain true:
    `apps/surveil`. Record all pre-existing edits that overlap the target files;
    do not reset or overwrite them.
 3. Run the current focused wizard tests and typecheck before changing source.
-4. Start the local demo on `127.0.0.1` and use the in-app Browser to capture
+4. Start the local demo on `127.0.0.1` and use Chrome + Computer Use to capture
    the current step-one, inline-error absence, step-four density, selection
    commands, dossier, and phone behavior. Do not use the everyday Chrome
    profile.
@@ -600,7 +600,7 @@ not a marketing header above a database dump.
 4. Use `view_image` on the accepted concept screenshots and the latest Browser
    screenshots in the same QA pass. Do not claim fidelity from DOM inspection
    alone.
-5. Use the in-app Browser for the complete target flow:
+5. Use Chrome + Computer Use for the complete target flow:
 
    `Planning → New inspection → valid scope → Continue creates draft → Purpose
    → Schedule → recommended checklist → Review selection → Confirm → Budget →
@@ -611,17 +611,20 @@ not a marketing header above a database dump.
 7. Verify page identity, nonblank render, no framework overlay, console health,
    no horizontal overflow, no clipped content, no nested scroll trap, and no
    primary control hidden behind the sticky action bar.
-8. Run keyboard-only traversal. Verify logical order, visible focus, Enter/Space
+8. Run native Chrome keyboard-only traversal with Computer Use. Verify logical order, visible focus, Enter/Space
    activation, Escape dismissal, returned modal focus, and focus on the first
    invalid field.
-9. Verify reduced-motion behavior and 200% text zoom without loss of content or
+9. Verify reduced-motion behavior through Chrome DevTools emulation and real
+   Chrome 200% zoom without loss of content or
    action access.
 10. Clean up task-owned Browser tabs, Vite, Playwright, and browser helper
     processes before closeout.
 
-The implementation is not `ready-for-verification` until in-app Browser proof
-passes. Chrome or standalone Playwright screenshots do not replace this
-explicit user-requested gate.
+The revised acceptance boundary uses Chrome + Computer Use for browser-level
+zoom, reduced-motion, and native keyboard checks. IAB remains useful
+supplementary evidence for the existing viewport flow but is not a required
+control surface for this plan. Standalone Playwright remains supplementary for
+these browser-level checks.
 
 ## Implementation and verification evidence — 2026-08-17
 
@@ -633,7 +636,8 @@ selection-review dialog, catalog/dossier, and review/action sections. The
 existing Demo Record Presentation helper remains the source of human-readable
 Planning labels and short references.
 
-Implemented behavior is `verified locally` in focused source tests and IAB:
+Implemented behavior is `verified locally` in focused source tests, IAB viewport
+evidence, and Chrome + Computer Use browser-control checks:
 
 - One five-step model is used everywhere: Basics, Purpose, Schedule, Checklist
   & budget, Review. Draftless later routes preserve the requested URL while
@@ -707,12 +711,25 @@ In-app Browser evidence is `verified locally` for the primary interaction gate:
   → Schedule → suggested checklist → Review selection → Confirm → zero Budget
   → Review → Submit to Finance → selected queue record.
 
-The IAB-only subchecks for full Tab traversal/Enter activation, browser chrome
-200% zoom, and reduced-motion emulation are `not run`: the available IAB
-keypress surface did not advance focus from a native select, exposes no browser
-chrome zoom control, and exposes no reduced-motion emulation control. Focused
-React tests cover modal/error focus and the CSS contains a reduced-motion rule;
-these do not claim the missing IAB subchecks.
+Chrome + Computer Use browser-control evidence is `verified locally` for the
+revised acceptance boundary:
+
+- Chrome's real browser zoom menu reached `200%`; the Chrome toolbar reported
+  `Yakınlaştır: %200` while the public AviaSurveil shell remained rendered.
+- Computer Use native `Tab` moved focus from the page to `Skip to sign in`, then
+  to the organization sign-in button. Native `Return` on `Skip to sign in`
+  moved focus to the sign-in region.
+- Chrome DevTools Rendering selected
+  `prefers-reduced-motion: reduce` and exposed the active emulation in the
+  Rendering panel.
+- The public unauthenticated shell's Chrome console also recorded the expected
+  unauthenticated `/auth/session` `401` and the current public telemetry
+  `/otel/v1/{traces,metrics}` `405` responses; Chrome control evidence does not
+  claim a clean public-console run.
+
+The IAB-native zoom, reduced-motion, and full-Tab controls are no longer
+required by this revised acceptance boundary. The existing IAB viewport flow
+and DOM/overflow evidence remain supplementary `verified locally` evidence.
 
 Final IAB screenshot evidence used in the same `view_image` fidelity pass:
 
@@ -738,11 +755,16 @@ Final mismatch ledger:
 | Responsive action access | Sticky actions have DOM rects/hit targets in all tested sizes; no document overflow | `verified locally` |
 | Console/overlay/privacy | No IAB error/warn logs or framework overlay; no Audit creation or Inspector start after Finance submission | `verified locally` |
 | IAB viewport DOM/overflow/console | 1440×900, 1024×768, 768×1024, and 390×844 each had one main, correct Department Planning identity, no horizontal overflow, and no IAB error/warn logs | `verified locally` |
-| IAB native keyboard/zoom/motion controls | Full Tab/Enter traversal, browser-chrome 200% zoom, and reduced-motion emulation are unavailable in the current IAB control surface | `not run` |
+| Chrome + Computer Use browser controls | Real Chrome `200%` zoom, native Tab/Return focus and activation, and DevTools `prefers-reduced-motion: reduce` emulation were exercised; public console caveat recorded above | `verified locally` |
 
-The plan remains `active`, `candidate-only`, and `release pending`; production
-readiness is not claimed. Stakeholder acceptance and the three not-run IAB
-subchecks remain before a lifecycle transition to `ready-for-verification`.
+The plan remains `active`; Chrome + Computer Use browser-control evidence and
+public demo smoke/no-op evidence are `verified locally`. Public all-role
+qualification is `blocked` after two 600-second exhaustive catalog traversal
+timeouts. Root `make check` is `blocked` by the preprod lock drift and the v2
+attestation fixture contract. IAB-native controls are outside the revised
+acceptance boundary; production readiness is not claimed. Stakeholder
+acceptance and resolution of the qualification/root blockers remain before a
+lifecycle transition to `ready-for-verification`.
 
 ## Verification matrix
 
@@ -756,15 +778,15 @@ subchecks remain before a lifecycle transition to `ready-for-verification`.
 | Mock E2E | `npm --prefix apps/web run test:e2e:mock -- tests/e2e/planning-intake-ux.spec.ts` | The complete user-intent flow passes with exact state changes. |
 | Visible actions/accessibility | `npm --prefix apps/web run test:e2e:visible-actions` and `npm --prefix apps/web run test:e2e:accessibility` | Changed route has no inert visible control or reported critical accessibility violation. |
 | Connected qualification | Run the repository-supported local qualification profile and focused `qualification-all-role.spec.ts` path | Real HTTP scope, draft, catalog, save, selection, submit, and privacy boundaries pass. Label unavailable infrastructure `blocked`, never passing. |
-| In-app Browser visual QA | Browser/IAB at 1440×900, 1024×768, 768×1024, 390×844 | Accepted concept fidelity, full target flow, console, focus, modal, overflow, loading, error, and sticky-action behavior pass. |
+| Chrome + Computer Use visual QA | Chrome + Computer Use at the agreed desktop/tablet/phone sizes, with real browser zoom, DevTools reduced-motion emulation, and native Tab/Return | Accepted concept fidelity, full target flow, console, focus, modal, overflow, loading, error, sticky-action, zoom, reduced-motion, and keyboard behavior pass. |
 | App boundary | `node tests/demo-boundary-smoke.test.js` when demo boundary copy or artifact behavior changes | No production or regulatory claim drift. |
 | Repo hygiene | `git diff --check` | Exit 0; no whitespace damage. |
 | Harness docs | `make harness-check` when plan/evidence changes are finalized | Plan and index resolve with one matching active row. |
 
-If the Browser plugin is unavailable, record `blocked` for the visual acceptance
-gate and stop before claiming the plan complete. Automated Playwright remains
-useful regression evidence but is not an authorized substitute for the
-explicit in-app Browser acceptance requirement.
+If Chrome Computer Use is unavailable, record `blocked` for the browser-control
+acceptance gate. IAB remains supplementary viewport evidence. Automated
+Playwright remains useful regression evidence, but it does not replace native
+Chrome Computer Use for the browser-level zoom and keyboard checks.
 
 ## Acceptance criteria
 
@@ -939,24 +961,27 @@ part of Gate 0.
 - [x] Gate 1 complete concept suite and user approval.
 - [x] Tasks 1–7 implementation and primary local verification (`verified locally`).
 - [x] Final self-critique and fidelity ledger recorded; nonessential brief and technical-detail copy removed.
-- [ ] Complete IAB Tab/Enter, 200% zoom, and reduced-motion subchecks when the required Browser controls are available.
+- [x] Complete Chrome + Computer Use native Tab/Return, real 200% zoom, and reduced-motion emulation subchecks (`verified locally`).
 - [ ] Stakeholder acceptance and plan lifecycle transition.
 
 ## Current outcome
 
 Planning and Gate 1 are complete and accepted. Tasks 1–7 are implemented with
 frontend-only source changes, focused/full React evidence, builds, contract and
-mock-flow evidence, connected qualification, full visible-actions/accessibility
-evidence, and primary IAB visual/interaction evidence all `verified locally`.
-The explicit IAB Tab/Enter traversal, browser-chrome 200% zoom, and
-reduced-motion controls are `not run`; root `make check` remains `blocked` by
-unrelated release-lock digest drift, with no apply/deploy action run. The result
-remains `candidate-only`, release is `release pending`, and production readiness
-not claimed.
+mock-flow evidence, connected local qualification, full visible-actions/
+accessibility evidence, primary IAB viewport evidence, and Chrome + Computer
+Use browser-control evidence all `verified locally`. Public demo readiness,
+app-shell digest matching, exact release-check, public smoke, and direct
+Terragrunt no-op are `verified locally`; public all-role qualification is
+`blocked` after two 600-second exhaustive catalog traversal timeouts. Root
+`make check` remains `blocked` by preprod lock drift and the v2 attestation
+fixture contract. IAB-native control coverage is outside the revised acceptance
+boundary; production readiness is not claimed.
 
-The next concrete todo is obtain the missing IAB control coverage and
-stakeholder acceptance, then move this plan to `ready-for-verification` only
-after those gates are satisfied.
+The next concrete todo is split the exhaustive catalog audit from the browser
+all-role scenario, fix the root release-lock/attestation fixture blockers, and
+obtain stakeholder acceptance before moving this plan to
+`ready-for-verification`.
 
 ## Execution Prompt
 
@@ -1005,15 +1030,15 @@ fabricate queue data or alter backend/OpenAPI unless source inspection proves a
 hard contract gap; stop and report that gap before any backend edit.
 
 Verify continuously with focused tests, then run the exact plan verification
-matrix. Use the local in-app Browser as the mandatory visual/interaction gate
-at 1440x900, 1024x768, 768x1024, and 390x844. Do not substitute Chrome or
-standalone Playwright for the user-requested IAB gate. Exercise the complete
-Planning → New inspection → scope → draft → purpose → schedule → suggested
-checklist → review/confirm selection → budget → review → Finance submission →
-selected queue flow. Check console, overlays, focus, keyboard, Escape/return
-focus, inline errors, loading, autosave failure/retry, overflow, zoom, reduced
-motion, and sticky actions. Use view_image on accepted concepts and final
-Browser screenshots in the same fidelity pass; maintain a mismatch ledger and
+matrix. Use Chrome + Computer Use as the mandatory browser-level control gate
+at 1440x900, 1024x768, 768x1024, and 390x844. IAB may provide supplementary
+viewport evidence. Exercise the complete Planning → New inspection → scope →
+draft → purpose → schedule → suggested checklist → review/confirm selection →
+budget → review → Finance submission → selected queue flow. Check console,
+overlays, focus, native keyboard, Escape/return focus, inline errors, loading,
+autosave failure/retry, overflow, real 200% browser zoom, reduced-motion
+emulation, and sticky actions. Use view_image on accepted concepts and final
+Chrome screenshots in the same fidelity pass; maintain a mismatch ledger and
 keep fixing until no agency-review comment remains.
 
 After implementation, run the final ui-self-critique, remove one remaining
