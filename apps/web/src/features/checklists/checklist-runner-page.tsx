@@ -137,6 +137,11 @@ export function ChecklistRunnerPage() {
             Select an assigned question, record the server-configured response, and follow the exact next action returned by the API.
           </p>
         </section>
+        {checklistReadOnly ? (
+          <p className="checklist-read-only-banner" data-testid="checklist-read-only-status" role="status">
+            Submitted — read-only review. Reopen requires an authorized reason.
+          </p>
+        ) : null}
         {attachmentRecoveryBlocked ? (
           <section className="inspector-sync-panel" data-testid="attachment-recovery-blocking" role="alert">
             <strong>Inspection Attachment recovery required</strong>
@@ -345,7 +350,7 @@ export function ChecklistRunnerPage() {
                             {`${question.sectionId} / ${question.regulatoryReference ?? "Configured reference unavailable"}`}
                           </small>
                         </td>
-                        <td><span>● {active && selectedResponse ? answerLabel(selectedResponse.answer) : "Not answered"}</span></td>
+                        <td><span>● {active && selectedResponse ? answerLabel(selectedResponse.answer) : question.currentResponse ? answerLabel(question.currentResponse.answer) : "Not answered"}</span></td>
                         <td>{question.expectedEvidence ?? "Configured Evidence requirement unavailable"}</td>
                         <td>{active && activeFlagged ? findingPath : "No finding"}</td>
                         <td><span>{active ? "Current" : assignedHere ? "Select row" : "Read-only"}</span></td>

@@ -14,6 +14,7 @@ export interface DataRegisterProps<Row extends Record<string, ReactNode>> {
   columns: readonly DataRegisterColumn<Row>[];
   rows: readonly Row[];
   rowKey(row: Row): string;
+  mobileTitle?: (row: Row) => string;
 }
 
 function cellValue<Row extends Record<string, ReactNode>>(
@@ -28,6 +29,7 @@ export function DataRegister<Row extends Record<string, ReactNode>>({
   columns,
   rows,
   rowKey,
+  mobileTitle,
 }: DataRegisterProps<Row>) {
   return (
     <div className="workbench-data-register">
@@ -60,7 +62,7 @@ export function DataRegister<Row extends Record<string, ReactNode>>({
               value: column.mobileRender ? column.mobileRender(row) : cellValue(row, column),
             }))}
             key={rowKey(row)}
-            title={rowKey(row)}
+            title={mobileTitle ? mobileTitle(row) : rowKey(row)}
           />
         ))}
       </div>

@@ -1064,6 +1064,18 @@
   box-shadow: var(--avia-shadow-panel);
 }
 
+.checklist-read-only-banner {
+  margin: 12px 0 0;
+  padding: 12px 16px;
+  border: 1px solid #bfcef0;
+  border-left: 4px solid #2f71d8;
+  border-radius: 6px;
+  color: #234a80;
+  background: #f4f8ff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .checklist-progress-band > strong {
   font-size: 12.5px;
   white-space: nowrap;

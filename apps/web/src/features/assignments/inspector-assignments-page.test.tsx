@@ -45,14 +45,15 @@ describe("InspectorAssignmentsPage", () => {
     for (const column of ["Audit", "Organization", "Status", "Due Date", "Due state", "Next action"]) {
       expect(within(register).getByRole("columnheader", { name: column })).toBeVisible();
     }
-    expect(within(register).getByRole("cell", { name: "AUD-2026-001" })).toBeVisible();
+    expect(within(register).getByRole("cell", { name: "2026 Cabin Inspection - Fly Namibia" })).toBeVisible();
     expect(within(register).getByRole("cell", { name: "Fly Namibia" })).toBeVisible();
     expect(within(register).getByText("Due Soon: 18 Jun 2026")).toBeVisible();
     expect(within(register).getByRole("link", { name: "Open 2026 Cabin Inspection - Fly Namibia" })).toBeVisible();
 
-    const mobileCard = screen.getByRole("article", { name: "AUD-2026-001" });
+    const mobileCard = screen.getByRole("article", { name: "2026 Cabin Inspection - Fly Namibia" });
     expect(within(mobileCard).getByText("Due state")).toBeVisible();
     expect(within(mobileCard).getByText("Continue Cabin Inspection checklist")).toBeVisible();
+    expect(within(mobileCard).queryByText("AUD-2026-001")).not.toBeInTheDocument();
 
     const reset = screen.getByRole("button", { name: "Reset assignment filters" });
     expect(reset).toBeDisabled();

@@ -11,6 +11,7 @@ import { CommandError, errorMessage, formatLocalDate, WorkspaceShell } from "../
 
 interface AssignmentRegisterRow extends Record<string, ReactNode> {
   audit: ReactNode;
+  auditTitle: string;
   organization: ReactNode;
   status: ReactNode;
   dueDate: ReactNode;
@@ -20,7 +21,7 @@ interface AssignmentRegisterRow extends Record<string, ReactNode> {
 }
 
 const assignmentColumns: readonly DataRegisterColumn<AssignmentRegisterRow>[] = [
-  { key: "audit", header: "Audit", mobileRender: (row) => row.rowId },
+  { key: "audit", header: "Audit", mobileRender: (row) => row.auditTitle },
   { key: "organization", header: "Organization" },
   { key: "status", header: "Status" },
   { key: "dueDate", header: "Due Date" },
@@ -145,10 +146,10 @@ export function InspectorAssignmentsPage() {
     () =>
       visibleAssignments.map((assignment) => ({
         rowId: assignment.auditId,
+        auditTitle: assignment.title,
         audit: (
           <span className="inspector-register-audit">
-            <strong aria-hidden="true">{assignment.title}</strong>
-            <small>{assignment.auditId}</small>
+            <strong>{assignment.title}</strong>
           </span>
         ),
         organization: assignment.organizationName,
@@ -229,6 +230,7 @@ export function InspectorAssignmentsPage() {
         <DataRegister
           caption="Assigned Audits"
           columns={assignmentColumns}
+          mobileTitle={(row) => row.auditTitle}
           rowKey={(row) => row.rowId}
           rows={rows}
         />
