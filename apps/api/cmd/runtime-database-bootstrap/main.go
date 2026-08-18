@@ -278,6 +278,9 @@ func configureSurveilWithTableGrants(ctx context.Context, masterURL string, mast
 	if _, err := pool.Exec(ctx, `GRANT EXECUTE ON FUNCTION public.governed_jsonb_sha256(jsonb) TO surveil_bootstrap`); err != nil {
 		return fmt.Errorf("grant bounded bootstrap JSON digest privilege: %w", err)
 	}
+	if _, err := pool.Exec(ctx, `GRANT EXECUTE ON FUNCTION public.digest(bytea, text) TO surveil_bootstrap`); err != nil {
+		return fmt.Errorf("grant bounded bootstrap pgcrypto digest privilege: %w", err)
+	}
 	return nil
 }
 
