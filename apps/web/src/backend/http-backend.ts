@@ -247,7 +247,7 @@ function appendQuery<T extends object>(path: string, values: T): string {
       if (value.length) query.set(key, value.join(","));
       continue;
     }
-    if (typeof value !== "string" && typeof value !== "number" && value != null) continue;
+    if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean" && value != null) continue;
     if (value !== undefined && value !== null && value !== "") query.set(key, String(value));
   }
   const encoded = query.toString();

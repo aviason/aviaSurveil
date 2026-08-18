@@ -34,6 +34,52 @@ describe("HttpBackend", () => {
     expect(BACKEND_CAPABILITY_KEYS.every((key) => backend[key] !== undefined)).toBe(true);
   });
 
+  it("serializes boolean catalog filters for server-owned recommendation views", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse({
+        items: [],
+        nextCursor: null,
+        catalogVersion: "aga-approved-source@2.0.0",
+        usageClass: "GOVERNED_OPERATIONAL",
+        totalCount: 0,
+        facets: { forms: [], domains: [], topics: [], riskTiers: [], checklistFocuses: [], recommendationStates: [] },
+        recommendationSummary: {
+          organizationLabel: "",
+          providerScopeLabel: "",
+          regulatedTargetLabel: "",
+          locationLabel: "",
+          generalInspectionType: "RAMP_INSPECTION",
+          generalInspectionTypeLabel: "RAMP_INSPECTION",
+          auditTypeLabel: "RAMP_INSPECTION",
+          evaluationAsOf: "2026-08-18T00:00:00Z",
+          historyWindowMonths: 36,
+          historyWindowStart: "2023-08-18T00:00:00Z",
+          historyWindowEnd: "2026-08-18T00:00:00Z",
+          comparableAuditCount: 0,
+          historyDeferredCount: 0,
+          focusConfigured: false,
+          focusType: null,
+          focusInspectionTypeCodes: [],
+          recommendationEvaluationDigest: "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        },
+      }),
+    );
+    const backend = createHttpBackend(
+      { apiBaseUrl: "/", environmentLabel: "Test" },
+      { fetchImplementation },
+    );
+
+    await backend.canonicalCatalog!.listCatalog({
+      catalogVersion: "aga-approved-source@2.0.0",
+      usageClass: "GOVERNED_OPERATIONAL",
+      includedByDefault: true,
+      scopeId: "scope-test",
+      applicationType: "RAMP_INSPECTION",
+    });
+
+    expect(fetchImplementation.mock.calls[0]?.[0]).toContain("includedByDefault=true");
+  });
+
   it("maps an assignment response with same-origin credentials", async () => {
     const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
       jsonResponse({
