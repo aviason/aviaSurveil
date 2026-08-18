@@ -531,7 +531,7 @@
 }
 
 @media (max-width: 719px) {
-  .inspector-assignment-page .inspector-register .workbench-record-list:is(.workbench-record-list) {
+  .inspector-assignment-page > .inspector-register .workbench-record-list:is(.workbench-record-list) {
     grid-template-columns: 1fr;
   }
 }
