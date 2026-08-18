@@ -766,22 +766,20 @@ JOIN canonical_question_catalog_ai_enrichments ai
 			AND prior_state.issued_at <= $14::timestamptz
 			AND prior_state.issued_at >= ($14::timestamptz - make_interval(months => 36))
 ) history ON TRUE
-LEFT JOIN LATERAL (
-    SELECT
-      CASE
-        WHEN active_scope.id IS NULL THEN ai.default_recommendation_bucket
-        WHEN history.has_open_work THEN 'SUGGESTED_NOW'
+	LEFT JOIN LATERAL (
+	    SELECT
+	      CASE
+	        WHEN active_scope.id IS NULL THEN ai.default_recommendation_bucket
+	        WHEN ai.mandatory_control OR ai.safety_critical OR ai.risk_tier IN ('HIGH', 'UNKNOWN') THEN 'SUGGESTED_NOW'
+	        WHEN history.has_open_work THEN 'SUGGESTED_NOW'
 		WHEN history.has_repeat_finding THEN 'SUGGESTED_NOW'
 		WHEN history.has_overdue_cap THEN 'SUGGESTED_NOW'
-        WHEN $11::text[] <> '{}'::text[] AND NOT (ai.inspection_type_codes && $11::text[]) THEN 'OUTSIDE_FOCUS'
+	        WHEN active_scope.id IS NOT NULL AND NOT canonical_audit_type_matches_question_focus(active_scope.audit_type, ai.inspection_type_codes) THEN 'OUTSIDE_FOCUS'
+	        WHEN $11::text[] <> '{}'::text[] AND NOT (ai.inspection_type_codes && $11::text[]) THEN 'OUTSIDE_FOCUS'
 		WHEN history.has_non_clean_history THEN 'UNCERTAIN_SIGNAL'
 		WHEN history.question_history_count < history.comparable_audit_count THEN 'UNCERTAIN_SIGNAL'
 		WHEN history.comparable_audit_count < 2 THEN 'UNCERTAIN_SIGNAL'
-		WHEN ai.risk_tier IN ('HIGH', 'UNKNOWN') THEN 'SUGGESTED_NOW'
-        WHEN active_scope.id IS NOT NULL
-         AND NOT canonical_audit_type_matches_question_focus(active_scope.audit_type, ai.inspection_type_codes)
-          THEN 'OUTSIDE_FOCUS'
-        WHEN history.last_verified_at IS NOT NULL
+	        WHEN history.last_verified_at IS NOT NULL
 		 AND history.last_verified_at >= $14::timestamptz - make_interval(months => ai.recurrence_months)
           THEN 'RECENTLY_VERIFIED'
         WHEN history.last_verified_at IS NOT NULL
@@ -835,7 +833,9 @@ LEFT JOIN LATERAL (
 	        ELSE 'ROTATIONAL_SAMPLE'
 	      END AS recommendation_classification,
 	      CASE
-	        WHEN ai.mandatory_control OR ai.safety_critical OR ai.risk_tier = 'HIGH' THEN true
+	        WHEN ai.mandatory_control OR ai.safety_critical OR ai.risk_tier IN ('HIGH', 'UNKNOWN') THEN true
+	        WHEN history.has_open_work OR history.has_repeat_finding OR history.has_overdue_cap THEN true
+	        WHEN active_scope.id IS NOT NULL AND NOT canonical_audit_type_matches_question_focus(active_scope.audit_type, ai.inspection_type_codes) THEN false
 	        WHEN history.last_verified_at IS NOT NULL
 	         AND history.last_verified_at >= $14::timestamptz - make_interval(months => ai.recurrence_months)
 	         AND NOT history.has_open_work AND NOT history.has_repeat_finding AND NOT history.has_overdue_cap AND NOT history.has_non_clean_history
@@ -868,6 +868,7 @@ LEFT JOIN LATERAL (
 	                 AND ($11::text[] = '{}'::text[] OR ai.inspection_type_codes && $11::text[])
 	                 AND (active_scope.id IS NULL OR canonical_audit_type_matches_question_focus(active_scope.audit_type, ai.inspection_type_codes))
 	                 AND NOT ai.mandatory_control AND NOT ai.safety_critical AND ai.risk_tier <> 'HIGH' THEN 'Repeated validated-clean history is within its recurrence interval; the question is safe to defer by default.'
+	           WHEN active_scope.id IS NOT NULL AND NOT canonical_audit_type_matches_question_focus(active_scope.audit_type, ai.inspection_type_codes) THEN 'This question is outside the selected audit type focus and remains available in the full approved catalog.'
 	           WHEN history.has_open_work OR history.has_repeat_finding OR history.has_overdue_cap THEN 'Open, repeat, or overdue work keeps this question in the suggested scope.'
 	           WHEN history.has_non_clean_history OR history.question_history_count < history.comparable_audit_count THEN 'History is incomplete or non-clean; the question remains suggested.'
 	           WHEN history.comparable_audit_count < 2 THEN 'One clean Audit is not sufficient longitudinal evidence for omission.'
