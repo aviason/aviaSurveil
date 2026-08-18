@@ -257,6 +257,15 @@ func configureSurveilWithTableGrants(ctx context.Context, masterURL string, mast
 		"canonical_question_version_provenance", "canonical_question_catalog_memberships",
 		"canonical_question_catalog_membership_events", "canonical_question_catalog_applicabilities",
 		"canonical_question_catalog_import_runs", "canonical_question_catalog_ai_enrichments",
+		// The qualification-only prior-Audit history loader receives the same
+		// bounded INSERT/SELECT capability. It cannot update or delete any of
+		// these append-only history projections or published catalog rows.
+		"planning_intake_drafts", "canonical_audit_scope_drafts",
+		"canonical_audit_scope_draft_questions", "canonical_audit_scope_snapshots",
+		"canonical_audit_scope_snapshot_questions", "inspections",
+		"inspection_packages", "inspection_question_assignments", "inspection_checklists",
+		"checklist_responses", "potential_findings", "findings", "cap_revisions",
+		"report_versions", "report_approval_states",
 	}
 	for _, table := range bootstrapTables {
 		if _, err := pool.Exec(ctx, "GRANT SELECT, INSERT ON TABLE public."+table+" TO surveil_bootstrap"); err != nil {
