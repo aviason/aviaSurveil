@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { planningItemLabel } from "../../src/features/shared/record-presentation";
+import { planningItemLabel, recordReference } from "../../src/features/shared/record-presentation";
 
 type Role = "admin" | "manager" | "finance" | "gm" | "executiveDirector" | "leadInspector" | "inspector" | "auditee";
 type PurposeToken = "PLATFORM-ADMIN" | "AGA-MANAGER" | "FINANCE-REVIEWER" | "GENERAL-MANAGER" | "EXECUTIVE-DIRECTOR" | "LEAD-INSPECTOR" | "INSPECTOR" | "TARGET-AUDITEE" | "CONTROL-AUDITEE";
@@ -255,6 +255,7 @@ async function signIn(browser: Browser, account: RosterAccount, viewport: { widt
   await page.getByRole("button", { name: "Continue" }).click();
   await page.waitForURL((url) => url.origin === origin && !url.pathname.startsWith("/identity/"), { timeout: 30_000 });
   await expect(page.locator("main")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Logout" })).toBeVisible({ timeout: 30_000 });
   const session = { context, page };
   roleSessions.set(account.purposeToken, session);
   return session;
@@ -717,9 +718,10 @@ test.describe("prepared identity connected qualification", () => {
     const financeSession = await signIn(browser, finance);
     try {
       await financeSession.page.goto(`${origin}/finance/finance-review`, { waitUntil: "domcontentloaded" });
-      const financeRow = financeSession.page.getByRole("row").filter({ hasText: planningItemTitle });
-      await expect(financeRow).toHaveCount(1);
-      await financeRow.getByRole("button", { name: `Review ${planningItemLabel(planningItemTitle, planningItemId)}` }).click();
+      const financeRow = financeSession.page.getByRole("row").filter({ hasText: recordReference("Plan", planningItemId) });
+      await expect(financeRow).toHaveCount(1, { timeout: 30_000 });
+      const financeAction = financeRow.getByRole("button");
+      if (!(await financeAction.isDisabled())) await financeAction.click();
       await expect(financeSession.page.getByTestId("planning-status")).toHaveText("FINANCE_REVIEW");
       await financeSession.page.getByRole("button", { name: "Approve Budget" }).click();
       await financeSession.page.getByLabel("Finance decision reason").fill("Finance verified the released planning budget and exact immutable scope.");

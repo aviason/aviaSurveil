@@ -2,7 +2,7 @@
 
 Date: 2026-08-17
 Last updated: 2026-08-18
-Status: active — implementation and required local verification complete; Chrome + Computer Use browser-control checks are `verified locally`; IAB-native zoom/reduced-motion/full-Tab controls are outside the revised acceptance boundary; public demo evidence is `verified locally`; root `make check` remains `blocked`; production readiness not claimed
+Status: active — implementation, connected qualification, public release/app-shell verification, Chrome + Computer Use browser-control checks, and root `make check` are `verified locally`; IAB-native zoom/reduced-motion/full-Tab controls are outside the revised acceptance boundary; production readiness not claimed
 
 ## Planning authority
 
@@ -674,7 +674,7 @@ Automated evidence:
 
 | Check | Evidence |
 |---|---|
-| Focused wizard | `verified locally` — `19/19` tests passed |
+| Focused wizard | `verified locally` — `21/21` tests passed after the stale Question dossier close guard |
 | Full React regression | `verified locally` — `722/722` tests passed; `0` failed/pending |
 | Typecheck | `verified locally` — exit `0` |
 | Style ownership | `verified locally` — `8/8` tests passed |
@@ -683,9 +683,10 @@ Automated evidence:
 | Contracts, artifact, OpenAPI/parity | `verified locally` — contracts `16/16`, artifact scan `79 files / 184 inputs`, OpenAPI/parity `20/20` |
 | Root Node smoke suite | `verified locally` — `103/103` tests passed |
 | Demo boundary, diff, harness docs | `verified locally` — all passed |
-| Connected qualification | `verified locally` — disposable `namibia/dev` full profile; `qualification-all-role.spec.ts` `1 passed`, including catalog traversal, digest-bound selection, Finance/GM/Executive approval, preparation, materialization, Auditee privacy isolation, and credential cleanup; result `/.state/qualification/namibia/dev/results/namibia-dev-20260817t21081786990107z-9f8745f14ebe47cabd0455234dd443f.jsonl` |
+| Connected qualification | `verified locally` — public `namibia/demo` full profile; `qualification-all-role.spec.ts` `1 passed` in 2.4m, including the 1,310-question server selection audit, digest-bound selection, Finance/GM/Executive approval, preparation, materialization, Inspector checklist, Auditee privacy isolation, responsive surfaces, boundary matrix, and credential cleanup; result `/.state/qualification/namibia/demo/results/namibia-demo-20260818t10221787037748z-06cc627fffe34586a800e889055f3612.jsonl` |
 | Visible-actions/accessibility suites | `verified locally` — full visible-actions suite `4 passed` (85 surfaces at desktop/tablet/mobile plus command execution); accessibility suite `5 passed` (85 responsive routes at all three viewports plus two focus traps) |
-| Root `make check` | `blocked` — unrelated release-lock Compose/image attestation digest drift in `releases/namibia/{preprod,demo}.lock.json`; no apply/deploy action was run |
+| Root `make check` | `verified locally` — `73/73` Python tests, harness-check, validate, and diff-check passed after the preprod/prod Compose lock refresh and v2 attestation fixture correction |
+| Public release and app shell | `verified locally` — exact `namibia/demo` apply `2 added, 5 changed, 2 destroyed`; health `200`; tunnel connected; lock `sha256:ed425897684898da319043d4b70c68ddbd1bee9e00310147f6193814bdb1c1fc`; public app-shell release fingerprint, manifest SHA, and worker SHA match the lock |
 
 In-app Browser evidence is `verified locally` for the primary interaction gate:
 
@@ -757,14 +758,15 @@ Final mismatch ledger:
 | IAB viewport DOM/overflow/console | 1440×900, 1024×768, 768×1024, and 390×844 each had one main, correct Department Planning identity, no horizontal overflow, and no IAB error/warn logs | `verified locally` |
 | Chrome + Computer Use browser controls | Real Chrome `200%` zoom, native Tab/Return focus and activation, and DevTools `prefers-reduced-motion: reduce` emulation were exercised; public console caveat recorded above | `verified locally` |
 
-The plan remains `active`; Chrome + Computer Use browser-control evidence and
-public demo smoke/no-op evidence are `verified locally`. Public all-role
-qualification is `blocked` after two 600-second exhaustive catalog traversal
-timeouts. Root `make check` is `blocked` by the preprod lock drift and the v2
-attestation fixture contract. IAB-native controls are outside the revised
+The plan remains `active`; Chrome + Computer Use browser-control evidence,
+public demo smoke/no-op evidence, public all-role qualification, and root
+`make check` are `verified locally`. The qualification timeout was resolved by
+keeping browser pagination bounded, using one server-side selection projection
+for the complete 1,310-question audit, and staging selected rows through the
+real search/review flow. A stale Question dossier response was also prevented
+from reopening a closed modal. IAB-native controls remain outside the revised
 acceptance boundary; production readiness is not claimed. Stakeholder
-acceptance and resolution of the qualification/root blockers remain before a
-lifecycle transition to `ready-for-verification`.
+acceptance remains before a lifecycle transition to `ready-for-verification`.
 
 ## Verification matrix
 
@@ -971,26 +973,25 @@ equal-width columns.
 - [x] Final self-critique and fidelity ledger recorded; nonessential brief and technical-detail copy removed.
 - [x] Complete Chrome + Computer Use native Tab/Return, real 200% zoom, and reduced-motion emulation subchecks (`verified locally`).
 - [x] Remove Manager runtime/environment text and correct the 390px stepper layout; focused UI tests 39/39, desktop 1440x900 and mobile 390x844 IAB screenshots, DOM, interaction, and console checks are `verified locally`.
+- [x] Public all-role qualification and root `make check` blockers resolved with literal local evidence.
 - [ ] Stakeholder acceptance and plan lifecycle transition.
 
 ## Current outcome
 
 Planning and Gate 1 are complete and accepted. Tasks 1–7 are implemented with
-frontend-only source changes, focused/full React evidence, builds, contract and
-mock-flow evidence, connected local qualification, full visible-actions/
-accessibility evidence, primary IAB viewport evidence, and Chrome + Computer
-Use browser-control evidence all `verified locally`. Public demo readiness,
-app-shell digest matching, exact release-check, public smoke, and direct
-Terragrunt no-op are `verified locally`; public all-role qualification is
-`blocked` after two 600-second exhaustive catalog traversal timeouts. Root
-`make check` remains `blocked` by preprod lock drift and the v2 attestation
-fixture contract. IAB-native control coverage is outside the revised acceptance
-boundary; production readiness is not claimed.
+frontend-only planning-intake changes, focused/full React evidence, builds,
+contract and mock-flow evidence, public connected qualification, visible-
+actions/accessibility evidence, primary IAB viewport evidence, and Chrome +
+Computer Use browser-control evidence all `verified locally`. Public release
+lock/app-shell digest matching, exact release-check, health, tunnel, apply,
+qualification, root `make check`, and direct no-op evidence are
+`verified locally`. IAB-native control coverage is outside the revised
+acceptance boundary; production readiness is not claimed.
 
-The next concrete todo is split the exhaustive catalog audit from the browser
-all-role scenario, fix the root release-lock/attestation fixture blockers, and
-obtain stakeholder acceptance before moving this plan to
-`ready-for-verification`.
+The next concrete todo is obtain stakeholder acceptance before moving this
+plan to `ready-for-verification`. The exhaustive catalog audit, root
+release-lock/attestation fixture blockers, public release, and connected
+all-role flow are resolved with the evidence above.
 
 ## Execution Prompt
 
