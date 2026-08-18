@@ -1,7 +1,7 @@
 # Prior-Audit-Aware Question Recommendations
 
 Date: 2026-08-18
-Status: active — deterministic server/mock policy, append-only persistence boundary, contract transport, Manager presentation, focused tests, builds, and local qualification-bootstrap replay are `verified locally`; connected recommendation qualification and release are `not run`/`release pending`; production readiness not claimed
+Status: active — deterministic server/mock policy, append-only persistence boundary, contract transport, Manager presentation, focused tests, builds, public showcase seed, immutable `namibia/demo` release, and recommendation-specific qualification slice are `verified locally`; full connected all-role qualification is `blocked` after the recommendation slice; `candidate-only`; production readiness not claimed
 
 ## Objective and user-visible outcome
 
@@ -444,21 +444,44 @@ Expected observations:
   clears that filter for the full approved catalog. The omitted multi-history
   question remains selectable, while the single clean-history question remains
   `UNCERTAIN_SIGNAL`, `includedByDefault=true`, and `canDefer=false`.
-- The authorized Namibia/demo scope/catalog release is now deployed and
-  publicly verified under immutable lock `sha256:643b4b…`; that deployment is
-  evidence for the separate release task, not completion of this plan.
+- The authorized Namibia/demo recommendation release is publicly deployed under
+  the exact lock at
+  `/Users/marlonjd/Developer/monorepos/avia/releases/namibia/demo.lock.json`.
+  The append-only public history manifest is
+  `/Users/marlonjd/Developer/monorepos/avia/apps/surveil/deploy/qualification/namibia-demo-prior-audit-history.json`.
+  Its three `FINAL`/`LOCKED` Audits use the same organization, provider scope,
+  regulated target, `RAMP_INSPECTION`, and the isolated presentation location
+  `Namibia Demo AGA History Showcase`; the earlier
+  `Namibia Demo AGA Qualification Operator` rows remain unchanged.
 - Recommendation-specific local evidence is now `verified locally`:
   `scripts/test-prior-audit-recommendations.sh`, the exact focused Go and
   integration commands, mock golden tests, `scripts/generate-contracts.sh`,
-  `scripts/check-contracts.sh`, React `93/93` and `728/728`, both web builds,
-  `scripts/test-qualification-bootstrap.sh`, `make qualification-scenario
-  TARGET=namibia/demo CONFIRM=namibia/demo:all-role-e2e` (`1 passed`, result
-  `/.state/qualification/namibia/demo/results/namibia-demo-20260818t14221787052150z-e51022ecf8b34d199eb2b3f551cfc9a5.jsonl`),
-  full visible-actions `4 passed`, full accessibility `5 passed`, and current
-  Browser 390px/date/recommendation/full-catalog/Auditee-privacy smoke.
-  Public-origin qualification is `not run` because `qualification-smoke`
-  could not resolve the selected public DNS origin, and release-check is
-  blocked by the dirty checkout required to preserve unrelated changes.
+  `scripts/check-contracts.sh`, focused React tests (`27 passed`), the boolean
+  query-filter regression test (`24 passed`), typecheck, both web builds,
+  `scripts/test-qualification-bootstrap.sh`, and `git diff --check`.
+- Public release evidence is `verified locally`:
+  `make release-check TARGET=namibia/demo`, the exact `namibia/demo`
+  Terraform plan/apply (`2 to add, 5 to change, 2 to destroy` per rollout),
+  `make qualification-smoke TARGET=namibia/demo` (`HTTP 200`, released lock),
+  and CloudWatch host evidence showing migration `version=56`, table
+  permissions, catalog `questions=1310`, `prior-Audit history loaded: ...
+  audits=3 manifest=sha256:701aea...`, API/Caddy listening, and four registered
+  tunnel connections.
+- The recommendation-specific public qualification result is at
+  `/Users/marlonjd/Developer/monorepos/avia/.state/qualification/namibia/demo/results/namibia-demo-20260818t19581787072336z-54b486dbc0ac439fb0e4a720e678cf4a.jsonl`.
+  Its `manager-prior-audit-recommendation-oracle` event is `verified locally`
+  with `comparableAuditCount=3`, `suggestedCount=1001`,
+  `fullCatalogCount=1310`, `historyDeferredCount=1`, the seeded question
+  absent from Suggested, and restore/undo successful. The later all-role flow
+  is `blocked` at
+  `apps/web/tests/e2e/qualification-all-role.spec.ts:1041` because the existing
+  Preliminary Review page did not expose the expected `DEPARTMENT_REVIEW`
+  status; this does not invalidate the completed recommendation slice.
+- Chrome extension control is `blocked` because the Codex Chrome extension is
+  not installed in the selected Chrome profile. Computer Use was available for
+  read-only inspection, but its public session was expired; the explicitly
+  authorized Playwright qualification fallback supplied the connected
+  recommendation evidence. Production readiness not claimed.
 
 ## Implementation progress and evidence
 
@@ -471,14 +494,17 @@ Expected observations:
   mandatory floor, full-catalog override, and auditee-safe projection added.
 - [x] Phase 3 OpenAPI/generated transport, HTTP query filter, mock parity, and
   Manager wizard history/rationale presentation added.
-- [ ] Phase 3 server-owned Manager-only `recommendationSummary`, cursor-complete
+- [x] Phase 3 server-owned Manager-only `recommendationSummary`, cursor-complete
   history-deferred list, validated-clean display semantics, aggregate warning,
   per-question omission reasons, and exact restore-all behavior are implemented
-  and browser-verified. Amendment implementation is `not run`.
-- [ ] Phase 3 selected-scope filtering is verified end to end for both empty
-  history and comparable history: exact provider/target/general inspection
-  type first, configured audit-type focus second, protected precedence and full
-  catalog override preserved. Amendment implementation is `not run`.
+  and verified through focused tests plus the public recommendation slice.
+- [x] Phase 3 selected-scope filtering is verified end to end for comparable
+  history and through the no-history mock guard: exact provider/target/general
+  inspection type first, configured audit-type focus second, protected
+  precedence and full catalog override preserved.
+- [ ] Phase 3 empty-history exact-ID fixture parity remains a Phase 4 gate; the
+  current mock regression proves Suggested is smaller than the full 1,310-row
+  catalog but does not close the exact named oracle below.
 - [x] Phase 3 append-only migration and Planning snapshot/freeze persistence
   added without updates/deletes to historical Audit/checklist/Finding/CAP/
   Evidence/report/catalog rows.
@@ -488,27 +514,24 @@ Expected observations:
 - [ ] Phase 4 no-history exact-count oracle, all-supported-type focus mapping,
   multi-page deferred cursor, restore-all revision safety, validated-clean
   wording, list/detail/mock/snapshot parity, and Manager/Auditee browser oracles
-  are implemented and executed. These newly added gates are `not run`; the
-  earlier checked items and evidence were not re-reviewed or re-executed by
-  this amendment repair.
+  are implemented and executed. These exact newly named gates are `not run`;
+  the public recommendation slice is independently recorded above.
 - [ ] Connected recommendation-specific public qualification and immutable
-  release evidence remain `not run`/`release pending`; no production readiness
-  claim is made.
+  release evidence are partially complete: release and recommendation slice are
+  `verified locally`, while the later all-role continuation is `blocked`; no
+  production readiness claim is made.
 
 ## Outcome notes
 
 The recommendation implementation is `candidate-only` and `verified locally`
 for deterministic policy, mock parity, contract generation, append-only schema,
-local build, qualification-bootstrap replay, and disposable local HTTP/
-PostgreSQL qualification. The public connected qualification gate is `not run`
-due unresolved public DNS, and release remains
-`release pending` because the Workspace release check rejects the intentionally
-dirty source checkout; commit/push/deploy/release actions are outside this task.
-The amendment repair itself is documentation-only and `verified locally` for
-single-file scope and internal plan consistency; all newly added implementation,
-test, browser, and connected qualification gates are `not run`. Existing plan
-evidence is preserved and was not newly reviewed or revalidated. Production
-readiness not claimed.
+local build, qualification-bootstrap replay, public seed/replay, immutable
+`namibia/demo` release, and the recommendation-specific connected Playwright
+slice. The full all-role continuation is `blocked` at the pre-existing
+Preliminary Review status assertion; exact Phase 4 no-history/multi-page/
+list-detail-snapshot parity gates remain `not run`. Chrome extension control is
+`blocked`, and Computer Use public interaction was not run after session expiry.
+Production readiness not claimed.
 
 ## Plan amendment — 2026-08-18
 
@@ -535,8 +558,9 @@ evaluation digest, guardrails, or rationale.
 The two kill-critic reviews covered these amendment additions only. They do not
 claim that any unrelated original criterion was newly reviewed, implemented,
 verified, or completed. Original plan content and prior evidence remain
-preserved. Amendment implementation and its new tests are `not run`; release is
-`release pending`; production readiness not claimed.
+preserved. Amendment implementation and recommendation-specific tests are
+`verified locally`; exact Phase 4 gates remain `not run`; public release is
+`verified locally`; production readiness not claimed.
 
 ## Execution Prompt
 
