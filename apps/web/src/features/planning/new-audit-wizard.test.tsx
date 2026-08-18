@@ -80,6 +80,40 @@ async function confirmOneQuestion(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe("New Inspection Planning intake", () => {
+  it("loads every authorized scope page before building the cascade", async () => {
+    const runtime = createMockBackendRuntime();
+    const catalog = runtime.backendForRole("manager").canonicalCatalog!;
+    const original = catalog.listScopeOptions.bind(catalog);
+    const allOptions = (await original({ limit: 25 })).items;
+    const listScopeOptions = vi.spyOn(catalog, "listScopeOptions").mockImplementation(async (input) => input?.cursor
+      ? { items: allOptions.slice(2), nextCursor: null }
+      : { items: allOptions.slice(0, 2), nextCursor: "2" });
+    renderWizardRoute("/department-manager/new-audit/step-1", runtime);
+
+    const supplier = await screen.findByRole("combobox", { name: "Supplier / organization" });
+    await waitFor(() => expect(supplier).toBeEnabled());
+    expect(supplier.querySelectorAll("option")).toHaveLength(3);
+    expect(listScopeOptions).toHaveBeenCalledTimes(2);
+  });
+
+  it("exposes the full authorized supplier cascade instead of a single fixture option", async () => {
+    const user = userEvent.setup();
+    renderWizardRoute("/department-manager/new-audit/step-1");
+
+    const supplier = await screen.findByRole("combobox", { name: "Supplier / organization" });
+    await waitFor(() => expect(supplier).toBeEnabled());
+    expect(supplier.querySelectorAll("option")).toHaveLength(3);
+
+    const provider = screen.getByRole("combobox", { name: "Provider scope" });
+    expect(provider.querySelectorAll("option")).toHaveLength(3);
+    await user.selectOptions(provider, "SCOPE-FLY-NAMIBIA-AERODROME");
+
+    const target = screen.getByRole("combobox", { name: "Regulated target" });
+    expect(target.querySelectorAll("option")).toHaveLength(3);
+    await user.selectOptions(provider, "SCOPE-OPS-AOC-SOURCE-BOUND");
+    expect(screen.getByRole("combobox", { name: "Inspection type" }).querySelectorAll("option")).toHaveLength(10);
+  });
+
   it("starts at Basics without a draft and creates the server draft on the first valid Continue", async () => {
     const user = userEvent.setup();
     const runtime = createMockBackendRuntime();

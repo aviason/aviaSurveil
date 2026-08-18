@@ -28,29 +28,43 @@ const loaderActorSubjectID = "avia-bootstrap"
 var digestPattern = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 
 type catalogManifest struct {
-	SchemaVersion         int    `json:"schemaVersion"`
-	ManifestVersion       string `json:"manifestVersion"`
-	AdvisoryLockKey       int64  `json:"advisoryLockKey"`
-	Target                string `json:"target"`
-	Enabled               bool   `json:"enabled"`
-	CatalogVersion        string `json:"catalogVersion"`
-	CatalogUsageClass     string `json:"catalogUsageClass"`
-	CatalogOrigin         string `json:"catalogOrigin"`
-	ProviderScopeID       string `json:"providerScopeId"`
-	RegulatedTargetID     string `json:"regulatedTargetId"`
-	PackagePath           string `json:"packagePath"`
-	PackageVersion        string `json:"packageVersion"`
-	PackageZipSHA256      string `json:"packageZipSha256"`
-	PackageJSONSHA256     string `json:"packageJsonSha256"`
-	SourceManifestSHA256  string `json:"sourceManifestSha256"`
-	CatalogRootDigest     string `json:"catalogRootDigest"`
-	FormCount             int    `json:"formCount"`
-	QuestionCount         int    `json:"questionCount"`
-	AIEnrichmentPath      string `json:"aiEnrichmentPath"`
-	AIEnrichmentSHA256    string `json:"aiEnrichmentSha256"`
-	AIEnrichmentVersion   string `json:"aiEnrichmentVersion"`
-	AIEnrichmentDigest    string `json:"aiEnrichmentDigest"`
-	AIEnrichmentItemCount int    `json:"aiEnrichmentItemCount"`
+	SchemaVersion           int                   `json:"schemaVersion"`
+	ManifestVersion         string                `json:"manifestVersion"`
+	AdvisoryLockKey         int64                 `json:"advisoryLockKey"`
+	Target                  string                `json:"target"`
+	Enabled                 bool                  `json:"enabled"`
+	CatalogVersion          string                `json:"catalogVersion"`
+	CatalogUsageClass       string                `json:"catalogUsageClass"`
+	CatalogOrigin           string                `json:"catalogOrigin"`
+	ProviderScopeID         string                `json:"providerScopeId"`
+	RegulatedTargetID       string                `json:"regulatedTargetId"`
+	AdditionalScopeBindings []catalogScopeBinding `json:"additionalScopeBindings,omitempty"`
+	PackagePath             string                `json:"packagePath"`
+	PackageVersion          string                `json:"packageVersion"`
+	PackageZipSHA256        string                `json:"packageZipSha256"`
+	PackageJSONSHA256       string                `json:"packageJsonSha256"`
+	SourceManifestSHA256    string                `json:"sourceManifestSha256"`
+	CatalogRootDigest       string                `json:"catalogRootDigest"`
+	FormCount               int                   `json:"formCount"`
+	QuestionCount           int                   `json:"questionCount"`
+	AIEnrichmentPath        string                `json:"aiEnrichmentPath"`
+	AIEnrichmentSHA256      string                `json:"aiEnrichmentSha256"`
+	AIEnrichmentVersion     string                `json:"aiEnrichmentVersion"`
+	AIEnrichmentDigest      string                `json:"aiEnrichmentDigest"`
+	AIEnrichmentItemCount   int                   `json:"aiEnrichmentItemCount"`
+}
+
+type catalogScopeBinding struct {
+	ProviderScopeID   string `json:"providerScopeId"`
+	RegulatedTargetID string `json:"regulatedTargetId"`
+}
+
+func (manifest catalogManifest) scopeBindings() []canonicalaga.ScopeBinding {
+	bindings := []canonicalaga.ScopeBinding{{ProviderScopeID: manifest.ProviderScopeID, RegulatedTargetID: manifest.RegulatedTargetID}}
+	for _, binding := range manifest.AdditionalScopeBindings {
+		bindings = append(bindings, canonicalaga.ScopeBinding{ProviderScopeID: binding.ProviderScopeID, RegulatedTargetID: binding.RegulatedTargetID})
+	}
+	return bindings
 }
 
 func main() {
@@ -92,6 +106,9 @@ func run(ctx context.Context, args []string, output io.Writer) error {
 	manifest, manifestDigest, err := readCatalogManifest(*manifestPath, *manifestSHA256, *target)
 	if err != nil {
 		return fmt.Errorf("validate approved catalog manifest: %w", err)
+	}
+	if err := canonicalaga.ValidateScopeBindings(manifest.scopeBindings()); err != nil {
+		return fmt.Errorf("validate approved catalog scope bindings: %w", err)
 	}
 	if manifest.CatalogVersion != *catalogVersion || manifest.PackagePath != "apps/surveil/deliverables/AGA_ALL_FORMS_APPROVED_SOURCE_V2.zip" || manifest.PackageVersion != "AGA_ALL_FORMS_APPROVED_SOURCE_V2" || manifest.CatalogUsageClass != "GOVERNED_OPERATIONAL" || manifest.CatalogOrigin != "IMPORTED_APPROVED_SOURCE" || manifest.AIEnrichmentPath != "apps/surveil/deliverables/aga-ai-checklist-recommendations-v1/AGA_AI_CHECKLIST_RECOMMENDATIONS_V1.json" || manifest.AIEnrichmentVersion != "aga-ai-checklist-recommendations/v1" || manifest.AIEnrichmentItemCount != 1310 {
 		return errors.New("approved catalog manifest is not the governed Aviation source contract")
@@ -137,7 +154,7 @@ func run(ctx context.Context, args []string, output io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("register bootstrap actor: %w", err)
 	}
-	result, err := canonicalaga.LoadApprovedCatalog(ctx, pool, pkg, *catalogVersion, *actorSubjectID, manifest.ProviderScopeID, manifest.RegulatedTargetID, manifest.AdvisoryLockKey, time.Now().UTC())
+	result, err := canonicalaga.LoadApprovedCatalog(ctx, pool, pkg, *catalogVersion, *actorSubjectID, manifest.scopeBindings(), manifest.AdvisoryLockKey, time.Now().UTC())
 	if err != nil {
 		return fmt.Errorf("load approved catalog: %w", err)
 	}

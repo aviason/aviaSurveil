@@ -256,9 +256,11 @@ func (api *CanonicalAPI) listCanonicalAuditScopeOptions(writer http.ResponseWrit
 		       catalog.catalog_version, catalog.usage_class,
 		   CASE
 		     WHEN provider.id = 'AIR_OPERATOR'
-		       THEN ARRAY['RAMP_INSPECTION','CABIN_INSPECTION']::text[]
+		       THEN ARRAY['RAMP_INSPECTION','CABIN_INSPECTION','CHANGE_APPROVAL','DOCUMENT_AND_RECORD_REVIEW','FOLLOW_UP','INITIAL_CERTIFICATION','ON_SITE_INSPECTION','PERIODIC_SURVEILLANCE','RENEWAL','SPECIAL_PURPOSE']::text[]
 		     WHEN provider.id = 'AERODROME_OPERATOR'
-		       THEN ARRAY['RAMP_INSPECTION']::text[]
+		       THEN ARRAY['RAMP_INSPECTION','CHANGE_APPROVAL','DOCUMENT_AND_RECORD_REVIEW','FOLLOW_UP','INITIAL_CERTIFICATION','ON_SITE_INSPECTION','PERIODIC_SURVEILLANCE','RENEWAL','SPECIAL_PURPOSE']::text[]
+		     WHEN provider.id = 'FUEL_PROVIDER'
+		       THEN ARRAY['CHANGE_APPROVAL','DOCUMENT_AND_RECORD_REVIEW','FOLLOW_UP','INITIAL_CERTIFICATION','ON_SITE_INSPECTION','PERIODIC_SURVEILLANCE','RENEWAL','SPECIAL_PURPOSE']::text[]
 		     ELSE ARRAY[]::text[]
 	           END
 		FROM (
@@ -321,7 +323,7 @@ func (api *CanonicalAPI) listCanonicalAuditScopeOptions(writer http.ResponseWrit
 			  )
 			 )
 		WHERE scope.status = 'ACTIVE'
-		  AND provider.id IN ('AIR_OPERATOR', 'AERODROME_OPERATOR')
+		  AND provider.id IN ('AIR_OPERATOR', 'AERODROME_OPERATOR', 'FUEL_PROVIDER')
 		  AND (scope.effective_to IS NULL OR scope.effective_to > CURRENT_DATE)
 		  AND (target.organization_id IS NULL OR target.organization_id = scope.organization_id)
 		  AND (target.owner_organization_id IS NULL OR target.owner_organization_id = scope.organization_id)

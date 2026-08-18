@@ -65,6 +65,7 @@ import type {
   CanonicalCatalogBackend,
   CanonicalAuditWorkflowBackend,
   CanonicalAuditScopeOptionPage,
+  CanonicalApplicationType,
   CanonicalQuestionCatalogEntry,
   CanonicalSelectionDigest,
   CanonicalQuestionUsageClass,
@@ -559,6 +560,42 @@ const SYNTHETIC_OWNER: GovernedRequiredOwnerView = {
   organizationalUnitId: "FLIGHT_OPERATIONS_INSPECTORATE",
   approvalRequired: true,
 };
+
+const MOCK_AIR_INSPECTION_TYPES: CanonicalApplicationType[] = [
+  "RAMP_INSPECTION",
+  "CABIN_INSPECTION",
+  "CHANGE_APPROVAL",
+  "DOCUMENT_AND_RECORD_REVIEW",
+  "FOLLOW_UP",
+  "INITIAL_CERTIFICATION",
+  "ON_SITE_INSPECTION",
+  "PERIODIC_SURVEILLANCE",
+  "RENEWAL",
+  "SPECIAL_PURPOSE",
+];
+
+const MOCK_AERODROME_INSPECTION_TYPES: CanonicalApplicationType[] = [
+  "RAMP_INSPECTION",
+  "CHANGE_APPROVAL",
+  "DOCUMENT_AND_RECORD_REVIEW",
+  "FOLLOW_UP",
+  "INITIAL_CERTIFICATION",
+  "ON_SITE_INSPECTION",
+  "PERIODIC_SURVEILLANCE",
+  "RENEWAL",
+  "SPECIAL_PURPOSE",
+];
+
+const MOCK_FUEL_INSPECTION_TYPES: CanonicalApplicationType[] = [
+  "CHANGE_APPROVAL",
+  "DOCUMENT_AND_RECORD_REVIEW",
+  "FOLLOW_UP",
+  "INITIAL_CERTIFICATION",
+  "ON_SITE_INSPECTION",
+  "PERIODIC_SURVEILLANCE",
+  "RENEWAL",
+  "SPECIAL_PURPOSE",
+];
 
 interface MockGovernedManagerAssignment {
   membershipId: string;
@@ -3084,20 +3121,104 @@ export class MockBackendEngine implements DemoBackend {
       requireRole(this.principal, ["manager"], "Department Manager authority is required for audit scope selection.");
       const usageClass = input?.usageClass ?? "GOVERNED_OPERATIONAL";
       const catalogVersion = input?.catalogVersion ?? "aga-approved-source-v2@1.0.0";
-      const option: CanonicalAuditScopeOptionPage["items"][number] = {
-        organizationId: "ORG-FLY-NAMIBIA",
-        organizationName: "Fly Namibia",
-        providerScopeId: "SCOPE-OPS-AOC-SOURCE-BOUND",
-        regulatedTargetId: "TARGET-OPS-AOC-SOURCE-BOUND",
-        providerTypeId: "AIR_OPERATOR",
-        providerTypeLabel: "Air Operator (AOC Holder)",
-        scopeStatus: "ACTIVE",
-        targetLabel: "Fly Namibia regulated target",
-        catalogVersion,
-        usageClass,
-        inspectionTypes: ["RAMP_INSPECTION", "CABIN_INSPECTION"],
-      };
-      return { items: [option], nextCursor: null };
+      const options: CanonicalAuditScopeOptionPage["items"] = [
+        {
+          organizationId: "ORG-FLY-NAMIBIA",
+          organizationName: "Fly Namibia",
+          providerScopeId: "SCOPE-OPS-AOC-SOURCE-BOUND",
+          regulatedTargetId: "TARGET-OPS-AOC-SOURCE-BOUND",
+          providerTypeId: "AIR_OPERATOR",
+          providerTypeLabel: "Air Operator (AOC Holder)",
+          scopeStatus: "ACTIVE",
+          targetLabel: "Fly Namibia regulated target",
+          catalogVersion,
+          usageClass,
+          inspectionTypes: [...MOCK_AIR_INSPECTION_TYPES],
+        },
+        {
+          organizationId: "ORG-FLY-NAMIBIA",
+          organizationName: "Fly Namibia",
+          providerScopeId: "SCOPE-FLY-NAMIBIA-AERODROME",
+          regulatedTargetId: "TARGET-WINDHOEK-INTERNATIONAL",
+          providerTypeId: "AERODROME_OPERATOR",
+          providerTypeLabel: "Aerodrome Operator",
+          scopeStatus: "ACTIVE",
+          targetLabel: "Windhoek International Airport",
+          catalogVersion,
+          usageClass,
+          inspectionTypes: [...MOCK_AERODROME_INSPECTION_TYPES],
+        },
+        {
+          organizationId: "ORG-FLY-NAMIBIA",
+          organizationName: "Fly Namibia",
+          providerScopeId: "SCOPE-FLY-NAMIBIA-AERODROME",
+          regulatedTargetId: "TARGET-WALVIS-BAY-AIRPORT",
+          providerTypeId: "AERODROME_OPERATOR",
+          providerTypeLabel: "Aerodrome Operator",
+          scopeStatus: "ACTIVE",
+          targetLabel: "Walvis Bay Airport",
+          catalogVersion,
+          usageClass,
+          inspectionTypes: [...MOCK_AERODROME_INSPECTION_TYPES],
+        },
+        {
+          organizationId: "ORG-FLY-NAMIBIA",
+          organizationName: "Fly Namibia",
+          providerScopeId: "SCOPE-FLY-NAMIBIA-AERODROME",
+          regulatedTargetId: "TARGET-LUDERITZ-AIRPORT",
+          providerTypeId: "AERODROME_OPERATOR",
+          providerTypeLabel: "Aerodrome Operator",
+          scopeStatus: "ACTIVE",
+          targetLabel: "Lüderitz Airport",
+          catalogVersion,
+          usageClass,
+          inspectionTypes: [...MOCK_AERODROME_INSPECTION_TYPES],
+        },
+        {
+          organizationId: "ORG-SKYCARGO",
+          organizationName: "SkyCargo Air",
+          providerScopeId: "SCOPE-SKYCARGO-AOC-SOURCE-BOUND",
+          regulatedTargetId: "TARGET-SKYCARGO-AOC-SOURCE-BOUND",
+          providerTypeId: "AIR_OPERATOR",
+          providerTypeLabel: "Air Operator (AOC Holder)",
+          scopeStatus: "ACTIVE",
+          targetLabel: "SkyCargo Air regulated target",
+          catalogVersion,
+          usageClass,
+          inspectionTypes: [...MOCK_AIR_INSPECTION_TYPES],
+        },
+        {
+          organizationId: "ORG-FLY-NAMIBIA",
+          organizationName: "Fly Namibia",
+          providerScopeId: "SCOPE-FLY-NAMIBIA-FUEL",
+          regulatedTargetId: "TARGET-FLY-NAMIBIA-FUEL-FARM",
+          providerTypeId: "FUEL_PROVIDER",
+          providerTypeLabel: "Fuel Service Provider",
+          scopeStatus: "ACTIVE",
+          targetLabel: "Windhoek aviation fuel farm",
+          catalogVersion,
+          usageClass,
+          inspectionTypes: [...MOCK_FUEL_INSPECTION_TYPES],
+        },
+        {
+          organizationId: "ORG-NAMIBIA-FUEL-SERVICES",
+          organizationName: "Namibia Fuel Services",
+          providerScopeId: "SCOPE-NAMIBIA-FUEL-SERVICES",
+          regulatedTargetId: "TARGET-NAMIBIA-FUEL-SERVICES-FACILITY",
+          providerTypeId: "FUEL_PROVIDER",
+          providerTypeLabel: "Fuel Service Provider",
+          scopeStatus: "ACTIVE",
+          targetLabel: "Namibia Fuel Services facility",
+          catalogVersion,
+          usageClass,
+          inspectionTypes: [...MOCK_FUEL_INSPECTION_TYPES],
+        },
+      ];
+      const ordered = [...options].sort((left, right) =>
+        left.organizationName.localeCompare(right.organizationName) ||
+        left.providerTypeLabel.localeCompare(right.providerTypeLabel) ||
+        left.targetLabel.localeCompare(right.targetLabel));
+      return { items: ordered, nextCursor: null };
     },
     listCatalog: async (input) => {
       requireDemoCapability(this.principal, "canonicalCatalog");

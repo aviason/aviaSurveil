@@ -9387,7 +9387,15 @@
                 "RAMP",
                 "CABIN",
                 "RAMP_INSPECTION",
-                "CABIN_INSPECTION"
+                "CABIN_INSPECTION",
+                "CHANGE_APPROVAL",
+                "DOCUMENT_AND_RECORD_REVIEW",
+                "FOLLOW_UP",
+                "INITIAL_CERTIFICATION",
+                "ON_SITE_INSPECTION",
+                "PERIODIC_SURVEILLANCE",
+                "RENEWAL",
+                "SPECIAL_PURPOSE"
               ]
             }
           },
@@ -21856,7 +21864,15 @@
                 "RAMP",
                 "CABIN",
                 "RAMP_INSPECTION",
-                "CABIN_INSPECTION"
+                "CABIN_INSPECTION",
+                "CHANGE_APPROVAL",
+                "DOCUMENT_AND_RECORD_REVIEW",
+                "FOLLOW_UP",
+                "INITIAL_CERTIFICATION",
+                "ON_SITE_INSPECTION",
+                "PERIODIC_SURVEILLANCE",
+                "RENEWAL",
+                "SPECIAL_PURPOSE"
               ]
             }
           }

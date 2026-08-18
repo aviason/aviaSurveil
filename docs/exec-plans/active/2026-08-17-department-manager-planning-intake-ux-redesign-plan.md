@@ -943,6 +943,14 @@ connectivity and the basic page identity are `verified locally`. The complete
 multi-step baseline screenshot/interaction matrix remains `not run` and stays
 part of Gate 0.
 
+### 2026-08-18 — Remove implementation status from Manager chrome and fix mobile stepper
+
+The Manager shell must not expose `manager`, `Release-bound authenticated
+session`, or environment-label plumbing as page content. Those values belong
+to diagnostics, not the user task. The five-step mobile indicator now switches
+to readable stacked rows below 760px; it does not squeeze all labels into five
+equal-width columns.
+
 ## Current progress
 
 - [x] Read repository, planning, verification, and output authorities.
@@ -962,6 +970,7 @@ part of Gate 0.
 - [x] Tasks 1–7 implementation and primary local verification (`verified locally`).
 - [x] Final self-critique and fidelity ledger recorded; nonessential brief and technical-detail copy removed.
 - [x] Complete Chrome + Computer Use native Tab/Return, real 200% zoom, and reduced-motion emulation subchecks (`verified locally`).
+- [x] Remove Manager runtime/environment text and correct the 390px stepper layout; focused UI tests 39/39, desktop 1440x900 and mobile 390x844 IAB screenshots, DOM, interaction, and console checks are `verified locally`.
 - [ ] Stakeholder acceptance and plan lifecycle transition.
 
 ## Current outcome

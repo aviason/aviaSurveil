@@ -238,6 +238,8 @@ describe("ApplicationShell", () => {
     expect(screen.getByTestId("application-shell")).toHaveClass("workspace-shell--manager-demo");
     expect(screen.getByText("OVERSIGHT WORKBENCH")).toBeVisible();
     expect(screen.getAllByText("Department Manager").length).toBeGreaterThan(0);
+    expect(screen.queryByTestId("active-role")).not.toBeInTheDocument();
+    expect(screen.queryByText("Release-bound authenticated session")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Role select" })).toBeEnabled();
 
     rerender(

@@ -76,9 +76,9 @@ export function ApplicationShell({
         </div>
       </aside>
       <section className="workspace-content">
-        <span className={identity.mode === "oidc-session" ? "release-boundary" : "qualification-boundary"} data-testid="active-role">
+        {!managerChrome ? <span className={identity.mode === "oidc-session" ? "release-boundary" : "qualification-boundary"} data-testid="active-role">
           {identity.activeRole === "inspector" ? "CAA Inspector" : identity.activeRole === "leadInspector" ? "Lead Inspector" : identity.activeRole}
-        </span>
+        </span> : null}
         <MobileNavigation activeRole={identity.activeRole} activeRouteId={activeRouteId} />
         <ApplicationTopbar
           activeRouteId={activeRouteId}
@@ -87,7 +87,7 @@ export function ApplicationShell({
           onLogout={onLogout}
           notificationState={notificationState}
         />
-        <CandidateBoundary mode={identity.mode} environmentLabel={environmentLabel} />
+        {!managerChrome ? <CandidateBoundary mode={identity.mode} environmentLabel={environmentLabel} /> : null}
         {children}
       </section>
     </main>

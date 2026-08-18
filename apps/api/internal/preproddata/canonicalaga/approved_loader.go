@@ -18,12 +18,22 @@ const (
 	approvedCatalogProfileVersion = "2.0.0"
 )
 
+// ScopeBinding identifies one exact authorized provider-scope/regulated-target
+// pair for which the sealed approved catalog is eligible.
+type ScopeBinding struct {
+	ProviderScopeID   string
+	RegulatedTargetID string
+}
+
 // LoadApprovedCatalog imports the immutable source-approved catalog directly
 // into the governed operational class. Foundation rows are read and checked;
 // this loader never creates or repairs organizations, scopes, or targets.
-func LoadApprovedCatalog(ctx context.Context, pool *database.Pool, pkg ApprovedSourcePackage, catalogVersion, actorSubjectID, providerScopeID, regulatedTargetID string, advisoryLockKey int64, now time.Time) (LoadResult, error) {
-	if pool == nil || strings.TrimSpace(actorSubjectID) == "" || strings.TrimSpace(providerScopeID) == "" || strings.TrimSpace(regulatedTargetID) == "" || advisoryLockKey <= 0 {
+func LoadApprovedCatalog(ctx context.Context, pool *database.Pool, pkg ApprovedSourcePackage, catalogVersion, actorSubjectID string, bindings []ScopeBinding, advisoryLockKey int64, now time.Time) (LoadResult, error) {
+	if pool == nil || strings.TrimSpace(actorSubjectID) == "" || len(bindings) == 0 || advisoryLockKey <= 0 {
 		return LoadResult{}, fmt.Errorf("approved catalog loader requires database, actor, provider scope, and regulated target")
+	}
+	if err := ValidateScopeBindings(bindings); err != nil {
+		return LoadResult{}, err
 	}
 	manifest, err := BuildApprovedImportManifest(pkg, catalogVersion)
 	if err != nil {
@@ -37,11 +47,12 @@ func LoadApprovedCatalog(ctx context.Context, pool *database.Pool, pkg ApprovedS
 		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, advisoryLockKey); err != nil {
 			return fmt.Errorf("lock approved catalog import: %w", err)
 		}
-		var compatible bool
-		if err := tx.QueryRow(ctx, `
-			SELECT EXISTS (
-				SELECT 1 FROM organization_service_provider_scopes scope
-				JOIN regulated_targets target ON target.id = $2
+		for _, binding := range bindings {
+			var compatible bool
+			if err := tx.QueryRow(ctx, `
+				SELECT EXISTS (
+					SELECT 1 FROM organization_service_provider_scopes scope
+					JOIN regulated_targets target ON target.id = $2
 				WHERE scope.id = $1 AND scope.status = 'ACTIVE'
 				  AND scope.effective_from <= CURRENT_DATE
 				  AND (scope.effective_to IS NULL OR scope.effective_to > CURRENT_DATE)
@@ -52,11 +63,12 @@ func LoadApprovedCatalog(ctx context.Context, pool *database.Pool, pkg ApprovedS
 				))
 				  AND (target.organization_id IS NULL OR target.organization_id = scope.organization_id)
 				  AND (target.owner_organization_id IS NULL OR target.owner_organization_id = scope.organization_id)
-			)`, providerScopeID, regulatedTargetID).Scan(&compatible); err != nil {
-			return err
-		}
-		if !compatible {
-			return fmt.Errorf("approved catalog foundation scope/target is not an active compatible pair")
+				)`, binding.ProviderScopeID, binding.RegulatedTargetID).Scan(&compatible); err != nil {
+				return err
+			}
+			if !compatible {
+				return fmt.Errorf("approved catalog foundation scope/target is not an active compatible pair: %s/%s", binding.ProviderScopeID, binding.RegulatedTargetID)
+			}
 		}
 
 		var existingVersion, existingUsage, existingOrigin, existingProfile, existingProfileVersion, existingRoot, existingCatalogRoot, existingSourceManifest string
@@ -71,7 +83,7 @@ func LoadApprovedCatalog(ctx context.Context, pool *database.Pool, pkg ApprovedS
 			if existingVersion != catalogVersion || existingUsage != string(questioncatalog.UsageClassGovernedOperational) || existingOrigin != string(questioncatalog.SourceOriginImportedApproved) || existingProfile != approvedCatalogProfile || existingProfileVersion != approvedCatalogProfileVersion || existingRoot != manifest.CatalogRootDigest || existingCatalogRoot != manifest.CatalogRootDigest || existingSourceManifest != manifest.SourceManifestSHA256 || existingQuestionCount != len(manifest.Rows) || existingFormCount != len(manifest.Forms) {
 				return fmt.Errorf("existing approved catalog does not match the release-pinned source")
 			}
-			return verifyApprovedReplay(ctx, tx, result.CatalogID, manifest, pkg, actorSubjectID, providerScopeID, regulatedTargetID)
+			return verifyApprovedReplay(ctx, tx, result.CatalogID, manifest, pkg, actorSubjectID, bindings)
 		}
 		if !errors.Is(catalogErr, pgx.ErrNoRows) {
 			return catalogErr
@@ -116,8 +128,10 @@ func LoadApprovedCatalog(ctx context.Context, pool *database.Pool, pkg ApprovedS
 			if _, err := tx.Exec(ctx, `INSERT INTO canonical_question_catalog_membership_events (event_id,catalog_id,question_version_id,status,reason,actor_subject_id,occurred_at) VALUES ($1,$2,$3,'AVAILABLE','approved source import membership',$4,$5)`, "catalog-membership:"+result.CatalogID+":"+row.QuestionVersionID+":available", result.CatalogID, row.QuestionVersionID, actorSubjectID, now.UTC()); err != nil {
 				return fmt.Errorf("insert approved membership event %s: %w", row.QuestionVersionID, err)
 			}
-			if _, err := tx.Exec(ctx, `INSERT INTO canonical_question_catalog_applicabilities (catalog_id,question_version_id,provider_scope_id,regulated_target_id,status,reason,actor_subject_id,created_at) VALUES ($1,$2,$3,$4,'ELIGIBLE','approved catalog active foundation binding',$5,$6)`, result.CatalogID, row.QuestionVersionID, providerScopeID, regulatedTargetID, actorSubjectID, now.UTC()); err != nil {
-				return fmt.Errorf("insert approved applicability %s: %w", row.QuestionVersionID, err)
+			for _, binding := range bindings {
+				if _, err := tx.Exec(ctx, `INSERT INTO canonical_question_catalog_applicabilities (catalog_id,question_version_id,provider_scope_id,regulated_target_id,status,reason,actor_subject_id,created_at) VALUES ($1,$2,$3,$4,'ELIGIBLE','approved catalog active foundation binding',$5,$6)`, result.CatalogID, row.QuestionVersionID, binding.ProviderScopeID, binding.RegulatedTargetID, actorSubjectID, now.UTC()); err != nil {
+					return fmt.Errorf("insert approved applicability %s/%s/%s: %w", row.QuestionVersionID, binding.ProviderScopeID, binding.RegulatedTargetID, err)
+				}
 			}
 		}
 		_, err := tx.Exec(ctx, `INSERT INTO canonical_question_catalog_import_runs (id,catalog_id,operation_id,idempotency_key,package_zip_sha256,package_json_sha256,source_origin,source_manifest_sha256,catalog_root_digest,import_digest,row_count,form_count,status,actor_subject_id,created_at) VALUES ($1,$2,$3,$3,$4,$5,'IMPORTED_APPROVED_SOURCE',$6,$7,$7,$8,$9,'SEALED',$10,$11)`, "import:"+catalogVersion, result.CatalogID, "import:approved-aga:"+manifest.CatalogRootDigest, pkg.Identity.ZipSHA256, pkg.Identity.JSONSHA256, manifest.SourceManifestSHA256, manifest.CatalogRootDigest, len(manifest.Rows), len(manifest.Forms), actorSubjectID, now.UTC())
@@ -129,7 +143,7 @@ func LoadApprovedCatalog(ctx context.Context, pool *database.Pool, pkg ApprovedS
 	return result, nil
 }
 
-func verifyApprovedReplay(ctx context.Context, tx pgx.Tx, catalogID string, manifest ImportManifest, pkg ApprovedSourcePackage, actorSubjectID, providerScopeID, regulatedTargetID string) error {
+func verifyApprovedReplay(ctx context.Context, tx pgx.Tx, catalogID string, manifest ImportManifest, pkg ApprovedSourcePackage, actorSubjectID string, bindings []ScopeBinding) error {
 	var packageZip, packageJSON, origin, sourceManifest, root, digest, receiptActor string
 	var rows, forms, receiptCount int
 	if err := tx.QueryRow(ctx, `SELECT count(*) FROM canonical_question_catalog_import_runs WHERE catalog_id=$1`, catalogID).Scan(&receiptCount); err != nil {
@@ -156,7 +170,7 @@ func verifyApprovedReplay(ctx context.Context, tx pgx.Tx, catalogID string, mani
 	if err := tx.QueryRow(ctx, `SELECT (SELECT count(*) FROM canonical_question_catalog_memberships WHERE catalog_id=$1),(SELECT count(*) FROM canonical_question_catalog_forms WHERE catalog_id=$1),(SELECT count(*) FROM canonical_question_catalog_applicabilities WHERE catalog_id=$1),(SELECT count(*) FROM canonical_question_catalog_membership_events WHERE catalog_id=$1),(SELECT count(*) FROM canonical_question_version_provenance WHERE catalog_id=$1)`, catalogID).Scan(&membershipCount, &formCount, &applicabilityCount, &eventCount, &provenanceCount); err != nil {
 		return err
 	}
-	if membershipCount != len(manifest.Rows) || formCount != len(manifest.Forms) || applicabilityCount != len(manifest.Rows) || eventCount != len(manifest.Rows) || provenanceCount != len(manifest.Rows) {
+	if membershipCount != len(manifest.Rows) || formCount != len(manifest.Forms) || applicabilityCount != len(manifest.Rows)*len(bindings) || eventCount != len(manifest.Rows) || provenanceCount != len(manifest.Rows) {
 		return fmt.Errorf("approved catalog replay row counts drifted")
 	}
 
@@ -281,31 +295,59 @@ func verifyApprovedReplay(ctx context.Context, tx pgx.Tx, catalogID string, mani
 	if err != nil {
 		return fmt.Errorf("read approved catalog applicability: %w", err)
 	}
-	seenApplicability := make(map[string]struct{}, len(manifest.Rows))
+	seenApplicability := make(map[string]struct{}, len(manifest.Rows)*len(bindings))
 	for applicabilityRows.Next() {
 		var questionVersionID, scopeID, targetID, status, reason, actor string
 		if err := applicabilityRows.Scan(&questionVersionID, &scopeID, &targetID, &status, &reason, &actor); err != nil {
 			applicabilityRows.Close()
 			return fmt.Errorf("scan approved catalog applicability: %w", err)
 		}
-		if scopeID != providerScopeID || targetID != regulatedTargetID || status != "ELIGIBLE" || reason != "approved catalog active foundation binding" || actor != actorSubjectID {
+		if !scopeBindingContains(bindings, scopeID, targetID) || status != "ELIGIBLE" || reason != "approved catalog active foundation binding" || actor != actorSubjectID {
 			applicabilityRows.Close()
 			return fmt.Errorf("approved catalog applicability %s drifted", questionVersionID)
 		}
-		if _, duplicate := seenApplicability[questionVersionID]; duplicate {
+		key := questionVersionID + "\x00" + scopeID + "\x00" + targetID
+		if _, duplicate := seenApplicability[key]; duplicate {
 			applicabilityRows.Close()
-			return fmt.Errorf("approved catalog applicability %s is duplicated", questionVersionID)
+			return fmt.Errorf("approved catalog applicability %s is duplicated", key)
 		}
-		seenApplicability[questionVersionID] = struct{}{}
+		seenApplicability[key] = struct{}{}
 	}
 	if err := applicabilityRows.Err(); err != nil {
 		applicabilityRows.Close()
 		return fmt.Errorf("read approved catalog applicability: %w", err)
 	}
 	applicabilityRows.Close()
-	if len(seenApplicability) != len(manifest.Rows) {
+	if len(seenApplicability) != len(manifest.Rows)*len(bindings) {
 		return fmt.Errorf("approved catalog applicability is incomplete")
 	}
 
 	return nil
+}
+
+// ValidateScopeBindings checks the manifest-level binding identity before a
+// database is touched. The approved catalog loader and its validate command
+// share this fail-closed contract.
+func ValidateScopeBindings(bindings []ScopeBinding) error {
+	seen := make(map[string]struct{}, len(bindings))
+	for _, binding := range bindings {
+		if strings.TrimSpace(binding.ProviderScopeID) == "" || strings.TrimSpace(binding.RegulatedTargetID) == "" {
+			return fmt.Errorf("approved catalog scope binding is incomplete")
+		}
+		key := binding.ProviderScopeID + "\x00" + binding.RegulatedTargetID
+		if _, duplicate := seen[key]; duplicate {
+			return fmt.Errorf("approved catalog scope bindings contain a duplicate pair")
+		}
+		seen[key] = struct{}{}
+	}
+	return nil
+}
+
+func scopeBindingContains(bindings []ScopeBinding, providerScopeID, regulatedTargetID string) bool {
+	for _, binding := range bindings {
+		if binding.ProviderScopeID == providerScopeID && binding.RegulatedTargetID == regulatedTargetID {
+			return true
+		}
+	}
+	return false
 }

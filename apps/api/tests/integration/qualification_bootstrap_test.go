@@ -59,7 +59,7 @@ func TestQualificationBootstrapReplayDriftAndPermissionBoundary(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read approved source package: %v", err)
 	}
-	if _, err := canonicalaga.LoadApprovedCatalog(ctx, pool, pkg, catalog.CatalogVersion, actor, catalog.ProviderScopeID, catalog.RegulatedTargetID, catalog.AdvisoryLockKey, now); err != nil {
+	if _, err := canonicalaga.LoadApprovedCatalog(ctx, pool, pkg, catalog.CatalogVersion, actor, catalogScopeBindings(catalog), catalog.AdvisoryLockKey, now); err != nil {
 		t.Fatalf("load approved catalog: %v", err)
 	}
 	artifactPath := filepath.Join(apiModuleRoot(t), "..", "..", "deliverables", "aga-ai-checklist-recommendations-v1", "AGA_AI_CHECKLIST_RECOMMENDATIONS_V1.json")
@@ -78,7 +78,7 @@ func TestQualificationBootstrapReplayDriftAndPermissionBoundary(t *testing.T) {
 	if err := qualificationbootstrap.LoadRoster(ctx, pool, provider, roster, rosterDigest, "namibia/demo", "avia:first-party", credentials, actor, now.Add(time.Minute)); err != nil {
 		t.Fatalf("replay roster: %v", err)
 	}
-	if _, err := canonicalaga.LoadApprovedCatalog(ctx, pool, pkg, catalog.CatalogVersion, actor, catalog.ProviderScopeID, catalog.RegulatedTargetID, catalog.AdvisoryLockKey, now.Add(time.Minute)); err != nil {
+	if _, err := canonicalaga.LoadApprovedCatalog(ctx, pool, pkg, catalog.CatalogVersion, actor, catalogScopeBindings(catalog), catalog.AdvisoryLockKey, now.Add(time.Minute)); err != nil {
 		t.Fatalf("replay approved catalog: %v", err)
 	}
 	if _, err := canonicalaga.LoadAIRecommendationEnrichment(ctx, pool, artifact, catalog.CatalogVersion, catalog.AdvisoryLockKey, now.Add(time.Minute)); err != nil {
@@ -142,10 +142,22 @@ func TestQualificationBootstrapReplayDriftAndPermissionBoundary(t *testing.T) {
 }
 
 type qualificationCatalogManifest struct {
-	CatalogVersion    string `json:"catalogVersion"`
-	ProviderScopeID   string `json:"providerScopeId"`
-	RegulatedTargetID string `json:"regulatedTargetId"`
-	AdvisoryLockKey   int64  `json:"advisoryLockKey"`
+	CatalogVersion          string `json:"catalogVersion"`
+	ProviderScopeID         string `json:"providerScopeId"`
+	RegulatedTargetID       string `json:"regulatedTargetId"`
+	AdditionalScopeBindings []struct {
+		ProviderScopeID   string `json:"providerScopeId"`
+		RegulatedTargetID string `json:"regulatedTargetId"`
+	} `json:"additionalScopeBindings,omitempty"`
+	AdvisoryLockKey int64 `json:"advisoryLockKey"`
+}
+
+func catalogScopeBindings(manifest qualificationCatalogManifest) []canonicalaga.ScopeBinding {
+	bindings := []canonicalaga.ScopeBinding{{ProviderScopeID: manifest.ProviderScopeID, RegulatedTargetID: manifest.RegulatedTargetID}}
+	for _, binding := range manifest.AdditionalScopeBindings {
+		bindings = append(bindings, canonicalaga.ScopeBinding{ProviderScopeID: binding.ProviderScopeID, RegulatedTargetID: binding.RegulatedTargetID})
+	}
+	return bindings
 }
 
 func readFoundation(t *testing.T, path string) (qualificationbootstrap.FoundationManifest, string) {

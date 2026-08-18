@@ -143,7 +143,20 @@ function noticeLabel(category: PlanningIntakeInspectionCategory): string {
 }
 
 function inspectionTypeFor(types: readonly CanonicalApplicationType[]): CanonicalApplicationType {
-  const firstSupported = types.find((type) => ["RAMP", "CABIN", "RAMP_INSPECTION", "CABIN_INSPECTION"].includes(type));
+  const firstSupported = types.find((type) => [
+    "RAMP",
+    "CABIN",
+    "RAMP_INSPECTION",
+    "CABIN_INSPECTION",
+    "CHANGE_APPROVAL",
+    "DOCUMENT_AND_RECORD_REVIEW",
+    "FOLLOW_UP",
+    "INITIAL_CERTIFICATION",
+    "ON_SITE_INSPECTION",
+    "PERIODIC_SURVEILLANCE",
+    "RENEWAL",
+    "SPECIAL_PURPOSE",
+  ].includes(type));
   if (firstSupported) return firstSupported;
   throw new Error("The selected server-owned scope has no supported inspection type.");
 }
@@ -459,12 +472,24 @@ export function NewAuditWizardPage() {
     let cancelled = false;
     if (!backend.planningIntake || !backend.canonicalCatalog) { setServerError("Planning intake commands are unavailable in this build profile."); return () => { cancelled = true; }; }
     const load = async () => {
-      const page = await backend.canonicalCatalog!.listScopeOptions({ limit: 25 });
+      const options: CanonicalAuditScopeOption[] = [];
+      const seenCursors = new Set<string>();
+      let cursor: string | undefined;
+      do {
+        const page = await backend.canonicalCatalog!.listScopeOptions({ limit: 25, cursor });
+        options.push(...page.items);
+        const nextCursor = page.nextCursor ?? undefined;
+        if (!nextCursor) break;
+        if (seenCursors.has(nextCursor)) throw new Error("Authorized scope pagination repeated a cursor.");
+        seenCursors.add(nextCursor);
+        cursor = nextCursor;
+      } while (options.length < 1000);
+      if (cursor && options.length >= 1000) throw new Error("Authorized scope options exceeded the bounded page limit.");
       if (cancelled) return;
-      setScopeOptions(page.items);
-      setAuditUsageClass(page.items[0]?.usageClass ?? "GOVERNED_OPERATIONAL");
+      setScopeOptions(options);
+      setAuditUsageClass(options[0]?.usageClass ?? "GOVERNED_OPERATIONAL");
       if (!requestedDraftId) {
-        const first = page.items[0];
+        const first = options[0];
         if (first) {
           setPendingOrganizationId(first.organizationId);
           setPendingProviderScopeId(first.providerScopeId);
@@ -475,7 +500,7 @@ export function NewAuditWizardPage() {
       }
       const loaded = await backend.planningIntake!.getDraft({ draftId: requestedDraftId });
       if (cancelled) return;
-      const matchingOption = page.items.find((option) => option.catalogVersion === loaded.catalogVersion && option.organizationId === loaded.organizationId && option.providerScopeId === loaded.providerScopeId && option.regulatedTargetId === loaded.regulatedTargetId);
+      const matchingOption = options.find((option) => option.catalogVersion === loaded.catalogVersion && option.organizationId === loaded.organizationId && option.providerScopeId === loaded.providerScopeId && option.regulatedTargetId === loaded.regulatedTargetId);
       if (!matchingOption) throw new Error("The saved Planning draft no longer has an exact authorized catalog/scope/target option.");
       setAuditUsageClass(matchingOption.usageClass);
       setPendingOrganizationId(loaded.organizationId);

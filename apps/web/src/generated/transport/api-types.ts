@@ -5002,7 +5002,7 @@ export interface components {
             targetLabel: string;
             catalogVersion: string;
             usageClass: components["schemas"]["QuestionUsageClass"];
-            inspectionTypes: ("RAMP" | "CABIN" | "RAMP_INSPECTION" | "CABIN_INSPECTION")[];
+            inspectionTypes: ("RAMP" | "CABIN" | "RAMP_INSPECTION" | "CABIN_INSPECTION" | "CHANGE_APPROVAL" | "DOCUMENT_AND_RECORD_REVIEW" | "FOLLOW_UP" | "INITIAL_CERTIFICATION" | "ON_SITE_INSPECTION" | "PERIODIC_SURVEILLANCE" | "RENEWAL" | "SPECIAL_PURPOSE")[];
         };
         CanonicalAuditScopeOptionPage: {
             items: components["schemas"]["CanonicalAuditScopeOption"][];
@@ -9813,7 +9813,7 @@ export interface operations {
                 /** @description Required and owned by the current Department Manager for operational catalog selection or review. */
                 scopeId?: string;
                 /** @description The exact server-authorized application type on the selected scope draft; deterministic recommendations and prior-audit history are evaluated within this type. */
-                applicationType?: "RAMP" | "CABIN" | "RAMP_INSPECTION" | "CABIN_INSPECTION";
+                applicationType?: "RAMP" | "CABIN" | "RAMP_INSPECTION" | "CABIN_INSPECTION" | "CHANGE_APPROVAL" | "DOCUMENT_AND_RECORD_REVIEW" | "FOLLOW_UP" | "INITIAL_CERTIFICATION" | "ON_SITE_INSPECTION" | "PERIODIC_SURVEILLANCE" | "RENEWAL" | "SPECIAL_PURPOSE";
                 /** @description Optional server projection. `selection` preserves the exact filters and immutable question identities while omitting the expensive count and facet calculations used only by the interactive page. */
                 projection?: "full" | "selection";
                 usageClass: components["schemas"]["QuestionUsageClass"];

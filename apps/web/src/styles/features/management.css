@@ -105,6 +105,7 @@
 }
 
 .workspace-shell--manager .qualification-boundary,
+.workspace-shell--manager .release-boundary,
 .workspace-shell--manager .candidate-environment { display: none; }
 
 .workspace-shell--manager .manager-root-topbar {

@@ -28,14 +28,33 @@ type CanonicalScopeFacts struct {
 }
 
 var canonicalAuditTypes = map[string]string{
-	"RAMP":             "RAMP_INSPECTION",
-	"RAMP_INSPECTION":  "RAMP_INSPECTION",
-	"CABIN":            "CABIN_INSPECTION",
-	"CABIN_INSPECTION": "CABIN_INSPECTION",
+	"RAMP":                       "RAMP_INSPECTION",
+	"RAMP_INSPECTION":            "RAMP_INSPECTION",
+	"CABIN":                      "CABIN_INSPECTION",
+	"CABIN_INSPECTION":           "CABIN_INSPECTION",
+	"CHANGE_APPROVAL":            "CHANGE_APPROVAL",
+	"DOCUMENT_AND_RECORD_REVIEW": "DOCUMENT_AND_RECORD_REVIEW",
+	"FOLLOW_UP":                  "FOLLOW_UP",
+	"INITIAL_CERTIFICATION":      "INITIAL_CERTIFICATION",
+	"ON_SITE_INSPECTION":         "ON_SITE_INSPECTION",
+	"PERIODIC_SURVEILLANCE":      "PERIODIC_SURVEILLANCE",
+	"RENEWAL":                    "RENEWAL",
+	"SPECIAL_PURPOSE":            "SPECIAL_PURPOSE",
 }
 
-// CanonicalExecutionType normalizes the two UI aliases to the immutable
-// execution names persisted in scope drafts and used for recurrence history.
+var canonicalLifecycleTypes = map[string]struct{}{
+	"CHANGE_APPROVAL":            {},
+	"DOCUMENT_AND_RECORD_REVIEW": {},
+	"FOLLOW_UP":                  {},
+	"INITIAL_CERTIFICATION":      {},
+	"ON_SITE_INSPECTION":         {},
+	"PERIODIC_SURVEILLANCE":      {},
+	"RENEWAL":                    {},
+	"SPECIAL_PURPOSE":            {},
+}
+
+// CanonicalExecutionType normalizes UI aliases to the immutable execution
+// names persisted in scope drafts and used for recurrence history.
 // Keeping this boundary server-owned prevents RAMP and RAMP_INSPECTION from
 // becoming two unrelated history partitions.
 func CanonicalExecutionType(value string) (string, error) {
@@ -52,10 +71,9 @@ func validateCanonicalAuditType(value string) error {
 }
 
 // canonicalAuditTypeAllowedForProvider keeps the execution type bound to the
-// server-owned provider scope. The approved AGA demo scope is an aerodrome
-// scope and therefore exposes only ramp inspection. Air Operator scopes may
-// expose both operational variants; the AI enrichment's semantic focus codes
-// remain advisory and are not reinterpreted as execution types here.
+// server-owned provider scope. Ramp/Cabin remain the existing operational
+// aliases; the controlled lifecycle codes are shared by the AGA provider
+// scopes and remain distinct immutable execution partitions.
 func canonicalAuditTypeAllowedForProvider(providerTypeID, auditType string) bool {
 	canonical, err := CanonicalExecutionType(auditType)
 	if err != nil {
@@ -63,14 +81,21 @@ func canonicalAuditTypeAllowedForProvider(providerTypeID, auditType string) bool
 	}
 	switch strings.TrimSpace(providerTypeID) {
 	case "AIR_OPERATOR":
-		return canonical == "RAMP_INSPECTION" || canonical == "CABIN_INSPECTION"
+		return canonical == "RAMP_INSPECTION" || canonical == "CABIN_INSPECTION" || isCanonicalLifecycleType(canonical)
 	case "AERODROME_OPERATOR":
-		return canonical == "RAMP_INSPECTION"
+		return canonical == "RAMP_INSPECTION" || isCanonicalLifecycleType(canonical)
+	case "FUEL_PROVIDER":
+		return isCanonicalLifecycleType(canonical)
 	default:
 		// Unknown and unrelated provider types must not inherit an AGA
 		// execution policy by default.
 		return false
 	}
+}
+
+func isCanonicalLifecycleType(value string) bool {
+	_, ok := canonicalLifecycleTypes[value]
+	return ok
 }
 
 type canonicalQueryRow interface {

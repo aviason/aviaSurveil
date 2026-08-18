@@ -223,7 +223,7 @@ func persistRoster(ctx context.Context, pool *database.Pool, observed []observed
 			return err
 		}
 		var managerCount int
-		if err := tx.QueryRow(ctx, `SELECT count(*) FROM caa_department_memberships membership JOIN identity_references identity ON identity.subject_id=membership.subject_id WHERE membership.status='ACTIVE' AND membership.department_id='AERODROME_INSPECTORATE' AND identity.subject_id = ANY($1::text[])`, subjectIDs(observed)).Scan(&managerCount); err != nil {
+		if err := tx.QueryRow(ctx, `SELECT count(DISTINCT membership.subject_id) FROM caa_department_memberships membership JOIN identity_references identity ON identity.subject_id=membership.subject_id WHERE membership.status='ACTIVE' AND identity.subject_id = ANY($1::text[])`, subjectIDs(observed)).Scan(&managerCount); err != nil {
 			return err
 		}
 		expectedManagerCount := 0
@@ -256,17 +256,19 @@ func verifyDepartmentMembershipSet(ctx context.Context, tx pgx.Tx, observed []ob
 	expected := make(map[string]departmentMembershipRecord)
 	if mode != "provisionInvite" {
 		for _, item := range observed {
-			if item.Manifest.Department == nil {
+			departments := departmentBindings(item.Manifest)
+			if len(departments) == 0 {
 				continue
 			}
-			department := item.Manifest.Department
-			expected[department.ID] = departmentMembershipRecord{
-				ID:                   department.ID,
-				SubjectID:            item.Provider.SubjectID,
-				DepartmentID:         department.DepartmentID,
-				OrganizationalUnitID: department.OrganizationalUnitID,
-				MembershipRole:       "DEPARTMENT_MANAGER",
-				Status:               "ACTIVE",
+			for _, department := range departments {
+				expected[department.ID] = departmentMembershipRecord{
+					ID:                   department.ID,
+					SubjectID:            item.Provider.SubjectID,
+					DepartmentID:         department.DepartmentID,
+					OrganizationalUnitID: department.OrganizationalUnitID,
+					MembershipRole:       "DEPARTMENT_MANAGER",
+					Status:               "ACTIVE",
+				}
 			}
 		}
 	}
@@ -313,11 +315,22 @@ func persistRosterAccount(ctx context.Context, tx pgx.Tx, account observedRoster
 		providerEnabled = false
 	}
 	var identityCount, profileCount, settingsCount, lifecycleCount, versionCount, syncCount, departmentCount int
-	if err := tx.QueryRow(ctx, `SELECT (SELECT count(*) FROM identity_references WHERE subject_id=$1 AND issuer=$2 AND lower(email)=lower($3) AND tombstoned_at IS NULL),(SELECT count(*) FROM user_profiles WHERE subject_id=$1 AND display_name=$4 AND organization_id=$5 AND tombstoned_at IS NULL),(SELECT count(*) FROM user_settings WHERE subject_id=$1),(SELECT count(*) FROM user_lifecycle_requests WHERE id=$6),(SELECT count(*) FROM desired_membership_versions WHERE membership_id=$7 AND subject_id=$1 AND revision=1),(SELECT count(*) FROM desired_membership_sync WHERE membership_id=$7 AND subject_id=$1 AND desired_revision=1),(SELECT count(*) FROM caa_department_memberships WHERE id=$8 AND subject_id=$1 AND status='ACTIVE')`, user.SubjectID, issuer, account.Manifest.Email, account.Manifest.DisplayName, account.Manifest.OrganizationID, requestID, account.Manifest.MembershipID, departmentID(account.Manifest)).Scan(&identityCount, &profileCount, &settingsCount, &lifecycleCount, &versionCount, &syncCount, &departmentCount); err != nil {
+	departmentIDs := declaredDepartmentIDs(account.Manifest)
+	if err := tx.QueryRow(ctx, `SELECT (SELECT count(*) FROM identity_references WHERE subject_id=$1 AND issuer=$2 AND lower(email)=lower($3) AND tombstoned_at IS NULL),(SELECT count(*) FROM user_profiles WHERE subject_id=$1 AND display_name=$4 AND organization_id=$5 AND tombstoned_at IS NULL),(SELECT count(*) FROM user_settings WHERE subject_id=$1),(SELECT count(*) FROM user_lifecycle_requests WHERE id=$6),(SELECT count(*) FROM desired_membership_versions WHERE membership_id=$7 AND subject_id=$1 AND revision=1),(SELECT count(*) FROM desired_membership_sync WHERE membership_id=$7 AND subject_id=$1 AND desired_revision=1),(SELECT count(*) FROM caa_department_memberships WHERE id = ANY($8::text[]) AND subject_id=$1 AND status='ACTIVE')`, user.SubjectID, issuer, account.Manifest.Email, account.Manifest.DisplayName, account.Manifest.OrganizationID, requestID, account.Manifest.MembershipID, departmentIDs).Scan(&identityCount, &profileCount, &settingsCount, &lifecycleCount, &versionCount, &syncCount, &departmentCount); err != nil {
 		return fmt.Errorf("inspect roster state %s: %w", account.Manifest.PurposeToken, err)
 	}
-	expectedDepartment := account.Manifest.Department != nil && mode != "provisionInvite"
-	allPresent := identityCount == 1 && profileCount == 1 && settingsCount == 1 && lifecycleCount == 1 && versionCount == 1 && syncCount == 1 && ((departmentCount == 1) == expectedDepartment)
+	expectedDepartmentCount := len(departmentIDs)
+	if mode == "provisionInvite" {
+		expectedDepartmentCount = 0
+	}
+	corePresent := identityCount == 1 && profileCount == 1 && settingsCount == 1 && lifecycleCount == 1 && versionCount == 1 && syncCount == 1
+	if corePresent && mode != "provisionInvite" && departmentCount < expectedDepartmentCount {
+		if err := insertMissingDepartmentMemberships(ctx, tx, account.Manifest, user.SubjectID, now); err != nil {
+			return err
+		}
+		departmentCount = expectedDepartmentCount
+	}
+	allPresent := corePresent && departmentCount == expectedDepartmentCount
 	anyPresent := identityCount+profileCount+settingsCount+lifecycleCount+versionCount+syncCount+departmentCount > 0
 	if allPresent {
 		return verifyPersistedRosterAccount(ctx, tx, account, mode, requestID, actor)
@@ -343,10 +356,25 @@ func persistRosterAccount(ctx context.Context, tx pgx.Tx, account observedRoster
 	if _, err := tx.Exec(ctx, `INSERT INTO desired_membership_sync (membership_id,subject_id,desired_revision,observed_provider_enabled,observed_organization_id,observed_roles,observed_at,drift_state) VALUES ($1,$2,1,$3,$4,$5,$6,'IN_SYNC')`, account.Manifest.MembershipID, user.SubjectID, providerEnabled, account.Manifest.OrganizationID, []string{account.Manifest.Role}, now); err != nil {
 		return err
 	}
-	if expectedDepartment {
-		department := account.Manifest.Department
-		if _, err := tx.Exec(ctx, `INSERT INTO caa_department_memberships (id,subject_id,department_id,organizational_unit_id,membership_role,effective_from,status,created_at,root_id) VALUES ($1,$2,$3,$4,'DEPARTMENT_MANAGER',$5::date,'ACTIVE',$6,$1)`, department.ID, user.SubjectID, department.DepartmentID, department.OrganizationalUnitID, now.Format(time.DateOnly), now); err != nil {
+	if expectedDepartmentCount > 0 {
+		if err := insertMissingDepartmentMemberships(ctx, tx, account.Manifest, user.SubjectID, now); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func insertMissingDepartmentMemberships(ctx context.Context, tx pgx.Tx, account RosterAccount, subjectID string, now time.Time) error {
+	for _, department := range departmentBindings(account) {
+		var present bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM caa_department_memberships WHERE id=$1 AND subject_id=$2 AND department_id=$3 AND organizational_unit_id=$4 AND membership_role='DEPARTMENT_MANAGER' AND status='ACTIVE')`, department.ID, subjectID, department.DepartmentID, department.OrganizationalUnitID).Scan(&present); err != nil {
+			return fmt.Errorf("inspect roster department authority %s: %w", department.ID, err)
+		}
+		if present {
+			continue
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO caa_department_memberships (id,subject_id,department_id,organizational_unit_id,membership_role,effective_from,status,created_at,root_id) VALUES ($1,$2,$3,$4,'DEPARTMENT_MANAGER',$5::date,'ACTIVE',$6,$1)`, department.ID, subjectID, department.DepartmentID, department.OrganizationalUnitID, now.Format(time.DateOnly), now); err != nil {
+			return fmt.Errorf("insert roster department authority %s: %w", department.ID, err)
 		}
 	}
 	return nil
@@ -379,9 +407,11 @@ func subjectIDs(accounts []observedRosterAccount) []string {
 	}
 	return result
 }
-func departmentID(account RosterAccount) string {
-	if account.Department == nil {
-		return ""
+func declaredDepartmentIDs(account RosterAccount) []string {
+	departments := departmentBindings(account)
+	result := make([]string, 0, len(departments))
+	for _, department := range departments {
+		result = append(result, department.ID)
 	}
-	return account.Department.ID
+	return result
 }

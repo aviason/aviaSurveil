@@ -1639,7 +1639,19 @@ export interface PlanningIntakeBackend {
 }
 
 export type CanonicalQuestionUsageClass = "GOVERNED_OPERATIONAL";
-export type CanonicalApplicationType = "RAMP" | "CABIN" | "RAMP_INSPECTION" | "CABIN_INSPECTION";
+export type CanonicalApplicationType =
+  | "RAMP"
+  | "CABIN"
+  | "RAMP_INSPECTION"
+  | "CABIN_INSPECTION"
+  | "CHANGE_APPROVAL"
+  | "DOCUMENT_AND_RECORD_REVIEW"
+  | "FOLLOW_UP"
+  | "INITIAL_CERTIFICATION"
+  | "ON_SITE_INSPECTION"
+  | "PERIODIC_SURVEILLANCE"
+  | "RENEWAL"
+  | "SPECIAL_PURPOSE";
 
 export interface CanonicalAuditScopeOption {
   organizationId: string;

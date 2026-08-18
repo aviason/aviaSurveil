@@ -49,6 +49,50 @@ func TestReadRosterManifestAcceptsExactPreparedShape(t *testing.T) {
 	}
 }
 
+func TestReadFoundationManifestAcceptsMultipleAuthorizedScopeTuples(t *testing.T) {
+	windhoek := "Windhoek International Airport (WDH)"
+	manifest := FoundationManifest{
+		SchemaVersion:     1,
+		ManifestVersion:   "test-foundation-v1",
+		AdvisoryLockKey:   41010201,
+		Target:            testTarget,
+		Enabled:           true,
+		QualificationOnly: true,
+		TargetOrganization: FoundationOrganization{
+			ID: "ORG-AGA", LegalName: "AGA Qualification Operator", OrganizationType: "QUALIFICATION_OPERATOR", Status: "ACTIVE",
+		},
+		AdditionalTargetOrganizations: []FoundationOrganization{
+			{ID: "ORG-AIR", LegalName: "Air Operations Qualification Operator", OrganizationType: "QUALIFICATION_OPERATOR", Status: "ACTIVE"},
+		},
+		ControlOrganization: FoundationOrganization{
+			ID: "ORG-CONTROL", LegalName: "Control Qualification Operator", OrganizationType: "QUALIFICATION_OPERATOR", Status: "ACTIVE",
+		},
+		ProviderScope: FoundationScope{
+			ID: "SCOPE-AGA", OrganizationID: "ORG-AGA", ServiceProviderTypeID: "AERODROME_OPERATOR", AuthorizationIdentifier: "AGA-001", Status: "ACTIVE", PrimaryTargetID: "TARGET-AGA", TargetIDs: []string{"TARGET-AGA", "TARGET-WDH"},
+		},
+		AdditionalProviderScopes: []FoundationScope{
+			{ID: "SCOPE-AIR", OrganizationID: "ORG-AGA", ServiceProviderTypeID: "AIR_OPERATOR", AuthorizationIdentifier: "AIR-001", Status: "ACTIVE", PrimaryTargetID: "TARGET-AGA"},
+		},
+		RegulatedTarget: FoundationTarget{
+			ID: "TARGET-AGA", TargetKind: "ORGANIZATION", OrganizationID: "ORG-AGA",
+		},
+		AdditionalRegulatedTargets: []FoundationTarget{
+			{ID: "TARGET-WDH", TargetKind: "FACILITY", OwnerOrganizationID: "ORG-AGA", ExternalIdentifier: &windhoek},
+		},
+		ControlMustHaveNoProviderScope:   true,
+		ControlMustHaveNoRegulatedTarget: true,
+	}
+
+	path := writeFoundationJSONManifest(t, manifest)
+	got, _, err := ReadFoundationManifest(path, fileDigest(t, path), testTarget)
+	if err != nil {
+		t.Fatalf("ReadFoundationManifest() error = %v", err)
+	}
+	if len(got.AdditionalTargetOrganizations) != 1 || len(got.AdditionalProviderScopes) != 1 || len(got.AdditionalRegulatedTargets) != 1 || len(got.ProviderScope.TargetIDs) != 2 {
+		t.Fatalf("ReadFoundationManifest() did not retain the multi-scope shape: %+v", got)
+	}
+}
+
 func TestReadRosterManifestRejectsUnknownFieldsAndSecretShapedData(t *testing.T) {
 	unknown := `{"schemaVersion":1,"manifestVersion":"test","target":"namibia/demo","enabled":true,"qualificationOnly":true,"onboardingMode":"verifyExisting","credentialCustody":"none","accounts":[],"unexpected":true}`
 	assertManifestRejected(t, []byte(unknown), "unknown field")
@@ -143,6 +187,19 @@ func writeJSONManifest(t *testing.T, manifest RosterManifest) string {
 		t.Fatal(err)
 	}
 	path := filepath.Join(t.TempDir(), "manifest.json")
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func writeFoundationJSONManifest(t *testing.T, manifest FoundationManifest) string {
+	t.Helper()
+	data, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "foundation.json")
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
