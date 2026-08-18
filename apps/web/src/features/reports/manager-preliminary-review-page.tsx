@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useParams } from "react-router-dom";
 
 import { useApplicationRuntime } from "../../app/providers";
 import type { AuditEventView, ReportVersionView } from "../../backend/backend";
@@ -8,16 +9,19 @@ import { discoverCAAReportVersions } from "./report-discovery";
 export function ManagerPreliminaryReviewPage() {
   const runtime = useApplicationRuntime();
   const backend = useMemo(() => runtime.backendForRole?.("manager") ?? runtime.backend, [runtime]);
+  const { reportId: requestedReportVersionId } = useParams<{ reportId: string }>();
   const [versions, setVersions] = useState<ReportVersionView[]>([]);
   const [history, setHistory] = useState<AuditEventView[]>([]);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const current = versions.find((version) => version.status === "DEPARTMENT_REVIEW") ?? versions.reduce<ReportVersionView | null>(
-    (latest, version) => latest === null || version.version > latest.version ? version : latest,
-    null,
-  );
+  const current = requestedReportVersionId
+    ? versions.find((version) => version.reportVersionId === requestedReportVersionId) ?? null
+    : versions.find((version) => version.status === "DEPARTMENT_REVIEW") ?? versions.reduce<ReportVersionView | null>(
+      (latest, version) => latest === null || version.version > latest.version ? version : latest,
+      null,
+    );
 
   useEffect(() => {
     let cancelled = false;
