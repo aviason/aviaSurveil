@@ -112,12 +112,12 @@ export function AdminConfigurationPage() {
                   <div><span>Status</span><b>Published</b><small>{detail.publishedAt.slice(0, 10)}</small></div>
                 </section>
                 <p className="admin-source-profile">This read-only view renders the server-owned published template version and its exact question count. Source lineage and regulatory enrichment remain informational unless explicitly present in the API response.</p>
-                <div className="admin-section-jumps" aria-label="Template section jumps">{[...new Set(detail.questions.map((question) => question.sectionId))].map((sectionId) => <a href={`#admin-template-section-${sectionId.replace(/[^a-z0-9]+/gi, "-").toLocaleLowerCase()}`} key={sectionId}>{sectionId}</a>)}</div>
+                <div className="admin-section-jumps" aria-label="Template section jumps">{[...new Set(detail.questions.map((question) => question.sectionId))].map((sectionId) => <a href={`#admin-template-section-${sectionId.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`} key={sectionId}>{sectionId}</a>)}</div>
                 <div className="admin-table-scroll admin-question-table-scroll">
                   <table aria-label="Published checklist questions" className="admin-question-table">
                     <thead><tr><th>Row</th><th>Question</th><th>Regulatory reference</th><th>Expected evidence</th><th>Trace</th></tr></thead>
                     <tbody>{detail.questions.map((question, index) => (
-                      <tr id={`admin-template-section-${question.sectionId.replace(/[^a-z0-9]+/gi, "-").toLocaleLowerCase()}`} key={question.id}>
+                      <tr id={`admin-template-section-${question.sectionId.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`} key={question.id}>
                         <td><span className="admin-row-number">{index + 1}</span></td>
                         <td><b>{question.prompt}</b><small>{question.id}</small><em className="admin-allowed-answers admin-allowed-answers--question">Allowed answers: {answers(question.allowedAnswers)}</em></td>
                         <td>{question.regulatoryReference ?? "No configured regulatory reference"}</td>

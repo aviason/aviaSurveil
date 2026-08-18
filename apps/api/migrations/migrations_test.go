@@ -23,8 +23,8 @@ func TestOIDCLoginStateSecurityMigrationContainsBrowserBoundAdmission(t *testing
 			t.Errorf("login-state security migration missing %q", required)
 		}
 	}
-	if LatestVersion != 54 {
-		t.Fatalf("latest API migration = %d, want 51", LatestVersion)
+	if LatestVersion != 55 {
+		t.Fatalf("latest API migration = %d, want 55", LatestVersion)
 	}
 	focusMigration, err := migrationFiles.ReadFile("000049_canonical_audit_type_focus_policy.up.sql")
 	if err != nil {

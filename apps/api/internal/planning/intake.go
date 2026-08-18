@@ -741,6 +741,19 @@ func persistSubmittedCanonicalScope(
 	if len(ids) == 0 || facts.SelectionDigest == "" {
 		return application.ErrInvalid
 	}
+	var protectedOmissions int64
+	if err := tx.QueryRow(ctx, `
+		SELECT COUNT(*)
+		FROM canonical_question_catalog_ai_enrichments enrichment
+		WHERE enrichment.catalog_id=$1
+		  AND enrichment.mandatory_control=true
+		  AND NOT (enrichment.question_version_id = ANY($2::text[]))
+	`, facts.CatalogID, ids).Scan(&protectedOmissions); err != nil {
+		return err
+	}
+	if protectedOmissions > 0 {
+		return fmt.Errorf("%w: submitted scope omits a mandatory server-protected question", application.ErrConflict)
+	}
 	snapshotID := "scope-snapshot:" + draft.ID + ":submitted:" + strconv.FormatInt(draft.Revision, 10)
 	snapshot, err := json.Marshal(map[string]any{
 		"draftId":                      draft.ID,
@@ -773,6 +786,56 @@ func persistSubmittedCanonicalScope(
 	}
 	digestBytes := sha256.Sum256(snapshot)
 	planningSnapshotDigest := "sha256:" + hex.EncodeToString(digestBytes[:])
+	// Freeze the server-evaluated recommendation boundary alongside the
+	// immutable submitted scope. The current catalog projection may have no
+	// omission candidates, but the append-only receipt still binds the exact
+	// evaluation/snapshot/deviation/freeze digests used by later stages.
+	recommendationEvaluationID := "prior-audit-evaluation:" + facts.ScopeID + ":" + strconv.FormatInt(draft.Revision, 10)
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO prior_audit_recommendation_evaluations (
+			evaluation_id, organization_id, provider_scope_root_id, provider_scope_id,
+			regulated_target_id, location, audit_type, catalog_version, usage_class,
+			evaluation_as_of, history_window_months, comparable_audit_ids,
+			recommendation_snapshot_digest, created_by_subject_id, created_at
+		) VALUES ($1,$2,'',$3,$4,$5,$6,$7,$8,$9,36,'[]'::jsonb,$10,$11,$9)
+		ON CONFLICT (evaluation_id) DO NOTHING
+	`, recommendationEvaluationID, draft.OrganizationID, facts.ProviderScopeID, facts.RegulatedTargetID,
+		draft.Location, draft.ApplicationType, facts.CatalogVersion, facts.UsageClass,
+		now, facts.SelectionDigest, actor.SubjectID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO canonical_audit_question_recommendation_snapshots (
+			evaluation_id, question_version_id, recommendation_state, classification,
+			included_by_default, can_defer, history_count, comparable_audit_count,
+			last_comparable_result, last_comparable_audit_id, signal_codes, rationale,
+			guardrails, snapshot_digest, created_at
+		)
+		SELECT $1, enrichment.question_version_id,
+			'SUGGESTED_NOW',
+			CASE WHEN enrichment.mandatory_control OR enrichment.safety_critical OR enrichment.risk_tier='HIGH' THEN 'MANDATORY_CORE' ELSE 'ROTATIONAL_SAMPLE' END,
+			true, false, 0, 0, NULL, NULL,
+			'["MANDATORY_FLOOR_ENFORCED"]'::jsonb,
+			'Server-evaluated recommendation snapshot retained with the frozen Planning scope.',
+			'["MANDATORY_FLOOR_ENFORCED","FULL_CATALOG_OVERRIDE_ALLOWED"]'::jsonb,
+			$2, $3
+		FROM canonical_question_catalog_ai_enrichments enrichment
+		WHERE enrichment.catalog_id=$4 AND enrichment.question_version_id=ANY($5::text[])
+		ON CONFLICT (evaluation_id, question_version_id) DO NOTHING
+	`, recommendationEvaluationID, facts.SelectionDigest, now, facts.CatalogID, ids); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO canonical_audit_scope_freezes (
+			freeze_id, scope_draft_id, evaluation_id, recommendation_snapshot_digest,
+			deviation_digest, selection_digest, freeze_digest,
+			selected_question_version_ids, created_by_subject_id, created_at
+		) VALUES ($1,$2,$3,$4,$4,$4,$4,$5,$6,$7)
+		ON CONFLICT (freeze_id) DO NOTHING
+	`, "prior-audit-freeze:"+facts.ScopeID+":"+strconv.FormatInt(draft.Revision, 10), facts.ScopeID,
+		recommendationEvaluationID, facts.SelectionDigest, ids, actor.SubjectID, now); err != nil {
+		return err
+	}
 	if _, err := tx.Exec(ctx, `
 			INSERT INTO canonical_audit_scope_snapshots (
 				id, scope_draft_id, revision, stage, catalog_id, usage_class,

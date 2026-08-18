@@ -5080,6 +5080,7 @@ export interface components {
             reviewDisposition?: string | null;
             reviewDigest?: string | null;
             reviewHistory?: components["schemas"]["QuestionReviewHistoryItem"][];
+            recommendation: components["schemas"]["CanonicalQuestionRecommendation"];
         };
         CanonicalQuestionCatalogPage: {
             items: components["schemas"]["CanonicalQuestionCatalogEntry"][];
@@ -5335,6 +5336,25 @@ export interface components {
             downloadUrl: string;
             /** Format: date-time */
             expiresAt: string;
+        };
+        CanonicalQuestionRecommendation: {
+            /** @enum {string} */
+            recommendationState: "SUGGESTED_NOW" | "MATCHING_OPTIONAL" | "RECENTLY_VERIFIED" | "OUTSIDE_FOCUS" | "UNCERTAIN_SIGNAL";
+            /** @enum {string} */
+            classification: "MANDATORY_CORE" | "FOCUSED_FULL" | "ROTATIONAL_SAMPLE" | "DEFER_ELIGIBLE";
+            includedByDefault: boolean;
+            canDefer: boolean;
+            historyCount: number;
+            comparableAuditCount: number;
+            lastComparableResult: string | null;
+            lastComparableAuditId: string | null;
+            /** Format: date-time */
+            lastVerifiedAt?: string | null;
+            /** Format: date-time */
+            recurrenceDueAt?: string | null;
+            signalCodes: string[];
+            rationale: string;
+            guardrails: string[];
         };
     };
     responses: {
@@ -9820,6 +9840,8 @@ export interface operations {
                 cursor?: components["parameters"]["Cursor"];
                 /** @description Bounded page size. The normal `full` projection accepts up to 100; the `selection` projection accepts up to 2,000 immutable selection candidates for one server-side staging request. */
                 limit?: number;
+                /** @description When true, return the server-evaluated default recommendation set. This is independent of recommendationState. */
+                includedByDefault?: boolean;
             };
             header?: never;
             path: {

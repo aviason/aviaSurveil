@@ -126,6 +126,11 @@ function mapCanonicalCatalogEntry(value: Schemas["CanonicalQuestionCatalogEntry"
     reviewDisposition: value.reviewDisposition ?? null,
     reviewDigest: value.reviewDigest ?? null,
     reviewHistory: value.reviewHistory ?? [],
+    recommendation: {
+      ...value.recommendation,
+      signalCodes: [...value.recommendation.signalCodes],
+      guardrails: [...value.recommendation.guardrails],
+    },
   };
 }
 
@@ -842,6 +847,7 @@ export function createHttpBackend(
           domain: input.domain, topic: input.topic, riskBand: input.riskBand,
           sourceGapState: input.sourceGapState, selected: input.selected, scopeId: input.scopeId,
           checklistFocus: input.checklistFocus, recommendationState: input.recommendationState,
+          includedByDefault: input.includedByDefault,
           applicationType: input.applicationType, projection: input.projection,
           cursor: input.cursor, limit: input.limit,
         }), {}, options)),

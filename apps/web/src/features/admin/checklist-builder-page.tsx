@@ -73,7 +73,7 @@ export function ChecklistBuilderPage() {
   return <AdminPage testId="admin-checklist-builder-page" routeLabel="Checklist Builder" title="Approved AGA Catalog" description="Browse the source-approved operational catalog. This surface does not create an approval, publication, or internal review workflow.">
     <AdminError message={error} />
     <section className="admin-filter-bar" aria-label="Approved catalog filters">
-      <label>Foundation scope<select aria-label="Foundation scope" value={scopeId} onChange={(event) => chooseScope(event.target.value)}><option value="">Choose an exact scope</option>{scopes.map((scope) => <option key={scope.providerScopeId} value={scope.providerScopeId}>{scope.organizationName} · {scope.targetLabel}</option>)}</select></label>
+    <label>Foundation scope<select aria-label="Foundation scope" value={scopeId} onChange={(event) => chooseScope(event.target.value)}><option value="">Choose an exact scope</option>{scopes.map((scope) => <option key={`${scope.providerScopeId}:${scope.regulatedTargetId}`} value={scope.providerScopeId}>{scope.organizationName} · {scope.targetLabel}</option>)}</select></label>
       <label>Search<input aria-label="Search approved questions" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
       <label>Form code<input aria-label="Filter approved form" value={formCode} onChange={(event) => setFormCode(event.target.value)} /></label>
       <button disabled={loading || !scopeId} onClick={() => void loadCatalog()} title={!scopeId ? "Choose an exact foundation scope before loading approved questions." : undefined} type="button">{loading ? "Loading…" : "Load approved questions"}</button>

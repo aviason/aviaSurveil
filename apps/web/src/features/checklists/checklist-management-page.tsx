@@ -86,7 +86,7 @@ export function ChecklistManagementPage() {
         <CommandError message={error} />
         <section className="manager-ops-layout" aria-label="Approved catalog register">
           <div className="manager-filter-row">
-            <label>Foundation scope<select aria-label="Foundation scope" value={scopeId} onChange={(event) => chooseScope(event.target.value)}><option value="">Choose an exact scope</option>{scopes.map((scope) => <option key={scope.providerScopeId} value={scope.providerScopeId}>{scope.organizationName} · {scope.targetLabel}</option>)}</select></label>
+            <label>Foundation scope<select aria-label="Foundation scope" value={scopeId} onChange={(event) => chooseScope(event.target.value)}><option value="">Choose an exact scope</option>{scopes.map((scope) => <option key={`${scope.providerScopeId}:${scope.regulatedTargetId}`} value={scope.providerScopeId}>{scope.organizationName} · {scope.targetLabel}</option>)}</select></label>
             <label>Search<input aria-label="Search approved questions" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
             <label>Form code<input aria-label="Filter approved form" value={formCode} onChange={(event) => setFormCode(event.target.value)} /></label>
             <button disabled={loading || !scopeId} onClick={() => void loadCatalog()} title={!scopeId ? "Choose an exact foundation scope before loading approved questions." : undefined} type="button">{loading ? "Loading…" : "Load approved questions"}</button>

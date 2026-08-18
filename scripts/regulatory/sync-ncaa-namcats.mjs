@@ -110,7 +110,7 @@ export function discoverPageDocuments(
   const seenUrls = new Set();
   if (page === 1) {
     const indexAnchor = [...html.matchAll(/<a\b[^>]*href\s*=\s*["'][^"']+\.xlsx["'][^>]*>[\s\S]*?<\/a>/giu)]
-      .find((match) => visibleText(match[0]).toLocaleLowerCase().includes("index"));
+      .find((match) => visibleText(match[0]).toLowerCase().includes("index"));
     if (!indexAnchor) throw new Error("NAMCAR-NAMCATS index workbook link not found");
     const indexUrl = safeSourceUrl(hrefFromHtml(indexAnchor[0]), pageUrl);
     seenUrls.add(indexUrl);

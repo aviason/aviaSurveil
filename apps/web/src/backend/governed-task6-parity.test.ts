@@ -275,7 +275,7 @@ function command(label: string, candidate: GovernedCandidateView) {
     candidateId: candidate.candidateId,
     expectedRevision: candidate.revision,
     expectedContentDigest: candidate.contentDigest,
-    reason: `Task 6 ${label.toLocaleLowerCase()} decision.`,
+    reason: `Task 6 ${label.toLowerCase()} decision.`,
   };
 }
 
@@ -1205,9 +1205,9 @@ describe("Task 6 manager governed-checklist backend parity", () => {
     ["return", "RETURNED"],
     ["reject", "REJECTED"],
   ] as const)("persists an attributed %s transition", async (action, status) => {
-    const { runtime, submitted } = await submittedRuntime(action.toLocaleUpperCase());
+    const { runtime, submitted } = await submittedRuntime(action.toUpperCase());
     const manager = runtime.backendForRole("manager").governedChecklistReview;
-    const result = await manager[action](command(action.toLocaleUpperCase(), submitted));
+    const result = await manager[action](command(action.toUpperCase(), submitted));
     expect(result.status).toBe(status);
     const detail = await manager.getCandidate({ candidateId: submitted.candidateId });
     expect(detail.decisions).toEqual([

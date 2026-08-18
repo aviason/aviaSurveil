@@ -1345,7 +1345,7 @@ export class IndexedDbFieldRepository {
         const duplicateFileName = await this.database.attachmentManifests
           .where("[subjectId+packageId]")
           .equals([this.subjectId, packageRow.id])
-          .filter((manifest) => manifest.fileName.toLocaleLowerCase() === fileName.toLocaleLowerCase())
+          .filter((manifest) => manifest.fileName.toLowerCase() === fileName.toLowerCase())
           .first();
         if (duplicateFileName) {
           throw new FieldRepositoryError(

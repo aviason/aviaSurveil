@@ -2,8 +2,13 @@ import { bootstrap } from "../app/bootstrap";
 import { DEMO_PRINCIPALS, createMockBackendRuntime } from "../mock/create-mock-backend";
 import { seedVisualRuntimeForPath } from "../mock/seed-visual-runtime";
 import { completeMockChecklist } from "../mock/test-checklist-fixtures";
+import type { PriorAuditRecommendationProfile } from "../mock/prior-audit-recommendations";
 
-const mockRuntime = createMockBackendRuntime();
+const requestedPriorAuditProfile = new URLSearchParams(window.location.search).get("priorAuditProfile");
+const priorAuditProfile: PriorAuditRecommendationProfile | undefined = requestedPriorAuditProfile === "prior-audit-multi-history" || requestedPriorAuditProfile === "prior-audit-single-history"
+  ? requestedPriorAuditProfile
+  : undefined;
+const mockRuntime = createMockBackendRuntime(undefined, priorAuditProfile);
 
 declare global {
   interface Window {

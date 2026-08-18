@@ -1,0 +1,20 @@
+{
+  "profile": "prior-audit-single-history",
+  "catalogVersion": "aga-approved-source@2.0.0",
+  "organizationId": "ORG-PRIOR-AUDIT-QUALIFICATION",
+  "providerScopeId": "SCOPE-PRIOR-AUDIT-001",
+  "regulatedTargetId": "TARGET-PRIOR-AUDIT-001",
+  "location": "Windhoek International Airport",
+  "auditType": "RAMP_INSPECTION",
+  "eligibleAuditIds": ["AUD-PRIOR-SINGLE-001"],
+  "suggestedQuestionVersionIds": [
+    "qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0011",
+    "qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0012",
+    "qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0013",
+    "qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0014",
+    "qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0015"
+  ],
+  "omittedQuestionVersionIds": [],
+  "uncertainQuestionVersionIds": ["qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0013", "qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0015"],
+  "fullCatalogQuestionCount": 5
+}

@@ -148,7 +148,17 @@ export function assembleOpenApi(sourceDirectory = defaultSourceDirectory) {
     source.components.schemas,
     readJson(path.join(sourceDirectory, "schemas/domain.json")),
     readJson(path.join(sourceDirectory, "schemas/platform.json")),
+    readJson(path.join(sourceDirectory, "schemas/prior-audit-recommendations.json")),
   );
+  const catalogEntry = schemas.CanonicalQuestionCatalogEntry;
+  schemas.CanonicalQuestionCatalogEntry = {
+    ...catalogEntry,
+    required: [...new Set([...(catalogEntry.required ?? []), "recommendation"])],
+    properties: {
+      ...catalogEntry.properties,
+      recommendation: { $ref: "#/components/schemas/CanonicalQuestionRecommendation" },
+    },
+  };
   const document = {
     ...source,
     paths,
@@ -206,6 +216,15 @@ export function assembleOpenApi(sourceDirectory = defaultSourceDirectory) {
       schemas,
     },
   };
+  const catalogListOperation = document.paths["/v1/question-catalogs/{catalogVersion}/questions"]?.get;
+  if (catalogListOperation && !catalogListOperation.parameters.some((parameter) => parameter.name === "includedByDefault")) {
+    catalogListOperation.parameters.push({
+      name: "includedByDefault",
+      in: "query",
+      description: "When true, return the server-evaluated default recommendation set. This is independent of recommendationState.",
+      schema: { type: "boolean" },
+    });
+  }
   applyOperationContract(document);
   return document;
 }

@@ -2,7 +2,7 @@
 
 Date: 2026-08-17
 Last updated: 2026-08-18
-Status: active — implementation, connected qualification, public release/app-shell verification, Chrome + Computer Use browser-control checks, and root `make check` are `verified locally`; IAB-native zoom/reduced-motion/full-Tab controls are outside the revised acceptance boundary; production readiness not claimed
+Status: ready-for-verification — implementation, connected qualification, public release/app-shell verification, Chrome + Computer Use browser-control checks, root `make check`, and explicit stakeholder acceptance are recorded; IAB-native zoom/reduced-motion/full-Tab controls are outside the revised acceptance boundary; production readiness not claimed
 
 ## Planning authority
 
@@ -974,7 +974,14 @@ equal-width columns.
 - [x] Complete Chrome + Computer Use native Tab/Return, real 200% zoom, and reduced-motion emulation subchecks (`verified locally`).
 - [x] Remove Manager runtime/environment text and correct the 390px stepper layout; focused UI tests 39/39, desktop 1440x900 and mobile 390x844 IAB screenshots, DOM, interaction, and console checks are `verified locally`.
 - [x] Public all-role qualification and root `make check` blockers resolved with literal local evidence.
-- [ ] Stakeholder acceptance and plan lifecycle transition.
+- [x] Stakeholder acceptance and plan lifecycle transition to `ready-for-verification` recorded 2026-08-18.
+
+### 2026-08-18 — Stakeholder acceptance
+
+The user explicitly approved the completed implementation and evidence in this
+conversation. The plan therefore transitions to `ready-for-verification`. This
+acceptance covers the implemented candidate/public-demo scope and does not claim
+production readiness.
 
 ## Current outcome
 
@@ -988,10 +995,10 @@ qualification, root `make check`, and direct no-op evidence are
 `verified locally`. IAB-native control coverage is outside the revised
 acceptance boundary; production readiness is not claimed.
 
-The next concrete todo is obtain stakeholder acceptance before moving this
-plan to `ready-for-verification`. The exhaustive catalog audit, root
-release-lock/attestation fixture blockers, public release, and connected
-all-role flow are resolved with the evidence above.
+The plan is now ready for independent verification. The exhaustive catalog
+audit, root release-lock/attestation fixture blockers, public release, connected
+all-role flow, and stakeholder acceptance are resolved with the evidence above.
+Production readiness is not claimed.
 
 ## Execution Prompt
 

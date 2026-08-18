@@ -1,7 +1,7 @@
 # Prior-Audit-Aware Question Recommendations
 
 Date: 2026-08-18
-Status: active — plan created; existing adaptive-scope specification and recommendation path inspected; implementation not started; release and production readiness are separate gates
+Status: active — deterministic server/mock policy, append-only persistence boundary, contract transport, Manager presentation, focused tests, builds, and local qualification-bootstrap replay are `verified locally`; connected recommendation qualification and release are `not run`/`release pending`; production readiness not claimed
 
 ## Objective and user-visible outcome
 
@@ -242,21 +242,75 @@ Expected observations:
 - `AUDIT_CHECKLIST_WORKFLOW.md` already defines adaptive scope, visible
   classifications, history signals, guardrails, and fail-closed omission
   rules.
-- The API already exposes prior-history projections and recommendation states,
-  but the exact two requested fixtures and acceptance oracle were not present
-  in the active plan/test inventory.
+- The API previously projected only a latest clean timestamp. The recommendation
+  policy now has an exact `ComparableAuditKey`, distinct eligible Audit
+  aggregation, fixed `evaluationAsOf` from the server Clock dependency, clean
+  truth-table guards, precedence, and a server-side `includedByDefault` filter
+  that is independent from `recommendationState`.
+- The exact deterministic fixture oracles are checked in at
+  `apps/api/tests/fixtures/prior-audit-recommendations/prior-audit-multi-history.json`
+  and `apps/api/tests/fixtures/prior-audit-recommendations/prior-audit-single-history.json`.
+  The Go and mock adapters use the same stable question-version IDs and profile
+  names: `prior-audit-multi-history` and `prior-audit-single-history`.
+- `CanonicalQuestionAIAdvisory` remains an advisory-only input. The server
+  emits a separate `CanonicalQuestionRecommendation` with classification,
+  inclusion, deferral, history count, signal codes, rationale, and guardrails.
+- Migration `000055_prior_audit_recommendations.up.sql` adds append-only
+  recommendation evaluations, question snapshots, manager deviations, and
+  scope freeze digests. Planning submission and selection preview/commit retain
+  the protected mandatory floor and the exact freeze receipt without mutating
+  historical rows.
+- The Manager wizard consumes `includedByDefault=true` for Suggested now and
+  clears that filter for the full approved catalog. The omitted multi-history
+  question remains selectable, while the single clean-history question remains
+  `UNCERTAIN_SIGNAL`, `includedByDefault=true`, and `canDefer=false`.
 - The authorized Namibia/demo scope/catalog release is now deployed and
   publicly verified under immutable lock `sha256:643b4b…`; that deployment is
   evidence for the separate release task, not completion of this plan.
-- The local PostgreSQL qualification harness passed the catalog applicability
-  upgrade/replay boundary. Recommendation-specific two-history behavior is
-  still `not run` until this plan is implemented.
+- Recommendation-specific local evidence is now `verified locally`:
+  `scripts/test-prior-audit-recommendations.sh`, the exact focused Go and
+  integration commands, mock golden tests, `scripts/generate-contracts.sh`,
+  `scripts/check-contracts.sh`, React `93/93` and `728/728`, both web builds,
+  `scripts/test-qualification-bootstrap.sh`, `make qualification-scenario
+  TARGET=namibia/demo CONFIRM=namibia/demo:all-role-e2e` (`1 passed`, result
+  `/.state/qualification/namibia/demo/results/namibia-demo-20260818t14221787052150z-e51022ecf8b34d199eb2b3f551cfc9a5.jsonl`),
+  full visible-actions `4 passed`, full accessibility `5 passed`, and current
+  Browser 390px/date/recommendation/full-catalog/Auditee-privacy smoke.
+  Public-origin qualification is `not run` because `qualification-smoke`
+  could not resolve the selected public DNS origin, and release-check is
+  blocked by the dirty checkout required to preserve unrelated changes.
+
+## Implementation progress and evidence
+
+- [x] Phase 0 decision table and exact comparability boundary implemented in
+  `apps/api/internal/application/prior_audit_recommendations.go`.
+- [x] Phase 1 deterministic multi/single history fixtures and JSON golden
+  oracles added; three eligible FINAL/LOCKED Audits and one eligible
+  FINAL/LOCKED Audit are asserted exactly.
+- [x] Phase 2 precedence, validated-clean truth table, fixed clock boundary,
+  mandatory floor, full-catalog override, and auditee-safe projection added.
+- [x] Phase 3 OpenAPI/generated transport, HTTP query filter, mock parity, and
+  Manager wizard history/rationale presentation added.
+- [x] Phase 3 append-only migration and Planning snapshot/freeze persistence
+  added without updates/deletes to historical Audit/checklist/Finding/CAP/
+  Evidence/report/catalog rows.
+- [x] Focused server/mock/integration tests, contract checks, typecheck,
+  `build:demo`, `build:http`, qualification-bootstrap replay, full React,
+  visible-actions, accessibility, and diff checks are `verified locally`.
+- [ ] Connected recommendation-specific public qualification and immutable
+  release evidence remain `not run`/`release pending`; no production readiness
+  claim is made.
 
 ## Outcome notes
 
-This plan currently records the required examples, policy decision table, and
-acceptance contract. No recommendation-policy source change is claimed by the
-plan itself.
+The recommendation implementation is `candidate-only` and `verified locally`
+for deterministic policy, mock parity, contract generation, append-only schema,
+local build, qualification-bootstrap replay, and disposable local HTTP/
+PostgreSQL qualification. The public connected qualification gate is `not run`
+due unresolved public DNS, and release remains
+`release pending` because the Workspace release check rejects the intentionally
+dirty source checkout; commit/push/deploy/release actions are outside this task.
+Production readiness not claimed.
 
 ## Execution Prompt
 

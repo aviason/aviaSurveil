@@ -1699,6 +1699,7 @@ export interface CanonicalQuestionCatalogEntry {
   reviewDisposition: string | null;
   reviewDigest: string | null;
   reviewHistory?: GeneratedSchemas["QuestionReviewHistoryItem"][];
+  recommendation: GeneratedSchemas["CanonicalQuestionRecommendation"];
 }
 
 export interface CanonicalQuestionCatalogPage {
@@ -1736,7 +1737,7 @@ export interface CanonicalSelectionReceipt {
 
 export interface CanonicalCatalogBackend {
   listScopeOptions(input?: { cursor?: string; limit?: number; catalogVersion?: string; usageClass?: CanonicalQuestionUsageClass; forReview?: boolean }, options?: BackendRequestOptions): Promise<CanonicalAuditScopeOptionPage>;
-  listCatalog(input: { catalogVersion: string; usageClass: CanonicalQuestionUsageClass; search?: string; formCode?: string | string[]; domain?: string | string[]; topic?: string | string[]; riskBand?: string | string[]; sourceGapState?: string; checklistFocus?: string[]; recommendationState?: string; selected?: "all" | "selected" | "unselected"; scopeId?: string; applicationType?: CanonicalApplicationType; cursor?: string; limit?: number; projection?: "full" | "selection" }, options?: BackendRequestOptions): Promise<CanonicalQuestionCatalogPage>;
+  listCatalog(input: { catalogVersion: string; usageClass: CanonicalQuestionUsageClass; search?: string; formCode?: string | string[]; domain?: string | string[]; topic?: string | string[]; riskBand?: string | string[]; sourceGapState?: string; checklistFocus?: string[]; recommendationState?: string; includedByDefault?: boolean; selected?: "all" | "selected" | "unselected"; scopeId?: string; applicationType?: CanonicalApplicationType; cursor?: string; limit?: number; projection?: "full" | "selection" }, options?: BackendRequestOptions): Promise<CanonicalQuestionCatalogPage>;
   getQuestion(input: { catalogVersion: string; usageClass: CanonicalQuestionUsageClass; questionVersionId: string; scopeId?: string; applicationType?: CanonicalApplicationType }, options?: BackendRequestOptions): Promise<CanonicalQuestionCatalogEntry>;
   previewSelection(input: { scopeId: string; operationId: string; idempotencyKey?: string; expectedSelectionDigest: string; questionVersionIds: string[]; operationKind?: "ADD" | "REMOVE" | "REPLACE"; usageClass: CanonicalQuestionUsageClass; filter?: Record<string, never> }, options?: BackendRequestOptions): Promise<CanonicalSelectionPreview>;
   commitSelection(input: { scopeId: string; operationId: string; previewOperationId: string; idempotencyKey?: string; expectedSelectionDigest: string; questionVersionIds: string[]; operationKind?: "ADD" | "REMOVE" | "REPLACE"; usageClass: CanonicalQuestionUsageClass; filter?: Record<string, never> }, options?: BackendRequestOptions): Promise<CanonicalSelectionReceipt>;

@@ -27,6 +27,7 @@ import {
   formatLocalDate,
   WorkspaceShell,
 } from "../shared/workspace-shell";
+import { catalogValueLabel } from "./planning-intake-formatters";
 
 const stepDefinitions = [
   { number: 1, label: "Basics", description: "Choose the authorized inspection scope." },
@@ -38,6 +39,13 @@ const stepDefinitions = [
 
 const selectionBatchLimit = 500;
 const defaultCatalogRecommendationState = "SUGGESTED_NOW";
+const riskCategoryOptions = [
+  "Configured inspection risk",
+  "Safety-critical",
+  "High operational",
+  "Control assurance",
+  "Review required",
+] as const;
 
 type SelectionOperationKind = "ADD" | "REMOVE";
 type AutosaveState = "clean" | "dirty" | "saving" | "saved" | "error";
@@ -92,7 +100,7 @@ const stepSchemas = {
     riskCategory: z.string().trim().min(1, "Risk category is required"),
   }),
   3: z.object({
-    plannedDate: z.string().min(1, "Planned date is required"),
+    plannedDate: z.string().min(1, "Planned date is required").regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD for the planned date"),
     location: z.string().trim().min(1, "Location is required"),
   }),
   4: z.object({
@@ -116,12 +124,10 @@ function stepFromPath(pathname: string): number {
   return Math.min(5, Math.max(1, candidate));
 }
 
-function catalogValueLabel(value: string): string {
-  return value
-    .toLocaleLowerCase()
-    .split("_")
-    .map((part) => part.charAt(0).toLocaleUpperCase() + part.slice(1))
-    .join(" ");
+function riskCategoryOptionsFor(value: string): string[] {
+  return value && !riskCategoryOptions.includes(value as (typeof riskCategoryOptions)[number])
+    ? [value, ...riskCategoryOptions]
+    : [...riskCategoryOptions];
 }
 
 function readableLocalDate(value: string | undefined): string {
@@ -132,6 +138,13 @@ function readableLocalDate(value: string | undefined): string {
   } catch {
     return value;
   }
+}
+
+function normalizeDateInput(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 8);
+  if (digits.length <= 4) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+  return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`;
 }
 
 function noticePolicyFor(category: PlanningIntakeInspectionCategory): PlanningIntakeDraftValues["noticePolicy"] {
@@ -261,6 +274,57 @@ function RequiredMark(): ReactNode {
   return <span aria-hidden="true" className="planning-intake-required">*</span>;
 }
 
+function PlanningDateField({
+  value,
+  error,
+  onBlur,
+  onChange,
+  onNext,
+}: {
+  value: string;
+  error?: string;
+  onBlur: () => void;
+  onChange: (value: string) => void;
+  onNext: () => void;
+}) {
+  return (
+    <div className="planning-intake-date-control">
+      <input
+        aria-describedby={error ? "planning-intake-plannedDate-error" : undefined}
+        aria-invalid={Boolean(error)}
+        aria-label="Planned date"
+        autoComplete="off"
+        enterKeyHint="next"
+        id="planning-intake-plannedDate"
+        inputMode="text"
+        maxLength={10}
+        onBlur={onBlur}
+        onChange={(event) => onChange(normalizeDateInput(event.target.value))}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            onNext();
+          }
+        }}
+        placeholder="YYYY-MM-DD"
+        type="text"
+        value={value}
+      />
+      <span aria-hidden="true" className="planning-intake-date-calendar">
+        <span aria-hidden="true">📅</span>
+      </span>
+      <input
+        aria-label="Open planned date calendar"
+        className="planning-intake-date-picker"
+        onChange={(event) => onChange(event.target.value)}
+        onClick={(event) => event.stopPropagation()}
+        type="date"
+        value={value}
+      />
+    </div>
+  );
+}
+
 function PlanningIntakeProgress({ step }: { step: number }) {
   return (
     <ol aria-label="Planning intake steps" className="planning-intake-steps">
@@ -380,7 +444,9 @@ function QuestionDossier({ question, onClose, returnFocusRef }: { question: Cano
       <section aria-label="Question dossier" aria-modal="true" className="planning-intake-question-dossier" ref={dialogRef} role="dialog">
         <header><div><span className="planning-intake-dialog-kicker">Question details</span><h2>{question.formCode} · item {question.ordinal}</h2></div><button data-autofocus type="button" onClick={onClose}>Close</button></header>
         <p className="planning-intake-dossier-prompt">{question.prompt ?? "Question prompt unavailable in this profile."}</p>
-        <div className="planning-intake-question-meta"><span>{catalogValueLabel(question.aiAdvisory.riskTier)} risk</span><span>{catalogValueLabel(question.aiAdvisory.advisoryState)}</span>{question.aiAdvisory.recommendationReasonCodes.map((reason) => <span key={reason}>{catalogValueLabel(reason)}</span>)}</div>
+        <div className="planning-intake-question-meta"><span>{catalogValueLabel(question.aiAdvisory.riskTier)} risk</span><span>{catalogValueLabel(question.recommendation.recommendationState)}</span><span>{question.recommendation.historyCount.toLocaleString("en-US")} comparable Audits</span>{question.recommendation.signalCodes.map((reason) => <span key={reason}>{catalogValueLabel(reason)}</span>)}</div>
+        <p>{question.recommendation.rationale}</p>
+        <p>{question.recommendation.canDefer ? "This optional question may be deferred with an explicit manager reason." : "This question remains protected by the server recommendation floor."}</p>
         <p>{question.aiAdvisory.previouslyVerifiedAt ? `Previously verified ${new Date(question.aiAdvisory.previouslyVerifiedAt).toLocaleDateString("en-GB")}.` : "No prior locked Final verification is recorded for this question."}</p>
         <details className="planning-intake-technical-details"><summary>Technical question details</summary><dl><div><dt>Question version</dt><dd>{question.questionVersionId}</dd></div><div><dt>Domain</dt><dd>{catalogValueLabel(question.aiAdvisory.domainCode)}</dd></div><div><dt>Checklist focus</dt><dd>{question.aiAdvisory.inspectionTypeCodes.map(catalogValueLabel).join(", ") || "Not classified"}</dd></div><div><dt>Reference</dt><dd>{question.configuredReference ?? "Not configured"}</dd></div><div><dt>Expected evidence</dt><dd>{question.expectedEvidence ?? "Not configured"}</dd></div><div><dt>Source context</dt><dd>{question.aiAdvisory.externalApplicabilityUnresolved ? "Some applicability context is unresolved; this advisory does not block selection." : "Source context available"}</dd></div></dl></details>
       </section>
@@ -531,7 +597,7 @@ export function NewAuditWizardPage() {
     if (step !== 4 || !values?.catalogVersion || !backend.canonicalCatalog) return undefined;
     const controller = new AbortController();
     setCatalogBusy(true);
-    void backend.canonicalCatalog.listCatalog({ catalogVersion: values.catalogVersion, usageClass: auditUsageClass, search: catalogSearch || undefined, formCode: catalogFormCode.length ? catalogFormCode : undefined, domain: catalogDomain.length ? catalogDomain : undefined, topic: catalogTopic.length ? catalogTopic : undefined, riskBand: catalogRiskBand.length ? catalogRiskBand : undefined, sourceGapState: catalogSourceGapState || undefined, checklistFocus: catalogChecklistFocus.length ? catalogChecklistFocus : undefined, recommendationState: catalogRecommendationState || undefined, selected: catalogSelectedFilter, scopeId: values.scopeDraftId || undefined, applicationType: values.applicationType as CanonicalApplicationType, cursor: catalogCursor, limit: 25 }, { signal: controller.signal }).then((page) => { if (!controller.signal.aborted) setCatalogPage(page); }).catch((cause) => { if (!controller.signal.aborted) setServerError(errorMessage(cause)); }).finally(() => { if (!controller.signal.aborted) setCatalogBusy(false); });
+    void backend.canonicalCatalog.listCatalog({ catalogVersion: values.catalogVersion, usageClass: auditUsageClass, search: catalogSearch || undefined, formCode: catalogFormCode.length ? catalogFormCode : undefined, domain: catalogDomain.length ? catalogDomain : undefined, topic: catalogTopic.length ? catalogTopic : undefined, riskBand: catalogRiskBand.length ? catalogRiskBand : undefined, sourceGapState: catalogSourceGapState || undefined, checklistFocus: catalogChecklistFocus.length ? catalogChecklistFocus : undefined, recommendationState: catalogRecommendationState && catalogRecommendationState !== defaultCatalogRecommendationState ? catalogRecommendationState : undefined, includedByDefault: catalogRecommendationState === defaultCatalogRecommendationState ? true : undefined, selected: catalogSelectedFilter, scopeId: values.scopeDraftId || undefined, applicationType: values.applicationType as CanonicalApplicationType, cursor: catalogCursor, limit: 25 }, { signal: controller.signal }).then((page) => { if (!controller.signal.aborted) setCatalogPage(page); }).catch((cause) => { if (!controller.signal.aborted) setServerError(errorMessage(cause)); }).finally(() => { if (!controller.signal.aborted) setCatalogBusy(false); });
     return () => controller.abort();
   }, [auditUsageClass, backend, catalogChecklistFocus, catalogCursor, catalogDomain, catalogFormCode, catalogRecommendationState, catalogRiskBand, catalogSearch, catalogSelectedFilter, catalogSourceGapState, catalogTopic, step, values?.applicationType, values?.catalogVersion, values?.scopeDraftId]);
 
@@ -682,7 +748,7 @@ export function NewAuditWizardPage() {
     try {
       const ids: string[] = []; const seenIds = new Set<string>(); const seenCursors = new Set<string>(); let cursor: string | undefined;
       do {
-        const page = await backend.canonicalCatalog.listCatalog({ catalogVersion: valuesRef.current.catalogVersion || "", usageClass: auditUsageClass, search: catalogSearch || undefined, formCode: catalogFormCode.length ? catalogFormCode : undefined, domain: catalogDomain.length ? catalogDomain : undefined, topic: catalogTopic.length ? catalogTopic : undefined, riskBand: catalogRiskBand.length ? catalogRiskBand : undefined, sourceGapState: catalogSourceGapState || undefined, checklistFocus: catalogChecklistFocus.length ? catalogChecklistFocus : undefined, recommendationState: recommendationOverride !== undefined ? recommendationOverride : undefined, selected: catalogSelectedFilter, scopeId: valuesRef.current.scopeDraftId || undefined, applicationType: valuesRef.current.applicationType as CanonicalApplicationType, cursor, limit: 100, projection: "selection" });
+        const page = await backend.canonicalCatalog.listCatalog({ catalogVersion: valuesRef.current.catalogVersion || "", usageClass: auditUsageClass, search: catalogSearch || undefined, formCode: catalogFormCode.length ? catalogFormCode : undefined, domain: catalogDomain.length ? catalogDomain : undefined, topic: catalogTopic.length ? catalogTopic : undefined, riskBand: catalogRiskBand.length ? catalogRiskBand : undefined, sourceGapState: catalogSourceGapState || undefined, checklistFocus: catalogChecklistFocus.length ? catalogChecklistFocus : undefined, recommendationState: recommendationOverride && recommendationOverride !== defaultCatalogRecommendationState ? recommendationOverride : undefined, includedByDefault: recommendationOverride === defaultCatalogRecommendationState ? true : undefined, selected: catalogSelectedFilter, scopeId: valuesRef.current.scopeDraftId || undefined, applicationType: valuesRef.current.applicationType as CanonicalApplicationType, cursor, limit: 100, projection: "selection" });
         for (const entry of page.items) if (entry.canSelect && !seenIds.has(entry.questionVersionId)) { seenIds.add(entry.questionVersionId); ids.push(entry.questionVersionId); }
         const nextCursor = page.nextCursor ?? undefined; if (nextCursor && seenCursors.has(nextCursor)) throw new Error("Catalog pagination repeated a cursor while collecting the exact question set."); if (nextCursor) seenCursors.add(nextCursor); cursor = nextCursor;
       } while (cursor);
@@ -744,11 +810,11 @@ export function NewAuditWizardPage() {
               <label htmlFor="planning-intake-inspectionCategory">Inspection approach <RequiredMark /><select aria-label="Inspection approach" id="planning-intake-inspectionCategory" value={values.inspectionCategory} onChange={(event) => updateCategory(event.target.value as PlanningIntakeInspectionCategory)}><option value="Routine / Announced">Routine / Announced</option><option value="Ad Hoc / Unannounced">Ad Hoc / Unannounced</option></select><small>{values.inspectionCategory === "Ad Hoc / Unannounced" ? "The supplier notice remains withheld through Planning." : "Advance notice applies after the accepted governance stage."}</small></label>
               <label className="is-wide" htmlFor="planning-intake-purpose">Purpose <RequiredMark /><textarea aria-label="Purpose" id="planning-intake-purpose" aria-invalid={Boolean(fieldErrors.purpose)} aria-describedby={fieldErrors.purpose ? "planning-intake-purpose-error" : undefined} value={values.purpose} onBlur={() => validateField("purpose")} onChange={(event) => update("purpose", event.target.value)} /><small>Describe why this inspection is being undertaken and what the Department Manager needs to establish.</small><FieldError id="planning-intake-purpose-error" message={fieldErrors.purpose} /></label>
               <label htmlFor="planning-intake-triggerType">Trigger type<input id="planning-intake-triggerType" readOnly value={values.triggerType} /><small>Configured from the Planning authority.</small></label>
-              <label htmlFor="planning-intake-riskCategory">Risk category <RequiredMark /><input id="planning-intake-riskCategory" readOnly value={values.riskCategory} /><small>Configured risk context remains visible for review.</small></label>
+              <label htmlFor="planning-intake-riskCategory">Risk category <RequiredMark /><select aria-label="Risk category" id="planning-intake-riskCategory" aria-invalid={Boolean(fieldErrors.riskCategory)} aria-describedby={fieldErrors.riskCategory ? "planning-intake-riskCategory-error" : undefined} value={values.riskCategory} onBlur={() => validateField("riskCategory")} onChange={(event) => update("riskCategory", event.target.value)}>{riskCategoryOptionsFor(values.riskCategory).map((option) => <option key={option} value={option}>{option}</option>)}</select><small>Select the configured risk category for this inspection.</small><FieldError id="planning-intake-riskCategory-error" message={fieldErrors.riskCategory} /></label>
               <p className="planning-intake-boundary-note" role="note"><b>{noticeLabel(values.inspectionCategory)}</b><span>{values.inspectionCategory === "Ad Hoc / Unannounced" ? "Organization notice remains withheld through this Planning stage." : "Notice is derived from the selected inspection approach."}</span></p>
             </div> : null}
             {!routeRedirecting && values && step === 3 ? <div className="planning-intake-fields">
-              <label htmlFor="planning-intake-plannedDate">Planned date <RequiredMark /><input aria-label="Planned date" id="planning-intake-plannedDate" aria-invalid={Boolean(fieldErrors.plannedDate)} aria-describedby={fieldErrors.plannedDate ? "planning-intake-plannedDate-error" : undefined} inputMode="numeric" placeholder="YYYY-MM-DD" type="text" value={values.plannedDate} onBlur={() => validateField("plannedDate")} onChange={(event) => update("plannedDate", event.target.value)} /><small>Use the calendar date format YYYY-MM-DD.</small><FieldError id="planning-intake-plannedDate-error" message={fieldErrors.plannedDate} /></label>
+              <label htmlFor="planning-intake-plannedDate">Planned date <RequiredMark /><PlanningDateField error={fieldErrors.plannedDate} onBlur={() => validateField("plannedDate")} onChange={(value) => update("plannedDate", value)} onNext={() => void continueFromStep()} value={values.plannedDate} /><small>Enter YYYY-MM-DD or open the calendar.</small><FieldError id="planning-intake-plannedDate-error" message={fieldErrors.plannedDate} /></label>
               <label htmlFor="planning-intake-mode">Mode<select id="planning-intake-mode" value={values.mode} onChange={(event) => update("mode", event.target.value as PlanningIntakeDraftValues["mode"])}><option value="On-site">On-site</option><option value="Remote">Remote</option></select><small>Choose how the inspection will be conducted.</small></label>
               <label className="is-wide" htmlFor="planning-intake-location">Location <RequiredMark /><input aria-label="Location" id="planning-intake-location" aria-invalid={Boolean(fieldErrors.location)} aria-describedby={fieldErrors.location ? "planning-intake-location-error" : undefined} value={values.location} onBlur={() => validateField("location")} onChange={(event) => update("location", event.target.value)} /><small>Specify the airport, facility, or other inspection location.</small><FieldError id="planning-intake-location-error" message={fieldErrors.location} /></label>
             </div> : null}
@@ -763,13 +829,13 @@ export function NewAuditWizardPage() {
                   <CatalogFacetPicker ariaLabel="Risk filter" label="Risk" options={catalogPage?.facets.riskTiers ?? []} selected={catalogRiskBand} onChange={(next) => { setCatalogRiskBand(next); resetCatalogPage(); }} />
                   <CatalogFacetPicker ariaLabel="Checklist focus filter" label="Checklist focus" options={catalogPage?.facets.checklistFocuses ?? []} selected={catalogChecklistFocus} onChange={(next) => { setCatalogChecklistFocus(next); resetCatalogPage(); }} />
                   <label htmlFor="planning-intake-source-gap">Source gap<select id="planning-intake-source-gap" aria-label="Source gap filter" value={catalogSourceGapState} onChange={(event) => { setCatalogSourceGapState(event.target.value); resetCatalogPage(); }}><option value="">Any source context</option><option value="OPTIONAL_ENRICHMENT_NOT_PROVIDED">Optional enrichment unavailable</option><option value="SOURCE_CONTEXT_INCOMPLETE">Source context incomplete</option></select></label>
-                  <label htmlFor="planning-intake-recommendation">Recommendation<select id="planning-intake-recommendation" aria-label="Recommendation filter" value={catalogRecommendationState} onChange={(event) => { setCatalogRecommendationState(event.target.value); resetCatalogPage(); }}><option value="">All advisory states</option><option value={defaultCatalogRecommendationState}>Suggested Now</option>{(catalogPage?.facets.recommendationStates ?? []).filter((option) => option.value !== defaultCatalogRecommendationState).map((option) => <option key={option.value} value={option.value}>{catalogValueLabel(option.value)} · {option.count.toLocaleString("en-US")}</option>)}</select></label>
+                  <label htmlFor="planning-intake-recommendation">Recommendation<select id="planning-intake-recommendation" aria-label="Recommendation filter" value={catalogRecommendationState} onChange={(event) => { setCatalogRecommendationState(event.target.value); resetCatalogPage(); }}><option value="">Full approved catalog</option><option value={defaultCatalogRecommendationState}>Suggested now (server included-by-default)</option>{(catalogPage?.facets.recommendationStates ?? []).filter((option) => option.value !== defaultCatalogRecommendationState).map((option) => <option key={option.value} value={option.value}>{catalogValueLabel(option.value)} · {option.count.toLocaleString("en-US")}</option>)}</select></label>
                   <label htmlFor="planning-intake-selected-state">Selected state<select id="planning-intake-selected-state" aria-label="Selected state filter" value={catalogSelectedFilter} onChange={(event) => { setCatalogSelectedFilter(event.target.value as typeof catalogSelectedFilter); resetCatalogPage(); }}><option value="all">All questions</option><option value="selected">Selected in scope</option><option value="unselected">Not selected</option></select></label>
                 </div><button className="planning-intake-text-action" disabled={!activeFilterCount && catalogRecommendationState === defaultCatalogRecommendationState} type="button" onClick={() => { setCatalogFormCode([]); setCatalogDomain([]); setCatalogTopic([]); setCatalogRiskBand([]); setCatalogSourceGapState(""); setCatalogChecklistFocus([]); setCatalogRecommendationState(""); setCatalogSelectedFilter("all"); resetCatalogPage(); }}>Clear filters</button></details>
                 <p className="planning-intake-result-count" aria-live="polite">{catalogPage?.totalCount.toLocaleString("en-US") ?? "0"} matching questions · page {catalogPageNumber}</p>
                 {catalogBusy ? <p className="planning-intake-loading" role="status">Loading suggested questions…</p> : null}
                 {!catalogBusy && !catalogPage ? <p className="planning-intake-loading" role="status">Catalog selection is unavailable in this build profile.</p> : null}
-                {catalogPage ? <ul className="planning-intake-catalog-list">{catalogPage.items.map((question) => { const checked = pendingSelectionIds.includes(question.questionVersionId); const prompt = question.prompt ?? "Question prompt unavailable"; const questionInfo = [question.formCode, `item ${question.ordinal}`, `${catalogValueLabel(question.aiAdvisory.riskTier)} risk`, catalogValueLabel(question.aiAdvisory.advisoryState), ...question.aiAdvisory.recommendationReasonCodes.slice(0, 1).map(catalogValueLabel)].join(" · "); return <li key={question.questionVersionId}><label><input aria-label={`Select ${question.formCode} item ${question.ordinal}`} checked={checked} disabled={busy || !question.canSelect} onChange={() => toggleQuestion(question.questionVersionId)} title={!question.canSelect ? "This question is not selectable in the current server-authorized scope." : undefined} type="checkbox" /><span><b className="planning-intake-question-prompt" title={prompt}>{prompt}</b><small className="planning-intake-question-info">{questionInfo}</small></span></label><button className="planning-intake-question-detail" type="button" onClick={(event) => void openCatalogDetail(question, event.currentTarget)}>View details</button></li>; })}</ul> : null}
+                {catalogPage ? <ul className="planning-intake-catalog-list">{catalogPage.items.map((question) => { const checked = pendingSelectionIds.includes(question.questionVersionId); const prompt = question.prompt ?? "Question prompt unavailable"; const questionInfo = [question.formCode, `item ${question.ordinal}`, `${catalogValueLabel(question.aiAdvisory.riskTier)} risk`, catalogValueLabel(question.recommendation.recommendationState), `${question.recommendation.historyCount.toLocaleString("en-US")} prior Audits`, ...question.recommendation.signalCodes.slice(0, 1).map(catalogValueLabel)].join(" · "); return <li key={question.questionVersionId}><label><input aria-label={`Select ${question.formCode} item ${question.ordinal}`} checked={checked} disabled={busy || !question.canSelect} onChange={() => toggleQuestion(question.questionVersionId)} title={!question.canSelect ? "This question is not selectable in the current server-authorized scope." : undefined} type="checkbox" /><span><b className="planning-intake-question-prompt" title={prompt}>{prompt}</b><small className="planning-intake-question-info">{questionInfo}</small><small>{question.recommendation.rationale}</small></span></label><button className="planning-intake-question-detail" type="button" onClick={(event) => void openCatalogDetail(question, event.currentTarget)}>View details</button></li>; })}</ul> : null}
                 <div className="planning-intake-selection-actions"><button disabled={busy || catalogBusy || !catalogPage} type="button" onClick={() => void addAllMatchingQuestions(defaultCatalogRecommendationState)}>Use suggested questions</button><details className="planning-intake-more-actions"><summary>More selection actions</summary><button disabled={busy || catalogBusy || !catalogPage} type="button" onClick={() => void addAllMatchingQuestions()}>Add all matching eligible questions</button></details></div>
                 <section aria-label="Selection summary" className="planning-intake-selection-summary"><header><div><h3>Selection summary</h3><p>{selectionDelta.selectedCount.toLocaleString("en-US")} questions selected</p></div><div className="planning-intake-selection-summary__metrics"><span>Additions <b>{selectionDelta.additions.toLocaleString("en-US")}</b></span><span>Removals <b>{selectionDelta.removals.toLocaleString("en-US")}</b></span><span>Resource <b>{selectionSummary.complete ? `${selectionSummary.estimatedResourceRequirement ?? 0} question-hours` : "Server-derived after confirmation"}</b></span></div></header>{fieldErrors.selectedQuestionVersionIds ? <FieldError id="planning-intake-selectedQuestionVersionIds-error" message={fieldErrors.selectedQuestionVersionIds} /> : null}<div><button className={useReviewPrimary ? "planning-intake-primary" : "planning-intake-secondary"} disabled={busy || !selectionDirty} type="button" onClick={(event) => openSelectionReview(event.currentTarget)}>Review selection</button><button className="planning-intake-text-action" disabled={busy || !selectionDirty} type="button" onClick={() => { setPendingSelectionIds([...(values.selectedQuestionVersionIds ?? [])]); setSelectionDirty(false); setSelectionProgress({ completed: 0, total: 0, error: null }); setStatus("Selection changes were discarded."); }}>Undo changes</button></div></section>
                 <div className="planning-intake-catalog-pagination" aria-label="Question pagination"><button disabled={catalogBusy || !catalogPreviousCursors.length} type="button" onClick={() => { const history = [...catalogPreviousCursors]; setCatalogCursor(history.pop()); setCatalogPreviousCursors(history); setCatalogPageNumber((current) => Math.max(1, current - 1)); }}>Previous questions</button><span aria-live="polite">Page {catalogPageNumber} · {catalogPage?.totalCount.toLocaleString("en-US") ?? "0"} matching</span><button disabled={catalogBusy || !catalogPage?.nextCursor} type="button" onClick={() => { if (!catalogPage?.nextCursor) return; setCatalogPreviousCursors((history) => [...history, catalogCursor ?? ""]); setCatalogCursor(catalogPage.nextCursor ?? undefined); setCatalogPageNumber((current) => current + 1); }}>Next questions</button></div>

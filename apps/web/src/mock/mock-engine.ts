@@ -70,6 +70,7 @@ import type {
   CanonicalSelectionDigest,
   CanonicalQuestionUsageClass,
 } from "../backend/backend";
+import { priorAuditCatalogEntries, type PriorAuditRecommendationProfile } from "./prior-audit-recommendations";
 import {
   BackendAuthorizationInvariantError,
   BackendConflictError,
@@ -1162,14 +1163,17 @@ export class MockBackendEngine implements DemoBackend {
   private readonly governedState: MockGovernedState;
   private readonly governedIntakeBatches = new Map<string, ChecklistImportBatchReceiptView>();
   private readonly canonicalSelections = new Map<string, { digest: string; ids: string[] }>();
-  private readonly canonicalCatalogOperations = new Map<string, string>();
+	private readonly canonicalCatalogOperations = new Map<string, string>();
+	private readonly priorAuditProfile?: PriorAuditRecommendationProfile;
 
   constructor(
     private readonly store: MemoryMockStore,
     private readonly principal: BackendPrincipal,
-    governedRequiredOwners?: GovernedRequiredOwnerView[],
-    governedBlockingIssues?: GovernedValidationIssue[],
-  ) {
+		governedRequiredOwners?: GovernedRequiredOwnerView[],
+		governedBlockingIssues?: GovernedValidationIssue[],
+		priorAuditProfile?: PriorAuditRecommendationProfile,
+	) {
+		this.priorAuditProfile = priorAuditProfile;
     const existing = governedStateByStore.get(store);
     if (existing) {
       this.governedState = existing;
@@ -2694,10 +2698,10 @@ export class MockBackendEngine implements DemoBackend {
       requireDemoCapability(this.principal, "adminWorkspace");
       requireRole(this.principal, ["admin"], "Admin Preview authority is required for Administration workspace data.");
       return this.store.read((state) => {
-        const needle = search.trim().toLocaleLowerCase();
+        const needle = search.trim().toLowerCase();
         return {
           items: state.adminWorkspace.regulatoryReferences.filter((reference) =>
-            (!needle || `${reference.id} ${reference.title} ${reference.version}`.toLocaleLowerCase().includes(needle)) &&
+            (!needle || `${reference.id} ${reference.title} ${reference.version}`.toLowerCase().includes(needle)) &&
             (!status || reference.status === status),
           ),
           nextCursor: null,
@@ -2713,10 +2717,10 @@ export class MockBackendEngine implements DemoBackend {
       requireDemoCapability(this.principal, "adminWorkspace");
       requireRole(this.principal, ["admin"], "Admin Preview authority is required for Administration workspace data.");
       return this.store.read((state) => {
-        const needle = search.trim().toLocaleLowerCase();
+        const needle = search.trim().toLowerCase();
         return {
           items: Object.values(state.adminWorkspace.questions).filter((question) =>
-            !needle || `${question.id} ${question.prompt} ${question.configuredReference} ${question.expectedEvidence}`.toLocaleLowerCase().includes(needle),
+            !needle || `${question.id} ${question.prompt} ${question.configuredReference} ${question.expectedEvidence}`.toLowerCase().includes(needle),
           ),
           nextCursor: null,
         };
@@ -2831,7 +2835,7 @@ export class MockBackendEngine implements DemoBackend {
         const index = draft.questionIds.indexOf(input.questionId);
         if (index < 0) throw new BackendInvariantError(`Question ${input.questionId} is not in ${draft.id}.`);
         const target = input.direction === "UP" ? index - 1 : index + 1;
-        if (target < 0 || target >= draft.questionIds.length) throw new BackendInvariantError(`${input.questionId} cannot move ${input.direction.toLocaleLowerCase()} in ${draft.id}.`);
+        if (target < 0 || target >= draft.questionIds.length) throw new BackendInvariantError(`${input.questionId} cannot move ${input.direction.toLowerCase()} in ${draft.id}.`);
         [draft.questionIds[index], draft.questionIds[target]] = [draft.questionIds[target]!, draft.questionIds[index]!];
         draft.revision += 1;
         state.auditEvents.push({
@@ -2854,18 +2858,18 @@ export class MockBackendEngine implements DemoBackend {
       requireDemoCapability(this.principal, "adminWorkspace");
       requireRole(this.principal, ["admin"], "Admin Preview authority is required for Administration workspace data.");
       return this.store.read((state) => {
-        const needle = search.trim().toLocaleLowerCase();
-        return { items: state.adminWorkspace.reportDefinitions.filter((report) => !needle || `${report.id} ${report.title} ${report.description}`.toLocaleLowerCase().includes(needle)), nextCursor: null };
+        const needle = search.trim().toLowerCase();
+        return { items: state.adminWorkspace.reportDefinitions.filter((report) => !needle || `${report.id} ${report.title} ${report.description}`.toLowerCase().includes(needle)), nextCursor: null };
       });
     },
     listAccessDirectory: async ({ search = "", role = "" }) => {
       requireDemoCapability(this.principal, "adminWorkspace");
       requireRole(this.principal, ["admin"], "Admin Preview authority is required for Administration workspace data.");
       return this.store.read((state) => {
-        const needle = search.trim().toLocaleLowerCase();
+        const needle = search.trim().toLowerCase();
         return {
           items: Object.values(state.profiles)
-            .filter((profile) => (!needle || `${profile.subjectId} ${profile.displayName} ${profile.organizationId ?? "CAA"}`.toLocaleLowerCase().includes(needle)) && (!role || profile.role === role))
+            .filter((profile) => (!needle || `${profile.subjectId} ${profile.displayName} ${profile.organizationId ?? "CAA"}`.toLowerCase().includes(needle)) && (!role || profile.role === role))
             .map((profile) => ({
               subjectId: profile.subjectId,
               displayName: profile.displayName,
@@ -2907,7 +2911,7 @@ export class MockBackendEngine implements DemoBackend {
       requireDemoCapability(this.principal, "adminWorkspace");
       requireRole(this.principal, ["admin"], "Admin Preview authority is required for Administration workspace data.");
       return this.store.read((state) => {
-        const needle = search.trim().toLocaleLowerCase();
+        const needle = search.trim().toLowerCase();
         const items = state.organizations.map((organization) => ({
           id: organization.id,
           legalName: organization.legalName,
@@ -2917,7 +2921,7 @@ export class MockBackendEngine implements DemoBackend {
           detailAvailable: organization.id === "ORG-FLY-NAMIBIA",
           disabledReason: organization.id === "ORG-FLY-NAMIBIA" ? null : `${organization.id} has no declared contextual detail route in Task 10.`,
         })).filter((organization) =>
-          (!needle || `${organization.id} ${organization.legalName}`.toLocaleLowerCase().includes(needle)) &&
+          (!needle || `${organization.id} ${organization.legalName}`.toLowerCase().includes(needle)) &&
           (!organizationType || organization.organizationType === organizationType) &&
           (!status || organization.status === status) &&
           (!scope || organization.scope === scope),
@@ -2940,10 +2944,10 @@ export class MockBackendEngine implements DemoBackend {
       requireRole(this.principal, ["admin"], "Admin Preview authority is required for Administration workspace data.");
       return this.store.read((state) => ({
         items: state.auditEvents.filter((event) =>
-          (!actor || `${event.actorSubjectId ?? ""} ${event.actorRole ?? "SYSTEM"}`.toLocaleLowerCase().includes(actor.toLocaleLowerCase())) &&
-          (!action || event.action.toLocaleLowerCase().includes(action.toLocaleLowerCase())) &&
-          (!entity || `${event.entityType} ${event.entityId}`.toLocaleLowerCase().includes(entity.toLocaleLowerCase())) &&
-          (!system || ((!event.actorRole && !event.actorSubjectId) ? "SYSTEM" : "MANUAL") === system.toLocaleUpperCase()) &&
+          (!actor || `${event.actorSubjectId ?? ""} ${event.actorRole ?? "SYSTEM"}`.toLowerCase().includes(actor.toLowerCase())) &&
+          (!action || event.action.toLowerCase().includes(action.toLowerCase())) &&
+          (!entity || `${event.entityType} ${event.entityId}`.toLowerCase().includes(entity.toLowerCase())) &&
+          (!system || ((!event.actorRole && !event.actorSubjectId) ? "SYSTEM" : "MANUAL") === system.toUpperCase()) &&
           (!dateText || event.occurredAt.includes(dateText)),
         ),
         nextCursor: null,
@@ -3232,15 +3236,16 @@ export class MockBackendEngine implements DemoBackend {
       const topicFilters = values(input.topic);
       const riskFilters = values(input.riskBand);
       const rows = this.syntheticCanonicalRows(input.usageClass, input.catalogVersion).filter((row) => {
-        const needle = input.search?.trim().toLocaleLowerCase() ?? "";
+        const needle = input.search?.trim().toLowerCase() ?? "";
         const selected = selectedIds?.has(row.questionVersionId) ?? false;
-        return (!needle || `${row.formCode} ${row.proposalId} ${row.questionVersionId} ${row.prompt ?? ""}`.toLocaleLowerCase().includes(needle))
+        return (!needle || `${row.formCode} ${row.proposalId} ${row.questionVersionId} ${row.prompt ?? ""}`.toLowerCase().includes(needle))
           && (!formFilters.length || formFilters.includes(row.formCode))
           && (!domainFilters.length || domainFilters.includes(row.aiAdvisory.domainCode))
           && (!topicFilters.length || topicFilters.some((topic) => row.aiAdvisory.topicCodes.includes(topic)))
           && (!riskFilters.length || riskFilters.includes(row.aiAdvisory.riskTier))
           && (!input.checklistFocus?.length || input.checklistFocus.some((focus) => row.aiAdvisory.inspectionTypeCodes.includes(focus)))
-          && (!input.recommendationState || row.aiAdvisory.advisoryState === input.recommendationState)
+          && (!input.recommendationState || row.recommendation.recommendationState === input.recommendationState)
+          && (input.includedByDefault === undefined || row.recommendation.includedByDefault === input.includedByDefault)
           && (!input.sourceGapState || row.sourceGapState === input.sourceGapState)
           && (!input.selected || input.selected === "all" || (input.selected === "selected" ? selected : !selected));
       });
@@ -3265,7 +3270,7 @@ export class MockBackendEngine implements DemoBackend {
           topics: facetOptions(rows.flatMap((row) => row.aiAdvisory.topicCodes)),
           riskTiers: facetOptions(rows.map((row) => row.aiAdvisory.riskTier)),
           checklistFocuses: facetOptions(rows.flatMap((row) => row.aiAdvisory.inspectionTypeCodes)),
-          recommendationStates: facetOptions(rows.map((row) => row.aiAdvisory.advisoryState)),
+          recommendationStates: facetOptions(rows.map((row) => row.recommendation.recommendationState)),
         },
       };
     },
@@ -3535,6 +3540,7 @@ export class MockBackendEngine implements DemoBackend {
   }
 
   private syntheticCanonicalRows(usageClass: CanonicalQuestionUsageClass, catalogVersion: string): CanonicalQuestionCatalogEntry[] {
+    if (this.priorAuditProfile) return priorAuditCatalogEntries(this.priorAuditProfile, usageClass, catalogVersion);
     return Array.from({ length: 1310 }, (_, index) => {
       const ordinal = index < 1275 ? (index % 25) + 1 : (index - 1275) + 1;
       const form = String(index < 1275 ? Math.floor(index / 25) + 1 : 52).padStart(3, "0");
@@ -3572,6 +3578,21 @@ export class MockBackendEngine implements DemoBackend {
           previouslyVerifiedAt: null,
           recurrenceDueAt: null,
           externalApplicabilityUnresolved: true,
+        },
+        recommendation: {
+          recommendationState: advisoryState,
+          classification: advisoryState === "SUGGESTED_NOW" ? "FOCUSED_FULL" : "ROTATIONAL_SAMPLE",
+          includedByDefault: true,
+          canDefer: false,
+          historyCount: 0,
+          comparableAuditCount: 0,
+          lastComparableResult: null,
+          lastComparableAuditId: null,
+          lastVerifiedAt: null,
+          recurrenceDueAt: null,
+          signalCodes: advisoryState === "SUGGESTED_NOW" ? ["HIGH_OR_UNKNOWN_RISK"] : ["UNKNOWN_HISTORY"],
+          rationale: advisoryState === "SUGGESTED_NOW" ? "The server keeps this question in the suggested scope." : "History is unavailable in the browser-local profile; keep this question suggested.",
+          guardrails: ["MANDATORY_FLOOR_ENFORCED", "FULL_CATALOG_OVERRIDE_ALLOWED"],
         },
         canSelect: true,
         canPublish: false,

@@ -10,6 +10,7 @@ export { DEMO_CAPABILITY_PERMISSION_MATRIX, type DemoCapabilityName } from "../b
 import { DEMO_MOCK_STORAGE_KEY } from "../app/demo-persistence";
 import { MemoryMockStore } from "./memory-mock-store";
 import { MockBackendEngine } from "./mock-engine";
+import type { PriorAuditRecommendationProfile } from "./prior-audit-recommendations";
 
 const defaultPrincipal: BackendPrincipal = {
   subjectId: "USR-INSPECTOR-AMINA",
@@ -23,6 +24,7 @@ export interface CreateMockBackendOptions {
   clock?: () => string;
   governedRequiredOwners?: GovernedRequiredOwnerView[];
   governedBlockingIssues?: GovernedValidationIssue[];
+  priorAuditProfile?: PriorAuditRecommendationProfile;
 }
 
 export function createMockBackend(options: CreateMockBackendOptions = {}): DemoBackend {
@@ -33,6 +35,7 @@ export function createMockBackend(options: CreateMockBackendOptions = {}): DemoB
     options.principal ?? defaultPrincipal,
     options.governedRequiredOwners,
     options.governedBlockingIssues,
+    options.priorAuditProfile,
   );
 }
 
@@ -64,12 +67,12 @@ export const DEMO_PRINCIPALS: Record<Role, BackendPrincipal> = {
 };
 
 
-function createRuntimeFromStore(store: MemoryMockStore) {
+function createRuntimeFromStore(store: MemoryMockStore, priorAuditProfile?: PriorAuditRecommendationProfile) {
   const sessions = new Map<Role, DemoBackend>();
   const backendForRole = (role: Role): DemoBackend => {
     const existing = sessions.get(role);
     if (existing) return existing;
-    const backend = createMockBackend({ store, principal: DEMO_PRINCIPALS[role] });
+    const backend = createMockBackend({ store, principal: DEMO_PRINCIPALS[role], priorAuditProfile });
     sessions.set(role, backend);
     return backend;
   };
@@ -86,18 +89,19 @@ function createRuntimeFromStore(store: MemoryMockStore) {
   };
 }
 
-export function createMockBackendRuntime(clock = () => "2026-06-15T09:00:00.000Z") {
+export function createMockBackendRuntime(clock = () => "2026-06-15T09:00:00.000Z", priorAuditProfile?: PriorAuditRecommendationProfile) {
   const store = MemoryMockStore.createCanonical({ clock });
-  return createRuntimeFromStore(store);
+  return createRuntimeFromStore(store, priorAuditProfile);
 }
 
 export function createMockBackendPersistentRuntime(
   storage: Storage,
   clock = () => "2026-06-15T09:00:00.000Z",
+  priorAuditProfile?: PriorAuditRecommendationProfile,
 ) {
   return createRuntimeFromStore(MemoryMockStore.createPersistent({
     clock,
     storage,
     storageKey: DEMO_MOCK_STORAGE_KEY,
-  }));
+  }), priorAuditProfile);
 }

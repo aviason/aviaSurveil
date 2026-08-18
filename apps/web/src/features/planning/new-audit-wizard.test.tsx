@@ -11,6 +11,7 @@ import { AppRouter } from "../../app/router";
 import { ScenarioProvider } from "../../app/scenario-context";
 import type { DemoBackend } from "../../backend/backend";
 import { createMockBackendPersistentRuntime, createMockBackendRuntime } from "../../mock/create-mock-backend";
+import { catalogValueLabel } from "./planning-intake-formatters";
 
 type MockRuntime = ReturnType<typeof createMockBackendRuntime>;
 
@@ -80,6 +81,37 @@ async function confirmOneQuestion(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe("New Inspection Planning intake", () => {
+  it("keeps English protocol labels stable and makes the planned date keyboard-safe on mobile", async () => {
+    expect(catalogValueLabel("INITIAL_CERTIFICATION")).toBe("Initial Certification");
+
+    const user = userEvent.setup();
+    renderWizardRoute("/department-manager/new-audit/step-1");
+    await createDraft(user);
+
+    const riskCategory = screen.getByRole("combobox", { name: "Risk category" });
+    expect(riskCategory).toHaveValue("Configured inspection risk");
+    await user.selectOptions(riskCategory, "Safety-critical");
+    expect(riskCategory).toHaveValue("Safety-critical");
+
+    await user.type(await screen.findByLabelText("Purpose"), "Date control regression check");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    const plannedDate = await screen.findByLabelText("Planned date");
+    expect(plannedDate).toHaveAttribute("type", "text");
+    expect(plannedDate).toHaveAttribute("inputmode", "text");
+    expect(plannedDate).toHaveAttribute("enterkeyhint", "next");
+    expect(plannedDate).toHaveAttribute("placeholder", "YYYY-MM-DD");
+    const calendarPicker = screen.getByLabelText("Open planned date calendar");
+    expect(calendarPicker).toHaveAttribute("type", "date");
+    expect(calendarPicker).not.toHaveAttribute("aria-hidden", "true");
+    expect(calendarPicker).not.toHaveAttribute("tabindex", "-1");
+    await user.type(plannedDate, "20261210");
+    expect(plannedDate).toHaveValue("2026-12-10");
+    await user.type(await screen.findByLabelText("Location"), "Fly Namibia HQ");
+    await user.click(plannedDate);
+    await user.keyboard("{Enter}");
+    await screen.findByRole("heading", { level: 2, name: "Checklist & budget" });
+  });
+
   it("loads every authorized scope page before building the cascade", async () => {
     const runtime = createMockBackendRuntime();
     const catalog = runtime.backendForRole("manager").canonicalCatalog!;
@@ -158,7 +190,7 @@ describe("New Inspection Planning intake", () => {
     await screen.findByRole("heading", { level: 2, name: "Checklist & budget" });
     await screen.findByText("Suggested questions");
     expect(screen.getByText(/matching questions · page 1/)).toBeVisible();
-    expect(listCatalog.mock.calls.some(([input]) => input.recommendationState === "SUGGESTED_NOW")).toBe(true);
+    expect(listCatalog.mock.calls.some(([input]) => input.includedByDefault === true && input.recommendationState === undefined)).toBe(true);
     expect(screen.queryByText(/qv:synthetic/)).toBeNull();
     expect(screen.getByRole("complementary", { name: "Inspection brief" })).toHaveTextContent("Fly Namibia");
   });

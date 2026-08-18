@@ -815,6 +815,60 @@
   resize: vertical;
 }
 
+.planning-intake-date-control {
+  position: relative;
+  display: grid;
+}
+
+.planning-intake-date-control > input[type="text"] {
+  padding-right: 54px;
+}
+
+.planning-intake-date-calendar {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  display: grid;
+  width: 42px;
+  min-height: 42px;
+  transform: translateY(-50%);
+  place-items: center;
+  border: 0;
+  border-radius: calc(var(--avia-radius-control) - 2px);
+  background: transparent;
+  padding: 0;
+  color: var(--avia-color-action);
+  font-size: 1.05rem;
+  pointer-events: none;
+}
+
+.planning-intake-date-picker {
+  position: absolute;
+  z-index: 2;
+  top: 4px;
+  right: 4px;
+  width: 42px !important;
+  min-width: 42px !important;
+  height: 42px !important;
+  min-height: 42px !important;
+  margin: 0;
+  border: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  color: transparent !important;
+  cursor: pointer;
+  font-size: 0;
+  opacity: 1;
+  pointer-events: auto;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.planning-intake-date-picker:focus-visible {
+  outline: 3px solid rgb(47 111 214 / 28%);
+  outline-offset: 1px;
+}
+
 .planning-intake-fields input[readonly] {
   color: var(--avia-color-muted);
   background: var(--avia-color-surface-muted);

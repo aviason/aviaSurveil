@@ -9433,6 +9433,14 @@
               "maximum": 2000,
               "default": 50
             }
+          },
+          {
+            "name": "includedByDefault",
+            "in": "query",
+            "description": "When true, return the server-evaluated default recommendation set. This is independent of recommendationState.",
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -22137,7 +22145,8 @@
           "sourceGapState",
           "canSelect",
           "canPublish",
-          "aiAdvisory"
+          "aiAdvisory",
+          "recommendation"
         ],
         "properties": {
           "catalogVersion": {
@@ -22263,6 +22272,9 @@
             "items": {
               "$ref": "#/components/schemas/QuestionReviewHistoryItem"
             }
+          },
+          "recommendation": {
+            "$ref": "#/components/schemas/CanonicalQuestionRecommendation"
           }
         }
       },
@@ -23381,6 +23393,99 @@
           "expiresAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "CanonicalQuestionRecommendation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "recommendationState",
+          "classification",
+          "includedByDefault",
+          "canDefer",
+          "historyCount",
+          "comparableAuditCount",
+          "lastComparableResult",
+          "lastComparableAuditId",
+          "signalCodes",
+          "rationale",
+          "guardrails"
+        ],
+        "properties": {
+          "recommendationState": {
+            "type": "string",
+            "enum": [
+              "SUGGESTED_NOW",
+              "MATCHING_OPTIONAL",
+              "RECENTLY_VERIFIED",
+              "OUTSIDE_FOCUS",
+              "UNCERTAIN_SIGNAL"
+            ]
+          },
+          "classification": {
+            "type": "string",
+            "enum": [
+              "MANDATORY_CORE",
+              "FOCUSED_FULL",
+              "ROTATIONAL_SAMPLE",
+              "DEFER_ELIGIBLE"
+            ]
+          },
+          "includedByDefault": {
+            "type": "boolean"
+          },
+          "canDefer": {
+            "type": "boolean"
+          },
+          "historyCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "comparableAuditCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "lastComparableResult": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastComparableAuditId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastVerifiedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "recurrenceDueAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "signalCodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "guardrails": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       }
