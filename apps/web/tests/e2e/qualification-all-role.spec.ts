@@ -927,8 +927,12 @@ test.describe("prepared identity connected qualification", () => {
     const inspectorSession = await signIn(browser, inspector);
     try {
       await inspectorSession.page.goto(`${origin}/inspector/inspector-assignments`, { waitUntil: "domcontentloaded" });
-      const assignmentRow = inspectorSession.page.getByRole("row").filter({ hasText: inspectionId });
+      const assignmentRow = inspectorSession.page
+        .getByRole("row")
+        .filter({ hasText: "SCHEDULED" })
+        .filter({ hasText: "Routine / Announced" });
       await expect(assignmentRow).toHaveCount(1);
+      await expect(assignmentRow).not.toContainText("inspection:assignment:");
       await expect(assignmentRow).toContainText("SCHEDULED");
       await assignmentRow.getByRole("button", { name: "Start inspection" }).click();
       await expect(assignmentRow).toContainText("IN PROGRESS");
