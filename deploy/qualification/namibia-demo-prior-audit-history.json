@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "manifestVersion": "namibia-demo-prior-audit-history-v1",
+  "manifestVersion": "namibia-demo-prior-audit-history-v2-history-showcase",
   "target": "namibia/demo",
   "enabled": true,
   "qualificationOnly": true,
@@ -9,7 +9,7 @@
   "providerScopeRootId": "SCOPE-NAMIBIA-DEMO-AGA-QUALIFICATION",
   "providerScopeId": "SCOPE-NAMIBIA-DEMO-AGA-QUALIFICATION",
   "regulatedTargetId": "TARGET-NAMIBIA-DEMO-AGA-QUALIFICATION-AERODROME",
-  "location": "Namibia Demo AGA Qualification Operator",
+  "location": "Namibia Demo AGA History Showcase",
   "auditType": "RAMP_INSPECTION",
   "historyWindowMonths": 36,
   "questionVersionIds": [
@@ -24,13 +24,13 @@
   ],
   "audits": [
     {
-      "auditId": "AUD-NAMIBIA-DEMO-PRIOR-001",
-      "planningDraftId": "draft-namibia-demo-prior-001",
-      "scopeDraftId": "scope-namibia-demo-prior-001",
-      "scopeSnapshotId": "scope-snapshot-namibia-demo-prior-001",
-      "inspectionPackageId": "package-namibia-demo-prior-001",
-      "reportId": "report-namibia-demo-prior-001",
-      "reportVersionId": "report-version-namibia-demo-prior-001",
+      "auditId": "AUD-NAMIBIA-DEMO-HISTORY-001",
+      "planningDraftId": "draft-namibia-demo-history-001",
+      "scopeDraftId": "scope-namibia-demo-history-001",
+      "scopeSnapshotId": "scope-snapshot-namibia-demo-history-001",
+      "inspectionPackageId": "package-namibia-demo-history-001",
+      "reportId": "report-namibia-demo-history-001",
+      "reportVersionId": "report-version-namibia-demo-history-001",
       "issuedAt": "2026-08-15T12:00:00Z",
       "scheduledDate": "2026-08-15",
       "observations": [
@@ -44,13 +44,13 @@
       ]
     },
     {
-      "auditId": "AUD-NAMIBIA-DEMO-PRIOR-002",
-      "planningDraftId": "draft-namibia-demo-prior-002",
-      "scopeDraftId": "scope-namibia-demo-prior-002",
-      "scopeSnapshotId": "scope-snapshot-namibia-demo-prior-002",
-      "inspectionPackageId": "package-namibia-demo-prior-002",
-      "reportId": "report-namibia-demo-prior-002",
-      "reportVersionId": "report-version-namibia-demo-prior-002",
+      "auditId": "AUD-NAMIBIA-DEMO-HISTORY-002",
+      "planningDraftId": "draft-namibia-demo-history-002",
+      "scopeDraftId": "scope-namibia-demo-history-002",
+      "scopeSnapshotId": "scope-snapshot-namibia-demo-history-002",
+      "inspectionPackageId": "package-namibia-demo-history-002",
+      "reportId": "report-namibia-demo-history-002",
+      "reportVersionId": "report-version-namibia-demo-history-002",
       "issuedAt": "2026-07-15T12:00:00Z",
       "scheduledDate": "2026-07-15",
       "observations": [
@@ -64,13 +64,13 @@
       ]
     },
     {
-      "auditId": "AUD-NAMIBIA-DEMO-PRIOR-003",
-      "planningDraftId": "draft-namibia-demo-prior-003",
-      "scopeDraftId": "scope-namibia-demo-prior-003",
-      "scopeSnapshotId": "scope-snapshot-namibia-demo-prior-003",
-      "inspectionPackageId": "package-namibia-demo-prior-003",
-      "reportId": "report-namibia-demo-prior-003",
-      "reportVersionId": "report-version-namibia-demo-prior-003",
+      "auditId": "AUD-NAMIBIA-DEMO-HISTORY-003",
+      "planningDraftId": "draft-namibia-demo-history-003",
+      "scopeDraftId": "scope-namibia-demo-history-003",
+      "scopeSnapshotId": "scope-snapshot-namibia-demo-history-003",
+      "inspectionPackageId": "package-namibia-demo-history-003",
+      "reportId": "report-namibia-demo-history-003",
+      "reportVersionId": "report-version-namibia-demo-history-003",
       "issuedAt": "2026-06-15T12:00:00Z",
       "scheduledDate": "2026-06-15",
       "observations": [

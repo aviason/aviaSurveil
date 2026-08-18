@@ -229,14 +229,20 @@ func (api *CanonicalAPI) loadCanonicalRecommendationSummary(ctx context.Context,
 			FROM inspection_packages package
 			JOIN canonical_audit_scope_snapshots snapshot ON snapshot.id = package.canonical_scope_snapshot_id
 			JOIN canonical_audit_scope_drafts prior_scope ON prior_scope.id = snapshot.scope_draft_id
+			JOIN organization_service_provider_scopes prior_provider_scope ON prior_provider_scope.id = prior_scope.provider_scope_id
+			JOIN canonical_audit_scope_drafts active_scope ON active_scope.id = $1
+			JOIN organization_service_provider_scopes active_provider_scope ON active_provider_scope.id = active_scope.provider_scope_id
 			JOIN planning_intake_drafts prior_planning ON prior_planning.id = prior_scope.planning_intake_draft_id
 			JOIN report_versions report ON report.inspection_id = package.inspection_id
 			JOIN report_approval_states approval ON approval.report_version_id = report.id
 			WHERE snapshot.stage = 'RELEASED'
-			  AND prior_scope.organization_id = (SELECT organization_id FROM canonical_audit_scope_drafts WHERE id = $1)
-			  AND prior_scope.provider_scope_id = (SELECT provider_scope_id FROM canonical_audit_scope_drafts WHERE id = $1)
-			  AND prior_scope.regulated_target_id = (SELECT regulated_target_id FROM canonical_audit_scope_drafts WHERE id = $1)
-			  AND prior_scope.audit_type = (SELECT audit_type FROM canonical_audit_scope_drafts WHERE id = $1)
+			  AND prior_scope.organization_id = active_scope.organization_id
+			  AND prior_scope.provider_scope_id = active_scope.provider_scope_id
+			  AND prior_provider_scope.root_id = active_provider_scope.root_id
+			  AND prior_scope.regulated_target_id = active_scope.regulated_target_id
+			  AND prior_scope.audit_type = active_scope.audit_type
+			  AND prior_scope.catalog_id = active_scope.catalog_id
+			  AND prior_scope.usage_class = active_scope.usage_class
 			  AND COALESCE(prior_planning.values->>'location','') = $2
 			  AND report.snapshot->>'kind' = 'FINAL'
 			  AND approval.status = 'LOCKED'
@@ -726,10 +732,11 @@ func (api *CanonicalAPI) loadQuestionReviewHistory(ctx context.Context, row cano
 }
 
 const canonicalCatalogAIProjectionJoins = `
-JOIN canonical_question_catalog_ai_enrichments ai
+	JOIN canonical_question_catalog_ai_enrichments ai
   ON ai.catalog_id = m.catalog_id AND ai.question_version_id = m.question_version_id
 	LEFT JOIN canonical_audit_scope_drafts active_scope ON active_scope.id = $10
 	LEFT JOIN planning_intake_drafts active_planning ON active_planning.id = active_scope.planning_intake_draft_id
+	LEFT JOIN organization_service_provider_scopes active_provider_scope ON active_provider_scope.id = active_scope.provider_scope_id
 	LEFT JOIN LATERAL (
 	    SELECT
 	      COUNT(DISTINCT prior_report.inspection_id) FILTER (WHERE prior_response.id IS NOT NULL) AS question_history_count,
@@ -738,14 +745,18 @@ JOIN canonical_question_catalog_ai_enrichments ai
 	        FROM inspection_packages comparison_package
 	        JOIN canonical_audit_scope_snapshots comparison_snapshot ON comparison_snapshot.id = comparison_package.canonical_scope_snapshot_id
 	        JOIN canonical_audit_scope_drafts comparison_scope ON comparison_scope.id = comparison_snapshot.scope_draft_id
+	        JOIN organization_service_provider_scopes comparison_provider_scope ON comparison_provider_scope.id = comparison_scope.provider_scope_id
 	        JOIN planning_intake_drafts comparison_planning ON comparison_planning.id = comparison_scope.planning_intake_draft_id
 	        JOIN report_versions comparison_report ON comparison_report.inspection_id = comparison_package.inspection_id
 	        JOIN report_approval_states comparison_state ON comparison_state.report_version_id = comparison_report.id
 	        WHERE comparison_snapshot.stage = 'RELEASED'
 	          AND comparison_scope.organization_id = active_scope.organization_id
 	          AND comparison_scope.provider_scope_id = active_scope.provider_scope_id
+	          AND comparison_provider_scope.root_id = active_provider_scope.root_id
 	          AND comparison_scope.regulated_target_id = active_scope.regulated_target_id
 	          AND comparison_scope.audit_type = active_scope.audit_type
+	          AND comparison_scope.catalog_id = active_scope.catalog_id
+	          AND comparison_scope.usage_class = active_scope.usage_class
 	          AND COALESCE(comparison_planning.values->>'location','') = COALESCE(active_planning.values->>'location','')
 	          AND comparison_report.snapshot->>'kind' = 'FINAL'
 	          AND comparison_state.status = 'LOCKED'
@@ -864,8 +875,10 @@ JOIN canonical_question_catalog_ai_enrichments ai
 	    FROM inspection_packages prior_package
     JOIN canonical_audit_scope_snapshots prior_snapshot
       ON prior_snapshot.id = prior_package.canonical_scope_snapshot_id
-    JOIN canonical_audit_scope_drafts prior_scope
+	    JOIN canonical_audit_scope_drafts prior_scope
       ON prior_scope.id = prior_snapshot.scope_draft_id
+	JOIN organization_service_provider_scopes prior_provider_scope
+	  ON prior_provider_scope.id = prior_scope.provider_scope_id
     JOIN canonical_audit_scope_snapshot_questions prior_question
       ON prior_question.snapshot_id = prior_snapshot.id
      AND prior_question.question_version_id = m.question_version_id
@@ -879,8 +892,11 @@ JOIN canonical_question_catalog_ai_enrichments ai
 	      AND prior_snapshot.stage = 'RELEASED'
 			AND prior_scope.organization_id = active_scope.organization_id
 		AND prior_scope.provider_scope_id = active_scope.provider_scope_id
+		AND prior_provider_scope.root_id = active_provider_scope.root_id
 		AND prior_scope.regulated_target_id = active_scope.regulated_target_id
 			AND prior_scope.audit_type = active_scope.audit_type
+			AND prior_scope.catalog_id = active_scope.catalog_id
+			AND prior_scope.usage_class = active_scope.usage_class
 			AND COALESCE(prior_planning.values->>'location','') = COALESCE(active_planning.values->>'location','')
 			AND prior_report.snapshot->>'kind' = 'FINAL'
 			AND prior_state.status = 'LOCKED'
@@ -1108,7 +1124,7 @@ func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.Respons
 		return
 	}
 	selectionPredicate := `($9='' OR $9='all' OR (($9='selected') = EXISTS (SELECT 1 FROM canonical_audit_scope_selection_questions sq JOIN canonical_audit_scope_selection_operations so ON so.id=sq.operation_id WHERE so.id=(SELECT latest.id FROM canonical_audit_scope_selection_operations latest WHERE latest.scope_draft_id=$10 AND latest.operation_kind <> 'PREVIEW' ORDER BY latest.created_at DESC, latest.id DESC LIMIT 1) AND sq.question_version_id=m.question_version_id)))`
-	where := `c.catalog_version=$1 AND c.usage_class=$2 AND c.status='SEALED' AND c.source_origin='IMPORTED_APPROVED_SOURCE' AND ($3='' OR m.form_code ILIKE '%' || $3 || '%' OR m.proposal_id ILIKE '%' || $3 || '%' OR q.prompt ILIKE '%' || $3 || '%') AND ($4='' OR m.form_code = ANY(string_to_array($4, ','))) AND ($5='' OR ai.domain_code = ANY(string_to_array($5, ','))) AND ($6='' OR ai.topic_codes && string_to_array($6, ',')) AND ($7='' OR ai.risk_tier = ANY(string_to_array($7, ','))) AND ($8='' OR m.source_gap_state=$8) AND (($11::text[] = '{}'::text[] OR ai.inspection_type_codes && $11::text[]) OR ($12='OUTSIDE_FOCUS' AND $11::text[] <> '{}'::text[] AND NOT (ai.inspection_type_codes && $11::text[]))) AND ($12='' OR recommendation.recommendation_state=$12) AND ($15::boolean IS NULL OR recommendation.included_by_default=$15::boolean) AND COALESCE((SELECT status FROM canonical_question_catalog_membership_events event WHERE event.catalog_id=m.catalog_id AND event.question_version_id=m.question_version_id ORDER BY occurred_at DESC,event_id DESC LIMIT 1),'AVAILABLE')='AVAILABLE' AND ($10='' OR EXISTS (SELECT 1 FROM canonical_question_catalog_applicabilities applicability JOIN canonical_audit_scope_drafts scope ON scope.id=$10 WHERE applicability.catalog_id=m.catalog_id AND applicability.question_version_id=m.question_version_id AND applicability.provider_scope_id=scope.provider_scope_id AND applicability.regulated_target_id=scope.regulated_target_id AND applicability.status='ELIGIBLE')) AND ($13='' OR active_scope.audit_type=$13) AND ` + selectionPredicate
+	where := `c.catalog_version=$1 AND c.usage_class=$2 AND c.status='SEALED' AND c.source_origin='IMPORTED_APPROVED_SOURCE' AND ($3='' OR m.form_code ILIKE '%' || $3 || '%' OR m.proposal_id ILIKE '%' || $3 || '%' OR q.prompt ILIKE '%' || $3 || '%') AND ($4='' OR m.form_code = ANY(string_to_array($4, ','))) AND ($5='' OR ai.domain_code = ANY(string_to_array($5, ','))) AND ($6='' OR ai.topic_codes && string_to_array($6, ',')) AND ($7='' OR ai.risk_tier = ANY(string_to_array($7, ','))) AND ($8='' OR m.source_gap_state=$8) AND (($11::text[] = '{}'::text[] OR ai.inspection_type_codes && $11::text[]) OR ($12='OUTSIDE_FOCUS' AND $11::text[] <> '{}'::text[] AND NOT (ai.inspection_type_codes && $11::text[]))) AND ($12='' OR recommendation.recommendation_state=$12) AND ($15::boolean IS NULL OR recommendation.included_by_default=$15::boolean) AND COALESCE((SELECT status FROM canonical_question_catalog_membership_events event WHERE event.catalog_id=m.catalog_id AND event.question_version_id=m.question_version_id ORDER BY occurred_at DESC,event_id DESC LIMIT 1),'AVAILABLE')='AVAILABLE' AND ($10='' OR active_scope.catalog_id=c.id) AND ($10='' OR EXISTS (SELECT 1 FROM canonical_question_catalog_applicabilities applicability JOIN canonical_audit_scope_drafts scope ON scope.id=$10 WHERE applicability.catalog_id=m.catalog_id AND applicability.question_version_id=m.question_version_id AND applicability.provider_scope_id=scope.provider_scope_id AND applicability.regulated_target_id=scope.regulated_target_id AND applicability.status='ELIGIBLE')) AND ($13='' OR active_scope.audit_type=$13) AND ` + selectionPredicate
 	ctx := request.Context()
 	evaluationAsOf := api.clock().UTC()
 	recommendationSummary, err := api.loadCanonicalRecommendationSummary(ctx, catalogVersion, usage, scopeID, applicationType, evaluationAsOf)
@@ -1304,6 +1320,7 @@ func canonicalCatalogFacetWhere(exclude string) string {
 		"($3::text='' OR m.form_code ILIKE '%' || $3::text || '%' OR m.proposal_id ILIKE '%' || $3::text || '%' OR q.prompt ILIKE '%' || $3::text || '%')",
 		"($8::text='' OR m.source_gap_state=$8::text)",
 		"$9::text=$9::text",
+		"($10::text='' OR active_scope.catalog_id=c.id)",
 		"COALESCE((SELECT status FROM canonical_question_catalog_membership_events event WHERE event.catalog_id=m.catalog_id AND event.question_version_id=m.question_version_id ORDER BY occurred_at DESC,event_id DESC LIMIT 1),'AVAILABLE')='AVAILABLE'",
 		"($10::text='' OR EXISTS (SELECT 1 FROM canonical_question_catalog_applicabilities applicability JOIN canonical_audit_scope_drafts scope ON scope.id=$10::text WHERE applicability.catalog_id=m.catalog_id AND applicability.question_version_id=m.question_version_id AND applicability.provider_scope_id=scope.provider_scope_id AND applicability.regulated_target_id=scope.regulated_target_id AND applicability.status='ELIGIBLE'))",
 	}

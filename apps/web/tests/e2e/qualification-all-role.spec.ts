@@ -73,7 +73,13 @@ interface CanonicalQuestionCatalogEntry {
   canSelect: boolean;
   canPublish: boolean;
   aiAdvisory?: { advisoryState: string; recommendationReasonCodes?: string[] };
-  recommendation?: { includedByDefault: boolean; signalCodes?: string[] };
+  recommendation?: {
+    recommendationState: string;
+    classification: string;
+    includedByDefault: boolean;
+    canDefer: boolean;
+    signalCodes?: string[];
+  };
 }
 
 interface CanonicalQuestionCatalogPage {
@@ -82,6 +88,10 @@ interface CanonicalQuestionCatalogPage {
   catalogVersion: string;
   usageClass: string;
   totalCount: number;
+  recommendationSummary: {
+    comparableAuditCount: number;
+    historyDeferredCount: number;
+  };
 }
 
 interface ApprovedSourceQuestion {
@@ -581,6 +591,31 @@ test.describe("prepared identity connected qualification", () => {
       const firstPage = await getApiJson<CanonicalQuestionCatalogPage>(managerSession.page, `/v1/question-catalogs/${encodeURIComponent(scenario.catalogVersion)}/questions?${firstPageQuery.toString()}`);
       expect(firstPage.totalCount).toBeGreaterThan(0);
       expect(firstPage.items.map((item) => `${item.formCode} · item ${item.ordinal}`)).toEqual(firstVisibleReferences);
+      const comparableAuditCount = firstPage.recommendationSummary.comparableAuditCount;
+      expect(comparableAuditCount).toBeGreaterThanOrEqual(3);
+      expect(firstPage.recommendationSummary.historyDeferredCount).toBeGreaterThan(0);
+      await expect(managerSession.page.getByRole("status", { name: "Prior-Audit recommendation summary" })).toContainText(`${comparableAuditCount} comparable prior Audits`);
+      await expect(managerSession.page.getByRole("status", { name: "Prior-Audit recommendation summary" })).toContainText("withheld by history");
+      const fullRecommendationQuery = new URLSearchParams({ usageClass: "GOVERNED_OPERATIONAL", scopeId: scopeDraftId, applicationType: scenario.applicationType, limit: "2000", projection: "selection" });
+      const fullRecommendationPage = await getApiJson<CanonicalQuestionCatalogPage>(managerSession.page, `/v1/question-catalogs/${encodeURIComponent(scenario.catalogVersion)}/questions?${fullRecommendationQuery.toString()}`);
+      expect(fullRecommendationPage.totalCount).toBe(1310);
+      const seedHistoryQuestionId = "qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0001";
+      const fullHistoryQuestion = fullRecommendationPage.items.find((item) => item.questionVersionId === seedHistoryQuestionId);
+      expect(fullHistoryQuestion).toMatchObject({ questionVersionId: seedHistoryQuestionId, canSelect: true });
+      const deferredRecommendationQuery = new URLSearchParams({ usageClass: "GOVERNED_OPERATIONAL", scopeId: scopeDraftId, applicationType: scenario.applicationType, recommendationState: "RECENTLY_VERIFIED", includedByDefault: "false", limit: "2000", projection: "selection" });
+      const deferredRecommendationPage = await getApiJson<CanonicalQuestionCatalogPage>(managerSession.page, `/v1/question-catalogs/${encodeURIComponent(scenario.catalogVersion)}/questions?${deferredRecommendationQuery.toString()}`);
+      expect(deferredRecommendationPage.totalCount).toBe(firstPage.recommendationSummary.historyDeferredCount);
+      expect(deferredRecommendationPage.items.length).toBeGreaterThan(0);
+      const restoredHistoryQuestionId = deferredRecommendationPage.items[0]?.questionVersionId ?? "";
+      expect(restoredHistoryQuestionId).toBeTruthy();
+      expect(deferredRecommendationPage.items.every((item) => item.recommendation !== undefined && item.recommendation.recommendationState === "RECENTLY_VERIFIED" && item.recommendation.classification === "DEFER_ELIGIBLE" && item.recommendation.canDefer && !item.recommendation.includedByDefault)).toBe(true);
+      expect(firstPage.items.map((item) => item.questionVersionId)).not.toContain(restoredHistoryQuestionId);
+      const restoreHistoryButton = managerSession.page.getByRole("button", { name: "Include all history-deferred questions" });
+      await expect(restoreHistoryButton).toBeEnabled();
+      await restoreHistoryButton.click();
+      await expect(managerSession.page.getByText(/history-deferred questions are included and ready for selection review/)).toBeVisible();
+      await managerSession.page.getByRole("button", { name: "Undo changes" }).click();
+      writeEvent({ event: "manager-prior-audit-recommendation-oracle", suggestedCount: firstPage.totalCount, fullCatalogCount: fullRecommendationPage.totalCount, comparableAuditCount: firstPage.recommendationSummary.comparableAuditCount, historyDeferredCount: firstPage.recommendationSummary.historyDeferredCount, presentHistoryDeferredQuestionId: restoredHistoryQuestionId, absentFromSuggested: !firstPage.items.some((item) => item.questionVersionId === restoredHistoryQuestionId), restoredAndUndone: true, status: "verified locally" });
       const firstPageReference = firstPageVisibleText;
       const nextQuestions = managerSession.page.getByRole("button", { name: "Next questions" });
       await expect(nextQuestions).toBeEnabled();
