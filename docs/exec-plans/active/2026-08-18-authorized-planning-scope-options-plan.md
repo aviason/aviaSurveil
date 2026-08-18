@@ -1,7 +1,7 @@
 # Authorized Planning Scope Options
 
 Date: 2026-08-18
-Status: active — source and local mock verification complete; connected database verification `blocked`; public release `release pending`; production readiness not claimed
+Status: active — source, mock, disposable PostgreSQL qualification, immutable release, bootstrap, apply, and public health/app-shell verification `verified`; production readiness not claimed
 
 ## Objective and user-visible outcome
 
@@ -58,10 +58,14 @@ Fresh evidence from this change:
 - `verified locally`: Go loader packages, 20 React planning tests, `build:demo`,
   `build:http`, foundation manifest validation, approved catalog validation,
   and local IAB interaction proof.
-- `blocked`: integration qualification test because PostgreSQL at
-  `127.0.0.1:55432` was not running.
-- `release pending`: released demo lock still points at the prior three
-  bootstrap manifest digests; it was intentionally not edited.
+- `verified locally`: `bash scripts/test-qualification-bootstrap.sh` passed the
+  fresh PostgreSQL foundation/roster/catalog replay, including expansion from
+  one historical applicability binding to the current authorized binding set.
+- `verified`: the separately authorized `namibia/demo` successor release is
+  live under immutable lock `sha256:643b4b11722687ee61daf8e5cd763ab59159cbbab07a65389129d0eaf0a39135`.
+- `verified`: public `/health/ready` returned 200 and the public app-shell
+  fingerprint, worker digest, and manifest digest matched the lock; the
+  public `/auth/session` 401 remains expected without a browser session.
 
 ## Risks, idempotence, and recovery
 
@@ -73,23 +77,22 @@ known source changes through a reviewed patch if the tuple contract is rejected.
 
 ## Current outcome
 
-The source contract and local mock path now support and render three supplier
+The source contract and local mock path support and render three supplier
 options, three provider options, three aerodrome targets, and the existing
 Ramp/Cabin plus eight controlled lifecycle inspection types. The live public
-demo cannot reflect the new data until a new application/bootstrap release is
-explicitly authorized and qualified.
+demo now reflects the authorized foundation/catalog/roster release. Future
+recommendation-policy or catalog changes require their own plan and immutable
+release gate.
 
 ## Execution Prompt
 
-Run the remaining verification for this plan from the AviaWorkspace root:
+The implementation and separately authorized public release gates for this
+scope-options plan are complete. Do not mutate the live demo from this plan.
+Future work should use a new ExecPlan and an exact release authorization.
 
 ```text
-Read the root and apps/surveil AGENTS.md files and this plan. Preserve all
-unrelated dirty changes. Start only the disposable local PostgreSQL profile,
-run the qualification bootstrap replay/drift test, and inspect the exact
-scope-option counts through the HTTP route. Do not edit or regenerate a
-released lock, deploy, push, or change credentials without explicit approval.
-If the connected checks pass, prepare (but do not publish) the exact release
-inputs and report the required lock/image/qualification gates as release
-pending.
+Read the root and apps/surveil AGENTS.md files and the next active plan. Keep
+the immutable demo release unchanged, preserve unrelated dirty changes, and
+obtain separate authorization before any new image, bootstrap, lock, or cloud
+operation.
 ```
