@@ -463,6 +463,7 @@ export function NewAuditWizardPage() {
   const selectionWorkTotalRef = useRef(0);
   const selectionReviewTriggerRef = useRef<HTMLElement | null>(null);
   const catalogTriggerRef = useRef<HTMLElement | null>(null);
+  const catalogDetailRequestRef = useRef(0);
   useEffect(() => { draftRef.current = draft; }, [draft]);
   useEffect(() => { valuesRef.current = values; }, [values]);
   useEffect(() => () => { if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current); }, []);
@@ -690,8 +691,8 @@ export function NewAuditWizardPage() {
     } catch (cause) { setServerError(errorMessage(cause)); } finally { setBusy(false); }
   }
 
-  async function openCatalogDetail(question: CanonicalQuestionCatalogEntry, trigger?: HTMLElement) { catalogTriggerRef.current = trigger ?? document.activeElement as HTMLElement | null; setCatalogDetail(question); if (!valuesRef.current || !backend.canonicalCatalog) return; try { const detail = await backend.canonicalCatalog.getQuestion({ catalogVersion: valuesRef.current.catalogVersion || "", usageClass: auditUsageClass, questionVersionId: question.questionVersionId, scopeId: valuesRef.current.scopeDraftId || undefined, applicationType: valuesRef.current.applicationType as CanonicalApplicationType }); setCatalogDetail(detail); } catch (cause) { setServerError(errorMessage(cause)); } }
-  function closeCatalogDetail() { setCatalogDetail(null); }
+  async function openCatalogDetail(question: CanonicalQuestionCatalogEntry, trigger?: HTMLElement) { const requestId = ++catalogDetailRequestRef.current; catalogTriggerRef.current = trigger ?? document.activeElement as HTMLElement | null; setCatalogDetail(question); if (!valuesRef.current || !backend.canonicalCatalog) return; try { const detail = await backend.canonicalCatalog.getQuestion({ catalogVersion: valuesRef.current.catalogVersion || "", usageClass: auditUsageClass, questionVersionId: question.questionVersionId, scopeId: valuesRef.current.scopeDraftId || undefined, applicationType: valuesRef.current.applicationType as CanonicalApplicationType }); if (catalogDetailRequestRef.current === requestId) setCatalogDetail(detail); } catch (cause) { if (catalogDetailRequestRef.current === requestId) setServerError(errorMessage(cause)); } }
+  function closeCatalogDetail() { catalogDetailRequestRef.current += 1; setCatalogDetail(null); }
 
   async function continueFromStep() {
     if (step === 1 && !valuesRef.current) { if (!validatePendingBasics() || !pendingScopeOption || !pendingApplicationType) return; await createDraftForScope(pendingScopeOption, pendingApplicationType); return; }
