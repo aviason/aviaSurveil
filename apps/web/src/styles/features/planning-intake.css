@@ -842,20 +842,20 @@
   pointer-events: none;
 }
 
-.planning-intake-date-picker {
+.planning-intake-fields .planning-intake-date-picker {
   position: absolute;
   z-index: 2;
   top: 4px;
   right: 4px;
-  width: 42px !important;
-  min-width: 42px !important;
-  height: 42px !important;
-  min-height: 42px !important;
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  min-height: 42px;
   margin: 0;
-  border: 0 !important;
-  background: transparent !important;
-  padding: 0 !important;
-  color: transparent !important;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: transparent;
   cursor: pointer;
   font-size: 0;
   opacity: 1;
@@ -1102,7 +1102,7 @@
 .planning-intake-recommendation-summary__facts div { display: grid; gap: 3px; border-left: 2px solid var(--avia-color-line); padding-left: 10px; }
 .planning-intake-recommendation-summary__facts dt { color: var(--avia-color-muted); font-size: .72rem; font-weight: 750; text-transform: uppercase; letter-spacing: .06em; }
 .planning-intake-recommendation-summary__facts dd { margin: 0; color: var(--avia-color-ink); font-size: .82rem; line-height: 1.35; }
-.planning-intake-recommendation-summary__warning { border-top: 1px solid color-mix(in srgb, var(--avia-color-action) 30%, var(--avia-color-line)); border-bottom: 1px solid color-mix(in srgb, var(--avia-color-action) 30%, var(--avia-color-line)); padding: 10px 0; color: var(--avia-color-ink) !important; }
+.planning-intake-recommendation-summary .planning-intake-recommendation-summary__warning { border-top: 1px solid color-mix(in srgb, var(--avia-color-action) 30%, var(--avia-color-line)); border-bottom: 1px solid color-mix(in srgb, var(--avia-color-action) 30%, var(--avia-color-line)); padding: 10px 0; color: var(--avia-color-ink); }
 .planning-intake-recommendation-summary__list { display: grid; max-height: 300px; gap: 0; overflow: auto; margin: 0; border-top: 1px solid var(--avia-color-line); border-bottom: 1px solid var(--avia-color-line); padding: 0; list-style: none; }
 .planning-intake-recommendation-summary__list li { display: grid; gap: 4px; border-bottom: 1px solid var(--avia-color-line); padding: 10px 0; }
 .planning-intake-recommendation-summary__list li:last-child { border-bottom: 0; }
