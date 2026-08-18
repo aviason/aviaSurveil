@@ -114,6 +114,15 @@ func TestCanonicalCatalogFacetWhereTypesEveryPreparedParameter(t *testing.T) {
 	}
 }
 
+func TestCanonicalRecommendationComparisonOnlyCountsQuestionScopedAudits(t *testing.T) {
+	if !strings.Contains(canonicalCatalogAIProjectionJoins, "JOIN canonical_audit_scope_snapshot_questions comparison_question") {
+		t.Fatal("recommendation history does not bind comparison audits to the question snapshot")
+	}
+	if !strings.Contains(canonicalCatalogAIProjectionJoins, "comparison_question.question_version_id = m.question_version_id") {
+		t.Fatal("recommendation history can count an audit where the question was not selected")
+	}
+}
+
 func TestCanonicalExecutionTypeQueryParsingAndProviderBinding(t *testing.T) {
 	for value, want := range map[string]string{
 		"RAMP": "RAMP_INSPECTION", "CABIN": "CABIN_INSPECTION",

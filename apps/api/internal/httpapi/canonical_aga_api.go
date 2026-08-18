@@ -744,6 +744,9 @@ const canonicalCatalogAIProjectionJoins = `
 	        SELECT COUNT(DISTINCT comparison_report.inspection_id)
 	        FROM inspection_packages comparison_package
 	        JOIN canonical_audit_scope_snapshots comparison_snapshot ON comparison_snapshot.id = comparison_package.canonical_scope_snapshot_id
+	        JOIN canonical_audit_scope_snapshot_questions comparison_question
+	          ON comparison_question.snapshot_id = comparison_snapshot.id
+	         AND comparison_question.question_version_id = m.question_version_id
 	        JOIN canonical_audit_scope_drafts comparison_scope ON comparison_scope.id = comparison_snapshot.scope_draft_id
 	        JOIN organization_service_provider_scopes comparison_provider_scope ON comparison_provider_scope.id = comparison_scope.provider_scope_id
 	        JOIN planning_intake_drafts comparison_planning ON comparison_planning.id = comparison_scope.planning_intake_draft_id
