@@ -17,7 +17,8 @@ RUN mkdir -p /out \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/runtime-database-bootstrap ./cmd/runtime-database-bootstrap \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/curated-foundation-loader ./cmd/curated-foundation-loader \
     && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/prepared-roster-loader ./cmd/prepared-roster-loader \
-    && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/approved-aga-catalog-loader ./cmd/approved-aga-catalog-loader
+    && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/approved-aga-catalog-loader ./cmd/approved-aga-catalog-loader \
+    && go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /out/prior-audit-history-loader ./cmd/prior-audit-history-loader
 
 FROM ${GO_RUNTIME_IMAGE} AS runtime-base
 COPY --from=go-build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
@@ -54,6 +55,8 @@ COPY --from=go-build --chown=10001:10001 /out/runtime-database-bootstrap /app/ru
 COPY --from=go-build --chown=10001:10001 /out/curated-foundation-loader /app/curated-foundation-loader
 COPY --from=go-build --chown=10001:10001 /out/prepared-roster-loader /app/prepared-roster-loader
 COPY --from=go-build --chown=10001:10001 /out/approved-aga-catalog-loader /app/approved-aga-catalog-loader
+COPY --from=go-build --chown=10001:10001 /out/prior-audit-history-loader /app/prior-audit-history-loader
 COPY --chown=10001:10001 deliverables/AGA_ALL_FORMS_APPROVED_SOURCE_V2.zip /app/bootstrap/AGA_ALL_FORMS_APPROVED_SOURCE_V2.zip
 COPY --chown=10001:10001 deliverables/aga-ai-checklist-recommendations-v1/AGA_AI_CHECKLIST_RECOMMENDATIONS_V1.json /app/bootstrap/AGA_AI_CHECKLIST_RECOMMENDATIONS_V1.json
+COPY --chown=10001:10001 deploy/qualification/namibia-demo-prior-audit-history.json /app/bootstrap/namibia-demo-prior-audit-history.json
 ENTRYPOINT ["/app/curated-foundation-loader", "load"]

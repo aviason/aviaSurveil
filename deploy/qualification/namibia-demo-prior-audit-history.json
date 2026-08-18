@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "manifestVersion": "namibia-demo-prior-audit-history-v1",
+  "target": "namibia/demo",
+  "enabled": true,
+  "qualificationOnly": true,
+  "catalogVersion": "aga-approved-source@2.0.0",
+  "organizationId": "ORG-NAMIBIA-DEMO-AGA-QUALIFICATION",
+  "providerScopeRootId": "SCOPE-NAMIBIA-DEMO-AGA-QUALIFICATION",
+  "providerScopeId": "SCOPE-NAMIBIA-DEMO-AGA-QUALIFICATION",
+  "regulatedTargetId": "TARGET-NAMIBIA-DEMO-AGA-QUALIFICATION-AERODROME",
+  "location": "Namibia Demo AGA Qualification Operator",
+  "auditType": "RAMP_INSPECTION",
+  "historyWindowMonths": 36,
+  "questionVersionIds": [
+    "qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0001",
+    "qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0002",
+    "qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0003",
+    "qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0004",
+    "qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0005",
+    "qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0006",
+    "qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0007",
+    "qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0008"
+  ],
+  "audits": [
+    {
+      "auditId": "AUD-NAMIBIA-DEMO-PRIOR-001",
+      "planningDraftId": "draft-namibia-demo-prior-001",
+      "scopeDraftId": "scope-namibia-demo-prior-001",
+      "scopeSnapshotId": "scope-snapshot-namibia-demo-prior-001",
+      "inspectionPackageId": "package-namibia-demo-prior-001",
+      "reportId": "report-namibia-demo-prior-001",
+      "reportVersionId": "report-version-namibia-demo-prior-001",
+      "issuedAt": "2026-08-15T12:00:00Z",
+      "scheduledDate": "2026-08-15",
+      "observations": [
+        {"questionVersionId":"qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0001","result":"COMPLIANT","signal":"CLEAN"},
+        {"questionVersionId":"qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0002","result":"COMPLIANT","signal":"CLEAN"},
+        {"questionVersionId":"qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0003","result":"NON_COMPLIANT","signal":"OPEN"},
+        {"questionVersionId":"qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0004","result":"COMPLIANT","signal":"CLEAN"},
+        {"questionVersionId":"qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0005","result":"COMPLIANT","signal":"CLEAN"},
+        {"questionVersionId":"qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0006","result":"COMPLIANT","signal":"CLEAN"},
+        {"questionVersionId":"qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0007","result":"COMPLIANT","signal":"CLEAN"}
+      ]
+    },
+    {
+      "auditId": "AUD-NAMIBIA-DEMO-PRIOR-002",
+      "planningDraftId": "draft-namibia-demo-prior-002",
+      "scopeDraftId": "scope-namibia-demo-prior-002",
+      "scopeSnapshotId": "scope-snapshot-namibia-demo-prior-002",
+      "inspectionPackageId": "package-namibia-demo-prior-002",
+      "reportId": "report-namibia-demo-prior-002",
+      "reportVersionId": "report-version-namibia-demo-prior-002",
+      "issuedAt": "2026-07-15T12:00:00Z",
+      "scheduledDate": "2026-07-15",
+      "observations": [
+        {"questionVersionId":"qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0001","result":"COMPLIANT","signal":"CLEAN"},
+        {"questionVersionId":"qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0002","result":"COMPLIANT","signal":"CLEAN"},
+        {"questionVersionId":"qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0003","result":"COMPLIANT","signal":"CLEAN"},
+        {"questionVersionId":"qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0004","result":"COMPLIANT","signal":"REPEAT"},
+        {"questionVersionId":"qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0005","result":"COMPLIANT","signal":"CLEAN"},
+        {"questionVersionId":"qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0006","result":"COMPLIANT","signal":"CLEAN"},
+        {"questionVersionId":"qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0007","result":"COMPLIANT","signal":"CLEAN"}
+      ]
+    },
+    {
+      "auditId": "AUD-NAMIBIA-DEMO-PRIOR-003",
+      "planningDraftId": "draft-namibia-demo-prior-003",
+      "scopeDraftId": "scope-namibia-demo-prior-003",
+      "scopeSnapshotId": "scope-snapshot-namibia-demo-prior-003",
+      "inspectionPackageId": "package-namibia-demo-prior-003",
+      "reportId": "report-namibia-demo-prior-003",
+      "reportVersionId": "report-version-namibia-demo-prior-003",
+      "issuedAt": "2026-06-15T12:00:00Z",
+      "scheduledDate": "2026-06-15",
+      "observations": [
+        {"questionVersionId":"qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0001","result":"COMPLIANT","signal":"CLEAN"},
+        {"questionVersionId":"qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0002","result":"COMPLIANT","signal":"CLEAN"},
+        {"questionVersionId":"qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0003","result":"COMPLIANT","signal":"CLEAN"},
+        {"questionVersionId":"qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0004","result":"COMPLIANT","signal":"CLEAN"},
+        {"questionVersionId":"qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0005","result":"COMPLIANT","signal":"CLEAN"},
+        {"questionVersionId":"qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0006","result":"NON_COMPLIANT","signal":"OVERDUE"},
+        {"questionVersionId":"qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0007","result":"COMPLIANT","signal":"CLEAN"}
+      ]
+    }
+  ]
+}
