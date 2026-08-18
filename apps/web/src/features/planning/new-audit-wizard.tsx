@@ -499,6 +499,9 @@ export function NewAuditWizardPage() {
   const [autosaveError, setAutosaveError] = useState<string | null>(null);
   const [catalogPage, setCatalogPage] = useState<CanonicalQuestionCatalogPage | null>(null);
   const [catalogBusy, setCatalogBusy] = useState(false);
+  const [historyDeferredQuestions, setHistoryDeferredQuestions] = useState<CanonicalQuestionCatalogEntry[]>([]);
+  const [historyDeferredBusy, setHistoryDeferredBusy] = useState(false);
+  const [historyDeferredError, setHistoryDeferredError] = useState<string | null>(null);
   const [catalogSearch, setCatalogSearch] = useState("");
   const [catalogFormCode, setCatalogFormCode] = useState<string[]>([]);
   const [catalogDomain, setCatalogDomain] = useState<string[]>([]);
@@ -602,6 +605,54 @@ export function NewAuditWizardPage() {
   }, [auditUsageClass, backend, catalogChecklistFocus, catalogCursor, catalogDomain, catalogFormCode, catalogRecommendationState, catalogRiskBand, catalogSearch, catalogSelectedFilter, catalogSourceGapState, catalogTopic, step, values?.applicationType, values?.catalogVersion, values?.scopeDraftId]);
 
   useEffect(() => {
+    if (step !== 4 || !values?.catalogVersion || !values.scopeDraftId || !backend.canonicalCatalog) {
+      setHistoryDeferredQuestions([]);
+      setHistoryDeferredError(null);
+      return undefined;
+    }
+    const controller = new AbortController();
+    setHistoryDeferredBusy(true);
+    setHistoryDeferredError(null);
+    void (async () => {
+      const questions: CanonicalQuestionCatalogEntry[] = [];
+      const seenIds = new Set<string>();
+      const seenCursors = new Set<string>();
+      let cursor: string | undefined;
+      do {
+        const page = await backend.canonicalCatalog!.listCatalog({
+          catalogVersion: values.catalogVersion || "",
+          usageClass: auditUsageClass,
+          recommendationState: "RECENTLY_VERIFIED",
+          includedByDefault: false,
+          scopeId: values.scopeDraftId,
+          applicationType: values.applicationType as CanonicalApplicationType,
+          cursor,
+          limit: 2000,
+          projection: "selection",
+        }, { signal: controller.signal });
+        for (const question of page.items) {
+          if (seenIds.has(question.questionVersionId)) throw new Error("History-deferred catalog repeated a question version.");
+          seenIds.add(question.questionVersionId);
+          if (question.canSelect && question.recommendation.recommendationState === "RECENTLY_VERIFIED" && question.recommendation.classification === "DEFER_ELIGIBLE" && question.recommendation.canDefer && !question.recommendation.includedByDefault) questions.push(question);
+        }
+        const nextCursor = page.nextCursor ?? undefined;
+        if (nextCursor && seenCursors.has(nextCursor)) throw new Error("History-deferred catalog repeated a cursor.");
+        if (nextCursor) seenCursors.add(nextCursor);
+        cursor = nextCursor;
+      } while (cursor);
+      if (!controller.signal.aborted) setHistoryDeferredQuestions(questions);
+    })().catch((cause) => {
+      if (!controller.signal.aborted) {
+        setHistoryDeferredQuestions([]);
+        setHistoryDeferredError(errorMessage(cause));
+      }
+    }).finally(() => {
+      if (!controller.signal.aborted) setHistoryDeferredBusy(false);
+    });
+    return () => controller.abort();
+  }, [auditUsageClass, backend, step, values?.applicationType, values?.catalogVersion, values?.scopeDraftId]);
+
+  useEffect(() => {
     const background = document.querySelector<HTMLElement>(".planning-intake-page");
     if (!background) return undefined;
     if (selectionReviewOpen || catalogDetail) { background.setAttribute("inert", ""); background.setAttribute("aria-hidden", "true"); }
@@ -619,6 +670,9 @@ export function NewAuditWizardPage() {
   const activeFilterCount = [catalogFormCode.length, catalogDomain.length, catalogTopic.length, catalogRiskBand.length, catalogSourceGapState ? 1 : 0, catalogChecklistFocus.length, catalogRecommendationState && catalogRecommendationState !== defaultCatalogRecommendationState ? 1 : 0, catalogSelectedFilter !== "all" ? 1 : 0].reduce((sum, count) => sum + count, 0);
   const selectionDelta = useMemo(() => { const current = new Set(values?.selectedQuestionVersionIds ?? []); const desired = new Set(pendingSelectionIds); return { additions: pendingSelectionIds.filter((id) => !current.has(id)).length, removals: (values?.selectedQuestionVersionIds ?? []).filter((id) => !desired.has(id)).length, selectedCount: pendingSelectionIds.length }; }, [pendingSelectionIds, values?.selectedQuestionVersionIds]);
   const selectionSummary = useMemo(() => { const serverSummary = serverSelectionSummary && serverSelectionSummary.selectedQuestionVersionIds.length === pendingSelectionIds.length && serverSelectionSummary.selectedQuestionVersionIds.every((id) => pendingSelectionIds.includes(id)) ? serverSelectionSummary : null; return { complete: Boolean(serverSummary), estimatedResourceRequirement: serverSummary?.estimatedResourceRequirement, formDistribution: serverSummary?.formDistribution ?? {}, domainDistribution: serverSummary?.domainDistribution ?? {} }; }, [pendingSelectionIds, serverSelectionSummary]);
+  const recommendationSummary = catalogPage?.recommendationSummary ?? null;
+  const historyScenarioLabel = recommendationSummary ? recommendationSummary.comparableAuditCount === 0 ? "No comparable prior Audits" : recommendationSummary.comparableAuditCount === 1 ? "One comparable prior Audit" : `${recommendationSummary.comparableAuditCount.toLocaleString("en-US")} comparable prior Audits` : "Recommendation summary unavailable";
+  const historyDeferredReady = Boolean(recommendationSummary && !historyDeferredBusy && !historyDeferredError && historyDeferredQuestions.length === recommendationSummary.historyDeferredCount);
 
   function resetCatalogPage() { setCatalogCursor(undefined); setCatalogPreviousCursors([]); setCatalogPageNumber(1); setCatalogPage(null); }
   function clearFieldError(field: FieldKey) { setFieldErrors((current) => { if (!current[field]) return current; const next = { ...current }; delete next[field]; return next; }); }
@@ -742,6 +796,20 @@ export function NewAuditWizardPage() {
   function retrySelectionConfirmation() { setSelectionProgress((current) => ({ ...current, error: null })); void confirmSelectionReview(); }
   function toggleQuestion(questionVersionId: string) { const next = pendingSelectionIds.includes(questionVersionId) ? pendingSelectionIds.filter((id) => id !== questionVersionId) : [...pendingSelectionIds, questionVersionId]; setPendingSelectionIds([...new Set(next)]); setSelectionDirty(true); setStatus("Selection changes are ready for review."); clearFieldError("selectedQuestionVersionIds"); }
 
+  function restoreHistoryDeferredQuestions() {
+    const eligibleIds = historyDeferredQuestions
+      .filter((question) => question.canSelect && question.recommendation.recommendationState === "RECENTLY_VERIFIED" && question.recommendation.classification === "DEFER_ELIGIBLE" && question.recommendation.canDefer && !question.recommendation.includedByDefault)
+      .map((question) => question.questionVersionId);
+    if (!eligibleIds.length) {
+      setStatus("There are no history-deferred optional questions to restore.");
+      return;
+    }
+    setPendingSelectionIds((current) => [...new Set([...current, ...eligibleIds])]);
+    setSelectionDirty(true);
+    setStatus(`${eligibleIds.length.toLocaleString("en-US")} history-deferred questions are included and ready for selection review.`);
+    clearFieldError("selectedQuestionVersionIds");
+  }
+
   async function addAllMatchingQuestions(recommendationOverride?: string) {
     if (busy || !valuesRef.current || !backend.canonicalCatalog) return;
     setBusy(true); setServerError(null);
@@ -753,7 +821,7 @@ export function NewAuditWizardPage() {
         const nextCursor = page.nextCursor ?? undefined; if (nextCursor && seenCursors.has(nextCursor)) throw new Error("Catalog pagination repeated a cursor while collecting the exact question set."); if (nextCursor) seenCursors.add(nextCursor); cursor = nextCursor;
       } while (cursor);
       if (!ids.length) throw new Error("No selectable questions match the current server-authorized filters.");
-      setPendingSelectionIds([...new Set([...(valuesRef.current.selectedQuestionVersionIds ?? []), ...ids])]); setSelectionDirty(true); setStatus(`${ids.length.toLocaleString("en-US")} ${recommendationOverride ? "suggested" : "eligible"} questions are ready for selection review.`);
+      setPendingSelectionIds((current) => [...new Set([...current, ...ids])]); setSelectionDirty(true); setStatus(`${ids.length.toLocaleString("en-US")} ${recommendationOverride ? "suggested" : "eligible"} questions are ready for selection review.`);
     } catch (cause) { setServerError(errorMessage(cause)); } finally { setBusy(false); }
   }
 
@@ -821,6 +889,19 @@ export function NewAuditWizardPage() {
             {!routeRedirecting && values && step === 4 ? <div className="planning-intake-checklist-step">
               <section aria-label="Question catalog selection" className="planning-intake-catalog">
                 <header className="planning-intake-catalog-header"><div><span className="planning-intake-dialog-kicker">Server recommendation</span><h3>Suggested questions</h3><p>The catalog starts with the server's current recommendation. Selection remains an explicit Department Manager decision.</p></div><span className="planning-intake-catalog-count" aria-live="polite">{pendingSelectionIds.length.toLocaleString("en-US")} selected</span></header>
+                {recommendationSummary ? <aside aria-label="Prior-Audit recommendation summary" className="planning-intake-recommendation-summary" role="status">
+                  <header><div><span className="planning-intake-dialog-kicker">Prior-Audit history</span><h4>{historyScenarioLabel}</h4></div><span>{recommendationSummary.historyDeferredCount.toLocaleString("en-US")} withheld by history</span></header>
+                  <p>{recommendationSummary.comparableAuditCount === 0 ? "No comparable history was found for this exact organization, provider scope, regulated target, location, and audit type. Suggested questions are still constrained by authorized applicability and the selected audit-type focus." : `The server compared this scope against ${recommendationSummary.comparableAuditCount.toLocaleString("en-US")} immutable FINAL/LOCKED Audit${recommendationSummary.comparableAuditCount === 1 ? "" : "s"} in the fixed ${recommendationSummary.historyWindowMonths}-month history window.`}</p>
+                  <dl className="planning-intake-recommendation-summary__facts"><div><dt>Scope</dt><dd>{recommendationSummary.organizationLabel} · {recommendationSummary.providerScopeLabel} · {recommendationSummary.regulatedTargetLabel}</dd></div><div><dt>Location</dt><dd>{recommendationSummary.locationLabel || "Not specified"}</dd></div><div><dt>Audit type focus</dt><dd>{recommendationSummary.focusConfigured ? `${catalogValueLabel(recommendationSummary.focusType ?? recommendationSummary.auditTypeLabel)} · ${recommendationSummary.focusInspectionTypeCodes.map(catalogValueLabel).join(", ")}` : "Not configured"}</dd></div></dl>
+                  {historyDeferredBusy ? <p className="planning-intake-loading" role="status">Loading every history-deferred question and its reason…</p> : null}
+                  {historyDeferredError ? <p className="planning-intake-error" role="alert">History-deferred questions could not be loaded: {historyDeferredError}</p> : null}
+                  {recommendationSummary.historyDeferredCount > 0 ? <>
+                    <p className="planning-intake-recommendation-summary__warning"><b>Why these questions are not suggested now:</b> comparable Audits repeatedly satisfied these optional controls within their recurrence interval. They remain selectable in the full approved catalog.</p>
+                    <ul aria-label="History-deferred questions" className="planning-intake-recommendation-summary__list">{historyDeferredQuestions.map((question) => { const cleanCount = question.recommendation.validatedCleanAuditCount; const comparableCount = question.recommendation.comparableAuditCount; return <li key={question.questionVersionId}><b>{question.prompt ?? `${question.formCode} item ${question.ordinal}`}</b><small>{question.formCode} · item {question.ordinal} · {cleanCount.toLocaleString("en-US")} validated-clean of {comparableCount.toLocaleString("en-US")} comparable Audits{question.recommendation.lastValidatedCleanAt ? ` · last clean ${question.recommendation.lastValidatedCleanAt.slice(0, 10)}` : ""}</small><span>{question.recommendation.rationale}</span></li>; })}</ul>
+                    <button disabled={busy || !historyDeferredReady} type="button" onClick={restoreHistoryDeferredQuestions}>Include all history-deferred questions</button>
+                    {!historyDeferredBusy && !historyDeferredError && !historyDeferredReady ? <p className="planning-intake-error" role="alert">The complete history-deferred list is not ready yet; the restore action stays disabled until the server count matches.</p> : null}
+                  </> : <p className="planning-intake-recommendation-summary__clear">No optional questions were withheld by comparable history. Risk-protected and uncertain questions remain suggested.</p>}
+                </aside> : null}
                 <label className="planning-intake-catalog-search" htmlFor="planning-intake-catalog-search">Search questions<input id="planning-intake-catalog-search" aria-label="Search questions" value={catalogSearch} onChange={(event) => { setCatalogSearch(event.target.value); resetCatalogPage(); }} placeholder="Search question text, form, or item reference" /></label>
                 <details className="planning-intake-advanced-filters"><summary>Advanced filters <span>{activeFilterCount} active</span></summary><div className="planning-intake-catalog-filters" aria-label="Advanced question filters">
                   <CatalogFacetPicker ariaLabel="Form filter" label="Form" options={catalogPage?.facets.forms ?? []} selected={catalogFormCode} onChange={(next) => { setCatalogFormCode(next); resetCatalogPage(); }} />

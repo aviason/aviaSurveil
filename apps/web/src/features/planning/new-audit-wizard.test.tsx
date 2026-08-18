@@ -195,6 +195,22 @@ describe("New Inspection Planning intake", () => {
     expect(screen.getByRole("complementary", { name: "Inspection brief" })).toHaveTextContent("Fly Namibia");
   });
 
+  it("shows the prior-Audit scenario, every withheld reason, and restores the exact history-deferred set", async () => {
+    const user = userEvent.setup();
+    const runtime = createMockBackendRuntime(() => "2026-08-18T12:00:00.000Z", "prior-audit-multi-history");
+    renderWizardRoute("/department-manager/new-audit/step-4", runtime);
+    await progressToChecklist(user);
+    const summary = await screen.findByRole("status", { name: "Prior-Audit recommendation summary" });
+    expect(summary).toHaveTextContent("3 comparable prior Audits");
+    expect(summary).toHaveTextContent("1 withheld by history");
+    expect(screen.getByRole("list", { name: "History-deferred questions" })).toHaveTextContent("validated-clean of 3 comparable Audits");
+    const restore = screen.getByRole("button", { name: "Include all history-deferred questions" });
+    await waitFor(() => expect(restore).toBeEnabled());
+    await user.click(restore);
+    expect(screen.getByText("1 history-deferred questions are included and ready for selection review.")).toBeVisible();
+    expect(screen.getByRole("region", { name: "Selection summary" })).toHaveTextContent("1 questions selected");
+  });
+
   it("exposes all advanced filters while keeping them collapsed initially", async () => {
     const user = userEvent.setup();
     renderWizardRoute("/department-manager/new-audit/step-4");

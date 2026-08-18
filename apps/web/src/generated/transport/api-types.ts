@@ -5089,6 +5089,7 @@ export interface components {
             usageClass: components["schemas"]["QuestionUsageClass"];
             totalCount: number;
             facets: components["schemas"]["CanonicalQuestionCatalogFacets"];
+            recommendationSummary: components["schemas"]["CanonicalQuestionRecommendationSummary"];
         };
         AuditScopeSelectionDigest: {
             selectionDigest: string;
@@ -5346,8 +5347,11 @@ export interface components {
             canDefer: boolean;
             historyCount: number;
             comparableAuditCount: number;
+            validatedCleanAuditCount: number;
             lastComparableResult: string | null;
             lastComparableAuditId: string | null;
+            /** Format: date-time */
+            lastValidatedCleanAt: string | null;
             /** Format: date-time */
             lastVerifiedAt?: string | null;
             /** Format: date-time */
@@ -5355,6 +5359,27 @@ export interface components {
             signalCodes: string[];
             rationale: string;
             guardrails: string[];
+        };
+        CanonicalQuestionRecommendationSummary: {
+            organizationLabel: string;
+            providerScopeLabel: string;
+            regulatedTargetLabel: string;
+            locationLabel: string;
+            generalInspectionTypeLabel: string;
+            auditTypeLabel: string;
+            /** Format: date-time */
+            evaluationAsOf: string;
+            historyWindowMonths: number;
+            /** Format: date-time */
+            historyWindowStart: string;
+            /** Format: date-time */
+            historyWindowEnd: string;
+            comparableAuditCount: number;
+            historyDeferredCount: number;
+            focusConfigured: boolean;
+            focusType: string | null;
+            focusInspectionTypeCodes: string[];
+            recommendationEvaluationDigest: string;
         };
     };
     responses: {

@@ -70,7 +70,7 @@ import type {
   CanonicalSelectionDigest,
   CanonicalQuestionUsageClass,
 } from "../backend/backend";
-import { priorAuditCatalogEntries, type PriorAuditRecommendationProfile } from "./prior-audit-recommendations";
+import { priorAuditCatalogEntries, priorAuditRecommendationFixtures, type PriorAuditRecommendationProfile } from "./prior-audit-recommendations";
 import {
   BackendAuthorizationInvariantError,
   BackendConflictError,
@@ -3235,7 +3235,9 @@ export class MockBackendEngine implements DemoBackend {
       const domainFilters = values(input.domain);
       const topicFilters = values(input.topic);
       const riskFilters = values(input.riskBand);
-      const rows = this.syntheticCanonicalRows(input.usageClass, input.catalogVersion).filter((row) => {
+      const allRows = this.syntheticCanonicalRows(input.usageClass, input.catalogVersion);
+      const priorFixture = this.priorAuditProfile ? priorAuditRecommendationFixtures[this.priorAuditProfile] : null;
+      const rows = allRows.filter((row) => {
         const needle = input.search?.trim().toLowerCase() ?? "";
         const selected = selectedIds?.has(row.questionVersionId) ?? false;
         return (!needle || `${row.formCode} ${row.proposalId} ${row.questionVersionId} ${row.prompt ?? ""}`.toLowerCase().includes(needle))
@@ -3271,6 +3273,24 @@ export class MockBackendEngine implements DemoBackend {
           riskTiers: facetOptions(rows.map((row) => row.aiAdvisory.riskTier)),
           checklistFocuses: facetOptions(rows.flatMap((row) => row.aiAdvisory.inspectionTypeCodes)),
           recommendationStates: facetOptions(rows.map((row) => row.recommendation.recommendationState)),
+        },
+        recommendationSummary: {
+          organizationLabel: priorFixture?.organizationId ?? "Mock authorized organization",
+          providerScopeLabel: priorFixture?.providerScopeId ?? "Mock provider scope",
+          regulatedTargetLabel: priorFixture?.regulatedTargetId ?? "Mock regulated target",
+          locationLabel: priorFixture?.location ?? "Mock location",
+          generalInspectionTypeLabel: input.applicationType ?? priorFixture?.auditType ?? "RAMP_INSPECTION",
+          auditTypeLabel: input.applicationType ?? priorFixture?.auditType ?? "RAMP_INSPECTION",
+          evaluationAsOf: "2026-08-18T00:00:00.000Z",
+          historyWindowMonths: 36,
+          historyWindowStart: "2023-08-18T00:00:00.000Z",
+          historyWindowEnd: "2026-08-18T00:00:00.000Z",
+          comparableAuditCount: allRows.reduce((maximum, row) => Math.max(maximum, row.recommendation.comparableAuditCount), 0),
+          historyDeferredCount: allRows.filter((row) => row.recommendation.recommendationState === "RECENTLY_VERIFIED" && row.recommendation.classification === "DEFER_ELIGIBLE" && row.recommendation.canDefer && !row.recommendation.includedByDefault && row.canSelect).length,
+          focusConfigured: Boolean(input.applicationType),
+          focusType: input.applicationType ?? null,
+          focusInspectionTypeCodes: input.applicationType === "RAMP_INSPECTION" ? ["ON_SITE_INSPECTION", "PERIODIC_SURVEILLANCE"] : input.applicationType ? [input.applicationType] : [],
+          recommendationEvaluationDigest: "sha256:" + "0".repeat(64),
         },
       };
     },
@@ -3545,6 +3565,10 @@ export class MockBackendEngine implements DemoBackend {
       const ordinal = index < 1275 ? (index % 25) + 1 : (index - 1275) + 1;
       const form = String(index < 1275 ? Math.floor(index / 25) + 1 : 52).padStart(3, "0");
       const advisoryState = index % 5 === 0 ? "SUGGESTED_NOW" : index % 5 === 1 ? "MATCHING_OPTIONAL" : "UNCERTAIN_SIGNAL";
+      const inspectionTypeCodes = index % 4 === 0 ? ["ON_SITE_INSPECTION"] : index % 4 === 1 ? ["DOCUMENT_AND_RECORD_REVIEW"] : ["PERIODIC_SURVEILLANCE"];
+      const inRampFocus = inspectionTypeCodes.some((code) => ["ON_SITE_INSPECTION", "PERIODIC_SURVEILLANCE"].includes(code));
+      const protectedQuestion = advisoryState === "SUGGESTED_NOW" && index % 10 === 0;
+      const includedByDefault = protectedQuestion || inRampFocus || advisoryState === "UNCERTAIN_SIGNAL";
       return {
         catalogVersion,
         usageClass,
@@ -3564,10 +3588,10 @@ export class MockBackendEngine implements DemoBackend {
         aiAdvisory: {
           domainCode: "SYNTHETIC_DOMAIN",
           topicCodes: ["SYNTHETIC_TOPIC"],
-          inspectionTypeCodes: ["RAMP_INSPECTION"],
+          inspectionTypeCodes,
           inspectionProfileCodes: ["RAMP"],
           applicabilityDisposition: "IN_SCOPE",
-          riskTier: "UNKNOWN",
+          riskTier: protectedQuestion ? "HIGH" : inRampFocus ? "LOW" : "LOW",
           safetyCritical: false,
           agreementConfidence: "LOW",
           advisoryState,
@@ -3580,14 +3604,16 @@ export class MockBackendEngine implements DemoBackend {
           externalApplicabilityUnresolved: true,
         },
         recommendation: {
-          recommendationState: advisoryState,
-          classification: advisoryState === "SUGGESTED_NOW" ? "FOCUSED_FULL" : "ROTATIONAL_SAMPLE",
-          includedByDefault: true,
-          canDefer: false,
-          historyCount: 0,
-          comparableAuditCount: 0,
-          lastComparableResult: null,
-          lastComparableAuditId: null,
+            recommendationState: !includedByDefault ? "OUTSIDE_FOCUS" : advisoryState,
+            classification: protectedQuestion ? "FOCUSED_FULL" : advisoryState === "SUGGESTED_NOW" ? "FOCUSED_FULL" : "ROTATIONAL_SAMPLE",
+            includedByDefault,
+            canDefer: false,
+            historyCount: 0,
+            comparableAuditCount: 0,
+            validatedCleanAuditCount: 0,
+            lastComparableResult: null,
+            lastComparableAuditId: null,
+            lastValidatedCleanAt: null,
           lastVerifiedAt: null,
           recurrenceDueAt: null,
           signalCodes: advisoryState === "SUGGESTED_NOW" ? ["HIGH_OR_UNKNOWN_RISK"] : ["UNKNOWN_HISTORY"],

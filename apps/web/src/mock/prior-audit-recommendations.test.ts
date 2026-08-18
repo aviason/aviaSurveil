@@ -42,4 +42,16 @@ describe("prior-audit recommendation fixtures", () => {
     expect(full.items.map((item) => item.questionVersionId)).toContain("qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0005");
     expect(suggested.items.map((item) => item.questionVersionId)).not.toContain("qv:aga-approved-source-v2:FSS-AGA-FORM-002:all-forms-preview-002-0005");
   });
+
+  it("does not widen an empty-history suggested view to the full 1,310-row catalog", async () => {
+    const runtime = createMockBackendRuntime();
+    const manager = runtime.backendForRole("manager");
+    const common = { catalogVersion: "aga-approved-source@2.0.0", usageClass: "GOVERNED_OPERATIONAL" as const, limit: 2000, applicationType: "RAMP_INSPECTION" as const };
+    const suggested = await manager.canonicalCatalog!.listCatalog({ ...common, includedByDefault: true });
+    const full = await manager.canonicalCatalog!.listCatalog(common);
+    expect(suggested.recommendationSummary.comparableAuditCount).toBe(0);
+    expect(suggested.totalCount).toBeLessThan(full.totalCount);
+    expect(full.totalCount).toBe(1310);
+    expect(suggested.items.every((item) => item.recommendation.includedByDefault)).toBe(true);
+  });
 });

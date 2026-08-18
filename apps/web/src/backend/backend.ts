@@ -1709,6 +1709,7 @@ export interface CanonicalQuestionCatalogPage {
   usageClass: CanonicalQuestionUsageClass;
   totalCount: number;
   facets: GeneratedSchemas["CanonicalQuestionCatalogFacets"];
+  recommendationSummary: GeneratedSchemas["CanonicalQuestionRecommendationSummary"];
 }
 
 export interface CanonicalSelectionDigest {

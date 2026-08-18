@@ -22287,7 +22287,8 @@
           "catalogVersion",
           "usageClass",
           "totalCount",
-          "facets"
+          "facets",
+          "recommendationSummary"
         ],
         "properties": {
           "items": {
@@ -22315,6 +22316,9 @@
           },
           "facets": {
             "$ref": "#/components/schemas/CanonicalQuestionCatalogFacets"
+          },
+          "recommendationSummary": {
+            "$ref": "#/components/schemas/CanonicalQuestionRecommendationSummary"
           }
         }
       },
@@ -23406,8 +23410,10 @@
           "canDefer",
           "historyCount",
           "comparableAuditCount",
+          "validatedCleanAuditCount",
           "lastComparableResult",
           "lastComparableAuditId",
+          "lastValidatedCleanAt",
           "signalCodes",
           "rationale",
           "guardrails"
@@ -23446,6 +23452,10 @@
             "type": "integer",
             "minimum": 0
           },
+          "validatedCleanAuditCount": {
+            "type": "integer",
+            "minimum": 0
+          },
           "lastComparableResult": {
             "type": [
               "string",
@@ -23457,6 +23467,13 @@
               "string",
               "null"
             ]
+          },
+          "lastValidatedCleanAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           },
           "lastVerifiedAt": {
             "type": [
@@ -23486,6 +23503,92 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "CanonicalQuestionRecommendationSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "organizationLabel",
+          "providerScopeLabel",
+          "regulatedTargetLabel",
+          "locationLabel",
+          "generalInspectionTypeLabel",
+          "auditTypeLabel",
+          "evaluationAsOf",
+          "historyWindowMonths",
+          "historyWindowStart",
+          "historyWindowEnd",
+          "comparableAuditCount",
+          "historyDeferredCount",
+          "focusConfigured",
+          "focusType",
+          "focusInspectionTypeCodes",
+          "recommendationEvaluationDigest"
+        ],
+        "properties": {
+          "organizationLabel": {
+            "type": "string"
+          },
+          "providerScopeLabel": {
+            "type": "string"
+          },
+          "regulatedTargetLabel": {
+            "type": "string"
+          },
+          "locationLabel": {
+            "type": "string"
+          },
+          "generalInspectionTypeLabel": {
+            "type": "string"
+          },
+          "auditTypeLabel": {
+            "type": "string"
+          },
+          "evaluationAsOf": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "historyWindowMonths": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 120
+          },
+          "historyWindowStart": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "historyWindowEnd": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "comparableAuditCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "historyDeferredCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "focusConfigured": {
+            "type": "boolean"
+          },
+          "focusType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "focusInspectionTypeCodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "recommendationEvaluationDigest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
           }
         }
       }

@@ -27,6 +27,7 @@ const (
 	canonicalCatalogPageSize             = 25
 	canonicalCatalogMaximumPageSize      = 100
 	canonicalCatalogMaximumSelectionSize = 2000
+	canonicalRecommendationHistoryWindow = 36
 )
 
 const (
@@ -155,6 +156,127 @@ func emptyCanonicalCatalogFacets() generated.CanonicalQuestionCatalogFacets {
 		ChecklistFocuses:     []generated.CanonicalQuestionCatalogFacetOption{},
 		RecommendationStates: []generated.CanonicalQuestionCatalogFacetOption{},
 	}
+}
+
+func canonicalAuditTypeFocusConfiguration(auditType string) (bool, []string) {
+	switch strings.ToUpper(strings.TrimSpace(auditType)) {
+	case "RAMP", "RAMP_INSPECTION":
+		return true, []string{"ON_SITE_INSPECTION", "PERIODIC_SURVEILLANCE"}
+	case "CABIN", "CABIN_INSPECTION":
+		return true, []string{"DOCUMENT_AND_RECORD_REVIEW", "PERIODIC_SURVEILLANCE"}
+	case "CHANGE_APPROVAL", "DOCUMENT_AND_RECORD_REVIEW", "FOLLOW_UP", "INITIAL_CERTIFICATION", "ON_SITE_INSPECTION", "PERIODIC_SURVEILLANCE", "RENEWAL", "SPECIAL_PURPOSE":
+		return true, []string{strings.ToUpper(strings.TrimSpace(auditType))}
+	default:
+		return false, []string{}
+	}
+}
+
+func (api *CanonicalAPI) loadCanonicalRecommendationSummary(ctx context.Context, catalogVersion string, usage questioncatalog.UsageClass, scopeID, applicationType string, evaluationAsOf time.Time) (generated.CanonicalQuestionRecommendationSummary, error) {
+	historyWindowStart := evaluationAsOf.AddDate(0, -canonicalRecommendationHistoryWindow, 0)
+	summary := generated.CanonicalQuestionRecommendationSummary{
+		OrganizationLabel:              "",
+		ProviderScopeLabel:             "",
+		RegulatedTargetLabel:           "",
+		LocationLabel:                  "",
+		GeneralInspectionTypeLabel:     strings.TrimSpace(applicationType),
+		AuditTypeLabel:                 strings.TrimSpace(applicationType),
+		EvaluationAsOf:                 evaluationAsOf.UTC().Format(time.RFC3339Nano),
+		HistoryWindowMonths:            canonicalRecommendationHistoryWindow,
+		HistoryWindowStart:             historyWindowStart.UTC().Format(time.RFC3339Nano),
+		HistoryWindowEnd:               evaluationAsOf.UTC().Format(time.RFC3339Nano),
+		FocusInspectionTypeCodes:       []string{},
+		RecommendationEvaluationDigest: "",
+	}
+	if strings.TrimSpace(scopeID) != "" {
+		var organizationLabel, providerScopeLabel, targetLabel, locationLabel, auditType string
+		if err := api.pool.QueryRow(ctx, `
+			SELECT organization.legal_name,
+			       provider.label,
+			       COALESCE(target.external_identifier, organization.legal_name || ' regulated target'),
+			       COALESCE(planning.values->>'location',''),
+			       scope.audit_type
+			FROM canonical_audit_scope_drafts scope
+			JOIN planning_intake_drafts planning ON planning.id = scope.planning_intake_draft_id
+			JOIN organizations organization ON organization.id = scope.organization_id
+			JOIN organization_service_provider_scopes provider_scope ON provider_scope.id = scope.provider_scope_id
+			JOIN service_provider_types provider ON provider.id = provider_scope.service_provider_type_id
+			JOIN regulated_targets target ON target.id = scope.regulated_target_id
+			WHERE scope.id = $1
+		`, scopeID).Scan(&organizationLabel, &providerScopeLabel, &targetLabel, &locationLabel, &auditType); err != nil {
+			return generated.CanonicalQuestionRecommendationSummary{}, err
+		}
+		summary.OrganizationLabel = organizationLabel
+		summary.ProviderScopeLabel = providerScopeLabel
+		summary.RegulatedTargetLabel = targetLabel
+		summary.LocationLabel = locationLabel
+		summary.GeneralInspectionTypeLabel = auditType
+		summary.AuditTypeLabel = auditType
+		if configured, codes := canonicalAuditTypeFocusConfiguration(auditType); configured {
+			summary.FocusConfigured = true
+			focusType := strings.ToUpper(strings.TrimSpace(auditType))
+			if focusType == "RAMP" {
+				focusType = "RAMP_INSPECTION"
+			}
+			if focusType == "CABIN" {
+				focusType = "CABIN_INSPECTION"
+			}
+			summary.FocusType = &focusType
+			summary.FocusInspectionTypeCodes = codes
+		}
+
+		if err := api.pool.QueryRow(ctx, `
+			SELECT COUNT(DISTINCT report.inspection_id)
+			FROM inspection_packages package
+			JOIN canonical_audit_scope_snapshots snapshot ON snapshot.id = package.canonical_scope_snapshot_id
+			JOIN canonical_audit_scope_drafts prior_scope ON prior_scope.id = snapshot.scope_draft_id
+			JOIN planning_intake_drafts prior_planning ON prior_planning.id = prior_scope.planning_intake_draft_id
+			JOIN report_versions report ON report.inspection_id = package.inspection_id
+			JOIN report_approval_states approval ON approval.report_version_id = report.id
+			WHERE snapshot.stage = 'RELEASED'
+			  AND prior_scope.organization_id = (SELECT organization_id FROM canonical_audit_scope_drafts WHERE id = $1)
+			  AND prior_scope.provider_scope_id = (SELECT provider_scope_id FROM canonical_audit_scope_drafts WHERE id = $1)
+			  AND prior_scope.regulated_target_id = (SELECT regulated_target_id FROM canonical_audit_scope_drafts WHERE id = $1)
+			  AND prior_scope.audit_type = (SELECT audit_type FROM canonical_audit_scope_drafts WHERE id = $1)
+			  AND COALESCE(prior_planning.values->>'location','') = $2
+			  AND report.snapshot->>'kind' = 'FINAL'
+			  AND approval.status = 'LOCKED'
+			  AND approval.issued_at IS NOT NULL
+			  AND approval.issued_at <= $3::timestamptz
+			  AND approval.issued_at >= $3::timestamptz - make_interval(months => $4)
+		`, scopeID, locationLabel, evaluationAsOf, canonicalRecommendationHistoryWindow).Scan(&summary.ComparableAuditCount); err != nil {
+			return generated.CanonicalQuestionRecommendationSummary{}, err
+		}
+
+		deferredArgs := []any{catalogVersion, string(usage), "", "", "", "", "", "", "", scopeID, []string{}, "", auditType, evaluationAsOf, false}
+		deferredQuery := `SELECT COUNT(*)
+			FROM canonical_question_catalogs c
+			JOIN canonical_question_catalog_memberships m ON m.catalog_id = c.id
+			JOIN question_versions q ON q.id = m.question_version_id
+			` + canonicalCatalogAIProjectionJoins + `
+			WHERE ` + canonicalCatalogFacetWhere("recommendation") + `
+			  AND recommendation.recommendation_state = 'RECENTLY_VERIFIED'
+			  AND recommendation.recommendation_classification = 'DEFER_ELIGIBLE'
+			  AND recommendation.included_by_default = false
+			  AND recommendation.can_defer = true`
+		if err := api.pool.QueryRow(ctx, deferredQuery, deferredArgs...).Scan(&summary.HistoryDeferredCount); err != nil {
+			return generated.CanonicalQuestionRecommendationSummary{}, err
+		}
+	}
+	digest, err := idempotency.SemanticHash(map[string]any{
+		"organizationLabel": summary.OrganizationLabel, "providerScopeLabel": summary.ProviderScopeLabel,
+		"regulatedTargetLabel": summary.RegulatedTargetLabel, "locationLabel": summary.LocationLabel,
+		"generalInspectionTypeLabel": summary.GeneralInspectionTypeLabel, "auditTypeLabel": summary.AuditTypeLabel,
+		"evaluationAsOf": summary.EvaluationAsOf, "historyWindowMonths": summary.HistoryWindowMonths,
+		"historyWindowStart": summary.HistoryWindowStart, "historyWindowEnd": summary.HistoryWindowEnd,
+		"comparableAuditCount": summary.ComparableAuditCount, "historyDeferredCount": summary.HistoryDeferredCount,
+		"focusConfigured": summary.FocusConfigured, "focusType": summary.FocusType,
+		"focusInspectionTypeCodes": summary.FocusInspectionTypeCodes,
+	})
+	if err != nil {
+		return generated.CanonicalQuestionRecommendationSummary{}, err
+	}
+	summary.RecommendationEvaluationDigest = "sha256:" + digest
+	return summary, nil
 }
 
 // requireCanonicalScopeOwner is the horizontal-authorization boundary for a
@@ -817,6 +939,8 @@ JOIN canonical_question_catalog_ai_enrichments ai
 	      history.last_comparable_audit_id,
 	      history.question_history_count,
 	      history.comparable_audit_count,
+	      CASE WHEN history.last_verified_at IS NOT NULL AND NOT history.has_non_clean_history THEN history.question_history_count ELSE 0 END AS validated_clean_audit_count,
+	      CASE WHEN history.last_verified_at IS NOT NULL AND NOT history.has_non_clean_history THEN history.last_verified_at ELSE NULL END AS last_validated_clean_at,
 	      history.has_open_work,
 	      history.has_repeat_finding,
 	      history.has_overdue_cap,
@@ -986,8 +1110,20 @@ func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.Respons
 	selectionPredicate := `($9='' OR $9='all' OR (($9='selected') = EXISTS (SELECT 1 FROM canonical_audit_scope_selection_questions sq JOIN canonical_audit_scope_selection_operations so ON so.id=sq.operation_id WHERE so.id=(SELECT latest.id FROM canonical_audit_scope_selection_operations latest WHERE latest.scope_draft_id=$10 AND latest.operation_kind <> 'PREVIEW' ORDER BY latest.created_at DESC, latest.id DESC LIMIT 1) AND sq.question_version_id=m.question_version_id)))`
 	where := `c.catalog_version=$1 AND c.usage_class=$2 AND c.status='SEALED' AND c.source_origin='IMPORTED_APPROVED_SOURCE' AND ($3='' OR m.form_code ILIKE '%' || $3 || '%' OR m.proposal_id ILIKE '%' || $3 || '%' OR q.prompt ILIKE '%' || $3 || '%') AND ($4='' OR m.form_code = ANY(string_to_array($4, ','))) AND ($5='' OR ai.domain_code = ANY(string_to_array($5, ','))) AND ($6='' OR ai.topic_codes && string_to_array($6, ',')) AND ($7='' OR ai.risk_tier = ANY(string_to_array($7, ','))) AND ($8='' OR m.source_gap_state=$8) AND (($11::text[] = '{}'::text[] OR ai.inspection_type_codes && $11::text[]) OR ($12='OUTSIDE_FOCUS' AND $11::text[] <> '{}'::text[] AND NOT (ai.inspection_type_codes && $11::text[]))) AND ($12='' OR recommendation.recommendation_state=$12) AND ($15::boolean IS NULL OR recommendation.included_by_default=$15::boolean) AND COALESCE((SELECT status FROM canonical_question_catalog_membership_events event WHERE event.catalog_id=m.catalog_id AND event.question_version_id=m.question_version_id ORDER BY occurred_at DESC,event_id DESC LIMIT 1),'AVAILABLE')='AVAILABLE' AND ($10='' OR EXISTS (SELECT 1 FROM canonical_question_catalog_applicabilities applicability JOIN canonical_audit_scope_drafts scope ON scope.id=$10 WHERE applicability.catalog_id=m.catalog_id AND applicability.question_version_id=m.question_version_id AND applicability.provider_scope_id=scope.provider_scope_id AND applicability.regulated_target_id=scope.regulated_target_id AND applicability.status='ELIGIBLE')) AND ($13='' OR active_scope.audit_type=$13) AND ` + selectionPredicate
 	ctx := request.Context()
+	evaluationAsOf := api.clock().UTC()
+	recommendationSummary, err := api.loadCanonicalRecommendationSummary(ctx, catalogVersion, usage, scopeID, applicationType, evaluationAsOf)
+	if err != nil {
+		api.respond(writer, nil, application.ErrNotFound)
+		return
+	}
 	var total int64
-	queryArgs := []any{catalogVersion, string(usage), search, formCode, domain, topic, riskBand, sourceGapState, selected, scopeID, checklistFocus, recommendationState, applicationType, api.clock().UTC(), includedByDefault}
+	queryArgs := []any{catalogVersion, string(usage), search, formCode, domain, topic, riskBand, sourceGapState, selected, scopeID, checklistFocus, recommendationState, applicationType, evaluationAsOf, includedByDefault}
+	if projection == canonicalCatalogProjectionFull || projection == canonicalCatalogProjectionSelection {
+		if err := api.pool.QueryRow(ctx, `SELECT COUNT(*) FROM canonical_question_catalogs c JOIN canonical_question_catalog_memberships m ON m.catalog_id = c.id JOIN question_versions q ON q.id=m.question_version_id `+canonicalCatalogAIProjectionJoins+` WHERE `+where, queryArgs...).Scan(&total); err != nil {
+			api.respond(writer, nil, application.ErrNotFound)
+			return
+		}
+	}
 	if projection == canonicalCatalogProjectionSelection {
 		rows, err := api.pool.Query(ctx, `
 			SELECT c.catalog_version,c.usage_class,m.question_version_id,m.form_code,m.proposal_id,m.ordinal,m.question_digest,
@@ -999,6 +1135,8 @@ func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.Respons
 			       to_char(recommendation.recurrence_due_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
 			       recommendation.last_comparable_result,recommendation.last_comparable_audit_id,
 			       recommendation.question_history_count,recommendation.comparable_audit_count,
+			       recommendation.validated_clean_audit_count,
+			       to_char(recommendation.last_validated_clean_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
 			       recommendation.recommendation_classification,recommendation.included_by_default,
 			       recommendation.can_defer,recommendation.recommendation_rationale,recommendation.recommendation_guardrails,
 			       ai.external_applicability_unresolved
@@ -1020,12 +1158,12 @@ func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.Respons
 			var advisorySafetyCritical, advisoryUnresolved bool
 			var advisoryRecurrence int64
 			var previouslyVerifiedAt, recurrenceDueAt *string
-			var lastComparableResult, lastComparableAuditID *string
-			var recommendationHistoryCount, comparableAuditCount int64
+			var lastComparableResult, lastComparableAuditID, lastValidatedCleanAt *string
+			var recommendationHistoryCount, comparableAuditCount, validatedCleanAuditCount int64
 			var recommendationClassification, recommendationRationale string
 			var recommendationIncludedByDefault, recommendationCanDefer bool
 			var recommendationGuardrails []string
-			if err := rows.Scan(&row.CatalogVersion, &row.UsageClass, &row.QuestionID, &row.FormCode, &row.ProposalID, &row.Ordinal, &row.Digest, &row.SourceLocator, &row.SourceGap, &advisoryDomain, &advisoryTopics, &advisoryInspectionTypes, &advisoryInspectionProfiles, &advisoryApplicability, &advisoryRiskTier, &advisorySafetyCritical, &advisoryConfidence, &advisoryState, &advisoryReasons, &advisoryRecurrence, &previouslyVerifiedAt, &recurrenceDueAt, &lastComparableResult, &lastComparableAuditID, &recommendationHistoryCount, &comparableAuditCount, &recommendationClassification, &recommendationIncludedByDefault, &recommendationCanDefer, &recommendationRationale, &recommendationGuardrails, &advisoryUnresolved); err != nil {
+			if err := rows.Scan(&row.CatalogVersion, &row.UsageClass, &row.QuestionID, &row.FormCode, &row.ProposalID, &row.Ordinal, &row.Digest, &row.SourceLocator, &row.SourceGap, &advisoryDomain, &advisoryTopics, &advisoryInspectionTypes, &advisoryInspectionProfiles, &advisoryApplicability, &advisoryRiskTier, &advisorySafetyCritical, &advisoryConfidence, &advisoryState, &advisoryReasons, &advisoryRecurrence, &previouslyVerifiedAt, &recurrenceDueAt, &lastComparableResult, &lastComparableAuditID, &recommendationHistoryCount, &comparableAuditCount, &validatedCleanAuditCount, &lastValidatedCleanAt, &recommendationClassification, &recommendationIncludedByDefault, &recommendationCanDefer, &recommendationRationale, &recommendationGuardrails, &advisoryUnresolved); err != nil {
 				api.respond(writer, nil, application.ErrNotFound)
 				return
 			}
@@ -1062,7 +1200,7 @@ func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.Respons
 				PreviouslyVerifiedAt: previouslyVerifiedAt, RecurrenceDueAt: recurrenceDueAt,
 				ExternalApplicabilityUnresolved: advisoryUnresolved,
 			}
-			row.Recommendation = generated.CanonicalQuestionRecommendation{RecommendationState: advisoryState, Classification: recommendationClassification, IncludedByDefault: recommendationIncludedByDefault, CanDefer: recommendationCanDefer, HistoryCount: recommendationHistoryCount, ComparableAuditCount: comparableAuditCount, LastComparableResult: lastComparableResult, LastComparableAuditId: lastComparableAuditID, LastVerifiedAt: previouslyVerifiedAt, RecurrenceDueAt: recurrenceDueAt, SignalCodes: advisoryReasons, Rationale: recommendationRationale, Guardrails: recommendationGuardrails}
+			row.Recommendation = generated.CanonicalQuestionRecommendation{RecommendationState: advisoryState, Classification: recommendationClassification, IncludedByDefault: recommendationIncludedByDefault, CanDefer: recommendationCanDefer, HistoryCount: recommendationHistoryCount, ComparableAuditCount: comparableAuditCount, ValidatedCleanAuditCount: validatedCleanAuditCount, LastComparableResult: lastComparableResult, LastComparableAuditId: lastComparableAuditID, LastValidatedCleanAt: lastValidatedCleanAt, LastVerifiedAt: previouslyVerifiedAt, RecurrenceDueAt: recurrenceDueAt, SignalCodes: advisoryReasons, Rationale: recommendationRationale, Guardrails: recommendationGuardrails}
 			items = append(items, canonicalCatalogEntry(row))
 		}
 		if err := rows.Err(); err != nil {
@@ -1076,16 +1214,10 @@ func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.Respons
 		}
 		api.respond(writer, generated.CanonicalQuestionCatalogPage{
 			Items: items, NextCursor: next, CatalogVersion: catalogVersion,
-			UsageClass: generated.QuestionUsageClass(usage), TotalCount: 0,
-			Facets: emptyCanonicalCatalogFacets(),
+			UsageClass: generated.QuestionUsageClass(usage), TotalCount: total,
+			Facets: emptyCanonicalCatalogFacets(), RecommendationSummary: recommendationSummary,
 		}, nil)
 		return
-	}
-	if projection == canonicalCatalogProjectionFull {
-		if err := api.pool.QueryRow(ctx, `SELECT COUNT(*) FROM canonical_question_catalogs c JOIN canonical_question_catalog_memberships m ON m.catalog_id = c.id JOIN question_versions q ON q.id=m.question_version_id `+canonicalCatalogAIProjectionJoins+` WHERE `+where, queryArgs...).Scan(&total); err != nil {
-			api.respond(writer, nil, application.ErrNotFound)
-			return
-		}
 	}
 	rows, err := api.pool.Query(ctx, `
 		SELECT c.catalog_version,c.usage_class,m.question_version_id,m.form_code,m.proposal_id,m.ordinal,m.question_digest,
@@ -1100,6 +1232,8 @@ func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.Respons
 		       to_char(recommendation.recurrence_due_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
 		       recommendation.last_comparable_result,recommendation.last_comparable_audit_id,
 		       recommendation.question_history_count,recommendation.comparable_audit_count,
+		       recommendation.validated_clean_audit_count,
+		       to_char(recommendation.last_validated_clean_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
 		       recommendation.recommendation_classification,recommendation.included_by_default,
 		       recommendation.can_defer,recommendation.recommendation_rationale,recommendation.recommendation_guardrails,
 		       ai.external_applicability_unresolved
@@ -1121,17 +1255,17 @@ func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.Respons
 		var advisorySafetyCritical, advisoryUnresolved bool
 		var advisoryRecurrence int64
 		var previouslyVerifiedAt, recurrenceDueAt *string
-		var lastComparableResult, lastComparableAuditID *string
-		var recommendationHistoryCount, comparableAuditCount int64
+		var lastComparableResult, lastComparableAuditID, lastValidatedCleanAt *string
+		var recommendationHistoryCount, comparableAuditCount, validatedCleanAuditCount int64
 		var recommendationClassification, recommendationRationale string
 		var recommendationIncludedByDefault, recommendationCanDefer bool
 		var recommendationGuardrails []string
-		if err := rows.Scan(&row.CatalogVersion, &row.UsageClass, &row.QuestionID, &row.FormCode, &row.ProposalID, &row.Ordinal, &row.Digest, &row.SourceLocator, &row.SourceGap, &row.Domain, &row.Topic, &row.RiskBand, &row.Prompt, &row.ConfiguredReference, &row.ExpectedEvidence, &row.GovernedCandidateID, &row.GovernedCandidateRevision, &row.GovernedCandidateContentDigest, &row.GovernedCandidateStatus, &row.ReviewRevision, &row.ReviewDisposition, &row.ReviewReason, &row.ReviewDomain, &row.ReviewTopic, &advisoryDomain, &advisoryTopics, &advisoryInspectionTypes, &advisoryInspectionProfiles, &advisoryApplicability, &advisoryRiskTier, &advisorySafetyCritical, &advisoryConfidence, &advisoryState, &advisoryReasons, &advisoryRecurrence, &previouslyVerifiedAt, &recurrenceDueAt, &lastComparableResult, &lastComparableAuditID, &recommendationHistoryCount, &comparableAuditCount, &recommendationClassification, &recommendationIncludedByDefault, &recommendationCanDefer, &recommendationRationale, &recommendationGuardrails, &advisoryUnresolved); err != nil {
+		if err := rows.Scan(&row.CatalogVersion, &row.UsageClass, &row.QuestionID, &row.FormCode, &row.ProposalID, &row.Ordinal, &row.Digest, &row.SourceLocator, &row.SourceGap, &row.Domain, &row.Topic, &row.RiskBand, &row.Prompt, &row.ConfiguredReference, &row.ExpectedEvidence, &row.GovernedCandidateID, &row.GovernedCandidateRevision, &row.GovernedCandidateContentDigest, &row.GovernedCandidateStatus, &row.ReviewRevision, &row.ReviewDisposition, &row.ReviewReason, &row.ReviewDomain, &row.ReviewTopic, &advisoryDomain, &advisoryTopics, &advisoryInspectionTypes, &advisoryInspectionProfiles, &advisoryApplicability, &advisoryRiskTier, &advisorySafetyCritical, &advisoryConfidence, &advisoryState, &advisoryReasons, &advisoryRecurrence, &previouslyVerifiedAt, &recurrenceDueAt, &lastComparableResult, &lastComparableAuditID, &recommendationHistoryCount, &comparableAuditCount, &validatedCleanAuditCount, &lastValidatedCleanAt, &recommendationClassification, &recommendationIncludedByDefault, &recommendationCanDefer, &recommendationRationale, &recommendationGuardrails, &advisoryUnresolved); err != nil {
 			api.respond(writer, nil, application.ErrNotFound)
 			return
 		}
 		row.AIAdvisory = generated.CanonicalQuestionAIAdvisory{DomainCode: advisoryDomain, TopicCodes: advisoryTopics, InspectionTypeCodes: advisoryInspectionTypes, InspectionProfileCodes: advisoryInspectionProfiles, ApplicabilityDisposition: advisoryApplicability, RiskTier: advisoryRiskTier, SafetyCritical: advisorySafetyCritical, AgreementConfidence: advisoryConfidence, AdvisoryState: advisoryState, RecommendationReasonCodes: advisoryReasons, RecurrenceMonths: advisoryRecurrence, PreviouslyVerifiedAt: previouslyVerifiedAt, RecurrenceDueAt: recurrenceDueAt, ExternalApplicabilityUnresolved: advisoryUnresolved}
-		row.Recommendation = generated.CanonicalQuestionRecommendation{RecommendationState: advisoryState, Classification: recommendationClassification, IncludedByDefault: recommendationIncludedByDefault, CanDefer: recommendationCanDefer, HistoryCount: recommendationHistoryCount, ComparableAuditCount: comparableAuditCount, LastComparableResult: lastComparableResult, LastComparableAuditId: lastComparableAuditID, LastVerifiedAt: previouslyVerifiedAt, RecurrenceDueAt: recurrenceDueAt, SignalCodes: advisoryReasons, Rationale: recommendationRationale, Guardrails: recommendationGuardrails}
+		row.Recommendation = generated.CanonicalQuestionRecommendation{RecommendationState: advisoryState, Classification: recommendationClassification, IncludedByDefault: recommendationIncludedByDefault, CanDefer: recommendationCanDefer, HistoryCount: recommendationHistoryCount, ComparableAuditCount: comparableAuditCount, ValidatedCleanAuditCount: validatedCleanAuditCount, LastComparableResult: lastComparableResult, LastComparableAuditId: lastComparableAuditID, LastValidatedCleanAt: lastValidatedCleanAt, LastVerifiedAt: previouslyVerifiedAt, RecurrenceDueAt: recurrenceDueAt, SignalCodes: advisoryReasons, Rationale: recommendationRationale, Guardrails: recommendationGuardrails}
 		row.ScopeID = scopeID
 		row.ReviewHistory, err = api.loadQuestionReviewHistory(ctx, row)
 		if err != nil {
@@ -1158,7 +1292,7 @@ func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.Respons
 			return
 		}
 	}
-	api.respond(writer, generated.CanonicalQuestionCatalogPage{Items: items, NextCursor: next, CatalogVersion: catalogVersion, UsageClass: generated.QuestionUsageClass(usage), TotalCount: total, Facets: facets}, nil)
+	api.respond(writer, generated.CanonicalQuestionCatalogPage{Items: items, NextCursor: next, CatalogVersion: catalogVersion, UsageClass: generated.QuestionUsageClass(usage), TotalCount: total, Facets: facets, RecommendationSummary: recommendationSummary}, nil)
 }
 
 func canonicalCatalogFacetWhere(exclude string) string {
@@ -1307,6 +1441,13 @@ func (api *CanonicalAPI) getCanonicalQuestionCatalogEntry(writer http.ResponseWr
 			api.respond(writer, nil, fmt.Errorf("%w: application type does not match the selected scope draft", application.ErrConflict))
 			return
 		}
+	}
+	if entry, detailErr := api.loadCanonicalQuestionCatalogEntryWithRecommendation(request.Context(), catalogVersion, usage, scopeID, applicationType, questionVersionID); detailErr != nil {
+		api.respond(writer, nil, detailErr)
+		return
+	} else {
+		api.respond(writer, entry, nil)
+		return
 	}
 	err = api.pool.QueryRow(request.Context(), `
 		SELECT c.catalog_version,c.usage_class,m.question_version_id,m.form_code,m.proposal_id,m.ordinal,m.question_digest,
@@ -1459,6 +1600,106 @@ func (api *CanonicalAPI) getCanonicalQuestionCatalogEntry(writer http.ResponseWr
 		row.ReviewHistory, err = api.loadQuestionReviewHistory(request.Context(), row)
 	}
 	api.respond(writer, canonicalCatalogEntry(row), err)
+}
+
+func (api *CanonicalAPI) loadCanonicalQuestionCatalogEntryWithRecommendation(ctx context.Context, catalogVersion string, usage questioncatalog.UsageClass, scopeID, applicationType, questionVersionID string) (generated.CanonicalQuestionCatalogEntry, error) {
+	now := api.clock().UTC()
+	args := []any{catalogVersion, string(usage), "", "", "", "", "", "", "", scopeID, []string{}, "", applicationType, now, nil, questionVersionID}
+	var row canonicalCatalogRow
+	var advisoryDomain, advisoryApplicability, advisoryRiskTier, advisoryConfidence, advisoryState string
+	var advisoryTopics, advisoryInspectionTypes, advisoryInspectionProfiles, advisoryReasons []string
+	var advisorySafetyCritical, advisoryUnresolved bool
+	var advisoryRecurrence int64
+	var previouslyVerifiedAt, recurrenceDueAt, lastComparableResult, lastComparableAuditID, lastValidatedCleanAt *string
+	var recommendationHistoryCount, comparableAuditCount, validatedCleanAuditCount int64
+	var recommendationClassification, recommendationRationale string
+	var recommendationIncludedByDefault, recommendationCanDefer bool
+	var recommendationGuardrails []string
+	err := api.pool.QueryRow(ctx, `
+		SELECT c.catalog_version,c.usage_class,m.question_version_id,m.form_code,m.proposal_id,m.ordinal,m.question_digest,
+		       COALESCE(m.source_locator,''),m.source_gap_state,ai.domain_code,COALESCE(array_to_string(ai.topic_codes, ','),''),
+		       '',q.prompt,q.configured_reference,q.expected_evidence,
+		       NULL::text,NULL::bigint,NULL::text,NULL::text,
+		       0::bigint,NULL::text,NULL::text,NULL::text,NULL::text,
+		       ai.domain_code,ai.topic_codes,ai.inspection_type_codes,ai.inspection_profile_codes,ai.applicability_disposition,
+		       ai.risk_tier,ai.safety_critical,ai.agreement_confidence,recommendation.recommendation_state,
+		       recommendation.reason_codes,ai.recurrence_months,
+		       to_char(recommendation.last_verified_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+		       to_char(recommendation.recurrence_due_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+		       recommendation.last_comparable_result,recommendation.last_comparable_audit_id,
+		       recommendation.question_history_count,recommendation.comparable_audit_count,
+		       recommendation.validated_clean_audit_count,
+		       to_char(recommendation.last_validated_clean_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+		       recommendation.recommendation_classification,recommendation.included_by_default,
+		       recommendation.can_defer,recommendation.recommendation_rationale,recommendation.recommendation_guardrails,
+		       ai.external_applicability_unresolved
+		FROM canonical_question_catalogs c
+		JOIN canonical_question_catalog_memberships m ON m.catalog_id = c.id
+		JOIN question_versions q ON q.id = m.question_version_id
+		`+canonicalCatalogAIProjectionJoins+`
+		WHERE `+canonicalCatalogFacetWhere("recommendation")+` AND m.question_version_id = $16`, args...).Scan(
+		&row.CatalogVersion, &row.UsageClass, &row.QuestionID, &row.FormCode, &row.ProposalID, &row.Ordinal, &row.Digest,
+		&row.SourceLocator, &row.SourceGap, &row.Domain, &row.Topic, &row.RiskBand, &row.Prompt, &row.ConfiguredReference, &row.ExpectedEvidence,
+		&row.GovernedCandidateID, &row.GovernedCandidateRevision, &row.GovernedCandidateContentDigest, &row.GovernedCandidateStatus,
+		&row.ReviewRevision, &row.ReviewDisposition, &row.ReviewReason, &row.ReviewDomain, &row.ReviewTopic,
+		&advisoryDomain, &advisoryTopics, &advisoryInspectionTypes, &advisoryInspectionProfiles, &advisoryApplicability,
+		&advisoryRiskTier, &advisorySafetyCritical, &advisoryConfidence, &advisoryState, &advisoryReasons, &advisoryRecurrence,
+		&previouslyVerifiedAt, &recurrenceDueAt, &lastComparableResult, &lastComparableAuditID, &recommendationHistoryCount,
+		&comparableAuditCount, &validatedCleanAuditCount, &lastValidatedCleanAt, &recommendationClassification,
+		&recommendationIncludedByDefault, &recommendationCanDefer, &recommendationRationale, &recommendationGuardrails, &advisoryUnresolved,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return generated.CanonicalQuestionCatalogEntry{}, application.ErrNotFound
+		}
+		return generated.CanonicalQuestionCatalogEntry{}, err
+	}
+	if advisoryTopics == nil {
+		advisoryTopics = []string{}
+	}
+	if advisoryInspectionTypes == nil {
+		advisoryInspectionTypes = []string{}
+	}
+	if advisoryInspectionProfiles == nil {
+		advisoryInspectionProfiles = []string{}
+	}
+	if advisoryReasons == nil {
+		advisoryReasons = []string{}
+	}
+	if advisoryRiskTier == "" {
+		advisoryRiskTier = "UNKNOWN"
+	}
+	if advisoryConfidence == "" {
+		advisoryConfidence = "LOW"
+	}
+	if advisoryState == "" {
+		advisoryState = "UNCERTAIN_SIGNAL"
+	}
+	if advisoryRecurrence < 1 {
+		advisoryRecurrence = 12
+	}
+	row.ScopeID = scopeID
+	row.AIAdvisory = generated.CanonicalQuestionAIAdvisory{
+		DomainCode: advisoryDomain, TopicCodes: advisoryTopics, InspectionTypeCodes: advisoryInspectionTypes,
+		InspectionProfileCodes: advisoryInspectionProfiles, ApplicabilityDisposition: advisoryApplicability,
+		RiskTier: advisoryRiskTier, SafetyCritical: advisorySafetyCritical, AgreementConfidence: advisoryConfidence,
+		AdvisoryState: advisoryState, RecommendationReasonCodes: advisoryReasons, RecurrenceMonths: advisoryRecurrence,
+		PreviouslyVerifiedAt: previouslyVerifiedAt, RecurrenceDueAt: recurrenceDueAt, ExternalApplicabilityUnresolved: advisoryUnresolved,
+	}
+	row.Recommendation = generated.CanonicalQuestionRecommendation{
+		RecommendationState: advisoryState, Classification: recommendationClassification,
+		IncludedByDefault: recommendationIncludedByDefault, CanDefer: recommendationCanDefer,
+		HistoryCount: recommendationHistoryCount, ComparableAuditCount: comparableAuditCount,
+		ValidatedCleanAuditCount: validatedCleanAuditCount, LastComparableResult: lastComparableResult,
+		LastComparableAuditId: lastComparableAuditID, LastValidatedCleanAt: lastValidatedCleanAt,
+		LastVerifiedAt: previouslyVerifiedAt, RecurrenceDueAt: recurrenceDueAt, SignalCodes: advisoryReasons,
+		Rationale: recommendationRationale, Guardrails: recommendationGuardrails,
+	}
+	row.ReviewHistory, err = api.loadQuestionReviewHistory(ctx, row)
+	if err != nil {
+		return generated.CanonicalQuestionCatalogEntry{}, err
+	}
+	return canonicalCatalogEntry(row), nil
 }
 
 type canonicalScopeState struct {

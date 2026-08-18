@@ -1093,6 +1093,23 @@
 .planning-intake-catalog-header h3 { margin: 3px 0 4px; color: var(--avia-color-heading); font-size: 1.3rem; }
 .planning-intake-catalog-header p { max-width: 720px; margin: 0; color: var(--avia-color-muted); line-height: 1.5; }
 .planning-intake-catalog-count { flex: 0 0 auto; padding: 4px 0; color: var(--avia-color-action); font-size: .88rem; font-weight: 750; }
+.planning-intake-recommendation-summary { display: grid; gap: 12px; border: 1px solid color-mix(in srgb, var(--avia-color-action) 28%, var(--avia-color-line)); border-left: 4px solid var(--avia-color-action); background: color-mix(in srgb, var(--avia-color-action-soft) 58%, var(--avia-color-panel)); padding: 16px; }
+.planning-intake-recommendation-summary header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.planning-intake-recommendation-summary h4 { margin: 3px 0 0; color: var(--avia-color-heading); font-size: 1rem; }
+.planning-intake-recommendation-summary header > span { color: var(--avia-color-action); font-size: .8rem; font-weight: 750; }
+.planning-intake-recommendation-summary > p { margin: 0; color: var(--avia-color-muted); line-height: 1.5; }
+.planning-intake-recommendation-summary__facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0; }
+.planning-intake-recommendation-summary__facts div { display: grid; gap: 3px; border-left: 2px solid var(--avia-color-line); padding-left: 10px; }
+.planning-intake-recommendation-summary__facts dt { color: var(--avia-color-muted); font-size: .72rem; font-weight: 750; text-transform: uppercase; letter-spacing: .06em; }
+.planning-intake-recommendation-summary__facts dd { margin: 0; color: var(--avia-color-ink); font-size: .82rem; line-height: 1.35; }
+.planning-intake-recommendation-summary__warning { border-top: 1px solid color-mix(in srgb, var(--avia-color-action) 30%, var(--avia-color-line)); border-bottom: 1px solid color-mix(in srgb, var(--avia-color-action) 30%, var(--avia-color-line)); padding: 10px 0; color: var(--avia-color-ink) !important; }
+.planning-intake-recommendation-summary__list { display: grid; max-height: 300px; gap: 0; overflow: auto; margin: 0; border-top: 1px solid var(--avia-color-line); border-bottom: 1px solid var(--avia-color-line); padding: 0; list-style: none; }
+.planning-intake-recommendation-summary__list li { display: grid; gap: 4px; border-bottom: 1px solid var(--avia-color-line); padding: 10px 0; }
+.planning-intake-recommendation-summary__list li:last-child { border-bottom: 0; }
+.planning-intake-recommendation-summary__list b { color: var(--avia-color-heading); line-height: 1.35; }
+.planning-intake-recommendation-summary__list small, .planning-intake-recommendation-summary__list span { color: var(--avia-color-muted); font-size: .78rem; line-height: 1.4; }
+.planning-intake-recommendation-summary > button { justify-self: start; border-color: var(--avia-color-action); color: #fff; background: var(--avia-color-action); padding: 9px 13px; }
+.planning-intake-recommendation-summary__clear { border-top: 1px solid var(--avia-color-line); padding-top: 10px; }
 .planning-intake-catalog-search { max-width: 640px; }
 .planning-intake-advanced-filters { border-top: 1px solid var(--avia-color-line); border-bottom: 1px solid var(--avia-color-line); }
 .planning-intake-advanced-filters > summary { display: flex; min-height: 48px; align-items: center; justify-content: space-between; gap: 12px; color: var(--avia-color-heading); font-weight: 750; cursor: pointer; list-style: none; }
@@ -1240,6 +1257,9 @@
   .workspace-content > .planning-intake-page .planning-intake-form { gap: 18px; }
   .workspace-content > .planning-intake-page .planning-intake-catalog-header { display: grid; }
   .workspace-content > .planning-intake-page .planning-intake-catalog-count { padding: 0; }
+  .workspace-content > .planning-intake-page .planning-intake-recommendation-summary header { display: grid; gap: 6px; }
+  .workspace-content > .planning-intake-page .planning-intake-recommendation-summary__facts { grid-template-columns: 1fr; }
+  .workspace-content > .planning-intake-page .planning-intake-recommendation-summary > button { width: 100%; }
   .workspace-content > .planning-intake-page .planning-intake-selection-summary header { display: grid; gap: 12px; }
   .workspace-content > .planning-intake-page .planning-intake-selection-summary__metrics { justify-content: flex-start; }
   .workspace-content > .planning-intake-page .planning-intake-resources { grid-template-columns: 1fr; }
