@@ -73,6 +73,7 @@ interface CanonicalQuestionCatalogEntry {
   canSelect: boolean;
   canPublish: boolean;
   aiAdvisory?: { advisoryState: string; recommendationReasonCodes?: string[] };
+  recommendation?: { includedByDefault: boolean; signalCodes?: string[] };
 }
 
 interface CanonicalQuestionCatalogPage {
@@ -576,7 +577,7 @@ test.describe("prepared identity connected qualification", () => {
       const searchQuestions = managerSession.page.getByRole("textbox", { name: "Search questions", exact: true });
       const firstPageVisibleText = await catalogRows.first().locator(".planning-intake-question-info").textContent() ?? "";
       const firstVisibleReferences = await catalogRows.locator(".planning-intake-question-info").evaluateAll((nodes) => nodes.map((node) => node.textContent?.split(" · ").slice(0, 2).join(" · ") ?? ""));
-      const firstPageQuery = new URLSearchParams({ usageClass: "GOVERNED_OPERATIONAL", scopeId: scopeDraftId, applicationType: scenario.applicationType, recommendationState: "SUGGESTED_NOW", limit: "25" });
+      const firstPageQuery = new URLSearchParams({ usageClass: "GOVERNED_OPERATIONAL", scopeId: scopeDraftId, applicationType: scenario.applicationType, includedByDefault: "true", limit: "25" });
       const firstPage = await getApiJson<CanonicalQuestionCatalogPage>(managerSession.page, `/v1/question-catalogs/${encodeURIComponent(scenario.catalogVersion)}/questions?${firstPageQuery.toString()}`);
       expect(firstPage.totalCount).toBeGreaterThan(0);
       expect(firstPage.items.map((item) => `${item.formCode} · item ${item.ordinal}`)).toEqual(firstVisibleReferences);
@@ -661,12 +662,12 @@ test.describe("prepared identity connected qualification", () => {
       } finally {
         await managerSession.page.setViewportSize({ width: 1280, height: 800 });
       }
-      const suggestedQuery = new URLSearchParams({ usageClass: "GOVERNED_OPERATIONAL", scopeId: scopeDraftId, applicationType: scenario.applicationType, recommendationState: "SUGGESTED_NOW", limit: "25" });
+      const suggestedQuery = new URLSearchParams({ usageClass: "GOVERNED_OPERATIONAL", scopeId: scopeDraftId, applicationType: scenario.applicationType, includedByDefault: "true", limit: "25" });
       const suggestedPage = await getApiJson<CanonicalQuestionCatalogPage>(managerSession.page, `/v1/question-catalogs/${encodeURIComponent(scenario.catalogVersion)}/questions?${suggestedQuery.toString()}`);
       expect(suggestedPage.totalCount).toBeGreaterThan(0);
-      expect(suggestedPage.items.every((item) => item.aiAdvisory?.advisoryState === "SUGGESTED_NOW")).toBe(true);
-      expect(suggestedPage.items.some((item) => (item.aiAdvisory?.recommendationReasonCodes ?? []).includes("AUDIT_TYPE_FOCUS_MATCH"))).toBe(true);
-      expect(suggestedPage.items.every((item) => (item.aiAdvisory?.recommendationReasonCodes ?? []).some((reason) => ["HIGH_OR_UNKNOWN_RISK", "RECURRENCE_DUE", "OPEN_WORK"].includes(reason)))).toBe(true);
+      expect(suggestedPage.items.every((item) => item.recommendation?.includedByDefault === true)).toBe(true);
+      expect(suggestedPage.items.some((item) => (item.recommendation?.signalCodes ?? []).includes("AUDIT_TYPE_FOCUS_MATCH"))).toBe(true);
+      expect(suggestedPage.items.every((item) => (item.recommendation?.signalCodes ?? []).some((reason) => ["HIGH_OR_UNKNOWN_RISK", "RECURRENCE_DUE", "OPEN_WORK", "INSUFFICIENT_LONGITUDINAL_HISTORY", "NON_CLEAN_OR_MISSING_ANSWER"].includes(reason)))).toBe(true);
 
       const representativeForm = catalogOracle.rows[0]?.formCode;
       expect(representativeForm).toBeTruthy();
