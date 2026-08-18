@@ -1,6 +1,6 @@
 // Command prior-audit-history-loader installs the immutable, qualification-only
-// prior-Audit history used by the Namibia demo recommendation presentation.
-// It is deliberately a no-op outside the exact demo target.
+// prior-Audit history used by the Namibia local/demo recommendation presentation.
+// It is deliberately a no-op outside the exact approved local targets.
 package main
 
 import (
@@ -30,7 +30,7 @@ func run(ctx context.Context, args []string, output io.Writer) error {
 		return errors.New("usage: prior-audit-history-loader validate|load")
 	}
 	target := strings.TrimSpace(os.Getenv("AVIA_BOOTSTRAP_TARGET"))
-	if target != "namibia/demo" {
+	if target != "namibia/dev" && target != "namibia/demo" {
 		_, err := fmt.Fprintf(output, "prior-Audit history loader skipped: target=%s\n", target)
 		return err
 	}

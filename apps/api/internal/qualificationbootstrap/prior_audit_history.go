@@ -62,8 +62,8 @@ func ValidatePriorAuditHistoryManifest(manifest PriorAuditHistoryManifest, targe
 	if manifest.SchemaVersion != 1 || strings.TrimSpace(manifest.ManifestVersion) == "" {
 		return fmt.Errorf("prior-audit history manifest identity is invalid")
 	}
-	if manifest.Target != target || target != "namibia/demo" {
-		return fmt.Errorf("prior-audit history manifest target is not the exact Namibia demo target")
+	if manifest.Target != target || !isPriorAuditHistoryTarget(target) {
+		return fmt.Errorf("prior-audit history manifest target is not an approved Namibia local or demo target")
 	}
 	if !manifest.Enabled || !manifest.QualificationOnly {
 		return fmt.Errorf("prior-audit history manifest must be enabled and qualification-only")
@@ -121,6 +121,10 @@ func ValidatePriorAuditHistoryManifest(manifest PriorAuditHistoryManifest, targe
 		}
 	}
 	return nil
+}
+
+func isPriorAuditHistoryTarget(target string) bool {
+	return target == "namibia/dev" || target == "namibia/demo"
 }
 
 func ReadPriorAuditHistoryManifest(path, target string) (PriorAuditHistoryManifest, string, error) {
@@ -222,9 +226,9 @@ func loadPriorAudit(ctx context.Context, tx pgx.Tx, manifest PriorAuditHistoryMa
 		observations[observation.QuestionVersionID] = observation
 	}
 	values, err := json.Marshal(map[string]any{
-		"organizationId": manifest.OrganizationID, "organizationName": "Namibia AGA Qualification Operator",
+		"organizationId": manifest.OrganizationID, "organizationName": priorAuditOrganizationName(manifest.Target),
 		"applicationType": manifest.AuditType, "domain": "Cabin Safety", "inspectionCategory": "Routine / Announced",
-		"noticePolicy": "ADVANCE", "purpose": "Immutable public prior-Audit recommendation fixture.",
+		"noticePolicy": "ADVANCE", "purpose": "Immutable prior-Audit recommendation fixture.",
 		"triggerType": "Department Manager initiated", "riskCategory": "Operational Safety",
 		"plannedDate": audit.ScheduledDate, "mode": "On-site", "location": manifest.Location,
 		"catalogVersion": manifest.CatalogVersion, "scopeDraftId": audit.ScopeDraftID,
@@ -343,6 +347,13 @@ func loadPriorAudit(ctx context.Context, tx pgx.Tx, manifest PriorAuditHistoryMa
 		return fmt.Errorf("lock prior-Audit report %s: %w", audit.AuditID, err)
 	}
 	return nil
+}
+
+func priorAuditOrganizationName(target string) string {
+	if target == "namibia/dev" {
+		return "Namibia Dev AGA Qualification Operator"
+	}
+	return "Namibia AGA Qualification Operator"
 }
 
 func loadPriorAuditSignal(ctx context.Context, tx pgx.Tx, audit PriorAuditHistoryAudit, questionID, responseID, signal, actor string) error {

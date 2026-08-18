@@ -467,6 +467,17 @@ Expected observations:
   permissions, catalog `questions=1310`, `prior-Audit history loaded: ...
   audits=3 manifest=sha256:701aea...`, API/Caddy listening, and four registered
   tunnel connections.
+- Local dev showcase evidence is `verified locally`:
+  `deployments/namibia/manifests/dev-prior-audit-history.json` is bound to
+  the dev foundation IDs and is loaded by the official
+  `prior-audit-history-loader` in the task-owned
+  `aviasurveil360-task-devqualification` Compose project. The fresh dev
+  database contains exactly three `AUD-NAMIBIA-DEV-HISTORY-*` Audits,
+  three planning drafts, three report versions, the 1,310-question catalog,
+  `checklist_responses=21`, `potential_findings=3`, `findings=2`, and
+  `cap_revisions=1`; no new planning assignment rows were seeded. All three
+  drafts use the presentation location `Namibia Demo AGA History Showcase`.
+  `make local-check` and the qualification-bootstrap script both passed.
 - The recommendation-specific public qualification result is at
   `/Users/marlonjd/Developer/monorepos/avia/.state/qualification/namibia/demo/results/namibia-demo-20260818t19581787072336z-54b486dbc0ac439fb0e4a720e678cf4a.jsonl`.
   Its `manager-prior-audit-recommendation-oracle` event is `verified locally`

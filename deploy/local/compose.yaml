@@ -322,6 +322,32 @@ services:
     networks: [database]
     restart: "no"
 
+  prior-audit-history-loader:
+    <<: *runtime-security
+    image: aviasurveil360/surveil-bootstrap:local
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      target: bootstrap
+    profiles: [full, test, recovery]
+    user: "10001:10001"
+    depends_on:
+      approved-aga-catalog-loader: {condition: service_completed_successfully}
+    environment:
+      AVIA_BOOTSTRAP_TARGET: ${AVIA_LOCAL_TARGET:-namibia/demo}
+      AVIA_PRIOR_AUDIT_HISTORY_MANIFEST_PATH: /app/bootstrap-manifests/${LOCAL_MANIFEST_PREFIX:-demo}-prior-audit-history.json
+      AVIA_DATABASE_URL_FILE: /run/secrets/surveil_bootstrap_database_url
+    entrypoint: [/app/prior-audit-history-loader, load]
+    secrets: [surveil_bootstrap_database_url]
+    volumes:
+      - type: bind
+        source: ${AVIA_BOOTSTRAP_MANIFEST_DIR:-../../../../deployments/namibia/manifests}
+        target: /app/bootstrap-manifests
+        read_only: true
+    tmpfs: [/tmp:mode=1777]
+    networks: [database]
+    restart: "no"
+
   api:
     <<: *runtime-security
     image: aviasurveil360/api:local
@@ -332,7 +358,7 @@ services:
     profiles: [full]
     user: "10001:10001"
     depends_on:
-      approved-aga-catalog-loader: {condition: service_completed_successfully}
+      prior-audit-history-loader: {condition: service_completed_successfully}
       auth: {condition: service_healthy}
       minio: {condition: service_healthy}
     environment:
@@ -400,7 +426,7 @@ services:
     profiles: [full]
     user: "10001:10001"
     depends_on:
-      approved-aga-catalog-loader: {condition: service_completed_successfully}
+      prior-audit-history-loader: {condition: service_completed_successfully}
       auth: {condition: service_healthy}
       minio: {condition: service_healthy}
       mailpit: {condition: service_healthy}
