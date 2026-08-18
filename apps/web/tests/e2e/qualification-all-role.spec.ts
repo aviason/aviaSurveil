@@ -574,8 +574,8 @@ test.describe("prepared identity connected qualification", () => {
       await advancedFilters.locator("> summary").click();
 
       const searchQuestions = managerSession.page.getByRole("textbox", { name: "Search questions", exact: true });
-      const firstPageVisibleText = await catalogRows.first().locator("small").textContent() ?? "";
-      const firstVisibleReferences = await catalogRows.locator("small").evaluateAll((nodes) => nodes.map((node) => node.textContent?.split(" · ").slice(0, 2).join(" · ") ?? ""));
+      const firstPageVisibleText = await catalogRows.first().locator(".planning-intake-question-info").textContent() ?? "";
+      const firstVisibleReferences = await catalogRows.locator(".planning-intake-question-info").evaluateAll((nodes) => nodes.map((node) => node.textContent?.split(" · ").slice(0, 2).join(" · ") ?? ""));
       const firstPageQuery = new URLSearchParams({ usageClass: "GOVERNED_OPERATIONAL", scopeId: scopeDraftId, applicationType: scenario.applicationType, recommendationState: "SUGGESTED_NOW", limit: "25" });
       const firstPage = await getApiJson<CanonicalQuestionCatalogPage>(managerSession.page, `/v1/question-catalogs/${encodeURIComponent(scenario.catalogVersion)}/questions?${firstPageQuery.toString()}`);
       expect(firstPage.totalCount).toBeGreaterThan(0);
@@ -584,9 +584,9 @@ test.describe("prepared identity connected qualification", () => {
       const nextQuestions = managerSession.page.getByRole("button", { name: "Next questions" });
       await expect(nextQuestions).toBeEnabled();
       await nextQuestions.click();
-      await expect(catalogRows.first().locator("small")).not.toHaveText(firstPageReference, { timeout: 30_000 });
+      await expect(catalogRows.first().locator(".planning-intake-question-info")).not.toHaveText(firstPageReference, { timeout: 30_000 });
       await managerSession.page.getByRole("button", { name: "Previous questions" }).click();
-      await expect(catalogRows.first().locator("small")).toHaveText(firstPageReference, { timeout: 30_000 });
+      await expect(catalogRows.first().locator(".planning-intake-question-info")).toHaveText(firstPageReference, { timeout: 30_000 });
 
       // The complete catalog proof is an authenticated server cursor audit. The
       // browser still exercises the real paginated UI, but it does not spend ten
