@@ -1,7 +1,7 @@
 # App-Shell Cache And Exact-Vector Convergence
 
 Date: 2026-08-17
-Last updated: 2026-08-17
+Last updated: 2026-08-17 (P0-5 source handoff recorded)
 Status: active — exact `namibia/demo` release deployed; public worker/manifest/health and no-op verified; retained pre-monitor browser convergence remains browser-scheduled
 
 ## Planning authority
@@ -17,9 +17,10 @@ activate only exact-vector-compatible Service Workers, preserve durable offline
 data, keep gateway-owned routes network-only, and retire the legacy v9 worker
 and document at cutover without reviving any OIDC artifact.
 
-The strict retirement bridge force-navigates same-origin legacy clients after
-the exact successor activates. It retains durable IndexedDB/OPFS/outbox state,
-but does not promise preservation of unsaved in-memory legacy form state.
+The safe retirement bridge waits for a quiescent, durable client checkpoint
+before takeover and requests a user-controlled reload after the exact
+successor activates. It retains durable IndexedDB/OPFS/outbox state and never
+forces navigation while local work may exist.
 
 Visible online clients explicitly check the stable worker at startup, every 60
 seconds, on `pageshow`, after reconnecting, and after returning to the
@@ -37,6 +38,11 @@ document can enter the same verified activation path.
   atomic authorization-code claim/finalization.
 - Surveil BFF state generation and consumption remain unchanged except for
   focused regression tests.
+
+The Offline-First Browser Production Hardening plan is the current authority
+for the handed-off P0-5 safe checkpoint, unresponsive-client fence, and
+no-forced-navigation behavior. This plan retains app-shell fingerprint,
+manifest, gateway/cache, release provenance, and public cutover ownership.
 
 No release lock, image, secret, Cloudflare, Terraform, deployment, or public
 qualification state is changed by this implementation slice.
@@ -69,6 +75,9 @@ qualification state is changed by this implementation slice.
 - `verified locally`: focused app-shell tests passed `52/52`, typecheck,
   demo/http builds, artifact scans, A/B/C harness, focused Caddy contract, and
   Caddy native validation passed.
+- `verified locally`: the P0-5 handoff slice now requires explicit
+  safe-checkpoint ACKs with zero quiescence counters and durable-work
+  acknowledgement; worker takeover does not force navigation.
 - `verified live diagnosis`: `https://demo.aviasurveil.com/` serves the current
   HTML; after release, `/sw.js?v=9` and `/sw.js` both return HTTP 200,
   `no-store`, identical bytes, and worker SHA-256
@@ -98,6 +107,13 @@ qualification state is changed by this implementation slice.
   `AVIA_LEGACY_UPDATE_BROWSER=webkit` when that binary is present.
 - `not run`: destructive site-data clearing, broad Cloudflare purge, public
   mutating qualification, preprod, and prod.
+- `verified locally`: the completed app-shell implementation slice is handed
+  to the Offline-First Browser Production Hardening plan for its P0-5 safe
+  checkpoint and unresponsive-client fence work. This handoff covers
+  `apps/web/src/sw.ts`, `apps/web/src/offline/update-coordinator.ts`,
+  `apps/web/src/offline/client-quiescence.ts`, and their focused tests. The
+  app-shell plan retains release provenance, gateway/cache ownership, and
+  public cutover authority.
 
 ## Ordered implementation
 
@@ -143,8 +159,9 @@ deletion, Chromium persistence, and WebKit history behavior.
 - No browser/worker path clears IndexedDB, OPFS, outbox, packages, or
   attachment manifests.
 - Automatic activation requires exact complete-vector equality.
-- Legacy v9 clients are force-navigated after exact successor activation;
-  unacknowledged legacy pages are not allowed to remain active.
+- Legacy v9 clients remain waiting until the safe checkpoint is ACKed; after
+  activation they receive a user-controlled reload request and are never
+  force-navigated while local work may exist.
 - A visible online client checks for a successor within 60 seconds; foreground,
   reconnect, startup, and page-show transitions check immediately.
 - `/sw.js?v=9` returns the current stable worker body with `no-store`; it must

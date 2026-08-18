@@ -428,6 +428,93 @@
         "x-organization-scope": "authorized-projection"
       }
     },
+    "/v1/inspections/{inspectionId}/finalize": {
+      "post": {
+        "operationId": "finalizeInspection",
+        "parameters": [
+          {
+            "name": "inspectionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/ExpectedRevision"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinalizeInspectionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Canonical inspection finalization receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionFinalizationReceipt"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "412": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
     "/v1/checklists/{auditId}/reopen": {
       "post": {
         "operationId": "reopenChecklist",
@@ -1438,6 +1525,170 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CompleteInspectionAttachmentUploadOutput"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "412": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
+    "/v1/inspection-attachments/uploads/{uploadId}/parts": {
+      "post": {
+        "operationId": "beginInspectionAttachmentPartUpload",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/UploadId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/ExpectedRevision"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BeginInspectionAttachmentPartUploadInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Inspection Attachment part upload instruction",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BeginInspectionAttachmentPartUploadOutput"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "412": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
+    "/v1/inspection-attachments/uploads/{uploadId}/parts/acknowledge": {
+      "post": {
+        "operationId": "acknowledgeInspectionAttachmentPart",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/UploadId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/ExpectedRevision"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcknowledgeInspectionAttachmentPartInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Acknowledged Inspection Attachment part",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadPartReceipt"
                 }
               }
             },
@@ -2512,6 +2763,24 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "deviceInstanceId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "profileKeyId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
             }
           },
           {
@@ -10279,6 +10548,85 @@
           }
         }
       },
+      "FinalizeInspectionInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "inspectionId",
+          "expectedPackageRevision"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string"
+          },
+          "inspectionId": {
+            "type": "string"
+          },
+          "expectedPackageRevision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "InspectionFinalizationReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "receiptId",
+          "inspectionId",
+          "packageRevision",
+          "serverRevision",
+          "answerManifestHash",
+          "findingManifestHash",
+          "attachmentManifestHash",
+          "eventManifestHash",
+          "canonicalizationVersion",
+          "serverTimestamp"
+        ],
+        "properties": {
+          "receiptId": {
+            "type": "string"
+          },
+          "inspectionId": {
+            "type": "string"
+          },
+          "packageRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "serverRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "answerManifestHash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "findingManifestHash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "attachmentManifestHash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "eventManifestHash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "canonicalizationVersion": {
+            "type": "string",
+            "enum": [
+              "avia-finalization-manifest/v1"
+            ]
+          },
+          "serverTimestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "OfflineGrant": {
         "type": "object",
         "additionalProperties": false,
@@ -10292,8 +10640,12 @@
           "allowedCommandTypes",
           "assignmentScope",
           "deviceInstanceId",
+          "profileKeyId",
+          "assignmentRevision",
           "issuedAt",
           "expiresAt",
+          "leaseIssuedAt",
+          "leaseExpiresAt",
           "protocolVersion"
         ],
         "properties": {
@@ -10339,11 +10691,27 @@
           "deviceInstanceId": {
             "type": "string"
           },
+          "profileKeyId": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "assignmentRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
           "issuedAt": {
             "type": "string",
             "format": "date-time"
           },
           "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "leaseIssuedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "leaseExpiresAt": {
             "type": "string",
             "format": "date-time"
           },
@@ -10359,7 +10727,9 @@
           "operationId",
           "packageId",
           "expectedPackageVersion",
-          "deviceInstanceId"
+          "deviceInstanceId",
+          "profileKeyId",
+          "profilePublicJwk"
         ],
         "properties": {
           "operationId": {
@@ -10373,6 +10743,14 @@
           },
           "deviceInstanceId": {
             "type": "string"
+          },
+          "profileKeyId": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "profilePublicJwk": {
+            "type": "object",
+            "additionalProperties": true
           }
         }
       },
@@ -11431,8 +11809,12 @@
         "required": [
           "uploadId",
           "stagingObjectKey",
-          "uploadUrl",
-          "requiredHeaders",
+          "sessionEpoch",
+          "partSize",
+          "receivedParts",
+          "acknowledgedOffsets",
+          "partHashes",
+          "wholeFileSha256",
           "expiresAt",
           "maximumByteSize"
         ],
@@ -11441,6 +11823,108 @@
             "type": "string"
           },
           "stagingObjectKey": {
+            "type": "string"
+          },
+          "sessionEpoch": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "partSize": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "receivedParts": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "acknowledgedOffsets": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "partHashes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "wholeFileSha256": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "maximumByteSize": {
+            "type": "integer"
+          }
+        }
+      },
+      "BeginInspectionAttachmentPartUploadInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "uploadId",
+          "sessionEpoch",
+          "partNumber",
+          "byteSize",
+          "sha256"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string"
+          },
+          "uploadId": {
+            "type": "string"
+          },
+          "sessionEpoch": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "partNumber": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "byteSize": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": "string"
+          }
+        }
+      },
+      "BeginInspectionAttachmentPartUploadOutput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "uploadId",
+          "sessionEpoch",
+          "partNumber",
+          "partObjectKey",
+          "uploadUrl",
+          "requiredHeaders",
+          "expiresAt"
+        ],
+        "properties": {
+          "uploadId": {
+            "type": "string"
+          },
+          "sessionEpoch": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "partNumber": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "partObjectKey": {
             "type": "string"
           },
           "uploadUrl": {
@@ -11452,9 +11936,72 @@
           "expiresAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "AcknowledgeInspectionAttachmentPartInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "uploadId",
+          "sessionEpoch",
+          "partNumber",
+          "byteSize",
+          "sha256"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string"
           },
-          "maximumByteSize": {
-            "type": "integer"
+          "uploadId": {
+            "type": "string"
+          },
+          "sessionEpoch": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "partNumber": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "byteSize": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": "string"
+          }
+        }
+      },
+      "UploadPartReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "partNumber",
+          "byteSize",
+          "sha256",
+          "acknowledgedOffset",
+          "objectVersion"
+        ],
+        "properties": {
+          "partNumber": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "byteSize": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "acknowledgedOffset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "objectVersion": {
+            "type": "string"
           }
         }
       },
@@ -11464,8 +12011,10 @@
         "required": [
           "operationId",
           "uploadId",
+          "sessionEpoch",
           "sha256",
-          "byteSize"
+          "byteSize",
+          "parts"
         ],
         "properties": {
           "operationId": {
@@ -11474,11 +12023,21 @@
           "uploadId": {
             "type": "string"
           },
+          "sessionEpoch": {
+            "type": "integer",
+            "minimum": 1
+          },
           "sha256": {
             "type": "string"
           },
           "byteSize": {
             "type": "integer"
+          },
+          "parts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UploadPartReceipt"
+            }
           }
         }
       },
@@ -11490,7 +12049,10 @@
           "inspectionAttachmentVersionId",
           "version",
           "uploadState",
-          "scanState"
+          "scanState",
+          "byteSize",
+          "sha256",
+          "objectVersion"
         ],
         "properties": {
           "inspectionAttachmentId": {
@@ -11514,6 +12076,16 @@
             "enum": [
               "PENDING"
             ]
+          },
+          "byteSize": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "objectVersion": {
+            "type": "string"
           }
         }
       },
@@ -12469,7 +13041,8 @@
           "UPSERT_CHECKLIST_RESPONSE",
           "CREATE_POTENTIAL_FINDING",
           "SUBMIT_CHECKLIST",
-          "REGISTER_INSPECTION_ATTACHMENT"
+          "REGISTER_INSPECTION_ATTACHMENT",
+          "RESOLVE_FIELD_CONFLICT"
         ]
       },
       "UpsertChecklistResponseOperation": {
@@ -12481,10 +13054,18 @@
           "offlineGrantId",
           "packageId",
           "packageVersion",
+          "packageRevision",
           "entityId",
           "commandType",
           "baseRevision",
           "deviceInstanceId",
+          "actorSubject",
+          "operationSequence",
+          "payloadHash",
+          "requestHash",
+          "profileKeyId",
+          "authorityProof",
+          "dependencies",
           "clientOccurredAt",
           "payload"
         ],
@@ -12504,6 +13085,10 @@
           "packageVersion": {
             "type": "integer"
           },
+          "packageRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
           "entityId": {
             "type": "string"
           },
@@ -12521,6 +13106,36 @@
           },
           "deviceInstanceId": {
             "type": "string"
+          },
+          "actorSubject": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operationSequence": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "payloadHash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "requestHash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "profileKeyId": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "authorityProof": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "clientOccurredAt": {
             "type": "string"
@@ -12560,10 +13175,18 @@
           "offlineGrantId",
           "packageId",
           "packageVersion",
+          "packageRevision",
           "entityId",
           "commandType",
           "baseRevision",
           "deviceInstanceId",
+          "actorSubject",
+          "operationSequence",
+          "payloadHash",
+          "requestHash",
+          "profileKeyId",
+          "authorityProof",
+          "dependencies",
           "clientOccurredAt",
           "payload"
         ],
@@ -12583,6 +13206,10 @@
           "packageVersion": {
             "type": "integer"
           },
+          "packageRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
           "entityId": {
             "type": "string"
           },
@@ -12600,6 +13227,36 @@
           },
           "deviceInstanceId": {
             "type": "string"
+          },
+          "actorSubject": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operationSequence": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "payloadHash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "requestHash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "profileKeyId": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "authorityProof": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "clientOccurredAt": {
             "type": "string"
@@ -12661,10 +13318,18 @@
           "offlineGrantId",
           "packageId",
           "packageVersion",
+          "packageRevision",
           "entityId",
           "commandType",
           "baseRevision",
           "deviceInstanceId",
+          "actorSubject",
+          "operationSequence",
+          "payloadHash",
+          "requestHash",
+          "profileKeyId",
+          "authorityProof",
+          "dependencies",
           "clientOccurredAt",
           "payload"
         ],
@@ -12684,6 +13349,10 @@
           "packageVersion": {
             "type": "integer"
           },
+          "packageRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
           "entityId": {
             "type": "string"
           },
@@ -12701,6 +13370,36 @@
           },
           "deviceInstanceId": {
             "type": "string"
+          },
+          "actorSubject": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operationSequence": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "payloadHash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "requestHash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "profileKeyId": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "authorityProof": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "clientOccurredAt": {
             "type": "string"
@@ -12728,10 +13427,18 @@
           "offlineGrantId",
           "packageId",
           "packageVersion",
+          "packageRevision",
           "entityId",
           "commandType",
           "baseRevision",
           "deviceInstanceId",
+          "actorSubject",
+          "operationSequence",
+          "payloadHash",
+          "requestHash",
+          "profileKeyId",
+          "authorityProof",
+          "dependencies",
           "clientOccurredAt",
           "payload"
         ],
@@ -12751,6 +13458,10 @@
           "packageVersion": {
             "type": "integer"
           },
+          "packageRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
           "entityId": {
             "type": "string"
           },
@@ -12768,6 +13479,36 @@
           },
           "deviceInstanceId": {
             "type": "string"
+          },
+          "actorSubject": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operationSequence": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "payloadHash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "requestHash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "profileKeyId": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "authorityProof": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "clientOccurredAt": {
             "type": "string"
@@ -12813,6 +13554,141 @@
           }
         }
       },
+      "ResolveFieldConflictOperation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "protocolVersion",
+          "offlineGrantId",
+          "packageId",
+          "packageVersion",
+          "packageRevision",
+          "entityId",
+          "commandType",
+          "baseRevision",
+          "deviceInstanceId",
+          "actorSubject",
+          "operationSequence",
+          "payloadHash",
+          "requestHash",
+          "profileKeyId",
+          "authorityProof",
+          "dependencies",
+          "clientOccurredAt",
+          "payload"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string"
+          },
+          "protocolVersion": {
+            "type": "integer"
+          },
+          "offlineGrantId": {
+            "type": "string"
+          },
+          "packageId": {
+            "type": "string"
+          },
+          "packageVersion": {
+            "type": "integer"
+          },
+          "packageRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "entityId": {
+            "type": "string"
+          },
+          "commandType": {
+            "type": "string",
+            "enum": [
+              "RESOLVE_FIELD_CONFLICT"
+            ]
+          },
+          "baseRevision": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "deviceInstanceId": {
+            "type": "string"
+          },
+          "actorSubject": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operationSequence": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "payloadHash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "requestHash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "profileKeyId": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "authorityProof": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "clientOccurredAt": {
+            "type": "string"
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "conflictOperationId",
+              "resolution",
+              "reason",
+              "authoritativeRevision",
+              "localPayloadHash"
+            ],
+            "properties": {
+              "conflictOperationId": {
+                "type": "string"
+              },
+              "resolution": {
+                "type": "string",
+                "enum": [
+                  "ACCEPT_SERVER",
+                  "KEEP_LOCAL_AS_NEW_REVISION",
+                  "AUTHORIZED_REVIEWER"
+                ]
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              },
+              "authoritativeRevision": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "localPayloadHash": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              }
+            }
+          }
+        }
+      },
       "FieldSyncOperation": {
         "oneOf": [
           {
@@ -12826,6 +13702,9 @@
           },
           {
             "$ref": "#/components/schemas/RegisterInspectionAttachmentOperation"
+          },
+          {
+            "$ref": "#/components/schemas/ResolveFieldConflictOperation"
           }
         ],
         "discriminator": {
@@ -12834,7 +13713,8 @@
             "UPSERT_CHECKLIST_RESPONSE": "#/components/schemas/UpsertChecklistResponseOperation",
             "CREATE_POTENTIAL_FINDING": "#/components/schemas/CreatePotentialFindingOperation",
             "SUBMIT_CHECKLIST": "#/components/schemas/SubmitChecklistOperation",
-            "REGISTER_INSPECTION_ATTACHMENT": "#/components/schemas/RegisterInspectionAttachmentOperation"
+            "REGISTER_INSPECTION_ATTACHMENT": "#/components/schemas/RegisterInspectionAttachmentOperation",
+            "RESOLVE_FIELD_CONFLICT": "#/components/schemas/ResolveFieldConflictOperation"
           }
         }
       },

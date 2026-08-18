@@ -69,6 +69,7 @@
 .auditee-secondary-page a {
   display: inline-flex;
   align-items: center;
+  min-width: 44px;
   min-height: 44px;
 }
 
@@ -186,6 +187,11 @@
 }
 
 @media (max-width: 640px) {
+  .workspace-shell--auditee .auditee-secondary-page { padding: 18px 14px 34px; }
+  .workspace-shell--auditee .auditee-secondary-head,
+  .workspace-shell--auditee .auditee-card-register article > header { flex-direction: column; }
+  .workspace-shell--auditee .auditee-secondary-head > div { min-width: 0; max-width: 100%; }
+  .workspace-shell--auditee .auditee-coordination-actions { grid-template-columns: 1fr; }
   .workspace-shell--auditee-demo .auditee-secondary-page { padding: 18px 14px 34px; }
   .workspace-shell--auditee-demo .auditee-secondary-head,
   .workspace-shell--auditee-demo .auditee-card-register article > header,

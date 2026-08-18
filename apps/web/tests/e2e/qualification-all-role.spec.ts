@@ -4,6 +4,8 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { planningItemLabel } from "../../src/features/shared/record-presentation";
+
 type Role = "admin" | "manager" | "finance" | "gm" | "executiveDirector" | "leadInspector" | "inspector" | "auditee";
 type PurposeToken = "PLATFORM-ADMIN" | "AGA-MANAGER" | "FINANCE-REVIEWER" | "GENERAL-MANAGER" | "EXECUTIVE-DIRECTOR" | "LEAD-INSPECTOR" | "INSPECTOR" | "TARGET-AUDITEE" | "CONTROL-AUDITEE";
 
@@ -374,6 +376,7 @@ async function findPreparedTeamMember(page: Page, role: "leadInspector" | "inspe
 
 interface PlanningPinView {
   id: string;
+  title?: string;
   revision: number;
   organizationId?: string;
   inspectionType?: string;
@@ -458,6 +461,7 @@ test.describe("prepared identity connected qualification", () => {
     const adminSession = await signIn(browser, admin);
     const managerSession = await signIn(browser, manager);
     let planningItemId = "";
+    let planningItemTitle = "";
     let assignmentId = "";
     let inspectionId = "";
     let packageId = "";
@@ -519,30 +523,24 @@ test.describe("prepared identity connected qualification", () => {
       const regulatedTargetSelector = managerSession.page.getByLabel("Regulated target");
       await expect(regulatedTargetSelector).toBeEnabled();
       await regulatedTargetSelector.selectOption(scenario.regulatedTargetId);
-      const pendingApplicationType = managerSession.page.getByLabel("Application Type");
+      const pendingApplicationType = managerSession.page.getByLabel("Inspection type");
       await expect(pendingApplicationType).toBeEnabled();
       await expect(pendingApplicationType).toHaveValue(scenario.applicationType);
-      await managerSession.page.getByRole("button", { name: "Open audit setup for this supplier" }).click();
-      await expect(managerSession.page).toHaveURL(/\/department-manager\/new-audit\/step-1\?draftId=/);
-      const supplier = managerSession.page.getByLabel("Supplier / organization");
-      const providerScope = managerSession.page.getByLabel("Provider scope");
-      const regulatedTarget = managerSession.page.getByLabel("Regulated target");
-      const applicationType = managerSession.page.getByLabel("Application Type");
-      await expect(supplier).toBeVisible();
-      await expect(providerScope).toHaveValue(scenario.providerScopeId);
-      await expect(regulatedTarget).toHaveValue(scenario.regulatedTargetId);
-      await expect(applicationType).toHaveValue(scenario.applicationType);
-      await expect(applicationType).toBeEnabled();
-      await expect(managerSession.page.getByText(/only ramp inspection is authorized for this supplier\/provider scope/i)).toBeVisible();
-      supplierOrganizationId = await supplier.inputValue();
+      supplierOrganizationId = await supplierSelector.inputValue();
+      await managerSession.page.getByRole("button", { name: "Continue", exact: true }).click();
+      await expect(managerSession.page).toHaveURL(/\/department-manager\/new-audit\/step-2\?draftId=/);
+      await expect(managerSession.page.getByRole("heading", { name: "Purpose", exact: true })).toBeVisible();
+      const purpose = managerSession.page.getByLabel("Purpose", { exact: true });
+      await purpose.fill("Prepared all-role AGA qualification through the approved source catalog.");
+      await managerSession.page.getByRole("button", { name: "Continue", exact: true }).click();
+      await expect(managerSession.page).toHaveURL(/\/department-manager\/new-audit\/step-3\?draftId=/);
+      const plannedDate = managerSession.page.getByLabel("Planned date", { exact: true });
+      const location = managerSession.page.getByLabel("Location", { exact: true });
+      await plannedDate.fill(scenario.plannedDate);
+      await location.fill(scenario.location);
+      await managerSession.page.getByRole("button", { name: "Continue", exact: true }).click();
+      await expect(managerSession.page).toHaveURL(/\/department-manager\/new-audit\/step-4\?draftId=/);
       expect(supplierOrganizationId).toBeTruthy();
-      await managerSession.page.getByRole("button", { name: "Next", exact: true }).click();
-      await managerSession.page.getByLabel("Purpose").fill("Prepared all-role AGA qualification through the approved source catalog.");
-      await managerSession.page.getByLabel("Risk Category").fill(scenario.riskCategory);
-      await managerSession.page.getByRole("button", { name: "Next" }).click();
-      await managerSession.page.getByLabel("Planned Date").fill(scenario.plannedDate);
-      await managerSession.page.getByLabel("Location").fill(scenario.location);
-      await managerSession.page.getByRole("button", { name: "Next" }).click();
       const draftId = new URL(managerSession.page.url()).searchParams.get("draftId") ?? "";
       expect(draftId).toBeTruthy();
       const draft = await getApiJson<{ organizationId?: string; organizationName?: string; applicationType?: string; providerScopeId?: string; regulatedTargetId?: string; scopeDraftId?: string; catalogVersion?: string }>(managerSession.page, `/v1/planning/intake-drafts/${encodeURIComponent(draftId)}`);
@@ -555,26 +553,29 @@ test.describe("prepared identity connected qualification", () => {
       const scopeDraftId = draft.scopeDraftId ?? "";
       expect(scopeDraftId).toBeTruthy();
       expect(draft.catalogVersion).toBe(scenario.catalogVersion);
-      const catalogRows = managerSession.page.locator(".planning-intake-catalog-list li small");
+      const catalogRows = managerSession.page.locator(".planning-intake-catalog-list li");
       await expect(catalogRows).toHaveCount(25, { timeout: 30_000 });
-      await managerSession.page.getByRole("button", { name: "Stage suggested questions" }).click();
-      await expect(managerSession.page.locator(".planning-intake-status")).toContainText("AI-suggested questions staged locally", { timeout: 30_000 });
-      await managerSession.page.getByRole("button", { name: "Undo staged changes" }).click();
-      await expect(managerSession.page.locator(".planning-intake-status")).toContainText("Staged selection changes were discarded.");
+      const advancedFilters = managerSession.page.locator(".planning-intake-advanced-filters");
+      await expect(advancedFilters).not.toHaveAttribute("open", "");
+      await advancedFilters.locator("> summary").click();
+      await expect(managerSession.page.getByLabel("Recommendation filter")).toHaveValue("SUGGESTED_NOW");
+      await managerSession.page.getByLabel("Recommendation filter").selectOption("");
+      await expect(managerSession.page.locator(".planning-intake-catalog-pagination")).toContainText("1,310 matching", { timeout: 30_000 });
+      await advancedFilters.locator("> summary").click();
 
       const seenIds: string[] = [];
       const seen = new Set<string>();
       let apiCursor: string | undefined;
       for (;;) {
-        const firstVisibleId = await catalogRows.first().textContent();
-        const pageIds = await catalogRows.evaluateAll((nodes) => nodes.map((node) => node.textContent?.match(/qv:[^\s·]+/)?.[0] ?? ""));
-        expect(pageIds.length).toBeGreaterThan(0);
+        const firstVisibleReference = await catalogRows.first().locator("small").textContent();
+        const pageReferences = await catalogRows.locator("small").evaluateAll((nodes) => nodes.map((node) => node.textContent?.split(" · ").slice(0, 2).join(" · ") ?? ""));
+        expect(pageReferences.length).toBeGreaterThan(0);
         const apiQuery = new URLSearchParams({ usageClass: "GOVERNED_OPERATIONAL", scopeId: scopeDraftId, applicationType: scenario.applicationType, limit: "25" });
         if (apiCursor) apiQuery.set("cursor", apiCursor);
         const apiPage = await getApiJson<CanonicalQuestionCatalogPage>(managerSession.page, `/v1/question-catalogs/${encodeURIComponent(scenario.catalogVersion)}/questions?${apiQuery.toString()}`);
         expect(apiPage.totalCount).toBe(1310);
-        expect(apiPage.items.map((item) => item.questionVersionId)).toEqual(pageIds);
-        expect(apiPage.items).toHaveLength(pageIds.length);
+        expect(apiPage.items.map((item) => `${item.formCode} · item ${item.ordinal}`)).toEqual(pageReferences);
+        expect(apiPage.items).toHaveLength(pageReferences.length);
         for (const [pageIndex, item] of apiPage.items.entries()) {
           const oracleRow = catalogOracle.rows[seenIds.length + pageIndex];
           expect(oracleRow).toBeTruthy();
@@ -586,13 +587,14 @@ test.describe("prepared identity connected qualification", () => {
           expect(item.canSelect).toBe(true);
           expect(item.canPublish).toBe(false);
         }
-        for (const id of pageIds) {
+        for (const item of apiPage.items) {
+          const id = item.questionVersionId;
           expect(id).toMatch(/^qv:aga-approved-source-v2:/);
           if (seen.has(id)) throw new Error(`Catalog traversal repeated a visible question row: ${id}`);
           seen.add(id);
           seenIds.push(id);
           if (scenario.selectedQuestionVersionIds.includes(id)) {
-            const row = managerSession.page.locator(".planning-intake-catalog-list li").filter({ hasText: id });
+            const row = catalogRows.filter({ hasText: `${item.formCode} · item ${item.ordinal}` });
             await expect(row).toHaveCount(1);
             await row.getByRole("checkbox").check();
           }
@@ -601,9 +603,9 @@ test.describe("prepared identity connected qualification", () => {
         const next = managerSession.page.getByRole("button", { name: "Next questions" });
         if (await next.isDisabled()) break;
         await next.click();
-        await expect(catalogRows.first()).not.toHaveText(firstVisibleId ?? "", { timeout: 30_000 });
+        await expect(catalogRows.first().locator("small")).not.toHaveText(firstVisibleReference ?? "", { timeout: 30_000 });
       }
-      await expect(managerSession.page.locator(".planning-intake-catalog-pagination")).toContainText("1310 matching questions");
+      await expect(managerSession.page.locator(".planning-intake-catalog-pagination")).toContainText("1,310 matching");
       expect(seenIds).toHaveLength(1310);
       expect(new Set(seenIds).size).toBe(1310);
       expect(seenIds).toEqual(catalogOracle.rows.map((row) => row.immutableQuestionVersionId));
@@ -611,8 +613,8 @@ test.describe("prepared identity connected qualification", () => {
 
       await managerSession.page.setViewportSize({ width: 390, height: 844 });
       try {
-        await expect(managerSession.page.getByRole("button", { name: "View dossier" }).first()).toBeVisible();
-        await managerSession.page.getByRole("button", { name: "View dossier" }).first().click();
+        await expect(managerSession.page.getByRole("button", { name: "View details" }).first()).toBeVisible();
+        await managerSession.page.getByRole("button", { name: "View details" }).first().click();
         const questionDossier = managerSession.page.getByRole("dialog", { name: "Question dossier" });
         await expect(questionDossier).toBeVisible();
         await expect(questionDossier).toContainText("Question version");
@@ -632,34 +634,34 @@ test.describe("prepared identity connected qualification", () => {
 
       const representativeForm = catalogOracle.rows[0]?.formCode;
       expect(representativeForm).toBeTruthy();
-      await managerSession.page.getByRole("textbox", { name: "New Audit question search", exact: true }).fill(representativeForm ?? "");
-      await expect(managerSession.page.locator(".planning-intake-catalog-pagination")).toContainText("matching questions");
+      await managerSession.page.getByRole("textbox", { name: "Search questions", exact: true }).fill(representativeForm ?? "");
+      await expect(managerSession.page.locator(".planning-intake-catalog-pagination")).toContainText("matching");
       await expect(catalogRows.first()).toContainText(representativeForm ?? "");
-      const formFacet = managerSession.page.locator("details.planning-intake-facet-picker").filter({ has: managerSession.page.locator('summary[aria-label="New Audit form filter"]') });
+      await advancedFilters.locator("> summary").click();
+      const formFacet = managerSession.page.locator("details.planning-intake-facet-picker").filter({ has: managerSession.page.locator('summary[aria-label="Form filter"]') });
       await formFacet.locator("summary").click();
       const formOptions = formFacet.locator('input[type="checkbox"]');
       await expect(formOptions).toHaveCount(1);
       await formOptions.first().check();
-      await expect(managerSession.page.locator(".planning-intake-catalog-pagination")).toContainText("matching questions");
+      await expect(managerSession.page.locator(".planning-intake-catalog-pagination")).toContainText("matching");
       await managerSession.page.getByRole("button", { name: "Clear filters" }).click();
-      await expect(managerSession.page.locator(".planning-intake-catalog-pagination")).toContainText("1310 matching questions");
+      await managerSession.page.getByRole("textbox", { name: "Search questions", exact: true }).fill("");
+      await expect(managerSession.page.locator(".planning-intake-catalog-pagination")).toContainText("1,310 matching");
       writeEvent({ event: "manager-catalog-cursor-traversal", questionCount: seenIds.length, catalogRootDigest: catalogOracle.catalogRootDigest, rootMatchesManifest: catalogOracle.catalogRootDigest === scenario.catalogRootDigest, searchFilterVerified: true, formFilterVerified: true, applicationType: scenario.applicationType, typedSuggestionsVerified: true, selectionDigest: scenario.selectionDigest, status: "verified locally" });
 
-      const selectedTray = managerSession.page.getByRole("region", { name: "Selected question tray" });
-      await expect(selectedTray).toContainText(`${scenario.selectedQuestionVersionIds.length} exact immutable versions`);
-      for (const questionVersionId of scenario.selectedQuestionVersionIds) {
-        await expect(selectedTray).toContainText(questionVersionId);
-      }
-      await managerSession.page.getByRole("button", { name: "Preview next exact batch" }).click();
-      await expect(managerSession.page.locator(".planning-intake-status")).toContainText("Exact selection preview ready");
-      await managerSession.page.getByRole("button", { name: "Confirm selection" }).click();
-      await expect(managerSession.page.locator(".planning-intake-status")).toContainText("Exact question selection committed");
-      await expect(managerSession.page.locator(".planning-intake-status")).toContainText(scenario.selectionDigest);
-      await managerSession.page.getByRole("button", { name: "Next", exact: true }).click();
+      const selectionSummary = managerSession.page.getByRole("region", { name: "Selection summary" });
+      await expect(selectionSummary).toContainText(`${scenario.selectedQuestionVersionIds.length} questions selected`);
+      await selectionSummary.getByRole("button", { name: "Review selection" }).click();
+      const selectionDialog = managerSession.page.getByRole("dialog", { name: "Review selection" });
+      await expect(selectionDialog).toBeVisible();
+      await selectionDialog.getByRole("button", { name: "Confirm selection" }).click();
+      await expect(managerSession.page.locator(".planning-intake-status")).toContainText("Selection confirmed and saved to the server-owned scope.");
+      const confirmedDraft = await getApiJson<{ selectionDigest?: string }>(managerSession.page, `/v1/planning/intake-drafts/${encodeURIComponent(draftId)}`);
+      expect(confirmedDraft.selectionDigest).toBe(scenario.selectionDigest);
+      await managerSession.page.getByRole("button", { name: "Continue", exact: true }).click();
       await managerSession.page.waitForURL(/\/department-manager\/new-audit\/step-5\?draftId=/);
-      await expect(managerSession.page.getByRole("region", { name: "Planning intake form" })).toContainText(`${scenario.selectedQuestionVersionIds.length} exact question versions`);
-      await expect(managerSession.page.getByRole("region", { name: "Planning intake form" })).toContainText(scenario.selectionDigest);
-      await managerSession.page.getByRole("button", { name: "Submit for Finance Review" }).click();
+      await expect(managerSession.page.getByRole("region", { name: "Planning intake form" })).toContainText(`${scenario.selectedQuestionVersionIds.length}`);
+      await managerSession.page.getByRole("button", { name: "Submit to Finance" }).click();
       await managerSession.page.waitForURL(/\/department-manager\/audit-plan\?planningItemId=/);
       planningItemId = new URL(managerSession.page.url()).searchParams.get("planningItemId") ?? "";
       expect(planningItemId).toBeTruthy();
@@ -671,6 +673,8 @@ test.describe("prepared identity connected qualification", () => {
       expect(submittedPlanningItem?.revision).toBeGreaterThan(0);
       expect(submittedPlanningItem?.organizationId).toBe(supplierOrganizationId);
       expect(submittedPlanningItem?.inspectionType).toContain(scenario.applicationType);
+      planningItemTitle = submittedPlanningItem?.title ?? "";
+      expect(planningItemTitle).toBeTruthy();
       submittedScopeSnapshotId = submittedPlanningItem?.submittedScopeSnapshotId ?? "";
       planningSnapshotDigest = submittedPlanningItem?.planningSnapshotDigest ?? "";
       planningRevision = submittedPlanningItem?.revision ?? 0;
@@ -687,9 +691,9 @@ test.describe("prepared identity connected qualification", () => {
     const financeSession = await signIn(browser, finance);
     try {
       await financeSession.page.goto(`${origin}/finance/finance-review`, { waitUntil: "domcontentloaded" });
-      const financeRow = financeSession.page.getByRole("row").filter({ hasText: planningItemId });
+      const financeRow = financeSession.page.getByRole("row").filter({ hasText: planningItemTitle });
       await expect(financeRow).toHaveCount(1);
-      await financeRow.getByRole("button", { name: `Review ${planningItemId}` }).click();
+      await financeRow.getByRole("button", { name: `Review ${planningItemLabel(planningItemTitle, planningItemId)}` }).click();
       await expect(financeSession.page.getByTestId("planning-status")).toHaveText("FINANCE_REVIEW");
       await financeSession.page.getByRole("button", { name: "Approve Budget" }).click();
       await financeSession.page.getByLabel("Finance decision reason").fill("Finance verified the released planning budget and exact immutable scope.");
@@ -764,14 +768,14 @@ test.describe("prepared identity connected qualification", () => {
       await preparationSession.page.goto(`${origin}/department-manager/audit-plan?planningItemId=${encodeURIComponent(planningItemId)}`, { waitUntil: "domcontentloaded" });
       const preparationPanel = preparationSession.page.getByTestId("canonical-preparation-actions");
       await expect(preparationPanel).toBeVisible();
-      await preparationPanel.getByRole("button", { name: "Begin server-owned preparation" }).click();
+      await preparationPanel.getByRole("button", { name: "Begin preparation" }).click();
       await expect(preparationPanel).toContainText("PREPARATION");
-      const preparationStatus = preparationPanel.getByRole("status").filter({ hasText: "Assignment" }).first();
-      assignmentId = (await preparationStatus.textContent())?.match(/Assignment ([^\s·]+)/)?.[1] ?? "";
+      const preparationState = await getApiJson<{ id?: string }>(preparationSession.page, `/v1/audit-assignments/preparations/current?planningItemId=${encodeURIComponent(planningItemId)}`);
+      assignmentId = preparationState.id ?? "";
       expect(assignmentId).toBeTruthy();
       await preparationPanel.getByLabel("Lead Inspector subject ID").fill(leadMember.subjectId);
       await preparationPanel.getByRole("button", { name: "Assign Lead Inspector" }).click();
-      await expect(preparationPanel).toContainText(`${assignmentId} · LEAD_ASSIGNED`);
+      await expect(preparationPanel).toContainText("Assignment #");
       writeEvent({ event: "manager-assigned-lead", planningItemId, assignmentId, leadSubjectId: leadMember.subjectId, status: "verified locally" });
     } finally {
       // Shared role sessions are closed by the test-level cleanup hook.
@@ -804,17 +808,23 @@ test.describe("prepared identity connected qualification", () => {
     try {
       await materializeSession.page.goto(`${origin}/department-manager/audit-plan?planningItemId=${encodeURIComponent(planningItemId)}`, { waitUntil: "domcontentloaded" });
       const preparationPanel = materializeSession.page.getByTestId("canonical-preparation-actions");
-      await expect(preparationPanel).toContainText(`${assignmentId} · QUESTIONS_ASSIGNED`);
+      await expect(preparationPanel).toContainText("Assignment #");
+      await expect(preparationPanel).toContainText("QUESTIONS ASSIGNED");
       await preparationPanel.getByRole("button", { name: "Confirm preparation" }).click();
       await expect(materializeSession.page.getByRole("status").filter({ hasText: "preparation confirmed" })).toBeVisible();
-      await preparationPanel.getByRole("button", { name: "Materialize canonical Audit" }).click();
-      const materializedStatus = preparationPanel.getByRole("status").filter({ hasText: "Inspection" }).last();
-      const materializedText = await materializedStatus.textContent();
-      inspectionId = materializedText?.match(/Inspection ([^\s·]+)/)?.[1] ?? "";
-      packageId = materializedText?.match(/package ([^\.\s]+)/)?.[1] ?? "";
+      const materializationResponse = materializeSession.page.waitForResponse((response) =>
+        response.request().method() === "POST" && response.url().includes(`/api/v1/audit-assignments/${encodeURIComponent(assignmentId)}/materializations`),
+      );
+      await preparationPanel.getByRole("button", { name: "Create Audit" }).click();
+      await expect(preparationPanel).toContainText("Inspector start is available");
+      const materializationResult = await materializationResponse;
+      expect(materializationResult.ok()).toBe(true);
+      const materializedState = await materializationResult.json() as { inspectionId?: string; packageId?: string; status?: string };
+      inspectionId = materializedState.inspectionId ?? "";
+      packageId = materializedState.packageId ?? "";
       expect(inspectionId).toBeTruthy();
       expect(packageId).toBeTruthy();
-      await expect(materializedStatus).toContainText("AWAITING_AUDITEE_CONFIRMATION");
+      expect(materializedState.status).toBe("AWAITING_AUDITEE_CONFIRMATION");
       writeEvent({ event: "manager-materialized-canonical-audit", planningItemId, assignmentId, inspectionId, packageId, selectedQuestionCount: scenario.selectedQuestionVersionIds.length, status: "verified locally" });
     } finally {
       // Shared role sessions are closed by the test-level cleanup hook.

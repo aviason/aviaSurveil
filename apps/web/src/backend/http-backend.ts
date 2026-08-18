@@ -483,6 +483,12 @@ export function createHttpBackend(
             options,
           ),
         ),
+      finalize: async (input, options) =>
+        await request<Schemas["InspectionFinalizationReceipt"]>(
+          `/v1/inspections/${encodeURIComponent(input.inspectionId)}/finalize`,
+          { method: "POST", body: input },
+          options,
+        ),
       upsertChecklistResponse: async (input, options) =>
         mapChecklistResponse(
           await request<Schemas["ChecklistResponseView"]>(
@@ -606,6 +612,18 @@ export function createHttpBackend(
       beginUpload: async (input, options) =>
         await request<Schemas["BeginInspectionAttachmentUploadOutput"]>(
           `/v1/inspection-attachments/${encodeURIComponent(input.inspectionAttachmentId)}/uploads`,
+          { method: "POST", body: input },
+          options,
+        ),
+      beginPart: async (input, options) =>
+        await request<Schemas["BeginInspectionAttachmentPartUploadOutput"]>(
+          `/v1/inspection-attachments/uploads/${encodeURIComponent(input.uploadId)}/parts`,
+          { method: "POST", body: input },
+          options,
+        ),
+      acknowledgePart: async (input, options) =>
+        await request<Schemas["UploadPartReceipt"]>(
+          `/v1/inspection-attachments/uploads/${encodeURIComponent(input.uploadId)}/parts/acknowledge`,
           { method: "POST", body: input },
           options,
         ),

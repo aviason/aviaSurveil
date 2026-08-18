@@ -3,19 +3,25 @@ import Dexie, { type Table } from "dexie";
 import type {
   AuthorizedSyncChange,
   ChecklistAnswer,
+  FieldOperationBase,
   ChecklistResponseView,
   FieldSyncOperation,
   InspectionPackage,
   OfflineGrant,
   PushFieldOperationResult,
   SyncPullResponse,
+  UploadPartReceipt,
+  ResumableInspectionAttachmentUploadSession,
 } from "../backend/backend";
 import {
   getBrowserOfflineFieldDatabase,
+  type AttachmentRecoveryState,
   type AttachmentManifestRow,
   type ChecklistResponseRow,
   type FieldAccessState,
   type FieldDatabaseOpenResult,
+  type FoundationRow,
+  type LocalCommitReceiptRow,
   type OfflineFieldDatabase,
   type OutboxRow,
   type PackageRow,
@@ -37,6 +43,7 @@ import {
   sha256Canonical,
 } from "./schema-migrations";
 import { CURRENT_OFFLINE_VERSIONS } from "./offline-version-contract";
+import { createBrowserProfileAuthority, type ProfileAuthority } from "./profile-authority";
 
 export type FieldTransactionBoundary =
   | "after-checklist-response-write"
@@ -138,7 +145,12 @@ export interface AcknowledgeAttachmentInput {
   acknowledgedAt: string;
 }
 
-export interface AcknowledgeUploadedAttachmentInput extends AcknowledgeAttachmentInput {}
+export interface AcknowledgeUploadedAttachmentInput extends AcknowledgeAttachmentInput {
+  uploadState?: "COMPLETED";
+  objectVersion?: string;
+  byteSize?: number;
+  sha256?: string;
+}
 
 export interface FieldChecklistSubmission {
   auditId: string;
@@ -178,9 +190,11 @@ interface IndexedDbFieldRepositoryOptions {
   subjectId: string;
   now?: () => Date;
   transactionFault?: FieldTransactionFault;
+  profileAuthority?: ProfileAuthority | Promise<ProfileAuthority>;
 }
 
 const CLOCK_SKEW_MS = 5 * 60_000;
+const MAX_OFFLINE_LEASE_MS = 7 * 24 * 60 * 60_000;
 const MAX_INSPECTION_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 const INSPECTION_ATTACHMENT_MEDIA_TYPES = new Set([
   "application/pdf",
@@ -215,12 +229,16 @@ export class IndexedDbFieldRepository {
   readonly subjectId: string;
   private readonly now: () => Date;
   private readonly transactionFault?: FieldTransactionFault;
+  private readonly profileAuthority?: Promise<ProfileAuthority>;
 
   constructor(options: IndexedDbFieldRepositoryOptions) {
     this.database = options.database ?? getBrowserOfflineFieldDatabase();
     this.subjectId = options.subjectId;
     this.now = options.now ?? (() => new Date());
     this.transactionFault = options.transactionFault;
+    this.profileAuthority = options.profileAuthority
+      ? Promise.resolve(options.profileAuthority)
+      : undefined;
     if (!this.subjectId.trim()) {
       throw new FieldRepositoryError("SUBJECT_REQUIRED", "A bound session subject is required.");
     }
@@ -232,6 +250,7 @@ export class IndexedDbFieldRepository {
       subjectId: this.subjectId,
       now,
       transactionFault: this.transactionFault,
+      profileAuthority: this.profileAuthority,
     });
   }
 
@@ -268,6 +287,8 @@ export class IndexedDbFieldRepository {
     const now = this.now().getTime();
     const issuedAt = parseInstant(offlineGrant.issuedAt);
     const grantExpiresAt = parseInstant(offlineGrant.expiresAt);
+    const leaseIssuedAt = parseInstant(offlineGrant.leaseIssuedAt ?? "");
+    const leaseExpiresAt = parseInstant(offlineGrant.leaseExpiresAt ?? "");
     const packageExpiresAt = parseInstant(inspectionPackage.expiresAt);
     if (!isFieldSchemaNOrNMinusOne(
       inspectionPackage.schemaVersion,
@@ -301,6 +322,20 @@ export class IndexedDbFieldRepository {
         "The server-issued grant does not exactly match this subject and package.",
       );
     }
+    if (
+      this.profileAuthority &&
+      (!offlineGrant.profileKeyId ||
+        offlineGrant.assignmentRevision === undefined ||
+        leaseIssuedAt === null ||
+        leaseExpiresAt === null ||
+        leaseExpiresAt <= leaseIssuedAt ||
+        leaseExpiresAt - leaseIssuedAt > MAX_OFFLINE_LEASE_MS)
+    ) {
+      throw new FieldPackageUnavailableError(
+        "OFFLINE_GRANT_AUTHORITY_INVALID",
+        "The server-issued grant is missing a bounded profile authority lease.",
+      );
+    }
     const questions = new Map(inspectionPackage.questions.map((question) => [question.id, question]));
     if (
       offlineGrant.assignmentScope.questionIds.some((questionId) => {
@@ -319,7 +354,8 @@ export class IndexedDbFieldRepository {
       packageExpiresAt === null ||
       issuedAt > now + CLOCK_SKEW_MS ||
       grantExpiresAt <= now ||
-      packageExpiresAt <= now
+      packageExpiresAt <= now ||
+      (this.profileAuthority && (leaseIssuedAt === null || leaseExpiresAt === null || leaseExpiresAt <= now))
     ) {
       throw new FieldPackageUnavailableError(
         "OFFLINE_GRANT_EXPIRED",
@@ -387,8 +423,12 @@ export class IndexedDbFieldRepository {
           packageVersion: offlineGrant.packageVersion,
           packageDigest: offlineGrant.packageDigest,
           deviceInstanceId: offlineGrant.deviceInstanceId,
+          profileKeyId: offlineGrant.profileKeyId,
+          assignmentRevision: offlineGrant.assignmentRevision,
           issuedAt: offlineGrant.issuedAt,
           expiresAt: offlineGrant.expiresAt,
+          leaseIssuedAt: offlineGrant.leaseIssuedAt,
+          leaseExpiresAt: offlineGrant.leaseExpiresAt,
           protocolVersion: offlineGrant.protocolVersion,
           offlineGrant,
         });
@@ -598,6 +638,8 @@ export class IndexedDbFieldRepository {
     grant: OfflineGrant;
     entityId: string;
     baseRevision: number | null;
+    operationSequence: number;
+    dependencies: string[];
   }) {
     return {
       operationId: input.operationId,
@@ -605,20 +647,113 @@ export class IndexedDbFieldRepository {
       offlineGrantId: input.grant.grantId,
       packageId: input.packageRow.id,
       packageVersion: input.packageRow.packageVersion,
+      packageRevision: Math.max(1, input.packageRow.inspectionPackage.checklistRevision),
       entityId: input.entityId,
       baseRevision: input.baseRevision,
       deviceInstanceId: input.grant.deviceInstanceId,
+      actorSubject: this.subjectId,
+      profileKeyId: input.grant.profileKeyId,
+      operationSequence: input.operationSequence,
+      dependencies: [...input.dependencies].sort(),
       clientOccurredAt: this.now().toISOString(),
     };
+  }
+
+  private async createOperation<TType extends FieldSyncOperation["commandType"], TPayload>(
+    base: Omit<FieldOperationBase<TType, TPayload>, "payloadHash" | "requestHash" | "payload">,
+    payload: TPayload,
+  ): Promise<FieldOperationBase<TType, TPayload>> {
+    const payloadHash = await Dexie.waitFor(sha256Canonical(payload));
+    const candidate = {
+      ...base,
+      payloadHash,
+      requestHash: "",
+      payload,
+    } as FieldOperationBase<TType, TPayload>;
+    const requestHash = await Dexie.waitFor(fieldOperationRequestDigest(candidate as FieldSyncOperation));
+    const authority = this.profileAuthority ? await Dexie.waitFor(this.profileAuthority) : null;
+    if (authority) {
+      if (authority.subjectId !== this.subjectId || authority.profileKeyId !== candidate.profileKeyId) {
+        throw new FieldRepositoryError(
+          "PROFILE_AUTHORITY_MISMATCH",
+          "The persisted profile authority does not match the server-issued grant.",
+        );
+      }
+    }
+    const authorityProof = authority
+      ? await Dexie.waitFor(authority.sign(new TextEncoder().encode(requestHash)))
+      : undefined;
+    return { ...candidate, requestHash, ...(authorityProof ? { authorityProof } : {}) };
   }
 
   private async existingOperation(operationId: string): Promise<OutboxRow | undefined> {
     return this.database.outbox.get([this.subjectId, operationId]);
   }
 
+  private operationSequenceKey(packageId: string): string {
+    return `operation-sequence:${this.subjectId}:${packageId}`;
+  }
+
+  private commitReceiptKey(operationId: string): string {
+    return `commit-receipt:${this.subjectId}:${operationId}`;
+  }
+
+  private async nextOperationSequence(packageId: string): Promise<number> {
+    const key = this.operationSequenceKey(packageId);
+    const current = await this.database.foundation.get(key) as FoundationRow<{ nextSequence: number }> | undefined;
+    const nextSequence = current?.value.nextSequence ?? 1;
+    await this.database.foundation.put({ key, value: { nextSequence: nextSequence + 1 } });
+    return nextSequence;
+  }
+
   private async persistOutbox(input: Parameters<typeof createOutboxRow>[0]): Promise<void> {
-    const row = await Dexie.waitFor(createOutboxRow(input));
+    const operationSequence = input.operationSequence ?? input.operation.operationSequence;
+    const entityHash = input.entityHash ?? input.operation.payloadHash ?? await Dexie.waitFor(sha256Canonical(input.operation.payload));
+    const row = await Dexie.waitFor(createOutboxRow({ ...input, operationSequence, entityHash }));
     await this.database.outbox.put(row);
+    const receipt: LocalCommitReceiptRow = {
+      operationId: row.operationId,
+      subjectId: this.subjectId,
+      packageId: row.packageId,
+      entityId: row.entityId,
+      operationSequence: row.operationSequence,
+      entityRevision: row.entityRevision,
+      entityHash: row.entityHash,
+      requestHash: row.requestDigest,
+      committedAt: row.createdAt,
+    };
+    await this.database.foundation.put({ key: this.commitReceiptKey(row.operationId), value: receipt });
+  }
+
+  private async readBackLocalCommit(
+    operationId: string,
+    packageId: string,
+    entityId: string,
+  ): Promise<LocalCommitReceiptRow> {
+    await this.requireReadWrite();
+    return this.database.transaction(
+      "r",
+      [this.database.foundation, this.database.outbox],
+      async () => {
+        const receiptRow = await this.database.foundation.get(this.commitReceiptKey(operationId)) as
+          FoundationRow<LocalCommitReceiptRow> | undefined;
+        const outbox = await this.database.outbox.get([this.subjectId, operationId]);
+        if (
+          !receiptRow ||
+          !outbox ||
+          receiptRow.value.packageId !== packageId ||
+          receiptRow.value.entityId !== entityId ||
+          outbox.operationSequence !== receiptRow.value.operationSequence ||
+          outbox.requestDigest !== receiptRow.value.requestHash
+        ) {
+          throw new FieldRepositoryError(
+            "LOCAL_COMMIT_RECEIPT_MISSING",
+            "The local commit receipt and outbox operation could not be read back together.",
+          );
+        }
+        return clone(receiptRow.value);
+      },
+    );
   }
 
   private assertOperationReplay(existing: OutboxRow, input: {
@@ -658,12 +793,13 @@ export class IndexedDbFieldRepository {
   async saveChecklistResponse(input: SaveLocalChecklistResponseInput): Promise<ChecklistResponseRow> {
     const normalizedComment = input.comment.trim();
     await this.assertPackageAvailable(input.packageId);
-    return this.atomic(
+    const saved: ChecklistResponseRow = await this.atomic(
       [
         this.database.packages,
         this.database.offlineGrants,
         this.database.checklistResponses,
         this.database.outbox,
+        this.database.foundation,
       ],
       async () => {
         const { packageRow, grant } = await this.requirePackage(input.packageId);
@@ -781,18 +917,20 @@ export class IndexedDbFieldRepository {
         const baseRevision = inFlight.length > 0 || authoritativeRevision === 0
           ? null
           : authoritativeRevision;
-        const operation: FieldSyncOperation = {
+        const dependencies = inFlight.map((row) => row.operationId).sort();
+        const operationSequence = await this.nextOperationSequence(packageRow.id);
+        const operation = await this.createOperation({
           ...this.operationBase({
             operationId: input.operationId,
             packageRow,
             grant,
             entityId: input.responseId,
             baseRevision,
+            operationSequence,
+            dependencies,
           }),
           commandType: "UPSERT_CHECKLIST_RESPONSE",
-          payload,
-        };
-        const dependencies = inFlight.map((row) => row.operationId).sort();
+        }, payload);
         const response: ChecklistResponseRow = {
           id: input.responseId,
           subjectId: this.subjectId,
@@ -819,6 +957,8 @@ export class IndexedDbFieldRepository {
         return clone(response);
       },
     );
+    await this.readBackLocalCommit(input.operationId, input.packageId, input.responseId);
+    return saved;
   }
 
   async createPotentialFindingDraft(
@@ -828,13 +968,14 @@ export class IndexedDbFieldRepository {
     const description = input.description.trim();
     const requiredComment = input.requiredComment.trim();
     await this.assertPackageAvailable(input.packageId);
-    return this.atomic(
+    const saved = await this.atomic(
       [
         this.database.packages,
         this.database.offlineGrants,
         this.database.checklistResponses,
         this.database.potentialFindingDrafts,
         this.database.outbox,
+        this.database.foundation,
       ],
       async () => {
         const { packageRow, grant } = await this.requirePackage(input.packageId);
@@ -927,17 +1068,19 @@ export class IndexedDbFieldRepository {
           .filter((row) => isCausalDependencyState(row.state))
           .map((row) => row.operationId)
           .sort();
-        const operation: FieldSyncOperation = {
+        const operationSequence = await this.nextOperationSequence(packageRow.id);
+        const operation = await this.createOperation({
           ...this.operationBase({
             operationId: input.operationId,
             packageRow,
             grant,
             entityId: input.localId,
             baseRevision: null,
+            operationSequence,
+            dependencies,
           }),
           commandType: "CREATE_POTENTIAL_FINDING",
-          payload,
-        };
+        }, payload);
         const draft: PotentialFindingDraftRow = {
           id: input.localId,
           subjectId: this.subjectId,
@@ -970,16 +1113,19 @@ export class IndexedDbFieldRepository {
         return clone(draft);
       },
     );
+    await this.readBackLocalCommit(input.operationId, input.packageId, input.localId);
+    return saved;
   }
 
   async submitChecklist(input: SubmitLocalChecklistInput): Promise<FieldChecklistSubmission> {
     await this.assertPackageAvailable(input.packageId);
-    return this.atomic(
+    const saved: FieldChecklistSubmission = await this.atomic(
       [
         this.database.packages,
         this.database.offlineGrants,
         this.database.checklistResponses,
         this.database.outbox,
+        this.database.foundation,
       ],
       async () => {
         const { packageRow, grant } = await this.requirePackage(input.packageId);
@@ -1023,17 +1169,19 @@ export class IndexedDbFieldRepository {
         const dependencies = (await this.activePackageOutbox(packageRow.id))
           .map((row) => row.operationId)
           .sort();
-        const operation: FieldSyncOperation = {
+        const operationSequence = await this.nextOperationSequence(packageRow.id);
+        const operation = await this.createOperation({
           ...this.operationBase({
             operationId: input.operationId,
             packageRow,
             grant,
             entityId: packageRow.auditId,
             baseRevision: packageRow.localChecklistRevision,
+            operationSequence,
+            dependencies,
           }),
           commandType: "SUBMIT_CHECKLIST",
-          payload,
-        };
+        }, payload);
         packageRow.localChecklistStatus = "SUBMITTED";
         packageRow.pendingSubmissionOperationId = input.operationId;
         await this.database.packages.put(packageRow);
@@ -1054,6 +1202,8 @@ export class IndexedDbFieldRepository {
         };
       },
     );
+    await this.readBackLocalCommit(input.operationId, input.packageId, saved.auditId);
+    return saved;
   }
 
   private async requireAttachment(attachmentId: string): Promise<AttachmentManifestRow> {
@@ -1220,6 +1370,7 @@ export class IndexedDbFieldRepository {
           temporaryOpfsPath: input.temporaryOpfsPath,
           finalOpfsPath: input.finalOpfsPath,
           stagingState: "manifest_created",
+          recoveryState: "MANIFEST_COMMITTED",
           syncState: "PENDING",
           plannedOperationId: input.operationId,
           operationId: null,
@@ -1270,6 +1421,7 @@ export class IndexedDbFieldRepository {
         );
       }
       manifest.stagingState = "writing";
+      manifest.recoveryState = "WRITING_TEMP";
       manifest.updatedAt = this.now().toISOString();
       await this.database.attachmentManifests.put(manifest);
       return clone(manifest);
@@ -1296,8 +1448,22 @@ export class IndexedDbFieldRepository {
     return this.atomic([this.database.attachmentManifests], async () => {
       const manifest = await this.requireAttachment(attachmentId);
       manifest.stagingState = input.state;
+      manifest.recoveryState = input.state === "quarantined" ? "QUARANTINED" : "RECOVERY_REQUIRED";
       manifest.quarantineReason = input.reason;
       manifest.localBytesPresent = input.localBytesPresent;
+      manifest.updatedAt = this.now().toISOString();
+      await this.database.attachmentManifests.put(manifest);
+      return clone(manifest);
+    });
+  }
+
+  async markAttachmentRecoveryPhase(
+    attachmentId: string,
+    recoveryState: Exclude<AttachmentRecoveryState, "LOCAL_READY" | "RECOVERY_REQUIRED" | "QUARANTINED">,
+  ): Promise<AttachmentManifestRow> {
+    return this.atomic([this.database.attachmentManifests], async () => {
+      const manifest = await this.requireAttachment(attachmentId);
+      manifest.recoveryState = recoveryState;
       manifest.updatedAt = this.now().toISOString();
       await this.database.attachmentManifests.put(manifest);
       return clone(manifest);
@@ -1316,7 +1482,7 @@ export class IndexedDbFieldRepository {
     if (!/^sha256:[a-f0-9]{64}$/.test(input.sha256)) {
       throw new FieldRepositoryError("ATTACHMENT_DIGEST_INVALID", "Observed SHA-256 is invalid.");
     }
-    return this.atomic(
+    const saved = await this.atomic(
       [
         this.database.packages,
         this.database.offlineGrants,
@@ -1324,6 +1490,7 @@ export class IndexedDbFieldRepository {
         this.database.potentialFindingDrafts,
         this.database.attachmentManifests,
         this.database.outbox,
+        this.database.foundation,
       ],
       async () => {
         const manifest = await this.requireAttachment(input.attachmentId);
@@ -1367,31 +1534,34 @@ export class IndexedDbFieldRepository {
           byteSize: input.observedByteSize,
           sha256: input.sha256,
         };
-        const operation: FieldSyncOperation = {
+        const dependencyRows = await this.activePackageOutbox(packageRow.id);
+        const dependencies = dependencyRows
+          .filter(
+            (row) =>
+              row.operationId !== manifest.plannedOperationId &&
+              (row.entityId === manifest.checklistResponseId ||
+                row.operationId === potential?.operationId),
+          )
+          .map((row) => row.operationId)
+          .sort();
+        const operationSequence = await this.nextOperationSequence(packageRow.id);
+        const operation = await this.createOperation({
           ...this.operationBase({
             operationId: manifest.plannedOperationId,
             packageRow,
             grant,
             entityId: manifest.attachmentId,
             baseRevision: null,
+            operationSequence,
+            dependencies,
           }),
           commandType: "REGISTER_INSPECTION_ATTACHMENT",
-          payload,
-        };
-        const dependencyRows = await this.activePackageOutbox(packageRow.id);
-        const dependencies = dependencyRows
-          .filter(
-            (row) =>
-              row.operationId !== operation.operationId &&
-              (row.entityId === manifest.checklistResponseId ||
-                row.operationId === potential?.operationId),
-          )
-          .map((row) => row.operationId)
-          .sort();
+        }, payload);
         await this.fault("before-attachment-metadata-ready");
         manifest.observedByteSize = input.observedByteSize;
         manifest.sha256 = input.sha256;
         manifest.stagingState = "ready";
+        manifest.recoveryState = "LOCAL_READY";
         manifest.syncState = "PENDING";
         manifest.operationId = operation.operationId;
         manifest.quarantineReason = null;
@@ -1411,6 +1581,12 @@ export class IndexedDbFieldRepository {
         return clone(manifest);
       },
     );
+    await this.readBackLocalCommit(
+      saved.operationId ?? saved.plannedOperationId,
+      saved.packageId,
+      input.attachmentId,
+    );
+    return saved;
   }
 
   async getAttachmentManifest(attachmentId: string): Promise<AttachmentManifestRow | null> {
@@ -1439,8 +1615,9 @@ export class IndexedDbFieldRepository {
       const operation = manifest.operationId
         ? await this.database.outbox.get([this.subjectId, manifest.operationId])
         : undefined;
+      const resumableSessionExists = manifest.stagingState === "uploading" && Boolean(manifest.uploadSessionId);
       if (
-        manifest.stagingState !== "ready" ||
+        (!resumableSessionExists && manifest.stagingState !== "ready") ||
         !manifest.authoritativeEntityId ||
         !operation ||
         operation.state !== "ACKNOWLEDGED"
@@ -1450,8 +1627,10 @@ export class IndexedDbFieldRepository {
           "Only a server-registered ready attachment may start byte upload.",
         );
       }
+      if (resumableSessionExists) return clone(manifest);
       await this.fault("before-attachment-upload-start");
       manifest.stagingState = "uploading";
+      manifest.uploadState = "OPEN";
       manifest.uploadStartedAt = this.now().toISOString();
       manifest.updatedAt = manifest.uploadStartedAt;
       await this.database.attachmentManifests.put(manifest);
@@ -1531,6 +1710,7 @@ export class IndexedDbFieldRepository {
         temporaryOpfsPath: null,
         finalOpfsPath: input.path,
         stagingState: "quarantined",
+        recoveryState: "QUARANTINED",
         syncState: "CONFLICT",
         plannedOperationId: `NO-OP-${attachmentId}`,
         operationId: null,
@@ -1726,6 +1906,29 @@ export class IndexedDbFieldRepository {
     }
   }
 
+  private async quarantineCausalDependents(operationId: string): Promise<void> {
+    const poisoned = new Set([operationId]);
+    const rows = await this.database.outbox
+      .where("[subjectId+packageId]")
+      .equals([this.subjectId, (await this.database.outbox.get([this.subjectId, operationId]))?.packageId ?? ""])
+      .toArray();
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const row of rows) {
+        if (
+          isTerminalOutboxState(row.state) ||
+          !row.dependsOnOperationIds.some((dependency) => poisoned.has(dependency))
+        ) continue;
+        row.state = "QUARANTINED";
+        row.lastErrorCode = "DEPENDENCY_POISONED";
+        await this.database.outbox.put(row);
+        poisoned.add(row.operationId);
+        changed = true;
+      }
+    }
+  }
+
   async applyPushResult(
     operationId: string,
     result: PushFieldOperationResult,
@@ -1769,6 +1972,7 @@ export class IndexedDbFieldRepository {
           result.status === "conflict" ? "CONFLICT" : "REJECTED",
           result,
         );
+        await this.quarantineCausalDependents(operationId);
         if (result.conflict?.code === "PACKAGE_REVOKED") {
           const packageRow = await this.database.packages.get([this.subjectId, row.packageId]);
           if (packageRow) {
@@ -1790,7 +1994,7 @@ export class IndexedDbFieldRepository {
     const ready: AttachmentManifestRow[] = [];
     for (const manifest of manifests) {
       if (
-        manifest.stagingState !== "ready" ||
+        (manifest.stagingState !== "ready" && manifest.stagingState !== "uploading") ||
         !manifest.authoritativeEntityId ||
         !manifest.localBytesPresent ||
         !manifest.finalOpfsPath ||
@@ -1806,6 +2010,76 @@ export class IndexedDbFieldRepository {
 
   async beginRegisteredAttachmentUpload(attachmentId: string): Promise<AttachmentManifestRow> {
     return this.beginAttachmentUpload(attachmentId);
+  }
+
+  async recordAttachmentUploadSession(
+    attachmentId: string,
+    session: ResumableInspectionAttachmentUploadSession & { beginOperationId: string },
+  ): Promise<AttachmentManifestRow> {
+    return this.atomic([this.database.attachmentManifests], async () => {
+      const manifest = await this.requireAttachment(attachmentId);
+      if (manifest.stagingState !== "uploading" || !manifest.authoritativeEntityId) {
+        throw new FieldRepositoryError("ATTACHMENT_UPLOAD_STATE_INVALID", "The attachment is not in an uploadable state.");
+      }
+      const sessionChanged = manifest.uploadSessionId !== session.uploadId || manifest.uploadSessionEpoch !== session.sessionEpoch;
+      manifest.uploadSessionId = session.uploadId;
+      manifest.uploadSessionEpoch = session.sessionEpoch;
+      manifest.uploadPartSize = session.partSize;
+      manifest.uploadReceivedParts = [...session.receivedParts].sort((left, right) => left - right);
+      manifest.uploadAcknowledgedOffsets = [...session.acknowledgedOffsets];
+      manifest.uploadPartHashes = { ...session.partHashes };
+      if (sessionChanged) manifest.uploadPartObjectVersions = {};
+      manifest.uploadWholeFileSha256 = session.wholeFileSha256;
+      manifest.uploadExpiresAt = session.expiresAt;
+      manifest.uploadBeginOperationId = session.beginOperationId;
+      if (sessionChanged || !manifest.uploadCompleteOperationId) {
+        manifest.uploadCompleteOperationId = `OP-ATTACHMENT-COMPLETE-${manifest.attachmentId}-EPOCH-${session.sessionEpoch}`;
+      }
+      manifest.uploadState = session.receivedParts.length > 0 ? "PARTIALLY_COMMITTED" : "OPEN";
+      manifest.updatedAt = this.now().toISOString();
+      await this.database.attachmentManifests.put(manifest);
+      return clone(manifest);
+    });
+  }
+
+  async recordAttachmentUploadPart(
+    attachmentId: string,
+    receipt: UploadPartReceipt,
+  ): Promise<AttachmentManifestRow> {
+    return this.atomic([this.database.attachmentManifests], async () => {
+      const manifest = await this.requireAttachment(attachmentId);
+      if (manifest.stagingState !== "uploading" || !manifest.uploadSessionId) {
+        throw new FieldRepositoryError("ATTACHMENT_UPLOAD_STATE_INVALID", "The resumable upload session is absent.");
+      }
+      const received = new Set(manifest.uploadReceivedParts ?? []);
+      received.add(receipt.partNumber);
+      manifest.uploadReceivedParts = [...received].sort((left, right) => left - right);
+      manifest.uploadAcknowledgedOffsets = [
+        ...(manifest.uploadAcknowledgedOffsets ?? []),
+        receipt.acknowledgedOffset,
+      ].filter((value, index, values) => values.indexOf(value) === index).sort((left, right) => left - right);
+      manifest.uploadPartHashes = { ...(manifest.uploadPartHashes ?? {}), [String(receipt.partNumber)]: receipt.sha256 };
+      manifest.uploadPartObjectVersions = {
+        ...(manifest.uploadPartObjectVersions ?? {}),
+        [String(receipt.partNumber)]: receipt.objectVersion,
+      };
+      manifest.uploadState = "PARTIALLY_COMMITTED";
+      manifest.updatedAt = this.now().toISOString();
+      await this.database.attachmentManifests.put(manifest);
+      return clone(manifest);
+    });
+  }
+
+  async markAttachmentUploadCompleting(attachmentId: string): Promise<void> {
+    await this.atomic([this.database.attachmentManifests], async () => {
+      const manifest = await this.requireAttachment(attachmentId);
+      if (manifest.stagingState !== "uploading" || !manifest.uploadSessionId) {
+        throw new FieldRepositoryError("ATTACHMENT_UPLOAD_STATE_INVALID", "The resumable upload session is absent.");
+      }
+      manifest.uploadState = "COMPLETING";
+      manifest.updatedAt = this.now().toISOString();
+      await this.database.attachmentManifests.put(manifest);
+    });
   }
 
   async markAttachmentUploadRetryable(attachmentId: string, _errorCode: string): Promise<void> {
@@ -1825,7 +2099,31 @@ export class IndexedDbFieldRepository {
   }
 
   async acknowledgeUploadedAttachment(input: AcknowledgeUploadedAttachmentInput): Promise<void> {
-    await this.acknowledgeAttachment(input);
+    await this.atomic([this.database.attachmentManifests, this.database.outbox], async () => {
+      const manifest = await this.requireAttachment(input.attachmentId);
+      const operation = manifest.operationId
+        ? await this.database.outbox.get([this.subjectId, manifest.operationId])
+        : undefined;
+      if (
+        manifest.stagingState !== "uploading" ||
+        !operation ||
+        operation.state !== "ACKNOWLEDGED" ||
+        !input.authoritativeEntityId.trim() ||
+        parseInstant(input.acknowledgedAt) === null
+      ) {
+        throw new FieldRepositoryError("ATTACHMENT_ACKNOWLEDGEMENT_INVALID", "Acknowledgement must target the exact in-flight attachment operation.");
+      }
+      manifest.stagingState = "acknowledged";
+      manifest.uploadState = "COMPLETED";
+      manifest.syncState = "ACKNOWLEDGED";
+      manifest.authoritativeEntityId = input.authoritativeEntityId;
+      manifest.acknowledgedAt = input.acknowledgedAt;
+      manifest.uploadObjectVersion = input.objectVersion ?? manifest.uploadObjectVersion ?? null;
+      manifest.observedByteSize = input.byteSize ?? manifest.observedByteSize;
+      manifest.sha256 = input.sha256 ?? manifest.sha256;
+      manifest.updatedAt = input.acknowledgedAt;
+      await this.database.attachmentManifests.put(manifest);
+    });
   }
 
   async listOutbox(
@@ -1859,6 +2157,15 @@ export class IndexedDbFieldRepository {
   async getSyncState(packageId: string): Promise<SyncStateRow | null> {
     await this.requireReadWrite();
     return clone((await this.database.syncState.get([this.subjectId, packageId])) ?? null);
+  }
+
+  async getOfflineGrant(packageId: string): Promise<OfflineGrant | null> {
+    await this.requireReadWrite();
+    const row = await this.database.offlineGrants
+      .where("[subjectId+packageId]")
+      .equals([this.subjectId, packageId])
+      .first();
+    return row ? clone(row.offlineGrant) : null;
   }
 
   private async applyAuthorizedChange(packageRow: PackageRow, change: AuthorizedSyncChange): Promise<void> {
@@ -2055,8 +2362,13 @@ export class IndexedDbFieldRepository {
 export function createBrowserFieldRepository(
   subjectId: string,
   now?: () => Date,
+  profileAuthority?: ProfileAuthority | Promise<ProfileAuthority>,
 ): IndexedDbFieldRepository {
-  return new IndexedDbFieldRepository({ subjectId, now });
+  return new IndexedDbFieldRepository({
+    subjectId,
+    now,
+    profileAuthority: profileAuthority ?? createBrowserProfileAuthority(subjectId),
+  });
 }
 
 export async function outboxPayloadIsImmutable(

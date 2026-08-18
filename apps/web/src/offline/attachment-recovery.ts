@@ -26,6 +26,13 @@ interface ReconcileInspectionAttachmentsInput {
   hasher: InspectionAttachmentHasher;
 }
 
+interface PathObservation {
+  path: string;
+  byteSize: number;
+  sha256: string;
+  exact: boolean;
+}
+
 function isFinalState(manifest: AttachmentManifestRow): boolean {
   return (
     manifest.stagingState === "ready" ||
@@ -35,17 +42,29 @@ function isFinalState(manifest: AttachmentManifestRow): boolean {
   );
 }
 
-async function presentPath(
-  manifest: AttachmentManifestRow,
+async function observePath(
+  path: string,
   fileSystem: InspectionAttachmentFileSystem,
-): Promise<{ path: string; isTemporary: boolean } | null> {
-  if (manifest.finalOpfsPath && (await fileSystem.exists(manifest.finalOpfsPath))) {
-    return { path: manifest.finalOpfsPath, isTemporary: false };
-  }
-  if (manifest.temporaryOpfsPath && (await fileSystem.exists(manifest.temporaryOpfsPath))) {
-    return { path: manifest.temporaryOpfsPath, isTemporary: true };
-  }
-  return null;
+  hasher: InspectionAttachmentHasher,
+): Promise<{ path: string; byteSize: number; sha256: string; exact: boolean } | null> {
+  if (!(await fileSystem.exists(path))) return null;
+  const bytes = await fileSystem.read(path);
+  return {
+    path,
+    byteSize: bytes.byteLength,
+    sha256: await hasher.sha256(bytes),
+    exact: false,
+  };
+}
+
+function isExact(
+  observation: PathObservation | null,
+  declaredByteSize: number,
+  expectedSha256: string,
+): boolean {
+  return observation !== null &&
+    observation.byteSize === declaredByteSize &&
+    observation.sha256 === expectedSha256;
 }
 
 export async function reconcileInspectionAttachments(
@@ -67,8 +86,13 @@ export async function reconcileInspectionAttachments(
 
   for (const manifest of manifests) {
     if (manifest.packageId === "__unknown__" || manifest.stagingState === "quarantined") continue;
-    const available = await presentPath(manifest, input.fileSystem);
-    if (!available) {
+    const final = manifest.finalOpfsPath
+      ? await observePath(manifest.finalOpfsPath, input.fileSystem, input.hasher)
+      : null;
+    const temporary = manifest.temporaryOpfsPath
+      ? await observePath(manifest.temporaryOpfsPath, input.fileSystem, input.hasher)
+      : null;
+    if (!final && !temporary) {
       await input.repository.markAttachmentRecovery(manifest.attachmentId, {
         state: "recovery_required",
         reason: "REFERENCED_BYTES_MISSING",
@@ -81,19 +105,32 @@ export async function reconcileInspectionAttachments(
       });
       continue;
     }
-
-    const bytes = await input.fileSystem.read(available.path);
-    const sha256 = await input.hasher.sha256(bytes);
     const expectedSha256 = manifest.expectedSha256 ?? manifest.sha256;
-    if (
-      !expectedSha256 ||
-      bytes.byteLength !== manifest.declaredByteSize ||
-      sha256 !== expectedSha256
-    ) {
-      const reason = !expectedSha256
-        ? "ATTACHMENT_SOURCE_DIGEST_MISSING"
-        : bytes.byteLength !== manifest.declaredByteSize
-          ? "ATTACHMENT_SIZE_MISMATCH"
+    if (!expectedSha256) {
+      await input.repository.markAttachmentRecovery(manifest.attachmentId, {
+        state: "recovery_required",
+        reason: "ATTACHMENT_SOURCE_DIGEST_MISSING",
+        localBytesPresent: Boolean(final || temporary),
+      });
+      continue;
+    }
+
+    if (final && temporary) {
+      if (isExact(final, manifest.declaredByteSize, expectedSha256) && isExact(temporary, manifest.declaredByteSize, expectedSha256)) {
+        if (!isFinalState(manifest)) {
+          await input.repository.commitReadyAttachment({
+            attachmentId: manifest.attachmentId,
+            observedByteSize: final.byteSize,
+            sha256: final.sha256,
+          });
+          report.recoveredAttachmentIds.push(manifest.attachmentId);
+        }
+        continue;
+      }
+      const reason = isExact(final, manifest.declaredByteSize, expectedSha256)
+        ? "TEMP_HASH_MISMATCH"
+        : isExact(temporary, manifest.declaredByteSize, expectedSha256)
+          ? "FINAL_HASH_MISMATCH"
           : "ATTACHMENT_HASH_MISMATCH";
       await input.repository.markAttachmentRecovery(manifest.attachmentId, {
         state: "quarantined",
@@ -104,23 +141,29 @@ export async function reconcileInspectionAttachments(
       continue;
     }
 
-    if (isFinalState(manifest)) {
-      if (available.isTemporary) {
-        if (!manifest.temporaryOpfsPath || !manifest.finalOpfsPath) {
-          await input.repository.markAttachmentRecovery(manifest.attachmentId, {
-            state: "quarantined",
-            reason: "ATTACHMENT_PATH_MISSING",
-            localBytesPresent: true,
-          });
-          report.quarantinedAttachmentIds.push(manifest.attachmentId);
-          continue;
-        }
-        await input.fileSystem.promote(manifest.temporaryOpfsPath, manifest.finalOpfsPath);
+    if (final) {
+      if (!isExact(final, manifest.declaredByteSize, expectedSha256)) {
+        await input.repository.markAttachmentRecovery(manifest.attachmentId, {
+          state: "quarantined",
+          reason: final.byteSize !== manifest.declaredByteSize ? "ATTACHMENT_SIZE_MISMATCH" : "ATTACHMENT_HASH_MISMATCH",
+          localBytesPresent: true,
+        });
+        report.quarantinedAttachmentIds.push(manifest.attachmentId);
+        continue;
+      }
+      if (!isFinalState(manifest)) {
+        await input.repository.commitReadyAttachment({
+          attachmentId: manifest.attachmentId,
+          observedByteSize: final.byteSize,
+          sha256: final.sha256,
+        });
         report.recoveredAttachmentIds.push(manifest.attachmentId);
       }
       continue;
     }
-    if (available.isTemporary) {
+
+    if (!temporary) continue;
+    if (isExact(temporary, manifest.declaredByteSize, expectedSha256)) {
       if (!manifest.temporaryOpfsPath || !manifest.finalOpfsPath) {
         await input.repository.markAttachmentRecovery(manifest.attachmentId, {
           state: "quarantined",
@@ -130,14 +173,42 @@ export async function reconcileInspectionAttachments(
         report.quarantinedAttachmentIds.push(manifest.attachmentId);
         continue;
       }
+      await input.repository.markAttachmentRecoveryPhase(manifest.attachmentId, "HASH_VERIFIED");
       await input.fileSystem.promote(manifest.temporaryOpfsPath, manifest.finalOpfsPath);
+      const promotedFinal = await observePath(manifest.finalOpfsPath, input.fileSystem, input.hasher);
+      if (!isExact(promotedFinal, manifest.declaredByteSize, expectedSha256)) {
+        await input.repository.markAttachmentRecovery(manifest.attachmentId, {
+          state: "quarantined",
+          reason: "ATTACHMENT_FINAL_READBACK_MISMATCH",
+          localBytesPresent: true,
+        });
+        report.quarantinedAttachmentIds.push(manifest.attachmentId);
+        continue;
+      }
+      await input.repository.markAttachmentRecoveryPhase(manifest.attachmentId, "PROMOTED");
+      await input.repository.commitReadyAttachment({
+        attachmentId: manifest.attachmentId,
+        observedByteSize: temporary.byteSize,
+        sha256: temporary.sha256,
+      });
+      report.recoveredAttachmentIds.push(manifest.attachmentId);
+      continue;
     }
-    await input.repository.commitReadyAttachment({
-      attachmentId: manifest.attachmentId,
-      observedByteSize: bytes.byteLength,
-      sha256,
+
+    if (temporary.byteSize < manifest.declaredByteSize) {
+      await input.repository.markAttachmentRecovery(manifest.attachmentId, {
+        state: "recovery_required",
+        reason: "ATTACHMENT_PARTIAL_TEMP",
+        localBytesPresent: true,
+      });
+      continue;
+    }
+    await input.repository.markAttachmentRecovery(manifest.attachmentId, {
+      state: "quarantined",
+      reason: temporary.byteSize !== manifest.declaredByteSize ? "ATTACHMENT_SIZE_MISMATCH" : "ATTACHMENT_HASH_MISMATCH",
+      localBytesPresent: true,
     });
-    report.recoveredAttachmentIds.push(manifest.attachmentId);
+    report.quarantinedAttachmentIds.push(manifest.attachmentId);
   }
 
   const directory = inspectionAttachmentDirectory(input.repository.subjectId);

@@ -3417,6 +3417,7 @@ export class MockBackendEngine implements DemoBackend {
     return Array.from({ length: 1310 }, (_, index) => {
       const ordinal = index < 1275 ? (index % 25) + 1 : (index - 1275) + 1;
       const form = String(index < 1275 ? Math.floor(index / 25) + 1 : 52).padStart(3, "0");
+      const advisoryState = index % 5 === 0 ? "SUGGESTED_NOW" : index % 5 === 1 ? "MATCHING_OPTIONAL" : "UNCERTAIN_SIGNAL";
       return {
         catalogVersion,
         usageClass,
@@ -3442,8 +3443,10 @@ export class MockBackendEngine implements DemoBackend {
           riskTier: "UNKNOWN",
           safetyCritical: false,
           agreementConfidence: "LOW",
-          advisoryState: "UNCERTAIN_SIGNAL",
-          recommendationReasonCodes: ["SOURCE_CONTEXT_INCOMPLETE"],
+          advisoryState,
+          recommendationReasonCodes: advisoryState === "SUGGESTED_NOW"
+            ? ["HIGH_OR_UNKNOWN_RISK", "AUDIT_TYPE_FOCUS_MATCH"]
+            : ["SOURCE_CONTEXT_INCOMPLETE"],
           recurrenceMonths: 12,
           previouslyVerifiedAt: null,
           recurrenceDueAt: null,
@@ -4060,13 +4063,49 @@ export class MockBackendEngine implements DemoBackend {
         return {
           uploadId,
           stagingObjectKey: `candidate/inspection-attachments/${input.inspectionAttachmentId}`,
-          uploadUrl: `mock://inspection-attachments/${uploadId}`,
-          requiredHeaders: { "x-candidate-sha256": input.sha256 },
+          sessionEpoch: 1,
+          partSize: Math.max(1, Math.min(1024, input.byteSize)),
+          receivedParts: [],
+          acknowledgedOffsets: [],
+          partHashes: {},
+          wholeFileSha256: input.sha256,
           expiresAt: addHours(this.store.clock(), 1),
           maximumByteSize: 10_000_000,
         };
       });
     },
+
+    beginPart: async (input) =>
+      this.store.execute(input.operationId, input, (state) => {
+        const upload = state.uploads[input.uploadId];
+        if (!upload || upload.kind !== "inspection-attachment") {
+          throw new BackendInvariantError("Inspection Attachment upload was not found.");
+        }
+        return {
+          uploadId: input.uploadId,
+          sessionEpoch: input.sessionEpoch,
+          partNumber: input.partNumber,
+          partObjectKey: `candidate/inspection-attachments/${input.uploadId}/part-${input.partNumber}`,
+          uploadUrl: `mock://inspection-attachments/${input.uploadId}/part-${input.partNumber}`,
+          requiredHeaders: { "x-candidate-sha256": input.sha256 },
+          expiresAt: addHours(this.store.clock(), 1),
+        };
+      }),
+
+    acknowledgePart: async (input) =>
+      this.store.execute(input.operationId, input, (state) => {
+        const upload = state.uploads[input.uploadId];
+        if (!upload || upload.kind !== "inspection-attachment") {
+          throw new BackendInvariantError("Inspection Attachment upload was not found.");
+        }
+        return {
+          partNumber: input.partNumber,
+          byteSize: input.byteSize,
+          sha256: input.sha256,
+          acknowledgedOffset: input.partNumber * input.byteSize,
+          objectVersion: `candidate-part-${input.uploadId}-${input.partNumber}`,
+        };
+      }),
 
     completeUpload: async (input) =>
       this.store.execute(input.operationId, input, (state) => {
@@ -4081,6 +4120,9 @@ export class MockBackendEngine implements DemoBackend {
           inspectionAttachmentId: upload.inspectionAttachmentId,
           uploadState: "UPLOADED",
           scanState: "PENDING",
+          byteSize: upload.byteSize,
+          sha256: upload.sha256,
+          objectVersion: `candidate-object-${input.uploadId}`,
         };
       }),
   };

@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import type { AppShellPredecessorDescriptor } from "./app-shell-manifest-contract";
 import { CURRENT_OFFLINE_VERSIONS, type OfflineVersionVector } from "./offline-version-contract";
-import { canActivateAppShellCandidate, classifyAppShellRequest } from "../sw";
+import {
+  allClientsAcknowledgedSafeCheckpoint,
+  canActivateAppShellCandidate,
+  classifyAppShellRequest,
+  isSafeCheckpointAck,
+} from "../sw";
 
 function descriptor(
   fingerprint: string,
@@ -89,6 +94,25 @@ describe("Service Worker request policy", () => {
 });
 
 describe("Service Worker activation policy", () => {
+  it("requires a quiescent, durable acknowledgement before worker takeover", () => {
+    const ack = {
+      clientId: "tab-a",
+      fingerprint: "sha256:new",
+      compatibility: CURRENT_OFFLINE_VERSIONS,
+      dirtyFormCount: 0,
+      active: { indexedDb: 0, opfs: 0, hashWorker: 0, sync: 0, mutation: 0 },
+      durableWorkAcknowledged: true,
+    };
+    expect(isSafeCheckpointAck(ack, "sha256:new", CURRENT_OFFLINE_VERSIONS)).toBe(true);
+    expect(isSafeCheckpointAck({ ...ack, active: { ...ack.active, sync: 1 } }, "sha256:new", CURRENT_OFFLINE_VERSIONS)).toBe(false);
+    expect(isSafeCheckpointAck({ ...ack, durableWorkAcknowledged: false }, "sha256:new", CURRENT_OFFLINE_VERSIONS)).toBe(false);
+    expect(allClientsAcknowledgedSafeCheckpoint([ack], "sha256:new", CURRENT_OFFLINE_VERSIONS)).toBe(true);
+    expect(allClientsAcknowledgedSafeCheckpoint([
+      ack,
+      { ...ack, clientId: "tab-b", durableWorkAcknowledged: false },
+    ], "sha256:new", CURRENT_OFFLINE_VERSIONS)).toBe(false);
+  });
+
   it("activates a first install and an exact direct predecessor", () => {
     const previous = descriptor(`sha256:${"1".repeat(64)}`);
     expect(canActivateAppShellCandidate(

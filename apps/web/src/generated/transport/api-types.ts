@@ -116,6 +116,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/inspections/{inspectionId}/finalize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["finalizeInspection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/checklists/{auditId}/reopen": {
         parameters: {
             query?: never;
@@ -334,6 +350,38 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["completeInspectionAttachmentUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/inspection-attachments/uploads/{uploadId}/parts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["beginInspectionAttachmentPartUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/inspection-attachments/uploads/{uploadId}/parts/acknowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["acknowledgeInspectionAttachmentPart"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2267,6 +2315,25 @@ export interface components {
             checklistStatus: "IN_PROGRESS" | "SUBMITTED";
             checklistRevision: number;
         };
+        FinalizeInspectionInput: {
+            operationId: string;
+            inspectionId: string;
+            expectedPackageRevision: number;
+        };
+        InspectionFinalizationReceipt: {
+            receiptId: string;
+            inspectionId: string;
+            packageRevision: number;
+            serverRevision: number;
+            answerManifestHash: string;
+            findingManifestHash: string;
+            attachmentManifestHash: string;
+            eventManifestHash: string;
+            /** @enum {string} */
+            canonicalizationVersion: "avia-finalization-manifest/v1";
+            /** Format: date-time */
+            serverTimestamp: string;
+        };
         OfflineGrant: {
             grantId: string;
             subjectId: string;
@@ -2279,10 +2346,16 @@ export interface components {
                 questionIds: string[];
             };
             deviceInstanceId: string;
+            profileKeyId: string;
+            assignmentRevision: number;
             /** Format: date-time */
             issuedAt: string;
             /** Format: date-time */
             expiresAt: string;
+            /** Format: date-time */
+            leaseIssuedAt: string;
+            /** Format: date-time */
+            leaseExpiresAt: string;
             protocolVersion: number;
         };
         CheckoutInspectionPackageInput: {
@@ -2290,6 +2363,10 @@ export interface components {
             packageId: string;
             expectedPackageVersion: number;
             deviceInstanceId: string;
+            profileKeyId: string;
+            profilePublicJwk: {
+                [key: string]: unknown;
+            };
         };
         CheckoutInspectionPackageOutput: {
             inspectionPackage: components["schemas"]["InspectionPackage"];
@@ -2554,17 +2631,58 @@ export interface components {
         BeginInspectionAttachmentUploadOutput: {
             uploadId: string;
             stagingObjectKey: string;
-            uploadUrl: string;
-            requiredHeaders: components["schemas"]["UploadRequiredHeaders"];
+            sessionEpoch: number;
+            partSize: number;
+            receivedParts: number[];
+            acknowledgedOffsets: number[];
+            partHashes: {
+                [key: string]: string;
+            };
+            wholeFileSha256: string;
             /** Format: date-time */
             expiresAt: string;
             maximumByteSize: number;
         };
+        BeginInspectionAttachmentPartUploadInput: {
+            operationId: string;
+            uploadId: string;
+            sessionEpoch: number;
+            partNumber: number;
+            byteSize: number;
+            sha256: string;
+        };
+        BeginInspectionAttachmentPartUploadOutput: {
+            uploadId: string;
+            sessionEpoch: number;
+            partNumber: number;
+            partObjectKey: string;
+            uploadUrl: string;
+            requiredHeaders: components["schemas"]["UploadRequiredHeaders"];
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        AcknowledgeInspectionAttachmentPartInput: {
+            operationId: string;
+            uploadId: string;
+            sessionEpoch: number;
+            partNumber: number;
+            byteSize: number;
+            sha256: string;
+        };
+        UploadPartReceipt: {
+            partNumber: number;
+            byteSize: number;
+            sha256: string;
+            acknowledgedOffset: number;
+            objectVersion: string;
+        };
         CompleteInspectionAttachmentUploadInput: {
             operationId: string;
             uploadId: string;
+            sessionEpoch: number;
             sha256: string;
             byteSize: number;
+            parts: components["schemas"]["UploadPartReceipt"][];
         };
         CompleteInspectionAttachmentUploadOutput: {
             inspectionAttachmentId: string;
@@ -2574,6 +2692,9 @@ export interface components {
             uploadState: "UPLOADED";
             /** @enum {string} */
             scanState: "PENDING";
+            byteSize: number;
+            sha256: string;
+            objectVersion: string;
         };
         BeginEvidenceUploadInput: {
             operationId: string;
@@ -2801,13 +2922,14 @@ export interface components {
             nextCursor: string | null;
         };
         /** @enum {string} */
-        FieldCommandType: "UPSERT_CHECKLIST_RESPONSE" | "CREATE_POTENTIAL_FINDING" | "SUBMIT_CHECKLIST" | "REGISTER_INSPECTION_ATTACHMENT";
+        FieldCommandType: "UPSERT_CHECKLIST_RESPONSE" | "CREATE_POTENTIAL_FINDING" | "SUBMIT_CHECKLIST" | "REGISTER_INSPECTION_ATTACHMENT" | "RESOLVE_FIELD_CONFLICT";
         UpsertChecklistResponseOperation: {
             operationId: string;
             protocolVersion: number;
             offlineGrantId: string;
             packageId: string;
             packageVersion: number;
+            packageRevision: number;
             entityId: string;
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -2816,6 +2938,13 @@ export interface components {
             commandType: "UPSERT_CHECKLIST_RESPONSE";
             baseRevision: number | null;
             deviceInstanceId: string;
+            actorSubject: string;
+            operationSequence: number;
+            payloadHash: string;
+            requestHash: string;
+            profileKeyId: string;
+            authorityProof: string;
+            dependencies: string[];
             clientOccurredAt: string;
             payload: {
                 auditId: string;
@@ -2830,6 +2959,7 @@ export interface components {
             offlineGrantId: string;
             packageId: string;
             packageVersion: number;
+            packageRevision: number;
             entityId: string;
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -2838,6 +2968,13 @@ export interface components {
             commandType: "CREATE_POTENTIAL_FINDING";
             baseRevision: number | null;
             deviceInstanceId: string;
+            actorSubject: string;
+            operationSequence: number;
+            payloadHash: string;
+            requestHash: string;
+            profileKeyId: string;
+            authorityProof: string;
+            dependencies: string[];
             clientOccurredAt: string;
             payload: {
                 auditId: string;
@@ -2856,6 +2993,7 @@ export interface components {
             offlineGrantId: string;
             packageId: string;
             packageVersion: number;
+            packageRevision: number;
             entityId: string;
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -2864,6 +3002,13 @@ export interface components {
             commandType: "SUBMIT_CHECKLIST";
             baseRevision: number | null;
             deviceInstanceId: string;
+            actorSubject: string;
+            operationSequence: number;
+            payloadHash: string;
+            requestHash: string;
+            profileKeyId: string;
+            authorityProof: string;
+            dependencies: string[];
             clientOccurredAt: string;
             payload: {
                 auditId: string;
@@ -2875,6 +3020,7 @@ export interface components {
             offlineGrantId: string;
             packageId: string;
             packageVersion: number;
+            packageRevision: number;
             entityId: string;
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -2883,6 +3029,13 @@ export interface components {
             commandType: "REGISTER_INSPECTION_ATTACHMENT";
             baseRevision: number | null;
             deviceInstanceId: string;
+            actorSubject: string;
+            operationSequence: number;
+            payloadHash: string;
+            requestHash: string;
+            profileKeyId: string;
+            authorityProof: string;
+            dependencies: string[];
             clientOccurredAt: string;
             payload: {
                 auditId: string;
@@ -2894,7 +3047,39 @@ export interface components {
                 sha256: string;
             };
         };
-        FieldSyncOperation: components["schemas"]["UpsertChecklistResponseOperation"] | components["schemas"]["CreatePotentialFindingOperation"] | components["schemas"]["SubmitChecklistOperation"] | components["schemas"]["RegisterInspectionAttachmentOperation"];
+        ResolveFieldConflictOperation: {
+            operationId: string;
+            protocolVersion: number;
+            offlineGrantId: string;
+            packageId: string;
+            packageVersion: number;
+            packageRevision: number;
+            entityId: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            commandType: "RESOLVE_FIELD_CONFLICT";
+            baseRevision: number | null;
+            deviceInstanceId: string;
+            actorSubject: string;
+            operationSequence: number;
+            payloadHash: string;
+            requestHash: string;
+            profileKeyId: string;
+            authorityProof: string;
+            dependencies: string[];
+            clientOccurredAt: string;
+            payload: {
+                conflictOperationId: string;
+                /** @enum {string} */
+                resolution: "ACCEPT_SERVER" | "KEEP_LOCAL_AS_NEW_REVISION" | "AUTHORIZED_REVIEWER";
+                reason: string;
+                authoritativeRevision: number | null;
+                localPayloadHash: string;
+            };
+        };
+        FieldSyncOperation: components["schemas"]["UpsertChecklistResponseOperation"] | components["schemas"]["CreatePotentialFindingOperation"] | components["schemas"]["SubmitChecklistOperation"] | components["schemas"]["RegisterInspectionAttachmentOperation"] | components["schemas"]["ResolveFieldConflictOperation"];
         PushFieldOperationRequest: {
             operation: components["schemas"]["FieldSyncOperation"];
         };
@@ -5403,6 +5588,45 @@ export interface operations {
             default: components["responses"]["Problem"];
         };
     };
+    finalizeInspection: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                inspectionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinalizeInspectionInput"];
+            };
+        };
+        responses: {
+            /** @description Canonical inspection finalization receipt */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InspectionFinalizationReceipt"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
     reopenChecklist: {
         parameters: {
             query?: never;
@@ -5896,6 +6120,84 @@ export interface operations {
             default: components["responses"]["Problem"];
         };
     };
+    beginInspectionAttachmentPartUpload: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                uploadId: components["parameters"]["UploadId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BeginInspectionAttachmentPartUploadInput"];
+            };
+        };
+        responses: {
+            /** @description Inspection Attachment part upload instruction */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BeginInspectionAttachmentPartUploadOutput"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    acknowledgeInspectionAttachmentPart: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                uploadId: components["parameters"]["UploadId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcknowledgeInspectionAttachmentPartInput"];
+            };
+        };
+        responses: {
+            /** @description Acknowledged Inspection Attachment part */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadPartReceipt"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
     beginEvidenceUpload: {
         parameters: {
             query?: never;
@@ -6367,6 +6669,8 @@ export interface operations {
             query: {
                 packageId: string;
                 offlineGrantId: string;
+                deviceInstanceId: string;
+                profileKeyId: string;
                 cursor?: string;
                 limit?: number;
             };

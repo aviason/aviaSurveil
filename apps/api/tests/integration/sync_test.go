@@ -2,6 +2,11 @@ package integration_test
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,6 +20,38 @@ import (
 	fieldsync "github.com/aviason/aviaSurveil/internal/sync"
 )
 
+type syncProfileAuthority struct {
+	key        *ecdsa.PrivateKey
+	profileKey string
+	publicJWK  json.RawMessage
+}
+
+var integrationSyncProfileAuthority = func() syncProfileAuthority {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+	pad := func(value []byte) []byte {
+		padded := make([]byte, 32)
+		copy(padded[32-len(value):], value)
+		return padded
+	}
+	jwk := map[string]string{
+		"crv": "P-256", "kty": "EC",
+		"x": base64.RawURLEncoding.EncodeToString(pad(key.PublicKey.X.Bytes())),
+		"y": base64.RawURLEncoding.EncodeToString(pad(key.PublicKey.Y.Bytes())),
+	}
+	encoded, err := json.Marshal(jwk)
+	if err != nil {
+		panic(err)
+	}
+	digest, err := idempotency.SemanticHash(jwk)
+	if err != nil {
+		panic(err)
+	}
+	return syncProfileAuthority{key: key, profileKey: "sha256:" + digest, publicJWK: encoded}
+}()
+
 func canonicalSyncGrant(t *testing.T, service *fieldsync.GrantService, operationID, deviceID string) fieldsync.OfflineGrant {
 	t.Helper()
 	grant, err := service.Issue(context.Background(), principal(
@@ -22,6 +59,8 @@ func canonicalSyncGrant(t *testing.T, service *fieldsync.GrantService, operation
 	), fieldsync.CheckoutInput{
 		OperationID: operationID, CorrelationID: operationID, PackageID: "package-cabin-001",
 		ExpectedPackageVersion: 1, DeviceInstanceID: deviceID,
+		ProfileKeyID:     integrationSyncProfileAuthority.profileKey,
+		ProfilePublicJWK: integrationSyncProfileAuthority.publicJWK,
 	})
 	if err != nil {
 		t.Fatalf("issue sync grant: %v", err)
@@ -31,11 +70,7 @@ func canonicalSyncGrant(t *testing.T, service *fieldsync.GrantService, operation
 
 func fieldOperation(t *testing.T, value any) json.RawMessage {
 	t.Helper()
-	encoded, err := json.Marshal(value)
-	if err != nil {
-		t.Fatalf("encode field operation: %v", err)
-	}
-	return encoded
+	return fieldOperationRaw(value)
 }
 
 func responseOperation(operationID, grantID, deviceID, answer string, baseRevision *int64) json.RawMessage {
@@ -53,6 +88,44 @@ func responseOperation(operationID, grantID, deviceID, answer string, baseRevisi
 }
 
 func fieldOperationRaw(value any) json.RawMessage {
+	if operation, ok := value.(map[string]any); ok && operation["operationId"] != nil {
+		operation["packageRevision"] = 1
+		operation["actorSubject"] = "inspector-cabin-001"
+		operation["operationSequence"] = 1
+		operation["profileKeyId"] = integrationSyncProfileAuthority.profileKey
+		operation["dependencies"] = []string{}
+		payloadHash, err := idempotency.SemanticHash(operation["payload"])
+		if err != nil {
+			panic(err)
+		}
+		operation["payloadHash"] = payloadHash
+		requestHash, err := idempotency.SemanticHash(map[string]any{
+			"operationId": operation["operationId"], "protocolVersion": operation["protocolVersion"],
+			"offlineGrantId": operation["offlineGrantId"], "packageId": operation["packageId"],
+			"packageVersion": operation["packageVersion"], "packageRevision": operation["packageRevision"],
+			"entityId": operation["entityId"], "commandType": operation["commandType"],
+			"baseRevision": operation["baseRevision"], "deviceInstanceId": operation["deviceInstanceId"],
+			"actorSubject": operation["actorSubject"], "operationSequence": operation["operationSequence"],
+			"payloadHash": operation["payloadHash"], "profileKeyId": operation["profileKeyId"],
+			"dependencies": operation["dependencies"], "payload": operation["payload"],
+		})
+		if err != nil {
+			panic(err)
+		}
+		operation["requestHash"] = requestHash
+		digest := sha256.Sum256([]byte(requestHash))
+		r, s, err := ecdsa.Sign(rand.Reader, integrationSyncProfileAuthority.key, digest[:])
+		if err != nil {
+			panic(err)
+		}
+		pad := func(value []byte) []byte {
+			padded := make([]byte, 32)
+			copy(padded[32-len(value):], value)
+			return padded
+		}
+		signature := append(pad(r.Bytes()), pad(s.Bytes())...)
+		operation["authorityProof"] = base64.RawURLEncoding.EncodeToString(signature)
+	}
 	encoded, err := json.Marshal(value)
 	if err != nil {
 		panic(err)
@@ -412,7 +485,7 @@ func TestFieldSyncPullUsesOpaqueScopedReplayableCursorAndSafeChanges(t *testing.
 		t.Fatalf("seed pull response: %v", err)
 	}
 
-	input := fieldsync.PullInput{PackageID: grant.PackageID, OfflineGrantID: grant.ID, DeviceInstanceID: grant.DeviceInstanceID, Limit: 1}
+	input := fieldsync.PullInput{PackageID: grant.PackageID, OfflineGrantID: grant.ID, DeviceInstanceID: grant.DeviceInstanceID, ProfileKeyID: "profile-key-pull", Limit: 1}
 	first, err := service.Pull(context.Background(), actor, input)
 	if err != nil {
 		t.Fatalf("first pull: %v", err)
@@ -436,7 +509,7 @@ func TestFieldSyncPullUsesOpaqueScopedReplayableCursorAndSafeChanges(t *testing.
 	})
 	otherGrant := canonicalSyncGrant(t, otherGrantService, "op-checkout-pull-other", "managed-device-pull-other")
 	if _, err := service.Pull(context.Background(), actor, fieldsync.PullInput{
-		PackageID: otherGrant.PackageID, OfflineGrantID: otherGrant.ID, DeviceInstanceID: otherGrant.DeviceInstanceID,
+		PackageID: otherGrant.PackageID, OfflineGrantID: otherGrant.ID, DeviceInstanceID: otherGrant.DeviceInstanceID, ProfileKeyID: "profile-key-pull",
 		Cursor: first.NextCursor, Limit: 1,
 	}); !errors.Is(err, fieldsync.ErrCursorScope) {
 		t.Fatalf("cursor scope mismatch error = %v", err)
@@ -446,7 +519,7 @@ func TestFieldSyncPullUsesOpaqueScopedReplayableCursorAndSafeChanges(t *testing.
 		Clock: func() time.Time { return canonicalNow }, IDGenerator: func(prefix string) string { return prefix + "-restart" },
 	})
 	afterRestart, err := resumed.Pull(context.Background(), actor, fieldsync.PullInput{
-		PackageID: grant.PackageID, OfflineGrantID: grant.ID, DeviceInstanceID: grant.DeviceInstanceID,
+		PackageID: grant.PackageID, OfflineGrantID: grant.ID, DeviceInstanceID: grant.DeviceInstanceID, ProfileKeyID: "profile-key-pull",
 		Cursor: first.NextCursor, Limit: 50,
 	})
 	if err != nil {
@@ -467,7 +540,7 @@ func TestFieldSyncPullUsesOpaqueScopedReplayableCursorAndSafeChanges(t *testing.
 		t.Fatalf("seed tombstone/revocation: %v", err)
 	}
 	page, err := resumed.Pull(context.Background(), actor, fieldsync.PullInput{
-		PackageID: grant.PackageID, OfflineGrantID: grant.ID, DeviceInstanceID: grant.DeviceInstanceID,
+		PackageID: grant.PackageID, OfflineGrantID: grant.ID, DeviceInstanceID: grant.DeviceInstanceID, ProfileKeyID: "profile-key-pull",
 		Cursor: afterRestart.NextCursor, Limit: 50,
 	})
 	if err != nil {
@@ -494,7 +567,7 @@ func TestFieldSyncPullUsesOpaqueScopedReplayableCursorAndSafeChanges(t *testing.
 			t.Fatalf("append post-expiry change: %v", err)
 		}
 		expired, err := resumed.Pull(context.Background(), actor, fieldsync.PullInput{
-			PackageID: grant.PackageID, OfflineGrantID: grant.ID, DeviceInstanceID: grant.DeviceInstanceID,
+			PackageID: grant.PackageID, OfflineGrantID: grant.ID, DeviceInstanceID: grant.DeviceInstanceID, ProfileKeyID: "profile-key-pull",
 			Cursor: afterRestart.NextCursor, Limit: 50,
 		})
 		if err != nil || !expired.ResnapshotRequired || len(expired.Changes) != 0 {

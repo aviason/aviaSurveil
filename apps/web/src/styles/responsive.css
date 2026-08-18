@@ -1,4 +1,20 @@
 /* Role-scoped controls that must remain above global utility label/input rules. */
+.workspace-shell .planning-parent-actions a,
+.workspace-shell .manager-ops-layout > p a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--avia-color-action);
+  border-radius: var(--avia-radius-control);
+  background: var(--avia-color-action-soft);
+  padding: 8px 14px;
+  color: var(--avia-color-action);
+  font-weight: 700;
+  line-height: 1.25;
+  text-decoration: none;
+}
+
 .workspace-shell--authority .authority-root-topbar {
   height: 56px;
   min-height: 56px;
@@ -1022,4 +1038,48 @@
     height: 44px;
     min-height: 44px;
   }
+}
+
+/* Planning intake selection controls must retain their compact geometry after
+ * the global utility form defaults are applied. */
+.workspace-shell--manager .planning-intake-catalog-list label {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--avia-color-ink);
+  cursor: pointer;
+}
+
+.workspace-shell--manager .planning-intake-catalog-list input {
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
+  min-height: 22px;
+  margin: 2px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.workspace-shell--manager .planning-intake-facet-options label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 7px;
+  color: var(--avia-color-ink);
+  font-size: .78rem;
+  cursor: pointer;
+}
+
+.workspace-shell--manager .planning-intake-facet-options input {
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  min-height: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }

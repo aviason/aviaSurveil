@@ -19,6 +19,13 @@
   --avia-color-page: #f4f6fa;
   --avia-color-line: #dde3ec;
   --avia-color-action: #2f6fd6;
+  --avia-color-action-soft: #edf4ff;
+  --avia-color-surface-muted: #f8fafc;
+  --avia-color-error: #b42318;
+  --avia-color-error-surface: #fff2f0;
+  --avia-color-success: #23613b;
+  --avia-color-success-surface: #eef8f1;
+  --avia-color-focus: #2f6fd6;
   --avia-radius-control: 7px;
   --avia-radius-panel: 10px;
   --avia-shadow-panel: 0 1px 2px rgb(16 32 56 / 6%), 0 1px 3px rgb(16 32 56 / 8%);

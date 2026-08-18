@@ -76,7 +76,7 @@ export function ChecklistBuilderPage() {
       <label>Foundation scope<select aria-label="Foundation scope" value={scopeId} onChange={(event) => chooseScope(event.target.value)}><option value="">Choose an exact scope</option>{scopes.map((scope) => <option key={scope.providerScopeId} value={scope.providerScopeId}>{scope.organizationName} · {scope.targetLabel}</option>)}</select></label>
       <label>Search<input aria-label="Search approved questions" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
       <label>Form code<input aria-label="Filter approved form" value={formCode} onChange={(event) => setFormCode(event.target.value)} /></label>
-      <button disabled={loading || !scopeId} onClick={() => void loadCatalog()} type="button">{loading ? "Loading…" : "Load approved questions"}</button>
+      <button disabled={loading || !scopeId} onClick={() => void loadCatalog()} title={!scopeId ? "Choose an exact foundation scope before loading approved questions." : undefined} type="button">{loading ? "Loading…" : "Load approved questions"}</button>
     </section>
     {selectedScope ? <p className="admin-scope-note">Scope {selectedScope.providerScopeId} · catalog {catalogVersion} · {selectedScope.usageClass}</p> : null}
     <section className="admin-card-register admin-dense-register" role="list" aria-label="Approved AGA catalog questions">

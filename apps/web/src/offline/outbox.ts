@@ -6,6 +6,7 @@ const TERMINAL_STATES = new Set<FieldOutboxState>([
   "ACKNOWLEDGED",
   "SUPERSEDED",
   "REJECTED",
+  "QUARANTINED",
 ]);
 
 export function isTerminalOutboxState(state: FieldOutboxState): boolean {
@@ -27,10 +28,16 @@ export async function fieldOperationRequestDigest(operation: FieldSyncOperation)
     offlineGrantId: operation.offlineGrantId,
     packageId: operation.packageId,
     packageVersion: operation.packageVersion,
+    packageRevision: operation.packageRevision ?? 0,
     entityId: operation.entityId,
     commandType: operation.commandType,
     baseRevision: operation.baseRevision,
     deviceInstanceId: operation.deviceInstanceId,
+    actorSubject: operation.actorSubject ?? "",
+    operationSequence: operation.operationSequence ?? 0,
+    payloadHash: operation.payloadHash ?? "",
+    profileKeyId: operation.profileKeyId ?? "",
+    dependencies: [...(operation.dependencies ?? [])].sort(),
     payload: operation.payload,
   });
 }
@@ -41,9 +48,15 @@ export async function createOutboxRow(input: {
   state: FieldOutboxState;
   createdAt: string;
   dependsOnOperationIds?: string[];
+  operationSequence?: number;
+  entityRevision?: number;
+  entityHash?: string;
 }): Promise<OutboxRow> {
+  const entityHash = input.entityHash ?? await sha256Canonical(input.operation.payload);
+  const operationSequence = input.operationSequence ?? 0;
   return {
     operationId: input.operation.operationId,
+    operationSequence,
     subjectId: input.subjectId,
     packageId: input.operation.packageId,
     commandType: input.operation.commandType,
@@ -56,6 +69,9 @@ export async function createOutboxRow(input: {
     dependsOnOperationIds: [...new Set(input.dependsOnOperationIds ?? [])].sort(),
     supersededByOperationId: null,
     requestDigest: await fieldOperationRequestDigest(input.operation),
+    entityRevision: input.entityRevision ?? input.operation.baseRevision ?? 0,
+    entityHash,
+    commitReceiptKey: `commit-receipt:${input.subjectId}:${input.operation.operationId}`,
     lastErrorCode: null,
     operation: structuredClone(input.operation),
   };

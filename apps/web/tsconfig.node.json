@@ -15,7 +15,9 @@
   "include": [
     "vite.config.ts",
     "build/app-shell-manifest-plugin.ts",
+    "build/build-artifact-plugin.ts",
     "playwright.config.ts",
+    "src/app/build-artifact-contract.ts",
     "src/app/build-profile.ts",
     "src/app/csp-policy.ts",
     "src/offline/offline-version-contract.ts",

@@ -11,6 +11,7 @@ import { ScenarioProvider } from "./scenario-context";
 import { AppRouter, createRoleEntryPath, ROLE_ENTRIES } from "./router";
 import { SessionProvider, type SessionClient } from "../auth/session-provider";
 import { createHttpBackend } from "../backend/http-backend";
+import { planningItemLabel } from "../features/shared/record-presentation";
 import { createMockBackendRuntime } from "../mock/create-mock-backend";
 import { seedVisualRuntimeForPath } from "../mock/seed-visual-runtime";
 
@@ -53,7 +54,7 @@ describe("authorized role-entry inventory", () => {
     );
     expect(await screen.findByRole("heading", { name: "Finance Review" })).toBeInTheDocument();
     expect(await screen.findByText("2026 Cabin Surveillance — Fly Namibia")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Review PLAN-2026-CAB-001" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `Review ${planningItemLabel("2026 Cabin Surveillance — Fly Namibia", "PLAN-2026-CAB-001")}` })).toBeInTheDocument();
     expect(screen.queryByText(/candidate React entry route/i)).not.toBeInTheDocument();
   });
 

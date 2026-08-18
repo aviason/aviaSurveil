@@ -85,6 +85,7 @@ class MemoryAttachmentFileSystem implements InspectionAttachmentFileSystem {
   readonly removed: string[] = [];
   quotaFailure = false;
   corruptReads = false;
+  corruptFinalReads = false;
 
   async createWriter(path: string): Promise<AttachmentFileWriter> {
     if (this.quotaFailure) throw new DOMException("quota exhausted", "QuotaExceededError");
@@ -106,7 +107,7 @@ class MemoryAttachmentFileSystem implements InspectionAttachmentFileSystem {
     const value = this.files.get(path);
     if (!value) throw new DOMException("missing", "NotFoundError");
     const result = value.slice();
-    if (this.corruptReads && result.byteLength > 0) result[0] ^= 0xff;
+    if ((this.corruptReads || (this.corruptFinalReads && path.endsWith(".bin"))) && result.byteLength > 0) result[0] ^= 0xff;
     return result;
   }
 
@@ -118,7 +119,6 @@ class MemoryAttachmentFileSystem implements InspectionAttachmentFileSystem {
     const bytes = this.files.get(temporaryPath);
     if (!bytes) throw new DOMException("missing", "NotFoundError");
     this.files.set(finalPath, bytes.slice());
-    this.files.delete(temporaryPath);
   }
 
   async list(directoryPath: string): Promise<string[]> {
@@ -241,13 +241,14 @@ describe("manifest-first Inspection Attachment staging", () => {
       attachmentId: stageInput.attachmentId,
       fileName: stageInput.fileName,
       stagingState: "ready",
+      recoveryState: "LOCAL_READY",
       syncState: "PENDING",
       observedByteSize: stageInput.bytes.byteLength,
       localBytesPresent: true,
     });
     expect(manifest.sha256).toMatch(/^sha256:[a-f0-9]{64}$/);
     expect(await fileSystem.exists(manifest.finalOpfsPath!)).toBe(true);
-    expect(await fileSystem.exists(manifest.temporaryOpfsPath!)).toBe(false);
+    expect(await fileSystem.exists(manifest.temporaryOpfsPath!)).toBe(true);
     expect(await repository.listOutbox(packageId)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -440,6 +441,69 @@ describe("manifest-first Inspection Attachment staging", () => {
     expect(fileSystem.removed).toEqual([]);
   });
 
+  it("does not mark local-ready when the promoted final-path readback is corrupt", async () => {
+    const fileSystem = new MemoryAttachmentFileSystem();
+    const { repository, store } = await setup({ fileSystem });
+    fileSystem.corruptFinalReads = true;
+
+    await expect(store.stage(stageInput)).rejects.toMatchObject({
+      code: "ATTACHMENT_FINAL_READBACK_MISMATCH",
+    });
+    expect(await repository.getAttachmentManifest(stageInput.attachmentId)).toMatchObject({
+      recoveryState: "QUARANTINED",
+      stagingState: "quarantined",
+    });
+  });
+
+  it("quarantines a mismatching temp object when a valid final object is also present", async () => {
+    const { repository, fileSystem, store } = await setup();
+    const manifest = await store.stage(stageInput);
+    fileSystem.files.set(manifest.temporaryOpfsPath!, new Uint8Array([0xff, 0xee]));
+
+    const report = await reconcileInspectionAttachments({
+      repository,
+      fileSystem,
+      hasher: { sha256: sha256InspectionAttachment },
+    });
+
+    expect(report.quarantinedAttachmentIds).toEqual([stageInput.attachmentId]);
+    expect(await repository.getAttachmentManifest(stageInput.attachmentId)).toMatchObject({
+      recoveryState: "QUARANTINED",
+      quarantineReason: "TEMP_HASH_MISMATCH",
+    });
+    expect(await fileSystem.exists(manifest.finalOpfsPath!)).toBe(true);
+    expect(await fileSystem.exists(manifest.temporaryOpfsPath!)).toBe(true);
+  });
+
+  it("keeps a partial temp object in restartable recovery instead of quarantining it", async () => {
+    const { repository, fileSystem } = await setup();
+    const store = new InspectionAttachmentStore({
+      repository,
+      fileSystem,
+      hasher: { sha256: sha256InspectionAttachment },
+      chunkSize: 3,
+      fault: ({ boundary, chunkIndex }) => {
+        if (boundary === "after-write-chunk" && chunkIndex === 0) {
+          throw new AttachmentTerminationError(boundary);
+        }
+      },
+    });
+
+    await expect(store.stage(stageInput)).rejects.toBeInstanceOf(AttachmentTerminationError);
+    const report = await reconcileInspectionAttachments({
+      repository,
+      fileSystem,
+      hasher: { sha256: sha256InspectionAttachment },
+    });
+
+    expect(report.quarantinedAttachmentIds).toEqual([]);
+    expect(await repository.getAttachmentManifest(stageInput.attachmentId)).toMatchObject({
+      recoveryState: "RECOVERY_REQUIRED",
+      stagingState: "recovery_required",
+    });
+    expect(await fileSystem.exists((await repository.getAttachmentManifest(stageInput.attachmentId))!.temporaryOpfsPath!)).toBe(true);
+  });
+
   it("preserves a recovery manifest when OPFS reports quota exhaustion", async () => {
     const fileSystem = new MemoryAttachmentFileSystem();
     fileSystem.quotaFailure = true;
@@ -476,6 +540,7 @@ describe("attachment recovery and no-delete policy", () => {
     const { repository, fileSystem, store } = await setup();
     const manifest = await store.stage(stageInput);
     fileSystem.files.delete(manifest.finalOpfsPath!);
+    fileSystem.files.delete(manifest.temporaryOpfsPath!);
 
     const report = await reconcileInspectionAttachments({
       repository,
@@ -561,10 +626,31 @@ describe("attachment recovery and no-delete policy", () => {
 
     expect(report.recoveredAttachmentIds).toEqual([stageInput.attachmentId]);
     expect(await fileSystem.exists(manifest.finalOpfsPath!)).toBe(true);
-    expect(await fileSystem.exists(manifest.temporaryOpfsPath!)).toBe(false);
+    expect(await fileSystem.exists(manifest.temporaryOpfsPath!)).toBe(true);
     expect(await repository.listOutbox(packageId)).toEqual(
       expect.arrayContaining([expect.objectContaining({ operationId: stageInput.operationId })]),
     );
+  });
+
+  it("quarantines a recovery promotion when the fresh final-path readback fails", async () => {
+    const { repository, fileSystem, store } = await setup();
+    const manifest = await store.stage(stageInput);
+    const bytes = await fileSystem.read(manifest.finalOpfsPath!);
+    fileSystem.files.delete(manifest.finalOpfsPath!);
+    fileSystem.files.set(manifest.temporaryOpfsPath!, bytes);
+    fileSystem.corruptFinalReads = true;
+
+    const report = await reconcileInspectionAttachments({
+      repository,
+      fileSystem,
+      hasher: { sha256: sha256InspectionAttachment },
+    });
+
+    expect(report.quarantinedAttachmentIds).toEqual([stageInput.attachmentId]);
+    expect(await repository.getAttachmentManifest(stageInput.attachmentId)).toMatchObject({
+      recoveryState: "QUARANTINED",
+      quarantineReason: "ATTACHMENT_FINAL_READBACK_MISMATCH",
+    });
   });
 
   it.each([

@@ -26,7 +26,7 @@ export async function activePage(context: BrowserContext): Promise<Page> {
 }
 
 export async function attestAndRequestCheckout(page: Page): Promise<void> {
-  await page.getByLabel(/managed Chrome policy/i).check();
+  await page.getByLabel(/official browser\/version lane/i).check();
   await page.getByLabel(/encrypted managed profile/i).check();
   await page.getByRole("button", { name: "Check out for offline use" }).click();
 }

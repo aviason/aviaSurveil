@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -43,6 +44,7 @@ const (
 	ErrorGrantExpired     = "GRANT_EXPIRED"
 	ErrorGrantRevoked     = "GRANT_REVOKED"
 	ErrorSessionRevoked   = "SESSION_REVOKED"
+	ErrorProfileAuthority = "PROFILE_AUTHORITY_INVALID"
 	ErrorValidationFailed = "VALIDATION_FAILED"
 )
 
@@ -116,31 +118,47 @@ func NewOperationService(pool *database.Pool, dependencies OperationDependencies
 }
 
 type operation struct {
-	OperationID      string
-	ProtocolVersion  int64
-	OfflineGrantID   string
-	PackageID        string
-	PackageVersion   int64
-	EntityID         string
-	CommandType      string
-	BaseRevision     *int64
-	DeviceInstanceID string
-	ClientOccurredAt string
-	Payload          any
+	OperationID       string
+	ProtocolVersion   int64
+	OfflineGrantID    string
+	PackageID         string
+	PackageVersion    int64
+	PackageRevision   int64
+	EntityID          string
+	CommandType       string
+	BaseRevision      *int64
+	DeviceInstanceID  string
+	ActorSubject      string
+	OperationSequence int64
+	PayloadHash       string
+	RequestHash       string
+	ProfileKeyID      string
+	AuthorityProof    string
+	Dependencies      []string
+	ClientOccurredAt  string
+	Payload           any
 }
 
 type wireOperation[T any] struct {
-	OperationID      string `json:"operationId"`
-	ProtocolVersion  int64  `json:"protocolVersion"`
-	OfflineGrantID   string `json:"offlineGrantId"`
-	PackageID        string `json:"packageId"`
-	PackageVersion   int64  `json:"packageVersion"`
-	EntityID         string `json:"entityId"`
-	CommandType      string `json:"commandType"`
-	BaseRevision     *int64 `json:"baseRevision"`
-	DeviceInstanceID string `json:"deviceInstanceId"`
-	ClientOccurredAt string `json:"clientOccurredAt"`
-	Payload          T      `json:"payload"`
+	OperationID       string   `json:"operationId"`
+	ProtocolVersion   int64    `json:"protocolVersion"`
+	OfflineGrantID    string   `json:"offlineGrantId"`
+	PackageID         string   `json:"packageId"`
+	PackageVersion    int64    `json:"packageVersion"`
+	PackageRevision   int64    `json:"packageRevision"`
+	EntityID          string   `json:"entityId"`
+	CommandType       string   `json:"commandType"`
+	BaseRevision      *int64   `json:"baseRevision"`
+	DeviceInstanceID  string   `json:"deviceInstanceId"`
+	ActorSubject      string   `json:"actorSubject"`
+	OperationSequence int64    `json:"operationSequence"`
+	PayloadHash       string   `json:"payloadHash"`
+	RequestHash       string   `json:"requestHash"`
+	ProfileKeyID      string   `json:"profileKeyId"`
+	AuthorityProof    string   `json:"authorityProof"`
+	Dependencies      []string `json:"dependencies"`
+	ClientOccurredAt  string   `json:"clientOccurredAt"`
+	Payload           T        `json:"payload"`
 }
 
 type upsertResponsePayload struct {
@@ -175,6 +193,14 @@ type registerAttachmentPayload struct {
 	SHA256                      string  `json:"sha256"`
 }
 
+type resolveFieldConflictPayload struct {
+	ConflictOperationID   string `json:"conflictOperationId"`
+	Resolution            string `json:"resolution"`
+	Reason                string `json:"reason"`
+	AuthoritativeRevision *int64 `json:"authoritativeRevision"`
+	LocalPayloadHash      string `json:"localPayloadHash"`
+}
+
 func strictDecode(value []byte, target any) error {
 	decoder := json.NewDecoder(bytes.NewReader(value))
 	decoder.DisallowUnknownFields()
@@ -199,10 +225,14 @@ func decodeOperation(raw json.RawMessage) (operation, error) {
 		return operation{
 			OperationID: base.OperationID, ProtocolVersion: base.ProtocolVersion,
 			OfflineGrantID: base.OfflineGrantID, PackageID: base.PackageID,
-			PackageVersion: base.PackageVersion, EntityID: base.EntityID,
+			PackageVersion: base.PackageVersion, PackageRevision: base.PackageRevision, EntityID: base.EntityID,
 			CommandType: base.CommandType, BaseRevision: base.BaseRevision,
-			DeviceInstanceID: base.DeviceInstanceID, ClientOccurredAt: base.ClientOccurredAt,
-			Payload: payload,
+			DeviceInstanceID: base.DeviceInstanceID, ActorSubject: base.ActorSubject,
+			OperationSequence: base.OperationSequence, PayloadHash: base.PayloadHash,
+			RequestHash: base.RequestHash, ProfileKeyID: base.ProfileKeyID, AuthorityProof: base.AuthorityProof,
+			Dependencies:     append([]string(nil), base.Dependencies...),
+			ClientOccurredAt: base.ClientOccurredAt,
+			Payload:          payload,
 		}
 	}
 	switch discriminator.CommandType {
@@ -230,6 +260,12 @@ func decodeOperation(raw json.RawMessage) (operation, error) {
 			return operation{}, err
 		}
 		return convert(discriminator, wire.Payload), nil
+	case "RESOLVE_FIELD_CONFLICT":
+		var wire wireOperation[resolveFieldConflictPayload]
+		if err := strictDecode(raw, &wire); err != nil {
+			return operation{}, err
+		}
+		return convert(discriminator, wire.Payload), nil
 	default:
 		return operation{}, fmt.Errorf("unsupported field command %q", discriminator.CommandType)
 	}
@@ -237,7 +273,11 @@ func decodeOperation(raw json.RawMessage) (operation, error) {
 
 func validateOperation(input operation) error {
 	if input.OperationID == "" || input.OfflineGrantID == "" || input.PackageID == "" ||
-		input.EntityID == "" || input.DeviceInstanceID == "" || input.ProtocolVersion != 1 || input.PackageVersion < 1 {
+		input.EntityID == "" || input.DeviceInstanceID == "" || input.ActorSubject == "" ||
+		input.ProtocolVersion != 1 || input.PackageVersion < 1 || input.PackageRevision < 1 ||
+		input.OperationSequence < 1 || !sha256Pattern.MatchString(input.PayloadHash) ||
+		!sha256Pattern.MatchString(input.RequestHash) || !sha256Pattern.MatchString(input.ProfileKeyID) ||
+		input.AuthorityProof == "" {
 		return errors.New("complete protocol, operation, grant, package, entity, and device scope is required")
 	}
 	if _, err := time.Parse(time.RFC3339, input.ClientOccurredAt); err != nil {
@@ -246,22 +286,46 @@ func validateOperation(input operation) error {
 	return nil
 }
 
+func operationRequestHash(input operation) (string, error) {
+	dependencies := append([]string(nil), input.Dependencies...)
+	sort.Strings(dependencies)
+	return idempotency.SemanticHash(map[string]any{
+		"operationId": input.OperationID, "protocolVersion": input.ProtocolVersion,
+		"offlineGrantId": input.OfflineGrantID, "packageId": input.PackageID,
+		"packageVersion": input.PackageVersion, "packageRevision": input.PackageRevision,
+		"entityId": input.EntityID, "commandType": input.CommandType,
+		"baseRevision": input.BaseRevision, "deviceInstanceId": input.DeviceInstanceID,
+		"actorSubject": input.ActorSubject, "operationSequence": input.OperationSequence,
+		"payloadHash": input.PayloadHash, "profileKeyId": input.ProfileKeyID,
+		"dependencies": dependencies, "payload": input.Payload,
+	})
+}
+
 func operationHash(input operation) (string, error) {
 	return idempotency.SemanticHash(struct {
-		OperationID      string `json:"operationId"`
-		ProtocolVersion  int64  `json:"protocolVersion"`
-		OfflineGrantID   string `json:"offlineGrantId"`
-		PackageID        string `json:"packageId"`
-		PackageVersion   int64  `json:"packageVersion"`
-		EntityID         string `json:"entityId"`
-		CommandType      string `json:"commandType"`
-		BaseRevision     *int64 `json:"baseRevision"`
-		DeviceInstanceID string `json:"deviceInstanceId"`
-		Payload          any    `json:"payload"`
+		OperationID       string   `json:"operationId"`
+		ProtocolVersion   int64    `json:"protocolVersion"`
+		OfflineGrantID    string   `json:"offlineGrantId"`
+		PackageID         string   `json:"packageId"`
+		PackageVersion    int64    `json:"packageVersion"`
+		PackageRevision   int64    `json:"packageRevision"`
+		EntityID          string   `json:"entityId"`
+		CommandType       string   `json:"commandType"`
+		BaseRevision      *int64   `json:"baseRevision"`
+		DeviceInstanceID  string   `json:"deviceInstanceId"`
+		ActorSubject      string   `json:"actorSubject"`
+		OperationSequence int64    `json:"operationSequence"`
+		PayloadHash       string   `json:"payloadHash"`
+		RequestHash       string   `json:"requestHash"`
+		ProfileKeyID      string   `json:"profileKeyId"`
+		Dependencies      []string `json:"dependencies"`
+		Payload           any      `json:"payload"`
 	}{
 		input.OperationID, input.ProtocolVersion, input.OfflineGrantID, input.PackageID,
-		input.PackageVersion, input.EntityID, input.CommandType, input.BaseRevision,
-		input.DeviceInstanceID, input.Payload,
+		input.PackageVersion, input.PackageRevision, input.EntityID, input.CommandType, input.BaseRevision,
+		input.DeviceInstanceID, input.ActorSubject, input.OperationSequence, input.PayloadHash,
+		input.RequestHash, input.ProfileKeyID,
+		append([]string(nil), input.Dependencies...), input.Payload,
 	})
 }
 
@@ -269,6 +333,8 @@ type grantAuthority struct {
 	GrantID               string
 	SubjectID             string
 	DeviceID              string
+	ProfileKeyID          string
+	ProfilePublicJWK      []byte
 	PackageID             string
 	InspectionID          string
 	OrganizationID        string
@@ -302,12 +368,11 @@ func loadGrantAuthority(ctx context.Context, transaction pgx.Tx, actor identity.
 	var currentPackageVersion int64
 	var currentPackageDigest string
 	err := transaction.QueryRow(ctx, `
-		SELECT grant_record.id, grant_record.subject_id, grant_record.device_id, grant_record.package_id,
+		SELECT grant_record.id, grant_record.subject_id, grant_record.device_id, grant_record.profile_key_id, grant_record.profile_public_jwk, grant_record.package_id,
 		       grant_record.inspection_id, inspection.organization_id, grant_record.session_id,
 		       grant_record.assignment_revision, inspection.revision, grant_record.package_version,
 		       grant_record.package_digest, grant_record.assignment_scope, grant_record.allowed_command_types,
 		       grant_record.expires_at, grant_record.revoked_at, package.expires_at, package.revoked_at,
-		       session.expires_at, session.absolute_expires_at, session.revoked_at,
 		       inspection.assigned_inspector_subject_id, inspection.status, checklist.status,
 		       package.package_version, package.package_digest,
 		       EXISTS (
@@ -326,18 +391,16 @@ func loadGrantAuthority(ctx context.Context, transaction pgx.Tx, actor identity.
 		JOIN inspections inspection ON inspection.id = grant_record.inspection_id
 		JOIN inspection_checklists checklist ON checklist.inspection_id = inspection.id
 		JOIN inspection_packages package ON package.id = grant_record.package_id
-		JOIN session_references session ON session.id = grant_record.session_id
 		WHERE grant_record.id = $1
 		  AND package.canonical_scope_snapshot_id IS NOT NULL
-		FOR UPDATE OF grant_record, inspection, package, session
+		FOR UPDATE OF grant_record, inspection, package
 	`, grantID, actor.SubjectID).Scan(
-		&authority.GrantID, &authority.SubjectID, &authority.DeviceID, &authority.PackageID,
+		&authority.GrantID, &authority.SubjectID, &authority.DeviceID, &authority.ProfileKeyID, &authority.ProfilePublicJWK, &authority.PackageID,
 		&authority.InspectionID, &authority.OrganizationID, &authority.SessionID,
 		&authority.AssignmentRevision, &authority.InspectionRevision, &authority.PackageVersion,
 		&authority.PackageDigest, &assignmentScope, &authority.AllowedCommands,
 		&authority.GrantExpiresAt, &authority.GrantRevokedAt, &authority.PackageExpiresAt,
-		&authority.PackageRevokedAt, &authority.SessionExpiresAt, &authority.AbsoluteExpiresAt,
-		&authority.SessionRevokedAt, &authority.AssignedSubjectID, &authority.InspectionStatus,
+		&authority.PackageRevokedAt, &authority.AssignedSubjectID, &authority.InspectionStatus,
 		&authority.ChecklistStatus,
 		&currentPackageVersion, &currentPackageDigest, &authority.HasQuestionAssignment,
 	)
@@ -353,7 +416,7 @@ func loadGrantAuthority(ctx context.Context, transaction pgx.Tx, actor identity.
 		return grantAuthority{}, &result, nil
 	}
 	authority.QuestionIDs = scope.QuestionIDs
-	if authority.SubjectID != actor.SubjectID || authority.SessionID != actor.SessionID ||
+	if authority.SubjectID != actor.SubjectID ||
 		authority.PackageID != packageID || (deviceID != "" && authority.DeviceID != deviceID) {
 		result := forbiddenResult("", ErrorGrantScope, now)
 		return grantAuthority{}, &result, nil
@@ -369,11 +432,6 @@ func loadGrantAuthority(ctx context.Context, transaction pgx.Tx, actor identity.
 	}
 	if now.After(authority.GrantExpiresAt.Add(clockSkewTolerance)) {
 		result := forbiddenResult("", ErrorGrantExpired, now)
-		return grantAuthority{}, &result, nil
-	}
-	if authority.SessionRevokedAt != nil || !now.Before(authority.SessionExpiresAt.Add(clockSkewTolerance)) ||
-		(authority.AbsoluteExpiresAt != nil && !now.Before(authority.AbsoluteExpiresAt.Add(clockSkewTolerance))) {
-		result := forbiddenResult("", ErrorSessionRevoked, now)
 		return grantAuthority{}, &result, nil
 	}
 	if !authority.HasQuestionAssignment || authority.InspectionRevision != authority.AssignmentRevision {
@@ -445,6 +503,20 @@ func (service *OperationService) Push(ctx context.Context, actor identity.Princi
 	if err := validateOperation(input); err != nil {
 		return invalidResult(input.OperationID, now), nil
 	}
+	payloadHash, err := idempotency.SemanticHash(input.Payload)
+	if err != nil {
+		return PushResult{}, err
+	}
+	if payloadHash != input.PayloadHash {
+		return invalidResult(input.OperationID, now), nil
+	}
+	requestHash, err := operationRequestHash(input)
+	if err != nil {
+		return PushResult{}, err
+	}
+	if requestHash != input.RequestHash {
+		return invalidResult(input.OperationID, now), nil
+	}
 	semanticHash, err := operationHash(input)
 	if err != nil {
 		return PushResult{}, err
@@ -478,13 +550,22 @@ func (service *OperationService) Push(ctx context.Context, actor identity.Princi
 		if err != nil {
 			return err
 		}
+		if input.ActorSubject != actor.SubjectID {
+			output = forbiddenResult(input.OperationID, ErrorGrantScope, now)
+			return persistIdempotencyResponse(ctx, transaction, scope, input.OperationID, semanticHash, output, now)
+		}
 		if rejection != nil {
 			rejection.OperationID = input.OperationID
 			if rejection.Conflict != nil && rejection.Conflict.EntityID == "" {
 				rejection.Conflict.EntityID = input.EntityID
 			}
 			output = *rejection
-			return nil
+			return persistIdempotencyResponse(ctx, transaction, scope, input.OperationID, semanticHash, output, now)
+		}
+		if input.ProfileKeyID != authority.ProfileKeyID ||
+			verifyProfileAuthorityProof(authority.ProfilePublicJWK, authority.ProfileKeyID, input.RequestHash, input.AuthorityProof) != nil {
+			output = forbiddenResult(input.OperationID, ErrorProfileAuthority, now)
+			return persistIdempotencyResponse(ctx, transaction, scope, input.OperationID, semanticHash, output, now)
 		}
 
 		result, err := service.applyMutation(ctx, transaction, actor, authority, input, now)
@@ -493,7 +574,10 @@ func (service *OperationService) Push(ctx context.Context, actor identity.Princi
 		}
 		output = result.Result
 		if output.Status != PushAccepted {
-			return nil
+			if output.Status == PushRetryable {
+				return nil
+			}
+			return persistIdempotencyResponse(ctx, transaction, scope, input.OperationID, semanticHash, output, now)
 		}
 		return service.persistAppliedOperation(ctx, transaction, actor, input, semanticHash, result, now)
 	})
@@ -518,6 +602,8 @@ func (service *OperationService) applyMutation(ctx context.Context, transaction 
 		return service.submitChecklist(ctx, transaction, actor, authority, input, now)
 	case "REGISTER_INSPECTION_ATTACHMENT":
 		return service.registerAttachment(ctx, transaction, actor, authority, input, now)
+	case "RESOLVE_FIELD_CONFLICT":
+		return service.resolveFieldConflict(ctx, transaction, actor, authority, input, now)
 	default:
 		return mutation{Result: invalidResult(input.OperationID, now)}, nil
 	}
@@ -914,6 +1000,32 @@ func (service *OperationService) registerAttachment(ctx context.Context, transac
 	}, nil
 }
 
+func (service *OperationService) resolveFieldConflict(ctx context.Context, transaction pgx.Tx, actor identity.Principal, authority grantAuthority, input operation, now time.Time) (mutation, error) {
+	payload := input.Payload.(resolveFieldConflictPayload)
+	payload.Reason = strings.TrimSpace(payload.Reason)
+	if payload.ConflictOperationID == "" || payload.Reason == "" ||
+		!stringIn([]string{"ACCEPT_SERVER", "KEEP_LOCAL_AS_NEW_REVISION", "AUTHORIZED_REVIEWER"}, payload.Resolution) ||
+		!sha256Pattern.MatchString(payload.LocalPayloadHash) || input.EntityID == "" {
+		return mutation{Result: invalidResult(input.OperationID, now)}, nil
+	}
+	revision := payload.AuthoritativeRevision
+	if revision == nil {
+		fallback := int64(0)
+		revision = &fallback
+	}
+	entityID := input.EntityID
+	return mutation{
+		Result: PushResult{
+			OperationID: input.OperationID, Status: PushAccepted,
+			AuthoritativeEntityID: &entityID, AuthoritativeRevision: revision,
+			AcknowledgedAt: now.Format(time.RFC3339Nano),
+		},
+		OrganizationID: authority.OrganizationID,
+		AuditAction:    "field_conflict.resolved", EntityType: "field_conflict", EntityID: entityID,
+		EntityRevision: *revision, BeforeStatus: "CONFLICT", AfterStatus: payload.Resolution,
+	}, nil
+}
+
 func (service *OperationService) persistAppliedOperation(ctx context.Context, transaction pgx.Tx, actor identity.Principal, input operation, semanticHash string, result mutation, now time.Time) error {
 	responseBody, err := json.Marshal(result.Result)
 	if err != nil {
@@ -939,28 +1051,44 @@ func (service *OperationService) persistAppliedOperation(ctx context.Context, tr
 			return fmt.Errorf("append sync audit event: %w", err)
 		}
 	}
-	if _, err := transaction.Exec(ctx, `
+	if result.ChangeKind != "" && len(result.ChangePayload) > 0 {
+		if _, err := transaction.Exec(ctx, `
 		INSERT INTO authorized_sync_changes (
 			subject_id, organization_id, package_id, kind, entity_id, entity_revision, payload, changed_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`, actor.SubjectID, result.OrganizationID, input.PackageID, result.ChangeKind,
-		result.EntityID, result.EntityRevision, result.ChangePayload, now); err != nil {
-		return fmt.Errorf("append authorized sync change: %w", err)
+			result.EntityID, result.EntityRevision, result.ChangePayload, now); err != nil {
+			return fmt.Errorf("append authorized sync change: %w", err)
+		}
 	}
-	if _, err := transaction.Exec(ctx, `
+	if result.OutboxTopic != "" {
+		if _, err := transaction.Exec(ctx, `
 		INSERT INTO outbox_messages (
 			id, topic, aggregate_type, aggregate_id, payload, available_at, event_version, idempotency_key
 		) VALUES ($1, $2, $3, $4, $5, $6, 1, $7)
 	`, service.idGenerator("outbox"), result.OutboxTopic, result.EntityType,
-		result.EntityID, result.ChangePayload, now, "field_sync:"+input.OperationID); err != nil {
-		return fmt.Errorf("enqueue sync outbox: %w", err)
+			result.EntityID, result.ChangePayload, now, "field_sync:"+input.OperationID); err != nil {
+			return fmt.Errorf("enqueue sync outbox: %w", err)
+		}
 	}
+	return persistIdempotencyResponseBody(ctx, transaction, actor.SubjectID+":field_sync", input.OperationID, semanticHash, responseBody, now)
+}
+
+func persistIdempotencyResponse(ctx context.Context, transaction pgx.Tx, scope, operationID, semanticHash string, output PushResult, now time.Time) error {
+	responseBody, err := json.Marshal(output)
+	if err != nil {
+		return err
+	}
+	return persistIdempotencyResponseBody(ctx, transaction, scope, operationID, semanticHash, responseBody, now)
+}
+
+func persistIdempotencyResponseBody(ctx context.Context, transaction pgx.Tx, scope, operationID, semanticHash string, responseBody []byte, now time.Time) error {
 	if _, err := transaction.Exec(ctx, `
 		INSERT INTO idempotency_responses (
-			scope, operation_id, semantic_hash, response_status, response_headers, response_body, created_at
-		) VALUES ($1, $2, $3, 200, '{}'::jsonb, $4, $5)
-	`, actor.SubjectID+":field_sync", input.OperationID, semanticHash, responseBody, now); err != nil {
-		return fmt.Errorf("store sync acknowledgement: %w", err)
+			scope, operation_id, semantic_hash, response_status, response_headers, response_body, created_at, terminal_at
+		) VALUES ($1, $2, $3, 200, '{}'::jsonb, $4, $5, $5 + INTERVAL '400 days')
+	`, scope, operationID, semanticHash, responseBody, now); err != nil {
+		return fmt.Errorf("store sync idempotent response: %w", err)
 	}
 	return nil
 }
@@ -969,6 +1097,7 @@ type PullInput struct {
 	PackageID        string
 	OfflineGrantID   string
 	DeviceInstanceID string
+	ProfileKeyID     string
 	Cursor           *string
 	Limit            int
 }
@@ -988,7 +1117,7 @@ type changeRow struct {
 }
 
 func (service *OperationService) Pull(ctx context.Context, actor identity.Principal, input PullInput) (PullResult, error) {
-	if input.PackageID == "" || input.OfflineGrantID == "" {
+	if input.PackageID == "" || input.OfflineGrantID == "" || input.DeviceInstanceID == "" || input.ProfileKeyID == "" {
 		return PullResult{}, ErrCursorScope
 	}
 	if input.Limit <= 0 {
@@ -1010,14 +1139,17 @@ func (service *OperationService) Pull(ctx context.Context, actor identity.Princi
 		if rejection != nil {
 			return rejectionError(*rejection)
 		}
+		if authority.ProfileKeyID != input.ProfileKeyID {
+			return ErrCursorScope
+		}
 		highWater := int64(0)
 		if input.Cursor != nil {
 			if err := transaction.QueryRow(ctx, `
 				SELECT high_water_mark FROM sync_cursor_tokens
 				WHERE token = $1 AND subject_id = $2 AND organization_id = $3 AND package_id = $4
-				  AND grant_id = $5 AND device_id = $6 AND projection_version = $7
+				  AND grant_id = $5 AND device_id = $6 AND profile_key_id = $7 AND projection_version = $8
 			`, *input.Cursor, actor.SubjectID, authority.OrganizationID, authority.PackageID,
-				authority.GrantID, authority.DeviceID, projectionVersion).Scan(&highWater); err != nil {
+				authority.GrantID, authority.DeviceID, input.ProfileKeyID, projectionVersion).Scan(&highWater); err != nil {
 				return ErrCursorScope
 			}
 			if highWater > 0 {
@@ -1078,24 +1210,25 @@ func (service *OperationService) Pull(ctx context.Context, actor identity.Princi
 			return nil
 		}
 		token := cursorToken(actor.SubjectID, authority.OrganizationID, authority.PackageID,
-			authority.GrantID, authority.DeviceID, projectionVersion, highWater)
+			authority.GrantID, authority.DeviceID, input.ProfileKeyID, projectionVersion, highWater)
 		if _, err := transaction.Exec(ctx, `
 			INSERT INTO sync_cursor_tokens (
-				token, subject_id, organization_id, package_id, grant_id, device_id,
+				token, subject_id, organization_id, package_id, grant_id, device_id, profile_key_id,
 				projection_version, high_water_mark, issued_at
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 			ON CONFLICT DO NOTHING
 		`, token, actor.SubjectID, authority.OrganizationID, authority.PackageID, authority.GrantID,
-			authority.DeviceID, projectionVersion, highWater, now); err != nil {
+			authority.DeviceID, input.ProfileKeyID, projectionVersion, highWater, now); err != nil {
 			return err
 		}
 		if _, err := transaction.Exec(ctx, `
-			INSERT INTO sync_cursors (subject_id, device_id, cursor_sequence, projection_version, updated_at)
-			VALUES ($1, $2, $3, $4, $5)
+			INSERT INTO sync_cursors (subject_id, device_id, profile_key_id, cursor_sequence, projection_version, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6)
 			ON CONFLICT (subject_id, device_id) DO UPDATE
 			SET cursor_sequence = GREATEST(sync_cursors.cursor_sequence, EXCLUDED.cursor_sequence),
+			    profile_key_id = EXCLUDED.profile_key_id,
 			    projection_version = EXCLUDED.projection_version, updated_at = EXCLUDED.updated_at
-		`, actor.SubjectID, authority.DeviceID, highWater, projectionVersion, now); err != nil {
+		`, actor.SubjectID, authority.DeviceID, input.ProfileKeyID, highWater, projectionVersion, now); err != nil {
 			return err
 		}
 		output.NextCursor = &token
@@ -1125,9 +1258,9 @@ func rejectionError(result PushResult) error {
 	}
 }
 
-func cursorToken(subjectID, organizationID, packageID, grantID, deviceID string, version, highWater int64) string {
-	digest := sha256.Sum256([]byte(fmt.Sprintf("%s\x00%s\x00%s\x00%s\x00%s\x00%d\x00%d",
-		subjectID, organizationID, packageID, grantID, deviceID, version, highWater)))
+func cursorToken(subjectID, organizationID, packageID, grantID, deviceID, profileKeyID string, version, highWater int64) string {
+	digest := sha256.Sum256([]byte(fmt.Sprintf("%s\x00%s\x00%s\x00%s\x00%s\x00%s\x00%d\x00%d",
+		subjectID, organizationID, packageID, grantID, deviceID, profileKeyID, version, highWater)))
 	return "sync_" + hex.EncodeToString(digest[:])
 }
 

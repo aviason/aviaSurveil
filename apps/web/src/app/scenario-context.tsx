@@ -27,6 +27,7 @@ import type {
   SubmitCapOutput,
   SubmitChecklistOutput,
   AuthorizedConflictDescriptor,
+  FieldSyncOperation,
 } from "../backend/backend";
 import {
   createBrowserFieldRepository,
@@ -34,6 +35,10 @@ import {
   type FieldPackageView,
   type IndexedDbFieldRepository,
 } from "../offline/field-repository";
+import { fieldOperationRequestDigest } from "../offline/outbox";
+import { createBrowserProfileAuthority } from "../offline/profile-authority";
+import { buildUploadParts, partOperationId, type UploadPartReceipt } from "../offline/resumable-upload";
+import { sha256Canonical } from "../offline/schema-migrations";
 import {
   reconcileInspectionAttachments,
   type AttachmentRecoveryBlockingItem,
@@ -340,34 +345,52 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
           let inspectionAttachmentId = requestedInspectionAttachmentId;
           if (backend.mode === "http") {
             const deviceInstanceId = await getOrCreateDeviceInstanceId();
+            const profileAuthority = await createBrowserProfileAuthority(fieldSubjectId);
             const checkout = await backend.inspections.checkout({
               operationId: operationId("OP-ATTACHMENT-CHECKOUT"),
               packageId: packageView.id,
               expectedPackageVersion: packageView.packageVersion,
               deviceInstanceId,
+              profileKeyId: profileAuthority.profileKeyId,
+              profilePublicJwk: profileAuthority.publicJwk,
             });
             const registrationOperationId = operationId("OP-ATTACHMENT-REGISTER");
+            const payload = {
+              auditId: checkout.inspectionPackage.auditId,
+              checklistResponseId: projection.response.id,
+              potentialFindingOperationId: null,
+              fileName: file.name,
+              mediaType: file.type || "application/octet-stream",
+              byteSize: file.size,
+              sha256,
+            };
+            const payloadHash = await sha256Canonical(payload);
+            const operationBase = {
+              operationId: registrationOperationId,
+              protocolVersion: checkout.inspectionPackage.protocolVersion,
+              offlineGrantId: checkout.offlineGrant.grantId,
+              packageId: checkout.inspectionPackage.id,
+              packageVersion: checkout.inspectionPackage.packageVersion,
+              packageRevision: Math.max(1, checkout.inspectionPackage.checklistRevision),
+              entityId: requestedInspectionAttachmentId,
+              commandType: "REGISTER_INSPECTION_ATTACHMENT" as const,
+              baseRevision: null,
+              deviceInstanceId: checkout.offlineGrant.deviceInstanceId,
+              actorSubject: fieldSubjectId,
+              operationSequence: 1,
+              payloadHash,
+              profileKeyId: profileAuthority.profileKeyId,
+              dependencies: [],
+              clientOccurredAt: (runtime.now ?? (() => new Date()))().toISOString(),
+              payload,
+            } satisfies Omit<FieldSyncOperation, "requestHash" | "authorityProof">;
+            const requestHash = await fieldOperationRequestDigest(operationBase);
+            const authorityProof = await profileAuthority.sign(new TextEncoder().encode(requestHash));
             const registration = await backend.sync.pushOperation({
               operation: {
-                operationId: registrationOperationId,
-                protocolVersion: checkout.inspectionPackage.protocolVersion,
-                offlineGrantId: checkout.offlineGrant.grantId,
-                packageId: checkout.inspectionPackage.id,
-                packageVersion: checkout.inspectionPackage.packageVersion,
-                entityId: requestedInspectionAttachmentId,
-                commandType: "REGISTER_INSPECTION_ATTACHMENT",
-                baseRevision: null,
-                deviceInstanceId: checkout.offlineGrant.deviceInstanceId,
-                clientOccurredAt: (runtime.now ?? (() => new Date()))().toISOString(),
-                payload: {
-                  auditId: checkout.inspectionPackage.auditId,
-                  checklistResponseId: projection.response.id,
-                  potentialFindingOperationId: null,
-                  fileName: file.name,
-                  mediaType: file.type || "application/octet-stream",
-                  byteSize: file.size,
-                  sha256,
-                },
+                ...operationBase,
+                requestHash,
+                authorityProof,
               },
             });
             if ((registration.status !== "accepted" && registration.status !== "already_applied") || !registration.authoritativeEntityId) {
@@ -376,16 +399,58 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
             inspectionAttachmentId = registration.authoritativeEntityId;
           }
           const upload = await backend.inspectionAttachments.beginUpload({
-            operationId: operationId("OP-ATTACHMENT-BEGIN"), inspectionAttachmentId,
+            operationId: `OP-ATTACHMENT-BEGIN-${inspectionAttachmentId}`, inspectionAttachmentId,
             packageId: packageView.id, byteSize: file.size, sha256, fileName: file.name,
             declaredMediaType: file.type || "application/octet-stream",
           });
-          if (backend.mode === "http") {
-            const uploadResponse = await fetch(upload.uploadUrl, { method: "PUT", headers: upload.requiredHeaders, body: file });
-            if (!uploadResponse.ok) throw new Error(`Inspection Attachment object upload failed with status ${uploadResponse.status}.`);
+          if (
+            !upload.sessionEpoch ||
+            !upload.partSize ||
+            !upload.receivedParts ||
+            !upload.acknowledgedOffsets ||
+            !upload.partHashes ||
+            !upload.wholeFileSha256 ||
+            !backend.inspectionAttachments.beginPart ||
+            !backend.inspectionAttachments.acknowledgePart
+          ) {
+            throw new Error("Resumable Inspection Attachment APIs are unavailable.");
+          }
+          const parts = await buildUploadParts(new Uint8Array(await file.arrayBuffer()), upload.partSize);
+          const receipts: UploadPartReceipt[] = [];
+          for (const part of parts) {
+            const partOperation = partOperationId(upload.uploadId, upload.sessionEpoch, part.partNumber, part.sha256);
+            const instruction = await backend.inspectionAttachments.beginPart({
+              operationId: partOperation,
+              uploadId: upload.uploadId,
+              sessionEpoch: upload.sessionEpoch,
+              partNumber: part.partNumber,
+              byteSize: part.byteSize,
+              sha256: part.sha256,
+            });
+            if (backend.mode === "http") {
+              const uploadResponse = await fetch(instruction.uploadUrl, {
+                method: "PUT",
+                headers: instruction.requiredHeaders,
+                body: new Blob([part.bytes.buffer as ArrayBuffer]),
+              });
+              if (!uploadResponse.ok) throw new Error(`Inspection Attachment part upload failed with status ${uploadResponse.status}.`);
+            }
+            receipts.push(await backend.inspectionAttachments.acknowledgePart({
+              operationId: `${partOperation}:ack`,
+              uploadId: upload.uploadId,
+              sessionEpoch: upload.sessionEpoch,
+              partNumber: part.partNumber,
+              byteSize: part.byteSize,
+              sha256: part.sha256,
+            }));
           }
           const completed = await backend.inspectionAttachments.completeUpload({
-            operationId: operationId("OP-ATTACHMENT-COMPLETE"), uploadId: upload.uploadId, sha256, byteSize: file.size,
+            operationId: `OP-ATTACHMENT-COMPLETE-${inspectionAttachmentId}`,
+            uploadId: upload.uploadId,
+            sessionEpoch: upload.sessionEpoch,
+            sha256,
+            byteSize: file.size,
+            parts: receipts,
           });
           if (completed.inspectionAttachmentId !== inspectionAttachmentId) throw new Error("Inspection Attachment completion scope changed.");
           setProjection((current) => ({ ...current, uploadedInspectionAttachments: [
@@ -767,6 +832,8 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
         if (!local) return;
         const state = await repository.getSyncState(packageId);
         if (!state) throw new Error("The field sync scope is unavailable.");
+        const grant = await repository.getOfflineGrant(packageId);
+        if (!grant?.profileKeyId) throw new Error("The profile authority is unavailable for this offline package.");
         const lock = createBrowserSyncOwnerLock();
         if (!lock) throw new Error("The approved managed-browser sync lock is unavailable.");
         const attachmentStore = inspectionAttachmentStore(repository);
@@ -778,7 +845,12 @@ export function ScenarioProvider({ children }: PropsWithChildren) {
           broadcast: syncBroadcastRef.current?.broadcast,
         });
         const report = await engine.run(
-          { packageId, offlineGrantId: state.grantId },
+          {
+            packageId,
+            offlineGrantId: state.grantId,
+            deviceInstanceId: await getOrCreateDeviceInstanceId(),
+            profileKeyId: grant.profileKeyId,
+          },
           trigger,
         );
         let refreshed: FieldPackageView | null = null;

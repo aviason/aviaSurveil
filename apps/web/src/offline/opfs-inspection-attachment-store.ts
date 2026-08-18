@@ -140,7 +140,9 @@ export class InspectionAttachmentStore {
     if (error instanceof AttachmentTerminationError) throw error;
     if (
       error instanceof AttachmentStagingError &&
-      (error.code === "ATTACHMENT_HASH_MISMATCH" || error.code === "ATTACHMENT_SIZE_MISMATCH")
+      (error.code === "ATTACHMENT_HASH_MISMATCH" ||
+        error.code === "ATTACHMENT_SIZE_MISMATCH" ||
+        error.code === "ATTACHMENT_FINAL_READBACK_MISMATCH")
     ) {
       throw error;
     }
@@ -206,6 +208,7 @@ export class InspectionAttachmentStore {
       await this.at("before-flush");
       await writer.flush();
       await this.at("after-flush");
+      await this.repository.markAttachmentRecoveryPhase(input.attachmentId, "FLUSHED");
 
       const storedBytes = await this.fileSystem.read(paths.temporaryPath);
       await this.at("before-stored-hash");
@@ -233,10 +236,25 @@ export class InspectionAttachmentStore {
           "Stored attachment hash differs from the selected file.",
         );
       }
+      await this.repository.markAttachmentRecoveryPhase(input.attachmentId, "HASH_VERIFIED");
 
       await this.at("before-final-promotion");
       await this.fileSystem.promote(paths.temporaryPath, paths.finalPath);
       await this.at("after-final-promotion");
+      const finalBytes = await this.fileSystem.read(paths.finalPath);
+      const finalSha256 = await this.hasher.sha256(finalBytes);
+      if (finalBytes.byteLength !== bytes.byteLength || finalSha256 !== expectedSha256) {
+        await this.repository.markAttachmentRecovery(input.attachmentId, {
+          state: "quarantined",
+          reason: "ATTACHMENT_FINAL_READBACK_MISMATCH",
+          localBytesPresent: true,
+        });
+        throw new AttachmentStagingError(
+          "ATTACHMENT_FINAL_READBACK_MISMATCH",
+          "Promoted final attachment bytes failed the fresh size/hash readback.",
+        );
+      }
+      await this.repository.markAttachmentRecoveryPhase(input.attachmentId, "PROMOTED");
       await this.at("before-ready-commit");
       const ready = await this.repository.commitReadyAttachment({
         attachmentId: input.attachmentId,
@@ -345,9 +363,6 @@ export class BrowserInspectionAttachmentFileSystem implements InspectionAttachme
     const writer = await this.createWriter(finalPath);
     await writer.write(bytes);
     await writer.flush();
-    const { directoryPath, fileName } = this.splitFilePath(temporaryPath);
-    const directory = await this.directory(directoryPath, false);
-    await directory.removeEntry(fileName);
   }
 
   async list(directoryPath: string): Promise<string[]> {

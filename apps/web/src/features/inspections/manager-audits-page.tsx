@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import { useApplicationRuntime } from "../../app/providers";
 import type { AssignmentSummary } from "../../backend/backend";
 import { CommandError, errorMessage, formatLocalDate, PageHeader, WorkspaceShell } from "../shared/workspace-shell";
+import { auditLabel, recordReference } from "../shared/record-presentation";
 
 export function ManagerAuditsPage() {
   const runtime = useApplicationRuntime();
@@ -41,17 +42,17 @@ export function ManagerAuditsPage() {
           <section aria-label="Audit register" className="manager-ops-register">
             {visible.map((audit) => (
               <article className="manager-ops-card" key={audit.auditId}>
-                <div><p className="eyebrow">{audit.status}</p><h2>{audit.auditId}</h2><p>{audit.organizationName} · {audit.title}</p></div>
+                <div><p className="eyebrow">{audit.status.replaceAll("_", " ")}</p><h2>{audit.title}</h2><p>{audit.organizationName} · {recordReference("Audit", audit.auditId)}</p></div>
                 <dl><div><dt>Due Date</dt><dd>{formatLocalDate(audit.dueDate)}</dd></div><div><dt>Next action</dt><dd>{audit.nextAction}</dd></div></dl>
-                <button onClick={() => setSelectedId(audit.auditId)} type="button">Open Audit {audit.auditId}</button>
+                <button aria-label={`Open ${auditLabel(audit.title, audit.auditId)}`} onClick={() => setSelectedId(audit.auditId)} type="button">Open Audit</button>
               </article>
             ))}
           </section>
           {selected ? (
-            <section aria-label={`Audit ${selected.auditId} dossier`} className="manager-ops-dossier">
-              <p className="eyebrow">Exact Audit dossier</p><h2>{selected.auditId}</h2><p>{selected.title}</p>
-              <dl className="manager-ops-facts"><div><dt>Organization</dt><dd>{selected.organizationName}</dd></div><div><dt>Status</dt><dd>{selected.status}</dd></div><div><dt>Current owner</dt><dd>{selected.currentOwnerRole === "inspector" ? "CAA Inspector" : selected.currentOwnerRole ?? "Owner unavailable"} · {selected.currentOwnerDisplayName ?? selected.currentOwnerId ?? "No typed owner"}{selected.currentOwnerId ? ` · ${selected.currentOwnerId}` : ""}</dd></div><div><dt>Next action</dt><dd>{selected.nextAction}</dd></div><div><dt>Due Date</dt><dd>{formatLocalDate(selected.dueDate)}</dd></div></dl>
-              <button aria-label={`Checklist unavailable for ${selected.auditId}`} disabled title={`Audit ${selected.auditId} has no declared Department Manager checklist-execution route.`} type="button">{selected.nextAction}</button>
+            <section aria-label={`${selected.title} audit dossier`} className="manager-ops-dossier">
+              <p className="eyebrow">Audit details · {recordReference("Audit", selected.auditId)}</p><h2>{selected.title}</h2><p>{selected.organizationName}</p>
+              <dl className="manager-ops-facts"><div><dt>Organization</dt><dd>{selected.organizationName}</dd></div><div><dt>Status</dt><dd>{selected.status.replaceAll("_", " ")}</dd></div><div><dt>Current owner</dt><dd>{selected.currentOwnerRole === "inspector" ? "CAA Inspector" : selected.currentOwnerRole ?? "Owner unavailable"} · {selected.currentOwnerDisplayName ?? "No assigned person"}</dd></div><div><dt>Next action</dt><dd>{selected.nextAction}</dd></div><div><dt>Due Date</dt><dd>{formatLocalDate(selected.dueDate)}</dd></div></dl>
+              <button aria-label="Checklist unavailable" disabled title="Department Manager checklist execution is not available for this Audit." type="button">{selected.nextAction}</button>
             </section>
           ) : null}
         </div>

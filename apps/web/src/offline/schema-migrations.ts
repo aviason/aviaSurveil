@@ -158,8 +158,11 @@ export async function migrateReleasedFoundationToFieldSchema(
       packageVersion: offlineGrant.packageVersion,
       packageDigest: offlineGrant.packageDigest,
       deviceInstanceId: offlineGrant.deviceInstanceId,
+      profileKeyId: offlineGrant.profileKeyId,
       issuedAt: offlineGrant.issuedAt,
       expiresAt: offlineGrant.expiresAt,
+      leaseIssuedAt: offlineGrant.leaseIssuedAt,
+      leaseExpiresAt: offlineGrant.leaseExpiresAt,
       protocolVersion: offlineGrant.protocolVersion,
       offlineGrant,
     };

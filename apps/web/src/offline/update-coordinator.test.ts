@@ -4,6 +4,7 @@ import {
   APP_SHELL_UPDATE_POLL_INTERVAL_MS,
   UPDATE_ACTIVATION_POLICY,
   UpdateCoordinator,
+  evaluateUnresponsiveClientFence,
   evaluateUpdateSafety,
   installAppShellUpdateMonitor,
   isExactOfflineVersion,
@@ -66,20 +67,38 @@ describe("update safety", () => {
     expect(isExactOfflineVersion(-1, 1)).toBe(false);
   });
 
-  it("allows automatic exact-vector worker activation", () => {
+  it("allows only a safe checkpoint for an exact-vector worker", () => {
     expect(evaluateUpdateSafety(input())).toMatchObject({
-      code: "ready-for-automatic-activation",
+      code: "ready-for-safe-checkpoint",
       allowEdits: true,
-      autoActivate: true,
-      allowDocumentReload: true,
+      autoActivate: false,
+      allowDocumentReload: false,
       preserveLocalData: true,
-      deleteOldCaches: true,
+      deleteOldCaches: false,
       databaseDowngradeAllowed: false,
     });
     expect(UPDATE_ACTIVATION_POLICY).toEqual({
-      automaticSkipWaiting: true,
-      automaticClientsClaim: true,
-      deleteOldCachesOnActivate: true,
+      automaticSkipWaiting: false,
+      automaticClientsClaim: false,
+      deleteOldCachesOnActivate: false,
+    });
+  });
+
+  it("waits for zero quiescence counters before activation", () => {
+    const result = evaluateUpdateSafety(
+      input({
+        quiescence: {
+          dirtyFormCount: 0,
+          active: { indexedDb: 1, opfs: 0, hashWorker: 0, sync: 0, mutation: 0 },
+        },
+      }),
+    );
+    expect(result).toMatchObject({
+      code: "waiting-for-safe-checkpoint",
+      allowEdits: true,
+      autoActivate: false,
+      allowDocumentReload: false,
+      deleteOldCaches: false,
     });
   });
 
@@ -107,18 +126,18 @@ describe("update safety", () => {
     { pendingOutboxCount: 0, pendingAttachmentManifestCount: 0, unsyncedPackageCount: 1 },
   ])("activates without reloading over pending local work: %j", (localWork) => {
     const result = evaluateUpdateSafety(input({ localWork }));
-    expect(result.code).toBe("ready-for-automatic-activation");
-    expect(result.autoActivate).toBe(true);
-    expect(result.allowDocumentReload).toBe(true);
+    expect(result.code).toBe("waiting-for-safe-checkpoint");
+    expect(result.autoActivate).toBe(false);
+    expect(result.allowDocumentReload).toBe(false);
     expect(result.preserveLocalData).toBe(true);
-    expect(result.deleteOldCaches).toBe(true);
+    expect(result.deleteOldCaches).toBe(false);
   });
 
-  it("requires one migration owner and pauses edits during an incompatible migration", () => {
+  it("requires one migration owner before a safe checkpoint", () => {
     expect(evaluateUpdateSafety(input({ migration: { required: true, ownerLockAcquired: false, phase: "before-expand", failed: false } }))).toMatchObject({
-      code: "ready-for-automatic-activation",
-      autoActivate: true,
-      allowDocumentReload: true,
+      code: "waiting-for-safe-checkpoint",
+      autoActivate: false,
+      allowDocumentReload: false,
     });
 
     expect(
@@ -132,7 +151,7 @@ describe("update safety", () => {
           },
         }),
       ),
-    ).toMatchObject({ code: "ready-for-automatic-activation", allowDocumentReload: true });
+    ).toMatchObject({ code: "ready-for-safe-checkpoint", allowDocumentReload: false });
   });
 
   it.each(["before-expand", "after-expand", "after-copy", "before-contract"] as const)(
@@ -197,8 +216,48 @@ describe("update safety", () => {
     expect(maximumActive).toBe(1);
     expect(broadcast).toHaveBeenCalledTimes(2);
     expect(broadcast).toHaveBeenLastCalledWith(
-      expect.objectContaining({ type: "update-decision", code: "ready-for-automatic-activation" }),
+      expect.objectContaining({ type: "update-decision", code: "ready-for-safe-checkpoint" }),
     );
+  });
+
+  it("keeps an unresponsive client fenced until safe acknowledgement or exit", () => {
+    expect(evaluateUnresponsiveClientFence({
+      ackTimedOut: true,
+      clientExited: false,
+      securityCritical: false,
+      oldVectorDeadlineReached: false,
+      serverMinimumWriteVectorCommitted: false,
+      responsiveClientsFrozenAndAcked: false,
+      resumedClientSafeAck: false,
+    })).toMatchObject({
+      state: "ACK_TIMEOUT",
+      activationMayProceed: false,
+      mutationsAllowed: true,
+    });
+
+    expect(evaluateUnresponsiveClientFence({
+      ackTimedOut: true,
+      clientExited: false,
+      securityCritical: true,
+      oldVectorDeadlineReached: true,
+      serverMinimumWriteVectorCommitted: true,
+      responsiveClientsFrozenAndAcked: true,
+      resumedClientSafeAck: false,
+    })).toMatchObject({
+      state: "UNRESPONSIVE_CLIENT_FENCED_READ_ONLY_PENDING_RESUME",
+      activationMayProceed: false,
+      mutationsAllowed: false,
+    });
+
+    expect(evaluateUnresponsiveClientFence({
+      ackTimedOut: true,
+      clientExited: true,
+      securityCritical: true,
+      oldVectorDeadlineReached: true,
+      serverMinimumWriteVectorCommitted: true,
+      responsiveClientsFrozenAndAcked: true,
+      resumedClientSafeAck: false,
+    })).toMatchObject({ state: "CLIENT_EXITED", activationMayProceed: true });
   });
 });
 

@@ -9,19 +9,38 @@ export interface ClientQuiescenceSnapshot {
   persistedVector: OfflineVersionVector | null;
   pendingReloadFingerprint: string | null;
   acknowledgedReloadFingerprint: string | null;
+  frozenForSafeCheckpoint: boolean;
+}
+
+export interface SafeCheckpointAck {
+  clientId: string;
+  fingerprint: string;
+  compatibility: OfflineVersionVector;
+  dirtyFormCount: number;
+  active: Readonly<Record<QuiescenceCounter, number>>;
+  durableWorkAcknowledged: boolean;
 }
 
 const COUNTERS: readonly QuiescenceCounter[] = ["indexedDb", "opfs", "hashWorker", "sync", "mutation"];
 
 export class ClientQuiescence {
+  private readonly clientId: string;
   private readonly dirtyForms = new Set<string>();
   private readonly counters = new Map<QuiescenceCounter, number>(COUNTERS.map((counter) => [counter, 0]));
   private currentFingerprint: string | null = null;
   private persistedVector: OfflineVersionVector | null = null;
   private pendingReloadFingerprint: string | null = null;
   private acknowledgedReloadFingerprint: string | null = null;
+  private frozenForSafeCheckpoint = false;
+
+  constructor(clientId: string = globalThis.crypto?.randomUUID?.() ?? `client-${Date.now()}`) {
+    this.clientId = clientId;
+  }
 
   registerDirtyForm(formID: string): () => void {
+    if (this.frozenForSafeCheckpoint) {
+      throw new Error("Client is frozen for a safe checkpoint.");
+    }
     this.dirtyForms.add(formID);
     return () => this.clearDirtyForm(formID);
   }
@@ -31,6 +50,9 @@ export class ClientQuiescence {
   }
 
   begin(counter: QuiescenceCounter): () => void {
+    if (this.frozenForSafeCheckpoint) {
+      throw new Error("Client is frozen for a safe checkpoint.");
+    }
     this.counters.set(counter, (this.counters.get(counter) ?? 0) + 1);
     let released = false;
     return () => {
@@ -53,6 +75,29 @@ export class ClientQuiescence {
     return this.dirtyForms.size === 0 && COUNTERS.every((counter) => (this.counters.get(counter) ?? 0) === 0);
   }
 
+  freezeForSafeCheckpoint(): boolean {
+    if (!this.isQuiescent()) return false;
+    this.frozenForSafeCheckpoint = true;
+    return true;
+  }
+
+  safeCheckpointAck(
+    fingerprint: string,
+    compatibility: OfflineVersionVector,
+    durableWorkAcknowledged = true,
+  ): SafeCheckpointAck | null {
+    if (!this.frozenForSafeCheckpoint || !this.isQuiescent()) return null;
+    const snapshot = this.snapshot();
+    return {
+      clientId: this.clientId,
+      fingerprint,
+      compatibility,
+      dirtyFormCount: snapshot.dirtyFormCount,
+      active: snapshot.active,
+      durableWorkAcknowledged,
+    };
+  }
+
   canAcknowledgeReload(fingerprint: string): boolean {
     return this.pendingReloadFingerprint === fingerprint && this.acknowledgedReloadFingerprint !== fingerprint && this.currentFingerprint !== null && this.currentFingerprint !== fingerprint && this.isQuiescent();
   }
@@ -71,6 +116,7 @@ export class ClientQuiescence {
       persistedVector: this.persistedVector,
       pendingReloadFingerprint: this.pendingReloadFingerprint,
       acknowledgedReloadFingerprint: this.acknowledgedReloadFingerprint,
+      frozenForSafeCheckpoint: this.frozenForSafeCheckpoint,
     };
   }
 }
@@ -91,14 +137,33 @@ export function bindBrowserQuiescence(registration: ServiceWorkerRegistration): 
       fingerprint: state.snapshot().currentFingerprint,
     });
   };
+  const sendSafeCheckpointAck = (
+    fingerprint: string,
+    vector: OfflineVersionVector,
+    target?: ServiceWorker | null,
+  ) => {
+    if (!state.freezeForSafeCheckpoint()) return;
+    const ack = state.safeCheckpointAck(fingerprint, vector);
+    if (!ack) return;
+    (target ?? registration.waiting ?? registration.installing)?.postMessage({
+      type: "avia:app-shell-safe-checkpoint-ack",
+      ack,
+    });
+  };
   const onControllerChange = () => {
     sendReady();
     const pending = state.snapshot().pendingReloadFingerprint;
-    if (pending && state.acknowledgeReload(pending)) window.location.reload();
+    if (pending && state.acknowledgeReload(pending)) {
+      window.dispatchEvent(new CustomEvent("avia:app-shell-reload-required", { detail: { fingerprint: pending } }));
+    }
   };
   const onWorkerMessage = (event: MessageEvent) => {
+    if (event.data?.type === "avia:app-shell-update-available" && typeof event.data.fingerprint === "string") {
+      const vector = event.data.compatibility as OfflineVersionVector;
+      sendSafeCheckpointAck(event.data.fingerprint, vector, event.source as ServiceWorker | null);
+      return;
+    }
     if (event.data?.type !== "avia:app-shell-activation" || typeof event.data.fingerprint !== "string") return;
-    if (event.data.legacyRetirement === true) return;
     state.requestReload(event.data.fingerprint);
     if (navigator.serviceWorker.controller === registration.active) onControllerChange();
   };

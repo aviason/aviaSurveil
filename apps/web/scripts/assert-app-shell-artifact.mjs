@@ -165,12 +165,11 @@ export function assertAppShellArtifact(suppliedPath) {
   assert.equal(sha256(Buffer.from(workerTemplate)), manifest.worker.templateSha256);
   assert.equal(sha256(canonicalBytes(manifest)), manifest.releaseFingerprint);
   assert.ok(worker.includes(manifest.releaseFingerprint));
-  assert.match(worker, /skipWaiting/);
-  assert.match(worker, /clients\.claim/);
+  assert.match(worker, /safe-checkpoint/);
+  assert.match(worker, /app-shell-safe-checkpoint-ack/);
   assert.doesNotMatch(worker, /indexedDB\.deleteDatabase/);
-  assert.match(worker, /force-window-client-navigation-v1/);
-  assert.match(worker, /\.navigate\(/);
-  assert.doesNotMatch(worker, /await\s+[\w$.]+\.navigate\(/);
+  assert.doesNotMatch(worker, /force-window-client-navigation-v1/);
+  assert.doesNotMatch(worker, /\.navigate\(/);
   assert.doesNotMatch(worker, /cache\.addAll/);
   return { files: files.length, assets: manifest.files.length, profile: manifest.profile, releaseFingerprint: manifest.releaseFingerprint };
 }

@@ -2,6 +2,8 @@ import type {
   Backend,
   PushFieldOperationResult,
   SyncPullResponse,
+  UploadPartReceipt,
+  ResumableInspectionAttachmentUploadSession,
 } from "../backend/backend";
 import {
   BackendAuthorizationInvariantError,
@@ -9,12 +11,15 @@ import {
   BackendInvariantError,
 } from "../backend/backend-contracts";
 import type { AttachmentManifestRow, OutboxRow, SyncStateRow } from "./db";
+import { buildUploadParts, missingUploadParts, partOperationId } from "./resumable-upload";
 
 export type FieldSyncTrigger = "startup" | "foreground" | "online" | "manual" | "app-open";
 
 export interface FieldSyncTarget {
   packageId: string;
   offlineGrantId: string;
+  deviceInstanceId?: string;
+  profileKeyId: string;
 }
 
 export interface FieldSyncRepository {
@@ -24,6 +29,7 @@ export interface FieldSyncRepository {
   markOperationInFlight(operationId: string): Promise<OutboxRow>;
   applyPushResult(operationId: string, result: PushFieldOperationResult): Promise<void>;
   getSyncState(packageId: string): Promise<SyncStateRow | null>;
+  getOfflineGrant(packageId: string): Promise<{ profileKeyId?: string } | null>;
   applyPullPage(input: {
     packageId: string;
     grantId: string;
@@ -32,11 +38,20 @@ export interface FieldSyncRepository {
   }): Promise<void>;
   listRegisteredAttachmentsReadyForUpload(packageId: string): Promise<AttachmentManifestRow[]>;
   beginRegisteredAttachmentUpload(attachmentId: string): Promise<AttachmentManifestRow>;
+  recordAttachmentUploadSession(
+    attachmentId: string,
+    session: ResumableInspectionAttachmentUploadSession & { beginOperationId: string },
+  ): Promise<AttachmentManifestRow>;
+  recordAttachmentUploadPart(attachmentId: string, receipt: UploadPartReceipt): Promise<AttachmentManifestRow>;
+  markAttachmentUploadCompleting(attachmentId: string): Promise<void>;
   markAttachmentUploadRetryable(attachmentId: string, errorCode: string): Promise<void>;
   acknowledgeUploadedAttachment(input: {
     attachmentId: string;
     authoritativeEntityId: string;
     acknowledgedAt: string;
+    objectVersion?: string;
+    byteSize?: number;
+    sha256?: string;
   }): Promise<void>;
 }
 
@@ -189,6 +204,11 @@ export class ForegroundSyncEngine {
       conflict: null,
       errorCode: null,
     };
+    if (!target.profileKeyId.trim()) {
+      report.status = "forbidden";
+      report.errorCode = "PROFILE_AUTHORITY_REQUIRED";
+      return report;
+    }
     await this.repository.recoverInterruptedOperations(target.packageId);
     await this.repository.releaseRetryableOperations(target.packageId, trigger === "manual");
 
@@ -242,6 +262,8 @@ export class ForegroundSyncEngine {
         const page = await this.backend.sync.pull({
           packageId: target.packageId,
           offlineGrantId: target.offlineGrantId,
+          deviceInstanceId: target.deviceInstanceId ?? "DEVICE_PROFILE_PENDING",
+          profileKeyId: target.profileKeyId ?? "",
           cursor,
           limit: 100,
         });
@@ -278,7 +300,7 @@ export class ForegroundSyncEngine {
     const manifests = await this.repository.listRegisteredAttachmentsReadyForUpload(packageId);
     let uploaded = 0;
     for (const candidate of manifests) {
-      const manifest = await this.repository.beginRegisteredAttachmentUpload(candidate.attachmentId);
+      let manifest = await this.repository.beginRegisteredAttachmentUpload(candidate.attachmentId);
       try {
         if (
           !manifest.authoritativeEntityId ||
@@ -292,21 +314,95 @@ export class ForegroundSyncEngine {
         if (bytes.byteLength !== manifest.observedByteSize) {
           throw new Error("Inspection Attachment byte size changed after staging.");
         }
+        const wholeFileSha256 = manifest.sha256;
+        const sessionExpired = Boolean(
+          manifest.uploadExpiresAt &&
+          Date.parse(manifest.uploadExpiresAt) <= this.now().getTime(),
+        );
+        const beginOperationId = sessionExpired
+          ? `OP-ATTACHMENT-BEGIN-${manifest.attachmentId}-EPOCH-${(manifest.uploadSessionEpoch ?? 0) + 1}`
+          : manifest.uploadBeginOperationId ?? `OP-ATTACHMENT-BEGIN-${manifest.attachmentId}`;
         const begin = await this.backend.inspectionAttachments.beginUpload({
-          operationId: this.operationId("OP-ATTACHMENT-BEGIN"),
+          operationId: beginOperationId,
           inspectionAttachmentId: manifest.authoritativeEntityId,
           packageId: manifest.packageId,
           byteSize: bytes.byteLength,
-          sha256: manifest.sha256,
+          sha256: wholeFileSha256,
           fileName: manifest.fileName,
           declaredMediaType: manifest.declaredMediaType,
         });
-        await this.uploadBytes(begin.uploadUrl, bytes, begin.requiredHeaders);
+        if (
+          !begin.sessionEpoch ||
+          !begin.partSize ||
+          !begin.receivedParts ||
+          !begin.acknowledgedOffsets ||
+          !begin.partHashes ||
+          !begin.wholeFileSha256
+        ) {
+          throw new Error("Resumable Inspection Attachment session metadata is incomplete.");
+        }
+        const resumableBegin = {
+          ...begin,
+          sessionEpoch: begin.sessionEpoch,
+          partSize: begin.partSize,
+          receivedParts: begin.receivedParts,
+          acknowledgedOffsets: begin.acknowledgedOffsets,
+          partHashes: begin.partHashes,
+          wholeFileSha256: begin.wholeFileSha256,
+        };
+        manifest = await this.repository.recordAttachmentUploadSession(
+          manifest.attachmentId,
+          { ...resumableBegin, beginOperationId },
+        );
+        const parts = await buildUploadParts(bytes, resumableBegin.partSize);
+        const receipts: UploadPartReceipt[] = (manifest.uploadReceivedParts ?? []).flatMap((partNumber) => {
+          const part = parts.find((candidate) => candidate.partNumber === partNumber);
+          const sha256 = manifest.uploadPartHashes?.[String(partNumber)];
+          const objectVersion = manifest.uploadPartObjectVersions?.[String(partNumber)];
+          if (!part || !sha256 || !objectVersion) return [];
+          return [{
+            partNumber,
+            byteSize: part.byteSize,
+            sha256,
+            acknowledgedOffset: parts
+              .filter((candidate) => candidate.partNumber <= partNumber)
+              .reduce((total, candidate) => total + candidate.byteSize, 0),
+            objectVersion,
+          }];
+        });
+        for (const part of missingUploadParts(parts, receipts)) {
+          if (!this.backend.inspectionAttachments.beginPart || !this.backend.inspectionAttachments.acknowledgePart) {
+            throw new Error("Resumable Inspection Attachment part APIs are unavailable.");
+          }
+          const partOperation = partOperationId(resumableBegin.uploadId, resumableBegin.sessionEpoch, part.partNumber, part.sha256);
+          const instruction = await this.backend.inspectionAttachments.beginPart({
+            operationId: partOperation,
+            uploadId: resumableBegin.uploadId,
+            sessionEpoch: resumableBegin.sessionEpoch,
+            partNumber: part.partNumber,
+            byteSize: part.byteSize,
+            sha256: part.sha256,
+          });
+          await this.uploadBytes(instruction.uploadUrl, part.bytes, instruction.requiredHeaders);
+          const receipt = await this.backend.inspectionAttachments.acknowledgePart({
+            operationId: `${partOperation}:ack`,
+            uploadId: resumableBegin.uploadId,
+            sessionEpoch: resumableBegin.sessionEpoch,
+            partNumber: part.partNumber,
+            byteSize: part.byteSize,
+            sha256: part.sha256,
+          });
+          await this.repository.recordAttachmentUploadPart(manifest.attachmentId, receipt);
+          receipts.push(receipt);
+        }
+        await this.repository.markAttachmentUploadCompleting(manifest.attachmentId);
         const completed = await this.backend.inspectionAttachments.completeUpload({
-          operationId: this.operationId("OP-ATTACHMENT-COMPLETE"),
-          uploadId: begin.uploadId,
-          sha256: manifest.sha256,
+          operationId: manifest.uploadCompleteOperationId ?? `OP-ATTACHMENT-COMPLETE-${manifest.attachmentId}`,
+          uploadId: resumableBegin.uploadId,
+          sessionEpoch: resumableBegin.sessionEpoch,
+          sha256: wholeFileSha256,
           byteSize: bytes.byteLength,
+          parts: receipts.sort((left, right) => left.partNumber - right.partNumber),
         });
         if (completed.inspectionAttachmentId !== manifest.authoritativeEntityId) {
           throw new Error("Inspection Attachment completion scope changed.");
@@ -315,6 +411,9 @@ export class ForegroundSyncEngine {
           attachmentId: manifest.attachmentId,
           authoritativeEntityId: completed.inspectionAttachmentId,
           acknowledgedAt: this.now().toISOString(),
+          objectVersion: completed.objectVersion,
+          byteSize: completed.byteSize,
+          sha256: completed.sha256,
         });
         uploaded += 1;
       } catch (error) {

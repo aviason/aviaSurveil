@@ -7,7 +7,13 @@
 
 **Tech Stack:** React, TypeScript, Vite, React Router, TanStack Query, React Hook Form, Zod, Dexie/IndexedDB, Service Worker + Cache Storage, OPFS for staged Inspection Attachments, Vitest, React Testing Library, Playwright, Go modular monolith, `net/http` + `chi`, OpenAPI, PostgreSQL + `pgx`/`sqlc`, S3-compatible object storage, and containerized local integration dependencies.
 
-**Status:** `active` — Tasks 2-13 remain implemented and `verified locally` as a `candidate-only` local application. The corrective [React Legacy UI Parity And Backend Integration plan](2026-07-21-react-legacy-ui-parity-and-backend-integration-plan.md), [86-screen React](../completed/2026-07-22-full-react-86-screen-migration-plan.md), and [full backend parity](../completed/2026-07-22-full-backend-scenario-parity-plan.md) milestones remain recorded. The maintained local identity/runtime successor is the [first-party Go OIDC plan](2026-08-11-first-party-go-oidc-auth-replacement-plan.md). Release remains `release pending`; remote deployment and traffic are `not run`.
+**Status:** `superseded` for current offline-production authority — Tasks 2-13 remain historical `verified locally` and `candidate-only` implementation evidence. The corrective [React Legacy UI Parity And Backend Integration plan](2026-07-21-react-legacy-ui-parity-and-backend-integration-plan.md), [86-screen React](../completed/2026-07-22-full-react-86-screen-migration-plan.md), and [full backend parity](../completed/2026-07-22-full-backend-scenario-parity-plan.md) milestones remain recorded. The maintained local identity/runtime successor is the [first-party Go OIDC plan](2026-08-11-first-party-go-oidc-auth-replacement-plan.md). Release remains `release pending`; remote deployment and traffic are `not run`.
+
+The [Offline-First Browser Production Hardening plan](2026-08-17-offline-first-browser-tab-production-hardening-plan.md)
+is the sole current authority for browser offline-production scope, policy,
+implementation order, acceptance, and release qualification. This historical
+plan does not authorize installed-runtime work, its earlier 24-hour grant or
+whole-object upload assumptions, source edits, or release actions.
 
 ## Global Constraints
 

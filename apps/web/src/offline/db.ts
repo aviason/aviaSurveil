@@ -1,4 +1,4 @@
-import Dexie, { type Table } from "dexie";
+import Dexie, { type ChromeTransactionDurability, type Table } from "dexie";
 
 import type {
   ChecklistAnswer,
@@ -11,6 +11,7 @@ import type {
 import {
   CURRENT_FIELD_SCHEMA_VERSION,
   migrateReleasedFoundationToFieldSchema,
+  sha256Canonical,
   type FieldMigrationFault,
   type FieldMigrationPhase,
 } from "./schema-migrations";
@@ -30,6 +31,24 @@ export type AttachmentStagingState =
   | "purge_eligible"
   | "recovery_required"
   | "quarantined";
+export type AttachmentRecoveryState =
+  | "MANIFEST_COMMITTED"
+  | "WRITING_TEMP"
+  | "FLUSHED"
+  | "HASH_VERIFIED"
+  | "PROMOTED"
+  | "LOCAL_READY"
+  | "RECOVERY_REQUIRED"
+  | "QUARANTINED";
+export type AttachmentUploadState =
+  | "OPEN"
+  | "UPLOADING"
+  | "PARTIALLY_COMMITTED"
+  | "COMPLETING"
+  | "COMPLETED"
+  | "EXPIRED"
+  | "ABORTED"
+  | "QUARANTINED";
 export type LocalRecordSyncState =
   | "ACKNOWLEDGED"
   | "PENDING"
@@ -44,6 +63,7 @@ export type FieldOutboxState =
   | "SUPERSEDED"
   | "CONFLICT"
   | "REJECTED"
+  | "QUARANTINED"
   | "FAILED_RETRYABLE";
 
 export interface FoundationRow<T = unknown> {
@@ -81,8 +101,12 @@ export interface OfflineGrantRow {
   packageVersion: number;
   packageDigest: string;
   deviceInstanceId: string;
+  profileKeyId?: string;
+  assignmentRevision?: number;
   issuedAt: string;
   expiresAt: string;
+  leaseIssuedAt?: string;
+  leaseExpiresAt?: string;
   protocolVersion: number;
   offlineGrant: OfflineGrant;
 }
@@ -139,6 +163,7 @@ export interface AttachmentManifestRow {
   temporaryOpfsPath: string | null;
   finalOpfsPath: string | null;
   stagingState: AttachmentStagingState;
+  recoveryState?: AttachmentRecoveryState;
   syncState: LocalRecordSyncState;
   plannedOperationId: string;
   operationId: string | null;
@@ -148,12 +173,26 @@ export interface AttachmentManifestRow {
   createdAt: string;
   updatedAt: string;
   uploadStartedAt: string | null;
+  uploadState?: AttachmentUploadState;
+  uploadSessionId?: string | null;
+  uploadSessionEpoch?: number | null;
+  uploadPartSize?: number | null;
+  uploadReceivedParts?: number[];
+  uploadAcknowledgedOffsets?: number[];
+  uploadPartHashes?: Record<string, string>;
+  uploadPartObjectVersions?: Record<string, string>;
+  uploadWholeFileSha256?: string | null;
+  uploadExpiresAt?: string | null;
+  uploadObjectVersion?: string | null;
+  uploadBeginOperationId?: string | null;
+  uploadCompleteOperationId?: string | null;
   acknowledgedAt: string | null;
   purgeEligibleAt: string | null;
 }
 
 export interface OutboxRow {
   operationId: string;
+  operationSequence: number;
   subjectId: string;
   packageId: string;
   commandType: FieldCommandType;
@@ -166,8 +205,23 @@ export interface OutboxRow {
   dependsOnOperationIds: string[];
   supersededByOperationId: string | null;
   requestDigest: string;
+  entityRevision: number;
+  entityHash: string;
+  commitReceiptKey: string;
   lastErrorCode: string | null;
   operation: FieldSyncOperation;
+}
+
+export interface LocalCommitReceiptRow {
+  operationId: string;
+  subjectId: string;
+  packageId: string;
+  entityId: string;
+  operationSequence: number;
+  entityRevision: number;
+  entityHash: string;
+  requestHash: string;
+  committedAt: string;
 }
 
 export interface SyncStateRow {
@@ -183,11 +237,20 @@ export interface SyncStateRow {
 export interface OfflineFieldDatabaseOptions {
   name?: string;
   migrationFault?: FieldMigrationFault;
+  durability?: ChromeTransactionDurability;
 }
 
 export type FieldDatabaseOpenResult =
   | { mode: "read-write"; version: number }
   | { mode: "read-only-recovery"; failedPhase: FieldMigrationPhase; error: string };
+
+export type FieldDatabaseLifecycleState =
+  | "CLOSED"
+  | "OPENING"
+  | "OPEN"
+  | "BLOCKED"
+  | "VERSION_CHANGE"
+  | "READ_ONLY_RECOVERY";
 
 const FIELD_STORES = {
   foundation: "&key",
@@ -205,6 +268,8 @@ const FIELD_STORES = {
 } as const;
 
 export class OfflineFieldDatabase extends Dexie {
+  readonly requestedDurability: ChromeTransactionDurability;
+  private databaseLifecycleState: FieldDatabaseLifecycleState = "CLOSED";
   foundation!: Table<FoundationRow, string>;
   packages!: Table<PackageRow, [string, string]>;
   offlineGrants!: Table<OfflineGrantRow, [string, string]>;
@@ -219,7 +284,21 @@ export class OfflineFieldDatabase extends Dexie {
   private openResult: FieldDatabaseOpenResult | null = null;
 
   constructor(options: OfflineFieldDatabaseOptions = {}) {
-    super(options.name ?? OFFLINE_FIELD_DATABASE_NAME);
+    const durability = options.durability ?? "strict";
+    super(options.name ?? OFFLINE_FIELD_DATABASE_NAME, { chromeTransactionDurability: durability });
+    this.requestedDurability = durability;
+    this.on("blocked", () => {
+      this.databaseLifecycleState = "BLOCKED";
+    });
+    this.on("versionchange", () => {
+      this.databaseLifecycleState = "VERSION_CHANGE";
+      this.close({ disableAutoOpen: true });
+    });
+    this.on("close", () => {
+      if (this.databaseLifecycleState !== "READ_ONLY_RECOVERY") {
+        this.databaseLifecycleState = "CLOSED";
+      }
+    });
     this.migrationFault = options.migrationFault;
     this.version(1).stores({ foundation: "&key" });
     this.version(CURRENT_FIELD_SCHEMA_VERSION)
@@ -232,15 +311,23 @@ export class OfflineFieldDatabase extends Dexie {
       });
   }
 
+  get lifecycleState(): FieldDatabaseLifecycleState {
+    return this.databaseLifecycleState;
+  }
+
   async openForFieldUse(): Promise<FieldDatabaseOpenResult> {
     if (this.openResult) return this.openResult;
+    this.databaseLifecycleState = "OPENING";
     try {
       this.failedMigrationPhase = "before-expand";
       this.migrationFault?.("before-expand");
       await this.open();
+      await this.forwardMigrateLocalMutationReceipts();
       this.openResult = { mode: "read-write", version: CURRENT_FIELD_SCHEMA_VERSION };
+      this.databaseLifecycleState = "OPEN";
     } catch (error) {
       this.close();
+      this.databaseLifecycleState = "READ_ONLY_RECOVERY";
       this.openResult = {
         mode: "read-only-recovery",
         failedPhase: this.failedMigrationPhase,
@@ -248,6 +335,68 @@ export class OfflineFieldDatabase extends Dexie {
       };
     }
     return this.openResult;
+  }
+
+  private async forwardMigrateLocalMutationReceipts(): Promise<void> {
+    await this.transaction(
+      "rw",
+      [this.foundation, this.outbox],
+      async () => {
+        const rows = await this.outbox.toArray();
+        const byPackage = new Map<string, OutboxRow[]>();
+        for (const row of rows) {
+          const packageRows = byPackage.get(row.packageId) ?? [];
+          packageRows.push(row);
+          byPackage.set(row.packageId, packageRows);
+        }
+        for (const [packageId, packageRows] of byPackage) {
+          packageRows.sort((left, right) =>
+            left.createdAt.localeCompare(right.createdAt) || left.operationId.localeCompare(right.operationId),
+          );
+          const sequenceKey = `operation-sequence:${packageRows[0]?.subjectId ?? ""}:${packageId}`;
+          const storedSequence = await this.foundation.get(sequenceKey) as FoundationRow<{ nextSequence: number }> | undefined;
+          let nextSequence = Math.max(
+            storedSequence?.value.nextSequence ?? 1,
+            ...packageRows.map((row) => Number.isSafeInteger(row.operationSequence) ? row.operationSequence + 1 : 1),
+          );
+          for (const row of packageRows) {
+            const receiptKey = row.commitReceiptKey || `commit-receipt:${row.subjectId}:${row.operationId}`;
+            const existingReceipt = await this.foundation.get(receiptKey) as FoundationRow<LocalCommitReceiptRow> | undefined;
+            const complete =
+              Number.isSafeInteger(row.operationSequence) && row.operationSequence > 0 &&
+              Number.isSafeInteger(row.entityRevision) && typeof row.entityHash === "string" &&
+              /^sha256:[0-9a-f]{64}$/.test(row.entityHash) && Boolean(existingReceipt);
+            if (complete) continue;
+            const operationSequence = Number.isSafeInteger(row.operationSequence) && row.operationSequence > 0
+              ? row.operationSequence
+              : nextSequence++;
+            const entityHash = /^sha256:[0-9a-f]{64}$/.test(row.entityHash ?? "")
+              ? row.entityHash
+              : await Dexie.waitFor(sha256Canonical(row.operation.payload));
+            row.operationSequence = operationSequence;
+            row.entityRevision = row.entityRevision ?? row.baseRevision ?? 0;
+            row.entityHash = entityHash;
+            row.commitReceiptKey = receiptKey;
+            await this.outbox.put(row);
+            await this.foundation.put({
+              key: receiptKey,
+              value: {
+                operationId: row.operationId,
+                subjectId: row.subjectId,
+                packageId: row.packageId,
+                entityId: row.entityId,
+                operationSequence,
+                entityRevision: row.entityRevision,
+                entityHash,
+                requestHash: row.requestDigest,
+                committedAt: row.createdAt,
+              } satisfies LocalCommitReceiptRow,
+            });
+          }
+          await this.foundation.put({ key: sequenceKey, value: { nextSequence } });
+        }
+      },
+    );
   }
 
   async readFoundationRecoveryRecord<T>(key: string): Promise<FoundationRow<T> | null> {

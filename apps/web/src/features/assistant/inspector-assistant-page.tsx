@@ -48,7 +48,7 @@ export function InspectorAssistantPage() {
           <div className="inspector-suggestion-row__actions"><span role="note">No local review mutation. Use the declared Finding and report commands for workflow decisions.</span></div>
         </article>)}
       </section> : null}
-      <section className="inspector-draft-request"><label>Draft request<textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} /></label><button className="inspector-secondary-button inspector-secondary-button--primary" disabled={!finding} onClick={() => void createDraft()} type="button">Create Draft</button></section>
+      <section className="inspector-draft-request"><label>Draft request<textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} /></label><button className="inspector-secondary-button inspector-secondary-button--primary" disabled={!finding} onClick={() => void createDraft()} title={finding ? undefined : "Select a Finding before creating an advisory draft."} type="button">Create Draft</button></section>
       {draft ? <section aria-label="Assistant Draft" className="inspector-draft-output" data-durable-outcome="assistant-draft" role="status"><span>Draft · advisory only</span><h2>Draft review guidance</h2><p>{draft.draft}</p><small>This Draft cannot create a Finding, set severity, close a Finding, or take enforcement action.</small></section> : null}
     </div>
   </WorkspaceShell>;

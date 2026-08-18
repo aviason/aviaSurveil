@@ -390,6 +390,11 @@
   gap: 10px;
 }
 
+.lead-review-register .button-row button {
+  min-height: 44px;
+  padding: 10px 14px;
+}
+
 .lead-review-result {
   display: flex;
   max-width: var(--avia-content-max);

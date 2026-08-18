@@ -5,6 +5,12 @@ import {
   type FoundationRow,
 } from "./db";
 import { IndexedDbFieldRepository } from "./field-repository";
+import { createBrowserProfileAuthority } from "./profile-authority";
+import {
+  classifyOfficialBrowser,
+  DEFAULT_BROWSER_VERSION_POLICY,
+  type BrowserVersionPolicy,
+} from "./browser-policy";
 import { CURRENT_FIELD_SCHEMA_VERSION } from "./schema-migrations";
 import {
   CURRENT_OFFLINE_VERSIONS,
@@ -26,7 +32,20 @@ export type OfflineReadinessCode =
   | "offline-grant-invalid"
   | "app-version-incompatible"
   | "schema-version-incompatible"
-  | "protocol-version-incompatible";
+  | "protocol-version-incompatible"
+  | "runtime-canary-failed";
+
+export type OfflineAdmissionState =
+  | "OFFLINE_READY"
+  | "ONLINE_ONLY"
+  | "UNSUPPORTED"
+  | "RECOVERY_REQUIRED";
+
+export interface OfflineBrowserAdmission {
+  official: boolean;
+  state: "OFFICIAL" | "ONLINE_ONLY" | "UNSUPPORTED";
+  reasonCode: string;
+}
 
 export type { OfflineVersionVector } from "./offline-version-contract";
 
@@ -64,10 +83,12 @@ export interface StorageEstimate {
 export interface OfflineReadinessDependencies {
   isSecureContext: boolean;
   browserSupported: boolean;
+  browserAdmission?: () => Promise<OfflineBrowserAdmission>;
   serviceWorkerReady(): Promise<boolean>;
   indexedDbCanary(): Promise<boolean>;
   opfsCanary(): Promise<boolean>;
   restartCanary(): Promise<boolean>;
+  runtimeCanary?: () => Promise<boolean>;
   storagePersisted(): Promise<boolean>;
   requestPersistence(): Promise<boolean>;
   estimateStorage(): Promise<StorageEstimate>;
@@ -76,6 +97,8 @@ export interface OfflineReadinessDependencies {
 export interface OfflineReadinessResult {
   code: OfflineReadinessCode;
   ready: boolean;
+  admissionState: OfflineAdmissionState;
+  reasonCode: string;
   recoveryAction: string;
   capacityIsAdvisory: boolean;
   requiredBytes: number | null;
@@ -83,7 +106,7 @@ export interface OfflineReadinessResult {
 }
 
 const RECOVERY_ACTIONS: Record<Exclude<OfflineReadinessCode, "ready">, string> = {
-  "unsupported-browser": "Use current managed Chrome over HTTPS or localhost, then retry.",
+  "unsupported-browser": "Use one of the six official Stable browser lanes over HTTPS, then retry.",
   "managed-policy-unapproved":
     "Confirm the owner-approved managed browser, device, and profile policy before checkout.",
   "ephemeral-or-unmanaged-storage":
@@ -97,15 +120,41 @@ const RECOVERY_ACTIONS: Record<Exclude<OfflineReadinessCode, "ready">, string> =
   "app-version-incompatible": "Update the AviaSurveil360 app shell before offline checkout.",
   "schema-version-incompatible": "Open online and migrate the local/package schema before checkout.",
   "protocol-version-incompatible": "Update the client and request a compatible offline grant.",
+  "runtime-canary-failed": "Keep this browser online-only until the namespaced runtime canary passes after restart/readback.",
+};
+
+const REASON_CODES: Record<OfflineReadinessCode, string> = {
+  ready: "OFFLINE_READY",
+  "unsupported-browser": "UNSUPPORTED_BROWSER",
+  "managed-policy-unapproved": "MANAGED_POLICY_UNAPPROVED",
+  "ephemeral-or-unmanaged-storage": "EPHEMERAL_OR_UNMANAGED_STORAGE",
+  "service-worker-unavailable": "SERVICE_WORKER_UNAVAILABLE",
+  "indexeddb-health-failed": "INDEXEDDB_HEALTH_FAILED",
+  "opfs-health-failed": "OPFS_HEALTH_FAILED",
+  "persistence-denied": "PERSISTENCE_DENIED",
+  "quota-insufficient": "QUOTA_INSUFFICIENT",
+  "offline-grant-invalid": "OFFLINE_GRANT_INVALID",
+  "app-version-incompatible": "APP_VERSION_INCOMPATIBLE",
+  "schema-version-incompatible": "SCHEMA_VERSION_INCOMPATIBLE",
+  "protocol-version-incompatible": "PROTOCOL_VERSION_INCOMPATIBLE",
+  "runtime-canary-failed": "RUNTIME_CANARY_FAILED",
 };
 
 function failure(
   code: Exclude<OfflineReadinessCode, "ready">,
   capacity: { requiredBytes?: number; availableBytes?: number } = {},
+  admissionState: OfflineAdmissionState = code === "unsupported-browser"
+    ? "UNSUPPORTED"
+    : code === "indexeddb-health-failed" || code === "opfs-health-failed" || code === "runtime-canary-failed"
+      ? "RECOVERY_REQUIRED"
+      : "ONLINE_ONLY",
+  reasonCode = REASON_CODES[code],
 ): OfflineReadinessResult {
   return {
     code,
     ready: false,
+    admissionState,
+    reasonCode,
     recoveryAction: RECOVERY_ACTIONS[code],
     capacityIsAdvisory: true,
     requiredBytes: capacity.requiredBytes ?? null,
@@ -130,19 +179,40 @@ function validInstant(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+const MAX_OFFLINE_LEASE_MS = 7 * 24 * 60 * 60_000;
+
 function grantIsValid(input: OfflineReadinessInput): boolean {
   const { offlineGrant: grant, packageDescriptor: descriptor } = input;
   if (!grant) return false;
   const now = input.now.getTime();
   const issuedAt = validInstant(grant.issuedAt);
   const grantExpiresAt = validInstant(grant.expiresAt);
+  const leaseIssuedAt = validInstant(grant.leaseIssuedAt ?? "");
+  const leaseExpiresAt = validInstant(grant.leaseExpiresAt ?? "");
   const packageExpiresAt = validInstant(descriptor.expiresAt);
-  if (issuedAt === null || grantExpiresAt === null || packageExpiresAt === null) return false;
-  if (issuedAt > now + 5 * 60_000 || grantExpiresAt <= now || packageExpiresAt <= now) return false;
+  if (
+    issuedAt === null ||
+    grantExpiresAt === null ||
+    leaseIssuedAt === null ||
+    leaseExpiresAt === null ||
+    packageExpiresAt === null
+  ) return false;
+  if (
+    issuedAt > now + 5 * 60_000 ||
+    grantExpiresAt <= now ||
+    packageExpiresAt <= now ||
+    leaseIssuedAt > now + 5 * 60_000 ||
+    leaseExpiresAt <= now ||
+    leaseExpiresAt <= leaseIssuedAt ||
+    leaseExpiresAt - leaseIssuedAt > MAX_OFFLINE_LEASE_MS
+  ) return false;
   return (
     grant.subjectId === input.expectedSubjectId &&
     grant.organizationId === input.expectedOrganizationId &&
     grant.deviceInstanceId === input.expectedDeviceInstanceId &&
+    /^sha256:[0-9a-f]{64}$/u.test(grant.profileKeyId ?? "") &&
+    Number.isSafeInteger(grant.assignmentRevision) &&
+    (grant.assignmentRevision ?? 0) > 0 &&
     grant.packageId === descriptor.packageId &&
     grant.packageVersion === descriptor.packageVersion &&
     grant.packageDigest === descriptor.packageDigest &&
@@ -156,8 +226,33 @@ export async function assessOfflineReadiness(
   input: OfflineReadinessInput,
   dependencies: OfflineReadinessDependencies,
 ): Promise<OfflineReadinessResult> {
-  if (!dependencies.isSecureContext || !dependencies.browserSupported) {
-    return failure("unsupported-browser");
+  const browserAdmission = dependencies.browserAdmission
+    ? await (async () => {
+        try {
+          return await dependencies.browserAdmission?.();
+        } catch {
+          return {
+            official: false,
+            state: "UNSUPPORTED" as const,
+            reasonCode: "BROWSER_ADMISSION_FAILED",
+          };
+        }
+      })()
+    : {
+        official: dependencies.browserSupported,
+        state: dependencies.browserSupported ? ("OFFICIAL" as const) : ("UNSUPPORTED" as const),
+        reasonCode: dependencies.browserSupported ? "OFFICIAL_BROWSER" : "UNSUPPORTED_BROWSER",
+      };
+  if (!browserAdmission?.official) {
+    return failure(
+      "unsupported-browser",
+      {},
+      "UNSUPPORTED",
+      browserAdmission?.reasonCode ?? "UNSUPPORTED_BROWSER",
+    );
+  }
+  if (!dependencies.isSecureContext) {
+    return failure("unsupported-browser", {}, "UNSUPPORTED", "SECURE_CONTEXT_REQUIRED");
   }
   if (!input.managedPolicyApproved) return failure("managed-policy-unapproved");
   if (!input.storageProfileApproved) return failure("ephemeral-or-unmanaged-storage");
@@ -199,6 +294,9 @@ export async function assessOfflineReadiness(
   if (!(await healthy(dependencies.restartCanary))) {
     return failure("ephemeral-or-unmanaged-storage", { requiredBytes, availableBytes: quota - usage });
   }
+  if (dependencies.runtimeCanary && !(await healthy(dependencies.runtimeCanary))) {
+    return failure("runtime-canary-failed", { requiredBytes, availableBytes: quota - usage });
+  }
   if (!grantIsValid(input)) {
     return failure("offline-grant-invalid", { requiredBytes, availableBytes: quota - usage });
   }
@@ -221,6 +319,8 @@ export async function assessOfflineReadiness(
   return {
     code: "ready",
     ready: true,
+    admissionState: "OFFLINE_READY",
+    reasonCode: REASON_CODES.ready,
     recoveryAction: "Offline package checkout may continue.",
     capacityIsAdvisory: true,
     requiredBytes,
@@ -232,8 +332,16 @@ export function describeLocalPackageLoss(input: {
   outstandingCheckout: boolean;
   localPackagePresent: boolean;
 }): string | null {
-  if (!input.outstandingCheckout || input.localPackagePresent) return null;
+  if (classifyLocalDataState(input) !== "LOCAL_DATA_CLEARED") return null;
   return "Local package missing. Unsynced single-device work cannot be recovered after site data is cleared.";
+}
+
+export function classifyLocalDataState(input: {
+  outstandingCheckout: boolean;
+  localPackagePresent: boolean;
+}): "LOCAL_DATA_PRESENT" | "LOCAL_DATA_CLEARED" | "NO_OUTSTANDING_CHECKOUT" {
+  if (!input.outstandingCheckout) return "NO_OUTSTANDING_CHECKOUT";
+  return input.localPackagePresent ? "LOCAL_DATA_PRESENT" : "LOCAL_DATA_CLEARED";
 }
 
 const FOUNDATION_DATABASE_NAME = OFFLINE_FIELD_DATABASE_NAME;
@@ -322,9 +430,36 @@ async function verifyRestartCanary(): Promise<boolean> {
   return false;
 }
 
-function currentManagedChromeIsSupported(): boolean {
-  const userAgent = navigator.userAgent;
-  return /(?:Chrome|Chromium)\//.test(userAgent) && !/(?:Edg|OPR)\//.test(userAgent);
+function configuredBrowserVersionPolicy(): BrowserVersionPolicy {
+  const raw = (import.meta as ImportMeta & { env?: { VITE_AVIA_BROWSER_VERSION_POLICY_JSON?: string } }).env
+    ?.VITE_AVIA_BROWSER_VERSION_POLICY_JSON;
+  if (!raw) return DEFAULT_BROWSER_VERSION_POLICY;
+  try {
+    const value = JSON.parse(raw) as Partial<BrowserVersionPolicy>;
+    return {
+      safariStableMajor: value.safariStableMajor ?? null,
+      chromeStableMajor: value.chromeStableMajor ?? null,
+      minimumOsVersionByFamily: value.minimumOsVersionByFamily ?? {},
+    };
+  } catch {
+    return DEFAULT_BROWSER_VERSION_POLICY;
+  }
+}
+
+function currentBrowserAdmission(): OfflineBrowserAdmission {
+  const classification = classifyOfficialBrowser(navigator.userAgent, {
+    policy: configuredBrowserVersionPolicy(),
+    maxTouchPoints: navigator.maxTouchPoints,
+  });
+  return {
+    official: classification.official,
+    state: classification.official ? "OFFICIAL" : "UNSUPPORTED",
+    reasonCode: classification.reasonCode,
+  };
+}
+
+async function runRuntimeCanary(): Promise<boolean> {
+  return (await runIndexedDbCanary()) && (await runOpfsCanary()) && (await verifyRestartCanary());
 }
 
 async function serviceWorkerIsReady(): Promise<boolean> {
@@ -336,13 +471,16 @@ async function serviceWorkerIsReady(): Promise<boolean> {
 }
 
 export function createBrowserOfflineReadinessDependencies(): OfflineReadinessDependencies {
+  const admission = currentBrowserAdmission();
   return {
     isSecureContext: globalThis.isSecureContext,
-    browserSupported: currentManagedChromeIsSupported(),
+    browserSupported: admission.official,
+    browserAdmission: async () => currentBrowserAdmission(),
     serviceWorkerReady: serviceWorkerIsReady,
     indexedDbCanary: runIndexedDbCanary,
     opfsCanary: runOpfsCanary,
     restartCanary: verifyRestartCanary,
+    runtimeCanary: runRuntimeCanary,
     storagePersisted: async () => navigator.storage.persisted(),
     requestPersistence: async () => navigator.storage.persist(),
     estimateStorage: async () => navigator.storage.estimate(),
@@ -374,6 +512,7 @@ export async function writeOfflineCheckoutSnapshot(snapshot: OfflineCheckoutSnap
   const repository = new IndexedDbFieldRepository({
     subjectId: snapshot.subjectId,
     now: () => new Date(snapshot.checkedOutAt),
+    profileAuthority: createBrowserProfileAuthority(snapshot.subjectId),
   });
   await repository.checkoutPackage({
     inspectionPackage: snapshot.inspectionPackage,

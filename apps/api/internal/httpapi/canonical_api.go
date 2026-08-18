@@ -26,6 +26,7 @@ import (
 	"github.com/aviason/aviaSurveil/internal/httpapi/generated"
 	"github.com/aviason/aviaSurveil/internal/identity"
 	"github.com/aviason/aviaSurveil/internal/inspections/attachments"
+	"github.com/aviason/aviaSurveil/internal/inspections/finalization"
 	"github.com/aviason/aviaSurveil/internal/organizations"
 	"github.com/aviason/aviaSurveil/internal/planning"
 	"github.com/aviason/aviaSurveil/internal/platform/database"
@@ -47,6 +48,7 @@ type CanonicalAPIDependencies struct {
 	SyncOperations     *fieldsync.OperationService
 	EvidenceUploads    *evidence.UploadService
 	AttachmentUploads  *attachments.UploadService
+	Finalization       *finalization.Service
 	Planning           *planning.Service
 	Profiles           *identity.ProfileService
 	Assignments        *assignments.Service
@@ -71,6 +73,7 @@ type CanonicalAPI struct {
 	syncOperations     *fieldsync.OperationService
 	evidenceUploads    *evidence.UploadService
 	attachmentUploads  *attachments.UploadService
+	finalization       *finalization.Service
 	planning           *planning.Service
 	profiles           *identity.ProfileService
 	assignments        *assignments.Service
@@ -99,6 +102,10 @@ func NewCanonicalAPI(dependencies CanonicalAPIDependencies) *CanonicalAPI {
 	planningService := dependencies.Planning
 	if planningService == nil {
 		planningService = planning.NewService(dependencies.Pool, planning.Dependencies{Clock: clock})
+	}
+	finalizationService := dependencies.Finalization
+	if finalizationService == nil && dependencies.Pool != nil {
+		finalizationService = finalization.NewService(dependencies.Pool, finalization.Dependencies{Clock: clock})
 	}
 	profileService := dependencies.Profiles
 	if profileService == nil && dependencies.Pool != nil {
@@ -168,7 +175,7 @@ func NewCanonicalAPI(dependencies CanonicalAPIDependencies) *CanonicalAPI {
 		checklistIntake = checklistintake.NewService(store)
 	}
 	return &CanonicalAPI{
-		pool: dependencies.Pool, application: dependencies.Application, grants: dependencies.GrantService,
+		pool: dependencies.Pool, application: dependencies.Application, grants: dependencies.GrantService, finalization: finalizationService,
 		syncOperations:  syncOperations,
 		evidenceUploads: dependencies.EvidenceUploads, attachmentUploads: dependencies.AttachmentUploads,
 		planning:           planningService,
@@ -195,6 +202,7 @@ func (api *CanonicalAPI) Handler() http.Handler {
 	router.Post("/v1/inspection-packages/{id}/checkout", api.checkoutInspectionPackage)
 	router.Put("/v1/checklist-responses/{responseId}", api.upsertChecklistResponse)
 	router.Post("/v1/checklists/{auditId}/submit", api.submitChecklist)
+	router.Post("/v1/inspections/{inspectionId}/finalize", api.finalizeInspection)
 	router.Post("/v1/checklists/{auditId}/reopen", api.reopenChecklist)
 	router.Get("/v1/potential-findings", api.listPotentialFindings)
 	router.Post("/v1/potential-findings", api.createPotentialFinding)
@@ -210,6 +218,8 @@ func (api *CanonicalAPI) Handler() http.Handler {
 	router.Post("/v1/caps/{capRevisionId}/reviews", api.reviewCAP)
 	router.Post("/v1/inspection-attachments/{id}/uploads", api.beginInspectionAttachmentUpload)
 	router.Post("/v1/inspection-attachments/uploads/{uploadId}/complete", api.completeInspectionAttachmentUpload)
+	router.Post("/v1/inspection-attachments/uploads/{uploadId}/parts", api.beginInspectionAttachmentPartUpload)
+	router.Post("/v1/inspection-attachments/uploads/{uploadId}/parts/acknowledge", api.acknowledgeInspectionAttachmentPart)
 	router.Get("/v1/inspection-attachments/{id}", api.getInspectionAttachment)
 	router.Get("/v1/inspection-attachments/{id}/download", api.downloadInspectionAttachment)
 	router.Post("/v1/evidence/uploads", api.beginEvidenceUpload)
@@ -426,9 +436,15 @@ func (api *CanonicalAPI) checkoutInspectionPackage(writer http.ResponseWriter, r
 		api.respond(writer, nil, fmt.Errorf("%w: package path and body must match", application.ErrInvalid))
 		return
 	}
+	profilePublicJWK, err := json.Marshal(input.ProfilePublicJwk)
+	if err != nil {
+		api.respond(writer, nil, err)
+		return
+	}
 	grant, err := api.grants.Issue(request.Context(), actor, fieldsync.CheckoutInput{
 		OperationID: input.OperationId, CorrelationID: input.OperationId, PackageID: input.PackageId,
 		ExpectedPackageVersion: input.ExpectedPackageVersion, DeviceInstanceID: input.DeviceInstanceId,
+		ProfileKeyID: input.ProfileKeyId, ProfilePublicJWK: profilePublicJWK,
 	})
 	if err != nil {
 		api.respond(writer, nil, err)
@@ -449,8 +465,11 @@ func (api *CanonicalAPI) checkoutInspectionPackage(writer http.ResponseWriter, r
 			GrantId: grant.ID, SubjectId: grant.SubjectID, OrganizationId: grant.OrganizationID,
 			PackageId: grant.PackageID, PackageVersion: grant.PackageVersion, PackageDigest: grant.PackageDigest,
 			AllowedCommandTypes: allowed, AssignmentScope: map[string]any{"questionIds": grant.QuestionIDs},
-			DeviceInstanceId: grant.DeviceInstanceID, IssuedAt: grant.IssuedAt.UTC().Format(time.RFC3339Nano),
-			ExpiresAt: grant.ExpiresAt.UTC().Format(time.RFC3339Nano), ProtocolVersion: int64(grant.ProtocolVersion),
+			DeviceInstanceId: grant.DeviceInstanceID, ProfileKeyId: grant.ProfileKeyID,
+			AssignmentRevision: grant.AssignmentRevision, IssuedAt: grant.IssuedAt.UTC().Format(time.RFC3339Nano),
+			ExpiresAt:      grant.ExpiresAt.UTC().Format(time.RFC3339Nano),
+			LeaseIssuedAt:  grant.LeaseIssuedAt.UTC().Format(time.RFC3339Nano),
+			LeaseExpiresAt: grant.LeaseExpiresAt.UTC().Format(time.RFC3339Nano), ProtocolVersion: int64(grant.ProtocolVersion),
 		},
 	}, nil)
 }
@@ -505,6 +524,37 @@ func (api *CanonicalAPI) submitChecklist(writer http.ResponseWriter, request *ht
 		ExpectedChecklistRevision: input.ExpectedChecklistRevision,
 	})
 	api.respond(writer, generated.SubmitChecklistOutput{AuditId: result.InspectionID, ChecklistStatus: string(result.Status), ChecklistRevision: result.Revision}, err)
+}
+
+func (api *CanonicalAPI) finalizeInspection(writer http.ResponseWriter, request *http.Request) {
+	actor, ok := requirePrincipal(writer, request)
+	if !ok {
+		return
+	}
+	if api.finalization == nil {
+		api.respond(writer, nil, application.ErrNotFound)
+		return
+	}
+	var input generated.FinalizeInspectionInput
+	if !decodeJSON(writer, request, &input) {
+		return
+	}
+	inspectionID := decodedCanonicalPathParam(request, "inspectionId")
+	if input.InspectionId != inspectionID {
+		api.respond(writer, nil, application.ErrInvalid)
+		return
+	}
+	result, err := api.finalization.Finalize(request.Context(), actor, finalization.FinalizeInput{
+		OperationID: input.OperationId, CorrelationID: input.OperationId, InspectionID: input.InspectionId,
+		ExpectedPackageRevision: input.ExpectedPackageRevision,
+	})
+	api.respond(writer, generated.InspectionFinalizationReceipt{
+		ReceiptId: result.ReceiptID, InspectionId: result.InspectionID, PackageRevision: result.PackageRevision,
+		ServerRevision: result.ServerRevision, AnswerManifestHash: result.AnswerManifestHash,
+		FindingManifestHash: result.FindingManifestHash, AttachmentManifestHash: result.AttachmentManifestHash,
+		EventManifestHash: result.EventManifestHash, CanonicalizationVersion: result.CanonicalizationVersion,
+		ServerTimestamp: result.ServerTimestamp.UTC().Format(time.RFC3339Nano),
+	}, err)
 }
 
 func (api *CanonicalAPI) reopenChecklist(writer http.ResponseWriter, request *http.Request) {
@@ -766,14 +816,63 @@ func (api *CanonicalAPI) beginInspectionAttachmentUpload(writer http.ResponseWri
 		PackageID: input.PackageId, ByteSize: input.ByteSize, SHA256: input.Sha256,
 		FileName: input.FileName, DeclaredMediaType: input.DeclaredMediaType,
 	})
+	partHashes := make(map[string]any, len(result.PartHashes))
+	for key, value := range result.PartHashes {
+		partHashes[key] = value
+	}
 	api.respondCreated(writer, generated.BeginInspectionAttachmentUploadOutput{
-		UploadId: result.UploadID, StagingObjectKey: result.StagingObjectKey, UploadUrl: result.UploadURL,
-		RequiredHeaders: generated.UploadRequiredHeaders{
-			ContentType:    result.RequiredHeaders.ContentType,
-			XAmzMetaSha256: result.RequiredHeaders.SHA256,
-			IfNoneMatch:    result.RequiredHeaders.IfNoneMatch,
-		},
+		UploadId: result.UploadID, StagingObjectKey: result.StagingObjectKey, SessionEpoch: result.SessionEpoch,
+		PartSize: result.PartSize, ReceivedParts: result.ReceivedParts, AcknowledgedOffsets: result.AcknowledgedOffsets,
+		PartHashes: partHashes, WholeFileSha256: result.WholeFileSHA256,
 		ExpiresAt: result.ExpiresAt.UTC().Format(time.RFC3339Nano), MaximumByteSize: result.MaximumByteSize,
+	}, err)
+}
+
+func (api *CanonicalAPI) beginInspectionAttachmentPartUpload(writer http.ResponseWriter, request *http.Request) {
+	actor, ok := requirePrincipal(writer, request)
+	if !ok {
+		return
+	}
+	var input generated.BeginInspectionAttachmentPartUploadInput
+	if !decodeJSON(writer, request, &input) {
+		return
+	}
+	if input.UploadId != decodedCanonicalPathParam(request, "uploadId") {
+		api.respond(writer, nil, application.ErrInvalid)
+		return
+	}
+	result, err := api.attachmentUploads.BeginPart(request.Context(), actor, attachments.BeginPartInput{
+		OperationID: input.OperationId, CorrelationID: input.OperationId, UploadID: input.UploadId,
+		SessionEpoch: input.SessionEpoch, PartNumber: input.PartNumber, ByteSize: input.ByteSize, SHA256: input.Sha256,
+	})
+	api.respondCreated(writer, generated.BeginInspectionAttachmentPartUploadOutput{
+		UploadId: result.UploadID, SessionEpoch: result.SessionEpoch, PartNumber: result.PartNumber,
+		PartObjectKey: result.PartObjectKey, UploadUrl: result.UploadURL,
+		RequiredHeaders: generated.UploadRequiredHeaders{ContentType: result.RequiredHeaders.ContentType, XAmzMetaSha256: result.RequiredHeaders.SHA256, IfNoneMatch: result.RequiredHeaders.IfNoneMatch},
+		ExpiresAt:       result.ExpiresAt.UTC().Format(time.RFC3339Nano),
+	}, err)
+}
+
+func (api *CanonicalAPI) acknowledgeInspectionAttachmentPart(writer http.ResponseWriter, request *http.Request) {
+	actor, ok := requirePrincipal(writer, request)
+	if !ok {
+		return
+	}
+	var input generated.AcknowledgeInspectionAttachmentPartInput
+	if !decodeJSON(writer, request, &input) {
+		return
+	}
+	if input.UploadId != decodedCanonicalPathParam(request, "uploadId") {
+		api.respond(writer, nil, application.ErrInvalid)
+		return
+	}
+	result, err := api.attachmentUploads.AcknowledgePart(request.Context(), actor, attachments.BeginPartInput{
+		OperationID: input.OperationId, CorrelationID: input.OperationId, UploadID: input.UploadId,
+		SessionEpoch: input.SessionEpoch, PartNumber: input.PartNumber, ByteSize: input.ByteSize, SHA256: input.Sha256,
+	})
+	api.respond(writer, generated.UploadPartReceipt{
+		PartNumber: result.PartNumber, ByteSize: result.ByteSize, Sha256: result.SHA256,
+		AcknowledgedOffset: result.AcknowledgedOffset, ObjectVersion: result.ObjectVersion,
 	}, err)
 }
 
@@ -786,13 +885,20 @@ func (api *CanonicalAPI) completeInspectionAttachmentUpload(writer http.Response
 	if !decodeJSON(writer, request, &input) {
 		return
 	}
+	parts := make([]attachments.UploadPartReceipt, 0, len(input.Parts))
+	for _, part := range input.Parts {
+		parts = append(parts, attachments.UploadPartReceipt{PartNumber: part.PartNumber, ByteSize: part.ByteSize, SHA256: part.Sha256, AcknowledgedOffset: part.AcknowledgedOffset, ObjectVersion: part.ObjectVersion})
+	}
+	// Complete receives the exact client receipt set; the service checks it
+	// against PostgreSQL part rows and object metadata before finalizing.
 	result, err := api.attachmentUploads.Complete(request.Context(), actor, attachments.CompleteUploadInput{
 		OperationID: input.OperationId, CorrelationID: input.OperationId, UploadID: input.UploadId,
-		SHA256: input.Sha256, ByteSize: input.ByteSize,
+		SessionEpoch: input.SessionEpoch, SHA256: input.Sha256, ByteSize: input.ByteSize, Parts: parts,
 	})
 	api.respond(writer, generated.CompleteInspectionAttachmentUploadOutput{
 		InspectionAttachmentId: result.InspectionAttachmentID, InspectionAttachmentVersionId: result.InspectionAttachmentVersionID,
 		Version: result.Version, UploadState: result.UploadState, ScanState: result.ScanState,
+		ByteSize: result.ByteSize, Sha256: result.SHA256, ObjectVersion: result.ObjectVersion,
 	}, err)
 }
 
@@ -1067,9 +1173,11 @@ func (api *CanonicalAPI) pullSyncChanges(writer http.ResponseWriter, request *ht
 	cursor := optionalQuery(request, "cursor")
 	packageID := optionalQuery(request, "packageId")
 	grantID := optionalQuery(request, "offlineGrantId")
+	deviceInstanceID := optionalQuery(request, "deviceInstanceId")
+	profileKeyID := optionalQuery(request, "profileKeyId")
 	limit := optionalIntQuery(request, "limit")
-	if packageID == nil || grantID == nil {
-		api.respond(writer, nil, fmt.Errorf("%w: packageId and offlineGrantId are required", application.ErrInvalid))
+	if packageID == nil || grantID == nil || deviceInstanceID == nil || profileKeyID == nil {
+		api.respond(writer, nil, fmt.Errorf("%w: packageId, offlineGrantId, deviceInstanceId, and profileKeyId are required", application.ErrInvalid))
 		return
 	}
 	resolvedLimit := 0
@@ -1077,7 +1185,8 @@ func (api *CanonicalAPI) pullSyncChanges(writer http.ResponseWriter, request *ht
 		resolvedLimit = int(*limit)
 	}
 	result, err := api.syncOperations.Pull(request.Context(), actor, fieldsync.PullInput{
-		PackageID: *packageID, OfflineGrantID: *grantID, Cursor: cursor, Limit: resolvedLimit,
+		PackageID: *packageID, OfflineGrantID: *grantID, DeviceInstanceID: *deviceInstanceID,
+		ProfileKeyID: *profileKeyID, Cursor: cursor, Limit: resolvedLimit,
 	})
 	if err != nil {
 		api.respond(writer, nil, err)
@@ -1131,6 +1240,7 @@ func (api *CanonicalAPI) respond(writer http.ResponseWriter, output any, err err
 		errors.Is(err, assistant.ErrForbidden),
 		errors.Is(err, configuration.ErrWorkspaceForbidden),
 		errors.Is(err, assignments.ErrForbidden),
+		errors.Is(err, finalization.ErrFinalizationForbidden),
 		errors.Is(err, attachments.ErrAttachmentForbidden), errors.Is(err, fieldsync.ErrGrantScope),
 		errors.Is(err, fieldsync.ErrGrantExpired), errors.Is(err, fieldsync.ErrGrantRevoked),
 		errors.Is(err, fieldsync.ErrAssignmentChanged), errors.Is(err, fieldsync.ErrPackageRevoked),
@@ -1147,6 +1257,7 @@ func (api *CanonicalAPI) respond(writer http.ResponseWriter, output any, err err
 	case errors.Is(err, application.ErrConflict), errors.Is(err, identity.ErrConflict),
 		errors.Is(err, assignments.ErrConflict),
 		errors.Is(err, administration.ErrConflict), errors.Is(err, evidence.ErrEvidenceNotReady),
+		errors.Is(err, finalization.ErrFinalizationNotReady),
 		errors.Is(err, idempotency.ErrOperationIDReuse):
 		status, code = http.StatusConflict, "CONFLICT"
 	case errors.Is(err, identity.ErrPrecondition):
@@ -1158,7 +1269,7 @@ func (api *CanonicalAPI) respond(writer http.ResponseWriter, output any, err err
 		errors.Is(err, configuration.ErrWorkspaceInvalid),
 		errors.Is(err, assignments.ErrInvalid),
 		errors.Is(err, attachments.ErrInvalidUpload), errors.Is(err, evidence.ErrObjectMismatch),
-		errors.Is(err, attachments.ErrObjectMismatch):
+		errors.Is(err, attachments.ErrObjectMismatch), errors.Is(err, finalization.ErrFinalizationAttachmentState):
 		status, code = http.StatusUnprocessableEntity, "INVALID_COMMAND"
 	}
 	if status == http.StatusInternalServerError {

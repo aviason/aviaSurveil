@@ -25,7 +25,7 @@ var (
 )
 
 const (
-	grantDuration      = 24 * time.Hour
+	grantDuration      = 7 * 24 * time.Hour
 	clockSkewTolerance = 5 * time.Minute
 )
 
@@ -34,6 +34,7 @@ var defaultAllowedCommands = []string{
 	"CREATE_POTENTIAL_FINDING",
 	"SUBMIT_CHECKLIST",
 	"REGISTER_INSPECTION_ATTACHMENT",
+	"RESOLVE_FIELD_CONFLICT",
 }
 
 type GrantDependencies struct {
@@ -65,6 +66,8 @@ type CheckoutInput struct {
 	PackageID              string
 	ExpectedPackageVersion int64
 	DeviceInstanceID       string
+	ProfileKeyID           string
+	ProfilePublicJWK       json.RawMessage
 	ClaimedSubjectID       string
 }
 
@@ -78,8 +81,12 @@ type OfflineGrant struct {
 	AllowedCommandTypes []string  `json:"allowedCommandTypes"`
 	QuestionIDs         []string  `json:"questionIds"`
 	DeviceInstanceID    string    `json:"deviceInstanceId"`
+	ProfileKeyID        string    `json:"profileKeyId"`
+	AssignmentRevision  int64     `json:"assignmentRevision"`
 	IssuedAt            time.Time `json:"issuedAt"`
 	ExpiresAt           time.Time `json:"expiresAt"`
+	LeaseIssuedAt       time.Time `json:"leaseIssuedAt"`
+	LeaseExpiresAt      time.Time `json:"leaseExpiresAt"`
 	ProtocolVersion     int       `json:"protocolVersion"`
 }
 
@@ -87,14 +94,19 @@ func (service *GrantService) Issue(ctx context.Context, actor identity.Principal
 	if !actor.HasRole(identity.RoleInspector) || actor.SubjectID == "" || actor.SessionID == "" {
 		return OfflineGrant{}, ErrGrantScope
 	}
-	if input.OperationID == "" || input.CorrelationID == "" || input.PackageID == "" || input.DeviceInstanceID == "" {
+	if input.OperationID == "" || input.CorrelationID == "" || input.PackageID == "" || input.DeviceInstanceID == "" || input.ProfileKeyID == "" || len(input.ProfilePublicJWK) == 0 {
 		return OfflineGrant{}, fmt.Errorf("checkout operation, correlation, package, and device are required")
+	}
+	if err := validateProfilePublicJWK(input.ProfileKeyID, input.ProfilePublicJWK); err != nil {
+		return OfflineGrant{}, fmt.Errorf("profile authority registration failed: %w", err)
 	}
 	semanticHash, err := idempotency.SemanticHash(struct {
 		PackageID              string `json:"packageId"`
 		ExpectedPackageVersion int64  `json:"expectedPackageVersion"`
 		DeviceInstanceID       string `json:"deviceInstanceId"`
-	}{input.PackageID, input.ExpectedPackageVersion, input.DeviceInstanceID})
+		ProfileKeyID           string `json:"profileKeyId"`
+		ProfilePublicJWK       []byte `json:"profilePublicJwk"`
+	}{input.PackageID, input.ExpectedPackageVersion, input.DeviceInstanceID, input.ProfileKeyID, input.ProfilePublicJWK})
 	if err != nil {
 		return OfflineGrant{}, fmt.Errorf("hash checkout command: %w", err)
 	}
@@ -211,15 +223,18 @@ func (service *GrantService) Issue(ctx context.Context, actor identity.Principal
 			ID: service.idGenerator("grant"), SubjectID: actor.SubjectID, OrganizationID: organizationID,
 			PackageID: input.PackageID, PackageVersion: packageVersion, PackageDigest: digest,
 			AllowedCommandTypes: append([]string(nil), defaultAllowedCommands...), QuestionIDs: questionIDs,
-			DeviceInstanceID: input.DeviceInstanceID, IssuedAt: now, ExpiresAt: expiresAt, ProtocolVersion: 1,
+			DeviceInstanceID: input.DeviceInstanceID, ProfileKeyID: input.ProfileKeyID,
+			AssignmentRevision: inspectionRevision, IssuedAt: now, ExpiresAt: expiresAt,
+			LeaseIssuedAt: now, LeaseExpiresAt: expiresAt, ProtocolVersion: 1,
 		}
 		assignmentScope, _ := json.Marshal(map[string]any{"questionIds": questionIDs})
 		if _, err := transaction.Exec(ctx, `
 			INSERT INTO offline_grants (
 				id, subject_id, device_id, package_id, inspection_id, assignment_revision, granted_at, expires_at,
-				session_id, package_version, package_digest, allowed_command_types, assignment_scope, protocol_version
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 1)
-		`, grant.ID, grant.SubjectID, grant.DeviceInstanceID, grant.PackageID, inspectionID, inspectionRevision, now, expiresAt, actor.SessionID, packageVersion, digest, defaultAllowedCommands, assignmentScope); err != nil {
+				session_id, package_version, package_digest, allowed_command_types, assignment_scope, protocol_version,
+				profile_key_id, profile_public_jwk, lease_issued_at, lease_expires_at
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 1, $14, $15, $16, $17)
+		`, grant.ID, grant.SubjectID, grant.DeviceInstanceID, grant.PackageID, inspectionID, inspectionRevision, now, expiresAt, actor.SessionID, packageVersion, digest, defaultAllowedCommands, assignmentScope, input.ProfileKeyID, input.ProfilePublicJWK, now, expiresAt); err != nil {
 			return err
 		}
 		responseBody, err := json.Marshal(grant)

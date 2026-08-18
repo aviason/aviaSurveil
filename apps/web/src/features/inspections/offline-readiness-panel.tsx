@@ -11,6 +11,7 @@ import {
   assessOfflineReadiness,
   createBrowserOfflineReadinessDependencies,
   describeLocalPackageLoss,
+  classifyLocalDataState,
   getOrCreateDeviceInstanceId,
   readOfflineCheckoutSnapshot,
   writeOfflineCheckoutSnapshot,
@@ -18,11 +19,13 @@ import {
   type OfflineReadinessDependencies,
   type OfflineReadinessResult,
 } from "../../offline/storage-readiness";
+import { createBrowserProfileAuthority, type ProfileAuthority } from "../../offline/profile-authority";
 
 export interface OfflineReadinessPanelRuntime {
   checkout(input: CheckoutInspectionPackageInput): Promise<CheckoutInspectionPackageOutput>;
   dependencies: OfflineReadinessDependencies;
   getDeviceInstanceId(): Promise<string>;
+  getProfileAuthority?(): Promise<ProfileAuthority>;
   readSnapshot(subjectId: string, packageId: string): Promise<OfflineCheckoutSnapshot | null>;
   writeSnapshot(snapshot: OfflineCheckoutSnapshot): Promise<void>;
   now(): Date;
@@ -57,6 +60,7 @@ function ConnectedOfflineReadinessPanel({
       checkout: (input) => backend.inspections.checkout(input),
       dependencies: createBrowserOfflineReadinessDependencies(),
       getDeviceInstanceId: getOrCreateDeviceInstanceId,
+      getProfileAuthority: () => createBrowserProfileAuthority(subjectId),
       readSnapshot: readOfflineCheckoutSnapshot,
       writeSnapshot: writeOfflineCheckoutSnapshot,
       now: () =>
@@ -65,7 +69,7 @@ function ConnectedOfflineReadinessPanel({
           ? new Date("2026-06-15T09:00:00.000Z")
           : new Date()),
     }),
-    [applicationRuntime.buildProfile, backend],
+    [applicationRuntime.buildProfile, backend, subjectId],
   );
   return (
     <OfflineReadinessPanelCore
@@ -132,6 +136,7 @@ function OfflineReadinessPanelCore({
     setResult(null);
     try {
       const deviceInstanceId = await activeRuntime.getDeviceInstanceId();
+      const profileAuthority = await activeRuntime.getProfileAuthority?.();
       const preflight = await assessOfflineReadiness(
         buildInput(deviceInstanceId, null),
         activeRuntime.dependencies,
@@ -145,6 +150,9 @@ function OfflineReadinessPanelCore({
         packageId: inspectionPackage.id,
         expectedPackageVersion: inspectionPackage.packageVersion,
         deviceInstanceId,
+        ...(profileAuthority
+          ? { profileKeyId: profileAuthority.profileKeyId, profilePublicJwk: profileAuthority.publicJwk }
+          : {}),
       });
       const finalResult = await assessOfflineReadiness(
         buildInput(deviceInstanceId, checkout),
@@ -165,6 +173,8 @@ function OfflineReadinessPanelCore({
       setResult({
         code: "offline-grant-invalid",
         ready: false,
+        admissionState: "ONLINE_ONLY",
+        reasonCode: "OFFLINE_GRANT_INVALID",
         recoveryAction:
           error instanceof Error
             ? `Reconnect before checkout: ${error.message}`
@@ -204,7 +214,7 @@ function OfflineReadinessPanelCore({
             checked={managedPolicyApproved}
             onChange={(event) => setManagedPolicyApproved(event.target.checked)}
           />
-          I confirm the owner-approved managed Chrome policy for this device.
+          I confirm the owner-approved official browser/version lane and managed profile policy for this device.
         </label>
         <label>
           <input
@@ -224,6 +234,7 @@ function OfflineReadinessPanelCore({
           className={result.ready ? "offline-readiness__result is-ready" : "offline-readiness__result"}
           role="status"
           data-readiness-code={result.code}
+          data-admission-state={result.admissionState}
         >
           <strong>{result.ready ? "Ready for official offline checkout" : result.code}</strong>
           <span>{result.recoveryAction}</span>
@@ -242,9 +253,14 @@ function OfflineReadinessPanelCore({
         </p>
       ) : null}
       <p className="offline-readiness__warning">
+        <span data-local-data-state={classifyLocalDataState({
+          outstandingCheckout: true,
+          localPackagePresent: snapshot !== null,
+        })}>
         {lossBoundary
           ? `If the server reports an outstanding checkout: ${lossBoundary}`
           : "Explicit site-data clearing removes this browser working copy. Unsynced single-device work cannot be recovered; canonical server records remain separate."}
+        </span>
       </p>
     </section>
   );

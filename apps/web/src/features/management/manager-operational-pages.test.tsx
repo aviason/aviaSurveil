@@ -74,8 +74,8 @@ describe("Department Manager operational workspaces", () => {
     const page = await screen.findByTestId("manager-findings-review-page");
     expect(within(page).getByText("Select a Finding.")).toBeVisible();
     await userEvent.click(within(page).getByRole("button", { name: new RegExp(finding.findingNumber) }));
-    expect(within(page).getByRole("heading", { name: finding.id })).toBeVisible();
-    expect(within(page).getByRole("link", { name: `Open Evidence ${finding.id}` })).toHaveAttribute(
+    expect(within(page).getByRole("heading", { name: finding.title })).toBeVisible();
+    expect(within(page).getByRole("link", { name: "Open Evidence" })).toHaveAttribute(
       "href",
       `/department-manager/evidence/${finding.id}`,
     );

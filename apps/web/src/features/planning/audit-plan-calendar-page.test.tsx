@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { AppProviders } from "../../app/providers";
 import { createMockBackendRuntime } from "../../mock/create-mock-backend";
+import { planningItemLabel, recordReference } from "../shared/record-presentation";
 import { AuditPlanCalendarPage } from "./planning-workspaces";
 
 afterEach(cleanup);
@@ -38,7 +39,7 @@ describe("AuditPlanCalendarPage", () => {
     const runtime = renderPage();
     const item = (await runtime.backendForRole("manager").planning.list({ limit: 20 })).items[0];
     if (!item) throw new Error("Expected a server-owned planning item.");
-    await userEvent.click(await screen.findByRole("button", { name: `Open ${item.id}` }));
+    await userEvent.click(await screen.findByRole("button", { name: `Open ${planningItemLabel(item.title, item.id)}` }));
 
     expect(await screen.findByRole("heading", { name: "Department Planning" })).toBeVisible();
     const commandCenter = await screen.findByTestId("planning-command-center");
@@ -53,12 +54,12 @@ describe("AuditPlanCalendarPage", () => {
     const runtime = renderPage();
     const item = (await runtime.backendForRole("manager").planning.list({ limit: 20 })).items[0];
     if (!item) throw new Error("Expected a server-owned planning item.");
-    await userEvent.click(await screen.findByRole("button", { name: `Open ${item.id}` }));
+    await userEvent.click(await screen.findByRole("button", { name: `Open ${planningItemLabel(item.title, item.id)}` }));
 
-    const open = await screen.findByRole("button", { name: `${item.id} is already selected` });
+    const open = await screen.findByRole("button", { name: `${planningItemLabel(item.title, item.id)} is already selected` });
     expect(open).toBeDisabled();
-    expect(open).toHaveAttribute("title", `${item.id} is already open in the Planning command center.`);
-    expect(screen.getByTestId("planning-selected-record")).toHaveTextContent(item.id);
+    expect(open).toHaveAttribute("title", "This Planning item is already open in the Planning command center.");
+    expect(screen.getByTestId("planning-selected-record")).toHaveTextContent(recordReference("Plan", item.id));
     expect(screen.getByRole("link", { name: "New Inspection planning intake" })).toHaveAttribute("href", "/department-manager/new-audit/step-1");
     expect(screen.queryByRole("link", { name: "Open Inspection Package Builder" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "New Inspection planning intake" })).toHaveAttribute("href", "/department-manager/new-audit/step-1");

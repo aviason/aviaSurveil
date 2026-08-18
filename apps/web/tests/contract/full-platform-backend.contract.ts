@@ -13,6 +13,7 @@ import {
   submitEvidence,
   type BackendContractHarness,
 } from "./backend-contract";
+import { buildUploadParts, partOperationId } from "../../src/offline/resumable-upload";
 
 export const FULL_PLATFORM_SCENARIO_FAMILIES = [
   "routine-inspection-to-closure",
@@ -991,21 +992,47 @@ async function offlineCausalSync(state: ScenarioState): Promise<void> {
     fileName: "full-platform-offline-attachment.pdf",
     declaredMediaType: "application/pdf",
   });
-  if (inspector.mode === "http") {
-    const response = await fetch(attachmentUpload.uploadUrl, {
-      method: "PUT",
-      headers: attachmentUpload.requiredHeaders,
-      body: attachmentBody,
+  if (!attachmentUpload.sessionEpoch || !attachmentUpload.partSize || !inspector.inspectionAttachments.beginPart || !inspector.inspectionAttachments.acknowledgePart) {
+    throw new Error("Resumable Inspection Attachment APIs are unavailable.");
+  }
+  const attachmentParts = await buildUploadParts(attachmentBody, attachmentUpload.partSize);
+  const attachmentPartReceipts = [];
+  for (const part of attachmentParts) {
+    const partOperation = partOperationId(attachmentUpload.uploadId, attachmentUpload.sessionEpoch, part.partNumber, part.sha256);
+    const instruction = await inspector.inspectionAttachments.beginPart({
+      operationId: partOperation,
+      uploadId: attachmentUpload.uploadId,
+      sessionEpoch: attachmentUpload.sessionEpoch,
+      partNumber: part.partNumber,
+      byteSize: part.byteSize,
+      sha256: part.sha256,
     });
-    if (!response.ok) {
-      throw new Error(`Inspection Attachment upload failed with HTTP ${response.status}.`);
+    if (inspector.mode === "http") {
+      const response = await fetch(instruction.uploadUrl, {
+        method: "PUT",
+        headers: instruction.requiredHeaders,
+        body: new Blob([part.bytes.buffer as ArrayBuffer]),
+      });
+      if (!response.ok) {
+        throw new Error(`Inspection Attachment part upload failed with HTTP ${response.status}.`);
+      }
     }
+    attachmentPartReceipts.push(await inspector.inspectionAttachments.acknowledgePart({
+      operationId: `${partOperation}:ack`,
+      uploadId: attachmentUpload.uploadId,
+      sessionEpoch: attachmentUpload.sessionEpoch,
+      partNumber: part.partNumber,
+      byteSize: part.byteSize,
+      sha256: part.sha256,
+    }));
   }
   const attachment = await inspector.inspectionAttachments.completeUpload({
     operationId: "OP-FULL-OFFLINE-ATTACHMENT-COMPLETE",
     uploadId: attachmentUpload.uploadId,
+    sessionEpoch: attachmentUpload.sessionEpoch,
     sha256: attachmentSha256,
     byteSize: attachmentBody.byteLength,
+    parts: attachmentPartReceipts,
   });
   prove(
     state,

@@ -93,7 +93,7 @@ test("offline field work survives a lost acknowledgement and foreground-syncs th
   await page.goto("/inspector/audits/AUD-2026-001");
   await expect(page.getByTestId("audit-id")).toHaveText("AUD-2026-001");
   await markBrowserRestartVerified(page);
-  await page.getByLabel(/managed Chrome policy/i).check();
+  await page.getByLabel(/official browser\/version lane/i).check();
   await page.getByLabel(/encrypted managed profile/i).check();
   await page.getByRole("button", { name: "Check out for offline use" }).click();
   await expect(page.locator('[data-readiness-code="ready"]')).toBeVisible();
@@ -225,7 +225,7 @@ test("a stale field response preserves the local draft until explicit re-entry r
 
   await page.goto("/inspector/audits/AUD-2026-001");
   await markBrowserRestartVerified(page);
-  await page.getByLabel(/managed Chrome policy/i).check();
+  await page.getByLabel(/official browser\/version lane/i).check();
   await page.getByLabel(/encrypted managed profile/i).check();
   await page.getByRole("button", { name: "Check out for offline use" }).click();
   await expect(page.locator('[data-readiness-code="ready"]')).toBeVisible();

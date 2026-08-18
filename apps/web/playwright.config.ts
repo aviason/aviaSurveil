@@ -77,6 +77,7 @@ export default defineConfig({
       name: "mock",
       testMatch: [
         "e2e/canonical-scenario.spec.ts",
+        "e2e/planning-intake-ux.spec.ts",
         "e2e/first-production-routes.spec.ts",
         "e2e/full-route-accessibility.spec.ts",
         "e2e/full-platform-scenarios.spec.ts",

@@ -304,9 +304,9 @@ function LeadReviewQueuePage() {
         )}
         {queue.length > 0 ? (
         <section className="lead-review-register" aria-label="Lead Potential Finding queue">
-            <nav aria-label="Select Potential Finding" className="button-row">
+            <div className="button-row">
               {queue.map((item) => <button disabled={busy} key={item.id} onClick={() => void selectPotentialFinding(item.id)} type="button">{item.id} · {statusLabel(item.status)}</button>)}
-            </nav>
+            </div>
             <DataRegister caption="Potential Findings awaiting Lead review" columns={potentialFindingColumns} rowKey={(row) => row.rowId} rows={rows} />
         </section>
       ) : null}

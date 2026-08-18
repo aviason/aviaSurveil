@@ -1,12 +1,16 @@
 package attachments
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"sort"
+	"strconv"
 	"time"
 
 	"github.com/aviason/aviaSurveil/internal/identity"
@@ -95,12 +99,59 @@ type BeginUploadInput struct {
 }
 
 type BeginUploadOutput struct {
-	UploadID         string          `json:"uploadId"`
-	StagingObjectKey string          `json:"stagingObjectKey"`
-	UploadURL        string          `json:"uploadUrl"`
-	RequiredHeaders  RequiredHeaders `json:"requiredHeaders"`
-	ExpiresAt        time.Time       `json:"expiresAt"`
-	MaximumByteSize  int64           `json:"maximumByteSize"`
+	UploadID            string            `json:"uploadId"`
+	StagingObjectKey    string            `json:"stagingObjectKey"`
+	UploadURL           string            `json:"uploadUrl"`
+	RequiredHeaders     RequiredHeaders   `json:"requiredHeaders"`
+	ExpiresAt           time.Time         `json:"expiresAt"`
+	MaximumByteSize     int64             `json:"maximumByteSize"`
+	SessionEpoch        int64             `json:"sessionEpoch"`
+	PartSize            int64             `json:"partSize"`
+	ReceivedParts       []int64           `json:"receivedParts"`
+	AcknowledgedOffsets []int64           `json:"acknowledgedOffsets"`
+	PartHashes          map[string]string `json:"partHashes"`
+	WholeFileSHA256     string            `json:"wholeFileSha256"`
+}
+
+type UploadPartReceipt struct {
+	PartNumber         int64  `json:"partNumber"`
+	ByteSize           int64  `json:"byteSize"`
+	SHA256             string `json:"sha256"`
+	AcknowledgedOffset int64  `json:"acknowledgedOffset"`
+	ObjectVersion      string `json:"objectVersion"`
+}
+
+const defaultInspectionAttachmentPartSize int64 = 5 * 1024 * 1024
+
+func expectedPartCount(byteSize, partSize int64) int64 {
+	if byteSize <= 0 || partSize <= 0 {
+		return 0
+	}
+	return (byteSize + partSize - 1) / partSize
+}
+
+func validateResumablePartLayout(totalSize, partSize int64, receipts []UploadPartReceipt) error {
+	if totalSize < 0 || partSize <= 0 || len(receipts) != int(expectedPartCount(totalSize, partSize)) {
+		return ErrObjectMismatch
+	}
+	ordered := append([]UploadPartReceipt(nil), receipts...)
+	sort.Slice(ordered, func(left, right int) bool { return ordered[left].PartNumber < ordered[right].PartNumber })
+	var offset int64
+	for index, receipt := range ordered {
+		partNumber := int64(index + 1)
+		expectedSize := partSize
+		if partNumber == int64(len(ordered)) {
+			expectedSize = totalSize - offset
+		}
+		if receipt.PartNumber != partNumber || receipt.ByteSize != expectedSize || receipt.AcknowledgedOffset != offset+receipt.ByteSize || receipt.SHA256 == "" || receipt.ObjectVersion == "" {
+			return ErrObjectMismatch
+		}
+		offset += receipt.ByteSize
+	}
+	if offset != totalSize {
+		return ErrObjectMismatch
+	}
+	return nil
 }
 
 func (service *UploadService) Begin(ctx context.Context, actor identity.Principal, input BeginUploadInput) (BeginUploadOutput, error) {
@@ -138,8 +189,11 @@ func (service *UploadService) Begin(ctx context.Context, actor identity.Principa
 	var output BeginUploadOutput
 	err = database.WithinTransaction(ctx, service.pool, func(ctx context.Context, transaction pgx.Tx) error {
 		replayed, err := loadIdempotent(ctx, transaction, scope, input.OperationID, semanticHash, &output)
-		if err != nil || replayed {
+		if err != nil {
 			return err
+		}
+		if replayed {
+			return service.refreshBeginUploadState(ctx, transaction, &output)
 		}
 		var currentOrganizationID, currentPackageID, currentUploadState, inspectionStatus, checklistStatus string
 		if err := transaction.QueryRow(ctx, `
@@ -163,7 +217,7 @@ func (service *UploadService) Begin(ctx context.Context, actor identity.Principa
 			SELECT EXISTS (
 				SELECT 1 FROM upload_sessions
 				WHERE aggregate_id = $1 AND upload_kind = 'INSPECTION_ATTACHMENT'
-				  AND upload_state = 'PENDING' AND expires_at > $2
+				  AND upload_state IN ('PENDING', 'OPEN', 'UPLOADING', 'PARTIALLY_COMMITTED', 'COMPLETING') AND expires_at > $2
 			)`, input.InspectionAttachmentID, service.clock().UTC()).Scan(&activeUpload); err != nil {
 			return err
 		}
@@ -172,36 +226,38 @@ func (service *UploadService) Begin(ctx context.Context, actor identity.Principa
 		}
 		now := service.clock().UTC()
 		expiresAt := now.Add(service.instructionTTL)
-		uploadID := service.idGenerator("upload")
-		key := fmt.Sprintf("organizations/%s/inspection-attachments/%s/%s", organizationID, input.InspectionAttachmentID, uploadID)
-		instruction, err := service.objects.CreatePutInstruction(ctx, objectstore.PutRequest{
-			Bucket: service.quarantineBucket, Key: key, ExpiresAt: expiresAt,
-			RequiredHeaders: map[string]string{
-				"Content-Type":      input.DeclaredMediaType,
-				"x-amz-meta-sha256": input.SHA256,
-				"If-None-Match":     "*",
-			},
-		})
-		if err != nil {
+		var sessionEpoch int64
+		if err := transaction.QueryRow(ctx, `
+			SELECT COALESCE(MAX(session_epoch), 0) + 1
+			FROM upload_sessions
+			WHERE aggregate_id = $1 AND upload_kind = 'INSPECTION_ATTACHMENT'
+		`, input.InspectionAttachmentID).Scan(&sessionEpoch); err != nil {
 			return err
 		}
+		if _, err := transaction.Exec(ctx, `
+			UPDATE upload_sessions SET upload_state = 'EXPIRED'
+			WHERE aggregate_id = $1 AND upload_kind = 'INSPECTION_ATTACHMENT'
+			  AND expires_at <= $2 AND upload_state IN ('OPEN', 'UPLOADING', 'PARTIALLY_COMMITTED', 'COMPLETING', 'PENDING')
+		`, input.InspectionAttachmentID, now); err != nil {
+			return err
+		}
+		uploadID := service.idGenerator("upload")
+		key := fmt.Sprintf("organizations/%s/inspection-attachments/%s/%s", organizationID, input.InspectionAttachmentID, uploadID)
+		partSize := defaultInspectionAttachmentPartSize
 		output = BeginUploadOutput{
-			UploadID: uploadID, StagingObjectKey: key, UploadURL: instruction.URL,
-			RequiredHeaders: RequiredHeaders{
-				ContentType: input.DeclaredMediaType,
-				SHA256:      input.SHA256,
-				IfNoneMatch: "*",
-			},
-			ExpiresAt: expiresAt, MaximumByteSize: service.maximumByteSize,
+			UploadID: uploadID, StagingObjectKey: key, ExpiresAt: expiresAt,
+			MaximumByteSize: service.maximumByteSize, SessionEpoch: sessionEpoch, PartSize: partSize,
+			ReceivedParts: []int64{}, AcknowledgedOffsets: []int64{}, PartHashes: map[string]string{},
+			WholeFileSHA256: input.SHA256,
 		}
 		if _, err := transaction.Exec(ctx, `
 			INSERT INTO upload_sessions (
 				id, upload_kind, aggregate_id, organization_id, initiated_by_subject_id, bucket_name,
 				staging_object_key, file_name, declared_media_type, declared_size_bytes, declared_sha256,
-				upload_state, expires_at, created_at
-			) VALUES ($1, 'INSPECTION_ATTACHMENT', $2, $3, $4, $5, $6, $7, $8, $9, $10, 'PENDING', $11, $12)
+				upload_state, expires_at, created_at, session_epoch, part_size_bytes, whole_file_sha256
+			) VALUES ($1, 'INSPECTION_ATTACHMENT', $2, $3, $4, $5, $6, $7, $8, $9, $10, 'OPEN', $11, $12, $13, $14, $15)
 		`, uploadID, input.InspectionAttachmentID, organizationID, actor.SubjectID, service.quarantineBucket,
-			key, input.FileName, input.DeclaredMediaType, input.ByteSize, input.SHA256, expiresAt, now); err != nil {
+			key, input.FileName, input.DeclaredMediaType, input.ByteSize, input.SHA256, expiresAt, now, sessionEpoch, partSize, input.SHA256); err != nil {
 			return err
 		}
 		if _, err := transaction.Exec(ctx, `
@@ -215,12 +271,255 @@ func (service *UploadService) Begin(ctx context.Context, actor identity.Principa
 	return output, err
 }
 
-type CompleteUploadInput struct {
+func (service *UploadService) refreshBeginUploadState(ctx context.Context, transaction pgx.Tx, output *BeginUploadOutput) error {
+	if output.UploadID == "" {
+		return ErrAttachmentForbidden
+	}
+	if err := transaction.QueryRow(ctx, `
+		SELECT session_epoch, part_size_bytes, whole_file_sha256, expires_at
+		FROM upload_sessions WHERE id = $1 AND upload_kind = 'INSPECTION_ATTACHMENT'
+	`, output.UploadID).Scan(&output.SessionEpoch, &output.PartSize, &output.WholeFileSHA256, &output.ExpiresAt); err != nil {
+		return ErrAttachmentForbidden
+	}
+	rows, err := transaction.Query(ctx, `
+		SELECT part_number, byte_size, part_sha256
+		FROM inspection_attachment_upload_parts
+		WHERE upload_session_id = $1 AND session_epoch = $2 AND part_state = 'ACKNOWLEDGED'
+		ORDER BY part_number
+	`, output.UploadID, output.SessionEpoch)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	output.ReceivedParts = []int64{}
+	output.AcknowledgedOffsets = []int64{}
+	output.PartHashes = map[string]string{}
+	var offset int64
+	for rows.Next() {
+		var partNumber, byteSize int64
+		var partHash string
+		if err := rows.Scan(&partNumber, &byteSize, &partHash); err != nil {
+			return err
+		}
+		output.ReceivedParts = append(output.ReceivedParts, partNumber)
+		output.PartHashes[strconv.FormatInt(partNumber, 10)] = partHash
+		offset += byteSize
+		output.AcknowledgedOffsets = append(output.AcknowledgedOffsets, offset)
+	}
+	return rows.Err()
+}
+
+type BeginPartInput struct {
 	OperationID   string `json:"operationId"`
 	CorrelationID string `json:"correlationId"`
 	UploadID      string `json:"uploadId"`
-	SHA256        string `json:"sha256"`
+	SessionEpoch  int64  `json:"sessionEpoch"`
+	PartNumber    int64  `json:"partNumber"`
 	ByteSize      int64  `json:"byteSize"`
+	SHA256        string `json:"sha256"`
+}
+
+type BeginPartOutput struct {
+	UploadID        string          `json:"uploadId"`
+	SessionEpoch    int64           `json:"sessionEpoch"`
+	PartNumber      int64           `json:"partNumber"`
+	PartObjectKey   string          `json:"partObjectKey"`
+	UploadURL       string          `json:"uploadUrl"`
+	RequiredHeaders RequiredHeaders `json:"requiredHeaders"`
+	ExpiresAt       time.Time       `json:"expiresAt"`
+}
+
+func (service *UploadService) BeginPart(ctx context.Context, actor identity.Principal, input BeginPartInput) (BeginPartOutput, error) {
+	if !actor.HasRole(identity.RoleInspector) || actor.SubjectID == "" || actor.SessionID == "" {
+		return BeginPartOutput{}, ErrAttachmentForbidden
+	}
+	if input.OperationID == "" || input.CorrelationID == "" || input.UploadID == "" || input.SessionEpoch < 1 || input.PartNumber < 1 || input.ByteSize < 0 || input.SHA256 == "" {
+		return BeginPartOutput{}, ErrInvalidUpload
+	}
+	semanticHash, err := idempotency.SemanticHash(input)
+	if err != nil {
+		return BeginPartOutput{}, err
+	}
+	scope := actor.SubjectID + ":begin_inspection_attachment_part"
+	var output BeginPartOutput
+	err = database.WithinTransaction(ctx, service.pool, func(ctx context.Context, transaction pgx.Tx) error {
+		replayed, err := loadIdempotent(ctx, transaction, scope, input.OperationID, semanticHash, &output)
+		if err != nil || replayed {
+			return err
+		}
+		var aggregateID, organizationID, initiatedBy, bucket, stagingKey string
+		var sessionEpoch, partSize, totalSize int64
+		var expiresAt time.Time
+		if err := transaction.QueryRow(ctx, `
+			SELECT aggregate_id, organization_id, initiated_by_subject_id, bucket_name, staging_object_key,
+			       session_epoch, part_size_bytes, declared_size_bytes, expires_at
+			FROM upload_sessions
+			WHERE id = $1 AND upload_kind = 'INSPECTION_ATTACHMENT'
+			FOR UPDATE
+		`, input.UploadID).Scan(&aggregateID, &organizationID, &initiatedBy, &bucket, &stagingKey,
+			&sessionEpoch, &partSize, &totalSize, &expiresAt); err != nil {
+			return ErrAttachmentForbidden
+		}
+		now := service.clock().UTC()
+		if initiatedBy != actor.SubjectID || sessionEpoch != input.SessionEpoch || now.After(expiresAt) || partSize <= 0 {
+			return ErrAttachmentForbidden
+		}
+		if input.PartNumber > expectedPartCount(totalSize, partSize) {
+			return ErrInvalidUpload
+		}
+		expectedSize := partSize
+		if input.PartNumber == expectedPartCount(totalSize, partSize) {
+			expectedSize = totalSize - (input.PartNumber-1)*partSize
+		}
+		if input.ByteSize != expectedSize {
+			return ErrObjectMismatch
+		}
+		var existingHash, existingKey, existingState string
+		err = transaction.QueryRow(ctx, `
+			SELECT part_sha256, part_object_key, part_state
+			FROM inspection_attachment_upload_parts
+			WHERE upload_session_id = $1 AND session_epoch = $2 AND part_number = $3
+		`, input.UploadID, input.SessionEpoch, input.PartNumber).Scan(&existingHash, &existingKey, &existingState)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		partKey := fmt.Sprintf("%s/epoch-%d/part-%d", stagingKey, input.SessionEpoch, input.PartNumber)
+		if err == nil {
+			if existingHash != input.SHA256 || existingKey != partKey {
+				return ErrObjectMismatch
+			}
+			partKey = existingKey
+			_ = existingState
+		} else {
+			if _, err := transaction.Exec(ctx, `
+				INSERT INTO inspection_attachment_upload_parts (
+					id, upload_session_id, session_epoch, part_number, byte_size, part_sha256,
+					part_object_key, part_state, created_at
+				) VALUES ($1, $2, $3, $4, $5, $6, $7, 'OPEN', $8)
+			`, service.idGenerator("upload-part"), input.UploadID, input.SessionEpoch, input.PartNumber,
+				input.ByteSize, input.SHA256, partKey, now); err != nil {
+				return err
+			}
+		}
+		instruction, err := service.objects.CreatePutInstruction(ctx, objectstore.PutRequest{
+			Bucket: bucket, Key: partKey, ExpiresAt: now.Add(service.instructionTTL),
+			RequiredHeaders: map[string]string{
+				"Content-Type": "application/octet-stream", "x-amz-meta-sha256": input.SHA256, "If-None-Match": "*",
+			},
+		})
+		if err != nil {
+			return err
+		}
+		output = BeginPartOutput{
+			UploadID: input.UploadID, SessionEpoch: input.SessionEpoch, PartNumber: input.PartNumber,
+			PartObjectKey: partKey, UploadURL: instruction.URL,
+			RequiredHeaders: RequiredHeaders{ContentType: "application/octet-stream", SHA256: input.SHA256, IfNoneMatch: "*"},
+			ExpiresAt:       instruction.ExpiresAt,
+		}
+		_, err = transaction.Exec(ctx, `UPDATE upload_sessions SET upload_state = 'UPLOADING' WHERE id = $1`, input.UploadID)
+		if err != nil {
+			return err
+		}
+		return saveIdempotent(ctx, transaction, scope, input.OperationID, semanticHash, output, now)
+	})
+	return output, err
+}
+
+func (service *UploadService) AcknowledgePart(ctx context.Context, actor identity.Principal, input BeginPartInput) (UploadPartReceipt, error) {
+	if !actor.HasRole(identity.RoleInspector) || actor.SubjectID == "" || actor.SessionID == "" {
+		return UploadPartReceipt{}, ErrAttachmentForbidden
+	}
+	if input.OperationID == "" || input.CorrelationID == "" || input.UploadID == "" || input.SessionEpoch < 1 || input.PartNumber < 1 {
+		return UploadPartReceipt{}, ErrInvalidUpload
+	}
+	semanticHash, err := idempotency.SemanticHash(input)
+	if err != nil {
+		return UploadPartReceipt{}, err
+	}
+	scope := actor.SubjectID + ":ack_inspection_attachment_part"
+	var output UploadPartReceipt
+	err = database.WithinTransaction(ctx, service.pool, func(ctx context.Context, transaction pgx.Tx) error {
+		replayed, err := loadIdempotent(ctx, transaction, scope, input.OperationID, semanticHash, &output)
+		if err != nil || replayed {
+			return err
+		}
+		var initiatedBy, bucket, partKey, partHash, partState string
+		var declaredSize, sessionEpoch int64
+		var expiresAt time.Time
+		if err := transaction.QueryRow(ctx, `
+			SELECT session.initiated_by_subject_id, session.bucket_name, session.session_epoch,
+			       session.expires_at, part.part_object_key, part.part_sha256, part.byte_size, part.part_state
+			FROM upload_sessions session
+			JOIN inspection_attachment_upload_parts part ON part.upload_session_id = session.id
+			WHERE session.id = $1 AND part.session_epoch = $2 AND part.part_number = $3
+			FOR UPDATE OF session, part
+		`, input.UploadID, input.SessionEpoch, input.PartNumber).Scan(&initiatedBy, &bucket, &sessionEpoch,
+			&expiresAt, &partKey, &partHash, &declaredSize, &partState); err != nil {
+			return ErrAttachmentForbidden
+		}
+		now := service.clock().UTC()
+		if initiatedBy != actor.SubjectID || sessionEpoch != input.SessionEpoch || now.After(expiresAt) || partHash != input.SHA256 || declaredSize != input.ByteSize {
+			return ErrObjectMismatch
+		}
+		if partState == "ACKNOWLEDGED" {
+			var objectVersion string
+			if err := transaction.QueryRow(ctx, `SELECT COALESCE(object_version_id, object_etag, part_object_key) FROM inspection_attachment_upload_parts WHERE upload_session_id = $1 AND session_epoch = $2 AND part_number = $3`, input.UploadID, input.SessionEpoch, input.PartNumber).Scan(&objectVersion); err != nil {
+				return err
+			}
+			var offset int64
+			if err := transaction.QueryRow(ctx, `SELECT COALESCE(SUM(byte_size), 0) FROM inspection_attachment_upload_parts WHERE upload_session_id = $1 AND session_epoch = $2 AND part_number <= $3 AND part_state = 'ACKNOWLEDGED'`, input.UploadID, input.SessionEpoch, input.PartNumber).Scan(&offset); err != nil {
+				return err
+			}
+			output = UploadPartReceipt{PartNumber: input.PartNumber, ByteSize: input.ByteSize, SHA256: input.SHA256, AcknowledgedOffset: offset, ObjectVersion: objectVersion}
+			return saveIdempotent(ctx, transaction, scope, input.OperationID, semanticHash, output, now)
+		}
+		reader, info, err := service.objects.Open(ctx, bucket, partKey)
+		if err != nil {
+			return ErrObjectMismatch
+		}
+		observation, observeErr := uploadpolicy.Observe(reader, service.maximumByteSize)
+		_ = reader.Close()
+		if observeErr != nil || info.Size != input.ByteSize || !uploadpolicy.MatchesDeclaration(observation, "application/octet-stream", input.SHA256, input.ByteSize) {
+			return ErrObjectMismatch
+		}
+		objectVersion, objectETag, identityErr := objectstore.ExactIdentityForPersistence(service.objects, info)
+		if identityErr != nil {
+			return ErrObjectMismatch
+		}
+		if objectVersion == "" {
+			objectVersion = objectETag
+		}
+		if objectVersion == "" {
+			objectVersion = partKey
+		}
+		if _, err := transaction.Exec(ctx, `
+			UPDATE inspection_attachment_upload_parts
+			SET part_state = 'ACKNOWLEDGED', object_version_id = NULLIF($4, ''), object_etag = NULLIF($5, ''), acknowledged_at = $6
+			WHERE upload_session_id = $1 AND session_epoch = $2 AND part_number = $3
+		`, input.UploadID, input.SessionEpoch, input.PartNumber, objectVersion, objectETag, now); err != nil {
+			return err
+		}
+		var offset int64
+		if err := transaction.QueryRow(ctx, `SELECT COALESCE(SUM(byte_size), 0) FROM inspection_attachment_upload_parts WHERE upload_session_id = $1 AND session_epoch = $2 AND part_number <= $3 AND part_state = 'ACKNOWLEDGED'`, input.UploadID, input.SessionEpoch, input.PartNumber).Scan(&offset); err != nil {
+			return err
+		}
+		if _, err := transaction.Exec(ctx, `UPDATE upload_sessions SET upload_state = 'PARTIALLY_COMMITTED' WHERE id = $1`, input.UploadID); err != nil {
+			return err
+		}
+		output = UploadPartReceipt{PartNumber: input.PartNumber, ByteSize: input.ByteSize, SHA256: input.SHA256, AcknowledgedOffset: offset, ObjectVersion: objectVersion}
+		return saveIdempotent(ctx, transaction, scope, input.OperationID, semanticHash, output, now)
+	})
+	return output, err
+}
+
+type CompleteUploadInput struct {
+	OperationID   string              `json:"operationId"`
+	CorrelationID string              `json:"correlationId"`
+	UploadID      string              `json:"uploadId"`
+	SessionEpoch  int64               `json:"sessionEpoch"`
+	SHA256        string              `json:"sha256"`
+	ByteSize      int64               `json:"byteSize"`
+	Parts         []UploadPartReceipt `json:"parts"`
 }
 
 type CompleteUploadOutput struct {
@@ -229,6 +528,9 @@ type CompleteUploadOutput struct {
 	Version                       int64  `json:"version"`
 	UploadState                   string `json:"uploadState"`
 	ScanState                     string `json:"scanState"`
+	ByteSize                      int64  `json:"byteSize"`
+	SHA256                        string `json:"sha256"`
+	ObjectVersion                 string `json:"objectVersion"`
 }
 
 type AttachmentView struct {
@@ -384,18 +686,20 @@ func (service *UploadService) Complete(ctx context.Context, actor identity.Princ
 			return err
 		}
 		var attachmentID, organizationID, initiatedBy, bucket, key, fileName, mediaType, digest, state string
-		var size int64
+		var size, sessionEpoch, partSize int64
 		var expiresAt time.Time
 		if err := transaction.QueryRow(ctx, `
 			SELECT aggregate_id, organization_id, initiated_by_subject_id, bucket_name, staging_object_key,
-			       file_name, declared_media_type, declared_size_bytes, declared_sha256, upload_state, expires_at
+			       file_name, declared_media_type, declared_size_bytes, declared_sha256, upload_state, expires_at,
+			       session_epoch, part_size_bytes
 			FROM upload_sessions WHERE id = $1 AND upload_kind = 'INSPECTION_ATTACHMENT' FOR UPDATE
 		`, input.UploadID).Scan(&attachmentID, &organizationID, &initiatedBy, &bucket, &key, &fileName,
-			&mediaType, &size, &digest, &state, &expiresAt); err != nil {
+			&mediaType, &size, &digest, &state, &expiresAt, &sessionEpoch, &partSize); err != nil {
 			return ErrAttachmentForbidden
 		}
 		now := service.clock().UTC()
-		if initiatedBy != actor.SubjectID || state != "PENDING" || now.After(expiresAt) {
+		if initiatedBy != actor.SubjectID || input.SessionEpoch != sessionEpoch || partSize <= 0 || now.After(expiresAt) ||
+			(state != "OPEN" && state != "UPLOADING" && state != "PARTIALLY_COMMITTED" && state != "COMPLETING") {
 			return ErrAttachmentForbidden
 		}
 		var currentPackageID, currentUploadState, inspectionStatus, checklistStatus string
@@ -422,23 +726,101 @@ func (service *UploadService) Complete(ctx context.Context, actor identity.Princ
 			inspectionStatus != "IN_PROGRESS" || checklistStatus != "IN_PROGRESS" {
 			return ErrAttachmentForbidden
 		}
-		if bucket != service.quarantineBucket ||
-			input.ByteSize != size ||
-			input.SHA256 != digest {
+		if bucket != service.quarantineBucket || input.ByteSize != size || input.SHA256 != digest || len(input.Parts) == 0 {
 			return ErrObjectMismatch
 		}
-		reader, info, err := service.objects.Open(ctx, bucket, key)
+		orderedReceipts := append([]UploadPartReceipt(nil), input.Parts...)
+		sort.Slice(orderedReceipts, func(left, right int) bool {
+			return orderedReceipts[left].PartNumber < orderedReceipts[right].PartNumber
+		})
+		if err := validateResumablePartLayout(size, partSize, orderedReceipts); err != nil {
+			return err
+		}
+		type storedPart struct {
+			partNumber int64
+			byteSize   int64
+			sha256     string
+			objectKey  string
+			objectID   string
+			state      string
+		}
+		stored := map[int64]storedPart{}
+		rows, err := transaction.Query(ctx, `
+			SELECT part_number, byte_size, part_sha256, part_object_key,
+			       COALESCE(object_version_id, object_etag, part_object_key), part_state
+			FROM inspection_attachment_upload_parts
+			WHERE upload_session_id = $1 AND session_epoch = $2
+			ORDER BY part_number
+		`, input.UploadID, input.SessionEpoch)
+		if err != nil {
+			return err
+		}
+		for rows.Next() {
+			var part storedPart
+			if err := rows.Scan(&part.partNumber, &part.byteSize, &part.sha256, &part.objectKey, &part.objectID, &part.state); err != nil {
+				rows.Close()
+				return err
+			}
+			stored[part.partNumber] = part
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return err
+		}
+		rows.Close()
+		if len(stored) != len(orderedReceipts) {
+			return ErrObjectMismatch
+		}
+		partReaders := make([]io.Reader, 0, len(orderedReceipts))
+		for _, receipt := range orderedReceipts {
+			part, ok := stored[receipt.PartNumber]
+			if !ok || part.state != "ACKNOWLEDGED" || part.byteSize != receipt.ByteSize || part.sha256 != receipt.SHA256 || part.objectID != receipt.ObjectVersion {
+				return ErrObjectMismatch
+			}
+			reader, info, openErr := service.objects.Open(ctx, bucket, part.objectKey)
+			if openErr != nil {
+				return ErrObjectMismatch
+			}
+			partBytes, readErr := io.ReadAll(reader)
+			_ = reader.Close()
+			if readErr != nil || int64(len(partBytes)) != receipt.ByteSize {
+				return ErrObjectMismatch
+			}
+			observation, observeErr := uploadpolicy.Observe(bytes.NewReader(partBytes), service.maximumByteSize)
+			if observeErr != nil || info.Size != receipt.ByteSize || observation.Size != receipt.ByteSize || observation.SHA256 != receipt.SHA256 {
+				return ErrObjectMismatch
+			}
+			partReaders = append(partReaders, bytes.NewReader(partBytes))
+		}
+		finalReader, finalInfo, openErr := service.objects.Open(ctx, bucket, key)
+		if openErr == nil {
+			finalBytes, readErr := io.ReadAll(finalReader)
+			_ = finalReader.Close()
+			observation, observeErr := uploadpolicy.Observe(bytes.NewReader(finalBytes), service.maximumByteSize)
+			if readErr != nil || int64(len(finalBytes)) != size || observeErr != nil || !uploadpolicy.MatchesDeclaration(observation, mediaType, digest, size) {
+				return ErrObjectMismatch
+			}
+		} else {
+			finalInfo, err = service.objects.Write(ctx, objectstore.WriteRequest{
+				Bucket: bucket, Key: key, ContentType: mediaType, Size: size,
+				Metadata: map[string]string{"sha256": digest}, Body: io.MultiReader(partReaders...),
+			})
+			if err != nil {
+				return ErrObjectMismatch
+			}
+		}
+		objectVersionID, objectETag, err := objectstore.ExactIdentityForPersistence(service.objects, finalInfo)
 		if err != nil {
 			return ErrObjectMismatch
 		}
-		defer reader.Close()
-		observation, err := uploadpolicy.Observe(reader, service.maximumByteSize)
-		if err != nil || info.Size != size || !uploadpolicy.MatchesDeclaration(observation, mediaType, digest, size) {
-			return ErrObjectMismatch
+		if objectVersionID == "" {
+			objectVersionID = finalInfo.VersionID
 		}
-		objectVersionID, objectETag, err := objectstore.ExactIdentityForPersistence(service.objects, info)
-		if err != nil {
-			return ErrObjectMismatch
+		if objectVersionID == "" {
+			objectVersionID = finalInfo.ETag
+		}
+		if objectVersionID == "" {
+			objectVersionID = key
 		}
 		objectMetadataID := service.idGenerator("object")
 		if _, err := transaction.Exec(ctx, `
@@ -479,13 +861,15 @@ func (service *UploadService) Complete(ctx context.Context, actor identity.Princ
 			return err
 		}
 		if _, err := transaction.Exec(ctx, `
-			UPDATE upload_sessions SET upload_state = 'COMPLETED', object_metadata_id = $2, completed_at = $3 WHERE id = $1
-		`, input.UploadID, objectMetadataID, now); err != nil {
+			UPDATE upload_sessions SET upload_state = 'COMPLETED', object_metadata_id = $2,
+			       object_version_id = NULLIF($3, ''), object_etag = NULLIF($4, ''), completed_at = $5 WHERE id = $1
+		`, input.UploadID, objectMetadataID, objectVersionID, objectETag, now); err != nil {
 			return err
 		}
 		output = CompleteUploadOutput{
 			InspectionAttachmentID: attachmentID, InspectionAttachmentVersionID: attachmentVersionID,
-			Version: version, UploadState: "UPLOADED", ScanState: "PENDING",
+			Version: version, UploadState: "UPLOADED", ScanState: "PENDING", ByteSize: size,
+			SHA256: digest, ObjectVersion: objectVersionID,
 		}
 		body, _ := json.Marshal(output)
 		if _, err := transaction.Exec(ctx, `

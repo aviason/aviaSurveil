@@ -678,9 +678,9 @@
       "viewports": [
         "mobile"
       ],
-      "controlKey": "mobile-navigation|A|control|Reports Approval|/department-manager/preliminary-reports/PR-2026-018|1",
+      "controlKey": "mobile-navigation|A|control|Reports Approval|/department-manager/preliminary-reports/:reportId|1",
       "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Reports Approval\" uses the declared destination /department-manager/preliminary-reports/PR-2026-018 and preserves exact routed navigation semantics.",
+      "durableEffect": "Activating \"Reports Approval\" uses the declared destination /department-manager/preliminary-reports/:reportId and preserves exact routed navigation semantics.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "declares an exact destination"
     },
@@ -810,9 +810,9 @@
       "viewports": [
         "mobile"
       ],
-      "controlKey": "mobile-navigation|A|control|Version History|/admin/templates/TPL-CABIN-2026/history|1",
+      "controlKey": "mobile-navigation|A|control|Version History|/admin/templates/:templateId/history|1",
       "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Version History\" uses the declared destination /admin/templates/TPL-CABIN-2026/history and preserves exact routed navigation semantics.",
+      "durableEffect": "Activating \"Version History\" uses the declared destination /admin/templates/:templateId/history and preserves exact routed navigation semantics.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "declares an exact destination"
     },
@@ -827,30 +827,6 @@
       "durableEffect": "Activating \"Close navigation\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "*",
-      "scope": "mobile-navigation",
-      "viewports": [
-        "mobile"
-      ],
-      "controlKey": "mobile-navigation|BUTTON|button|Dashboard unavailable: this screen remains in the accepted legacy demo||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Dashboard unavailable: this screen remains in the accepted legacy demo\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "*",
-      "scope": "mobile-navigation",
-      "viewports": [
-        "mobile"
-      ],
-      "controlKey": "mobile-navigation|BUTTON|button|Evidence Review unavailable: this screen remains in the accepted legacy demo||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Evidence Review unavailable: this screen remains in the accepted legacy demo\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
     },
     {
       "surfaceId": "*",
@@ -1366,19 +1342,6 @@
         "desktop",
         "tablet"
       ],
-      "controlKey": "shell|A|control|Reports Approval|/department-manager/preliminary-reports/PR-2026-018|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Reports Approval\" uses the declared destination /department-manager/preliminary-reports/PR-2026-018 and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "*",
-      "scope": "shell",
-      "viewports": [
-        "desktop",
-        "tablet"
-      ],
       "controlKey": "shell|A|control|Reports|/admin/reports|1",
       "boundary": "verified-navigation",
       "durableEffect": "Activating \"Reports\" uses the declared destination /admin/reports and preserves exact routed navigation semantics.",
@@ -1481,20 +1444,6 @@
       "scope": "shell",
       "viewports": [
         "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "shell|A|control|Switch role|/|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Switch role\" uses the declared destination / and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "*",
-      "scope": "shell",
-      "viewports": [
-        "desktop",
         "tablet"
       ],
       "controlKey": "shell|A|control|Templates|/admin/template-library|1",
@@ -1523,9 +1472,9 @@
         "desktop",
         "tablet"
       ],
-      "controlKey": "shell|A|control|Version History|/admin/templates/TPL-CABIN-2026/history|1",
+      "controlKey": "shell|A|control|Version History|/admin/templates/:templateId/history|1",
       "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Version History\" uses the declared destination /admin/templates/TPL-CABIN-2026/history and preserves exact routed navigation semantics.",
+      "durableEffect": "Activating \"Version History\" uses the declared destination /admin/templates/:templateId/history and preserves exact routed navigation semantics.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "declares an exact destination"
     },
@@ -1556,32 +1505,6 @@
       "durableEffect": "The \"CYCaner Yildiz\" control exposes its durable selection or disclosure state through an exact accessible state attribute.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "verified-visible-state"
-    },
-    {
-      "surfaceId": "*",
-      "scope": "shell",
-      "viewports": [
-        "desktop",
-        "tablet"
-      ],
-      "controlKey": "shell|BUTTON|button|Dashboard unavailable: this screen remains in the accepted legacy demo||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Dashboard unavailable: this screen remains in the accepted legacy demo\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "*",
-      "scope": "shell",
-      "viewports": [
-        "desktop",
-        "tablet"
-      ],
-      "controlKey": "shell|BUTTON|button|Evidence Review unavailable: this screen remains in the accepted legacy demo||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Evidence Review unavailable: this screen remains in the accepted legacy demo\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
     },
     {
       "surfaceId": "*",
@@ -1655,50 +1578,6 @@
       "durableEffect": "Activating the shared Open navigation control sets aria-expanded to true, exposes exactly one modal navigation, and returns focus after Escape.",
       "evidence": "apps/web/tests/e2e/full-route-accessibility.spec.ts",
       "assertion": "await opener\\.click\\(\\);"
-    },
-    {
-      "surfaceId": "*",
-      "scope": "shell",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "shell|BUTTON|button|Reset demo||1",
-      "boundary": "typed-mutation:shell-reset",
-      "durableEffect": "Activating \"Reset demo\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome",
-      "profiles": [
-        "mock"
-      ]
-    },
-    {
-      "surfaceId": "*",
-      "scope": "shell",
-      "viewports": [
-        "desktop",
-        "tablet"
-      ],
-      "controlKey": "shell|BUTTON|button|Role select||1",
-      "boundary": "navigation:shell-role-exit",
-      "durableEffect": "Activating \"Role select\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "*",
-      "scope": "shell",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "shell|SELECT|select-one|Experience||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "The native select \"Experience\" participates in exact keyboard, focus, and live form-state verification across its recorded viewports.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "verified-form-behavior"
     },
     {
       "surfaceId": "admin-audit-log",
@@ -1778,11 +1657,11 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Create working Draft||1",
-      "boundary": "typed-mutation:typed-workflow-mutations",
-      "durableEffect": "Activating \"Create working Draft\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
+      "controlKey": "route|SELECT|select-one|Foundation scope||1",
+      "boundary": "verified-form-behavior",
+      "durableEffect": "Changing \"Foundation scope\" verifies the exact approved-catalog scope selection.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
+      "assertion": "assertNativeFormControlOutcome"
     },
     {
       "surfaceId": "admin-checklist-builder",
@@ -1792,11 +1671,11 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Edit CTV-CABIN-1 unavailable: CTV-CABIN-1 is PUBLISHED and its question array is immutable.||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Edit CTV-CABIN-1 unavailable: CTV-CABIN-1 is PUBLISHED and its question array is immuta...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
+      "controlKey": "route|INPUT|text|Search approved questions||1",
+      "boundary": "verified-form-behavior",
+      "durableEffect": "Typing in \"Search approved questions\" verifies the approved-catalog query input.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "assertNativeFormControlOutcome"
     },
     {
       "surfaceId": "admin-home",
@@ -1806,137 +1685,11 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|A|control|Back to templates|/admin/template-library|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Back to templates\" uses the declared destination /admin/template-library and preserves exact routed navigation semantics.",
+      "controlKey": "route|BUTTON|button|Preview CTV-CABIN-1||1",
+      "boundary": "verified-visible-state",
+      "durableEffect": "Activating \"Preview CTV-CABIN-1\" selects the exact published template version for read-only preview.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "admin-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|A|control|COCKPIT+CAB GEN COND+EXITS|#admin-template-section-cockpit-cab-gen-cond-exits|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"COCKPIT+CAB GEN COND+EXITS\" uses the declared destination #admin-template-section-cockpit-cab-gen-cond-exits and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "admin-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|A|control|EM EQ / PBE|#admin-template-section-em-eq-pbe|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"EM EQ / PBE\" uses the declared destination #admin-template-section-em-eq-pbe and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "admin-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|A|control|GALLEY|#admin-template-section-galley|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"GALLEY\" uses the declared destination #admin-template-section-galley and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "admin-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|A|control|LAV|#admin-template-section-lav|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"LAV\" uses the declared destination #admin-template-section-lav and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "admin-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|A|control|PAX SEAT|#admin-template-section-pax-seat|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"PAX SEAT\" uses the declared destination #admin-template-section-pax-seat and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "admin-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|A|control|VID+CREW SEAT|#admin-template-section-vid-crew-seat|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"VID+CREW SEAT\" uses the declared destination #admin-template-section-vid-crew-seat and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "admin-inspection-package-builder",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Run PKG-CAB-2026-001 unavailable: PKG-CAB-2026-001 / AUD-2026-001 is an Admin configuration preview, not Inspector execution; cross-role checklist navigation is unavailable.||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Run PKG-CAB-2026-001 unavailable: PKG-CAB-2026-001 / AUD-2026-001 is an Admin configura...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "admin-organization-detail",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Edit ORG-FLY-NAMIBIA unavailable: ORG-FLY-NAMIBIA editing is unavailable because Task 10 declares no organization mutation.||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Edit ORG-FLY-NAMIBIA unavailable: ORG-FLY-NAMIBIA editing is unavailable because Task 1...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "admin-organization-detail",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Open risk ORG-FLY-NAMIBIA unavailable: ORG-FLY-NAMIBIA risk actions are Department Manager-owned and unavailable in Admin Preview.||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Open risk ORG-FLY-NAMIBIA unavailable: ORG-FLY-NAMIBIA risk actions are Department Mana...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "assertDurableControlOutcome"
     },
     {
       "surfaceId": "admin-organization-master-data",
@@ -2156,48 +1909,6 @@
       "durableEffect": "Activating \"Regulatory status\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "admin-reports",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Download ADMIN-RPT-PACKAGE-001 unavailable: ADMIN-RPT-PACKAGE-001 has no generated browser-local artifact; Task 10 does not provide a real report or PDF engine.||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Download ADMIN-RPT-PACKAGE-001 unavailable: ADMIN-RPT-PACKAGE-001 has no generated brow...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "admin-reports",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Generate ADMIN-RPT-PACKAGE-001 unavailable: ADMIN-RPT-PACKAGE-001 generation is unavailable because Task 10 provides a typed browser-local preview only.||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Generate ADMIN-RPT-PACKAGE-001 unavailable: ADMIN-RPT-PACKAGE-001 generation is unavail...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "admin-reports",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Publish ADMIN-RPT-PACKAGE-001 unavailable: ADMIN-RPT-PACKAGE-001 publishing is unavailable in Admin Preview and no publishing command is declared.||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Publish ADMIN-RPT-PACKAGE-001 unavailable: ADMIN-RPT-PACKAGE-001 publishing is unavaila...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
     },
     {
       "surfaceId": "admin-reports",
@@ -2937,9 +2648,9 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Edit CTV-CABIN-1 unavailable: CTV-CABIN-1 is PUBLISHED and historical versions are append-only.||1",
+      "controlKey": "route|BUTTON|button|Compare versions unavailable: :templateId has no server-owned version history in this environment.||1",
       "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Edit CTV-CABIN-1 unavailable: CTV-CABIN-1 is PUBLISHED and historical versions are appe...\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
+      "durableEffect": "The unavailable \"Compare versions unavailable: :templateId has no server-owned version history in this environment.\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "disabledReason"
     },
@@ -2964,9 +2675,9 @@
         "desktop",
         "tablet"
       ],
-      "controlKey": "route|A|control|Run Cabin checklist|/inspector/audits/AUD-2026-001/checklist|1",
+      "controlKey": "route|A|control|Run Cabin checklist|/inspector/audits/AUD-2026-001/checklist?packageId=PKG-CAB-2026-001|1",
       "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Run Cabin checklist\" uses the declared destination /inspector/audits/AUD-2026-001/checklist and preserves exact routed navigation semantics.",
+      "durableEffect": "Activating \"Run Cabin checklist\" uses the declared destination /inspector/audits/AUD-2026-001/checklist?packageId=PKG-CAB-2026-001 and preserves exact routed navigation semantics.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "declares an exact destination"
     },
@@ -2976,9 +2687,9 @@
       "viewports": [
         "mobile"
       ],
-      "controlKey": "route|A|control|Submit to Lead Inspector|/inspector/audits/AUD-2026-001/checklist|1",
+      "controlKey": "route|A|control|Submit to Lead Inspector|/inspector/audits/AUD-2026-001/checklist?packageId=PKG-CAB-2026-001|1",
       "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Submit to Lead Inspector\" uses the declared destination /inspector/audits/AUD-2026-001/checklist and preserves exact routed navigation semantics.",
+      "durableEffect": "Activating \"Submit to Lead Inspector\" uses the declared destination /inspector/audits/AUD-2026-001/checklist?packageId=PKG-CAB-2026-001 and preserves exact routed navigation semantics.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "declares an exact destination"
     },
@@ -3172,9 +2883,9 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|INPUT|checkbox|I confirm the owner-approved managed Chrome policy for this device.||1",
+      "controlKey": "route|INPUT|checkbox|I confirm the owner-approved official browser/version lane and managed profile policy for this device.||1",
       "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"I confirm the owner-approved managed Chrome policy for this device.\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
+      "durableEffect": "Activating \"I confirm the owner-approved official browser/version lane and managed profile policy for this device.\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertNativeFormControlOutcome"
     },
@@ -3221,34 +2932,6 @@
       "assertion": "declares an exact destination"
     },
     {
-      "surfaceId": "audit-plan",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|A|control|Open Inspection Package Builder|/department-manager/inspection-package-builder|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Open Inspection Package Builder\" uses the declared destination /department-manager/inspection-package-builder and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "audit-plan",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|PLAN-2026-CAB-001 is already selected||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"PLAN-2026-CAB-001 is already selected\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
       "surfaceId": "auditee-documents",
       "scope": "route",
       "viewports": [
@@ -3274,23 +2957,6 @@
         "mobile"
       ],
       "profiles": [
-        "mock"
-      ],
-      "controlKey": "route|BUTTON|button|Download EV-CAB-2026-001-V1||1",
-      "boundary": "browser-local-artifact:browser-local-artifacts",
-      "durableEffect": "Activating \"Download EV-CAB-2026-001-V1\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "auditee-documents",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "profiles": [
         "http"
       ],
       "controlKey": "route|BUTTON|button|Download EV-CAB-2026-001-V2 unavailable||1",
@@ -3298,51 +2964,6 @@
       "durableEffect": "The unavailable \"Download EV-CAB-2026-001-V2\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "auditee-documents",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "profiles": [
-        "mock"
-      ],
-      "controlKey": "route|BUTTON|button|Download EV-CAB-2026-001-V2||1",
-      "boundary": "browser-local-artifact:browser-local-artifacts",
-      "durableEffect": "Activating \"Download EV-CAB-2026-001-V2\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "auditee-documents",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Download PR-2026-018-V1||1",
-      "boundary": "browser-local-artifact:browser-local-artifacts",
-      "durableEffect": "Activating \"Download PR-2026-018-V1\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "auditee-documents",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Download RPT-CAB-2026-001-V1||1",
-      "boundary": "browser-local-artifact:browser-local-artifacts",
-      "durableEffect": "Activating \"Download RPT-CAB-2026-001-V1\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
     },
     {
       "surfaceId": "auditee-documents",
@@ -3373,19 +2994,60 @@
       "assertion": "assertNativeFormControlOutcome"
     },
     {
-      "surfaceId": "auditee-final-reports",
+      "surfaceId": "auditee-documents",
       "scope": "route",
       "viewports": [
+        "desktop",
+        "tablet",
         "mobile"
       ],
-      "profiles": [
-        "mock"
-      ],
-      "controlKey": "route|A|control|Open mobile RPT-CAB-2026-001-V1|/auditee/reports/RPT-CAB-2026-001|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Open mobile RPT-CAB-2026-001-V1\" uses the declared destination /auditee/reports/RPT-CAB-2026-001 and preserves exact routed navigation semantics.",
+      "controlKey": "route|BUTTON|button|Download RPT-CAB-2026-001-V1 unavailable||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable report download exposes the server publication reason.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
+      "assertion": "disabledReason"
+    },
+    {
+      "surfaceId": "auditee-documents",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|BUTTON|button|Download PR-2026-018-V1 unavailable||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable Preliminary Report download exposes the server publication reason.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason"
+    },
+    {
+      "surfaceId": "auditee-documents",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|BUTTON|button|Download EV-CAB-2026-001-V1 unavailable||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable evidence download exposes the server publication reason.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason"
+    },
+    {
+      "surfaceId": "auditee-documents",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|BUTTON|button|Download EV-CAB-2026-001-V2 unavailable||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable evidence download exposes the server publication reason.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason"
     },
     {
       "surfaceId": "auditee-final-reports",
@@ -3397,22 +3059,6 @@
       ],
       "profiles": [
         "http"
-      ],
-      "controlKey": "route|A|control|Open RPT-CAB-2026-001-V1|/auditee/reports/RPT-CAB-2026-001|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Open RPT-CAB-2026-001-V1\" uses the declared destination /auditee/reports/RPT-CAB-2026-001 and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "auditee-final-reports",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet"
-      ],
-      "profiles": [
-        "mock"
       ],
       "controlKey": "route|A|control|Open RPT-CAB-2026-001-V1|/auditee/reports/RPT-CAB-2026-001|1",
       "boundary": "verified-navigation",
@@ -3449,6 +3095,20 @@
       "assertion": "disabledReason"
     },
     {
+      "surfaceId": "auditee-final-reports",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|A|control|Open report|/auditee/reports/RPT-CAB-2026-001-V1|1",
+      "boundary": "verified-navigation",
+      "durableEffect": "Activating \"Open report\" uses the exact Auditee-safe released report destination.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "declares an exact destination"
+    },
+    {
       "surfaceId": "auditee-home",
       "scope": "route",
       "viewports": [
@@ -3475,20 +3135,6 @@
       "durableEffect": "Activating \"Awaiting Review0\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertAccessibleStateOutcome"
-    },
-    {
-      "surfaceId": "auditee-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|CAB-2026-001 is already selected||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"CAB-2026-001 is already selected\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
     },
     {
       "surfaceId": "auditee-home",
@@ -3596,34 +3242,6 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Respond|auditee-response-work-package|1",
-      "boundary": "verified-controlled-state",
-      "durableEffect": "Activating \"Respond\" visibly updates the exact surface named by aria-controls and rejects a no-op disclosure.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertControlledSurfaceOutcome"
-    },
-    {
-      "surfaceId": "auditee-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Submit CAP||1",
-      "boundary": "typed-mutation:typed-workflow-mutations",
-      "durableEffect": "Activating \"Submit CAP\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "auditee-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
       "controlKey": "route|BUTTON|button|Total 1||1",
       "boundary": "verified-visible-state",
       "durableEffect": "Activating \"Total 1\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
@@ -3652,37 +3270,9 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|INPUT|date|Target completion date||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Target completion date\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "auditee-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
       "controlKey": "route|INPUT|search|Search||1",
       "boundary": "verified-form-behavior",
       "durableEffect": "Activating \"Search\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "auditee-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|INPUT|text|Responsible person||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Responsible person\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertNativeFormControlOutcome"
     },
@@ -3725,62 +3315,6 @@
       "controlKey": "route|SELECT|select-one|StatusAll StatusesWaiting for CAP||1",
       "boundary": "verified-form-behavior",
       "durableEffect": "Activating \"StatusAll StatusesWaiting for CAP\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "auditee-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|TEXTAREA|textarea|Comment to CAA||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Comment to CAA\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "auditee-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|TEXTAREA|textarea|Corrective action||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Corrective action\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "auditee-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|TEXTAREA|textarea|Preventive action||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Preventive action\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "auditee-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|TEXTAREA|textarea|Root cause||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Root cause\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertNativeFormControlOutcome"
     },
@@ -3858,21 +3392,6 @@
       "surfaceId": "auditee-preliminary-reports",
       "scope": "route",
       "viewports": [
-        "mobile"
-      ],
-      "profiles": [
-        "mock"
-      ],
-      "controlKey": "route|BUTTON|button|Preview mobile PR-2026-018-V1||1",
-      "boundary": "selection-or-filter:declared-route-and-workflow-actions",
-      "durableEffect": "Activating \"Preview mobile PR-2026-018-V1\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "auditee-preliminary-reports",
-      "scope": "route",
-      "viewports": [
         "desktop",
         "tablet",
         "mobile"
@@ -3891,7 +3410,8 @@
       "scope": "route",
       "viewports": [
         "desktop",
-        "tablet"
+        "tablet",
+        "mobile"
       ],
       "profiles": [
         "mock"
@@ -3915,6 +3435,20 @@
       "durableEffect": "Activating \"Search reports\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertNativeFormControlOutcome"
+    },
+    {
+      "surfaceId": "auditee-home",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|BUTTON|button|Select||1",
+      "boundary": "verified-visible-state",
+      "durableEffect": "Activating \"Select\" selects the exact server-owned Corrective Action record before any auditee response is entered.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertDurableControlOutcome"
     },
     {
       "surfaceId": "auditee-preliminary-reports",
@@ -3952,53 +3486,11 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|A|control|Executive Summary|#auditee-report-summary|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Executive Summary\" uses the declared destination #auditee-report-summary and preserves exact routed navigation semantics.",
+      "controlKey": "route|BUTTON|button|Download unavailable||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable \"Download unavailable\" control exposes the server publication reason.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "auditee-report-preview",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|A|control|Findings Overview|#auditee-report-findings|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Findings Overview\" uses the declared destination #auditee-report-findings and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "auditee-report-preview",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|A|control|Inspection Overview|#auditee-report-overview|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Inspection Overview\" uses the declared destination #auditee-report-overview and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "auditee-report-preview",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Download RPT-CAB-2026-001-V1||1",
-      "boundary": "browser-local-artifact:browser-local-artifacts",
-      "durableEffect": "Activating \"Download RPT-CAB-2026-001-V1\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
+      "assertion": "disabledReason"
     },
     {
       "surfaceId": "auditee-settings",
@@ -4267,216 +3759,6 @@
       "assertion": "declares an exact destination"
     },
     {
-      "surfaceId": "checklist-runner",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Compliant||1",
-      "boundary": "verified-visible-state",
-      "durableEffect": "Activating \"Compliant\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertAccessibleStateOutcome"
-    },
-    {
-      "surfaceId": "checklist-runner",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Non-Compliant||1",
-      "boundary": "verified-visible-state",
-      "durableEffect": "Activating \"Non-Compliant\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertAccessibleStateOutcome"
-    },
-    {
-      "surfaceId": "checklist-runner",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Not Applicable||1",
-      "boundary": "verified-visible-state",
-      "durableEffect": "Activating \"Not Applicable\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertAccessibleStateOutcome"
-    },
-    {
-      "surfaceId": "checklist-runner",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Observation||1",
-      "boundary": "verified-visible-state",
-      "durableEffect": "Activating \"Observation\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertAccessibleStateOutcome"
-    },
-    {
-      "surfaceId": "checklist-runner",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Open assistant||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Open assistant\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "checklist-runner",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Open question 1||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Open question 1\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "checklist-runner",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Open question 2||1",
-      "boundary": "verified-visible-state",
-      "durableEffect": "Activating \"Open question 2\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertAccessibleStateOutcome"
-    },
-    {
-      "surfaceId": "checklist-runner",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Open question 3||1",
-      "boundary": "verified-visible-state",
-      "durableEffect": "Activating \"Open question 3\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertAccessibleStateOutcome"
-    },
-    {
-      "surfaceId": "checklist-runner",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Open question 4||1",
-      "boundary": "verified-visible-state",
-      "durableEffect": "Activating \"Open question 4\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertAccessibleStateOutcome"
-    },
-    {
-      "surfaceId": "checklist-runner",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Open question 5||1",
-      "boundary": "verified-visible-state",
-      "durableEffect": "Activating \"Open question 5\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertAccessibleStateOutcome"
-    },
-    {
-      "surfaceId": "checklist-runner",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Open question 6||1",
-      "boundary": "verified-visible-state",
-      "durableEffect": "Activating \"Open question 6\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertAccessibleStateOutcome"
-    },
-    {
-      "surfaceId": "checklist-runner",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Save response||1",
-      "boundary": "typed-mutation:typed-workflow-mutations",
-      "durableEffect": "Activating \"Save response\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "checklist-runner",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|SELECT|select-one|Checklist answerCompliantNon-CompliantObservationNot ApplicableNOT CHECKED||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Checklist answerCompliantNon-CompliantObservationNot ApplicableNOT CHECKED\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "checklist-runner",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|TEXTAREA|textarea|Inspector comment||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Inspector comment\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "closure-report-preview",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|A|control|Download report preview|data:text/plain;charset=utf-8|1",
-      "boundary": "verified-browser-artifact",
-      "durableEffect": "Activating \"Download report preview\" produces the declared browser-local download artifact and verifies a non-empty suggested filename.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "suggestedFilename"
-    },
-    {
       "surfaceId": "closure-report-preview",
       "scope": "route",
       "viewports": [
@@ -4485,8 +3767,8 @@
         "mobile"
       ],
       "controlKey": "route|BUTTON|button|Back||1",
-      "boundary": "selection-or-filter:declared-route-and-workflow-actions",
-      "durableEffect": "Activating \"Back\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
+      "boundary": "verified-navigation",
+      "durableEffect": "Activating \"Back\" returns to the Inspector report register.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertDurableControlOutcome"
     },
@@ -4625,10 +3907,10 @@
         "mobile"
       ],
       "controlKey": "route|BUTTON|button|Record Evidence review||1",
-      "boundary": "selection-or-filter:declared-route-and-workflow-actions",
-      "durableEffect": "Activating \"Record Evidence review\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable \"Record Evidence review\" control exposes the exact selection prerequisite.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
+      "assertion": "disabledReason"
     },
     {
       "surfaceId": "evidence-review",
@@ -4701,21 +3983,32 @@
       "assertion": "assertNativeFormControlOutcome"
     },
     {
-      "surfaceId": "executive-final-reports",
+      "surfaceId": "executive-preliminary-reports",
       "scope": "route",
       "viewports": [
         "desktop",
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|A|control|Preview RPT-CAB-2026-001-V1|/executive-director/reports/RPT-CAB-2026-001|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Preview RPT-CAB-2026-001-V1\" uses the declared destination /executive-director/reports/RPT-CAB-2026-001 and preserves exact routed navigation semantics.",
+      "controlKey": "route|BUTTON|button|Open PR-2026-018-V1||1",
+      "boundary": "verified-visible-state",
+      "durableEffect": "Activating \"Open PR-2026-018-V1\" selects the exact immutable Preliminary Report version for review.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination",
-      "profiles": [
-        "mock"
-      ]
+      "assertion": "assertDurableControlOutcome"
+    },
+    {
+      "surfaceId": "executive-preliminary-reports",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|BUTTON|button|Open PR-2026-018-V0||1",
+      "boundary": "verified-visible-state",
+      "durableEffect": "Activating \"Open PR-2026-018-V0\" selects the exact immutable Preliminary Report version for review.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertDurableControlOutcome"
     },
     {
       "surfaceId": "executive-final-reports",
@@ -4725,45 +4018,11 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Issue and lock RPT-CAB-2026-001-V1||1",
-      "boundary": "typed-mutation:typed-workflow-mutations",
-      "durableEffect": "Activating \"Issue and lock RPT-CAB-2026-001-V1\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
+      "controlKey": "route|BUTTON|button|Open RPT-CAB-2026-001-V1||1",
+      "boundary": "verified-visible-state",
+      "durableEffect": "Activating \"Open RPT-CAB-2026-001-V1\" selects the exact immutable Final Report version for Executive Director review.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertDurableControlOutcome",
-      "profiles": [
-        "mock"
-      ]
-    },
-    {
-      "surfaceId": "executive-final-reports",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Return RPT-CAB-2026-001-V1 unavailable||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Return RPT-CAB-2026-001-V1 unavailable\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason",
-      "profiles": [
-        "mock"
-      ]
-    },
-    {
-      "surfaceId": "executive-final-reports",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|TEXTAREA|textarea|Executive Director report decision reason||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Executive Director report decision reason\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome",
       "profiles": [
         "mock"
       ]
@@ -4852,48 +4111,6 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Approve and mock-sign PLAN-2026-CAB-001||1",
-      "boundary": "typed-mutation:typed-workflow-mutations",
-      "durableEffect": "Activating \"Approve and mock-sign PLAN-2026-CAB-001\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "executive-planning",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|PLAN-2026-CAB-001 is already selected||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"PLAN-2026-CAB-001 is already selected\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "executive-planning",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Return PLAN-2026-CAB-001 to General Manager||1",
-      "boundary": "typed-mutation:typed-workflow-mutations",
-      "durableEffect": "Activating \"Return PLAN-2026-CAB-001 to General Manager\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "executive-planning",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
       "controlKey": "route|INPUT|text|Search||1",
       "boundary": "verified-form-behavior",
       "durableEffect": "Activating \"Search\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
@@ -4922,11 +4139,11 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|TEXTAREA|textarea|Executive Director plan decision reason||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Executive Director plan decision reason\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
+      "controlKey": "route|BUTTON|button|Review PLAN-2026-CAB-001||1",
+      "boundary": "verified-visible-state",
+      "durableEffect": "Activating \"Review PLAN-2026-CAB-001\" selects the exact Planning record for Executive Director decision.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
+      "assertion": "assertDurableControlOutcome"
     },
     {
       "surfaceId": "executive-report-preview",
@@ -4939,48 +4156,6 @@
       "controlKey": "route|A|control|← Return to Final Report review|/executive-director/final-reports|1",
       "boundary": "verified-navigation",
       "durableEffect": "Activating \"← Return to Final Report review\" uses the declared destination /executive-director/final-reports and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "executive-report-preview",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|A|control|1. Executive Summary|#report-summary|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"1. Executive Summary\" uses the declared destination #report-summary and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "executive-report-preview",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|A|control|2. Inspection Overview|#report-overview|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"2. Inspection Overview\" uses the declared destination #report-overview and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "executive-report-preview",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|A|control|3. Findings Overview|#report-findings|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"3. Findings Overview\" uses the declared destination #report-findings and preserves exact routed navigation semantics.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "declares an exact destination"
     },
@@ -5041,34 +4216,6 @@
       "assertion": "assertAccessibleStateOutcome"
     },
     {
-      "surfaceId": "executive-report-preview",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Download PDF||1",
-      "boundary": "browser-local-artifact:browser-local-artifacts",
-      "durableEffect": "Activating \"Download PDF\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "executive-report-preview",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Print RPT-CAB-2026-001-V1 unavailable||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Print RPT-CAB-2026-001-V1 unavailable\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
       "surfaceId": "executive-settings",
       "scope": "route",
       "viewports": [
@@ -5081,104 +4228,6 @@
       "durableEffect": "Activating \"Edit profile\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "finance-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Approve Budget||1",
-      "boundary": "typed-mutation:typed-workflow-mutations",
-      "durableEffect": "Activating \"Approve Budget\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "finance-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|PLAN-2026-CAB-001 is already selected||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"PLAN-2026-CAB-001 is already selected\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "finance-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Return for Revision||1",
-      "boundary": "typed-mutation:typed-workflow-mutations",
-      "durableEffect": "Activating \"Return for Revision\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "finance-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|tab|Budget Breakdown||1",
-      "boundary": "verified-tab-state",
-      "durableEffect": "Activating \"Budget Breakdown\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertAccessibleStateOutcome"
-    },
-    {
-      "surfaceId": "finance-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|tab|Budget Summary||1",
-      "boundary": "verified-tab-state",
-      "durableEffect": "Activating \"Budget Summary\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertAccessibleStateOutcome"
-    },
-    {
-      "surfaceId": "finance-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|tab|Comments & History||1",
-      "boundary": "verified-tab-state",
-      "durableEffect": "Activating \"Comments & History\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertAccessibleStateOutcome"
-    },
-    {
-      "surfaceId": "finance-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|tab|Supporting Documents||1",
-      "boundary": "verified-tab-state",
-      "durableEffect": "Activating \"Supporting Documents\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertAccessibleStateOutcome"
     },
     {
       "surfaceId": "finance-home",
@@ -5209,18 +4258,18 @@
       "assertion": "assertNativeFormControlOutcome"
     },
     {
-      "surfaceId": "finding-detail",
+      "surfaceId": "finance-home",
       "scope": "route",
       "viewports": [
         "desktop",
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|A|control|Open Inspector Assistant|/inspector/assistant|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Open Inspector Assistant\" uses the declared destination /inspector/assistant and preserves exact routed navigation semantics.",
+      "controlKey": "route|BUTTON|button|Review 2026 Cabin Surveillance — Fly Namibia · Plan #AB001||1",
+      "boundary": "verified-visible-state",
+      "durableEffect": "Activating the exact Planning row review control selects the server-owned item for Finance decision.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
+      "assertion": "assertDurableControlOutcome"
     },
     {
       "surfaceId": "finding-detail",
@@ -5230,11 +4279,11 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Authorized closure…||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Authorized closure…\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
+      "controlKey": "route|A|control|Open Inspector Assistant|/inspector/assistant?findingId=FND-CAB-2026-001|1",
+      "boundary": "verified-navigation",
+      "durableEffect": "Activating \"Open Inspector Assistant\" uses the exact finding-bound destination /inspector/assistant?findingId=FND-CAB-2026-001 and preserves routed navigation semantics.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "declares an exact destination"
     },
     {
       "surfaceId": "finding-detail",
@@ -5383,6 +4432,19 @@
         "desktop",
         "tablet"
       ],
+      "controlKey": "route|BUTTON|button|Open report PR-2026-018-V1 unavailable||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable \"Open report PR-2026-018-V1 unavailable\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason"
+    },
+    {
+      "surfaceId": "gm-home",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet"
+      ],
       "controlKey": "route|BUTTON|button|Open report RPT-CAB-2026-001-V1 unavailable||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Open report RPT-CAB-2026-001-V1 unavailable\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
@@ -5390,44 +4452,28 @@
       "assertion": "disabledReason"
     },
     {
-      "surfaceId": "gm-planning",
+      "surfaceId": "gm-home",
       "scope": "route",
       "viewports": [
         "desktop",
-        "tablet",
-        "mobile"
+        "tablet"
       ],
-      "controlKey": "route|BUTTON|button|Forward PLAN-2026-CAB-001 to Executive Director||1",
-      "boundary": "typed-mutation:typed-workflow-mutations",
-      "durableEffect": "Activating \"Forward PLAN-2026-CAB-001 to Executive Director\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "gm-planning",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|PLAN-2026-CAB-001 is already selected||1",
+      "controlKey": "route|BUTTON|button|Open report PR-2026-018-V0 unavailable||1",
       "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"PLAN-2026-CAB-001 is already selected\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
+      "durableEffect": "The unavailable \"Open report PR-2026-018-V0 unavailable\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "disabledReason"
     },
     {
-      "surfaceId": "gm-planning",
+      "surfaceId": "gm-home",
       "scope": "route",
       "viewports": [
         "desktop",
-        "tablet",
-        "mobile"
+        "tablet"
       ],
-      "controlKey": "route|BUTTON|button|Return PLAN-2026-CAB-001 for revision||1",
-      "boundary": "typed-mutation:typed-workflow-mutations",
-      "durableEffect": "Activating \"Return PLAN-2026-CAB-001 for revision\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
+      "controlKey": "route|BUTTON|button|Open 2026 Cabin Surveillance — Fly Namibia · Plan #AB001||1",
+      "boundary": "verified-visible-state",
+      "durableEffect": "Activating the exact Planning item selector verifies its selected state and makes the server-owned decision controls available.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertDurableControlOutcome"
     },
@@ -5467,23 +4513,9 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|TEXTAREA|textarea|General Manager decision reason||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"General Manager decision reason\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "gm-report-approvals",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Forward PR-2026-018-V1 to Executive Director||1",
-      "boundary": "typed-mutation:typed-workflow-mutations",
-      "durableEffect": "Activating \"Forward PR-2026-018-V1 to Executive Director\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
+      "controlKey": "route|BUTTON|button|Review PLAN-2026-CAB-001||1",
+      "boundary": "verified-visible-state",
+      "durableEffect": "Activating \"Review PLAN-2026-CAB-001\" selects the exact Planning record and exposes its server-owned decision state.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertDurableControlOutcome"
     },
@@ -5495,39 +4527,11 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|PR-2026-018-V1 is already selected||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"PR-2026-018-V1 is already selected\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "gm-report-approvals",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Return PR-2026-018-V1 to Department Manager||1",
-      "boundary": "typed-mutation:typed-workflow-mutations",
-      "durableEffect": "Activating \"Return PR-2026-018-V1 to Department Manager\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
+      "controlKey": "route|BUTTON|button|Open PR-2026-018-V1||1",
+      "boundary": "verified-visible-state",
+      "durableEffect": "Activating \"Open PR-2026-018-V1\" selects the exact immutable report version for review.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "gm-report-approvals",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|TEXTAREA|textarea|General Manager report decision reason||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"General Manager report decision reason\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
     },
     {
       "surfaceId": "gm-risk-dashboard",
@@ -5572,90 +4576,6 @@
       "assertion": "assertDurableControlOutcome"
     },
     {
-      "surfaceId": "inspection-package-builder",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Runnable checklist unavailable for AUD-2026-001||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Runnable checklist unavailable for AUD-2026-001\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "inspection-package-builder",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Save package draft||1",
-      "boundary": "typed-mutation:typed-workflow-mutations",
-      "durableEffect": "Activating \"Save package draft\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "inspection-package-builder",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|TEXTAREA|textarea|Risk focus||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Risk focus\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "inspector-assistant",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Accept draft: Draft finding language for PBE serviceability||1",
-      "boundary": "verified-visible-state",
-      "durableEffect": "Activating \"Accept draft: Draft finding language for PBE serviceability\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertAccessibleStateOutcome"
-    },
-    {
-      "surfaceId": "inspector-assistant",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Accept draft: Suggested checklist focus||1",
-      "boundary": "verified-visible-state",
-      "durableEffect": "Activating \"Accept draft: Suggested checklist focus\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertAccessibleStateOutcome"
-    },
-    {
-      "surfaceId": "inspector-assistant",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Back to Finding||1",
-      "boundary": "selection-or-filter:declared-route-and-workflow-actions",
-      "durableEffect": "Activating \"Back to Finding\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
       "surfaceId": "inspector-assistant",
       "scope": "route",
       "viewports": [
@@ -5664,80 +4584,10 @@
         "mobile"
       ],
       "controlKey": "route|BUTTON|button|Create Draft||1",
-      "boundary": "typed-mutation:typed-workflow-mutations",
-      "durableEffect": "Activating \"Create Draft\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable \"Create Draft\" control exposes the Finding selection prerequisite.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "inspector-assistant",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Record edit: Draft finding language for PBE serviceability||1",
-      "boundary": "verified-visible-state",
-      "durableEffect": "Activating \"Record edit: Draft finding language for PBE serviceability\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertAccessibleStateOutcome"
-    },
-    {
-      "surfaceId": "inspector-assistant",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Record edit: Suggested checklist focus||1",
-      "boundary": "verified-visible-state",
-      "durableEffect": "Activating \"Record edit: Suggested checklist focus\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertAccessibleStateOutcome"
-    },
-    {
-      "surfaceId": "inspector-assistant",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Reject: Draft finding language for PBE serviceability||1",
-      "boundary": "verified-visible-state",
-      "durableEffect": "Activating \"Reject: Draft finding language for PBE serviceability\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertAccessibleStateOutcome"
-    },
-    {
-      "surfaceId": "inspector-assistant",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Reject: Suggested checklist focus||1",
-      "boundary": "verified-visible-state",
-      "durableEffect": "Activating \"Reject: Suggested checklist focus\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertAccessibleStateOutcome"
-    },
-    {
-      "surfaceId": "inspector-assistant",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|TEXTAREA|textarea|Draft finding language for PBE serviceability review text||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Draft finding language for PBE serviceability review text\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
+      "assertion": "disabledReason"
     },
     {
       "surfaceId": "inspector-assistant",
@@ -5754,20 +4604,6 @@
       "assertion": "assertNativeFormControlOutcome"
     },
     {
-      "surfaceId": "inspector-assistant",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|TEXTAREA|textarea|Suggested checklist focus review text||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Suggested checklist focus review text\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
       "surfaceId": "inspector-calendar",
       "scope": "route",
       "viewports": [
@@ -5777,6 +4613,30 @@
       "controlKey": "route|A|control|Continue checklist|/inspector/audits/AUD-2026-001/checklist|1",
       "boundary": "verified-navigation",
       "durableEffect": "Activating \"Continue checklist\" uses the declared destination /inspector/audits/AUD-2026-001/checklist and preserves exact routed navigation semantics.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "declares an exact destination"
+    },
+    {
+      "surfaceId": "inspector-findings",
+      "scope": "route",
+      "viewports": [
+        "mobile"
+      ],
+      "controlKey": "route|A|control|Open Finding dossier|/inspector/findings/FND-CAB-2026-001|1",
+      "boundary": "verified-navigation",
+      "durableEffect": "Activating \"Open Finding dossier\" uses the exact mobile Inspector Finding route.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "declares an exact destination"
+    },
+    {
+      "surfaceId": "inspector-findings",
+      "scope": "route",
+      "viewports": [
+        "mobile"
+      ],
+      "controlKey": "route|A|control|Open Finding dossier|/inspector/findings/FND-SKYCARGO-2026-099|1",
+      "boundary": "verified-navigation",
+      "durableEffect": "Activating \"Open Finding dossier\" uses the exact mobile Inspector Finding route.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "declares an exact destination"
     },
@@ -5830,20 +4690,6 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|A|control|Open Finding dossier|/inspector/findings/FND-CAB-2026-001|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Open Finding dossier\" uses the declared destination /inspector/findings/FND-CAB-2026-001 and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "inspector-findings",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
       "controlKey": "route|BUTTON|button|↩Returned0||1",
       "boundary": "verified-visible-state",
       "durableEffect": "Activating \"↩Returned0\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
@@ -5858,9 +4704,9 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|⌛Waiting for CAP1||1",
+      "controlKey": "route|BUTTON|button|⌛Waiting for CAP0||1",
       "boundary": "verified-visible-state",
-      "durableEffect": "Activating \"⌛Waiting for CAP1\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
+      "durableEffect": "Activating \"⌛Waiting for CAP0\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertAccessibleStateOutcome"
     },
@@ -5872,9 +4718,9 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|▤All Findings9||1",
+      "controlKey": "route|BUTTON|button|▤All Findings2||1",
       "boundary": "verified-visible-state",
-      "durableEffect": "Activating \"▤All Findings9\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
+      "durableEffect": "Activating \"▤All Findings2\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertAccessibleStateOutcome"
     },
@@ -5900,9 +4746,9 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|✓Closed3||1",
+      "controlKey": "route|BUTTON|button|✓Closed0||1",
       "boundary": "verified-visible-state",
-      "durableEffect": "Activating \"✓Closed3\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
+      "durableEffect": "Activating \"✓Closed0\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertAccessibleStateOutcome"
     },
@@ -5914,99 +4760,9 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|➤CAP Submitted5||1",
+      "controlKey": "route|BUTTON|button|➤CAP Submitted1||1",
       "boundary": "verified-visible-state",
-      "durableEffect": "Activating \"➤CAP Submitted5\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertAccessibleStateOutcome"
-    },
-    {
-      "surfaceId": "inspector-findings",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet"
-      ],
-      "controlKey": "route|BUTTON|button|Accept CAP unavailable||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Accept CAP unavailable\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "inspector-findings",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet"
-      ],
-      "controlKey": "route|BUTTON|tab|CAP & Verification||1",
-      "boundary": "verified-visible-state",
-      "durableEffect": "Activating \"CAP & Verification\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertAccessibleStateOutcome"
-    },
-    {
-      "surfaceId": "inspector-findings",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet"
-      ],
-      "controlKey": "route|BUTTON|tab|Conversation 2||1",
-      "boundary": "verified-visible-state",
-      "durableEffect": "Activating \"Conversation 2\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertAccessibleStateOutcome"
-    },
-    {
-      "surfaceId": "inspector-findings",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet"
-      ],
-      "controlKey": "route|BUTTON|tab|Details||1",
-      "boundary": "verified-visible-state",
-      "durableEffect": "Activating \"Details\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertAccessibleStateOutcome"
-    },
-    {
-      "surfaceId": "inspector-findings",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet"
-      ],
-      "controlKey": "route|BUTTON|tab|Files 3||1",
-      "boundary": "verified-visible-state",
-      "durableEffect": "Activating \"Files 3\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertAccessibleStateOutcome"
-    },
-    {
-      "surfaceId": "inspector-findings",
-      "scope": "route",
-      "viewports": [
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Finding dossier unavailable for CAR-2026-099||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Finding dossier unavailable for CAR-2026-099\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "inspector-findings",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet"
-      ],
-      "controlKey": "route|BUTTON|tab|History||1",
-      "boundary": "verified-visible-state",
-      "durableEffect": "Activating \"History\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
+      "durableEffect": "Activating \"➤CAP Submitted1\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertAccessibleStateOutcome"
     },
@@ -6035,19 +4791,6 @@
       "controlKey": "route|BUTTON|button|Reset Finding filters unavailable||1",
       "boundary": "explicit-disabled-reason",
       "durableEffect": "The unavailable \"Reset Finding filters unavailable\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "inspector-findings",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet"
-      ],
-      "controlKey": "route|BUTTON|button|Return for Revision unavailable||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Return for Revision unavailable\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "disabledReason"
     },
@@ -6108,19 +4851,6 @@
       "assertion": "assertNativeFormControlOutcome"
     },
     {
-      "surfaceId": "inspector-findings",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet"
-      ],
-      "controlKey": "route|TEXTAREA|textarea|Comment to Auditee unavailable||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Comment to Auditee unavailable\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
       "surfaceId": "inspector-home",
       "scope": "route",
       "viewports": [
@@ -6128,9 +4858,9 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|A|control|Open Cabin Inspection|/inspector/audits/AUD-2026-001|1",
+      "controlKey": "route|A|control|Open 2026 Cabin Inspection - Fly Namibia|/inspector/audits/AUD-2026-001|1",
       "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Open Cabin Inspection\" uses the declared destination /inspector/audits/AUD-2026-001 and preserves exact routed navigation semantics.",
+      "durableEffect": "Activating \"Open 2026 Cabin Inspection - Fly Namibia\" uses the declared destination /inspector/audits/AUD-2026-001 and preserves exact routed navigation semantics.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "declares an exact destination"
     },
@@ -6317,45 +5047,6 @@
       "assertion": "assertDurableControlOutcome"
     },
     {
-      "surfaceId": "inspector-reports",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "mobile"
-      ],
-      "controlKey": "route|A|control|Preview CAB-2026-011 draft report|/inspector/closure-reports/CR-CAB-2026-001|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Preview CAB-2026-011 draft report\" uses the declared destination /inspector/closure-reports/CR-CAB-2026-001 and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "inspector-reports",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Report preview unavailable for CAB-2026-014||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Report preview unavailable for CAB-2026-014\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "inspector-reports",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Report preview unavailable for OPS-2025-014||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Report preview unavailable for OPS-2025-014\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
       "surfaceId": "lead-analytics-reports",
       "scope": "route",
       "viewports": [
@@ -6412,34 +5103,6 @@
       "assertion": "assertAccessibleStateOutcome"
     },
     {
-      "surfaceId": "lead-analytics-reports",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Risk profile unavailable for ORG-FLY-NAMIBIA||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Risk profile unavailable for ORG-FLY-NAMIBIA\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "lead-analytics-reports",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Risk profile unavailable for ORG-SKYCARGO||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Risk profile unavailable for ORG-SKYCARGO\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
       "surfaceId": "lead-audit-assignment",
       "scope": "route",
       "viewports": [
@@ -6464,20 +5127,6 @@
       "controlKey": "route|A|control|Assign Checklist Questions|/lead-inspector/audits/AUD-2026-001/checklist-questions|1",
       "boundary": "verified-navigation",
       "durableEffect": "Activating \"Assign Checklist Questions\" uses the declared destination /lead-inspector/audits/AUD-2026-001/checklist-questions and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "lead-audit-assignment",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|A|control|View Preliminary Report|/lead-inspector/preliminary-reports/PR-2026-018|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"View Preliminary Report\" uses the declared destination /lead-inspector/preliminary-reports/PR-2026-018 and preserves exact routed navigation semantics.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "declares an exact destination"
     },
@@ -6547,22 +5196,6 @@
       "scope": "route",
       "viewports": [
         "desktop",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Assignment unavailable for AUD-2026-099||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Assignment unavailable for AUD-2026-099\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason",
-      "profiles": [
-        "mock"
-      ]
-    },
-    {
-      "surfaceId": "lead-calendar",
-      "scope": "route",
-      "viewports": [
-        "desktop",
         "tablet",
         "mobile"
       ],
@@ -6594,191 +5227,9 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Assign Questions||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Assign Questions\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "lead-checklist-question-assignment",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|INPUT|checkbox|Select question CAB-COCKPIT-GEN-001||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Select question CAB-COCKPIT-GEN-001\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "lead-checklist-question-assignment",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|INPUT|checkbox|Select question CAB-EMEQ-PBE-001||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Select question CAB-EMEQ-PBE-001\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "lead-checklist-question-assignment",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|INPUT|checkbox|Select question CAB-GALLEY-001||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Select question CAB-GALLEY-001\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "lead-checklist-question-assignment",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|INPUT|checkbox|Select question CAB-LAV-001||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Select question CAB-LAV-001\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "lead-checklist-question-assignment",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|INPUT|checkbox|Select question CAB-PAX-SEAT-001||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Select question CAB-PAX-SEAT-001\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "lead-checklist-question-assignment",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|INPUT|checkbox|Select question CAB-VID-CREW-SEAT-001||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Select question CAB-VID-CREW-SEAT-001\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "lead-checklist-question-assignment",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|INPUT|date|Assignment Due Date||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Assignment Due Date\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "lead-checklist-question-assignment",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
       "controlKey": "route|INPUT|search|Search questions||1",
       "boundary": "verified-form-behavior",
       "durableEffect": "Activating \"Search questions\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "lead-checklist-question-assignment",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|SELECT|select-one|Assign To||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Assign To\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "lead-checklist-question-assignment",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|SELECT|select-one|Assignment Priority||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Assignment Priority\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "lead-checklist-question-assignment",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|SELECT|select-one|Department filter||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Department filter\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "lead-checklist-question-assignment",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|SELECT|select-one|Priority filter||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Priority filter\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "lead-checklist-question-assignment",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|SELECT|select-one|Risk filter||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Risk filter\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertNativeFormControlOutcome"
     },
@@ -6797,6 +5248,20 @@
       "assertion": "assertNativeFormControlOutcome"
     },
     {
+      "surfaceId": "lead-audit-assignment",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|A|control|View Preliminary Reports|/lead-inspector/preliminary-reports|1",
+      "boundary": "verified-navigation",
+      "durableEffect": "Opens the Lead Inspector Preliminary Reports register.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "declares an exact destination"
+    },
+    {
       "surfaceId": "lead-checklist-question-assignment",
       "scope": "route",
       "viewports": [
@@ -6804,263 +5269,51 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|SELECT|select-one|Status filter||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Status filter\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "lead-checklist-question-assignment",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|TEXTAREA|textarea|Assignment Instructions||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Assignment Instructions\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "lead-final-report-document",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|A|control|Download report preview|data:text/plain;charset=utf-8|1",
-      "boundary": "verified-browser-artifact",
-      "durableEffect": "Activating \"Download report preview\" produces the declared browser-local download artifact and verifies a non-empty suggested filename.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "suggestedFilename"
-    },
-    {
-      "surfaceId": "lead-final-report-readiness",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|A|control|View Final Report document|/lead-inspector/final-reports/RPT-CAB-2026-001/document|1",
+      "controlKey": "route|A|control|Open Lead preparation workspace|/lead-inspector/audit-preparation?assignmentId=AUD-2026-001%3Aassignment|1",
       "boundary": "verified-navigation",
-      "durableEffect": "Activating \"View Final Report document\" uses the declared destination /lead-inspector/final-reports/RPT-CAB-2026-001/document and preserves exact routed navigation semantics.",
+      "durableEffect": "Opens the exact Lead preparation workspace for the assignment.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "declares an exact destination"
     },
     {
-      "surfaceId": "lead-final-report-readiness",
+      "surfaceId": "lead-calendar",
       "scope": "route",
       "viewports": [
         "desktop",
-        "tablet",
         "mobile"
       ],
-      "controlKey": "route|A|control|View immutable preparation snapshot|/lead-inspector/final-reports/RPT-CAB-2026-001/prepare|1",
+      "controlKey": "route|A|control|Open assignment for AUD-2026-099|/lead-inspector/audits/AUD-2026-099/assignment|1",
       "boundary": "verified-navigation",
-      "durableEffect": "Activating \"View immutable preparation snapshot\" uses the declared destination /lead-inspector/final-reports/RPT-CAB-2026-001/prepare and preserves exact routed navigation semantics.",
+      "durableEffect": "Opens the exact Lead assignment route.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "declares an exact destination"
     },
     {
-      "surfaceId": "lead-final-report-readiness",
-      "scope": "route",
+      "surfaceId": "manager-home",
+      "scope": "shell",
       "viewports": [
         "desktop",
-        "tablet",
-        "mobile"
+        "tablet"
       ],
-      "controlKey": "route|BUTTON|button|Prepare Final Report unavailable||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Prepare Final Report unavailable\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "lead-final-reports",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|A|control|View Final Report document|/lead-inspector/final-reports/RPT-CAB-2026-001/document|1",
+      "controlKey": "shell|A|control|Reports Approval|/department-manager/preliminary-reports/:reportId|1",
       "boundary": "verified-navigation",
-      "durableEffect": "Activating \"View Final Report document\" uses the declared destination /lead-inspector/final-reports/RPT-CAB-2026-001/document and preserves exact routed navigation semantics.",
+      "durableEffect": "Opens the Department Manager Reports Approval route.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "declares an exact destination"
     },
     {
-      "surfaceId": "lead-final-reports",
+      "surfaceId": "manager-home",
       "scope": "route",
       "viewports": [
         "desktop",
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|A|control|View immutable preparation snapshot|/lead-inspector/final-reports/RPT-CAB-2026-001/prepare|1",
+      "controlKey": "route|A|control|Open Reports Approval|/department-manager/audits|1",
       "boundary": "verified-navigation",
-      "durableEffect": "Activating \"View immutable preparation snapshot\" uses the declared destination /lead-inspector/final-reports/RPT-CAB-2026-001/prepare and preserves exact routed navigation semantics.",
+      "durableEffect": "Opens the current Department Manager report-approval destination.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "lead-final-reports",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|A|control|View RPT-CAB-2026-001 readiness|/lead-inspector/final-reports/RPT-CAB-2026-001/readiness|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"View RPT-CAB-2026-001 readiness\" uses the declared destination /lead-inspector/final-reports/RPT-CAB-2026-001/readiness and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "lead-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Convert to Finding||1",
-      "boundary": "typed-mutation:typed-workflow-mutations",
-      "durableEffect": "Activating \"Convert to Finding\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "lead-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Dismiss Potential Finding||1",
-      "boundary": "typed-mutation:typed-workflow-mutations",
-      "durableEffect": "Activating \"Dismiss Potential Finding\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "lead-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|New Audit Assignment unavailable: this screen remains in the accepted legacy demo||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"New Audit Assignment unavailable: this screen remains in the accepted legacy demo\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "lead-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Return Potential Finding||1",
-      "boundary": "typed-mutation:typed-workflow-mutations",
-      "durableEffect": "Activating \"Return Potential Finding\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "lead-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|INPUT|checkbox|CAP required||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"CAP required\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "lead-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|INPUT|checkbox|Evidence required||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Evidence required\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "lead-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|INPUT|date|Finding Due Date||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Finding Due Date\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "lead-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|INPUT|text|Finding title||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Finding title\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "lead-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|SELECT|select-one|Finding severity||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Finding severity\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "lead-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|TEXTAREA|textarea|Lead decision reason||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Lead decision reason\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
     },
     {
       "surfaceId": "lead-messages",
@@ -7077,146 +5330,6 @@
       "assertion": "assertDurableControlOutcome"
     },
     {
-      "surfaceId": "lead-preliminary-report-workflow",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Attachments||1",
-      "boundary": "selection-or-filter:declared-route-and-workflow-actions",
-      "durableEffect": "Activating \"Attachments\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "lead-preliminary-report-workflow",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Inspection & Findings||1",
-      "boundary": "verified-visible-state",
-      "durableEffect": "Activating \"Inspection & Findings\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertAccessibleStateOutcome"
-    },
-    {
-      "surfaceId": "lead-preliminary-report-workflow",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Preview working document||1",
-      "boundary": "selection-or-filter:declared-route-and-workflow-actions",
-      "durableEffect": "Activating \"Preview working document\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "lead-preliminary-report-workflow",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Report Content||1",
-      "boundary": "selection-or-filter:declared-route-and-workflow-actions",
-      "durableEffect": "Activating \"Report Content\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "lead-preliminary-report-workflow",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Review & Submit||1",
-      "boundary": "selection-or-filter:declared-route-and-workflow-actions",
-      "durableEffect": "Activating \"Review & Submit\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "lead-preliminary-report-workflow",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Save Draft||1",
-      "boundary": "typed-mutation:typed-workflow-mutations",
-      "durableEffect": "Activating \"Save Draft\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "lead-preliminary-report-workflow",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|TEXTAREA|textarea|Comment to Auditee text||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Comment to Auditee text\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "lead-preliminary-report-workflow",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|TEXTAREA|textarea|Internal CAA Note text||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Internal CAA Note text\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "lead-preliminary-reports",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|A|control|Open report package|/lead-inspector/preliminary-reports/PR-2026-018|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Open report package\" uses the declared destination /lead-inspector/preliminary-reports/PR-2026-018 and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "lead-preliminary-reports",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Report package unavailable for PR-2026-019||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Report package unavailable for PR-2026-019\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
       "surfaceId": "lead-preliminary-reports",
       "scope": "route",
       "viewports": [
@@ -7227,62 +5340,6 @@
       "controlKey": "route|INPUT|search|Search reports||1",
       "boundary": "verified-form-behavior",
       "durableEffect": "Activating \"Search reports\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "lead-preliminary-reports",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|SELECT|select-one|StatusAll StatusDepartment ReviewReturned to Lead Inspector||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"StatusAll StatusDepartment ReviewReturned to Lead Inspector\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "lead-prepare-final-report",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|A|control|Preview Final Report|/lead-inspector/final-reports/RPT-CAB-2026-001/document|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Preview Final Report\" uses the declared destination /lead-inspector/final-reports/RPT-CAB-2026-001/document and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "lead-prepare-final-report",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Save as Draft unavailable||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Save as Draft unavailable\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "lead-prepare-final-report",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|TEXTAREA|textarea|Executive Summary||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Executive Summary\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertNativeFormControlOutcome"
     },
@@ -7308,79 +5365,9 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Open Audit AUD-2026-001||1",
-      "boundary": "selection-or-filter:declared-route-and-workflow-actions",
-      "durableEffect": "Activating \"Open Audit AUD-2026-001\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "manager-audits",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Open Audit AUD-2026-099||1",
-      "boundary": "selection-or-filter:declared-route-and-workflow-actions",
-      "durableEffect": "Activating \"Open Audit AUD-2026-099\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "manager-audits",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
       "controlKey": "route|SELECT|select-one|StatusAll statusesIn progress||1",
       "boundary": "verified-form-behavior",
       "durableEffect": "Activating \"StatusAll statusesIn progress\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
-      "surfaceId": "manager-cap-closure-review",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|A|control|Return to Evidence FND-CAB-2026-001|/department-manager/evidence/FND-CAB-2026-001|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Return to Evidence FND-CAB-2026-001\" uses the declared destination /department-manager/evidence/FND-CAB-2026-001 and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "manager-cap-closure-review",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Authorize closure||1",
-      "boundary": "typed-mutation:typed-workflow-mutations",
-      "durableEffect": "Activating \"Authorize closure\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "manager-cap-closure-review",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|TEXTAREA|textarea|Authorized closure reason||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Authorized closure reason\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertNativeFormControlOutcome"
     },
@@ -7413,30 +5400,16 @@
       "assertion": "declares an exact destination"
     },
     {
-      "surfaceId": "manager-cap-monitoring",
+      "surfaceId": "manager-checklist-management",
       "scope": "route",
       "viewports": [
         "desktop",
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|A|control|Open closure review FND-CAB-2026-001|/department-manager/findings/FND-CAB-2026-001/closure-review|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Open closure review FND-CAB-2026-001\" uses the declared destination /department-manager/findings/FND-CAB-2026-001/closure-review and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "manager-cap-monitoring",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|SELECT|select-one|FindingFND-CAB-2026-001 · Fly NamibiaFND-SKYCARGO-2026-099 · SkyCargo Air||1",
+      "controlKey": "route|SELECT|select-one|Foundation scope||1",
       "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"FindingFND-CAB-2026-001 · Fly NamibiaFND-SKYCARGO-2026-099 · SkyCargo Air\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
+      "durableEffect": "Changing \"Foundation scope\" verifies the exact native scope selection postcondition used by the approved catalog register.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertNativeFormControlOutcome"
     },
@@ -7448,25 +5421,53 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Edit CTV-CABIN-1 unavailable||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Edit CTV-CABIN-1 unavailable\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
+      "controlKey": "route|INPUT|text|Search approved questions||1",
+      "boundary": "verified-form-behavior",
+      "durableEffect": "Typing in \"Search approved questions\" verifies the catalog query input postcondition.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "assertNativeFormControlOutcome"
     },
     {
-      "surfaceId": "manager-findings-review",
+      "surfaceId": "manager-checklist-management",
       "scope": "route",
       "viewports": [
         "desktop",
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|A|control|Open Evidence FND-CAB-2026-001|/department-manager/evidence/FND-CAB-2026-001|1",
+      "controlKey": "route|INPUT|text|Filter approved form||1",
+      "boundary": "verified-form-behavior",
+      "durableEffect": "Typing in \"Filter approved form\" verifies the form-code filter input postcondition.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertNativeFormControlOutcome"
+    },
+    {
+      "surfaceId": "manager-checklist-management",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|A|control|Open New Audit question selection|/department-manager/new-audit/step-4|1",
       "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Open Evidence FND-CAB-2026-001\" uses the declared destination /department-manager/evidence/FND-CAB-2026-001 and preserves exact routed navigation semantics.",
+      "durableEffect": "Activating \"Open New Audit question selection\" uses the exact server-owned question-selection route.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "declares an exact destination"
+    },
+    {
+      "surfaceId": "manager-checklist-management",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|BUTTON|button|Load approved questions||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable \"Load approved questions\" control exposes the exact scope prerequisite.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason"
     },
     {
       "surfaceId": "manager-findings-review",
@@ -7515,20 +5516,6 @@
       "durableEffect": "Activating \"CAR-2026-099Cargo restraint record needs follow-up\" verifies its exact expanded, pressed, selected, or current accessible-state postcondition.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertAccessibleStateOutcome"
-    },
-    {
-      "surfaceId": "manager-findings-review",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Evidence unavailable for FND-SKYCARGO-2026-099||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Evidence unavailable for FND-SKYCARGO-2026-099\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
     },
     {
       "surfaceId": "manager-findings-review",
@@ -7681,20 +5668,6 @@
       "controlKey": "route|A|control|Open Planning|/department-manager/audit-plan|1",
       "boundary": "verified-navigation",
       "durableEffect": "Activating \"Open Planning\" uses the declared destination /department-manager/audit-plan and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "manager-home",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|A|control|Open Reports Approval|/department-manager/preliminary-reports/PR-2026-018|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Open Reports Approval\" uses the declared destination /department-manager/preliminary-reports/PR-2026-018 and preserves exact routed navigation semantics.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "declares an exact destination"
     },
@@ -7919,20 +5892,6 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Risk profile unavailable for ORG-SKYCARGO||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Risk profile unavailable for ORG-SKYCARGO\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "manager-risk-dashboard",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
       "controlKey": "route|SELECT|select-one|Date Range||1",
       "boundary": "verified-form-behavior",
       "durableEffect": "Activating \"Date Range\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
@@ -8003,11 +5962,11 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Risk profile unavailable for ORG-SKYCARGO||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Risk profile unavailable for ORG-SKYCARGO\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
+      "controlKey": "route|A|control|Open risk profile for ORG-SKYCARGO|/department-manager/organizations/ORG-SKYCARGO/risk-profile|1",
+      "boundary": "verified-navigation",
+      "durableEffect": "Activating \"Open risk profile for ORG-SKYCARGO\" uses the exact organization risk profile destination.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
+      "assertion": "declares an exact destination"
     },
     {
       "surfaceId": "manager-safety-intelligence",
@@ -8073,7 +6032,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Next||1",
+      "controlKey": "route|BUTTON|button|Continue||1",
       "boundary": "selection-or-filter:declared-route-and-workflow-actions",
       "durableEffect": "Activating \"Next\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -8087,11 +6046,11 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Save draft||1",
-      "boundary": "typed-mutation:typed-workflow-mutations",
-      "durableEffect": "Activating \"Save draft\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
+      "controlKey": "route|SELECT|select-one|Supplier / organization||1",
+      "boundary": "verified-form-behavior",
+      "durableEffect": "Changing \"Supplier / organization\" verifies the exact authorized organization selection.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
+      "assertion": "assertNativeFormControlOutcome"
     },
     {
       "surfaceId": "new-audit-wizard-1",
@@ -8101,7 +6060,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|SELECT|select-one|Application Type||1",
+      "controlKey": "route|SELECT|select-one|Provider scope||1",
       "boundary": "verified-form-behavior",
       "durableEffect": "Activating \"Application Type\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -8115,7 +6074,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|SELECT|select-one|Domain||1",
+      "controlKey": "route|SELECT|select-one|Regulated target||1",
       "boundary": "verified-form-behavior",
       "durableEffect": "Activating \"Domain\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -8129,7 +6088,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|SELECT|select-one|Organization||1",
+      "controlKey": "route|SELECT|select-one|Inspection type||1",
       "boundary": "verified-form-behavior",
       "durableEffect": "Activating \"Organization\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -8143,7 +6102,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Back||1",
+      "controlKey": "route|BUTTON|button|Cancel||1",
       "boundary": "selection-or-filter:declared-route-and-workflow-actions",
       "durableEffect": "Activating \"Back\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -8157,7 +6116,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Next||1",
+      "controlKey": "route|BUTTON|button|Continue||1",
       "boundary": "selection-or-filter:declared-route-and-workflow-actions",
       "durableEffect": "Activating \"Next\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -8171,7 +6130,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|INPUT|text|Risk Category||1",
+      "controlKey": "route|SELECT|select-one|Supplier / organization||1",
       "boundary": "verified-form-behavior",
       "durableEffect": "Activating \"Risk Category\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -8185,7 +6144,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|SELECT|select-one|Inspection Category||1",
+      "controlKey": "route|SELECT|select-one|Provider scope||1",
       "boundary": "verified-form-behavior",
       "durableEffect": "Activating \"Inspection Category\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -8199,7 +6158,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|SELECT|select-one|Trigger Type||1",
+      "controlKey": "route|SELECT|select-one|Regulated target||1",
       "boundary": "verified-form-behavior",
       "durableEffect": "Activating \"Trigger Type\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -8213,7 +6172,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|TEXTAREA|textarea|Purpose||1",
+      "controlKey": "route|SELECT|select-one|Inspection type||1",
       "boundary": "verified-form-behavior",
       "durableEffect": "Activating \"Purpose\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -8227,7 +6186,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Back||1",
+      "controlKey": "route|BUTTON|button|Cancel||1",
       "boundary": "selection-or-filter:declared-route-and-workflow-actions",
       "durableEffect": "Activating \"Back\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -8241,7 +6200,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Next||1",
+      "controlKey": "route|BUTTON|button|Continue||1",
       "boundary": "selection-or-filter:declared-route-and-workflow-actions",
       "durableEffect": "Activating \"Next\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -8255,7 +6214,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|INPUT|date|Planned Date||1",
+      "controlKey": "route|SELECT|select-one|Supplier / organization||1",
       "boundary": "verified-form-behavior",
       "durableEffect": "Activating \"Planned Date\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -8269,7 +6228,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|INPUT|text|Location||1",
+      "controlKey": "route|SELECT|select-one|Provider scope||1",
       "boundary": "verified-form-behavior",
       "durableEffect": "Activating \"Location\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -8283,9 +6242,23 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|SELECT|select-one|Mode||1",
+      "controlKey": "route|SELECT|select-one|Regulated target||1",
       "boundary": "verified-form-behavior",
       "durableEffect": "Activating \"Mode\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertNativeFormControlOutcome"
+    },
+    {
+      "surfaceId": "new-audit-wizard-3",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|SELECT|select-one|Inspection type||1",
+      "boundary": "verified-form-behavior",
+      "durableEffect": "Changing \"Inspection type\" verifies the exact authorized inspection type selection.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertNativeFormControlOutcome"
     },
@@ -8297,7 +6270,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Back||1",
+      "controlKey": "route|BUTTON|button|Cancel||1",
       "boundary": "selection-or-filter:declared-route-and-workflow-actions",
       "durableEffect": "Activating \"Back\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -8311,7 +6284,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Next||1",
+      "controlKey": "route|BUTTON|button|Continue||1",
       "boundary": "selection-or-filter:declared-route-and-workflow-actions",
       "durableEffect": "Activating \"Next\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -8325,7 +6298,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|INPUT|number|Requested Budget||1",
+      "controlKey": "route|SELECT|select-one|Supplier / organization||1",
       "boundary": "verified-form-behavior",
       "durableEffect": "Activating \"Requested Budget\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -8339,7 +6312,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|SELECT|select-one|Checklist Template||1",
+      "controlKey": "route|SELECT|select-one|Provider scope||1",
       "boundary": "verified-form-behavior",
       "durableEffect": "Activating \"Checklist Template\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -8353,7 +6326,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|SELECT|select-one|Currency||1",
+      "controlKey": "route|SELECT|select-one|Regulated target||1",
       "boundary": "verified-form-behavior",
       "durableEffect": "Activating \"Currency\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -8367,7 +6340,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|TEXTAREA|textarea|Scope||1",
+      "controlKey": "route|SELECT|select-one|Inspection type||1",
       "boundary": "verified-form-behavior",
       "durableEffect": "Activating \"Scope\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -8381,7 +6354,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Back||1",
+      "controlKey": "route|BUTTON|button|Cancel||1",
       "boundary": "selection-or-filter:declared-route-and-workflow-actions",
       "durableEffect": "Activating \"Back\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -8395,9 +6368,9 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Preview||1",
+      "controlKey": "route|BUTTON|button|Continue||1",
       "boundary": "selection-or-filter:declared-route-and-workflow-actions",
-      "durableEffect": "Activating \"Preview\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
+      "durableEffect": "Activating \"Continue\" advances the server-owned intake workflow.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertDurableControlOutcome"
     },
@@ -8409,25 +6382,53 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Submit for Finance Review||1",
-      "boundary": "typed-mutation:typed-workflow-mutations",
-      "durableEffect": "Activating \"Submit for Finance Review\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
+      "controlKey": "route|SELECT|select-one|Supplier / organization||1",
+      "boundary": "verified-form-behavior",
+      "durableEffect": "Changing \"Supplier / organization\" verifies the exact authorized organization selection.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
+      "assertion": "assertNativeFormControlOutcome"
     },
     {
-      "surfaceId": "organization-detail",
+      "surfaceId": "new-audit-wizard-5",
       "scope": "route",
       "viewports": [
         "desktop",
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|A|control|Open FND-CAB-2026-001 in Findings Review|/department-manager/findings-review?findingId=FND-CAB-2026-001|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Open FND-CAB-2026-001 in Findings Review\" uses the declared destination /department-manager/findings-review?findingId=FND-CAB-2026-001 and preserves exact routed navigation semantics.",
+      "controlKey": "route|SELECT|select-one|Provider scope||1",
+      "boundary": "verified-form-behavior",
+      "durableEffect": "Changing \"Provider scope\" verifies the exact authorized provider scope selection.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
+      "assertion": "assertNativeFormControlOutcome"
+    },
+    {
+      "surfaceId": "new-audit-wizard-5",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|SELECT|select-one|Regulated target||1",
+      "boundary": "verified-form-behavior",
+      "durableEffect": "Changing \"Regulated target\" verifies the exact authorized target selection.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertNativeFormControlOutcome"
+    },
+    {
+      "surfaceId": "new-audit-wizard-5",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|SELECT|select-one|Inspection type||1",
+      "boundary": "verified-form-behavior",
+      "durableEffect": "Changing \"Inspection type\" verifies the exact authorized inspection type selection.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertNativeFormControlOutcome"
     },
     {
       "surfaceId": "organization-registry",
@@ -8440,6 +6441,20 @@
       "controlKey": "route|A|control|Open organization ORG-FLY-NAMIBIA|/department-manager/organizations/ORG-FLY-NAMIBIA|1",
       "boundary": "verified-navigation",
       "durableEffect": "Activating \"Open organization ORG-FLY-NAMIBIA\" uses the declared destination /department-manager/organizations/ORG-FLY-NAMIBIA and preserves exact routed navigation semantics.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "declares an exact destination"
+    },
+    {
+      "surfaceId": "organization-registry",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|A|control|Open organization ORG-SKYCARGO|/department-manager/organizations/ORG-SKYCARGO|1",
+      "boundary": "verified-navigation",
+      "durableEffect": "Activating \"Open organization ORG-SKYCARGO\" uses the exact organization record destination.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "declares an exact destination"
     },
@@ -8492,118 +6507,6 @@
       "durableEffect": "Activating \"Open SkyCargo Air\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "organization-registry",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Organization detail unavailable for ORG-SKYCARGO||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Organization detail unavailable for ORG-SKYCARGO\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "organization-risk-profile",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|A|control|Back to Safety Intelligence|/department-manager/safety-intelligence|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Back to Safety Intelligence\" uses the declared destination /department-manager/safety-intelligence and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "organization-risk-profile",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|A|control|Open Findings Review for ORG-FLY-NAMIBIA|/department-manager/findings-review?organizationId=ORG-FLY-NAMIBIA|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Open Findings Review for ORG-FLY-NAMIBIA\" uses the declared destination /department-manager/findings-review?organizationId=ORG-FLY-NAMIBIA and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "organization-risk-profile",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|A|control|Open Fly Namibia organization record|/department-manager/organizations/ORG-FLY-NAMIBIA|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Open Fly Namibia organization record\" uses the declared destination /department-manager/organizations/ORG-FLY-NAMIBIA and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "report-preview",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|A|control|Review Preliminary Report PR-2026-018|/department-manager/preliminary-reports/PR-2026-018|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Review Preliminary Report PR-2026-018\" uses the declared destination /department-manager/preliminary-reports/PR-2026-018 and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "report-preview",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|A|control|View as Fly Namibia Auditee|/auditee/service-provider-cap|1",
-      "boundary": "verified-navigation",
-      "durableEffect": "Activating \"View as Fly Namibia Auditee\" uses the declared destination /auditee/service-provider-cap and preserves exact routed navigation semantics.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "declares an exact destination"
-    },
-    {
-      "surfaceId": "report-preview",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Department review unavailable for RPT-CAB-2026-001-V1||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Department review unavailable for RPT-CAB-2026-001-V1\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
-    },
-    {
-      "surfaceId": "report-preview",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Download PDF||1",
-      "boundary": "explicit-disabled-reason",
-      "durableEffect": "The unavailable \"Download PDF\" control exposes an explicit reason and the inventory rejects disabled controls without an explanation.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "disabledReason"
     },
     {
       "surfaceId": "report-preview",
@@ -8846,9 +6749,9 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|A|control|Open Auditee — Fly Namibia — Service Provider Portal — Fly Namibia|/auditee/service-provider-cap|1",
+      "controlKey": "route|A|control|Open Auditee — Service Provider Portal|/auditee/service-provider-cap|1",
       "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Open Auditee — Fly Namibia — Service Provider Portal — Fly Namibia\" uses the declared destination /auditee/service-provider-cap and preserves exact routed navigation semantics.",
+      "durableEffect": "Activating \"Open Auditee — Service Provider Portal\" uses the declared destination /auditee/service-provider-cap and preserves exact routed navigation semantics.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "declares an exact destination"
     },
@@ -8944,9 +6847,9 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Explore the clickable demo||1",
+      "controlKey": "route|BUTTON|button|Explore the local workspace||1",
       "boundary": "selection-or-filter:role-select-local-actions",
-      "durableEffect": "Activating \"Explore the clickable demo\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
+      "durableEffect": "Activating \"Explore the local workspace\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertDurableControlOutcome"
     },
@@ -8958,9 +6861,9 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Reset demo data||1",
+      "controlKey": "route|BUTTON|button|Reset local session||1",
       "boundary": "selection-or-filter:declared-route-and-workflow-actions",
-      "durableEffect": "Activating \"Reset demo data\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
+      "durableEffect": "Activating \"Reset local session\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertDurableControlOutcome"
     },
@@ -9046,42 +6949,11 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Import synthetic governed candidate||1",
-      "boundary": "typed-mutation:typed-workflow-mutations",
-      "durableEffect": "Importing the synthetic governed candidate replaces the candidate-only editor with its persisted generation-run and source-lineage result.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome",
-      "includeInScenarioCatalog": false
-    },
-    {
-      "surfaceId": "admin-checklist-builder",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Load candidate-only legacy source-gap Draft||1",
-      "boundary": "selection-or-filter:typed-workflow-mutations",
-      "durableEffect": "Loading the candidate-only legacy source-gap Draft renders its immutable source-gap status and fail-closed review boundary.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome",
-      "includeInScenarioCatalog": false
-    },
-    {
-      "surfaceId": "admin-checklist-builder",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|INPUT|text|Generation run ID||1",
+      "controlKey": "route|INPUT|text|Filter approved form||1",
       "boundary": "verified-form-behavior",
-      "durableEffect": "Editing Generation run ID preserves the exact inspection input value used by the governed generation-run lookup.",
+      "durableEffect": "Typing in \"Filter approved form\" verifies the approved-catalog form filter input.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome",
-      "includeInScenarioCatalog": false
+      "assertion": "assertNativeFormControlOutcome"
     },
     {
       "surfaceId": "admin-checklist-builder",
@@ -9091,24 +6963,9 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|BUTTON|button|Inspect governed generation run||1",
-      "boundary": "selection-or-filter:typed-workflow-mutations",
-      "durableEffect": "Inspecting a governed generation run renders the exact persisted run outcome or its explicit unavailable error.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome",
-      "includeInScenarioCatalog": false
-    },
-    {
-      "surfaceId": "admin-checklist-builder",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Receive candidate-only archive||1",
+      "controlKey": "route|BUTTON|button|Load approved questions||1",
       "boundary": "explicit-disabled-reason",
-      "durableEffect": "The candidate-only archive receive command remains disabled until the external archive is received through the governed intake route.",
+      "durableEffect": "The disabled \"Load approved questions\" control exposes the exact scope prerequisite.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "disabledReason"
     },
@@ -9126,6 +6983,62 @@
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertDurableControlOutcome",
       "includeInScenarioCatalog": false
+    },
+    {
+      "surfaceId": "admin-inspection-package-builder",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|SELECT|select-one|Foundation scope||1",
+      "boundary": "verified-form-behavior",
+      "durableEffect": "Changing \"Foundation scope\" verifies the exact approved-catalog scope selection.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertNativeFormControlOutcome"
+    },
+    {
+      "surfaceId": "admin-inspection-package-builder",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|INPUT|text|Search approved questions||1",
+      "boundary": "verified-form-behavior",
+      "durableEffect": "Typing in \"Search approved questions\" verifies the approved-catalog query input.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertNativeFormControlOutcome"
+    },
+    {
+      "surfaceId": "admin-inspection-package-builder",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|INPUT|text|Filter approved form||1",
+      "boundary": "verified-form-behavior",
+      "durableEffect": "Typing in \"Filter approved form\" verifies the approved-catalog form filter input.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertNativeFormControlOutcome"
+    },
+    {
+      "surfaceId": "admin-inspection-package-builder",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|BUTTON|button|Load approved questions||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The disabled \"Load approved questions\" control exposes the exact scope prerequisite.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason"
     },
     {
       "surfaceId": "admin-users-roles",
@@ -9296,6 +7209,336 @@
       "durableEffect": "The candidate-only synthetic organization exposes an explicit Admin detail-route boundary reason.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "disabledReason"
+    },
+    {
+      "surfaceId": "inspector-reports",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "mobile"
+      ],
+      "controlKey": "route|A|control|Open RPT-CAB-2026-001-V1 report|/inspector/closure-reports/RPT-CAB-2026-001-V1|1",
+      "boundary": "verified-navigation",
+      "durableEffect": "Activating the RPT-CAB-2026-001-V1 report link uses the exact closure-report destination.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "declares an exact destination"
+    },
+    {
+      "surfaceId": "inspector-reports",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "mobile"
+      ],
+      "controlKey": "route|A|control|Open PR-2026-018-V1 report|/inspector/closure-reports/PR-2026-018-V1|1",
+      "boundary": "verified-navigation",
+      "durableEffect": "Activating the PR-2026-018-V1 report link uses the exact closure-report destination.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "declares an exact destination"
+    },
+    {
+      "surfaceId": "inspector-reports",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "mobile"
+      ],
+      "controlKey": "route|A|control|Open PR-2026-018-V0 report|/inspector/closure-reports/PR-2026-018-V0|1",
+      "boundary": "verified-navigation",
+      "durableEffect": "Activating the PR-2026-018-V0 report link uses the exact closure-report destination.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "declares an exact destination"
+    },
+    {
+      "surfaceId": "inspector-assistant",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|BUTTON|button|Back to Findings||1",
+      "boundary": "declared-route-and-workflow-actions",
+      "durableEffect": "Activating Back to Findings returns to the Inspector Findings route.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertDurableControlOutcome"
+    },
+    {
+      "surfaceId": "lead-home",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|BUTTON|button|PF-2026-001 · PENDING LEAD REVIEW||1",
+      "boundary": "selection-or-filter:lead-potential-finding",
+      "durableEffect": "Activating the persisted Potential Finding row changes the Lead Inspector selection state.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertDurableControlOutcome"
+    },
+    {
+      "surfaceId": "lead-preliminary-reports",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|SELECT|select-one|StatusAll statusesDepartment ReviewReturnedIssuedLocked||1",
+      "boundary": "verified-form-behavior",
+      "durableEffect": "Activating the preliminary-report status filter changes the selected status value.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertNativeFormControlOutcome"
+    },
+    {
+      "surfaceId": "lead-preliminary-reports",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|A|control|Open report package|/lead-inspector/preliminary-reports/PR-2026-018-V1|1",
+      "boundary": "verified-navigation",
+      "durableEffect": "Activating the preliminary report package link uses the exact report-version destination.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "declares an exact destination"
+    },
+    {
+      "surfaceId": "lead-preliminary-reports",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|A|control|Open report package|/lead-inspector/preliminary-reports/PR-2026-018-V0|1",
+      "boundary": "verified-navigation",
+      "durableEffect": "Activating the returned preliminary report package link uses the exact report-version destination.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "declares an exact destination"
+    },
+    {
+      "surfaceId": "lead-final-reports",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|SELECT|select-one|Final Report audit||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable Final Report audit selector exposes the closed-Audit prerequisite.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason"
+    },
+    {
+      "surfaceId": "lead-final-reports",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|A|control|View readiness|/lead-inspector/final-reports/RPT-CAB-2026-001-V1/readiness|1",
+      "boundary": "verified-navigation",
+      "durableEffect": "Opens the exact Final Report readiness route.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "declares an exact destination"
+    },
+    {
+      "surfaceId": "lead-final-reports",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|A|control|View preparation snapshot|/lead-inspector/final-reports/RPT-CAB-2026-001-V1/prepare|1",
+      "boundary": "verified-navigation",
+      "durableEffect": "Opens the exact Final Report preparation snapshot route.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "declares an exact destination"
+    },
+    {
+      "surfaceId": "lead-final-reports",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|A|control|View document|/lead-inspector/final-reports/RPT-CAB-2026-001-V1/document|1",
+      "boundary": "verified-navigation",
+      "durableEffect": "Opens the exact Final Report document route.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "declares an exact destination"
+    },
+    {
+      "surfaceId": "lead-final-reports",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|BUTTON|button|Create Final Report||1",
+      "boundary": "explicit-disabled-reason",
+      "durableEffect": "The unavailable Create Final Report command explains that a closed Finding is required.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "disabledReason"
+    },
+    {
+      "surfaceId": "audit-plan",
+      "scope": "shell",
+      "viewports": [
+        "desktop",
+        "tablet"
+      ],
+      "controlKey": "shell|A|control|Reports Approval|/department-manager/preliminary-reports/:reportId|1",
+      "boundary": "verified-navigation",
+      "durableEffect": "Opens the Department Manager Reports Approval route from the shell.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "declares an exact destination"
+    },
+    {
+      "surfaceId": "audit-plan",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|BUTTON|button|Open 2026 Cabin Surveillance — Fly Namibia · Plan #AB001||1",
+      "boundary": "selection-or-filter",
+      "durableEffect": "Selects the human-readable Planning record in the Department Manager queue.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertDurableControlOutcome"
+    },
+    {
+      "surfaceId": "manager-audits",
+      "scope": "shell",
+      "viewports": [
+        "desktop",
+        "tablet"
+      ],
+      "controlKey": "shell|A|control|Reports Approval|/department-manager/preliminary-reports/:reportId|1",
+      "boundary": "verified-navigation",
+      "durableEffect": "Opens the Department Manager Reports Approval route from the shell.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "declares an exact destination"
+    },
+    {
+      "surfaceId": "manager-audits",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|BUTTON|button|Open 2026 Cabin Inspection - Fly Namibia · Audit 2026-001||1",
+      "boundary": "selection-or-filter",
+      "durableEffect": "Selects the human-readable Audit record in the Department Manager work queue.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertDurableControlOutcome"
+    },
+    {
+      "surfaceId": "manager-audits",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|BUTTON|button|Open Special Inspection · Audit 2026-099||1",
+      "boundary": "selection-or-filter",
+      "durableEffect": "Selects the human-readable Special Inspection record in the work queue.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertDurableControlOutcome"
+    },
+    {
+      "surfaceId": "*",
+      "scope": "shell",
+      "viewports": [
+        "desktop",
+        "tablet"
+      ],
+      "controlKey": "shell|A|control|Reports Approval|/department-manager/preliminary-reports/:reportId|1",
+      "boundary": "verified-navigation",
+      "durableEffect": "Opens the Department Manager Reports Approval route from the shared shell.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "declares an exact destination"
+    },
+    {
+      "surfaceId": "report-preview",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|A|control|View as Auditee|/auditee/reports/RPT-CAB-2026-001-V1|1",
+      "boundary": "verified-navigation",
+      "durableEffect": "Opens the Auditee-safe report destination for the selected report version.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "declares an exact destination"
+    },
+    {
+      "surfaceId": "manager-risk-dashboard",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|A|control|Open risk profile for ORG-SKYCARGO|/department-manager/organizations/ORG-SKYCARGO/risk-profile|1",
+      "boundary": "verified-navigation",
+      "durableEffect": "Opens the exact organization risk profile route.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "declares an exact destination"
+    },
+    {
+      "surfaceId": "manager-findings-review",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|A|control|Open Evidence|/department-manager/evidence/FND-CAB-2026-001|1",
+      "boundary": "verified-navigation",
+      "durableEffect": "Opens the exact Evidence route for the selected Finding.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "declares an exact destination"
+    },
+    {
+      "surfaceId": "manager-findings-review",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|A|control|Open Evidence|/department-manager/evidence/FND-SKYCARGO-2026-099|1",
+      "boundary": "verified-navigation",
+      "durableEffect": "Opens the exact Evidence route for the selected SkyCargo Finding.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "declares an exact destination"
+    },
+    {
+      "surfaceId": "manager-cap-monitoring",
+      "scope": "route",
+      "viewports": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "controlKey": "route|SELECT|select-one|FindingCAB-2026-001 · PBE serviceability and accessibility not confirmedCAR-2026-099 · Cargo restraint record needs follow-up||1",
+      "boundary": "verified-form-behavior",
+      "durableEffect": "Changing the CAP Monitoring Finding selector changes the selected server-owned Finding.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
+      "assertion": "assertNativeFormControlOutcome"
     }
   ],
   "actionEvidenceGroups": [
@@ -9656,7 +7899,7 @@
         "admin-organization-detail",
         "admin-audit-log"
       ],
-      "namePattern": "^Reset demo$",
+      "namePattern": "^Reset (demo|local) session$",
       "boundary": "typed-mutation",
       "durableEffect": "Clears the deterministic browser demo store and reloads the active route.",
       "evidence": "apps/web/src/ui/application-shell.test.tsx"
@@ -9760,9 +8003,19 @@
       "surfaceIds": [
         "role-select"
       ],
-      "namePattern": "^(Skip to workspace selection|Explore the clickable demo)$",
+      "namePattern": "^(Skip to workspace selection|Explore the (clickable demo|local workspace)|Reset local session)$",
       "boundary": "selection-or-filter",
       "durableEffect": "Moves focus to the role grid or scrolls the accepted role-selection workspace into view.",
+      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts"
+    },
+    {
+      "id": "lead-potential-finding-selection",
+      "surfaceIds": [
+        "lead-home"
+      ],
+      "namePattern": "^PF-2026-001 · PENDING LEAD REVIEW$",
+      "boundary": "selection-or-filter",
+      "durableEffect": "Selects the persisted Potential Finding record for Lead Inspector review.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts"
     },
     {

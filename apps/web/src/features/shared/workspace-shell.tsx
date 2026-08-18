@@ -7,6 +7,7 @@ import type { ReactSurfaceId } from "../../app/route-contracts";
 import { useOptionalSession } from "../../auth/session-provider";
 import { ApplicationShell, type NotificationState, type ShellIdentityPresentation } from "../../ui/application-shell";
 import { ROLE_ENTRIES, createRoleEntryPath } from "../../ui/role-select-page";
+import { recordReference } from "./record-presentation";
 
 export function formatLocalDate(value: string | null): string {
   if (!value) return "Not set";
@@ -279,10 +280,10 @@ export function FindingFacts({ finding }: { finding: FindingView }) {
   return (
     <dl className="fact-grid">
       <div><dt>Finding</dt><dd>{finding.findingNumber}</dd></div>
-      <div><dt>Status</dt><dd>{finding.status}</dd></div>
+      <div><dt>Status</dt><dd>{finding.status.replaceAll("_", " ")}</dd></div>
       <div><dt>Severity</dt><dd>{formatSeverity(finding.severity)}</dd></div>
       <div><dt>Organization</dt><dd>{finding.organizationName}</dd></div>
-      <div><dt>Related Audit</dt><dd>{finding.auditId}</dd></div>
+      <div><dt>Related Audit</dt><dd>{recordReference("Audit", finding.auditId)}</dd></div>
       <div><dt>Due Date</dt><dd>{formatLocalDate(finding.dueDate)}</dd></div>
       <div><dt>Current owner</dt><dd>{finding.currentOwnerType}</dd></div>
       <div><dt>Next action</dt><dd>{finding.nextAction}</dd></div>

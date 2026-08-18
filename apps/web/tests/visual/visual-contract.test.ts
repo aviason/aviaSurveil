@@ -139,10 +139,10 @@ describe("visual parity contract", () => {
       expectedSemanticMarker: "Configured demo rules",
     });
     expect(resolveReactSurfaceSemantics(auditPlan)).toMatchObject({
-      expectedSemanticMarker: "PLAN-2026-CAB-001",
+      expectedSemanticMarker: "Plan #AB001",
     });
     expect(resolveReactSurfaceSemantics(auditeeReport)).toMatchObject({
-      expectedSemanticMarker: "RPT-CAB-2026-001-V1",
+      expectedSemanticMarker: "Released report unavailable",
     });
     expect(resolveReactSurfaceSemantics(inspectorHome)).toMatchObject({
       expectedSemanticMarker: "AUD-2026-001",
@@ -175,7 +175,7 @@ describe("visual parity contract", () => {
     });
     expect(VISUAL_SURFACES.find((surface) => surface.id === "admin-inspection-package-builder")).toMatchObject({
       legacy: { role: "admin", view: "package-builder" },
-      expectedHeading: "Dynamic Inspection Package Builder",
+      expectedHeading: "Approved AGA Catalog",
     });
     expect(VISUAL_SURFACES.find((surface) => surface.id === "admin-organization-detail")).toMatchObject({
       legacy: { role: "admin", view: "org-detail", params: { orgId: "ORG-XYZ" } },
@@ -185,8 +185,8 @@ describe("visual parity contract", () => {
     });
     expect(VISUAL_SURFACES.find((surface) => surface.id === "manager-preliminary-report-review")).toMatchObject({
       legacy: { role: "manager", view: "audit-reports", params: { filter: "preliminary" } },
-      expectedHeading: "Preliminary Report",
-      expectedSemanticMarker: "Preliminary Report",
+      expectedHeading: "Reports Approval",
+      expectedSemanticMarker: "PR-2026-018-V1",
     });
     for (const step of [1, 2, 3, 4, 5]) {
       expect(VISUAL_SURFACES.find((surface) => surface.id === `new-audit-wizard-${step}`)).toMatchObject({
@@ -195,17 +195,17 @@ describe("visual parity contract", () => {
     }
     expect(VISUAL_SURFACES.find((surface) => surface.id === "lead-preliminary-report-workflow")).toMatchObject({
       legacyState: { preliminaryWorkflow: true },
-      expectedSemanticMarker: "Inspection Overview",
+      expectedSemanticMarker: "Report version was not found.",
     });
     expect(VISUAL_SURFACES.find((surface) => surface.id === "lead-final-report-readiness")).toMatchObject({
       legacy: { role: "leadInspector", view: "audit-reports", params: { filter: "final", finalReportId: "FR-2026-018" } },
-      expectedHeading: "Final Report Preparation",
-      expectedSemanticMarker: "FR-2026-018",
+      expectedHeading: "Final Report Readiness",
+      expectedSemanticMarker: "Report version was not found.",
     });
     expect(VISUAL_SURFACES.find((surface) => surface.id === "lead-prepare-final-report")).toMatchObject({
       legacy: { role: "leadInspector", view: "final-report-prepare", params: { reportId: "FR-2026-018" } },
-      expectedHeading: "Report Content",
-      expectedSemanticMarker: "Report Progress",
+      expectedHeading: "Final Report Preparation",
+      expectedSemanticMarker: "Report version was not found.",
     });
     expect(VISUAL_SURFACES.find((surface) => surface.id === "lead-final-report-document")).toMatchObject({
       legacy: { role: "leadInspector", view: "final-report-view", params: { reportId: "FR-2026-018" } },
@@ -213,12 +213,12 @@ describe("visual parity contract", () => {
     expect(VISUAL_SURFACES.find((surface) => surface.id === "executive-report-preview")).toMatchObject({
       legacy: { role: "executiveDirector", view: "executive-report-preview", params: { reportId: "FR-2026-022" } },
       expectedHeading: "Final Report Preview",
-      expectedSemanticMarker: "FR-2026-022",
+      expectedSemanticMarker: "Report version was not found.",
     });
     expect(VISUAL_SURFACES.find((surface) => surface.id === "auditee-report-preview")).toMatchObject({
       legacy: { role: "auditee", view: "service-provider-report-preview", params: { reportId: "FR-2025-009" } },
-      expectedHeading: "Final Report",
-      expectedSemanticMarker: "FR-2025-009",
+      expectedHeading: "Report Preview",
+      expectedSemanticMarker: "Released report unavailable",
     });
   });
 

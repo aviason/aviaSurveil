@@ -47,7 +47,7 @@ test("managed-policy and persistence denial block only official offline checkout
     await page.getByRole("button", { name: "Check out for offline use" }).click();
     await expect(page.locator('[data-readiness-code="managed-policy-unapproved"]')).toBeVisible();
 
-    await page.getByLabel(/managed Chrome policy/i).check();
+    await page.getByLabel(/official browser\/version lane/i).check();
     await page.getByRole("button", { name: "Check out for offline use" }).click();
     await expect(
       page.locator('[data-readiness-code="ephemeral-or-unmanaged-storage"]'),
@@ -82,7 +82,7 @@ test("advisory quota rejection reports required and available capacity", async (
   try {
     await server.start();
     await page.goto(`${server.origin}/inspector/audits/AUD-2026-001`);
-    await page.getByLabel(/managed Chrome policy/i).check();
+    await page.getByLabel(/official browser\/version lane/i).check();
     await page.getByLabel(/encrypted managed profile/i).check();
     await page.evaluate(async () => navigator.serviceWorker.ready);
     await page.getByRole("button", { name: "Check out for offline use" }).click();

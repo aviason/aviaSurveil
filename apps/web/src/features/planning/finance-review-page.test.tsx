@@ -11,6 +11,7 @@ import { AppRouter } from "../../app/router";
 import { SessionClientError, type SessionClient } from "../../auth/session-client";
 import { SessionProvider } from "../../auth/session-provider";
 import { createMockBackendRuntime } from "../../mock/create-mock-backend";
+import { planningItemLabel, recordReference } from "../shared/record-presentation";
 import { FinanceReviewPage } from "./planning-workspaces";
 
 afterEach(() => {
@@ -19,6 +20,10 @@ afterEach(() => {
 });
 
 type MockRuntime = ReturnType<typeof createMockBackendRuntime>;
+const PLAN_ID = "PLAN-2026-CAB-001";
+const PLAN_TITLE = "2026 Cabin Surveillance — Fly Namibia";
+const PLAN_LABEL = planningItemLabel(PLAN_TITLE, PLAN_ID);
+const PLAN_REFERENCE = recordReference("Plan", PLAN_ID);
 
 function renderPage(runtime: MockRuntime, identityMode: "demo-role-switch" | "oidc-session" = "demo-role-switch") {
   return render(
@@ -56,8 +61,8 @@ describe("FinanceReviewPage", () => {
     for (const column of ["Plan", "Department", "Requested", "Current Owner", "Status", "Action"]) {
       expect(within(queue).getByRole("columnheader", { name: column })).toBeVisible();
     }
-    expect(within(queue).getByText("PLAN-2026-CAB-001")).toBeVisible();
-    await userEvent.setup().click(within(queue).getByRole("button", { name: "Review PLAN-2026-CAB-001" }));
+    expect(within(queue).getByText(PLAN_REFERENCE)).toBeVisible();
+    await userEvent.setup().click(within(queue).getByRole("button", { name: `Review ${PLAN_LABEL}` }));
     const approvalFlow = screen.getByRole("list", { name: "Finance approval flow" });
     expect(approvalFlow).toBeVisible();
     expect(within(approvalFlow).getAllByRole("listitem").map((stage) => [
@@ -75,10 +80,10 @@ describe("FinanceReviewPage", () => {
     expect(screen.getByTestId("planning-status")).toHaveTextContent("FINANCE_REVIEW");
     expect(screen.getByTestId("planning-owner")).toHaveTextContent("Finance Review");
     expect(screen.getByText("Revision 1")).toBeVisible();
-    expect(within(queue).getByRole("button", { name: "PLAN-2026-CAB-001 is already selected" })).toBeDisabled();
-    expect(within(queue).getByRole("button", { name: "PLAN-2026-CAB-001 is already selected" })).toHaveAttribute(
+    expect(within(queue).getByRole("button", { name: `${PLAN_LABEL} is already selected` })).toBeDisabled();
+    expect(within(queue).getByRole("button", { name: `${PLAN_LABEL} is already selected` })).toHaveAttribute(
       "title",
-      "PLAN-2026-CAB-001 is already open in the Finance dossier.",
+      "This Planning item is already open in the Finance dossier.",
     );
     expect(screen.getByRole("button", { name: "Approve Budget" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Return for Revision" })).toBeEnabled();
@@ -90,7 +95,7 @@ describe("FinanceReviewPage", () => {
     renderPage(runtime);
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole("button", { name: "Review PLAN-2026-CAB-001" }));
+    await user.click(await screen.findByRole("button", { name: `Review ${PLAN_LABEL}` }));
     await user.click(await screen.findByRole("button", { name: "Return for Revision" }));
     await user.click(screen.getByRole("button", { name: "Confirm Finance Decision" }));
     expect(screen.getByRole("alert")).toHaveTextContent(/decision reason is required/i);
@@ -115,7 +120,7 @@ describe("FinanceReviewPage", () => {
     renderPage(runtime);
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole("button", { name: "Review PLAN-2026-CAB-001" }));
+    await user.click(await screen.findByRole("button", { name: `Review ${PLAN_LABEL}` }));
     await user.click(await screen.findByRole("button", { name: "Approve Budget" }));
     await user.type(screen.getByLabelText("Finance decision reason"), "Budget and resources reviewed.");
     await user.click(screen.getByRole("button", { name: "Confirm Finance Decision" }));
@@ -133,7 +138,7 @@ describe("FinanceReviewPage", () => {
     renderPage(runtime, "oidc-session");
     await screen.findByRole("table", { name: "Finance Review Queue" });
     await user.selectOptions(screen.getByLabelText("Finance status"), "all");
-    await user.click(await screen.findByRole("button", { name: "Review PLAN-2026-CAB-001" }));
+    await user.click(await screen.findByRole("button", { name: `Review ${PLAN_LABEL}` }));
     expect(await screen.findByRole("button", { name: "Continue as General Manager" })).toBeDisabled();
     expect(screen.getByText(/session does not include General Manager authority/i)).toBeVisible();
   });

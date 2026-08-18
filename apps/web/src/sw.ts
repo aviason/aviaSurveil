@@ -27,13 +27,45 @@ export interface AppShellRequestDescriptor {
   mode: string;
 }
 
+export interface SafeCheckpointAck {
+  clientId: string;
+  fingerprint: string;
+  compatibility: OfflineVersionVector;
+  dirtyFormCount: number;
+  active: Readonly<Record<"indexedDb" | "opfs" | "hashWorker" | "sync" | "mutation", number>>;
+  durableWorkAcknowledged: boolean;
+}
+
+export function isSafeCheckpointAck(
+  ack: SafeCheckpointAck,
+  expectedFingerprint: string,
+  expectedVector: OfflineVersionVector,
+): boolean {
+  return (
+    typeof ack.clientId === "string" &&
+    ack.clientId.length > 0 &&
+    ack.fingerprint === expectedFingerprint &&
+    sameOfflineVersionVector(ack.compatibility, expectedVector) &&
+    ack.dirtyFormCount === 0 &&
+    Object.values(ack.active).every((count) => Number.isSafeInteger(count) && count === 0) &&
+    ack.durableWorkAcknowledged === true
+  );
+}
+
+export function allClientsAcknowledgedSafeCheckpoint(
+  acknowledgements: readonly SafeCheckpointAck[],
+  expectedFingerprint: string,
+  expectedVector: OfflineVersionVector,
+): boolean {
+  return acknowledgements.every((ack) => isSafeCheckpointAck(ack, expectedFingerprint, expectedVector));
+}
+
 const EXPECTED_RELEASE_FINGERPRINT = "__AVIA_RELEASE_FINGERPRINT__";
 const LEGACY_PREDECESSOR_BASE64 = "__AVIA_LEGACY_PREDECESSOR_BASE64__";
 const LEGACY_V9_PREDECESSOR: AppShellPredecessorDescriptor | null =
   LEGACY_PREDECESSOR_BASE64.startsWith("__AVIA_")
     ? null
     : JSON.parse(atob(LEGACY_PREDECESSOR_BASE64)) as AppShellPredecessorDescriptor;
-const LEGACY_RETIREMENT_POLICY = "force-window-client-navigation-v1";
 const APP_SHELL_MANIFEST_URL = "/app-shell-assets.json";
 const VERIFIED_MARKER = "/__avia_app_shell_verified__";
 const MAX_MANIFEST_BYTES = 512 * 1024;
@@ -44,6 +76,7 @@ const serviceWorkerScope = globalThis as unknown as ServiceWorkerGlobalScope;
 let installedManifest: AppShellManifest | null = null;
 let activeCacheName: string | null = null;
 let activeManifest: AppShellManifest | null = null;
+const safeCheckpointAcks = new Map<string, SafeCheckpointAck>();
 
 const contentTypeByExtension: Record<string, string> = {
   css: "text/css",
@@ -364,15 +397,38 @@ async function retireLegacyCaches(activeName: string): Promise<void> {
   }
 }
 
-async function forceRetireLegacyClients(): Promise<void> {
+async function sameOriginWindowClients(): Promise<WindowClient[]> {
   const clients = await serviceWorkerScope.clients.matchAll({ type: "window", includeUncontrolled: true });
-  for (const client of clients) {
-    if (!client.url || new URL(client.url).origin !== serviceWorkerScope.location.origin) continue;
-    const windowClient = client as WindowClient;
-    // Do not await navigation from inside the activate event. The navigation
-    // fetch waits for activation to finish, so awaiting it here deadlocks the
-    // exact clients this bridge must retire.
-    void windowClient.navigate(client.url).catch(() => undefined);
+  return clients.filter((client): client is WindowClient =>
+    Boolean(client.url) && new URL(client.url).origin === serviceWorkerScope.location.origin,
+  );
+}
+
+async function notifyCandidate(manifest: AppShellManifest): Promise<void> {
+  for (const client of await sameOriginWindowClients()) {
+    client.postMessage({
+      type: "avia:app-shell-update-available",
+      fingerprint: manifest.releaseFingerprint,
+      compatibility: manifest.compatibility,
+      requiresSafeCheckpoint: true,
+    });
+  }
+}
+
+async function maybeSkipWaitingAfterSafeCheckpoint(manifest: AppShellManifest): Promise<void> {
+  const clients = await sameOriginWindowClients();
+  const acknowledgements = clients
+    .map((client) => safeCheckpointAcks.get(client.id))
+    .filter((ack): ack is SafeCheckpointAck => Boolean(ack));
+  if (
+    acknowledgements.length === clients.length &&
+    allClientsAcknowledgedSafeCheckpoint(
+      acknowledgements,
+      manifest.releaseFingerprint,
+      manifest.compatibility,
+    )
+  ) {
+    serviceWorkerScope.skipWaiting();
   }
 }
 
@@ -380,7 +436,7 @@ if (typeof serviceWorkerScope.addEventListener === "function" && "registration" 
   serviceWorkerScope.addEventListener("install", (event: ExtendableEvent) => {
     event.waitUntil((async () => {
       const manifest = await installAppShell();
-      if (await canActivate(manifest)) serviceWorkerScope.skipWaiting();
+      if (await canActivate(manifest)) await notifyCandidate(manifest);
     })());
   });
 
@@ -388,11 +444,35 @@ if (typeof serviceWorkerScope.addEventListener === "function" && "registration" 
     event.waitUntil((async () => {
       const manifest = installedManifest ?? await loadExpectedInstalledManifest();
       if (!manifest || !(await canActivate(manifest))) throw new Error("app-shell predecessor/vector activation gate failed");
+      const committed = await committedManifests();
+      const clients = await sameOriginWindowClients();
+      const acknowledgements = clients
+        .map((client) => safeCheckpointAcks.get(client.id))
+        .filter((ack): ack is SafeCheckpointAck => Boolean(ack));
+      if (
+        committed.length > 0 &&
+        (acknowledgements.length !== clients.length ||
+          !allClientsAcknowledgedSafeCheckpoint(
+            acknowledgements,
+            manifest.releaseFingerprint,
+            manifest.compatibility,
+          ))
+      ) {
+        throw new Error("app-shell activation requires every client safe-checkpoint acknowledgement");
+      }
       activeCacheName = candidateCacheName(manifest);
       activeManifest = manifest;
-      await serviceWorkerScope.clients.claim();
+      if (committed.length === 0 || acknowledgements.length === clients.length) {
+        await serviceWorkerScope.clients.claim();
+      }
       await retireLegacyCaches(activeCacheName);
-      await forceRetireLegacyClients();
+      for (const client of clients) {
+        client.postMessage({
+          type: "avia:app-shell-activation",
+          fingerprint: manifest.releaseFingerprint,
+          requiresUserReload: true,
+        });
+      }
     })());
   });
 
@@ -401,7 +481,27 @@ if (typeof serviceWorkerScope.addEventListener === "function" && "registration" 
       event.waitUntil((async () => {
         const source = event.source as Client | null;
         const manifest = await restoreActiveManifest();
-        if (source && manifest) source.postMessage({ type: "avia:app-shell-activation", fingerprint: manifest.releaseFingerprint, legacyRetirement: true, retirementPolicy: LEGACY_RETIREMENT_POLICY });
+        if (source && manifest) source.postMessage({
+          type: "avia:app-shell-worker-ready",
+          fingerprint: manifest.releaseFingerprint,
+          compatibility: manifest.compatibility,
+        });
+      })());
+    }
+    if (event.data?.type === "avia:app-shell-safe-checkpoint-ack") {
+      event.waitUntil((async () => {
+        const source = event.source as Client | null;
+        const manifest = installedManifest ?? await restoreActiveManifest();
+        if (!source || !manifest) return;
+        const ack = {
+          ...(event.data.ack as Omit<SafeCheckpointAck, "clientId">),
+          clientId: source.id,
+        } as SafeCheckpointAck;
+        if (
+          !isSafeCheckpointAck(ack, manifest.releaseFingerprint, manifest.compatibility)
+        ) return;
+        safeCheckpointAcks.set(source.id, ack);
+        await maybeSkipWaitingAfterSafeCheckpoint(manifest);
       })());
     }
   });

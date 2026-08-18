@@ -4,6 +4,7 @@ import type { OfflineGrant } from "../backend/backend";
 import {
   CURRENT_OFFLINE_VERSIONS,
   assessOfflineReadiness,
+  classifyLocalDataState,
   describeLocalPackageLoss,
   type OfflineReadinessDependencies,
   type OfflineReadinessInput,
@@ -26,8 +27,12 @@ const grant: OfflineGrant = {
   ],
   assignmentScope: { questionIds: ["CAB-EMEQ-PBE-001"] },
   deviceInstanceId: "DEVICE-CANDIDATE-001",
+  profileKeyId: "sha256:" + "a".repeat(64),
+  assignmentRevision: 3,
   issuedAt: "2026-07-21T07:59:00.000Z",
   expiresAt: "2026-07-22T08:00:00.000Z",
+  leaseIssuedAt: "2026-07-21T07:59:00.000Z",
+  leaseExpiresAt: "2026-07-22T08:00:00.000Z",
   protocolVersion: 1,
 };
 
@@ -102,6 +107,11 @@ describe("assessOfflineReadiness", () => {
     [
       "offline-grant-invalid",
       { offlineGrant: { ...grant, expiresAt: "2026-07-21T07:59:59.000Z" } },
+      {},
+    ],
+    [
+      "offline-grant-invalid",
+      { offlineGrant: { ...grant, leaseExpiresAt: "2026-07-29T08:00:00.000Z" } },
       {},
     ],
     [
@@ -191,6 +201,55 @@ describe("assessOfflineReadiness", () => {
     expect(result.recoveryAction).toMatch(/restart.*browser/i);
   });
 
+  it("runs the final runtime canary after capability and quota gates", async () => {
+    const events: string[] = [];
+    const result = await assessOfflineReadiness(
+      input(),
+      dependencies({
+        browserAdmission: vi.fn().mockImplementation(async () => {
+          events.push("browser");
+          return { official: true, state: "OFFICIAL", reasonCode: "OFFICIAL_BROWSER" };
+        }),
+        serviceWorkerReady: vi.fn().mockImplementation(async () => {
+          events.push("service-worker");
+          return true;
+        }),
+        indexedDbCanary: vi.fn().mockImplementation(async () => {
+          events.push("indexeddb");
+          return true;
+        }),
+        opfsCanary: vi.fn().mockImplementation(async () => {
+          events.push("opfs");
+          return true;
+        }),
+        estimateStorage: vi.fn().mockImplementation(async () => {
+          events.push("quota");
+          return { usage: 10 * 1024 * 1024, quota: 512 * 1024 * 1024 };
+        }),
+        runtimeCanary: vi.fn().mockImplementation(async () => {
+          events.push("runtime");
+          return true;
+        }),
+      }),
+    );
+
+    expect(result).toMatchObject({ code: "ready", ready: true, admissionState: "OFFLINE_READY" });
+    expect(events).toEqual(["browser", "service-worker", "indexeddb", "opfs", "quota", "runtime"]);
+  });
+
+  it("fails closed when the runtime canary cannot prove restart/readback", async () => {
+    const result = await assessOfflineReadiness(
+      input(),
+      dependencies({ runtimeCanary: vi.fn().mockResolvedValue(false) }),
+    );
+
+    expect(result).toMatchObject({
+      code: "runtime-canary-failed",
+      ready: false,
+      admissionState: "RECOVERY_REQUIRED",
+    });
+  });
+
   it("fails a grant whose subject, device, package, digest, or scope is not exact", async () => {
     for (const invalidGrant of [
       { ...grant, subjectId: "USR-OTHER" },
@@ -208,6 +267,9 @@ describe("assessOfflineReadiness", () => {
   });
 
   it("states the irrecoverable boundary after explicit site-data deletion", () => {
+    expect(classifyLocalDataState({ outstandingCheckout: true, localPackagePresent: false })).toBe(
+      "LOCAL_DATA_CLEARED",
+    );
     expect(describeLocalPackageLoss({ outstandingCheckout: true, localPackagePresent: false })).toBe(
       "Local package missing. Unsynced single-device work cannot be recovered after site data is cleared.",
     );

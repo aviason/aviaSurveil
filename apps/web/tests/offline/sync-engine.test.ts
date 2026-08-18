@@ -68,6 +68,9 @@ function operation(
   if (commandType === "SUBMIT_CHECKLIST") {
     return { ...base, commandType, payload: { auditId: "AUD-2026-001" } };
   }
+  if (commandType === "RESOLVE_FIELD_CONFLICT") {
+    throw new Error("The sync-engine fixture does not construct conflict-resolution operations.");
+  }
   return {
     ...base,
     entityId: "ATT-LOCAL-001",
@@ -88,6 +91,7 @@ function operation(
 function outboxRow(input: FieldSyncOperation, state: OutboxRow["state"] = "PENDING"): OutboxRow {
   return {
     operationId: input.operationId,
+    operationSequence: 1,
     subjectId: "USR-INSPECTOR-AMINA",
     packageId,
     commandType: input.commandType,
@@ -100,6 +104,9 @@ function outboxRow(input: FieldSyncOperation, state: OutboxRow["state"] = "PENDI
     dependsOnOperationIds: [],
     supersededByOperationId: null,
     requestDigest: "sha256:test",
+    entityRevision: input.baseRevision ?? 0,
+    entityHash: "sha256:test",
+    commitReceiptKey: `commit-receipt:USR-INSPECTOR-AMINA:${input.operationId}`,
     lastErrorCode: null,
     operation: input,
   };
@@ -193,6 +200,40 @@ class FakeRepository implements FieldSyncRepository {
     return structuredClone(this.syncState);
   }
 
+  async getOfflineGrant(): Promise<{ profileKeyId: string }> {
+    return { profileKeyId: "sha256:" + "p".repeat(64) };
+  }
+
+  async recordAttachmentUploadSession(
+    attachmentId: string,
+    session: any,
+  ): Promise<AttachmentManifestRow> {
+    const manifest = this.manifests.find((candidate) => candidate.attachmentId === attachmentId)!;
+    const sameSession = manifest.uploadSessionId === session.uploadId;
+    Object.assign(manifest, {
+      uploadSessionId: session.uploadId,
+      uploadSessionEpoch: session.sessionEpoch,
+      uploadPartSize: session.partSize,
+      uploadReceivedParts: sameSession ? manifest.uploadReceivedParts ?? session.receivedParts : session.receivedParts,
+      uploadAcknowledgedOffsets: sameSession ? manifest.uploadAcknowledgedOffsets ?? session.acknowledgedOffsets : session.acknowledgedOffsets,
+      uploadPartHashes: sameSession ? manifest.uploadPartHashes ?? session.partHashes : session.partHashes,
+      uploadWholeFileSha256: session.wholeFileSha256,
+      uploadBeginOperationId: session.beginOperationId,
+    });
+    return structuredClone(manifest);
+  }
+
+  async recordAttachmentUploadPart(attachmentId: string, receipt: any): Promise<AttachmentManifestRow> {
+    const manifest = this.manifests.find((candidate) => candidate.attachmentId === attachmentId)!;
+    manifest.uploadReceivedParts = [...(manifest.uploadReceivedParts ?? []), receipt.partNumber];
+    manifest.uploadPartHashes = { ...(manifest.uploadPartHashes ?? {}), [String(receipt.partNumber)]: receipt.sha256 };
+    manifest.uploadPartObjectVersions = { ...(manifest.uploadPartObjectVersions ?? {}), [String(receipt.partNumber)]: receipt.objectVersion };
+    manifest.uploadAcknowledgedOffsets = [...(manifest.uploadAcknowledgedOffsets ?? []), receipt.acknowledgedOffset];
+    return structuredClone(manifest);
+  }
+
+  async markAttachmentUploadCompleting(): Promise<void> {}
+
   async applyPullPage(input: { page: SyncPullResponse }): Promise<void> {
     this.pullPages.push(structuredClone(input.page));
     this.syncState.cursor = input.page.nextCursor;
@@ -233,6 +274,8 @@ function backend(input: {
   pull?: () => Promise<SyncPullResponse>;
   beginUpload?: Backend["inspectionAttachments"]["beginUpload"];
   completeUpload?: Backend["inspectionAttachments"]["completeUpload"];
+  beginPart?: (...args: any[]) => Promise<any>;
+  acknowledgePart?: (...args: any[]) => Promise<any>;
 } = {}): Backend {
   return {
     mode: "http",
@@ -267,15 +310,38 @@ function backend(input: {
       beginUpload: input.beginUpload ?? (async (request) => ({
         uploadId: `UPLOAD-${request.inspectionAttachmentId}`,
         stagingObjectKey: "private/staging/key",
-        uploadUrl: "https://upload.invalid/object",
-        requiredHeaders: { "Content-Type": request.declaredMediaType },
+        sessionEpoch: 1,
+        partSize: 2,
+        receivedParts: [],
+        acknowledgedOffsets: [],
+        partHashes: {},
+        wholeFileSha256: request.sha256,
         expiresAt: new Date(now.getTime() + 60_000).toISOString(),
         maximumByteSize: 25 * 1024 * 1024,
+      })),
+      beginPart: input.beginPart ?? (async (request) => ({
+        uploadId: request.uploadId,
+        sessionEpoch: request.sessionEpoch,
+        partNumber: request.partNumber,
+        partObjectKey: `private/staging/${request.uploadId}/part-${request.partNumber}`,
+        uploadUrl: "https://upload.invalid/part",
+        requiredHeaders: { "Content-Type": "application/octet-stream" },
+        expiresAt: new Date(now.getTime() + 60_000).toISOString(),
+      })),
+      acknowledgePart: input.acknowledgePart ?? (async (request) => ({
+        partNumber: request.partNumber,
+        byteSize: request.byteSize,
+        sha256: request.sha256,
+        acknowledgedOffset: request.partNumber * request.byteSize,
+        objectVersion: `part-version-${request.partNumber}`,
       })),
       completeUpload: input.completeUpload ?? (async (request) => ({
         inspectionAttachmentId: request.uploadId.replace("UPLOAD-", ""),
         uploadState: "UPLOADED",
         scanState: "PENDING",
+        byteSize: request.byteSize,
+        sha256: request.sha256,
+        objectVersion: "object-version-1",
       })),
     },
     sync: {
@@ -318,7 +384,7 @@ describe("ForegroundSyncEngine", () => {
       now: () => now,
     });
 
-    const result = await engine.run({ packageId, offlineGrantId: grantId }, "startup");
+    const result = await engine.run({ packageId, offlineGrantId: grantId, profileKeyId: "sha256:" + "p".repeat(64) }, "startup");
 
     expect(pushed).toEqual(["OP-RESPONSE-001", "OP-PF-001"]);
     expect(repository.applied.map((entry) => entry.authoritativeEntityId)).toEqual([
@@ -342,11 +408,11 @@ describe("ForegroundSyncEngine", () => {
       backend: backend({ push }), repository, lock: acquiredLock, now: () => now,
     });
 
-    const failed = await engine.run({ packageId, offlineGrantId: grantId }, "startup");
+    const failed = await engine.run({ packageId, offlineGrantId: grantId, profileKeyId: "sha256:" + "p".repeat(64) }, "startup");
     expect(failed.status).toBe("retryable");
     expect(repository.rows.get(row.operationId)?.state).toBe("FAILED_RETRYABLE");
 
-    const retried = await engine.run({ packageId, offlineGrantId: grantId }, "manual");
+    const retried = await engine.run({ packageId, offlineGrantId: grantId, profileKeyId: "sha256:" + "p".repeat(64) }, "manual");
     expect(retried.status).toBe("synchronized");
     expect(push).toHaveBeenCalledTimes(2);
     expect(repository.rows.get(row.operationId)?.state).toBe("ACKNOWLEDGED");
@@ -378,8 +444,8 @@ describe("ForegroundSyncEngine", () => {
         backend: backend({ push }), repository, lock: acquiredLock, now: () => now,
       });
 
-      const first = await engine.run({ packageId, offlineGrantId: grantId }, "manual");
-      const second = await engine.run({ packageId, offlineGrantId: grantId }, "manual");
+      const first = await engine.run({ packageId, offlineGrantId: grantId, profileKeyId: "sha256:" + "p".repeat(64) }, "manual");
+      const second = await engine.run({ packageId, offlineGrantId: grantId, profileKeyId: "sha256:" + "p".repeat(64) }, "manual");
 
       expect(first.status).toBe(status);
       expect(second.pushed).toBe(0);
@@ -408,8 +474,8 @@ describe("ForegroundSyncEngine", () => {
     const engine = new ForegroundSyncEngine({ backend: backend(), repository, lock, now: () => now });
 
     const [owner, observer] = await Promise.all([
-      engine.run({ packageId, offlineGrantId: grantId }, "foreground"),
-      engine.run({ packageId, offlineGrantId: grantId }, "foreground"),
+      engine.run({ packageId, offlineGrantId: grantId, profileKeyId: "sha256:" + "p".repeat(64) }, "foreground"),
+      engine.run({ packageId, offlineGrantId: grantId, profileKeyId: "sha256:" + "p".repeat(64) }, "foreground"),
     ]);
 
     expect([owner.acquired, observer.acquired].sort()).toEqual([false, true]);
@@ -469,7 +535,7 @@ describe("ForegroundSyncEngine", () => {
     }
   });
 
-  it("retries an expired attachment URL without deleting local bytes", async () => {
+  it("retries only the missing attachment part without deleting local bytes", async () => {
     const attachmentOperation = operation("OP-ATTACHMENT-001", "REGISTER_INSPECTION_ATTACHMENT");
     const repository = new FakeRepository([outboxRow(attachmentOperation, "ACKNOWLEDGED")]);
     repository.manifests = [{
@@ -503,7 +569,7 @@ describe("ForegroundSyncEngine", () => {
     let uploadAttempt = 0;
     const uploadBytes = vi.fn(async () => {
       uploadAttempt += 1;
-      if (uploadAttempt === 1) throw new Error("expired upload URL");
+      if (uploadAttempt === 2) throw new Error("expired upload URL");
     });
     const engine = new ForegroundSyncEngine({
       backend: backend(), repository, lock: acquiredLock, now: () => now,
@@ -512,12 +578,12 @@ describe("ForegroundSyncEngine", () => {
       operationId: (prefix) => `${prefix}-${uploadAttempt + 1}`,
     });
 
-    const first = await engine.run({ packageId, offlineGrantId: grantId }, "online");
-    const second = await engine.run({ packageId, offlineGrantId: grantId }, "manual");
+    const first = await engine.run({ packageId, offlineGrantId: grantId, profileKeyId: "sha256:" + "p".repeat(64) }, "online");
+    const second = await engine.run({ packageId, offlineGrantId: grantId, profileKeyId: "sha256:" + "p".repeat(64) }, "manual");
 
     expect(first.status).toBe("retryable");
     expect(second.status).toBe("synchronized");
-    expect(uploadBytes).toHaveBeenCalledTimes(2);
+    expect(uploadBytes).toHaveBeenCalledTimes(3);
     expect(repository.uploaded).toEqual(["ATT-LOCAL-001"]);
     expect(repository.manifests[0]?.localBytesPresent).toBe(true);
   });

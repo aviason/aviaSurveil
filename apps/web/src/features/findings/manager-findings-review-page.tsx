@@ -57,14 +57,14 @@ export function ManagerFindingsReviewPage() {
             {visible.map((finding) => (
               <article aria-label={`Finding ${finding.id}`} className="manager-ops-card" data-finding-id={finding.id} key={finding.id}>
                 <button aria-pressed={selectedId === finding.id} className="manager-ops-record-select" onClick={() => setSelectedId(finding.id)} type="button"><span>{finding.findingNumber}</span><strong>{finding.title}</strong></button>
-                <p>{finding.organizationName} · {finding.status}</p>
-                <Link to={`/department-manager/evidence/${encodeURIComponent(finding.id)}`}>Open Evidence {finding.id}</Link>
+                <p>{finding.organizationName} · {finding.status.replaceAll("_", " ")}</p>
+                <Link to={`/department-manager/evidence/${encodeURIComponent(finding.id)}`}>Open Evidence</Link>
               </article>
             ))}
             {visible.length === 0 ? <p>No Findings match the active Organization, status, and search scope.</p> : null}
           </section>
           <section aria-label="Selected Finding dossier" className="manager-ops-dossier">
-            {selected ? <><p className="eyebrow">Exact Finding dossier</p><h2>{selected.id}</h2><FindingFacts finding={selected} /></> : <p>Select a Finding.</p>}
+            {selected ? <><p className="eyebrow">Finding overview</p><h2>{selected.title}</h2><FindingFacts finding={selected} /></> : <p>Select a Finding.</p>}
           </section>
         </div>
       </div>

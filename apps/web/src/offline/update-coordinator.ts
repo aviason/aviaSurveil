@@ -1,11 +1,12 @@
 import { CURRENT_OFFLINE_VERSIONS, type OfflineVersionVector } from "./offline-version-contract";
+import type { QuiescenceCounter } from "./client-quiescence";
 
 export const APP_SHELL_UPDATE_POLL_INTERVAL_MS = 60_000;
 
 export const UPDATE_ACTIVATION_POLICY = {
-  automaticSkipWaiting: true,
-  automaticClientsClaim: true,
-  deleteOldCachesOnActivate: true,
+  automaticSkipWaiting: false,
+  automaticClientsClaim: false,
+  deleteOldCachesOnActivate: false,
 } as const;
 
 export type MigrationPhase =
@@ -17,6 +18,12 @@ export type MigrationPhase =
 
 export interface ClientVersion extends OfflineVersionVector {
   clientId: string;
+  responsive?: boolean;
+}
+
+export interface UpdateQuiescenceInput {
+  dirtyFormCount: number;
+  active: Partial<Record<QuiescenceCounter, number>>;
 }
 
 export interface UpdateSafetyInput {
@@ -28,6 +35,7 @@ export interface UpdateSafetyInput {
     pendingAttachmentManifestCount: number;
     unsyncedPackageCount: number;
   };
+  quiescence?: UpdateQuiescenceInput;
   migration: {
     required: boolean;
     ownerLockAcquired: boolean;
@@ -37,7 +45,8 @@ export interface UpdateSafetyInput {
 }
 
 export type UpdateDecisionCode =
-  | "ready-for-automatic-activation"
+  | "ready-for-safe-checkpoint"
+  | "waiting-for-safe-checkpoint"
   | "deferred-incompatible-client"
   | "read-only-recovery"
   | "blocked-vector-change";
@@ -62,10 +71,10 @@ function decision(
   return {
     code,
     allowEdits,
-    autoActivate: code === "ready-for-automatic-activation",
+    autoActivate: false,
     allowDocumentReload,
     preserveLocalData: true,
-    deleteOldCaches: code === "ready-for-automatic-activation",
+    deleteOldCaches: false,
     databaseDowngradeAllowed: false,
     reason,
   };
@@ -82,7 +91,12 @@ export function isExactOfflineVersion(version: number, current: number): boolean
 }
 
 function hasPendingLocalWork(input: UpdateSafetyInput): boolean {
+  const activeCounters = Object.values(input.quiescence?.active ?? {}).some(
+    (count) => (count ?? 0) > 0,
+  );
   return (
+    (input.quiescence?.dirtyFormCount ?? 0) > 0 ||
+    activeCounters ||
     input.localWork.pendingOutboxCount > 0 ||
     input.localWork.pendingAttachmentManifestCount > 0 ||
     input.localWork.unsyncedPackageCount > 0
@@ -120,7 +134,17 @@ export function evaluateUpdateSafety(input: UpdateSafetyInput): UpdateDecision {
     );
   }
 
-  if (input.clients.some((client) => !clientIsExact(client, input.candidate))) {
+  if (hasPendingLocalWork(input) || input.migration.required && !input.migration.ownerLockAcquired) {
+    return decision(
+      "waiting-for-safe-checkpoint",
+      true,
+      hasPendingLocalWork(input)
+        ? "Mutation, form, storage, hashing, upload, or sync work is active; wait for a safe checkpoint before activation."
+        : "A migration owner is not acquired; keep the candidate waiting and preserve local work.",
+    );
+  }
+
+  if (input.clients.some((client) => !clientIsExact(client, input.candidate) || client.responsive === false)) {
     return decision(
       "deferred-incompatible-client",
       true,
@@ -128,13 +152,62 @@ export function evaluateUpdateSafety(input: UpdateSafetyInput): UpdateDecision {
     );
   }
   return decision(
-    "ready-for-automatic-activation",
+    "ready-for-safe-checkpoint",
     true,
-    hasPendingLocalWork(input)
-      ? "The exact-vector worker force-retires legacy documents; durable local work remains preserved."
-      : "The exact-vector worker force-retires legacy documents after activation.",
-    true,
+    "All observed clients report the exact vector and local work is quiescent; obtain safe-checkpoint ACKs before activation.",
   );
+}
+
+export type UnresponsiveClientFenceState =
+  | "WAITING_FOR_ACK"
+  | "ACK_TIMEOUT"
+  | "SERVER_MINIMUM_WRITE_VECTOR_COMMITTED"
+  | "RESPONSIVE_CLIENTS_FROZEN_AND_ACKED"
+  | "UNRESPONSIVE_CLIENT_FENCED_READ_ONLY_PENDING_RESUME"
+  | "SECURITY_UPDATE_ENFORCED_SHELL_PENDING"
+  | "SAFE_CHECKPOINT_ACKED"
+  | "CLIENT_EXITED";
+
+export interface UnresponsiveClientFenceInput {
+  ackTimedOut: boolean;
+  clientExited: boolean;
+  securityCritical: boolean;
+  oldVectorDeadlineReached: boolean;
+  serverMinimumWriteVectorCommitted: boolean;
+  responsiveClientsFrozenAndAcked: boolean;
+  resumedClientSafeAck: boolean;
+}
+
+export interface UnresponsiveClientFenceDecision {
+  state: UnresponsiveClientFenceState;
+  activationMayProceed: boolean;
+  mutationsAllowed: boolean;
+}
+
+export function evaluateUnresponsiveClientFence(
+  input: UnresponsiveClientFenceInput,
+): UnresponsiveClientFenceDecision {
+  if (!input.ackTimedOut) {
+    return { state: "WAITING_FOR_ACK", activationMayProceed: false, mutationsAllowed: true };
+  }
+  if (input.clientExited) {
+    return { state: "CLIENT_EXITED", activationMayProceed: true, mutationsAllowed: false };
+  }
+  if (input.resumedClientSafeAck) {
+    return { state: "SAFE_CHECKPOINT_ACKED", activationMayProceed: true, mutationsAllowed: false };
+  }
+  if (
+    (input.securityCritical || input.oldVectorDeadlineReached) &&
+    input.serverMinimumWriteVectorCommitted &&
+    input.responsiveClientsFrozenAndAcked
+  ) {
+    return {
+      state: "UNRESPONSIVE_CLIENT_FENCED_READ_ONLY_PENDING_RESUME",
+      activationMayProceed: false,
+      mutationsAllowed: false,
+    };
+  }
+  return { state: "ACK_TIMEOUT", activationMayProceed: false, mutationsAllowed: true };
 }
 
 export interface UpdateOwnerLock {

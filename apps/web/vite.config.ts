@@ -3,10 +3,17 @@ import { defineConfig, type Plugin } from "vite";
 import { fileURLToPath } from "node:url";
 
 import { createAppShellManifestPlugin } from "./build/app-shell-manifest-plugin";
+import { createBuildArtifactPlugin } from "./build/build-artifact-plugin";
+import { resolveBuildArtifactLane } from "./src/app/build-artifact-contract";
 import { resolveBuildProfile, type BuildProfile } from "./src/app/build-profile";
 import { contentSecurityPolicy } from "./src/app/csp-policy";
 
-function buildProfilePlugin(profile: BuildProfile, entryName: string, localDevelopment: boolean): Plugin {
+function buildProfilePlugin(
+  profile: BuildProfile,
+  entryName: string,
+  localDevelopment: boolean,
+  lane: string,
+): Plugin {
   return {
     name: "aviasurveil360-build-profile",
     transformIndexHtml: {
@@ -14,6 +21,7 @@ function buildProfilePlugin(profile: BuildProfile, entryName: string, localDevel
       handler(html) {
         return html
           .replace("__AVIA_ENTRY__", entryName)
+          .replace("__AVIA_BUILD_LANE__", lane)
           .replace("__AVIA_CSP__", contentSecurityPolicy(profile, localDevelopment));
       },
     },
@@ -26,7 +34,7 @@ function buildProfilePlugin(profile: BuildProfile, entryName: string, localDevel
       this.emitFile({
         type: "asset",
         fileName: "build-inputs.json",
-        source: `${JSON.stringify({ profile, inputs: [...inputs].sort() }, null, 2)}\n`,
+        source: `${JSON.stringify({ profile, lane, inputs: [...inputs].sort() }, null, 2)}\n`,
       });
     },
   };
@@ -54,10 +62,12 @@ function canonicalOtlpSinkPlugin(enabled: boolean): Plugin {
 
 export default defineConfig(({ command }) => {
   const profile = resolveBuildProfile(process.env.AVIA_BUILD_PROFILE, Boolean(process.env.VITEST));
+  const lane = resolveBuildArtifactLane(process.env.AVIA_BUILD_LANE, profile);
   const httpTestProfile = profile === "http" && process.env.AVIA_HTTP_TEST_PROFILE === "canonical";
   const apiTarget = process.env.AVIA_HTTP_API_TARGET;
   const webRoot = fileURLToPath(new URL(".", import.meta.url));
   const assetsRoot = fileURLToPath(new URL("../../assets", import.meta.url));
+  const publicProfile = process.env.AVIA_PUBLIC_PROFILE ?? profile;
   const httpProxy =
     profile === "http" && apiTarget
       ? {
@@ -74,11 +84,12 @@ export default defineConfig(({ command }) => {
   return {
     plugins: [
       react(),
-      buildProfilePlugin(profile, httpTestProfile ? "http-test" : profile, command === "serve"),
+      buildProfilePlugin(profile, httpTestProfile ? "http-test" : profile, command === "serve", lane),
+      createBuildArtifactPlugin(lane, profile),
       createAppShellManifestPlugin(profile),
       canonicalOtlpSinkPlugin(httpTestProfile),
     ],
-    publicDir: `public/${profile}`,
+    publicDir: `public/${publicProfile}`,
     resolve: {
       alias: {
         "react-router-dom": fileURLToPath(
@@ -102,7 +113,7 @@ export default defineConfig(({ command }) => {
       proxy: httpProxy,
     },
     build: {
-      outDir: `dist/${profile}`,
+      outDir: process.env.AVIA_BUILD_OUT_DIR ?? `dist/${profile}`,
       assetsInlineLimit: 0,
       emptyOutDir: true,
       manifest: true,

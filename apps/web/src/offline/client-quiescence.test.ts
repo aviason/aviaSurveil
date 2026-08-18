@@ -3,6 +3,30 @@ import { describe, expect, it } from "vitest";
 import { ClientQuiescence } from "./client-quiescence";
 
 describe("client quiescence", () => {
+  it("freezes a quiescent client and emits a safe-checkpoint acknowledgement", () => {
+    const state = new ClientQuiescence("client-a");
+    state.setPageState("sha256:old", { appShellVersion: 9, indexedDbSchemaVersion: 2, packageSchemaVersion: 1, syncProtocolVersion: 1 });
+
+    expect(state.freezeForSafeCheckpoint()).toBe(true);
+    expect(state.snapshot().frozenForSafeCheckpoint).toBe(true);
+    expect(state.safeCheckpointAck("sha256:new", { appShellVersion: 9, indexedDbSchemaVersion: 2, packageSchemaVersion: 1, syncProtocolVersion: 1 })).toMatchObject({
+      clientId: "client-a",
+      fingerprint: "sha256:new",
+      dirtyFormCount: 0,
+      active: { indexedDb: 0, opfs: 0, hashWorker: 0, sync: 0, mutation: 0 },
+      durableWorkAcknowledged: true,
+    });
+    expect(() => state.begin("mutation")).toThrow(/safe checkpoint/i);
+  });
+
+  it("does not freeze a client with active work", () => {
+    const state = new ClientQuiescence("client-b");
+    const release = state.begin("sync");
+    expect(state.freezeForSafeCheckpoint()).toBe(false);
+    expect(state.snapshot().frozenForSafeCheckpoint).toBe(false);
+    release();
+  });
+
   it("does not acknowledge a reload while forms or durable work are active", () => {
     const state = new ClientQuiescence();
     state.setPageState("sha256:old", { appShellVersion: 9, indexedDbSchemaVersion: 2, packageSchemaVersion: 1, syncProtocolVersion: 1 });

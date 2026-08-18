@@ -459,8 +459,12 @@ export interface OfflineGrant {
   allowedCommandTypes: FieldCommandType[];
   assignmentScope: { questionIds: string[] };
   deviceInstanceId: string;
+  profileKeyId?: string;
+  assignmentRevision?: number;
   issuedAt: Instant;
   expiresAt: Instant;
+  leaseIssuedAt?: Instant;
+  leaseExpiresAt?: Instant;
   protocolVersion: number;
 }
 
@@ -468,11 +472,31 @@ export interface CheckoutInspectionPackageInput extends CommandMeta {
   packageId: string;
   expectedPackageVersion: number;
   deviceInstanceId: string;
+  profileKeyId?: string;
+  profilePublicJwk?: JsonWebKey;
 }
 
 export interface CheckoutInspectionPackageOutput {
   inspectionPackage: InspectionPackage;
   offlineGrant: OfflineGrant;
+}
+
+export interface FinalizeInspectionInput extends CommandMeta {
+  inspectionId: string;
+  expectedPackageRevision: number;
+}
+
+export interface InspectionFinalizationReceipt {
+  receiptId: string;
+  inspectionId: string;
+  packageRevision: number;
+  serverRevision: number;
+  answerManifestHash: string;
+  findingManifestHash: string;
+  attachmentManifestHash: string;
+  eventManifestHash: string;
+  canonicalizationVersion: "avia-finalization-manifest/v1";
+  serverTimestamp: Instant;
 }
 
 export interface CreatePotentialFindingInput extends CommandMeta {
@@ -663,22 +687,74 @@ export interface BeginInspectionAttachmentUploadInput extends CommandMeta {
 export interface BeginInspectionAttachmentUploadOutput {
   uploadId: string;
   stagingObjectKey: string;
-  uploadUrl: string;
-  requiredHeaders: Record<string, string>;
+  sessionEpoch?: number;
+  partSize?: number;
+  receivedParts?: number[];
+  acknowledgedOffsets?: number[];
+  partHashes?: Record<string, string>;
+  wholeFileSha256?: string;
+  uploadUrl?: string;
+  requiredHeaders?: Record<string, string>;
   expiresAt: Instant;
   maximumByteSize: number;
 }
 
+export type ResumableInspectionAttachmentUploadSession =
+  BeginInspectionAttachmentUploadOutput &
+  Required<Pick<
+    BeginInspectionAttachmentUploadOutput,
+    "sessionEpoch" | "partSize" | "receivedParts" | "acknowledgedOffsets" | "partHashes" | "wholeFileSha256"
+  >>;
+
+export interface BeginInspectionAttachmentPartUploadInput extends CommandMeta {
+  uploadId: string;
+  sessionEpoch: number;
+  partNumber: number;
+  byteSize: number;
+  sha256: string;
+}
+
+export interface BeginInspectionAttachmentPartUploadOutput {
+  uploadId: string;
+  sessionEpoch: number;
+  partNumber: number;
+  partObjectKey: string;
+  uploadUrl: string;
+  requiredHeaders: Record<string, string>;
+  expiresAt: Instant;
+}
+
+export interface UploadPartReceipt {
+  partNumber: number;
+  byteSize: number;
+  sha256: string;
+  acknowledgedOffset: number;
+  objectVersion: string;
+}
+
+export interface AcknowledgeInspectionAttachmentPartInput extends CommandMeta {
+  uploadId: string;
+  sessionEpoch?: number;
+  partNumber: number;
+  byteSize: number;
+  sha256: string;
+}
+
 export interface CompleteInspectionAttachmentUploadInput extends CommandMeta {
   uploadId: string;
+  sessionEpoch?: number;
   sha256: string;
   byteSize: number;
+  parts?: UploadPartReceipt[];
 }
 
 export interface CompleteInspectionAttachmentUploadOutput {
   inspectionAttachmentId: string;
   uploadState: "UPLOADED";
   scanState: "PENDING";
+  byteSize?: number;
+  sha256?: string;
+  objectVersion?: string;
 }
 
 export interface BeginEvidenceUploadInput extends CommandMeta {
@@ -1249,7 +1325,8 @@ export type FieldCommandType =
   | "UPSERT_CHECKLIST_RESPONSE"
   | "CREATE_POTENTIAL_FINDING"
   | "SUBMIT_CHECKLIST"
-  | "REGISTER_INSPECTION_ATTACHMENT";
+  | "REGISTER_INSPECTION_ATTACHMENT"
+  | "RESOLVE_FIELD_CONFLICT";
 
 export interface FieldOperationBase<TType extends FieldCommandType, TPayload> {
   operationId: string;
@@ -1257,10 +1334,20 @@ export interface FieldOperationBase<TType extends FieldCommandType, TPayload> {
   offlineGrantId: string;
   packageId: string;
   packageVersion: number;
+  // The wire contract requires this envelope. Synthetic legacy fixtures may
+  // omit it; production offline builders always populate it before delivery.
+  packageRevision?: number;
   entityId: string;
   commandType: TType;
   baseRevision: number | null;
   deviceInstanceId: string;
+  actorSubject?: string;
+  operationSequence?: number;
+  payloadHash?: string;
+  requestHash?: string;
+  profileKeyId?: string;
+  authorityProof?: string;
+  dependencies?: string[];
   clientOccurredAt: Instant;
   payload: TPayload;
 }
@@ -1294,6 +1381,16 @@ export type FieldSyncOperation =
         mediaType: string;
         byteSize: number;
         sha256: string;
+      }
+    >
+  | FieldOperationBase<
+      "RESOLVE_FIELD_CONFLICT",
+      {
+        conflictOperationId: string;
+        resolution: "ACCEPT_SERVER" | "KEEP_LOCAL_AS_NEW_REVISION" | "AUTHORIZED_REVIEWER";
+        reason: string;
+        authoritativeRevision: number | null;
+        localPayloadHash: string;
       }
     >;
 
@@ -1330,6 +1427,8 @@ export interface PushFieldOperationResult {
 export interface SyncPullRequest {
   packageId: string;
   offlineGrantId: string;
+  deviceInstanceId?: string;
+  profileKeyId?: string;
   cursor: string | null;
   limit?: number;
 }
@@ -1370,6 +1469,10 @@ export interface InspectionBackend {
     input: CheckoutInspectionPackageInput,
     options?: BackendRequestOptions,
   ): Promise<CheckoutInspectionPackageOutput>;
+  finalize?(
+    input: FinalizeInspectionInput,
+    options?: BackendRequestOptions,
+  ): Promise<InspectionFinalizationReceipt>;
   upsertChecklistResponse(
     input: UpsertChecklistResponseInput,
     options?: BackendRequestOptions,
@@ -1443,6 +1546,14 @@ export interface InspectionAttachmentBackend {
     input: BeginInspectionAttachmentUploadInput,
     options?: BackendRequestOptions,
   ): Promise<BeginInspectionAttachmentUploadOutput>;
+  beginPart?(
+    input: BeginInspectionAttachmentPartUploadInput,
+    options?: BackendRequestOptions,
+  ): Promise<BeginInspectionAttachmentPartUploadOutput>;
+  acknowledgePart?(
+    input: AcknowledgeInspectionAttachmentPartInput,
+    options?: BackendRequestOptions,
+  ): Promise<UploadPartReceipt>;
   completeUpload(
     input: CompleteInspectionAttachmentUploadInput,
     options?: BackendRequestOptions,

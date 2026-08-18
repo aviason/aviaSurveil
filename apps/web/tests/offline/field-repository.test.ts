@@ -18,6 +18,7 @@ import {
   IndexedDbFieldRepository,
   type FieldTransactionBoundary,
 } from "../../src/offline/field-repository";
+import { createProfileAuthority, type ProfileAuthority, type ProfileAuthorityRecord } from "../../src/offline/profile-authority";
 import { isFieldSchemaNOrNMinusOne } from "../../src/offline/schema-migrations";
 
 const subjectId = "USR-INSPECTOR-AMINA";
@@ -107,6 +108,7 @@ function createRepository(input: {
   database?: OfflineFieldDatabase;
   activeSubjectId?: string;
   fault?: (boundary: FieldTransactionBoundary) => void;
+  profileAuthority?: ProfileAuthority | Promise<ProfileAuthority>;
 } = {}) {
   const database = input.database ?? createDatabase();
   return {
@@ -116,6 +118,7 @@ function createRepository(input: {
       subjectId: input.activeSubjectId ?? subjectId,
       now: () => now,
       transactionFault: input.fault,
+      profileAuthority: input.profileAuthority,
     }),
   };
 }
@@ -134,8 +137,60 @@ afterEach(async () => {
 });
 
 describe("IndexedDbFieldRepository atomic writes", () => {
+  it("binds every local operation request to the persisted profile proof authority", async () => {
+    let authorityRecord: ProfileAuthorityRecord | null = null;
+    const authority = await createProfileAuthority(
+      {
+        async read() {
+          return authorityRecord;
+        },
+        async write(value) {
+          authorityRecord = value;
+        },
+      },
+      subjectId,
+    );
+    const { repository } = createRepository({ profileAuthority: authority });
+    const inspectionPackage = packageFixture();
+    await repository.checkoutPackage({
+      inspectionPackage,
+      offlineGrant: grantFixture(inspectionPackage, {
+        profileKeyId: authority.profileKeyId,
+        assignmentRevision: inspectionPackage.checklistRevision,
+        leaseIssuedAt: "2026-07-21T07:59:00.000Z",
+        leaseExpiresAt: "2026-07-22T08:00:00.000Z",
+      }),
+      checkedOutAt: "2026-07-21T08:00:00.000Z",
+    });
+
+    await repository.saveChecklistResponse({
+      operationId: "OP-PROFILE-PROOF-001",
+      packageId,
+      responseId: "RESP-PROFILE-PROOF-001",
+      questionId: "CAB-EMEQ-PBE-001",
+      answer: "NOT_CHECKED",
+      comment: "",
+    });
+
+    const row = (await repository.listOutbox(packageId))[0];
+    expect(row?.operation).toMatchObject({
+      profileKeyId: authority.profileKeyId,
+      authorityProof: expect.stringMatching(/^[A-Za-z0-9_-]+$/u),
+      requestHash: expect.stringMatching(/^sha256:[0-9a-f]{64}$/u),
+    });
+    if (!row?.operation.requestHash || !row.operation.authorityProof) {
+      throw new Error("profile proof operation envelope is incomplete");
+    }
+    expect(
+      await authority.verify(
+        new TextEncoder().encode(row.operation.requestHash),
+        row.operation.authorityProof,
+      ),
+    ).toBe(true);
+  });
+
   it("commits a checklist response and typed outbox operation together", async () => {
-    const { repository } = createRepository();
+    const { database, repository } = createRepository();
     await checkout(repository);
 
     const saved = await repository.saveChecklistResponse({
@@ -155,16 +210,86 @@ describe("IndexedDbFieldRepository atomic writes", () => {
     expect(await repository.listOutbox(packageId)).toEqual([
       expect.objectContaining({
         operationId: "OP-RESPONSE-001",
+        operationSequence: 1,
+        entityRevision: 0,
+        entityHash: expect.stringMatching(/^sha256:[0-9a-f]{64}$/),
         commandType: "UPSERT_CHECKLIST_RESPONSE",
         state: "PENDING",
         operation: expect.objectContaining({
           offlineGrantId: `GRANT-${subjectId}`,
           deviceInstanceId: "DEVICE-CANDIDATE-001",
+          packageRevision: 3,
+          actorSubject: subjectId,
+          operationSequence: 1,
+          payloadHash: expect.stringMatching(/^sha256:[0-9a-f]{64}$/),
+          requestHash: expect.stringMatching(/^sha256:[0-9a-f]{64}$/),
+          dependencies: [],
           baseRevision: null,
           payload: expect.objectContaining({ answer: "NOT_CHECKED", comment: "" }),
         }),
       }),
     ]);
+    expect(await database.foundation.get(`operation-sequence:${subjectId}:${packageId}`)).toEqual({
+      key: `operation-sequence:${subjectId}:${packageId}`,
+      value: { nextSequence: 2 },
+    });
+    expect(await database.foundation.get(`commit-receipt:${subjectId}:OP-RESPONSE-001`)).toMatchObject({
+      key: `commit-receipt:${subjectId}:OP-RESPONSE-001`,
+      value: {
+        operationId: "OP-RESPONSE-001",
+        operationSequence: 1,
+        entityId: "RESP-CAB-EMEQ-PBE-001",
+        entityRevision: 0,
+        requestHash: expect.stringMatching(/^sha256:[0-9a-f]{64}$/),
+      },
+    });
+  });
+
+  it("requests strict IndexedDB durability for the shared field database", () => {
+    const { database } = createRepository();
+    expect(database.requestedDurability).toBe("strict");
+    expect(database.lifecycleState).toBe("CLOSED");
+  });
+
+  it("moves the database through an explicit opening/open lifecycle", async () => {
+    const { database, repository } = createRepository();
+    await expect(repository.initialize()).resolves.toMatchObject({ mode: "read-write" });
+    expect(database.lifecycleState).toBe("OPEN");
+  });
+
+  it("forward-migrates a legacy outbox row into an immutable local receipt", async () => {
+    const database = createDatabase();
+    const repository = createRepository({ database }).repository;
+    await checkout(repository);
+    await repository.saveChecklistResponse({
+      operationId: "OP-LEGACY-RECEIPT",
+      packageId,
+      responseId: "RESP-CAB-EMEQ-PBE-001",
+      questionId: "CAB-EMEQ-PBE-001",
+      answer: "NOT_CHECKED",
+      comment: "",
+    });
+    const existing = await database.outbox.get([subjectId, "OP-LEGACY-RECEIPT"]);
+    expect(existing).toBeTruthy();
+    const legacy = { ...existing } as Record<string, unknown>;
+    delete legacy.operationSequence;
+    delete legacy.entityRevision;
+    delete legacy.entityHash;
+    delete legacy.commitReceiptKey;
+    await database.outbox.put(legacy as never);
+    await database.foundation.delete(`commit-receipt:${subjectId}:OP-LEGACY-RECEIPT`);
+    await database.foundation.delete(`operation-sequence:${subjectId}:${packageId}`);
+    database.close();
+
+    const migratedDatabase = new OfflineFieldDatabase({ name: database.name });
+    const migrated = createRepository({ database: migratedDatabase }).repository;
+    await expect(migrated.initialize()).resolves.toMatchObject({ mode: "read-write" });
+    expect(await migratedDatabase.outbox.get([subjectId, "OP-LEGACY-RECEIPT"])).toMatchObject({
+      operationSequence: 1,
+      entityRevision: 0,
+      entityHash: expect.stringMatching(/^sha256:[0-9a-f]{64}$/),
+    });
+    expect(await migratedDatabase.foundation.get(`commit-receipt:${subjectId}:OP-LEGACY-RECEIPT`)).toBeTruthy();
   });
 
   it.each([
@@ -419,6 +544,47 @@ describe("IndexedDbFieldRepository atomic writes", () => {
     expect(rows.find((row) => row.operationId === "OP-CONFLICTED-PF")).toMatchObject({
       state: "BLOCKED_ON_DEPENDENCY",
       dependsOnOperationIds: ["OP-REENTERED-RESPONSE"],
+    });
+  });
+
+  it("quarantines only causal dependants of a poisoned operation", async () => {
+    const { repository } = createRepository();
+    await checkout(repository);
+    await repository.saveChecklistResponse({
+      operationId: "OP-POISON-PARENT",
+      packageId,
+      responseId: "RESP-CAB-EMEQ-PBE-001",
+      questionId: "CAB-EMEQ-PBE-001",
+      answer: "NON_COMPLIANT",
+      comment: "Parent operation will be rejected.",
+    });
+    await repository.createPotentialFindingDraft({
+      operationId: "OP-POISON-CHILD",
+      packageId,
+      localId: "PF-POISON-CHILD",
+      questionId: "CAB-EMEQ-PBE-001",
+      checklistResponseId: "RESP-CAB-EMEQ-PBE-001",
+      title: "Causal child",
+      description: "Depends on the rejected parent.",
+      requiredComment: "Review the parent conflict.",
+      inspectionAttachmentIds: [],
+    });
+    await repository.markOperationInFlight("OP-POISON-PARENT");
+    await repository.applyPushResult("OP-POISON-PARENT", {
+      operationId: "OP-POISON-PARENT",
+      status: "invalid",
+      authoritativeEntityId: null,
+      authoritativeRevision: null,
+      errorCode: "VALIDATION_FAILED",
+      conflict: null,
+      acknowledgedAt: now.toISOString(),
+    });
+
+    const rows = await repository.listOutbox(packageId, { includeTerminal: true });
+    expect(rows.find((row) => row.operationId === "OP-POISON-PARENT")).toMatchObject({ state: "REJECTED" });
+    expect(rows.find((row) => row.operationId === "OP-POISON-CHILD")).toMatchObject({
+      state: "QUARANTINED",
+      lastErrorCode: "DEPENDENCY_POISONED",
     });
   });
 

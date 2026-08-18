@@ -11,6 +11,7 @@ import {
   OfflineReadinessPanel,
   type OfflineReadinessPanelRuntime,
 } from "./offline-readiness-panel";
+import type { ProfileAuthority } from "../../offline/profile-authority";
 
 const packageView: InspectionPackage = {
   id: "PKG-CAB-2026-001",
@@ -39,9 +40,21 @@ const grant: OfflineGrant = {
   allowedCommandTypes: ["UPSERT_CHECKLIST_RESPONSE"],
   assignmentScope: { questionIds: ["CAB-EMEQ-PBE-001"] },
   deviceInstanceId: "DEVICE-CANDIDATE-001",
+  profileKeyId: "sha256:" + "a".repeat(64),
+  assignmentRevision: 1,
   issuedAt: "2026-07-21T07:59:00.000Z",
   expiresAt: "2026-07-22T08:00:00.000Z",
+  leaseIssuedAt: "2026-07-21T07:59:00.000Z",
+  leaseExpiresAt: "2026-07-22T08:00:00.000Z",
   protocolVersion: 1,
+};
+
+const profileAuthority: ProfileAuthority = {
+  subjectId: grant.subjectId,
+  profileKeyId: grant.profileKeyId!,
+  publicJwk: { kty: "EC", crv: "P-256", x: "x", y: "y" },
+  sign: vi.fn().mockResolvedValue("proof"),
+  verify: vi.fn().mockResolvedValue(true),
 };
 
 afterEach(cleanup);
@@ -61,6 +74,7 @@ function runtime(overrides: Partial<OfflineReadinessPanelRuntime> = {}): Offline
       estimateStorage: vi.fn().mockResolvedValue({ usage: 0, quota: 512 * 1024 * 1024 }),
     },
     getDeviceInstanceId: vi.fn().mockResolvedValue(grant.deviceInstanceId),
+    getProfileAuthority: vi.fn().mockResolvedValue(profileAuthority),
     readSnapshot: vi.fn().mockResolvedValue(null),
     writeSnapshot: vi.fn().mockResolvedValue(undefined),
     now: () => new Date("2026-07-21T08:00:00.000Z"),
@@ -97,7 +111,7 @@ describe("OfflineReadinessPanel", () => {
       />,
     );
 
-    await userEvent.click(screen.getByLabelText(/managed Chrome policy/i));
+    await userEvent.click(screen.getByLabelText(/official browser\/version lane/i));
     await userEvent.click(screen.getByLabelText(/encrypted managed profile/i));
     await userEvent.click(screen.getByRole("button", { name: "Check out for offline use" }));
 
@@ -107,6 +121,8 @@ describe("OfflineReadinessPanel", () => {
       packageId: packageView.id,
       expectedPackageVersion: 1,
       deviceInstanceId: "DEVICE-CANDIDATE-001",
+      profileKeyId: grant.profileKeyId,
+      profilePublicJwk: profileAuthority.publicJwk,
     });
     expect(testRuntime.writeSnapshot).toHaveBeenCalledWith({
       subjectId: "USR-INSPECTOR-AMINA",
