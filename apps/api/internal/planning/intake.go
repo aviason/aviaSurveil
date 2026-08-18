@@ -786,6 +786,10 @@ func persistSubmittedCanonicalScope(
 	}
 	digestBytes := sha256.Sum256(snapshot)
 	planningSnapshotDigest := "sha256:" + hex.EncodeToString(digestBytes[:])
+	// Canonical selection digests intentionally remain bare in the scope
+	// contract. Append-only recommendation receipts use the governed digest
+	// format enforced by their database checks.
+	governedSelectionDigest := "sha256:" + facts.SelectionDigest
 	// Freeze the server-evaluated recommendation boundary alongside the
 	// immutable submitted scope. The current catalog projection may have no
 	// omission candidates, but the append-only receipt still binds the exact
@@ -801,7 +805,7 @@ func persistSubmittedCanonicalScope(
 		ON CONFLICT (evaluation_id) DO NOTHING
 	`, recommendationEvaluationID, draft.OrganizationID, facts.ProviderScopeID, facts.RegulatedTargetID,
 		draft.Location, draft.ApplicationType, facts.CatalogVersion, facts.UsageClass,
-		now, facts.SelectionDigest, actor.SubjectID); err != nil {
+		now, governedSelectionDigest, actor.SubjectID); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx, `
@@ -822,7 +826,7 @@ func persistSubmittedCanonicalScope(
 		FROM canonical_question_catalog_ai_enrichments enrichment
 		WHERE enrichment.catalog_id=$4 AND enrichment.question_version_id=ANY($5::text[])
 		ON CONFLICT (evaluation_id, question_version_id) DO NOTHING
-	`, recommendationEvaluationID, facts.SelectionDigest, now, facts.CatalogID, ids); err != nil {
+	`, recommendationEvaluationID, governedSelectionDigest, now, facts.CatalogID, ids); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx, `
@@ -830,10 +834,10 @@ func persistSubmittedCanonicalScope(
 			freeze_id, scope_draft_id, evaluation_id, recommendation_snapshot_digest,
 			deviation_digest, selection_digest, freeze_digest,
 			selected_question_version_ids, created_by_subject_id, created_at
-		) VALUES ($1,$2,$3,$4,$4,$4,$4,$5,$6,$7)
+		) VALUES ($1,$2,$3,$4,$4,$5,$4,$6,$7,$8)
 		ON CONFLICT (freeze_id) DO NOTHING
 	`, "prior-audit-freeze:"+facts.ScopeID+":"+strconv.FormatInt(draft.Revision, 10), facts.ScopeID,
-		recommendationEvaluationID, facts.SelectionDigest, ids, actor.SubjectID, now); err != nil {
+		recommendationEvaluationID, governedSelectionDigest, facts.SelectionDigest, ids, actor.SubjectID, now); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx, `
