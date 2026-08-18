@@ -14,7 +14,7 @@ async function start(): Promise<void> {
       },
     }),
     buildProfile: "http",
-    environmentLabel: config.environmentLabel,
+    environmentLabel: import.meta.env.VITE_AVIA_HTTP_ENVIRONMENT_LABEL?.trim() || config.environmentLabel,
     identityMode: "oidc-session",
     sessionClient,
   });

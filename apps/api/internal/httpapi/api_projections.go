@@ -129,8 +129,11 @@ func (api *CanonicalAPI) inspectionPackageProjection(ctx context.Context, actor 
 		}
 		return generated.InspectionPackage{}, err
 	}
-	if output.ChecklistStatus != string(checklists.StatusInProgress) {
+	if output.ChecklistStatus == string(checklists.StatusNotStarted) {
 		return generated.InspectionPackage{}, fmt.Errorf("%w: execution package is unavailable before Inspector start", application.ErrConflict)
+	}
+	if output.ChecklistStatus != string(checklists.StatusInProgress) && output.ChecklistStatus != string(checklists.StatusSubmitted) {
+		return generated.InspectionPackage{}, fmt.Errorf("%w: execution package is unavailable in checklist state %s", application.ErrConflict, output.ChecklistStatus)
 	}
 	if revokedAt != nil || (expiresAt != nil && !api.clock().UTC().Before(expiresAt.UTC())) {
 		return generated.InspectionPackage{}, fmt.Errorf("%w: execution package is expired or withdrawn", application.ErrConflict)

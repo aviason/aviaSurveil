@@ -66,6 +66,11 @@
   font-weight: 800;
 }
 
+.inspector-assignment-kpi__icon svg {
+  width: 20px;
+  height: 20px;
+}
+
 .inspector-assignment-kpis b,
 .inspector-assignment-kpis strong,
 .inspector-assignment-kpis em {
@@ -526,7 +531,7 @@
 }
 
 @media (max-width: 719px) {
-  .inspector-register .workbench-record-list:is(.workbench-record-list) {
+  .inspector-assignment-page .inspector-register .workbench-record-list:is(.workbench-record-list) {
     grid-template-columns: 1fr;
   }
 }

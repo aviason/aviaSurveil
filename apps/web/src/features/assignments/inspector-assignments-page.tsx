@@ -39,6 +39,24 @@ function formatStatus(value: string): string {
   return value.replaceAll("_", " ");
 }
 
+type AssignmentGlyphKind = "document" | "clock" | "check" | "calendar" | "layers";
+
+function AssignmentGlyph({ kind }: { kind: AssignmentGlyphKind }) {
+  const path = {
+    document: <><path d="M6 3.75h8l4 4V20.25H6z" /><path d="M14 3.75v4h4M9 12h6M9 15.5h6" /></>,
+    clock: <><circle cx="12" cy="12" r="8.25" /><path d="M12 7.5v4.75l3.25 1.9" /></>,
+    check: <><circle cx="12" cy="12" r="8.25" /><path d="m8.1 12.2 2.55 2.55 5.3-5.4" /></>,
+    calendar: <><rect x="4.25" y="5.5" width="15.5" height="14" rx="1.75" /><path d="M7.5 3.75v3.5M16.5 3.75v3.5M4.25 9.25h15.5" /></>,
+    layers: <><path d="m12 4 7.75 4-7.75 4-7.75-4z" /><path d="m4.25 12 7.75 4 7.75-4M4.25 16 12 20l7.75-4" /></>,
+  }[kind];
+
+  return (
+    <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8">
+      {path}
+    </svg>
+  );
+}
+
 function isUnavailableAssignmentProjection(error: unknown): boolean {
   return error instanceof BackendHttpError && error.status === 404;
 }
@@ -177,19 +195,19 @@ export function InspectorAssignmentsPage() {
       {unavailableReason ? <p className="inspector-empty-state" role="status">{unavailableReason}</p> : null}
       <section className="inspector-assignment-kpis" aria-label="Assignment attention">
         <button aria-pressed={statusFilter === "all"} className={statusFilter === "all" ? "is-active" : ""} onClick={() => setStatusFilter("all")} type="button">
-          <span className="inspector-assignment-kpi__icon" aria-hidden="true">📄</span><span><b>Open Assignments</b><strong>{projection.assignments.length}</strong><em>Audits</em></span>
+          <span className="inspector-assignment-kpi__icon"><AssignmentGlyph kind="document" /></span><span><b>Open Assignments</b><strong>{projection.assignments.length}</strong><em>Audits</em></span>
         </button>
         <button aria-pressed={statusFilter === "IN_PROGRESS"} className={statusFilter === "IN_PROGRESS" ? "is-active is-warn" : "is-warn"} onClick={() => setStatusFilter("IN_PROGRESS")} type="button">
-          <span className="inspector-assignment-kpi__icon" aria-hidden="true">◴</span><span><b>In Progress</b><strong>{inProgressCount}</strong><em>Audits</em></span>
+          <span className="inspector-assignment-kpi__icon"><AssignmentGlyph kind="clock" /></span><span><b>In Progress</b><strong>{inProgressCount}</strong><em>Audits</em></span>
         </button>
         <button aria-pressed={statusFilter === "COMPLETED"} className={statusFilter === "COMPLETED" ? "is-active is-ok" : "is-ok"} onClick={() => setStatusFilter("COMPLETED")} type="button">
-          <span className="inspector-assignment-kpi__icon" aria-hidden="true">✓</span><span><b>Completed</b><strong>{completedCount}</strong><em>Audits</em></span>
+          <span className="inspector-assignment-kpi__icon"><AssignmentGlyph kind="check" /></span><span><b>Completed</b><strong>{completedCount}</strong><em>Audits</em></span>
         </button>
         <button aria-pressed={statusFilter === "OVERDUE"} className={statusFilter === "OVERDUE" ? "is-active is-danger" : "is-danger"} onClick={() => setStatusFilter("OVERDUE")} type="button">
-          <span className="inspector-assignment-kpi__icon" aria-hidden="true">📅</span><span><b>Overdue</b><strong>{overdueCount}</strong><em>Audits</em></span>
+          <span className="inspector-assignment-kpi__icon"><AssignmentGlyph kind="calendar" /></span><span><b>Overdue</b><strong>{overdueCount}</strong><em>Audits</em></span>
         </button>
         <button aria-pressed={statusFilter === "all" && query === "" && typeFilter === "all" && organizationFilter === "all" && dateFilter === "all"} className="is-neutral" onClick={resetFilters} type="button">
-          <span className="inspector-assignment-kpi__icon" aria-hidden="true">🗄</span><span><b>Total Assigned</b><strong>{projection.assignments.length}</strong><em>Audits</em></span>
+          <span className="inspector-assignment-kpi__icon"><AssignmentGlyph kind="layers" /></span><span><b>Total Assigned</b><strong>{projection.assignments.length}</strong><em>Audits</em></span>
         </button>
       </section>
       <section className="inspector-assignment-filters" aria-label="Assignment filters">
