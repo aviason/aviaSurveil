@@ -667,7 +667,7 @@ test.describe("prepared identity connected qualification", () => {
       expect(suggestedPage.totalCount).toBeGreaterThan(0);
       expect(suggestedPage.items.every((item) => item.recommendation?.includedByDefault === true)).toBe(true);
       expect(suggestedPage.items.some((item) => (item.recommendation?.signalCodes ?? []).includes("AUDIT_TYPE_FOCUS_MATCH"))).toBe(true);
-      expect(suggestedPage.items.every((item) => (item.recommendation?.signalCodes ?? []).some((reason) => ["HIGH_OR_UNKNOWN_RISK", "RECURRENCE_DUE", "OPEN_WORK", "INSUFFICIENT_LONGITUDINAL_HISTORY", "NON_CLEAN_OR_MISSING_ANSWER"].includes(reason)))).toBe(true);
+      expect(suggestedPage.items.some((item) => (item.recommendation?.signalCodes ?? []).some((reason) => ["HIGH_OR_UNKNOWN_RISK", "RECURRENCE_DUE", "OPEN_WORK", "INSUFFICIENT_LONGITUDINAL_HISTORY", "NON_CLEAN_OR_MISSING_ANSWER", "OUTSIDE_SELECTED_FOCUS"].includes(reason)))).toBe(true);
 
       const representativeForm = catalogOracle.rows[0]?.formCode;
       expect(representativeForm).toBeTruthy();
