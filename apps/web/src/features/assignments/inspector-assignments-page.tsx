@@ -149,7 +149,9 @@ export function InspectorAssignmentsPage() {
         auditTitle: assignment.title,
         audit: (
           <span className="inspector-register-audit">
+            <span data-audit-id={assignment.auditId}>
             <strong>{assignment.title}</strong>
+            </span>
           </span>
         ),
         organization: assignment.organizationName,
