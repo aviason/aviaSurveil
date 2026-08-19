@@ -101,7 +101,7 @@ globalThis.__setLegacyDirty = (value) => {
   reloadWhenQuiescent();
 };
 
-void navigator.serviceWorker.register("/sw.js", {
+void navigator.serviceWorker.register("/sw.js?v=9", {
   scope: "/",
   type: "module",
   updateViaCache: "none",
@@ -123,7 +123,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
-  if (event.request.mode === "navigate" && url.pathname !== "/app-shell-recovery.html") {
+  if (event.request.mode === "navigate") {
     event.respondWith(caches.open(CACHE_NAME).then((cache) => cache.match("/")));
   } else if (url.pathname === "/assets/legacy-app.js") {
     event.respondWith(caches.open(CACHE_NAME).then((cache) => cache.match(url.pathname)));
@@ -282,7 +282,7 @@ test("a normal root visit automatically upgrades a legacy client without a waiti
   }
 });
 
-test("legacy clients do not block a repaired exact-vector successor", async ({ context, page }) => {
+test("direct root entry repairs an old active client with a broken waiting worker", async ({ context, page }) => {
   test.setTimeout(90_000);
   const server = new LegacyUpgradeServer(4189);
   const consoleErrors: string[] = [];
@@ -316,9 +316,24 @@ test("legacy clients do not block a repaired exact-vector successor", async ({ c
 
     server.promoteCurrent();
     await page.evaluate(async () => (await navigator.serviceWorker.getRegistration())?.update());
+    const currentManifest = JSON.parse(readFileSync(resolve(buildRoot, "app-shell-assets.json"), "utf8")) as {
+      releaseFingerprint: string;
+    };
+    const currentCacheName = `aviasurveil360-app-shell-${currentManifest.releaseFingerprint.slice("sha256:".length)}`;
+    await expect.poll(() => page.evaluate(async (expectedCache) => {
+      const registration = await navigator.serviceWorker.getRegistration();
+      return {
+        waiting: Boolean(registration?.waiting),
+        installing: Boolean(registration?.installing),
+        currentCache: (await caches.keys()).includes(expectedCache),
+      };
+    }, currentCacheName), { timeout: 30_000 }).toEqual({
+      waiting: false,
+      installing: false,
+      currentCache: true,
+    });
     const secondPage = await context.newPage();
-    await secondPage.goto(`${server.origin}/app-shell-recovery.html?returnTo=%2F`);
-    await expect(secondPage.getByRole("heading", { name: "Updating AviaSurveil360" })).toBeVisible();
+    await secondPage.goto(server.origin);
 
     await expect(secondPage.getByRole("heading", { name: "AviaSurveil360" })).toBeVisible({
       timeout: 30_000,
@@ -339,6 +354,12 @@ test("legacy clients do not block a repaired exact-vector successor", async ({ c
 
     expect(await page.evaluate(() => localStorage.getItem("legacy-upgrade-sentinel"))).toBe(
       "preserved",
+    );
+    await expect.poll(() => secondPage.evaluate(async () => caches.keys())).toContain(
+      "aviasurveil360-app-shell-v9",
+    );
+    await expect.poll(() => secondPage.evaluate(async () => caches.keys())).toContain(
+      "aviasurveil360-app-shell-broken-waiting",
     );
     await page.evaluate(() => {
       (globalThis as typeof globalThis & { __setLegacyDirty(value: boolean): void }).__setLegacyDirty(false);

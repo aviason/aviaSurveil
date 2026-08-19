@@ -515,12 +515,11 @@ function activationMessage(manifest: AppShellManifest, safeCheckpointAcknowledge
 
 if (typeof serviceWorkerScope.addEventListener === "function" && "registration" in serviceWorkerScope && typeof caches !== "undefined") {
   serviceWorkerScope.addEventListener("install", (event: ExtendableEvent) => {
-    const hadWaitingWorkerBeforeInstall = Boolean(serviceWorkerScope.registration.waiting);
     event.waitUntil((async () => {
       const manifest = await installAppShell();
       if (!(await canActivate(manifest))) return;
       await notifyCandidate(manifest);
-      if (!hadWaitingWorkerBeforeInstall) await serviceWorkerScope.skipWaiting();
+      await serviceWorkerScope.skipWaiting();
     })());
   });
 
@@ -528,6 +527,7 @@ if (typeof serviceWorkerScope.addEventListener === "function" && "registration" 
     event.waitUntil((async () => {
       const manifest = installedManifest ?? await loadExpectedInstalledManifest();
       if (!manifest || !(await canActivate(manifest))) throw new Error("app-shell predecessor/vector activation gate failed");
+      await serviceWorkerScope.clients.claim();
       const clients = await sameOriginWindowClients();
       activeCacheName = candidateCacheName(manifest);
       activeManifest = manifest;

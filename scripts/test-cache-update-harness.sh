@@ -40,8 +40,9 @@ for label in A B C; do
   # imported by sw.js. Scan the emitted worker graph, not only its entry file.
   rg -q 'legacy-quiescent-reload' "${WORK_ROOT}/${label}"
   rg -q '\.skipWaiting\(' "${WORK_ROOT}/${label}/sw.js"
-  if rg -q 'force-window-client-navigation-v1|\.navigate\(|\.clients\.claim\(' "${WORK_ROOT}/${label}/sw.js"; then
-    echo "blocked: Service Worker still takes over or navigates an existing client" >&2
+  rg -q '\.clients\.claim\(' "${WORK_ROOT}/${label}/sw.js"
+  if rg -q 'force-window-client-navigation-v1|\.navigate\(' "${WORK_ROOT}/${label}/sw.js"; then
+    echo "blocked: Service Worker still navigates an existing client" >&2
     exit 1
   fi
 done

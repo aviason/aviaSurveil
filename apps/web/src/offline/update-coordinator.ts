@@ -4,8 +4,8 @@ import type { QuiescenceCounter } from "./client-quiescence";
 export const APP_SHELL_UPDATE_POLL_INTERVAL_MS = 60_000;
 
 export const UPDATE_ACTIVATION_POLICY = {
-  automaticSkipWaiting: false,
-  automaticClientsClaim: false,
+  automaticSkipWaiting: true,
+  automaticClientsClaim: true,
   deleteOldCachesOnActivate: false,
 } as const;
 

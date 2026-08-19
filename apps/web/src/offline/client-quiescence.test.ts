@@ -45,7 +45,7 @@ describe("client quiescence", () => {
     expect(becameQuiescent).toHaveBeenCalledTimes(1);
   });
 
-  it("does not acknowledge a reload while forms or durable work are active", () => {
+  it("keeps a current-protocol client on its dirty shell until it is quiescent", () => {
     const state = new ClientQuiescence();
     state.setPageState("sha256:old", { appShellVersion: 9, indexedDbSchemaVersion: 2, packageSchemaVersion: 1, syncProtocolVersion: 1 });
     state.requestReload("sha256:new");

@@ -78,8 +78,8 @@ describe("update safety", () => {
       databaseDowngradeAllowed: false,
     });
     expect(UPDATE_ACTIVATION_POLICY).toEqual({
-      automaticSkipWaiting: false,
-      automaticClientsClaim: false,
+      automaticSkipWaiting: true,
+      automaticClientsClaim: true,
       deleteOldCachesOnActivate: false,
     });
   });
