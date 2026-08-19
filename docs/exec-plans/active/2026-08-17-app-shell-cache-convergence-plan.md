@@ -1,8 +1,8 @@
 # App-Shell Cache And Exact-Vector Convergence
 
 Date: 2026-08-17
-Last updated: 2026-08-19 (public recovery release and Chrome root verified)
-Status: active — exact `namibia/demo` recovery release, public artifact/health/no-op, and Chrome root/auth-boundary QA verified; authenticated workspace and retained Safari transition remain unverified
+Last updated: 2026-08-19 (hands-free root release and retained Safari verified)
+Status: active — exact `namibia/demo` hands-free successor release, public artifact/health/no-op, real Chrome worker/cache state, and retained Safari normal-root transition verified; authenticated workspace remains unverified
 
 ## Planning authority
 
@@ -57,8 +57,9 @@ for the handed-off P0-5 safe checkpoint, unresponsive-client fence, and
 no-forced-navigation behavior. This plan retains app-shell fingerprint,
 manifest, gateway/cache, release provenance, and public cutover ownership.
 
-No release lock, image, secret, Cloudflare, Terraform, deployment, or public
-qualification state is changed by this implementation slice.
+The exact demo release may change only through the Workspace release lock and
+allowlisted `namibia/demo` Terraform flow. Preprod, prod, secrets, DNS, and the
+Cloudflare tunnel remain outside this slice.
 
 ## Current progress
 
@@ -113,10 +114,11 @@ qualification state is changed by this implementation slice.
   The deployed old client does not implement
   `avia:app-shell-safe-checkpoint-ack`, so the successor can remain waiting
   indefinitely; the 60-second update monitor alone cannot converge it.
-- `resolved in candidate source`: a retained old client plus an already
-  waiting broken worker is now recovered through the network-only recovery
-  entrypoint without site-data clearing. Publication, central launcher
-  routing, and retained Safari proof remain `release pending`.
+- `superseded live finding`: the first public recovery release still required
+  Safari `Reload Page From Origin` because the deployed legacy active worker
+  intercepted both normal root and the recovery URL before either request
+  reached the network. The recovery document worked once reached and cleared
+  no site data, but it was not a hands-free path for that exact trapped state.
 - `verified locally`: persistent Chromium regressions passed `2/2` with zero
   console/page errors. A normal root visit automatically upgraded an old
   stable-URL client when no worker was already waiting. The three-generation
@@ -124,6 +126,13 @@ qualification state is changed by this implementation slice.
   the recovery entrypoint activated the repaired worker, preserved the dirty
   tab and local sentinel, then reloaded it after quiescence and retired legacy
   caches.
+- `verified locally`: the hands-free correction promotes an exact-vector
+  successor even when a broken worker already occupies `registration.waiting`,
+  calls `clients.claim()` without worker-driven navigation, retains predecessor
+  hashed assets/caches while a dirty legacy tab remains open, and lets each
+  client reload itself only after quiescence. Focused tests passed `61/61`, the
+  direct-root persistent Chromium regression passed `2/2`, and typecheck,
+  artifact scan, A/B/C harness, and diff checks passed.
 - `verified locally`: Web typecheck, the full `735/735` Vitest suite,
   demo/HTTP/production-offline builds, app-shell and build-artifact scans,
   web-server cache tests, A/B/C predecessor-bound artifact harness,
@@ -135,11 +144,30 @@ qualification state is changed by this implementation slice.
   `sha256:0c587c48…9b1f05` were published. The allowlisted exact demo apply was
   `2 added, 5 changed, 2 destroyed`; public health and artifact hashes match
   the lock and the post-apply detailed plan returned literal `No changes`.
-- `verified`: real Google Chrome loaded `https://demo.aviasurveil.com/` with
-  current `app-BB_7Lhvt.js`, meaningful sign-in DOM, no framework overlay, and
-  zero console warnings/errors. The read-only sign-in action reached Avia
-  Identity. Dashboard/Planning remains `not run` because that Chrome profile
-  was not authenticated and no credentials were entered.
+- `verified`: the hands-free successor uses Surveil `675fb9a`, web image
+  `sha256:498a830a…3c804`, release fingerprint `sha256:ab671e7e…16502`,
+  worker SHA-256 `sha256:7fd3b86e…ab7d9`, and release lock
+  `sha256:5f03cd9d…16354`. The exact seven-action plan applied `2 added, 5
+  changed, 2 destroyed`; instance `i-0babb12831e5a8beb` reached public ready
+  HTTP 200, target-specific qualification smoke passed without business
+  mutation, public artifact hashes matched the lock, and the post-apply
+  detailed-exitcode plan returned literal `No changes`.
+- `verified`: the retained Safari profile entered only through normal
+  `https://demo.aviasurveil.com/` after the hands-free release. No recovery URL,
+  hard refresh, or site-data clearing was used; the current sign-in shell
+  rendered and the stale Planning shell did not return. The prior manually
+  recovered transition means the exact active-plus-broken-waiting legacy state
+  remains proven by the persistent Chromium regression rather than recreated
+  destructively in Safari.
+- `verified`: real Google Chrome used only normal root with no recovery URL,
+  hard refresh, or site-data clearing. Its controller and active registration
+  were `/sw.js` in `activated` state with no waiting/installing worker and
+  `updateViaCache: none`; CacheStorage contained only the exact current
+  `aviasurveil360-app-shell-ab671e7e…16502` cache. CDP showed the document,
+  current bundles, CSS, and assets served from that worker/cache; meaningful
+  sign-in DOM rendered with no overlay and zero console warnings/errors. The
+  read-only sign-in action reached Avia Identity. Dashboard/Planning remains
+  `not run` because no credentials were entered.
 - `superseded historical blocker`: the earlier full Web run ended at
   `682 passed / 8 failed`; the fresh 2026-08-19 full run passed `735/735`.
 - `verified locally`: the Auth child migration/code-claim gate passed with no skipped required PostgreSQL tests.
@@ -169,10 +197,10 @@ qualification state is changed by this implementation slice.
 4. Add isolated A/B/C browser tests using task-unique project/state/ports and
    verify forced legacy retirement plus predecessor-cache deletion.
 5. Run native Surveil and Auth source gates; report missing fixtures literally.
-6. After separate exact release authorization, publish the recovery candidate
-   and verify automatic direct-root convergence in retained Safari. Use
-   `/app-shell-recovery.html?returnTo=%2F` only for profiles already trapped
-   behind a broken waiting worker; never make it the normal application URL.
+6. Publish through the exact release flow and verify normal-root convergence
+   in retained Safari and real Chrome. Keep
+   `/app-shell-recovery.html?returnTo=%2F` as a diagnostic fallback, never the
+   normal application URL.
 
 ## Verification matrix
 
@@ -207,10 +235,10 @@ history behavior.
 - Current-protocol clients remain waiting until the safe checkpoint is ACKed;
   after activation they perform a client-controlled automatic reload only
   while quiescent and are never force-navigated while local work may exist.
-- A deployed client that cannot emit the current ACK can enter through the
-  network-only recovery document, activate only the verified exact-vector
-  waiting worker, preserve dirty tabs and durable storage, and converge
-  quiescent tabs without operator cache/site-data clearing.
+- A deployed client that cannot emit the current ACK converges through normal
+  root entry even when a broken worker already waits: only an exact-vector
+  successor activates, dirty tabs and durable storage remain intact, and
+  quiescent tabs reload themselves without operator cache/site-data clearing.
 - A visible online client checks for a successor within 60 seconds; foreground,
   reconnect, startup, and page-show transitions check immediately.
 - `/sw.js?v=9` returns the current stable worker body with `no-store`; it must
@@ -226,11 +254,10 @@ history behavior.
 ## Recovery and release boundary
 
 Failed local candidate installation deletes only its candidate cache. A vector
-change is a separate migration plan. No commit, push, image publication,
-Terraform action, Cloudflare change, or public transition was performed in the
-current implementation turn; those actions require explicit current-task
-authorization. No broad Terraform action or ad-hoc AWS infrastructure mutation
-is allowed.
+change is a separate migration plan. The authorized demo rollout used only the
+exact immutable lock and allowlisted Terraform plan; no broad Terraform action,
+ad-hoc AWS infrastructure mutation, secret/DNS/tunnel change, preprod action,
+or prod action was performed.
 
 ## Execution Prompt
 
