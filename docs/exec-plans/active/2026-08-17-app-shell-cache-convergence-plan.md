@@ -1,8 +1,8 @@
 # App-Shell Cache And Exact-Vector Convergence
 
 Date: 2026-08-17
-Last updated: 2026-08-19 (network-only stale-client recovery candidate verified locally)
-Status: active — exact `namibia/demo` release deployed; public worker/manifest/health and no-op verified; automatic direct-root and stale-client recovery candidate `verified locally`; immutable release and retained Safari proof `release pending`
+Last updated: 2026-08-19 (public recovery release and Chrome root verified)
+Status: active — exact `namibia/demo` recovery release, public artifact/health/no-op, and Chrome root/auth-boundary QA verified; authenticated workspace and retained Safari transition remain unverified
 
 ## Planning authority
 
@@ -130,6 +130,16 @@ qualification state is changed by this implementation slice.
   demo-boundary smoke, and `git diff --check` passed. In-app Browser local
   preview was `blocked` by `ERR_BLOCKED_BY_CLIENT`; the repository-owned
   isolated Playwright lane supplied the service-worker evidence.
+- `verified`: Surveil `9971f6b`, Workspace `500f025`, web image
+  `sha256:02589efe…a3b40a`, gateway image `sha256:fd8c3bb1…694f`, and lock
+  `sha256:0c587c48…9b1f05` were published. The allowlisted exact demo apply was
+  `2 added, 5 changed, 2 destroyed`; public health and artifact hashes match
+  the lock and the post-apply detailed plan returned literal `No changes`.
+- `verified`: real Google Chrome loaded `https://demo.aviasurveil.com/` with
+  current `app-BB_7Lhvt.js`, meaningful sign-in DOM, no framework overlay, and
+  zero console warnings/errors. The read-only sign-in action reached Avia
+  Identity. Dashboard/Planning remains `not run` because that Chrome profile
+  was not authenticated and no credentials were entered.
 - `superseded historical blocker`: the earlier full Web run ended at
   `682 passed / 8 failed`; the fresh 2026-08-19 full run passed `735/735`.
 - `verified locally`: the Auth child migration/code-claim gate passed with no skipped required PostgreSQL tests.
