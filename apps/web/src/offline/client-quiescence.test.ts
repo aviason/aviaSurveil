@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { ClientQuiescence } from "./client-quiescence";
 
@@ -25,6 +25,24 @@ describe("client quiescence", () => {
     expect(state.freezeForSafeCheckpoint()).toBe(false);
     expect(state.snapshot().frozenForSafeCheckpoint).toBe(false);
     release();
+  });
+
+  it("retries a pending transition when the last active operation becomes quiescent", () => {
+    const state = new ClientQuiescence("client-c");
+    const becameQuiescent = vi.fn();
+    const stop = state.onQuiescent(becameQuiescent);
+    const clearForm = state.registerDirtyForm("planning-intake");
+    const releaseMutation = state.begin("mutation");
+
+    clearForm();
+    expect(becameQuiescent).not.toHaveBeenCalled();
+    releaseMutation();
+    expect(becameQuiescent).toHaveBeenCalledTimes(1);
+
+    stop();
+    const releaseSync = state.begin("sync");
+    releaseSync();
+    expect(becameQuiescent).toHaveBeenCalledTimes(1);
   });
 
   it("does not acknowledge a reload while forms or durable work are active", () => {

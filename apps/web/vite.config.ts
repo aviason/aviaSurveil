@@ -124,6 +124,7 @@ export default defineConfig(({ command }) => {
       rollupOptions: {
         input: {
           app: `${webRoot}index.html`,
+          recovery: `${webRoot}app-shell-recovery.html`,
           sw: `${webRoot}src/sw.ts`,
         },
         output: {

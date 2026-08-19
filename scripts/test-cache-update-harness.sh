@@ -32,11 +32,16 @@ if cmp -s "${WORK_ROOT}/A/app-shell-assets.json" "${WORK_ROOT}/B/app-shell-asset
 fi
 for label in A B C; do
   test -s "${WORK_ROOT}/${label}/sw.js"
+  test -s "${WORK_ROOT}/${label}/app-shell-recovery.html"
   test -s "${WORK_ROOT}/${label}/assets/$(find "${WORK_ROOT}/${label}/assets" -maxdepth 1 -type f -name 'inspector-assignments-page-*.js' -print -quit | xargs -n1 basename)"
-  rg -q 'force-window-client-navigation-v1' "${WORK_ROOT}/${label}/sw.js"
-  rg -q '\.navigate\(' "${WORK_ROOT}/${label}/sw.js"
-  if rg -q 'await[[:space:]]+[[:alnum:]_$.]+\.navigate\(' "${WORK_ROOT}/${label}/sw.js"; then
-    echo "blocked: Service Worker activation awaits client navigation" >&2
+  rg -q 'app-shell-safe-checkpoint-ack' "${WORK_ROOT}/${label}/sw.js"
+  rg -q 'app-shell-recovery-activate' "${WORK_ROOT}/${label}/sw.js"
+  # Vite may place the tiny update-protocol module in a shared hashed chunk
+  # imported by sw.js. Scan the emitted worker graph, not only its entry file.
+  rg -q 'legacy-quiescent-reload' "${WORK_ROOT}/${label}"
+  rg -q '\.skipWaiting\(' "${WORK_ROOT}/${label}/sw.js"
+  if rg -q 'force-window-client-navigation-v1|\.navigate\(|\.clients\.claim\(' "${WORK_ROOT}/${label}/sw.js"; then
+    echo "blocked: Service Worker still takes over or navigates an existing client" >&2
     exit 1
   fi
 done

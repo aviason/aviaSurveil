@@ -38,6 +38,7 @@ func TestArtifactCachePolicy(t *testing.T) {
 		policy string
 	}{
 		{path: "/", policy: "no-store, no-transform"},
+		{path: "/app-shell-recovery.html", policy: "no-store, no-transform"},
 		{path: "/sw.js", policy: "no-store, no-transform"},
 		{path: "/app-shell-assets.json", policy: "no-store, no-transform"},
 		{path: "/http-config.json", policy: "no-store, no-transform"},

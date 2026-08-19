@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#102d42" />
+    <meta name="avia-build-lane" content="__AVIA_BUILD_LANE__" />
+    <meta http-equiv="Content-Security-Policy" content="__AVIA_CSP__" />
+    <meta name="description" content="AviaSurveil360 app update recovery" />
+    <title>Updating AviaSurveil360</title>
+  </head>
+  <body>
+    <main class="app-shell-recovery" aria-labelledby="app-shell-recovery-title">
+      <section>
+        <span aria-hidden="true" class="app-shell-recovery__mark">AS</span>
+        <p class="app-shell-recovery__eyebrow">Secure workspace update</p>
+        <h1 id="app-shell-recovery-title">Updating AviaSurveil360</h1>
+        <p id="app-shell-recovery-status" role="status">Verifying the latest application release…</p>
+        <button hidden id="app-shell-recovery-retry" type="button">Retry update</button>
+      </section>
+    </main>
+    <script type="module" src="/src/entry/app-shell-recovery.ts"></script>
+  </body>
+</html>

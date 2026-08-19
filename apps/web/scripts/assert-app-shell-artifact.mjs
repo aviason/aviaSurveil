@@ -122,7 +122,7 @@ export function assertAppShellArtifact(suppliedPath) {
   const artifactRoot = path.resolve(suppliedPath);
   assert.ok(fs.existsSync(artifactRoot), `App-shell artifact directory is missing: ${artifactRoot}`);
   const files = inventory(artifactRoot);
-  for (const required of ["index.html", "sw.js", "app-shell-assets.json"]) assert.ok(files.includes(required), `App-shell artifact is missing ${required}`);
+  for (const required of ["index.html", "app-shell-recovery.html", "sw.js", "app-shell-assets.json"]) assert.ok(files.includes(required), `App-shell artifact is missing ${required}`);
   const manifest = JSON.parse(fs.readFileSync(path.join(artifactRoot, "app-shell-assets.json"), "utf8"));
   assert.equal(manifest.schemaVersion, 2);
   assert.equal(manifest.canonicalizationVersion, 1);
@@ -167,6 +167,7 @@ export function assertAppShellArtifact(suppliedPath) {
   assert.ok(worker.includes(manifest.releaseFingerprint));
   assert.match(worker, /safe-checkpoint/);
   assert.match(worker, /app-shell-safe-checkpoint-ack/);
+  assert.match(worker, /app-shell-recovery-activate/);
   assert.doesNotMatch(worker, /indexedDB\.deleteDatabase/);
   assert.doesNotMatch(worker, /force-window-client-navigation-v1/);
   assert.doesNotMatch(worker, /\.navigate\(/);

@@ -1,8 +1,8 @@
 # App-Shell Cache And Exact-Vector Convergence
 
 Date: 2026-08-17
-Last updated: 2026-08-17 (P0-5 source handoff recorded)
-Status: active — exact `namibia/demo` release deployed; public worker/manifest/health and no-op verified; retained pre-monitor browser convergence remains browser-scheduled
+Last updated: 2026-08-19 (network-only stale-client recovery candidate verified locally)
+Status: active — exact `namibia/demo` release deployed; public worker/manifest/health and no-op verified; automatic direct-root and stale-client recovery candidate `verified locally`; immutable release and retained Safari proof `release pending`
 
 ## Planning authority
 
@@ -18,9 +18,22 @@ data, keep gateway-owned routes network-only, and retire the legacy v9 worker
 and document at cutover without reviving any OIDC artifact.
 
 The safe retirement bridge waits for a quiescent, durable client checkpoint
-before takeover and requests a user-controlled reload after the exact
-successor activates. It retains durable IndexedDB/OPFS/outbox state and never
-forces navigation while local work may exist.
+before normal takeover and permits a client-controlled automatic reload after
+the exact successor activates. It retains durable IndexedDB/OPFS/outbox state
+and never forces navigation while local work may exist.
+
+Normal `demo.aviasurveil.com` entry remains the automatic update path. When no
+broken worker already occupies `registration.waiting`, an exact-vector
+successor promotes itself and quiescent legacy documents reload without a
+separate URL.
+
+The 2026-08-19 recovery correction also adds a stable network-only
+`/app-shell-recovery.html` entrypoint. A client trapped behind an old cached
+document can load this entrypoint from the network, replace an already waiting
+broken candidate, and explicitly activate the verified exact-vector successor.
+The worker does not call `clients.claim()`, navigate another client, or clear
+origin storage. Quiescent legacy documents reload themselves; dirty legacy
+documents remain open until their own work becomes quiescent.
 
 Visible online clients explicitly check the stable worker at startup, every 60
 seconds, on `pageshow`, after reconnecting, and after returning to the
@@ -64,9 +77,10 @@ qualification state is changed by this implementation slice.
 - `verified locally`: a successor remains bound to the exact current v2
   predecessor while a separately embedded exact legacy v9 descriptor admits
   retained pre-v2 registrations that have no committed v2 cache marker.
-- `verified locally`: client navigation is scheduled without awaiting it from
-  the `activate` event, removing the activation/navigation deadlock; verified
-  CacheStorage state restores the manifest after a worker-process restart.
+- `superseded historical evidence`: the first bridge scheduled client
+  navigation without awaiting it from `activate`. The 2026-08-19 correction
+  removes worker-driven navigation; verified CacheStorage state still restores
+  the manifest after worker-process restart.
 - `verified locally`: the isolated persistent-browser test installed a legacy
   worker and cache, promoted the server to the current artifact, upgraded two
   open clients, moved the registration to `/sw.js`, deleted the legacy cache,
@@ -91,15 +105,33 @@ qualification state is changed by this implementation slice.
   `sha256:82729d03896ebfd8908fd5ed202178788202126385b7aca9c8cc75b0c6016ad9`
   was applied through the seven-action saved plan; public readiness and
   target-specific smoke passed, then detailed-exitcode reported `No changes`.
-- `blocked`: a retained browser profile still running a pre-monitor cached
-  document did not immediately converge on reload. The server cannot invoke
-  `registration.update()` inside that already-cached document without browser
-  cooperation and site-data clearing was not performed. Its legacy worker URL
-  now serves the exact bridge; all clients that reach this release have
-  bounded automatic checks for future releases.
-- `blocked`: the fresh full web suite ended at `682 passed / 8 failed`;
-  failures are in unrelated dirty planning/management presentation surfaces,
-  not the focused app-shell tests.
+- `verified live diagnosis`: on 2026-08-19 the retained Safari document named
+  `app-BTQeTkmh.js`, `workspace-shell-D69tKOkH.js`, and
+  `new-audit-wizard-B-ktUjlb.js`, while the public no-store HTML named the
+  newer `app-BDwsof8P.js` and current release fingerprint
+  `sha256:03cf09ace4b8a310bc230a24fa218b0ebd1195a0f6f9da8a25e299818566f533`.
+  The deployed old client does not implement
+  `avia:app-shell-safe-checkpoint-ack`, so the successor can remain waiting
+  indefinitely; the 60-second update monitor alone cannot converge it.
+- `resolved in candidate source`: a retained old client plus an already
+  waiting broken worker is now recovered through the network-only recovery
+  entrypoint without site-data clearing. Publication, central launcher
+  routing, and retained Safari proof remain `release pending`.
+- `verified locally`: persistent Chromium regressions passed `2/2` with zero
+  console/page errors. A normal root visit automatically upgraded an old
+  stable-URL client when no worker was already waiting. The three-generation
+  case then covered an intervening broken waiting worker and dirty legacy tab:
+  the recovery entrypoint activated the repaired worker, preserved the dirty
+  tab and local sentinel, then reloaded it after quiescence and retired legacy
+  caches.
+- `verified locally`: Web typecheck, the full `735/735` Vitest suite,
+  demo/HTTP/production-offline builds, app-shell and build-artifact scans,
+  web-server cache tests, A/B/C predecessor-bound artifact harness,
+  demo-boundary smoke, and `git diff --check` passed. In-app Browser local
+  preview was `blocked` by `ERR_BLOCKED_BY_CLIENT`; the repository-owned
+  isolated Playwright lane supplied the service-worker evidence.
+- `superseded historical blocker`: the earlier full Web run ended at
+  `682 passed / 8 failed`; the fresh 2026-08-19 full run passed `735/735`.
 - `verified locally`: the Auth child migration/code-claim gate passed with no skipped required PostgreSQL tests.
 - `blocked`: the in-app Browser rejected the local Caddy internal CA; clean HTTP preview browser coverage passed for root, lazy Inspector route, and mobile route.
 - `not run`: Playwright WebKit because the local WebKit binary is unavailable;
@@ -127,8 +159,10 @@ qualification state is changed by this implementation slice.
 4. Add isolated A/B/C browser tests using task-unique project/state/ports and
    verify forced legacy retirement plus predecessor-cache deletion.
 5. Run native Surveil and Auth source gates; report missing fixtures literally.
-6. Observe the retained Safari profile after its browser-scheduled worker
-   update check; future releases use the deployed stable-worker monitor.
+6. After separate exact release authorization, publish the recovery candidate
+   and verify automatic direct-root convergence in retained Safari. Use
+   `/app-shell-recovery.html?returnTo=%2F` only for profiles already trapped
+   behind a broken waiting worker; never make it the normal application URL.
 
 ## Verification matrix
 
@@ -151,17 +185,22 @@ AVIA_E2E_PROFILE=offline npm exec --prefix apps/web -- playwright test tests/e2e
 ```
 
 The harness must prove A/B/C manifest determinism, per-file hash validation,
-failed candidate cleanup, forced legacy-v9 retirement, predecessor-cache
-deletion, Chromium persistence, and WebKit history behavior.
+failed candidate cleanup, network-only legacy recovery, quiescent client
+reload, deferred predecessor-cache deletion, Chromium persistence, and WebKit
+history behavior.
 
 ## Acceptance criteria
 
 - No browser/worker path clears IndexedDB, OPFS, outbox, packages, or
   attachment manifests.
 - Automatic activation requires exact complete-vector equality.
-- Legacy v9 clients remain waiting until the safe checkpoint is ACKed; after
-  activation they receive a user-controlled reload request and are never
-  force-navigated while local work may exist.
+- Current-protocol clients remain waiting until the safe checkpoint is ACKed;
+  after activation they perform a client-controlled automatic reload only
+  while quiescent and are never force-navigated while local work may exist.
+- A deployed client that cannot emit the current ACK can enter through the
+  network-only recovery document, activate only the verified exact-vector
+  waiting worker, preserve dirty tabs and durable storage, and converge
+  quiescent tabs without operator cache/site-data clearing.
 - A visible online client checks for a successor within 60 seconds; foreground,
   reconnect, startup, and page-show transitions check immediately.
 - `/sw.js?v=9` returns the current stable worker body with `no-store`; it must

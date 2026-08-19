@@ -1,7 +1,7 @@
 # Offline-First Browser Production Hardening
 
 Date: 2026-08-17
-Last updated: 2026-08-17 (P1 candidate controls verified locally)
+Last updated: 2026-08-19 (P0-5 stale-client recovery correction verified locally)
 Status: active — Gate 0 through P1 candidate slices `verified locally`; connected DB/object-store/device/owner/release evidence `not run`/`blocked`; `candidate-only`; `release pending`; production offline-safe `blocked`
 
 ## Planning authority
@@ -622,10 +622,12 @@ ACK_TIMEOUT
 - The server write fence makes security enforcement bounded without pretending
   the unresponsive client's local-work state is known. The waiting worker does
   not activate from timeout or fencing alone.
-- `skipWaiting` may be messaged only after the previously unresponsive client
-  resumes, freezes, durably acknowledges/quarantines local work, and ACKs the
-  normal safe checkpoint. If the client exits, the browser may complete the
-  normal Service Worker lifecycle without `skipWaiting`.
+- Normal takeover messages `skipWaiting` only after the previously
+  unresponsive client resumes, freezes, durably acknowledges/quarantines local
+  work, and ACKs the safe checkpoint. The recovery exception may activate an
+  exact-vector worker only from the network-only recovery document, without
+  `clients.claim()`, client navigation, document reload, or predecessor-cache
+  deletion. Dirty legacy documents remain on their loaded shell.
 - Mutations from the fenced old vector are rejected/quarantined, never silently
   applied. Security enforcement therefore does not depend on the suspended
   document receiving a message.
@@ -640,7 +642,9 @@ ACK_TIMEOUT
 
 #### Acceptance
 
-- Active inspection deploy always remains at `WAITING_FOR_SAFE_CHECKPOINT`.
+- An active inspection document always remains on its loaded shell at
+  `WAITING_FOR_SAFE_CHECKPOINT`; recovery activation does not reload or claim
+  that document.
 - Dirty form or non-zero operation counter always blocks activation.
 - An unresponsive client cannot block server-side security enforcement, but it
   may legitimately keep shell activation waiting until ACK or exit.
@@ -681,6 +685,41 @@ release boundary. P0-5 implementation may proceed within the handed-off slice.
 - Result: `verified locally`, `candidate-only`. Physical browser/device,
   process-kill, OS-restart, storage-pressure, and sudden-power-loss evidence
   remain `not run`/`release pending`.
+
+#### P0-5 stale-client recovery correction — 2026-08-19
+
+- Public evidence proved that the retained Safari document loaded a released
+  app-shell whose client did not implement the later safe-checkpoint ACK
+  message. A successor that requires every client ACK therefore remains
+  waiting indefinitely; polling `registration.update()` does not repair the
+  protocol gap.
+- A later installing worker also cannot reliably displace an already waiting
+  broken candidate using an install-time `skipWaiting()` call alone. The
+  persistent-browser regression reproduced this exact three-generation state.
+- Added network-only `/app-shell-recovery.html`. It loads current code outside
+  the registered application-route cache policy, validates the current
+  manifest fingerprint, and explicitly messages the verified waiting worker
+  from the exact recovery document. Activation never calls `clients.claim()`,
+  navigates another client, or clears CacheStorage/IndexedDB/OPFS business
+  data.
+- Current clients rediscover a waiting candidate on startup, `pageshow`,
+  foreground return, and `updatefound`; dirty clients retry their exact ACK
+  when quiescent. Client asset identity now comes from the loaded hashed module
+  rather than the network's newer manifest. Quiescent documents perform a
+  client-controlled automatic reload; dirty documents remain open.
+- Verified app-shell predecessor caches remain available for old hashed lazy
+  assets and are retired only after every observed client reports the current
+  fingerprint. Cached fallback bytes are revalidated by content type, size,
+  and SHA-256 before use.
+- Fresh evidence: full Web `735/735`, focused update policy `61/61`, typecheck,
+  demo/HTTP/production-offline builds, artifact scans, web-server cache tests,
+  A/B/C harness, demo-boundary smoke, and persistent Chromium recovery `2/2`
+  passed. Direct root entry automatically upgraded a legacy client without a
+  pre-existing waiting worker. The recovery case preserved a dirty old tab and
+  local sentinel across an old active worker, broken waiting worker, repaired
+  activation, automatic quiescent reload, cache retirement, worker stop, and
+  offline reload; console and page errors were empty. Result:
+  `verified locally`, `candidate-only`, `release pending`.
 
 ### P0-6 — Outbox, idempotency, and conflict
 
@@ -1293,7 +1332,8 @@ Production remains offline-safe NO-GO if any item is missing:
 - [x] P0-4 OPFS manifest-first recovery, deterministic reconciliation, final
   readback, and no-delete quarantine are `verified locally`.
 - [x] P0-5 Service Worker safe-update, quiescence ACK, unresponsive-client
-  fence, and no-forced-navigation behavior are `verified locally`.
+  fence, no-forced-navigation behavior, and network-only stale-client recovery
+  are `verified locally`.
 - [x] P0-6 operation envelope, idempotency/reuse handling, profile-bound pull
   cursor, poison-dependent quarantine, and typed conflict resolution are
   `verified locally` as candidate source.

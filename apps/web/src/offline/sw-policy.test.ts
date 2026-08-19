@@ -33,6 +33,7 @@ describe("Service Worker request policy", () => {
     ["https://candidate.test/assets/aviasurveil360-mark-abcd1234.png", "no-cors", "versioned-static-asset"],
     ["https://candidate.test/assets/air-traffic-control-abcd1234.svg", "no-cors", "versioned-static-asset"],
     ["https://candidate.test/assets/DMSans-Variable-abcd1234.ttf", "cors", "versioned-static-asset"],
+    ["https://candidate.test/app-shell-recovery.html", "navigate", "network-only"],
     ["https://candidate.test/http-config.json", "cors", "network-only"],
   ] as const)("classifies %s as %s", (url, mode, expected) => {
     expect(
@@ -117,6 +118,10 @@ describe("Service Worker activation policy", () => {
     const previous = descriptor(`sha256:${"1".repeat(64)}`);
     expect(canActivateAppShellCandidate(
       { compatibility: CURRENT_OFFLINE_VERSIONS, predecessor: null },
+      [],
+    )).toBe(true);
+    expect(canActivateAppShellCandidate(
+      { compatibility: CURRENT_OFFLINE_VERSIONS, predecessor: previous },
       [],
     )).toBe(true);
     expect(canActivateAppShellCandidate(

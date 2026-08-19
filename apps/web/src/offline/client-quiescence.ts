@@ -1,4 +1,8 @@
 import type { OfflineVersionVector } from "./offline-version-contract";
+import {
+  APP_SHELL_UPDATE_PROTOCOL_VERSION,
+  releaseFingerprintFromActivationMessage,
+} from "./app-shell-update-protocol";
 
 export type QuiescenceCounter = "indexedDb" | "opfs" | "hashWorker" | "sync" | "mutation";
 
@@ -32,6 +36,7 @@ export class ClientQuiescence {
   private pendingReloadFingerprint: string | null = null;
   private acknowledgedReloadFingerprint: string | null = null;
   private frozenForSafeCheckpoint = false;
+  private readonly quiescentListeners = new Set<() => void>();
 
   constructor(clientId: string = globalThis.crypto?.randomUUID?.() ?? `client-${Date.now()}`) {
     this.clientId = clientId;
@@ -47,6 +52,7 @@ export class ClientQuiescence {
 
   clearDirtyForm(formID: string): void {
     this.dirtyForms.delete(formID);
+    this.notifyQuiescent();
   }
 
   begin(counter: QuiescenceCounter): () => void {
@@ -59,7 +65,18 @@ export class ClientQuiescence {
       if (released) return;
       released = true;
       this.counters.set(counter, Math.max(0, (this.counters.get(counter) ?? 1) - 1));
+      this.notifyQuiescent();
     };
+  }
+
+  onQuiescent(listener: () => void): () => void {
+    this.quiescentListeners.add(listener);
+    return () => this.quiescentListeners.delete(listener);
+  }
+
+  private notifyQuiescent(): void {
+    if (!this.isQuiescent()) return;
+    for (const listener of this.quiescentListeners) listener();
   }
 
   setPageState(fingerprint: string | null, vector: OfflineVersionVector | null): void {
@@ -128,34 +145,73 @@ export interface BrowserQuiescenceBinding {
 
 export function bindBrowserQuiescence(registration: ServiceWorkerRegistration): BrowserQuiescenceBinding {
   const state = new ClientQuiescence();
-  const page = document.documentElement.dataset;
-  state.setPageState(page.appShellFingerprint ?? null, null);
+  const clientAssetURL = import.meta.url;
+  let pendingReloadFingerprint: string | null = null;
+  let pendingCandidate: {
+    fingerprint: string;
+    vector: OfflineVersionVector;
+    target: ServiceWorker | null;
+  } | null = null;
+  let acknowledgedCandidateFingerprint: string | null = null;
+  let reloadStarted = false;
+  let watchedInstallingWorker: ServiceWorker | null = null;
+
+  const requestWaitingCandidate = () => {
+    registration.waiting?.postMessage({ type: "avia:app-shell-update-check" });
+  };
 
   const sendReady = () => {
     registration.active?.postMessage({
       type: "avia:app-shell-client-ready",
       fingerprint: state.snapshot().currentFingerprint,
+      protocolVersion: APP_SHELL_UPDATE_PROTOCOL_VERSION,
+      clientAssetURL,
     });
+    requestWaitingCandidate();
+  };
+  const reloadWhenQuiescent = () => {
+    if (
+      reloadStarted ||
+      !pendingReloadFingerprint ||
+      navigator.serviceWorker.controller !== registration.active ||
+      !state.freezeForSafeCheckpoint() ||
+      !state.acknowledgeReload(pendingReloadFingerprint)
+    ) {
+      return;
+    }
+    reloadStarted = true;
+    window.dispatchEvent(new CustomEvent("avia:app-shell-reload-required", {
+      detail: { fingerprint: pendingReloadFingerprint, automatic: true },
+    }));
+    window.location.reload();
+  };
+  const acknowledgePendingCandidate = () => {
+    if (
+      !pendingCandidate ||
+      acknowledgedCandidateFingerprint === pendingCandidate.fingerprint ||
+      !state.freezeForSafeCheckpoint()
+    ) {
+      return;
+    }
+    const ack = state.safeCheckpointAck(pendingCandidate.fingerprint, pendingCandidate.vector);
+    if (!ack) return;
+    (pendingCandidate.target ?? registration.waiting ?? registration.installing)?.postMessage({
+      type: "avia:app-shell-safe-checkpoint-ack",
+      ack,
+    });
+    acknowledgedCandidateFingerprint = pendingCandidate.fingerprint;
   };
   const sendSafeCheckpointAck = (
     fingerprint: string,
     vector: OfflineVersionVector,
     target?: ServiceWorker | null,
   ) => {
-    if (!state.freezeForSafeCheckpoint()) return;
-    const ack = state.safeCheckpointAck(fingerprint, vector);
-    if (!ack) return;
-    (target ?? registration.waiting ?? registration.installing)?.postMessage({
-      type: "avia:app-shell-safe-checkpoint-ack",
-      ack,
-    });
+    pendingCandidate = { fingerprint, vector, target: target ?? null };
+    acknowledgePendingCandidate();
   };
   const onControllerChange = () => {
     sendReady();
-    const pending = state.snapshot().pendingReloadFingerprint;
-    if (pending && state.acknowledgeReload(pending)) {
-      window.dispatchEvent(new CustomEvent("avia:app-shell-reload-required", { detail: { fingerprint: pending } }));
-    }
+    reloadWhenQuiescent();
   };
   const onWorkerMessage = (event: MessageEvent) => {
     if (event.data?.type === "avia:app-shell-update-available" && typeof event.data.fingerprint === "string") {
@@ -163,25 +219,58 @@ export function bindBrowserQuiescence(registration: ServiceWorkerRegistration): 
       sendSafeCheckpointAck(event.data.fingerprint, vector, event.source as ServiceWorker | null);
       return;
     }
-    if (event.data?.type !== "avia:app-shell-activation" || typeof event.data.fingerprint !== "string") return;
-    state.requestReload(event.data.fingerprint);
+    if (event.data?.type === "avia:app-shell-worker-ready") {
+      const loadedFingerprint = typeof event.data.fingerprint === "string" ? event.data.fingerprint : null;
+      const activeFingerprint = typeof event.data.activeFingerprint === "string" ? event.data.activeFingerprint : null;
+      if (loadedFingerprint) state.setPageState(loadedFingerprint, event.data.compatibility ?? null);
+      if (loadedFingerprint && activeFingerprint && loadedFingerprint !== activeFingerprint) {
+        pendingReloadFingerprint = activeFingerprint;
+        state.requestReload(activeFingerprint);
+        reloadWhenQuiescent();
+      }
+      return;
+    }
+    if (event.data?.type !== "avia:app-shell-activation") return;
+    const releaseFingerprint = releaseFingerprintFromActivationMessage(event.data);
+    if (!releaseFingerprint) return;
+    pendingReloadFingerprint = releaseFingerprint;
+    state.requestReload(releaseFingerprint);
     if (navigator.serviceWorker.controller === registration.active) onControllerChange();
   };
+  const onPageShow = () => sendReady();
+  const onVisibilityChange = () => {
+    if (document.visibilityState === "visible") sendReady();
+  };
+  const onInstallingStateChange = () => {
+    if (watchedInstallingWorker?.state === "installed") requestWaitingCandidate();
+  };
+  const watchInstallingWorker = () => {
+    watchedInstallingWorker?.removeEventListener("statechange", onInstallingStateChange);
+    watchedInstallingWorker = registration.installing;
+    watchedInstallingWorker?.addEventListener("statechange", onInstallingStateChange);
+    onInstallingStateChange();
+  };
+  const stopQuiescentListener = state.onQuiescent(() => {
+    acknowledgePendingCandidate();
+    reloadWhenQuiescent();
+  });
   navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
   navigator.serviceWorker.addEventListener("message", onWorkerMessage);
+  window.addEventListener("pageshow", onPageShow);
+  document.addEventListener("visibilitychange", onVisibilityChange);
+  registration.addEventListener("updatefound", watchInstallingWorker);
+  watchInstallingWorker();
   sendReady();
-  void fetch("/app-shell-assets.json", { cache: "no-store", credentials: "same-origin" })
-    .then((response) => response.ok ? response.json() as Promise<{ releaseFingerprint?: unknown; compatibility?: OfflineVersionVector }> : null)
-    .then((manifest) => {
-      if (!manifest || typeof manifest.releaseFingerprint !== "string") return;
-      state.setPageState(manifest.releaseFingerprint, manifest.compatibility ?? null);
-    })
-    .catch(() => undefined);
   return {
     state,
     dispose: () => {
+      stopQuiescentListener();
       navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
       navigator.serviceWorker.removeEventListener("message", onWorkerMessage);
+      window.removeEventListener("pageshow", onPageShow);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      registration.removeEventListener("updatefound", watchInstallingWorker);
+      watchedInstallingWorker?.removeEventListener("statechange", onInstallingStateChange);
     },
   };
 }

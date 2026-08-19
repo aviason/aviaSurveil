@@ -145,7 +145,7 @@ func serveFile(response http.ResponseWriter, request *http.Request, filename str
 
 func setArtifactCachePolicy(response http.ResponseWriter, pathname string) {
 	switch {
-	case pathname == "/" || pathname == "/index.html" || pathname == "/sw.js" || pathname == "/app-shell-assets.json" || pathname == "/http-config.json" || pathname == "/demo-build.json":
+	case pathname == "/" || pathname == "/index.html" || pathname == "/app-shell-recovery.html" || pathname == "/sw.js" || pathname == "/app-shell-assets.json" || pathname == "/http-config.json" || pathname == "/demo-build.json":
 		response.Header().Set("Cache-Control", "no-store, no-transform")
 	case contentHashedAsset.MatchString(pathname):
 		response.Header().Set("Cache-Control", "public, max-age=31536000, immutable")

@@ -30,7 +30,7 @@ export const APPLICATION_ROUTE_PREFIXES = Object.freeze([
 ]);
 
 export function isNetworkOnlyPath(pathname: string): boolean {
-  return pathname === "/http-config.json" || pathname === "/app-shell-assets.json" || NETWORK_ONLY_ROUTE_PREFIXES.some((prefix) => pathname === prefix.slice(0, -1) || pathname.startsWith(prefix));
+  return pathname === "/http-config.json" || pathname === "/app-shell-assets.json" || pathname === "/app-shell-recovery.html" || NETWORK_ONLY_ROUTE_PREFIXES.some((prefix) => pathname === prefix.slice(0, -1) || pathname.startsWith(prefix));
 }
 
 export function normalizeApplicationPath(pathname: string): string | null {

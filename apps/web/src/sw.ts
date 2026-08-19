@@ -11,6 +11,10 @@ import {
   type AppShellPredecessorDescriptor,
 } from "./offline/app-shell-manifest-contract";
 import {
+  APP_SHELL_UPDATE_PROTOCOL_VERSION,
+  legacyQuiescentReloadFingerprint,
+} from "./offline/app-shell-update-protocol";
+import {
   isContentHashedAssetPath,
   isNetworkOnlyPath,
   isRegisteredApplicationRoute,
@@ -77,6 +81,7 @@ let installedManifest: AppShellManifest | null = null;
 let activeCacheName: string | null = null;
 let activeManifest: AppShellManifest | null = null;
 const safeCheckpointAcks = new Map<string, SafeCheckpointAck>();
+const currentClientFingerprints = new Map<string, string>();
 
 const contentTypeByExtension: Record<string, string> = {
   css: "text/css",
@@ -325,7 +330,10 @@ async function committedManifests(): Promise<Array<{ cacheName: string; manifest
     const response = await (await caches.open(cacheName)).match(new URL(VERIFIED_MARKER, serviceWorkerScope.location.origin).href);
     if (!response) continue;
     try {
-      result.push({ cacheName, manifest: parseManifest(await response.json()) });
+      const manifest = parseManifest(await response.json());
+      await verifyManifestFingerprint(manifest);
+      if (cacheName !== candidateCacheName(manifest)) continue;
+      result.push({ cacheName, manifest });
     } catch {
       // Untrusted or partial cache entries are ignored and are never selected.
     }
@@ -344,7 +352,10 @@ export function canActivateAppShellCandidate(
 ): boolean {
   if (!sameOfflineVersionVector(candidate.compatibility, CURRENT_OFFLINE_VERSIONS)) return false;
   const predecessor = candidate.predecessor;
-  if (predecessor === null) return committed.length === 0;
+  if (predecessor && !sameOfflineVersionVector(predecessor.compatibility, candidate.compatibility)) return false;
+  if (legacyPredecessor && !sameOfflineVersionVector(legacyPredecessor.compatibility, candidate.compatibility)) return false;
+  if (committed.length === 0) return true;
+  if (predecessor === null) return false;
   if (
     predecessor.serviceWorkerURL === "/sw.js?v=9" &&
     sameOfflineVersionVector(predecessor.compatibility, candidate.compatibility)
@@ -386,6 +397,23 @@ async function serveVersionedAsset(request: Request): Promise<Response> {
     const match = await (await caches.open(activeCacheName)).match(request);
     if (match) return match;
   }
+  const pathname = new URL(request.url).pathname;
+  for (const { cacheName, manifest } of await committedManifests()) {
+    if (cacheName === activeCacheName) continue;
+    const record = manifest.files.find((file) => file.url === pathname);
+    if (!record) continue;
+    const match = await (await caches.open(cacheName)).match(request);
+    if (!match) continue;
+    const actualType = (match.headers.get("content-type") ?? "").split(";", 1)[0].trim().toLowerCase();
+    const bytes = await match.clone().arrayBuffer();
+    if (
+      actualType === record.contentType &&
+      bytes.byteLength === record.byteSize &&
+      await sha256(bytes) === record.sha256
+    ) {
+      return match;
+    }
+  }
   return fetch(request, { cache: "no-store" });
 }
 
@@ -406,13 +434,17 @@ async function sameOriginWindowClients(): Promise<WindowClient[]> {
 
 async function notifyCandidate(manifest: AppShellManifest): Promise<void> {
   for (const client of await sameOriginWindowClients()) {
-    client.postMessage({
-      type: "avia:app-shell-update-available",
-      fingerprint: manifest.releaseFingerprint,
-      compatibility: manifest.compatibility,
-      requiresSafeCheckpoint: true,
-    });
+    notifyClientOfCandidate(client, manifest);
   }
+}
+
+function notifyClientOfCandidate(client: Client, manifest: AppShellManifest): void {
+  client.postMessage({
+    type: "avia:app-shell-update-available",
+    fingerprint: manifest.releaseFingerprint,
+    compatibility: manifest.compatibility,
+    requiresSafeCheckpoint: true,
+  });
 }
 
 async function maybeSkipWaitingAfterSafeCheckpoint(manifest: AppShellManifest): Promise<void> {
@@ -428,15 +460,67 @@ async function maybeSkipWaitingAfterSafeCheckpoint(manifest: AppShellManifest): 
       manifest.compatibility,
     )
   ) {
-    serviceWorkerScope.skipWaiting();
+    await serviceWorkerScope.skipWaiting();
   }
+}
+
+async function retirePredecessorCachesWhenEveryClientIsCurrent(manifest: AppShellManifest): Promise<void> {
+  const clients = await sameOriginWindowClients();
+  const clientIDs = new Set(clients.map((client) => client.id));
+  for (const clientID of currentClientFingerprints.keys()) {
+    if (!clientIDs.has(clientID)) currentClientFingerprints.delete(clientID);
+  }
+  if (clients.some((client) => currentClientFingerprints.get(client.id) !== manifest.releaseFingerprint)) return;
+  await retireLegacyCaches(candidateCacheName(manifest));
+}
+
+async function fingerprintForClientAsset(
+  assetURL: unknown,
+  active: AppShellManifest,
+): Promise<string | null> {
+  if (typeof assetURL !== "string") return null;
+  let url: URL;
+  try {
+    url = new URL(assetURL);
+  } catch {
+    return null;
+  }
+  if (
+    url.origin !== serviceWorkerScope.location.origin ||
+    url.search ||
+    url.hash ||
+    !isContentHashedAssetPath(url.pathname)
+  ) {
+    return null;
+  }
+  const manifests = [
+    { cacheName: candidateCacheName(active), manifest: active },
+    ...(await committedManifests()).filter(({ cacheName }) => cacheName !== candidateCacheName(active)),
+  ];
+  return manifests.find(({ manifest }) => manifest.files.some((file) => file.url === url.pathname))?.manifest.releaseFingerprint ?? null;
+}
+
+function activationMessage(manifest: AppShellManifest, safeCheckpointAcknowledged: boolean) {
+  return {
+    type: "avia:app-shell-activation",
+    fingerprint: safeCheckpointAcknowledged
+      ? manifest.releaseFingerprint
+      : legacyQuiescentReloadFingerprint(manifest.releaseFingerprint),
+    releaseFingerprint: manifest.releaseFingerprint,
+    requiresClientQuiescence: true,
+    automaticReload: true,
+    safeCheckpointAcknowledged,
+  };
 }
 
 if (typeof serviceWorkerScope.addEventListener === "function" && "registration" in serviceWorkerScope && typeof caches !== "undefined") {
   serviceWorkerScope.addEventListener("install", (event: ExtendableEvent) => {
+    const hadWaitingWorkerBeforeInstall = Boolean(serviceWorkerScope.registration.waiting);
     event.waitUntil((async () => {
       const manifest = await installAppShell();
-      if (await canActivate(manifest)) await notifyCandidate(manifest);
+      if (!(await canActivate(manifest))) return;
+      await notifyCandidate(manifest);
+      if (!hadWaitingWorkerBeforeInstall) await serviceWorkerScope.skipWaiting();
     })());
   });
 
@@ -444,48 +528,68 @@ if (typeof serviceWorkerScope.addEventListener === "function" && "registration" 
     event.waitUntil((async () => {
       const manifest = installedManifest ?? await loadExpectedInstalledManifest();
       if (!manifest || !(await canActivate(manifest))) throw new Error("app-shell predecessor/vector activation gate failed");
-      const committed = await committedManifests();
       const clients = await sameOriginWindowClients();
-      const acknowledgements = clients
-        .map((client) => safeCheckpointAcks.get(client.id))
-        .filter((ack): ack is SafeCheckpointAck => Boolean(ack));
-      if (
-        committed.length > 0 &&
-        (acknowledgements.length !== clients.length ||
-          !allClientsAcknowledgedSafeCheckpoint(
-            acknowledgements,
-            manifest.releaseFingerprint,
-            manifest.compatibility,
-          ))
-      ) {
-        throw new Error("app-shell activation requires every client safe-checkpoint acknowledgement");
-      }
       activeCacheName = candidateCacheName(manifest);
       activeManifest = manifest;
-      if (committed.length === 0 || acknowledgements.length === clients.length) {
-        await serviceWorkerScope.clients.claim();
-      }
-      await retireLegacyCaches(activeCacheName);
       for (const client of clients) {
-        client.postMessage({
-          type: "avia:app-shell-activation",
-          fingerprint: manifest.releaseFingerprint,
-          requiresUserReload: true,
-        });
+        const acknowledgement = safeCheckpointAcks.get(client.id);
+        client.postMessage(activationMessage(
+          manifest,
+          Boolean(acknowledgement && isSafeCheckpointAck(
+            acknowledgement,
+            manifest.releaseFingerprint,
+            manifest.compatibility,
+          )),
+        ));
       }
+      await retirePredecessorCachesWhenEveryClientIsCurrent(manifest);
     })());
   });
 
   serviceWorkerScope.addEventListener("message", (event: ExtendableMessageEvent) => {
+    if (event.data?.type === "avia:app-shell-update-check") {
+      event.waitUntil((async () => {
+        const source = event.source as Client | null;
+        const manifest = installedManifest ?? await loadExpectedInstalledManifest();
+        if (source && manifest && await canActivate(manifest)) notifyClientOfCandidate(source, manifest);
+      })());
+    }
+    if (event.data?.type === "avia:app-shell-recovery-activate") {
+      event.waitUntil((async () => {
+        const source = event.source as Client | null;
+        const manifest = installedManifest ?? await loadExpectedInstalledManifest();
+        if (!source || !manifest || event.data.fingerprint !== manifest.releaseFingerprint) return;
+        const sourceURL = new URL(source.url);
+        if (
+          sourceURL.origin !== serviceWorkerScope.location.origin ||
+          sourceURL.pathname !== "/app-shell-recovery.html" ||
+          !(await canActivate(manifest))
+        ) {
+          return;
+        }
+        await serviceWorkerScope.skipWaiting();
+      })());
+    }
     if (event.data?.type === "avia:app-shell-client-ready") {
       event.waitUntil((async () => {
         const source = event.source as Client | null;
         const manifest = await restoreActiveManifest();
-        if (source && manifest) source.postMessage({
+        if (!source || !manifest) return;
+        const protocolVersion = event.data.protocolVersion;
+        const clientFingerprint = protocolVersion === APP_SHELL_UPDATE_PROTOCOL_VERSION
+          ? await fingerprintForClientAsset(event.data.clientAssetURL, manifest)
+          : null;
+        if (clientFingerprint) currentClientFingerprints.set(source.id, clientFingerprint);
+        source.postMessage({
           type: "avia:app-shell-worker-ready",
-          fingerprint: manifest.releaseFingerprint,
+          fingerprint: clientFingerprint,
+          activeFingerprint: manifest.releaseFingerprint,
           compatibility: manifest.compatibility,
         });
+        if (protocolVersion !== APP_SHELL_UPDATE_PROTOCOL_VERSION) {
+          source.postMessage(activationMessage(manifest, false));
+        }
+        await retirePredecessorCachesWhenEveryClientIsCurrent(manifest);
       })());
     }
     if (event.data?.type === "avia:app-shell-safe-checkpoint-ack") {

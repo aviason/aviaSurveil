@@ -19,7 +19,7 @@ https://localhost:8443 {
 		rewrite * /sw.js
 		reverse_proxy web:8080
 	}
-	@control path / /index.html /sw.js /app-shell-assets.json /http-config.json /demo-build.json
+	@control path / /index.html /app-shell-recovery.html /sw.js /app-shell-assets.json /http-config.json /demo-build.json
 	@hashed path_regexp hashed ^/assets/[A-Za-z0-9_.-]+-[A-Za-z0-9_-]{6,}\.(?:css|js|map|svg|png|jpg|jpeg|webp|ttf|woff|woff2)$
 	@network_only path /private/*
 	header @control Cache-Control "no-store, no-transform"
