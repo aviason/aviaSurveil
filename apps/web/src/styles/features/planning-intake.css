@@ -834,12 +834,15 @@
   transform: translateY(-50%);
   place-items: center;
   border: 0;
-  border-radius: calc(var(--avia-radius-control) - 2px);
   background: transparent;
   padding: 0;
   color: var(--avia-color-action);
   font-size: 1.05rem;
-  pointer-events: none;
+  border-radius: calc(var(--avia-radius-control) - 2px);
+  cursor: pointer;
+  line-height: 1;
+  font: inherit;
+  user-select: none;
 }
 
 .planning-intake-fields .planning-intake-date-picker {
@@ -853,15 +856,21 @@
   min-height: 42px;
   margin: 0;
   border: 0;
-  background: transparent;
   padding: 0;
+  background: transparent;
   color: transparent;
+  font-size: 1rem;
+  opacity: 0;
+  filter: none;
   cursor: pointer;
-  font-size: 0;
-  opacity: 1;
-  pointer-events: auto;
+  pointer-events: none;
   appearance: none;
   -webkit-appearance: none;
+}
+
+.planning-intake-date-calendar:focus-visible {
+  outline: 3px solid rgb(47 111 214 / 28%);
+  outline-offset: 1px;
 }
 
 .planning-intake-date-picker:focus-visible {

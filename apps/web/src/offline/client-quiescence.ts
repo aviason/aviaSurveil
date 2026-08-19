@@ -153,6 +153,7 @@ export function bindBrowserQuiescence(registration: ServiceWorkerRegistration): 
     target: ServiceWorker | null;
   } | null = null;
   let acknowledgedCandidateFingerprint: string | null = null;
+  let reportedCandidateFingerprint: string | null = null;
   let reloadStarted = false;
   let watchedInstallingWorker: ServiceWorker | null = null;
 
@@ -168,6 +169,13 @@ export function bindBrowserQuiescence(registration: ServiceWorkerRegistration): 
       clientAssetURL,
     });
     requestWaitingCandidate();
+  };
+  const notifyUpdateCandidate = (fingerprint: string) => {
+    if (reportedCandidateFingerprint === fingerprint) return;
+    reportedCandidateFingerprint = fingerprint;
+    window.dispatchEvent(new CustomEvent("avia:app-shell-update-candidate", {
+      detail: { fingerprint },
+    }));
   };
   const reloadWhenQuiescent = () => {
     if (
@@ -216,6 +224,7 @@ export function bindBrowserQuiescence(registration: ServiceWorkerRegistration): 
   const onWorkerMessage = (event: MessageEvent) => {
     if (event.data?.type === "avia:app-shell-update-available" && typeof event.data.fingerprint === "string") {
       const vector = event.data.compatibility as OfflineVersionVector;
+      notifyUpdateCandidate(event.data.fingerprint);
       sendSafeCheckpointAck(event.data.fingerprint, vector, event.source as ServiceWorker | null);
       return;
     }
@@ -225,6 +234,7 @@ export function bindBrowserQuiescence(registration: ServiceWorkerRegistration): 
       if (loadedFingerprint) state.setPageState(loadedFingerprint, event.data.compatibility ?? null);
       if (loadedFingerprint && activeFingerprint && loadedFingerprint !== activeFingerprint) {
         pendingReloadFingerprint = activeFingerprint;
+        notifyUpdateCandidate(activeFingerprint);
         state.requestReload(activeFingerprint);
         reloadWhenQuiescent();
       }
@@ -234,6 +244,7 @@ export function bindBrowserQuiescence(registration: ServiceWorkerRegistration): 
     const releaseFingerprint = releaseFingerprintFromActivationMessage(event.data);
     if (!releaseFingerprint) return;
     pendingReloadFingerprint = releaseFingerprint;
+    notifyUpdateCandidate(releaseFingerprint);
     state.requestReload(releaseFingerprint);
     if (navigator.serviceWorker.controller === registration.active) onControllerChange();
   };

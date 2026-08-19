@@ -1,4 +1,4 @@
-import { useCallback, useState, type PropsWithChildren, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type PropsWithChildren, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 
 import type { FindingSeverity, FindingView, Role } from "../../backend/backend";
@@ -39,6 +39,8 @@ export function WorkspaceShell({
   const session = useOptionalSession();
   const navigate = useNavigate();
   const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [pendingUpdateFingerprint, setPendingUpdateFingerprint] = useState<string | null>(null);
+  const [dismissedUpdateFingerprint, setDismissedUpdateFingerprint] = useState<string | null>(null);
   const routeRole = roleForLabel(roleLabel);
   const activeRouteId = routeForLabel(routeLabel, routeRole);
   const authenticatedSession =
@@ -93,6 +95,37 @@ export function WorkspaceShell({
       }
     })();
   }, [authenticatedSession, beforeSubjectChange, mode, navigate, session]);
+
+  useEffect(() => {
+    const onUpdateCandidate = (event: Event): void => {
+      const fingerprint = (event as CustomEvent<{ fingerprint: string }> | null)?.detail?.fingerprint;
+      if (typeof fingerprint !== "string") return;
+      if (fingerprint === dismissedUpdateFingerprint) return;
+      setPendingUpdateFingerprint(fingerprint);
+    };
+    const onReloadStarted = (event: Event): void => {
+      const fingerprint = (event as CustomEvent<{ fingerprint?: string }> | null)?.detail?.fingerprint;
+      if (typeof fingerprint === "string" && fingerprint === pendingUpdateFingerprint) {
+        setPendingUpdateFingerprint(null);
+        setDismissedUpdateFingerprint(fingerprint);
+      } else if (!fingerprint) {
+        setPendingUpdateFingerprint(null);
+      }
+    };
+    const onUpdateCleared = () => {
+      setPendingUpdateFingerprint(null);
+    };
+
+    window.addEventListener("avia:app-shell-update-candidate", onUpdateCandidate);
+    window.addEventListener("avia:app-shell-reload-required", onReloadStarted);
+    window.addEventListener("beforeunload", onUpdateCleared);
+    return () => {
+      window.removeEventListener("avia:app-shell-update-candidate", onUpdateCandidate);
+      window.removeEventListener("avia:app-shell-reload-required", onReloadStarted);
+      window.removeEventListener("beforeunload", onUpdateCleared);
+    };
+  }, [dismissedUpdateFingerprint, pendingUpdateFingerprint]);
+
   return (
     <>
       <ApplicationShell
@@ -107,6 +140,36 @@ export function WorkspaceShell({
         }}
       >
         {logoutError ? <p className="command-error" role="alert">{logoutError}</p> : null}
+        {pendingUpdateFingerprint ? (
+          <section className="app-shell-update-notice" role="status" aria-live="polite">
+            <div>
+              <strong>Update available.</strong> A newer app shell is ready.
+              Reload to use the latest version and continue safely.
+            </div>
+            <div className="app-shell-update-notice__actions">
+              <button
+                className="primary-button"
+                onClick={() => {
+                  setDismissedUpdateFingerprint(pendingUpdateFingerprint);
+                  window.location.reload();
+                }}
+                type="button"
+              >
+                Reload now
+              </button>
+              <button
+                className="secondary-button"
+                onClick={() => {
+                  setDismissedUpdateFingerprint(pendingUpdateFingerprint);
+                  setPendingUpdateFingerprint(null);
+                }}
+                type="button"
+              >
+                Later
+              </button>
+            </div>
+          </section>
+        ) : null}
         {children}
       </ApplicationShell>
     </>

@@ -246,3 +246,28 @@ textarea {
 .empty-state {
   text-align: left;
 }
+
+.app-shell-update-notice {
+  max-width: var(--avia-content-max);
+  margin: 0 auto 18px;
+  padding: 12px 14px;
+  border: 1px solid #b5cbe0;
+  border-left-width: 5px;
+  border-left-color: #1d608f;
+  border-radius: var(--avia-radius-panel);
+  background: #eef5fb;
+  color: #173b50;
+  display: grid;
+  gap: 10px;
+}
+
+.app-shell-update-notice strong {
+  color: #114b71;
+}
+
+.app-shell-update-notice__actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}

@@ -53,4 +53,57 @@ describe("WorkspaceShell", () => {
     await waitFor(() => expect(client.logout).toHaveBeenCalledTimes(1));
     expect(beforeSubjectChange).toHaveBeenCalledWith("LOGOUT");
   });
+
+  it("shows and manages an app shell update notice", async () => {
+    const runtime = createMockBackendRuntime();
+    const client: SessionClient = {
+      get: vi.fn().mockResolvedValue({
+        subjectId: "154ec5ac-6f97-4f55-916f-d2f142fc6211",
+        displayName: "Local Inspector",
+        organizationId: "CAA",
+        roles: ["inspector"],
+      }),
+      login: vi.fn(),
+      logout: vi.fn().mockResolvedValue(undefined),
+      csrfToken: vi.fn(() => "csrf"),
+    };
+
+    render(
+      <AppProviders runtime={{
+        backend: runtime.backend,
+        backendForRole: runtime.backendForRole,
+        buildProfile: "http",
+        environmentLabel: "Test",
+        identityMode: "oidc-session",
+      }}>
+        <SessionProvider client={client} identityMode="oidc-session">
+          <MemoryRouter>
+            <WorkspaceShell roleLabel="CAA Inspector" routeLabel="My Assignments">
+              <p>Authorized content</p>
+            </WorkspaceShell>
+          </MemoryRouter>
+        </SessionProvider>
+      </AppProviders>,
+    );
+
+    window.dispatchEvent(new CustomEvent("avia:app-shell-update-candidate", {
+      detail: { fingerprint: "update-1" },
+    }));
+    await waitFor(() => expect(screen.getByText("Update available.")).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Reload now" })).toBeVisible();
+    expect(screen.getByText("Update available.")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Later" }));
+    expect(screen.queryByText("Reload to use the latest version and continue safely.")).not.toBeInTheDocument();
+
+    window.dispatchEvent(new CustomEvent("avia:app-shell-update-candidate", {
+      detail: { fingerprint: "update-1" },
+    }));
+    expect(screen.queryByText("Update available.")).not.toBeInTheDocument();
+
+    window.dispatchEvent(new CustomEvent("avia:app-shell-update-candidate", {
+      detail: { fingerprint: "update-2" },
+    }));
+    await waitFor(() => expect(screen.getByText("Update available.")).toBeInTheDocument());
+  });
 });

@@ -300,12 +300,14 @@ export function installAppShellUpdateMonitor(
   const checkWhenVisible = () => {
     if (environment.documentTarget.visibilityState === "visible") void checkNow();
   };
+  const checkWhenFocused = () => void checkNow();
   const checkWhenOnline = () => void checkNow();
   const checkWhenShown = () => void checkNow();
   const poll = () => void checkNow();
 
   environment.eventTarget.addEventListener("online", checkWhenOnline);
   environment.eventTarget.addEventListener("pageshow", checkWhenShown);
+  environment.eventTarget.addEventListener("focus", checkWhenFocused);
   environment.documentTarget.addEventListener("visibilitychange", checkWhenVisible);
   const intervalHandle = environment.setInterval(poll, APP_SHELL_UPDATE_POLL_INTERVAL_MS);
   void checkNow();
@@ -318,6 +320,7 @@ export function installAppShellUpdateMonitor(
       environment.clearInterval(intervalHandle);
       environment.eventTarget.removeEventListener("online", checkWhenOnline);
       environment.eventTarget.removeEventListener("pageshow", checkWhenShown);
+      environment.eventTarget.removeEventListener("focus", checkWhenFocused);
       environment.documentTarget.removeEventListener("visibilitychange", checkWhenVisible);
     },
   };

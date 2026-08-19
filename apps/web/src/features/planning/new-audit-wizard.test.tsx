@@ -100,10 +100,8 @@ describe("New Inspection Planning intake", () => {
     expect(plannedDate).toHaveAttribute("inputmode", "text");
     expect(plannedDate).toHaveAttribute("enterkeyhint", "next");
     expect(plannedDate).toHaveAttribute("placeholder", "YYYY-MM-DD");
-    const calendarPicker = screen.getByLabelText("Open planned date calendar");
+    const calendarPicker = screen.getByTestId("planning-intake-date-picker");
     expect(calendarPicker).toHaveAttribute("type", "date");
-    expect(calendarPicker).not.toHaveAttribute("aria-hidden", "true");
-    expect(calendarPicker).not.toHaveAttribute("tabindex", "-1");
     await user.type(plannedDate, "20261210");
     expect(plannedDate).toHaveValue("2026-12-10");
     await user.type(await screen.findByLabelText("Location"), "Fly Namibia HQ");

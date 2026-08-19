@@ -334,15 +334,19 @@ describe("app-shell update monitor", () => {
     harness.eventTarget.dispatchEvent(new Event("pageshow"));
     await settleUpdateMonitor();
     expect(update).toHaveBeenCalledTimes(5);
+    harness.eventTarget.dispatchEvent(new Event("focus"));
+    await settleUpdateMonitor();
+    expect(update).toHaveBeenCalledTimes(6);
 
     monitor.close();
     expect(harness.clearInterval).toHaveBeenCalledWith(harness.intervalHandle);
     harness.poll();
     harness.eventTarget.dispatchEvent(new Event("online"));
     harness.eventTarget.dispatchEvent(new Event("pageshow"));
+    harness.eventTarget.dispatchEvent(new Event("focus"));
     harness.documentTarget.dispatchEvent(new Event("visibilitychange"));
     await settleUpdateMonitor();
-    expect(update).toHaveBeenCalledTimes(5);
+    expect(update).toHaveBeenCalledTimes(6);
   });
 
   it("pauses while hidden or offline and coalesces concurrent checks", async () => {
@@ -371,6 +375,7 @@ describe("app-shell update monitor", () => {
     harness.documentTarget.dispatchEvent(new Event("visibilitychange"));
     harness.poll();
     harness.eventTarget.dispatchEvent(new Event("pageshow"));
+    harness.eventTarget.dispatchEvent(new Event("focus"));
     expect(update).toHaveBeenCalledTimes(1);
 
     finishUpdates.shift()?.();
