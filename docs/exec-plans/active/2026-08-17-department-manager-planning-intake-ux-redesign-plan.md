@@ -1,8 +1,8 @@
 # Department Manager Planning Intake UX Redesign
 
 Date: 2026-08-17
-Last updated: 2026-08-18
-Status: ready-for-verification — implementation, connected qualification, public release/app-shell verification, Chrome + Computer Use browser-control checks, root `make check`, and explicit stakeholder acceptance are recorded; IAB-native zoom/reduced-motion/full-Tab controls are outside the revised acceptance boundary; production readiness not claimed
+Last updated: 2026-08-19
+Status: completed — independent final verification, public all-role qualification, responsive visual QA, root `make check`, and immutable `namibia/demo` release evidence are recorded; Chrome connector `blocked`, Computer Use real Chrome shell `verified locally`, IAB-native zoom/reduced-motion/full-Tab controls remain outside the revised acceptance boundary; production readiness not claimed
 
 ## Planning authority
 
@@ -757,16 +757,20 @@ Final mismatch ledger:
 | Console/overlay/privacy | No IAB error/warn logs or framework overlay; no Audit creation or Inspector start after Finance submission | `verified locally` |
 | IAB viewport DOM/overflow/console | 1440×900, 1024×768, 768×1024, and 390×844 each had one main, correct Department Planning identity, no horizontal overflow, and no IAB error/warn logs | `verified locally` |
 | Chrome + Computer Use browser controls | Real Chrome `200%` zoom, native Tab/Return focus and activation, and DevTools `prefers-reduced-motion: reduce` emulation were exercised; public console caveat recorded above | `verified locally` |
+| Public recommendation oracle | Final release result records `comparableAuditCount=6`, `historyDeferredCount=1`, `absentFromSuggested=true`, `restoredAndUndone=true`, and `fullCatalogCount=1310` | `verified locally` |
+| Public role lifecycle | Final result records Department Manager materialization, Inspector start/checklist, Executive final issue, target Auditee view, control Auditee API/DOM isolation, and credential cleanup | `verified locally` |
+| Inspector queue presentation | Final 390×844 screenshot shows human-readable assignment titles, no raw `inspection:assignment:` text, one-column cards, five SVG glyphs, and spaced release boundary copy | `verified locally` |
+| Submitted checklist presentation | Final 390×844 screenshot shows `Submitted — read-only review`, six answered rows, no pre-start error, and no horizontal overflow | `verified locally` |
+| Final responsive evidence | `/tmp/avia-public-visual-qa-20260819-final2/summary.json` and its three screenshots record Manager phone, Inspector queue, and submitted checklist diagnostics | `verified locally` |
+| Chrome connector availability | Bundled Chrome connector lookup returned `Browser is not available: chrome`; Computer Use controlled real Google Chrome and observed public shell at toolbar `200%` without entering credentials | `blocked` |
 
-The plan remains `active`; Chrome + Computer Use browser-control evidence,
-public demo smoke/no-op evidence, public all-role qualification, and root
-`make check` are `verified locally`. The qualification timeout was resolved by
-keeping browser pagination bounded, using one server-side selection projection
-for the complete 1,310-question audit, and staging selected rows through the
-real search/review flow. A stale Question dossier response was also prevented
-from reopening a closed modal. IAB-native controls remain outside the revised
-acceptance boundary; production readiness is not claimed. Stakeholder
-acceptance remains before a lifecycle transition to `ready-for-verification`.
+The plan is `completed`; the final public release, health, smoke, all-role
+qualification, responsive visual QA, full React regression, root `make check`,
+and exact release/app-shell verification are `verified locally`. The Chrome
+connector is `blocked`, while Computer Use real Chrome shell inspection and
+authenticated Playwright browser evidence are `verified locally`. IAB-native
+zoom/reduced-motion/full-Tab controls remain outside the revised acceptance
+boundary. Production readiness is not claimed.
 
 ## Verification matrix
 
@@ -975,6 +979,8 @@ equal-width columns.
 - [x] Remove Manager runtime/environment text and correct the 390px stepper layout; focused UI tests 39/39, desktop 1440x900 and mobile 390x844 IAB screenshots, DOM, interaction, and console checks are `verified locally`.
 - [x] Public all-role qualification and root `make check` blockers resolved with literal local evidence.
 - [x] Stakeholder acceptance and plan lifecycle transition to `ready-for-verification` recorded 2026-08-18.
+- [x] Independent final verification at the immutable public release recorded 2026-08-19 (`verified locally`).
+- [x] Final recommendation, queue-ID, submitted-checklist, responsive visual, full React, root `make check`, and credential-residue gates closed (`verified locally`).
 
 ### 2026-08-18 — Stakeholder acceptance
 
@@ -985,20 +991,28 @@ production readiness.
 
 ## Current outcome
 
-Planning and Gate 1 are complete and accepted. Tasks 1–7 are implemented with
-frontend-only planning-intake changes, focused/full React evidence, builds,
-contract and mock-flow evidence, public connected qualification, visible-
-actions/accessibility evidence, primary IAB viewport evidence, and Chrome +
-Computer Use browser-control evidence all `verified locally`. Public release
-lock/app-shell digest matching, exact release-check, health, tunnel, apply,
-qualification, root `make check`, and direct no-op evidence are
-`verified locally`. IAB-native control coverage is outside the revised
-acceptance boundary; production readiness is not claimed.
+Independent final verification is complete. Tasks 1–7 are implemented with
+frontend-only planning-intake changes, and the final immutable `namibia/demo`
+release is bound to Surveil `7f4544aaaaf95cd2a3da5acb3f769fbf15f8f35d` and
+Workspace release commit `9486640`. The final all-role result is
+`/Users/marlonjd/Developer/monorepos/avia/.state/qualification/namibia/demo/results/namibia-demo-20260818t23581787086682z-890c92455f4b4e00a11a30d4b31ced08.jsonl`.
+It records `1 passed (2.5m)`, the recommendation oracle, all role handoffs,
+final report and Auditee isolation, and credential cleanup as `verified locally`.
 
-The plan is now ready for independent verification. The exhaustive catalog
-audit, root release-lock/attestation fixture blockers, public release, connected
-all-role flow, and stakeholder acceptance are resolved with the evidence above.
-Production readiness is not claimed.
+The final visual evidence is
+`/tmp/avia-public-visual-qa-20260819-final2/summary.json` with screenshots for
+Manager New Audit, Inspector Assignments, and submitted Inspector Checklist.
+The four-viewport matrix is recorded at
+`/tmp/avia-public-visual-qa-20260819-final/summary.json`; all tested surfaces
+had no horizontal overflow, no page errors, and no non-telemetry console error.
+The final full React regression is `93 files / 732 tests passed`; root
+`make check` is `73/73` Python tests plus harness/validate/diff checks passed.
+The final release lock is `sha256:2f0e03dbe69e8715c522313f029b0d21eb514a8b160c474def1922357cbf968f`,
+the release manifest is `sha256:e445ba2374c72e586e7ad7baf143274770de90c23680dbfcf225a7f712611354`,
+and public health/smoke are `verified locally`. Chrome connector availability is
+`blocked`; Computer Use real Chrome at 200% and authenticated Playwright are
+`verified locally`. IAB-native controls remain outside the revised acceptance
+boundary. Production readiness is not claimed.
 
 ## Execution Prompt
 
