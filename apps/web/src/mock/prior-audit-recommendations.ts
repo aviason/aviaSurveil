@@ -1,6 +1,6 @@
 import type { CanonicalQuestionCatalogEntry, CanonicalQuestionUsageClass } from "../backend/backend";
 
-export type PriorAuditRecommendationProfile = "prior-audit-multi-history" | "prior-audit-single-history";
+export type PriorAuditRecommendationProfile = "prior-audit-multi-history" | "prior-audit-single-history" | "prior-audit-no-history-scope-filter";
 export type MockPriorAuditRecommendation = CanonicalQuestionCatalogEntry["recommendation"];
 
 const catalogVersion = "aga-approved-source@2.0.0";
@@ -53,6 +53,12 @@ const singleRecommendations: Record<string, MockPriorAuditRecommendation> = {
   [questionId(15)]: recommendation("UNCERTAIN_SIGNAL", "ROTATIONAL_SAMPLE", true, false, 1, ["INSUFFICIENT_LONGITUDINAL_HISTORY"], "One clean Audit is not sufficient longitudinal evidence for omission."),
 };
 
+const noHistoryRecommendations: Record<string, MockPriorAuditRecommendation> = {
+  "Q-NO-HISTORY-IN-FOCUS-OPTIONAL": recommendation("UNCERTAIN_SIGNAL", "ROTATIONAL_SAMPLE", true, false, 0, ["UNKNOWN_HISTORY", "AUDIT_TYPE_FOCUS_MATCH"], "No comparable history exists; this in-focus optional question remains suggested."),
+  "Q-NO-HISTORY-OUTSIDE-FOCUS-OPTIONAL": recommendation("OUTSIDE_FOCUS", "ROTATIONAL_SAMPLE", false, false, 0, ["OUTSIDE_AUDIT_TYPE_FOCUS"], "This optional question remains available in the full approved catalog but is outside the selected audit-type focus."),
+  "Q-NO-HISTORY-OUTSIDE-FOCUS-MANDATORY": recommendation("SUGGESTED_NOW", "MANDATORY_CORE", true, false, 0, ["MANDATORY_CONTROL", "OUTSIDE_AUDIT_TYPE_FOCUS"], "Mandatory controls remain protected even when they fall outside the selected audit-type focus."),
+};
+
 export const priorAuditRecommendationFixtures: Record<PriorAuditRecommendationProfile, {
   profile: PriorAuditRecommendationProfile;
   organizationId: string;
@@ -62,6 +68,8 @@ export const priorAuditRecommendationFixtures: Record<PriorAuditRecommendationPr
   auditType: string;
   catalogVersion: string;
   priorAuditIds: string[];
+  declaredQuestionVersionIds?: string[];
+  excludedQuestionVersionIds?: string[];
   recommendations: Record<string, MockPriorAuditRecommendation>;
 }> = {
   "prior-audit-multi-history": {
@@ -85,6 +93,30 @@ export const priorAuditRecommendationFixtures: Record<PriorAuditRecommendationPr
     catalogVersion,
     priorAuditIds: ["AUD-PRIOR-SINGLE-001"],
     recommendations: singleRecommendations,
+  },
+  "prior-audit-no-history-scope-filter": {
+    profile: "prior-audit-no-history-scope-filter",
+    organizationId: "ORG-PRIOR-AUDIT-QUALIFICATION",
+    providerScopeId: "SCOPE-PRIOR-AUDIT-001",
+    regulatedTargetId: "TARGET-PRIOR-AUDIT-001",
+    location: "Windhoek International Airport",
+    auditType: "RAMP_INSPECTION",
+    catalogVersion,
+    priorAuditIds: [],
+    declaredQuestionVersionIds: [
+      "Q-NO-HISTORY-IN-FOCUS-OPTIONAL",
+      "Q-NO-HISTORY-OUTSIDE-FOCUS-MANDATORY",
+      "Q-NO-HISTORY-OUTSIDE-FOCUS-OPTIONAL",
+      "Q-NO-HISTORY-WRONG-GENERAL-TYPE",
+      "Q-NO-HISTORY-WRONG-PROVIDER",
+      "Q-NO-HISTORY-WRONG-TARGET",
+    ],
+    excludedQuestionVersionIds: [
+      "Q-NO-HISTORY-WRONG-PROVIDER",
+      "Q-NO-HISTORY-WRONG-TARGET",
+      "Q-NO-HISTORY-WRONG-GENERAL-TYPE",
+    ],
+    recommendations: noHistoryRecommendations,
   },
 };
 

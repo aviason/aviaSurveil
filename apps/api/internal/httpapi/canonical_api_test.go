@@ -105,7 +105,7 @@ func TestCanonicalCatalogFacetWhereTypesEveryPreparedParameter(t *testing.T) {
 	for _, exclude := range []string{"form", "domain", "topic", "risk", "focus", "recommendation"} {
 		query := canonicalCatalogFacetWhere(exclude)
 		for _, placeholder := range []string{
-				"$1::text", "$2::text", "$3::text", "$4::text", "$5::text", "$6::text", "$7::text", "$8::text", "$9::text", "$10::text", "$11::text[]", "$12::text", "$13::text",
+			"$1::text", "$2::text", "$3::text", "$4::text", "$5::text", "$6::text", "$7::text", "$8::text", "$9::text", "$10::text", "$11::text[]", "$12::text", "$13::text",
 		} {
 			if !strings.Contains(query, placeholder) {
 				t.Fatalf("facet query for excluded %s does not type %s: %s", exclude, placeholder, query)
@@ -120,6 +120,22 @@ func TestCanonicalRecommendationComparisonOnlyCountsQuestionScopedAudits(t *test
 	}
 	if !strings.Contains(canonicalCatalogAIProjectionJoins, "comparison_question.question_version_id = m.question_version_id") {
 		t.Fatal("recommendation history can count an audit where the question was not selected")
+	}
+}
+
+func TestScopeRecommendation_NoHistoryScopeFilterHTTPProjectionContract(t *testing.T) {
+	for _, required := range []string{
+		"comparison_scope.provider_scope_id = active_scope.provider_scope_id",
+		"comparison_scope.regulated_target_id = active_scope.regulated_target_id",
+		"comparison_scope.audit_type = active_scope.audit_type",
+		"comparison_scope.catalog_id = active_scope.catalog_id",
+		"comparison_scope.usage_class = active_scope.usage_class",
+		"canonical_audit_type_matches_question_focus(active_scope.audit_type, ai.inspection_type_codes)",
+		"WHEN ai.mandatory_control OR ai.safety_critical OR ai.risk_tier IN ('HIGH', 'UNKNOWN') THEN 'SUGGESTED_NOW'",
+	} {
+		if !strings.Contains(canonicalCatalogAIProjectionJoins, required) {
+			t.Fatalf("HTTP recommendation projection missing no-history scope/focus contract %q", required)
+		}
 	}
 }
 

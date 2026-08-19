@@ -89,6 +89,10 @@ type RecommendationQuestion struct {
 	Prompt                             string
 	SourceDigest                       string
 	SourcePredecessorQuestionVersionID string
+	ProviderScopeID                    string
+	RegulatedTargetID                  string
+	GeneralInspectionType              string
+	InspectionTypeCodes                []string
 	Mandatory                          bool
 	SafetyCritical                     bool
 	RecurrenceMonths                   int
@@ -288,6 +292,9 @@ func EvaluatePriorAuditRecommendations(input RecommendationEvaluationInput) (Rec
 
 	recommendations := make([]QuestionRecommendation, 0, len(questions))
 	for _, question := range questions {
+		if !questionApplicableToScope(question, input.ScopeKey) {
+			continue
+		}
 		entries := byQuestion[question.QuestionVersionID]
 		recommendation := QuestionRecommendation{
 			QuestionVersionID:    question.QuestionVersionID,
@@ -387,6 +394,14 @@ func EvaluatePriorAuditRecommendations(input RecommendationEvaluationInput) (Rec
 			addSignal(&recommendation.SignalCodes, "UNKNOWN_HISTORY")
 			recommendation.Rationale = "No answer is recorded for this exact question version in the comparable history."
 		}
+		if !question.Mandatory && !question.SafetyCritical && !questionInAuditTypeFocus(question, input.ScopeKey.AuditType) {
+			recommendation.RecommendationState = RecommendationOutsideFocus
+			recommendation.Classification = ClassificationRotational
+			recommendation.IncludedByDefault = false
+			recommendation.CanDefer = false
+			addSignal(&recommendation.SignalCodes, "OUTSIDE_AUDIT_TYPE_FOCUS")
+			recommendation.Rationale = "This optional question remains available in the full approved catalog but is outside the selected audit-type focus."
+		}
 		if !validRecommendationState(recommendation.RecommendationState) || !validClassification(recommendation.Classification) {
 			return RecommendationEvaluation{}, fmt.Errorf("invalid recommendation for %s", question.QuestionVersionID)
 		}
@@ -435,6 +450,40 @@ func timePtr(value time.Time) *time.Time {
 	}
 	value = value.UTC()
 	return &value
+}
+
+func questionApplicableToScope(question RecommendationQuestion, scope ComparableAuditKey) bool {
+	return (question.ProviderScopeID == "" || question.ProviderScopeID == scope.ProviderScopeID) &&
+		(question.RegulatedTargetID == "" || question.RegulatedTargetID == scope.RegulatedTargetID) &&
+		(question.GeneralInspectionType == "" || question.GeneralInspectionType == scope.AuditType)
+}
+
+func auditTypeFocusCodes(auditType string) []string {
+	switch strings.ToUpper(strings.TrimSpace(auditType)) {
+	case "RAMP", "RAMP_INSPECTION":
+		return []string{"ON_SITE_INSPECTION", "PERIODIC_SURVEILLANCE"}
+	case "CABIN", "CABIN_INSPECTION":
+		return []string{"DOCUMENT_AND_RECORD_REVIEW", "PERIODIC_SURVEILLANCE"}
+	case "CHANGE_APPROVAL", "DOCUMENT_AND_RECORD_REVIEW", "FOLLOW_UP", "INITIAL_CERTIFICATION", "ON_SITE_INSPECTION", "PERIODIC_SURVEILLANCE", "RENEWAL", "SPECIAL_PURPOSE":
+		return []string{strings.ToUpper(strings.TrimSpace(auditType))}
+	default:
+		return nil
+	}
+}
+
+func questionInAuditTypeFocus(question RecommendationQuestion, auditType string) bool {
+	if len(question.InspectionTypeCodes) == 0 {
+		return true
+	}
+	allowed := auditTypeFocusCodes(auditType)
+	for _, questionCode := range question.InspectionTypeCodes {
+		for _, allowedCode := range allowed {
+			if questionCode == allowedCode {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func recommendationDigest(evaluation RecommendationEvaluation) (string, error) {
@@ -654,5 +703,64 @@ func PriorAuditSingleHistoryFixture() PriorAuditFixture {
 		ExpectedClassifications: map[string]string{priorAuditQuestionID(11): ClassificationMandatoryCore, priorAuditQuestionID(12): ClassificationFocusedFull, priorAuditQuestionID(13): ClassificationRotational, priorAuditQuestionID(14): ClassificationFocusedFull, priorAuditQuestionID(15): ClassificationRotational},
 		ExpectedIncluded:        map[string]bool{priorAuditQuestionID(11): true, priorAuditQuestionID(12): true, priorAuditQuestionID(13): true, priorAuditQuestionID(14): true, priorAuditQuestionID(15): true},
 		ExpectedHistoryCounts:   map[string]int{priorAuditQuestionID(11): 1, priorAuditQuestionID(12): 1, priorAuditQuestionID(13): 1, priorAuditQuestionID(14): 1, priorAuditQuestionID(15): 1},
+	}
+}
+
+const (
+	NoHistoryInFocusOptionalQuestionID       = "Q-NO-HISTORY-IN-FOCUS-OPTIONAL"
+	NoHistoryOutsideFocusOptionalQuestionID  = "Q-NO-HISTORY-OUTSIDE-FOCUS-OPTIONAL"
+	NoHistoryOutsideFocusMandatoryQuestionID = "Q-NO-HISTORY-OUTSIDE-FOCUS-MANDATORY"
+	NoHistoryWrongProviderQuestionID         = "Q-NO-HISTORY-WRONG-PROVIDER"
+	NoHistoryWrongTargetQuestionID           = "Q-NO-HISTORY-WRONG-TARGET"
+	NoHistoryWrongGeneralTypeQuestionID      = "Q-NO-HISTORY-WRONG-GENERAL-TYPE"
+)
+
+func noHistoryQuestion(id string, mandatory bool, providerScopeID, regulatedTargetID, generalInspectionType string, inspectionTypeCodes []string) RecommendationQuestion {
+	return RecommendationQuestion{
+		QuestionVersionID: id, FormCode: "NO-HISTORY-FIXTURE", Prompt: id,
+		SourceDigest: "sha256:no-history-fixture", ProviderScopeID: providerScopeID,
+		RegulatedTargetID: regulatedTargetID, GeneralInspectionType: generalInspectionType,
+		InspectionTypeCodes: inspectionTypeCodes, Mandatory: mandatory, RecurrenceMonths: 12,
+	}
+}
+
+// PriorAuditNoHistoryScopeFilterFixture is the exact six-ID oracle for the
+// selected RAMP focus. Three IDs are applicable to the scope: two remain in
+// Suggested now (the in-focus optional and protected mandatory), while the
+// out-of-focus optional is available only through the full catalog. The three
+// mismatched scope identities are rejected before recommendation evaluation.
+func PriorAuditNoHistoryScopeFilterFixture() PriorAuditFixture {
+	scope := priorAuditFixtureScope()
+	questions := []RecommendationQuestion{
+		noHistoryQuestion(NoHistoryInFocusOptionalQuestionID, false, scope.ProviderScopeID, scope.RegulatedTargetID, scope.AuditType, []string{"ON_SITE_INSPECTION"}),
+		noHistoryQuestion(NoHistoryOutsideFocusOptionalQuestionID, false, scope.ProviderScopeID, scope.RegulatedTargetID, scope.AuditType, []string{"DOCUMENT_AND_RECORD_REVIEW"}),
+		noHistoryQuestion(NoHistoryOutsideFocusMandatoryQuestionID, true, scope.ProviderScopeID, scope.RegulatedTargetID, scope.AuditType, []string{"DOCUMENT_AND_RECORD_REVIEW"}),
+		noHistoryQuestion(NoHistoryWrongProviderQuestionID, false, "SCOPE-NO-HISTORY-WRONG", scope.RegulatedTargetID, scope.AuditType, []string{"ON_SITE_INSPECTION"}),
+		noHistoryQuestion(NoHistoryWrongTargetQuestionID, false, scope.ProviderScopeID, "TARGET-NO-HISTORY-WRONG", scope.AuditType, []string{"ON_SITE_INSPECTION"}),
+		noHistoryQuestion(NoHistoryWrongGeneralTypeQuestionID, false, scope.ProviderScopeID, scope.RegulatedTargetID, "CABIN_INSPECTION", []string{"ON_SITE_INSPECTION"}),
+	}
+	return PriorAuditFixture{
+		Name:  "prior-audit-no-history-scope-filter",
+		Input: RecommendationEvaluationInput{ScopeKey: scope, Questions: questions, Audits: nil, EvaluationAsOf: time.Date(2026, 8, 18, 12, 0, 0, 0, time.UTC), HistoryWindowMonths: DefaultPriorAuditHistoryWindowMonths},
+		ExpectedStates: map[string]string{
+			NoHistoryInFocusOptionalQuestionID:       RecommendationUncertainSignal,
+			NoHistoryOutsideFocusOptionalQuestionID:  RecommendationOutsideFocus,
+			NoHistoryOutsideFocusMandatoryQuestionID: RecommendationSuggestedNow,
+		},
+		ExpectedClassifications: map[string]string{
+			NoHistoryInFocusOptionalQuestionID:       ClassificationRotational,
+			NoHistoryOutsideFocusOptionalQuestionID:  ClassificationRotational,
+			NoHistoryOutsideFocusMandatoryQuestionID: ClassificationMandatoryCore,
+		},
+		ExpectedIncluded: map[string]bool{
+			NoHistoryInFocusOptionalQuestionID:       true,
+			NoHistoryOutsideFocusOptionalQuestionID:  false,
+			NoHistoryOutsideFocusMandatoryQuestionID: true,
+		},
+		ExpectedHistoryCounts: map[string]int{
+			NoHistoryInFocusOptionalQuestionID:       0,
+			NoHistoryOutsideFocusOptionalQuestionID:  0,
+			NoHistoryOutsideFocusMandatoryQuestionID: 0,
+		},
 	}
 }

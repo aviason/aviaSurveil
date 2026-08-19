@@ -2,6 +2,8 @@ package application
 
 import (
 	"encoding/json"
+	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -59,6 +61,48 @@ func TestScopeRecommendation_SingleHistoryGolden(t *testing.T) {
 	clean := byID[priorAuditQuestionID(15)]
 	if clean.RecommendationState != RecommendationUncertainSignal || clean.IncludedByDefault != true || clean.CanDefer != false || contains(clean.SignalCodes, "DEFER_ELIGIBLE") {
 		t.Fatalf("single clean optional was treated as deferrable: %+v", clean)
+	}
+}
+
+func TestScopeRecommendation_NoHistoryScopeFilterGolden(t *testing.T) {
+	fixture := PriorAuditNoHistoryScopeFilterFixture()
+	evaluation, err := EvaluatePriorAuditRecommendations(fixture.Input)
+	if err != nil {
+		t.Fatalf("evaluate no-history scope-filter fixture: %v", err)
+	}
+	byID := recommendationByID(evaluation)
+	allIDs := make([]string, 0, len(evaluation.Recommendations))
+	suggestedIDs := make([]string, 0, len(evaluation.Recommendations))
+	for _, recommendation := range evaluation.Recommendations {
+		allIDs = append(allIDs, recommendation.QuestionVersionID)
+		if recommendation.IncludedByDefault {
+			suggestedIDs = append(suggestedIDs, recommendation.QuestionVersionID)
+		}
+		if fixture.ExpectedStates[recommendation.QuestionVersionID] != recommendation.RecommendationState || fixture.ExpectedClassifications[recommendation.QuestionVersionID] != recommendation.Classification || fixture.ExpectedIncluded[recommendation.QuestionVersionID] != recommendation.IncludedByDefault {
+			t.Fatalf("no-history recommendation mismatch for %s: %+v", recommendation.QuestionVersionID, recommendation)
+		}
+	}
+	sort.Strings(allIDs)
+	sort.Strings(suggestedIDs)
+	wantAll := []string{NoHistoryInFocusOptionalQuestionID, NoHistoryOutsideFocusMandatoryQuestionID, NoHistoryOutsideFocusOptionalQuestionID}
+	wantSuggested := []string{NoHistoryInFocusOptionalQuestionID, NoHistoryOutsideFocusMandatoryQuestionID}
+	sort.Strings(wantAll)
+	sort.Strings(wantSuggested)
+	if !reflect.DeepEqual(allIDs, wantAll) || !reflect.DeepEqual(suggestedIDs, wantSuggested) {
+		t.Fatalf("no-history exact oracle mismatch: all=%v suggested=%v", allIDs, suggestedIDs)
+	}
+	fullIDs := make([]string, 0, len(FilterQuestionRecommendations(evaluation, true)))
+	for _, recommendation := range FilterQuestionRecommendations(evaluation, true) {
+		fullIDs = append(fullIDs, recommendation.QuestionVersionID)
+	}
+	sort.Strings(fullIDs)
+	if !reflect.DeepEqual(fullIDs, wantAll) || len(suggestedIDs) >= len(fullIDs) {
+		t.Fatalf("no-history full oracle mismatch: full=%v suggested=%v", fullIDs, suggestedIDs)
+	}
+	for _, excluded := range []string{NoHistoryWrongProviderQuestionID, NoHistoryWrongTargetQuestionID, NoHistoryWrongGeneralTypeQuestionID} {
+		if _, exists := byID[excluded]; exists {
+			t.Fatalf("scope-inapplicable question leaked into recommendation policy: %s", excluded)
+		}
 	}
 }
 

@@ -54,4 +54,44 @@ describe("prior-audit recommendation fixtures", () => {
     expect(full.totalCount).toBe(1310);
     expect(suggested.items.every((item) => item.recommendation.includedByDefault)).toBe(true);
   });
+
+  it("matches the exact no-history scope-filter golden IDs across mock list projections", async () => {
+    const profile = "prior-audit-no-history-scope-filter" as const;
+    const fixture = priorAuditRecommendationFixtures[profile];
+    const runtime = createMockBackendRuntime(() => "2026-08-18T12:00:00.000Z", profile);
+    const manager = runtime.backendForRole("manager");
+    const common = { catalogVersion: "aga-approved-source@2.0.0", usageClass: "GOVERNED_OPERATIONAL" as const, limit: 2000, applicationType: "RAMP_INSPECTION" as const };
+    const suggested = await manager.canonicalCatalog!.listCatalog({ ...common, includedByDefault: true });
+    const full = await manager.canonicalCatalog!.listCatalog(common);
+    expect(fixture.priorAuditIds).toEqual([]);
+    expect(fixture.declaredQuestionVersionIds?.slice().sort()).toEqual([
+      "Q-NO-HISTORY-IN-FOCUS-OPTIONAL",
+      "Q-NO-HISTORY-OUTSIDE-FOCUS-MANDATORY",
+      "Q-NO-HISTORY-OUTSIDE-FOCUS-OPTIONAL",
+      "Q-NO-HISTORY-WRONG-GENERAL-TYPE",
+      "Q-NO-HISTORY-WRONG-PROVIDER",
+      "Q-NO-HISTORY-WRONG-TARGET",
+    ]);
+    expect(fixture.excludedQuestionVersionIds?.slice().sort()).toEqual([
+      "Q-NO-HISTORY-WRONG-GENERAL-TYPE",
+      "Q-NO-HISTORY-WRONG-PROVIDER",
+      "Q-NO-HISTORY-WRONG-TARGET",
+    ]);
+    expect(suggested.items.map((item) => item.questionVersionId).sort()).toEqual([
+      "Q-NO-HISTORY-IN-FOCUS-OPTIONAL",
+      "Q-NO-HISTORY-OUTSIDE-FOCUS-MANDATORY",
+    ]);
+    expect(full.items.map((item) => item.questionVersionId).sort()).toEqual([
+      "Q-NO-HISTORY-IN-FOCUS-OPTIONAL",
+      "Q-NO-HISTORY-OUTSIDE-FOCUS-MANDATORY",
+      "Q-NO-HISTORY-OUTSIDE-FOCUS-OPTIONAL",
+    ]);
+    expect(suggested.totalCount).toBe(2);
+    expect(full.totalCount).toBe(3);
+    expect(full.items.map((item) => item.questionVersionId)).not.toEqual(expect.arrayContaining([
+      "Q-NO-HISTORY-WRONG-PROVIDER",
+      "Q-NO-HISTORY-WRONG-TARGET",
+      "Q-NO-HISTORY-WRONG-GENERAL-TYPE",
+    ]));
+  });
 });

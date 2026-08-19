@@ -2,7 +2,11 @@ package integration_test
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"reflect"
+	"runtime"
+	"sort"
 	"strings"
 	"testing"
 
@@ -24,6 +28,73 @@ func TestPriorAuditRecommendation_GoldenParity(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestScopeRecommendation_NoHistoryScopeFilterGolden(t *testing.T) {
+	fixture := application.PriorAuditNoHistoryScopeFilterFixture()
+	evaluation, err := application.EvaluatePriorAuditRecommendations(fixture.Input)
+	if err != nil {
+		t.Fatalf("no-history scope-filter evaluation: %v", err)
+	}
+	allIDs := make([]string, 0, len(evaluation.Recommendations))
+	suggestedIDs := make([]string, 0, len(evaluation.Recommendations))
+	for _, recommendation := range evaluation.Recommendations {
+		allIDs = append(allIDs, recommendation.QuestionVersionID)
+		if recommendation.IncludedByDefault {
+			suggestedIDs = append(suggestedIDs, recommendation.QuestionVersionID)
+		}
+	}
+	sort.Strings(allIDs)
+	sort.Strings(suggestedIDs)
+	if want := []string{application.NoHistoryInFocusOptionalQuestionID, application.NoHistoryOutsideFocusMandatoryQuestionID, application.NoHistoryOutsideFocusOptionalQuestionID}; !reflect.DeepEqual(allIDs, func() []string { sort.Strings(want); return want }()) {
+		t.Fatalf("full applicable IDs = %v, want exact three-ID oracle", allIDs)
+	}
+	if want := []string{application.NoHistoryInFocusOptionalQuestionID, application.NoHistoryOutsideFocusMandatoryQuestionID}; !reflect.DeepEqual(suggestedIDs, func() []string { sort.Strings(want); return want }()) {
+		t.Fatalf("suggested IDs = %v, want exact two-ID oracle", suggestedIDs)
+	}
+	if len(suggestedIDs) >= len(allIDs) {
+		t.Fatalf("suggested count %d must be less than full applicable count %d", len(suggestedIDs), len(allIDs))
+	}
+	_, sourceFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("resolve no-history fixture path")
+	}
+	fixtureBytes, err := os.ReadFile(filepath.Join(filepath.Dir(sourceFile), "..", "..", "tests", "fixtures", "prior-audit-recommendations", "prior-audit-no-history-scope-filter.json"))
+	if err != nil {
+		t.Fatalf("read no-history fixture oracle: %v", err)
+	}
+	var fixtureOracle struct {
+		QuestionVersionIDs               []string `json:"questionVersionIds"`
+		SuggestedQuestionVersionIDs      []string `json:"suggestedQuestionVersionIds"`
+		FullApplicableQuestionVersionIDs []string `json:"fullApplicableQuestionVersionIds"`
+		ExcludedQuestionVersionIDs       []string `json:"excludedQuestionVersionIds"`
+		SuggestedCount                   int      `json:"suggestedCount"`
+		FullApplicableCount              int      `json:"fullApplicableCount"`
+	}
+	if err := json.Unmarshal(fixtureBytes, &fixtureOracle); err != nil {
+		t.Fatalf("decode no-history fixture oracle: %v", err)
+	}
+	sort.Strings(fixtureOracle.QuestionVersionIDs)
+	sort.Strings(fixtureOracle.SuggestedQuestionVersionIDs)
+	sort.Strings(fixtureOracle.FullApplicableQuestionVersionIDs)
+	sort.Strings(fixtureOracle.ExcludedQuestionVersionIDs)
+	if !reflect.DeepEqual(fixtureOracle.QuestionVersionIDs, append(append([]string{}, allIDs...), fixtureOracle.ExcludedQuestionVersionIDs...)) || !reflect.DeepEqual(fixtureOracle.SuggestedQuestionVersionIDs, suggestedIDs) || !reflect.DeepEqual(fixtureOracle.FullApplicableQuestionVersionIDs, allIDs) || fixtureOracle.SuggestedCount != len(suggestedIDs) || fixtureOracle.FullApplicableCount != len(allIDs) {
+		t.Fatalf("JSON no-history fixture drifted: %+v; policy all=%v suggested=%v", fixtureOracle, allIDs, suggestedIDs)
+	}
+	for _, excluded := range []string{application.NoHistoryWrongProviderQuestionID, application.NoHistoryWrongTargetQuestionID, application.NoHistoryWrongGeneralTypeQuestionID} {
+		if containsIntegration(allIDs, excluded) || containsIntegration(suggestedIDs, excluded) {
+			t.Fatalf("scope-inapplicable question leaked into integration oracle: %s", excluded)
+		}
+	}
+}
+
+func containsIntegration(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }
 
 func TestPriorAuditRecommendation_MandatoryFloorDirectAPI(t *testing.T) {

@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("Department Manager creates and submits a governed inspection brief", async ({ page }) => {
   test.setTimeout(45_000);
+  await page.setViewportSize({ width: 390, height: 844 });
   const consoleIssues: string[] = [];
   page.on("console", (message) => {
     if (message.type() === "error" || message.type() === "warning") {
@@ -18,7 +19,7 @@ test("Department Manager creates and submits a governed inspection brief", async
 
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page).toHaveURL(/\/department-manager\/new-audit\/step-2\?draftId=/);
-  await expect(page.getByText("Saved", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Saved", { exact: true }).first()).toHaveCount(1);
 
   await page.getByLabel("Purpose", { exact: true }).fill("Verify cabin safety controls before the scheduled surveillance visit.");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
@@ -34,6 +35,13 @@ test("Department Manager creates and submits a governed inspection brief", async
   await expect(page.getByLabel("Source gap filter")).toBeVisible();
   await expect(page.getByLabel("Recommendation filter")).toBeVisible();
   await expect(page.getByLabel("Selected state filter")).toBeVisible();
+  await page.getByLabel("Recommendation filter").selectOption("");
+  await expect(page.getByRole("heading", { name: "Full approved catalog", exact: true })).toBeVisible();
+  await expect(advancedFilters).toContainText("1 active");
+  await expect(page.getByText("Showing the complete approved catalog.", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: "Clear filters", exact: true }).click();
+  await expect(page.getByLabel("Recommendation filter")).toHaveValue("SUGGESTED_NOW");
+  await expect(page.getByRole("heading", { name: "Suggested questions", exact: true })).toBeVisible();
   await advancedFilters.locator("> summary").click();
 
   await page.getByRole("checkbox", { name: /Select / }).first().check();

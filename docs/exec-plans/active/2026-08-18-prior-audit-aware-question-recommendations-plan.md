@@ -513,20 +513,21 @@ Expected observations:
   history and through the no-history mock guard: exact provider/target/general
   inspection type first, configured audit-type focus second, protected
   precedence and full catalog override preserved.
-- [ ] Phase 3 empty-history exact-ID fixture parity remains a Phase 4 gate; the
-  current mock regression proves Suggested is smaller than the full 1,310-row
-  catalog but does not close the exact named oracle below.
+- [x] Phase 4 empty-history exact-ID fixture parity is `verified locally` for
+  the server recommendation policy, HTTP projection contract, mock adapter,
+  and Manager React/UI surfaces. The exact golden is two Suggested IDs and
+  three full-applicable IDs; wrong provider/target/general-type IDs are absent.
+  Connected HTTP database replay and public qualification remain `not run`.
 - [x] Phase 3 append-only migration and Planning snapshot/freeze persistence
   added without updates/deletes to historical Audit/checklist/Finding/CAP/
   Evidence/report/catalog rows.
 - [x] Focused server/mock/integration tests, contract checks, typecheck,
   `build:demo`, `build:http`, qualification-bootstrap replay, full React,
   visible-actions, accessibility, and diff checks are `verified locally`.
-- [ ] Phase 4 no-history exact-count oracle, all-supported-type focus mapping,
-  multi-page deferred cursor, restore-all revision safety, validated-clean
-  wording, list/detail/mock/snapshot parity, and Manager/Auditee browser oracles
-  are implemented and executed. These exact newly named gates are `not run`;
-  the public recommendation slice is independently recorded above.
+- [ ] Phase 4 all-supported-type focus mapping, multi-page deferred cursor,
+  restore-all revision safety, validated-clean wording, list/detail/mock/
+  snapshot parity, and Manager/Auditee browser oracles remain `not run`; the
+  no-history exact-count oracle is independently `verified locally` above.
 - [ ] Connected recommendation-specific public qualification and immutable
   release evidence are partially complete: release and recommendation slice are
   `verified locally`, while the later all-role continuation is `blocked`; no
@@ -539,8 +540,9 @@ for deterministic policy, mock parity, contract generation, append-only schema,
 local build, qualification-bootstrap replay, public seed/replay, immutable
 `namibia/demo` release, and the recommendation-specific connected Playwright
 slice. The full all-role continuation is `blocked` at the pre-existing
-Preliminary Review status assertion; exact Phase 4 no-history/multi-page/
-list-detail-snapshot parity gates remain `not run`. Chrome extension control is
+Preliminary Review status assertion; exact Phase 4 multi-page/list-detail-
+snapshot parity gates remain `not run`, while the no-history ID oracle is
+`verified locally`. Chrome extension control is
 `blocked`, and Computer Use public interaction was not run after session expiry.
 Production readiness not claimed.
 
@@ -570,8 +572,8 @@ The two kill-critic reviews covered these amendment additions only. They do not
 claim that any unrelated original criterion was newly reviewed, implemented,
 verified, or completed. Original plan content and prior evidence remain
 preserved. Amendment implementation and recommendation-specific tests are
-`verified locally`; exact Phase 4 gates remain `not run`; public release is
-`verified locally`; production readiness not claimed.
+`verified locally`; remaining exact Phase 4 gates remain `not run`; public
+release is `verified locally`; production readiness not claimed.
 
 ## Execution Prompt
 

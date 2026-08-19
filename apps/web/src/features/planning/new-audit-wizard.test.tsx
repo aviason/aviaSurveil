@@ -195,6 +195,62 @@ describe("New Inspection Planning intake", () => {
     expect(screen.getByRole("complementary", { name: "Inspection brief" })).toHaveTextContent("Fly Namibia");
   });
 
+  it("returns Clear filters to the server suggestion and labels the full catalog explicitly", async () => {
+    const user = userEvent.setup();
+    const runtime = createMockBackendRuntime();
+    const catalog = runtime.backendForRole("manager").canonicalCatalog!;
+    const originalListCatalog = catalog.listCatalog.bind(catalog);
+    vi.spyOn(catalog, "listCatalog").mockImplementation(async (input, options) => {
+      const page = await originalListCatalog(input, options);
+      if (input.includedByDefault === true) return { ...page, totalCount: 1002 };
+      if (input.includedByDefault === undefined && input.recommendationState === undefined) return { ...page, totalCount: 1310 };
+      return page;
+    });
+    renderWizardRoute("/department-manager/new-audit/step-1", runtime);
+    await progressToChecklist(user);
+
+    expect(screen.getByRole("heading", { level: 3, name: "Suggested questions" })).toBeVisible();
+    await waitFor(() => expect(screen.getByText("1,002 matching questions · page 1")).toBeVisible());
+    const filters = screen.getByText("Advanced filters").closest("details");
+    if (!filters) throw new Error("Advanced filters container is missing");
+    await user.click(screen.getByText("Advanced filters"));
+    const recommendation = screen.getByLabelText("Recommendation filter");
+    await user.selectOptions(recommendation, "");
+    await waitFor(() => expect(screen.getByRole("heading", { level: 3, name: "Full approved catalog" })).toBeVisible());
+    await waitFor(() => expect(screen.getByText("1,310 matching questions · page 1")).toBeVisible());
+    expect(filters).toHaveTextContent("1 active");
+    expect(screen.getByText(/Showing the complete approved catalog\./)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+    await waitFor(() => expect(recommendation).toHaveValue("SUGGESTED_NOW"));
+    expect(screen.getByRole("heading", { level: 3, name: "Suggested questions" })).toBeVisible();
+    await waitFor(() => expect(screen.getByText("1,002 matching questions · page 1")).toBeVisible());
+    expect(screen.queryByRole("heading", { level: 3, name: "Full approved catalog" })).toBeNull();
+  });
+
+  it("renders the exact no-history scope-filter golden IDs in suggested and full UI states", async () => {
+    const user = userEvent.setup();
+    const runtime = createMockBackendRuntime(() => "2026-08-18T12:00:00.000Z", "prior-audit-no-history-scope-filter");
+    renderWizardRoute("/department-manager/new-audit/step-1", runtime);
+    await progressToChecklist(user);
+    const visibleIDs = () => [...document.querySelectorAll<HTMLElement>(".planning-intake-catalog-list li")].map((row) => row.dataset.questionVersionId).sort();
+    await waitFor(() => expect(visibleIDs()).toEqual([
+      "Q-NO-HISTORY-IN-FOCUS-OPTIONAL",
+      "Q-NO-HISTORY-OUTSIDE-FOCUS-MANDATORY",
+    ]));
+    await user.click(screen.getByText("Advanced filters"));
+    await user.selectOptions(screen.getByLabelText("Recommendation filter"), "");
+    await waitFor(() => expect(visibleIDs()).toEqual([
+      "Q-NO-HISTORY-IN-FOCUS-OPTIONAL",
+      "Q-NO-HISTORY-OUTSIDE-FOCUS-MANDATORY",
+      "Q-NO-HISTORY-OUTSIDE-FOCUS-OPTIONAL",
+    ]));
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+    await waitFor(() => expect(visibleIDs()).toEqual([
+      "Q-NO-HISTORY-IN-FOCUS-OPTIONAL",
+      "Q-NO-HISTORY-OUTSIDE-FOCUS-MANDATORY",
+    ]));
+  });
+
   it("shows the prior-Audit scenario, every withheld reason, and restores the exact history-deferred set", async () => {
     const user = userEvent.setup();
     const runtime = createMockBackendRuntime(() => "2026-08-18T12:00:00.000Z", "prior-audit-multi-history");

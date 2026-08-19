@@ -1,0 +1,34 @@
+{
+  "profile": "prior-audit-no-history-scope-filter",
+  "catalogVersion": "aga-approved-source@2.0.0",
+  "organizationId": "ORG-PRIOR-AUDIT-QUALIFICATION",
+  "providerScopeId": "SCOPE-PRIOR-AUDIT-001",
+  "regulatedTargetId": "TARGET-PRIOR-AUDIT-001",
+  "location": "Windhoek International Airport",
+  "auditType": "RAMP_INSPECTION",
+  "eligibleAuditIds": [],
+  "questionVersionIds": [
+    "Q-NO-HISTORY-IN-FOCUS-OPTIONAL",
+    "Q-NO-HISTORY-OUTSIDE-FOCUS-MANDATORY",
+    "Q-NO-HISTORY-OUTSIDE-FOCUS-OPTIONAL",
+    "Q-NO-HISTORY-WRONG-GENERAL-TYPE",
+    "Q-NO-HISTORY-WRONG-PROVIDER",
+    "Q-NO-HISTORY-WRONG-TARGET"
+  ],
+  "suggestedQuestionVersionIds": [
+    "Q-NO-HISTORY-IN-FOCUS-OPTIONAL",
+    "Q-NO-HISTORY-OUTSIDE-FOCUS-MANDATORY"
+  ],
+  "fullApplicableQuestionVersionIds": [
+    "Q-NO-HISTORY-IN-FOCUS-OPTIONAL",
+    "Q-NO-HISTORY-OUTSIDE-FOCUS-MANDATORY",
+    "Q-NO-HISTORY-OUTSIDE-FOCUS-OPTIONAL"
+  ],
+  "excludedQuestionVersionIds": [
+    "Q-NO-HISTORY-WRONG-PROVIDER",
+    "Q-NO-HISTORY-WRONG-TARGET",
+    "Q-NO-HISTORY-WRONG-GENERAL-TYPE"
+  ],
+  "suggestedCount": 2,
+  "fullApplicableCount": 3
+}
