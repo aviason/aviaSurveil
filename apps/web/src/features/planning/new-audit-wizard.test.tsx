@@ -282,6 +282,36 @@ describe("New Inspection Planning intake", () => {
     expect(screen.getByRole("button", { name: "Use suggested questions" })).toBeEnabled();
   });
 
+  it("keeps the catalog interactive while bulk suggestions load and reports batch progress", async () => {
+    const user = userEvent.setup();
+    const runtime = createMockBackendRuntime();
+    const catalog = runtime.backendForRole("manager").canonicalCatalog!;
+    const originalListCatalog = catalog.listCatalog.bind(catalog);
+    let releaseInitialBatch!: () => void;
+    const initialBatchGate = new Promise<void>((resolve) => { releaseInitialBatch = resolve; });
+    const listCatalog = vi.spyOn(catalog, "listCatalog").mockImplementation(async (input, options) => {
+      if (input.projection === "selection" && input.includedByDefault === true && !input.cursor) await initialBatchGate;
+      return originalListCatalog(input, options);
+    });
+
+    renderWizardRoute("/department-manager/new-audit/step-4", runtime);
+    const page = await progressToChecklist(user);
+    const summary = within(page).getByRole("region", { name: "Selection summary" });
+    await waitFor(() => expect(screen.getByText(/matching questions · page 1/)).toBeVisible());
+    await user.click(screen.getByRole("button", { name: "Use suggested questions" }));
+
+    await waitFor(() => expect(screen.getByText("Loading questions into this selection")).toBeVisible());
+    expect(screen.getAllByRole("checkbox", { name: /Select / })[0]).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Next questions" })).toBeEnabled();
+    expect(screen.getAllByRole("button", { name: /Loading suggestions/ }).every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
+    expect(selectedCountFrom(summary)).toBe(0);
+
+    releaseInitialBatch();
+    await waitFor(() => expect(selectedCountFrom(summary)).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getByText("Question selection is ready")).toBeVisible());
+    expect(listCatalog.mock.calls.some(([input]) => input.projection === "selection" && input.limit === 2000)).toBe(true);
+  });
+
   it("shows concrete recommendation reasons instead of generic omission rationale text", async () => {
     const user = userEvent.setup();
     const runtime = createMockBackendRuntime(() => "2026-08-18T12:00:00.000Z", "prior-audit-single-history");

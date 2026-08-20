@@ -1,4 +1,5 @@
 import {
+  startTransition,
   useEffect,
   useMemo,
   useRef,
@@ -38,6 +39,8 @@ const stepDefinitions = [
 ] as const;
 
 const selectionBatchLimit = 500;
+const suggestionCollectionInitialPageSize = 100;
+const suggestionCollectionContinuationPageSize = 2000;
 const defaultCatalogRecommendationState = "SUGGESTED_NOW";
 const riskCategoryOptions = [
   "Configured inspection risk",
@@ -70,6 +73,16 @@ interface PlanningIntakeFormValues extends Omit<PlanningIntakeDraftValues, "requ
 interface SelectionProgress {
   completed: number;
   total: number;
+  error: string | null;
+}
+
+type SuggestionCollectionPhase = "idle" | "loading" | "complete" | "error";
+
+interface SuggestionCollectionProgress {
+  phase: SuggestionCollectionPhase;
+  loaded: number;
+  total: number;
+  added: number;
   error: string | null;
 }
 
@@ -749,6 +762,7 @@ export function NewAuditWizardPage() {
   const [autosaveError, setAutosaveError] = useState<string | null>(null);
   const [catalogPage, setCatalogPage] = useState<CanonicalQuestionCatalogPage | null>(null);
   const [catalogBusy, setCatalogBusy] = useState(false);
+  const [suggestionProgress, setSuggestionProgress] = useState<SuggestionCollectionProgress>({ phase: "idle", loaded: 0, total: 0, added: 0, error: null });
   const [historyDeferredQuestions, setHistoryDeferredQuestions] = useState<CanonicalQuestionCatalogEntry[]>([]);
   const [historyDeferredBusy, setHistoryDeferredBusy] = useState(false);
   const [historyDeferredError, setHistoryDeferredError] = useState<string | null>(null);
@@ -768,7 +782,7 @@ export function NewAuditWizardPage() {
   const [selectedQuestionCache, setSelectedQuestionCache] = useState<Record<string, CanonicalQuestionCatalogEntry>>({});
   const [pendingSelectionIds, setPendingSelectionIds] = useState<string[]>([]);
   const [selectionDirty, setSelectionDirty] = useState(false);
-  const [selectedQuestionListExpanded, setSelectedQuestionListExpanded] = useState(false);
+  const [selectedQuestionListLimit, setSelectedQuestionListLimit] = useState(12);
   const [selectedQuestionLoadBusy, setSelectedQuestionLoadBusy] = useState(false);
   const [selectedQuestionLoadError, setSelectedQuestionLoadError] = useState<string | null>(null);
   const [serverSelectionSummary, setServerSelectionSummary] = useState<CanonicalSelectionDigest | null>(null);
@@ -787,9 +801,25 @@ export function NewAuditWizardPage() {
   const selectionReviewTriggerRef = useRef<HTMLElement | null>(null);
   const catalogTriggerRef = useRef<HTMLElement | null>(null);
   const catalogDetailRequestRef = useRef(0);
+  const suggestionCollectionOperationRef = useRef(0);
+  const suggestionCollectionAbortRef = useRef<AbortController | null>(null);
+  const suggestionCollectionRecommendationRef = useRef<string | undefined>(undefined);
   useEffect(() => { draftRef.current = draft; }, [draft]);
   useEffect(() => { valuesRef.current = values; }, [values]);
   useEffect(() => () => { if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current); }, []);
+  useEffect(() => {
+    if (step === 4) return;
+    suggestionCollectionOperationRef.current += 1;
+    suggestionCollectionAbortRef.current?.abort();
+    suggestionCollectionAbortRef.current = null;
+    suggestionCollectionRecommendationRef.current = undefined;
+    setSuggestionProgress({ phase: "idle", loaded: 0, total: 0, added: 0, error: null });
+  }, [step]);
+  useEffect(() => () => {
+    suggestionCollectionOperationRef.current += 1;
+    suggestionCollectionAbortRef.current?.abort();
+    suggestionCollectionRecommendationRef.current = undefined;
+  }, []);
 
   useEffect(() => {
     if (step > 1 && !requestedDraftId) return undefined;
@@ -821,7 +851,7 @@ export function NewAuditWizardPage() {
           setPendingApplicationType(inspectionTypeFor(first.inspectionTypes));
         }
         setPendingSelectionIds([]);
-        setSelectedQuestionListExpanded(false);
+        setSelectedQuestionListLimit(12);
         setSelectionDirty(false);
         setServerSelectionSummary(null);
         setSelectedQuestionCache({});
@@ -841,7 +871,7 @@ export function NewAuditWizardPage() {
       setValues(hydrated);
       valuesRef.current = hydrated;
       setPendingSelectionIds([...(loaded.selectedQuestionVersionIds ?? [])]);
-      setSelectedQuestionListExpanded(false);
+      setSelectedQuestionListLimit(12);
       setSelectionDirty(false);
       setSelectedQuestionCache({});
       if (loaded.selectionDigest && loaded.formDistribution && loaded.domainDistribution && loaded.estimatedResourceRequirement !== undefined) {
@@ -943,7 +973,7 @@ export function NewAuditWizardPage() {
     ? "Showing the complete approved catalog. Selection remains an explicit Department Manager decision."
     : "The catalog starts with the server's current recommendation. Selection remains an explicit Department Manager decision.";
   const selectedQuestionPreviewLimit = 12;
-  const selectedQuestionPreviewCount = selectedQuestionListExpanded ? pendingSelectionIds.length : selectedQuestionPreviewLimit;
+  const selectedQuestionPreviewCount = Math.min(pendingSelectionIds.length, selectedQuestionListLimit);
   useEffect(() => {
     const incoming = [...(catalogPage?.items ?? []), ...historyDeferredQuestions];
     if (!incoming.length) return;
@@ -966,8 +996,9 @@ export function NewAuditWizardPage() {
     return map;
   }, [catalogPage?.items, historyDeferredQuestions, selectedQuestionCache]);
   const selectedQuestionPreview = useMemo(() => {
-    const preview = pendingSelectionIds.map((id) => ({ id, question: selectedQuestionMap.get(id) ?? null }));
-    return { preview: preview.slice(0, Math.max(1, selectedQuestionPreviewCount)), hiddenCount: Math.max(0, preview.length - Math.max(1, selectedQuestionPreviewCount)) };
+    const visibleCount = Math.max(1, selectedQuestionPreviewCount);
+    const preview = pendingSelectionIds.slice(0, visibleCount).map((id) => ({ id, question: selectedQuestionMap.get(id) ?? null }));
+    return { preview, hiddenCount: Math.max(0, pendingSelectionIds.length - visibleCount) };
   }, [pendingSelectionIds, selectedQuestionMap, selectedQuestionPreviewCount]);
   const selectedQuestionLoadTargetIds = useMemo(() => selectedQuestionPreview.preview.filter(({ question }) => !question).map(({ id }) => id), [selectedQuestionPreview.preview]);
 
@@ -980,7 +1011,13 @@ export function NewAuditWizardPage() {
     void loadSelectedQuestionDetails(selectedQuestionLoadTargetIds);
   }, [backend, step, selectedQuestionLoadBusy, selectedQuestionLoadTargetIds]);
 
-  function resetCatalogPage() { setCatalogCursor(undefined); setCatalogPreviousCursors([]); setCatalogPageNumber(1); setCatalogPage(null); }
+  function cancelSuggestionCollection() {
+    suggestionCollectionOperationRef.current += 1;
+    suggestionCollectionAbortRef.current?.abort();
+    suggestionCollectionAbortRef.current = null;
+    setSuggestionProgress({ phase: "idle", loaded: 0, total: 0, added: 0, error: null });
+  }
+  function resetCatalogPage() { cancelSuggestionCollection(); setCatalogCursor(undefined); setCatalogPreviousCursors([]); setCatalogPageNumber(1); setCatalogPage(null); }
   function clearFieldError(field: FieldKey) { setFieldErrors((current) => { if (!current[field]) return current; const next = { ...current }; delete next[field]; return next; }); }
   function focusField(field: FieldKey) { document.getElementById(`planning-intake-${field}`)?.focus(); }
   function setDraftState(next: PlanningIntakeDraftView) { draftRef.current = next; setDraft(next); }
@@ -1055,7 +1092,7 @@ export function NewAuditWizardPage() {
       createDraftOperationRef.current = null;
       setDraftState(created);
       setFormValues(formValuesFor(created));
-      setPendingSelectionIds([]); setSelectionDirty(false); setSelectedQuestionListExpanded(false); setServerSelectionSummary(null); setAutosaveState("saved"); setAutosaveError(null); resetCatalogState(); setSelectedQuestionCache({}); setStatus("Saved");
+      setPendingSelectionIds([]); setSelectionDirty(false); setSelectedQuestionListLimit(12); setServerSelectionSummary(null); setAutosaveState("saved"); setAutosaveError(null); resetCatalogState(); setSelectedQuestionCache({}); setStatus("Saved");
       navigate(pathForStep(replaceExisting ? step : 2, created.id), { replace: true });
     } catch (cause) { setServerError(errorMessage(cause)); } finally { setBusy(false); }
   }
@@ -1071,7 +1108,18 @@ export function NewAuditWizardPage() {
   function validateField(field: FieldKey) { const candidate: unknown = step === 1 && !valuesRef.current ? { organizationId: pendingOrganizationId, applicationType: pendingApplicationType, domain: "Cabin Safety" } : validationCandidate(step === 5 ? 4 : step); const errors = errorsForStep(step === 5 ? 4 : step, candidate); setFieldErrors((current) => { const next = { ...current }; if (errors[field]) next[field] = errors[field]; else delete next[field]; return next; }); }
   async function retryAutosave() { try { await flushAutosave(); } catch { /* the brief keeps the retry state visible */ } }
 
-  function openSelectionReview(element?: HTMLElement) { selectionReviewTriggerRef.current = element ?? document.activeElement as HTMLElement | null; const current = valuesRef.current?.selectedQuestionVersionIds ?? []; const total = selectionChangeCount(current, pendingSelectionIds); selectionWorkTotalRef.current = total; setSelectionProgress({ completed: 0, total, error: null }); setSelectionReviewOpen(true); }
+  function openSelectionReview(element?: HTMLElement) {
+    if (suggestionProgress.phase === "loading") {
+      setStatus("Suggested questions are still loading. You can review the catalog now; selection review will be available when loading finishes.");
+      return;
+    }
+    selectionReviewTriggerRef.current = element ?? document.activeElement as HTMLElement | null;
+    const current = valuesRef.current?.selectedQuestionVersionIds ?? [];
+    const total = selectionChangeCount(current, pendingSelectionIds);
+    selectionWorkTotalRef.current = total;
+    setSelectionProgress({ completed: 0, total, error: null });
+    setSelectionReviewOpen(true);
+  }
   function closeSelectionReview() { setSelectionReviewOpen(false); setSelectionProgress({ completed: 0, total: 0, error: null }); }
   async function confirmSelectionReview() {
     if (!valuesRef.current || !draftRef.current || !backend.canonicalCatalog || !valuesRef.current.scopeDraftId || !selectionDirty) { closeSelectionReview(); return; }
@@ -1096,7 +1144,7 @@ export function NewAuditWizardPage() {
         const nextValues: PlanningIntakeFormValues = { ...valuesRef.current, selectedQuestionVersionIds: [...committed], selectionDigest: receipt.selection.selectionDigest, estimatedResourceRequirement: receipt.selection.estimatedResourceRequirement, formDistribution: receipt.selection.formDistribution, domainDistribution: receipt.selection.domainDistribution };
         setFormValues(nextValues); setServerSelectionSummary(receipt.selection); completed = total - selectionChangeCount(committed, target); setSelectionProgress({ completed, total, error: null });
       }
-      setPendingSelectionIds(target); setSelectedQuestionListExpanded(false); setSelectionDirty(false); setSelectionProgress({ completed: total, total, error: null }); setStatus("Selection confirmed and saved to the server-owned scope."); if (valuesRef.current) queueAutosave(valuesRef.current); setSelectionReviewOpen(false);
+      setPendingSelectionIds(target); setSelectedQuestionListLimit(12); setSelectionDirty(false); setSelectionProgress({ completed: total, total, error: null }); setStatus("Selection confirmed and saved to the server-owned scope."); if (valuesRef.current) queueAutosave(valuesRef.current); setSelectionReviewOpen(false);
     } catch (cause) { setSelectionProgress({ completed, total, error: errorMessage(cause) }); setStatus("Selection confirmation stopped. Completed receipts remain intact; retry to resume."); }
     finally { setBusy(false); }
   }
@@ -1108,7 +1156,7 @@ export function NewAuditWizardPage() {
       return [...new Set(next)];
     });
     setSelectionDirty(true);
-    setSelectedQuestionListExpanded(false);
+    setSelectedQuestionListLimit(12);
     setStatus("Selection changes are ready for review.");
     clearFieldError("selectedQuestionVersionIds");
   }
@@ -1116,7 +1164,7 @@ export function NewAuditWizardPage() {
     resetSelectedQuestionLoadState();
     if (!pendingSelectionIds.includes(questionVersionId)) return;
     setPendingSelectionIds((current) => current.filter((id) => id !== questionVersionId));
-    setSelectedQuestionListExpanded(false);
+    setSelectedQuestionListLimit(12);
     setSelectionDirty(true);
     setStatus("Selection changes are ready for review.");
     clearFieldError("selectedQuestionVersionIds");
@@ -1125,7 +1173,7 @@ export function NewAuditWizardPage() {
   function discardPendingSelectionChanges() {
     resetSelectedQuestionLoadState();
     setPendingSelectionIds([...(values?.selectedQuestionVersionIds ?? [])]);
-    setSelectedQuestionListExpanded(false);
+    setSelectedQuestionListLimit(12);
     setSelectionDirty(false);
     setSelectionProgress({ completed: 0, total: 0, error: null });
     setStatus("Selection changes were discarded.");
@@ -1134,7 +1182,7 @@ export function NewAuditWizardPage() {
   function clearPendingSelectionChanges() {
     resetSelectedQuestionLoadState();
     setPendingSelectionIds([]);
-    setSelectedQuestionListExpanded(false);
+    setSelectedQuestionListLimit(12);
     setSelectionDirty(true);
     setSelectionProgress({ completed: 0, total: 0, error: null });
     setStatus("All selected questions were cleared from this session.");
@@ -1150,7 +1198,7 @@ export function NewAuditWizardPage() {
       return;
     }
     setPendingSelectionIds((current) => [...new Set([...current, ...eligibleIds])]);
-    setSelectedQuestionListExpanded(false);
+    setSelectedQuestionListLimit(12);
     setSelectionDirty(true);
     setStatus(`${eligibleIds.length.toLocaleString("en-US")} history-deferred questions are included and ready for selection review.`);
     clearFieldError("selectedQuestionVersionIds");
@@ -1208,50 +1256,109 @@ export function NewAuditWizardPage() {
   }
 
   async function addAllMatchingQuestions(recommendationOverride?: string) {
-    if (busy || !valuesRef.current || !backend.canonicalCatalog) return;
+    if (busy || suggestionProgress.phase === "loading" || !valuesRef.current || !backend.canonicalCatalog) return;
     resetSelectedQuestionLoadState();
-    setBusy(true); setServerError(null);
+    setServerError(null);
+    const operationIdValue = suggestionCollectionOperationRef.current + 1;
+    suggestionCollectionOperationRef.current = operationIdValue;
+    suggestionCollectionAbortRef.current?.abort();
+    suggestionCollectionRecommendationRef.current = recommendationOverride;
+    const controller = new AbortController();
+    suggestionCollectionAbortRef.current = controller;
+    const currentValues = valuesRef.current;
+    const currentSelection = new Set(pendingSelectionIds);
+    const questionKind = recommendationOverride ? "suggested" : "eligible";
+    let loaded = 0;
+    let total = 0;
+    let added = 0;
+    let selectable = 0;
+    let cursor: string | undefined;
+    const seenIds = new Set<string>();
+    const seenCursors = new Set<string>();
+    let firstPage = true;
+    setSuggestionProgress({ phase: "loading", loaded: 0, total: 0, added: 0, error: null });
+    setStatus(`Loading ${questionKind} questions… You can keep reviewing the catalog while the selection is prepared.`);
+    clearFieldError("selectedQuestionVersionIds");
     try {
-      const ids: string[] = []; const collectedQuestions: CanonicalQuestionCatalogEntry[] = [];
-      const seenIds = new Set<string>(); const seenCursors = new Set<string>(); let cursor: string | undefined;
       do {
-        const page = await backend.canonicalCatalog.listCatalog({ catalogVersion: valuesRef.current.catalogVersion || "", usageClass: auditUsageClass, search: catalogSearch || undefined, formCode: catalogFormCode.length ? catalogFormCode : undefined, domain: catalogDomain.length ? catalogDomain : undefined, topic: catalogTopic.length ? catalogTopic : undefined, riskBand: catalogRiskBand.length ? catalogRiskBand : undefined, sourceGapState: catalogSourceGapState || undefined, checklistFocus: catalogChecklistFocus.length ? catalogChecklistFocus : undefined, recommendationState: recommendationOverride && recommendationOverride !== defaultCatalogRecommendationState ? recommendationOverride : undefined, includedByDefault: recommendationOverride === defaultCatalogRecommendationState ? true : undefined, selected: "all", scopeId: valuesRef.current.scopeDraftId || undefined, applicationType: valuesRef.current.applicationType as CanonicalApplicationType, cursor, limit: 100, projection: "selection" });
-        for (const entry of page.items) {
-          if (!entry.canSelect || seenIds.has(entry.questionVersionId)) continue;
-          seenIds.add(entry.questionVersionId);
-          ids.push(entry.questionVersionId);
-          collectedQuestions.push(entry);
+        const page = await backend.canonicalCatalog.listCatalog({
+          catalogVersion: currentValues.catalogVersion || "",
+          usageClass: auditUsageClass,
+          search: catalogSearch || undefined,
+          formCode: catalogFormCode.length ? catalogFormCode : undefined,
+          domain: catalogDomain.length ? catalogDomain : undefined,
+          topic: catalogTopic.length ? catalogTopic : undefined,
+          riskBand: catalogRiskBand.length ? catalogRiskBand : undefined,
+          sourceGapState: catalogSourceGapState || undefined,
+          checklistFocus: catalogChecklistFocus.length ? catalogChecklistFocus : undefined,
+          recommendationState: recommendationOverride && recommendationOverride !== defaultCatalogRecommendationState ? recommendationOverride : undefined,
+          includedByDefault: recommendationOverride === defaultCatalogRecommendationState ? true : undefined,
+          selected: "all",
+          scopeId: currentValues.scopeDraftId || undefined,
+          applicationType: currentValues.applicationType as CanonicalApplicationType,
+          cursor,
+          limit: firstPage ? suggestionCollectionInitialPageSize : suggestionCollectionContinuationPageSize,
+          projection: "selection",
+        }, { signal: controller.signal });
+        if (controller.signal.aborted || suggestionCollectionOperationRef.current !== operationIdValue) return;
+        firstPage = false;
+        total = page.totalCount;
+        loaded += page.items.length;
+        const selectableEntries = page.items.filter((entry) => entry.canSelect && !seenIds.has(entry.questionVersionId));
+        const newIds = selectableEntries.map((entry) => entry.questionVersionId);
+        selectable += newIds.length;
+        for (const id of newIds) seenIds.add(id);
+        const newSelectionIds = newIds.filter((id) => !currentSelection.has(id));
+        if (newSelectionIds.length) {
+          added += newSelectionIds.length;
+          newSelectionIds.forEach((id) => currentSelection.add(id));
+          startTransition(() => {
+            setPendingSelectionIds((current) => [...new Set([...current, ...newSelectionIds])]);
+            setSelectionDirty(true);
+            setSelectedQuestionListLimit(12);
+          });
         }
-      const nextCursor = page.nextCursor ?? undefined; if (nextCursor && seenCursors.has(nextCursor)) throw new Error("Catalog pagination repeated a cursor while collecting the exact question set."); if (nextCursor) seenCursors.add(nextCursor); cursor = nextCursor;
+        const previewEntries = selectableEntries.slice(0, 12);
+        if (previewEntries.length) {
+          startTransition(() => {
+            setSelectedQuestionCache((current) => {
+              let changed = false;
+              const next = { ...current };
+              for (const question of previewEntries) {
+                if (next[question.questionVersionId] === question) continue;
+                next[question.questionVersionId] = question;
+                changed = true;
+              }
+              return changed ? next : current;
+            });
+          });
+        }
+        setSuggestionProgress({ phase: "loading", loaded: Math.min(loaded, total || loaded), total, added, error: null });
+        const nextCursor = page.nextCursor ?? undefined;
+        if (nextCursor && seenCursors.has(nextCursor)) throw new Error("Catalog pagination repeated a cursor while collecting the exact question set.");
+        if (nextCursor) seenCursors.add(nextCursor);
+        cursor = nextCursor;
       } while (cursor);
-      if (!ids.length) {
+      if (controller.signal.aborted || suggestionCollectionOperationRef.current !== operationIdValue) return;
+      setSuggestionProgress({ phase: "complete", loaded: total || loaded, total, added, error: null });
+      setSelectedQuestionListLimit(12);
+      if (!selectable) {
         setStatus("No selectable questions match the current server-authorized filters. Broaden search or clear active catalog filters and try again.");
-        setSelectedQuestionListExpanded(false);
         return;
       }
-      const currentSelection = new Set(pendingSelectionIds);
-      const addedIds = ids.filter((id) => !currentSelection.has(id));
-      if (!addedIds.length) {
-        setStatus(`No additional ${recommendationOverride ? "suggested" : "eligible"} questions to add; matched questions are already selected.`);
-        setSelectedQuestionListExpanded(false);
+      if (!added) {
+        setStatus(`No additional ${questionKind} questions to add; matched questions are already selected.`);
         return;
       }
-      setSelectedQuestionCache((current) => {
-        let changed = false;
-        const next = { ...current };
-        for (const question of collectedQuestions) {
-          const id = question.questionVersionId;
-          if (next[id] === question) continue;
-          next[id] = question;
-          changed = true;
-        }
-        return changed ? next : current;
-      });
-      setPendingSelectionIds((current) => [...new Set([...current, ...addedIds])]);
-      setSelectedQuestionListExpanded(false);
-      setSelectionDirty(true);
-      setStatus(`${addedIds.length.toLocaleString("en-US")} ${recommendationOverride ? "suggested" : "eligible"} questions are ready for selection review.`);
-    } catch (cause) { setServerError(errorMessage(cause)); } finally { setBusy(false); }
+      setStatus(`${added.toLocaleString("en-US")} ${questionKind} questions are ready for selection review.`);
+    } catch (cause) {
+      if (controller.signal.aborted || suggestionCollectionOperationRef.current !== operationIdValue) return;
+      const message = errorMessage(cause);
+      setSuggestionProgress({ phase: "error", loaded, total, added, error: message });
+      setStatus(`Loading paused after ${loaded.toLocaleString("en-US")} of ${total.toLocaleString("en-US")} matching questions. Retry to finish loading the selection.`);
+    } finally {
+      if (suggestionCollectionOperationRef.current === operationIdValue) suggestionCollectionAbortRef.current = null;
+    }
   }
 
   async function openCatalogDetail(question: CanonicalQuestionCatalogEntry | string, trigger?: HTMLElement) {
@@ -1290,6 +1397,10 @@ export function NewAuditWizardPage() {
   async function continueFromStep() {
     if (step === 1 && !valuesRef.current) { if (!validatePendingBasics() || !pendingScopeOption || !pendingApplicationType) return; await createDraftForScope(pendingScopeOption, pendingApplicationType); return; }
     if (!valuesRef.current) return;
+    if (step === 4 && suggestionProgress.phase === "loading") {
+      setStatus("Suggested questions are still loading. Wait for the progress bar to finish before reviewing or continuing.");
+      return;
+    }
     if (!validateStep(step === 5 ? 4 : step)) return;
     if (step === 4 && selectionDirty) { openSelectionReview(); return; }
     setBusy(true); setServerError(null);
@@ -1304,7 +1415,8 @@ export function NewAuditWizardPage() {
   const canCreateDraft = Boolean(pendingScopeOption && pendingApplicationType && scopeOptions.length);
   const currentSelectedCount = pendingSelectionIds.length;
   const useReviewPrimary = step === 4 && selectionDirty;
-  const actionLabel = busy ? (step === 1 && !values ? "Creating draft…" : step === 5 ? "Submitting…" : "Saving…") : "Continue";
+  const suggestionLoading = suggestionProgress.phase === "loading";
+  const actionLabel = busy ? (step === 1 && !values ? "Creating draft…" : step === 5 ? "Submitting…" : "Saving…") : suggestionLoading && step === 4 ? "Loading suggestions…" : "Continue";
 
   return (
     <WorkspaceShell roleLabel="Department Manager" routeLabel={`New Audit Wizard ${step}`}>
@@ -1380,17 +1492,23 @@ export function NewAuditWizardPage() {
                 {catalogBusy ? <p className="planning-intake-loading" role="status">Loading {fullCatalogSelected ? "full approved catalog" : "suggested questions"}…</p> : null}
                 {!catalogBusy && !catalogPage ? <p className="planning-intake-loading" role="status">Catalog selection is unavailable in this build profile.</p> : null}
                 {catalogPage ? <ul className="planning-intake-catalog-list">{catalogPage.items.map((question) => { const checked = pendingSelectionIds.includes(question.questionVersionId); const prompt = question.prompt ?? "Question prompt unavailable"; const questionInfo = [question.formCode, `item ${question.ordinal}`, `${catalogValueLabel(question.aiAdvisory.riskTier)} risk`, catalogValueLabel(question.recommendation.recommendationState), `${question.recommendation.historyCount.toLocaleString("en-US")} prior Audits`].join(" · "); return <li data-question-version-id={question.questionVersionId} key={question.questionVersionId}><label><input aria-label={`Select ${question.formCode} item ${question.ordinal}`} checked={checked} disabled={busy || !question.canSelect} onChange={() => toggleQuestion(question.questionVersionId)} title={!question.canSelect ? "This question is not selectable in the current server-authorized scope." : undefined} type="checkbox" /><span><b className="planning-intake-question-prompt" title={prompt}>{prompt}</b><small className="planning-intake-question-info">{questionInfo}</small><RecommendationReasonPills reasons={recommendationReasonTags(question)} /></span></label><button className="planning-intake-question-detail" type="button" onClick={(event) => void openCatalogDetail(question, event.currentTarget)}>View details</button></li>; })}</ul> : null}
-                <div className="planning-intake-selection-actions"><button disabled={busy || catalogBusy || !catalogPage} type="button" onClick={() => void addAllMatchingQuestions(defaultCatalogRecommendationState)}>Use suggested questions</button><details className="planning-intake-more-actions"><summary>More selection actions</summary><button disabled={busy || catalogBusy || !catalogPage} type="button" onClick={() => void addAllMatchingQuestions()}>Add all matching eligible questions</button></details></div>
+                <div className="planning-intake-selection-actions"><button disabled={busy || catalogBusy || suggestionLoading || !catalogPage} type="button" onClick={() => void addAllMatchingQuestions(defaultCatalogRecommendationState)}>{suggestionLoading ? "Loading suggestions…" : "Use suggested questions"}</button><details className="planning-intake-more-actions"><summary>More selection actions</summary><button disabled={busy || catalogBusy || suggestionLoading || !catalogPage} type="button" onClick={() => void addAllMatchingQuestions()}>Add all matching eligible questions</button></details></div>
                 <section aria-label="Selection summary" className="planning-intake-selection-summary">
-                  <header><div><h3>Selection summary</h3><p>{selectionDelta.selectedCount.toLocaleString("en-US")} questions selected</p></div><div className="planning-intake-selection-summary__metrics"><span>Additions <b>{selectionDelta.additions.toLocaleString("en-US")}</b></span><span>Removals <b>{selectionDelta.removals.toLocaleString("en-US")}</b></span><span>Resource <b>{selectionSummary.complete ? `${selectionSummary.estimatedResourceRequirement ?? 0} question-hours` : "Server-derived after confirmation"}</b></span></div></header>
+                  <header><div><h3>Selection summary</h3><p aria-live="polite">{selectionDelta.selectedCount.toLocaleString("en-US")} questions selected</p></div><div className="planning-intake-selection-summary__metrics"><span>Additions <b>{selectionDelta.additions.toLocaleString("en-US")}</b></span><span>Removals <b>{selectionDelta.removals.toLocaleString("en-US")}</b></span><span>Resource <b>{selectionSummary.complete ? `${selectionSummary.estimatedResourceRequirement ?? 0} question-hours` : "Server-derived after confirmation"}</b></span></div></header>
+                  {suggestionProgress.phase !== "idle" ? <div aria-live="polite" aria-busy={suggestionLoading} className={`planning-intake-suggestion-progress planning-intake-suggestion-progress--${suggestionProgress.phase}`} role={suggestionProgress.phase === "error" ? "alert" : "status"}>
+                    <div className="planning-intake-suggestion-progress__header"><strong>{suggestionLoading ? "Loading questions into this selection" : suggestionProgress.phase === "complete" ? "Question selection is ready" : "Question loading paused"}</strong><span>{suggestionProgress.loaded.toLocaleString("en-US")}{suggestionProgress.total ? ` of ${suggestionProgress.total.toLocaleString("en-US")}` : " matching questions discovered"}</span></div>
+                    {suggestionProgress.total ? <progress aria-label="Suggested question loading progress" max={suggestionProgress.total} value={Math.min(suggestionProgress.loaded, suggestionProgress.total)} /> : <progress aria-label="Suggested question loading progress" />}
+                    <p>{suggestionLoading ? "The selected count updates after each batch. You can search, open details, or change catalog pages while this continues." : suggestionProgress.phase === "complete" ? `${suggestionProgress.added.toLocaleString("en-US")} new questions are ready for review before confirmation.` : suggestionProgress.error}</p>
+                    {suggestionProgress.phase === "error" ? <button className="planning-intake-text-action" type="button" onClick={() => void addAllMatchingQuestions(suggestionCollectionRecommendationRef.current)} disabled={busy || catalogBusy || !catalogPage}>Retry loading {suggestionCollectionRecommendationRef.current ? "suggested" : "eligible"} questions</button> : null}
+                  </div> : null}
                 <section aria-label="Selected questions" className="planning-intake-selected-tray"><details open><summary>{pendingSelectionIds.length.toLocaleString("en-US")} selected questions ({selectedQuestionPreview.preview.length.toLocaleString("en-US")} shown{selectedQuestionPreview.hiddenCount ? ` · ${selectedQuestionPreview.hiddenCount.toLocaleString("en-US")} more hidden` : ""})</summary>
                     {selectedQuestionLoadBusy ? <p className="planning-intake-loading" role="status">Loading selected question details…</p> : null}
                     {selectedQuestionLoadError ? <div className="planning-intake-selected-tray__error" role="alert"><p>{selectedQuestionLoadError}</p><button className="planning-intake-text-action" type="button" onClick={() => void loadSelectedQuestionDetails(selectedQuestionLoadTargetIds)} disabled={selectedQuestionLoadBusy || !selectedQuestionLoadTargetIds.length}>Retry loading question details</button></div> : null}
                     {selectedQuestionPreview.preview.length ? <ul>{selectedQuestionPreview.preview.map(({ id, question }) => { const reasons = question ? recommendationReasonTags(question) : []; const prompt = selectedQuestionLabel(question, id); return <li key={id}><span><b title={prompt}>{prompt}</b><small>{selectedQuestionMeta(question)}</small><RecommendationReasonPills reasons={reasons} /></span><div><button className="planning-intake-text-action" type="button" onClick={() => removeSelectedQuestion(id)}>Remove</button><button className="planning-intake-question-detail" type="button" onClick={(event) => void openCatalogDetail(question ?? id, event.currentTarget)}>{question ? "View details" : "Load details"}</button></div></li>; })}</ul> : <p>No questions are selected yet.</p>}
-                    {selectedQuestionPreview.hiddenCount ? <div className="planning-intake-selection-summary__muted"><p>{selectedQuestionPreview.hiddenCount.toLocaleString("en-US")} more selected questions are not shown.</p><button type="button" onClick={() => setSelectedQuestionListExpanded(!selectedQuestionListExpanded)}>{selectedQuestionListExpanded ? "Show only first 12" : "Show all selected questions"}</button></div> : null}
+                    {selectedQuestionPreview.hiddenCount ? <div className="planning-intake-selection-summary__muted"><p>{selectedQuestionPreview.hiddenCount.toLocaleString("en-US")} more selected questions are not shown.</p><div><button type="button" onClick={() => setSelectedQuestionListLimit(12)} disabled={selectedQuestionListLimit <= 12}>Show first 12</button><button type="button" onClick={() => setSelectedQuestionListLimit((current) => Math.min(pendingSelectionIds.length, current + 12))}>Show 12 more</button></div></div> : null}
                   </details></section>
                   {fieldErrors.selectedQuestionVersionIds ? <FieldError id="planning-intake-selectedQuestionVersionIds-error" message={fieldErrors.selectedQuestionVersionIds} /> : null}
-                  <div><button className={useReviewPrimary ? "planning-intake-primary" : "planning-intake-secondary"} disabled={busy || !selectionDirty} type="button" onClick={(event) => openSelectionReview(event.currentTarget)}>Review selection</button><button className="planning-intake-text-action" disabled={busy || !selectionDirty} type="button" onClick={discardPendingSelectionChanges}>Undo changes</button>{pendingSelectionIds.length ? <button className="planning-intake-text-action" disabled={busy || !selectionDirty} type="button" onClick={clearPendingSelectionChanges}>Clear all selections</button> : null}</div>
+                  <div><button className={useReviewPrimary ? "planning-intake-primary" : "planning-intake-secondary"} disabled={busy || suggestionLoading || !selectionDirty} type="button" onClick={(event) => openSelectionReview(event.currentTarget)}>Review selection</button><button className="planning-intake-text-action" disabled={busy || suggestionLoading || !selectionDirty} type="button" onClick={discardPendingSelectionChanges}>Undo changes</button>{pendingSelectionIds.length ? <button className="planning-intake-text-action" disabled={busy || suggestionLoading || !selectionDirty} type="button" onClick={clearPendingSelectionChanges}>Clear all selections</button> : null}</div>
                 </section>
                 <div className="planning-intake-catalog-pagination" aria-label="Question pagination"><button disabled={catalogBusy || !catalogPreviousCursors.length} type="button" onClick={() => { const history = [...catalogPreviousCursors]; setCatalogCursor(history.pop()); setCatalogPreviousCursors(history); setCatalogPageNumber((current) => Math.max(1, current - 1)); }}>Previous questions</button><span aria-live="polite">Page {catalogPageNumber} · {catalogPage?.totalCount.toLocaleString("en-US") ?? "0"} matching</span><button disabled={catalogBusy || !catalogPage?.nextCursor} type="button" onClick={() => { if (!catalogPage?.nextCursor) return; setCatalogPreviousCursors((history) => [...history, catalogCursor ?? ""]); setCatalogCursor(catalogPage.nextCursor ?? undefined); setCatalogPageNumber((current) => current + 1); }}>Next questions</button></div>
               </section>
@@ -1406,7 +1524,7 @@ export function NewAuditWizardPage() {
           </section>
           <InspectionBrief values={values} scopeOption={selectedScopeOption} pendingScopeOption={pendingScopeOption} pendingApplicationType={pendingApplicationType} selectedCount={currentSelectedCount} autosaveState={autosaveState} autosaveError={autosaveError} onRetry={() => void retryAutosave()} />
         </div>
-        <section aria-label="Planning intake actions" className="planning-intake-actions"><div className="planning-intake-actions__secondary">{step === 1 ? <button className="planning-intake-secondary" type="button" onClick={cancel}>Cancel</button> : <button className="planning-intake-secondary" disabled={busy || !values} type="button" onClick={() => void moveBack()}>Back</button>}{autosaveState === "error" && draft ? <button className="planning-intake-text-action" type="button" onClick={() => void retryAutosave()}>Retry save</button> : null}</div><div className="planning-intake-actions__primary">{step < 5 ? <button className={useReviewPrimary ? "planning-intake-secondary" : "planning-intake-primary"} disabled={busy || !values && step > 1 || (step === 1 && !values && !canCreateDraft)} type="button" onClick={() => void continueFromStep()}>{actionLabel}</button> : <button className="planning-intake-primary" disabled={busy || !values} type="button" onClick={() => void submit()}>Submit to Finance</button>}</div></section>
+        <section aria-label="Planning intake actions" className="planning-intake-actions"><div className="planning-intake-actions__secondary">{step === 1 ? <button className="planning-intake-secondary" type="button" onClick={cancel}>Cancel</button> : <button className="planning-intake-secondary" disabled={busy || !values} type="button" onClick={() => void moveBack()}>Back</button>}{autosaveState === "error" && draft ? <button className="planning-intake-text-action" type="button" onClick={() => void retryAutosave()}>Retry save</button> : null}</div><div className="planning-intake-actions__primary">{step < 5 ? <button className={useReviewPrimary ? "planning-intake-secondary" : "planning-intake-primary"} disabled={busy || suggestionLoading || !values && step > 1 || (step === 1 && !values && !canCreateDraft)} type="button" onClick={() => void continueFromStep()}>{actionLabel}</button> : <button className="planning-intake-primary" disabled={busy || !values} type="button" onClick={() => void submit()}>Submit to Finance</button>}</div></section>
       </div>
       {selectionReviewOpen ? <SelectionReviewDialog selectedCount={selectionDelta.selectedCount} additions={selectionDelta.additions} removals={selectionDelta.removals} total={selectionProgress.total} progress={selectionProgress} busy={busy} onConfirm={() => void confirmSelectionReview()} onRetry={retrySelectionConfirmation} onClose={closeSelectionReview} returnFocusRef={selectionReviewTriggerRef} /> : null}
       {catalogDetail ? <QuestionDossier question={catalogDetail} onClose={closeCatalogDetail} returnFocusRef={catalogTriggerRef} /> : null}
