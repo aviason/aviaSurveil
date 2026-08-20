@@ -1,12 +1,4 @@
-import {
-  startTransition,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { z } from "zod";
 
@@ -15,465 +7,130 @@ import type {
   CanonicalApplicationType,
   CanonicalAuditScopeOption,
   CanonicalQuestionCatalogEntry,
-  CanonicalQuestionCatalogPage,
-  CanonicalQuestionUsageClass,
-  CanonicalSelectionDigest,
-  PlanningIntakeDraftValues,
-  PlanningIntakeDraftView,
-  PlanningIntakeInspectionCategory,
+  PlanningIntakeNoticePolicy,
+  PlanningLocationOption,
+  PlanningProposalDraftValues,
+  PlanningProposalDraftView,
+  PlanningProposalLocationInput,
+  PlanningPurposePreset,
+  PlanningResolvedLocation,
+  PlanningWorkloadEstimate,
 } from "../../backend/backend";
-import {
-  CommandError,
-  errorMessage,
-  formatLocalDate,
-  WorkspaceShell,
-} from "../shared/workspace-shell";
+import { CommandError, errorMessage, formatLocalDate, WorkspaceShell } from "../shared/workspace-shell";
 import { catalogValueLabel } from "./planning-intake-formatters";
 
 const stepDefinitions = [
-  { number: 1, label: "Basics", description: "Choose the authorized inspection scope." },
-  { number: 2, label: "Purpose", description: "Set the operational reason and notice consequence." },
-  { number: 3, label: "Schedule", description: "Set when and where the inspection will take place." },
-  { number: 4, label: "Checklist & budget", description: "Review suggested questions and resources." },
-  { number: 5, label: "Review", description: "Confirm the Planning item before Finance." },
+  { number: 1, label: "Scope", description: "Who or what will be inspected, and under which inspection type?" },
+  { number: 2, label: "Purpose", description: "Why is this Audit being planned?" },
+  { number: 3, label: "Schedule", description: "When and how will it take place?" },
+  { number: 4, label: "Resources & budget", description: "What capacity and budget should Finance approve?" },
+  { number: 5, label: "Review", description: "Is this the plan Finance and later approvers should review?" },
 ] as const;
 
-const selectionBatchLimit = 500;
-const suggestionCollectionInitialPageSize = 100;
-const suggestionCollectionContinuationPageSize = 2000;
-const defaultCatalogRecommendationState = "SUGGESTED_NOW";
-const riskCategoryOptions = [
-  "Configured inspection risk",
-  "Safety-critical",
-  "High operational",
-  "Control assurance",
-  "Review required",
-] as const;
-
-type SelectionOperationKind = "ADD" | "REMOVE";
 type AutosaveState = "clean" | "dirty" | "saving" | "saved" | "error";
-type FieldKey =
-  | "organizationId"
-  | "providerScopeId"
-  | "regulatedTargetId"
-  | "applicationType"
-  | "inspectionCategory"
-  | "purpose"
-  | "riskCategory"
-  | "plannedDate"
-  | "location"
-  | "selectedQuestionVersionIds"
-  | "requestedBudget";
+type FieldKey = "organizationId" | "providerScopeId" | "regulatedTargetId" | "inspectionType" | "purpose" | "plannedDate" | "location" | "meetingLink" | "requiredInspectorCount" | "estimatedChecklistItemCount" | "requestedBudget";
 type FieldErrors = Partial<Record<FieldKey, string>>;
 
-interface PlanningIntakeFormValues extends Omit<PlanningIntakeDraftValues, "requestedBudget"> {
+interface NewAuditFormValues extends Omit<PlanningProposalDraftValues, "requestedBudget" | "requiredInspectorCount" | "estimatedChecklistItemCount"> {
   requestedBudget: string;
+  requiredInspectorCount: string;
+  estimatedChecklistItemCount: string;
+  meetingLink: string;
 }
 
-interface SelectionProgress {
-  completed: number;
-  total: number;
-  error: string | null;
-}
+const budgetSchema = z.string().trim().min(1, "Requested budget is required").refine((value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0;
+}, "Requested budget must be zero or greater");
 
-type SuggestionCollectionPhase = "idle" | "loading" | "complete" | "error";
-
-interface SuggestionCollectionProgress {
-  phase: SuggestionCollectionPhase;
-  loaded: number;
-  total: number;
-  added: number;
-  error: string | null;
-}
-
-interface SelectionBatchOperation {
-  signature: string;
-  previewOperationId: string;
-  commitOperationId: string;
-}
-
-type CatalogFacetOption = { value: string; count: number };
-
-const requestedBudgetSchema = z
-  .string()
-  .trim()
-  .min(1, "Requested budget is required")
-  .transform((value) => Number(value))
-  .refine((value) => Number.isFinite(value) && value >= 0, "Requested budget must be zero or greater");
-
-const stepSchemas = {
+const stepSchemas: Record<number, z.ZodTypeAny> = {
   1: z.object({
-    organizationId: z.string().min(1, "Organization is required"),
-    applicationType: z.string().min(1, "Inspection type is required"),
-    domain: z.string().min(1, "Inspection domain is required"),
+    organizationId: z.string().min(1, "Inspected Organization is required"),
+    providerScopeId: z.string().min(1, "Provider scope is required"),
+    regulatedTargetId: z.string().min(1, "Regulated target is required"),
+    inspectionType: z.string().min(1, "Inspection type is required"),
   }),
-  2: z.object({
-    inspectionCategory: z.enum(["Routine / Announced", "Ad Hoc / Unannounced"]),
-    purpose: z.string().trim().min(1, "Purpose is required"),
-    riskCategory: z.string().trim().min(1, "Risk category is required"),
-  }),
+  2: z.object({ purpose: z.string().trim().min(1, "Purpose is required") }),
   3: z.object({
-    plannedDate: z.string().min(1, "Planned date is required").regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD for the planned date"),
-    location: z.string().trim().min(1, "Location is required"),
+    plannedDate: z.string().min(1, "Planned date is required").regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a valid planned date"),
+    mode: z.enum(["On-site", "Remote"]),
+    location: z.string().optional(),
+    meetingLink: z.string().optional(),
+  }).superRefine((value, context) => {
+    if (value.mode === "On-site" && !value.location?.trim()) context.addIssue({ code: z.ZodIssueCode.custom, path: ["location"], message: "Location is required for an on-site Audit" });
+    if (value.mode === "Remote" && value.meetingLink?.trim() && !/^https?:\/\//i.test(value.meetingLink.trim())) context.addIssue({ code: z.ZodIssueCode.custom, path: ["meetingLink"], message: "Use an HTTP(S) meeting link" });
   }),
   4: z.object({
-    catalogVersion: z.string().min(1, "Question catalog is required"),
-    selectedQuestionVersionIds: z.array(z.string()).min(1, "Select at least one question"),
-    selectionDigest: z.string().min(1, "Question selection must be confirmed"),
-    requestedBudget: requestedBudgetSchema,
+    requiredInspectorCount: z.string().trim().min(1, "Required inspectors is required").refine((value) => Number.isInteger(Number(value)) && Number(value) > 0, "Enter a positive inspector count"),
+    estimatedChecklistItemCount: z.string().trim().min(1, "Estimated checklist items is required").refine((value) => Number.isInteger(Number(value)) && Number(value) > 0, "Enter a positive checklist-item estimate"),
+    requestedBudget: budgetSchema,
   }),
-} as const;
-
-function pathForStep(step: number, draftId?: string): string {
-  return `/department-manager/new-audit/step-${step}${draftId ? `?draftId=${encodeURIComponent(draftId)}` : ""}`;
-}
+};
 
 function operationId(prefix: string): string {
   return `${prefix}-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`.toUpperCase();
 }
 
 function stepFromPath(pathname: string): number {
-  const candidate = Number(pathname.match(/step-(\d)$/)?.[1] ?? 1);
-  return Math.min(5, Math.max(1, candidate));
+  return Math.min(5, Math.max(1, Number(pathname.match(/step-(\d)$/)?.[1] ?? 1)));
 }
 
-function riskCategoryOptionsFor(value: string): string[] {
-  return value && !riskCategoryOptions.includes(value as (typeof riskCategoryOptions)[number])
-    ? [value, ...riskCategoryOptions]
-    : [...riskCategoryOptions];
+function pathForStep(step: number, draftId?: string): string {
+  return `/department-manager/new-audit/step-${step}${draftId ? `?draftId=${encodeURIComponent(draftId)}` : ""}`;
 }
 
-function readableLocalDate(value: string | undefined): string {
-  if (!value) return "To be set";
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
-  try {
-    return formatLocalDate(value);
-  } catch {
-    return value;
-  }
+function readableDate(value: string | undefined): string {
+  if (!value) return "Not set";
+  try { return formatLocalDate(value); } catch { return value; }
 }
 
-function normalizeDateInput(value: string): string {
-  const digits = value.replace(/\D/g, "").slice(0, 8);
-  if (digits.length <= 4) return digits;
-  if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
-  return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`;
+function noticeLabel(policy: PlanningIntakeNoticePolicy): string {
+  return policy === "WITHHELD" ? "Notice withheld until the authorized release boundary" : "Advance notice applies after the authorized release boundary";
 }
 
-function noticePolicyFor(category: PlanningIntakeInspectionCategory): PlanningIntakeDraftValues["noticePolicy"] {
-  return category === "Ad Hoc / Unannounced" ? "WITHHELD" : "ADVANCE";
-}
-
-function noticeLabel(category: PlanningIntakeInspectionCategory): string {
-  return category === "Ad Hoc / Unannounced" ? "Notice withheld" : "Advance notice";
-}
-
-const recommendationSignalLabels: Record<string, string> = {
-  ADVISORY_MATCH: "Advisory match in current profile",
-  AUDIT_TYPE_FOCUS_MISMATCH: "Outside selected audit type",
-  AUDIT_TYPE_FOCUS_MATCH: "Audit-type focus match",
-  OUTSIDE_AUDIT_TYPE_FOCUS: "Outside selected audit type",
-  OUTSIDE_SELECTED_FOCUS: "Outside selected focus",
-  PROVIDER_SCOPE_MATCH: "Provider scope match",
-  OUTSIDE_PROVIDER_SCOPE: "Outside selected provider scope",
-  PROVIDER_SCOPE_MISMATCH: "Outside selected provider scope",
-  HIGH_OR_UNKNOWN_RISK: "High or unknown risk",
-  NON_CLEAN_OR_MISSING_ANSWER: "Non-clean or missing answer history",
-  UNKNOWN_HISTORY: "History is incomplete",
-  INSUFFICIENT_LONGITUDINAL_HISTORY: "Insufficient longitudinal history",
-  LOCATION_MATCH: "Historical location match",
-  LOCATION_MISMATCH: "Historical location mismatch",
-  RECENTLY_VERIFIED: "Recent clean verification",
-  DEFER_ELIGIBLE: "Recurrence allows deferral",
-  RECURRENCE_DUE: "Recurrence interval is due",
-  MANDATORY_CONTROL: "Mandatory control",
-  SAFETY_CRITICAL_CONTROL: "Safety-critical control",
-  OPEN_FINDING: "Open finding in prior history",
-  REPEAT_FINDING: "Repeat finding in prior history",
-  SOURCE_OR_MAPPING_CHANGED: "Source or mapping changed",
-  SOURCE_CONTEXT_INCOMPLETE: "Source context incomplete",
-  SOURCE_GAP: "Source gap detected",
-  SOURCE_CHANGED: "Source changed",
-  SURFACE_MISMATCH: "Scope or surface mismatch",
-  INSUFFICIENT_SIGNAL_STRENGTH: "Signal strength is insufficient",
-  CATALOG_GAP: "Catalog gap detected",
-};
-
-const recommendationStateLabels: Record<string, string> = {
-  SUGGESTED_NOW: "Server suggestion",
-  MATCHING_OPTIONAL: "Matching optional",
-  RECENTLY_VERIFIED: "Recently verified",
-  OUTSIDE_FOCUS: "Outside focus",
-  UNCERTAIN_SIGNAL: "Uncertain signal",
-};
-
-const recommendationClassificationLabels: Record<string, string> = {
-  MANDATORY_CORE: "Mandatory control",
-  FOCUSED_FULL: "Focused control",
-  ROTATIONAL_SAMPLE: "Rotational sample",
-  DEFER_ELIGIBLE: "Recurrence-deferrable",
-};
-
-function recommendationSignalLabel(signalCode: string): string {
-  return recommendationSignalLabels[signalCode] ?? normalizeReasonLabel(signalCode);
-}
-
-function normalizeReasonLabel(value: string): string {
-  return value
-    .split(/[_\-\s]+/g)
-    .filter(Boolean)
-    .map((token) => `${token[0]?.toUpperCase() ?? ""}${token.slice(1).toLowerCase()}`)
-    .join(" ");
-}
-
-function appendReason(reasons: string[], reason: string | null | undefined): void {
-  const value = reason?.trim();
-  if (!value || reasons.includes(value)) return;
-  reasons.push(value);
-}
-
-function recommendationHistoryTag(question: CanonicalQuestionCatalogEntry): string {
-  const comparableCount = question.recommendation.comparableAuditCount ?? 0;
-  const validatedCleanCount = question.recommendation.validatedCleanAuditCount ?? 0;
-  if (comparableCount === 0) return "No comparable prior Audits";
-  if (validatedCleanCount > 0) return `${validatedCleanCount.toLocaleString("en-US")} validated-clean of ${comparableCount.toLocaleString("en-US")} comparable prior Audits`;
-  return `${comparableCount.toLocaleString("en-US")} comparable prior Audits`;
-}
-
-function recommendationReasonHints(question: CanonicalQuestionCatalogEntry): string[] {
-  const labels: string[] = [];
-  const addReason = (code: string) => appendReason(labels, recommendationSignalLabel(code));
-  for (const reasonCode of question.aiAdvisory.recommendationReasonCodes ?? []) {
-    addReason(reasonCode);
-  }
-  for (const reasonCode of question.recommendation.signalCodes ?? []) {
-    addReason(reasonCode);
-  }
-  for (const guardrail of question.recommendation.guardrails ?? []) {
-    appendReason(labels, catalogValueLabel(guardrail));
-  }
-  if (question.recommendation.canDefer) {
-    appendReason(labels, "Manager must confirm any omission");
-  }
-  const classificationLabel = recommendationClassificationLabels[question.recommendation.classification];
-  appendReason(labels, classificationLabel);
-  const recommendationStateLabel = recommendationStateLabels[question.recommendation.recommendationState];
-  appendReason(labels, recommendationStateLabel);
-  if (!labels.length) {
-    const fallbackLabel = recommendationStateLabels[question.recommendation.recommendationState] ?? catalogValueLabel(question.recommendation.recommendationState);
-    labels.push(fallbackLabel);
-  }
-  appendReason(labels, recommendationHistoryTag(question));
-  return labels;
-}
-
-function recommendationRationaleHints(question: CanonicalQuestionCatalogEntry): string[] {
-  const rationale = question.recommendation.rationale?.trim();
-  if (!rationale) return [];
-  const reasons: string[] = [];
-  const addReason = (reason: string | undefined | null) => appendReason(reasons, reason);
-  const lower = rationale.toLowerCase();
-  if (/one clean audit is not sufficient/i.test(rationale) && /longitudinal/i.test(rationale)) {
-    const comparable = question.recommendation.comparableAuditCount;
-    if (comparable === 0) addReason("History basis: no comparable Audits available for omission.");
-    else if (comparable === 1) addReason("History basis: only one comparable Audit was clean; omission confidence is still limited.");
-    else addReason(`History basis: only ${comparable.toLocaleString("en-US")} comparable clean Audits were available; omission confidence remains limited.`);
-    addReason("Insufficient longitudinal history");
-  }
-  if (/history is incomplete|history basis|history is incomplete or non-validating|history unavailable|history was|history is unavailable|history does not support/i.test(lower)) {
-    addReason("History is incomplete or non-validating.");
-    if (!/Insufficient longitudinal history/.test(rationale)) addReason("Insufficient longitudinal history");
-  }
-  if (/outside selected audit type|outside audit.?type focus|outside audit type|focus mismatch|not aligned to selected focus/i.test(lower)) {
-    addReason("Outside selected audit-type focus.");
-  }
-  if (/outside selected provider scope|outside provider scope|provider scope mismatch|not aligned to selected provider/i.test(lower)) {
-    addReason("Outside selected provider scope.");
-  }
-  if (/source|mapping|remediation|gap|source context|data source|recorded as not comparable/i.test(lower)) {
-    addReason("Source or mapping context changed.");
-  }
-  if (/open finding|open-finding|open finding history/i.test(lower)) {
-    addReason("Open finding in prior history.");
-  }
-  if (/\brepeat finding\b|repeated finding|historic finding repeats/i.test(lower)) {
-    addReason("Repeat finding history.");
-  }
-  if (/recurrence.*due|due recurrence|recurring interval/i.test(lower)) {
-    addReason("Recurrence interval is currently due.");
-  }
-  if (/deferral|defer|deferable/i.test(lower)) {
-    addReason("Deferability signal present.");
-  }
-  if (/outside.*location|location.*changed|location mismatch|different location|location-based/i.test(lower)) {
-    addReason("Historical location match is not exact.");
-  }
-  if (/provider scope|provider.*scope|provider-specific|selected provider/i.test(lower)) {
-    addReason("Provider scope context is part of the recommendation basis.");
-  }
-  if (/audit type|audit-type|inspection type|focus/i.test(lower)) {
-    addReason("Audit-type focus context is part of the recommendation basis.");
-  }
-  if (/historical audit|history window|prior audit|comparable audits|history/i.test(lower)) {
-    if (question.recommendation.comparableAuditCount === 0) addReason("History basis is currently unavailable for this scope.");
-    else if (question.recommendation.comparableAuditCount === 1) addReason("Only one comparable Audit exists in this recommendation scope.");
-    else addReason(`Comparable audit history is available (${question.recommendation.comparableAuditCount.toLocaleString("en-US")} items).`);
-  }
-  if (reasons.length) return reasons;
-  const sentences = rationale.split(/[.!?]\s+/).map((entry) => entry.trim()).filter(Boolean).slice(0, 2);
-  for (const sentence of sentences) {
-    if (/mandatory controls|mandatory control/i.test(sentence)) {
-      addReason("Mandatory control basis remains active.");
-      continue;
-    }
-    if (/recently.*verified|validated clean|clean history/i.test(sentence)) {
-      addReason("Recent clean verification history supports inclusion.");
-      continue;
-    }
-    if (/open finding|finding in history|finding history/i.test(sentence)) {
-      addReason("Historical finding activity is present.");
-      continue;
-    }
-    if (/source|mapping/i.test(sentence)) {
-      addReason("Source context has changed.");
-      continue;
-    }
-    if (/location/i.test(sentence)) {
-      addReason("Location context affected this recommendation.");
-      continue;
-    }
-    if (sentence.length <= 120) addReason(sentence);
-    else addReason(`${sentence.slice(0, 117)}…`);
-  }
-  if (!reasons.length) addReason("Additional recommendation rationale is supported by governance context.");
-  return reasons;
-}
-
-function recommendationReasonTags(question: CanonicalQuestionCatalogEntry): string[] {
-  const reasons = recommendationReasonHints(question);
-  for (const rationaleTag of recommendationRationaleHints(question)) {
-    if (!reasons.includes(rationaleTag)) reasons.push(rationaleTag);
-  }
-  return reasons;
-}
-
-function RecommendationReasonPills({ reasons }: { reasons: string[] }) {
-  if (!reasons.length) return null;
-  return (
-    <ul className="planning-intake-question-reason-tags" aria-label="Recommendation reasons">
-      {reasons.map((reason) => <li key={reason}><span>{reason}</span></li>)}
-    </ul>
-  );
-}
-
-function inspectionTypeFor(types: readonly CanonicalApplicationType[]): CanonicalApplicationType {
-  const firstSupported = types.find((type) => [
-    "RAMP",
-    "CABIN",
-    "RAMP_INSPECTION",
-    "CABIN_INSPECTION",
-    "CHANGE_APPROVAL",
-    "DOCUMENT_AND_RECORD_REVIEW",
-    "FOLLOW_UP",
-    "INITIAL_CERTIFICATION",
-    "ON_SITE_INSPECTION",
-    "PERIODIC_SURVEILLANCE",
-    "RENEWAL",
-    "SPECIAL_PURPOSE",
-  ].includes(type));
-  if (firstSupported) return firstSupported;
-  throw new Error("The selected server-owned scope has no supported inspection type.");
-}
-
-async function selectionDigestFor(ids: readonly string[]): Promise<string> {
-  const canonical = [...new Set(ids)].map((id, index) => `${index}\u0000${id}\n`).join("");
-  const bytes = new TextEncoder().encode(canonical);
-  const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-function nextSelectionBatch(
-  current: readonly string[],
-  desired: readonly string[],
-): { operationKind: SelectionOperationKind; questionVersionIds: string[] } | null {
-  const currentSet = new Set(current);
-  const desiredSet = new Set(desired);
-  const removals = current.filter((id) => !desiredSet.has(id));
-  if (removals.length) return { operationKind: "REMOVE", questionVersionIds: removals.slice(0, selectionBatchLimit) };
-  const additions = desired.filter((id) => !currentSet.has(id));
-  if (additions.length) return { operationKind: "ADD", questionVersionIds: additions.slice(0, selectionBatchLimit) };
-  return null;
-}
-
-function selectionChangeCount(current: readonly string[], desired: readonly string[]): number {
-  const currentSet = new Set(current);
-  const desiredSet = new Set(desired);
-  return current.filter((id) => !desiredSet.has(id)).length + desired.filter((id) => !currentSet.has(id)).length;
-}
-
-function formValuesFor(draft: PlanningIntakeDraftView): PlanningIntakeFormValues {
+function formValuesForDraft(draft: PlanningProposalDraftView): NewAuditFormValues {
   return {
-    ...draft,
-    riskCategory: draft.riskCategory || "Configured inspection risk",
-    selectedQuestionVersionIds: [...(draft.selectedQuestionVersionIds ?? [])],
-    requestedBudget: String(draft.requestedBudget),
+    organizationId: draft.organizationId,
+    providerScopeId: draft.providerScopeId,
+    regulatedTargetId: draft.regulatedTargetId,
+    inspectionType: draft.inspectionType,
+    purpose: draft.purpose,
+    purposePresetId: draft.purposePresetId,
+    plannedDate: draft.plannedDate,
+    mode: draft.mode,
+    locationInput: draft.location
+      ? draft.location.kind === "CANONICAL" && draft.location.locationId
+        ? { kind: "CANONICAL", locationId: draft.location.locationId }
+        : { kind: "NEW", proposedLabel: draft.location.label, acceptedResolutionToken: `HYDRATED-${draft.id}` }
+      : undefined,
+    meetingLink: draft.meetingLink ?? "",
+    requiredInspectorCount: String(draft.requiredInspectorCount),
+    estimatedChecklistItemCount: String(draft.estimatedChecklistItemCount),
+    workloadEstimateId: draft.workloadEstimateId,
+    workloadEstimateDigest: draft.workloadEstimateDigest,
+    requestedBudget: draft.requestedBudget === null ? "" : String(draft.requestedBudget),
+    currency: draft.currency,
   };
 }
 
-function commandValuesFor(values: PlanningIntakeFormValues): PlanningIntakeDraftValues {
-  const result = requestedBudgetSchema.safeParse(values.requestedBudget);
-  if (!result.success) throw new Error(result.error.issues[0]?.message ?? "Requested budget is invalid");
+function valuesForCommand(values: NewAuditFormValues): PlanningProposalDraftValues {
   return {
     organizationId: values.organizationId,
-    organizationName: values.organizationName,
-    applicationType: values.applicationType,
-    domain: values.domain,
-    inspectionCategory: values.inspectionCategory,
-    noticePolicy: values.noticePolicy,
-    purpose: values.purpose,
-    triggerType: values.triggerType,
-    riskCategory: values.riskCategory,
-    plannedDate: values.plannedDate,
-    mode: values.mode,
-    location: values.location,
-    templateVersionId: values.templateVersionId,
-    scope: values.scope,
-    catalogVersion: values.catalogVersion,
-    scopeDraftId: values.scopeDraftId,
-    selectionDigest: values.selectionDigest,
-    selectedQuestionVersionIds: values.selectedQuestionVersionIds,
-    estimatedResourceRequirement: values.estimatedResourceRequirement,
-    formDistribution: values.formDistribution,
-    domainDistribution: values.domainDistribution,
     providerScopeId: values.providerScopeId,
     regulatedTargetId: values.regulatedTargetId,
-    requestedBudget: result.data,
+    inspectionType: values.inspectionType,
+    purpose: values.purpose.trim(),
+    purposePresetId: values.purposePresetId,
+    plannedDate: values.plannedDate,
+    mode: values.mode,
+    locationInput: values.locationInput,
+    meetingLink: values.meetingLink.trim() || undefined,
+    requiredInspectorCount: Number(values.requiredInspectorCount),
+    estimatedChecklistItemCount: Number(values.estimatedChecklistItemCount),
+    workloadEstimateId: values.workloadEstimateId,
+    workloadEstimateDigest: values.workloadEstimateDigest,
+    requestedBudget: values.requestedBudget.trim() === "" ? null : Number(values.requestedBudget),
     currency: values.currency,
-  };
-}
-
-function defaultDraftValues(option: CanonicalAuditScopeOption, applicationType: CanonicalApplicationType): PlanningIntakeDraftValues {
-  return {
-    organizationId: option.organizationId,
-    organizationName: option.organizationName,
-    applicationType,
-    domain: "Cabin Safety",
-    inspectionCategory: "Routine / Announced",
-    noticePolicy: "ADVANCE",
-    purpose: "",
-    triggerType: "Department Manager initiated",
-    riskCategory: "Configured inspection risk",
-    plannedDate: "",
-    mode: "On-site",
-    location: "",
-    catalogVersion: option.catalogVersion,
-    scopeDraftId: "",
-    selectionDigest: "",
-    selectedQuestionVersionIds: [],
-    providerScopeId: option.providerScopeId,
-    regulatedTargetId: option.regulatedTargetId,
-    requestedBudget: 0,
-    currency: "USD",
   };
 }
 
@@ -481,1053 +138,334 @@ function FieldError({ id, message }: { id: string; message?: string }): ReactNod
   return message ? <span className="planning-intake-field-error" id={id} role="alert">{message}</span> : null;
 }
 
-function RequiredMark(): ReactNode {
-  return <span aria-hidden="true" className="planning-intake-required">*</span>;
-}
-
-function PlanningDateField({
-  value,
-  error,
-  onBlur,
-  onChange,
-  onNext,
-}: {
-  value: string;
-  error?: string;
-  onBlur: () => void;
-  onChange: (value: string) => void;
-  onNext: () => void;
-}) {
-  const datePickerRef = useRef<HTMLInputElement | null>(null);
-
-  const openDatePicker = () => {
-    const picker = datePickerRef.current;
-    if (!picker) return;
-
-    picker.focus();
-    if (typeof picker.showPicker === "function") {
-      picker.showPicker();
-      return;
-    }
-
-    picker.click();
-  };
-
-  return (
-    <div className="planning-intake-date-control">
-      <input
-        aria-describedby={error ? "planning-intake-plannedDate-error" : undefined}
-        aria-invalid={Boolean(error)}
-        aria-label="Planned date"
-        autoComplete="off"
-        enterKeyHint="next"
-        id="planning-intake-plannedDate"
-        inputMode="text"
-        maxLength={10}
-        onBlur={onBlur}
-        onChange={(event) => onChange(normalizeDateInput(event.target.value))}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            event.preventDefault();
-            onNext();
-          }
-        }}
-        placeholder="YYYY-MM-DD"
-        type="text"
-        value={value}
-      />
-      <button
-        aria-label="Open planned date calendar"
-        className="planning-intake-date-calendar"
-        onClick={openDatePicker}
-        type="button"
-      >
-        <span aria-hidden="true">📅</span>
-      </button>
-      <input
-        aria-hidden="true"
-        aria-label="Planned date picker"
-        ref={datePickerRef}
-        data-testid="planning-intake-date-picker"
-        className="planning-intake-date-picker"
-        tabIndex={-1}
-        onChange={(event) => onChange(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            event.preventDefault();
-            onNext();
-          }
-        }}
-        type="date"
-        value={value}
-      />
-    </div>
-  );
-}
-
-function PlanningIntakeProgress({ step }: { step: number }) {
-  return (
-    <ol aria-label="Planning intake steps" className="planning-intake-steps">
-      {stepDefinitions.map((definition) => (
-        <li aria-current={definition.number === step ? "step" : undefined} className={definition.number === step ? "is-current" : definition.number < step ? "is-complete" : ""} key={definition.number}>
-          <span>{definition.number < step ? "✓" : definition.number}</span><b>{definition.label}</b>
-        </li>
-      ))}
-    </ol>
-  );
-}
+function RequiredMark(): ReactNode { return <span aria-hidden="true" className="planning-intake-required">*</span>; }
 
 function ValidationSummary({ errors, onFocus }: { errors: FieldErrors; onFocus: (field: FieldKey) => void }) {
   const entries = Object.entries(errors) as Array<[FieldKey, string]>;
   if (entries.length < 2) return null;
-  return (
-    <div className="planning-intake-error-summary" role="alert">
-      <b>Review the highlighted fields</b>
-      <ul>{entries.map(([field, message]) => <li key={field}><button type="button" onClick={() => onFocus(field)}>{message}</button></li>)}</ul>
-    </div>
-  );
+  return <div className="planning-intake-error-summary" role="alert"><b>Review the highlighted fields</b><ul>{entries.map(([field, message]) => <li key={field}><button type="button" onClick={() => onFocus(field)}>{message}</button></li>)}</ul></div>;
 }
 
 function AutosaveIndicator({ state, error, onRetry }: { state: AutosaveState; error: string | null; onRetry: () => void }) {
-  if (state === "error") return <span className="planning-intake-autosave is-error"><span role="alert">Couldn't save</span><button type="button" onClick={onRetry}>Retry</button>{error ? <small>{error}</small> : null}</span>;
+  if (state === "error") return <span className="planning-intake-autosave is-error"><span role="alert">Couldn’t save</span><button type="button" onClick={onRetry}>Retry</button>{error ? <small>{error}</small> : null}</span>;
   const label = state === "saving" ? "Saving…" : state === "dirty" ? "Not saved" : state === "saved" ? "Saved" : "Not saved";
   return <span className={`planning-intake-autosave is-${state}`}>{label}</span>;
 }
 
-interface BriefProps {
-  values: PlanningIntakeFormValues | null;
-  scopeOption: CanonicalAuditScopeOption | null;
-  pendingScopeOption: CanonicalAuditScopeOption | null;
-  pendingApplicationType: CanonicalApplicationType | "";
-  selectedCount: number;
-  autosaveState: AutosaveState;
-  autosaveError: string | null;
-  onRetry: () => void;
+function PlanningIntakeProgress({ step }: { step: number }) {
+  return <div className="planning-intake-progress" aria-label="New Audit progress">
+    <ol className="planning-intake-progress__desktop" aria-label="New Audit steps">{stepDefinitions.map((definition) => <li aria-current={definition.number === step ? "step" : undefined} className={definition.number === step ? "is-current" : definition.number < step ? "is-complete" : ""} key={definition.number}><span>{definition.number < step ? "✓" : definition.number}</span><b>{definition.label}</b></li>)}</ol>
+    <div className="planning-intake-progress__mobile"><p><strong>Step {step} of 5</strong><span> · {stepDefinitions[step - 1]?.label}</span></p><details><summary>View all steps</summary><ol>{stepDefinitions.map((definition) => <li className={definition.number === step ? "is-current" : definition.number < step ? "is-complete" : ""} key={definition.number}><span>{definition.number < step ? "✓" : definition.number}</span><b>{definition.label}</b></li>)}</ol></details></div>
+  </div>;
 }
 
-function InspectionBrief({ values, scopeOption, pendingScopeOption, pendingApplicationType, selectedCount, autosaveState, autosaveError, onRetry }: BriefProps) {
-  const activeScopeOption = scopeOption ?? pendingScopeOption;
-  const organization = values?.organizationName || pendingScopeOption?.organizationName || "Choose a supplier";
-  const provider = activeScopeOption?.providerTypeLabel ?? (values ? "Authorized provider scope" : "Choose a provider scope");
-  const target = activeScopeOption?.targetLabel ?? (values ? "Authorized regulated target" : "Choose a regulated target");
-  const applicationType = catalogValueLabel(values?.applicationType || pendingApplicationType || "");
-  const category = values?.inspectionCategory ?? "To be set";
-  const notice = values ? noticeLabel(values.inspectionCategory) : "To be completed later";
-  const plannedDate = readableLocalDate(values?.plannedDate);
-  const mode = values?.mode || "To be set";
-  const location = values?.location || "To be set";
-  const state = values ? autosaveState : "clean";
-  const details = (
-    <dl className="planning-intake-brief__facts">
-      <div><dt>Supplier / organization</dt><dd>{organization}</dd></div>
-      <div><dt>Provider scope</dt><dd>{provider}</dd></div>
-      <div><dt>Regulated target</dt><dd>{target}</dd></div>
-      <div><dt>Inspection type</dt><dd>{applicationType || "To be set"}</dd></div>
-      <div><dt>Inspection approach</dt><dd>{category}</dd></div>
-      <div><dt>Notice policy</dt><dd>{notice}</dd></div>
-      <div><dt>Planned date</dt><dd>{plannedDate}</dd></div>
-      <div><dt>Mode</dt><dd>{mode}</dd></div>
-      <div><dt>Location</dt><dd>{location}</dd></div>
-      <div><dt>Questions selected</dt><dd>{selectedCount.toLocaleString("en-US")}</dd></div>
-      <div><dt>Requested budget</dt><dd>{values ? `${values.requestedBudget || "0"} ${values.currency}` : "To be set"}</dd></div>
-    </dl>
-  );
-  return (
-    <aside aria-label="Inspection brief" className="planning-intake-brief">
-      <div className="planning-intake-brief__desktop"><header><h2>Inspection brief</h2><AutosaveIndicator state={state} error={autosaveError} onRetry={onRetry} /></header>{details}</div>
-      <details className="planning-intake-brief__mobile"><summary><span>Inspection brief · {organization}</span><AutosaveIndicator state={state} error={autosaveError} onRetry={onRetry} /></summary>{details}</details>
-    </aside>
-  );
+function AuditPlanSummary({ draft, values, option, estimate, autosaveState, autosaveError, onRetry }: { draft: PlanningProposalDraftView | null; values: NewAuditFormValues | null; option: CanonicalAuditScopeOption | null; estimate: PlanningWorkloadEstimate | null; autosaveState: AutosaveState; autosaveError: string | null; onRetry: () => void }) {
+  const organization = draft?.organizationName || option?.organizationName || "Choose an organization";
+  const facts: Array<[string, string]> = [];
+  const provider = draft?.providerScopeLabel || option?.providerTypeLabel;
+  const target = draft?.regulatedTargetLabel || option?.targetLabel;
+  if (provider) facts.push(["Provider scope", provider]);
+  if (target) facts.push(["Regulated target", target]);
+  if (values?.inspectionType) facts.push(["Inspection type", catalogValueLabel(values.inspectionType)]);
+  if (values?.purpose.trim()) facts.push(["Purpose", values.purpose.trim()]);
+  if (values?.plannedDate) facts.push(["Planned date", readableDate(values.plannedDate)]);
+  if (values?.mode) facts.push(["Mode", values.mode]);
+  if (values?.mode === "On-site" && draft?.location?.label) facts.push(["Location", draft.location.label]);
+  if (values?.mode === "Remote" && values.meetingLink.trim()) facts.push(["Meeting link", values.meetingLink.trim()]);
+  if (values?.requiredInspectorCount) facts.push(["Required inspectors", values.requiredInspectorCount]);
+  if (values?.estimatedChecklistItemCount) facts.push(["Estimated checklist items", values.estimatedChecklistItemCount]);
+  if (values?.requestedBudget.trim()) facts.push(["Requested budget", `${values.requestedBudget} ${values.currency}`]);
+  const body = <dl className="planning-intake-brief__facts"><div><dt>Inspected Organization</dt><dd>{organization}</dd></div>{facts.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}{estimate && values?.mode ? <div><dt>Workload basis</dt><dd>{estimate.basisLabel}</dd></div> : null}</dl>;
+  const header = <header><div><span className="planning-intake-brief__eyebrow">Decision context</span><h2>Audit plan summary</h2></div><AutosaveIndicator state={draft ? autosaveState : "clean"} error={autosaveError} onRetry={onRetry} /></header>;
+  return <aside aria-label="Audit plan summary" className="planning-intake-brief"><div className="planning-intake-brief__desktop">{header}{body}</div><details className="planning-intake-brief__mobile"><summary><span>Audit plan summary · {organization}</span><AutosaveIndicator state={draft ? autosaveState : "clean"} error={autosaveError} onRetry={onRetry} /></summary>{body}</details></aside>;
 }
 
-function CatalogFacetPicker({ label, ariaLabel, options, selected, onChange }: { label: string; ariaLabel: string; options: CatalogFacetOption[]; selected: string[]; onChange: (next: string[]) => void }) {
-  return (
-    <details className="planning-intake-facet-picker">
-      <summary aria-label={ariaLabel}>{selected.length ? `${label} · ${selected.length} selected` : `${label} · Any`}</summary>
-      <div className="planning-intake-facet-options" role="group" aria-label={ariaLabel}>{options.length ? options.map((option) => <label key={option.value}><input checked={selected.includes(option.value)} onChange={(event) => onChange(event.target.checked ? [...selected, option.value] : selected.filter((value) => value !== option.value))} type="checkbox" /><span>{catalogValueLabel(option.value)}</span><small>{option.count.toLocaleString("en-US")}</small></label>) : <p>No values in the current result set.</p>}</div>
-    </details>
-  );
+function ScopeChoice({ label, value, automatic, children }: { label: string; value: string; automatic?: boolean; children?: ReactNode }) {
+  return <div className="planning-intake-scope-choice"><div><span>{label}</span><strong>{value || "Select an option"}</strong>{automatic ? <small>Automatically selected</small> : null}</div>{children}</div>;
 }
 
-function useDialogFocus(dialogRef: RefObject<HTMLElement | null>, onClose: () => void, returnFocusRef: RefObject<HTMLElement | null>) {
+function WorkloadPreview({ open, onClose, rows, busy, query, onQuery, total, onUseCount, returnFocusRef }: { open: boolean; onClose: () => void; rows: CanonicalQuestionCatalogEntry[]; busy: boolean; query: string; onQuery: (value: string) => void; total: number; onUseCount: () => void; returnFocusRef: RefObject<HTMLElement | null> }) {
+  const dialogRef = useRef<HTMLElement | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return undefined;
-    const focusableSelector = "button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex=\"-1\"])";
-    dialog.querySelector<HTMLElement>("[data-autofocus]")?.focus();
+    if (!open) return undefined;
+    const backgroundNodes = [document.querySelector<HTMLElement>(".planning-intake-layout"), document.querySelector<HTMLElement>(".planning-intake-actions")].filter((node): node is HTMLElement => Boolean(node));
+    backgroundNodes.forEach((node) => { node.setAttribute("inert", ""); node.setAttribute("aria-hidden", "true"); });
+    dialogRef.current?.querySelector<HTMLElement>("button, input")?.focus();
+    const focusableSelector = "button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex=\"-1\"])";
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") { event.preventDefault(); onCloseRef.current(); return; }
-      if (event.key !== "Tab") return;
-      const focusable = [...dialog.querySelectorAll<HTMLElement>(focusableSelector)];
+      if (event.key !== "Tab" || !dialogRef.current) return;
+      const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>(focusableSelector)];
       if (!focusable.length) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
+      const first = focusable[0]; const last = focusable[focusable.length - 1];
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     };
-    dialog.addEventListener("keydown", onKeyDown);
+    dialogRef.current?.addEventListener("keydown", onKeyDown);
     return () => {
-      dialog.removeEventListener("keydown", onKeyDown);
-      const returnFocus = returnFocusRef.current;
-      window.setTimeout(() => returnFocus?.focus(), 0);
+      dialogRef.current?.removeEventListener("keydown", onKeyDown);
+      backgroundNodes.forEach((node) => { node.removeAttribute("inert"); node.removeAttribute("aria-hidden"); });
+      window.setTimeout(() => returnFocusRef.current?.focus(), 0);
     };
-  }, [dialogRef, returnFocusRef]);
+  }, [open, returnFocusRef]);
+  if (!open) return null;
+  return <div className="planning-intake-dossier-backdrop" role="presentation"><section className="planning-intake-workload-drawer" ref={dialogRef} role="dialog" aria-modal="true" aria-label="Checklist item preview"><header><div><span className="planning-intake-dialog-kicker">Read-only preview</span><h2>Browse checklist items</h2></div><button type="button" onClick={onClose}>Close</button></header><p>This preview helps estimate volume. It does not select or freeze checklist items.</p><label htmlFor="planning-intake-preview-search">Search checklist items<input id="planning-intake-preview-search" value={query} onChange={(event) => onQuery(event.target.value)} placeholder="Search item text or reference" /></label><p className="planning-intake-preview-count" aria-live="polite">{total.toLocaleString("en-US")} matching items</p>{busy ? <p className="planning-intake-loading" role="status">Loading preview…</p> : <ul className="planning-intake-preview-list">{rows.map((row) => <li key={row.questionVersionId}><strong>{row.formCode} · item {row.ordinal}</strong><span>{row.prompt ?? "Checklist item text unavailable"}</span></li>)}</ul>}<footer><button className="planning-intake-secondary" type="button" onClick={onClose}>Close preview</button><button className="planning-intake-primary" type="button" onClick={onUseCount} disabled={busy || total === 0}>Use this count</button></footer></section></div>;
 }
 
-function QuestionDossier({ question, onClose, returnFocusRef }: { question: CanonicalQuestionCatalogEntry; onClose: () => void; returnFocusRef: RefObject<HTMLElement | null> }) {
-  const dialogRef = useRef<HTMLElement | null>(null);
-  useDialogFocus(dialogRef, onClose, returnFocusRef);
-  const recommendationReasons = recommendationReasonTags(question);
-  return (
-    <div className="planning-intake-dossier-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section aria-label="Question dossier" aria-modal="true" className="planning-intake-question-dossier" ref={dialogRef} role="dialog">
-        <header><div><span className="planning-intake-dialog-kicker">Question details</span><h2>{question.formCode} · item {question.ordinal}</h2></div><button data-autofocus type="button" onClick={onClose}>Close</button></header>
-        <p className="planning-intake-dossier-prompt">{question.prompt ?? "Question prompt unavailable in this profile."}</p>
-        <div className="planning-intake-question-meta">
-          <span>{catalogValueLabel(question.aiAdvisory.riskTier)} risk</span>
-          <span>{catalogValueLabel(question.recommendation.recommendationState)}</span>
-          <span>{question.recommendation.historyCount.toLocaleString("en-US")} comparable Audits</span>
-          <RecommendationReasonPills reasons={recommendationReasons} />
-        </div>
-        <p>{recommendationReasonHints(question).join(" · ")}</p>
-        <p>{question.recommendation.canDefer ? "This optional question may be deferred with an explicit manager reason." : "This question remains protected by the server recommendation floor."}</p>
-        <p>{question.aiAdvisory.previouslyVerifiedAt ? `Previously verified ${new Date(question.aiAdvisory.previouslyVerifiedAt).toLocaleDateString("en-GB")}.` : "No prior locked Final verification is recorded for this question."}</p>
-        <details className="planning-intake-technical-details"><summary>Technical question details</summary><dl><div><dt>Question version</dt><dd>{question.questionVersionId}</dd></div><div><dt>Domain</dt><dd>{catalogValueLabel(question.aiAdvisory.domainCode)}</dd></div><div><dt>Checklist focus</dt><dd>{question.aiAdvisory.inspectionTypeCodes.map(catalogValueLabel).join(", ") || "Not classified"}</dd></div><div><dt>Reference</dt><dd>{question.configuredReference ?? "Not configured"}</dd></div><div><dt>Expected evidence</dt><dd>{question.expectedEvidence ?? "Not configured"}</dd></div><div><dt>Source context</dt><dd>{question.aiAdvisory.externalApplicabilityUnresolved ? "Some applicability context is unresolved; this advisory does not block selection." : "Source context available"}</dd></div></dl></details>
-      </section>
-    </div>
-  );
-}
-
-function selectedQuestionLabel(question: CanonicalQuestionCatalogEntry | null, fallbackQuestionId: string) {
-  if (!question) return `${fallbackQuestionId} (not loaded)`;
-  const prompt = question.prompt?.trim();
-  return prompt ? `${question.formCode} item ${question.ordinal} · ${prompt}` : `${question.formCode} item ${question.ordinal}`;
-}
-
-function selectedQuestionMeta(question: CanonicalQuestionCatalogEntry | null): string {
-  if (!question) return "Question details are not loaded for quick view. Open details to load reason and source context.";
-  const parts = [
-    `${question.formCode} · item ${question.ordinal}`,
-    `${question.recommendation.historyCount.toLocaleString("en-US")} prior Audits`,
-    recommendationClassificationLabels[question.recommendation.classification] || catalogValueLabel(question.recommendation.classification),
-    recommendationStateLabels[question.recommendation.recommendationState] || catalogValueLabel(question.recommendation.recommendationState),
-  ];
-  return parts.filter(Boolean).join(" · ");
-}
-
-function SelectionReviewDialog({ selectedCount, additions, removals, total, progress, onConfirm, onClose, onRetry, returnFocusRef, busy }: { selectedCount: number; additions: number; removals: number; total: number; progress: SelectionProgress; onConfirm: () => void; onClose: () => void; onRetry: () => void; returnFocusRef: RefObject<HTMLElement | null>; busy: boolean }) {
-  const dialogRef = useRef<HTMLElement | null>(null);
-  useDialogFocus(dialogRef, onClose, returnFocusRef);
-  return (
-    <div className="planning-intake-dossier-backdrop" role="presentation">
-      <section aria-label="Review selection" aria-modal="true" className="planning-intake-selection-dialog" ref={dialogRef} role="dialog">
-        <header><div><span className="planning-intake-dialog-kicker">Selection review</span><h2>Review selection</h2></div><button data-autofocus type="button" onClick={onClose}>Close</button></header>
-        <p>Confirm one selection decision. Required bounded batches run behind this review and every immutable receipt remains server-owned.</p>
-        <dl className="planning-intake-selection-dialog__facts"><div><dt>Questions selected</dt><dd>{selectedCount.toLocaleString("en-US")}</dd></div><div><dt>Additions</dt><dd>{additions.toLocaleString("en-US")}</dd></div><div><dt>Removals</dt><dd>{removals.toLocaleString("en-US")}</dd></div></dl>
-        {total ? <p className="planning-intake-selection-progress" role="status">{progress.completed.toLocaleString("en-US")} of {total.toLocaleString("en-US")} confirmed</p> : <p role="status">No selection changes are waiting for confirmation.</p>}
-        {progress.error ? <p className="planning-intake-field-error" role="alert">{progress.error}</p> : null}
-        <footer><button type="button" onClick={onClose} disabled={busy}>Back to checklist</button>{progress.error ? <button type="button" onClick={onRetry} disabled={busy}>Retry confirmation</button> : <button data-autofocus="confirm" type="button" onClick={onConfirm} disabled={busy || !total}>Confirm selection</button>}</footer>
-      </section>
-    </div>
-  );
-}
-
-export function NewAuditWizardPage() {
+function NewAuditWizardPage() {
   const runtime = useApplicationRuntime();
-  const backend = useMemo(() => runtime.backendForRole?.("manager") ?? runtime.backend, [runtime]);
+  const managerBackend = runtime.backendForRole?.("manager") ?? runtime.backend;
+  const proposal = managerBackend.planningProposal ?? runtime.backend.planningProposal;
+  const canonicalCatalog = managerBackend.canonicalCatalog ?? runtime.backend.canonicalCatalog;
   const navigate = useNavigate();
   const location = useLocation();
   const requestedDraftId = new URLSearchParams(location.search).get("draftId");
   const requestedStep = stepFromPath(location.pathname);
-  // A queryless deep link cannot load server-owned downstream state. Keep the
-  // requested URL stable while presenting the only safe entry state; the
-  // first valid Continue still creates the draft and advances normally.
   const step = requestedDraftId ? requestedStep : 1;
-  const [draft, setDraft] = useState<PlanningIntakeDraftView | null>(null);
-  const [values, setValues] = useState<PlanningIntakeFormValues | null>(null);
+
   const [scopeOptions, setScopeOptions] = useState<CanonicalAuditScopeOption[]>([]);
+  const [purposePresets, setPurposePresets] = useState<PlanningPurposePreset[]>([]);
+  const [locations, setLocations] = useState<PlanningLocationOption[]>([]);
   const [pendingOrganizationId, setPendingOrganizationId] = useState("");
   const [pendingProviderScopeId, setPendingProviderScopeId] = useState("");
   const [pendingRegulatedTargetId, setPendingRegulatedTargetId] = useState("");
-  const [pendingApplicationType, setPendingApplicationType] = useState<CanonicalApplicationType | "">("");
-  const [auditUsageClass, setAuditUsageClass] = useState<CanonicalQuestionUsageClass>("GOVERNED_OPERATIONAL");
+  const [pendingInspectionType, setPendingInspectionType] = useState("");
+  const [draft, setDraft] = useState<PlanningProposalDraftView | null>(null);
+  const [values, setValues] = useState<NewAuditFormValues | null>(null);
+  const [estimate, setEstimate] = useState<PlanningWorkloadEstimate | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [busy, setBusy] = useState(false);
-  const routeRedirecting = false;
   const [autosaveState, setAutosaveState] = useState<AutosaveState>("clean");
   const [autosaveError, setAutosaveError] = useState<string | null>(null);
-  const [catalogPage, setCatalogPage] = useState<CanonicalQuestionCatalogPage | null>(null);
-  const [catalogBusy, setCatalogBusy] = useState(false);
-  const [suggestionProgress, setSuggestionProgress] = useState<SuggestionCollectionProgress>({ phase: "idle", loaded: 0, total: 0, added: 0, error: null });
-  const [historyDeferredQuestions, setHistoryDeferredQuestions] = useState<CanonicalQuestionCatalogEntry[]>([]);
-  const [historyDeferredBusy, setHistoryDeferredBusy] = useState(false);
-  const [historyDeferredError, setHistoryDeferredError] = useState<string | null>(null);
-  const [catalogSearch, setCatalogSearch] = useState("");
-  const [catalogFormCode, setCatalogFormCode] = useState<string[]>([]);
-  const [catalogDomain, setCatalogDomain] = useState<string[]>([]);
-  const [catalogTopic, setCatalogTopic] = useState<string[]>([]);
-  const [catalogRiskBand, setCatalogRiskBand] = useState<string[]>([]);
-  const [catalogSourceGapState, setCatalogSourceGapState] = useState("");
-  const [catalogChecklistFocus, setCatalogChecklistFocus] = useState<string[]>([]);
-  const [catalogRecommendationState, setCatalogRecommendationState] = useState(defaultCatalogRecommendationState);
-  const [catalogSelectedFilter, setCatalogSelectedFilter] = useState<"all" | "selected" | "unselected">("all");
-  const [catalogCursor, setCatalogCursor] = useState<string | undefined>();
-  const [catalogPreviousCursors, setCatalogPreviousCursors] = useState<string[]>([]);
-  const [catalogPageNumber, setCatalogPageNumber] = useState(1);
-  const [catalogDetail, setCatalogDetail] = useState<CanonicalQuestionCatalogEntry | null>(null);
-  const [selectedQuestionCache, setSelectedQuestionCache] = useState<Record<string, CanonicalQuestionCatalogEntry>>({});
-  const [pendingSelectionIds, setPendingSelectionIds] = useState<string[]>([]);
-  const [selectionDirty, setSelectionDirty] = useState(false);
-  const [selectedQuestionListLimit, setSelectedQuestionListLimit] = useState(12);
-  const [selectedQuestionLoadBusy, setSelectedQuestionLoadBusy] = useState(false);
-  const [selectedQuestionLoadError, setSelectedQuestionLoadError] = useState<string | null>(null);
-  const [serverSelectionSummary, setServerSelectionSummary] = useState<CanonicalSelectionDigest | null>(null);
-  const [selectionReviewOpen, setSelectionReviewOpen] = useState(false);
-  const [selectionProgress, setSelectionProgress] = useState<SelectionProgress>({ completed: 0, total: 0, error: null });
-  const draftRef = useRef<PlanningIntakeDraftView | null>(null);
-  const valuesRef = useRef<PlanningIntakeFormValues | null>(null);
-  const autosaveQueueRef = useRef<PlanningIntakeFormValues | null>(null);
-  const autosaveFlightRef = useRef<Promise<PlanningIntakeDraftView> | null>(null);
+  const [locationEditing, setLocationEditing] = useState(false);
+  const [manualLocation, setManualLocation] = useState("");
+  const [meetingLinkOpen, setMeetingLinkOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewRows, setPreviewRows] = useState<CanonicalQuestionCatalogEntry[]>([]);
+  const [previewQuery, setPreviewQuery] = useState("");
+  const [previewTotal, setPreviewTotal] = useState(0);
+  const [previewBusy, setPreviewBusy] = useState(false);
+  const previewTriggerRef = useRef<HTMLElement | null>(null);
+  const headingRef = useRef<HTMLHeadingElement | null>(null);
+  const valuesRef = useRef<NewAuditFormValues | null>(null);
+  const draftRef = useRef<PlanningProposalDraftView | null>(null);
+  const autosaveQueueRef = useRef<NewAuditFormValues | null>(null);
+  const autosaveFlightRef = useRef<Promise<PlanningProposalDraftView> | null>(null);
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autosaveKeyRef = useRef<string | null>(null);
   const autosaveSequenceRef = useRef(0);
-  const createDraftOperationRef = useRef<string | null>(null);
-  const selectionBatchOperationRef = useRef<SelectionBatchOperation | null>(null);
-  const selectionWorkTotalRef = useRef(0);
-  const selectionReviewTriggerRef = useRef<HTMLElement | null>(null);
-  const catalogTriggerRef = useRef<HTMLElement | null>(null);
-  const catalogDetailRequestRef = useRef(0);
-  const suggestionCollectionOperationRef = useRef(0);
-  const suggestionCollectionAbortRef = useRef<AbortController | null>(null);
-  const suggestionCollectionRecommendationRef = useRef<string | undefined>(undefined);
+
+  const setDraftState = (next: PlanningProposalDraftView) => { draftRef.current = next; setDraft(next); setEstimate(next.workloadEstimate); };
+  const setFormState = (next: NewAuditFormValues | null) => { valuesRef.current = next; setValues(next); };
+  const selectedOption = useMemo(() => {
+    const organizationId = values?.organizationId ?? pendingOrganizationId;
+    const providerScopeId = values?.providerScopeId ?? pendingProviderScopeId;
+    const regulatedTargetId = values?.regulatedTargetId ?? pendingRegulatedTargetId;
+    return scopeOptions.find((option) => option.organizationId === organizationId && option.providerScopeId === providerScopeId && option.regulatedTargetId === regulatedTargetId) ?? null;
+  }, [pendingOrganizationId, pendingProviderScopeId, pendingRegulatedTargetId, scopeOptions, values]);
+  const organizationOptions = useMemo(() => [...new Map(scopeOptions.map((option) => [option.organizationId, option])).values()], [scopeOptions]);
+  const providerOptions = useMemo(() => scopeOptions.filter((option) => option.organizationId === (values?.organizationId ?? pendingOrganizationId)).filter((option, index, all) => all.findIndex((candidate) => candidate.providerScopeId === option.providerScopeId) === index), [pendingOrganizationId, scopeOptions, values?.organizationId]);
+  const targetOptions = useMemo(() => scopeOptions.filter((option) => option.organizationId === (values?.organizationId ?? pendingOrganizationId) && option.providerScopeId === (values?.providerScopeId ?? pendingProviderScopeId)), [pendingOrganizationId, pendingProviderScopeId, scopeOptions, values?.organizationId, values?.providerScopeId]);
+  const inspectionTypeOptions = selectedOption?.inspectionTypes ?? [];
+  const currentDefinition = stepDefinitions[step - 1] ?? stepDefinitions[0];
+
   useEffect(() => { draftRef.current = draft; }, [draft]);
   useEffect(() => { valuesRef.current = values; }, [values]);
   useEffect(() => () => { if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current); }, []);
-  useEffect(() => {
-    if (step === 4) return;
-    suggestionCollectionOperationRef.current += 1;
-    suggestionCollectionAbortRef.current?.abort();
-    suggestionCollectionAbortRef.current = null;
-    suggestionCollectionRecommendationRef.current = undefined;
-    setSuggestionProgress({ phase: "idle", loaded: 0, total: 0, added: 0, error: null });
-  }, [step]);
-  useEffect(() => () => {
-    suggestionCollectionOperationRef.current += 1;
-    suggestionCollectionAbortRef.current?.abort();
-    suggestionCollectionRecommendationRef.current = undefined;
-  }, []);
+  useEffect(() => { headingRef.current?.focus(); }, [step, requestedDraftId]);
 
   useEffect(() => {
-    if (step > 1 && !requestedDraftId) return undefined;
     let cancelled = false;
-    if (!backend.planningIntake || !backend.canonicalCatalog) { setServerError("Planning intake commands are unavailable in this build profile."); return () => { cancelled = true; }; }
-    const load = async () => {
-      const options: CanonicalAuditScopeOption[] = [];
-      const seenCursors = new Set<string>();
-      let cursor: string | undefined;
-      do {
-        const page = await backend.canonicalCatalog!.listScopeOptions({ limit: 25, cursor });
-        options.push(...page.items);
-        const nextCursor = page.nextCursor ?? undefined;
-        if (!nextCursor) break;
-        if (seenCursors.has(nextCursor)) throw new Error("Authorized scope pagination repeated a cursor.");
-        seenCursors.add(nextCursor);
-        cursor = nextCursor;
-      } while (options.length < 1000);
-      if (cursor && options.length >= 1000) throw new Error("Authorized scope options exceeded the bounded page limit.");
+    if (!proposal) { setServerError("New Audit planning is unavailable in this build profile."); return () => { cancelled = true; }; }
+    if (requestedDraftId && draftRef.current?.id === requestedDraftId) return () => { cancelled = true; };
+    void Promise.all([proposal.listScopeOptions({ limit: 100 }), proposal.listPurposePresets()]).then(async ([scopePage, presets]) => {
       if (cancelled) return;
-      setScopeOptions(options);
-      setAuditUsageClass(options[0]?.usageClass ?? "GOVERNED_OPERATIONAL");
-      if (!requestedDraftId) {
-        const first = options[0];
+      setScopeOptions(scopePage.items); setPurposePresets(presets);
+      if (requestedDraftId) {
+        const loaded = await proposal.getDraft({ draftId: requestedDraftId });
+        if (cancelled) return;
+        setDraftState(loaded); setFormState(formValuesForDraft(loaded));
+        setPendingOrganizationId(loaded.organizationId); setPendingProviderScopeId(loaded.providerScopeId); setPendingRegulatedTargetId(loaded.regulatedTargetId); setPendingInspectionType(loaded.inspectionType);
+        const loadedLocations = await proposal.listLocations({ organizationId: loaded.organizationId, regulatedTargetId: loaded.regulatedTargetId });
+        if (!cancelled) { setLocations(loadedLocations); setAutosaveState("saved"); }
+      } else {
+        const first = scopePage.items[0];
         if (first) {
-          setPendingOrganizationId(first.organizationId);
-          setPendingProviderScopeId(first.providerScopeId);
-          setPendingRegulatedTargetId(first.regulatedTargetId);
-          setPendingApplicationType(inspectionTypeFor(first.inspectionTypes));
+          setPendingOrganizationId(first.organizationId); setPendingProviderScopeId(first.providerScopeId); setPendingRegulatedTargetId(first.regulatedTargetId); setPendingInspectionType(first.inspectionTypes[0] ?? "");
+          const firstLocations = await proposal.listLocations({ organizationId: first.organizationId, regulatedTargetId: first.regulatedTargetId });
+          if (!cancelled) setLocations(firstLocations);
         }
-        setPendingSelectionIds([]);
-        setSelectedQuestionListLimit(12);
-        setSelectionDirty(false);
-        setServerSelectionSummary(null);
-        setSelectedQuestionCache({});
-        return;
       }
-      const loaded = await backend.planningIntake!.getDraft({ draftId: requestedDraftId });
-      if (cancelled) return;
-      const matchingOption = options.find((option) => option.catalogVersion === loaded.catalogVersion && option.organizationId === loaded.organizationId && option.providerScopeId === loaded.providerScopeId && option.regulatedTargetId === loaded.regulatedTargetId);
-      if (!matchingOption) throw new Error("The saved Planning draft no longer has an exact authorized catalog/scope/target option.");
-      setAuditUsageClass(matchingOption.usageClass);
-      setPendingOrganizationId(loaded.organizationId);
-      setPendingProviderScopeId(loaded.providerScopeId ?? matchingOption.providerScopeId);
-      setPendingRegulatedTargetId(loaded.regulatedTargetId ?? matchingOption.regulatedTargetId);
-      setPendingApplicationType(loaded.applicationType as CanonicalApplicationType);
-      setDraft(loaded);
-      const hydrated = formValuesFor(loaded);
-      setValues(hydrated);
-      valuesRef.current = hydrated;
-      setPendingSelectionIds([...(loaded.selectedQuestionVersionIds ?? [])]);
-      setSelectedQuestionListLimit(12);
-      setSelectionDirty(false);
-      setSelectedQuestionCache({});
-      if (loaded.selectionDigest && loaded.formDistribution && loaded.domainDistribution && loaded.estimatedResourceRequirement !== undefined) {
-        setServerSelectionSummary({ selectionDigest: loaded.selectionDigest, selectedQuestionVersionIds: [...(loaded.selectedQuestionVersionIds ?? [])], selectedCount: loaded.selectedQuestionVersionIds?.length ?? 0, catalogVersion: loaded.catalogVersion ?? "", usageClass: matchingOption.usageClass, formDistribution: loaded.formDistribution, domainDistribution: loaded.domainDistribution, estimatedResourceRequirement: loaded.estimatedResourceRequirement });
-      }
-      setAutosaveState("saved");
-    };
-    void load().catch((cause) => {
-      if (cancelled) return;
-      if (requestedDraftId) { setStatus("This Planning draft is no longer available. Start again from Basics."); navigate(pathForStep(1), { replace: true }); }
-      else setServerError(errorMessage(cause));
-    });
+    }).catch((cause) => { if (!cancelled) { if (requestedDraftId) navigate(pathForStep(1), { replace: true }); setServerError(errorMessage(cause)); } });
     return () => { cancelled = true; };
-  }, [backend, navigate, requestedDraftId, step]);
+  }, [navigate, proposal, requestedDraftId]);
 
   useEffect(() => {
-    if (step !== 4 || !values?.catalogVersion || !backend.canonicalCatalog) return undefined;
-    const controller = new AbortController();
-    setCatalogBusy(true);
-    void backend.canonicalCatalog.listCatalog({ catalogVersion: values.catalogVersion, usageClass: auditUsageClass, search: catalogSearch || undefined, formCode: catalogFormCode.length ? catalogFormCode : undefined, domain: catalogDomain.length ? catalogDomain : undefined, topic: catalogTopic.length ? catalogTopic : undefined, riskBand: catalogRiskBand.length ? catalogRiskBand : undefined, sourceGapState: catalogSourceGapState || undefined, checklistFocus: catalogChecklistFocus.length ? catalogChecklistFocus : undefined, recommendationState: catalogRecommendationState && catalogRecommendationState !== defaultCatalogRecommendationState ? catalogRecommendationState : undefined, includedByDefault: catalogRecommendationState === defaultCatalogRecommendationState ? true : undefined, selected: catalogSelectedFilter, scopeId: values.scopeDraftId || undefined, applicationType: values.applicationType as CanonicalApplicationType, cursor: catalogCursor, limit: 25 }, { signal: controller.signal }).then((page) => { if (!controller.signal.aborted) setCatalogPage(page); }).catch((cause) => { if (!controller.signal.aborted) setServerError(errorMessage(cause)); }).finally(() => { if (!controller.signal.aborted) setCatalogBusy(false); });
+    if (!previewOpen || !canonicalCatalog || !estimate || !values) return undefined;
+    const controller = new AbortController(); setPreviewBusy(true);
+    void canonicalCatalog.listCatalog({ catalogVersion: estimate.catalogVersion, usageClass: "GOVERNED_OPERATIONAL", search: previewQuery || undefined, applicationType: values.inspectionType as CanonicalApplicationType, limit: 50, projection: "selection" }, { signal: controller.signal }).then((page) => { if (!controller.signal.aborted) { setPreviewRows(page.items.slice(0, 50)); setPreviewTotal(page.totalCount); } }).catch((cause) => { if (!controller.signal.aborted) setServerError(errorMessage(cause)); }).finally(() => { if (!controller.signal.aborted) setPreviewBusy(false); });
     return () => controller.abort();
-  }, [auditUsageClass, backend, catalogChecklistFocus, catalogCursor, catalogDomain, catalogFormCode, catalogRecommendationState, catalogRiskBand, catalogSearch, catalogSelectedFilter, catalogSourceGapState, catalogTopic, step, values?.applicationType, values?.catalogVersion, values?.scopeDraftId]);
+  }, [canonicalCatalog, estimate, previewOpen, previewQuery, values]);
 
-  useEffect(() => {
-    if (step !== 4 || !values?.catalogVersion || !values.scopeDraftId || !backend.canonicalCatalog) {
-      setHistoryDeferredQuestions([]);
-      setHistoryDeferredError(null);
-      return undefined;
-    }
-    const controller = new AbortController();
-    setHistoryDeferredBusy(true);
-    setHistoryDeferredError(null);
-    void (async () => {
-      const questions: CanonicalQuestionCatalogEntry[] = [];
-      const seenIds = new Set<string>();
-      const seenCursors = new Set<string>();
-      let cursor: string | undefined;
-      do {
-        const page = await backend.canonicalCatalog!.listCatalog({
-          catalogVersion: values.catalogVersion || "",
-          usageClass: auditUsageClass,
-          recommendationState: "RECENTLY_VERIFIED",
-          includedByDefault: false,
-          scopeId: values.scopeDraftId,
-          applicationType: values.applicationType as CanonicalApplicationType,
-          cursor,
-          limit: 2000,
-          projection: "selection",
-        }, { signal: controller.signal });
-        for (const question of page.items) {
-          if (seenIds.has(question.questionVersionId)) throw new Error("History-deferred catalog repeated a question version.");
-          seenIds.add(question.questionVersionId);
-          if (question.canSelect && question.recommendation.recommendationState === "RECENTLY_VERIFIED" && question.recommendation.classification === "DEFER_ELIGIBLE" && question.recommendation.canDefer && !question.recommendation.includedByDefault) questions.push(question);
-        }
-        const nextCursor = page.nextCursor ?? undefined;
-        if (nextCursor && seenCursors.has(nextCursor)) throw new Error("History-deferred catalog repeated a cursor.");
-        if (nextCursor) seenCursors.add(nextCursor);
-        cursor = nextCursor;
-      } while (cursor);
-      if (!controller.signal.aborted) setHistoryDeferredQuestions(questions);
-    })().catch((cause) => {
-      if (!controller.signal.aborted) {
-        setHistoryDeferredQuestions([]);
-        setHistoryDeferredError(errorMessage(cause));
-      }
-    }).finally(() => {
-      if (!controller.signal.aborted) setHistoryDeferredBusy(false);
-    });
-    return () => controller.abort();
-  }, [auditUsageClass, backend, step, values?.applicationType, values?.catalogVersion, values?.scopeDraftId]);
-
-  useEffect(() => {
-    const background = document.querySelector<HTMLElement>(".planning-intake-page");
-    if (!background) return undefined;
-    if (selectionReviewOpen || catalogDetail) { background.setAttribute("inert", ""); background.setAttribute("aria-hidden", "true"); }
-    else { background.removeAttribute("inert"); background.removeAttribute("aria-hidden"); }
-    return () => { background.removeAttribute("inert"); background.removeAttribute("aria-hidden"); };
-  }, [catalogDetail, selectionReviewOpen]);
-
-  const selectedScopeOption = useMemo(() => values ? scopeOptions.find((option) => option.organizationId === values.organizationId && option.providerScopeId === values.providerScopeId && option.regulatedTargetId === values.regulatedTargetId) ?? null : null, [scopeOptions, values]);
-  const pendingScopeOption = useMemo(() => scopeOptions.find((option) => option.organizationId === pendingOrganizationId && option.providerScopeId === pendingProviderScopeId && option.regulatedTargetId === pendingRegulatedTargetId) ?? null, [pendingOrganizationId, pendingProviderScopeId, pendingRegulatedTargetId, scopeOptions]);
-  const supplierOptions = useMemo(() => [...new Map(scopeOptions.map((option) => [option.organizationId, option])).values()], [scopeOptions]);
-  const pendingProviderOptions = useMemo(() => scopeOptions.filter((option) => option.organizationId === pendingOrganizationId).filter((option, index, all) => all.findIndex((candidate) => candidate.providerScopeId === option.providerScopeId) === index), [pendingOrganizationId, scopeOptions]);
-  const pendingTargetOptions = useMemo(() => scopeOptions.filter((option) => option.organizationId === pendingOrganizationId && option.providerScopeId === pendingProviderScopeId), [pendingOrganizationId, pendingProviderScopeId, scopeOptions]);
-  const selectedProviderOptions = useMemo(() => scopeOptions.filter((option) => option.organizationId === values?.organizationId).filter((option, index, all) => all.findIndex((candidate) => candidate.providerScopeId === option.providerScopeId) === index), [scopeOptions, values?.organizationId]);
-  const selectedTargetOptions = useMemo(() => scopeOptions.filter((option) => option.organizationId === values?.organizationId && option.providerScopeId === values?.providerScopeId), [scopeOptions, values?.organizationId, values?.providerScopeId]);
-  const activeFilterCount = [catalogFormCode.length, catalogDomain.length, catalogTopic.length, catalogRiskBand.length, catalogSourceGapState ? 1 : 0, catalogChecklistFocus.length, catalogRecommendationState !== defaultCatalogRecommendationState ? 1 : 0, catalogSelectedFilter !== "all" ? 1 : 0].reduce((sum, count) => sum + count, 0);
-  const selectionDelta = useMemo(() => { const current = new Set(values?.selectedQuestionVersionIds ?? []); const desired = new Set(pendingSelectionIds); return { additions: pendingSelectionIds.filter((id) => !current.has(id)).length, removals: (values?.selectedQuestionVersionIds ?? []).filter((id) => !desired.has(id)).length, selectedCount: pendingSelectionIds.length }; }, [pendingSelectionIds, values?.selectedQuestionVersionIds]);
-  const selectionSummary = useMemo(() => { const serverSummary = serverSelectionSummary && serverSelectionSummary.selectedQuestionVersionIds.length === pendingSelectionIds.length && serverSelectionSummary.selectedQuestionVersionIds.every((id) => pendingSelectionIds.includes(id)) ? serverSelectionSummary : null; return { complete: Boolean(serverSummary), estimatedResourceRequirement: serverSummary?.estimatedResourceRequirement, formDistribution: serverSummary?.formDistribution ?? {}, domainDistribution: serverSummary?.domainDistribution ?? {} }; }, [pendingSelectionIds, serverSelectionSummary]);
-  const recommendationSummary = catalogPage?.recommendationSummary ?? null;
-  const historyScenarioLabel = recommendationSummary ? recommendationSummary.comparableAuditCount === 0 ? "No comparable prior Audits" : recommendationSummary.comparableAuditCount === 1 ? "One comparable prior Audit" : `${recommendationSummary.comparableAuditCount.toLocaleString("en-US")} comparable prior Audits` : "Recommendation summary unavailable";
-  const recommendationLocationLabel = (recommendationSummary?.locationLabel?.trim() || values?.location?.trim() || "Not specified");
-  const recommendationLocationIsFallback = !recommendationSummary?.locationLabel && Boolean(values?.location?.trim());
-  const recommendationLocationSourceText = recommendationLocationIsFallback ? "draft location (default baseline)" : "historical location snapshot";
-  const historyDeferredReady = Boolean(recommendationSummary && !historyDeferredBusy && !historyDeferredError && historyDeferredQuestions.length === recommendationSummary.historyDeferredCount);
-  const fullCatalogSelected = catalogRecommendationState === "";
-  const catalogHeading = fullCatalogSelected ? "Full approved catalog" : "Suggested questions";
-  const catalogDescription = fullCatalogSelected
-    ? "Showing the complete approved catalog. Selection remains an explicit Department Manager decision."
-    : "The catalog starts with the server's current recommendation. Selection remains an explicit Department Manager decision.";
-  const selectedQuestionPreviewLimit = 12;
-  const selectedQuestionPreviewCount = Math.min(pendingSelectionIds.length, selectedQuestionListLimit);
-  useEffect(() => {
-    const incoming = [...(catalogPage?.items ?? []), ...historyDeferredQuestions];
-    if (!incoming.length) return;
-    setSelectedQuestionCache((current) => {
-      let changed = false;
-      const next = { ...current };
-      for (const question of incoming) {
-        const id = question.questionVersionId;
-        if (!id || next[id] === question) continue;
-        next[id] = question;
-        changed = true;
-      }
-      return changed ? next : current;
-    });
-  }, [catalogPage?.items, historyDeferredQuestions]);
-  const selectedQuestionMap = useMemo(() => {
-    const map = new Map<string, CanonicalQuestionCatalogEntry>(Object.entries(selectedQuestionCache).map(([id, question]) => [id, question]));
-    for (const question of catalogPage?.items ?? []) map.set(question.questionVersionId, question);
-    for (const question of historyDeferredQuestions) map.set(question.questionVersionId, question);
-    return map;
-  }, [catalogPage?.items, historyDeferredQuestions, selectedQuestionCache]);
-  const selectedQuestionPreview = useMemo(() => {
-    const visibleCount = Math.max(1, selectedQuestionPreviewCount);
-    const preview = pendingSelectionIds.slice(0, visibleCount).map((id) => ({ id, question: selectedQuestionMap.get(id) ?? null }));
-    return { preview, hiddenCount: Math.max(0, pendingSelectionIds.length - visibleCount) };
-  }, [pendingSelectionIds, selectedQuestionMap, selectedQuestionPreviewCount]);
-  const selectedQuestionLoadTargetIds = useMemo(() => selectedQuestionPreview.preview.filter(({ question }) => !question).map(({ id }) => id), [selectedQuestionPreview.preview]);
-
-  useEffect(() => {
-    if (step !== 4 || selectedQuestionLoadBusy || selectedQuestionLoadError || !selectedQuestionLoadTargetIds.length) {
-      if (step !== 4 || !selectedQuestionLoadTargetIds.length) setSelectedQuestionLoadError(null);
-      return;
-    }
-    if (!backend.canonicalCatalog || !valuesRef.current) return;
-    void loadSelectedQuestionDetails(selectedQuestionLoadTargetIds);
-  }, [backend, step, selectedQuestionLoadBusy, selectedQuestionLoadTargetIds]);
-
-  function cancelSuggestionCollection() {
-    suggestionCollectionOperationRef.current += 1;
-    suggestionCollectionAbortRef.current?.abort();
-    suggestionCollectionAbortRef.current = null;
-    setSuggestionProgress({ phase: "idle", loaded: 0, total: 0, added: 0, error: null });
-  }
-  function resetCatalogPage() { cancelSuggestionCollection(); setCatalogCursor(undefined); setCatalogPreviousCursors([]); setCatalogPageNumber(1); setCatalogPage(null); }
-  function clearFieldError(field: FieldKey) { setFieldErrors((current) => { if (!current[field]) return current; const next = { ...current }; delete next[field]; return next; }); }
   function focusField(field: FieldKey) { document.getElementById(`planning-intake-${field}`)?.focus(); }
-  function setDraftState(next: PlanningIntakeDraftView) { draftRef.current = next; setDraft(next); }
-  function setFormValues(next: PlanningIntakeFormValues) { valuesRef.current = next; setValues(next); }
-  function resetSelectedQuestionLoadState() { setSelectedQuestionLoadError(null); }
+  function clearFieldError(field: FieldKey) { setFieldErrors((current) => { if (!current[field]) return current; const next = { ...current }; delete next[field]; return next; }); }
+  function updateForm<K extends keyof NewAuditFormValues>(key: K, value: NewAuditFormValues[K]) {
+    const current = valuesRef.current; if (!current) return;
+    const next = { ...current, [key]: value }; setFormState(next); queueAutosave(next); clearFieldError(key as FieldKey); setStatus(null);
+  }
+  function errorsForStep(currentStep: number, candidate: unknown): FieldErrors {
+    const schema = stepSchemas[currentStep]; if (!schema) return {};
+    const result = schema.safeParse(candidate); if (result.success) return {};
+    const next: FieldErrors = {}; for (const issue of result.error.issues) { const field = issue.path[0] as FieldKey | undefined; if (field && !next[field]) next[field] = issue.message; } return next;
+  }
+  function candidateForStep(currentStep: number): Record<string, unknown> | null {
+    const current = valuesRef.current;
+    if (!current) return currentStep === 1 ? { organizationId: pendingOrganizationId, providerScopeId: pendingProviderScopeId, regulatedTargetId: pendingRegulatedTargetId, inspectionType: pendingInspectionType } : null;
+    return currentStep === 3 ? { plannedDate: current.plannedDate, mode: current.mode, location: current.mode === "On-site" ? draftRef.current?.location?.label : "", meetingLink: current.meetingLink } : { ...current };
+  }
+  function validateStep(currentStep: number): boolean {
+    const next = errorsForStep(currentStep, candidateForStep(currentStep)); setFieldErrors(next); const first = Object.keys(next)[0] as FieldKey | undefined; if (first) window.setTimeout(() => focusField(first), 0); return !first;
+  }
+  function validateAll(): boolean {
+    const next: FieldErrors = {}; for (const currentStep of [1, 2, 3, 4]) Object.assign(next, errorsForStep(currentStep, candidateForStep(currentStep))); setFieldErrors(next); const first = Object.keys(next)[0] as FieldKey | undefined; if (first) window.setTimeout(() => focusField(first), 0); return !first;
+  }
 
-  async function saveNextQueued(): Promise<PlanningIntakeDraftView | null> {
-    const currentDraft = draftRef.current;
-    const queued = autosaveQueueRef.current;
-    if (!currentDraft || !queued || !backend.planningIntake) return currentDraft;
-    autosaveQueueRef.current = null;
-    let valuesToSave: PlanningIntakeDraftValues;
-    try { valuesToSave = commandValuesFor(queued); } catch (cause) { setAutosaveState("dirty"); setAutosaveError(errorMessage(cause)); return currentDraft; }
-    const idempotencyKey = autosaveKeyRef.current ?? `SAVE-${currentDraft.id}-R${currentDraft.revision}-${++autosaveSequenceRef.current}`;
-    autosaveKeyRef.current = idempotencyKey;
-    setAutosaveState("saving");
-    setAutosaveError(null);
-    const request = backend.planningIntake.saveDraft({ draftId: currentDraft.id, expectedRevision: currentDraft.revision, idempotencyKey, values: valuesToSave });
-    autosaveFlightRef.current = request;
+  async function saveQueued(): Promise<PlanningProposalDraftView | null> {
+    const currentDraft = draftRef.current; const queued = autosaveQueueRef.current; if (!currentDraft || !queued || !proposal) return currentDraft;
+    autosaveQueueRef.current = null; setAutosaveState("saving"); setAutosaveError(null);
+    const idempotencyKey = autosaveKeyRef.current ?? `SAVE-${currentDraft.id}-R${currentDraft.revision}-${++autosaveSequenceRef.current}`; autosaveKeyRef.current = idempotencyKey;
+    const request = proposal.saveDraft({ draftId: currentDraft.id, expectedRevision: currentDraft.revision, idempotencyKey, operationId: idempotencyKey, values: valuesForCommand(queued) }); autosaveFlightRef.current = request;
+    try { const saved = await request; autosaveFlightRef.current = null; autosaveKeyRef.current = null; setDraftState(saved); if (valuesRef.current && !autosaveQueueRef.current) setFormState(formValuesForDraft(saved)); setAutosaveState(autosaveQueueRef.current ? "dirty" : "saved"); return saved; } catch (cause) { autosaveFlightRef.current = null; if (!autosaveQueueRef.current) autosaveQueueRef.current = queued; setAutosaveState("error"); setAutosaveError(errorMessage(cause)); throw cause; }
+  }
+  async function flushAutosave(nextValues = valuesRef.current): Promise<PlanningProposalDraftView | null> {
+    if (!draftRef.current || !nextValues) return draftRef.current; autosaveQueueRef.current = nextValues; if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current); let latest = draftRef.current;
+    while (autosaveFlightRef.current || autosaveQueueRef.current) latest = (autosaveFlightRef.current ? await autosaveFlightRef.current : await saveQueued()) ?? latest; return latest;
+  }
+  function queueAutosave(next: NewAuditFormValues) {
+    if (!draftRef.current || !proposal) return; autosaveQueueRef.current = next; setAutosaveState("dirty"); setAutosaveError(null); if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current); autosaveTimerRef.current = setTimeout(() => { autosaveTimerRef.current = null; void flushAutosave().catch(() => undefined); }, 650);
+  }
+  async function retryAutosave() { try { await flushAutosave(); } catch { /* the visible retry state remains */ } }
+
+  async function resolveManualLocation() {
+    if (!proposal || !valuesRef.current || !manualLocation.trim()) return;
     try {
-      const saved = await request;
-      autosaveFlightRef.current = null;
-      autosaveKeyRef.current = null;
-      setDraftState(saved);
-      if (valuesRef.current === queued && !autosaveQueueRef.current) setFormValues(formValuesFor(saved));
-      setAutosaveState(autosaveQueueRef.current ? "dirty" : "saved");
-      return saved;
-    } catch (cause) {
-      autosaveFlightRef.current = null;
-      if (!autosaveQueueRef.current) autosaveQueueRef.current = queued;
-      setAutosaveState("error");
-      setAutosaveError(errorMessage(cause));
-      throw cause;
-    }
+      const resolutionOperationId = operationId("PLANNING-LOCATION-RESOLVE");
+      const resolution = await proposal.resolveLocation({ operationId: resolutionOperationId, idempotencyKey: resolutionOperationId, organizationId: valuesRef.current.organizationId, regulatedTargetId: valuesRef.current.regulatedTargetId, proposedLabel: manualLocation.trim() });
+      const locationInput: PlanningProposalLocationInput = resolution.outcome === "CANONICAL" && resolution.location ? { kind: "CANONICAL", locationId: resolution.location.id } : { kind: "NEW", proposedLabel: manualLocation.trim(), acceptedResolutionToken: resolution.acceptedResolutionToken };
+      updateForm("locationInput", locationInput); if (resolution.location) setLocations((current) => [resolution.location!, ...current.filter((location) => location.id !== resolution.location?.id)]); setLocationEditing(false); setStatus(resolution.message);
+    } catch (cause) { setServerError(errorMessage(cause)); }
   }
 
-  async function flushAutosave(nextValues = valuesRef.current): Promise<PlanningIntakeDraftView | null> {
-    if (!draftRef.current || !nextValues) return draftRef.current;
-    autosaveQueueRef.current = nextValues;
-    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
-    let latest = draftRef.current;
-    while (autosaveFlightRef.current || autosaveQueueRef.current) { if (autosaveFlightRef.current) latest = await autosaveFlightRef.current; else latest = (await saveNextQueued()) ?? latest; }
-    return latest;
+  async function updateScopeSelection(next: { organizationId: string; providerScopeId: string; regulatedTargetId: string; inspectionType: string }) {
+    const current = valuesRef.current; const hasDownstream = Boolean(current?.purpose.trim() || current?.plannedDate || current?.requestedBudget.trim());
+    if (current && hasDownstream && !globalThis.confirm("Changing the inspected scope recalculates the location and workload estimate while retaining your authored purpose, schedule, and budget. Continue?")) return;
+    setPendingOrganizationId(next.organizationId); setPendingProviderScopeId(next.providerScopeId); setPendingRegulatedTargetId(next.regulatedTargetId); setPendingInspectionType(next.inspectionType);
+    if (!current || !proposal) return;
+    try {
+      const estimateOperationId = operationId("PLANNING-WORKLOAD-ESTIMATE");
+      const nextEstimate = await proposal.getWorkloadEstimate({ ...next, operationId: estimateOperationId, idempotencyKey: estimateOperationId }); const nextLocations = await proposal.listLocations({ organizationId: next.organizationId, regulatedTargetId: next.regulatedTargetId }); setLocations(nextLocations); setEstimate(nextEstimate);
+      updateForm("organizationId", next.organizationId); updateForm("providerScopeId", next.providerScopeId); updateForm("regulatedTargetId", next.regulatedTargetId); updateForm("inspectionType", next.inspectionType); updateForm("workloadEstimateId", nextEstimate.estimateId); updateForm("workloadEstimateDigest", nextEstimate.estimateDigest); updateForm("estimatedChecklistItemCount", String(nextEstimate.suggestedCount)); updateForm("locationInput", current.mode === "On-site" && nextLocations[0] ? { kind: "CANONICAL", locationId: nextLocations[0].id } : undefined);
+    } catch (cause) { setServerError(errorMessage(cause)); }
   }
 
-  function queueAutosave(nextValues: PlanningIntakeFormValues) {
-    if (!draftRef.current || !backend.planningIntake) return;
-    autosaveQueueRef.current = nextValues;
-    setAutosaveState("dirty");
-    setAutosaveError(null);
-    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
-    autosaveTimerRef.current = setTimeout(() => { autosaveTimerRef.current = null; void flushAutosave().catch(() => undefined); }, 650);
-  }
-
-  function setFormValuesWithAutosave(updater: (current: PlanningIntakeFormValues) => PlanningIntakeFormValues) { const current = valuesRef.current; if (!current) return; const next = updater(current); setFormValues(next); queueAutosave(next); }
-  function update<K extends keyof PlanningIntakeFormValues>(key: K, value: PlanningIntakeFormValues[K]) { setFormValuesWithAutosave((current) => ({ ...current, [key]: value })); clearFieldError(key as FieldKey); setStatus(null); }
-  function updateCategory(category: PlanningIntakeInspectionCategory) { setFormValuesWithAutosave((current) => ({ ...current, inspectionCategory: category, noticePolicy: noticePolicyFor(category) })); clearFieldError("inspectionCategory"); setStatus(null); }
-  function updatePendingOrganization(organizationId: string) { const first = scopeOptions.find((option) => option.organizationId === organizationId); setPendingOrganizationId(organizationId); setPendingProviderScopeId(first?.providerScopeId ?? ""); setPendingRegulatedTargetId(first?.regulatedTargetId ?? ""); setPendingApplicationType(first ? inspectionTypeFor(first.inspectionTypes) : ""); clearFieldError("organizationId"); }
-  function updatePendingProvider(providerScopeId: string) { const first = scopeOptions.find((option) => option.organizationId === pendingOrganizationId && option.providerScopeId === providerScopeId); setPendingProviderScopeId(providerScopeId); setPendingRegulatedTargetId(first?.regulatedTargetId ?? ""); setPendingApplicationType(first ? inspectionTypeFor(first.inspectionTypes) : ""); clearFieldError("providerScopeId"); }
-  function updatePendingTarget(regulatedTargetId: string) { const option = scopeOptions.find((candidate) => candidate.organizationId === pendingOrganizationId && candidate.providerScopeId === pendingProviderScopeId && candidate.regulatedTargetId === regulatedTargetId); setPendingRegulatedTargetId(regulatedTargetId); setPendingApplicationType(option ? inspectionTypeFor(option.inspectionTypes) : ""); clearFieldError("regulatedTargetId"); }
-  function resetCatalogState() { setCatalogSearch(""); setCatalogFormCode([]); setCatalogDomain([]); setCatalogTopic([]); setCatalogRiskBand([]); setCatalogSourceGapState(""); setCatalogChecklistFocus([]); setCatalogRecommendationState(defaultCatalogRecommendationState); setCatalogSelectedFilter("all"); resetCatalogPage(); setCatalogDetail(null); }
-
-  async function createDraftForScope(option: CanonicalAuditScopeOption, applicationType: CanonicalApplicationType, replaceExisting = false) {
-    if (!backend.planningIntake) return;
-    if (replaceExisting && valuesRef.current && (valuesRef.current.purpose || valuesRef.current.plannedDate || valuesRef.current.location || pendingSelectionIds.length) && !globalThis.confirm("Changing the inspection scope replaces the current purpose, schedule, and checklist context. Continue?")) return;
+  async function createDraft() {
+    if (!proposal || !selectedOption || !pendingInspectionType || !validateStep(1)) return;
     setBusy(true); setServerError(null);
     try {
-      const base = replaceExisting && valuesRef.current ? { ...defaultDraftValues(option, applicationType), inspectionCategory: valuesRef.current.inspectionCategory, noticePolicy: valuesRef.current.noticePolicy, triggerType: valuesRef.current.triggerType, riskCategory: valuesRef.current.riskCategory, requestedBudget: Number(valuesRef.current.requestedBudget) || 0, currency: valuesRef.current.currency } : defaultDraftValues(option, applicationType);
-      const operationIdValue = createDraftOperationRef.current ?? operationId(replaceExisting ? "PLANNING-SCOPE-REPLACE" : "PLANNING-DRAFT-CREATE");
-      createDraftOperationRef.current = operationIdValue;
-      const created = await backend.planningIntake.createDraft({ operationId: operationIdValue, idempotencyKey: operationIdValue, expectedRevision: null, values: base });
-      createDraftOperationRef.current = null;
-      setDraftState(created);
-      setFormValues(formValuesFor(created));
-      setPendingSelectionIds([]); setSelectionDirty(false); setSelectedQuestionListLimit(12); setServerSelectionSummary(null); setAutosaveState("saved"); setAutosaveError(null); resetCatalogState(); setSelectedQuestionCache({}); setStatus("Saved");
-      navigate(pathForStep(replaceExisting ? step : 2, created.id), { replace: true });
+      const estimateOperationId = operationId("PLANNING-WORKLOAD-ESTIMATE");
+      const nextEstimate = await proposal.getWorkloadEstimate({ operationId: estimateOperationId, idempotencyKey: estimateOperationId, organizationId: selectedOption.organizationId, providerScopeId: selectedOption.providerScopeId, regulatedTargetId: selectedOption.regulatedTargetId, inspectionType: pendingInspectionType });
+      const nextLocations = await proposal.listLocations({ organizationId: selectedOption.organizationId, regulatedTargetId: selectedOption.regulatedTargetId });
+      const initialValues: PlanningProposalDraftValues = { organizationId: selectedOption.organizationId, providerScopeId: selectedOption.providerScopeId, regulatedTargetId: selectedOption.regulatedTargetId, inspectionType: pendingInspectionType, purpose: "", plannedDate: "", mode: "On-site", locationInput: nextLocations[0] ? { kind: "CANONICAL", locationId: nextLocations[0].id } : undefined, meetingLink: undefined, requiredInspectorCount: 2, estimatedChecklistItemCount: nextEstimate.suggestedCount, workloadEstimateId: nextEstimate.estimateId, workloadEstimateDigest: nextEstimate.estimateDigest, requestedBudget: null, currency: "USD" };
+      const createOperationId = operationId("PLANNING-PROPOSAL-CREATE"); const created = await proposal.createDraft({ operationId: createOperationId, idempotencyKey: createOperationId, expectedRevision: null, values: initialValues });
+      setLocations(nextLocations); setDraftState(created); setFormState(formValuesForDraft(created)); setAutosaveState("saved"); setStatus("Draft created. Your changes will save automatically."); navigate(pathForStep(2, created.id), { replace: true });
     } catch (cause) { setServerError(errorMessage(cause)); } finally { setBusy(false); }
   }
-
-  async function handleExistingScopeChange(option: CanonicalAuditScopeOption) { if (!valuesRef.current || (option.providerScopeId === valuesRef.current.providerScopeId && option.regulatedTargetId === valuesRef.current.regulatedTargetId)) return; await createDraftForScope(option, valuesRef.current.applicationType as CanonicalApplicationType, true); }
-  async function changeApplicationType(applicationType: string) { if (!valuesRef.current || applicationType === valuesRef.current.applicationType) return; const hasDownstream = Boolean(valuesRef.current.purpose || valuesRef.current.plannedDate || valuesRef.current.location || pendingSelectionIds.length); if (hasDownstream && !globalThis.confirm("Changing the inspection type replaces the current checklist context. Continue?")) return; if (hasDownstream && selectedScopeOption) { await createDraftForScope(selectedScopeOption, applicationType as CanonicalApplicationType, true); return; } update("applicationType", applicationType); resetCatalogState(); }
-
-  function validationCandidate(currentStep: number): PlanningIntakeFormValues | null { if (!valuesRef.current) return null; if (currentStep !== 4) return valuesRef.current; return { ...valuesRef.current, selectedQuestionVersionIds: [...pendingSelectionIds], selectionDigest: selectionDirty ? valuesRef.current.selectionDigest || "pending" : valuesRef.current.selectionDigest }; }
-  function errorsForStep(currentStep: number, candidate: unknown): FieldErrors { if (!candidate) return {}; const result = (stepSchemas[currentStep as keyof typeof stepSchemas] as z.ZodType).safeParse(candidate); if (result.success) return {}; const next: FieldErrors = {}; for (const issue of result.error.issues) { const field = issue.path[0] as FieldKey | undefined; if (field && !next[field]) next[field] = issue.message; } return next; }
-  function validateStep(currentStep: number): boolean { const next = errorsForStep(currentStep, validationCandidate(currentStep)); setFieldErrors(next); const first = Object.keys(next)[0] as FieldKey | undefined; if (first) window.setTimeout(() => focusField(first), 0); return !first; }
-  function validateAllSteps(): boolean { const next: FieldErrors = {}; for (const currentStep of [1, 2, 3, 4] as const) Object.assign(next, errorsForStep(currentStep, validationCandidate(currentStep))); setFieldErrors(next); const first = Object.keys(next)[0] as FieldKey | undefined; if (first) window.setTimeout(() => focusField(first), 0); return !first; }
-  function validatePendingBasics(): boolean { const next = errorsForStep(1, { organizationId: pendingOrganizationId, applicationType: pendingApplicationType, domain: "Cabin Safety" }); setFieldErrors(next); const first = Object.keys(next)[0] as FieldKey | undefined; if (first) window.setTimeout(() => focusField(first), 0); return !first; }
-  function validateField(field: FieldKey) { const candidate: unknown = step === 1 && !valuesRef.current ? { organizationId: pendingOrganizationId, applicationType: pendingApplicationType, domain: "Cabin Safety" } : validationCandidate(step === 5 ? 4 : step); const errors = errorsForStep(step === 5 ? 4 : step, candidate); setFieldErrors((current) => { const next = { ...current }; if (errors[field]) next[field] = errors[field]; else delete next[field]; return next; }); }
-  async function retryAutosave() { try { await flushAutosave(); } catch { /* the brief keeps the retry state visible */ } }
-
-  function openSelectionReview(element?: HTMLElement) {
-    if (suggestionProgress.phase === "loading") {
-      setStatus("Suggested questions are still loading. You can review the catalog now; selection review will be available when loading finishes.");
-      return;
-    }
-    selectionReviewTriggerRef.current = element ?? document.activeElement as HTMLElement | null;
-    const current = valuesRef.current?.selectedQuestionVersionIds ?? [];
-    const total = selectionChangeCount(current, pendingSelectionIds);
-    selectionWorkTotalRef.current = total;
-    setSelectionProgress({ completed: 0, total, error: null });
-    setSelectionReviewOpen(true);
-  }
-  function closeSelectionReview() { setSelectionReviewOpen(false); setSelectionProgress({ completed: 0, total: 0, error: null }); }
-  async function confirmSelectionReview() {
-    if (!valuesRef.current || !draftRef.current || !backend.canonicalCatalog || !valuesRef.current.scopeDraftId || !selectionDirty) { closeSelectionReview(); return; }
-    const target = [...pendingSelectionIds];
-    let committed = [...(valuesRef.current.selectedQuestionVersionIds ?? [])];
-    const total = selectionWorkTotalRef.current || selectionChangeCount(committed, target);
-    let completed = total - selectionChangeCount(committed, target);
-    setBusy(true); setSelectionProgress({ completed, total, error: null });
-    try {
-      while (true) {
-        const batch = nextSelectionBatch(committed, target);
-        if (!batch) break;
-        const expectedSelectionDigest = valuesRef.current.selectionDigest || await selectionDigestFor(committed);
-        const signature = `${batch.operationKind}:${expectedSelectionDigest}:${batch.questionVersionIds.join("|")}`;
-        if (selectionBatchOperationRef.current?.signature !== signature) selectionBatchOperationRef.current = { signature, previewOperationId: operationId("SELECTION-PREVIEW"), commitOperationId: operationId("SELECTION-COMMIT") };
-        const operations = selectionBatchOperationRef.current;
-        const preview = await backend.canonicalCatalog.previewSelection({ scopeId: valuesRef.current.scopeDraftId, operationId: operations.previewOperationId, idempotencyKey: operations.previewOperationId, expectedSelectionDigest, questionVersionIds: batch.questionVersionIds, operationKind: batch.operationKind, usageClass: auditUsageClass, filter: {} });
-        if (!preview.valid) throw new Error(preview.reason || "The server rejected this selection.");
-        const receipt = await backend.canonicalCatalog.commitSelection({ scopeId: valuesRef.current.scopeDraftId, operationId: operations.commitOperationId, previewOperationId: operations.previewOperationId, idempotencyKey: operations.commitOperationId, expectedSelectionDigest, questionVersionIds: batch.questionVersionIds, operationKind: batch.operationKind, usageClass: auditUsageClass, filter: {} });
-        selectionBatchOperationRef.current = null;
-        committed = receipt.selection.selectedQuestionVersionIds;
-        const nextValues: PlanningIntakeFormValues = { ...valuesRef.current, selectedQuestionVersionIds: [...committed], selectionDigest: receipt.selection.selectionDigest, estimatedResourceRequirement: receipt.selection.estimatedResourceRequirement, formDistribution: receipt.selection.formDistribution, domainDistribution: receipt.selection.domainDistribution };
-        setFormValues(nextValues); setServerSelectionSummary(receipt.selection); completed = total - selectionChangeCount(committed, target); setSelectionProgress({ completed, total, error: null });
-      }
-      setPendingSelectionIds(target); setSelectedQuestionListLimit(12); setSelectionDirty(false); setSelectionProgress({ completed: total, total, error: null }); setStatus("Selection confirmed and saved to the server-owned scope."); if (valuesRef.current) queueAutosave(valuesRef.current); setSelectionReviewOpen(false);
-    } catch (cause) { setSelectionProgress({ completed, total, error: errorMessage(cause) }); setStatus("Selection confirmation stopped. Completed receipts remain intact; retry to resume."); }
-    finally { setBusy(false); }
-  }
-  function retrySelectionConfirmation() { setSelectionProgress((current) => ({ ...current, error: null })); void confirmSelectionReview(); }
-  function toggleQuestion(questionVersionId: string) {
-    resetSelectedQuestionLoadState();
-    setPendingSelectionIds((current) => {
-      const next = current.includes(questionVersionId) ? current.filter((id) => id !== questionVersionId) : [...current, questionVersionId];
-      return [...new Set(next)];
-    });
-    setSelectionDirty(true);
-    setSelectedQuestionListLimit(12);
-    setStatus("Selection changes are ready for review.");
-    clearFieldError("selectedQuestionVersionIds");
-  }
-  function removeSelectedQuestion(questionVersionId: string) {
-    resetSelectedQuestionLoadState();
-    if (!pendingSelectionIds.includes(questionVersionId)) return;
-    setPendingSelectionIds((current) => current.filter((id) => id !== questionVersionId));
-    setSelectedQuestionListLimit(12);
-    setSelectionDirty(true);
-    setStatus("Selection changes are ready for review.");
-    clearFieldError("selectedQuestionVersionIds");
-  }
-
-  function discardPendingSelectionChanges() {
-    resetSelectedQuestionLoadState();
-    setPendingSelectionIds([...(values?.selectedQuestionVersionIds ?? [])]);
-    setSelectedQuestionListLimit(12);
-    setSelectionDirty(false);
-    setSelectionProgress({ completed: 0, total: 0, error: null });
-    setStatus("Selection changes were discarded.");
-  }
-
-  function clearPendingSelectionChanges() {
-    resetSelectedQuestionLoadState();
-    setPendingSelectionIds([]);
-    setSelectedQuestionListLimit(12);
-    setSelectionDirty(true);
-    setSelectionProgress({ completed: 0, total: 0, error: null });
-    setStatus("All selected questions were cleared from this session.");
-  }
-
-  function restoreHistoryDeferredQuestions() {
-    resetSelectedQuestionLoadState();
-    const eligibleIds = historyDeferredQuestions
-      .filter((question) => question.canSelect && question.recommendation.recommendationState === "RECENTLY_VERIFIED" && question.recommendation.classification === "DEFER_ELIGIBLE" && question.recommendation.canDefer && !question.recommendation.includedByDefault)
-      .map((question) => question.questionVersionId);
-    if (!eligibleIds.length) {
-      setStatus("There are no history-deferred optional questions to restore.");
-      return;
-    }
-    setPendingSelectionIds((current) => [...new Set([...current, ...eligibleIds])]);
-    setSelectedQuestionListLimit(12);
-    setSelectionDirty(true);
-    setStatus(`${eligibleIds.length.toLocaleString("en-US")} history-deferred questions are included and ready for selection review.`);
-    clearFieldError("selectedQuestionVersionIds");
-  }
-
-  async function loadSelectedQuestionDetails(questionVersionIds: string[]) {
-    if (!backend.canonicalCatalog || !valuesRef.current || selectedQuestionLoadBusy || !questionVersionIds.length) return;
-    const catalogVersion = valuesRef.current.catalogVersion || "";
-    const uniqueQuestionVersionIds = [...new Set(questionVersionIds)].filter((id) => !selectedQuestionMap.has(id));
-    if (!uniqueQuestionVersionIds.length) return;
-    setSelectedQuestionLoadBusy(true);
-    setSelectedQuestionLoadError(null);
-    try {
-      const applicationType = valuesRef.current.applicationType as CanonicalApplicationType;
-      const scopeId = valuesRef.current.scopeDraftId || undefined;
-      const responses = await Promise.allSettled(uniqueQuestionVersionIds.map((questionVersionId) => backend.canonicalCatalog!.getQuestion({ catalogVersion, usageClass: auditUsageClass, questionVersionId, scopeId, applicationType })));
-      let loadedCount = 0;
-      const failedCount = responses.reduce((sum, response) => sum + (response.status === "rejected" ? 1 : 0), 0);
-      const loadedQuestions: CanonicalQuestionCatalogEntry[] = [];
-      for (let index = 0; index < responses.length; index += 1) {
-        const response = responses[index];
-        if (response.status !== "fulfilled") continue;
-        const question = response.value;
-        loadedQuestions.push(question);
-      }
-      if (loadedQuestions.length) {
-        setSelectedQuestionCache((current) => {
-          let changed = false;
-          const next = { ...current };
-          for (const question of loadedQuestions) {
-            if (next[question.questionVersionId] === question) continue;
-            loadedCount += 1;
-            next[question.questionVersionId] = question;
-            changed = true;
-          }
-          if (!changed) return current;
-          return next;
-        });
-      }
-      if (!failedCount && loadedCount === 0) {
-        setSelectedQuestionLoadError(null);
-      }
-      if (failedCount > 0) {
-        if (loadedCount === 0) {
-          setSelectedQuestionLoadError(`${failedCount.toLocaleString("en-US")} selected question detail${failedCount === 1 ? "" : "s"} could not be loaded at this moment.`);
-        } else {
-          setSelectedQuestionLoadError(`Loaded ${loadedCount.toLocaleString("en-US")} selected question detail${loadedCount === 1 ? "" : "s"}; ${failedCount.toLocaleString("en-US")} load${failedCount === 1 ? "" : "s"} failed.`);
-        }
-      } else {
-        setSelectedQuestionLoadError(null);
-      }
-    } finally {
-      setSelectedQuestionLoadBusy(false);
-    }
-  }
-
-  async function addAllMatchingQuestions(recommendationOverride?: string) {
-    if (busy || suggestionProgress.phase === "loading" || !valuesRef.current || !backend.canonicalCatalog) return;
-    resetSelectedQuestionLoadState();
-    setServerError(null);
-    const operationIdValue = suggestionCollectionOperationRef.current + 1;
-    suggestionCollectionOperationRef.current = operationIdValue;
-    suggestionCollectionAbortRef.current?.abort();
-    suggestionCollectionRecommendationRef.current = recommendationOverride;
-    const controller = new AbortController();
-    suggestionCollectionAbortRef.current = controller;
-    const currentValues = valuesRef.current;
-    const currentSelection = new Set(pendingSelectionIds);
-    const questionKind = recommendationOverride ? "suggested" : "eligible";
-    let loaded = 0;
-    let total = 0;
-    let added = 0;
-    let selectable = 0;
-    let cursor: string | undefined;
-    const seenIds = new Set<string>();
-    const seenCursors = new Set<string>();
-    let firstPage = true;
-    setSuggestionProgress({ phase: "loading", loaded: 0, total: 0, added: 0, error: null });
-    setStatus(`Loading ${questionKind} questions… You can keep reviewing the catalog while the selection is prepared.`);
-    clearFieldError("selectedQuestionVersionIds");
-    try {
-      do {
-        const page = await backend.canonicalCatalog.listCatalog({
-          catalogVersion: currentValues.catalogVersion || "",
-          usageClass: auditUsageClass,
-          search: catalogSearch || undefined,
-          formCode: catalogFormCode.length ? catalogFormCode : undefined,
-          domain: catalogDomain.length ? catalogDomain : undefined,
-          topic: catalogTopic.length ? catalogTopic : undefined,
-          riskBand: catalogRiskBand.length ? catalogRiskBand : undefined,
-          sourceGapState: catalogSourceGapState || undefined,
-          checklistFocus: catalogChecklistFocus.length ? catalogChecklistFocus : undefined,
-          recommendationState: recommendationOverride && recommendationOverride !== defaultCatalogRecommendationState ? recommendationOverride : undefined,
-          includedByDefault: recommendationOverride === defaultCatalogRecommendationState ? true : undefined,
-          selected: "all",
-          scopeId: currentValues.scopeDraftId || undefined,
-          applicationType: currentValues.applicationType as CanonicalApplicationType,
-          cursor,
-          limit: firstPage ? suggestionCollectionInitialPageSize : suggestionCollectionContinuationPageSize,
-          projection: "selection",
-        }, { signal: controller.signal });
-        if (controller.signal.aborted || suggestionCollectionOperationRef.current !== operationIdValue) return;
-        firstPage = false;
-        total = page.totalCount;
-        loaded += page.items.length;
-        const selectableEntries = page.items.filter((entry) => entry.canSelect && !seenIds.has(entry.questionVersionId));
-        const newIds = selectableEntries.map((entry) => entry.questionVersionId);
-        selectable += newIds.length;
-        for (const id of newIds) seenIds.add(id);
-        const newSelectionIds = newIds.filter((id) => !currentSelection.has(id));
-        if (newSelectionIds.length) {
-          added += newSelectionIds.length;
-          newSelectionIds.forEach((id) => currentSelection.add(id));
-          startTransition(() => {
-            setPendingSelectionIds((current) => [...new Set([...current, ...newSelectionIds])]);
-            setSelectionDirty(true);
-            setSelectedQuestionListLimit(12);
-          });
-        }
-        const previewEntries = selectableEntries.slice(0, 12);
-        if (previewEntries.length) {
-          startTransition(() => {
-            setSelectedQuestionCache((current) => {
-              let changed = false;
-              const next = { ...current };
-              for (const question of previewEntries) {
-                if (next[question.questionVersionId] === question) continue;
-                next[question.questionVersionId] = question;
-                changed = true;
-              }
-              return changed ? next : current;
-            });
-          });
-        }
-        setSuggestionProgress({ phase: "loading", loaded: Math.min(loaded, total || loaded), total, added, error: null });
-        const nextCursor = page.nextCursor ?? undefined;
-        if (nextCursor && seenCursors.has(nextCursor)) throw new Error("Catalog pagination repeated a cursor while collecting the exact question set.");
-        if (nextCursor) seenCursors.add(nextCursor);
-        cursor = nextCursor;
-      } while (cursor);
-      if (controller.signal.aborted || suggestionCollectionOperationRef.current !== operationIdValue) return;
-      setSuggestionProgress({ phase: "complete", loaded: total || loaded, total, added, error: null });
-      setSelectedQuestionListLimit(12);
-      if (!selectable) {
-        setStatus("No selectable questions match the current server-authorized filters. Broaden search or clear active catalog filters and try again.");
-        return;
-      }
-      if (!added) {
-        setStatus(`No additional ${questionKind} questions to add; matched questions are already selected.`);
-        return;
-      }
-      setStatus(`${added.toLocaleString("en-US")} ${questionKind} questions are ready for selection review.`);
-    } catch (cause) {
-      if (controller.signal.aborted || suggestionCollectionOperationRef.current !== operationIdValue) return;
-      const message = errorMessage(cause);
-      setSuggestionProgress({ phase: "error", loaded, total, added, error: message });
-      setStatus(`Loading paused after ${loaded.toLocaleString("en-US")} of ${total.toLocaleString("en-US")} matching questions. Retry to finish loading the selection.`);
-    } finally {
-      if (suggestionCollectionOperationRef.current === operationIdValue) suggestionCollectionAbortRef.current = null;
-    }
-  }
-
-  async function openCatalogDetail(question: CanonicalQuestionCatalogEntry | string, trigger?: HTMLElement) {
-    const requestId = ++catalogDetailRequestRef.current;
-    const questionVersionId = typeof question === "string" ? question : question.questionVersionId;
-    const cachedQuestion = typeof question === "string"
-      ? selectedQuestionMap.get(questionVersionId) ?? selectedQuestionCache[questionVersionId] ?? null
-      : question;
-    catalogTriggerRef.current = trigger ?? document.activeElement as HTMLElement | null;
-    if (cachedQuestion) setCatalogDetail(cachedQuestion);
-    if (!valuesRef.current || !backend.canonicalCatalog) {
-      if (!cachedQuestion) setServerError("Question details are currently unavailable in this build profile.");
-      return;
-    }
-    try {
-      const detail = await backend.canonicalCatalog.getQuestion({
-        catalogVersion: valuesRef.current.catalogVersion || "",
-        usageClass: auditUsageClass,
-        questionVersionId,
-        scopeId: valuesRef.current.scopeDraftId || undefined,
-        applicationType: valuesRef.current.applicationType as CanonicalApplicationType,
-      });
-      setSelectedQuestionCache((current) => {
-        if (current[detail.questionVersionId] === detail) return current;
-        return { ...current, [detail.questionVersionId]: detail };
-      });
-      if (catalogDetailRequestRef.current === requestId) setCatalogDetail(detail);
-    } catch (cause) {
-      if (catalogDetailRequestRef.current === requestId) {
-        setServerError(errorMessage(cause));
-      }
-    }
-  }
-  function closeCatalogDetail() { catalogDetailRequestRef.current += 1; setCatalogDetail(null); }
-
   async function continueFromStep() {
-    if (step === 1 && !valuesRef.current) { if (!validatePendingBasics() || !pendingScopeOption || !pendingApplicationType) return; await createDraftForScope(pendingScopeOption, pendingApplicationType); return; }
-    if (!valuesRef.current) return;
-    if (step === 4 && suggestionProgress.phase === "loading") {
-      setStatus("Suggested questions are still loading. Wait for the progress bar to finish before reviewing or continuing.");
-      return;
-    }
-    if (!validateStep(step === 5 ? 4 : step)) return;
-    if (step === 4 && selectionDirty) { openSelectionReview(); return; }
-    setBusy(true); setServerError(null);
-    try { const saved = await flushAutosave(valuesRef.current); navigate(pathForStep(step + 1, saved?.id ?? draftRef.current?.id)); } catch (cause) { setServerError(errorMessage(cause)); } finally { setBusy(false); }
+    if (step === 1 && !draftRef.current) { await createDraft(); return; }
+    if (!valuesRef.current || !draftRef.current || !validateStep(step)) return;
+    setBusy(true); setServerError(null); try { const saved = await flushAutosave(valuesRef.current); navigate(pathForStep(step + 1, saved?.id ?? draftRef.current?.id)); } catch (cause) { setServerError(errorMessage(cause)); } finally { setBusy(false); }
   }
-  async function moveBack() { if (!valuesRef.current || step <= 1) return; setBusy(true); try { const saved = await flushAutosave(valuesRef.current); navigate(pathForStep(step - 1, saved?.id ?? draftRef.current?.id)); } catch (cause) { setServerError(errorMessage(cause)); } finally { setBusy(false); } }
-  function cancel() { const needsConfirmation = Boolean(draftRef.current && (autosaveState === "dirty" || autosaveState === "saving" || autosaveState === "error" || selectionDirty)); if (needsConfirmation && !globalThis.confirm("You have changes that are not fully saved. Leave this intake?")) return; navigate("/department-manager/audit-plan"); }
-  async function submit() { if (!draftRef.current || !valuesRef.current || !backend.planningIntake) return; if (!validateAllSteps() || selectionDirty) { if (selectionDirty) openSelectionReview(); return; } setBusy(true); setServerError(null); try { const saved = await flushAutosave(valuesRef.current); if (!saved) return; const output = await backend.planningIntake.submit({ draftId: saved.id, expectedRevision: saved.revision, idempotencyKey: `SUBMIT-${saved.id}-R${saved.revision}` }); navigate(`/department-manager/audit-plan?planningItemId=${encodeURIComponent(output.planningItem.id)}`); } catch (cause) { setServerError(errorMessage(cause)); } finally { setBusy(false); } }
+  async function moveBack() {
+    if (step <= 1 || !valuesRef.current || !draftRef.current) { navigate("/department-manager/audit-plan"); return; }
+    setBusy(true); try { const saved = await flushAutosave(valuesRef.current); navigate(pathForStep(step - 1, saved?.id ?? draftRef.current.id)); } catch (cause) { setServerError(errorMessage(cause)); } finally { setBusy(false); }
+  }
+  function cancel() { const needsConfirmation = Boolean(draftRef.current && (autosaveState === "dirty" || autosaveState === "saving" || autosaveState === "error")); if (needsConfirmation && !globalThis.confirm("You have changes that are not fully saved. Leave New Audit?")) return; navigate("/department-manager/audit-plan"); }
+  async function submit() {
+    if (!proposal || !draftRef.current || !valuesRef.current || !validateAll()) return;
+    setBusy(true); setServerError(null); try { const saved = await flushAutosave(valuesRef.current); if (!saved) return; const submitOperationId = operationId("PLANNING-PROPOSAL-SUBMIT"); const output = await proposal.submit({ draftId: saved.id, expectedRevision: saved.revision, idempotencyKey: submitOperationId, operationId: submitOperationId }); navigate(`/department-manager/audit-plan?planningItemId=${encodeURIComponent(output.planningItem.id)}`); } catch (cause) { setServerError(errorMessage(cause)); } finally { setBusy(false); }
+  }
   function editStep(targetStep: number) { navigate(pathForStep(targetStep, draftRef.current?.id)); }
 
-  const definition = stepDefinitions[step - 1] ?? stepDefinitions[0];
-  const canCreateDraft = Boolean(pendingScopeOption && pendingApplicationType && scopeOptions.length);
-  const currentSelectedCount = pendingSelectionIds.length;
-  const useReviewPrimary = step === 4 && selectionDirty;
-  const suggestionLoading = suggestionProgress.phase === "loading";
-  const actionLabel = busy ? (step === 1 && !values ? "Creating draft…" : step === 5 ? "Submitting…" : "Saving…") : suggestionLoading && step === 4 ? "Loading suggestions…" : "Continue";
+  const currentLocation: PlanningResolvedLocation | null = draft?.location ?? null;
+  const workloadWarning = estimate && values ? Number(values.estimatedChecklistItemCount) < estimate.safeMinimum || Number(values.estimatedChecklistItemCount) > estimate.safeMaximum : false;
+  const rosterWarning = estimate && values ? Number(values.requiredInspectorCount) > estimate.eligibleRosterCount : false;
+  const actionLabel = busy ? (step === 1 && !draft ? "Creating draft…" : step === 5 ? "Submitting…" : "Saving…") : step === 4 ? "Continue to review" : "Continue";
 
-  return (
-    <WorkspaceShell roleLabel="Department Manager" routeLabel={`New Audit Wizard ${step}`}>
-      <div className="planning-intake-page" data-draft-id={draft?.id} data-testid={draft ? "new-audit-wizard-page" : undefined}>
-        <header className="planning-intake-header workbench-page-header"><div><h1>New Inspection</h1><p>Create a governed Planning item. An executable Audit is created only after the accepted release and confirmation stage.</p></div></header>
-        <PlanningIntakeProgress step={step} />
-        {serverError ? <CommandError message={serverError} /> : null}
-        {status ? <p className="planning-intake-status" role="status">{status}</p> : null}
-        <ValidationSummary errors={fieldErrors} onFocus={focusField} />
-        <div className="planning-intake-layout">
-          <section aria-label="Planning intake form" className="planning-intake-form">
-            <header className="planning-intake-form__header"><span>Step {step} of 5</span><h2>{definition.label}</h2><p>{definition.description}</p></header>
-            {routeRedirecting ? <p className="planning-intake-loading" role="status">Returning to Basics…</p> : null}
-            {!routeRedirecting && step > 1 && !values ? <p className="planning-intake-loading" role="status">Loading saved Planning draft…</p> : null}
-            {!routeRedirecting && step === 1 && !values ? <div className="planning-intake-fields planning-intake-scope-fields">
-              <label htmlFor="planning-intake-organizationId">Supplier / organization <RequiredMark /><select aria-label="Supplier / organization" id="planning-intake-organizationId" aria-invalid={Boolean(fieldErrors.organizationId)} aria-describedby={fieldErrors.organizationId ? "planning-intake-organizationId-error" : undefined} disabled={busy || !supplierOptions.length} value={pendingOrganizationId} onBlur={() => validateField("organizationId")} onChange={(event) => updatePendingOrganization(event.target.value)}>{supplierOptions.map((option) => <option key={option.organizationId} value={option.organizationId}>{option.organizationName}</option>)}</select><small>Select the supplier or organization that will be inspected.</small><FieldError id="planning-intake-organizationId-error" message={fieldErrors.organizationId} /></label>
-              <label htmlFor="planning-intake-providerScopeId">Provider scope <RequiredMark /><select aria-label="Provider scope" id="planning-intake-providerScopeId" aria-invalid={Boolean(fieldErrors.providerScopeId)} aria-describedby={fieldErrors.providerScopeId ? "planning-intake-providerScopeId-error" : undefined} disabled={busy || !pendingProviderOptions.length} value={pendingProviderScopeId} onBlur={() => validateField("providerScopeId")} onChange={(event) => updatePendingProvider(event.target.value)}>{pendingProviderOptions.map((option) => <option key={option.providerScopeId} value={option.providerScopeId}>{option.providerTypeLabel}</option>)}</select><small>Choose the authorized aviation provider scope.</small><FieldError id="planning-intake-providerScopeId-error" message={fieldErrors.providerScopeId} /></label>
-              <label htmlFor="planning-intake-regulatedTargetId">Regulated target <RequiredMark /><select aria-label="Regulated target" id="planning-intake-regulatedTargetId" aria-invalid={Boolean(fieldErrors.regulatedTargetId)} aria-describedby={fieldErrors.regulatedTargetId ? "planning-intake-regulatedTargetId-error" : undefined} disabled={busy || !pendingTargetOptions.length} value={pendingRegulatedTargetId} onBlur={() => validateField("regulatedTargetId")} onChange={(event) => updatePendingTarget(event.target.value)}>{pendingTargetOptions.map((option) => <option key={option.regulatedTargetId} value={option.regulatedTargetId}>{option.targetLabel}</option>)}</select><small>Select the regulated target applicable to this inspection.</small><FieldError id="planning-intake-regulatedTargetId-error" message={fieldErrors.regulatedTargetId} /></label>
-              <label htmlFor="planning-intake-applicationType">Inspection type <RequiredMark /><select id="planning-intake-applicationType" aria-label="Inspection type" aria-invalid={Boolean(fieldErrors.applicationType)} aria-describedby={fieldErrors.applicationType ? "planning-intake-applicationType-error" : undefined} disabled={busy || !pendingScopeOption?.inspectionTypes.length} value={pendingApplicationType} onBlur={() => validateField("applicationType")} onChange={(event) => { setPendingApplicationType(event.target.value as CanonicalApplicationType); clearFieldError("applicationType"); }}>{(pendingScopeOption?.inspectionTypes ?? []).map((type) => <option key={type} value={type}>{catalogValueLabel(type)}</option>)}</select><small>Recommendations and prior-audit history follow this server-authorized type.</small><FieldError id="planning-intake-applicationType-error" message={fieldErrors.applicationType} /></label>
-              <p className="planning-intake-boundary-note" role="note">Continuing creates a Planning draft; it does not create an Audit.</p>
-            </div> : null}
-            {!routeRedirecting && step === 1 && values ? <div className="planning-intake-fields planning-intake-scope-fields">
-              <label htmlFor="planning-intake-existing-organization">Supplier / organization <RequiredMark /><select id="planning-intake-existing-organization" value={values.organizationId} onChange={(event) => { const option = scopeOptions.find((candidate) => candidate.organizationId === event.target.value); if (option) void handleExistingScopeChange(option); }}>{supplierOptions.map((option) => <option key={option.organizationId} value={option.organizationId}>{option.organizationName}</option>)}</select></label>
-              <label htmlFor="planning-intake-existing-provider">Provider scope <RequiredMark /><select id="planning-intake-existing-provider" value={values.providerScopeId ?? ""} onChange={(event) => { const option = scopeOptions.find((candidate) => candidate.organizationId === values.organizationId && candidate.providerScopeId === event.target.value); if (option) void handleExistingScopeChange(option); }}>{selectedProviderOptions.map((option) => <option key={option.providerScopeId} value={option.providerScopeId}>{option.providerTypeLabel}</option>)}</select></label>
-              <label htmlFor="planning-intake-existing-target">Regulated target <RequiredMark /><select id="planning-intake-existing-target" value={values.regulatedTargetId ?? ""} onChange={(event) => { const option = scopeOptions.find((candidate) => candidate.organizationId === values.organizationId && candidate.providerScopeId === values.providerScopeId && candidate.regulatedTargetId === event.target.value); if (option) void handleExistingScopeChange(option); }}>{selectedTargetOptions.map((option) => <option key={option.regulatedTargetId} value={option.regulatedTargetId}>{option.targetLabel}</option>)}</select></label>
-              <label htmlFor="planning-intake-existing-application">Inspection type <RequiredMark /><select id="planning-intake-existing-application" value={values.applicationType} onChange={(event) => void changeApplicationType(event.target.value)}>{(selectedScopeOption?.inspectionTypes ?? []).map((type) => <option key={type} value={type}>{catalogValueLabel(type)}</option>)}</select><small>Changing the authorized type may replace later checklist context.</small></label>
-              <p className="planning-intake-boundary-note" role="note">Continuing creates a Planning draft; it does not create an Audit.</p>
-            </div> : null}
-            {!routeRedirecting && values && step === 2 ? <div className="planning-intake-fields">
-              <label htmlFor="planning-intake-inspectionCategory">Inspection approach <RequiredMark /><select aria-label="Inspection approach" id="planning-intake-inspectionCategory" value={values.inspectionCategory} onChange={(event) => updateCategory(event.target.value as PlanningIntakeInspectionCategory)}><option value="Routine / Announced">Routine / Announced</option><option value="Ad Hoc / Unannounced">Ad Hoc / Unannounced</option></select><small>{values.inspectionCategory === "Ad Hoc / Unannounced" ? "The supplier notice remains withheld through Planning." : "Advance notice applies after the accepted governance stage."}</small></label>
-              <label className="is-wide" htmlFor="planning-intake-purpose">Purpose <RequiredMark /><textarea aria-label="Purpose" id="planning-intake-purpose" aria-invalid={Boolean(fieldErrors.purpose)} aria-describedby={fieldErrors.purpose ? "planning-intake-purpose-error" : undefined} value={values.purpose} onBlur={() => validateField("purpose")} onChange={(event) => update("purpose", event.target.value)} /><small>Describe why this inspection is being undertaken and what the Department Manager needs to establish.</small><FieldError id="planning-intake-purpose-error" message={fieldErrors.purpose} /></label>
-              <label htmlFor="planning-intake-triggerType">Trigger type<input id="planning-intake-triggerType" readOnly value={values.triggerType} /><small>Configured from the Planning authority.</small></label>
-              <label htmlFor="planning-intake-riskCategory">Risk category <RequiredMark /><select aria-label="Risk category" id="planning-intake-riskCategory" aria-invalid={Boolean(fieldErrors.riskCategory)} aria-describedby={fieldErrors.riskCategory ? "planning-intake-riskCategory-error" : undefined} value={values.riskCategory} onBlur={() => validateField("riskCategory")} onChange={(event) => update("riskCategory", event.target.value)}>{riskCategoryOptionsFor(values.riskCategory).map((option) => <option key={option} value={option}>{option}</option>)}</select><small>Select the configured risk category for this inspection.</small><FieldError id="planning-intake-riskCategory-error" message={fieldErrors.riskCategory} /></label>
-              <p className="planning-intake-boundary-note" role="note"><b>{noticeLabel(values.inspectionCategory)}</b><span>{values.inspectionCategory === "Ad Hoc / Unannounced" ? "Organization notice remains withheld through this Planning stage." : "Notice is derived from the selected inspection approach."}</span></p>
-            </div> : null}
-            {!routeRedirecting && values && step === 3 ? <div className="planning-intake-fields">
-              <label htmlFor="planning-intake-plannedDate">Planned date <RequiredMark /><PlanningDateField error={fieldErrors.plannedDate} onBlur={() => validateField("plannedDate")} onChange={(value) => update("plannedDate", value)} onNext={() => void continueFromStep()} value={values.plannedDate} /><small>Enter YYYY-MM-DD or open the calendar.</small><FieldError id="planning-intake-plannedDate-error" message={fieldErrors.plannedDate} /></label>
-              <label htmlFor="planning-intake-mode">Mode<select id="planning-intake-mode" value={values.mode} onChange={(event) => update("mode", event.target.value as PlanningIntakeDraftValues["mode"])}><option value="On-site">On-site</option><option value="Remote">Remote</option></select><small>Choose how the inspection will be conducted.</small></label>
-              <label className="is-wide" htmlFor="planning-intake-location">Location <RequiredMark /><input aria-label="Location" id="planning-intake-location" aria-invalid={Boolean(fieldErrors.location)} aria-describedby={fieldErrors.location ? "planning-intake-location-error" : undefined} value={values.location} onBlur={() => validateField("location")} onChange={(event) => update("location", event.target.value)} /><small>Specify the airport, facility, or other inspection location.</small><FieldError id="planning-intake-location-error" message={fieldErrors.location} /></label>
-            </div> : null}
-            {!routeRedirecting && values && step === 4 ? <div className="planning-intake-checklist-step">
-              <section aria-label="Question catalog selection" className="planning-intake-catalog">
-                <header className="planning-intake-catalog-header"><div><span className="planning-intake-dialog-kicker">{fullCatalogSelected ? "Approved catalog" : "Server recommendation"}</span><h3>{catalogHeading}</h3><p>{catalogDescription}</p></div><span className="planning-intake-catalog-count" aria-live="polite">{pendingSelectionIds.length.toLocaleString("en-US")} selected</span></header>
-                {recommendationSummary ? <aside aria-label="Prior-Audit recommendation summary" className="planning-intake-recommendation-summary" role="status">
-                  <header><div><span className="planning-intake-dialog-kicker">Prior-Audit history</span><h4>{historyScenarioLabel}</h4></div><span>{recommendationSummary.historyDeferredCount.toLocaleString("en-US")} withheld by history</span></header>
-                  <p>{recommendationSummary.comparableAuditCount === 0 ? "No comparable history was found for this exact organization, provider scope, regulated target, location, and audit type. Suggested questions are still constrained by authorized applicability and the selected audit-type focus." : `The server compared this scope against ${recommendationSummary.comparableAuditCount.toLocaleString("en-US")} immutable FINAL/LOCKED Audit${recommendationSummary.comparableAuditCount === 1 ? "" : "s"} in the fixed ${recommendationSummary.historyWindowMonths}-month history window.`}</p>
-                  <dl className="planning-intake-recommendation-summary__facts"><div><dt>Scope</dt><dd>{recommendationSummary.organizationLabel} · {recommendationSummary.providerScopeLabel} · {recommendationSummary.regulatedTargetLabel}</dd></div><div><dt>Location</dt><dd>{recommendationSummary.locationLabel || "Not specified"}</dd></div><div><dt>Audit type focus</dt><dd>{recommendationSummary.focusConfigured ? `${catalogValueLabel(recommendationSummary.focusType ?? recommendationSummary.auditTypeLabel)} · ${recommendationSummary.focusInspectionTypeCodes.map(catalogValueLabel).join(", ")}` : "Not configured"}</dd></div></dl>
-                  <p><strong>Default historical suggestion location:</strong> {recommendationLocationLabel} ({recommendationLocationSourceText}).</p>
-                  {runtime.buildProfile === "demo" ? <p><strong>Demo note:</strong> Historical suggestion matching is pre-configured and ready with this default location.</p> : null}
-                  {recommendationLocationIsFallback ? <p><strong>Default location notice:</strong> Since no exact historical location match was available, your draft location is used as the comparison baseline by default.</p> : null}
-                  <p><strong>Location override:</strong> If you do not want to use this default location, choose a different schedule location before running suggestion actions again.</p>
-                  {historyDeferredBusy ? <p className="planning-intake-loading" role="status">Loading every history-deferred question and its reason…</p> : null}
-                  {historyDeferredError ? <p className="planning-intake-error" role="alert">History-deferred questions could not be loaded: {historyDeferredError}</p> : null}
-                  {recommendationSummary.historyDeferredCount > 0 ? <>
-                    <p className="planning-intake-recommendation-summary__warning"><b>Why these questions are not suggested now:</b> comparable Audits repeatedly satisfied these optional controls within their recurrence interval. They remain selectable in the full approved catalog.</p>
-                    <ul aria-label="History-deferred questions" className="planning-intake-recommendation-summary__list">{historyDeferredQuestions.map((question) => { const cleanCount = question.recommendation.validatedCleanAuditCount; const comparableCount = question.recommendation.comparableAuditCount; return <li key={question.questionVersionId}><b>{question.prompt ?? `${question.formCode} item ${question.ordinal}`}</b><small>{question.formCode} · item {question.ordinal} · {cleanCount.toLocaleString("en-US")} validated-clean of {comparableCount.toLocaleString("en-US")} comparable Audits{question.recommendation.lastValidatedCleanAt ? ` · last clean ${question.recommendation.lastValidatedCleanAt.slice(0, 10)}` : ""}</small><RecommendationReasonPills reasons={recommendationReasonTags(question)} /></li>; })}</ul>
-                    <button disabled={busy || !historyDeferredReady} type="button" onClick={restoreHistoryDeferredQuestions}>Include all history-deferred questions</button>
-                    {!historyDeferredBusy && !historyDeferredError && !historyDeferredReady ? <p className="planning-intake-error" role="alert">The complete history-deferred list is not ready yet; the restore action stays disabled until the server count matches.</p> : null}
-                  </> : <p className="planning-intake-recommendation-summary__clear">No optional questions were withheld by comparable history. Risk-protected and uncertain questions remain suggested.</p>}
-                </aside> : null}
-                <label className="planning-intake-catalog-search" htmlFor="planning-intake-catalog-search">Search questions<input id="planning-intake-catalog-search" aria-label="Search questions" value={catalogSearch} onChange={(event) => { setCatalogSearch(event.target.value); resetCatalogPage(); }} placeholder="Search question text, form, or item reference" /></label>
-                <details className="planning-intake-advanced-filters"><summary>Advanced filters <span>{activeFilterCount} active</span></summary><div className="planning-intake-catalog-filters" aria-label="Advanced question filters">
-                  <CatalogFacetPicker ariaLabel="Form filter" label="Form" options={catalogPage?.facets.forms ?? []} selected={catalogFormCode} onChange={(next) => { setCatalogFormCode(next); resetCatalogPage(); }} />
-                  <CatalogFacetPicker ariaLabel="Domain filter" label="Domain" options={catalogPage?.facets.domains ?? []} selected={catalogDomain} onChange={(next) => { setCatalogDomain(next); resetCatalogPage(); }} />
-                  <CatalogFacetPicker ariaLabel="Topic filter" label="Topic" options={catalogPage?.facets.topics ?? []} selected={catalogTopic} onChange={(next) => { setCatalogTopic(next); resetCatalogPage(); }} />
-                  <CatalogFacetPicker ariaLabel="Risk filter" label="Risk" options={catalogPage?.facets.riskTiers ?? []} selected={catalogRiskBand} onChange={(next) => { setCatalogRiskBand(next); resetCatalogPage(); }} />
-                  <CatalogFacetPicker ariaLabel="Checklist focus filter" label="Checklist focus" options={catalogPage?.facets.checklistFocuses ?? []} selected={catalogChecklistFocus} onChange={(next) => { setCatalogChecklistFocus(next); resetCatalogPage(); }} />
-                  <label htmlFor="planning-intake-source-gap">Source gap<select id="planning-intake-source-gap" aria-label="Source gap filter" value={catalogSourceGapState} onChange={(event) => { setCatalogSourceGapState(event.target.value); resetCatalogPage(); }}><option value="">Any source context</option><option value="OPTIONAL_ENRICHMENT_NOT_PROVIDED">Optional enrichment unavailable</option><option value="SOURCE_CONTEXT_INCOMPLETE">Source context incomplete</option></select></label>
-                  <label htmlFor="planning-intake-recommendation">Recommendation<select id="planning-intake-recommendation" aria-label="Recommendation filter" value={catalogRecommendationState} onChange={(event) => { setCatalogRecommendationState(event.target.value); resetCatalogPage(); }}><option value="">Full approved catalog</option><option value={defaultCatalogRecommendationState}>Suggested now (server included-by-default)</option>{(catalogPage?.facets.recommendationStates ?? []).filter((option) => option.value !== defaultCatalogRecommendationState).map((option) => <option key={option.value} value={option.value}>{catalogValueLabel(option.value)} · {option.count.toLocaleString("en-US")}</option>)}</select></label>
-                  <label htmlFor="planning-intake-selected-state">Selected state<select id="planning-intake-selected-state" aria-label="Selected state filter" value={catalogSelectedFilter} onChange={(event) => { setCatalogSelectedFilter(event.target.value as typeof catalogSelectedFilter); resetCatalogPage(); }}><option value="all">All questions</option><option value="selected">Selected in scope</option><option value="unselected">Not selected</option></select></label>
-                </div><button className="planning-intake-text-action" disabled={!activeFilterCount && catalogRecommendationState === defaultCatalogRecommendationState} type="button" onClick={() => { setCatalogFormCode([]); setCatalogDomain([]); setCatalogTopic([]); setCatalogRiskBand([]); setCatalogSourceGapState(""); setCatalogChecklistFocus([]); setCatalogRecommendationState(defaultCatalogRecommendationState); setCatalogSelectedFilter("all"); resetCatalogPage(); }}>Clear filters</button></details>
-                <p className="planning-intake-result-count" aria-live="polite">{catalogPage?.totalCount.toLocaleString("en-US") ?? "0"} matching questions · page {catalogPageNumber}</p>
-                {catalogBusy ? <p className="planning-intake-loading" role="status">Loading {fullCatalogSelected ? "full approved catalog" : "suggested questions"}…</p> : null}
-                {!catalogBusy && !catalogPage ? <p className="planning-intake-loading" role="status">Catalog selection is unavailable in this build profile.</p> : null}
-                {catalogPage ? <ul className="planning-intake-catalog-list">{catalogPage.items.map((question) => { const checked = pendingSelectionIds.includes(question.questionVersionId); const prompt = question.prompt ?? "Question prompt unavailable"; const questionInfo = [question.formCode, `item ${question.ordinal}`, `${catalogValueLabel(question.aiAdvisory.riskTier)} risk`, catalogValueLabel(question.recommendation.recommendationState), `${question.recommendation.historyCount.toLocaleString("en-US")} prior Audits`].join(" · "); return <li data-question-version-id={question.questionVersionId} key={question.questionVersionId}><label><input aria-label={`Select ${question.formCode} item ${question.ordinal}`} checked={checked} disabled={busy || !question.canSelect} onChange={() => toggleQuestion(question.questionVersionId)} title={!question.canSelect ? "This question is not selectable in the current server-authorized scope." : undefined} type="checkbox" /><span><b className="planning-intake-question-prompt" title={prompt}>{prompt}</b><small className="planning-intake-question-info">{questionInfo}</small><RecommendationReasonPills reasons={recommendationReasonTags(question)} /></span></label><button className="planning-intake-question-detail" type="button" onClick={(event) => void openCatalogDetail(question, event.currentTarget)}>View details</button></li>; })}</ul> : null}
-                <div className="planning-intake-selection-actions"><button disabled={busy || catalogBusy || suggestionLoading || !catalogPage} type="button" onClick={() => void addAllMatchingQuestions(defaultCatalogRecommendationState)}>{suggestionLoading ? "Loading suggestions…" : "Use suggested questions"}</button><details className="planning-intake-more-actions"><summary>More selection actions</summary><button disabled={busy || catalogBusy || suggestionLoading || !catalogPage} type="button" onClick={() => void addAllMatchingQuestions()}>Add all matching eligible questions</button></details></div>
-                <section aria-label="Selection summary" className="planning-intake-selection-summary">
-                  <header><div><h3>Selection summary</h3><p aria-live="polite">{selectionDelta.selectedCount.toLocaleString("en-US")} questions selected</p></div><div className="planning-intake-selection-summary__metrics"><span>Additions <b>{selectionDelta.additions.toLocaleString("en-US")}</b></span><span>Removals <b>{selectionDelta.removals.toLocaleString("en-US")}</b></span><span>Resource <b>{selectionSummary.complete ? `${selectionSummary.estimatedResourceRequirement ?? 0} question-hours` : "Server-derived after confirmation"}</b></span></div></header>
-                  {suggestionProgress.phase !== "idle" ? <div aria-live="polite" aria-busy={suggestionLoading} className={`planning-intake-suggestion-progress planning-intake-suggestion-progress--${suggestionProgress.phase}`} role={suggestionProgress.phase === "error" ? "alert" : "status"}>
-                    <div className="planning-intake-suggestion-progress__header"><strong>{suggestionLoading ? "Loading questions into this selection" : suggestionProgress.phase === "complete" ? "Question selection is ready" : "Question loading paused"}</strong><span>{suggestionProgress.loaded.toLocaleString("en-US")}{suggestionProgress.total ? ` of ${suggestionProgress.total.toLocaleString("en-US")}` : " matching questions discovered"}</span></div>
-                    {suggestionProgress.total ? <progress aria-label="Suggested question loading progress" max={suggestionProgress.total} value={Math.min(suggestionProgress.loaded, suggestionProgress.total)} /> : <progress aria-label="Suggested question loading progress" />}
-                    <p>{suggestionLoading ? "The selected count updates after each batch. You can search, open details, or change catalog pages while this continues." : suggestionProgress.phase === "complete" ? `${suggestionProgress.added.toLocaleString("en-US")} new questions are ready for review before confirmation.` : suggestionProgress.error}</p>
-                    {suggestionProgress.phase === "error" ? <button className="planning-intake-text-action" type="button" onClick={() => void addAllMatchingQuestions(suggestionCollectionRecommendationRef.current)} disabled={busy || catalogBusy || !catalogPage}>Retry loading {suggestionCollectionRecommendationRef.current ? "suggested" : "eligible"} questions</button> : null}
-                  </div> : null}
-                <section aria-label="Selected questions" className="planning-intake-selected-tray"><details open><summary>{pendingSelectionIds.length.toLocaleString("en-US")} selected questions ({selectedQuestionPreview.preview.length.toLocaleString("en-US")} shown{selectedQuestionPreview.hiddenCount ? ` · ${selectedQuestionPreview.hiddenCount.toLocaleString("en-US")} more hidden` : ""})</summary>
-                    {selectedQuestionLoadBusy ? <p className="planning-intake-loading" role="status">Loading selected question details…</p> : null}
-                    {selectedQuestionLoadError ? <div className="planning-intake-selected-tray__error" role="alert"><p>{selectedQuestionLoadError}</p><button className="planning-intake-text-action" type="button" onClick={() => void loadSelectedQuestionDetails(selectedQuestionLoadTargetIds)} disabled={selectedQuestionLoadBusy || !selectedQuestionLoadTargetIds.length}>Retry loading question details</button></div> : null}
-                    {selectedQuestionPreview.preview.length ? <ul>{selectedQuestionPreview.preview.map(({ id, question }) => { const reasons = question ? recommendationReasonTags(question) : []; const prompt = selectedQuestionLabel(question, id); return <li key={id}><span><b title={prompt}>{prompt}</b><small>{selectedQuestionMeta(question)}</small><RecommendationReasonPills reasons={reasons} /></span><div><button className="planning-intake-text-action" type="button" onClick={() => removeSelectedQuestion(id)}>Remove</button><button className="planning-intake-question-detail" type="button" onClick={(event) => void openCatalogDetail(question ?? id, event.currentTarget)}>{question ? "View details" : "Load details"}</button></div></li>; })}</ul> : <p>No questions are selected yet.</p>}
-                    {selectedQuestionPreview.hiddenCount ? <div className="planning-intake-selection-summary__muted"><p>{selectedQuestionPreview.hiddenCount.toLocaleString("en-US")} more selected questions are not shown.</p><div><button type="button" onClick={() => setSelectedQuestionListLimit(12)} disabled={selectedQuestionListLimit <= 12}>Show first 12</button><button type="button" onClick={() => setSelectedQuestionListLimit((current) => Math.min(pendingSelectionIds.length, current + 12))}>Show 12 more</button></div></div> : null}
-                  </details></section>
-                  {fieldErrors.selectedQuestionVersionIds ? <FieldError id="planning-intake-selectedQuestionVersionIds-error" message={fieldErrors.selectedQuestionVersionIds} /> : null}
-                  <div><button className={useReviewPrimary ? "planning-intake-primary" : "planning-intake-secondary"} disabled={busy || suggestionLoading || !selectionDirty} type="button" onClick={(event) => openSelectionReview(event.currentTarget)}>Review selection</button><button className="planning-intake-text-action" disabled={busy || suggestionLoading || !selectionDirty} type="button" onClick={discardPendingSelectionChanges}>Undo changes</button>{pendingSelectionIds.length ? <button className="planning-intake-text-action" disabled={busy || suggestionLoading || !selectionDirty} type="button" onClick={clearPendingSelectionChanges}>Clear all selections</button> : null}</div>
-                </section>
-                <div className="planning-intake-catalog-pagination" aria-label="Question pagination"><button disabled={catalogBusy || !catalogPreviousCursors.length} type="button" onClick={() => { const history = [...catalogPreviousCursors]; setCatalogCursor(history.pop()); setCatalogPreviousCursors(history); setCatalogPageNumber((current) => Math.max(1, current - 1)); }}>Previous questions</button><span aria-live="polite">Page {catalogPageNumber} · {catalogPage?.totalCount.toLocaleString("en-US") ?? "0"} matching</span><button disabled={catalogBusy || !catalogPage?.nextCursor} type="button" onClick={() => { if (!catalogPage?.nextCursor) return; setCatalogPreviousCursors((history) => [...history, catalogCursor ?? ""]); setCatalogCursor(catalogPage.nextCursor ?? undefined); setCatalogPageNumber((current) => current + 1); }}>Next questions</button></div>
-              </section>
-              <section aria-label="Resources" className="planning-intake-resources"><header><h3>Resources</h3><p>Finance Review is required even when the requested budget is zero.</p></header><label htmlFor="planning-intake-requestedBudget">Requested budget <RequiredMark /><input id="planning-intake-requestedBudget" aria-label="Requested Budget" aria-invalid={Boolean(fieldErrors.requestedBudget)} aria-describedby={fieldErrors.requestedBudget ? "planning-intake-requestedBudget-error" : undefined} min="0" type="number" value={values.requestedBudget} onBlur={() => validateField("requestedBudget")} onChange={(event) => update("requestedBudget", event.target.value)} /><FieldError id="planning-intake-requestedBudget-error" message={fieldErrors.requestedBudget} /></label><label htmlFor="planning-intake-currency">Currency<select id="planning-intake-currency" value={values.currency} onChange={(event) => update("currency", event.target.value as PlanningIntakeDraftValues["currency"])}><option value="USD">USD</option><option value="EUR">EUR</option><option value="NAD">NAD</option></select></label></section>
-            </div> : null}
-            {!routeRedirecting && values && step === 5 ? <div className="planning-intake-review">
-              <section className="planning-intake-review-section"><header><h3>Inspection</h3><button type="button" onClick={() => editStep(1)}>Edit</button></header><dl><div><dt>Supplier / organization</dt><dd>{values.organizationName}</dd></div><div><dt>Provider scope</dt><dd>{selectedScopeOption?.providerTypeLabel ?? "Authorized scope"}</dd></div><div><dt>Regulated target</dt><dd>{selectedScopeOption?.targetLabel ?? "Authorized target"}</dd></div><div><dt>Inspection type</dt><dd>{catalogValueLabel(values.applicationType)}</dd></div><div><dt>Purpose</dt><dd>{values.purpose}</dd></div></dl></section>
-              <section className="planning-intake-review-section"><header><h3>Schedule</h3><button type="button" onClick={() => editStep(3)}>Edit</button></header><dl><div><dt>Planned date</dt><dd>{readableLocalDate(values.plannedDate)}</dd></div><div><dt>Mode</dt><dd>{values.mode}</dd></div><div><dt>Location</dt><dd>{values.location}</dd></div></dl></section>
-              <section className="planning-intake-review-section"><header><h3>Checklist</h3><button type="button" onClick={() => editStep(4)}>Edit</button></header><dl><div><dt>Questions selected</dt><dd>{pendingSelectionIds.length.toLocaleString("en-US")}</dd></div><div><dt>Resource requirement</dt><dd>{selectionSummary.complete ? `${selectionSummary.estimatedResourceRequirement ?? 0} question-hours` : "Server-derived selection summary unavailable"}</dd></div><div><dt>Form distribution</dt><dd>{selectionSummary.complete ? Object.entries(selectionSummary.formDistribution).map(([form, count]) => `${form}: ${count}`).join(" · ") || "None" : "Available after exact confirmation"}</dd></div></dl></section>
-              <section className="planning-intake-review-section"><header><h3>Resources</h3><button type="button" onClick={() => editStep(4)}>Edit</button></header><dl><div><dt>Requested budget</dt><dd>{values.requestedBudget} {values.currency}</dd></div></dl></section>
-              <section className="planning-intake-review-section"><header><h3>Notice &amp; governance</h3><button type="button" onClick={() => editStep(2)}>Edit</button></header><p>{values.inspectionCategory} · {noticeLabel(values.inspectionCategory)}</p><p>Submit creates a Planning item for Finance Review. It does not create an Audit or start an Inspector assignment.</p><p className="planning-intake-governance-path">Department Manager → Finance Review → General Manager → Executive Director → General Manager Release</p></section>
-            </div> : null}
-          </section>
-          <InspectionBrief values={values} scopeOption={selectedScopeOption} pendingScopeOption={pendingScopeOption} pendingApplicationType={pendingApplicationType} selectedCount={currentSelectedCount} autosaveState={autosaveState} autosaveError={autosaveError} onRetry={() => void retryAutosave()} />
-        </div>
-        <section aria-label="Planning intake actions" className="planning-intake-actions"><div className="planning-intake-actions__secondary">{step === 1 ? <button className="planning-intake-secondary" type="button" onClick={cancel}>Cancel</button> : <button className="planning-intake-secondary" disabled={busy || !values} type="button" onClick={() => void moveBack()}>Back</button>}{autosaveState === "error" && draft ? <button className="planning-intake-text-action" type="button" onClick={() => void retryAutosave()}>Retry save</button> : null}</div><div className="planning-intake-actions__primary">{step < 5 ? <button className={useReviewPrimary ? "planning-intake-secondary" : "planning-intake-primary"} disabled={busy || suggestionLoading || !values && step > 1 || (step === 1 && !values && !canCreateDraft)} type="button" onClick={() => void continueFromStep()}>{actionLabel}</button> : <button className="planning-intake-primary" disabled={busy || !values} type="button" onClick={() => void submit()}>Submit to Finance</button>}</div></section>
+  return <WorkspaceShell roleLabel="Department Manager" routeLabel={`New Audit · ${currentDefinition.label}`}>
+    <div className="planning-intake-page" data-draft-id={draft?.id} data-testid="new-audit-wizard-page">
+      <header className="planning-intake-header workbench-page-header"><div><span className="planning-intake-eyebrow">Department Manager planning</span><h1>New Audit</h1><p>Create a finance-reviewable plan. Submission creates a Planning item, not an executable Audit or final checklist.</p></div></header>
+      <PlanningIntakeProgress step={step} />
+      {serverError ? <CommandError message={serverError} /> : null}
+      {status ? <p className="planning-intake-status" role="status">{status}</p> : null}
+      <ValidationSummary errors={fieldErrors} onFocus={focusField} />
+      <div className="planning-intake-layout">
+        <section aria-label="New Audit form" className="planning-intake-form">
+          <header className="planning-intake-form__header"><span>Step {step} of 5</span><h2 ref={headingRef} tabIndex={-1}>{currentDefinition.label}</h2><p aria-live="polite">{currentDefinition.description}</p></header>
+          {!proposal ? <p className="planning-intake-loading" role="status">New Audit planning is unavailable in this build profile.</p> : null}
+          {proposal && !scopeOptions.length ? <p className="planning-intake-loading" role="status">Loading authorized scope…</p> : null}
+          {step > 1 && !values ? <p className="planning-intake-loading" role="status">Loading saved New Audit draft…</p> : null}
+
+          {step === 1 && !values ? <div className="planning-intake-fields planning-intake-scope-fields">
+            <label htmlFor="planning-intake-organizationId">Inspected Organization <RequiredMark /><select id="planning-intake-organizationId" aria-label="Inspected Organization" aria-invalid={Boolean(fieldErrors.organizationId)} aria-describedby={fieldErrors.organizationId ? "planning-intake-organizationId-error" : undefined} disabled={busy || !organizationOptions.length} value={pendingOrganizationId} onChange={(event) => { const first = scopeOptions.find((option) => option.organizationId === event.target.value); if (first) void updateScopeSelection({ organizationId: first.organizationId, providerScopeId: first.providerScopeId, regulatedTargetId: first.regulatedTargetId, inspectionType: first.inspectionTypes[0] ?? "" }); }}>{organizationOptions.map((option) => <option key={option.organizationId} value={option.organizationId}>{option.organizationName}</option>)}</select><small>Choose the organization whose operation or site is in scope for this Audit.</small><FieldError id="planning-intake-organizationId-error" message={fieldErrors.organizationId} /></label>
+            <fieldset><legend>Operation / site</legend><div className="planning-intake-scope-facts"><ScopeChoice label="Provider scope" value={selectedOption?.providerTypeLabel ?? ""} automatic={providerOptions.length <= 1}>{providerOptions.length > 1 ? <select id="planning-intake-providerScopeId" aria-label="Provider scope" value={pendingProviderScopeId} onChange={(event) => { const next = scopeOptions.find((option) => option.organizationId === pendingOrganizationId && option.providerScopeId === event.target.value); if (next) void updateScopeSelection({ organizationId: next.organizationId, providerScopeId: next.providerScopeId, regulatedTargetId: next.regulatedTargetId, inspectionType: next.inspectionTypes[0] ?? "" }); }}>{providerOptions.map((option) => <option key={option.providerScopeId} value={option.providerScopeId}>{option.providerTypeLabel}</option>)}</select> : null}</ScopeChoice><ScopeChoice label="Regulated target" value={selectedOption?.targetLabel ?? ""} automatic={targetOptions.length <= 1}>{targetOptions.length > 1 ? <select id="planning-intake-regulatedTargetId" aria-label="Regulated target" value={pendingRegulatedTargetId} onChange={(event) => { const next = scopeOptions.find((option) => option.organizationId === pendingOrganizationId && option.providerScopeId === pendingProviderScopeId && option.regulatedTargetId === event.target.value); if (next) void updateScopeSelection({ organizationId: next.organizationId, providerScopeId: next.providerScopeId, regulatedTargetId: next.regulatedTargetId, inspectionType: next.inspectionTypes[0] ?? "" }); }}>{targetOptions.map((option) => <option key={option.regulatedTargetId} value={option.regulatedTargetId}>{option.targetLabel}</option>)}</select> : null}</ScopeChoice></div></fieldset>
+            <label htmlFor="planning-intake-inspectionType">Inspection type <RequiredMark /><select id="planning-intake-inspectionType" aria-label="Inspection type" aria-invalid={Boolean(fieldErrors.inspectionType)} aria-describedby={fieldErrors.inspectionType ? "planning-intake-inspectionType-error" : undefined} disabled={busy || !inspectionTypeOptions.length} value={pendingInspectionType} onChange={(event) => { setPendingInspectionType(event.target.value); clearFieldError("inspectionType"); }}>{inspectionTypeOptions.map((type) => <option key={type} value={type}>{catalogValueLabel(type)}</option>)}</select><small>The inspection type affects the authorized workload estimate and later history.</small><FieldError id="planning-intake-inspectionType-error" message={fieldErrors.inspectionType} /></label>
+            <p className="planning-intake-boundary-note" role="note">Continuing creates a Planning draft only. Checklist selection and named inspector assignment happen after the required approval and release boundary.</p>
+          </div> : null}
+
+          {step === 1 && values ? <div className="planning-intake-fields planning-intake-scope-fields">
+            <label htmlFor="planning-intake-existing-organization">Inspected Organization <RequiredMark /><select id="planning-intake-existing-organization" value={values.organizationId} onChange={(event) => { const option = scopeOptions.find((candidate) => candidate.organizationId === event.target.value); if (option) void updateScopeSelection({ organizationId: option.organizationId, providerScopeId: option.providerScopeId, regulatedTargetId: option.regulatedTargetId, inspectionType: option.inspectionTypes[0] ?? values.inspectionType }); }}>{organizationOptions.map((option) => <option key={option.organizationId} value={option.organizationId}>{option.organizationName}</option>)}</select></label>
+            <fieldset><legend>Operation / site</legend><div className="planning-intake-scope-facts"><ScopeChoice label="Provider scope" value={draft?.providerScopeLabel ?? selectedOption?.providerTypeLabel ?? ""} automatic={providerOptions.length <= 1}>{providerOptions.length > 1 ? <select id="planning-intake-providerScopeId" aria-label="Provider scope" value={values.providerScopeId} onChange={(event) => { const next = scopeOptions.find((option) => option.organizationId === values.organizationId && option.providerScopeId === event.target.value); if (next) void updateScopeSelection({ organizationId: next.organizationId, providerScopeId: next.providerScopeId, regulatedTargetId: next.regulatedTargetId, inspectionType: next.inspectionTypes[0] ?? values.inspectionType }); }}>{providerOptions.map((option) => <option key={option.providerScopeId} value={option.providerScopeId}>{option.providerTypeLabel}</option>)}</select> : null}</ScopeChoice><ScopeChoice label="Regulated target" value={draft?.regulatedTargetLabel ?? selectedOption?.targetLabel ?? ""} automatic={targetOptions.length <= 1}>{targetOptions.length > 1 ? <select id="planning-intake-regulatedTargetId" aria-label="Regulated target" value={values.regulatedTargetId} onChange={(event) => { const next = scopeOptions.find((option) => option.organizationId === values.organizationId && option.providerScopeId === values.providerScopeId && option.regulatedTargetId === event.target.value); if (next) void updateScopeSelection({ organizationId: next.organizationId, providerScopeId: next.providerScopeId, regulatedTargetId: next.regulatedTargetId, inspectionType: next.inspectionTypes[0] ?? values.inspectionType }); }}>{targetOptions.map((option) => <option key={option.regulatedTargetId} value={option.regulatedTargetId}>{option.targetLabel}</option>)}</select> : null}</ScopeChoice></div></fieldset>
+            <label htmlFor="planning-intake-existing-inspectionType">Inspection type <RequiredMark /><select id="planning-intake-existing-inspectionType" value={values.inspectionType} onChange={(event) => void updateScopeSelection({ organizationId: values.organizationId, providerScopeId: values.providerScopeId, regulatedTargetId: values.regulatedTargetId, inspectionType: event.target.value })}>{inspectionTypeOptions.map((type) => <option key={type} value={type}>{catalogValueLabel(type)}</option>)}</select></label>
+            <p className="planning-intake-boundary-note" role="note">Scope changes recalculate derived location and workload facts. Your authored purpose, schedule, and budget are retained.</p>
+          </div> : null}
+
+          {step === 2 && values ? <div className="planning-intake-fields planning-intake-purpose-fields">
+            <label htmlFor="planning-intake-purposePreset">Start from a purpose <select id="planning-intake-purposePreset" aria-label="Purpose preset" value={values.purposePresetId ?? ""} onChange={(event) => { const preset = purposePresets.find((candidate) => candidate.id === event.target.value); if (!preset) { updateForm("purposePresetId", undefined); return; } if (values.purpose.trim() && values.purpose.trim() !== preset.purpose.trim() && !globalThis.confirm("Replace the current purpose text with this preset?")) return; updateForm("purposePresetId", preset.id); updateForm("purpose", preset.purpose); }}><option value="">Custom purpose</option>{purposePresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.label}</option>)}</select><small>Presets are maintained by the server and remain editable after selection.</small></label>
+            <label className="is-wide" htmlFor="planning-intake-purpose">Purpose <RequiredMark /><textarea id="planning-intake-purpose" aria-label="Purpose" aria-invalid={Boolean(fieldErrors.purpose)} aria-describedby={fieldErrors.purpose ? "planning-intake-purpose-error" : undefined} value={values.purpose} onBlur={() => setFieldErrors((current) => ({ ...current, purpose: errorsForStep(2, values).purpose }))} onChange={(event) => updateForm("purpose", event.target.value)} /><small>Describe the operational reason and what the Department Manager needs to establish. This text remains internal to the authorized Planning workflow.</small><FieldError id="planning-intake-purpose-error" message={fieldErrors.purpose} /></label>
+            <p className="planning-intake-boundary-note" role="note">The initiator is recorded by the server as <b>Department Manager</b>.</p>
+          </div> : null}
+
+          {step === 3 && values ? <div className="planning-intake-fields planning-intake-schedule-fields">
+            <label htmlFor="planning-intake-plannedDate">Planned date <RequiredMark /><input id="planning-intake-plannedDate" aria-label="Planned date" aria-invalid={Boolean(fieldErrors.plannedDate)} aria-describedby={fieldErrors.plannedDate ? "planning-intake-plannedDate-error" : undefined} type="date" value={values.plannedDate} onBlur={() => setFieldErrors((current) => ({ ...current, plannedDate: errorsForStep(3, candidateForStep(3)).plannedDate }))} onChange={(event) => updateForm("plannedDate", event.target.value)} /><small>Use the local date for the planned inspection activity.</small><FieldError id="planning-intake-plannedDate-error" message={fieldErrors.plannedDate} /></label>
+            <fieldset className="planning-intake-mode-group"><legend>Mode <RequiredMark /></legend><div className="planning-intake-radio-row"><label><input checked={values.mode === "On-site"} name="planning-intake-mode" onChange={() => updateForm("mode", "On-site")} type="radio" />On-site</label><label><input checked={values.mode === "Remote"} name="planning-intake-mode" onChange={() => updateForm("mode", "Remote")} type="radio" />Remote</label></div><small>{values.mode === "On-site" ? "Location is required for an on-site Audit." : "Location is hidden while Remote is selected."}</small></fieldset>
+            {values.mode === "On-site" ? <div className="planning-intake-location-field"><span className="planning-intake-label">Location <RequiredMark /></span>{currentLocation ? <div className="planning-intake-location-display"><div><strong>{currentLocation.label}</strong><small>{currentLocation.source === "TARGET_DEFAULT" ? "Target-derived canonical location" : currentLocation.source === "MANUAL" ? "Manual location for Finance review" : "Previously used canonical location"}</small></div><button type="button" className="planning-intake-text-action" onClick={() => setLocationEditing((current) => !current)}>{locationEditing ? "Close" : "Edit"}</button></div> : <button className="planning-intake-secondary planning-intake-add-location" type="button" onClick={() => setLocationEditing(true)}>Add location</button>}{locationEditing ? <div className="planning-intake-location-editor"><label htmlFor="planning-intake-canonicalLocation">Use a saved location<select id="planning-intake-canonicalLocation" aria-label="Saved location" value={values.locationInput?.kind === "CANONICAL" ? values.locationInput.locationId : "NEW"} onChange={(event) => { const selected = locations.find((location) => location.id === event.target.value); if (selected) { updateForm("locationInput", { kind: "CANONICAL", locationId: selected.id }); setLocationEditing(false); } else setManualLocation(""); }}><option value="NEW">Enter another location</option>{locations.map((location) => <option key={location.id} value={location.id}>{location.label}</option>)}</select></label><label htmlFor="planning-intake-location">Enter another location<input id="planning-intake-location" aria-label="Enter another location" aria-invalid={Boolean(fieldErrors.location)} aria-describedby={fieldErrors.location ? "planning-intake-location-error" : undefined} value={manualLocation} onChange={(event) => setManualLocation(event.target.value)} onBlur={() => { if (manualLocation.trim()) void resolveManualLocation(); }} placeholder="Location label" /><small>Likely aliases are matched to a canonical location before a new label is accepted.</small><FieldError id="planning-intake-location-error" message={fieldErrors.location} /></label><button type="button" className="planning-intake-secondary" onClick={() => void resolveManualLocation()} disabled={!manualLocation.trim()}>Use this location</button></div> : null}{fieldErrors.location ? <FieldError id="planning-intake-location-error" message={fieldErrors.location} /> : null}</div> : null}
+            {values.mode === "Remote" ? <div className="planning-intake-disclosure"><button type="button" className="planning-intake-text-action" aria-expanded={meetingLinkOpen} onClick={() => setMeetingLinkOpen((current) => !current)}>{meetingLinkOpen ? "Hide online meeting link" : "Add online meeting link"}</button>{meetingLinkOpen ? <label htmlFor="planning-intake-meetingLink">Online meeting link <input id="planning-intake-meetingLink" aria-label="Online meeting link" aria-invalid={Boolean(fieldErrors.meetingLink)} aria-describedby={fieldErrors.meetingLink ? "planning-intake-meetingLink-error" : undefined} type="url" inputMode="url" value={values.meetingLink} onBlur={() => setFieldErrors((current) => ({ ...current, meetingLink: errorsForStep(3, candidateForStep(3)).meetingLink }))} onChange={(event) => updateForm("meetingLink", event.target.value)} placeholder="https://…" /><FieldError id="planning-intake-meetingLink-error" message={fieldErrors.meetingLink} /></label> : null}</div> : null}
+          </div> : null}
+
+          {step === 4 && values && estimate ? <div className="planning-intake-fields planning-intake-resources-step">
+            <section className="planning-intake-open-section"><header><div><span className="planning-intake-section-kicker">Capacity</span><h3>Resources</h3></div><p>Give Finance a clear staffing assumption without treating the current roster as a hard schedule limit.</p></header><label htmlFor="planning-intake-requiredInspectorCount">Required inspectors <RequiredMark /><input id="planning-intake-requiredInspectorCount" aria-label="Required inspectors" aria-invalid={Boolean(fieldErrors.requiredInspectorCount)} aria-describedby={fieldErrors.requiredInspectorCount ? "planning-intake-requiredInspectorCount-error" : undefined} min="1" step="1" type="number" value={values.requiredInspectorCount} onBlur={() => setFieldErrors((current) => ({ ...current, requiredInspectorCount: errorsForStep(4, values).requiredInspectorCount }))} onChange={(event) => updateForm("requiredInspectorCount", event.target.value)} /><small>{estimate.eligibleRosterCount} eligible roster members were found. Requests above that count remain reviewable by Finance.</small><FieldError id="planning-intake-requiredInspectorCount-error" message={fieldErrors.requiredInspectorCount} /></label>{rosterWarning ? <p className="planning-intake-warning" role="status">This request is above the current eligible roster count. Finance will review the capacity assumption; it is not a hard scheduling error.</p> : null}</section>
+            <section className="planning-intake-open-section"><header><div><span className="planning-intake-section-kicker">Workload</span><h3>Estimated checklist items</h3></div><p>{estimate.basisLabel}</p></header><label htmlFor="planning-intake-estimatedChecklistItemCount">Estimated checklist items <RequiredMark /><input id="planning-intake-estimatedChecklistItemCount" aria-label="Estimated checklist items" aria-invalid={Boolean(fieldErrors.estimatedChecklistItemCount)} aria-describedby={fieldErrors.estimatedChecklistItemCount ? "planning-intake-estimatedChecklistItemCount-error" : undefined} min="1" step="1" type="number" value={values.estimatedChecklistItemCount} onBlur={() => setFieldErrors((current) => ({ ...current, estimatedChecklistItemCount: errorsForStep(4, values).estimatedChecklistItemCount }))} onChange={(event) => updateForm("estimatedChecklistItemCount", event.target.value)} /><small>Suggested {estimate.suggestedCount}; safe range {estimate.safeMinimum}–{estimate.safeMaximum}; {estimate.applicableItemCount} applicable items in the governed catalog.</small><FieldError id="planning-intake-estimatedChecklistItemCount-error" message={fieldErrors.estimatedChecklistItemCount} /></label>{workloadWarning ? <p className="planning-intake-warning" role="status">This estimate is outside the server-suggested safe range. It will remain unchanged and Finance will review the entered value.</p> : null}<button className="planning-intake-secondary" type="button" onClick={(event) => { previewTriggerRef.current = event.currentTarget; setPreviewOpen(true); }}>Browse checklist items</button></section>
+            <section className="planning-intake-open-section planning-intake-budget-section"><header><div><span className="planning-intake-section-kicker">Approval request</span><h3>Budget</h3></div><p>Blank budget is invalid. A literal zero still enters Finance Review.</p></header><div className="planning-intake-budget-fields"><label htmlFor="planning-intake-requestedBudget">Requested budget <RequiredMark /><input id="planning-intake-requestedBudget" aria-label="Requested budget" aria-invalid={Boolean(fieldErrors.requestedBudget)} aria-describedby={fieldErrors.requestedBudget ? "planning-intake-requestedBudget-error" : undefined} min="0" inputMode="decimal" type="number" value={values.requestedBudget} onBlur={() => setFieldErrors((current) => ({ ...current, requestedBudget: errorsForStep(4, values).requestedBudget }))} onChange={(event) => updateForm("requestedBudget", event.target.value)} /><FieldError id="planning-intake-requestedBudget-error" message={fieldErrors.requestedBudget} /></label><label htmlFor="planning-intake-currency">Currency <select id="planning-intake-currency" value={values.currency} onChange={(event) => updateForm("currency", event.target.value as NewAuditFormValues["currency"])}><option value="USD">USD</option><option value="EUR">EUR</option><option value="NAD">NAD</option></select></label></div></section>
+          </div> : null}
+
+          {step === 5 && values && draft ? <div className="planning-intake-review">
+            <section className="planning-intake-review-section"><header><h3>Scope</h3><button type="button" onClick={() => editStep(1)}>Edit</button></header><dl><div><dt>Inspected Organization</dt><dd>{draft.organizationName}</dd></div><div><dt>Provider scope</dt><dd>{draft.providerScopeLabel}</dd></div><div><dt>Regulated target</dt><dd>{draft.regulatedTargetLabel}</dd></div><div><dt>Inspection type</dt><dd>{catalogValueLabel(values.inspectionType)}</dd></div></dl></section>
+            <section className="planning-intake-review-section"><header><h3>Purpose</h3><button type="button" onClick={() => editStep(2)}>Edit</button></header><p className="planning-intake-review-copy">{values.purpose}</p></section>
+            <section className="planning-intake-review-section"><header><h3>Schedule</h3><button type="button" onClick={() => editStep(3)}>Edit</button></header><dl><div><dt>Planned date</dt><dd>{readableDate(values.plannedDate)}</dd></div><div><dt>Mode</dt><dd>{values.mode}</dd></div>{values.mode === "On-site" ? <div><dt>Location</dt><dd>{currentLocation?.label ?? "Not set"}</dd></div> : <div><dt>Online meeting</dt><dd>{values.meetingLink || "Not added"}</dd></div>}</dl></section>
+            <section className="planning-intake-review-section"><header><h3>Resources and budget</h3><button type="button" onClick={() => editStep(4)}>Edit</button></header><dl><div><dt>Required inspectors</dt><dd>{values.requiredInspectorCount}</dd></div><div><dt>Estimated checklist items</dt><dd>{values.estimatedChecklistItemCount}</dd></div><div><dt>Server suggestion</dt><dd>{estimate?.suggestedCount} items · safe range {estimate?.safeMinimum}–{estimate?.safeMaximum}</dd></div><div><dt>Requested budget</dt><dd>{values.requestedBudget} {values.currency}</dd></div></dl></section>
+            <section className="planning-intake-review-section"><header><h3>Approval context</h3><button type="button" onClick={() => editStep(2)}>Edit</button></header><p>Initiated by {draft.initiatedBy}. {noticeLabel(draft.noticePolicy)}.</p><p>Submit creates a Planning item for Finance Review. It does not create an executable Audit, final checklist, or Inspector assignment.</p><p className="planning-intake-governance-path">Department Manager → Finance Review → General Manager → Executive Director → General Manager Release</p></section>
+          </div> : null}
+        </section>
+        <AuditPlanSummary draft={draft} values={values} option={selectedOption} estimate={estimate} autosaveState={autosaveState} autosaveError={autosaveError} onRetry={() => void retryAutosave()} />
       </div>
-      {selectionReviewOpen ? <SelectionReviewDialog selectedCount={selectionDelta.selectedCount} additions={selectionDelta.additions} removals={selectionDelta.removals} total={selectionProgress.total} progress={selectionProgress} busy={busy} onConfirm={() => void confirmSelectionReview()} onRetry={retrySelectionConfirmation} onClose={closeSelectionReview} returnFocusRef={selectionReviewTriggerRef} /> : null}
-      {catalogDetail ? <QuestionDossier question={catalogDetail} onClose={closeCatalogDetail} returnFocusRef={catalogTriggerRef} /> : null}
-    </WorkspaceShell>
-  );
+      <section aria-label="New Audit actions" className="planning-intake-actions"><div className="planning-intake-actions__secondary">{step === 1 ? <button className="planning-intake-secondary" type="button" onClick={cancel}>Cancel</button> : <button className="planning-intake-secondary" type="button" disabled={busy || !values} onClick={() => void moveBack()}>Back</button>}{autosaveState === "error" && draft ? <button className="planning-intake-text-action" type="button" onClick={() => void retryAutosave()}>Retry save</button> : null}</div><div className="planning-intake-actions__primary">{step < 5 ? <button className="planning-intake-primary" type="button" disabled={busy || (step > 1 && !values) || (step === 1 && !selectedOption)} onClick={() => void continueFromStep()}>{actionLabel}</button> : <button className="planning-intake-primary" type="button" disabled={busy || !values || !draft} onClick={() => void submit()}>Submit to Finance</button>}</div></section>
+      <WorkloadPreview open={previewOpen} onClose={() => setPreviewOpen(false)} rows={previewRows} busy={previewBusy} query={previewQuery} onQuery={setPreviewQuery} total={previewTotal} returnFocusRef={previewTriggerRef} onUseCount={() => { if (values) updateForm("estimatedChecklistItemCount", String(previewTotal)); setStatus(`Estimated checklist items set to ${previewTotal.toLocaleString("en-US")}.`); setPreviewOpen(false); }} />
+    </div>
+  </WorkspaceShell>;
 }
+
+export { NewAuditWizardPage };

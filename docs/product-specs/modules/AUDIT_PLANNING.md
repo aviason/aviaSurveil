@@ -6,22 +6,17 @@ Create annual and ad hoc audit/inspection plans.
 
 ## Key fields
 
-- Audit ID
-- Organization
-- Audit type
-- Inspection category
-- Advance-notice policy
-- Domain
-- Planned date
-- Location
-- Remote/on-site
-- Lead inspector
-- Team
-- Selected catalog question scope (catalog version, exact question IDs, and
-  deterministic selection digest)
-- Provider scopes and regulated target
-- Scope
-- Status
+- Planning proposal ID
+- Inspected Organization
+- Provider scope and regulated target
+- Inspection type
+- Purpose
+- Planned date and mode
+- Conditional canonical location or remote meeting link
+- Required inspector count
+- Estimated checklist-item count and server workload estimate
+- Requested budget and currency
+- Planning approval status
 
 ## Primary actions
 
@@ -33,7 +28,7 @@ Create annual and ad hoc audit/inspection plans.
 - Schedule
 - Reschedule
 - Assign inspector
-- Review and freeze the catalog question scope before Finance submission
+- Review the Planning proposal dossier before Finance submission
 - Publish plan
 - Send Service Provider coordination package when advance notice is required
 - Confirm a proposed date or accept a Service Provider alternative date
@@ -70,10 +65,12 @@ Create annual and ad hoc audit/inspection plans.
   only when the dedicated disposable preprod profile is active. Exercise
   records cannot be published, promoted to operational use, or used to satisfy
   governed package eligibility.
-- Selection freezes an immutable scope snapshot and digest before Finance
-  submission. Computed Audit-package eligibility is a separate, recorded
-  decision from technical approval and publication; approval and materialization
-  consume the frozen snapshot rather than rereading a mutable catalog.
+- New Audit freezes an immutable Planning proposal snapshot without exact
+  checklist identities. The approved checklist-item estimate is the Planning
+  ceiling for later preparation.
+- After release, a separate Audit-package scope owns catalog identity, history
+  evaluation, exact checklist selection, digest, assignment, and preparation.
+  Planning `RELEASED` and Audit-package `FINALIZED` are distinct states.
 - Selection does not itself make work executable. Announced materialization
   starts at `AWAITING_AUDITEE_CONFIRMATION`; unannounced materialization starts
   at `SCHEDULED` with notice withheld. Both create a `NOT_STARTED` checklist;

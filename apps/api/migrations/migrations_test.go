@@ -23,8 +23,8 @@ func TestOIDCLoginStateSecurityMigrationContainsBrowserBoundAdmission(t *testing
 			t.Errorf("login-state security migration missing %q", required)
 		}
 	}
-	if LatestVersion != 56 {
-		t.Fatalf("latest API migration = %d, want 56", LatestVersion)
+	if LatestVersion != 57 {
+		t.Fatalf("latest API migration = %d, want 57", LatestVersion)
 	}
 	focusMigration, err := migrationFiles.ReadFile("000049_canonical_audit_type_focus_policy.up.sql")
 	if err != nil {
@@ -48,6 +48,15 @@ func TestOIDCLoginStateSecurityMigrationContainsBrowserBoundAdmission(t *testing
 	for _, required := range []string{"CHANGE_APPROVAL", "INITIAL_CERTIFICATION", "SPECIAL_PURPOSE", "ELSE false"} {
 		if !strings.Contains(strings.ToUpper(string(focusPolicyV2)), strings.ToUpper(required)) {
 			t.Errorf("audit-type focus v2 migration missing %q", required)
+		}
+	}
+	proposalBoundary, err := migrationFiles.ReadFile("000057_planning_proposal_boundary.up.sql")
+	if err != nil {
+		t.Fatalf("read Planning proposal boundary migration: %v", err)
+	}
+	for _, required := range []string{"planning_proposal_drafts", "planning_proposal_snapshots", "append-only"} {
+		if !strings.Contains(strings.ToLower(string(proposalBoundary)), strings.ToLower(required)) {
+			t.Errorf("Planning proposal migration missing %q", required)
 		}
 	}
 }

@@ -913,6 +913,19 @@ export interface PlanningItemView {
   revision: number;
   submittedScopeSnapshotId?: string;
   planningSnapshotDigest?: string;
+  planningSnapshotId?: string;
+  providerScopeLabel?: string;
+  regulatedTargetLabel?: string;
+  purpose?: string;
+  mode?: PlanningProposalMode;
+  locationLabel?: string;
+  meetingLink?: string;
+  requiredInspectorCount?: number;
+  estimatedChecklistItemCount?: number;
+  workloadEstimate?: PlanningWorkloadEstimate;
+  initiatedBy?: string;
+  noticePolicy?: PlanningIntakeNoticePolicy;
+  currency?: PlanningProposalCurrency;
 }
 
 export type PlanningIntakeInspectionCategory = "Routine / Announced" | "Ad Hoc / Unannounced";
@@ -952,6 +965,151 @@ export interface PlanningIntakeDraftView extends PlanningIntakeDraftValues {
   revision: number;
   submittedPlanningItemId: string | null;
   updatedAt: Instant;
+}
+
+export type PlanningProposalMode = "On-site" | "Remote";
+export type PlanningProposalCurrency = "USD" | "EUR" | "NAD";
+
+export type PlanningProposalLocationInput =
+  | { kind: "CANONICAL"; locationId: string }
+  | { kind: "NEW"; proposedLabel: string; acceptedResolutionToken: string };
+
+export interface PlanningPurposePreset {
+  id: string;
+  version: number;
+  label: string;
+  purpose: string;
+  active: boolean;
+  displayOrder: number;
+}
+
+export interface PlanningLocationOption {
+  id: string;
+  label: string;
+  aliases: string[];
+  source: "TARGET_DEFAULT" | "RECENT";
+}
+
+export interface PlanningLocationResolution {
+  outcome: "CANONICAL" | "NEW";
+  location: PlanningLocationOption | null;
+  acceptedResolutionToken: string;
+  message: string;
+}
+
+export interface PlanningResolvedLocation {
+  kind: "CANONICAL" | "NEW";
+  locationId: string | null;
+  label: string;
+  source: "TARGET_DEFAULT" | "RECENT" | "MANUAL";
+  editable: boolean;
+}
+
+export interface PlanningWorkloadEstimate {
+  estimateId: string;
+  estimateDigest: string;
+  catalogVersion: string;
+  catalogRootDigest: string;
+  policyVersion: string;
+  evaluatedAt: Instant;
+  applicableItemCount: number;
+  suggestedCount: number;
+  safeMinimum: number;
+  safeMaximum: number;
+  basisLabel: string;
+  eligibleRosterCount: number;
+  rosterEvaluatedAt: Instant;
+}
+
+export interface PlanningProposalDraftValues {
+  organizationId: string;
+  providerScopeId: string;
+  regulatedTargetId: string;
+  inspectionType: string;
+  purpose: string;
+  purposePresetId?: string;
+  plannedDate: LocalDate;
+  mode: PlanningProposalMode;
+  locationInput?: PlanningProposalLocationInput;
+  meetingLink?: string;
+  requiredInspectorCount: number;
+  estimatedChecklistItemCount: number;
+  workloadEstimateId: string;
+  workloadEstimateDigest: string;
+  requestedBudget: number | null;
+  currency: PlanningProposalCurrency;
+}
+
+export interface PlanningProposalDraftView extends PlanningProposalDraftValues {
+  id: string;
+  organizationName: string;
+  providerScopeLabel: string;
+  regulatedTargetLabel: string;
+  domainLabel?: string;
+  noticePolicy: PlanningIntakeNoticePolicy;
+  initiatedBy: "Department Manager";
+  location: PlanningResolvedLocation | null;
+  workloadEstimate: PlanningWorkloadEstimate;
+  revision: number;
+  submittedPlanningItemId: string | null;
+  planningSnapshotId: string | null;
+  planningSnapshotDigest: string | null;
+  updatedAt: Instant;
+}
+
+export interface SubmitPlanningProposalOutput {
+  draft: PlanningProposalDraftView;
+  planningItem: PlanningItemView;
+}
+
+export type PlanningAuditPackageSetupStatus = "DRAFT" | "SELECTION_CONFIRMED" | "FINALIZED";
+
+export interface PlanningAuditPackageSetupView {
+  planningItemId: string;
+  planningSnapshotId: string;
+  planningSnapshotDigest: string;
+  scopeDraftId: string;
+  status: PlanningAuditPackageSetupStatus;
+  revision: number;
+  catalogVersion: string;
+  catalogRootDigest: string;
+  selectedCount: number;
+  selectionDigest: string;
+  approvedChecklistItemCeiling: number;
+  nextAction: string;
+}
+
+export interface PlanningProposalBackend {
+  listScopeOptions(
+    input?: { cursor?: string; limit?: number },
+    options?: BackendRequestOptions,
+  ): Promise<CanonicalAuditScopeOptionPage>;
+  listPurposePresets(options?: BackendRequestOptions): Promise<PlanningPurposePreset[]>;
+  listLocations(
+    input: { organizationId: string; regulatedTargetId: string },
+    options?: BackendRequestOptions,
+  ): Promise<PlanningLocationOption[]>;
+  resolveLocation(
+    input: { operationId: string; idempotencyKey: string; organizationId: string; regulatedTargetId: string; proposedLabel: string },
+    options?: BackendRequestOptions,
+  ): Promise<PlanningLocationResolution>;
+  getWorkloadEstimate(
+    input: { operationId: string; idempotencyKey: string; organizationId: string; providerScopeId: string; regulatedTargetId: string; inspectionType: string },
+    options?: BackendRequestOptions,
+  ): Promise<PlanningWorkloadEstimate>;
+  createDraft(
+    input: {
+      values: PlanningProposalDraftValues;
+      draftId?: string;
+    } & CommandMeta & OptionalRevisionedCommandMeta,
+    options?: BackendRequestOptions,
+  ): Promise<PlanningProposalDraftView>;
+  getDraft(input: { draftId: string }, options?: BackendRequestOptions): Promise<PlanningProposalDraftView>;
+  saveDraft(input: CommandMeta & RevisionedCommandMeta & { draftId: string; values: PlanningProposalDraftValues }, options?: BackendRequestOptions): Promise<PlanningProposalDraftView>;
+  submit(input: CommandMeta & SubmitPlanningIntakeInput, options?: BackendRequestOptions): Promise<SubmitPlanningProposalOutput>;
+  ensureAuditPackageSetup(input: CommandMeta & { idempotencyKey: string; planningItemId: string; expectedPlanningRevision: number }, options?: BackendRequestOptions): Promise<PlanningAuditPackageSetupView>;
+  getAuditPackageSetup(input: { planningItemId: string }, options?: BackendRequestOptions): Promise<PlanningAuditPackageSetupView>;
+  finalizeAuditPackage(input: CommandMeta & { idempotencyKey: string; planningItemId: string; expectedPlanningRevision: number; expectedSetupRevision: number; expectedSelectionDigest: string }, options?: BackendRequestOptions): Promise<PlanningAuditPackageSetupView>;
 }
 
 export interface SavePlanningIntakeDraftInput extends RevisionedCommandMeta {
@@ -2001,6 +2159,8 @@ export interface Backend {
   readonly governedChecklistIntake: GovernedChecklistIntakeBackend;
   readonly assistantDrafts: AssistantDraftsBackend;
   readonly planningIntake: PlanningIntakeBackend;
+  /** New Audit planning proposal boundary; checklist/package selection is not part of this contract. */
+  readonly planningProposal?: PlanningProposalBackend;
   readonly canonicalCatalog?: CanonicalCatalogBackend;
   readonly canonicalAuditWorkflow?: CanonicalAuditWorkflowBackend;
   /** Fail-closed Auditee coordination projection and command boundary. */
@@ -2037,6 +2197,7 @@ export const BACKEND_CAPABILITY_REGISTRY = {
   governedChecklistIntake: true,
   assistantDrafts: true,
   planningIntake: true,
+  planningProposal: true,
   canonicalCatalog: true,
   canonicalAuditWorkflow: true,
   auditeeCoordination: true,

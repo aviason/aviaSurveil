@@ -21,6 +21,15 @@ import type {
   InspectionPackage,
   InspectionTeamAuditView,
   PlanningIntakeDraftView,
+  PlanningProposalBackend,
+  PlanningProposalDraftView,
+  PlanningProposalDraftValues,
+  PlanningPurposePreset,
+  PlanningLocationOption,
+  PlanningWorkloadEstimate,
+  PlanningResolvedLocation,
+  PlanningProposalLocationInput,
+  PlanningProposalMode,
   PotentialFindingView,
   GovernedCandidateBundleInput,
   GovernedSourceCurrentnessActivationInput,
@@ -69,6 +78,7 @@ import type {
   CanonicalQuestionCatalogEntry,
   CanonicalSelectionDigest,
   CanonicalQuestionUsageClass,
+  PlanningAuditPackageSetupView,
 } from "../backend/backend";
 import { priorAuditCatalogEntries, priorAuditRecommendationFixtures, type PriorAuditRecommendationProfile } from "./prior-audit-recommendations";
 import {
@@ -219,6 +229,112 @@ function mutableFinding(state: MockState, findingId: string): FindingView {
 
 function stableMockCommandKey(prefix: string, fields: readonly string[]): string {
   return `${prefix}-${fields.join("-").replace(/[^A-Za-z0-9-]+/g, "-").slice(0, 72)}`;
+}
+
+const mockPlanningPurposePresets: PlanningPurposePreset[] = [
+  {
+    id: "PURPOSE-ROUTINE-SURVEILLANCE",
+    version: 1,
+    label: "Routine surveillance",
+    purpose: "Complete a planned surveillance review of the approved operating context and confirm that required controls remain effective.",
+    active: true,
+    displayOrder: 1,
+  },
+  {
+    id: "PURPOSE-CHANGE-REVIEW",
+    version: 1,
+    label: "Change implementation review",
+    purpose: "Review the implementation of a material operational change and confirm that the affected controls are ready for continued oversight.",
+    active: true,
+    displayOrder: 2,
+  },
+  {
+    id: "PURPOSE-FOLLOW-UP",
+    version: 1,
+    label: "Follow-up on prior findings",
+    purpose: "Verify the response to prior oversight observations and establish whether the remaining control evidence is sufficient for the next decision.",
+    active: true,
+    displayOrder: 3,
+  },
+];
+
+function planningLocationsFor(organizationId: string, regulatedTargetId: string): PlanningLocationOption[] {
+  const label = regulatedTargetId === "TARGET-WINDHOEK-INTERNATIONAL"
+    ? "Windhoek International Airport"
+    : regulatedTargetId === "TARGET-WALVIS-BAY-AIRPORT"
+      ? "Walvis Bay Airport"
+      : regulatedTargetId === "TARGET-LUDERITZ-AIRPORT"
+        ? "Lüderitz Airport"
+        : regulatedTargetId.includes("FUEL")
+          ? "Windhoek aviation fuel farm"
+          : organizationId === "ORG-SKYCARGO"
+            ? "SkyCargo primary operating base"
+            : "Primary operating site";
+  const alias = label === "Windhoek International Airport" ? "WDH" : label;
+  return [{ id: `LOCATION-${regulatedTargetId}`, label, aliases: [alias], source: "TARGET_DEFAULT" }];
+}
+
+function planningWorkloadEstimateFor(
+  input: { organizationId: string; providerScopeId: string; regulatedTargetId: string; inspectionType: string },
+  clock: string,
+): PlanningWorkloadEstimate {
+  const seed = `${input.organizationId}:${input.providerScopeId}:${input.regulatedTargetId}:${input.inspectionType}`;
+  const applicableItemCount = 84 + (seed.length % 37);
+  const suggestedCount = Math.max(12, Math.round(applicableItemCount * 0.34));
+  const safeMinimum = Math.max(8, Math.round(suggestedCount * 0.65));
+  const safeMaximum = Math.min(applicableItemCount, Math.round(suggestedCount * 1.8));
+  return {
+    estimateId: stableMockCommandKey("WORKLOAD-ESTIMATE", [seed]),
+    estimateDigest: `sha256:${stableMockCommandKey("estimate", [seed]).toLowerCase()}`,
+    catalogVersion: "aga-approved-source-v2@1.0.0",
+    catalogRootDigest: `sha256:${stableMockCommandKey("catalog-root", [seed]).toLowerCase()}`,
+    policyVersion: "planning-workload-v1",
+    evaluatedAt: clock,
+    applicableItemCount,
+    suggestedCount,
+    safeMinimum,
+    safeMaximum,
+    basisLabel: "Server estimate from the authorized scope, inspection type, and current governed catalog.",
+    eligibleRosterCount: 4,
+    rosterEvaluatedAt: clock,
+  };
+}
+
+function planningResolvedLocation(
+  input: PlanningProposalLocationInput | undefined,
+  locations: PlanningLocationOption[],
+): PlanningResolvedLocation | null {
+  if (!input) return locations[0] ? { kind: "CANONICAL", locationId: locations[0].id, label: locations[0].label, source: locations[0].source, editable: true } : null;
+  if (input.kind === "CANONICAL") {
+    const option = locations.find((candidate) => candidate.id === input.locationId);
+    return option ? { kind: "CANONICAL", locationId: option.id, label: option.label, source: option.source, editable: true } : null;
+  }
+  return { kind: "NEW", locationId: null, label: input.proposedLabel, source: "MANUAL", editable: true };
+}
+
+function planningProposalView(
+  values: PlanningProposalDraftValues,
+  details: { id: string; revision: number; organizationName: string; providerScopeLabel: string; regulatedTargetLabel: string; submittedPlanningItemId: string | null; planningSnapshotId?: string | null; planningSnapshotDigest?: string | null; updatedAt: string },
+  locations: PlanningLocationOption[],
+  workloadEstimate: PlanningWorkloadEstimate,
+): PlanningProposalDraftView {
+  return {
+    ...values,
+    id: details.id,
+    organizationName: details.organizationName,
+    providerScopeLabel: details.providerScopeLabel,
+    regulatedTargetLabel: details.regulatedTargetLabel,
+    domainLabel: "Server-derived operational context",
+    noticePolicy: "ADVANCE",
+    initiatedBy: "Department Manager",
+    location: values.mode === "Remote" ? null : planningResolvedLocation(values.locationInput, locations),
+    workloadEstimate,
+    revision: details.revision,
+    submittedPlanningItemId: details.submittedPlanningItemId,
+    planningSnapshotId: details.planningSnapshotId ?? null,
+    planningSnapshotDigest: details.planningSnapshotDigest ?? null,
+    updatedAt: details.updatedAt,
+  };
 }
 
 function inspectionTeamForAudit(state: Readonly<MockState>, auditId: string): InspectionTeamAuditView {
@@ -2977,6 +3093,228 @@ export class MockBackendEngine implements DemoBackend {
         canCloseFinding: false,
       };
     }),
+  };
+
+  readonly planningProposal: PlanningProposalBackend = {
+    listScopeOptions: async (input) => {
+      requireDemoCapability(this.principal, "planningProposal");
+      requireRole(this.principal, ["manager"], "Department Manager authority is required for New Audit planning.");
+      return this.canonicalCatalog!.listScopeOptions(input);
+    },
+    listPurposePresets: async () => {
+      requireDemoCapability(this.principal, "planningProposal");
+      requireRole(this.principal, ["manager"], "Department Manager authority is required for New Audit planning.");
+      return structuredClone(mockPlanningPurposePresets).filter((preset) => preset.active).sort((left, right) => left.displayOrder - right.displayOrder);
+    },
+    listLocations: async ({ organizationId, regulatedTargetId }) => {
+      requireDemoCapability(this.principal, "planningProposal");
+      requireRole(this.principal, ["manager"], "Department Manager authority is required for New Audit planning.");
+      requireNonEmpty(organizationId, "Inspected Organization");
+      requireNonEmpty(regulatedTargetId, "Regulated target");
+      return planningLocationsFor(organizationId, regulatedTargetId);
+    },
+    resolveLocation: async ({ organizationId, regulatedTargetId, proposedLabel }) => {
+      requireDemoCapability(this.principal, "planningProposal");
+      requireRole(this.principal, ["manager"], "Department Manager authority is required for New Audit planning.");
+      const normalized = requireNonEmpty(proposedLabel, "Location").toLocaleLowerCase();
+      const options = planningLocationsFor(organizationId, regulatedTargetId);
+      const canonical = options.find((option) => [option.label, ...option.aliases].some((label) => label.toLocaleLowerCase() === normalized));
+      if (canonical) {
+        return {
+          outcome: "CANONICAL" as const,
+          location: canonical,
+          acceptedResolutionToken: stableMockCommandKey("LOCATION-RESOLUTION", [organizationId, regulatedTargetId, canonical.id]),
+          message: `This matches the canonical location ${canonical.label}.`,
+        };
+      }
+      return {
+        outcome: "NEW" as const,
+        location: null,
+        acceptedResolutionToken: stableMockCommandKey("LOCATION-RESOLUTION", [organizationId, regulatedTargetId, proposedLabel]),
+        message: "This label will be stored as a new Planning location after submission.",
+      };
+    },
+    getWorkloadEstimate: async (input) => {
+      requireDemoCapability(this.principal, "planningProposal");
+      requireRole(this.principal, ["manager"], "Department Manager authority is required for New Audit planning.");
+      return planningWorkloadEstimateFor(input, this.store.clock());
+    },
+    createDraft: async (input) => {
+      requireDemoCapability(this.principal, "planningProposal");
+      requireRole(this.principal, ["manager"], "Department Manager authority is required to create a New Audit draft.");
+      requireNonEmpty(input.operationId, "Operation id");
+      requireNonEmpty(input.idempotencyKey, "Idempotency key");
+      const scope = (await this.canonicalCatalog!.listScopeOptions({ limit: 100 })).items.find((candidate) => candidate.organizationId === input.values.organizationId && candidate.providerScopeId === input.values.providerScopeId && candidate.regulatedTargetId === input.values.regulatedTargetId);
+      if (!scope) throw new BackendAuthorizationInvariantError("The selected scope is not authorized for this Department Manager.");
+      const organization = this.store.read((state) => state.organizations.find((candidate) => candidate.id === input.values.organizationId));
+      if (!organization) throw new BackendInvariantError(`Organization ${input.values.organizationId} was not found.`);
+      const estimate = planningWorkloadEstimateFor(input.values, this.store.clock());
+      if (input.values.workloadEstimateId !== estimate.estimateId || input.values.workloadEstimateDigest !== estimate.estimateDigest) throw new BackendConflictError("The workload estimate is stale. Refresh the estimate and try again.");
+      const locations = planningLocationsFor(input.values.organizationId, input.values.regulatedTargetId);
+      const draftId = input.draftId ?? stableMockCommandKey("PLAN-PROPOSAL-DRAFT", [input.operationId, input.values.organizationId]);
+      return this.store.execute(input.operationId, input, (state) => {
+        if (state.planningProposalDrafts[draftId]) throw new BackendConflictError(`Planning proposal draft ${draftId} already exists.`);
+        const view = planningProposalView(input.values, { id: draftId, revision: 1, organizationName: organization.legalName, providerScopeLabel: scope.providerTypeLabel, regulatedTargetLabel: scope.targetLabel, submittedPlanningItemId: null, updatedAt: this.store.clock() }, locations, estimate);
+        state.planningProposalDrafts[draftId] = view;
+        return view;
+      });
+    },
+    getDraft: async ({ draftId }) => {
+      requireDemoCapability(this.principal, "planningProposal");
+      requireRole(this.principal, ["manager"], "Department Manager authority is required for New Audit drafts.");
+      return this.store.read((state) => {
+        const draft = state.planningProposalDrafts[draftId];
+        if (!draft) throw new BackendInvariantError(`New Audit draft ${draftId} was not found.`);
+        return draft;
+      });
+    },
+    saveDraft: async (input) => {
+      requireDemoCapability(this.principal, "planningProposal");
+      requireRole(this.principal, ["manager"], "Department Manager authority is required to save New Audit drafts.");
+      requireNonEmpty(input.idempotencyKey, "Idempotency key");
+      const scope = (await this.canonicalCatalog!.listScopeOptions({ limit: 100 })).items.find((candidate) => candidate.organizationId === input.values.organizationId && candidate.providerScopeId === input.values.providerScopeId && candidate.regulatedTargetId === input.values.regulatedTargetId);
+      if (!scope) throw new BackendAuthorizationInvariantError("The selected scope is not authorized for this Department Manager.");
+      const organization = this.store.read((state) => state.organizations.find((candidate) => candidate.id === input.values.organizationId));
+      if (!organization) throw new BackendInvariantError(`Organization ${input.values.organizationId} was not found.`);
+      const estimate = planningWorkloadEstimateFor(input.values, this.store.clock());
+      if (input.values.workloadEstimateId !== estimate.estimateId || input.values.workloadEstimateDigest !== estimate.estimateDigest) throw new BackendConflictError("The workload estimate is stale. Refresh the estimate and try again.");
+      return this.store.execute(input.idempotencyKey, input, (state) => {
+        const current = state.planningProposalDrafts[input.draftId];
+        if (!current) throw new BackendInvariantError(`New Audit draft ${input.draftId} was not found.`);
+        requireRevision(current.revision, input.expectedRevision, "New Audit draft");
+        if (current.submittedPlanningItemId) throw new BackendConflictError("A submitted Planning proposal is immutable.");
+        const saved = planningProposalView(input.values, { id: current.id, revision: current.revision + 1, organizationName: organization.legalName, providerScopeLabel: scope.providerTypeLabel, regulatedTargetLabel: scope.targetLabel, submittedPlanningItemId: null, planningSnapshotId: current.planningSnapshotId, planningSnapshotDigest: current.planningSnapshotDigest, updatedAt: this.store.clock() }, planningLocationsFor(input.values.organizationId, input.values.regulatedTargetId), estimate);
+        state.planningProposalDrafts[input.draftId] = saved;
+        return saved;
+      });
+    },
+    submit: async (input) => {
+      requireDemoCapability(this.principal, "planningProposal");
+      requireRole(this.principal, ["manager"], "Department Manager authority is required to submit a New Audit proposal.");
+      requireNonEmpty(input.idempotencyKey, "Idempotency key");
+      return this.store.execute(input.idempotencyKey, input, (state) => {
+        const current = state.planningProposalDrafts[input.draftId];
+        if (!current) throw new BackendInvariantError(`New Audit draft ${input.draftId} was not found.`);
+        requireRevision(current.revision, input.expectedRevision, "New Audit draft");
+        if (!current.purpose.trim() || !current.plannedDate || current.requiredInspectorCount <= 0 || current.estimatedChecklistItemCount <= 0 || current.requestedBudget === null || !Number.isFinite(current.requestedBudget) || current.requestedBudget < 0) throw new BackendInvariantError("Complete the required Planning proposal fields before submitting.");
+        if (current.mode === "On-site" && !current.location) throw new BackendInvariantError("An on-site location is required.");
+        if (current.mode === "Remote" && current.meetingLink && !/^https?:\/\//i.test(current.meetingLink)) throw new BackendInvariantError("The online meeting link must use HTTP(S).");
+        if (current.submittedPlanningItemId) {
+          const existing = state.planningItems[current.submittedPlanningItemId];
+          if (!existing) throw new BackendInvariantError("The submitted Planning item is unavailable.");
+          return { draft: current, planningItem: existing };
+        }
+        const planningItemId = input.planningItemId ?? stableMockCommandKey("PLAN-PROPOSAL", [input.draftId]);
+        if (state.planningItems[planningItemId]) throw new BackendConflictError(`Planning item ${planningItemId} already exists.`);
+        const planningSnapshotId = `planning-snapshot:${current.id}:submitted:${current.revision}`;
+        const planningSnapshotDigest = `sha256:${stableMockCommandKey("planning-snapshot", [current.id, String(current.revision)]).toLowerCase()}`;
+        const planningItem = {
+          id: planningItemId,
+          title: `New Audit — ${current.organizationName}`,
+          planYear: Number(current.plannedDate.slice(0, 4)),
+          organizationId: current.organizationId,
+          organizationName: current.organizationName,
+          inspectionType: current.inspectionType,
+          scheduledDate: current.plannedDate,
+          estimatedBudget: current.requestedBudget,
+          status: "FINANCE_REVIEW" as const,
+          currentOwnerRole: "finance" as const,
+          nextAction: "Finance to review the Planning proposal",
+          revision: 1,
+          planningSnapshotId,
+          planningSnapshotDigest,
+          providerScopeLabel: current.providerScopeLabel,
+          regulatedTargetLabel: current.regulatedTargetLabel,
+          purpose: current.purpose,
+          mode: current.mode,
+          locationLabel: current.location?.label,
+          meetingLink: current.meetingLink,
+          requiredInspectorCount: current.requiredInspectorCount,
+          estimatedChecklistItemCount: current.estimatedChecklistItemCount,
+          workloadEstimate: current.workloadEstimate,
+          initiatedBy: current.initiatedBy,
+          noticePolicy: current.noticePolicy,
+          currency: current.currency,
+        };
+        const submitted = { ...current, submittedPlanningItemId: planningItemId, planningSnapshotId, planningSnapshotDigest, revision: current.revision + 1, updatedAt: this.store.clock() };
+        state.planningProposalDrafts[current.id] = submitted;
+        state.planningItems[planningItemId] = planningItem;
+        state.auditEvents.push({ eventId: `AUDIT-PLAN-${pad(state.counters.auditEvent++)}`, occurredAt: this.store.clock(), actorRole: this.principal.role, actorSubjectId: this.principal.subjectId, action: "planning.proposal_submitted", entityType: "SURVEILLANCE_PLAN", entityId: planningItemId, beforeStatus: "DRAFT", afterStatus: "FINANCE_REVIEW", reason: "Department Manager submitted a New Audit proposal for Finance review.", entityRevision: planningItem.revision });
+        return { draft: submitted, planningItem };
+      });
+    },
+    ensureAuditPackageSetup: async (input) => {
+      requireDemoCapability(this.principal, "planningProposal");
+      requireRole(this.principal, ["manager"], "Department Manager authority is required for post-release preparation.");
+      requireNonEmpty(input.operationId, "Operation id");
+      requireNonEmpty(input.idempotencyKey, "Idempotency key");
+      return this.store.execute(input.operationId, input, (state) => {
+        const planningItem = state.planningItems[input.planningItemId];
+        if (!planningItem) throw new BackendInvariantError(`Planning item ${input.planningItemId} was not found.`);
+        requireRevision(planningItem.revision, input.expectedPlanningRevision, "Released Planning item");
+        if (planningItem.status !== "RELEASED") throw new BackendConflictError("Audit-package preparation is unavailable until Planning is RELEASED.");
+        const existing = state.planningAuditPackageSetups[input.planningItemId];
+        if (existing) return existing;
+        const draft = Object.values(state.planningProposalDrafts).find((candidate) => candidate.submittedPlanningItemId === input.planningItemId);
+        if (!draft?.planningSnapshotId || !draft.planningSnapshotDigest) throw new BackendConflictError("The immutable Planning proposal snapshot is unavailable.");
+        const scopeDraftId = stableMockCommandKey("AUDIT-PACKAGE-SCOPE", [input.planningItemId]);
+        const setup: PlanningAuditPackageSetupView = {
+          planningItemId: input.planningItemId,
+          planningSnapshotId: draft.planningSnapshotId,
+          planningSnapshotDigest: draft.planningSnapshotDigest,
+          scopeDraftId,
+          status: "DRAFT",
+          revision: 1,
+          catalogVersion: "aga-approved-source-v2@1.0.0",
+          catalogRootDigest: "sha256:mock-governed-catalog-root",
+          selectedCount: 0,
+          selectionDigest: "",
+          approvedChecklistItemCeiling: planningItem.estimatedChecklistItemCount ?? 1,
+          nextAction: "Review the governed checklist and confirm the exact Audit-package selection.",
+        };
+        state.planningAuditPackageSetups[input.planningItemId] = setup;
+        return setup;
+      });
+    },
+    getAuditPackageSetup: async ({ planningItemId }) => {
+      requireDemoCapability(this.principal, "planningProposal");
+      requireRole(this.principal, ["manager"], "Department Manager authority is required for post-release preparation.");
+      return this.store.read((state) => {
+        const setup = state.planningAuditPackageSetups[planningItemId];
+        if (!setup) throw new BackendInvariantError(`Post-release Audit-package setup ${planningItemId} was not found.`);
+        const selection = this.canonicalSelections.get(setup.scopeDraftId);
+        if (!selection || setup.status === "FINALIZED") return setup;
+        return { ...setup, selectedCount: selection.ids.length, selectionDigest: selection.digest };
+      });
+    },
+    finalizeAuditPackage: async (input) => {
+      requireDemoCapability(this.principal, "planningProposal");
+      requireRole(this.principal, ["manager"], "Department Manager authority is required to finalize post-release preparation.");
+      requireNonEmpty(input.operationId, "Operation id");
+      return this.store.execute(input.operationId, input, (state) => {
+        const planningItem = state.planningItems[input.planningItemId];
+        const setup = state.planningAuditPackageSetups[input.planningItemId];
+        if (!planningItem || !setup) throw new BackendInvariantError("Post-release Audit-package setup is unavailable.");
+        requireRevision(planningItem.revision, input.expectedPlanningRevision, "Released Planning item");
+        requireRevision(setup.revision, input.expectedSetupRevision, "Audit-package setup");
+        if (planningItem.status !== "RELEASED") throw new BackendConflictError("Planning must remain RELEASED while finalizing the Audit package.");
+        if (setup.status === "FINALIZED") return setup;
+        const selection = this.canonicalSelections.get(setup.scopeDraftId) ?? { digest: "", ids: [] };
+        if (selection.digest !== input.expectedSelectionDigest) throw new BackendConflictError("Checklist selection is stale; reload the post-release setup.");
+        if (!selection.ids.length) throw new BackendInvariantError("Confirm at least one checklist item before finalizing the Audit package.");
+        if (selection.ids.length > setup.approvedChecklistItemCeiling) throw new BackendConflictError("PLANNING_AMENDMENT_REQUIRED: selected checklist items exceed the approved ceiling.");
+        const finalized: PlanningAuditPackageSetupView = {
+          ...setup,
+          status: "FINALIZED",
+          revision: setup.revision + 1,
+          selectedCount: selection.ids.length,
+          selectionDigest: selection.digest,
+          nextAction: "Audit-package scope is finalized; proceed to Department Manager preparation.",
+        };
+        state.planningAuditPackageSetups[input.planningItemId] = finalized;
+        return finalized;
+      });
+    },
   };
 
   readonly planningIntake: DemoBackend["planningIntake"] = {

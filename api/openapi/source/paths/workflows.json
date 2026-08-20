@@ -2,6 +2,43 @@
   "/v1/planning/intake-drafts": {
     "post": { "operationId": "createPlanningIntakeDraft", "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreatePlanningIntakeDraftInput" } } } }, "responses": { "201": { "description": "Created planning intake draft", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PlanningIntakeDraftView" } } } }, "default": { "$ref": "#/components/responses/Problem" } } }
   },
+  "/v1/planning/purpose-presets": {
+    "get": { "operationId": "listPlanningPurposePresets", "responses": { "200": { "description": "Active server-managed purpose presets", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/PlanningPurposePreset" } } } } } } }
+  },
+  "/v1/planning/locations": {
+    "get": { "operationId": "listPlanningLocations", "parameters": [{ "name": "organizationId", "in": "query", "required": true, "schema": { "type": "string" } }, { "name": "regulatedTargetId", "in": "query", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Canonical Planning locations", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/PlanningLocationOption" } } } } } } }
+  },
+  "/v1/planning/location-resolutions": {
+    "post": { "operationId": "resolvePlanningLocation", "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "additionalProperties": false, "required": ["operationId", "idempotencyKey", "organizationId", "regulatedTargetId", "proposedLabel"], "properties": { "operationId": { "type": "string" }, "idempotencyKey": { "type": "string" }, "organizationId": { "type": "string" }, "regulatedTargetId": { "type": "string" }, "proposedLabel": { "type": "string" } } } } } }, "responses": { "200": { "description": "Resolved Planning location", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PlanningLocationResolution" } } } } } }
+  },
+  "/v1/planning/workload-estimates": {
+    "post": { "operationId": "getPlanningWorkloadEstimate", "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "additionalProperties": false, "required": ["operationId", "idempotencyKey", "organizationId", "providerScopeId", "regulatedTargetId", "inspectionType"], "properties": { "operationId": { "type": "string" }, "idempotencyKey": { "type": "string" }, "organizationId": { "type": "string" }, "providerScopeId": { "type": "string" }, "regulatedTargetId": { "type": "string" }, "inspectionType": { "type": "string" } } } } } }, "responses": { "200": { "description": "Server-owned Planning workload estimate", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PlanningWorkloadEstimate" } } } } } }
+  },
+  "/v1/planning/proposal-drafts": {
+    "post": { "operationId": "createPlanningProposalDraft", "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreatePlanningProposalDraftInput" } } } }, "responses": { "201": { "description": "Created Planning proposal draft", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PlanningProposalDraftView" } } } } } }
+  },
+  "/v1/planning/proposal-drafts/{draftId}": {
+    "get": { "operationId": "getPlanningProposalDraft", "parameters": [{ "name": "draftId", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Planning proposal draft", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PlanningProposalDraftView" } } } } } },
+    "put": { "operationId": "savePlanningProposalDraft", "parameters": [{ "name": "draftId", "in": "path", "required": true, "schema": { "type": "string" } }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SavePlanningProposalDraftInput" } } } }, "responses": { "200": { "description": "Saved Planning proposal draft", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PlanningProposalDraftView" } } } } } }
+  },
+  "/v1/planning/proposal-drafts/{draftId}/submissions": {
+    "post": { "operationId": "submitPlanningProposal", "parameters": [{ "name": "draftId", "in": "path", "required": true, "schema": { "type": "string" } }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SubmitPlanningIntakeInput" } } } }, "responses": { "200": { "description": "Submitted Planning proposal", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SubmitPlanningProposalOutput" } } } } } }
+  },
+  "/v1/planning/items/{planningItemId}/audit-package-setup": {
+    "get": { "operationId": "getPlanningAuditPackageSetup", "parameters": [{ "name": "planningItemId", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Post-release Audit-package setup", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PlanningAuditPackageSetupView" } } } }, "default": { "$ref": "#/components/responses/Problem" } } },
+    "post": { "operationId": "ensurePlanningAuditPackageSetup", "parameters": [{ "name": "planningItemId", "in": "path", "required": true, "schema": { "type": "string" } }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EnsurePlanningAuditPackageSetupInput" } } } }, "responses": { "200": { "description": "Ensured post-release Audit-package setup", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PlanningAuditPackageSetupView" } } } }, "default": { "$ref": "#/components/responses/Problem" } } }
+  },
+  "/v1/planning/items/{planningItemId}/audit-package-finalizations": {
+    "post": {
+      "operationId": "finalizePlanningAuditPackage",
+      "parameters": [{ "name": "planningItemId", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FinalizePlanningAuditPackageInput" } } } },
+      "responses": {
+        "200": { "description": "Finalized immutable Audit-package scope", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PlanningAuditPackageSetupView" } } } },
+        "default": { "$ref": "#/components/responses/Problem" }
+      }
+    }
+  },
   "/v1/planning/intake-drafts/{draftId}": {
     "get": { "operationId": "getPlanningIntakeDraft", "parameters": [{ "name": "draftId", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Planning intake draft", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PlanningIntakeDraftView" } } } } } },
     "put": { "operationId": "savePlanningIntakeDraft", "parameters": [{ "name": "draftId", "in": "path", "required": true, "schema": { "type": "string" } }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SavePlanningIntakeDraftInput" } } } }, "responses": { "200": { "description": "Saved planning intake draft", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PlanningIntakeDraftView" } } } } } }

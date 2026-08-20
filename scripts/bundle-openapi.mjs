@@ -65,6 +65,9 @@ function authorizedRoles(route) {
   if (route.startsWith("/v1/planning/intake-drafts")) {
     return ["manager"];
   }
+  if (route.includes("/audit-package-setup") || route.includes("/audit-package-finalizations")) {
+    return ["manager"];
+  }
   return allRoles.filter((role) => role !== "auditee");
 }
 

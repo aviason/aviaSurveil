@@ -77,32 +77,29 @@ Primary buttons:
 - Upload Evidence
 - Respond to CAA
 
-## New Inspection Planning Intake
+## New Audit Planning Proposal
 
 Main goal: create a governed Planning item before any executable Audit exists.
 
 Fields:
 
-- Organization
-- Application Type
-- Domain
-- Inspection Category: `Routine / Announced` or `Ad Hoc / Unannounced`
-- Advance-notice Policy
-- Purpose / Trigger
+- Inspected Organization
+- Provider scope and regulated target, server-resolved from authorized options
+- Inspection type
+- Purpose preset or editable purpose text
 - Planned Date
-- Mode
-- Location
-- Question Catalog / Exact Selection
-- Scope
-- Requested Budget
+- Mode: On-site or Remote
+- Conditional canonical location or optional online meeting link
+- Required inspector count
+- Estimated checklist-item count and server workload basis/range
+- Requested Budget and Currency
 - Approval Path
 
-`Ad Hoc / Unannounced` uses `Advance notification withheld`; the Service
-Provider is not informed in advance and the coordination branch is skipped.
-Submission returns to the selected Planning Command Center item with
-`Finance Review` as the Current Owner. Lead Inspector and team selection occur
-only after approval and `GM Release to Department`. The executable Audit is
-created only after Department Manager preparation confirmation.
+New Audit submits a Planning proposal to Finance. It does not collect Trigger,
+editable Risk Category, Domain, historical recommendation, exact checklist
+selection, selection digest, or named inspector assignment. The existing
+checklist selector begins only after `GM Release to Department`, at the
+post-release Department Manager preparation boundary.
 
 ## Checklist Runner form
 

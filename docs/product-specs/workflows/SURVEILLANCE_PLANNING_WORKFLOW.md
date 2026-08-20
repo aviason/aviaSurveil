@@ -13,9 +13,10 @@ tool, while applying the configured advance-notice policy before execution.
 4. Executive Director approves the plan with a demo-only mock mark
 5. General Manager performs the separate `GM Release to Department` step
 6. Department prepares the released plan
-7. Select period/year, organization, active provider scope, typed regulated target,
-   audit type, domain, location, planned date, and the exact catalog question
-   subset with its selection digest
+7. In New Audit, select the Inspected Organization, authorized provider scope,
+   typed regulated target, inspection type, purpose, planned date, mode,
+   conditional location, inspector capacity, checklist-item estimate, and
+   budget; do not select exact checklist items before approval
 8. Department Manager assigns the Lead Inspector
 9. Lead Inspector assigns the inspection team and per-question coverage from
    the released scope snapshot; no pre-approval checklist-template field is
@@ -50,8 +51,9 @@ tool, while applying the configured advance-notice policy before execution.
   published question versions. A preprod exercise selection is allowed only in
   the dedicated disposable `PREPROD_EXERCISE` profile and cannot be published
   or promoted.
-- The exact question subset is frozen before Finance submission and every
-  approval binds its immutable selection digest.
+- New Audit binds a Planning proposal snapshot and estimate ceiling before
+  Finance submission. Exact question identities and their digest are frozen
+  only in the separate post-release Audit-package scope.
 - The inspection type/configured policy determines whether advance notice is
   required; do not infer this from UI color or free text.
 - Routine / Announced execution becomes ready only after the proposed date is

@@ -189,7 +189,7 @@ const CORE_VISUAL_SURFACES: readonly VisualSurfaceFixture[] = [
     legacy: { role: "inspector", view: "inspector-assignments", params: {} },
     stableSelector: "main.content",
     expectedHeading: "My Assignments",
-    expectedSemanticMarker: "PR-2026-018",
+    expectedSemanticMarker: "2026 Cabin Inspection - Fly Namibia",
     expectedRoleText: "Inspector",
     expectedOwnerText: "Aylin Sezer",
     expectedNextActionText: "Start",
@@ -607,11 +607,11 @@ const REVIEWED_SOURCE_ASSERTIONS: Partial<Record<ReactSurfaceId, ReviewedLegacyA
   "organization-detail": { expectedHeading: "Organization details", expectedSemanticMarker: "Organization :organizationId was not found." },
   "manager-preliminary-report-review": { expectedHeading: "Reports Approval", expectedSemanticMarker: "PR-2026-018-V1" },
   "manager-cap-closure-review": { expectedHeading: "Department Manager Review", expectedSemanticMarker: "Finding :findingId was not found." },
-  "new-audit-wizard-1": { expectedHeading: "New Inspection", expectedSemanticMarker: "Basics", legacyState: { wizardStep: 1 } },
-  "new-audit-wizard-2": { expectedHeading: "New Inspection", expectedSemanticMarker: "Purpose", legacyState: { wizardStep: 2 } },
-  "new-audit-wizard-3": { expectedHeading: "New Inspection", expectedSemanticMarker: "Schedule", legacyState: { wizardStep: 3 } },
-  "new-audit-wizard-4": { expectedHeading: "New Inspection", expectedSemanticMarker: "Checklist & budget", legacyState: { wizardStep: 4 } },
-  "new-audit-wizard-5": { expectedHeading: "New Inspection", expectedSemanticMarker: "Review", legacyState: { wizardStep: 5 } },
+  "new-audit-wizard-1": { expectedHeading: "New Audit", expectedSemanticMarker: "Scope", legacyState: { wizardStep: 1 } },
+  "new-audit-wizard-2": { expectedHeading: "New Audit", expectedSemanticMarker: "Purpose", legacyState: { wizardStep: 2 } },
+  "new-audit-wizard-3": { expectedHeading: "New Audit", expectedSemanticMarker: "Schedule", legacyState: { wizardStep: 3 } },
+  "new-audit-wizard-4": { expectedHeading: "New Audit", expectedSemanticMarker: "Resources & budget", legacyState: { wizardStep: 4 } },
+  "new-audit-wizard-5": { expectedHeading: "New Audit", expectedSemanticMarker: "Review", legacyState: { wizardStep: 5 } },
   "gm-planning": { expectedHeading: "Planning", expectedSemanticMarker: "Planning" },
   "gm-report-approvals": { expectedHeading: "Report Approvals", expectedSemanticMarker: "Report" },
   "gm-departments": { expectedHeading: "Departments", expectedSemanticMarker: "Department" },
@@ -650,6 +650,7 @@ const REVIEWED_SOURCE_ASSERTIONS: Partial<Record<ReactSurfaceId, ReviewedLegacyA
 const roleFromRoute = (id: ReactSurfaceId) => REACT_ROUTE_CONTRACTS.find((route) => route.id === id)?.requiredRole ?? null;
 
 const GENERATED_VISUAL_SURFACES: readonly VisualSurfaceFixture[] = REACT_ROUTE_CONTRACTS
+  .filter((route) => route.id !== "post-release-checklist-selection")
   .filter((route) => !CORE_VISUAL_SURFACES.some((surface) => surface.id === route.id))
   .map((route) => {
     const legacy = LEGACY_ROUTE_FIXTURES[route.id];
@@ -710,7 +711,7 @@ type ReactSurfaceSemanticFields = Pick<
  */
 const REACT_SURFACE_SEMANTIC_OVERRIDES = {
   "inspector-home": {
-    expectedSemanticMarker: "AUD-2026-001",
+    expectedSemanticMarker: "2026 Cabin Inspection - Fly Namibia",
     expectedOwnerText: "CAA Inspector",
     expectedNextActionText: "Continue Cabin Inspection checklist",
     expectedStatusText: "IN PROGRESS",

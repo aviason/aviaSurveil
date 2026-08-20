@@ -795,6 +795,46 @@ func planningView(item planning.Item) generated.PlanningItemView {
 	if item.PlanningSnapshotDigest != "" {
 		view.PlanningSnapshotDigest = &item.PlanningSnapshotDigest
 	}
+	if item.PlanningSnapshotID != "" {
+		view.PlanningSnapshotId = &item.PlanningSnapshotID
+	}
+	if item.ProviderScopeLabel != "" {
+		view.ProviderScopeLabel = &item.ProviderScopeLabel
+	}
+	if item.RegulatedTargetLabel != "" {
+		view.RegulatedTargetLabel = &item.RegulatedTargetLabel
+	}
+	if item.Purpose != "" {
+		view.Purpose = &item.Purpose
+	}
+	if item.Mode != "" {
+		view.Mode = &item.Mode
+	}
+	if item.LocationLabel != "" {
+		view.LocationLabel = &item.LocationLabel
+	}
+	if item.MeetingLink != "" {
+		view.MeetingLink = &item.MeetingLink
+	}
+	if item.RequiredInspectorCount > 0 {
+		view.RequiredInspectorCount = &item.RequiredInspectorCount
+	}
+	if item.EstimatedChecklistItemCount > 0 {
+		view.EstimatedChecklistItemCount = &item.EstimatedChecklistItemCount
+	}
+	if item.WorkloadEstimate != nil {
+		view.WorkloadEstimate = (*generated.PlanningWorkloadEstimate)(&generated.PlanningWorkloadEstimate{EstimateId: item.WorkloadEstimate.EstimateID, EstimateDigest: item.WorkloadEstimate.EstimateDigest, CatalogVersion: item.WorkloadEstimate.CatalogVersion, CatalogRootDigest: item.WorkloadEstimate.CatalogRootDigest, PolicyVersion: item.WorkloadEstimate.PolicyVersion, EvaluatedAt: item.WorkloadEstimate.EvaluatedAt, ApplicableItemCount: item.WorkloadEstimate.ApplicableItemCount, SuggestedCount: item.WorkloadEstimate.SuggestedCount, SafeMinimum: item.WorkloadEstimate.SafeMinimum, SafeMaximum: item.WorkloadEstimate.SafeMaximum, BasisLabel: item.WorkloadEstimate.BasisLabel, EligibleRosterCount: item.WorkloadEstimate.EligibleRosterCount, RosterEvaluatedAt: item.WorkloadEstimate.RosterEvaluatedAt})
+	}
+	if item.InitiatedBy != "" {
+		view.InitiatedBy = &item.InitiatedBy
+	}
+	if item.NoticePolicy != "" {
+		notice := string(item.NoticePolicy)
+		view.NoticePolicy = &notice
+	}
+	if item.Currency != "" {
+		view.Currency = &item.Currency
+	}
 	return view
 }
 

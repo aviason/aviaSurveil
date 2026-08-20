@@ -911,7 +911,7 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
       ]);
     });
 
-    it("projects all 85 active screen/action contracts and the same governed Task 9 transcript", async () => {
+    it("projects all 86 active screen/action contracts and the same governed Task 9 transcript", async () => {
       const harness = await createHarness();
       const uniqueScreens = new Set<string>();
       const uniqueActions = new Map<string, {
@@ -950,7 +950,7 @@ export function backendContract(createHarness: BackendContractHarnessFactory): v
           }
         }
       }
-      expect([...uniqueScreens]).toHaveLength(85);
+      expect([...uniqueScreens]).toHaveLength(86);
       expect([...uniqueActions]).toHaveLength(107);
       for (const { backend, screenId, actionId, effect } of uniqueActions.values()) {
         const invoked = await backend.administration!.invokeVisibleAction({

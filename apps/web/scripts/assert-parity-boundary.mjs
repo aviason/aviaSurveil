@@ -13,7 +13,7 @@ import { assertHttpArtifact } from "./assert-http-artifact.mjs";
 const scriptPath = fileURLToPath(import.meta.url);
 const defaultRepositoryRoot = path.resolve(path.dirname(scriptPath), "../../..");
 
-const EXPECTED_ROUTE_COUNT = 85;
+const EXPECTED_ROUTE_COUNT = 86;
 const EXPECTED_VISUAL_PAIR_COUNT = 255;
 
 const HTTP_FORBIDDEN_INPUTS = [
@@ -299,13 +299,13 @@ function assertSourceBoundary(repositoryRoot, mutation) {
   assert.equal(
     declaredRoutePaths.length,
     EXPECTED_ROUTE_COUNT,
-    "React route registry must remain the exact ordered 85-surface set.",
+    "React route registry must remain the exact ordered 86-surface set (85-surface legacy contract plus post-release preparation).",
   );
   assert.equal(new Set(declaredRoutePaths).size, EXPECTED_ROUTE_COUNT, "React route registry contains duplicate paths.");
   assert.match(
     routeContracts,
     /availableProfiles:\s*\["demo",\s*"http"\]/,
-    "All 85 routes must be dual-profile.",
+    "All 86 routes must be dual-profile.",
   );
   assert.doesNotMatch(
     routeContracts,

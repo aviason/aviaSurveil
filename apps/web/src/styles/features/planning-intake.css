@@ -1352,3 +1352,346 @@
   .planning-intake-page *::before,
   .planning-intake-page *::after { scroll-behavior: auto; transition-duration: .01ms; animation-duration: .01ms; animation-iteration-count: 1; }
 }
+
+/* New Audit planning proposal surface. */
+.planning-intake-progress {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+}
+
+.planning-intake-progress__desktop {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.planning-intake-progress__desktop li {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  border-bottom: 2px solid var(--avia-color-line);
+  padding: 9px 4px 12px;
+  color: var(--avia-color-muted);
+  font-size: .86rem;
+}
+
+.planning-intake-progress__desktop li > span {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid var(--avia-color-line);
+  border-radius: 50%;
+  background: var(--avia-color-surface-muted);
+  font-size: .75rem;
+  font-weight: 800;
+}
+
+.planning-intake-progress__desktop li > b { min-width: 0; overflow-wrap: anywhere; }
+.planning-intake-progress__desktop li.is-current { border-color: var(--avia-color-action); color: var(--avia-color-heading); }
+.planning-intake-progress__desktop li.is-current > span { border-color: var(--avia-color-action); color: #fff; background: var(--avia-color-action); }
+.planning-intake-progress__desktop li.is-complete { border-color: var(--avia-color-success); color: var(--avia-color-success); }
+.planning-intake-progress__desktop li.is-complete > span { border-color: var(--avia-color-success); color: #fff; background: var(--avia-color-success); }
+
+.planning-intake-eyebrow,
+.planning-intake-section-kicker,
+.planning-intake-brief__eyebrow {
+  color: var(--avia-color-action);
+  font-size: .75rem;
+  font-weight: 800;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.planning-proposal-dossier {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid var(--avia-color-line);
+  border-bottom: 1px solid var(--avia-color-line);
+  padding: 16px 0;
+}
+
+.planning-proposal-dossier header { display: grid; gap: 3px; }
+.planning-proposal-dossier header span { color: var(--avia-color-action); font-size: .74rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.planning-proposal-dossier h3 { margin: 0; color: var(--avia-color-heading); font-size: 1rem; }
+.planning-proposal-dossier dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; margin: 0; }
+.planning-proposal-dossier dl div { display: grid; gap: 3px; min-width: 0; }
+.planning-proposal-dossier dt { color: var(--avia-color-muted); font-size: .72rem; font-weight: 800; letter-spacing: .02em; text-transform: uppercase; }
+.planning-proposal-dossier dd { margin: 0; color: var(--avia-color-ink); overflow-wrap: anywhere; line-height: 1.45; }
+.planning-proposal-dossier > p { margin: 0; color: var(--avia-color-muted); font-size: .82rem; line-height: 1.5; }
+
+.planning-intake-progress > .planning-intake-progress__mobile { display: none; }
+
+.planning-intake-scope-fields fieldset,
+.planning-intake-mode-group {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--avia-color-line);
+  padding: 18px 0 0;
+}
+
+.planning-intake-scope-fields legend,
+.planning-intake-mode-group legend {
+  margin-bottom: 12px;
+  color: var(--avia-color-heading);
+  font-size: .9rem;
+  font-weight: 800;
+}
+
+.planning-intake-scope-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.planning-intake-scope-choice {
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+  border-left: 3px solid var(--avia-color-action);
+  background: var(--avia-color-surface-muted);
+  padding: 12px 14px;
+}
+
+.planning-intake-scope-choice > div {
+  display: grid;
+  gap: 4px;
+}
+
+.planning-intake-scope-choice span,
+.planning-intake-label {
+  color: var(--avia-color-muted);
+  font-size: .74rem;
+  font-weight: 800;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+
+.planning-intake-scope-choice strong {
+  color: var(--avia-color-heading);
+  font-size: 1rem;
+}
+
+.planning-intake-scope-choice small,
+.planning-intake-location-display small {
+  color: var(--avia-color-muted);
+  font-size: .8rem;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.planning-intake-scope-choice select { width: 100%; }
+
+.planning-intake-radio-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.planning-intake-radio-row label {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--avia-color-line);
+  border-radius: var(--avia-radius-control);
+  background: var(--avia-color-panel);
+  padding: 10px 14px;
+  color: var(--avia-color-heading);
+  cursor: pointer;
+}
+
+.planning-intake-radio-row label:has(input:checked) {
+  border-color: var(--avia-color-action);
+  background: var(--avia-color-action-soft);
+}
+
+.planning-intake-radio-row input { width: 18px; height: 18px; accent-color: var(--avia-color-action); }
+
+.planning-intake-location-field,
+.planning-intake-disclosure {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 10px;
+  min-width: 0;
+  border-top: 1px solid var(--avia-color-line);
+  padding-top: 18px;
+}
+
+.planning-intake-location-display {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 64px;
+  border-left: 3px solid var(--avia-color-success);
+  background: var(--avia-color-success-surface);
+  padding: 12px 14px;
+}
+
+.planning-intake-location-display > div { display: grid; gap: 3px; min-width: 0; }
+.planning-intake-location-display strong { color: var(--avia-color-heading); overflow-wrap: anywhere; }
+
+.planning-intake-location-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  border-left: 3px solid var(--avia-color-action);
+  background: var(--avia-color-surface-muted);
+  padding: 14px;
+}
+
+.planning-intake-location-editor label,
+.planning-intake-disclosure label {
+  display: grid;
+  gap: 7px;
+  color: var(--avia-color-ink);
+  font-size: .9rem;
+  font-weight: 700;
+}
+
+.planning-intake-open-section {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 16px;
+  border-top: 1px solid var(--avia-color-line);
+  padding-top: 20px;
+}
+
+.planning-intake-open-section header {
+  display: grid;
+  grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.planning-intake-open-section h3 { margin: 3px 0 0; color: var(--avia-color-heading); font-size: 1.15rem; }
+.planning-intake-open-section header p { margin: 0; color: var(--avia-color-muted); line-height: 1.5; }
+.planning-intake-open-section > label { max-width: 520px; }
+
+.planning-intake-budget-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 160px;
+  gap: 16px;
+  align-items: start;
+}
+
+.planning-intake-warning {
+  margin: 0;
+  border-left: 3px solid var(--avia-color-warning, #8a5a00);
+  background: var(--avia-color-warning-surface, #fff8e6);
+  padding: 11px 13px;
+  color: var(--avia-color-ink);
+  line-height: 1.5;
+}
+
+.planning-intake-brief__facts dd { overflow-wrap: anywhere; }
+.planning-intake-review-copy { max-width: 720px; white-space: pre-wrap; }
+
+.planning-intake-workload-drawer {
+  display: grid;
+  width: min(760px, 100%);
+  max-height: min(760px, calc(100dvh - 48px));
+  gap: 16px;
+  overflow: auto;
+  border: 1px solid var(--avia-color-line);
+  border-radius: var(--avia-radius-panel);
+  background: var(--avia-color-panel);
+  padding: 24px;
+  box-shadow: 0 20px 60px rgb(8 31 48 / 28%);
+}
+
+.planning-intake-workload-drawer header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.planning-intake-workload-drawer h2 { margin: 4px 0 0; color: var(--avia-color-heading); }
+.planning-intake-workload-drawer > p { margin: 0; color: var(--avia-color-muted); line-height: 1.5; }
+.planning-intake-workload-drawer > label { display: grid; gap: 7px; color: var(--avia-color-ink); font-weight: 700; }
+.planning-intake-preview-count { font-weight: 750; }
+
+.planning-intake-preview-list {
+  display: grid;
+  max-height: 420px;
+  gap: 0;
+  margin: 0;
+  overflow: auto;
+  padding: 0;
+  list-style: none;
+}
+
+.planning-intake-preview-list li { display: grid; gap: 4px; border-top: 1px solid var(--avia-color-line); padding: 12px 0; }
+.planning-intake-preview-list strong { color: var(--avia-color-heading); }
+.planning-intake-preview-list span { color: var(--avia-color-ink); line-height: 1.45; }
+.planning-intake-workload-drawer footer { display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--avia-color-line); padding-top: 16px; }
+
+.planning-intake-actions button,
+.planning-intake-location-editor button,
+.planning-intake-workload-drawer button,
+.planning-intake-brief button { min-height: 44px; }
+
+.planning-post-release-facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0 0;
+}
+
+.planning-post-release-facts div {
+  display: grid;
+  gap: 4px;
+  border-top: 1px solid var(--avia-color-line);
+  padding-top: 10px;
+}
+
+.planning-post-release-facts dt { color: var(--avia-color-muted); font-size: .8rem; font-weight: 750; }
+.planning-post-release-facts dd { margin: 0; color: var(--avia-color-heading); font-weight: 750; overflow-wrap: anywhere; }
+.planning-post-release-selector { display: grid; gap: 18px; }
+.planning-post-release-selector > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.planning-post-release-selector > header h2 { margin: 4px 0 0; color: var(--avia-color-heading); }
+.planning-post-release-selector > header p { margin: 6px 0 0; color: var(--avia-color-muted); line-height: 1.5; }
+.planning-post-release-filters { display: grid; grid-template-columns: minmax(0, 1fr) 220px auto; gap: 12px; align-items: end; }
+.planning-post-release-filters label { display: grid; gap: 6px; color: var(--avia-color-ink); font-weight: 700; }
+.planning-post-release-filters button { min-height: 44px; }
+.planning-post-release-selector .planning-intake-catalog-list { max-height: 620px; overflow: auto; }
+.planning-post-release-selector .planning-intake-catalog-list > li { align-items: start; }
+.planning-post-release-selector .planning-intake-catalog-list details { margin: 8px 0 0 31px; color: var(--avia-color-muted); }
+.planning-post-release-selector .planning-intake-catalog-list details summary { min-height: 36px; color: var(--avia-color-action); cursor: pointer; }
+.planning-post-release-actions { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; border-top: 1px solid var(--avia-color-line); padding-top: 16px; }
+.planning-post-release-actions p { margin: 0; color: var(--avia-color-muted); line-height: 1.45; }
+.planning-post-release-actions div { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+.planning-post-release-actions button { min-height: 44px; }
+
+@media (max-width: 760px) {
+  .planning-intake-progress > .planning-intake-progress__desktop { display: none; }
+  .workspace-content .planning-intake-progress > .planning-intake-progress__mobile { display: grid; gap: 8px; }
+  .planning-intake-progress__mobile > p { margin: 0; color: var(--avia-color-heading); font-size: .95rem; }
+  .planning-intake-progress__mobile details { border-top: 1px solid var(--avia-color-line); border-bottom: 1px solid var(--avia-color-line); padding: 8px 0; }
+  .planning-intake-progress__mobile summary { min-height: 44px; display: flex; align-items: center; color: var(--avia-color-action); font-weight: 750; cursor: pointer; }
+  .planning-intake-progress__mobile ol { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+  .planning-intake-progress__mobile li { display: flex; min-height: 42px; align-items: center; gap: 10px; border-left: 3px solid var(--avia-color-line); padding: 7px 10px; color: var(--avia-color-muted); }
+  .planning-intake-progress__mobile li.is-current { border-left-color: var(--avia-color-action); color: var(--avia-color-heading); }
+  .planning-intake-progress__mobile li.is-complete { border-left-color: var(--avia-color-success); color: var(--avia-color-success); }
+  .planning-intake-progress__mobile li span { display: grid; width: 26px; height: 26px; place-items: center; border: 1px solid currentColor; border-radius: 50%; font-size: .75rem; font-weight: 800; }
+  .planning-intake-scope-facts,
+  .planning-intake-location-editor,
+  .planning-intake-open-section header,
+  .planning-intake-budget-fields,
+  .planning-proposal-dossier dl,
+  .planning-post-release-facts,
+  .planning-post-release-filters { grid-template-columns: 1fr; }
+  .planning-intake-location-editor button { width: 100%; }
+  .planning-post-release-selector > header,
+  .planning-post-release-selector .planning-post-release-actions { display: grid; align-items: stretch; }
+  .planning-post-release-selector .planning-post-release-actions > div { display: grid; grid-template-columns: 1fr; }
+  .planning-post-release-selector .planning-post-release-actions button { width: 100%; }
+  .workspace-content .planning-intake-workload-drawer { max-height: 92dvh; border-radius: 16px 16px 0 0; padding: 20px 15px calc(20px + env(safe-area-inset-bottom)); }
+  .workspace-content .planning-intake-workload-drawer footer { display: grid; grid-template-columns: 1fr; }
+  .workspace-content .planning-intake-workload-drawer footer button { width: 100%; }
+}

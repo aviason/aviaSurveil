@@ -95,9 +95,9 @@ describe("Department Manager operational workspaces", () => {
     expect(await within(page).findByRole("list", { name: "Approved AGA catalog questions" })).toBeVisible();
     expect(within(page).getByText(/loaded/)).toBeVisible();
     expect(page).not.toHaveTextContent(/candidate|exercise|PREPROD_EXERCISE|publish|approval/i);
-    expect(within(page).getByRole("link", { name: "Open New Audit question selection" })).toHaveAttribute(
+    expect(within(page).getByRole("link", { name: "Open released Planning preparation" })).toHaveAttribute(
       "href",
-      "/department-manager/new-audit/step-4",
+      "/department-manager/audit-plan",
     );
   });
 });

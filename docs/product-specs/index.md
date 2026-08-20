@@ -4,6 +4,10 @@ This folder is the English canonical AviaSurveil360 product source of truth.
 Turkish explanations belong in user-facing handoffs rather than duplicated
 repository documents.
 
+## Current Demo MVP Decisions
+
+- [Department Manager decisions — 20 August 2026](workflows/2026-08-20-demo-mvp-department-manager-decisions.md) — agreed workflow and UX boundaries; detailed New Audit and checklist-selection planning remains separate and implementation is `not run`.
+
 ## Reading Order
 
 1. `research-and-positioning/MARKET_RESEARCH_SUMMARY.md`

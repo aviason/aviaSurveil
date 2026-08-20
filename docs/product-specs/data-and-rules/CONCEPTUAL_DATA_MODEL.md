@@ -5,6 +5,9 @@
 - User
 - Role
 - Organization
+- PlanningProposal
+- PlanningProposalSnapshot
+- AuditPackageScope
 - OrganizationUser
 - Audit
 - AuditTeamMember
@@ -49,6 +52,13 @@
 ## Relationships
 
 Organization has many Audits.
+PlanningProposal belongs to an Organization and freezes the scope, purpose,
+schedule, capacity, checklist-item estimate, budget, and approval history. A
+PlanningProposalSnapshot is immutable and contains no exact checklist-item
+identities or selection digest.
+AuditPackageScope begins only from a released PlanningProposal and owns the
+governed catalog, historical recommendation evaluation, exact checklist-item
+identities, selection digest, assignment, and preparation confirmation.
 Audit has many ChecklistResponses.
 Audit has many Findings.
 Finding has many CAP revisions.

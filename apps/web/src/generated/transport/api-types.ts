@@ -660,6 +660,150 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/planning/purpose-presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listPlanningPurposePresets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/planning/locations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listPlanningLocations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/planning/location-resolutions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["resolvePlanningLocation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/planning/workload-estimates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["getPlanningWorkloadEstimate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/planning/proposal-drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createPlanningProposalDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/planning/proposal-drafts/{draftId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPlanningProposalDraft"];
+        put: operations["savePlanningProposalDraft"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/planning/proposal-drafts/{draftId}/submissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["submitPlanningProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/planning/items/{planningItemId}/audit-package-setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPlanningAuditPackageSetup"];
+        put?: never;
+        post: operations["ensurePlanningAuditPackageSetup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/planning/items/{planningItemId}/audit-package-finalizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["finalizePlanningAuditPackage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/planning/intake-drafts/{draftId}": {
         parameters: {
             query?: never;
@@ -2841,6 +2985,22 @@ export interface components {
             revision: number;
             submittedScopeSnapshotId?: string;
             planningSnapshotDigest?: string;
+            planningSnapshotId?: string;
+            providerScopeLabel?: string;
+            regulatedTargetLabel?: string;
+            purpose?: string;
+            /** @enum {string} */
+            mode?: "On-site" | "Remote";
+            locationLabel?: string;
+            meetingLink?: string;
+            requiredInspectorCount?: number;
+            estimatedChecklistItemCount?: number;
+            workloadEstimate?: components["schemas"]["PlanningWorkloadEstimate"];
+            initiatedBy?: string;
+            /** @enum {string} */
+            noticePolicy?: "ADVANCE" | "WITHHELD";
+            /** @enum {string} */
+            currency?: "USD" | "EUR" | "NAD";
         };
         ListPlanningItemsOutput: {
             items: components["schemas"]["PlanningItemView"][];
@@ -3247,6 +3407,149 @@ export interface components {
         SubmitPlanningIntakeOutput: {
             draft: components["schemas"]["PlanningIntakeDraftView"];
             planningItem: components["schemas"]["PlanningItemView"];
+        };
+        PlanningProposalLocationInput: {
+            /** @constant */
+            kind: "CANONICAL";
+            locationId: string;
+        } | {
+            /** @constant */
+            kind: "NEW";
+            proposedLabel: string;
+            acceptedResolutionToken: string;
+        };
+        PlanningProposalDraftValues: {
+            organizationId: string;
+            providerScopeId: string;
+            regulatedTargetId: string;
+            inspectionType: string;
+            purpose: string;
+            purposePresetId?: string;
+            /** Format: date */
+            plannedDate: string;
+            /** @enum {string} */
+            mode: "On-site" | "Remote";
+            locationInput?: components["schemas"]["PlanningProposalLocationInput"] | null;
+            meetingLink?: string;
+            requiredInspectorCount: number;
+            estimatedChecklistItemCount: number;
+            workloadEstimateId: string;
+            workloadEstimateDigest: string;
+            requestedBudget: number | null;
+            /** @enum {string} */
+            currency: "USD" | "EUR" | "NAD";
+        };
+        PlanningPurposePreset: {
+            id: string;
+            version: number;
+            label: string;
+            purpose: string;
+            active: boolean;
+            displayOrder: number;
+        };
+        PlanningLocationOption: {
+            id: string;
+            label: string;
+            aliases: string[];
+            /** @enum {string} */
+            source: "TARGET_DEFAULT" | "RECENT";
+        };
+        PlanningLocationResolution: {
+            /** @enum {string} */
+            outcome: "CANONICAL" | "NEW";
+            location: components["schemas"]["PlanningLocationOption"] | null;
+            acceptedResolutionToken: string;
+            message: string;
+        };
+        PlanningWorkloadEstimate: {
+            estimateId: string;
+            estimateDigest: string;
+            catalogVersion: string;
+            catalogRootDigest: string;
+            policyVersion: string;
+            /** Format: date-time */
+            evaluatedAt: string;
+            applicableItemCount: number;
+            suggestedCount: number;
+            safeMinimum: number;
+            safeMaximum: number;
+            basisLabel: string;
+            eligibleRosterCount: number;
+            /** Format: date-time */
+            rosterEvaluatedAt: string;
+        };
+        PlanningResolvedLocation: {
+            /** @enum {string} */
+            kind: "CANONICAL" | "NEW";
+            locationId: string | null;
+            label: string;
+            /** @enum {string} */
+            source: "TARGET_DEFAULT" | "RECENT" | "MANUAL";
+            editable: boolean;
+        };
+        PlanningProposalDraftView: components["schemas"]["PlanningProposalDraftValues"] & {
+            id: string;
+            organizationName: string;
+            providerScopeLabel: string;
+            regulatedTargetLabel: string;
+            domainLabel?: string;
+            /** @enum {string} */
+            noticePolicy: "ADVANCE" | "WITHHELD";
+            /** @constant */
+            initiatedBy: "Department Manager";
+            location: components["schemas"]["PlanningResolvedLocation"] | null;
+            workloadEstimate: components["schemas"]["PlanningWorkloadEstimate"];
+            revision: number;
+            submittedPlanningItemId: string | null;
+            planningSnapshotId: string | null;
+            planningSnapshotDigest: string | null;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        CreatePlanningProposalDraftInput: {
+            operationId: string;
+            idempotencyKey: string;
+            expectedRevision: null;
+            draftId?: string;
+            values: components["schemas"]["PlanningProposalDraftValues"];
+        };
+        SavePlanningProposalDraftInput: {
+            operationId: string;
+            idempotencyKey: string;
+            expectedRevision: number;
+            draftId: string;
+            values: components["schemas"]["PlanningProposalDraftValues"];
+        };
+        SubmitPlanningProposalOutput: {
+            draft: components["schemas"]["PlanningProposalDraftView"];
+            planningItem: components["schemas"]["PlanningItemView"];
+        };
+        PlanningAuditPackageSetupView: {
+            planningItemId: string;
+            planningSnapshotId: string;
+            planningSnapshotDigest: string;
+            scopeDraftId: string;
+            /** @enum {string} */
+            status: "DRAFT" | "SELECTION_CONFIRMED" | "FINALIZED";
+            revision: number;
+            catalogVersion: string;
+            catalogRootDigest: string;
+            selectedCount: number;
+            selectionDigest: string;
+            approvedChecklistItemCeiling: number;
+            nextAction: string;
+        };
+        EnsurePlanningAuditPackageSetupInput: {
+            operationId: string;
+            idempotencyKey: string;
+            expectedPlanningRevision: number;
+        };
+        FinalizePlanningAuditPackageInput: {
+            operationId: string;
+            idempotencyKey: string;
+            expectedPlanningRevision: number;
+            expectedSetupRevision: number;
+            expectedSelectionDigest: string;
         };
         CreateReportVersionInput: {
             operationId: string;
@@ -6766,6 +7069,381 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlanningIntakeDraftView"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listPlanningPurposePresets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active server-managed purpose presets */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanningPurposePreset"][];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    listPlanningLocations: {
+        parameters: {
+            query: {
+                organizationId: string;
+                regulatedTargetId: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Canonical Planning locations */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanningLocationOption"][];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    resolvePlanningLocation: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    operationId: string;
+                    idempotencyKey: string;
+                    organizationId: string;
+                    regulatedTargetId: string;
+                    proposedLabel: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Resolved Planning location */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanningLocationResolution"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getPlanningWorkloadEstimate: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    operationId: string;
+                    idempotencyKey: string;
+                    organizationId: string;
+                    providerScopeId: string;
+                    regulatedTargetId: string;
+                    inspectionType: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Server-owned Planning workload estimate */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanningWorkloadEstimate"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createPlanningProposalDraft: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePlanningProposalDraftInput"];
+            };
+        };
+        responses: {
+            /** @description Created Planning proposal draft */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanningProposalDraftView"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getPlanningProposalDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draftId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Planning proposal draft */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanningProposalDraftView"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    savePlanningProposalDraft: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                draftId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavePlanningProposalDraftInput"];
+            };
+        };
+        responses: {
+            /** @description Saved Planning proposal draft */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanningProposalDraftView"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    submitPlanningProposal: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                draftId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitPlanningIntakeInput"];
+            };
+        };
+        responses: {
+            /** @description Submitted Planning proposal */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubmitPlanningProposalOutput"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getPlanningAuditPackageSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                planningItemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Post-release Audit-package setup */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanningAuditPackageSetupView"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    ensurePlanningAuditPackageSetup: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                planningItemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnsurePlanningAuditPackageSetupInput"];
+            };
+        };
+        responses: {
+            /** @description Ensured post-release Audit-package setup */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanningAuditPackageSetupView"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    finalizePlanningAuditPackage: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /** @description Expected entity revision encoded as a strong ETag. */
+                "If-Match": components["parameters"]["ExpectedRevision"];
+            };
+            path: {
+                planningItemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinalizePlanningAuditPackageInput"];
+            };
+        };
+        responses: {
+            /** @description Finalized immutable Audit-package scope */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanningAuditPackageSetupView"];
                 };
             };
             400: components["responses"]["Problem"];

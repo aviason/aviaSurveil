@@ -19,7 +19,7 @@ describe("ChecklistManagementPage approved catalog boundary", () => {
       </AppProviders>,
     );
     expect(screen.getByRole("heading", { name: "Checklist Management" })).toBeInTheDocument();
-    expect(screen.getByText(/New Audit workflow selects the exact subset/i)).toBeInTheDocument();
+    expect(screen.getByText(/Released Planning items select the exact subset/i)).toBeInTheDocument();
     expect(screen.queryByText(/governed candidate|blocked-generation|publication reason/i)).toBeNull();
   });
 });

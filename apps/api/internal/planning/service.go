@@ -42,20 +42,33 @@ const (
 )
 
 type Item struct {
-	ID                       string        `json:"id"`
-	Title                    string        `json:"title"`
-	PlanYear                 int32         `json:"planYear"`
-	OrganizationID           string        `json:"organizationId"`
-	OrganizationName         string        `json:"organizationName"`
-	InspectionType           string        `json:"inspectionType"`
-	ScheduledDate            string        `json:"scheduledDate"`
-	EstimatedBudget          float64       `json:"estimatedBudget"`
-	Status                   Status        `json:"status"`
-	CurrentOwnerRole         identity.Role `json:"currentOwnerRole"`
-	NextAction               string        `json:"nextAction"`
-	Revision                 int64         `json:"revision"`
-	SubmittedScopeSnapshotID string        `json:"submittedScopeSnapshotId,omitempty"`
-	PlanningSnapshotDigest   string        `json:"planningSnapshotDigest,omitempty"`
+	ID                          string            `json:"id"`
+	Title                       string            `json:"title"`
+	PlanYear                    int32             `json:"planYear"`
+	OrganizationID              string            `json:"organizationId"`
+	OrganizationName            string            `json:"organizationName"`
+	InspectionType              string            `json:"inspectionType"`
+	ScheduledDate               string            `json:"scheduledDate"`
+	EstimatedBudget             float64           `json:"estimatedBudget"`
+	Status                      Status            `json:"status"`
+	CurrentOwnerRole            identity.Role     `json:"currentOwnerRole"`
+	NextAction                  string            `json:"nextAction"`
+	Revision                    int64             `json:"revision"`
+	SubmittedScopeSnapshotID    string            `json:"submittedScopeSnapshotId,omitempty"`
+	PlanningSnapshotDigest      string            `json:"planningSnapshotDigest,omitempty"`
+	PlanningSnapshotID          string            `json:"planningSnapshotId,omitempty"`
+	ProviderScopeLabel          string            `json:"providerScopeLabel,omitempty"`
+	RegulatedTargetLabel        string            `json:"regulatedTargetLabel,omitempty"`
+	Purpose                     string            `json:"purpose,omitempty"`
+	Mode                        string            `json:"mode,omitempty"`
+	LocationLabel               string            `json:"locationLabel,omitempty"`
+	MeetingLink                 string            `json:"meetingLink,omitempty"`
+	RequiredInspectorCount      int64             `json:"requiredInspectorCount,omitempty"`
+	EstimatedChecklistItemCount int64             `json:"estimatedChecklistItemCount,omitempty"`
+	WorkloadEstimate            *WorkloadEstimate `json:"workloadEstimate,omitempty"`
+	InitiatedBy                 string            `json:"initiatedBy,omitempty"`
+	NoticePolicy                NoticePolicy      `json:"noticePolicy,omitempty"`
+	Currency                    string            `json:"currency,omitempty"`
 }
 
 type DecideCommand struct {
@@ -104,6 +117,9 @@ func (service *Service) List(ctx context.Context, actor identity.Principal, limi
 		item := itemFromList(record)
 		item.SubmittedScopeSnapshotID, item.PlanningSnapshotDigest, err = service.submittedScopePin(ctx, service.pool, item.ID)
 		if err != nil {
+			return nil, err
+		}
+		if err := service.enrichProposalItem(ctx, service.pool, &item); err != nil {
 			return nil, err
 		}
 		items = append(items, item)
@@ -174,6 +190,20 @@ func (service *Service) Decide(ctx context.Context, actor identity.Principal, co
 		if planningSnapshotDigest == "" && len(submittedSnapshot) > 0 {
 			planningSnapshotDigest = derivedPlanningSnapshotDigest(submittedSnapshot)
 		}
+		if submittedScopeSnapshotID == "" {
+			if err := transaction.QueryRow(ctx, `
+				SELECT snapshot.id, snapshot.snapshot_digest, snapshot.snapshot
+				FROM planning_proposal_snapshots snapshot
+				WHERE snapshot.planning_item_id = $1
+				ORDER BY snapshot.revision DESC, snapshot.id DESC
+				LIMIT 1
+			`, command.PlanningItemID).Scan(&submittedScopeSnapshotID, &planningSnapshotDigest, &submittedSnapshot); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				return err
+			}
+		}
+		if planningSnapshotDigest == "" && len(submittedSnapshot) > 0 {
+			planningSnapshotDigest = derivedPlanningSnapshotDigest(submittedSnapshot)
+		}
 		if submittedScopeSnapshotID == "" || planningSnapshotDigest == "" {
 			return fmt.Errorf("%w: submitted scope snapshot is required for every canonical planning decision", application.ErrConflict)
 		}
@@ -199,8 +229,14 @@ func (service *Service) Decide(ctx context.Context, actor identity.Principal, co
 			return err
 		}
 		if command.Decision == DecisionReleasePlan {
-			if err := releaseCanonicalScopeSnapshot(ctx, transaction, actor, current.ID, now); err != nil {
+			var proposalSnapshot bool
+			if err := transaction.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM planning_proposal_snapshots WHERE planning_item_id = $1)`, current.ID).Scan(&proposalSnapshot); err != nil {
 				return err
+			}
+			if !proposalSnapshot {
+				if err := releaseCanonicalScopeSnapshot(ctx, transaction, actor, current.ID, now); err != nil {
+					return err
+				}
 			}
 		}
 		output = Item{
@@ -212,17 +248,27 @@ func (service *Service) Decide(ctx context.Context, actor identity.Principal, co
 			Revision: updated.Revision, SubmittedScopeSnapshotID: submittedScopeSnapshotID,
 			PlanningSnapshotDigest: planningSnapshotDigest,
 		}
+		if err := service.enrichProposalItem(ctx, transaction, &output); err != nil {
+			return err
+		}
 		responseBody, err := json.Marshal(output)
 		if err != nil {
 			return err
 		}
 		details := []byte(`{}`)
 		if planningSnapshotDigest != "" {
-			details, err = json.Marshal(map[string]any{
-				"submittedScopeSnapshotId": submittedScopeSnapshotID,
-				"planningSnapshotDigest":   planningSnapshotDigest,
-				"selectionDigest":          selectionDigest,
-			})
+			snapshotKey := "submittedPlanningSnapshotId"
+			if selectionDigest != "" {
+				snapshotKey = "submittedScopeSnapshotId"
+			}
+			detailValues := map[string]any{
+				snapshotKey:              submittedScopeSnapshotID,
+				"planningSnapshotDigest": planningSnapshotDigest,
+			}
+			if selectionDigest != "" {
+				detailValues["selectionDigest"] = selectionDigest
+			}
+			details, err = json.Marshal(detailValues)
 			if err != nil {
 				return err
 			}
@@ -435,7 +481,16 @@ func (service *Service) submittedScopePin(ctx context.Context, query interface {
 		LIMIT 1
 	`, planningItemID).Scan(&snapshotID, &digest, &snapshot)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return "", "", nil
+		err = query.QueryRow(ctx, `
+			SELECT snapshot.id, snapshot.snapshot_digest
+			FROM planning_proposal_snapshots snapshot
+			WHERE snapshot.planning_item_id = $1
+			ORDER BY snapshot.revision DESC, snapshot.id DESC
+			LIMIT 1
+		`, planningItemID).Scan(&snapshotID, &digest)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", "", nil
+		}
 	}
 	if digest == "" && len(snapshot) > 0 {
 		digest = derivedPlanningSnapshotDigest(snapshot)

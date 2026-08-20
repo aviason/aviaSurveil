@@ -30,7 +30,7 @@ describe("HttpBackend", () => {
       { fetchImplementation: vi.fn<typeof fetch>() },
     );
 
-    expect(BACKEND_CAPABILITY_KEYS).toHaveLength(31);
+    expect(BACKEND_CAPABILITY_KEYS).toHaveLength(32);
     expect(BACKEND_CAPABILITY_KEYS.every((key) => backend[key] !== undefined)).toBe(true);
   });
 

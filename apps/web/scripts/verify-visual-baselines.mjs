@@ -191,7 +191,9 @@ if (Object.keys(legacyRoleBySurface).length !== 86) {
   fail(`Visual baseline verifier must declare the exact 86 legacy source roles; got ${Object.keys(legacyRoleBySurface).length}.`);
 }
 const expectedSurfaces = Object.fromEntries(
-  [...routeContractSource.matchAll(/\{ auditId: "([^"]+)", id: "([^"]+)", path: "([^"]+)", requiredRole: (null|"[^"]+")/g)].map((match) => [
+  [...routeContractSource.matchAll(/\{ auditId: "([^"]+)", id: "([^"]+)", path: "([^"]+)", requiredRole: (null|"[^"]+")/g)]
+    .filter((match) => match[2] !== "post-release-checklist-selection")
+    .map((match) => [
     match[2],
     {
       auditId: match[1],
@@ -202,7 +204,7 @@ const expectedSurfaces = Object.fromEntries(
   ]),
 );
 if (Object.keys(expectedSurfaces).length !== 85) {
-  fail(`Visual baseline verifier could not derive the exact 85-route active contract; got ${Object.keys(expectedSurfaces).length}.`);
+  fail(`Visual baseline verifier could not derive the exact 85 legacy-route visual contract; got ${Object.keys(expectedSurfaces).length}.`);
 }
 for (const source of auditSource) {
   if (source.auditId === "ui-audit-043") continue;

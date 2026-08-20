@@ -2,7 +2,7 @@ import type { BackendPrincipal, GovernedValidationIssue, Role } from "./backend"
 
 export type DemoCapabilityName =
   | "communications" | "calendar" | "profiles" | "teams" | "risk" | "documents"
-  | "notifications" | "administration" | "assistantDrafts" | "planningIntake"
+  | "notifications" | "administration" | "assistantDrafts" | "planningIntake" | "planningProposal"
   | "auditeeCoordination" | "auditeeReports" | "adminWorkspace"
   | "governedChecklistReview" | "governedChecklistIntake" | "canonicalCatalog"
   | "canonicalAuditWorkflow";
@@ -10,7 +10,7 @@ export type DemoCapabilityName =
 export const DEMO_CAPABILITY_PERMISSION_MATRIX: Readonly<Record<Role, readonly DemoCapabilityName[]>> = {
   inspector: ["communications", "calendar", "profiles", "documents", "notifications", "administration", "assistantDrafts", "canonicalAuditWorkflow"],
   leadInspector: ["communications", "calendar", "profiles", "documents", "notifications", "administration", "assistantDrafts", "canonicalAuditWorkflow"],
-  manager: ["communications", "calendar", "profiles", "teams", "risk", "documents", "notifications", "administration", "planningIntake", "governedChecklistReview", "canonicalCatalog", "canonicalAuditWorkflow"],
+  manager: ["communications", "calendar", "profiles", "teams", "risk", "documents", "notifications", "administration", "planningIntake", "planningProposal", "governedChecklistReview", "canonicalCatalog", "canonicalAuditWorkflow"],
   finance: ["profiles", "notifications", "administration"],
   gm: ["profiles", "documents", "notifications", "administration"],
   executiveDirector: ["profiles", "documents", "notifications", "administration"],

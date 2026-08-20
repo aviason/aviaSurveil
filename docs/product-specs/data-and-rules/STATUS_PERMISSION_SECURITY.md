@@ -23,6 +23,8 @@ Uploaded, Pending CAA Review, Accepted, Partially Accepted, Rejected, More Infor
 | View assigned audits | Yes | Yes | Yes | No | Summary | Summary | Own organization | Yes |
 | Coordinate announced inspection date | No | Send / confirm alternative | View | No | Summary | Summary | Confirm / propose alternative for own organization | No |
 | Create audit | Limited | Yes | Yes | No | No | No | No | Yes |
+| Create and submit New Audit Planning proposal | No | No | Yes | No | No | No | No | No |
+| Select exact checklist items for a released Planning proposal | No | No | Yes | No | No | No | No | No |
 | Complete checklist | Yes, assigned scope | Yes | No | No | No | No | No | No |
 | Create / issue Finding | Create | Review / issue | Yes | No | No | No | No | No |
 | Submit CAP / Evidence | No | No | No | No | No | No | Own organization | No |
@@ -60,6 +62,9 @@ Uploaded, Pending CAA Review, Accepted, Partially Accepted, Rejected, More Infor
   Finance approval advances to GM Review. Finance Return for Revision goes to Department Manager.
   GM may forward a Finance-reviewed plan to Executive Director or return it to Department Manager.
   A corrected submission must pass Finance again. Executive Director approval does not release the plan directly; GM Release to Department remains a separate next action.
+  New Audit submission binds only the immutable Planning proposal snapshot. Exact
+  checklist selection is denied until the item is released and enters the
+  post-release Audit-package preparation boundary.
 - CAP acceptance is not Finding closure. Report approval does not close open
   Findings or bypass required Evidence/verification. Only Inspector or Lead
   Inspector records `Close`, `Partially Close`, or `Not Close` in this demo.

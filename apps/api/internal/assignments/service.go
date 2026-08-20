@@ -320,30 +320,26 @@ func (service *Service) Prepare(
 			if err := requireCurrentDepartmentScopeAuthority(ctx, transaction, actor, command.PlanningItemID, ""); err != nil {
 				return commandResult[Preparation]{}, err
 			}
-			var draftID string
-			if err := transaction.QueryRow(ctx, `
-				SELECT id
-				FROM planning_intake_drafts
-				WHERE submitted_planning_item_id = $1 AND tombstoned_at IS NULL
-				ORDER BY revision DESC, updated_at DESC, id DESC
-				LIMIT 1
-				FOR UPDATE
-			`, command.PlanningItemID).Scan(&draftID); err != nil {
-				if errors.Is(err, pgx.ErrNoRows) {
-					return commandResult[Preparation]{}, ErrNotFound
-				}
-				return commandResult[Preparation]{}, err
-			}
 			assignmentID := "assignment:" + command.PlanningItemID
 			var releasedScopeSnapshotID *string
 			if err := transaction.QueryRow(ctx, `
 				SELECT snapshot.id
 				FROM canonical_audit_scope_snapshots snapshot
 				JOIN canonical_audit_scope_drafts scope ON scope.id = snapshot.scope_draft_id
-				JOIN planning_intake_drafts draft ON draft.id = scope.planning_intake_draft_id
-				WHERE draft.submitted_planning_item_id = $1
-				  AND draft.tombstoned_at IS NULL
-				  AND snapshot.stage = 'RELEASED'
+				WHERE snapshot.stage = 'RELEASED'
+				  AND (
+						(scope.planning_intake_draft_id IS NOT NULL AND EXISTS (
+							SELECT 1 FROM planning_intake_drafts draft
+							WHERE draft.id = scope.planning_intake_draft_id
+							  AND draft.submitted_planning_item_id = $1
+							  AND draft.tombstoned_at IS NULL
+						))
+						OR (scope.planning_proposal_snapshot_id IS NOT NULL AND EXISTS (
+							SELECT 1 FROM planning_proposal_snapshots proposal
+							WHERE proposal.id = scope.planning_proposal_snapshot_id
+							  AND proposal.planning_item_id = $1
+						))
+				  )
 				ORDER BY snapshot.revision DESC, snapshot.id DESC
 				LIMIT 1
 			`, command.PlanningItemID).Scan(&releasedScopeSnapshotID); err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -1837,7 +1833,14 @@ func requireCurrentDepartmentScopeAuthority(
 							   AND canonical_assignment.planning_item_id = draft.submitted_planning_item_id
 							   AND canonical_assignment.tombstoned_at IS NULL
 						 )
-					 )))
+						 )))
+			UNION ALL
+			SELECT scope.id, scope.provider_scope_id, scope.regulated_target_id,
+			       scope.status, proposal.planning_item_id, '' AS prepared_audit_id
+			FROM planning_proposal_snapshots proposal
+			JOIN canonical_audit_scope_drafts scope
+			  ON scope.planning_proposal_snapshot_id = proposal.id
+			WHERE $2 <> '' AND proposal.planning_item_id = $2
 		), authorized_scope AS (
 			SELECT 1
 			FROM matching_scope selected
@@ -1895,7 +1898,7 @@ func requireCurrentDepartmentScopeAuthority(
 				ORDER BY effective_from DESC, id DESC
 				LIMIT 1
 			) unit_status ON unit_status.status = 'ACTIVE'
-			WHERE selected.status = 'RELEASED'
+			WHERE selected.status IN ('RELEASED', 'FINALIZED')
 			  AND selected_scope.status = 'ACTIVE'
 			  AND selected_scope.effective_from <= CURRENT_DATE
 			  AND (selected_scope.effective_to IS NULL OR selected_scope.effective_to > CURRENT_DATE)

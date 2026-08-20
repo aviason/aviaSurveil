@@ -7,8 +7,8 @@ import { CommandError, WorkspaceShell } from "../shared/workspace-shell";
 
 /**
  * The manager-facing catalog register is deliberately read-only. Question
- * selection belongs to the server-owned New Audit draft, where the exact
- * immutable IDs and catalog root are frozen into that Audit's scope snapshot.
+ * selection belongs to post-release Audit-package preparation, where the exact
+ * immutable IDs and catalog root are frozen into the released package scope.
  */
 export function ChecklistManagementPage() {
   const backend = useBackendForRole("manager");
@@ -81,7 +81,7 @@ export function ChecklistManagementPage() {
         <header className="authority-page-head workbench-page-header">
           <p className="eyebrow">Approved AGA catalog</p>
           <h1>Checklist Management</h1>
-          <p>Browse all source-approved questions. The New Audit workflow selects the exact subset and records its immutable scope snapshot.</p>
+          <p>Browse all source-approved questions. Released Planning items select the exact subset in post-release Audit preparation.</p>
         </header>
         <CommandError message={error} />
         <section className="manager-ops-layout" aria-label="Approved catalog register">
@@ -92,7 +92,7 @@ export function ChecklistManagementPage() {
             <button disabled={loading || !scopeId} onClick={() => void loadCatalog()} title={!scopeId ? "Choose an exact foundation scope before loading approved questions." : undefined} type="button">{loading ? "Loading…" : "Load approved questions"}</button>
           </div>
           {selectedScope ? <p>Scope {selectedScope.providerScopeId} · catalog {catalogVersion} · {selectedScope.usageClass} · {questions.length} loaded</p> : null}
-          <p><Link to="/department-manager/new-audit/step-4">Open New Audit question selection</Link></p>
+          <p><Link to="/department-manager/audit-plan">Open released Planning preparation</Link></p>
           <section className="admin-card-register admin-dense-register" role="list" aria-label="Approved AGA catalog questions">
             {questions.map((question) => <article className="admin-record-card" key={question.questionVersionId} role="listitem"><header><div><b>{question.questionVersionId}</b><small>{question.formCode} · source ordinal {question.ordinal}</small></div><span>{question.sourceGapState}</span></header><p>{question.prompt ?? "Question prompt unavailable"}</p><dl><div><dt>Immutable digest</dt><dd>{question.questionDigest}</dd></div><div><dt>Configured reference</dt><dd>{question.configuredReference ?? "Not provided"}</dd></div><div><dt>Expected Evidence</dt><dd>{question.expectedEvidence ?? "Not provided"}</dd></div><div><dt>Selection</dt><dd>{question.canSelect ? "Available to authorized Manager" : "Unavailable"}</dd></div></dl></article>)}
             {!questions.length ? <p>Choose an exact scope and load the server-owned approved catalog. No question is implicitly selected.</p> : null}

@@ -2916,6 +2916,827 @@
         ]
       }
     },
+    "/v1/planning/purpose-presets": {
+      "get": {
+        "operationId": "listPlanningPurposePresets",
+        "responses": {
+          "200": {
+            "description": "Active server-managed purpose presets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlanningPurposePreset"
+                  }
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
+    "/v1/planning/locations": {
+      "get": {
+        "operationId": "listPlanningLocations",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "regulatedTargetId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Canonical Planning locations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlanningLocationOption"
+                  }
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
+    "/v1/planning/location-resolutions": {
+      "post": {
+        "operationId": "resolvePlanningLocation",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operationId",
+                  "idempotencyKey",
+                  "organizationId",
+                  "regulatedTargetId",
+                  "proposedLabel"
+                ],
+                "properties": {
+                  "operationId": {
+                    "type": "string"
+                  },
+                  "idempotencyKey": {
+                    "type": "string"
+                  },
+                  "organizationId": {
+                    "type": "string"
+                  },
+                  "regulatedTargetId": {
+                    "type": "string"
+                  },
+                  "proposedLabel": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resolved Planning location",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanningLocationResolution"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "412": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/ExpectedRevision"
+          }
+        ]
+      }
+    },
+    "/v1/planning/workload-estimates": {
+      "post": {
+        "operationId": "getPlanningWorkloadEstimate",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operationId",
+                  "idempotencyKey",
+                  "organizationId",
+                  "providerScopeId",
+                  "regulatedTargetId",
+                  "inspectionType"
+                ],
+                "properties": {
+                  "operationId": {
+                    "type": "string"
+                  },
+                  "idempotencyKey": {
+                    "type": "string"
+                  },
+                  "organizationId": {
+                    "type": "string"
+                  },
+                  "providerScopeId": {
+                    "type": "string"
+                  },
+                  "regulatedTargetId": {
+                    "type": "string"
+                  },
+                  "inspectionType": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Server-owned Planning workload estimate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanningWorkloadEstimate"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "412": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/ExpectedRevision"
+          }
+        ]
+      }
+    },
+    "/v1/planning/proposal-drafts": {
+      "post": {
+        "operationId": "createPlanningProposalDraft",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePlanningProposalDraftInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created Planning proposal draft",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanningProposalDraftView"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "412": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/ExpectedRevision"
+          }
+        ]
+      }
+    },
+    "/v1/planning/proposal-drafts/{draftId}": {
+      "get": {
+        "operationId": "getPlanningProposalDraft",
+        "parameters": [
+          {
+            "name": "draftId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Planning proposal draft",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanningProposalDraftView"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      },
+      "put": {
+        "operationId": "savePlanningProposalDraft",
+        "parameters": [
+          {
+            "name": "draftId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/ExpectedRevision"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavePlanningProposalDraftInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved Planning proposal draft",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanningProposalDraftView"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "412": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
+    "/v1/planning/proposal-drafts/{draftId}/submissions": {
+      "post": {
+        "operationId": "submitPlanningProposal",
+        "parameters": [
+          {
+            "name": "draftId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/ExpectedRevision"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitPlanningIntakeInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Submitted Planning proposal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmitPlanningProposalOutput"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "412": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "inspector",
+          "leadInspector",
+          "manager",
+          "finance",
+          "gm",
+          "executiveDirector",
+          "admin"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
+    "/v1/planning/items/{planningItemId}/audit-package-setup": {
+      "get": {
+        "operationId": "getPlanningAuditPackageSetup",
+        "parameters": [
+          {
+            "name": "planningItemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Post-release Audit-package setup",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanningAuditPackageSetupView"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "manager"
+        ],
+        "x-organization-scope": "authorized-projection"
+      },
+      "post": {
+        "operationId": "ensurePlanningAuditPackageSetup",
+        "parameters": [
+          {
+            "name": "planningItemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/ExpectedRevision"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnsurePlanningAuditPackageSetupInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ensured post-release Audit-package setup",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanningAuditPackageSetupView"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "412": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "manager"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
+    "/v1/planning/items/{planningItemId}/audit-package-finalizations": {
+      "post": {
+        "operationId": "finalizePlanningAuditPackage",
+        "parameters": [
+          {
+            "name": "planningItemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/ExpectedRevision"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinalizePlanningAuditPackageInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Finalized immutable Audit-package scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanningAuditPackageSetupView"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "412": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "security": [
+          {
+            "oidc": []
+          }
+        ],
+        "x-authorized-roles": [
+          "manager"
+        ],
+        "x-organization-scope": "authorized-projection"
+      }
+    },
     "/v1/planning/intake-drafts/{draftId}": {
       "get": {
         "operationId": "getPlanningIntakeDraft",
@@ -12691,6 +13512,58 @@
           },
           "planningSnapshotDigest": {
             "type": "string"
+          },
+          "planningSnapshotId": {
+            "type": "string"
+          },
+          "providerScopeLabel": {
+            "type": "string"
+          },
+          "regulatedTargetLabel": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "On-site",
+              "Remote"
+            ]
+          },
+          "locationLabel": {
+            "type": "string"
+          },
+          "meetingLink": {
+            "type": "string"
+          },
+          "requiredInspectorCount": {
+            "type": "integer"
+          },
+          "estimatedChecklistItemCount": {
+            "type": "integer"
+          },
+          "workloadEstimate": {
+            "$ref": "#/components/schemas/PlanningWorkloadEstimate"
+          },
+          "initiatedBy": {
+            "type": "string"
+          },
+          "noticePolicy": {
+            "type": "string",
+            "enum": [
+              "ADVANCE",
+              "WITHHELD"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "USD",
+              "EUR",
+              "NAD"
+            ]
           }
         }
       },
@@ -14377,6 +15250,624 @@
           },
           "planningItem": {
             "$ref": "#/components/schemas/PlanningItemView"
+          }
+        }
+      },
+      "PlanningProposalLocationInput": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "locationId"
+            ],
+            "properties": {
+              "kind": {
+                "const": "CANONICAL"
+              },
+              "locationId": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "proposedLabel",
+              "acceptedResolutionToken"
+            ],
+            "properties": {
+              "kind": {
+                "const": "NEW"
+              },
+              "proposedLabel": {
+                "type": "string"
+              },
+              "acceptedResolutionToken": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "PlanningProposalDraftValues": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "organizationId",
+          "providerScopeId",
+          "regulatedTargetId",
+          "inspectionType",
+          "purpose",
+          "plannedDate",
+          "mode",
+          "requiredInspectorCount",
+          "estimatedChecklistItemCount",
+          "workloadEstimateId",
+          "workloadEstimateDigest",
+          "requestedBudget",
+          "currency"
+        ],
+        "properties": {
+          "organizationId": {
+            "type": "string"
+          },
+          "providerScopeId": {
+            "type": "string"
+          },
+          "regulatedTargetId": {
+            "type": "string"
+          },
+          "inspectionType": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string"
+          },
+          "purposePresetId": {
+            "type": "string"
+          },
+          "plannedDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "On-site",
+              "Remote"
+            ]
+          },
+          "locationInput": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlanningProposalLocationInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meetingLink": {
+            "type": "string"
+          },
+          "requiredInspectorCount": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "estimatedChecklistItemCount": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "workloadEstimateId": {
+            "type": "string"
+          },
+          "workloadEstimateDigest": {
+            "type": "string"
+          },
+          "requestedBudget": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "USD",
+              "EUR",
+              "NAD"
+            ]
+          }
+        }
+      },
+      "PlanningPurposePreset": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "version",
+          "label",
+          "purpose",
+          "active",
+          "displayOrder"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "displayOrder": {
+            "type": "integer"
+          }
+        }
+      },
+      "PlanningLocationOption": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "label",
+          "aliases",
+          "source"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "TARGET_DEFAULT",
+              "RECENT"
+            ]
+          }
+        }
+      },
+      "PlanningLocationResolution": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "outcome",
+          "location",
+          "acceptedResolutionToken",
+          "message"
+        ],
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "CANONICAL",
+              "NEW"
+            ]
+          },
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlanningLocationOption"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "acceptedResolutionToken": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "PlanningWorkloadEstimate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "estimateId",
+          "estimateDigest",
+          "catalogVersion",
+          "catalogRootDigest",
+          "policyVersion",
+          "evaluatedAt",
+          "applicableItemCount",
+          "suggestedCount",
+          "safeMinimum",
+          "safeMaximum",
+          "basisLabel",
+          "eligibleRosterCount",
+          "rosterEvaluatedAt"
+        ],
+        "properties": {
+          "estimateId": {
+            "type": "string"
+          },
+          "estimateDigest": {
+            "type": "string"
+          },
+          "catalogVersion": {
+            "type": "string"
+          },
+          "catalogRootDigest": {
+            "type": "string"
+          },
+          "policyVersion": {
+            "type": "string"
+          },
+          "evaluatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "applicableItemCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "suggestedCount": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "safeMinimum": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "safeMaximum": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "basisLabel": {
+            "type": "string"
+          },
+          "eligibleRosterCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rosterEvaluatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PlanningResolvedLocation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "locationId",
+          "label",
+          "source",
+          "editable"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "CANONICAL",
+              "NEW"
+            ]
+          },
+          "locationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "TARGET_DEFAULT",
+              "RECENT",
+              "MANUAL"
+            ]
+          },
+          "editable": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PlanningProposalDraftView": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PlanningProposalDraftValues"
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "organizationName",
+              "providerScopeLabel",
+              "regulatedTargetLabel",
+              "noticePolicy",
+              "initiatedBy",
+              "location",
+              "workloadEstimate",
+              "revision",
+              "submittedPlanningItemId",
+              "planningSnapshotId",
+              "planningSnapshotDigest",
+              "updatedAt"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "organizationName": {
+                "type": "string"
+              },
+              "providerScopeLabel": {
+                "type": "string"
+              },
+              "regulatedTargetLabel": {
+                "type": "string"
+              },
+              "domainLabel": {
+                "type": "string"
+              },
+              "noticePolicy": {
+                "type": "string",
+                "enum": [
+                  "ADVANCE",
+                  "WITHHELD"
+                ]
+              },
+              "initiatedBy": {
+                "const": "Department Manager"
+              },
+              "location": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/PlanningResolvedLocation"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "workloadEstimate": {
+                "$ref": "#/components/schemas/PlanningWorkloadEstimate"
+              },
+              "revision": {
+                "type": "integer"
+              },
+              "submittedPlanningItemId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "planningSnapshotId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "planningSnapshotDigest": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "updatedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        ]
+      },
+      "CreatePlanningProposalDraftInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "idempotencyKey",
+          "expectedRevision",
+          "values"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "expectedRevision": {
+            "type": "null"
+          },
+          "draftId": {
+            "type": "string"
+          },
+          "values": {
+            "$ref": "#/components/schemas/PlanningProposalDraftValues"
+          }
+        }
+      },
+      "SavePlanningProposalDraftInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "idempotencyKey",
+          "expectedRevision",
+          "draftId",
+          "values"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "expectedRevision": {
+            "type": "integer"
+          },
+          "draftId": {
+            "type": "string"
+          },
+          "values": {
+            "$ref": "#/components/schemas/PlanningProposalDraftValues"
+          }
+        }
+      },
+      "SubmitPlanningProposalOutput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "draft",
+          "planningItem"
+        ],
+        "properties": {
+          "draft": {
+            "$ref": "#/components/schemas/PlanningProposalDraftView"
+          },
+          "planningItem": {
+            "$ref": "#/components/schemas/PlanningItemView"
+          }
+        }
+      },
+      "PlanningAuditPackageSetupView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "planningItemId",
+          "planningSnapshotId",
+          "planningSnapshotDigest",
+          "scopeDraftId",
+          "status",
+          "revision",
+          "catalogVersion",
+          "catalogRootDigest",
+          "selectedCount",
+          "selectionDigest",
+          "approvedChecklistItemCeiling",
+          "nextAction"
+        ],
+        "properties": {
+          "planningItemId": {
+            "type": "string"
+          },
+          "planningSnapshotId": {
+            "type": "string"
+          },
+          "planningSnapshotDigest": {
+            "type": "string"
+          },
+          "scopeDraftId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "SELECTION_CONFIRMED",
+              "FINALIZED"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "catalogVersion": {
+            "type": "string"
+          },
+          "catalogRootDigest": {
+            "type": "string"
+          },
+          "selectedCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "selectionDigest": {
+            "type": "string"
+          },
+          "approvedChecklistItemCeiling": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "nextAction": {
+            "type": "string"
+          }
+        }
+      },
+      "EnsurePlanningAuditPackageSetupInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "idempotencyKey",
+          "expectedPlanningRevision"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expectedPlanningRevision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "FinalizePlanningAuditPackageInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "idempotencyKey",
+          "expectedPlanningRevision",
+          "expectedSetupRevision",
+          "expectedSelectionDigest"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expectedPlanningRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "expectedSetupRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "expectedSelectionDigest": {
+            "type": "string"
           }
         }
       },

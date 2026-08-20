@@ -196,7 +196,8 @@ func (api *CanonicalAPI) loadCanonicalRecommendationSummary(ctx context.Context,
 			       COALESCE(planning.values->>'location',''),
 			       scope.audit_type
 			FROM canonical_audit_scope_drafts scope
-			JOIN planning_intake_drafts planning ON planning.id = scope.planning_intake_draft_id
+			LEFT JOIN planning_intake_drafts planning ON planning.id = scope.planning_intake_draft_id
+			LEFT JOIN planning_proposal_snapshots proposal ON proposal.id = scope.planning_proposal_snapshot_id
 			JOIN organizations organization ON organization.id = scope.organization_id
 			JOIN organization_service_provider_scopes provider_scope ON provider_scope.id = scope.provider_scope_id
 			JOIN service_provider_types provider ON provider.id = provider_scope.service_provider_type_id
@@ -243,13 +244,12 @@ func (api *CanonicalAPI) loadCanonicalRecommendationSummary(ctx context.Context,
 			  AND prior_scope.audit_type = active_scope.audit_type
 			  AND prior_scope.catalog_id = active_scope.catalog_id
 			  AND prior_scope.usage_class = active_scope.usage_class
-			  AND COALESCE(prior_planning.values->>'location','') = $2
 			  AND report.snapshot->>'kind' = 'FINAL'
 			  AND approval.status = 'LOCKED'
 			  AND approval.issued_at IS NOT NULL
-			  AND approval.issued_at <= $3::timestamptz
-			  AND approval.issued_at >= $3::timestamptz - make_interval(months => $4)
-		`, scopeID, locationLabel, evaluationAsOf, canonicalRecommendationHistoryWindow).Scan(&summary.ComparableAuditCount); err != nil {
+			  AND approval.issued_at <= $2::timestamptz
+			  AND approval.issued_at >= $2::timestamptz - make_interval(months => $3)
+		`, scopeID, evaluationAsOf, canonicalRecommendationHistoryWindow).Scan(&summary.ComparableAuditCount); err != nil {
 			return generated.CanonicalQuestionRecommendationSummary{}, err
 		}
 
@@ -298,9 +298,10 @@ func (api *CanonicalAPI) requireCanonicalScopeOwner(ctx context.Context, scopeID
 	if err := api.pool.QueryRow(ctx, `
 		SELECT scope.created_by_subject_id
 		FROM canonical_audit_scope_drafts scope
-		JOIN planning_intake_drafts draft ON draft.id = scope.planning_intake_draft_id
+		LEFT JOIN planning_intake_drafts draft ON draft.id = scope.planning_intake_draft_id
+		LEFT JOIN planning_proposal_snapshots proposal ON proposal.id = scope.planning_proposal_snapshot_id
 		WHERE scope.id = $1
-		  AND draft.tombstoned_at IS NULL
+		  AND (draft.tombstoned_at IS NULL OR proposal.id IS NOT NULL)
 		  AND scope.created_by_subject_id = $2
 	`, scopeID, subjectID).Scan(&owner); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -760,7 +761,6 @@ const canonicalCatalogAIProjectionJoins = `
 	          AND comparison_scope.audit_type = active_scope.audit_type
 	          AND comparison_scope.catalog_id = active_scope.catalog_id
 	          AND comparison_scope.usage_class = active_scope.usage_class
-	          AND COALESCE(comparison_planning.values->>'location','') = COALESCE(active_planning.values->>'location','')
 	          AND comparison_report.snapshot->>'kind' = 'FINAL'
 	          AND comparison_state.status = 'LOCKED'
 	          AND comparison_state.issued_at IS NOT NULL
@@ -900,7 +900,6 @@ const canonicalCatalogAIProjectionJoins = `
 			AND prior_scope.audit_type = active_scope.audit_type
 			AND prior_scope.catalog_id = active_scope.catalog_id
 			AND prior_scope.usage_class = active_scope.usage_class
-			AND COALESCE(prior_planning.values->>'location','') = COALESCE(active_planning.values->>'location','')
 			AND prior_report.snapshot->>'kind' = 'FINAL'
 			AND prior_state.status = 'LOCKED'
 			AND prior_state.issued_at IS NOT NULL
@@ -1108,7 +1107,7 @@ func (api *CanonicalAPI) listCanonicalQuestionCatalogEntries(writer http.Respons
 		if err := api.pool.QueryRow(request.Context(), `
 			SELECT audit_type
 			FROM canonical_audit_scope_drafts
-			WHERE id = $1 AND status = 'DRAFT'
+			WHERE id = $1 AND status IN ('DRAFT', 'SELECTION_CONFIRMED', 'FINALIZED')
 		`, scopeID).Scan(&scopeAuditType); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				api.respond(writer, nil, application.ErrNotFound)

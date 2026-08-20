@@ -64,6 +64,7 @@ const implementedScreens: Partial<Record<ReactSurfaceId, ScreenComponent>> = {
   "new-audit-wizard-3": lazy(async () => ({ default: (await import("../features/planning/new-audit-wizard")).NewAuditWizardPage })),
   "new-audit-wizard-4": lazy(async () => ({ default: (await import("../features/planning/new-audit-wizard")).NewAuditWizardPage })),
   "new-audit-wizard-5": lazy(async () => ({ default: (await import("../features/planning/new-audit-wizard")).NewAuditWizardPage })),
+  "post-release-checklist-selection": lazy(async () => ({ default: (await import("../features/planning/post-release-checklist-selection-page")).PostReleaseChecklistSelectionPage })),
   "gm-planning": lazy(async () => ({ default: (await import("../features/planning/planning-workspaces")).GeneralManagerPlanningPage })),
   "gm-report-approvals": lazy(async () => ({ default: (await import("../features/reports/executive-report-workspaces")).GeneralManagerReportApprovalsPage })),
   "gm-departments": lazy(async () => ({ default: (await import("../features/management/department-comparison-page")).DepartmentComparisonPage })),

@@ -21,6 +21,14 @@ import type {
   CanonicalSelectionPreview,
   CanonicalSelectionReceipt,
   CanonicalAuditWorkflowBackend,
+  PlanningProposalBackend,
+  PlanningProposalDraftView,
+  PlanningPurposePreset,
+  PlanningLocationOption,
+  PlanningLocationResolution,
+  PlanningWorkloadEstimate,
+  SubmitPlanningProposalOutput,
+  PlanningAuditPackageSetupView,
 } from "./backend";
 import { GovernedValidationError } from "./backend-contracts";
 import {
@@ -159,6 +167,10 @@ function mapCanonicalSelectionPreview(value: Schemas["CanonicalAuditScopeSelecti
 
 function mapCanonicalSelectionReceipt(value: Schemas["CanonicalAuditScopeSelectionReceipt"]): CanonicalSelectionReceipt {
   return value;
+}
+
+function mapPlanningAuditPackageSetup(value: Schemas["PlanningAuditPackageSetupView"]): PlanningAuditPackageSetupView {
+  return { ...value, status: value.status as PlanningAuditPackageSetupView["status"] };
 }
 
 export interface BackendProblem {
@@ -777,6 +789,20 @@ export function createHttpBackend(
           ),
         ),
     },
+    planningProposal: {
+      listScopeOptions: async (input, options) => mapCanonicalScopeOptionPage(await request<Schemas["CanonicalAuditScopeOptionPage"]>(appendQuery("/v1/audit-scope-options", { cursor: input?.cursor, limit: input?.limit, usageClass: "GOVERNED_OPERATIONAL" }), {}, options)),
+      listPurposePresets: async (options) => request<PlanningPurposePreset[]>("/v1/planning/purpose-presets", {}, options),
+      listLocations: async (input, options) => request<PlanningLocationOption[]>(appendQuery("/v1/planning/locations", input), {}, options),
+      resolveLocation: async (input, options) => request<PlanningLocationResolution>("/v1/planning/location-resolutions", { method: "POST", body: input }, options),
+      getWorkloadEstimate: async (input, options) => request<PlanningWorkloadEstimate>("/v1/planning/workload-estimates", { method: "POST", body: input }, options),
+      createDraft: async (input, options) => request<PlanningProposalDraftView>("/v1/planning/proposal-drafts", { method: "POST", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey, expectedRevision: null }) }, options),
+      getDraft: async ({ draftId }, options) => request<PlanningProposalDraftView>(`/v1/planning/proposal-drafts/${encodeURIComponent(draftId)}`, {}, options),
+      saveDraft: async (input, options) => request<PlanningProposalDraftView>(`/v1/planning/proposal-drafts/${encodeURIComponent(input.draftId)}`, { method: "PUT", body: input, headers: revisionCommandHeaders(input) }, options),
+      submit: async (input, options) => request<SubmitPlanningProposalOutput>(`/v1/planning/proposal-drafts/${encodeURIComponent(input.draftId)}/submissions`, { method: "POST", body: input, headers: revisionCommandHeaders(input) }, options),
+      ensureAuditPackageSetup: async (input, options) => mapPlanningAuditPackageSetup(await request<Schemas["PlanningAuditPackageSetupView"]>(`/v1/planning/items/${encodeURIComponent(input.planningItemId)}/audit-package-setup`, { method: "POST", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey, expectedRevision: input.expectedPlanningRevision }) }, options)),
+      getAuditPackageSetup: async ({ planningItemId }, options) => mapPlanningAuditPackageSetup(await request<Schemas["PlanningAuditPackageSetupView"]>(`/v1/planning/items/${encodeURIComponent(planningItemId)}/audit-package-setup`, { cache: "no-store" }, options)),
+      finalizeAuditPackage: async (input, options) => mapPlanningAuditPackageSetup(await request<Schemas["PlanningAuditPackageSetupView"]>(`/v1/planning/items/${encodeURIComponent(input.planningItemId)}/audit-package-finalizations`, { method: "POST", body: input, headers: revisionCommandHeaders({ idempotencyKey: input.idempotencyKey, expectedRevision: input.expectedSetupRevision }) }, options)),
+    } satisfies PlanningProposalBackend,
     planningIntake: {
       createDraft: async (input, options) =>
         mapPlanningIntakeDraft(

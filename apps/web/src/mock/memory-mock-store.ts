@@ -59,6 +59,8 @@ function hydratePersistedState(state: Partial<MockState>, clock: () => string): 
   return {
     ...canonical,
     ...state,
+    planningProposalDrafts: state.planningProposalDrafts ?? {},
+    planningAuditPackageSetups: state.planningAuditPackageSetups ?? {},
     adminWorkspace,
     reportPublicMetadata: {
       ...canonical.reportPublicMetadata,

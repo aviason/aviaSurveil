@@ -14,6 +14,8 @@ import type {
   OrganizationSummary,
   PlanningItemView,
   PlanningIntakeDraftView,
+  PlanningProposalDraftView,
+  PlanningAuditPackageSetupView,
   PotentialFindingView,
   ReportVersionView,
   ReminderRuleView,
@@ -170,11 +172,12 @@ export const SCREEN_VISIBLE_ACTIONS: Record<ReactSurfaceId, readonly import("../
   "evidence-review": [action("accept-evidence", "Accept Evidence", "modal", { type: "modal", dialog: "accept-evidence", confirmCommand: { owner: "evidence.review", requiresRevision: true, requiresIdempotency: false, requiresOperationMetadata: true } }), action("request-evidence-information", "Request more information", "modal", { type: "modal", dialog: "request-evidence-information", confirmCommand: { owner: "evidence.review", requiresRevision: true, requiresIdempotency: false, requiresOperationMetadata: true } })],
   "manager-preliminary-report-review": [action("return-preliminary-report", "Return preliminary report", "modal", { type: "modal", dialog: "return-preliminary-report", confirmCommand: { owner: "reports.decide", requiresRevision: true, requiresIdempotency: false, requiresOperationMetadata: true } }), action("forward-preliminary-report", "Forward preliminary report", "modal", { type: "modal", dialog: "forward-preliminary-report", confirmCommand: { owner: "reports.decide", requiresRevision: true, requiresIdempotency: false, requiresOperationMetadata: true } })],
   "manager-cap-closure-review": [action("authorize-closure", "Authorize closure", "modal", { type: "modal", dialog: "authorize-closure", confirmCommand: { owner: "findings.authorizedClose", requiresRevision: true, requiresIdempotency: false, requiresOperationMetadata: true } })],
-  "new-audit-wizard-1": [action("wizard-next", "Next", "navigation", { type: "navigation", target: "/department-manager/new-audit/step-2" }), action("wizard-save-draft", "Save draft", "capabilityDispatch", { type: "capabilityDispatch", capability: "planningIntake.saveDraft" })],
-  "new-audit-wizard-2": [action("wizard-back", "Back", "navigation", { type: "navigation", target: "/department-manager/new-audit/step-1" }), action("wizard-next", "Next", "navigation", { type: "navigation", target: "/department-manager/new-audit/step-3" })],
-  "new-audit-wizard-3": [action("wizard-back", "Back", "navigation", { type: "navigation", target: "/department-manager/new-audit/step-2" }), action("wizard-next", "Next", "navigation", { type: "navigation", target: "/department-manager/new-audit/step-4" })],
-  "new-audit-wizard-4": [action("wizard-back", "Back", "navigation", { type: "navigation", target: "/department-manager/new-audit/step-3" }), action("wizard-next", "Next", "navigation", { type: "navigation", target: "/department-manager/new-audit/step-5" })],
-  "new-audit-wizard-5": [action("wizard-back", "Back", "navigation", { type: "navigation", target: "/department-manager/new-audit/step-4" }), action("wizard-preview", "Preview", "filePreview", { type: "filePreview", file: "new-audit-preview" }), action("wizard-submit", "Submit", "capabilityDispatch", { type: "capabilityDispatch", capability: "planningIntake.submit" })],
+  "new-audit-wizard-1": [action("wizard-continue", "Continue", "navigation", { type: "navigation", target: "/department-manager/new-audit/step-2" }), action("wizard-cancel", "Cancel", "navigation", { type: "navigation", target: "/department-manager/audit-plan" })],
+  "new-audit-wizard-2": [action("wizard-back", "Back", "navigation", { type: "navigation", target: "/department-manager/new-audit/step-1" }), action("wizard-continue", "Continue", "navigation", { type: "navigation", target: "/department-manager/new-audit/step-3" })],
+  "new-audit-wizard-3": [action("wizard-back", "Back", "navigation", { type: "navigation", target: "/department-manager/new-audit/step-2" }), action("wizard-continue", "Continue", "navigation", { type: "navigation", target: "/department-manager/new-audit/step-4" })],
+  "new-audit-wizard-4": [action("wizard-back", "Back", "navigation", { type: "navigation", target: "/department-manager/new-audit/step-3" }), action("wizard-review", "Continue to review", "navigation", { type: "navigation", target: "/department-manager/new-audit/step-5" })],
+  "new-audit-wizard-5": [action("wizard-back", "Back", "navigation", { type: "navigation", target: "/department-manager/new-audit/step-4" }), action("wizard-submit", "Submit to Finance", "capabilityDispatch", { type: "capabilityDispatch", capability: "planningProposal.submit" })],
+  "post-release-checklist-selection": [action("return-to-planning", "Return to Planning", "navigation", { type: "navigation", target: "/department-manager/audit-plan" })],
   "gm-home": [action("open-department-summary", "Open department summary", "localProjection", { type: "localProjection", projection: "department-summary" })],
   "gm-planning": [action("review-plan", "Review plan", "modal", { type: "modal", dialog: "review-plan" })],
   "gm-report-approvals": [action("forward-report", "Forward report", "modal", { type: "modal", dialog: "forward-report", confirmCommand: { owner: "reports.decide", requiresRevision: true, requiresIdempotency: false, requiresOperationMetadata: true } }), action("return-report", "Return report", "modal", { type: "modal", dialog: "return-report", confirmCommand: { owner: "reports.decide", requiresRevision: true, requiresIdempotency: false, requiresOperationMetadata: true } })],
@@ -228,6 +231,8 @@ export interface MockState {
   organizations: OrganizationSummary[];
   planningItems: Record<string, PlanningItemView>;
   planningIntakeDrafts: Record<string, PlanningIntakeDraftView>;
+  planningProposalDrafts: Record<string, PlanningProposalDraftView>;
+  planningAuditPackageSetups: Record<string, PlanningAuditPackageSetupView>;
   checklistTemplateVersions: ChecklistTemplateVersionView[];
   checklistTemplateVersionDetails: Record<string, ChecklistTemplateVersionDetailView>;
   reminderRules: ReminderRuleView[];
@@ -791,6 +796,8 @@ export function createCanonicalSeedState(now: string): MockState {
         updatedAt: now,
       },
     },
+    planningProposalDrafts: {},
+    planningAuditPackageSetups: {},
     checklistTemplateVersions: [
       {
         id: "CTV-CABIN-1",

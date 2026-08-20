@@ -2925,9 +2925,9 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|A|control|New Inspection planning intake|/department-manager/new-audit/step-1|1",
+      "controlKey": "route|A|control|New Audit planning intake|/department-manager/new-audit/step-1|1",
       "boundary": "verified-navigation",
-      "durableEffect": "Activating \"New Inspection planning intake\" uses the declared destination /department-manager/new-audit/step-1 and preserves exact routed navigation semantics.",
+      "durableEffect": "Activating \"New Audit planning intake\" uses the declared destination /department-manager/new-audit/step-1 and preserves exact routed navigation semantics.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "declares an exact destination"
     },
@@ -5449,9 +5449,9 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|A|control|Open New Audit question selection|/department-manager/new-audit/step-4|1",
+      "controlKey": "route|A|control|Open released Planning preparation|/department-manager/audit-plan|1",
       "boundary": "verified-navigation",
-      "durableEffect": "Activating \"Open New Audit question selection\" uses the exact server-owned question-selection route.",
+      "durableEffect": "Activating \"Open released Planning preparation\" returns to the Planning queue where the released item owns the post-release selector boundary.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "declares an exact destination"
     },
@@ -5731,48 +5731,6 @@
       "assertion": "assertNativeFormControlOutcome"
     },
     {
-      "surfaceId": "manager-preliminary-report-review",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Forward PR-2026-018-V1 to General Manager||1",
-      "boundary": "typed-mutation:typed-workflow-mutations",
-      "durableEffect": "Activating \"Forward PR-2026-018-V1 to General Manager\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "manager-preliminary-report-review",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|BUTTON|button|Return PR-2026-018-V1 to Lead Inspector||1",
-      "boundary": "typed-mutation:typed-workflow-mutations",
-      "durableEffect": "Activating \"Return PR-2026-018-V1 to Lead Inspector\" must change the route, browser storage, durable DOM, form state, scroll target, or download output beyond transient status text.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertDurableControlOutcome"
-    },
-    {
-      "surfaceId": "manager-preliminary-report-review",
-      "scope": "route",
-      "viewports": [
-        "desktop",
-        "tablet",
-        "mobile"
-      ],
-      "controlKey": "route|TEXTAREA|textarea|Department Manager decision reason||1",
-      "boundary": "verified-form-behavior",
-      "durableEffect": "Activating \"Department Manager decision reason\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
-      "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
-      "assertion": "assertNativeFormControlOutcome"
-    },
-    {
       "surfaceId": "manager-risk-dashboard",
       "scope": "route",
       "viewports": [
@@ -6046,9 +6004,9 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|SELECT|select-one|Supplier / organization||1",
+      "controlKey": "route|SELECT|select-one|Inspected Organization||1",
       "boundary": "verified-form-behavior",
-      "durableEffect": "Changing \"Supplier / organization\" verifies the exact authorized organization selection.",
+      "durableEffect": "Changing \"Inspected Organization\" verifies the exact authorized organization selection.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertNativeFormControlOutcome"
     },
@@ -6130,7 +6088,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|SELECT|select-one|Supplier / organization||1",
+      "controlKey": "route|SELECT|select-one|Inspected Organization||1",
       "boundary": "verified-form-behavior",
       "durableEffect": "Activating \"Risk Category\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -6214,7 +6172,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|SELECT|select-one|Supplier / organization||1",
+      "controlKey": "route|SELECT|select-one|Inspected Organization||1",
       "boundary": "verified-form-behavior",
       "durableEffect": "Activating \"Planned Date\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -6298,7 +6256,7 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|SELECT|select-one|Supplier / organization||1",
+      "controlKey": "route|SELECT|select-one|Inspected Organization||1",
       "boundary": "verified-form-behavior",
       "durableEffect": "Activating \"Requested Budget\" verifies its exact native value, selection, checked, or file postcondition and rejects a no-op form control.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
@@ -6382,9 +6340,9 @@
         "tablet",
         "mobile"
       ],
-      "controlKey": "route|SELECT|select-one|Supplier / organization||1",
+      "controlKey": "route|SELECT|select-one|Inspected Organization||1",
       "boundary": "verified-form-behavior",
-      "durableEffect": "Changing \"Supplier / organization\" verifies the exact authorized organization selection.",
+      "durableEffect": "Changing \"Inspected Organization\" verifies the exact authorized organization selection.",
       "evidence": "apps/web/tests/e2e/visible-action-contract.spec.ts",
       "assertion": "assertNativeFormControlOutcome"
     },

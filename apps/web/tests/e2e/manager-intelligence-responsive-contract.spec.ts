@@ -94,31 +94,26 @@ for (const viewport of viewports) {
     }
 
     await page.goto("/department-manager/audit-plan");
-    const intakeLink = page.getByRole("link", { name: "New Inspection planning intake" });
+    const intakeLink = page.getByRole("link", { name: "New Audit planning intake" });
     await expectInsideViewport(page, intakeLink);
     await intakeLink.click();
-    await expect(page.getByTestId("new-audit-wizard-page")).toHaveAttribute("data-draft-id", "PLAN-DRAFT-2026-001");
-    await page.getByRole("button", { name: "Next" }).click();
-    await page.getByLabel("Inspection Category").selectOption("Ad Hoc / Unannounced");
-    await page.getByLabel("Purpose").fill("Targeted apron safety verification");
-    await page.getByRole("button", { name: "Next" }).click();
-    await page.reload();
-    await expect(page.getByRole("heading", { level: 2, name: /Step 3 of 5/ })).toBeVisible();
-    await page.getByRole("button", { name: "Back" }).click();
-    await expect(page.getByLabel("Purpose")).toHaveValue("Targeted apron safety verification");
-    await page.getByRole("button", { name: "Next" }).click();
-    await page.getByLabel("Location").fill("Fly Namibia HQ");
-    await page.getByRole("button", { name: "Next" }).click();
-    await page.getByLabel("Requested Budget").fill("0");
-    await page.getByLabel("Scope").fill("Apron and cabin operational controls");
-    await page.getByRole("button", { name: "Next" }).click();
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await expect(page.getByLabel("Purpose", { exact: true })).toBeVisible();
+    await page.getByLabel("Purpose", { exact: true }).fill("Targeted operational control verification");
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await expect(page.getByLabel("Planned date", { exact: true })).toBeVisible();
+    await page.getByLabel("Planned date", { exact: true }).fill("2026-12-10");
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await expect(page.getByLabel("Required inspectors", { exact: true })).toBeVisible();
+    await page.getByLabel("Requested budget", { exact: true }).fill("0");
+    await page.getByRole("button", { name: "Continue to review", exact: true }).click();
     const reviewPage = page.getByTestId("new-audit-wizard-page");
-    await expect(reviewPage).toContainText("No Advance Notice (withheld)");
-    const submit = reviewPage.getByRole("button", { name: "Submit for Finance Review" });
+    await expect(reviewPage).toContainText("Approval context");
+    const submit = reviewPage.getByRole("button", { name: "Submit to Finance" });
     await expectInsideViewport(page, submit);
     await submit.click();
-    await expect(page).toHaveURL(/\/department-manager\/audit-plan\?planningItemId=PLAN-2026-INTAKE-001$/);
-    await expect(page.getByTestId("planning-selected-record")).toContainText("PLAN-2026-INTAKE-001");
+    await expect(page).toHaveURL(/\/department-manager\/audit-plan\?planningItemId=/);
+    await expect(page.getByTestId("planning-selected-record")).toContainText("Selected plan:");
 
   });
 }

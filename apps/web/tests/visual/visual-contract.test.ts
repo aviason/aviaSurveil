@@ -145,13 +145,13 @@ describe("visual parity contract", () => {
       expectedSemanticMarker: "Released report unavailable",
     });
     expect(resolveReactSurfaceSemantics(inspectorHome)).toMatchObject({
-      expectedSemanticMarker: "AUD-2026-001",
+      expectedSemanticMarker: "2026 Cabin Inspection - Fly Namibia",
       expectedOwnerText: "CAA Inspector",
       expectedNextActionText: "Continue Cabin Inspection checklist",
     });
   });
 
-  it("freezes the 85 active surfaces by three viewports while retaining the root oracle separately", () => {
+  it("freezes the legacy visual surfaces by three viewports while retaining the additive post-release route separately", () => {
     expect(VISUAL_SURFACES).toHaveLength(85);
     expect(VISUAL_VIEWPORTS).toHaveLength(3);
     expect(VISUAL_SURFACES.length * VISUAL_VIEWPORTS.length).toBe(255);
@@ -227,7 +227,7 @@ describe("visual parity contract", () => {
     const script = join(repositoryRoot, "apps/web/scripts/assert-parity-boundary.mjs");
     const mutations = [
       ["missing-route", /85-surface/],
-      ["remove-http-profile", /All 85 routes must be dual-profile/],
+      ["remove-http-profile", /All 86 routes must be dual-profile/],
       ["restore-blocked-profile-reason", /must not retain a blocked profile reason/],
       ["skip-viewport", /VISUAL_VIEWPORTS/],
       ["remove-shell-assertion", /workspace-sidebar/],

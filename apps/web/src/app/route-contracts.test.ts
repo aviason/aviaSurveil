@@ -19,13 +19,14 @@ const roleByAuditRole = {
 } as const;
 
 describe("React route contracts", () => {
-  it("keeps the 85 active audit surfaces ordered after retiring the fixed-ID package builder", () => {
-    expect(REACT_ROUTE_CONTRACTS).toHaveLength(85);
-    expect(REACT_ROUTE_CONTRACTS.map(({ auditId }) => auditId)).toEqual(
-      auditSource.filter(({ auditId }) => auditId !== "ui-audit-043").map(({ auditId }) => auditId),
-    );
-    expect(new Set(REACT_ROUTE_CONTRACTS.map(({ id }) => id)).size).toBe(85);
-    expect(new Set(REACT_ROUTE_CONTRACTS.map(({ path }) => path)).size).toBe(85);
+  it("keeps the 86 active audit surfaces ordered after adding post-release checklist preparation", () => {
+    expect(REACT_ROUTE_CONTRACTS).toHaveLength(86);
+    const expectedAuditIds = auditSource.filter(({ auditId }) => auditId !== "ui-audit-043").map(({ auditId }) => auditId);
+    expectedAuditIds.splice(expectedAuditIds.indexOf("ui-audit-052"), 0, "ui-audit-087");
+    expect(REACT_ROUTE_CONTRACTS.map(({ auditId }) => auditId)).toEqual(expectedAuditIds);
+    expect(REACT_ROUTE_CONTRACTS.find(({ auditId }) => auditId === "ui-audit-087")).toMatchObject({ id: "post-release-checklist-selection" });
+    expect(new Set(REACT_ROUTE_CONTRACTS.map(({ id }) => id)).size).toBe(86);
+    expect(new Set(REACT_ROUTE_CONTRACTS.map(({ path }) => path)).size).toBe(86);
   });
 
   it("declares a role, parent, placement, data boundary, component, and profile availability for every route", () => {
@@ -43,7 +44,7 @@ describe("React route contracts", () => {
     }
   });
 
-  it("activates all 85 current contracts in both demo and HTTP profiles", () => {
+  it("activates all 86 current contracts in both demo and HTTP profiles", () => {
     const dualProfile = REACT_ROUTE_CONTRACTS.filter(
       ({ availableProfiles }) => availableProfiles.join(":") === "demo:http",
     );
@@ -51,7 +52,7 @@ describe("React route contracts", () => {
       ({ availableProfiles }) => availableProfiles.join(":") === "demo",
     );
 
-    expect(dualProfile).toHaveLength(85);
+    expect(dualProfile).toHaveLength(86);
     expect(demoOnly).toHaveLength(0);
     expect(REACT_ROUTE_CONTRACTS.every(({ blockedProfileReason }) => blockedProfileReason === undefined)).toBe(true);
   });
@@ -130,6 +131,7 @@ describe("React route contracts", () => {
       "new-audit-wizard-3": "audit-plan",
       "new-audit-wizard-4": "audit-plan",
       "new-audit-wizard-5": "audit-plan",
+      "post-release-checklist-selection": "audit-plan",
       "executive-report-preview": "executive-final-reports",
       "auditee-report-preview": "auditee-final-reports",
       "admin-home": "admin-template-list",
@@ -147,10 +149,10 @@ describe("React route contracts", () => {
     expect(Object.values(actualContextualParentById).every((parentId) => typeof parentId === "string" && routeIds.has(parentId))).toBe(true);
   });
 
-  it("keeps all 84 routed screen components implemented without hidden generic deferred entries", () => {
+  it("keeps all 85 routed screen components implemented without hidden generic deferred entries", () => {
     const registrySource = readFileSync(resolve(import.meta.dirname, "screen-component-registry.tsx"), "utf8");
     expect(registrySource).not.toMatch(/deferredDemoScreen|DeferredDemoScreen|deferred-demo-screen/i);
-    expect(Object.entries(SCREEN_COMPONENT_REGISTRY).filter(([, { status }]) => status === "implemented")).toHaveLength(84);
+    expect(Object.entries(SCREEN_COMPONENT_REGISTRY).filter(([, { status }]) => status === "implemented")).toHaveLength(85);
     expect(Object.entries(SCREEN_COMPONENT_REGISTRY).filter(([, { status }]) => status === "router-owned")).toEqual([
       ["role-select", { status: "router-owned" }],
     ]);
