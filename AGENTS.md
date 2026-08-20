@@ -89,6 +89,15 @@ React migration authority is the
   unless the user explicitly requests that branch action.
 - Do not commit, push, deploy, initialize Git, or modify external/production
   systems unless the user explicitly authorizes that exact action.
+- Public demo authentication uses only the prepared synthetic qualification
+  roster. For the exact `namibia/demo` target, recover a purpose-scoped
+  credential through the workspace custody command
+  (`scripts/workspace.py qualification-credential`) with its exact target,
+  scenario, purpose token, and confirmation string. Keep the returned secret
+  under ignored `.state/qualification/` custody, use it only for the approved
+  verification action, never print or persist it in source/docs/AGENTS.md, and
+  remove temporary custody after the verification. Never inspect browser
+  profiles, cookies, saved passwords, or session stores to bypass this path.
 - Use English for repository code, plans, evidence, and documentation. Turkish
   may be used in user-facing chat; do not create `.turkce.md` companion files.
 
