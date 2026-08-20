@@ -80,6 +80,11 @@ async function confirmOneQuestion(user: ReturnType<typeof userEvent.setup>) {
   await screen.findByText("Selection confirmed and saved to the server-owned scope.");
 }
 
+function selectedCountFrom(summary: HTMLElement): number {
+  const text = within(summary).getByText(/[\d,]+ questions selected/).textContent ?? "0";
+  return Number(text.match(/[\d,]+/)?.[0]?.replace(/,/g, "") ?? "0");
+}
+
 describe("New Inspection Planning intake", () => {
   it("keeps English protocol labels stable and makes the planned date keyboard-safe on mobile", async () => {
     expect(catalogValueLabel("INITIAL_CERTIFICATION")).toBe("Initial Certification");
@@ -230,7 +235,7 @@ describe("New Inspection Planning intake", () => {
     const runtime = createMockBackendRuntime(() => "2026-08-18T12:00:00.000Z", "prior-audit-no-history-scope-filter");
     renderWizardRoute("/department-manager/new-audit/step-1", runtime);
     await progressToChecklist(user);
-    const visibleIDs = () => [...document.querySelectorAll<HTMLElement>(".planning-intake-catalog-list li")].map((row) => row.dataset.questionVersionId).sort();
+    const visibleIDs = () => [...document.querySelectorAll<HTMLElement>(".planning-intake-catalog-list > li")].map((row) => row.dataset.questionVersionId).sort();
     await waitFor(() => expect(visibleIDs()).toEqual([
       "Q-NO-HISTORY-IN-FOCUS-OPTIONAL",
       "Q-NO-HISTORY-OUTSIDE-FOCUS-MANDATORY",
@@ -247,6 +252,56 @@ describe("New Inspection Planning intake", () => {
       "Q-NO-HISTORY-IN-FOCUS-OPTIONAL",
       "Q-NO-HISTORY-OUTSIDE-FOCUS-MANDATORY",
     ]));
+  });
+
+  it("adds suggested questions into the selected-tray and allows removing one entry", async () => {
+    const user = userEvent.setup();
+    renderWizardRoute("/department-manager/new-audit/step-4");
+    const page = await progressToChecklist(user);
+    const summary = within(page).getByRole("region", { name: "Selection summary" });
+    expect(selectedCountFrom(summary)).toBe(0);
+    await user.click(screen.getByRole("button", { name: "Use suggested questions" }));
+    await waitFor(() => expect(selectedCountFrom(summary)).toBeGreaterThan(0));
+    const afterAdd = selectedCountFrom(summary);
+    expect(afterAdd).toBeGreaterThan(0);
+    const selectedTray = within(summary).getByRole("region", { name: "Selected questions" });
+    expect(selectedTray).toHaveTextContent("selected questions");
+    await user.click(within(selectedTray).getAllByRole("button", { name: "View details" })[0]);
+    const selectedQuestionDialog = await screen.findByRole("dialog", { name: "Question dossier" });
+    expect(selectedQuestionDialog).toHaveTextContent("Question details");
+    await user.click(within(selectedQuestionDialog).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Question dossier" })).toBeNull());
+    await user.click(within(selectedTray).getAllByRole("button", { name: "Remove" })[0]);
+    await waitFor(() => expect(selectedCountFrom(summary)).toBe(afterAdd - 1));
+    const uncheckedQuestion = screen.getAllByRole("checkbox", { name: /Select / }).find((checkbox) => !(checkbox as HTMLInputElement).checked);
+    expect(uncheckedQuestion).toBeDefined();
+    await user.click(uncheckedQuestion!);
+    await waitFor(() => expect(selectedCountFrom(summary)).toBe(afterAdd));
+    await user.click(screen.getByRole("button", { name: "Use suggested questions" }));
+    await waitFor(() => expect(screen.getByText(/matched questions are already selected/)).toBeVisible());
+    expect(screen.getByRole("button", { name: "Use suggested questions" })).toBeEnabled();
+  });
+
+  it("shows concrete recommendation reasons instead of generic omission rationale text", async () => {
+    const user = userEvent.setup();
+    const runtime = createMockBackendRuntime(() => "2026-08-18T12:00:00.000Z", "prior-audit-single-history");
+    renderWizardRoute("/department-manager/new-audit/step-4", runtime);
+    await progressToChecklist(user);
+    expect(screen.queryByText("One clean Audit is not sufficient longitudinal evidence for omission.")).toBeNull();
+    expect(screen.getAllByText(/Insufficient longitudinal history/).length).toBeGreaterThan(0);
+    const summary = screen.getByRole("status", { name: "Prior-Audit recommendation summary" });
+    expect(summary).toBeInTheDocument();
+  });
+
+  it("labels the historical suggestion default location and demo override guidance", async () => {
+    const user = userEvent.setup();
+    const runtime = createMockBackendRuntime(() => "2026-08-18T12:00:00.000Z", "prior-audit-multi-history");
+    renderWizardRoute("/department-manager/new-audit/step-4", runtime);
+    await progressToChecklist(user);
+    const summary = await screen.findByRole("status", { name: "Prior-Audit recommendation summary" });
+    expect(summary).toHaveTextContent("Default historical suggestion location: Windhoek International Airport (historical location snapshot).");
+    expect(summary).toHaveTextContent("Demo note: Historical suggestion matching is pre-configured and ready with this default location.");
+    expect(summary).toHaveTextContent("choose a different schedule location before running suggestion actions again");
   });
 
   it("shows the prior-Audit scenario, every withheld reason, and restores the exact history-deferred set", async () => {
