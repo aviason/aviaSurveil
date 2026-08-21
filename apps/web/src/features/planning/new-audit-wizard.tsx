@@ -338,7 +338,7 @@ function NewAuditWizardPage() {
   useEffect(() => {
     if (!previewOpen || !canonicalCatalog || !estimate || !values) return undefined;
     const controller = new AbortController(); setPreviewBusy(true);
-    void canonicalCatalog.listCatalog({ catalogVersion: estimate.catalogVersion, usageClass: "GOVERNED_OPERATIONAL", search: previewQuery || undefined, checklistFocus: checklistFocusForPreview(values.inspectionType as CanonicalApplicationType), limit: 50, projection: "selection" }, { signal: controller.signal }).then((page) => { if (!controller.signal.aborted) { setPreviewRows(page.items.slice(0, 50)); setPreviewTotal(page.totalCount); } }).catch((cause) => { if (!controller.signal.aborted) setServerError(errorMessage(cause)); }).finally(() => { if (!controller.signal.aborted) setPreviewBusy(false); });
+    void canonicalCatalog.listCatalog({ catalogVersion: estimate.catalogVersion, usageClass: "GOVERNED_OPERATIONAL", search: previewQuery || undefined, checklistFocus: checklistFocusForPreview(values.inspectionType as CanonicalApplicationType), limit: 50, projection: "full" }, { signal: controller.signal }).then((page) => { if (!controller.signal.aborted) { setPreviewRows(page.items.slice(0, 50)); setPreviewTotal(page.totalCount); } }).catch((cause) => { if (!controller.signal.aborted) setServerError(errorMessage(cause)); }).finally(() => { if (!controller.signal.aborted) setPreviewBusy(false); });
     return () => controller.abort();
   }, [canonicalCatalog, estimate, previewOpen, previewQuery, values]);
 

@@ -151,8 +151,9 @@ describe("New Audit planning proposal", () => {
     await user.click(trigger);
     const dialog = await screen.findByRole("dialog", { name: "Checklist item preview" });
     await waitFor(() => expect(listCatalog).toHaveBeenCalledWith(expect.objectContaining({ checklistFocus: ["ON_SITE_INSPECTION", "PERIODIC_SURVEILLANCE"] }), expect.anything()));
-    const previewRequest = listCatalog.mock.calls.find(([input]) => input.projection === "selection")?.[0];
+    const previewRequest = listCatalog.mock.calls.find(([input]) => input.projection === "full")?.[0];
     expect(previewRequest?.applicationType).toBeUndefined();
+    expect(listCatalog).toHaveBeenCalledWith(expect.objectContaining({ projection: "full" }), expect.anything());
     expect(within(dialog).getByText(/matching items/)).not.toHaveTextContent("0 matching items");
     expect(dialog).toHaveTextContent("does not select or freeze checklist items");
     expect(within(dialog).queryByRole("checkbox")).toBeNull();
