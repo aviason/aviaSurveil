@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ClientQuiescence } from "./client-quiescence";
+import { appShellRecoveryURL, ClientQuiescence } from "./client-quiescence";
 
 describe("client quiescence", () => {
   it("freezes a quiescent client and emits a safe-checkpoint acknowledgement", () => {
@@ -68,5 +68,15 @@ describe("client quiescence", () => {
     state.requestReload("sha256:next");
     expect(state.acknowledgeReload("sha256:next")).toBe(true);
     expect(state.acknowledgeReload("sha256:next")).toBe(false);
+  });
+
+  it("returns through the non-destructive recovery document to the exact current route", () => {
+    expect(appShellRecoveryURL(
+      "/department-manager/new-audit/step-4",
+      "?draftId=planning%3A42",
+      "#budget",
+    )).toBe(
+      "/app-shell-recovery.html?returnTo=%2Fdepartment-manager%2Fnew-audit%2Fstep-4%3FdraftId%3Dplanning%253A42%23budget",
+    );
   });
 });

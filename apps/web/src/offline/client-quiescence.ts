@@ -143,6 +143,11 @@ export interface BrowserQuiescenceBinding {
   dispose(): void;
 }
 
+export function appShellRecoveryURL(pathname: string, search: string, hash: string): string {
+  const returnTo = `${pathname.startsWith("/") ? pathname : "/"}${search}${hash}`;
+  return `/app-shell-recovery.html?returnTo=${encodeURIComponent(returnTo)}`;
+}
+
 export function bindBrowserQuiescence(registration: ServiceWorkerRegistration): BrowserQuiescenceBinding {
   const state = new ClientQuiescence();
   const clientAssetURL = import.meta.url;
@@ -155,6 +160,8 @@ export function bindBrowserQuiescence(registration: ServiceWorkerRegistration): 
   let acknowledgedCandidateFingerprint: string | null = null;
   let reportedCandidateFingerprint: string | null = null;
   let reloadStarted = false;
+  let staleDocumentFingerprint: string | null = null;
+  let recoveryStarted = false;
   let watchedInstallingWorker: ServiceWorker | null = null;
 
   const requestWaitingCandidate = () => {
@@ -192,6 +199,21 @@ export function bindBrowserQuiescence(registration: ServiceWorkerRegistration): 
       detail: { fingerprint: pendingReloadFingerprint, automatic: true },
     }));
     window.location.reload();
+  };
+  const recoverStaleDocumentWhenQuiescent = () => {
+    if (
+      recoveryStarted ||
+      !staleDocumentFingerprint ||
+      !state.freezeForSafeCheckpoint()
+    ) {
+      return;
+    }
+    recoveryStarted = true;
+    window.location.replace(appShellRecoveryURL(
+      window.location.pathname,
+      window.location.search,
+      window.location.hash,
+    ));
   };
   const acknowledgePendingCandidate = () => {
     if (
@@ -252,6 +274,13 @@ export function bindBrowserQuiescence(registration: ServiceWorkerRegistration): 
   const onVisibilityChange = () => {
     if (document.visibilityState === "visible") sendReady();
   };
+  const onStaleDocument = (event: Event) => {
+    const fingerprint = (event as CustomEvent<{ fingerprint?: unknown }>).detail?.fingerprint;
+    if (typeof fingerprint !== "string") return;
+    staleDocumentFingerprint = fingerprint;
+    notifyUpdateCandidate(fingerprint);
+    recoverStaleDocumentWhenQuiescent();
+  };
   const onInstallingStateChange = () => {
     if (watchedInstallingWorker?.state === "installed") requestWaitingCandidate();
   };
@@ -262,12 +291,15 @@ export function bindBrowserQuiescence(registration: ServiceWorkerRegistration): 
     onInstallingStateChange();
   };
   const stopQuiescentListener = state.onQuiescent(() => {
+    recoverStaleDocumentWhenQuiescent();
+    if (recoveryStarted) return;
     acknowledgePendingCandidate();
     reloadWhenQuiescent();
   });
   navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
   navigator.serviceWorker.addEventListener("message", onWorkerMessage);
   window.addEventListener("pageshow", onPageShow);
+  window.addEventListener("avia:app-shell-stale-document", onStaleDocument);
   document.addEventListener("visibilitychange", onVisibilityChange);
   registration.addEventListener("updatefound", watchInstallingWorker);
   watchInstallingWorker();
@@ -279,6 +311,7 @@ export function bindBrowserQuiescence(registration: ServiceWorkerRegistration): 
       navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
       navigator.serviceWorker.removeEventListener("message", onWorkerMessage);
       window.removeEventListener("pageshow", onPageShow);
+      window.removeEventListener("avia:app-shell-stale-document", onStaleDocument);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       registration.removeEventListener("updatefound", watchInstallingWorker);
       watchedInstallingWorker?.removeEventListener("statechange", onInstallingStateChange);

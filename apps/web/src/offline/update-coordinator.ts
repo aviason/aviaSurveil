@@ -243,6 +243,9 @@ export interface AppShellUpdateMonitorEnvironment {
   eventTarget: EventTarget;
   documentTarget: EventTarget & { visibilityState: string };
   isOnline(): boolean;
+  currentAssetURL?: string;
+  loadNetworkManifest?(): Promise<unknown>;
+  reportStaleDocument?(fingerprint: string): void;
   setInterval(callback: () => void, intervalMs: number): unknown;
   clearInterval(handle: unknown): void;
   reportFailure(error: unknown): void;
@@ -258,12 +261,50 @@ function browserUpdateMonitorEnvironment(): AppShellUpdateMonitorEnvironment {
     eventTarget: window,
     documentTarget: document,
     isOnline: () => navigator.onLine,
+    currentAssetURL: import.meta.url,
+    loadNetworkManifest: async () => {
+      const response = await fetch("/app-shell-assets.json", {
+        cache: "no-store",
+        headers: { accept: "application/json" },
+      });
+      if (!response.ok) throw new Error(`App-shell manifest probe failed with ${response.status}.`);
+      return response.json();
+    },
+    reportStaleDocument: (fingerprint) => {
+      window.dispatchEvent(new CustomEvent("avia:app-shell-stale-document", {
+        detail: { fingerprint },
+      }));
+    },
     setInterval: (callback, intervalMs) => window.setInterval(callback, intervalMs),
     clearInterval: (handle) => window.clearInterval(handle as number),
     reportFailure: () => {
       window.dispatchEvent(new CustomEvent("avia:app-shell-update-check-failed"));
     },
   };
+}
+
+export function staleDocumentFingerprint(manifest: unknown, currentAssetURL: string): string | null {
+  if (!manifest || typeof manifest !== "object") return null;
+  const candidate = manifest as { releaseFingerprint?: unknown; files?: unknown };
+  if (
+    typeof candidate.releaseFingerprint !== "string" ||
+    !/^sha256:[0-9a-f]{64}$/.test(candidate.releaseFingerprint) ||
+    !Array.isArray(candidate.files)
+  ) {
+    return null;
+  }
+  let currentPath: string;
+  try {
+    currentPath = new URL(currentAssetURL).pathname;
+  } catch {
+    return null;
+  }
+  const current = candidate.files.some((file) => (
+    Boolean(file) &&
+    typeof file === "object" &&
+    (file as { url?: unknown }).url === currentPath
+  ));
+  return current ? null : candidate.releaseFingerprint;
 }
 
 export function installAppShellUpdateMonitor(
@@ -286,6 +327,17 @@ export function installAppShellUpdateMonitor(
     const request = (async () => {
       try {
         await registration.update();
+        if (
+          environment.currentAssetURL &&
+          environment.loadNetworkManifest &&
+          environment.reportStaleDocument
+        ) {
+          const fingerprint = staleDocumentFingerprint(
+            await environment.loadNetworkManifest(),
+            environment.currentAssetURL,
+          );
+          if (fingerprint) environment.reportStaleDocument(fingerprint);
+        }
       } catch (error) {
         environment.reportFailure(error);
       }

@@ -407,4 +407,42 @@ describe("app-shell update monitor", () => {
     expect(update).toHaveBeenCalledTimes(2);
     monitor.close();
   });
+
+  it("reports a stale Safari-style document when its loaded asset is absent from the network manifest", async () => {
+    const harness = updateMonitorHarness();
+    const reportStaleDocument = vi.fn();
+    harness.environment.currentAssetURL = "https://candidate.test/assets/app-old123.js";
+    harness.environment.loadNetworkManifest = vi.fn().mockResolvedValue({
+      releaseFingerprint: `sha256:${"a".repeat(64)}`,
+      files: [{ url: "/assets/app-new456.js" }],
+    });
+    harness.environment.reportStaleDocument = reportStaleDocument;
+    const monitor = installAppShellUpdateMonitor(
+      { update: vi.fn().mockResolvedValue(undefined) } as unknown as ServiceWorkerRegistration,
+      harness.environment,
+    );
+
+    await monitor.checkNow();
+    expect(reportStaleDocument).toHaveBeenCalledWith(`sha256:${"a".repeat(64)}`);
+    monitor.close();
+  });
+
+  it("does not recover a document whose loaded asset belongs to the network manifest", async () => {
+    const harness = updateMonitorHarness();
+    const reportStaleDocument = vi.fn();
+    harness.environment.currentAssetURL = "https://candidate.test/assets/app-current.js";
+    harness.environment.loadNetworkManifest = vi.fn().mockResolvedValue({
+      releaseFingerprint: `sha256:${"b".repeat(64)}`,
+      files: [{ url: "/assets/app-current.js" }],
+    });
+    harness.environment.reportStaleDocument = reportStaleDocument;
+    const monitor = installAppShellUpdateMonitor(
+      { update: vi.fn().mockResolvedValue(undefined) } as unknown as ServiceWorkerRegistration,
+      harness.environment,
+    );
+
+    await monitor.checkNow();
+    expect(reportStaleDocument).not.toHaveBeenCalled();
+    monitor.close();
+  });
 });
