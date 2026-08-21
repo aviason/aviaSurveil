@@ -71,6 +71,24 @@ function operationId(prefix: string): string {
   return `${prefix}-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`.toUpperCase();
 }
 
+/**
+ * New Audit has no canonical scope draft yet, so its read-only catalog
+ * preview cannot use the scope-bound applicationType filter. Keep the same
+ * audit-type focus through the catalog's scope-free checklistFocus filter.
+ */
+function checklistFocusForPreview(inspectionType: CanonicalApplicationType): string[] {
+  switch (inspectionType) {
+    case "RAMP":
+    case "RAMP_INSPECTION":
+      return ["ON_SITE_INSPECTION", "PERIODIC_SURVEILLANCE"];
+    case "CABIN":
+    case "CABIN_INSPECTION":
+      return ["DOCUMENT_AND_RECORD_REVIEW", "PERIODIC_SURVEILLANCE"];
+    default:
+      return [inspectionType];
+  }
+}
+
 function stepFromPath(pathname: string): number {
   return Math.min(5, Math.max(1, Number(pathname.match(/step-(\d)$/)?.[1] ?? 1)));
 }
@@ -320,7 +338,7 @@ function NewAuditWizardPage() {
   useEffect(() => {
     if (!previewOpen || !canonicalCatalog || !estimate || !values) return undefined;
     const controller = new AbortController(); setPreviewBusy(true);
-    void canonicalCatalog.listCatalog({ catalogVersion: estimate.catalogVersion, usageClass: "GOVERNED_OPERATIONAL", search: previewQuery || undefined, applicationType: values.inspectionType as CanonicalApplicationType, limit: 50, projection: "selection" }, { signal: controller.signal }).then((page) => { if (!controller.signal.aborted) { setPreviewRows(page.items.slice(0, 50)); setPreviewTotal(page.totalCount); } }).catch((cause) => { if (!controller.signal.aborted) setServerError(errorMessage(cause)); }).finally(() => { if (!controller.signal.aborted) setPreviewBusy(false); });
+    void canonicalCatalog.listCatalog({ catalogVersion: estimate.catalogVersion, usageClass: "GOVERNED_OPERATIONAL", search: previewQuery || undefined, checklistFocus: checklistFocusForPreview(values.inspectionType as CanonicalApplicationType), limit: 50, projection: "selection" }, { signal: controller.signal }).then((page) => { if (!controller.signal.aborted) { setPreviewRows(page.items.slice(0, 50)); setPreviewTotal(page.totalCount); } }).catch((cause) => { if (!controller.signal.aborted) setServerError(errorMessage(cause)); }).finally(() => { if (!controller.signal.aborted) setPreviewBusy(false); });
     return () => controller.abort();
   }, [canonicalCatalog, estimate, previewOpen, previewQuery, values]);
 

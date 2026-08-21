@@ -143,11 +143,17 @@ describe("New Audit planning proposal", () => {
 
   it("opens a read-only checklist preview and never exposes selection controls", async () => {
     const user = userEvent.setup();
-    renderWizardRoute("/department-manager/new-audit/step-1");
+    const runtime = createMockBackendRuntime();
+    const listCatalog = vi.spyOn(runtime.backendForRole("manager").canonicalCatalog!, "listCatalog");
+    renderWizardRoute("/department-manager/new-audit/step-1", runtime);
     await completeThroughResources(user);
     const trigger = screen.getByRole("button", { name: "Browse checklist items" });
     await user.click(trigger);
     const dialog = await screen.findByRole("dialog", { name: "Checklist item preview" });
+    await waitFor(() => expect(listCatalog).toHaveBeenCalledWith(expect.objectContaining({ checklistFocus: ["ON_SITE_INSPECTION", "PERIODIC_SURVEILLANCE"] }), expect.anything()));
+    const previewRequest = listCatalog.mock.calls.find(([input]) => input.projection === "selection")?.[0];
+    expect(previewRequest?.applicationType).toBeUndefined();
+    expect(within(dialog).getByText(/matching items/)).not.toHaveTextContent("0 matching items");
     expect(dialog).toHaveTextContent("does not select or freeze checklist items");
     expect(within(dialog).queryByRole("checkbox")).toBeNull();
     expect(within(dialog).getByRole("button", { name: "Use this count" })).toBeEnabled();
