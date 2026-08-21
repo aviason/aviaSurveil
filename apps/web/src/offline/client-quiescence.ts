@@ -148,6 +148,14 @@ export function appShellRecoveryURL(pathname: string, search: string, hash: stri
   return `/app-shell-recovery.html?returnTo=${encodeURIComponent(returnTo)}`;
 }
 
+function replaceWithAppShellRecovery(): void {
+  window.location.replace(appShellRecoveryURL(
+    window.location.pathname,
+    window.location.search,
+    window.location.hash,
+  ));
+}
+
 export function bindBrowserQuiescence(registration: ServiceWorkerRegistration): BrowserQuiescenceBinding {
   const state = new ClientQuiescence();
   const clientAssetURL = import.meta.url;
@@ -198,7 +206,7 @@ export function bindBrowserQuiescence(registration: ServiceWorkerRegistration): 
     window.dispatchEvent(new CustomEvent("avia:app-shell-reload-required", {
       detail: { fingerprint: pendingReloadFingerprint, automatic: true },
     }));
-    window.location.reload();
+    replaceWithAppShellRecovery();
   };
   const recoverStaleDocumentWhenQuiescent = () => {
     if (
@@ -209,11 +217,7 @@ export function bindBrowserQuiescence(registration: ServiceWorkerRegistration): 
       return;
     }
     recoveryStarted = true;
-    window.location.replace(appShellRecoveryURL(
-      window.location.pathname,
-      window.location.search,
-      window.location.hash,
-    ));
+    replaceWithAppShellRecovery();
   };
   const acknowledgePendingCandidate = () => {
     if (

@@ -5,6 +5,7 @@ import type { FindingSeverity, FindingView, Role } from "../../backend/backend";
 import { useApplicationRuntime } from "../../app/providers";
 import type { ReactSurfaceId } from "../../app/route-contracts";
 import { useOptionalSession } from "../../auth/session-provider";
+import { appShellRecoveryURL } from "../../offline/client-quiescence";
 import { ApplicationShell, type NotificationState, type ShellIdentityPresentation } from "../../ui/application-shell";
 import { ROLE_ENTRIES, createRoleEntryPath } from "../../ui/role-select-page";
 import { recordReference } from "./record-presentation";
@@ -151,7 +152,11 @@ export function WorkspaceShell({
                 className="primary-button"
                 onClick={() => {
                   setDismissedUpdateFingerprint(pendingUpdateFingerprint);
-                  window.location.reload();
+                  window.location.replace(appShellRecoveryURL(
+                    window.location.pathname,
+                    window.location.search,
+                    window.location.hash,
+                  ));
                 }}
                 type="button"
               >
