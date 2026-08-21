@@ -282,7 +282,7 @@ function NewAuditWizardPage() {
     let cancelled = false;
     if (!proposal) { setServerError("New Audit planning is unavailable in this build profile."); return () => { cancelled = true; }; }
     if (requestedDraftId && draftRef.current?.id === requestedDraftId) return () => { cancelled = true; };
-    void Promise.all([proposal.listScopeOptions({ limit: 100 }), proposal.listPurposePresets()]).then(async ([scopePage, presets]) => {
+    void Promise.all([proposal.listScopeOptions({ limit: 25 }), proposal.listPurposePresets()]).then(async ([scopePage, presets]) => {
       if (cancelled) return;
       setScopeOptions(scopePage.items); setPurposePresets(presets);
       if (requestedDraftId) {

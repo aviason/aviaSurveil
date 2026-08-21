@@ -404,7 +404,7 @@ export function AuditPlanCalendarPage() {
       <div className="management-workspace planning-workspace">
         <header className="management-page-head workbench-page-header">
           <h1>Department Planning</h1>
-          <p>Review governed Planning work and send a new inspection brief to Finance.</p>
+          <p>Review governed Planning work and send a new Audit plan to Finance.</p>
           <div className="planning-parent-actions">
             <Link aria-label="New Audit planning intake" to="/department-manager/new-audit/step-1">New Audit</Link>
           </div>
