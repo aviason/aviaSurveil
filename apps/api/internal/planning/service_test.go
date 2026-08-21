@@ -3,6 +3,7 @@ package planning
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/aviason/aviaSurveil/internal/application"
 	"github.com/aviason/aviaSurveil/internal/identity"
@@ -32,5 +33,19 @@ func TestDecideTransitionKeepsPlanningAuthoritiesSeparate(t *testing.T) {
 	}
 	if _, _, _, _, err := decideTransition(manager, StatusFinanceReview, DecisionApproveBudget); !errors.Is(err, application.ErrForbidden) {
 		t.Fatalf("manager budget decision error = %v, want forbidden", err)
+	}
+}
+
+func TestProposalWorkloadEstimateUsesCurrentGovernedCatalog(t *testing.T) {
+	values := ProposalDraftValues{
+		OrganizationID:    "ORG-NAMIBIA-DEMO-AGA-QUALIFICATION",
+		ProviderScopeID:   "SCOPE-NAMIBIA-DEMO-AGA-QUALIFICATION",
+		RegulatedTargetID: "TARGET-NAMIBIA-DEMO-AGA-QUALIFICATION-AERODROME",
+		InspectionType:    "RAMP_INSPECTION",
+	}
+
+	estimate := proposalWorkloadEstimate(values, time.Date(2026, 8, 22, 0, 0, 0, 0, time.UTC))
+	if estimate.CatalogVersion != "aga-approved-source@2.0.0" {
+		t.Fatalf("catalog version = %q, want aga-approved-source@2.0.0", estimate.CatalogVersion)
 	}
 }

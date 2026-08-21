@@ -183,7 +183,7 @@ func proposalWorkloadEstimate(values ProposalDraftValues, now time.Time) Workloa
 	return WorkloadEstimate{
 		EstimateID:          "WORKLOAD-ESTIMATE-" + hex.EncodeToString(digest[:])[:20],
 		EstimateDigest:      "sha256:" + hex.EncodeToString(digest[:]),
-		CatalogVersion:      "aga-approved-source-v2@1.0.0",
+		CatalogVersion:      "aga-approved-source@2.0.0",
 		CatalogRootDigest:   "sha256:" + hex.EncodeToString(digest[:]),
 		PolicyVersion:       "planning-workload-v1",
 		EvaluatedAt:         now.UTC().Format(time.RFC3339Nano),
