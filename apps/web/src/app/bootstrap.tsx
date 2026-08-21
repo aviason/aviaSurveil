@@ -16,6 +16,7 @@ import {
   registerAppShellServiceWorker,
 } from "../offline/update-coordinator";
 import { bindBrowserQuiescence } from "../offline/client-quiescence";
+import { waitForStaleDocumentGuard } from "../offline/stale-document-guard";
 import {
   currentBrowserRouteID,
   installBrowserTelemetry,
@@ -23,7 +24,8 @@ import {
 import { BrowserTelemetryErrorBoundary } from "../telemetry/browser-telemetry-boundary";
 import "../styles/app.css";
 
-export function bootstrap(runtime: ApplicationRuntime): void {
+export async function bootstrap(runtime: ApplicationRuntime): Promise<void> {
+  if (await waitForStaleDocumentGuard()) return;
   const rootElement = document.getElementById("root");
   if (!rootElement) throw new Error("AviaSurveil360 root element is missing");
   const browserTelemetry = installBrowserTelemetry(

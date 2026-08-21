@@ -25,4 +25,26 @@ describe("stale document guard", () => {
     expect(fingerprint).toBeNull();
     expect(replace).not.toHaveBeenCalled();
   });
+
+  it("detects a same-path entry whose bytes are from an older shell", async () => {
+    await expect(detectStaleDocument({
+      entryURL: "https://candidate.test/assets/app-current.js",
+      loadManifest: async () => ({
+        releaseFingerprint: `sha256:${"c".repeat(64)}`,
+        files: [{ url: "/assets/app-current.js", sha256: `sha256:${"a".repeat(64)}` }],
+      }),
+      loadEntryDigest: async () => `sha256:${"b".repeat(64)}`,
+    })).resolves.toBe(`sha256:${"c".repeat(64)}`);
+  });
+
+  it("accepts a same-path entry when its bytes match the current shell", async () => {
+    await expect(detectStaleDocument({
+      entryURL: "https://candidate.test/assets/app-current.js",
+      loadManifest: async () => ({
+        releaseFingerprint: `sha256:${"d".repeat(64)}`,
+        files: [{ url: "/assets/app-current.js", sha256: `sha256:${"a".repeat(64)}` }],
+      }),
+      loadEntryDigest: async () => `sha256:${"a".repeat(64)}`,
+    })).resolves.toBeNull();
+  });
 });

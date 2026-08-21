@@ -1,3 +1,1 @@
-import { installStaleDocumentGuard } from "../offline/stale-document-guard";
-
-installStaleDocumentGuard();
+import "../offline/stale-document-guard";

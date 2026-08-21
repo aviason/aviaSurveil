@@ -245,6 +245,7 @@ export interface AppShellUpdateMonitorEnvironment {
   isOnline(): boolean;
   currentAssetURL?: string;
   loadNetworkManifest?(): Promise<unknown>;
+  loadCurrentAssetDigest?(): Promise<string | null>;
   reportStaleDocument?(fingerprint: string): void;
   setInterval(callback: () => void, intervalMs: number): unknown;
   clearInterval(handle: unknown): void;
@@ -263,12 +264,27 @@ function browserUpdateMonitorEnvironment(): AppShellUpdateMonitorEnvironment {
     isOnline: () => navigator.onLine,
     currentAssetURL: import.meta.url,
     loadNetworkManifest: async () => {
-      const response = await fetch("/app-shell-assets.json", {
+      const manifestURL = new URL("/app-shell-assets.json", window.location.href);
+      manifestURL.searchParams.set("avia_shell_probe", `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+      const response = await fetch(manifestURL, {
         cache: "no-store",
         headers: { accept: "application/json" },
       });
       if (!response.ok) throw new Error(`App-shell manifest probe failed with ${response.status}.`);
       return response.json();
+    },
+    loadCurrentAssetDigest: async () => {
+      const assetURL = new URL(import.meta.url, window.location.href);
+      assetURL.searchParams.set("avia_shell_probe", `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+      const response = await fetch(assetURL, {
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: { accept: "text/javascript" },
+      });
+      if (!response.ok) throw new Error(`App-shell asset probe failed with ${response.status}.`);
+      const bytes = await response.arrayBuffer();
+      const hash = await crypto.subtle.digest("SHA-256", bytes);
+      return `sha256:${Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
     },
     reportStaleDocument: (fingerprint) => {
       window.dispatchEvent(new CustomEvent("avia:app-shell-stale-document", {
@@ -283,7 +299,11 @@ function browserUpdateMonitorEnvironment(): AppShellUpdateMonitorEnvironment {
   };
 }
 
-export function staleDocumentFingerprint(manifest: unknown, currentAssetURL: string): string | null {
+export function staleDocumentFingerprint(
+  manifest: unknown,
+  currentAssetURL: string,
+  currentAssetDigest?: string | null,
+): string | null {
   if (!manifest || typeof manifest !== "object") return null;
   const candidate = manifest as { releaseFingerprint?: unknown; files?: unknown };
   if (
@@ -299,12 +319,14 @@ export function staleDocumentFingerprint(manifest: unknown, currentAssetURL: str
   } catch {
     return null;
   }
-  const current = candidate.files.some((file) => (
+  const record = candidate.files.find((file) => (
     Boolean(file) &&
     typeof file === "object" &&
     (file as { url?: unknown }).url === currentPath
-  ));
-  return current ? null : candidate.releaseFingerprint;
+  )) as { sha256?: unknown } | undefined;
+  if (!record) return candidate.releaseFingerprint;
+  if (typeof currentAssetDigest === "string" && record.sha256 !== currentAssetDigest) return candidate.releaseFingerprint;
+  return null;
 }
 
 export function installAppShellUpdateMonitor(
@@ -335,6 +357,7 @@ export function installAppShellUpdateMonitor(
           const fingerprint = staleDocumentFingerprint(
             await environment.loadNetworkManifest(),
             environment.currentAssetURL,
+            environment.loadCurrentAssetDigest ? await environment.loadCurrentAssetDigest() : null,
           );
           if (fingerprint) environment.reportStaleDocument(fingerprint);
         }
