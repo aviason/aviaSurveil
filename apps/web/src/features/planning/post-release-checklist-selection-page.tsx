@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { useBackendForRole } from "../../app/providers";
@@ -48,6 +48,7 @@ export function PostReleaseChecklistSelectionPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const selectionHydratedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,10 +96,11 @@ export function PostReleaseChecklistSelectionPage() {
       ]);
       setCatalogPage((current) => nextCursor ? { ...page, items: [...(current?.items ?? []), ...page.items] } : page);
       setCursor(page.nextCursor);
-      if (selectedPage) {
+      if (selectedPage && !selectionHydratedRef.current) {
         const ids = selectedPage.items.map((question) => question.questionVersionId);
         setCommittedIds(ids);
         setSelectedIds(ids);
+        selectionHydratedRef.current = true;
       }
     } catch (cause) {
       setError(errorMessage(cause));

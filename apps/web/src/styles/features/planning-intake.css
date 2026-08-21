@@ -1695,3 +1695,336 @@
   .workspace-content .planning-intake-workload-drawer footer { display: grid; grid-template-columns: 1fr; }
   .workspace-content .planning-intake-workload-drawer footer button { width: 100%; }
 }
+
+/* Authoritative New Audit workspace: compact, decision-led, and non-obscuring. */
+.workspace-content > .planning-intake-page--new-audit {
+  width: 100%;
+  max-width: 1260px;
+  gap: 0;
+  margin: 0 auto;
+  padding: 28px clamp(18px, 3vw, 38px) 48px;
+}
+
+.planning-intake-page--new-audit .planning-intake-workspace {
+  display: grid;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #dce5ec;
+  border-radius: 12px;
+  background: var(--avia-color-panel);
+  box-shadow: 0 10px 30px rgb(20 46 76 / 7%);
+}
+
+.planning-intake-page--new-audit .planning-intake-workspace > .planning-intake-header {
+  max-width: none;
+  padding: 28px 32px 18px;
+}
+
+.planning-intake-page--new-audit .planning-intake-workspace > .planning-intake-header h1 {
+  margin: 0 0 7px;
+  font-size: clamp(1.85rem, 2.6vw, 2.25rem);
+  letter-spacing: -.035em;
+}
+
+.planning-intake-page--new-audit .planning-intake-workspace > .planning-intake-header p {
+  max-width: 760px;
+  font-size: .94rem;
+  line-height: 1.5;
+}
+
+.planning-intake-page--new-audit .planning-intake-workspace > .planning-intake-progress {
+  padding: 0 32px 24px;
+}
+
+.planning-intake-page--new-audit .planning-intake-progress__desktop {
+  gap: 14px;
+}
+
+.planning-intake-page--new-audit .planning-intake-progress__desktop li {
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 8px;
+  padding: 8px 2px 11px;
+  font-size: .8rem;
+}
+
+.planning-intake-page--new-audit .planning-intake-progress__desktop li > span {
+  width: 26px;
+  height: 26px;
+}
+
+.planning-intake-page--new-audit .planning-intake-workspace > :is(.command-error, .planning-intake-status, .planning-intake-error-summary) {
+  margin: 0 32px 18px;
+}
+
+.planning-intake-page--new-audit .planning-intake-workspace > .planning-intake-layout {
+  grid-template-columns: minmax(0, 1fr) 292px;
+  gap: 36px;
+  border-top: 1px solid #e7edf2;
+  padding: 28px 32px 32px;
+}
+
+.planning-intake-page--new-audit .planning-intake-form {
+  gap: 22px;
+}
+
+.planning-intake-page--new-audit .planning-intake-form__header {
+  gap: 4px;
+  border: 0;
+  padding: 0 0 4px;
+}
+
+.planning-intake-page--new-audit .planning-intake-form__header span {
+  font-size: .7rem;
+  letter-spacing: .055em;
+}
+
+.planning-intake-page--new-audit .planning-intake-form__header h2 {
+  font-size: clamp(1.4rem, 2vw, 1.75rem);
+}
+
+.planning-intake-page--new-audit .planning-intake-form__header h2:focus {
+  outline: none;
+}
+
+.planning-intake-page--new-audit .planning-intake-form__header p {
+  font-size: .9rem;
+}
+
+.planning-intake-page--new-audit .planning-intake-fields {
+  gap: 20px 22px;
+}
+
+.planning-intake-page--new-audit .planning-intake-scope-fields > label {
+  grid-column: 1 / -1;
+  max-width: 480px;
+}
+
+.planning-intake-page--new-audit .planning-intake-fields input,
+.planning-intake-page--new-audit .planning-intake-fields select,
+.planning-intake-page--new-audit .planning-intake-fields textarea {
+  min-height: 44px;
+  border-color: #becbd5;
+  border-radius: 7px;
+  padding: 9px 12px;
+  background: #fff;
+}
+
+.planning-intake-page--new-audit .planning-intake-fields textarea {
+  min-height: 150px;
+}
+
+.planning-intake-page--new-audit .planning-intake-scope-fields fieldset,
+.planning-intake-page--new-audit .planning-intake-mode-group {
+  padding-top: 16px;
+}
+
+.planning-intake-page--new-audit .planning-intake-scope-facts {
+  gap: 12px;
+}
+
+.planning-intake-page--new-audit .planning-intake-scope-choice {
+  gap: 8px;
+  border: 1px solid #d8e4ee;
+  border-radius: 8px;
+  background: #f7fafc;
+  padding: 14px 15px;
+}
+
+.planning-intake-page--new-audit .planning-intake-scope-choice small::before {
+  margin-right: 5px;
+  color: var(--avia-color-success);
+  content: "✓";
+  font-weight: 800;
+}
+
+.planning-intake-page--new-audit .planning-intake-boundary-note {
+  border: 1px solid #dbe7f3;
+  border-left: 3px solid var(--avia-color-action);
+  border-radius: 0 7px 7px 0;
+  background: #f6f9fc;
+  padding: 11px 13px;
+  font-size: .86rem;
+}
+
+.planning-intake-page--new-audit .planning-intake-brief {
+  position: sticky;
+  top: 74px;
+  border-left: 1px solid #e0e7ed;
+  padding-left: 24px;
+}
+
+.planning-intake-page--new-audit .planning-intake-brief__desktop > header {
+  align-items: flex-start;
+  padding-bottom: 10px;
+}
+
+.planning-intake-page--new-audit .planning-intake-brief h2 {
+  font-size: 1rem;
+}
+
+.planning-intake-page--new-audit .planning-intake-brief header p {
+  margin: 4px 0 0;
+  color: var(--avia-color-muted);
+  font-size: .77rem;
+  line-height: 1.4;
+}
+
+.planning-intake-page--new-audit .planning-intake-brief__facts div {
+  gap: 3px;
+  padding: 10px 0;
+}
+
+.planning-intake-page--new-audit .planning-intake-brief__facts dt {
+  font-size: .66rem;
+}
+
+.planning-intake-page--new-audit .planning-intake-brief__facts dd {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: .87rem;
+  line-height: 1.38;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.planning-intake-page--new-audit .planning-intake-open-section {
+  gap: 14px;
+  border: 1px solid #e0e8ee;
+  border-radius: 9px;
+  padding: 18px;
+}
+
+.planning-intake-page--new-audit .planning-intake-open-section:first-child {
+  border-top: 1px solid #e0e8ee;
+}
+
+.planning-intake-page--new-audit .planning-intake-open-section header {
+  grid-template-columns: minmax(180px, .75fr) minmax(0, 1.25fr);
+  gap: 20px;
+}
+
+.planning-intake-page--new-audit .planning-intake-open-section > label {
+  max-width: 420px;
+}
+
+.planning-intake-page--new-audit .planning-intake-preview-button {
+  min-height: 40px;
+  width: fit-content;
+  border: 1px solid #9db0c0;
+  border-radius: 7px;
+  background: #fff;
+  padding: 8px 13px;
+  color: var(--avia-color-ink);
+  font: inherit;
+  font-size: .86rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.planning-intake-page--new-audit .planning-intake-section-kicker {
+  font-size: .72rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.planning-intake-page--new-audit .planning-intake-review {
+  gap: 14px;
+}
+
+.planning-intake-page--new-audit .planning-intake-review-section {
+  border: 1px solid #e0e8ee;
+  border-radius: 9px;
+  padding: 17px 18px;
+}
+
+.planning-intake-page--new-audit .planning-intake-review-section:first-child {
+  border-top: 1px solid #e0e8ee;
+}
+
+.planning-intake-page--new-audit .planning-intake-review-section header button {
+  text-decoration: none;
+}
+
+.planning-intake-page--new-audit .planning-intake-review-section dl {
+  gap: 12px 22px;
+  margin-top: 12px;
+}
+
+.planning-intake-page--new-audit .planning-intake-readiness__checks {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.planning-intake-page--new-audit .planning-intake-readiness__checks li {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 9px;
+  border-top: 1px solid var(--avia-color-line);
+  color: var(--avia-color-ink);
+  font-size: .86rem;
+  font-weight: 700;
+}
+
+.planning-intake-page--new-audit .planning-intake-readiness__checks li > span {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--avia-color-success);
+  font-size: .7rem;
+}
+
+.planning-intake-page--new-audit .planning-intake-readiness__checks li.is-incomplete > span {
+  background: var(--avia-color-error);
+}
+
+.planning-intake-page--new-audit .planning-intake-readiness__path {
+  margin-top: 18px;
+  border-radius: 8px;
+  background: #f4f8fb;
+  padding: 13px;
+}
+
+.planning-intake-page--new-audit .planning-intake-readiness__path strong {
+  color: var(--avia-color-heading);
+  font-size: .8rem;
+}
+
+.planning-intake-page--new-audit .planning-intake-readiness__path p {
+  margin: 5px 0 0;
+  color: var(--avia-color-muted);
+  font-size: .76rem;
+  line-height: 1.5;
+}
+
+.workspace-content .planning-intake-page--new-audit .planning-intake-workspace > .planning-intake-actions {
+  position: static;
+  z-index: auto;
+  right: auto;
+  bottom: auto;
+  left: auto;
+  margin: 0;
+  border-top: 1px solid #e0e7ed;
+  background: #fbfcfd;
+  padding: 15px 32px calc(15px + env(safe-area-inset-bottom));
+  box-shadow: none;
+}
+
+.planning-intake-page--new-audit .planning-intake-actions button {
+  min-width: 96px;
+  border-radius: 7px;
+}
+
+.planning-intake-page--new-audit .planning-intake-actions .planning-intake-primary {
+  min-width: 128px;
+  border-color: var(--avia-color-action);
+  color: #fff;
+  background: var(--avia-color-action);
+}

@@ -253,6 +253,11 @@ const routeLabels: Record<string, ReactSurfaceId> = {
   "New Audit Wizard 3": "new-audit-wizard-3",
   "New Audit Wizard 4": "new-audit-wizard-4",
   "New Audit Wizard 5": "new-audit-wizard-5",
+  "New Audit · Scope": "new-audit-wizard-1",
+  "New Audit · Purpose": "new-audit-wizard-2",
+  "New Audit · Schedule": "new-audit-wizard-3",
+  "New Audit · Resources & budget": "new-audit-wizard-4",
+  "New Audit · Review": "new-audit-wizard-5",
 };
 
 const roleRouteLabels: Partial<Record<Role, Record<string, ReactSurfaceId>>> = {

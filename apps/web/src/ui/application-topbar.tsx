@@ -56,6 +56,11 @@ export function ApplicationTopbar({
       "manager-home": "Dashboard",
       "organization-registry": "Dashboard  ›  Organizations",
       "audit-plan": "Dashboard  ›  Planning",
+      "new-audit-wizard-1": "Planning  ›  New Audit",
+      "new-audit-wizard-2": "Planning  ›  New Audit",
+      "new-audit-wizard-3": "Planning  ›  New Audit",
+      "new-audit-wizard-4": "Planning  ›  New Audit",
+      "new-audit-wizard-5": "Planning  ›  New Audit",
       "report-preview": "Dashboard  ›  Reports Approval",
     };
     const authorityCrumbs: Partial<Record<ReactSurfaceId, string>> = { "gm-home": "General Manager Dashboard", "finance-home": "Finance Review", "executive-home": "Executive Director Dashboard" };

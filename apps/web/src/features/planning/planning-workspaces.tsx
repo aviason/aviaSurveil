@@ -8,6 +8,7 @@ import type {
   FindingView,
   ManagerDashboardProjection,
   OrganizationSummary,
+  PlanningAuditPackageSetupView,
   PlanningDecision,
   PlanningItemView,
   ReportVersionView,
@@ -291,6 +292,7 @@ export function ExecutivePlanningPage() { return <PlanningGovernancePage role="e
 export function AuditPlanCalendarPage() {
   const backend = useBackendForRole("manager");
   const workflow = backend.canonicalAuditWorkflow;
+  const proposal = backend.planningProposal;
   const [searchParams] = useSearchParams();
   const [items, setItems] = useState<PlanningItemView[]>([]);
   const [selected, setSelected] = useState<PlanningItemView | null>(null);
@@ -301,7 +303,21 @@ export function AuditPlanCalendarPage() {
   const [materialized, setMaterialized] = useState<Awaited<ReturnType<NonNullable<typeof workflow>["materialize"]>> | null>(null);
   const [leadSubjectId, setLeadSubjectId] = useState("");
   const [preparationConfirmed, setPreparationConfirmed] = useState(false);
+  const [packageSetup, setPackageSetup] = useState<PlanningAuditPackageSetupView | null>(null);
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    setPackageSetup(null);
+    if (!selected || selected.status !== "RELEASED" || !proposal) return;
+    let cancelled = false;
+    void proposal.getAuditPackageSetup({ planningItemId: selected.id }).then((current) => {
+      if (!cancelled) setPackageSetup(current);
+    }).catch(() => {
+      // A released proposal has no package setup until the Department Manager
+      // opens the explicit checklist-selection route.
+    });
+    return () => { cancelled = true; };
+  }, [proposal, selected?.id, selected?.status]);
+
   useEffect(() => {
     void backend.planning.list({ limit: 100 }).then((output) => {
       setItems(output.items);
@@ -347,6 +363,10 @@ export function AuditPlanCalendarPage() {
 
   async function beginPreparation(): Promise<void> {
     if (!workflow || !selected) return;
+    if (packageSetup?.status !== "FINALIZED") {
+      setError("Finalize the post-release checklist selection before beginning preparation.");
+      return;
+    }
     setBusy(true); setError(null);
     try {
       const result = await workflow.prepare(selected.id, {
@@ -455,7 +475,8 @@ export function AuditPlanCalendarPage() {
         {selected?.status === "RELEASED" ? <section aria-label="Canonical post-release preparation" className="planning-command-center management-panel" data-testid="canonical-preparation-actions">
           <header className="planning-command-center__head"><div><span className="planning-command-center__eyebrow">Post-release canonical workflow</span><h2>Prepare → Assign → Confirm → Materialize → Start</h2><p>These controls call server-owned commands. No inspection, package, or checklist exists until materialization.</p></div><span className="planning-demo-badge is-info">{workflow ? "Connected command boundary" : "Unavailable in this build profile"}</span></header>
           {!workflow ? <p role="note">Canonical preparation commands are unavailable in this build profile.</p> : <div className="planning-preparation-actions">
-            {!preparation ? <button disabled={busy} onClick={() => void beginPreparation()} type="button">Begin preparation</button> : <p role="status">{recordReference("Preparation", preparation.assignmentId)} · {preparation.status.replaceAll("_", " ")} · revision {preparation.revision}</p>}
+            <div><Link to={`/department-manager/planning/${encodeURIComponent(selected.id)}/setup/checklist`}>Open checklist selection</Link><p role="status">{packageSetup?.status === "FINALIZED" ? `Audit package finalized · ${packageSetup.selectedCount} checklist items` : "Checklist selection and Audit-package finalization are required before preparation."}</p></div>
+            {!preparation ? <button disabled={busy || packageSetup?.status !== "FINALIZED"} onClick={() => void beginPreparation()} title={packageSetup?.status !== "FINALIZED" ? "Finalize the post-release checklist selection before beginning preparation." : undefined} type="button">Begin preparation</button> : <p role="status">{recordReference("Preparation", preparation.assignmentId)} · {preparation.status.replaceAll("_", " ")} · revision {preparation.revision}</p>}
             {preparation && !assignment ? <div><label>Lead Inspector subject ID<input aria-label="Lead Inspector subject ID" value={leadSubjectId} onChange={(event) => setLeadSubjectId(event.target.value)} placeholder="lead-subject" /></label><button disabled={busy || !leadSubjectId.trim()} onClick={() => void assignLead()} type="button">Assign Lead Inspector</button></div> : null}
             {assignment ? <><p role="status">{recordReference("Assignment", assignment.id)} · {assignment.status.replaceAll("_", " ")} · revision {assignment.revision}</p><p role="note">The assigned Lead Inspector completes team membership and per-question coverage in the Lead preparation workspace.</p><Link to={`/lead-inspector/audit-preparation?assignmentId=${encodeURIComponent(assignment.id)}`}>Open Lead preparation workspace</Link><button disabled={busy || preparationConfirmed || assignment.status !== "QUESTIONS_ASSIGNED"} onClick={() => void confirmPreparation()} title={preparationConfirmed ? "Preparation is already confirmed for this assignment revision." : assignment.status !== "QUESTIONS_ASSIGNED" ? "The Lead Inspector must complete team and question coverage first." : undefined} type="button">Confirm preparation</button><button disabled={busy || !preparationConfirmed} onClick={() => void materializeAudit()} title={!preparationConfirmed ? "Confirm preparation before materialization." : undefined} type="button">Create Audit</button></> : null}
             {materialized ? <p role="status">{recordReference("Audit", materialized.inspectionId)} · {materialized.status.replaceAll("_", " ")}. Inspector start is available from My Assignments after readiness.</p> : null}

@@ -79,6 +79,9 @@ describe("post-release checklist preparation", () => {
     await screen.findByRole("heading", { level: 2, name: "Checklist items" });
     const firstCheckbox = await screen.findByRole("checkbox", { name: "Select SYNTH-FORM-001 item 1" });
     await user.click(firstCheckbox);
+    await user.type(screen.getByLabelText("Search checklist items"), "SYNTH-FORM-001");
+    await user.click(screen.getByRole("button", { name: "Apply filters" }));
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: "Select SYNTH-FORM-001 item 1" })).toBeChecked());
     await user.click(screen.getByRole("button", { name: "Confirm selection" }));
     await waitFor(() => expect(screen.getByText(/Selection confirmed by the server/)).toBeVisible());
     await user.click(screen.getByRole("button", { name: "Finalize Audit package" }));
