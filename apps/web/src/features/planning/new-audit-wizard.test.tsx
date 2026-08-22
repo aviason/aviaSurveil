@@ -154,10 +154,10 @@ describe("New Audit planning proposal", () => {
     const previewRequest = listCatalog.mock.calls.find(([input]) => input.projection === "full")?.[0];
     expect(previewRequest?.applicationType).toBeUndefined();
     expect(listCatalog).toHaveBeenCalledWith(expect.objectContaining({ projection: "full" }), expect.anything());
-    expect(within(dialog).getByText(/matching items/)).not.toHaveTextContent("0 matching items");
-    expect(dialog).toHaveTextContent("does not select or freeze checklist items");
+    expect(within(dialog).getByText(/candidate questions/)).not.toHaveTextContent("0 candidate questions");
+    expect(dialog).toHaveTextContent("does not select or freeze the planned checklist");
     expect(within(dialog).queryByRole("checkbox")).toBeNull();
-    expect(within(dialog).getByRole("button", { name: "Use this count" })).toBeEnabled();
+    expect(within(dialog).getByRole("button", { name: "Use visible count as estimate" })).toBeEnabled();
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Checklist item preview" })).toBeNull());
     expect(document.activeElement).toBe(trigger);
