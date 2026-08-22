@@ -1005,6 +1005,15 @@ export interface PlanningResolvedLocation {
   editable: boolean;
 }
 
+export interface PlanningWorkloadSuggestedQuestion {
+  questionVersionId: string;
+  formCode: string;
+  ordinal: number;
+  prompt: string;
+  recommendationState: string;
+  classification: string;
+}
+
 export interface PlanningWorkloadEstimate {
   estimateId: string;
   estimateDigest: string;
@@ -1019,6 +1028,7 @@ export interface PlanningWorkloadEstimate {
   basisLabel: string;
   eligibleRosterCount: number;
   rosterEvaluatedAt: Instant;
+  suggestedQuestions: PlanningWorkloadSuggestedQuestion[];
 }
 
 export interface PlanningProposalDraftValues {

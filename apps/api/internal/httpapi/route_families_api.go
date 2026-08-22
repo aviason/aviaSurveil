@@ -823,7 +823,14 @@ func planningView(item planning.Item) generated.PlanningItemView {
 		view.EstimatedChecklistItemCount = &item.EstimatedChecklistItemCount
 	}
 	if item.WorkloadEstimate != nil {
-		view.WorkloadEstimate = (*generated.PlanningWorkloadEstimate)(&generated.PlanningWorkloadEstimate{EstimateId: item.WorkloadEstimate.EstimateID, EstimateDigest: item.WorkloadEstimate.EstimateDigest, CatalogVersion: item.WorkloadEstimate.CatalogVersion, CatalogRootDigest: item.WorkloadEstimate.CatalogRootDigest, PolicyVersion: item.WorkloadEstimate.PolicyVersion, EvaluatedAt: item.WorkloadEstimate.EvaluatedAt, ApplicableItemCount: item.WorkloadEstimate.ApplicableItemCount, SuggestedCount: item.WorkloadEstimate.SuggestedCount, SafeMinimum: item.WorkloadEstimate.SafeMinimum, SafeMaximum: item.WorkloadEstimate.SafeMaximum, BasisLabel: item.WorkloadEstimate.BasisLabel, EligibleRosterCount: item.WorkloadEstimate.EligibleRosterCount, RosterEvaluatedAt: item.WorkloadEstimate.RosterEvaluatedAt})
+		suggestedQuestions := make([]generated.WorkloadSuggestedQuestion, 0, len(item.WorkloadEstimate.SuggestedQuestions))
+		for _, question := range item.WorkloadEstimate.SuggestedQuestions {
+			suggestedQuestions = append(suggestedQuestions, generated.WorkloadSuggestedQuestion{
+				QuestionVersionId: question.QuestionVersionID, FormCode: question.FormCode, Ordinal: question.Ordinal,
+				Prompt: question.Prompt, RecommendationState: question.RecommendationState, Classification: question.Classification,
+			})
+		}
+		view.WorkloadEstimate = &generated.PlanningWorkloadEstimate{EstimateId: item.WorkloadEstimate.EstimateID, EstimateDigest: item.WorkloadEstimate.EstimateDigest, CatalogVersion: item.WorkloadEstimate.CatalogVersion, CatalogRootDigest: item.WorkloadEstimate.CatalogRootDigest, PolicyVersion: item.WorkloadEstimate.PolicyVersion, EvaluatedAt: item.WorkloadEstimate.EvaluatedAt, ApplicableItemCount: item.WorkloadEstimate.ApplicableItemCount, SuggestedCount: item.WorkloadEstimate.SuggestedCount, SafeMinimum: item.WorkloadEstimate.SafeMinimum, SafeMaximum: item.WorkloadEstimate.SafeMaximum, BasisLabel: item.WorkloadEstimate.BasisLabel, EligibleRosterCount: item.WorkloadEstimate.EligibleRosterCount, RosterEvaluatedAt: item.WorkloadEstimate.RosterEvaluatedAt, SuggestedQuestions: suggestedQuestions}
 	}
 	if item.InitiatedBy != "" {
 		view.InitiatedBy = &item.InitiatedBy

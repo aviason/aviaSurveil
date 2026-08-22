@@ -1616,6 +1616,33 @@
 .planning-intake-workload-drawer > label { display: grid; gap: 7px; color: var(--avia-color-ink); font-weight: 700; }
 .planning-intake-preview-count { font-weight: 750; }
 
+.planning-intake-preview-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.planning-intake-preview-summary button {
+  display: grid;
+  gap: 3px;
+  min-height: 76px;
+  border: 1px solid var(--avia-color-line);
+  border-radius: 10px;
+  background: var(--avia-color-panel);
+  padding: 12px 14px;
+  text-align: left;
+}
+
+.planning-intake-preview-summary button.is-active {
+  border-color: var(--avia-color-action);
+  background: var(--avia-color-action-surface, #eef4ff);
+  box-shadow: inset 0 0 0 1px var(--avia-color-action);
+}
+
+.planning-intake-preview-summary span { color: var(--avia-color-muted); font-size: .82rem; font-weight: 750; }
+.planning-intake-preview-summary strong { color: var(--avia-color-heading); font-size: 1.2rem; }
+.planning-intake-preview-summary small { color: var(--avia-color-muted); }
+
 .planning-intake-preview-list {
   display: grid;
   max-height: 420px;
@@ -1629,6 +1656,8 @@
 .planning-intake-preview-list li { display: grid; gap: 4px; border-top: 1px solid var(--avia-color-line); padding: 12px 0; }
 .planning-intake-preview-list strong { color: var(--avia-color-heading); }
 .planning-intake-preview-list span { color: var(--avia-color-ink); line-height: 1.45; }
+.planning-intake-preview-list small { color: var(--avia-color-muted); text-transform: capitalize; }
+.planning-intake-preview-load-more { justify-self: center; }
 .planning-intake-workload-drawer footer { display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--avia-color-line); padding-top: 16px; }
 
 .planning-intake-actions button,
@@ -1682,6 +1711,7 @@
   .planning-intake-scope-facts,
   .planning-intake-location-editor,
   .planning-intake-open-section header,
+  .planning-intake-preview-summary,
   .planning-intake-budget-fields,
   .planning-proposal-dossier dl,
   .planning-post-release-facts,

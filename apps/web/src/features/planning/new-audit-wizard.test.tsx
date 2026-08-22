@@ -136,7 +136,7 @@ describe("New Audit planning proposal", () => {
     expect(screen.getByRole("spinbutton", { name: "Required inspectors" })).toHaveValue(2);
     expect(screen.getByRole("spinbutton", { name: "Estimated checklist items" })).toBeVisible();
     expect(screen.getByRole("spinbutton", { name: "Requested budget" })).toBeVisible();
-    expect(screen.getByText(/Suggested \d+; safe range/)).toBeVisible();
+    expect(screen.getByText(/Finance estimate \d+; server-suggested questions \d+; safe range/)).toBeVisible();
     expect(screen.queryByText(/Use suggested questions|Review selection|Question catalog/)).toBeNull();
     expect(screen.queryByRole("checkbox")).toBeNull();
   });
@@ -151,13 +151,18 @@ describe("New Audit planning proposal", () => {
     await user.click(trigger);
     const dialog = await screen.findByRole("dialog", { name: "Checklist item preview" });
     await waitFor(() => expect(listCatalog).toHaveBeenCalledWith(expect.objectContaining({ checklistFocus: ["ON_SITE_INSPECTION", "PERIODIC_SURVEILLANCE"] }), expect.anything()));
-    const previewRequest = listCatalog.mock.calls.find(([input]) => input.projection === "full")?.[0];
-    expect(previewRequest?.applicationType).toBeUndefined();
-    expect(listCatalog).toHaveBeenCalledWith(expect.objectContaining({ projection: "full" }), expect.anything());
-    expect(within(dialog).getByText(/candidate questions/)).not.toHaveTextContent("0 candidate questions");
-    expect(dialog).toHaveTextContent("does not select or freeze the planned checklist");
+    const previewRequests = listCatalog.mock.calls.filter(([input]) => input.projection === "full").map(([input]) => input);
+    expect(previewRequests).toEqual(expect.arrayContaining([
+      expect.not.objectContaining({ recommendationState: "SUGGESTED_NOW" }),
+    ]));
+    expect(within(dialog).getByText(/^\d+ suggested checklist questions$/)).not.toHaveTextContent("0 suggested checklist questions");
+    expect(within(dialog).getByRole("tab", { name: /Suggested checklist/ })).toHaveAttribute("aria-selected", "true");
+    expect(within(dialog).getByRole("tab", { name: /All candidates/ })).toBeEnabled();
+    expect(dialog).toHaveTextContent("never selects or freezes the final checklist");
     expect(within(dialog).queryByRole("checkbox")).toBeNull();
-    expect(within(dialog).getByRole("button", { name: "Use visible count as estimate" })).toBeEnabled();
+    expect(within(dialog).queryByRole("button", { name: "Use visible count as estimate" })).toBeNull();
+    await user.click(within(dialog).getByRole("tab", { name: /All candidates/ }));
+    expect(within(dialog).getByText(/^\d+ candidate questions in this focus$/)).toBeVisible();
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Checklist item preview" })).toBeNull());
     expect(document.activeElement).toBe(trigger);

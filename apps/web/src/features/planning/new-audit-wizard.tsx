@@ -15,6 +15,7 @@ import type {
   PlanningPurposePreset,
   PlanningResolvedLocation,
   PlanningWorkloadEstimate,
+  PlanningWorkloadSuggestedQuestion,
 } from "../../backend/backend";
 import { CommandError, errorMessage, formatLocalDate, WorkspaceShell } from "../shared/workspace-shell";
 import { catalogValueLabel } from "./planning-intake-formatters";
@@ -215,7 +216,31 @@ function ScopeChoice({ label, value, automatic, children }: { label: string; val
   return <div className="planning-intake-scope-choice"><div><span>{label}</span>{children ? null : <><strong>{value || "Select an option"}</strong>{automatic ? <small>Automatically selected</small> : null}</>}</div>{children}</div>;
 }
 
-function WorkloadPreview({ open, onClose, rows, busy, query, onQuery, total, suggestedCount, safeMinimum, safeMaximum, onUseCount, returnFocusRef }: { open: boolean; onClose: () => void; rows: CanonicalQuestionCatalogEntry[]; busy: boolean; query: string; onQuery: (value: string) => void; total: number; suggestedCount: number; safeMinimum: number; safeMaximum: number; onUseCount: () => void; returnFocusRef: RefObject<HTMLElement | null> }) {
+type PreviewView = "suggested" | "all";
+
+interface WorkloadPreviewProps {
+  open: boolean;
+  onClose: () => void;
+  allRows: CanonicalQuestionCatalogEntry[];
+  suggestedQuestions: PlanningWorkloadSuggestedQuestion[];
+  busy: boolean;
+  loadingMore: boolean;
+  query: string;
+  onQuery: (value: string) => void;
+  view: PreviewView;
+  onViewChange: (view: PreviewView) => void;
+  total: number;
+  suggestedTotal: number;
+  allTotal: number | null;
+  nextCursor: string | null;
+  suggestedCount: number;
+  safeMinimum: number;
+  safeMaximum: number;
+  onLoadMore: () => void;
+  returnFocusRef: RefObject<HTMLElement | null>;
+}
+
+function WorkloadPreview({ open, onClose, allRows, suggestedQuestions, busy, loadingMore, query, onQuery, view, onViewChange, total, suggestedTotal, allTotal, nextCursor, suggestedCount, safeMinimum, safeMaximum, onLoadMore, returnFocusRef }: WorkloadPreviewProps) {
   const dialogRef = useRef<HTMLElement | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -242,8 +267,16 @@ function WorkloadPreview({ open, onClose, rows, busy, query, onQuery, total, sug
     };
   }, [open, returnFocusRef]);
   if (!open) return null;
-  const outsideSafeRange = total < safeMinimum || total > safeMaximum;
-  return <div className="planning-intake-dossier-backdrop" role="presentation"><section className="planning-intake-workload-drawer" ref={dialogRef} role="dialog" aria-modal="true" aria-label="Checklist item preview"><header><div><span className="planning-intake-dialog-kicker">Read-only preview</span><h2>Browse checklist items</h2></div><button type="button" onClick={onClose}>Close</button></header><p>This is the candidate question pool for this inspection focus. It does not select or freeze the planned checklist.</p><p className="planning-intake-preview-basis" role="note">Planned workload: <strong>{suggestedCount.toLocaleString("en-US")} items</strong>. This is the number Finance uses to review budget and time. Safe range: {safeMinimum.toLocaleString("en-US")}–{safeMaximum.toLocaleString("en-US")}.</p><label htmlFor="planning-intake-preview-search">Search checklist items<input id="planning-intake-preview-search" value={query} onChange={(event) => onQuery(event.target.value)} placeholder="Search item text or reference" /></label><p className="planning-intake-preview-count" aria-live="polite">{total.toLocaleString("en-US")} {query.trim() ? "matching candidate questions" : "candidate questions in this focus"}</p>{outsideSafeRange && total > 0 ? <p className="planning-intake-warning" role="status">Using this visible count as the workload estimate would be outside the safe range and may materially change the budget/time review.</p> : null}{busy ? <p className="planning-intake-loading" role="status">Loading preview…</p> : <ul className="planning-intake-preview-list">{rows.map((row) => <li key={row.questionVersionId}><strong>{row.formCode} · item {row.ordinal}</strong><span>{row.prompt ?? "Checklist item text unavailable"}</span></li>)}</ul>}<footer><button className="planning-intake-secondary" type="button" onClick={onClose}>Close preview</button><button className="planning-intake-primary" type="button" onClick={onUseCount} disabled={busy || total === 0}>Use visible count as estimate</button></footer></section></div>;
+  const isSuggested = view === "suggested";
+  const queryNeedle = query.trim().toLocaleLowerCase();
+  const filteredSuggestedQuestions = suggestedQuestions.filter((question) => !queryNeedle || `${question.formCode} ${question.questionVersionId} ${question.prompt}`.toLocaleLowerCase().includes(queryNeedle));
+  const rows = isSuggested ? filteredSuggestedQuestions : allRows;
+  const currentTotal = isSuggested ? filteredSuggestedQuestions.length : total;
+  const currentLabel = isSuggested ? "suggested checklist questions" : "candidate questions in this focus";
+  const currentCountLabel = queryNeedle ? `matching ${isSuggested ? "suggested" : "candidate"} questions` : currentLabel;
+  const suggestedList = filteredSuggestedQuestions.map((row) => <li key={row.questionVersionId}><strong>{row.formCode} · item {row.ordinal}</strong><span>{row.prompt || "Checklist item text unavailable"}</span><small>{row.recommendationState.replaceAll("_", " ")} · {row.classification.replaceAll("_", " ")}</small></li>);
+  const allList = allRows.map((row) => <li key={row.questionVersionId}><strong>{row.formCode} · item {row.ordinal}</strong><span>{row.prompt || "Checklist item text unavailable"}</span><small>{row.recommendation.recommendationState.replaceAll("_", " ")} · {row.recommendation.classification.replaceAll("_", " ")}</small></li>);
+  return <div className="planning-intake-dossier-backdrop" role="presentation"><section className="planning-intake-workload-drawer" ref={dialogRef} role="dialog" aria-modal="true" aria-label="Checklist item preview"><header><div><span className="planning-intake-dialog-kicker">Read-only preview</span><h2>Browse checklist items</h2></div><button type="button" onClick={onClose}>Close</button></header><p>Review the exact server-suggested checklist questions, then inspect the full candidate pool for anything missing. This view never selects or freezes the final checklist.</p><p className="planning-intake-preview-basis" role="note">Finance workload estimate: <strong>{suggestedCount.toLocaleString("en-US")} items</strong>. This is the budget/time basis and matches the server-suggested set. Safe range: {safeMinimum.toLocaleString("en-US")}–{safeMaximum.toLocaleString("en-US")}.</p><div className="planning-intake-preview-summary" role="tablist" aria-label="Checklist preview views"><button className={isSuggested ? "is-active" : ""} type="button" role="tab" aria-selected={isSuggested} onClick={() => onViewChange("suggested")}><span>Suggested checklist</span><strong>{suggestedTotal.toLocaleString("en-US")}</strong><small>Used for the initial Finance estimate</small></button><button className={!isSuggested ? "is-active" : ""} type="button" role="tab" aria-selected={!isSuggested} onClick={() => onViewChange("all")}><span>All candidates</span><strong>{allTotal === null ? "…" : allTotal.toLocaleString("en-US")}</strong><small>Full inspection focus</small></button></div><label htmlFor="planning-intake-preview-search">Search checklist items<input id="planning-intake-preview-search" value={query} onChange={(event) => onQuery(event.target.value)} placeholder="Search item text or reference" /></label><p className="planning-intake-preview-count" aria-live="polite">{currentTotal.toLocaleString("en-US")} {currentCountLabel}</p>{busy ? <p className="planning-intake-loading" role="status">Loading preview…</p> : <><ul className="planning-intake-preview-list">{isSuggested ? suggestedList : allList}</ul>{!isSuggested && nextCursor ? <button className="planning-intake-secondary planning-intake-preview-load-more" type="button" onClick={onLoadMore} disabled={loadingMore}>{loadingMore ? "Loading more…" : `Load more ${currentLabel}`}</button> : null}</>}<footer><button className="planning-intake-secondary" type="button" onClick={onClose}>Close preview</button></footer></section></div>;
 }
 
 function NewAuditWizardPage() {
@@ -277,10 +310,13 @@ function NewAuditWizardPage() {
   const [manualLocation, setManualLocation] = useState("");
   const [meetingLinkOpen, setMeetingLinkOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewRows, setPreviewRows] = useState<CanonicalQuestionCatalogEntry[]>([]);
+  const [previewView, setPreviewView] = useState<PreviewView>("suggested");
+  const [previewRowsByView, setPreviewRowsByView] = useState<Record<PreviewView, CanonicalQuestionCatalogEntry[]>>({ suggested: [], all: [] });
   const [previewQuery, setPreviewQuery] = useState("");
-  const [previewTotal, setPreviewTotal] = useState(0);
+  const [previewTotals, setPreviewTotals] = useState<Record<PreviewView, number | null>>({ suggested: null, all: null });
+  const [previewCursors, setPreviewCursors] = useState<Record<PreviewView, string | null>>({ suggested: null, all: null });
   const [previewBusy, setPreviewBusy] = useState(false);
+  const [previewLoadingMore, setPreviewLoadingMore] = useState(false);
   const previewTriggerRef = useRef<HTMLElement | null>(null);
   const headingRef = useRef<HTMLHeadingElement | null>(null);
   const valuesRef = useRef<NewAuditFormValues | null>(null);
@@ -338,10 +374,18 @@ function NewAuditWizardPage() {
 
   useEffect(() => {
     if (!previewOpen || !canonicalCatalog || !estimate || !values) return undefined;
-    const controller = new AbortController(); setPreviewBusy(true);
-    void canonicalCatalog.listCatalog({ catalogVersion: estimate.catalogVersion, usageClass: "GOVERNED_OPERATIONAL", search: previewQuery || undefined, checklistFocus: checklistFocusForPreview(values.inspectionType as CanonicalApplicationType), limit: 50, projection: "full" }, { signal: controller.signal }).then((page) => { if (!controller.signal.aborted) { setPreviewRows(page.items.slice(0, 50)); setPreviewTotal(page.totalCount); } }).catch((cause) => { if (!controller.signal.aborted) setServerError(errorMessage(cause)); }).finally(() => { if (!controller.signal.aborted) setPreviewBusy(false); });
+    const controller = new AbortController();
+    const focus = checklistFocusForPreview(values.inspectionType as CanonicalApplicationType);
+    const baseInput = { catalogVersion: estimate.catalogVersion, usageClass: "GOVERNED_OPERATIONAL" as const, search: previewQuery || undefined, checklistFocus: focus, limit: 50, projection: "full" as const };
+    setPreviewBusy(true);
+    void canonicalCatalog.listCatalog(baseInput, { signal: controller.signal }).then((all) => {
+      if (controller.signal.aborted) return;
+      setPreviewRowsByView({ suggested: [], all: all.items });
+      setPreviewTotals({ suggested: estimate.suggestedQuestions.length, all: all.totalCount });
+      setPreviewCursors({ suggested: null, all: all.nextCursor });
+    }).catch((cause) => { if (!controller.signal.aborted) setServerError(errorMessage(cause)); }).finally(() => { if (!controller.signal.aborted) setPreviewBusy(false); });
     return () => controller.abort();
-  }, [canonicalCatalog, estimate, previewOpen, previewQuery, values]);
+  }, [canonicalCatalog, estimate?.catalogVersion, previewOpen, previewQuery, values?.inspectionType]);
 
   function focusField(field: FieldKey) { document.getElementById(`planning-intake-${field}`)?.focus(); }
   function clearFieldError(field: FieldKey) { setFieldErrors((current) => { if (!current[field]) return current; const next = { ...current }; delete next[field]; return next; }); }
@@ -430,19 +474,34 @@ function NewAuditWizardPage() {
     if (!proposal || !draftRef.current || !valuesRef.current || !validateAll()) return;
     setBusy(true); setServerError(null); try { const saved = await flushAutosave(valuesRef.current); if (!saved) return; const submitOperationId = operationId("PLANNING-PROPOSAL-SUBMIT"); const output = await proposal.submit({ draftId: saved.id, expectedRevision: saved.revision, idempotencyKey: submitOperationId, operationId: submitOperationId }); navigate(`/department-manager/audit-plan?planningItemId=${encodeURIComponent(output.planningItem.id)}`); } catch (cause) { setServerError(errorMessage(cause)); } finally { setBusy(false); }
   }
-  function usePreviewCount() {
-    if (!values || !estimate || previewTotal <= 0) return;
-    const outsideSafeRange = previewTotal < estimate.safeMinimum || previewTotal > estimate.safeMaximum;
-    if (outsideSafeRange && !globalThis.confirm(`Use ${previewTotal.toLocaleString("en-US")} as the workload estimate? This is outside the safe range and may materially change the budget/time review.`)) return;
-    updateForm("estimatedChecklistItemCount", String(previewTotal));
-    setStatus(`Workload estimate set to ${previewTotal.toLocaleString("en-US")} visible candidate questions.`);
-    setPreviewOpen(false);
+  async function loadMorePreview() {
+    if (previewView !== "all" || !canonicalCatalog || !estimate || !values || !previewCursors.all || previewLoadingMore) return;
+    setPreviewLoadingMore(true);
+    try {
+      const page = await canonicalCatalog.listCatalog({
+        catalogVersion: estimate.catalogVersion,
+        usageClass: "GOVERNED_OPERATIONAL",
+        search: previewQuery || undefined,
+        checklistFocus: checklistFocusForPreview(values.inspectionType as CanonicalApplicationType),
+        cursor: previewCursors.all ?? undefined,
+        limit: 50,
+        projection: "full",
+      });
+      setPreviewRowsByView((current) => ({ ...current, all: [...current.all, ...page.items] }));
+      setPreviewCursors((current) => ({ ...current, all: page.nextCursor }));
+    } catch (cause) {
+      setServerError(errorMessage(cause));
+    } finally {
+      setPreviewLoadingMore(false);
+    }
   }
   function editStep(targetStep: number) { navigate(pathForStep(targetStep, draftRef.current?.id)); }
 
   const currentLocation: PlanningResolvedLocation | null = draft?.location ?? null;
   const workloadWarning = estimate && values ? Number(values.estimatedChecklistItemCount) < estimate.safeMinimum || Number(values.estimatedChecklistItemCount) > estimate.safeMaximum : false;
   const rosterWarning = estimate && values ? Number(values.requiredInspectorCount) > estimate.eligibleRosterCount : false;
+  const previewAllRows = previewRowsByView.all;
+  const previewAllTotal = previewTotals.all ?? 0;
   const actionLabel = busy ? (step === 1 && !draft ? "Creating draft…" : step === 5 ? "Submitting…" : "Saving…") : step === 4 ? "Continue to review" : "Continue";
 
   return <WorkspaceShell roleLabel="Department Manager" routeLabel={`New Audit · ${currentDefinition.label}`}>
@@ -488,7 +547,7 @@ function NewAuditWizardPage() {
 
           {step === 4 && values && estimate ? <div className="planning-intake-fields planning-intake-resources-step">
             <section className="planning-intake-open-section"><header><div><span className="planning-intake-section-kicker">Capacity</span><h3>Resources</h3></div><p>Give Finance a clear staffing assumption without treating the current roster as a hard schedule limit.</p></header><label htmlFor="planning-intake-requiredInspectorCount">Required inspectors <RequiredMark /><input id="planning-intake-requiredInspectorCount" aria-label="Required inspectors" aria-invalid={Boolean(fieldErrors.requiredInspectorCount)} aria-describedby={fieldErrors.requiredInspectorCount ? "planning-intake-requiredInspectorCount-error" : undefined} min="1" step="1" type="number" value={values.requiredInspectorCount} onBlur={() => setFieldErrors((current) => ({ ...current, requiredInspectorCount: errorsForStep(4, values).requiredInspectorCount }))} onChange={(event) => updateForm("requiredInspectorCount", event.target.value)} /><small>{estimate.eligibleRosterCount} eligible roster members were found. Requests above that count remain reviewable by Finance.</small><FieldError id="planning-intake-requiredInspectorCount-error" message={fieldErrors.requiredInspectorCount} /></label>{rosterWarning ? <p className="planning-intake-warning" role="status">This request is above the current eligible roster count. Finance will review the capacity assumption; it is not a hard scheduling error.</p> : null}</section>
-            <section className="planning-intake-open-section"><header><div><span className="planning-intake-section-kicker">Workload</span><h3>Estimated checklist items</h3></div><p>{estimate.basisLabel}</p></header><label htmlFor="planning-intake-estimatedChecklistItemCount">Estimated checklist items <RequiredMark /><input id="planning-intake-estimatedChecklistItemCount" aria-label="Estimated checklist items" aria-invalid={Boolean(fieldErrors.estimatedChecklistItemCount)} aria-describedby={fieldErrors.estimatedChecklistItemCount ? "planning-intake-estimatedChecklistItemCount-error" : undefined} min="1" step="1" type="number" value={values.estimatedChecklistItemCount} onBlur={() => setFieldErrors((current) => ({ ...current, estimatedChecklistItemCount: errorsForStep(4, values).estimatedChecklistItemCount }))} onChange={(event) => updateForm("estimatedChecklistItemCount", event.target.value)} /><small>Suggested {estimate.suggestedCount}; safe range {estimate.safeMinimum}–{estimate.safeMaximum}. This estimate is Finance’s budget/time basis; the read-only preview shows the broader candidate question pool.</small><FieldError id="planning-intake-estimatedChecklistItemCount-error" message={fieldErrors.estimatedChecklistItemCount} /></label>{workloadWarning ? <p className="planning-intake-warning" role="status">This estimate is outside the server-suggested safe range. It will remain unchanged and Finance will review the entered value.</p> : null}<button className="planning-intake-secondary planning-intake-preview-button" type="button" onClick={(event) => { previewTriggerRef.current = event.currentTarget; setPreviewOpen(true); }}>Browse checklist items</button></section>
+            <section className="planning-intake-open-section"><header><div><span className="planning-intake-section-kicker">Workload</span><h3>Estimated checklist items</h3></div><p>{estimate.basisLabel}</p></header><label htmlFor="planning-intake-estimatedChecklistItemCount">Estimated checklist items <RequiredMark /><input id="planning-intake-estimatedChecklistItemCount" aria-label="Estimated checklist items" aria-invalid={Boolean(fieldErrors.estimatedChecklistItemCount)} aria-describedby={fieldErrors.estimatedChecklistItemCount ? "planning-intake-estimatedChecklistItemCount-error" : undefined} min="1" step="1" type="number" value={values.estimatedChecklistItemCount} onBlur={() => setFieldErrors((current) => ({ ...current, estimatedChecklistItemCount: errorsForStep(4, values).estimatedChecklistItemCount }))} onChange={(event) => updateForm("estimatedChecklistItemCount", event.target.value)} /><small>Finance estimate {estimate.suggestedCount}; server-suggested questions {estimate.suggestedQuestions.length}; safe range {estimate.safeMinimum}–{estimate.safeMaximum}. The estimate is editable, and the read-only preview shows the exact suggested set plus the full candidate pool.</small><FieldError id="planning-intake-estimatedChecklistItemCount-error" message={fieldErrors.estimatedChecklistItemCount} /></label>{workloadWarning ? <p className="planning-intake-warning" role="status">This estimate is outside the server-suggested safe range. It will remain unchanged and Finance will review the entered value.</p> : null}<button className="planning-intake-secondary planning-intake-preview-button" type="button" onClick={(event) => { previewTriggerRef.current = event.currentTarget; setPreviewOpen(true); }}>Browse checklist items</button></section>
             <section className="planning-intake-open-section planning-intake-budget-section"><header><div><span className="planning-intake-section-kicker">Approval request</span><h3>Budget</h3></div><p>Blank budget is invalid. A literal zero still enters Finance Review.</p></header><div className="planning-intake-budget-fields"><label htmlFor="planning-intake-requestedBudget">Requested budget <RequiredMark /><input id="planning-intake-requestedBudget" aria-label="Requested budget" aria-invalid={Boolean(fieldErrors.requestedBudget)} aria-describedby={fieldErrors.requestedBudget ? "planning-intake-requestedBudget-error" : undefined} min="0" inputMode="decimal" type="number" value={values.requestedBudget} onBlur={() => setFieldErrors((current) => ({ ...current, requestedBudget: errorsForStep(4, values).requestedBudget }))} onChange={(event) => updateForm("requestedBudget", event.target.value)} /><FieldError id="planning-intake-requestedBudget-error" message={fieldErrors.requestedBudget} /></label><label htmlFor="planning-intake-currency">Currency <select id="planning-intake-currency" value={values.currency} onChange={(event) => updateForm("currency", event.target.value as NewAuditFormValues["currency"])}><option value="USD">USD</option><option value="EUR">EUR</option><option value="NAD">NAD</option></select></label></div></section>
           </div> : null}
 
@@ -504,7 +563,7 @@ function NewAuditWizardPage() {
       </div>
       <section aria-label="New Audit actions" className="planning-intake-actions"><div className="planning-intake-actions__secondary">{step === 1 ? <button className="planning-intake-secondary" type="button" onClick={cancel}>Cancel</button> : <button className="planning-intake-secondary" type="button" disabled={busy || !values} onClick={() => void moveBack()}>Back</button>}{autosaveState === "error" && draft ? <button className="planning-intake-text-action" type="button" onClick={() => void retryAutosave()}>Retry save</button> : null}</div><div className="planning-intake-actions__primary">{step < 5 ? <button className="planning-intake-primary" type="button" disabled={busy || (step > 1 && !values) || (step === 1 && !selectedOption)} onClick={() => void continueFromStep()}>{actionLabel}</button> : <button className="planning-intake-primary" type="button" disabled={busy || !values || !draft} onClick={() => void submit()}>Submit to Finance</button>}</div></section>
       </div>
-      <WorkloadPreview open={previewOpen} onClose={() => setPreviewOpen(false)} rows={previewRows} busy={previewBusy} query={previewQuery} onQuery={setPreviewQuery} total={previewTotal} suggestedCount={estimate?.suggestedCount ?? 0} safeMinimum={estimate?.safeMinimum ?? 0} safeMaximum={estimate?.safeMaximum ?? 0} returnFocusRef={previewTriggerRef} onUseCount={usePreviewCount} />
+      <WorkloadPreview open={previewOpen} onClose={() => setPreviewOpen(false)} allRows={previewAllRows} suggestedQuestions={estimate?.suggestedQuestions ?? []} busy={previewBusy} loadingMore={previewLoadingMore} query={previewQuery} onQuery={setPreviewQuery} view={previewView} onViewChange={setPreviewView} total={previewAllTotal} suggestedTotal={estimate?.suggestedQuestions.length ?? 0} allTotal={previewTotals.all} nextCursor={previewCursors.all} suggestedCount={estimate?.suggestedCount ?? 0} safeMinimum={estimate?.safeMinimum ?? 0} safeMaximum={estimate?.safeMaximum ?? 0} onLoadMore={() => void loadMorePreview()} returnFocusRef={previewTriggerRef} />
     </div>
   </WorkspaceShell>;
 }

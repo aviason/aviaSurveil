@@ -66,19 +66,29 @@ type LocationResolution struct {
 }
 
 type WorkloadEstimate struct {
-	EstimateID          string `json:"estimateId"`
-	EstimateDigest      string `json:"estimateDigest"`
-	CatalogVersion      string `json:"catalogVersion"`
-	CatalogRootDigest   string `json:"catalogRootDigest"`
-	PolicyVersion       string `json:"policyVersion"`
-	EvaluatedAt         string `json:"evaluatedAt"`
-	ApplicableItemCount int64  `json:"applicableItemCount"`
-	SuggestedCount      int64  `json:"suggestedCount"`
-	SafeMinimum         int64  `json:"safeMinimum"`
-	SafeMaximum         int64  `json:"safeMaximum"`
-	BasisLabel          string `json:"basisLabel"`
-	EligibleRosterCount int64  `json:"eligibleRosterCount"`
-	RosterEvaluatedAt   string `json:"rosterEvaluatedAt"`
+	EstimateID          string                      `json:"estimateId"`
+	EstimateDigest      string                      `json:"estimateDigest"`
+	CatalogVersion      string                      `json:"catalogVersion"`
+	CatalogRootDigest   string                      `json:"catalogRootDigest"`
+	PolicyVersion       string                      `json:"policyVersion"`
+	EvaluatedAt         string                      `json:"evaluatedAt"`
+	ApplicableItemCount int64                       `json:"applicableItemCount"`
+	SuggestedCount      int64                       `json:"suggestedCount"`
+	SafeMinimum         int64                       `json:"safeMinimum"`
+	SafeMaximum         int64                       `json:"safeMaximum"`
+	BasisLabel          string                      `json:"basisLabel"`
+	EligibleRosterCount int64                       `json:"eligibleRosterCount"`
+	RosterEvaluatedAt   string                      `json:"rosterEvaluatedAt"`
+	SuggestedQuestions  []WorkloadSuggestedQuestion `json:"suggestedQuestions,omitempty"`
+}
+
+type WorkloadSuggestedQuestion struct {
+	QuestionVersionID   string `json:"questionVersionId"`
+	FormCode            string `json:"formCode"`
+	Ordinal             int64  `json:"ordinal"`
+	Prompt              string `json:"prompt"`
+	RecommendationState string `json:"recommendationState"`
+	Classification      string `json:"classification"`
 }
 
 type ResolvedLocation struct {
@@ -183,14 +193,129 @@ func proposalWorkloadEstimate(values ProposalDraftValues, now time.Time) Workloa
 	return WorkloadEstimate{
 		EstimateID:          "WORKLOAD-ESTIMATE-" + hex.EncodeToString(digest[:])[:20],
 		EstimateDigest:      "sha256:" + hex.EncodeToString(digest[:]),
-		CatalogVersion:      "aga-approved-source@2.0.0",
+		CatalogVersion:      governedPlanningCatalogVersion,
 		CatalogRootDigest:   "sha256:" + hex.EncodeToString(digest[:]),
 		PolicyVersion:       "planning-workload-v1",
 		EvaluatedAt:         now.UTC().Format(time.RFC3339Nano),
 		ApplicableItemCount: applicable, SuggestedCount: suggested, SafeMinimum: minimum, SafeMaximum: maximum,
 		BasisLabel:          "Server estimate from the authorized scope, inspection type, and current governed catalog.",
 		EligibleRosterCount: 4, RosterEvaluatedAt: now.UTC().Format(time.RFC3339Nano),
+		SuggestedQuestions: []WorkloadSuggestedQuestion{},
 	}
+}
+
+const governedPlanningCatalogVersion = "aga-approved-source@2.0.0"
+
+func proposalChecklistFocus(inspectionType string) []string {
+	switch strings.ToUpper(strings.TrimSpace(inspectionType)) {
+	case "RAMP", "RAMP_INSPECTION":
+		return []string{"ON_SITE_INSPECTION", "PERIODIC_SURVEILLANCE"}
+	case "CABIN", "CABIN_INSPECTION":
+		return []string{"DOCUMENT_AND_RECORD_REVIEW", "PERIODIC_SURVEILLANCE"}
+	default:
+		return []string{strings.ToUpper(strings.TrimSpace(inspectionType))}
+	}
+}
+
+type proposalQueryer interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+}
+
+func loadSuggestedQuestions(ctx context.Context, queryer proposalQueryer, values ProposalDraftValues, suggestedCount int64) ([]WorkloadSuggestedQuestion, error) {
+	if suggestedCount <= 0 {
+		return []WorkloadSuggestedQuestion{}, nil
+	}
+	rows, err := queryer.Query(ctx, `
+		SELECT m.question_version_id, m.form_code, m.ordinal, COALESCE(q.prompt, ''),
+		       CASE
+		         WHEN ai.mandatory_control OR ai.safety_critical OR ai.risk_tier IN ('HIGH', 'UNKNOWN') THEN 'SUGGESTED_NOW'
+		         ELSE ai.default_recommendation_bucket
+		       END,
+		       CASE
+		         WHEN ai.mandatory_control OR ai.safety_critical OR ai.risk_tier IN ('HIGH', 'UNKNOWN') THEN 'MANDATORY_CORE'
+		         ELSE 'ROTATIONAL_SAMPLE'
+		       END
+		FROM canonical_question_catalogs c
+		JOIN canonical_question_catalog_memberships m
+		  ON m.catalog_id = c.id
+		JOIN question_versions q
+		  ON q.id = m.question_version_id
+		JOIN canonical_question_catalog_ai_enrichments ai
+		  ON ai.catalog_id = m.catalog_id AND ai.question_version_id = m.question_version_id
+		WHERE c.catalog_version = $1
+		  AND c.usage_class = 'GOVERNED_OPERATIONAL'
+		  AND c.status = 'SEALED'
+		  AND c.source_origin = 'IMPORTED_APPROVED_SOURCE'
+		  AND ai.inspection_type_codes && $2::text[]
+		  AND EXISTS (
+		    SELECT 1
+		    FROM canonical_question_catalog_applicabilities applicability
+		    WHERE applicability.catalog_id = m.catalog_id
+		      AND applicability.question_version_id = m.question_version_id
+		      AND applicability.provider_scope_id = $3
+		      AND applicability.regulated_target_id = $4
+		      AND applicability.status = 'ELIGIBLE'
+		  )
+		  AND COALESCE((
+		    SELECT status
+		    FROM canonical_question_catalog_membership_events event
+		    WHERE event.catalog_id = m.catalog_id
+		      AND event.question_version_id = m.question_version_id
+		    ORDER BY occurred_at DESC, event_id DESC
+		    LIMIT 1
+		  ), 'AVAILABLE') = 'AVAILABLE'
+		ORDER BY
+		  CASE
+		    WHEN ai.mandatory_control OR ai.safety_critical OR ai.risk_tier IN ('HIGH', 'UNKNOWN') THEN 0
+		    WHEN ai.default_recommendation_bucket = 'SUGGESTED_NOW' THEN 1
+		    WHEN ai.default_recommendation_bucket = 'UNCERTAIN_SIGNAL' THEN 2
+		    ELSE 3
+		  END,
+		  m.form_code, m.ordinal, m.question_version_id
+		LIMIT $5
+	`, governedPlanningCatalogVersion, proposalChecklistFocus(values.InspectionType), values.ProviderScopeID, values.RegulatedTargetID, suggestedCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	questions := make([]WorkloadSuggestedQuestion, 0, suggestedCount)
+	for rows.Next() {
+		var question WorkloadSuggestedQuestion
+		if err := rows.Scan(&question.QuestionVersionID, &question.FormCode, &question.Ordinal, &question.Prompt, &question.RecommendationState, &question.Classification); err != nil {
+			return nil, err
+		}
+		questions = append(questions, question)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return questions, nil
+}
+
+func enrichWorkloadEstimate(ctx context.Context, queryer proposalQueryer, values ProposalDraftValues, workload *WorkloadEstimate) error {
+	questions, err := loadSuggestedQuestions(ctx, queryer, values, workload.SuggestedCount)
+	if err != nil {
+		return err
+	}
+	workload.SuggestedQuestions = questions
+	if int64(len(questions)) < workload.SuggestedCount {
+		workload.SuggestedCount = int64(len(questions))
+		minimum := workload.SuggestedCount * 65 / 100
+		if minimum < 1 {
+			minimum = 1
+		}
+		maximum := workload.SuggestedCount * 180 / 100
+		if maximum > workload.ApplicableItemCount {
+			maximum = workload.ApplicableItemCount
+		}
+		if maximum < minimum {
+			maximum = minimum
+		}
+		workload.SafeMinimum = minimum
+		workload.SafeMaximum = maximum
+	}
+	return nil
 }
 
 func proposalLabels(values ProposalDraftValues) (string, string) {
@@ -230,9 +355,7 @@ func humanReference(value, fallback string) string {
 	return strings.Title(strings.ToLower(value))
 }
 
-func proposalViewFromRow(ctx context.Context, tx interface {
-	QueryRow(context.Context, string, ...any) pgx.Row
-}, rowID string, values ProposalDraftValues, revision int64, submittedID, snapshotID, snapshotDigest *string, updatedAt time.Time) (ProposalDraft, error) {
+func proposalViewFromRow(ctx context.Context, tx proposalQueryer, rowID string, values ProposalDraftValues, revision int64, submittedID, snapshotID, snapshotDigest *string, updatedAt time.Time) (ProposalDraft, error) {
 	var organizationName string
 	if err := tx.QueryRow(ctx, `SELECT legal_name FROM organizations WHERE id = $1 AND tombstoned_at IS NULL`, values.OrganizationID).Scan(&organizationName); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -242,6 +365,9 @@ func proposalViewFromRow(ctx context.Context, tx interface {
 	}
 	provider, target := proposalLabels(values)
 	workload := proposalWorkloadEstimate(values, updatedAt)
+	if err := enrichWorkloadEstimate(ctx, tx, values, &workload); err != nil {
+		return ProposalDraft{}, err
+	}
 	var location *ResolvedLocation
 	if values.Mode != "Remote" {
 		resolved := proposalLocation(values.RegulatedTargetID)
@@ -327,7 +453,11 @@ func (service *Service) GetProposalWorkloadEstimate(ctx context.Context, actor i
 	if values.OrganizationID == "" || values.ProviderScopeID == "" || values.RegulatedTargetID == "" || values.InspectionType == "" {
 		return WorkloadEstimate{}, application.ErrInvalid
 	}
-	return proposalWorkloadEstimate(values, service.clock().UTC()), nil
+	workload := proposalWorkloadEstimate(values, service.clock().UTC())
+	if err := enrichWorkloadEstimate(ctx, service.pool, values, &workload); err != nil {
+		return WorkloadEstimate{}, err
+	}
+	return workload, nil
 }
 
 func (service *Service) CreateProposalDraft(ctx context.Context, actor identity.Principal, command CreateProposalDraftCommand) (ProposalDraft, error) {
@@ -509,6 +639,9 @@ func (service *Service) SubmitProposal(ctx context.Context, actor identity.Princ
 		item.RequiredInspectorCount = values.RequiredInspectorCount
 		item.EstimatedChecklistItemCount = values.EstimatedChecklistItemCount
 		workload := proposalWorkloadEstimate(values, now)
+		if err := enrichWorkloadEstimate(ctx, tx, values, &workload); err != nil {
+			return err
+		}
 		item.WorkloadEstimate = &workload
 		item.InitiatedBy = "Department Manager"
 		item.NoticePolicy = NoticePolicyAdvance
@@ -545,9 +678,7 @@ func (service *Service) itemByID(ctx context.Context, tx interface {
 	return item, nil
 }
 
-func (service *Service) enrichProposalItem(ctx context.Context, query interface {
-	QueryRow(context.Context, string, ...any) pgx.Row
-}, item *Item) error {
+func (service *Service) enrichProposalItem(ctx context.Context, query proposalQueryer, item *Item) error {
 	var snapshotID, digest string
 	var snapshot []byte
 	err := query.QueryRow(ctx, `
@@ -585,6 +716,9 @@ func (service *Service) enrichProposalItem(ctx context.Context, query interface 
 	item.RequiredInspectorCount = values.RequiredInspectorCount
 	item.EstimatedChecklistItemCount = values.EstimatedChecklistItemCount
 	workload := proposalWorkloadEstimate(values, service.clock().UTC())
+	if err := enrichWorkloadEstimate(ctx, query, values, &workload); err != nil {
+		return err
+	}
 	item.WorkloadEstimate = &workload
 	item.InitiatedBy = "Department Manager"
 	item.NoticePolicy = NoticePolicyAdvance

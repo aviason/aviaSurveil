@@ -27,6 +27,7 @@ import type {
   PlanningPurposePreset,
   PlanningLocationOption,
   PlanningWorkloadEstimate,
+  PlanningWorkloadSuggestedQuestion,
   PlanningResolvedLocation,
   PlanningProposalLocationInput,
   PlanningProposalMode,
@@ -297,6 +298,7 @@ function planningWorkloadEstimateFor(
     basisLabel: "Server estimate from the authorized scope, inspection type, and current governed catalog.",
     eligibleRosterCount: 4,
     rosterEvaluatedAt: clock,
+    suggestedQuestions: [],
   };
 }
 
@@ -3137,7 +3139,9 @@ export class MockBackendEngine implements DemoBackend {
     getWorkloadEstimate: async (input) => {
       requireDemoCapability(this.principal, "planningProposal");
       requireRole(this.principal, ["manager"], "Department Manager authority is required for New Audit planning.");
-      return planningWorkloadEstimateFor(input, this.store.clock());
+      const estimate = planningWorkloadEstimateFor(input, this.store.clock());
+      estimate.suggestedQuestions = this.planningSuggestedQuestions(input, estimate);
+      return estimate;
     },
     createDraft: async (input) => {
       requireDemoCapability(this.principal, "planningProposal");
@@ -3149,6 +3153,7 @@ export class MockBackendEngine implements DemoBackend {
       const organization = this.store.read((state) => state.organizations.find((candidate) => candidate.id === input.values.organizationId));
       if (!organization) throw new BackendInvariantError(`Organization ${input.values.organizationId} was not found.`);
       const estimate = planningWorkloadEstimateFor(input.values, this.store.clock());
+      estimate.suggestedQuestions = this.planningSuggestedQuestions(input.values, estimate);
       if (input.values.workloadEstimateId !== estimate.estimateId || input.values.workloadEstimateDigest !== estimate.estimateDigest) throw new BackendConflictError("The workload estimate is stale. Refresh the estimate and try again.");
       const locations = planningLocationsFor(input.values.organizationId, input.values.regulatedTargetId);
       const draftId = input.draftId ?? stableMockCommandKey("PLAN-PROPOSAL-DRAFT", [input.operationId, input.values.organizationId]);
@@ -3177,6 +3182,7 @@ export class MockBackendEngine implements DemoBackend {
       const organization = this.store.read((state) => state.organizations.find((candidate) => candidate.id === input.values.organizationId));
       if (!organization) throw new BackendInvariantError(`Organization ${input.values.organizationId} was not found.`);
       const estimate = planningWorkloadEstimateFor(input.values, this.store.clock());
+      estimate.suggestedQuestions = this.planningSuggestedQuestions(input.values, estimate);
       if (input.values.workloadEstimateId !== estimate.estimateId || input.values.workloadEstimateDigest !== estimate.estimateDigest) throw new BackendConflictError("The workload estimate is stale. Refresh the estimate and try again.");
       return this.store.execute(input.idempotencyKey, input, (state) => {
         const current = state.planningProposalDrafts[input.draftId];
@@ -3895,6 +3901,28 @@ export class MockBackendEngine implements DemoBackend {
       domainDistribution,
       estimatedResourceRequirement: ids.length,
     };
+  }
+
+  private planningSuggestedQuestions(
+    input: { inspectionType: string },
+    estimate: PlanningWorkloadEstimate,
+  ): PlanningWorkloadSuggestedQuestion[] {
+    const focus = input.inspectionType === "RAMP_INSPECTION"
+      ? ["ON_SITE_INSPECTION", "PERIODIC_SURVEILLANCE"]
+      : input.inspectionType === "CABIN_INSPECTION"
+        ? ["DOCUMENT_AND_RECORD_REVIEW", "PERIODIC_SURVEILLANCE"]
+        : [input.inspectionType];
+    return this.syntheticCanonicalRows("GOVERNED_OPERATIONAL", estimate.catalogVersion)
+      .filter((row) => row.recommendation.includedByDefault && row.aiAdvisory.inspectionTypeCodes.some((code) => focus.includes(code)))
+      .slice(0, estimate.suggestedCount)
+      .map((row) => ({
+        questionVersionId: row.questionVersionId,
+        formCode: row.formCode,
+        ordinal: row.ordinal,
+        prompt: row.prompt ?? "",
+        recommendationState: row.recommendation.recommendationState,
+        classification: row.recommendation.classification,
+      }));
   }
 
   private syntheticCanonicalRows(usageClass: CanonicalQuestionUsageClass, catalogVersion: string): CanonicalQuestionCatalogEntry[] {

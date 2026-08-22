@@ -3461,6 +3461,14 @@ export interface components {
             acceptedResolutionToken: string;
             message: string;
         };
+        WorkloadSuggestedQuestion: {
+            questionVersionId: string;
+            formCode: string;
+            ordinal: number;
+            prompt: string;
+            recommendationState: string;
+            classification: string;
+        };
         PlanningWorkloadEstimate: {
             estimateId: string;
             estimateDigest: string;
@@ -3477,6 +3485,7 @@ export interface components {
             eligibleRosterCount: number;
             /** Format: date-time */
             rosterEvaluatedAt: string;
+            suggestedQuestions: components["schemas"]["WorkloadSuggestedQuestion"][];
         };
         PlanningResolvedLocation: {
             /** @enum {string} */

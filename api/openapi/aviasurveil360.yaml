@@ -15483,6 +15483,38 @@
           }
         }
       },
+      "WorkloadSuggestedQuestion": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "questionVersionId",
+          "formCode",
+          "ordinal",
+          "prompt",
+          "recommendationState",
+          "classification"
+        ],
+        "properties": {
+          "questionVersionId": {
+            "type": "string"
+          },
+          "formCode": {
+            "type": "string"
+          },
+          "ordinal": {
+            "type": "integer"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "recommendationState": {
+            "type": "string"
+          },
+          "classification": {
+            "type": "string"
+          }
+        }
+      },
       "PlanningWorkloadEstimate": {
         "type": "object",
         "additionalProperties": false,
@@ -15499,7 +15531,8 @@
           "safeMaximum",
           "basisLabel",
           "eligibleRosterCount",
-          "rosterEvaluatedAt"
+          "rosterEvaluatedAt",
+          "suggestedQuestions"
         ],
         "properties": {
           "estimateId": {
@@ -15547,6 +15580,12 @@
           "rosterEvaluatedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "suggestedQuestions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkloadSuggestedQuestion"
+            }
           }
         }
       },
